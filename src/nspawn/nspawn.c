@@ -316,16 +316,9 @@ static int custom_mounts_prepare(void) {
         return 0;
 }
 
-static int detect_unified_cgroup_hierarchy(void) {
+static int detect_unified_cgroup_hierarchy(const char *directory) {
         const char *e;
         int r, all_unified, systemd_unified;
-
-        all_unified = cg_all_unified();
-        systemd_unified = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
-
-        if (all_unified < 0 || systemd_unified < 0)
-                return log_error_errno(all_unified < 0 ? all_unified : systemd_unified,
-                                       "Failed to determine whether the unified cgroups hierarchy is used: %m");
 
         /* Allow the user to control whether the unified hierarchy is used */
         e = getenv("UNIFIED_CGROUP_HIERARCHY");
@@ -341,12 +334,34 @@ static int detect_unified_cgroup_hierarchy(void) {
                 return 0;
         }
 
+        all_unified = cg_all_unified();
+        systemd_unified = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
+
+        if (all_unified < 0 || systemd_unified < 0)
+                return log_error_errno(all_unified < 0 ? all_unified : systemd_unified,
+                                       "Failed to determine whether the unified cgroups hierarchy is used: %m");
+
         /* Otherwise inherit the default from the host system */
-        if (all_unified > 0)
-                arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_ALL;
-        else if (systemd_unified > 0)
-                arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_SYSTEMD;
-        else
+        if (all_unified > 0) {
+                /* Unified cgroup hierarchy support was added in 230. Unfortunately the detection
+                 * routine only detects 231, so we'll have a false negative here for 230. */
+                r = systemd_installation_has_version(directory, 230);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine systemd version in container: %m");
+                if (r > 0)
+                        arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_ALL;
+                else
+                        arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
+        } else if (systemd_unified > 0) {
+                /* Mixed cgroup hierarchy support was added in 232 */
+                r = systemd_installation_has_version(directory, 232);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine systemd version in container: %m");
+                if (r > 0)
+                        arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_SYSTEMD;
+                else
+                        arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
+        } else
                 arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
 
         return 0;
@@ -1120,10 +1135,6 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_settings_mask = _SETTINGS_MASK_ALL;
 
         arg_caps_retain = (arg_caps_retain | plus | (arg_private_network ? 1ULL << CAP_NET_ADMIN : 0)) & ~minus;
-
-        r = detect_unified_cgroup_hierarchy();
-        if (r < 0)
-                return r;
 
         e = getenv("SYSTEMD_NSPAWN_CONTAINER_SERVICE");
         if (e)
@@ -2966,6 +2977,10 @@ static int outer_child(
         if (r < 0)
                 return r;
 
+        r = detect_unified_cgroup_hierarchy(directory);
+        if (r < 0)
+                return r;
+
         if (arg_userns_mode != USER_NAMESPACE_NO) {
                 /* Let the parent know which UID shift we read from the image */
                 l = send(uid_shift_socket, &arg_uid_shift, sizeof(arg_uid_shift), MSG_NOSIGNAL);
@@ -3571,18 +3586,437 @@ static int load_settings(void) {
         return 0;
 }
 
+static int run(int master,
+               const char* console,
+               const char *root_device, bool root_device_rw,
+               const char *home_device, bool home_device_rw,
+               const char *srv_device, bool srv_device_rw,
+               const char *esp_device,
+               bool interactive,
+               bool secondary,
+               FDSet *fds,
+               char veth_name[IFNAMSIZ], bool *veth_created,
+               union in_addr_union *exposed,
+               pid_t *pid, int *ret) {
+
+        static const struct sigaction sa = {
+                .sa_handler = nop_signal_handler,
+                .sa_flags = SA_NOCLDSTOP,
+        };
+
+        _cleanup_release_lock_file_ LockFile uid_shift_lock = LOCK_FILE_INIT;
+        _cleanup_close_ int etc_passwd_lock = -1;
+        _cleanup_close_pair_ int
+                kmsg_socket_pair[2] = { -1, -1 },
+                rtnl_socket_pair[2] = { -1, -1 },
+                pid_socket_pair[2] = { -1, -1 },
+                uuid_socket_pair[2] = { -1, -1 },
+                notify_socket_pair[2] = { -1, -1 },
+                uid_shift_socket_pair[2] = { -1, -1 };
+        _cleanup_close_ int notify_socket= -1;
+        _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        ContainerStatus container_status = 0;
+        char last_char = 0;
+        int ifi = 0, r;
+        ssize_t l;
+        sigset_t mask_chld;
+
+        assert_se(sigemptyset(&mask_chld) == 0);
+        assert_se(sigaddset(&mask_chld, SIGCHLD) == 0);
+
+        if (arg_userns_mode == USER_NAMESPACE_PICK) {
+                /* When we shall pick the UID/GID range, let's first lock /etc/passwd, so that we can safely
+                 * check with getpwuid() if the specific user already exists. Note that /etc might be
+                 * read-only, in which case this will fail with EROFS. But that's really OK, as in that case we
+                 * can be reasonably sure that no users are going to be added. Note that getpwuid() checks are
+                 * really just an extra safety net. We kinda assume that the UID range we allocate from is
+                 * really ours. */
+
+                etc_passwd_lock = take_etc_passwd_lock(NULL);
+                if (etc_passwd_lock < 0 && etc_passwd_lock != -EROFS)
+                        return log_error_errno(etc_passwd_lock, "Failed to take /etc/passwd lock: %m");
+        }
+
+        r = barrier_create(&barrier);
+        if (r < 0)
+                return log_error_errno(r, "Cannot initialize IPC barrier: %m");
+
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, kmsg_socket_pair) < 0)
+                return log_error_errno(errno, "Failed to create kmsg socket pair: %m");
+
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, rtnl_socket_pair) < 0)
+                return log_error_errno(errno, "Failed to create rtnl socket pair: %m");
+
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pid_socket_pair) < 0)
+                return log_error_errno(errno, "Failed to create pid socket pair: %m");
+
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, uuid_socket_pair) < 0)
+                return log_error_errno(errno, "Failed to create id socket pair: %m");
+
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, notify_socket_pair) < 0)
+                return log_error_errno(errno, "Failed to create notify socket pair: %m");
+
+        if (arg_userns_mode != USER_NAMESPACE_NO)
+                if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, uid_shift_socket_pair) < 0)
+                        return log_error_errno(errno, "Failed to create uid shift socket pair: %m");
+
+        /* Child can be killed before execv(), so handle SIGCHLD in order to interrupt
+         * parent's blocking calls and give it a chance to call wait() and terminate. */
+        r = sigprocmask(SIG_UNBLOCK, &mask_chld, NULL);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to change the signal mask: %m");
+
+        r = sigaction(SIGCHLD, &sa, NULL);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to install SIGCHLD handler: %m");
+
+        *pid = raw_clone(SIGCHLD|CLONE_NEWNS);
+        if (*pid < 0)
+                return log_error_errno(errno, "clone() failed%s: %m",
+                                       errno == EINVAL ?
+                                       ", do you have namespace support enabled in your kernel? (You need UTS, IPC, PID and NET namespacing built in)" : "");
+
+        if (*pid == 0) {
+                /* The outer child only has a file system namespace. */
+                barrier_set_role(&barrier, BARRIER_CHILD);
+
+                master = safe_close(master);
+
+                kmsg_socket_pair[0] = safe_close(kmsg_socket_pair[0]);
+                rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
+                pid_socket_pair[0] = safe_close(pid_socket_pair[0]);
+                uuid_socket_pair[0] = safe_close(uuid_socket_pair[0]);
+                notify_socket_pair[0] = safe_close(notify_socket_pair[0]);
+                uid_shift_socket_pair[0] = safe_close(uid_shift_socket_pair[0]);
+
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
+
+                r = outer_child(&barrier,
+                                arg_directory,
+                                console,
+                                root_device, root_device_rw,
+                                home_device, home_device_rw,
+                                srv_device, srv_device_rw,
+                                esp_device,
+                                interactive,
+                                secondary,
+                                pid_socket_pair[1],
+                                uuid_socket_pair[1],
+                                notify_socket_pair[1],
+                                kmsg_socket_pair[1],
+                                rtnl_socket_pair[1],
+                                uid_shift_socket_pair[1],
+                                fds);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        barrier_set_role(&barrier, BARRIER_PARENT);
+
+        fds = fdset_free(fds);
+
+        kmsg_socket_pair[1] = safe_close(kmsg_socket_pair[1]);
+        rtnl_socket_pair[1] = safe_close(rtnl_socket_pair[1]);
+        pid_socket_pair[1] = safe_close(pid_socket_pair[1]);
+        uuid_socket_pair[1] = safe_close(uuid_socket_pair[1]);
+        notify_socket_pair[1] = safe_close(notify_socket_pair[1]);
+        uid_shift_socket_pair[1] = safe_close(uid_shift_socket_pair[1]);
+
+        if (arg_userns_mode != USER_NAMESPACE_NO) {
+                /* The child just let us know the UID shift it might have read from the image. */
+                l = recv(uid_shift_socket_pair[0], &arg_uid_shift, sizeof arg_uid_shift, 0);
+                if (l < 0)
+                        return log_error_errno(errno, "Failed to read UID shift: %m");
+
+                if (l != sizeof arg_uid_shift) {
+                        log_error("Short read while reading UID shift.");
+                        return -EIO;
+                }
+
+                if (arg_userns_mode == USER_NAMESPACE_PICK) {
+                        /* If we are supposed to pick the UID shift, let's try to use the shift read from the
+                         * image, but if that's already in use, pick a new one, and report back to the child,
+                         * which one we now picked. */
+
+                        r = uid_shift_pick(&arg_uid_shift, &uid_shift_lock);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to pick suitable UID/GID range: %m");
+
+                        l = send(uid_shift_socket_pair[0], &arg_uid_shift, sizeof arg_uid_shift, MSG_NOSIGNAL);
+                        if (l < 0)
+                                return log_error_errno(errno, "Failed to send UID shift: %m");
+                        if (l != sizeof arg_uid_shift) {
+                                log_error("Short write while writing UID shift.");
+                                return -EIO;
+                        }
+                }
+        }
+
+        /* Wait for the outer child. */
+        r = wait_for_terminate_and_warn("namespace helper", *pid, NULL);
+        if (r != 0)
+                return r < 0 ? r : -EIO;
+
+        /* And now retrieve the PID of the inner child. */
+        l = recv(pid_socket_pair[0], pid, sizeof *pid, 0);
+        if (l < 0)
+                return log_error_errno(errno, "Failed to read inner child PID: %m");
+        if (l != sizeof *pid) {
+                log_error("Short read while reading inner child PID.");
+                return -EIO;
+        }
+
+        /* We also retrieve container UUID in case it was generated by outer child */
+        l = recv(uuid_socket_pair[0], &arg_uuid, sizeof arg_uuid, 0);
+        if (l < 0)
+                return log_error_errno(errno, "Failed to read container machine ID: %m");
+        if (l != sizeof(arg_uuid)) {
+                log_error("Short read while reading container machined ID.");
+                return -EIO;
+        }
+
+        /* We also retrieve the socket used for notifications generated by outer child */
+        notify_socket = receive_one_fd(notify_socket_pair[0], 0);
+        if (notify_socket < 0)
+                return log_error_errno(notify_socket,
+                                       "Failed to receive notification socket from the outer child: %m");
+
+        log_debug("Init process invoked as PID "PID_FMT, *pid);
+
+        if (arg_userns_mode != USER_NAMESPACE_NO) {
+                if (!barrier_place_and_sync(&barrier)) { /* #1 */
+                        log_error("Child died too early.");
+                        return -ESRCH;
+                }
+
+                r = setup_uid_map(*pid);
+                if (r < 0)
+                        return r;
+
+                (void) barrier_place(&barrier); /* #2 */
+        }
+
+        if (arg_private_network) {
+
+                r = move_network_interfaces(*pid, arg_network_interfaces);
+                if (r < 0)
+                        return r;
+
+                if (arg_network_veth) {
+                        r = setup_veth(arg_machine, *pid, veth_name,
+                                       arg_network_bridge || arg_network_zone);
+                        if (r < 0)
+                                return r;
+                        else if (r > 0)
+                                ifi = r;
+
+                        if (arg_network_bridge) {
+                                /* Add the interface to a bridge */
+                                r = setup_bridge(veth_name, arg_network_bridge, false);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0)
+                                        ifi = r;
+                        } else if (arg_network_zone) {
+                                /* Add the interface to a bridge, possibly creating it */
+                                r = setup_bridge(veth_name, arg_network_zone, true);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0)
+                                        ifi = r;
+                        }
+                }
+
+                r = setup_veth_extra(arg_machine, *pid, arg_network_veth_extra);
+                if (r < 0)
+                        return r;
+
+                /* We created the primary and extra veth links now; let's remember this, so that we know to
+                   remove them later on. Note that we don't bother with removing veth links that were created
+                   here when their setup failed half-way, because in that case the kernel should be able to
+                   remove them on its own, since they cannot be referenced by anything yet. */
+                *veth_created = true;
+
+                r = setup_macvlan(arg_machine, *pid, arg_network_macvlan);
+                if (r < 0)
+                        return r;
+
+                r = setup_ipvlan(arg_machine, *pid, arg_network_ipvlan);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_register) {
+                r = register_machine(
+                                arg_machine,
+                                *pid,
+                                arg_directory,
+                                arg_uuid,
+                                ifi,
+                                arg_slice,
+                                arg_custom_mounts, arg_n_custom_mounts,
+                                arg_kill_signal,
+                                arg_property,
+                                arg_keep_unit,
+                                arg_container_service_name);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sync_cgroup(*pid, arg_unified_cgroup_hierarchy);
+        if (r < 0)
+                return r;
+
+        if (arg_keep_unit) {
+                r = create_subcgroup(*pid, arg_unified_cgroup_hierarchy);
+                if (r < 0)
+                        return r;
+        }
+
+        r = chown_cgroup(*pid, arg_uid_shift);
+        if (r < 0)
+                return r;
+
+        /* Notify the child that the parent is ready with all
+         * its setup (including cgroup-ification), and that
+         * the child can now hand over control to the code to
+         * run inside the container. */
+        (void) barrier_place(&barrier); /* #3 */
+
+        /* Block SIGCHLD here, before notifying child.
+         * process_pty() will handle it with the other signals. */
+        assert_se(sigprocmask(SIG_BLOCK, &mask_chld, NULL) >= 0);
+
+        /* Reset signal to default */
+        r = default_signals(SIGCHLD, -1);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reset SIGCHLD: %m");
+
+        r = sd_event_new(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get default event source: %m");
+
+        r = setup_sd_notify_parent(event, notify_socket, PID_TO_PTR(*pid));
+        if (r < 0)
+                return r;
+
+        /* Let the child know that we are ready and wait that the child is completely ready now. */
+        if (!barrier_place_and_sync(&barrier)) { /* #4 */
+                log_error("Child died too early.");
+                return -ESRCH;
+        }
+
+        /* At this point we have made use of the UID we picked, and thus nss-mymachines
+         * will make them appear in getpwuid(), thus we can release the /etc/passwd lock. */
+        etc_passwd_lock = safe_close(etc_passwd_lock);
+
+        sd_notifyf(false,
+                   "STATUS=Container running.\n"
+                   "X_NSPAWN_LEADER_PID=" PID_FMT, *pid);
+        if (!arg_notify_ready)
+                sd_notify(false, "READY=1\n");
+
+        if (arg_kill_signal > 0) {
+                /* Try to kill the init system on SIGINT or SIGTERM */
+                sd_event_add_signal(event, NULL, SIGINT, on_orderly_shutdown, PID_TO_PTR(*pid));
+                sd_event_add_signal(event, NULL, SIGTERM, on_orderly_shutdown, PID_TO_PTR(*pid));
+        } else {
+                /* Immediately exit */
+                sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
+                sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
+        }
+
+        /* simply exit on sigchld */
+        sd_event_add_signal(event, NULL, SIGCHLD, NULL, NULL);
+
+        if (arg_expose_ports) {
+                r = expose_port_watch_rtnl(event, rtnl_socket_pair[0], on_address_change, exposed, &rtnl);
+                if (r < 0)
+                        return r;
+
+                (void) expose_port_execute(rtnl, arg_expose_ports, exposed);
+        }
+
+        rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
+
+        r = pty_forward_new(event, master,
+                            PTY_FORWARD_IGNORE_VHANGUP | (interactive ? 0 : PTY_FORWARD_READ_ONLY),
+                            &forward);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create PTY forwarder: %m");
+
+        r = sd_event_loop(event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
+
+        pty_forward_get_last_char(forward, &last_char);
+
+        forward = pty_forward_free(forward);
+
+        if (!arg_quiet && last_char != '\n')
+                putc('\n', stdout);
+
+        /* Kill if it is not dead yet anyway */
+        if (arg_register && !arg_keep_unit)
+                terminate_machine(*pid);
+
+        /* Normally redundant, but better safe than sorry */
+        kill(*pid, SIGKILL);
+
+        r = wait_for_container(*pid, &container_status);
+        *pid = 0;
+
+        if (r < 0)
+                /* We failed to wait for the container, or the container exited abnormally. */
+                return r;
+        if (r > 0 || container_status == CONTAINER_TERMINATED) {
+                /* r > 0 → The container exited with a non-zero status.
+                 *         As a special case, we need to replace 133 with a different value,
+                 *         because 133 is special-cased in the service file to reboot the container.
+                 * otherwise → The container exited with zero status and a reboot was not requested.
+                 */
+                if (r == 133)
+                        r = EXIT_FAILURE; /* replace 133 with the general failure code */
+                *ret = r;
+                return 0; /* finito */
+        }
+
+        /* CONTAINER_REBOOTED, loop again */
+
+        if (arg_keep_unit) {
+                /* Special handling if we are running as a service: instead of simply
+                 * restarting the machine we want to restart the entire service, so let's
+                 * inform systemd about this with the special exit code 133. The service
+                 * file uses RestartForceExitStatus=133 so that this results in a full
+                 * nspawn restart. This is necessary since we might have cgroup parameters
+                 * set we want to have flushed out. */
+                *ret = 0;
+                return 133;
+        }
+
+        expose_port_flush(arg_expose_ports, exposed);
+
+        (void) remove_veth_links(veth_name, arg_network_veth_extra);
+        *veth_created = false;
+        return 1; /* loop again */
+}
+
 int main(int argc, char *argv[]) {
 
         _cleanup_free_ char *device_path = NULL, *root_device = NULL, *home_device = NULL, *srv_device = NULL, *esp_device = NULL, *console = NULL;
         bool root_device_rw = true, home_device_rw = true, srv_device_rw = true;
         _cleanup_close_ int master = -1, image_fd = -1;
         _cleanup_fdset_free_ FDSet *fds = NULL;
-        int r, n_fd_passed, loop_nr = -1;
+        int r, n_fd_passed, loop_nr = -1, ret = EXIT_FAILURE;
         char veth_name[IFNAMSIZ] = "";
         bool secondary = false, remove_subvol = false;
-        sigset_t mask_chld;
         pid_t pid = 0;
-        int ret = EXIT_SUCCESS;
         union in_addr_union exposed = {};
         _cleanup_release_lock_file_ LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
         bool interactive, veth_created = false;
@@ -3798,470 +4232,25 @@ int main(int argc, char *argv[]) {
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, -1) >= 0);
 
-        assert_se(sigemptyset(&mask_chld) == 0);
-        assert_se(sigaddset(&mask_chld, SIGCHLD) == 0);
-
         if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0) {
                 r = log_error_errno(errno, "Failed to become subreaper: %m");
                 goto finish;
         }
 
         for (;;) {
-                static const struct sigaction sa = {
-                        .sa_handler = nop_signal_handler,
-                        .sa_flags = SA_NOCLDSTOP,
-                };
-
-                _cleanup_release_lock_file_ LockFile uid_shift_lock = LOCK_FILE_INIT;
-                _cleanup_close_ int etc_passwd_lock = -1;
-                _cleanup_close_pair_ int
-                        kmsg_socket_pair[2] = { -1, -1 },
-                        rtnl_socket_pair[2] = { -1, -1 },
-                        pid_socket_pair[2] = { -1, -1 },
-                        uuid_socket_pair[2] = { -1, -1 },
-                        notify_socket_pair[2] = { -1, -1 },
-                        uid_shift_socket_pair[2] = { -1, -1 };
-                _cleanup_close_ int notify_socket= -1;
-                _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
-                _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-                _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
-                _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-                ContainerStatus container_status = 0;
-                char last_char = 0;
-                int ifi = 0;
-                ssize_t l;
-
-                if (arg_userns_mode == USER_NAMESPACE_PICK) {
-                        /* When we shall pick the UID/GID range, let's first lock /etc/passwd, so that we can safely
-                         * check with getpwuid() if the specific user already exists. Note that /etc might be
-                         * read-only, in which case this will fail with EROFS. But that's really OK, as in that case we
-                         * can be reasonably sure that no users are going to be added. Note that getpwuid() checks are
-                         * really just an extra safety net. We kinda assume that the UID range we allocate from is
-                         * really ours. */
-
-                        etc_passwd_lock = take_etc_passwd_lock(NULL);
-                        if (etc_passwd_lock < 0 && etc_passwd_lock != -EROFS) {
-                                log_error_errno(r, "Failed to take /etc/passwd lock: %m");
-                                goto finish;
-                        }
-                }
-
-                r = barrier_create(&barrier);
-                if (r < 0) {
-                        log_error_errno(r, "Cannot initialize IPC barrier: %m");
-                        goto finish;
-                }
-
-                if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, kmsg_socket_pair) < 0) {
-                        r = log_error_errno(errno, "Failed to create kmsg socket pair: %m");
-                        goto finish;
-                }
-
-                if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, rtnl_socket_pair) < 0) {
-                        r = log_error_errno(errno, "Failed to create rtnl socket pair: %m");
-                        goto finish;
-                }
-
-                if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pid_socket_pair) < 0) {
-                        r = log_error_errno(errno, "Failed to create pid socket pair: %m");
-                        goto finish;
-                }
-
-                if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, uuid_socket_pair) < 0) {
-                        r = log_error_errno(errno, "Failed to create id socket pair: %m");
-                        goto finish;
-                }
-
-                if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, notify_socket_pair) < 0) {
-                        r = log_error_errno(errno, "Failed to create notify socket pair: %m");
-                        goto finish;
-                }
-
-                if (arg_userns_mode != USER_NAMESPACE_NO)
-                        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, uid_shift_socket_pair) < 0) {
-                                r = log_error_errno(errno, "Failed to create uid shift socket pair: %m");
-                                goto finish;
-                        }
-
-                /* Child can be killed before execv(), so handle SIGCHLD
-                 * in order to interrupt parent's blocking calls and
-                 * give it a chance to call wait() and terminate. */
-                r = sigprocmask(SIG_UNBLOCK, &mask_chld, NULL);
-                if (r < 0) {
-                        r = log_error_errno(errno, "Failed to change the signal mask: %m");
-                        goto finish;
-                }
-
-                r = sigaction(SIGCHLD, &sa, NULL);
-                if (r < 0) {
-                        r = log_error_errno(errno, "Failed to install SIGCHLD handler: %m");
-                        goto finish;
-                }
-
-                pid = raw_clone(SIGCHLD|CLONE_NEWNS);
-                if (pid < 0) {
-                        if (errno == EINVAL)
-                                r = log_error_errno(errno, "clone() failed, do you have namespace support enabled in your kernel? (You need UTS, IPC, PID and NET namespacing built in): %m");
-                        else
-                                r = log_error_errno(errno, "clone() failed: %m");
-
-                        goto finish;
-                }
-
-                if (pid == 0) {
-                        /* The outer child only has a file system namespace. */
-                        barrier_set_role(&barrier, BARRIER_CHILD);
-
-                        master = safe_close(master);
-
-                        kmsg_socket_pair[0] = safe_close(kmsg_socket_pair[0]);
-                        rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
-                        pid_socket_pair[0] = safe_close(pid_socket_pair[0]);
-                        uuid_socket_pair[0] = safe_close(uuid_socket_pair[0]);
-                        notify_socket_pair[0] = safe_close(notify_socket_pair[0]);
-                        uid_shift_socket_pair[0] = safe_close(uid_shift_socket_pair[0]);
-
-                        (void) reset_all_signal_handlers();
-                        (void) reset_signal_mask();
-
-                        r = outer_child(&barrier,
-                                        arg_directory,
-                                        console,
-                                        root_device, root_device_rw,
-                                        home_device, home_device_rw,
-                                        srv_device, srv_device_rw,
-                                        esp_device,
-                                        interactive,
-                                        secondary,
-                                        pid_socket_pair[1],
-                                        uuid_socket_pair[1],
-                                        notify_socket_pair[1],
-                                        kmsg_socket_pair[1],
-                                        rtnl_socket_pair[1],
-                                        uid_shift_socket_pair[1],
-                                        fds);
-                        if (r < 0)
-                                _exit(EXIT_FAILURE);
-
-                        _exit(EXIT_SUCCESS);
-                }
-
-                barrier_set_role(&barrier, BARRIER_PARENT);
-
-                fds = fdset_free(fds);
-
-                kmsg_socket_pair[1] = safe_close(kmsg_socket_pair[1]);
-                rtnl_socket_pair[1] = safe_close(rtnl_socket_pair[1]);
-                pid_socket_pair[1] = safe_close(pid_socket_pair[1]);
-                uuid_socket_pair[1] = safe_close(uuid_socket_pair[1]);
-                notify_socket_pair[1] = safe_close(notify_socket_pair[1]);
-                uid_shift_socket_pair[1] = safe_close(uid_shift_socket_pair[1]);
-
-                if (arg_userns_mode != USER_NAMESPACE_NO) {
-                        /* The child just let us know the UID shift it might have read from the image. */
-                        l = recv(uid_shift_socket_pair[0], &arg_uid_shift, sizeof(arg_uid_shift), 0);
-                        if (l < 0) {
-                                r = log_error_errno(errno, "Failed to read UID shift: %m");
-                                goto finish;
-                        }
-                        if (l != sizeof(arg_uid_shift)) {
-                                log_error("Short read while reading UID shift.");
-                                r = EIO;
-                                goto finish;
-                        }
-
-                        if (arg_userns_mode == USER_NAMESPACE_PICK) {
-                                /* If we are supposed to pick the UID shift, let's try to use the shift read from the
-                                 * image, but if that's already in use, pick a new one, and report back to the child,
-                                 * which one we now picked. */
-
-                                r = uid_shift_pick(&arg_uid_shift, &uid_shift_lock);
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to pick suitable UID/GID range: %m");
-                                        goto finish;
-                                }
-
-                                l = send(uid_shift_socket_pair[0], &arg_uid_shift, sizeof(arg_uid_shift), MSG_NOSIGNAL);
-                                if (l < 0) {
-                                        r = log_error_errno(errno, "Failed to send UID shift: %m");
-                                        goto finish;
-                                }
-                                if (l != sizeof(arg_uid_shift)) {
-                                        log_error("Short write while writing UID shift.");
-                                        r = -EIO;
-                                        goto finish;
-                                }
-                        }
-                }
-
-                /* Wait for the outer child. */
-                r = wait_for_terminate_and_warn("namespace helper", pid, NULL);
-                if (r < 0)
-                        goto finish;
-                if (r != 0) {
-                        r = -EIO;
-                        goto finish;
-                }
-                pid = 0;
-
-                /* And now retrieve the PID of the inner child. */
-                l = recv(pid_socket_pair[0], &pid, sizeof(pid), 0);
-                if (l < 0) {
-                        r = log_error_errno(errno, "Failed to read inner child PID: %m");
-                        goto finish;
-                }
-                if (l != sizeof(pid)) {
-                        log_error("Short read while reading inner child PID.");
-                        r = EIO;
-                        goto finish;
-                }
-
-                /* We also retrieve container UUID in case it was generated by outer child */
-                l = recv(uuid_socket_pair[0], &arg_uuid, sizeof(arg_uuid), 0);
-                if (l < 0) {
-                        r = log_error_errno(errno, "Failed to read container machine ID: %m");
-                        goto finish;
-                }
-                if (l != sizeof(arg_uuid)) {
-                        log_error("Short read while reading container machined ID.");
-                        r = EIO;
-                        goto finish;
-                }
-
-                /* We also retrieve the socket used for notifications generated by outer child */
-                notify_socket = receive_one_fd(notify_socket_pair[0], 0);
-                if (notify_socket < 0) {
-                        r = log_error_errno(errno, "Failed to receive notification socket from the outer child: %m");
-                        goto finish;
-                }
-
-                log_debug("Init process invoked as PID " PID_FMT, pid);
-
-                if (arg_userns_mode != USER_NAMESPACE_NO) {
-                        if (!barrier_place_and_sync(&barrier)) { /* #1 */
-                                log_error("Child died too early.");
-                                r = -ESRCH;
-                                goto finish;
-                        }
-
-                        r = setup_uid_map(pid);
-                        if (r < 0)
-                                goto finish;
-
-                        (void) barrier_place(&barrier); /* #2 */
-                }
-
-                if (arg_private_network) {
-
-                        r = move_network_interfaces(pid, arg_network_interfaces);
-                        if (r < 0)
-                                goto finish;
-
-                        if (arg_network_veth) {
-                                r = setup_veth(arg_machine, pid, veth_name,
-                                               arg_network_bridge || arg_network_zone);
-                                if (r < 0)
-                                        goto finish;
-                                else if (r > 0)
-                                        ifi = r;
-
-                                if (arg_network_bridge) {
-                                        /* Add the interface to a bridge */
-                                        r = setup_bridge(veth_name, arg_network_bridge, false);
-                                        if (r < 0)
-                                                goto finish;
-                                        if (r > 0)
-                                                ifi = r;
-                                } else if (arg_network_zone) {
-                                        /* Add the interface to a bridge, possibly creating it */
-                                        r = setup_bridge(veth_name, arg_network_zone, true);
-                                        if (r < 0)
-                                                goto finish;
-                                        if (r > 0)
-                                                ifi = r;
-                                }
-                        }
-
-                        r = setup_veth_extra(arg_machine, pid, arg_network_veth_extra);
-                        if (r < 0)
-                                goto finish;
-
-                        /* We created the primary and extra veth links now; let's remember this, so that we know to
-                           remove them later on. Note that we don't bother with removing veth links that were created
-                           here when their setup failed half-way, because in that case the kernel should be able to
-                           remove them on its own, since they cannot be referenced by anything yet. */
-                        veth_created = true;
-
-                        r = setup_macvlan(arg_machine, pid, arg_network_macvlan);
-                        if (r < 0)
-                                goto finish;
-
-                        r = setup_ipvlan(arg_machine, pid, arg_network_ipvlan);
-                        if (r < 0)
-                                goto finish;
-                }
-
-                if (arg_register) {
-                        r = register_machine(
-                                        arg_machine,
-                                        pid,
-                                        arg_directory,
-                                        arg_uuid,
-                                        ifi,
-                                        arg_slice,
-                                        arg_custom_mounts, arg_n_custom_mounts,
-                                        arg_kill_signal,
-                                        arg_property,
-                                        arg_keep_unit,
-                                        arg_container_service_name);
-                        if (r < 0)
-                                goto finish;
-                }
-
-                r = sync_cgroup(pid, arg_unified_cgroup_hierarchy);
-                if (r < 0)
-                        goto finish;
-
-                if (arg_keep_unit) {
-                        r = create_subcgroup(pid, arg_unified_cgroup_hierarchy);
-                        if (r < 0)
-                                goto finish;
-                }
-
-                r = chown_cgroup(pid, arg_uid_shift);
-                if (r < 0)
-                        goto finish;
-
-                /* Notify the child that the parent is ready with all
-                 * its setup (including cgroup-ification), and that
-                 * the child can now hand over control to the code to
-                 * run inside the container. */
-                (void) barrier_place(&barrier); /* #3 */
-
-                /* Block SIGCHLD here, before notifying child.
-                 * process_pty() will handle it with the other signals. */
-                assert_se(sigprocmask(SIG_BLOCK, &mask_chld, NULL) >= 0);
-
-                /* Reset signal to default */
-                r = default_signals(SIGCHLD, -1);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to reset SIGCHLD: %m");
-                        goto finish;
-                }
-
-                r = sd_event_new(&event);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to get default event source: %m");
-                        goto finish;
-                }
-
-                r = setup_sd_notify_parent(event, notify_socket, PID_TO_PTR(pid));
-                if (r < 0)
-                        goto finish;
-
-                /* Let the child know that we are ready and wait that the child is completely ready now. */
-                if (!barrier_place_and_sync(&barrier)) { /* #4 */
-                        log_error("Child died too early.");
-                        r = -ESRCH;
-                        goto finish;
-                }
-
-                /* At this point we have made use of the UID we picked, and thus nss-mymachines will make them appear
-                 * in getpwuid(), thus we can release the /etc/passwd lock. */
-                etc_passwd_lock = safe_close(etc_passwd_lock);
-
-                sd_notifyf(false,
-                           "STATUS=Container running.\n"
-                           "X_NSPAWN_LEADER_PID=" PID_FMT, pid);
-                if (!arg_notify_ready)
-                        sd_notify(false, "READY=1\n");
-
-                if (arg_kill_signal > 0) {
-                        /* Try to kill the init system on SIGINT or SIGTERM */
-                        sd_event_add_signal(event, NULL, SIGINT, on_orderly_shutdown, PID_TO_PTR(pid));
-                        sd_event_add_signal(event, NULL, SIGTERM, on_orderly_shutdown, PID_TO_PTR(pid));
-                } else {
-                        /* Immediately exit */
-                        sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
-                        sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
-                }
-
-                /* simply exit on sigchld */
-                sd_event_add_signal(event, NULL, SIGCHLD, NULL, NULL);
-
-                if (arg_expose_ports) {
-                        r = expose_port_watch_rtnl(event, rtnl_socket_pair[0], on_address_change, &exposed, &rtnl);
-                        if (r < 0)
-                                goto finish;
-
-                        (void) expose_port_execute(rtnl, arg_expose_ports, &exposed);
-                }
-
-                rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
-
-                r = pty_forward_new(event, master, PTY_FORWARD_IGNORE_VHANGUP | (interactive ? 0 : PTY_FORWARD_READ_ONLY), &forward);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to create PTY forwarder: %m");
-                        goto finish;
-                }
-
-                r = sd_event_loop(event);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to run event loop: %m");
-                        goto finish;
-                }
-
-                pty_forward_get_last_char(forward, &last_char);
-
-                forward = pty_forward_free(forward);
-
-                if (!arg_quiet && last_char != '\n')
-                        putc('\n', stdout);
-
-                /* Kill if it is not dead yet anyway */
-                if (arg_register && !arg_keep_unit)
-                        terminate_machine(pid);
-
-                /* Normally redundant, but better safe than sorry */
-                kill(pid, SIGKILL);
-
-                r = wait_for_container(pid, &container_status);
-                pid = 0;
-
-                if (r < 0)
-                        /* We failed to wait for the container, or the
-                         * container exited abnormally */
-                        goto finish;
-                else if (r > 0 || container_status == CONTAINER_TERMINATED) {
-                        /* The container exited with a non-zero
-                         * status, or with zero status and no reboot
-                         * was requested. */
-                        ret = r;
+                r = run(master,
+                        console,
+                        root_device, root_device_rw,
+                        home_device, home_device_rw,
+                        srv_device, srv_device_rw,
+                        esp_device,
+                        interactive, secondary,
+                        fds,
+                        veth_name, &veth_created,
+                        &exposed,
+                        &pid, &ret);
+                if (r <= 0)
                         break;
-                }
-
-                /* CONTAINER_REBOOTED, loop again */
-
-                if (arg_keep_unit) {
-                        /* Special handling if we are running as a
-                         * service: instead of simply restarting the
-                         * machine we want to restart the entire
-                         * service, so let's inform systemd about this
-                         * with the special exit code 133. The service
-                         * file uses RestartForceExitStatus=133 so
-                         * that this results in a full nspawn
-                         * restart. This is necessary since we might
-                         * have cgroup parameters set we want to have
-                         * flushed out. */
-                        ret = 133;
-                        r = 0;
-                        break;
-                }
-
-                expose_port_flush(arg_expose_ports, &exposed);
-
-                (void) remove_veth_links(veth_name, arg_network_veth_extra);
-                veth_created = false;
         }
 
 finish:

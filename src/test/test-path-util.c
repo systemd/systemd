@@ -511,7 +511,24 @@ static void test_hidden_or_backup_file(void) {
         assert_se(!hidden_or_backup_file("test.dpkg-old.foo"));
 }
 
+static void test_systemd_installation_has_version(const char *path) {
+        int r;
+        const unsigned versions[] = {0, 231, atoi(PACKAGE_VERSION), 999};
+        unsigned i;
+
+        for (i = 0; i < ELEMENTSOF(versions); i++) {
+                r = systemd_installation_has_version(path, versions[i]);
+                assert_se(r >= 0);
+                log_info("%s has systemd >= %u: %s",
+                         path ?: "Current installation", versions[i], yes_no(r));
+        }
+}
+
 int main(int argc, char **argv) {
+        log_set_max_level(LOG_DEBUG);
+        log_parse_environment();
+        log_open();
+
         test_path();
         test_find_binary(argv[0]);
         test_prefixes();
@@ -525,6 +542,8 @@ int main(int argc, char **argv) {
         test_file_in_same_dir();
         test_filename_is_valid();
         test_hidden_or_backup_file();
+
+        test_systemd_installation_has_version(argv[1]); /* NULL is OK */
 
         return 0;
 }
