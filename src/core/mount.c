@@ -1197,19 +1197,19 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         case MOUNT_MOUNTING_SIGKILL:
         case MOUNT_MOUNTING_SIGTERM:
 
-                if (f == MOUNT_SUCCESS)
-                        mount_enter_mounted(m, f);
+                if (m->result == MOUNT_SUCCESS)
+                        mount_enter_mounted(m, m->result);
                 else if (m->from_proc_self_mountinfo)
-                        mount_enter_mounted(m, f);
+                        mount_enter_mounted(m, m->result);
                 else
-                        mount_enter_dead(m, f);
+                        mount_enter_dead(m, m->result);
                 break;
 
         case MOUNT_REMOUNTING:
         case MOUNT_REMOUNTING_SIGKILL:
         case MOUNT_REMOUNTING_SIGTERM:
 
-                m->reload_result = f;
+                m->reload_result = m->result;
                 if (m->from_proc_self_mountinfo)
                         mount_enter_mounted(m, MOUNT_SUCCESS);
                 else
@@ -1221,7 +1221,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         case MOUNT_UNMOUNTING_SIGKILL:
         case MOUNT_UNMOUNTING_SIGTERM:
 
-                if (f == MOUNT_SUCCESS) {
+                if (m->result == MOUNT_SUCCESS) {
 
                         if (m->from_proc_self_mountinfo) {
 
@@ -1240,15 +1240,15 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                         mount_enter_unmounting(m);
                                 } else {
                                         log_unit_debug(u, "Mount still present after %u attempts to unmount, giving up.", m->n_retry_umount);
-                                        mount_enter_mounted(m, f);
+                                        mount_enter_mounted(m, m->result);
                                 }
                         } else
-                                mount_enter_dead(m, f);
+                                mount_enter_dead(m, m->result);
 
                 } else if (m->from_proc_self_mountinfo)
-                        mount_enter_mounted(m, f);
+                        mount_enter_mounted(m, m->result);
                 else
-                        mount_enter_dead(m, f);
+                        mount_enter_dead(m, m->result);
                 break;
 
         default:
