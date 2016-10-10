@@ -250,8 +250,10 @@ int mount_sysfs(const char *dest) {
 
         (void) mkdir(full, 0755);
 
-        if (mount("sysfs", full, "sysfs", MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL) < 0)
-                return log_error_errno(errno, "Failed to mount sysfs to %s: %m", full);
+        r = mount_verbose(LOG_ERR, "sysfs", full, "sysfs",
+                          MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+        if (r < 0)
+                return r;
 
         FOREACH_STRING(x, "block", "bus", "class", "dev", "devices", "kernel") {
                 _cleanup_free_ char *from = NULL, *to = NULL;
@@ -266,15 +268,19 @@ int mount_sysfs(const char *dest) {
 
                 (void) mkdir(to, 0755);
 
-                if (mount(from, to, NULL, MS_BIND, NULL) < 0)
-                        return log_error_errno(errno, "Failed to mount /sys/%s into place: %m", x);
+                r = mount_verbose(LOG_ERR, from, to, NULL, MS_BIND, NULL);
+                if (r < 0)
+                        return r;
 
-                if (mount(NULL, to, NULL, MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, NULL) < 0)
-                        return log_error_errno(errno, "Failed to mount /sys/%s read-only: %m", x);
+                r = mount_verbose(LOG_ERR, NULL, to, NULL,
+                                  MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, NULL);
+                if (r < 0)
+                        return r;
         }
 
-        if (umount(full) < 0)
-                return log_error_errno(errno, "Failed to unmount %s: %m", full);
+        r = umount_verbose(full);
+        if (r < 0)
+                return r;
 
         if (rmdir(full) < 0)
                 return log_error_errno(errno, "Failed to remove %s: %m", full);
@@ -290,10 +296,8 @@ int mount_sysfs(const char *dest) {
                 (void) mkdir_p(x, 0755);
         }
 
-        if (mount(NULL, top, NULL, MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, NULL) < 0)
-                return log_error_errno(errno, "Failed to make %s read-only: %m", top);
-
-        return 0;
+        return mount_verbose(LOG_ERR, NULL, top, NULL,
+                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, NULL);
 }
 
 int mount_all(const char *dest,
@@ -375,17 +379,14 @@ int mount_all(const char *dest,
                                 o = options;
                 }
 
-                if (mount(mount_table[k].what,
-                          where,
-                          mount_table[k].type,
-                          mount_table[k].flags,
-                          o) < 0) {
-
-                        if (mount_table[k].fatal)
-                                return log_error_errno(errno, "mount(%s) failed: %m", where);
-
-                        log_warning_errno(errno, "mount(%s) failed, ignoring: %m", where);
-                }
+                r = mount_verbose(mount_table[k].fatal ? LOG_ERR : LOG_WARNING,
+                                  mount_table[k].what,
+                                  where,
+                                  mount_table[k].type,
+                                  mount_table[k].flags,
+                                  o);
+                if (r < 0 && mount_table[k].fatal)
+                        return r;
         }
 
         return 0;
@@ -470,12 +471,12 @@ static int mount_bind(const char *dest, CustomMount *m) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to create mount point %s: %m", where);
 
-        } else {
+        } else
                 return log_error_errno(errno, "Failed to stat %s: %m", where);
-        }
 
-        if (mount(m->source, where, NULL, mount_flags, mount_opts) < 0)
-                return log_error_errno(errno, "mount(%s) failed: %m", where);
+        r = mount_verbose(LOG_ERR, m->source, where, NULL, mount_flags, mount_opts);
+        if (r < 0)
+                return r;
 
         if (m->read_only) {
                 r = bind_remount_recursive(where, true, NULL);
@@ -510,10 +511,7 @@ static int mount_tmpfs(
                 return log_oom();
         options = r > 0 ? buf : m->options;
 
-        if (mount("tmpfs", where, "tmpfs", MS_NODEV|MS_STRICTATIME, options) < 0)
-                return log_error_errno(errno, "tmpfs mount to %s failed: %m", where);
-
-        return 0;
+        return mount_verbose(LOG_ERR, "tmpfs", where, "tmpfs", MS_NODEV|MS_STRICTATIME, options);
 }
 
 static char *joined_and_escaped_lower_dirs(char * const *lower) {
@@ -575,10 +573,7 @@ static int mount_overlay(const char *dest, CustomMount *m) {
                 options = strjoina("lowerdir=", lower, ",upperdir=", escaped_source, ",workdir=", escaped_work_dir);
         }
 
-        if (mount("overlay", where, "overlay", m->read_only ? MS_RDONLY : 0, options) < 0)
-                return log_error_errno(errno, "overlay mount to %s failed: %m", where);
-
-        return 0;
+        return mount_verbose(LOG_ERR, "overlay", where, "overlay", m->read_only ? MS_RDONLY : 0, options);
 }
 
 int mount_custom(
@@ -665,7 +660,7 @@ static int get_controllers(Set *subsystems) {
 
 static int mount_legacy_cgroup_hierarchy(const char *dest, const char *controller, const char *hierarchy,
                                          CGroupUnified unified_requested, bool read_only) {
-        char *to;
+        const char *to, *fstype, *opts;
         int r;
 
         to = strjoina(strempty(dest), "/sys/fs/cgroup/", hierarchy);
@@ -681,22 +676,30 @@ static int mount_legacy_cgroup_hierarchy(const char *dest, const char *controlle
         /* The superblock mount options of the mount point need to be
          * identical to the hosts', and hence writable... */
         if (streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
-                if (unified_requested >= CGROUP_UNIFIED_SYSTEMD)
-                        r = mount("cgroup", to, "cgroup2", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
-                else
-                        r = mount("cgroup", to, "cgroup", MS_NOSUID|MS_NOEXEC|MS_NODEV, "none,name=systemd,xattr");
-        } else
-                r = mount("cgroup", to, "cgroup", MS_NOSUID|MS_NOEXEC|MS_NODEV, controller);
-
-        if (r < 0)
-                return log_error_errno(errno, "Failed to mount to %s: %m", to);
-
-        /* ... hence let's only make the bind mount read-only, not the
-         * superblock. */
-        if (read_only) {
-                if (mount(NULL, to, NULL, MS_BIND|MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, NULL) < 0)
-                        return log_error_errno(errno, "Failed to remount %s read-only: %m", to);
+                if (unified_requested >= CGROUP_UNIFIED_SYSTEMD) {
+                        fstype = "cgroup2";
+                        opts = NULL;
+                } else {
+                        fstype = "cgroup";
+                        opts = "none,name=systemd,xattr";
+                }
+        } else {
+                fstype = "cgroup";
+                opts = controller;
         }
+
+        r = mount_verbose(LOG_ERR, "cgroup", to, fstype, MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
+        if (r < 0)
+                return r;
+
+        /* ... hence let's only make the bind mount read-only, not the superblock. */
+        if (read_only) {
+                r = mount_verbose(LOG_ERR, NULL, to, NULL,
+                                  MS_BIND|MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, NULL);
+                if (r < 0)
+                        return r;
+        }
+
         return 1;
 }
 
@@ -728,8 +731,10 @@ static int mount_legacy_cgns_supported(
                 if (r < 0)
                         return log_oom();
 
-                if (mount("tmpfs", cgroup_root, "tmpfs", MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME, options) < 0)
-                        return log_error_errno(errno, "Failed to mount /sys/fs/cgroup: %m");
+                r = mount_verbose(LOG_ERR, "tmpfs", cgroup_root, "tmpfs",
+                                  MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME, options);
+                if (r < 0)
+                        return r;
         }
 
         if (cg_all_unified() > 0)
@@ -788,10 +793,9 @@ skip_controllers:
         if (r < 0)
                 return r;
 
-        if (!userns) {
-                if (mount(NULL, cgroup_root, NULL, MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME|MS_RDONLY, "mode=755") < 0)
-                        return log_error_errno(errno, "Failed to remount %s read-only: %m", cgroup_root);
-        }
+        if (!userns)
+                return mount_verbose(LOG_ERR, NULL, cgroup_root, NULL,
+                                     MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME|MS_RDONLY, "mode=755");
 
         return 0;
 }
@@ -820,8 +824,10 @@ static int mount_legacy_cgns_unsupported(
                 if (r < 0)
                         return log_oom();
 
-                if (mount("tmpfs", cgroup_root, "tmpfs", MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME, options) < 0)
-                        return log_error_errno(errno, "Failed to mount /sys/fs/cgroup: %m");
+                r = mount_verbose(LOG_ERR, "tmpfs", cgroup_root, "tmpfs",
+                                  MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME, options);
+                if (r < 0)
+                        return r;
         }
 
         if (cg_all_unified() > 0)
@@ -887,10 +893,8 @@ skip_controllers:
         if (r < 0)
                 return r;
 
-        if (mount(NULL, cgroup_root, NULL, MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME|MS_RDONLY, "mode=755") < 0)
-                return log_error_errno(errno, "Failed to remount %s read-only: %m", cgroup_root);
-
-        return 0;
+        return mount_verbose(LOG_ERR, NULL, cgroup_root, NULL,
+                             MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME|MS_RDONLY, "mode=755");
 }
 
 static int mount_unified_cgroups(const char *dest) {
@@ -917,10 +921,7 @@ static int mount_unified_cgroups(const char *dest) {
                 return -EINVAL;
         }
 
-        if (mount("cgroup", p, "cgroup2", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL) < 0)
-                return log_error_errno(errno, "Failed to mount unified cgroup hierarchy to %s: %m", p);
-
-        return 0;
+        return mount_verbose(LOG_ERR, "cgroup", p, "cgroup2", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
 }
 
 int mount_cgroups(
@@ -965,14 +966,13 @@ int mount_systemd_cgroup_writable(
         }
 
         /* Make our own cgroup a (writable) bind mount */
-        if (mount(systemd_own, systemd_own,  NULL, MS_BIND, NULL) < 0)
-                return log_error_errno(errno, "Failed to turn %s into a bind mount: %m", own_cgroup_path);
+        r = mount_verbose(LOG_ERR, systemd_own, systemd_own,  NULL, MS_BIND, NULL);
+        if (r < 0)
+                return r;
 
         /* And then remount the systemd cgroup root read-only */
-        if (mount(NULL, systemd_root, NULL, MS_BIND|MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, NULL) < 0)
-                return log_error_errno(errno, "Failed to mount cgroup root read-only: %m");
-
-        return 0;
+        return mount_verbose(LOG_ERR, NULL, systemd_root, NULL,
+                             MS_BIND|MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, NULL);
 }
 
 int setup_volatile_state(
@@ -1009,10 +1009,7 @@ int setup_volatile_state(
         if (r > 0)
                 options = buf;
 
-        if (mount("tmpfs", p, "tmpfs", MS_STRICTATIME, options) < 0)
-                return log_error_errno(errno, "Failed to mount tmpfs to /var: %m");
-
-        return 0;
+        return mount_verbose(LOG_ERR, "tmpfs", p, "tmpfs", MS_STRICTATIME, options);
 }
 
 int setup_volatile(
@@ -1045,10 +1042,9 @@ int setup_volatile(
         if (r > 0)
                 options = buf;
 
-        if (mount("tmpfs", template, "tmpfs", MS_STRICTATIME, options) < 0) {
-                r = log_error_errno(errno, "Failed to mount tmpfs for root directory: %m");
+        r = mount_verbose(LOG_ERR, "tmpfs", template, "tmpfs", MS_STRICTATIME, options);
+        if (r < 0)
                 goto fail;
-        }
 
         tmpfs_mounted = true;
 
@@ -1061,10 +1057,9 @@ int setup_volatile(
                 goto fail;
         }
 
-        if (mount(f, t, NULL, MS_BIND|MS_REC, NULL) < 0) {
-                r = log_error_errno(errno, "Failed to create /usr bind mount: %m");
+        r = mount_verbose(LOG_ERR, f, t, NULL, MS_BIND|MS_REC, NULL);
+        if (r < 0)
                 goto fail;
-        }
 
         bind_mounted = true;
 
@@ -1074,10 +1069,9 @@ int setup_volatile(
                 goto fail;
         }
 
-        if (mount(template, directory, NULL, MS_MOVE, NULL) < 0) {
-                r = log_error_errno(errno, "Failed to move root mount: %m");
+        r = mount_verbose(LOG_ERR, template, directory, NULL, MS_MOVE, NULL);
+        if (r < 0)
                 goto fail;
-        }
 
         (void) rmdir(template);
 
@@ -1085,10 +1079,10 @@ int setup_volatile(
 
 fail:
         if (bind_mounted)
-                (void) umount(t);
+                (void) umount_verbose(t);
 
         if (tmpfs_mounted)
-                (void) umount(template);
+                (void) umount_verbose(template);
         (void) rmdir(template);
         return r;
 }

@@ -52,3 +52,12 @@ union file_handle_union {
 const char* mode_to_inaccessible_node(mode_t mode);
 
 #define FILE_HANDLE_INIT { .handle.handle_bytes = MAX_HANDLE_SZ }
+
+int mount_verbose(
+                int error_log_level,
+                const char *what,
+                const char *where,
+                const char *type,
+                unsigned long flags,
+                const char *options);
+int umount_verbose(const char *where);

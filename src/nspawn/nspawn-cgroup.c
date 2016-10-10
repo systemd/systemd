@@ -23,6 +23,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "nspawn-cgroup.h"
 #include "string-util.h"
 #include "strv.h"
@@ -90,13 +91,13 @@ int sync_cgroup(pid_t pid, CGroupUnified unified_requested) {
                 return log_error_errno(errno, "Failed to generate temporary mount point for unified hierarchy: %m");
 
         if (unified)
-                r = mount("cgroup", tree, "cgroup", MS_NOSUID|MS_NOEXEC|MS_NODEV, "none,name=systemd,xattr");
+                r = mount_verbose(LOG_ERR, "cgroup", tree, "cgroup",
+                                  MS_NOSUID|MS_NOEXEC|MS_NODEV, "none,name=systemd,xattr");
         else
-                r = mount("cgroup", tree, "cgroup2", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
-        if (r < 0) {
-                r = log_error_errno(errno, "Failed to mount unified hierarchy: %m");
+                r = mount_verbose(LOG_ERR, "cgroup", tree, "cgroup2",
+                                  MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+        if (r < 0)
                 goto finish;
-        }
 
         undo_mount = true;
 
@@ -110,7 +111,7 @@ int sync_cgroup(pid_t pid, CGroupUnified unified_requested) {
 
 finish:
         if (undo_mount)
-                (void) umount(tree);
+                (void) umount_verbose(tree);
 
         (void) rmdir(tree);
         return r;

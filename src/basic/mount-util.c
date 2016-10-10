@@ -581,3 +581,108 @@ const char* mode_to_inaccessible_node(mode_t mode) {
         }
         return NULL;
 }
+
+#define FLAG(name) (flags & name ? STRINGIFY(name) "|" : "")
+static char* mount_flags_to_string(long unsigned flags) {
+        char *x;
+        _cleanup_free_ char *y = NULL;
+        long unsigned overflow;
+
+        overflow = flags & ~(MS_RDONLY |
+                             MS_NOSUID |
+                             MS_NODEV |
+                             MS_NOEXEC |
+                             MS_SYNCHRONOUS |
+                             MS_REMOUNT |
+                             MS_MANDLOCK |
+                             MS_DIRSYNC |
+                             MS_NOATIME |
+                             MS_NODIRATIME |
+                             MS_BIND |
+                             MS_MOVE |
+                             MS_REC |
+                             MS_SILENT |
+                             MS_POSIXACL |
+                             MS_UNBINDABLE |
+                             MS_PRIVATE |
+                             MS_SLAVE |
+                             MS_SHARED |
+                             MS_RELATIME |
+                             MS_KERNMOUNT |
+                             MS_I_VERSION |
+                             MS_STRICTATIME |
+                             MS_LAZYTIME);
+
+        if (flags == 0 || overflow != 0)
+                if (asprintf(&y, "%lx", overflow) < 0)
+                        return NULL;
+
+        x = strjoin(FLAG(MS_RDONLY),
+                    FLAG(MS_NOSUID),
+                    FLAG(MS_NODEV),
+                    FLAG(MS_NOEXEC),
+                    FLAG(MS_SYNCHRONOUS),
+                    FLAG(MS_REMOUNT),
+                    FLAG(MS_MANDLOCK),
+                    FLAG(MS_DIRSYNC),
+                    FLAG(MS_NOATIME),
+                    FLAG(MS_NODIRATIME),
+                    FLAG(MS_BIND),
+                    FLAG(MS_MOVE),
+                    FLAG(MS_REC),
+                    FLAG(MS_SILENT),
+                    FLAG(MS_POSIXACL),
+                    FLAG(MS_UNBINDABLE),
+                    FLAG(MS_PRIVATE),
+                    FLAG(MS_SLAVE),
+                    FLAG(MS_SHARED),
+                    FLAG(MS_RELATIME),
+                    FLAG(MS_KERNMOUNT),
+                    FLAG(MS_I_VERSION),
+                    FLAG(MS_STRICTATIME),
+                    FLAG(MS_LAZYTIME),
+                    y, NULL);
+        if (!x)
+                return NULL;
+        if (!y)
+                x[strlen(x) - 1] = '\0'; /* truncate the last | */
+        return x;
+}
+
+int mount_verbose(
+                int error_log_level,
+                const char *what,
+                const char *where,
+                const char *type,
+                unsigned long flags,
+                const char *options) {
+
+        _cleanup_free_ char *fl = NULL;
+
+        fl = mount_flags_to_string(flags);
+
+        if ((flags & MS_REMOUNT) && !what && !type)
+                log_debug("Remounting %s (%s \"%s\")...",
+                          where, strnull(fl), strempty(options));
+        else if (!what && !type)
+                log_debug("Mounting %s (%s \"%s\")...",
+                          where, strnull(fl), strempty(options));
+        else if ((flags & MS_BIND) && !type)
+                log_debug("Bind-mounting %s on %s (%s \"%s\")...",
+                          what, where, strnull(fl), strempty(options));
+        else
+                log_debug("Mounting %s on %s (%s \"%s\")...",
+                          strna(type), where, strnull(fl), strempty(options));
+        if (mount(what, where, type, flags, options) < 0)
+                return log_full_errno(error_log_level, errno,
+                                      "Failed to mount %s on %s (%s \"%s\"): %m",
+                                      strna(type), where, strnull(fl), strempty(options));
+        return 0;
+}
+
+int umount_verbose(const char *what) {
+        log_debug("Umounting %s...", what);
+        if (umount(what) < 0)
+                return log_error_errno(errno, "Failed to unmount %s: %m", what);
+        return 0;
+}
