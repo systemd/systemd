@@ -498,7 +498,7 @@ static int manager_dns_stub_tcp_fd(Manager *m) {
 
 int manager_dns_stub_start(Manager *m) {
         const char *t = "UDP";
-        int r;
+        int r = 0;
 
         assert(m);
 
