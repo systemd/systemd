@@ -24,12 +24,12 @@
 #include "macro.h"
 #include "set.h"
 
-const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) {
+const char* exit_status_to_string(int status, ExitStatusLevel level) {
 
         /* We cast to int here, so that -Wenum doesn't complain that
          * EXIT_SUCCESS/EXIT_FAILURE aren't in the enum */
 
-        switch ((int) status) {
+        switch (status) {
 
         case EXIT_SUCCESS:
                 return "SUCCESS";
@@ -39,7 +39,7 @@ const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) {
         }
 
         if (IN_SET(level, EXIT_STATUS_SYSTEMD, EXIT_STATUS_LSB)) {
-                switch ((int) status) {
+                switch (status) {
 
                 case EXIT_CHDIR:
                         return "CHDIR";
@@ -152,7 +152,7 @@ const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) {
         }
 
         if (level == EXIT_STATUS_LSB) {
-                switch ((int) status) {
+                switch (status) {
 
                 case EXIT_INVALIDARGUMENT:
                         return "INVALIDARGUMENT";
@@ -176,7 +176,6 @@ const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) {
 
         return NULL;
 }
-
 
 bool is_clean_exit(int code, int status, ExitStatusSet *success_status) {
 
