@@ -1536,14 +1536,6 @@ int main(int argc, char *argv[]) {
                         log_warning_errno(errno, "Failed to redirect standard streams to /dev/null: %m");
         }
 
-        /* Initialize default unit */
-        r = free_and_strdup(&arg_default_unit, SPECIAL_DEFAULT_TARGET);
-        if (r < 0) {
-                log_emergency_errno(r, "Failed to set default unit %s: %m", SPECIAL_DEFAULT_TARGET);
-                error_message = "Failed to set default unit";
-                goto finish;
-        }
-
         r = initialize_join_controllers();
         if (r < 0) {
                 error_message = "Failed to initialize cgroup controllers";
@@ -1589,6 +1581,16 @@ int main(int argc, char *argv[]) {
         if (parse_argv(argc, argv) < 0) {
                 error_message = "Failed to parse commandline arguments";
                 goto finish;
+        }
+
+        /* Initialize default unit */
+        if (!arg_default_unit) {
+                r = free_and_strdup(&arg_default_unit, SPECIAL_DEFAULT_TARGET);
+                if (r < 0) {
+                        log_emergency_errno(r, "Failed to set default unit %s: %m", SPECIAL_DEFAULT_TARGET);
+                        error_message = "Failed to set default unit";
+                        goto finish;
+                }
         }
 
         if (arg_action == ACTION_TEST &&
