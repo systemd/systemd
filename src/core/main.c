@@ -1532,7 +1532,8 @@ int main(int argc, char *argv[]) {
                  * need to do that for user instances since they never log
                  * into the console. */
                 log_show_color(colors_enabled());
-                make_null_stdio();
+                if (make_null_stdio() < 0)
+                        log_warning_errno(errno, "Failed to redirect standard streams to /dev/null: %m");
         }
 
         /* Initialize default unit */
