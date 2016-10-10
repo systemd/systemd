@@ -203,7 +203,7 @@ noreturn static void crash(int sig) {
                                               pid, sigchld_code_to_string(status.si_code),
                                               status.si_status,
                                               strna(status.si_code == CLD_EXITED
-                                                    ? exit_status_to_string(status.si_status, EXIT_STATUS_FULL)
+                                                    ? exit_status_to_string(status.si_status, EXIT_STATUS_MINIMAL)
                                                     : signal_to_string(status.si_status)));
                         else
                                 log_emergency("Caught <%s>, dumped core as pid "PID_FMT".", signal_to_string(sig), pid);
