@@ -1585,9 +1585,9 @@ int main(int argc, char *argv[]) {
 
         /* Initialize default unit */
         if (!arg_default_unit) {
-                r = free_and_strdup(&arg_default_unit, SPECIAL_DEFAULT_TARGET);
-                if (r < 0) {
-                        log_emergency_errno(r, "Failed to set default unit %s: %m", SPECIAL_DEFAULT_TARGET);
+                arg_default_unit = strdup(SPECIAL_DEFAULT_TARGET);
+                if (!arg_default_unit) {
+                        r = log_oom();
                         error_message = "Failed to set default unit";
                         goto finish;
                 }
