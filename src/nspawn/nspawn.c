@@ -2724,7 +2724,7 @@ static int inner_child(
                                 arg_uid_shift,
                                 arg_uid_range,
                                 arg_selinux_apifs_context,
-                                arg_use_cgns);
+                                true);
                 if (r < 0)
                         return r;
         } else {
@@ -3136,7 +3136,7 @@ static int outer_child(
                                 arg_uid_shift,
                                 arg_uid_range,
                                 arg_selinux_apifs_context,
-                                arg_use_cgns);
+                                false);
                 if (r < 0)
                         return r;
         }
