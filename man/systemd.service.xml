@@ -209,11 +209,11 @@
         if used in combination with
         <varname>PrivateNetwork=</varname><option>yes</option>.</para>
 
-        <para>Behavior of <option>idle</option> is very similar to
-        <option>simple</option>; however, actual execution of the
-        service binary is delayed until all jobs are dispatched. This
-        may be used to avoid interleaving of output of shell services
-        with the status output on the console.</para>
+        <para>Behavior of <option>idle</option> is very similar to <option>simple</option>; however, actual execution
+        of the service binary is delayed until all active jobs are dispatched. This may be used to avoid interleaving
+        of output of shell services with the status output on the console. Note that this type is useful only to
+        improve console output, it is not useful as a general unit ordering tool, and the effect of this service type
+        is subject to a 5s time-out, after which the service binary is invoked anyway.</para>
         </listitem>
       </varlistentry>
 
