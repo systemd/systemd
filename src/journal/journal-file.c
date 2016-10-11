@@ -747,12 +747,16 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         assert(ret);
 
         /* Objects may only be located at multiple of 64 bit */
-        if (!VALID64(offset))
+        if (!VALID64(offset)) {
+                log_debug("Attempt to move to object at non-64bit boundary: %" PRIu64, offset);
                 return -EBADMSG;
+        }
 
         /* Object may not be located in the file header */
-        if (offset < le64toh(f->header->header_size))
+        if (offset < le64toh(f->header->header_size)) {
+                log_debug("Attempt to move to object located in file header: %" PRIu64, offset);
                 return -EBADMSG;
+        }
 
         r = journal_file_move_to(f, type, false, offset, sizeof(ObjectHeader), &t);
         if (r < 0)
@@ -761,17 +765,25 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         o = (Object*) t;
         s = le64toh(o->object.size);
 
-        if (s < sizeof(ObjectHeader))
+        if (s < sizeof(ObjectHeader)) {
+                log_debug("Attempt to move to overly short object: %" PRIu64, offset);
                 return -EBADMSG;
+        }
 
-        if (o->object.type <= OBJECT_UNUSED)
+        if (o->object.type <= OBJECT_UNUSED) {
+                log_debug("Attempt to move to object with invalid type: %" PRIu64, offset);
                 return -EBADMSG;
+        }
 
-        if (s < minimum_header_size(o))
+        if (s < minimum_header_size(o)) {
+                log_debug("Attempt to move to truncated object: %" PRIu64, offset);
                 return -EBADMSG;
+        }
 
-        if (type > OBJECT_UNUSED && o->object.type != type)
+        if (type > OBJECT_UNUSED && o->object.type != type) {
+                log_debug("Attempt to move to object of unexpected type: %" PRIu64, offset);
                 return -EBADMSG;
+        }
 
         if (s > sizeof(ObjectHeader)) {
                 r = journal_file_move_to(f, type, false, offset, s, &t);
