@@ -827,7 +827,7 @@ static int ask_on_consoles(int argc, char *argv[]) {
                 break;
         }
 
-        if (!is_clean_exit(status.si_code, status.si_status, NULL))
+        if (!is_clean_exit(status.si_code, status.si_status, EXIT_CLEAN_DAEMON, NULL))
                 log_error("Password agent failed with: %d", status.si_status);
 
         terminate_agents(pids);

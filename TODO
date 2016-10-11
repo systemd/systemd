@@ -32,6 +32,8 @@ Janitorial Clean-ups:
 
 Features:
 
+* on cgroupsv2 add DelegateControllers=, to pick the precise cgroup controllers to delegate
+
 * in networkd, when matching device types, fix up DEVTYPE rubbish the kernel passes to us
 
 * enable LockMLOCK to take a percentage value relative to physical memory

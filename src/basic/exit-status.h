@@ -31,7 +31,7 @@
  * https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html
  */
 
-typedef enum ExitStatus {
+enum {
         /* EXIT_SUCCESS defined by libc */
         /* EXIT_FAILURE defined by libc */
         EXIT_INVALIDARGUMENT = 2,
@@ -82,7 +82,7 @@ typedef enum ExitStatus {
         EXIT_MAKE_STARTER,
         EXIT_CHOWN,
         EXIT_SMACK_PROCESS_LABEL,
-} ExitStatus;
+};
 
 typedef enum ExitStatusLevel {
         EXIT_STATUS_MINIMAL,   /* only cover libc EXIT_STATUS/EXIT_FAILURE */
@@ -96,10 +96,14 @@ typedef struct ExitStatusSet {
         Set *signal;
 } ExitStatusSet;
 
-const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) _const_;
+const char* exit_status_to_string(int status, ExitStatusLevel level) _const_;
 
-bool is_clean_exit(int code, int status, ExitStatusSet *success_status);
-bool is_clean_exit_lsb(int code, int status, ExitStatusSet *success_status);
+typedef enum ExitClean {
+        EXIT_CLEAN_DAEMON,
+        EXIT_CLEAN_COMMAND,
+} ExitClean;
+
+bool is_clean_exit(int code, int status, ExitClean clean, ExitStatusSet *success_status);
 
 void exit_status_set_free(ExitStatusSet *x);
 bool exit_status_set_is_empty(ExitStatusSet *x);

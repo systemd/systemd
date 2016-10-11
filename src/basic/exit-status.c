@@ -24,12 +24,12 @@
 #include "macro.h"
 #include "set.h"
 
-const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) {
+const char* exit_status_to_string(int status, ExitStatusLevel level) {
 
         /* We cast to int here, so that -Wenum doesn't complain that
          * EXIT_SUCCESS/EXIT_FAILURE aren't in the enum */
 
-        switch ((int) status) {
+        switch (status) {
 
         case EXIT_SUCCESS:
                 return "SUCCESS";
@@ -39,7 +39,7 @@ const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) {
         }
 
         if (IN_SET(level, EXIT_STATUS_SYSTEMD, EXIT_STATUS_LSB)) {
-                switch ((int) status) {
+                switch (status) {
 
                 case EXIT_CHDIR:
                         return "CHDIR";
@@ -140,11 +140,11 @@ const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) {
                 case EXIT_RUNTIME_DIRECTORY:
                         return "RUNTIME_DIRECTORY";
 
-                case EXIT_CHOWN:
-                        return "CHOWN";
-
                 case EXIT_MAKE_STARTER:
                         return "MAKE_STARTER";
+
+                case EXIT_CHOWN:
+                        return "CHOWN";
 
                 case EXIT_SMACK_PROCESS_LABEL:
                         return "SMACK_PROCESS_LABEL";
@@ -152,7 +152,7 @@ const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) {
         }
 
         if (level == EXIT_STATUS_LSB) {
-                switch ((int) status) {
+                switch (status) {
 
                 case EXIT_INVALIDARGUMENT:
                         return "INVALIDARGUMENT";
@@ -177,32 +177,21 @@ const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) {
         return NULL;
 }
 
-
-bool is_clean_exit(int code, int status, ExitStatusSet *success_status) {
+bool is_clean_exit(int code, int status, ExitClean clean, ExitStatusSet *success_status) {
 
         if (code == CLD_EXITED)
                 return status == 0 ||
                        (success_status &&
                        set_contains(success_status->status, INT_TO_PTR(status)));
 
-        /* If a daemon does not implement handlers for some of the
-         * signals that's not considered an unclean shutdown */
+        /* If a daemon does not implement handlers for some of the signals that's not considered an unclean shutdown */
         if (code == CLD_KILLED)
-                return IN_SET(status, SIGHUP, SIGINT, SIGTERM, SIGPIPE) ||
+                return
+                        (clean == EXIT_CLEAN_DAEMON && IN_SET(status, SIGHUP, SIGINT, SIGTERM, SIGPIPE)) ||
                         (success_status &&
                          set_contains(success_status->signal, INT_TO_PTR(status)));
 
         return false;
-}
-
-bool is_clean_exit_lsb(int code, int status, ExitStatusSet *success_status) {
-
-        if (is_clean_exit(code, status, success_status))
-                return true;
-
-        return
-                code == CLD_EXITED &&
-                IN_SET(status, EXIT_NOTINSTALLED, EXIT_NOTCONFIGURED);
 }
 
 void exit_status_set_free(ExitStatusSet *x) {
