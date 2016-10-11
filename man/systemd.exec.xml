@@ -703,8 +703,19 @@
         <varname>MemoryLimit=</varname> is a more powerful (and
         working) replacement for <varname>LimitRSS=</varname>.</para>
 
+        <para>For system units these resource limits may be chosen freely. For user units however (i.e. units run by a
+        per-user instance of
+        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>), these limits are
+        bound by (possibly more restrictive) per-user limits enforced by the OS.</para>
+
+        <para>Resource limits not configured explicitly for a unit default to the value configured in the various
+        <varname>DefaultLimitCPU=</varname>, <varname>DefaultLimitFSIZE=</varname>, … options available in
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, and –
+        if not configured there – the kernel or per-user defaults, as defined by the OS (the latter only for user
+        services, see above).</para>
+
         <table>
-          <title>Limit directives and their equivalent with ulimit</title>
+          <title>Resource limit directives, their equivalent <command>ulimit</command> shell commands and the unit used</title>
 
           <tgroup cols='3'>
             <colspec colname='directive' />
@@ -713,7 +724,7 @@
             <thead>
               <row>
                 <entry>Directive</entry>
-                <entry>ulimit equivalent</entry>
+                <entry><command>ulimit</command> equivalent</entry>
                 <entry>Unit</entry>
               </row>
             </thead>

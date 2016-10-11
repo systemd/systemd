@@ -655,10 +655,10 @@
           <term><command>list-units <optional><replaceable>PATTERN</replaceable>...</optional></command></term>
 
           <listitem>
-            <para>List units that <command>systemd</command> has loaded. This includes units that are either referenced
-            directly or through a dependency, units that are pinned by applications programmatically, or units that
-            were active in the past and have failed. By default only units which are active, have pending jobs, or have
-            failed are shown; this can be changed with option <option>--all</option>. If one or more
+            <para>List units that <command>systemd</command> currently has in memory. This includes units that are
+            either referenced directly or through a dependency, units that are pinned by applications programmatically,
+            or units that were active in the past and have failed. By default only units which are active, have pending
+            jobs, or have failed are shown; this can be changed with option <option>--all</option>. If one or more
             <replaceable>PATTERN</replaceable>s are specified, only units matching one of them are shown. The units
             that are shown are additionally filtered by <option>--type=</option> and <option>--state=</option> if those
             options are specified.</para>
@@ -671,9 +671,8 @@
           <term><command>list-sockets <optional><replaceable>PATTERN</replaceable>...</optional></command></term>
 
           <listitem>
-            <para>List socket units ordered by listening address.
-            If one or more <replaceable>PATTERN</replaceable>s are
-            specified, only socket units matching one of them are
+            <para>List socket units currently in memory, ordered by listening address.  If one or more
+            <replaceable>PATTERN</replaceable>s are specified, only socket units matching one of them are
             shown. Produces output similar to
             <programlisting>
 LISTEN           UNIT                        ACTIVATES
@@ -687,8 +686,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             is not suitable for programmatic consumption.
             </para>
 
-            <para>See also the options <option>--show-types</option>,
-            <option>--all</option>, and <option>--state=</option>.</para>
+            <para>Also see <option>--show-types</option>, <option>--all</option>, and <option>--state=</option>.</para>
           </listitem>
         </varlistentry>
 
@@ -696,13 +694,11 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <term><command>list-timers <optional><replaceable>PATTERN</replaceable>...</optional></command></term>
 
           <listitem>
-            <para>List timer units ordered by the time they elapse
-            next. If one or more <replaceable>PATTERN</replaceable>s
-            are specified, only units matching one of them are shown.
+            <para>List timer units currently in memory, ordered by the time they elapse next. If one or more
+            <replaceable>PATTERN</replaceable>s are specified, only units matching one of them are shown.
             </para>
 
-            <para>See also the options <option>--all</option> and
-            <option>--state=</option>.</para>
+            <para>Also see <option>--all</option> and <option>--state=</option>.</para>
           </listitem>
         </varlistentry>
 
@@ -713,8 +709,8 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <para>Start (activate) one or more units specified on the
             command line.</para>
 
-            <para>Note that glob patterns operate on the set of primary names of currently loaded units. Units which
-            are not active and are not in a failed state usually are not loaded, and will not be matched by any
+            <para>Note that glob patterns operate on the set of primary names of units currently in memory. Units which
+            are not active and are not in a failed state usually are not in memory, and will not be matched by any
             pattern. In addition, in case of instantiated units, systemd is often unaware of the instance name until
             the instance has been started. Therefore, using glob patterns with <command>start</command> has limited
             usefulness. Also, secondary alias names of units are not considered.</para>
@@ -1759,7 +1755,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
       are equivalent to:
       <programlisting># systemctl status dev-sda.device
 # systemctl status home.mount</programlisting>
-      In the second case, shell-style globs will be matched against the primary names of all currently loaded units;
+      In the second case, shell-style globs will be matched against the primary names of all units currently in memory;
       literal unit names, with or without a suffix, will be treated as in the first case. This means that literal unit
       names always refer to exactly one unit, but globs may match zero units and this is not considered an
       error.</para>
@@ -1771,11 +1767,11 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
       <literal>[]</literal> may be used. See
       <citerefentry project='man-pages'><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>
       for more details. The patterns are matched against the primary names of
-      currently loaded units, and patterns which do not match anything
+      units currently in memory, and patterns which do not match anything
       are silently skipped. For example:
       <programlisting># systemctl stop sshd@*.service</programlisting>
       will stop all <filename>sshd@.service</filename> instances. Note that alias names of units, and units that aren't
-      loaded are not considered for glob expansion.
+      in memory are not considered for glob expansion.
       </para>
 
       <para>For unit file commands, the specified <replaceable>NAME</replaceable> should be the name of the unit file
@@ -1817,6 +1813,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
     </variablelist>
     <xi:include href="less-variables.xml" xpointer="pager"/>
     <xi:include href="less-variables.xml" xpointer="less"/>
+    <xi:include href="less-variables.xml" xpointer="lesscharset"/>
   </refsect1>
 
   <refsect1>
