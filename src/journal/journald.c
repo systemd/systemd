@@ -60,6 +60,11 @@ int main(int argc, char *argv[]) {
                               LOG_MESSAGE("Journal started"),
                               NULL);
 
+        /* Make sure to send the usage message *after* flushing the
+         * journal so entries from the runtime journals are ordered
+         * before this message. See #4190 for some details. */
+        server_space_usage_message(&server, NULL);
+
         for (;;) {
                 usec_t t = USEC_INFINITY, n;
 

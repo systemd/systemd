@@ -128,7 +128,6 @@ static int determine_path_usage(Server *s, const char *path, uint64_t *ret_used,
 static int determine_space_for(
                 Server *s,
                 JournalStorage *storage,
-                bool verbose,
                 bool patch_min_use,
                 uint64_t *available,
                 uint64_t *limit) {
@@ -145,7 +144,7 @@ static int determine_space_for(
 
         ts = now(CLOCK_MONOTONIC);
 
-        if (!verbose && storage->space.timestamp + RECHECK_SPACE_USEC > ts) {
+        if (storage->space.timestamp + RECHECK_SPACE_USEC > ts) {
 
                 if (available)
                         *available = storage->space.available;
@@ -175,9 +174,6 @@ static int determine_space_for(
         storage->space.available = LESS_BY(storage->space.limit, sum);
         storage->space.timestamp = ts;
 
-        if (verbose)
-                server_space_usage_message(s, storage);
-
         if (available)
                 *available = storage->space.available;
         if (limit)
@@ -186,13 +182,13 @@ static int determine_space_for(
         return 1;
 }
 
-static int determine_space(Server *s, bool verbose, bool patch_min_use, uint64_t *available, uint64_t *limit) {
+static int determine_space(Server *s, bool patch_min_use, uint64_t *available, uint64_t *limit) {
         JournalStorage *js;
 
         assert(s);
 
         js = s->system_journal ? &s->system_storage : &s->runtime_storage;
-        return determine_space_for(s, js, verbose, patch_min_use, available, limit);
+        return determine_space_for(s, js, patch_min_use, available, limit);
 }
 
 void server_space_usage_message(Server *s, JournalStorage *storage) {
@@ -313,7 +309,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
                 r = open_journal(s, true, fn, O_RDWR|O_CREAT, s->seal, &s->system_storage.metrics, &s->system_journal);
                 if (r >= 0) {
                         server_add_acls(s->system_journal, 0);
-                        (void) determine_space_for(s, &s->system_storage, true, true, NULL, NULL);
+                        (void) determine_space_for(s, &s->system_storage, true, NULL, NULL);
                 } else if (r < 0) {
                         if (r != -ENOENT && r != -EROFS)
                                 log_warning_errno(r, "Failed to open system journal: %m");
@@ -367,7 +363,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
 
                 if (s->runtime_journal) {
                         server_add_acls(s->runtime_journal, 0);
-                        (void) determine_space_for(s, &s->runtime_storage, true, true, NULL, NULL);
+                        (void) determine_space_for(s, &s->runtime_storage, true, NULL, NULL);
                 }
         }
 
@@ -532,7 +528,10 @@ static void do_vacuum(
 
         metrics = &storage->metrics;
         limit = metrics->max_use;
-        (void) determine_space_for(s, storage, verbose, patch_min_use, NULL, &limit);
+        (void) determine_space_for(s, storage, patch_min_use, NULL, &limit);
+
+        if (verbose)
+                server_space_usage_message(s, storage);
 
         r = journal_directory_vacuum(storage->path, limit, metrics->n_max_files, s->max_retention_usec, &s->oldest_file_usec,  verbose);
         if (r < 0 && r != -ENOENT)
@@ -1174,7 +1173,7 @@ void server_dispatch_message(
                 }
         }
 
-        (void) determine_space(s, false, false, &available, NULL);
+        (void) determine_space(s, false, &available, NULL);
         rl = journal_rate_limit_test(s->rate_limit, path, priority & LOG_PRIMASK, available);
         if (rl == 0)
                 return;
@@ -1425,6 +1424,7 @@ static int dispatch_sigusr1(sd_event_source *es, const struct signalfd_siginfo *
         if (r < 0)
                 log_warning_errno(r, "Failed to touch /run/systemd/journal/flushed, ignoring: %m");
 
+        server_space_usage_message(s, NULL);
         return 0;
 }
 
