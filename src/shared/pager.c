@@ -36,6 +36,7 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 
 static pid_t pager_pid = 0;
@@ -71,7 +72,7 @@ int pager_open(bool no_pager, bool jump_to_end) {
                 pager = getenv("PAGER");
 
         /* If the pager is explicitly turned off, honour it */
-        if (pager && (pager[0] == 0 || streq(pager, "cat")))
+        if (pager && STR_IN_SET(pager, "", "cat"))
                 return 0;
 
         /* Determine and cache number of columns before we spawn the
