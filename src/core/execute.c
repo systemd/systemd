@@ -2342,7 +2342,7 @@ static int exec_child(
                                       USER_PROCESS,
                                       username ? "root" : context->user);
 
-        if (context->user && is_terminal_input(context->std_input)) {
+        if (context->user) {
                 r = chown_terminal(STDIN_FILENO, uid);
                 if (r < 0) {
                         *exit_status = EXIT_STDIN;
