@@ -780,7 +780,6 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        c = 0;
         while ((r = sd_bus_message_read_array(reply, 'y', (const void**) &p, &sz)) > 0) {
                 _cleanup_free_ char *escaped = NULL;
 
@@ -789,7 +788,6 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
                         return log_oom();
 
                 printf("%*s%s\n", (int) indent, "", escaped);
-                c++;
         }
         if (r < 0)
                 return bus_log_parse_error(r);
