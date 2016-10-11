@@ -136,14 +136,11 @@ static int determine_space_for(
         uint64_t sum, avail, ss_avail;
         _cleanup_closedir_ DIR *d = NULL;
         JournalMetrics *metrics;
-        const char *path, *name;
         usec_t ts;
         int r;
 
         assert(s);
 
-        name = storage->name;
-        path = storage->path;
         metrics = &storage->metrics;
 
         ts = now(CLOCK_MONOTONIC);
@@ -158,7 +155,7 @@ static int determine_space_for(
                 return 0;
         }
 
-        r = determine_path_usage(s, path, &sum, &ss_avail);
+        r = determine_path_usage(s, storage->path, &sum, &ss_avail);
         if (r < 0)
                 return r;
 
@@ -178,35 +175,8 @@ static int determine_space_for(
         storage->space.available = LESS_BY(storage->space.limit, sum);
         storage->space.timestamp = ts;
 
-        if (verbose) {
-                char    fb1[FORMAT_BYTES_MAX], fb2[FORMAT_BYTES_MAX], fb3[FORMAT_BYTES_MAX],
-                        fb4[FORMAT_BYTES_MAX], fb5[FORMAT_BYTES_MAX], fb6[FORMAT_BYTES_MAX];
-                format_bytes(fb1, sizeof(fb1), sum);
-                format_bytes(fb2, sizeof(fb2), metrics->max_use);
-                format_bytes(fb3, sizeof(fb3), metrics->keep_free);
-                format_bytes(fb4, sizeof(fb4), ss_avail);
-                format_bytes(fb5, sizeof(fb5), storage->space.limit);
-                format_bytes(fb6, sizeof(fb6), storage->space.available);
-
-                server_driver_message(s, SD_MESSAGE_JOURNAL_USAGE,
-                                      LOG_MESSAGE("%s (%s) is %s, max %s, %s free.",
-                                                  name, path, fb1, fb5, fb6),
-                                      "JOURNAL_NAME=%s", name,
-                                      "JOURNAL_PATH=%s", path,
-                                      "CURRENT_USE=%"PRIu64, sum,
-                                      "CURRENT_USE_PRETTY=%s", fb1,
-                                      "MAX_USE=%"PRIu64, metrics->max_use,
-                                      "MAX_USE_PRETTY=%s", fb2,
-                                      "DISK_KEEP_FREE=%"PRIu64, metrics->keep_free,
-                                      "DISK_KEEP_FREE_PRETTY=%s", fb3,
-                                      "DISK_AVAILABLE=%"PRIu64, ss_avail,
-                                      "DISK_AVAILABLE_PRETTY=%s", fb4,
-                                      "LIMIT=%"PRIu64, storage->space.limit,
-                                      "LIMIT_PRETTY=%s", fb5,
-                                      "AVAILABLE=%"PRIu64, storage->space.available,
-                                      "AVAILABLE_PRETTY=%s", fb6,
-                                      NULL);
-        }
+        if (verbose)
+                server_space_usage_message(s, storage);
 
         if (available)
                 *available = storage->space.available;
@@ -223,6 +193,48 @@ static int determine_space(Server *s, bool verbose, bool patch_min_use, uint64_t
 
         js = s->system_journal ? &s->system_storage : &s->runtime_storage;
         return determine_space_for(s, js, verbose, patch_min_use, available, limit);
+}
+
+void server_space_usage_message(Server *s, JournalStorage *storage) {
+        char fb1[FORMAT_BYTES_MAX], fb2[FORMAT_BYTES_MAX], fb3[FORMAT_BYTES_MAX],
+             fb4[FORMAT_BYTES_MAX], fb5[FORMAT_BYTES_MAX], fb6[FORMAT_BYTES_MAX];
+        JournalMetrics *metrics;
+        uint64_t used, avail;
+
+        assert(s);
+
+        if (!storage)
+                storage = s->system_journal ? &s->system_storage : &s->runtime_storage;
+
+        if (determine_path_usage(s, storage->path, &used, &avail) < 0)
+                return;
+
+        metrics = &storage->metrics;
+        format_bytes(fb1, sizeof(fb1), used);
+        format_bytes(fb2, sizeof(fb2), metrics->max_use);
+        format_bytes(fb3, sizeof(fb3), metrics->keep_free);
+        format_bytes(fb4, sizeof(fb4), avail);
+        format_bytes(fb5, sizeof(fb5), storage->space.limit);
+        format_bytes(fb6, sizeof(fb6), storage->space.available);
+
+        server_driver_message(s, SD_MESSAGE_JOURNAL_USAGE,
+                              LOG_MESSAGE("%s (%s) is %s, max %s, %s free.",
+                                          storage->name, storage->path, fb1, fb5, fb6),
+                              "JOURNAL_NAME=%s", storage->name,
+                              "JOURNAL_PATH=%s", storage->path,
+                              "CURRENT_USE=%"PRIu64, used,
+                              "CURRENT_USE_PRETTY=%s", fb1,
+                              "MAX_USE=%"PRIu64, metrics->max_use,
+                              "MAX_USE_PRETTY=%s", fb2,
+                              "DISK_KEEP_FREE=%"PRIu64, metrics->keep_free,
+                              "DISK_KEEP_FREE_PRETTY=%s", fb3,
+                              "DISK_AVAILABLE=%"PRIu64, avail,
+                              "DISK_AVAILABLE_PRETTY=%s", fb4,
+                              "LIMIT=%"PRIu64, storage->space.limit,
+                              "LIMIT_PRETTY=%s", fb5,
+                              "AVAILABLE=%"PRIu64, storage->space.available,
+                              "AVAILABLE_PRETTY=%s", fb6,
+                              NULL);
 }
 
 static void server_add_acls(JournalFile *f, uid_t uid) {
