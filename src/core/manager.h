@@ -89,6 +89,7 @@ struct Manager {
 
         /* Active jobs and units */
         Hashmap *units;  /* name string => Unit object n:1 */
+        Hashmap *units_by_invocation_id;
         Hashmap *jobs;   /* job id => Job object 1:1 */
 
         /* To make it easy to iterate through the units of a specific
@@ -318,6 +319,9 @@ struct Manager {
 
         const char *unit_log_field;
         const char *unit_log_format_string;
+
+        const char *invocation_log_field;
+        const char *invocation_log_format_string;
 
         int first_boot; /* tri-state */
 };

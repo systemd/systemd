@@ -153,10 +153,10 @@ struct Server {
 
 #define SERVER_MACHINE_ID(s) ((s)->machine_id_field + strlen("_MACHINE_ID="))
 
-#define N_IOVEC_META_FIELDS 20
+#define N_IOVEC_META_FIELDS 22
 #define N_IOVEC_KERNEL_FIELDS 64
 #define N_IOVEC_UDEV_FIELDS 32
-#define N_IOVEC_OBJECT_FIELDS 12
+#define N_IOVEC_OBJECT_FIELDS 14
 #define N_IOVEC_PAYLOAD_FIELDS 15
 
 void server_dispatch_message(Server *s, struct iovec *iovec, unsigned n, unsigned m, const struct ucred *ucred, const struct timeval *tv, const char *label, size_t label_len, const char *unit_id, int priority, pid_t object_pid);

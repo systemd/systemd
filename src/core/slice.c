@@ -187,9 +187,14 @@ static void slice_dump(Unit *u, FILE *f, const char *prefix) {
 
 static int slice_start(Unit *u) {
         Slice *t = SLICE(u);
+        int r;
 
         assert(t);
         assert(t->state == SLICE_DEAD);
+
+        r = unit_acquire_invocation_id(u);
+        if (r < 0)
+                return r;
 
         (void) unit_realize_cgroup(u);
         (void) unit_reset_cpu_usage(u);

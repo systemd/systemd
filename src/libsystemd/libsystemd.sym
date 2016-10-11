@@ -509,4 +509,5 @@ global:
         sd_bus_track_count_sender;
         sd_bus_set_exit_on_disconnect;
         sd_bus_get_exit_on_disconnect;
+        sd_id128_get_invocation;
 } LIBSYSTEMD_231;

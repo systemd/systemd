@@ -207,6 +207,10 @@ struct Unit {
         /* How to start OnFailure units */
         JobMode on_failure_job_mode;
 
+        /* The current invocation ID */
+        sd_id128_t invocation_id;
+        char invocation_id_string[SD_ID128_STRING_MAX]; /* useful when logging */
+
         /* Garbage collect us we nobody wants or requires us anymore */
         bool stop_when_unneeded;
 
@@ -546,6 +550,7 @@ bool unit_job_is_applicable(Unit *u, JobType j);
 int set_unit_path(const char *p);
 
 char *unit_dbus_path(Unit *u);
+char *unit_dbus_path_invocation_id(Unit *u);
 
 int unit_load_related_unit(Unit *u, const char *type, Unit **_found);
 
@@ -643,12 +648,15 @@ void unit_unref_uid_gid(Unit *u, bool destroy_now);
 
 void unit_notify_user_lookup(Unit *u, uid_t uid, gid_t gid);
 
+int unit_set_invocation_id(Unit *u, sd_id128_t id);
+int unit_acquire_invocation_id(Unit *u);
+
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
 #define log_unit_full(unit, level, error, ...)                          \
         ({                                                              \
                 const Unit *_u = (unit);                                \
-                _u ? log_object_internal(level, error, __FILE__, __LINE__, __func__, _u->manager->unit_log_field, _u->id, ##__VA_ARGS__) : \
+                _u ? log_object_internal(level, error, __FILE__, __LINE__, __func__, _u->manager->unit_log_field, _u->id, _u->manager->invocation_log_field, _u->invocation_id_string, ##__VA_ARGS__) : \
                         log_internal(level, error, __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
         })
 

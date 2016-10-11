@@ -577,6 +577,10 @@ static int path_start(Unit *u) {
                 return r;
         }
 
+        r = unit_acquire_invocation_id(u);
+        if (r < 0)
+                return r;
+
         path_mkdir(p);
 
         p->result = PATH_SUCCESS;

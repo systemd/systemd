@@ -1006,6 +1006,10 @@ static int mount_start(Unit *u) {
                 return r;
         }
 
+        r = unit_acquire_invocation_id(u);
+        if (r < 0)
+                return r;
+
         m->result = MOUNT_SUCCESS;
         m->reload_result = MOUNT_SUCCESS;
         m->reset_cpu_usage = true;
@@ -1746,9 +1750,10 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
 
                         case MOUNT_DEAD:
                         case MOUNT_FAILED:
-                                /* This has just been mounted by
-                                 * somebody else, follow the state
-                                 * change. */
+
+                                /* This has just been mounted by somebody else, follow the state change, but let's
+                                 * generate a new invocation ID for this implicitly and automatically. */
+                                (void) unit_acquire_invocation_id(UNIT(mount));
                                 mount_enter_mounted(mount, MOUNT_SUCCESS);
                                 break;
 

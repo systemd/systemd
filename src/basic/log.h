@@ -100,18 +100,22 @@ int log_object_internal(
                 const char *func,
                 const char *object_field,
                 const char *object,
-                const char *format, ...) _printf_(8,9);
+                const char *extra_field,
+                const char *extra,
+                const char *format, ...) _printf_(10,11);
 
 int log_object_internalv(
                 int level,
                 int error,
-                const char*file,
+                const char *file,
                 int line,
                 const char *func,
                 const char *object_field,
                 const char *object,
+                const char *extra_field,
+                const char *extra,
                 const char *format,
-                va_list ap) _printf_(8,0);
+                va_list ap) _printf_(9,0);
 
 int log_struct_internal(
                 int level,

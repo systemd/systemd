@@ -124,9 +124,14 @@ static void target_dump(Unit *u, FILE *f, const char *prefix) {
 
 static int target_start(Unit *u) {
         Target *t = TARGET(u);
+        int r;
 
         assert(t);
         assert(t->state == TARGET_DEAD);
+
+        r = unit_acquire_invocation_id(u);
+        if (r < 0)
+                return r;
 
         target_set_state(t, TARGET_ACTIVE);
         return 1;

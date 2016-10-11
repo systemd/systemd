@@ -28,6 +28,7 @@
 #include <sys/stat.h>
 #include <sys/statfs.h>
 #include <sys/types.h>
+#include <sys/xattr.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -883,6 +884,43 @@ int cg_set_task_access(
         return 0;
 }
 
+int cg_set_xattr(const char *controller, const char *path, const char *name, const void *value, size_t size, int flags) {
+        _cleanup_free_ char *fs = NULL;
+        int r;
+
+        assert(path);
+        assert(name);
+        assert(value || size <= 0);
+
+        r = cg_get_path(controller, path, NULL, &fs);
+        if (r < 0)
+                return r;
+
+        if (setxattr(fs, name, value, size, flags) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int cg_get_xattr(const char *controller, const char *path, const char *name, void *value, size_t size) {
+        _cleanup_free_ char *fs = NULL;
+        ssize_t n;
+        int r;
+
+        assert(path);
+        assert(name);
+
+        r = cg_get_path(controller, path, NULL, &fs);
+        if (r < 0)
+                return r;
+
+        n = getxattr(fs, name, value, size);
+        if (n < 0)
+                return -errno;
+
+        return (int) n;
+}
+
 int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
         _cleanup_fclose_ FILE *f = NULL;
         char line[LINE_MAX];
@@ -1666,7 +1704,7 @@ int cg_path_get_slice(const char *p, char **slice) {
                         if (!e) {
                                 char *s;
 
-                                s = strdup("-.slice");
+                                s = strdup(SPECIAL_ROOT_SLICE);
                                 if (!s)
                                         return -ENOMEM;
 
@@ -1821,7 +1859,7 @@ int cg_slice_to_path(const char *unit, char **ret) {
         assert(unit);
         assert(ret);
 
-        if (streq(unit, "-.slice")) {
+        if (streq(unit, SPECIAL_ROOT_SLICE)) {
                 char *x;
 
                 x = strdup("");

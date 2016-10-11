@@ -1514,6 +1514,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>$INVOCATION_ID</varname></term>
+
+        <listitem><para>Contains a randomized, unique 128bit ID identifying each runtime cycle of the unit, formatted
+        as 32 character hexadecimal string. A new ID is assigned each time the unit changes from an inactive state into
+        an activating or active state, and may be used to identify this specific runtime cycle, in particular in data
+        stored offline, such as the journal. The same ID is passed to all processes run as part of the
+        unit.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>$XDG_RUNTIME_DIR</varname></term>
 
         <listitem><para>The directory for volatile state. Set for the

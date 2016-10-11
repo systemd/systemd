@@ -616,6 +616,10 @@ static int timer_start(Unit *u) {
                 return r;
         }
 
+        r = unit_acquire_invocation_id(u);
+        if (r < 0)
+                return r;
+
         t->last_trigger = DUAL_TIMESTAMP_NULL;
 
         /* Reenable all timers that depend on unit activation time */
@@ -632,7 +636,7 @@ static int timer_start(Unit *u) {
                         /* The timer has never run before,
                          * make sure a stamp file exists.
                          */
-                        touch_file(t->stamp_path, true, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID);
+                        (void) touch_file(t->stamp_path, true, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID);
         }
 
         t->result = TIMER_SUCCESS;

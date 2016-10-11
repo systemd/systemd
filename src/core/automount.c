@@ -800,6 +800,10 @@ static int automount_start(Unit *u) {
                 return r;
         }
 
+        r = unit_acquire_invocation_id(u);
+        if (r < 0)
+                return r;
+
         a->result = AUTOMOUNT_SUCCESS;
         automount_enter_waiting(a);
         return 1;

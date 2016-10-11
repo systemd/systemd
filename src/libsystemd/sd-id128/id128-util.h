@@ -22,6 +22,8 @@
 #include <stdbool.h>
 
 #include "sd-id128.h"
+
+#include "hash-funcs.h"
 #include "macro.h"
 
 char *id128_to_uuid_string(sd_id128_t id, char s[37]);
@@ -43,3 +45,7 @@ int id128_read(const char *p, Id128Format f, sd_id128_t *ret);
 
 int id128_write_fd(int fd, Id128Format f, sd_id128_t id, bool do_sync);
 int id128_write(const char *p, Id128Format f, sd_id128_t id, bool do_sync);
+
+void id128_hash_func(const void *p, struct siphash *state);
+int id128_compare_func(const void *a, const void *b) _pure_;
+extern const struct hash_ops id128_hash_ops;

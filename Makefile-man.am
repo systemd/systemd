@@ -239,6 +239,7 @@ MANPAGES_ALIAS += \
 	man/SD_ID128_FORMAT_STR.3 \
 	man/SD_ID128_FORMAT_VAL.3 \
 	man/SD_ID128_MAKE.3 \
+	man/SD_ID128_NULL.3 \
 	man/SD_INFO.3 \
 	man/SD_JOURNAL_APPEND.3 \
 	man/SD_JOURNAL_CURRENT_USER.3 \
@@ -395,6 +396,8 @@ MANPAGES_ALIAS += \
 	man/sd_id128_equal.3 \
 	man/sd_id128_from_string.3 \
 	man/sd_id128_get_boot.3 \
+	man/sd_id128_get_invocation.3 \
+	man/sd_id128_is_null.3 \
 	man/sd_id128_t.3 \
 	man/sd_is_mq.3 \
 	man/sd_is_socket.3 \
@@ -589,6 +592,7 @@ man/SD_ID128_CONST_STR.3: man/sd-id128.3
 man/SD_ID128_FORMAT_STR.3: man/sd-id128.3
 man/SD_ID128_FORMAT_VAL.3: man/sd-id128.3
 man/SD_ID128_MAKE.3: man/sd-id128.3
+man/SD_ID128_NULL.3: man/sd-id128.3
 man/SD_INFO.3: man/sd-daemon.3
 man/SD_JOURNAL_APPEND.3: man/sd_journal_get_fd.3
 man/SD_JOURNAL_CURRENT_USER.3: man/sd_journal_open.3
@@ -745,6 +749,8 @@ man/sd_event_unrefp.3: man/sd_event_new.3
 man/sd_id128_equal.3: man/sd-id128.3
 man/sd_id128_from_string.3: man/sd_id128_to_string.3
 man/sd_id128_get_boot.3: man/sd_id128_get_machine.3
+man/sd_id128_get_invocation.3: man/sd_id128_get_machine.3
+man/sd_id128_is_null.3: man/sd-id128.3
 man/sd_id128_t.3: man/sd-id128.3
 man/sd_is_mq.3: man/sd_is_fifo.3
 man/sd_is_socket.3: man/sd_is_fifo.3
@@ -1049,6 +1055,9 @@ man/SD_ID128_FORMAT_VAL.html: man/sd-id128.html
 	$(html-alias)
 
 man/SD_ID128_MAKE.html: man/sd-id128.html
+	$(html-alias)
+
+man/SD_ID128_NULL.html: man/sd-id128.html
 	$(html-alias)
 
 man/SD_INFO.html: man/sd-daemon.html
@@ -1517,6 +1526,12 @@ man/sd_id128_from_string.html: man/sd_id128_to_string.html
 	$(html-alias)
 
 man/sd_id128_get_boot.html: man/sd_id128_get_machine.html
+	$(html-alias)
+
+man/sd_id128_get_invocation.html: man/sd_id128_get_machine.html
+	$(html-alias)
+
+man/sd_id128_is_null.html: man/sd-id128.html
 	$(html-alias)
 
 man/sd_id128_t.html: man/sd-id128.html

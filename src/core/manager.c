@@ -522,6 +522,7 @@ static void manager_clean_environment(Manager *m) {
                         "LISTEN_FDNAMES",
                         "WATCHDOG_PID",
                         "WATCHDOG_USEC",
+                        "INVOCATION_ID",
                         NULL);
 }
 
@@ -582,9 +583,15 @@ int manager_new(UnitFileScope scope, bool test_run, Manager **_m) {
         if (MANAGER_IS_SYSTEM(m)) {
                 m->unit_log_field = "UNIT=";
                 m->unit_log_format_string = "UNIT=%s";
+
+                m->invocation_log_field = "INVOCATION_ID=";
+                m->invocation_log_format_string = "INVOCATION_ID=" SD_ID128_FORMAT_STR;
         } else {
                 m->unit_log_field = "USER_UNIT=";
                 m->unit_log_format_string = "USER_UNIT=%s";
+
+                m->invocation_log_field = "USER_INVOCATION_ID=";
+                m->invocation_log_format_string = "USER_INVOCATION_ID=" SD_ID128_FORMAT_STR;
         }
 
         m->idle_pipe[0] = m->idle_pipe[1] = m->idle_pipe[2] = m->idle_pipe[3] = -1;
@@ -1062,6 +1069,7 @@ Manager* manager_free(Manager *m) {
         hashmap_free(m->dynamic_users);
 
         hashmap_free(m->units);
+        hashmap_free(m->units_by_invocation_id);
         hashmap_free(m->jobs);
         hashmap_free(m->watch_pids1);
         hashmap_free(m->watch_pids2);
@@ -2268,6 +2276,7 @@ int manager_loop(Manager *m) {
 
 int manager_load_unit_from_dbus_path(Manager *m, const char *s, sd_bus_error *e, Unit **_u) {
         _cleanup_free_ char *n = NULL;
+        sd_id128_t invocation_id;
         Unit *u;
         int r;
 
@@ -2279,12 +2288,25 @@ int manager_load_unit_from_dbus_path(Manager *m, const char *s, sd_bus_error *e,
         if (r < 0)
                 return r;
 
+        /* Permit addressing units by invocation ID: if the passed bus path is suffixed by a 128bit ID then we use it
+         * as invocation ID. */
+        r = sd_id128_from_string(n, &invocation_id);
+        if (r >= 0) {
+                u = hashmap_get(m->units_by_invocation_id, &invocation_id);
+                if (u) {
+                        *_u = u;
+                        return 0;
+                }
+
+                return sd_bus_error_setf(e, BUS_ERROR_NO_UNIT_FOR_INVOCATION_ID, "No unit with the specified invocation ID " SD_ID128_FORMAT_STR " known.", SD_ID128_FORMAT_VAL(invocation_id));
+        }
+
+        /* If this didn't work, we use the suffix as unit name. */
         r = manager_load_unit(m, n, NULL, e, &u);
         if (r < 0)
                 return r;
 
         *_u = u;
-
         return 0;
 }
 

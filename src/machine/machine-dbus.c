@@ -51,24 +51,6 @@
 #include "terminal-util.h"
 #include "user-util.h"
 
-static int property_get_id(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Machine *m = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(m);
-
-        return sd_bus_message_append_array(reply, 'y', &m->id, 16);
-}
-
 static int property_get_state(
                 sd_bus *bus,
                 const char *path,
@@ -1311,7 +1293,7 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
 const sd_bus_vtable machine_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Name", "s", NULL, offsetof(Machine, name), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Id", "ay", property_get_id, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Id", "ay", bus_property_get_id128, offsetof(Machine, id), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("Timestamp", offsetof(Machine, timestamp), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Service", "s", NULL, offsetof(Machine, service), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Unit", "s", NULL, offsetof(Machine, unit), SD_BUS_VTABLE_PROPERTY_CONST),
