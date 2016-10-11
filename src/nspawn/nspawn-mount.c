@@ -637,8 +637,6 @@ static int get_controllers(Set *subsystems) {
                 int r;
                 char *e, *l, *p;
 
-                truncate_nl(line);
-
                 l = strchr(line, ':');
                 if (!l)
                         continue;
@@ -650,10 +648,13 @@ static int get_controllers(Set *subsystems) {
 
                 *e = 0;
 
-                if (streq(l, "") || streq(l, "name=systemd"))
+                if (STR_IN_SET(l, "", "name=systemd"))
                         continue;
 
                 p = strdup(l);
+                if (!p)
+                        return -ENOMEM;
+
                 r = set_consume(subsystems, p);
                 if (r < 0)
                         return r;
