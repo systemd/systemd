@@ -1614,11 +1614,10 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (arg_action == ACTION_TEST)
-                skip_setup = true;
-
-        if (arg_action == ACTION_TEST || arg_action == ACTION_HELP)
+        if (arg_action == ACTION_TEST || arg_action == ACTION_HELP) {
                 pager_open(arg_no_pager, false);
+                skip_setup = true;
+        }
 
         if (arg_action == ACTION_HELP) {
                 retval = help();
