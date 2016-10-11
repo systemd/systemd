@@ -20,6 +20,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "time-util.h"
 #include "udev-util.h"
 #include "udev.h"
 
@@ -60,7 +61,7 @@ static int adm_control(struct udev *udev, int argc, char *argv[]) {
         };
 
         if (getuid() != 0) {
-                fprintf(stderr, "root privileges required\n");
+                log_error("root privileges required");
                 return 1;
         }
 
@@ -81,7 +82,7 @@ static int adm_control(struct udev *udev, int argc, char *argv[]) {
 
                         i = util_log_priority(optarg);
                         if (i < 0) {
-                                fprintf(stderr, "invalid number '%s'\n", optarg);
+                                log_error("invalid number '%s'", optarg);
                                 return rc;
                         }
                         if (udev_ctrl_send_set_log_level(uctrl, util_log_priority(optarg), timeout) < 0)
@@ -110,7 +111,7 @@ static int adm_control(struct udev *udev, int argc, char *argv[]) {
                         break;
                 case 'p':
                         if (strchr(optarg, '=') == NULL) {
-                                fprintf(stderr, "expect <KEY>=<value> instead of '%s'\n", optarg);
+                                log_error("expect <KEY>=<value> instead of '%s'", optarg);
                                 return rc;
                         }
                         if (udev_ctrl_send_set_env(uctrl, optarg, timeout) < 0)
@@ -124,7 +125,7 @@ static int adm_control(struct udev *udev, int argc, char *argv[]) {
 
                         i = strtoul(optarg, &endp, 0);
                         if (endp[0] != '\0' || i < 1) {
-                                fprintf(stderr, "invalid number '%s'\n", optarg);
+                                log_error("invalid number '%s'", optarg);
                                 return rc;
                         }
                         if (udev_ctrl_send_set_children_max(uctrl, i, timeout) < 0)
@@ -134,13 +135,21 @@ static int adm_control(struct udev *udev, int argc, char *argv[]) {
                         break;
                 }
                 case 't': {
+                        usec_t s;
                         int seconds;
+                        int r;
 
-                        seconds = atoi(optarg);
-                        if (seconds >= 0)
+                        r = parse_sec(optarg, &s);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse timeout value '%s'.", optarg);
+
+                        if (((s + USEC_PER_SEC - 1) / USEC_PER_SEC) > INT_MAX)
+                                log_error("Timeout value is out of range.");
+                        else {
+                                seconds = s != USEC_INFINITY ? (int) ((s + USEC_PER_SEC - 1) / USEC_PER_SEC) : INT_MAX;
                                 timeout = seconds;
-                        else
-                                fprintf(stderr, "invalid timeout value\n");
+                                rc = 0;
+                        }
                         break;
                 }
                 case 'h':
@@ -150,9 +159,9 @@ static int adm_control(struct udev *udev, int argc, char *argv[]) {
                 }
 
         if (optind < argc)
-                fprintf(stderr, "Extraneous argument: %s\n", argv[optind]);
+                log_error("Extraneous argument: %s", argv[optind]);
         else if (optind == 1)
-                fprintf(stderr, "Option missing\n");
+                log_error("Option missing");
         return rc;
 }
 
