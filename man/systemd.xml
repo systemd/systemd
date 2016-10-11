@@ -272,7 +272,7 @@
     <title>Concepts</title>
 
     <para>systemd provides a dependency system between various
-    entities called "units" of 12 different types. Units encapsulate
+    entities called "units" of 11 different types. Units encapsulate
     various objects that are relevant for system boot-up and
     maintenance. The majority of units are configured in unit
     configuration files, whose syntax and basic set of options is
