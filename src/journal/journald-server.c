@@ -132,7 +132,6 @@ static void cache_space_invalidate(JournalStorageSpace *space) {
 static int determine_space_for(
                 Server *s,
                 JournalStorage *storage,
-                bool patch_min_use,
                 uint64_t *available,
                 uint64_t *limit) {
 
@@ -169,16 +168,6 @@ static int determine_space_for(
 
         avail = LESS_BY(vfs_avail, metrics->keep_free);
 
-        /* If requested, then let's bump the min_use limit to the
-         * current usage on disk. We do this when starting up and
-         * first opening the journal files. This way sudden spikes in
-         * disk usage will not cause journald to vacuum files without
-         * bounds. Note that this means that only a restart of
-         * journald will make it reset this value. */
-
-        if (patch_min_use)
-                metrics->min_use = MAX(metrics->min_use, vfs_used);
-
         space->limit = MIN(MAX(vfs_used + avail, metrics->min_use), metrics->max_use);
         space->available = LESS_BY(space->limit, vfs_used);
         space->timestamp = ts;
@@ -191,13 +180,26 @@ static int determine_space_for(
         return 1;
 }
 
-static int determine_space(Server *s, bool patch_min_use, uint64_t *available, uint64_t *limit) {
+static void patch_min_use(JournalStorage *storage) {
+        assert(storage);
+
+        /* Let's bump the min_use limit to the current usage on disk. We do
+         * this when starting up and first opening the journal files. This way
+         * sudden spikes in disk usage will not cause journald to vacuum files
+         * without bounds. Note that this means that only a restart of journald
+         * will make it reset this value. */
+
+        storage->metrics.min_use = MAX(storage->metrics.min_use, storage->space.vfs_used);
+}
+
+
+static int determine_space(Server *s, uint64_t *available, uint64_t *limit) {
         JournalStorage *js;
 
         assert(s);
 
         js = s->system_journal ? &s->system_storage : &s->runtime_storage;
-        return determine_space_for(s, js, patch_min_use, available, limit);
+        return determine_space_for(s, js, available, limit);
 }
 
 void server_space_usage_message(Server *s, JournalStorage *storage) {
@@ -210,7 +212,7 @@ void server_space_usage_message(Server *s, JournalStorage *storage) {
         if (!storage)
                 storage = s->system_journal ? &s->system_storage : &s->runtime_storage;
 
-        if (determine_space_for(s, storage, false, NULL, NULL) < 0)
+        if (determine_space_for(s, storage, NULL, NULL) < 0)
                 return;
 
         metrics = &storage->metrics;
@@ -317,7 +319,8 @@ static int system_journal_open(Server *s, bool flush_requested) {
                 r = open_journal(s, true, fn, O_RDWR|O_CREAT, s->seal, &s->system_storage.metrics, &s->system_journal);
                 if (r >= 0) {
                         server_add_acls(s->system_journal, 0);
-                        (void) determine_space_for(s, &s->system_storage, true, NULL, NULL);
+                        (void) determine_space_for(s, &s->system_storage, NULL, NULL);
+                        patch_min_use(&s->system_storage);
                 } else if (r < 0) {
                         if (r != -ENOENT && r != -EROFS)
                                 log_warning_errno(r, "Failed to open system journal: %m");
@@ -371,7 +374,8 @@ static int system_journal_open(Server *s, bool flush_requested) {
 
                 if (s->runtime_journal) {
                         server_add_acls(s->runtime_journal, 0);
-                        (void) determine_space_for(s, &s->runtime_storage, true, NULL, NULL);
+                        (void) determine_space_for(s, &s->runtime_storage, NULL, NULL);
+                        patch_min_use(&s->runtime_storage);
                 }
         }
 
@@ -521,11 +525,7 @@ void server_sync(Server *s) {
         s->sync_scheduled = false;
 }
 
-static void do_vacuum(
-                Server *s,
-                JournalStorage *storage,
-                bool verbose,
-                bool patch_min_use) {
+static void do_vacuum(Server *s, JournalStorage *storage, bool verbose) {
 
         JournalMetrics *metrics;
         uint64_t limit;
@@ -536,7 +536,7 @@ static void do_vacuum(
 
         metrics = &storage->metrics;
         limit = metrics->max_use;
-        (void) determine_space_for(s, storage, patch_min_use, NULL, &limit);
+        (void) determine_space_for(s, storage, NULL, &limit);
 
         if (verbose)
                 server_space_usage_message(s, storage);
@@ -548,7 +548,7 @@ static void do_vacuum(
         cache_space_invalidate(&storage->space);
 }
 
-int server_vacuum(Server *s, bool verbose, bool patch_min_use) {
+int server_vacuum(Server *s, bool verbose) {
         assert(s);
 
         log_debug("Vacuuming...");
@@ -556,9 +556,9 @@ int server_vacuum(Server *s, bool verbose, bool patch_min_use) {
         s->oldest_file_usec = 0;
 
         if (s->system_journal)
-                do_vacuum(s, &s->system_storage, verbose, patch_min_use);
+                do_vacuum(s, &s->system_storage, verbose);
         if (s->runtime_journal)
-                do_vacuum(s, &s->runtime_storage, verbose, patch_min_use);
+                do_vacuum(s, &s->runtime_storage, verbose);
 
         return 0;
 }
@@ -690,7 +690,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
 
         if (rotate) {
                 server_rotate(s);
-                server_vacuum(s, false, false);
+                server_vacuum(s, false);
                 vacuumed = true;
 
                 f = find_journal(s, uid);
@@ -712,7 +712,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
         }
 
         server_rotate(s);
-        server_vacuum(s, false, false);
+        server_vacuum(s, false);
 
         f = find_journal(s, uid);
         if (!f)
@@ -1179,7 +1179,7 @@ void server_dispatch_message(
                 }
         }
 
-        (void) determine_space(s, false, &available, NULL);
+        (void) determine_space(s, &available, NULL);
         rl = journal_rate_limit_test(s->rate_limit, path, priority & LOG_PRIMASK, available);
         if (rl == 0)
                 return;
@@ -1255,7 +1255,7 @@ int server_flush_to_var(Server *s) {
                 }
 
                 server_rotate(s);
-                server_vacuum(s, false, false);
+                server_vacuum(s, false);
 
                 if (!s->system_journal) {
                         log_notice("Didn't flush runtime journal since rotation of system journal wasn't successful.");
@@ -1424,7 +1424,7 @@ static int dispatch_sigusr1(sd_event_source *es, const struct signalfd_siginfo *
 
         (void) server_flush_to_var(s);
         server_sync(s);
-        server_vacuum(s, false, false);
+        server_vacuum(s, false);
 
         r = touch("/run/systemd/journal/flushed");
         if (r < 0)
@@ -1442,7 +1442,12 @@ static int dispatch_sigusr2(sd_event_source *es, const struct signalfd_siginfo *
 
         log_info("Received request to rotate journal from PID " PID_FMT, si->ssi_pid);
         server_rotate(s);
-        server_vacuum(s, true, true);
+        server_vacuum(s, true);
+
+        if (s->system_journal)
+                patch_min_use(&s->system_storage);
+        if (s->runtime_journal)
+                patch_min_use(&s->runtime_storage);
 
         /* Let clients know when the most recent rotation happened. */
         r = write_timestamp_file_atomic("/run/systemd/journal/rotated", now(CLOCK_MONOTONIC));

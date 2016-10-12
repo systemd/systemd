@@ -194,7 +194,7 @@ SplitMode split_mode_from_string(const char *s) _pure_;
 int server_init(Server *s);
 void server_done(Server *s);
 void server_sync(Server *s);
-int server_vacuum(Server *s, bool verbose, bool patch_min_use);
+int server_vacuum(Server *s, bool verbose);
 void server_rotate(Server *s);
 int server_schedule_sync(Server *s, int priority);
 int server_flush_to_var(Server *s);
