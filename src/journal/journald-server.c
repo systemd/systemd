@@ -129,11 +129,7 @@ static void cache_space_invalidate(JournalStorageSpace *space) {
         memset(space, 0, sizeof(*space));
 }
 
-static int determine_space_for(
-                Server *s,
-                JournalStorage *storage,
-                uint64_t *available,
-                uint64_t *limit) {
+static int cache_space_refresh(Server *s, JournalStorage *storage) {
 
         _cleanup_closedir_ DIR *d = NULL;
         JournalStorageSpace *space;
@@ -149,15 +145,8 @@ static int determine_space_for(
 
         ts = now(CLOCK_MONOTONIC);
 
-        if (space->timestamp + RECHECK_SPACE_USEC > ts) {
-
-                if (available)
-                        *available = space->available;
-                if (limit)
-                        *limit = space->limit;
-
+        if (space->timestamp + RECHECK_SPACE_USEC > ts)
                 return 0;
-        }
 
         r = determine_path_usage(s, storage->path, &vfs_used, &vfs_avail);
         if (r < 0)
@@ -171,12 +160,6 @@ static int determine_space_for(
         space->limit = MIN(MAX(vfs_used + avail, metrics->min_use), metrics->max_use);
         space->available = LESS_BY(space->limit, vfs_used);
         space->timestamp = ts;
-
-        if (available)
-                *available = space->available;
-        if (limit)
-                *limit = space->limit;
-
         return 1;
 }
 
@@ -195,11 +178,20 @@ static void patch_min_use(JournalStorage *storage) {
 
 static int determine_space(Server *s, uint64_t *available, uint64_t *limit) {
         JournalStorage *js;
+        int r;
 
         assert(s);
 
         js = s->system_journal ? &s->system_storage : &s->runtime_storage;
-        return determine_space_for(s, js, available, limit);
+
+        r = cache_space_refresh(s, js);
+        if (r >= 0) {
+                if (available)
+                        *available = js->space.available;
+                if (limit)
+                        *limit = js->space.limit;
+        }
+        return r;
 }
 
 void server_space_usage_message(Server *s, JournalStorage *storage) {
@@ -212,7 +204,7 @@ void server_space_usage_message(Server *s, JournalStorage *storage) {
         if (!storage)
                 storage = s->system_journal ? &s->system_storage : &s->runtime_storage;
 
-        if (determine_space_for(s, storage, NULL, NULL) < 0)
+        if (cache_space_refresh(s, storage) < 0)
                 return;
 
         metrics = &storage->metrics;
@@ -319,7 +311,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
                 r = open_journal(s, true, fn, O_RDWR|O_CREAT, s->seal, &s->system_storage.metrics, &s->system_journal);
                 if (r >= 0) {
                         server_add_acls(s->system_journal, 0);
-                        (void) determine_space_for(s, &s->system_storage, NULL, NULL);
+                        (void) cache_space_refresh(s, &s->system_storage);
                         patch_min_use(&s->system_storage);
                 } else if (r < 0) {
                         if (r != -ENOENT && r != -EROFS)
@@ -374,7 +366,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
 
                 if (s->runtime_journal) {
                         server_add_acls(s->runtime_journal, 0);
-                        (void) determine_space_for(s, &s->runtime_storage, NULL, NULL);
+                        (void) cache_space_refresh(s, &s->runtime_storage);
                         patch_min_use(&s->runtime_storage);
                 }
         }
@@ -527,21 +519,19 @@ void server_sync(Server *s) {
 
 static void do_vacuum(Server *s, JournalStorage *storage, bool verbose) {
 
-        JournalMetrics *metrics;
-        uint64_t limit;
         int r;
 
         assert(s);
         assert(storage);
 
-        metrics = &storage->metrics;
-        limit = metrics->max_use;
-        (void) determine_space_for(s, storage, NULL, &limit);
+        (void) cache_space_refresh(s, storage);
 
         if (verbose)
                 server_space_usage_message(s, storage);
 
-        r = journal_directory_vacuum(storage->path, limit, metrics->n_max_files, s->max_retention_usec, &s->oldest_file_usec,  verbose);
+        r = journal_directory_vacuum(storage->path, storage->space.limit,
+                                     storage->metrics.n_max_files, s->max_retention_usec,
+                                     &s->oldest_file_usec, verbose);
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "Failed to vacuum %s, ignoring: %m", storage->path);
 
