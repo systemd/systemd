@@ -595,32 +595,44 @@ static void server_cache_hostname(Server *s) {
 
 static bool shall_try_append_again(JournalFile *f, int r) {
         switch(r) {
+
         case -E2BIG:           /* Hit configured limit          */
         case -EFBIG:           /* Hit fs limit                  */
         case -EDQUOT:          /* Quota limit hit               */
         case -ENOSPC:          /* Disk full                     */
                 log_debug("%s: Allocation limit reached, rotating.", f->path);
                 return true;
+
         case -EIO:             /* I/O error of some kind (mmap) */
                 log_warning("%s: IO error, rotating.", f->path);
                 return true;
+
         case -EHOSTDOWN:       /* Other machine                 */
                 log_info("%s: Journal file from other machine, rotating.", f->path);
                 return true;
+
         case -EBUSY:           /* Unclean shutdown              */
                 log_info("%s: Unclean shutdown, rotating.", f->path);
                 return true;
+
         case -EPROTONOSUPPORT: /* Unsupported feature           */
                 log_info("%s: Unsupported feature, rotating.", f->path);
                 return true;
+
         case -EBADMSG:         /* Corrupted                     */
         case -ENODATA:         /* Truncated                     */
         case -ESHUTDOWN:       /* Already archived              */
                 log_warning("%s: Journal file corrupted, rotating.", f->path);
                 return true;
+
         case -EIDRM:           /* Journal file has been deleted */
                 log_warning("%s: Journal file has been deleted, rotating.", f->path);
                 return true;
+
+        case -ETXTBSY:         /* Journal file is from the future */
+                log_warning("%s: Journal file is from the future, rotateing.", f->path);
+                return true;
+
         default:
                 return false;
         }

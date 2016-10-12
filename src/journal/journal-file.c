@@ -568,8 +568,8 @@ static int journal_file_verify_header(JournalFile *f) {
                 return -ENODATA;
 
         if (f->writable) {
-                uint8_t state;
                 sd_id128_t machine_id;
+                uint8_t state;
                 int r;
 
                 r = sd_id128_get_machine(&machine_id);
@@ -589,6 +589,14 @@ static int journal_file_verify_header(JournalFile *f) {
                 else if (state != STATE_OFFLINE) {
                         log_debug("Journal file %s has unknown state %i.", f->path, state);
                         return -EBUSY;
+                }
+
+                /* Don't permit appending to files from the future. Because otherwise the realtime timestamps wouldn't
+                 * be strictly ordered in the entries in the file anymore, and we can't have that since it breaks
+                 * bisection. */
+                if (le64toh(f->header->tail_entry_realtime) > now(CLOCK_REALTIME)) {
+                        log_debug("Journal file %s is from the future, refusing to append new data to it that'd be older.", f->path);
+                        return -ETXTBSY;
                 }
         }
 
@@ -3330,7 +3338,8 @@ int journal_file_open_reliably(
                     -EBUSY,             /* unclean shutdown */
                     -ESHUTDOWN,         /* already archived */
                     -EIO,               /* IO error, including SIGBUS on mmap */
-                    -EIDRM              /* File has been deleted */))
+                    -EIDRM,             /* File has been deleted */
+                    -ETXTBSY))          /* File is from the future */
                 return r;
 
         if ((flags & O_ACCMODE) == O_RDONLY)
