@@ -1507,9 +1507,10 @@ AC_ARG_WITH([pamlibdir],
 AX_NORMALIZE_PATH([with_pamlibdir])
 
 AC_ARG_WITH([pamconfdir],
-        AS_HELP_STRING([--with-pamconfdir=DIR], [Directory for PAM configuration]),
+        AS_HELP_STRING([--with-pamconfdir=DIR], [Directory for PAM configuration (pass no to disable installing)]),
         [],
         [with_pamconfdir=${sysconfdir}/pam.d])
+AM_CONDITIONAL(ENABLE_PAM_CONFIG, [test "$with_pamconfdir" != "no"])
 AX_NORMALIZE_PATH([with_pamconfdir])
 
 AC_ARG_ENABLE([split-usr],
