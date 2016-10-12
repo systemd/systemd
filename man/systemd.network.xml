@@ -123,7 +123,10 @@
           <listitem>
             <para>A whitespace-separated list of shell-style globs
             matching the persistent path, as exposed by the udev
-            property <literal>ID_PATH</literal>.</para>
+            property <literal>ID_PATH</literal>. If the list is
+            prefixed with a "!", the test is inverted; i.e. it is
+            true when <literal>ID_PATH</literal> does not match any
+            item in the list.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -134,7 +137,8 @@
             exposed by the udev property <literal>DRIVER</literal>
             of its parent device, or if that is not set the driver
             as exposed by <literal>ethtool -i</literal> of the
-            device itself.</para>
+            device itself. If the list is prefixed with a "!", the
+            test is inverted.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -142,7 +146,8 @@
           <listitem>
             <para>A whitespace-separated list of shell-style globs
             matching the device type, as exposed by the udev property
-            <literal>DEVTYPE</literal>.</para>
+            <literal>DEVTYPE</literal>. If the list is prefixed with
+            a "!", the test is inverted.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -150,7 +155,8 @@
           <listitem>
             <para>A whitespace-separated list of shell-style globs
             matching the device name, as exposed by the udev property
-            <literal>INTERFACE</literal>.</para>
+            <literal>INTERFACE</literal>. If the list is prefixed
+            with a "!", the test is inverted.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
