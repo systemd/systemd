@@ -303,7 +303,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                                 rwm = "";
                         }
 
-                        if (!path_startswith(path, "/dev")) {
+                        if (!is_deviceallow_pattern(path)) {
                                 log_error("%s is not a device file in /dev.", path);
                                 return -EINVAL;
                         }
