@@ -175,6 +175,7 @@ struct ExecContext {
         ProtectSystem protect_system;
         ProtectHome protect_home;
         bool protect_kernel_tunables;
+        bool protect_kernel_modules;
         bool protect_control_groups;
 
         bool no_new_privileges;

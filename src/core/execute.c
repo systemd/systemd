@@ -1436,6 +1436,50 @@ finish:
         return r;
 }
 
+static int apply_protect_kernel_modules(Unit *u, const ExecContext *c) {
+        static const int module_syscalls[] = {
+                SCMP_SYS(delete_module),
+                SCMP_SYS(finit_module),
+                SCMP_SYS(init_module),
+        };
+
+        scmp_filter_ctx *seccomp;
+        unsigned i;
+        int r;
+
+        assert(c);
+
+        /* Turn of module syscalls on ProtectKernelModules=yes */
+
+        if (skip_seccomp_unavailable(u, "ProtectKernelModules="))
+                return 0;
+
+        seccomp = seccomp_init(SCMP_ACT_ALLOW);
+        if (!seccomp)
+                return -ENOMEM;
+
+        r = seccomp_add_secondary_archs(seccomp);
+        if (r < 0)
+                goto finish;
+
+        for (i = 0; i < ELEMENTSOF(module_syscalls); i++) {
+                r = seccomp_rule_add(seccomp, SCMP_ACT_ERRNO(EPERM),
+                                     module_syscalls[i], 0);
+                if (r < 0)
+                        goto finish;
+        }
+
+        r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
+        if (r < 0)
+                goto finish;
+
+        r = seccomp_load(seccomp);
+
+finish:
+        seccomp_release(seccomp);
+        return r;
+}
+
 static int apply_private_devices(Unit *u, const ExecContext *c) {
         const SystemCallFilterSet *set;
         scmp_filter_ctx *seccomp;
@@ -2684,6 +2728,14 @@ static int exec_child(
 
                 if (context->protect_kernel_tunables) {
                         r = apply_protect_sysctl(unit, context);
+                        if (r < 0) {
+                                *exit_status = EXIT_SECCOMP;
+                                return r;
+                        }
+                }
+
+                if (context->protect_kernel_modules) {
+                        r = apply_protect_kernel_modules(unit, context);
                         if (r < 0) {
                                 *exit_status = EXIT_SECCOMP;
                                 return r;
