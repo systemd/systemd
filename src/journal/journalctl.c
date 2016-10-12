@@ -2266,7 +2266,7 @@ int main(int argc, char *argv[]) {
                 if (r < 0)
                         goto finish;
 
-                printf("Archived and active journals take up %s on disk.\n",
+                printf("Archived and active journals take up %s in the file system.\n",
                        format_bytes(sbytes, sizeof(sbytes), bytes));
                 goto finish;
         }
