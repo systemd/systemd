@@ -343,7 +343,7 @@ finish:
                 free(list[i].filename);
         free(list);
 
-        log_full(verbose ? LOG_INFO : LOG_DEBUG, "Vacuuming done, freed %s of archived journals on disk.", format_bytes(sbytes, sizeof(sbytes), freed));
+        log_full(verbose ? LOG_INFO : LOG_DEBUG, "Vacuuming done, freed %s of archived journals from %s.", format_bytes(sbytes, sizeof(sbytes), freed), directory);
 
         return r;
 }
