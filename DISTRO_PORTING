@@ -48,6 +48,9 @@ PAM:
         /etc/security/limits.conf will not be read unless you load pam_limits.
         Make sure you add modules your distro expects from user services.
 
+        Pass --with-pamconfdir=no to ./configure to avoid installing this file
+        and instead install your own.
+
 CONTRIBUTING UPSTREAM:
 
         We generally do no longer accept distribution-specific
