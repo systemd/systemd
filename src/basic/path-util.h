@@ -125,5 +125,6 @@ char *file_in_same_dir(const char *path, const char *filename);
 bool hidden_or_backup_file(const char *filename) _pure_;
 
 bool is_device_path(const char *path);
+bool is_deviceallow_pattern(const char *path);
 
 int systemd_installation_has_version(const char *root, unsigned minimal_version);

@@ -3084,9 +3084,7 @@ int config_parse_device_allow(
         if (!path)
                 return log_oom();
 
-        if (!startswith(path, "/dev/") &&
-            !startswith(path, "block-") &&
-            !startswith(path, "char-")) {
+        if (!is_deviceallow_pattern(path)) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s'. Ignoring.", path);
                 return 0;
         }
