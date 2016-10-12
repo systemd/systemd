@@ -1316,14 +1316,10 @@ static int setup_resolv_conf(const char *dest) {
                  * advantage that the container will be able to follow the host's DNS server configuration changes
                  * transparently. */
 
-                if (mount("/usr/lib/systemd/resolv.conf", where, NULL, MS_BIND, NULL) < 0)
-                        log_warning_errno(errno, "Failed to mount /etc/resolv.conf in the container, ignoring: %m");
-                else {
-                        if (mount(NULL, where, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL) < 0)
-                                return log_error_errno(errno, "Failed to remount /etc/resolv.conf read-only: %m");
-
-                        return 0;
-                }
+                r = mount_verbose(LOG_WARNING, "/usr/lib/systemd/resolv.conf", where, NULL, MS_BIND, NULL);
+                if (r >= 0)
+                        return mount_verbose(LOG_ERR, NULL, where, NULL,
+                                             MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL);
         }
 
         /* If that didn't work, let's copy the file */
@@ -1365,10 +1361,10 @@ static int setup_boot_id(const char *dest) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write boot id: %m");
 
-        if (mount(from, to, NULL, MS_BIND, NULL) < 0)
-                r = log_error_errno(errno, "Failed to bind mount boot id: %m");
-        else if (mount(NULL, to, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL) < 0)
-                r = log_error_errno(errno, "Failed to make boot id read-only: %m");
+        r = mount_verbose(LOG_ERR, from, to, NULL, MS_BIND, NULL);
+        if (r >= 0)
+                r = mount_verbose(LOG_ERR, NULL, to, NULL,
+                                  MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL);
 
         (void) unlink(from);
         return r;
@@ -1430,8 +1426,9 @@ static int copy_devnodes(const char *dest) {
                                 r = touch(to);
                                 if (r < 0)
                                         return log_error_errno(r, "touch (%s) failed: %m", to);
-                                if (mount(from, to, NULL, MS_BIND, NULL) < 0)
-                                        return log_error_errno(errno, "Both mknod and bind mount (%s) failed: %m", to);
+                                r = mount_verbose(LOG_DEBUG, from, to, NULL, MS_BIND, NULL);
+                                if (r < 0)
+                                        return log_error_errno(r, "Both mknod and bind mount (%s) failed: %m", to);
                         }
 
                         r = userns_lchown(to, 0, 0);
@@ -1467,8 +1464,9 @@ static int setup_pts(const char *dest) {
         p = prefix_roota(dest, "/dev/pts");
         if (mkdir(p, 0755) < 0)
                 return log_error_errno(errno, "Failed to create /dev/pts: %m");
-        if (mount("devpts", p, "devpts", MS_NOSUID|MS_NOEXEC, options) < 0)
-                return log_error_errno(errno, "Failed to mount /dev/pts: %m");
+        r = mount_verbose(LOG_ERR, "devpts", p, "devpts", MS_NOSUID|MS_NOEXEC, options);
+        if (r < 0)
+                return r;
         r = userns_lchown(p, 0, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to chown /dev/pts: %m");
@@ -1513,10 +1511,7 @@ static int setup_dev_console(const char *dest, const char *console) {
         if (r < 0)
                 return log_error_errno(r, "touch() for /dev/console failed: %m");
 
-        if (mount(console, to, NULL, MS_BIND, NULL) < 0)
-                return log_error_errno(errno, "Bind mount for /dev/console failed: %m");
-
-        return 0;
+        return mount_verbose(LOG_ERR, console, to, NULL, MS_BIND, NULL);
 }
 
 static int setup_kmsg(const char *dest, int kmsg_socket) {
@@ -1540,8 +1535,9 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
 
         if (mkfifo(from, 0600) < 0)
                 return log_error_errno(errno, "mkfifo() for /run/kmsg failed: %m");
-        if (mount(from, to, NULL, MS_BIND, NULL) < 0)
-                return log_error_errno(errno, "Bind mount for /proc/kmsg failed: %m");
+        r = mount_verbose(LOG_ERR, from, to, NULL, MS_BIND, NULL);
+        if (r < 0)
+                return r;
 
         fd = open(from, O_RDWR|O_NDELAY|O_CLOEXEC);
         if (fd < 0)
@@ -1711,7 +1707,8 @@ static int setup_journal(const char *directory) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create %s: %m", q);
 
-        if (mount(p, q, NULL, MS_BIND, NULL) < 0)
+        r = mount_verbose(LOG_DEBUG, p, q, NULL, MS_BIND, NULL);
+        if (r < 0)
                 return log_error_errno(errno, "Failed to bind mount journal from host into guest: %m");
 
         return 0;
@@ -1776,18 +1773,17 @@ static int setup_propagate(const char *root) {
                 return log_error_errno(r, "Failed to create /run/systemd/nspawn/incoming: %m");
 
         q = prefix_roota(root, "/run/systemd/nspawn/incoming");
-        if (mount(p, q, NULL, MS_BIND, NULL) < 0)
-                return log_error_errno(errno, "Failed to install propagation bind mount.");
+        r = mount_verbose(LOG_ERR, p, q, NULL, MS_BIND, NULL);
+        if (r < 0)
+                return r;
 
-        if (mount(NULL, q, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, NULL) < 0)
-                return log_error_errno(errno, "Failed to make propagation mount read-only");
+        r = mount_verbose(LOG_ERR, NULL, q, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
+        if (r < 0)
+                return r;
 
         /* machined will MS_MOVE into that directory, and that's only
          * supported for non-shared mounts. */
-        if (mount(NULL, q, NULL, MS_SLAVE, NULL) < 0)
-                return log_error_errno(errno, "Failed to make propagation mount slave");
-
-        return 0;
+        return mount_verbose(LOG_ERR, NULL, q, NULL, MS_SLAVE, NULL);
 }
 
 static int setup_image(char **device_path, int *loop_nr) {
@@ -2313,10 +2309,7 @@ static int mount_device(const char *what, const char *where, const char *directo
                 return -EOPNOTSUPP;
         }
 
-        if (mount(what, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), NULL) < 0)
-                return log_error_errno(errno, "Failed to mount %s: %m", what);
-
-        return 0;
+        return mount_verbose(LOG_ERR, what, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), NULL);
 #else
         log_error("--image= is not supported, compiled without blkid support.");
         return -EOPNOTSUPP;
@@ -2724,7 +2717,7 @@ static int inner_child(
                                 arg_uid_shift,
                                 arg_uid_range,
                                 arg_selinux_apifs_context,
-                                arg_use_cgns);
+                                true);
                 if (r < 0)
                         return r;
         } else {
@@ -2976,8 +2969,9 @@ static int outer_child(
         /* Mark everything as slave, so that we still
          * receive mounts from the real root, but don't
          * propagate mounts to the real root. */
-        if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
-                return log_error_errno(errno, "MS_SLAVE|MS_REC failed: %m");
+        r = mount_verbose(LOG_ERR, NULL, "/", NULL, MS_SLAVE|MS_REC, NULL);
+        if (r < 0)
+                return r;
 
         r = mount_devices(directory,
                           root_device, root_device_rw,
@@ -3023,8 +3017,9 @@ static int outer_child(
         }
 
         /* Turn directory into bind mount */
-        if (mount(directory, directory, NULL, MS_BIND|MS_REC, NULL) < 0)
-                return log_error_errno(errno, "Failed to make bind mount: %m");
+        r = mount_verbose(LOG_ERR, directory, directory, NULL, MS_BIND|MS_REC, NULL);
+        if (r < 0)
+                return r;
 
         /* Mark everything as shared so our mounts get propagated down. This is
          * required to make new bind mounts available in systemd services
@@ -3032,8 +3027,9 @@ static int outer_child(
          * See https://github.com/systemd/systemd/issues/3860
          * Further submounts (such as /dev) done after this will inherit the
          * shared propagation mode.*/
-        if (mount(NULL, directory, NULL, MS_SHARED|MS_REC, NULL) < 0)
-                return log_error_errno(errno, "MS_SHARED|MS_REC failed: %m");
+        r = mount_verbose(LOG_ERR, NULL, directory, NULL, MS_SHARED|MS_REC, NULL);
+        if (r < 0)
+                return r;
 
         r = recursive_chown(directory, arg_uid_shift, arg_uid_range);
         if (r < 0)
@@ -3136,7 +3132,7 @@ static int outer_child(
                                 arg_uid_shift,
                                 arg_uid_range,
                                 arg_selinux_apifs_context,
-                                arg_use_cgns);
+                                false);
                 if (r < 0)
                         return r;
         }
