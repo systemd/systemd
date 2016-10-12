@@ -765,6 +765,10 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         o = (Object*) t;
         s = le64toh(o->object.size);
 
+        if (s == 0) {
+                log_debug("Attempt to move to uninitialized object: %" PRIu64, offset);
+                return -EBADMSG;
+        }
         if (s < sizeof(ObjectHeader)) {
                 log_debug("Attempt to move to overly short object: %" PRIu64, offset);
                 return -EBADMSG;
