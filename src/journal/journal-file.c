@@ -2484,6 +2484,25 @@ int journal_file_compare_locations(JournalFile *af, JournalFile *bf) {
         return 0;
 }
 
+static int bump_array_index(uint64_t *i, direction_t direction, uint64_t n) {
+
+        /* Increase or decrease the specified index, in the right direction. */
+
+        if (direction == DIRECTION_DOWN) {
+                if (*i >= n - 1)
+                        return 0;
+
+                (*i) ++;
+        } else {
+                if (*i <= 0)
+                        return 0;
+
+                (*i) --;
+        }
+
+        return 1;
+}
+
 int journal_file_next_entry(
                 JournalFile *f,
                 uint64_t p,
@@ -2514,17 +2533,9 @@ int journal_file_next_entry(
                 if (r <= 0)
                         return r;
 
-                if (direction == DIRECTION_DOWN) {
-                        if (i >= n - 1)
-                                return 0;
-
-                        i++;
-                } else {
-                        if (i <= 0)
-                                return 0;
-
-                        i--;
-                }
+                r = bump_array_index(&i, direction, n);
+                if (r <= 0)
+                        return r;
         }
 
         /* And jump to it */
@@ -2594,18 +2605,9 @@ int journal_file_next_entry_for_data(
                 if (r <= 0)
                         return r;
 
-                if (direction == DIRECTION_DOWN) {
-                        if (i >= n - 1)
-                                return 0;
-
-                        i++;
-                } else {
-                        if (i <= 0)
-                                return 0;
-
-                        i--;
-                }
-
+                r = bump_array_index(&i, direction, n);
+                if (r <= 0)
+                        return r;
         }
 
         return generic_array_get_plus_one(f,
