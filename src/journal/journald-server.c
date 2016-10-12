@@ -132,31 +132,38 @@ static int determine_space_for(
                 uint64_t *available,
                 uint64_t *limit) {
 
-        uint64_t sum, avail, ss_avail;
         _cleanup_closedir_ DIR *d = NULL;
+        JournalStorageSpace *space;
         JournalMetrics *metrics;
+        uint64_t vfs_used, vfs_avail, avail;
         usec_t ts;
         int r;
 
         assert(s);
 
         metrics = &storage->metrics;
+        space = &storage->space;
 
         ts = now(CLOCK_MONOTONIC);
 
-        if (storage->space.timestamp + RECHECK_SPACE_USEC > ts) {
+        if (space->timestamp + RECHECK_SPACE_USEC > ts) {
 
                 if (available)
-                        *available = storage->space.available;
+                        *available = space->available;
                 if (limit)
-                        *limit = storage->space.limit;
+                        *limit = space->limit;
 
                 return 0;
         }
 
-        r = determine_path_usage(s, storage->path, &sum, &ss_avail);
+        r = determine_path_usage(s, storage->path, &vfs_used, &vfs_avail);
         if (r < 0)
                 return r;
+
+        space->vfs_used = vfs_used;
+        space->vfs_available = vfs_avail;
+
+        avail = LESS_BY(vfs_avail, metrics->keep_free);
 
         /* If requested, then let's bump the min_use limit to the
          * current usage on disk. We do this when starting up and
@@ -166,18 +173,16 @@ static int determine_space_for(
          * journald will make it reset this value. */
 
         if (patch_min_use)
-                metrics->min_use = MAX(metrics->min_use, sum);
+                metrics->min_use = MAX(metrics->min_use, vfs_used);
 
-        avail = LESS_BY(ss_avail, metrics->keep_free);
-
-        storage->space.limit = MIN(MAX(sum + avail, metrics->min_use), metrics->max_use);
-        storage->space.available = LESS_BY(storage->space.limit, sum);
-        storage->space.timestamp = ts;
+        space->limit = MIN(MAX(vfs_used + avail, metrics->min_use), metrics->max_use);
+        space->available = LESS_BY(space->limit, vfs_used);
+        space->timestamp = ts;
 
         if (available)
-                *available = storage->space.available;
+                *available = space->available;
         if (limit)
-                *limit = storage->space.limit;
+                *limit = space->limit;
 
         return 1;
 }
@@ -195,21 +200,20 @@ void server_space_usage_message(Server *s, JournalStorage *storage) {
         char fb1[FORMAT_BYTES_MAX], fb2[FORMAT_BYTES_MAX], fb3[FORMAT_BYTES_MAX],
              fb4[FORMAT_BYTES_MAX], fb5[FORMAT_BYTES_MAX], fb6[FORMAT_BYTES_MAX];
         JournalMetrics *metrics;
-        uint64_t used, avail;
 
         assert(s);
 
         if (!storage)
                 storage = s->system_journal ? &s->system_storage : &s->runtime_storage;
 
-        if (determine_path_usage(s, storage->path, &used, &avail) < 0)
+        if (determine_space_for(s, storage, false, NULL, NULL) < 0)
                 return;
 
         metrics = &storage->metrics;
-        format_bytes(fb1, sizeof(fb1), used);
+        format_bytes(fb1, sizeof(fb1), storage->space.vfs_used);
         format_bytes(fb2, sizeof(fb2), metrics->max_use);
         format_bytes(fb3, sizeof(fb3), metrics->keep_free);
-        format_bytes(fb4, sizeof(fb4), avail);
+        format_bytes(fb4, sizeof(fb4), storage->space.vfs_available);
         format_bytes(fb5, sizeof(fb5), storage->space.limit);
         format_bytes(fb6, sizeof(fb6), storage->space.available);
 
@@ -218,13 +222,13 @@ void server_space_usage_message(Server *s, JournalStorage *storage) {
                                           storage->name, storage->path, fb1, fb5, fb6),
                               "JOURNAL_NAME=%s", storage->name,
                               "JOURNAL_PATH=%s", storage->path,
-                              "CURRENT_USE=%"PRIu64, used,
+                              "CURRENT_USE=%"PRIu64, storage->space.vfs_used,
                               "CURRENT_USE_PRETTY=%s", fb1,
                               "MAX_USE=%"PRIu64, metrics->max_use,
                               "MAX_USE_PRETTY=%s", fb2,
                               "DISK_KEEP_FREE=%"PRIu64, metrics->keep_free,
                               "DISK_KEEP_FREE_PRETTY=%s", fb3,
-                              "DISK_AVAILABLE=%"PRIu64, avail,
+                              "DISK_AVAILABLE=%"PRIu64, storage->space.vfs_available,
                               "DISK_AVAILABLE_PRETTY=%s", fb4,
                               "LIMIT=%"PRIu64, storage->space.limit,
                               "LIMIT_PRETTY=%s", fb5,
@@ -540,6 +544,8 @@ static void do_vacuum(
         storage->space.limit = 0;
         storage->space.available = 0;
         storage->space.timestamp = 0;
+        storage->space.vfs_used = 0;
+        storage->space.vfs_available = 0;
 }
 
 int server_vacuum(Server *s, bool verbose, bool patch_min_use) {

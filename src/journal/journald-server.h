@@ -50,9 +50,13 @@ typedef enum SplitMode {
 } SplitMode;
 
 typedef struct JournalStorageSpace {
+        usec_t   timestamp;
+
         uint64_t available;
         uint64_t limit;
-        usec_t   timestamp;
+
+        uint64_t vfs_used; /* space used by journal files */
+        uint64_t vfs_available;
 } JournalStorageSpace;
 
 typedef struct JournalStorage {
