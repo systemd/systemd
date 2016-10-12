@@ -589,7 +589,7 @@ static int get_mount_namespace_leader(pid_t pid, pid_t *container_pid) {
         if (r < 0)
                 return r;
 
-        while (1) {
+        for (;;) {
                 ino_t parent_mntns;
 
                 r = get_process_ppid(cpid, &ppid);
