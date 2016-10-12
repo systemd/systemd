@@ -208,9 +208,9 @@ static int font_load_and_wait(const char *vc, const char *font, const char *map,
  */
 static void setup_remaining_vcs(int fd, bool utf8) {
         struct console_font_op cfo = {
-                .op = KD_FONT_OP_GET, .flags = 0,
-                .width = 32, .height = 32,
-                .charcount = 512,
+                .op = KD_FONT_OP_GET,
+                .width = UINT_MAX, .height = UINT_MAX,
+                .charcount = UINT_MAX,
         };
         struct vt_stat vcs = {};
         struct unimapinit adv = {};
@@ -225,12 +225,6 @@ static void setup_remaining_vcs(int fd, bool utf8) {
                 return;
         }
 
-        fontbuf = malloc(cfo.width * cfo.height * cfo.charcount / 8);
-        if (!fontbuf) {
-                log_oom();
-                return;
-        }
-
         /* get active, and 16 bit mask of used VT numbers */
         r = ioctl(fd, VT_GETSTATE, &vcs);
         if (r < 0) {
@@ -238,19 +232,46 @@ static void setup_remaining_vcs(int fd, bool utf8) {
                 return;
         }
 
-        /* get fonts from source console */
-        cfo.data = fontbuf;
+        /* get metadata of the current font (width, height, count) */
         r = ioctl(fd, KDFONTOP, &cfo);
         if (r < 0)
-                log_warning_errno(errno, "KD_FONT_OP_GET failed, fonts will not be copied: %m");
+                log_warning_errno(errno, "KD_FONT_OP_GET failed while trying to get the font metadata: %m");
         else {
-                unimapd.entries  = unipairs;
-                unimapd.entry_ct = USHRT_MAX;
-                r = ioctl(fd, GIO_UNIMAP, &unimapd);
-                if (r < 0)
-                        log_warning_errno(errno, "GIO_UNIMAP failed, fonts will not be copied: %m");
-                else
-                        cfo.op = KD_FONT_OP_SET;
+                /* sanitize parameters first */
+                if (cfo.width > 32 || cfo.height > 32 || cfo.charcount > 512)
+                        log_warning("Invalid font metadata - width: %u (max 32), height: %u (max 32), count: %u (max 512)",
+                                        cfo.width, cfo.height, cfo.charcount);
+                else {
+                        /*
+                         * Console fonts supported by the kernel are limited in size to 32 x 32 and maximum 512
+                         * characters. Thus with 1 bit per pixel it requires up to 65536 bytes. The height always
+                         * requries 32 per glyph, regardless of the actual height - see the comment above #define
+                         * max_font_size 65536 in drivers/tty/vt/vt.c for more details.
+                         */
+                        fontbuf = malloc((cfo.width + 7) / 8 * 32 * cfo.charcount);
+                        if (!fontbuf) {
+                                log_oom();
+                                return;
+                        }
+                        /* get fonts from source console */
+                        cfo.data = fontbuf;
+                        r = ioctl(fd, KDFONTOP, &cfo);
+                        if (r < 0)
+                                log_warning_errno(errno, "KD_FONT_OP_GET failed while trying to read the font data: %m");
+                        else {
+                                unimapd.entries  = unipairs;
+                                unimapd.entry_ct = USHRT_MAX;
+                                r = ioctl(fd, GIO_UNIMAP, &unimapd);
+                                if (r < 0)
+                                        log_warning_errno(errno, "GIO_UNIMAP failed while trying to read unicode mappings: %m");
+                                else
+                                        cfo.op = KD_FONT_OP_SET;
+                        }
+                }
+        }
+
+        if (cfo.op != KD_FONT_OP_SET) {
+                log_warning("Fonts will not be copied to remaining consoles");
         }
 
         for (i = 1; i <= 63; i++) {
