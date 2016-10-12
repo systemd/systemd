@@ -2503,6 +2503,18 @@ static int bump_array_index(uint64_t *i, direction_t direction, uint64_t n) {
         return 1;
 }
 
+static bool check_properly_ordered(uint64_t new_offset, uint64_t old_offset, direction_t direction) {
+
+        /* Consider it an error if any of the two offsets is uninitialized */
+        if (old_offset == 0 || new_offset == 0)
+                return false;
+
+        /* If we go down, the new offset must be larger than the old one. */
+        return direction == DIRECTION_DOWN ?
+                new_offset > old_offset  :
+                new_offset < old_offset;
+}
+
 int journal_file_next_entry(
                 JournalFile *f,
                 uint64_t p,
@@ -2552,9 +2564,9 @@ int journal_file_next_entry(
         if (r <= 0)
                 return r;
 
-        if (p > 0 &&
-            (direction == DIRECTION_DOWN ? ofs <= p : ofs >= p)) {
-                log_debug("%s: entry array corrupted at entry %" PRIu64, f->path, i);
+        /* Ensure our array is properly ordered. */
+        if (p > 0 && !check_properly_ordered(ofs, p, direction)) {
+                log_debug("%s: entry array not properly ordered at entry %" PRIu64, f->path, i);
                 return -EBADMSG;
         }
 
