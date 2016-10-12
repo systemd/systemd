@@ -125,6 +125,10 @@ static int determine_path_usage(Server *s, const char *path, uint64_t *ret_used,
         return 0;
 }
 
+static void cache_space_invalidate(JournalStorageSpace *space) {
+        memset(space, 0, sizeof(*space));
+}
+
 static int determine_space_for(
                 Server *s,
                 JournalStorage *storage,
@@ -541,11 +545,7 @@ static void do_vacuum(
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "Failed to vacuum %s, ignoring: %m", storage->path);
 
-        storage->space.limit = 0;
-        storage->space.available = 0;
-        storage->space.timestamp = 0;
-        storage->space.vfs_used = 0;
-        storage->space.vfs_available = 0;
+        cache_space_invalidate(&storage->space);
 }
 
 int server_vacuum(Server *s, bool verbose, bool patch_min_use) {
