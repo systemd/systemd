@@ -627,8 +627,8 @@ static bool shall_try_append_again(JournalFile *f, int r) {
 }
 
 static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned n, int priority) {
+        bool vacuumed = false, rotate = false;
         struct dual_timestamp ts;
-        bool vacuumed = false;
         JournalFile *f;
         int r;
 
@@ -642,12 +642,27 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
         assert_se(sd_event_now(s->event, CLOCK_REALTIME, &ts.realtime) >= 0);
         assert_se(sd_event_now(s->event, CLOCK_MONOTONIC, &ts.monotonic) >= 0);
 
-        f = find_journal(s, uid);
-        if (!f)
-                return;
+        if (ts.realtime < s->last_realtime_clock) {
+                /* When the time jumps backwards, let's immediately rotate. Of course, this should not happen during
+                 * regular operation. However, when it does happen, then we should make sure that we start fresh files
+                 * to ensure that the entries in the journal files are strictly ordered by time, in order to ensure
+                 * bisection works correctly. */
 
-        if (journal_file_rotate_suggested(f, s->max_file_usec)) {
-                log_debug("%s: Journal header limits reached or header out-of-date, rotating.", f->path);
+                log_debug("Time jumped backwards, rotating.");
+                rotate = true;
+        } else {
+
+                f = find_journal(s, uid);
+                if (!f)
+                        return;
+
+                if (journal_file_rotate_suggested(f, s->max_file_usec)) {
+                        log_debug("%s: Journal header limits reached or header out-of-date, rotating.", f->path);
+                        rotate = true;
+                }
+        }
+
+        if (rotate) {
                 server_rotate(s);
                 server_vacuum(s, false, false);
                 vacuumed = true;
@@ -656,6 +671,8 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                 if (!f)
                         return;
         }
+
+        s->last_realtime_clock = ts.realtime;
 
         r = journal_file_append_entry(f, &ts, iovec, n, &s->seqnum, NULL, NULL);
         if (r >= 0) {

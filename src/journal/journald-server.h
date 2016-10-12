@@ -149,6 +149,8 @@ struct Server {
         char *cgroup_root;
 
         usec_t watchdog_usec;
+
+        usec_t last_realtime_clock;
 };
 
 #define SERVER_MACHINE_ID(s) ((s)->machine_id_field + strlen("_MACHINE_ID="))
