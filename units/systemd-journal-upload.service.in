@@ -8,7 +8,8 @@
 [Unit]
 Description=Journal Remote Upload Service
 Documentation=man:systemd-journal-upload(8)
-After=network.target
+Wants=network-online.target
+After=network-online.target
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-journal-upload --save-state
