@@ -627,13 +627,20 @@ static bool shall_try_append_again(JournalFile *f, int r) {
 }
 
 static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned n, int priority) {
-        JournalFile *f;
+        struct dual_timestamp ts;
         bool vacuumed = false;
+        JournalFile *f;
         int r;
 
         assert(s);
         assert(iovec);
         assert(n > 0);
+
+        /* Get the closest, linearized time we have for this log event from the event loop. (Note that we do not use
+         * the source time, and not even the time the event was originally seen, but instead simply the time we started
+         * processing it, as we want strictly linear ordering in what we write out.) */
+        assert_se(sd_event_now(s->event, CLOCK_REALTIME, &ts.realtime) >= 0);
+        assert_se(sd_event_now(s->event, CLOCK_MONOTONIC, &ts.monotonic) >= 0);
 
         f = find_journal(s, uid);
         if (!f)
@@ -650,7 +657,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                         return;
         }
 
-        r = journal_file_append_entry(f, NULL, iovec, n, &s->seqnum, NULL, NULL);
+        r = journal_file_append_entry(f, &ts, iovec, n, &s->seqnum, NULL, NULL);
         if (r >= 0) {
                 server_schedule_sync(s, priority);
                 return;
@@ -669,7 +676,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                 return;
 
         log_debug("Retrying write.");
-        r = journal_file_append_entry(f, NULL, iovec, n, &s->seqnum, NULL, NULL);
+        r = journal_file_append_entry(f, &ts, iovec, n, &s->seqnum, NULL, NULL);
         if (r < 0)
                 log_error_errno(r, "Failed to write entry (%d items, %zu bytes) despite vacuuming, ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
         else
