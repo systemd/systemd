@@ -1766,6 +1766,7 @@ static bool exec_needs_mount_namespace(
             context->protect_system != PROTECT_SYSTEM_NO ||
             context->protect_home != PROTECT_HOME_NO ||
             context->protect_kernel_tunables ||
+            context->protect_kernel_modules ||
             context->protect_control_groups)
                 return true;
 
@@ -2493,6 +2494,12 @@ static int exec_child(
         if (needs_mount_namespace) {
                 _cleanup_free_ char **rw = NULL;
                 char *tmp = NULL, *var = NULL;
+                NameSpaceInfo ns_info = {
+                        .private_dev = context->private_devices,
+                        .protect_control_groups = context->protect_control_groups,
+                        .protect_kernel_tunables = context->protect_kernel_tunables,
+                        .protect_kernel_modules = context->protect_kernel_modules,
+                };
 
                 /* The runtime struct only contains the parent
                  * of the private /tmp, which is
@@ -2515,14 +2522,12 @@ static int exec_child(
 
                 r = setup_namespace(
                                 (params->flags & EXEC_APPLY_CHROOT) ? context->root_directory : NULL,
+                                &ns_info,
                                 rw,
                                 context->read_only_paths,
                                 context->inaccessible_paths,
                                 tmp,
                                 var,
-                                context->private_devices,
-                                context->protect_kernel_tunables,
-                                context->protect_control_groups,
                                 context->protect_home,
                                 context->protect_system,
                                 context->mount_flags);
