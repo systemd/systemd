@@ -107,7 +107,7 @@
     <citerefentry><refentrytitle>systemd-sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     </para>
 
-    <para>The behaviour of <command>systemd-coredump</command> itself is configured through the configuration file
+    <para>The behavior of <command>systemd-coredump</command> itself is configured through the configuration file
     <filename>/etc/systemd/coredump.conf</filename> and corresponding snippets
     <filename>/etc/systemd/coredump.conf.d/*.conf</filename>, see
     <citerefentry><refentrytitle>coredump.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. A new

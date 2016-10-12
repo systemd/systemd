@@ -97,7 +97,7 @@
     iteration a single event source is dispatched. Each time an event
     source is dispatched the kernel is polled for new events, before
     the next event source is dispatched. The event loop is designed to
-    honour priorities and provide fairness within each priority. It is
+    honor priorities and provide fairness within each priority. It is
     not designed to provide optimal throughput, as this contradicts
     these goals due the limitations of the underlying <citerefentry
     project='man-pages'><refentrytitle>epoll</refentrytitle><manvolnum>7</manvolnum></citerefentry>
