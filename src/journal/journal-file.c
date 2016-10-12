@@ -2583,7 +2583,7 @@ int journal_file_next_entry_for_data(
                 direction_t direction,
                 Object **ret, uint64_t *offset) {
 
-        uint64_t n, i;
+        uint64_t i, n, ofs;
         int r;
         Object *d;
 
@@ -2622,11 +2622,24 @@ int journal_file_next_entry_for_data(
                         return r;
         }
 
-        return generic_array_get_plus_one(f,
-                                          le64toh(d->data.entry_offset),
-                                          le64toh(d->data.entry_array_offset),
-                                          i,
-                                          ret, offset);
+        r = generic_array_get_plus_one(f,
+                                       le64toh(d->data.entry_offset),
+                                       le64toh(d->data.entry_array_offset),
+                                       i,
+                                       ret, &ofs);
+        if (r <= 0)
+                return r;
+
+        /* Ensure our array is properly ordered. */
+        if (p > 0 && check_properly_ordered(ofs, p, direction)) {
+                log_debug("%s data entry array not properly ordered at entry %" PRIu64, f->path, i);
+                return -EBADMSG;
+        }
+
+        if (offset)
+                *offset = ofs;
+
+        return 1;
 }
 
 int journal_file_move_to_entry_by_offset_for_data(
