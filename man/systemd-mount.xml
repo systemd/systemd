@@ -260,7 +260,7 @@
   <refsect1>
     <title>The udev Database</title>
 
-    <para>If <option>--discover</option> is used, <command>systemd-mount</command> honours a couple of additional udev
+    <para>If <option>--discover</option> is used, <command>systemd-mount</command> honors a couple of additional udev
     properties of block devices:</para>
 
     <variablelist class='udev-directives'>

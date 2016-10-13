@@ -115,7 +115,7 @@
     reliable. However, it is guaranteed that if events are seen on
     multiple same-priority event sources at the same time, each one is
     not dispatched again until all others have been dispatched
-    once. This behaviour guarantees that within each priority
+    once. This behavior guarantees that within each priority
     particular event sources do not starve or dominate the event
     loop.</para>
 

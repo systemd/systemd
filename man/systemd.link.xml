@@ -107,7 +107,7 @@
         <listitem>
           <para>A whitespace-separated list of shell-style globs matching
           the device name, as exposed by the udev property
-          "INTERFACE". This can not be used to match on names that have
+          "INTERFACE". This cannot be used to match on names that have
           already been changed from userspace. Caution is advised when matching on
           kernel-assigned names, as they are known to be unstable
           between reboots.</para>

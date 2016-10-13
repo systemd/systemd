@@ -402,7 +402,7 @@ There is a screen on:
       when the user first logs in, and stays around as long as at least one
       login session is open. After the user logs out of the last session,
       <filename>user@.service</filename> and all services underneath it
-      are terminated. This behaviour is the default, when "lingering" is
+      are terminated. This behavior is the default, when "lingering" is
       not enabled for that user. Enabling lingering means that
       <filename>user@.service</filename> is started automatically during
       boot, even if the user is not logged in, and that the service is

@@ -261,7 +261,7 @@
         <listitem><para>Controls whether actions that <command>systemd-logind</command>
         takes when the power and sleep keys and the lid switch are triggered are subject
         to high-level inhibitor locks ("shutdown", "sleep", "idle"). Low level inhibitor
-        locks ("handle-*-key"), are always honoured, irrespective of this setting.</para>
+        locks ("handle-*-key"), are always honored, irrespective of this setting.</para>
 
         <para>These settings take boolean arguments. If <literal>no</literal>, the
         inhibitor locks taken by applications are respected. If <literal>yes</literal>,

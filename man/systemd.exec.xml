@@ -988,7 +988,7 @@
         the unit's own user and group to themselves and everything else to the <literal>nobody</literal> user and
         group. This is useful to securely detach the user and group databases used by the unit from the rest of the
         system, and thus to create an effective sandbox environment. All files, directories, processes, IPC objects and
-        other resources owned by users/groups not equalling <literal>root</literal> or the unit's own will stay visible
+        other resources owned by users/groups not equaling <literal>root</literal> or the unit's own will stay visible
         from within the unit but appear owned by the <literal>nobody</literal> user and group. If this mode is enabled,
         all unit processes are run without privileges in the host user namespace (regardless if the unit's own
         user/group is <literal>root</literal> or not). Specifically this means that the process will have zero process
@@ -1560,7 +1560,7 @@
       <varlistentry>
         <term><varname>$MAINPID</varname></term>
 
-        <listitem><para>The PID of the units main process if it is
+        <listitem><para>The PID of the unit's main process if it is
         known. This is only set for control processes as invoked by
         <varname>ExecReload=</varname> and similar. </para></listitem>
       </varlistentry>

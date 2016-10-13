@@ -195,7 +195,7 @@
     instantiated units, this logic will first look for the instance <literal>.d/</literal>
     subdirectory and read its <literal>.conf</literal> files, followed by the template
     <literal>.d/</literal> subdirectory and the <literal>.conf</literal> files there. Also note that
-    settings from the <literal>[Install]</literal> section are not honoured in drop-in unit files,
+    settings from the <literal>[Install]</literal> section are not honored in drop-in unit files,
     and have no effect.</para>
 
     <para>In addition to <filename>/etc/systemd/system</filename>, the drop-in <literal>.d</literal>

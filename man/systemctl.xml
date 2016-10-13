@@ -306,7 +306,7 @@
         <para><literal>ignore-requirements</literal> is similar to
         <literal>ignore-dependencies</literal>, but only causes the
         requirement dependencies to be ignored, the ordering
-        dependencies will still be honoured.</para>
+        dependencies will still be honored.</para>
         </listitem>
 
       </varlistentry>
@@ -1006,7 +1006,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             desired, combine this command with the <option>--now</option> switch, or invoke <command>start</command>
             with appropriate arguments later. Note that in case of unit instance enablement (i.e. enablement of units of
             the form <filename>foo@bar.service</filename>), symlinks named the same as instances are created in the
-            unit configuration diectory, however they point to the single template unit file they are instantiated
+            unit configuration directory, however they point to the single template unit file they are instantiated
             from.</para>
 
             <para>This command expects either valid unit names (in which case various unit file directories are

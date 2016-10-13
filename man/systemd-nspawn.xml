@@ -405,7 +405,7 @@
         purposes (usually in the range beyond the host's UID/GID 65536). The parameter may be specified as follows:</para>
 
         <orderedlist>
-          <listitem><para>If one or two colon-separated numers are specified, user namespacing is turned on. The first
+          <listitem><para>If one or two colon-separated numbers are specified, user namespacing is turned on. The first
           parameter specifies the first host UID/GID to assign to the container, the second parameter specifies the
           number of host UIDs/GIDs to assign to the container. If the second parameter is omitted, 65536 UIDs/GIDs are
           assigned.</para></listitem>
@@ -425,13 +425,13 @@
           range is automatically chosen. As first step, the file owner of the root directory of the container's
           directory tree is read, and it is checked that it is currently not used by the system otherwise (in
           particular, that no other container is using it). If this check is successful, the UID/GID range determined
-          this way is used, similar to the behaviour if "yes" is specified. If the check is not successful (and thus
+          this way is used, similar to the behavior if "yes" is specified. If the check is not successful (and thus
           the UID/GID range indicated in the root directory's file owner is already used elsewhere) a new – currently
           unused – UID/GID range of 65536 UIDs/GIDs is randomly chosen between the host UID/GIDs of 524288 and
           1878982656, always starting at a multiple of 65536. This setting implies
           <option>--private-users-chown</option> (see below), which has the effect that the files and directories in
           the container's directory tree will be owned by the appropriate users of the range picked. Using this option
-          makes user namespace behaviour fully automatic. Note that the first invocation of a previously unused
+          makes user namespace behavior fully automatic. Note that the first invocation of a previously unused
           container image might result in picking a new UID/GID range for it, and thus in the (possibly expensive) file
           ownership adjustment operation. However, subsequent invocations of the container will be cheap (unless of
           course the picked UID/GID range is assigned to a different use by then).</para></listitem>
@@ -440,7 +440,7 @@
         <para>It is recommended to assign at least 65536 UIDs/GIDs to each container, so that the usable UID/GID range in the
         container covers 16 bit. For best security, do not assign overlapping UID/GID ranges to multiple containers. It is
         hence a good idea to use the upper 16 bit of the host 32-bit UIDs/GIDs as container identifier, while the lower 16
-        bit encode the container UID/GID used. This is in fact the behaviour enforced by the
+        bit encode the container UID/GID used. This is in fact the behavior enforced by the
         <option>--private-users=pick</option> option.</para>
 
         <para>When user namespaces are used, the GID range assigned to each container is always chosen identical to the
@@ -722,7 +722,7 @@
         and the subdirectory is symlinked into the host at the same
         location. <literal>try-host</literal> and
         <literal>try-guest</literal> do the same but do not fail if
-        the host does not have persistent journalling enabled. If
+        the host does not have persistent journaling enabled. If
         <literal>auto</literal> (the default), and the right
         subdirectory of <filename>/var/log/journal</filename> exists,
         it will be bind mounted into the container. If the
