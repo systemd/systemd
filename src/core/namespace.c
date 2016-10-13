@@ -97,6 +97,14 @@ static const TargetMount protect_kernel_tunables_table[] = {
         { "/sys/fs/cgroup",             READWRITE,      false }, /* READONLY is set by ProtectControlGroups= option */
 };
 
+/* ProtectKernelModules= option */
+static const TargetMount protect_kernel_modules_table[] = {
+#ifdef HAVE_SPLIT_USR
+        { "/lib/modules",               INACCESSIBLE,   true  },
+#endif
+        { "/usr/lib/modules",           INACCESSIBLE,   true  },
+};
+
 /*
  * ProtectHome=read-only table, protect $HOME and $XDG_RUNTIME_DIR and rest of
  * system should be protected by ProtectSystem=
@@ -205,6 +213,13 @@ static int append_protect_kernel_tunables(BindMount **p, const char *root_direct
 
         return append_target_mounts(p, root_directory, protect_kernel_tunables_table,
                                     ELEMENTSOF(protect_kernel_tunables_table));
+}
+
+static int append_protect_kernel_modules(BindMount **p, const char *root_directory) {
+        assert(p);
+
+        return append_target_mounts(p, root_directory, protect_kernel_modules_table,
+                                    ELEMENTSOF(protect_kernel_modules_table));
 }
 
 static int append_protect_home(BindMount **p, const char *root_directory, ProtectHome protect_home) {
@@ -660,14 +675,12 @@ static int chase_all_symlinks(const char *root_directory, BindMount *m, unsigned
 }
 
 static unsigned namespace_calculate_mounts(
+                const NameSpaceInfo *ns_info,
                 char** read_write_paths,
                 char** read_only_paths,
                 char** inaccessible_paths,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
-                bool private_dev,
-                bool protect_sysctl,
-                bool protect_cgroups,
                 ProtectHome protect_home,
                 ProtectSystem protect_system) {
 
@@ -690,22 +703,21 @@ static unsigned namespace_calculate_mounts(
                 strv_length(read_write_paths) +
                 strv_length(read_only_paths) +
                 strv_length(inaccessible_paths) +
-                private_dev +
-                (protect_sysctl ? ELEMENTSOF(protect_kernel_tunables_table) : 0) +
-                (protect_cgroups ? 1 : 0) +
+                ns_info->private_dev +
+                (ns_info->protect_kernel_tunables ? ELEMENTSOF(protect_kernel_tunables_table) : 0) +
+                (ns_info->protect_control_groups ? 1 : 0) +
+                (ns_info->protect_kernel_modules ? ELEMENTSOF(protect_kernel_modules_table) : 0) +
                 protect_home_cnt + protect_system_cnt;
 }
 
 int setup_namespace(
                 const char* root_directory,
+                const NameSpaceInfo *ns_info,
                 char** read_write_paths,
                 char** read_only_paths,
                 char** inaccessible_paths,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
-                bool private_dev,
-                bool protect_sysctl,
-                bool protect_cgroups,
                 ProtectHome protect_home,
                 ProtectSystem protect_system,
                 unsigned long mount_flags) {
@@ -718,13 +730,12 @@ int setup_namespace(
         if (mount_flags == 0)
                 mount_flags = MS_SHARED;
 
-        n = namespace_calculate_mounts(read_write_paths,
+        n = namespace_calculate_mounts(ns_info,
+                                       read_write_paths,
                                        read_only_paths,
                                        inaccessible_paths,
                                        tmp_dir, var_tmp_dir,
-                                       private_dev, protect_sysctl,
-                                       protect_cgroups, protect_home,
-                                       protect_system);
+                                       protect_home, protect_system);
 
         /* Set mount slave mode */
         if (root_directory || n > 0)
@@ -756,16 +767,25 @@ int setup_namespace(
                         m++;
                 }
 
-                if (private_dev) {
+                if (ns_info->private_dev) {
                         m->path = prefix_roota(root_directory, "/dev");
                         m->mode = PRIVATE_DEV;
                         m++;
                 }
 
-                if (protect_sysctl)
-                        append_protect_kernel_tunables(&m, root_directory);
+                if (ns_info->protect_kernel_tunables) {
+                        r = append_protect_kernel_tunables(&m, root_directory);
+                        if (r < 0)
+                                return r;
+                }
 
-                if (protect_cgroups) {
+                if (ns_info->protect_kernel_modules) {
+                        r = append_protect_kernel_modules(&m, root_directory);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (ns_info->protect_control_groups) {
                         m->path = prefix_roota(root_directory, "/sys/fs/cgroup");
                         m->mode = READONLY;
                         m++;

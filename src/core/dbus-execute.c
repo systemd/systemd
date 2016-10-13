@@ -708,6 +708,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("PrivateTmp", "b", bus_property_get_bool, offsetof(ExecContext, private_tmp), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateDevices", "b", bus_property_get_bool, offsetof(ExecContext, private_devices), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectKernelTunables", "b", bus_property_get_bool, offsetof(ExecContext, protect_kernel_tunables), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ProtectKernelModules", "b", bus_property_get_bool, offsetof(ExecContext, protect_kernel_modules), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectControlGroups", "b", bus_property_get_bool, offsetof(ExecContext, protect_control_groups), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateNetwork", "b", bus_property_get_bool, offsetof(ExecContext, private_network), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateUsers", "b", bus_property_get_bool, offsetof(ExecContext, private_users), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1075,7 +1076,7 @@ int bus_exec_context_set_transient_property(
                               "PrivateTmp", "PrivateDevices", "PrivateNetwork", "PrivateUsers",
                               "NoNewPrivileges", "SyslogLevelPrefix", "MemoryDenyWriteExecute",
                               "RestrictRealtime", "DynamicUser", "RemoveIPC", "ProtectKernelTunables",
-                              "ProtectControlGroups")) {
+                              "ProtectKernelModules", "ProtectControlGroups")) {
                 int b;
 
                 r = sd_bus_message_read(message, "b", &b);
@@ -1111,6 +1112,8 @@ int bus_exec_context_set_transient_property(
                                 c->remove_ipc = b;
                         else if (streq(name, "ProtectKernelTunables"))
                                 c->protect_kernel_tunables = b;
+                        else if (streq(name, "ProtectKernelModules"))
+                                c->protect_kernel_modules = b;
                         else if (streq(name, "ProtectControlGroups"))
                                 c->protect_control_groups = b;
 

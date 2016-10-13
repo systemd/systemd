@@ -1436,6 +1436,50 @@ finish:
         return r;
 }
 
+static int apply_protect_kernel_modules(Unit *u, const ExecContext *c) {
+        static const int module_syscalls[] = {
+                SCMP_SYS(delete_module),
+                SCMP_SYS(finit_module),
+                SCMP_SYS(init_module),
+        };
+
+        scmp_filter_ctx *seccomp;
+        unsigned i;
+        int r;
+
+        assert(c);
+
+        /* Turn of module syscalls on ProtectKernelModules=yes */
+
+        if (skip_seccomp_unavailable(u, "ProtectKernelModules="))
+                return 0;
+
+        seccomp = seccomp_init(SCMP_ACT_ALLOW);
+        if (!seccomp)
+                return -ENOMEM;
+
+        r = seccomp_add_secondary_archs(seccomp);
+        if (r < 0)
+                goto finish;
+
+        for (i = 0; i < ELEMENTSOF(module_syscalls); i++) {
+                r = seccomp_rule_add(seccomp, SCMP_ACT_ERRNO(EPERM),
+                                     module_syscalls[i], 0);
+                if (r < 0)
+                        goto finish;
+        }
+
+        r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
+        if (r < 0)
+                goto finish;
+
+        r = seccomp_load(seccomp);
+
+finish:
+        seccomp_release(seccomp);
+        return r;
+}
+
 static int apply_private_devices(Unit *u, const ExecContext *c) {
         const SystemCallFilterSet *set;
         scmp_filter_ctx *seccomp;
@@ -1722,6 +1766,7 @@ static bool exec_needs_mount_namespace(
             context->protect_system != PROTECT_SYSTEM_NO ||
             context->protect_home != PROTECT_HOME_NO ||
             context->protect_kernel_tunables ||
+            context->protect_kernel_modules ||
             context->protect_control_groups)
                 return true;
 
@@ -2070,6 +2115,8 @@ static bool context_has_no_new_privileges(const ExecContext *c) {
                 c->memory_deny_write_execute ||
                 c->restrict_realtime ||
                 c->protect_kernel_tunables ||
+                c->protect_kernel_modules ||
+                c->private_devices ||
                 context_has_syscall_filters(c);
 }
 
@@ -2449,6 +2496,12 @@ static int exec_child(
         if (needs_mount_namespace) {
                 _cleanup_free_ char **rw = NULL;
                 char *tmp = NULL, *var = NULL;
+                NameSpaceInfo ns_info = {
+                        .private_dev = context->private_devices,
+                        .protect_control_groups = context->protect_control_groups,
+                        .protect_kernel_tunables = context->protect_kernel_tunables,
+                        .protect_kernel_modules = context->protect_kernel_modules,
+                };
 
                 /* The runtime struct only contains the parent
                  * of the private /tmp, which is
@@ -2471,14 +2524,12 @@ static int exec_child(
 
                 r = setup_namespace(
                                 (params->flags & EXEC_APPLY_CHROOT) ? context->root_directory : NULL,
+                                &ns_info,
                                 rw,
                                 context->read_only_paths,
                                 context->inaccessible_paths,
                                 tmp,
                                 var,
-                                context->private_devices,
-                                context->protect_kernel_tunables,
-                                context->protect_control_groups,
                                 context->protect_home,
                                 context->protect_system,
                                 context->mount_flags);
@@ -2684,6 +2735,14 @@ static int exec_child(
 
                 if (context->protect_kernel_tunables) {
                         r = apply_protect_sysctl(unit, context);
+                        if (r < 0) {
+                                *exit_status = EXIT_SECCOMP;
+                                return r;
+                        }
+                }
+
+                if (context->protect_kernel_modules) {
+                        r = apply_protect_kernel_modules(unit, context);
                         if (r < 0) {
                                 *exit_status = EXIT_SECCOMP;
                                 return r;
@@ -3131,6 +3190,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sPrivateTmp: %s\n"
                 "%sPrivateDevices: %s\n"
                 "%sProtectKernelTunables: %s\n"
+                "%sProtectKernelModules: %s\n"
                 "%sProtectControlGroups: %s\n"
                 "%sPrivateNetwork: %s\n"
                 "%sPrivateUsers: %s\n"
@@ -3146,6 +3206,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->private_tmp),
                 prefix, yes_no(c->private_devices),
                 prefix, yes_no(c->protect_kernel_tunables),
+                prefix, yes_no(c->protect_kernel_modules),
                 prefix, yes_no(c->protect_control_groups),
                 prefix, yes_no(c->private_network),
                 prefix, yes_no(c->private_users),

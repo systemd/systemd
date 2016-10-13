@@ -946,8 +946,8 @@
         <filename>/dev/port</filename> and others. This is useful to securely turn off physical device access by the
         executed process. Defaults to false. Enabling this option will install a system call filter to block low-level
         I/O system calls that are grouped in the <varname>@raw-io</varname> set, will also remove
-        <constant>CAP_MKNOD</constant> from the capability bounding set for the unit (see above), and set
-        <varname>DevicePolicy=closed</varname> (see
+        <constant>CAP_MKNOD</constant> and <constant>CAP_SYS_RAWIO</constant> from the capability bounding set for
+        the unit (see above), and set <varname>DevicePolicy=closed</varname> (see
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details). Note that using this setting will disconnect propagation of mounts from the service to the host
         (propagation in the opposite direction continues to work).  This means that this setting may not be used for
@@ -1046,7 +1046,10 @@
         boot-time, with the <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         mechanism. Almost no services need to write to these at runtime; it is hence recommended to turn this on for
         most services. For this setting the same restrictions regarding mount propagation and privileges apply as for
-        <varname>ReadOnlyPaths=</varname> and related calls, see above. Defaults to off.</para></listitem>
+        <varname>ReadOnlyPaths=</varname> and related calls, see above. Defaults to off.
+        Note that this option does not prevent kernel tuning through IPC interfaces and exeternal programs. However
+        <varname>InaccessiblePaths=</varname> can be used to make some IPC file system objects
+        inaccessible.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1402,6 +1405,26 @@
         frequently used for local communication, including for
         <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         logging. This does not affect commands prefixed with <literal>+</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ProtectKernelModules=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, explicit module loading will
+        be denied. This allows to turn off module load and unload operations on modular
+        kernels. It is recomended to turn this on for most services that do not need special
+        file systems or extra kernel modules to work. Default to off. Enabling this option
+        removes <constant>CAP_SYS_MODULE</constant> from the capability bounding set for
+        the unit, and installs a system call filter to block module system calls,
+        also <filename>/usr/lib/modules</filename> is made inaccessible. For this
+        setting the same restrictions regarding mount propagation and privileges
+        apply as for <varname>ReadOnlyPaths=</varname> and related calls, see above.
+        Note that limited automatic module loading due to user configuration or kernel
+        mapping tables might still happen as side effect of requested user operations,
+        both privileged and unprivileged. To disable module auto-load feature please see
+        <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        <constant>kernel.modules_disabled</constant> mechanism and
+        <filename>/proc/sys/kernel/modules_disabled</filename> documentation.</para></listitem>
       </varlistentry>
 
       <varlistentry>
