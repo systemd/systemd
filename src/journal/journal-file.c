@@ -568,8 +568,8 @@ static int journal_file_verify_header(JournalFile *f) {
                 return -ENODATA;
 
         if (f->writable) {
-                uint8_t state;
                 sd_id128_t machine_id;
+                uint8_t state;
                 int r;
 
                 r = sd_id128_get_machine(&machine_id);
@@ -589,6 +589,14 @@ static int journal_file_verify_header(JournalFile *f) {
                 else if (state != STATE_OFFLINE) {
                         log_debug("Journal file %s has unknown state %i.", f->path, state);
                         return -EBUSY;
+                }
+
+                /* Don't permit appending to files from the future. Because otherwise the realtime timestamps wouldn't
+                 * be strictly ordered in the entries in the file anymore, and we can't have that since it breaks
+                 * bisection. */
+                if (le64toh(f->header->tail_entry_realtime) > now(CLOCK_REALTIME)) {
+                        log_debug("Journal file %s is from the future, refusing to append new data to it that'd be older.", f->path);
+                        return -ETXTBSY;
                 }
         }
 
@@ -747,12 +755,16 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         assert(ret);
 
         /* Objects may only be located at multiple of 64 bit */
-        if (!VALID64(offset))
+        if (!VALID64(offset)) {
+                log_debug("Attempt to move to object at non-64bit boundary: %" PRIu64, offset);
                 return -EBADMSG;
+        }
 
         /* Object may not be located in the file header */
-        if (offset < le64toh(f->header->header_size))
+        if (offset < le64toh(f->header->header_size)) {
+                log_debug("Attempt to move to object located in file header: %" PRIu64, offset);
                 return -EBADMSG;
+        }
 
         r = journal_file_move_to(f, type, false, offset, sizeof(ObjectHeader), &t);
         if (r < 0)
@@ -761,17 +773,29 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         o = (Object*) t;
         s = le64toh(o->object.size);
 
-        if (s < sizeof(ObjectHeader))
+        if (s == 0) {
+                log_debug("Attempt to move to uninitialized object: %" PRIu64, offset);
                 return -EBADMSG;
+        }
+        if (s < sizeof(ObjectHeader)) {
+                log_debug("Attempt to move to overly short object: %" PRIu64, offset);
+                return -EBADMSG;
+        }
 
-        if (o->object.type <= OBJECT_UNUSED)
+        if (o->object.type <= OBJECT_UNUSED) {
+                log_debug("Attempt to move to object with invalid type: %" PRIu64, offset);
                 return -EBADMSG;
+        }
 
-        if (s < minimum_header_size(o))
+        if (s < minimum_header_size(o)) {
+                log_debug("Attempt to move to truncated object: %" PRIu64, offset);
                 return -EBADMSG;
+        }
 
-        if (type > OBJECT_UNUSED && o->object.type != type)
+        if (type > OBJECT_UNUSED && o->object.type != type) {
+                log_debug("Attempt to move to object of unexpected type: %" PRIu64, offset);
                 return -EBADMSG;
+        }
 
         if (s > sizeof(ObjectHeader)) {
                 r = journal_file_move_to(f, type, false, offset, s, &t);
@@ -2472,6 +2496,37 @@ int journal_file_compare_locations(JournalFile *af, JournalFile *bf) {
         return 0;
 }
 
+static int bump_array_index(uint64_t *i, direction_t direction, uint64_t n) {
+
+        /* Increase or decrease the specified index, in the right direction. */
+
+        if (direction == DIRECTION_DOWN) {
+                if (*i >= n - 1)
+                        return 0;
+
+                (*i) ++;
+        } else {
+                if (*i <= 0)
+                        return 0;
+
+                (*i) --;
+        }
+
+        return 1;
+}
+
+static bool check_properly_ordered(uint64_t new_offset, uint64_t old_offset, direction_t direction) {
+
+        /* Consider it an error if any of the two offsets is uninitialized */
+        if (old_offset == 0 || new_offset == 0)
+                return false;
+
+        /* If we go down, the new offset must be larger than the old one. */
+        return direction == DIRECTION_DOWN ?
+                new_offset > old_offset  :
+                new_offset < old_offset;
+}
+
 int journal_file_next_entry(
                 JournalFile *f,
                 uint64_t p,
@@ -2502,36 +2557,34 @@ int journal_file_next_entry(
                 if (r <= 0)
                         return r;
 
-                if (direction == DIRECTION_DOWN) {
-                        if (i >= n - 1)
-                                return 0;
-
-                        i++;
-                } else {
-                        if (i <= 0)
-                                return 0;
-
-                        i--;
-                }
+                r = bump_array_index(&i, direction, n);
+                if (r <= 0)
+                        return r;
         }
 
         /* And jump to it */
-        r = generic_array_get(f,
-                              le64toh(f->header->entry_array_offset),
-                              i,
-                              ret, &ofs);
-        if (r == -EBADMSG && direction == DIRECTION_DOWN) {
-                /* Special case: when we iterate throught the journal file linearly, and hit an entry we can't read,
-                 * consider this the end of the journal file. */
-                log_debug_errno(r, "Encountered entry we can't read while iterating through journal file. Considering this the end of the file.");
-                return 0;
-        }
-        if (r <= 0)
-                return r;
+        for (;;) {
+                r = generic_array_get(f,
+                                      le64toh(f->header->entry_array_offset),
+                                      i,
+                                      ret, &ofs);
+                if (r > 0)
+                        break;
+                if (r != -EBADMSG)
+                        return r;
 
-        if (p > 0 &&
-            (direction == DIRECTION_DOWN ? ofs <= p : ofs >= p)) {
-                log_debug("%s: entry array corrupted at entry %" PRIu64, f->path, i);
+                /* OK, so this entry is borked. Most likely some entry didn't get synced to disk properly, let's see if
+                 * the next one might work for us instead. */
+                log_debug_errno(r, "Entry item %" PRIu64 " is bad, skipping over it.", i);
+
+                r = bump_array_index(&i, direction, n);
+                if (r <= 0)
+                        return r;
+        }
+
+        /* Ensure our array is properly ordered. */
+        if (p > 0 && !check_properly_ordered(ofs, p, direction)) {
+                log_debug("%s: entry array not properly ordered at entry %" PRIu64, f->path, i);
                 return -EBADMSG;
         }
 
@@ -2548,9 +2601,9 @@ int journal_file_next_entry_for_data(
                 direction_t direction,
                 Object **ret, uint64_t *offset) {
 
-        uint64_t n, i;
-        int r;
+        uint64_t i, n, ofs;
         Object *d;
+        int r;
 
         assert(f);
         assert(p > 0 || !o);
@@ -2582,25 +2635,39 @@ int journal_file_next_entry_for_data(
                 if (r <= 0)
                         return r;
 
-                if (direction == DIRECTION_DOWN) {
-                        if (i >= n - 1)
-                                return 0;
-
-                        i++;
-                } else {
-                        if (i <= 0)
-                                return 0;
-
-                        i--;
-                }
-
+                r = bump_array_index(&i, direction, n);
+                if (r <= 0)
+                        return r;
         }
 
-        return generic_array_get_plus_one(f,
-                                          le64toh(d->data.entry_offset),
-                                          le64toh(d->data.entry_array_offset),
-                                          i,
-                                          ret, offset);
+        for (;;) {
+                r = generic_array_get_plus_one(f,
+                                               le64toh(d->data.entry_offset),
+                                               le64toh(d->data.entry_array_offset),
+                                               i,
+                                               ret, &ofs);
+                if (r > 0)
+                        break;
+                if (r != -EBADMSG)
+                        return r;
+
+                log_debug_errno(r, "Data entry item %" PRIu64 " is bad, skipping over it.", i);
+
+                r = bump_array_index(&i, direction, n);
+                if (r <= 0)
+                        return r;
+        }
+
+        /* Ensure our array is properly ordered. */
+        if (p > 0 && check_properly_ordered(ofs, p, direction)) {
+                log_debug("%s data entry array not properly ordered at entry %" PRIu64, f->path, i);
+                return -EBADMSG;
+        }
+
+        if (offset)
+                *offset = ofs;
+
+        return 1;
 }
 
 int journal_file_move_to_entry_by_offset_for_data(
@@ -3271,7 +3338,8 @@ int journal_file_open_reliably(
                     -EBUSY,             /* unclean shutdown */
                     -ESHUTDOWN,         /* already archived */
                     -EIO,               /* IO error, including SIGBUS on mmap */
-                    -EIDRM              /* File has been deleted */))
+                    -EIDRM,             /* File has been deleted */
+                    -ETXTBSY))          /* File is from the future */
                 return r;
 
         if ((flags & O_ACCMODE) == O_RDONLY)

@@ -1091,8 +1091,10 @@ static int discover_next_boot(sd_journal *j,
                 r = sd_journal_previous(j);
         if (r < 0)
                 return r;
-        else if (r == 0)
+        else if (r == 0) {
+                log_debug("Whoopsie! We found a boot ID but can't read its last entry.");
                 return -ENODATA; /* This shouldn't happen. We just came from this very boot ID. */
+        }
 
         r = sd_journal_get_realtime_usec(j, &next_boot->last);
         if (r < 0)
@@ -2264,7 +2266,7 @@ int main(int argc, char *argv[]) {
                 if (r < 0)
                         goto finish;
 
-                printf("Archived and active journals take up %s on disk.\n",
+                printf("Archived and active journals take up %s in the file system.\n",
                        format_bytes(sbytes, sizeof(sbytes), bytes));
                 goto finish;
         }

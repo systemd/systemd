@@ -40,14 +40,6 @@ Features:
 
 * switch to ProtectSystem=strict for all our long-running services where that's possible
 
-* introduce an "invocation ID" for units, that is randomly generated, and
-  identifies each runtime-cycle of a unit. It should be set freshly each time
-  we traverse inactive → activating/active, and should be the primary key to
-  map offline data (stored in the journal) with online bus objects. Let's pass
-  this as $SYSTEMD_INVOCATION_ID to services, as well as set this as xattr on
-  the cgroup of a services. The former is accessible without privileges, the
-  latter ensures the ID cannot be faked.
-
 * If RootDirectory= is used, mount /proc, /sys, /dev into it, if not mounted yet
 
 * Permit masking specific netlink APIs with RestrictAddressFamily=
@@ -498,7 +490,6 @@ Features:
     message that works, but alraedy after a short tiemout
   - check if we can make journalctl by default use --follow mode inside of less if called without args?
   - maybe add API to send pairs of iovecs via sd_journal_send
-  - journal: when writing journal auto-rotate if time jumps backwards
   - journal: add a setgid "systemd-journal" utility to invoke from libsystemd-journal, which passes fds via STDOUT and does PK access
   - journactl: support negative filtering, i.e. FOOBAR!="waldo",
     and !FOOBAR for events without FOOBAR.

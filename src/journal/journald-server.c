@@ -595,52 +595,86 @@ static void server_cache_hostname(Server *s) {
 
 static bool shall_try_append_again(JournalFile *f, int r) {
         switch(r) {
+
         case -E2BIG:           /* Hit configured limit          */
         case -EFBIG:           /* Hit fs limit                  */
         case -EDQUOT:          /* Quota limit hit               */
         case -ENOSPC:          /* Disk full                     */
                 log_debug("%s: Allocation limit reached, rotating.", f->path);
                 return true;
+
         case -EIO:             /* I/O error of some kind (mmap) */
                 log_warning("%s: IO error, rotating.", f->path);
                 return true;
+
         case -EHOSTDOWN:       /* Other machine                 */
                 log_info("%s: Journal file from other machine, rotating.", f->path);
                 return true;
+
         case -EBUSY:           /* Unclean shutdown              */
                 log_info("%s: Unclean shutdown, rotating.", f->path);
                 return true;
+
         case -EPROTONOSUPPORT: /* Unsupported feature           */
                 log_info("%s: Unsupported feature, rotating.", f->path);
                 return true;
+
         case -EBADMSG:         /* Corrupted                     */
         case -ENODATA:         /* Truncated                     */
         case -ESHUTDOWN:       /* Already archived              */
                 log_warning("%s: Journal file corrupted, rotating.", f->path);
                 return true;
+
         case -EIDRM:           /* Journal file has been deleted */
                 log_warning("%s: Journal file has been deleted, rotating.", f->path);
                 return true;
+
+        case -ETXTBSY:         /* Journal file is from the future */
+                log_warning("%s: Journal file is from the future, rotating.", f->path);
+                return true;
+
         default:
                 return false;
         }
 }
 
 static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned n, int priority) {
+        bool vacuumed = false, rotate = false;
+        struct dual_timestamp ts;
         JournalFile *f;
-        bool vacuumed = false;
         int r;
 
         assert(s);
         assert(iovec);
         assert(n > 0);
 
-        f = find_journal(s, uid);
-        if (!f)
-                return;
+        /* Get the closest, linearized time we have for this log event from the event loop. (Note that we do not use
+         * the source time, and not even the time the event was originally seen, but instead simply the time we started
+         * processing it, as we want strictly linear ordering in what we write out.) */
+        assert_se(sd_event_now(s->event, CLOCK_REALTIME, &ts.realtime) >= 0);
+        assert_se(sd_event_now(s->event, CLOCK_MONOTONIC, &ts.monotonic) >= 0);
 
-        if (journal_file_rotate_suggested(f, s->max_file_usec)) {
-                log_debug("%s: Journal header limits reached or header out-of-date, rotating.", f->path);
+        if (ts.realtime < s->last_realtime_clock) {
+                /* When the time jumps backwards, let's immediately rotate. Of course, this should not happen during
+                 * regular operation. However, when it does happen, then we should make sure that we start fresh files
+                 * to ensure that the entries in the journal files are strictly ordered by time, in order to ensure
+                 * bisection works correctly. */
+
+                log_debug("Time jumped backwards, rotating.");
+                rotate = true;
+        } else {
+
+                f = find_journal(s, uid);
+                if (!f)
+                        return;
+
+                if (journal_file_rotate_suggested(f, s->max_file_usec)) {
+                        log_debug("%s: Journal header limits reached or header out-of-date, rotating.", f->path);
+                        rotate = true;
+                }
+        }
+
+        if (rotate) {
                 server_rotate(s);
                 server_vacuum(s, false, false);
                 vacuumed = true;
@@ -650,7 +684,9 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                         return;
         }
 
-        r = journal_file_append_entry(f, NULL, iovec, n, &s->seqnum, NULL, NULL);
+        s->last_realtime_clock = ts.realtime;
+
+        r = journal_file_append_entry(f, &ts, iovec, n, &s->seqnum, NULL, NULL);
         if (r >= 0) {
                 server_schedule_sync(s, priority);
                 return;
@@ -669,7 +705,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                 return;
 
         log_debug("Retrying write.");
-        r = journal_file_append_entry(f, NULL, iovec, n, &s->seqnum, NULL, NULL);
+        r = journal_file_append_entry(f, &ts, iovec, n, &s->seqnum, NULL, NULL);
         if (r < 0)
                 log_error_errno(r, "Failed to write entry (%d items, %zu bytes) despite vacuuming, ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
         else
