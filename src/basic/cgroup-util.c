@@ -2401,7 +2401,7 @@ bool cg_is_unified_systemd_controller_wanted(void) {
         /* If the unified hierarchy is requested in full, no need to
          * bother with this. */
         if (cg_is_unified_wanted())
-                return 0;
+                return false;
 
         /* If the hierarchy is already mounted, then follow whatever
          * was chosen for it. */
