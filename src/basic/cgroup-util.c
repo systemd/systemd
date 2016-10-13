@@ -2358,9 +2358,19 @@ int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p) {
         return 0;
 }
 
+#ifdef ENABLE_UNIFIED_CGROUP_HIERARCHY
+#define CG_IS_UNIFIED_WANTED -1
+#else
+#define CG_IS_UNIFIED_WANTED false
+#endif
+
 bool cg_is_unified_wanted(void) {
-        static thread_local int wanted = -1;
+        static thread_local int wanted = CG_IS_UNIFIED_WANTED;
         int r, unified;
+
+        /* If we figured out what is wanted here before, just use the cached value */
+        if (wanted >= 0)
+                return wanted;
 
         /* If the hierarchy is already mounted, then follow whatever
          * was chosen for it. */
@@ -2371,9 +2381,6 @@ bool cg_is_unified_wanted(void) {
         /* Otherwise, let's see what the kernel command line has to
          * say. Since checking that is expensive, let's cache the
          * result. */
-        if (wanted >= 0)
-                return wanted;
-
         r = get_proc_cmdline_key("systemd.unified_cgroup_hierarchy", NULL);
         if (r > 0)
                 return (wanted = true);
@@ -2395,7 +2402,7 @@ bool cg_is_legacy_wanted(void) {
 }
 
 bool cg_is_unified_systemd_controller_wanted(void) {
-        static thread_local int wanted = -1;
+        static thread_local int wanted = CG_IS_UNIFIED_WANTED;
         int r, unified;
 
         /* If the unified hierarchy is requested in full, no need to

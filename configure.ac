@@ -1576,6 +1576,13 @@ AS_IF([test x$enable_debug_mmap_cache = xyes], [
 ])
 test -z "$enable_debug" && enable_debug="none"
 
+AC_ARG_ENABLE(unified_cgroup_hierarchy,
+        [AC_HELP_STRING([--disable-unified-cgroup-hierarchy], [Don't use the unified cgroup hierarchy, even if supported by the kernel])],
+        enable_unified_cgroup_hierarchy=$enableval, enable_unified_cgroup_hierarchy=yes)
+AS_IF([test x$enable_unified_cgroup_hierarchy = xyes], [
+        AC_DEFINE(ENABLE_UNIFIED_CGROUP_HIERARCHY, 1, [Define if support for the unified cgroup hierarchy is to be enabled])
+])
+
 AC_SUBST([dbuspolicydir], [$with_dbuspolicydir])
 AC_SUBST([dbussessionservicedir], [$with_dbussessionservicedir])
 AC_SUBST([dbussystemservicedir], [$with_dbussystemservicedir])
@@ -1667,6 +1674,7 @@ AC_MSG_RESULT([
         hibernate support:                 ${enable_hibernate}
         extra debugging:                   ${enable_debug}
         tests:                             ${enable_tests}
+        unified cgroup hierarchy:          ${enable_unified_cgroup_hierarchy}
 
         prefix:                            ${prefix}
         rootprefix:                        ${with_rootprefix}
