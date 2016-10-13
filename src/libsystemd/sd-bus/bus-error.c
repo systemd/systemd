@@ -70,11 +70,9 @@ BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_standard_errors[] = {
         SD_BUS_ERROR_MAP_END
 };
 
-/* GCC maps this magically to the beginning and end of the BUS_ERROR_MAP section.
- * Hide them; for currently unknown reasons they get exported to the shared libries
- * even without being listed in the sym file. */
-extern const sd_bus_error_map __start_BUS_ERROR_MAP[] _hidden_;
-extern const sd_bus_error_map __stop_BUS_ERROR_MAP[] _hidden_;
+/* GCC maps this magically to the beginning and end of the BUS_ERROR_MAP section */
+extern const sd_bus_error_map __start_BUS_ERROR_MAP[];
+extern const sd_bus_error_map __stop_BUS_ERROR_MAP[];
 
 /* Additional maps registered with sd_bus_error_add_map() are in this
  * NULL terminated array */
