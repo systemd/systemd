@@ -25,27 +25,18 @@
 #include "mkdir.h"
 #include "mount-util.h"
 #include "nspawn-cgroup.h"
+#include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
 
-int chown_cgroup(pid_t pid, uid_t uid_shift) {
-        _cleanup_free_ char *path = NULL, *fs = NULL;
+static int chown_cgroup_path(const char *path, uid_t uid_shift) {
         _cleanup_close_ int fd = -1;
         const char *fn;
-        int r;
 
-        r = cg_pid_get_path(NULL, pid, &path);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get container cgroup path: %m");
-
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get file system path for container cgroup: %m");
-
-        fd = open(fs, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to open %s: %m", fs);
+                return -errno;
 
         FOREACH_STRING(fn,
                        ".",
@@ -63,7 +54,27 @@ int chown_cgroup(pid_t pid, uid_t uid_shift) {
         return 0;
 }
 
-int sync_cgroup(pid_t pid, CGroupUnified unified_requested) {
+int chown_cgroup(pid_t pid, uid_t uid_shift) {
+        _cleanup_free_ char *path = NULL, *fs = NULL;
+        _cleanup_close_ int fd = -1;
+        int r;
+
+        r = cg_pid_get_path(NULL, pid, &path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get container cgroup path: %m");
+
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get file system path for container cgroup: %m");
+
+        r = chown_cgroup_path(fs, uid_shift);
+        if (r < 0)
+                return log_error_errno(r, "Failed to chown() cgroup %s: %m", fs);
+
+        return 0;
+}
+
+int sync_cgroup(pid_t pid, CGroupUnified unified_requested, uid_t arg_uid_shift) {
         _cleanup_free_ char *cgroup = NULL;
         char tree[] = "/tmp/unifiedXXXXXX", pid_string[DECIMAL_STR_MAX(pid) + 1];
         bool undo_mount = false;
@@ -101,14 +112,26 @@ int sync_cgroup(pid_t pid, CGroupUnified unified_requested) {
 
         undo_mount = true;
 
+        /* If nspawn dies abruptly the cgroup hierarchy created below
+         * its unit isn't cleaned up. So, let's remove it
+         * https://github.com/systemd/systemd/pull/4223#issuecomment-252519810 */
+        fn = strjoina(tree, cgroup);
+        (void) rm_rf(fn, REMOVE_ROOT|REMOVE_ONLY_DIRECTORIES);
+
         fn = strjoina(tree, cgroup, "/cgroup.procs");
         (void) mkdir_parents(fn, 0755);
 
         sprintf(pid_string, PID_FMT, pid);
         r = write_string_file(fn, pid_string, 0);
-        if (r < 0)
+        if (r < 0) {
                 log_error_errno(r, "Failed to move process: %m");
+                goto finish;
+        }
 
+        fn = strjoina(tree, cgroup);
+        r = chown_cgroup_path(fn, arg_uid_shift);
+        if (r < 0)
+                log_error_errno(r, "Failed to chown() cgroup %s: %m", fn);
 finish:
         if (undo_mount)
                 (void) umount_verbose(tree);

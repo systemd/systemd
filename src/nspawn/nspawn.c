@@ -3879,7 +3879,7 @@ static int run(int master,
                         return r;
         }
 
-        r = sync_cgroup(*pid, arg_unified_cgroup_hierarchy);
+        r = sync_cgroup(*pid, arg_unified_cgroup_hierarchy, arg_uid_shift);
         if (r < 0)
                 return r;
 

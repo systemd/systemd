@@ -27,6 +27,7 @@
 #include <unistd.h>
 
 #include "btrfs-util.h"
+#include "cgroup-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
@@ -36,9 +37,14 @@
 #include "stat-util.h"
 #include "string-util.h"
 
+static bool is_physical_fs(const struct statfs *sfs) {
+        return !is_temporary_fs(sfs) && !is_cgroup_fs(sfs);
+}
+
 int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
         _cleanup_closedir_ DIR *d = NULL;
         int ret = 0, r;
+        struct statfs sfs;
 
         assert(fd >= 0);
 
@@ -47,13 +53,13 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
 
         if (!(flags & REMOVE_PHYSICAL)) {
 
-                r = fd_is_temporary_fs(fd);
+                r = fstatfs(fd, &sfs);
                 if (r < 0) {
                         safe_close(fd);
-                        return r;
+                        return -errno;
                 }
 
-                if (!r) {
+                if (is_physical_fs(&sfs)) {
                         /* We refuse to clean physical file systems
                          * with this call, unless explicitly
                          * requested. This is extra paranoia just to
@@ -210,7 +216,7 @@ int rm_rf(const char *path, RemoveFlags flags) {
                         if (statfs(path, &s) < 0)
                                 return -errno;
 
-                        if (!is_temporary_fs(&s)) {
+                        if (is_physical_fs(&s)) {
                                 log_error("Attempted to remove disk file system, and we can't allow that.");
                                 return -EPERM;
                         }

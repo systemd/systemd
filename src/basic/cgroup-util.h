@@ -23,6 +23,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <sys/statfs.h>
 #include <sys/types.h>
 
 #include "def.h"
@@ -254,3 +255,6 @@ CGroupController cgroup_controller_from_string(const char *s) _pure_;
 int cg_weight_parse(const char *s, uint64_t *ret);
 int cg_cpu_shares_parse(const char *s, uint64_t *ret);
 int cg_blkio_weight_parse(const char *s, uint64_t *ret);
+
+bool is_cgroup_fs(const struct statfs *s);
+bool fd_is_cgroup_fs(int fd);
