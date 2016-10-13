@@ -55,11 +55,12 @@ void server_forward_console(
                 const char *message,
                 const struct ucred *ucred) {
 
+        static int fd = -1;
         struct iovec iovec[5];
         struct timespec ts;
         char tbuf[sizeof("[] ")-1 + DECIMAL_STR_MAX(ts.tv_sec) + DECIMAL_STR_MAX(ts.tv_nsec)-3 + 1];
         char header_pid[sizeof("[]: ")-1 + DECIMAL_STR_MAX(pid_t)];
-        int n = 0, fd;
+        int n = 0;
         _cleanup_free_ char *ident_buf = NULL;
         const char *tty;
 
@@ -102,14 +103,14 @@ void server_forward_console(
 
         tty = s->tty_path ? s->tty_path : "/dev/console";
 
-        fd = open_terminal(tty, O_WRONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0) {
-                log_debug_errno(fd, "Failed to open %s for logging: %m", tty);
-                return;
+                fd = open_terminal(tty, O_WRONLY|O_NOCTTY|O_CLOEXEC);
+                if (fd < 0) {
+                        log_debug_errno(fd, "Failed to open %s for logging: %m", tty);
+                        return;
+                }
         }
 
         if (writev(fd, iovec, n) < 0)
                 log_debug_errno(errno, "Failed to write to %s for logging: %m", tty);
-
-        safe_close(fd);
 }
