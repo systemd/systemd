@@ -26,7 +26,7 @@
 char *
 utf8_prev_char (const char *p)
 {
-  while (1)
+  for (;;)
     {
       p--;
       if ((*p & 0xc0) != 0x80)
