@@ -56,7 +56,6 @@ static int chown_cgroup_path(const char *path, uid_t uid_shift) {
 
 int chown_cgroup(pid_t pid, uid_t uid_shift) {
         _cleanup_free_ char *path = NULL, *fs = NULL;
-        _cleanup_close_ int fd = -1;
         int r;
 
         r = cg_pid_get_path(NULL, pid, &path);
