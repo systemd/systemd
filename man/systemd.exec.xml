@@ -137,7 +137,7 @@
         <term><varname>Group=</varname></term>
 
         <listitem><para>Set the UNIX user or group that the processes are executed as, respectively. Takes a single
-        user or group name, or numeric ID as argument. If no group is set, the default group of the user is used. This
+        user or group name, or numeric ID as argument. The user defaults to root. If no group is set, the default group of the user is used. This
         setting does not affect commands whose command line is prefixed with <literal>+</literal>.</para></listitem>
       </varlistentry>
 
