@@ -218,6 +218,10 @@ static void test_exec_group(Manager *m) {
                 log_error_errno(errno, "Skipping test_exec_group, could not find nobody/nfsnobody group: %m");
 }
 
+static void test_exec_supplementary_groups(Manager *m) {
+        test(m, "exec-supplementarygroups.service", 0, CLD_EXITED);
+}
+
 static void test_exec_environment(Manager *m) {
         test(m, "exec-environment.service", 0, CLD_EXITED);
         test(m, "exec-environment-multiple.service", 0, CLD_EXITED);
@@ -390,6 +394,7 @@ int main(int argc, char *argv[]) {
                 test_exec_systemcallerrornumber,
                 test_exec_user,
                 test_exec_group,
+                test_exec_supplementary_groups,
                 test_exec_environment,
                 test_exec_environmentfile,
                 test_exec_passenvironment,

@@ -1627,6 +1627,7 @@ EXTRA_DIST += \
 	test/test-execute/exec-passenvironment.service \
 	test/test-execute/exec-group.service \
 	test/test-execute/exec-group-nfsnobody.service \
+	test/test-execute/exec-supplementarygroups.service \
 	test/test-execute/exec-ignoresigpipe-no.service \
 	test/test-execute/exec-ignoresigpipe-yes.service \
 	test/test-execute/exec-personality-x86-64.service \
