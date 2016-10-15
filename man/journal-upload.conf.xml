@@ -5,7 +5,7 @@
 <!--
   This file is part of systemd.
 
-  Copyright 2015 Chris Morgan
+  Copyright 2016 Zbigniew Jędrzejewski-Szmek
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -21,45 +21,45 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="journal-remote.conf" conditional='HAVE_MICROHTTPD'
+<refentry id="journal-upload.conf" conditional='HAVE_MICROHTTPD'
           xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
-    <title>journal-remote.conf</title>
+    <title>journal-upload.conf</title>
     <productname>systemd</productname>
 
     <authorgroup>
       <author>
-        <contrib>Developer</contrib>
-        <firstname>Chris</firstname>
-        <surname>Morgan</surname>
-        <email>chmorgan@gmail.com</email>
+        <contrib>Monkey with a keyboard</contrib>
+        <firstname>Zbigniew</firstname>
+        <surname>Jędrzejewski-Szmek</surname>
+        <email>zbyszek@in.waw.pl</email>
       </author>
     </authorgroup>
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>journal-remote.conf</refentrytitle>
+    <refentrytitle>journal-upload.conf</refentrytitle>
     <manvolnum>5</manvolnum>
   </refmeta>
 
   <refnamediv>
-    <refname>journal-remote.conf</refname>
-    <refname>journal-remote.conf.d</refname>
-    <refpurpose>Configuration files for the service accepting remote journal uploads</refpurpose>
+    <refname>journal-upload.conf</refname>
+    <refname>journal-upload.conf.d</refname>
+    <refpurpose>Configuration files for the journal upload service</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/etc/systemd/journal-remote.conf</filename></para>
-    <para><filename>/etc/systemd/journal-remote.conf.d/*.conf</filename></para>
-    <para><filename>/run/systemd/journal-remote.conf.d/*.conf</filename></para>
-    <para><filename>/usr/lib/systemd/journal-remote.conf.d/*.conf</filename></para>
+    <para><filename>/etc/systemd/journal-upload.conf</filename></para>
+    <para><filename>/etc/systemd/journal-upload.conf.d/*.conf</filename></para>
+    <para><filename>/run/systemd/journal-upload.conf.d/*.conf</filename></para>
+    <para><filename>/usr/lib/systemd/journal-upload.conf.d/*.conf</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
     <para>These files configure various parameters of
-    <citerefentry><refentrytitle>systemd-journal-remote.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+    <citerefentry><refentrytitle>systemd-journal-upload.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
   </refsect1>
 
   <xi:include href="standard-conf.xml" xpointer="main-conf" />
@@ -67,23 +67,16 @@
   <refsect1>
     <title>Options</title>
 
-    <para>All options are configured in the
-    <literal>[Remote]</literal> section:</para>
+    <para>All options are configured in the <literal>[Upload]</literal> section:</para>
 
     <variablelist>
       <varlistentry>
-        <term><varname>Seal=</varname></term>
+        <term><varname>URL=</varname></term>
 
-        <listitem><para>Periodically sign the data in the journal using Forward Secure Sealing.
-        </para></listitem>
-      </varlistentry>
-
-
-      <varlistentry>
-        <term><varname>SplitMode=</varname></term>
-
-        <listitem><para>One of <literal>host</literal> or <literal>none</literal>.
-        </para></listitem>
+        <listitem><para>The URL to upload the journal entries to. See the description
+        of <varname>--url=</varname> option in
+        <citerefentry><refentrytitle>systemd-journal-upload</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for the description of possible values.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -111,7 +104,7 @@
   <refsect1>
       <title>See Also</title>
       <para>
-        <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-journal-upload</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       </para>
