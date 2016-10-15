@@ -87,6 +87,10 @@ evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE6320*:pvr*
 evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE6400*:pvr*
  POINTINGSTICK_CONST_ACCEL=1.5
 
+# Latitude E7470
+evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE7470*:pvr*
+ POINTINGSTICK_CONST_ACCEL=0.6
+
 #########################################
 # Lenovo
 #########################################
