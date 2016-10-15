@@ -33,6 +33,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "virt.h"
+#include "env-util.h"
 
 static int detect_vm_cpuid(void) {
 
@@ -486,6 +487,9 @@ int detect_virtualization(void) {
 
 int running_in_chroot(void) {
         int ret;
+
+        if (getenv_bool("SYSTEMD_IGNORE_CHROOT") > 0)
+                return 0;
 
         ret = files_same("/proc/1/root", "/");
         if (ret < 0)
