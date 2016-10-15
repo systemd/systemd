@@ -122,6 +122,9 @@
   <refsect1>
     <title>Notes</title>
 
+    <para>All functions listed here are thread-agnostic and only a single thread may operate
+    on a given <structname>sd_journal</structname> object.</para>
+
     <para>The <function>sd_journal_get_cursor()</function> and
     <function>sd_journal_test_cursor()</function> interfaces are
     available as a shared library, which can be compiled and linked to
