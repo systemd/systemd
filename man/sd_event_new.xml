@@ -183,8 +183,9 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, <function>sd_event_new()</function> and
-    <function>sd_event_default()</function> return 0 or a positive
+    <para>On success, <function>sd_event_new()</function>,
+    <function>sd_event_default()</function> and
+    <function>sd_event_get_tid()</function> return 0 or a positive
     integer. On failure, they return a negative errno-style error
     code. <function>sd_event_ref()</function> always returns a pointer
     to the event loop object passed
