@@ -527,9 +527,7 @@ static int perform_upload(Uploader *u) {
                 log_debug("Upload finished successfully with code %ld: %s",
                           status, strna(u->answer));
 
-        free(u->last_cursor);
-        u->last_cursor = u->current_cursor;
-        u->current_cursor = NULL;
+        free_and_replace(u->last_cursor, u->current_cursor);
 
         return update_cursor_state(u);
 }

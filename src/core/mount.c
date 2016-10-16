@@ -1484,17 +1484,9 @@ static int mount_setup_unit(
 
         MOUNT(u)->from_proc_self_mountinfo = true;
 
-        free(p->what);
-        p->what = w;
-        w = NULL;
-
-        free(p->options);
-        p->options = o;
-        o = NULL;
-
-        free(p->fstype);
-        p->fstype = f;
-        f = NULL;
+        free_and_replace(p->what, w);
+        free_and_replace(p->options, o);
+        free_and_replace(p->fstype, f);
 
         if (load_extras) {
                 r = mount_add_extras(MOUNT(u));

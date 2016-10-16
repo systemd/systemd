@@ -1107,11 +1107,7 @@ static int config_parse_default_instance(
         if (!unit_instance_is_valid(printed))
                 return -EINVAL;
 
-        free(i->default_instance);
-        i->default_instance = printed;
-        printed = NULL;
-
-        return 0;
+        return free_and_replace(i->default_instance, printed);
 }
 
 static int unit_file_load(
@@ -1357,9 +1353,7 @@ static int install_info_follow(
         if (!streq(basename(i->symlink_target), i->name))
                 return -EXDEV;
 
-        free(i->path);
-        i->path = i->symlink_target;
-        i->symlink_target = NULL;
+        free_and_replace(i->path, i->symlink_target);
         i->type = _UNIT_FILE_TYPE_INVALID;
 
         return unit_file_load_or_readlink(c, i, i->path, root_dir, flags);
