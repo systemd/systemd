@@ -214,8 +214,8 @@ static int path_is_config(const LookupPaths *p, const char *path) {
         assert(p);
         assert(path);
 
-        /* Note that we do *not* have generic checks for /etc or /run in place, since with them we couldn't discern
-         * configuration from transient or generated units */
+        /* Note that we do *not* have generic checks for /etc or /run in place, since with
+         * them we couldn't discern configuration from transient or generated units */
 
         parent = dirname_malloc(path);
         if (!parent)
@@ -232,8 +232,8 @@ static int path_is_runtime(const LookupPaths *p, const char *path) {
         assert(p);
         assert(path);
 
-        /* Everything in /run is considered runtime. On top of that we also add explicit checks for the various runtime
-         * directories, as safety net. */
+        /* Everything in /run is considered runtime. On top of that we also add
+         * explicit checks for the various runtime directories, as safety net. */
 
         rpath = skip_root(p, path);
         if (rpath && path_startswith(rpath, "/run"))
@@ -1084,7 +1084,7 @@ static int config_parse_default_instance(
 
         UnitFileInstallInfo *i = data;
         const char *name;
-        char *printed;
+        _cleanup_free_ char *printed = NULL;
         int r;
 
         assert(filename);
@@ -1104,13 +1104,12 @@ static int config_parse_default_instance(
         if (r < 0)
                 return r;
 
-        if (!unit_instance_is_valid(printed)) {
-                free(printed);
+        if (!unit_instance_is_valid(printed))
                 return -EINVAL;
-        }
 
         free(i->default_instance);
         i->default_instance = printed;
+        printed = NULL;
 
         return 0;
 }
