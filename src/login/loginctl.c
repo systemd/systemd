@@ -118,7 +118,7 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
                 printf("%10s %10s %-16s %-16s\n", "SESSION", "UID", "USER", "SEAT");
 
         while ((r = sd_bus_message_read(reply, "(susso)", &id, &uid, &user, &seat, &object)) > 0) {
-                printf("%10s %10u %-16s %-16s\n", id, (unsigned) uid, user, seat);
+                printf("%10s %10"PRIu32" %-16s %-16s\n", id, uid, user, seat);
                 k++;
         }
         if (r < 0)
@@ -165,7 +165,7 @@ static int list_users(int argc, char *argv[], void *userdata) {
                 printf("%10s %-16s\n", "UID", "USER");
 
         while ((r = sd_bus_message_read(reply, "(uso)", &uid, &user, &object)) > 0) {
-                printf("%10u %-16s\n", (unsigned) uid, user);
+                printf("%10"PRIu32" %-16s\n", uid, user);
                 k++;
         }
         if (r < 0)
@@ -462,9 +462,9 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
         printf("%s - ", strna(i.id));
 
         if (i.name)
-                printf("%s (%u)\n", i.name, (unsigned) i.uid);
+                printf("%s (%"PRIu32")\n", i.name, i.uid);
         else
-                printf("%u\n", (unsigned) i.uid);
+                printf("%"PRIu32"\n", i.uid);
 
         s1 = format_timestamp_relative(since1, sizeof(since1), i.timestamp.realtime);
         s2 = format_timestamp(since2, sizeof(since2), i.timestamp.realtime);
@@ -477,7 +477,7 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
         if (i.leader > 0) {
                 _cleanup_free_ char *t = NULL;
 
-                printf("\t  Leader: %u", (unsigned) i.leader);
+                printf("\t  Leader: %"PRIu32, i.leader);
 
                 get_process_comm(i.leader, &t);
                 if (t)
@@ -589,9 +589,9 @@ static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line)
         *new_line = true;
 
         if (i.name)
-                printf("%s (%u)\n", i.name, (unsigned) i.uid);
+                printf("%s (%"PRIu32")\n", i.name, i.uid);
         else
-                printf("%u\n", (unsigned) i.uid);
+                printf("%"PRIu32"\n", i.uid);
 
         s1 = format_timestamp_relative(since1, sizeof(since1), i.timestamp.realtime);
         s2 = format_timestamp(since2, sizeof(since2), i.timestamp.realtime);
