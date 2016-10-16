@@ -83,6 +83,34 @@ static OutputFlags get_output_flags(void) {
                 colors_enabled() * OUTPUT_COLOR;
 }
 
+static int get_session_path(sd_bus *bus, const char *session_id, sd_bus_error *error, char **path) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        int r;
+        char *ans;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "GetSession",
+                        error, &reply,
+                        "s", session_id);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(reply, "o", &ans);
+        if (r < 0)
+                return r;
+
+        ans = strdup(ans);
+        if (!ans)
+                return -ENOMEM;
+
+        *path = ans;
+        return 0;
+}
+
 static int list_sessions(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -115,10 +143,38 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
                 return bus_log_parse_error(r);
 
         if (arg_legend)
-                printf("%10s %10s %-16s %-16s\n", "SESSION", "UID", "USER", "SEAT");
+                printf("%10s %10s %-16s %-16s %-16s\n", "SESSION", "UID", "USER", "SEAT", "TTY");
 
         while ((r = sd_bus_message_read(reply, "(susso)", &id, &uid, &user, &seat, &object)) > 0) {
-                printf("%10s %10"PRIu32" %-16s %-16s\n", id, uid, user, seat);
+                _cleanup_(sd_bus_error_free) sd_bus_error error2 = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply2 = NULL;
+                _cleanup_free_ char *path = NULL;
+                const char *tty = NULL;
+
+                r = get_session_path(bus, id, &error2, &path);
+                if (r < 0)
+                        log_warning("Failed to get session path: %s", bus_error_message(&error, r));
+                else {
+                        r = sd_bus_get_property(
+                                        bus,
+                                        "org.freedesktop.login1",
+                                        path,
+                                        "org.freedesktop.login1.Session",
+                                        "TTY",
+                                        &error2,
+                                        &reply2,
+                                        "s");
+                        if (r < 0)
+                                log_warning("Failed to get TTY for session %s: %s",
+                                            id, bus_error_message(&error2, r));
+                        else {
+                                r = sd_bus_message_read(reply2, "s", &tty);
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+                        }
+                }
+
+                printf("%10s %10"PRIu32" %-16s %-16s %-16s\n", id, uid, user, seat, strna(tty));
                 k++;
         }
         if (r < 0)
@@ -887,25 +943,13 @@ static int show_session(int argc, char *argv[], void *userdata) {
 
         for (i = 1; i < argc; i++) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message * reply = NULL;
-                const char *path = NULL;
+                _cleanup_free_ char *path = NULL;
 
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.login1",
-                                "/org/freedesktop/login1",
-                                "org.freedesktop.login1.Manager",
-                                "GetSession",
-                                &error, &reply,
-                                "s", argv[i]);
+                r = get_session_path(bus, argv[1], &error, &path);
                 if (r < 0) {
-                        log_error("Failed to get session: %s", bus_error_message(&error, r));
+                        log_error("Failed to get session path: %s", bus_error_message(&error, r));
                         return r;
                 }
-
-                r = sd_bus_message_read(reply, "o", &path);
-                if (r < 0)
-                        return bus_log_parse_error(r);
 
                 if (properties)
                         r = show_properties(bus, path, &new_line);
