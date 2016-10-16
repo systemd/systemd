@@ -264,16 +264,13 @@ static crypto_device *get_crypto_device(const char *uuid) {
                 d->keyfile = d->options = d->name = NULL;
 
                 d->uuid = strdup(uuid);
-                if (!d->uuid) {
-                        free(d);
-                        return NULL;
-                }
+                if (!d->uuid)
+                        return mfree(d);
 
                 r = hashmap_put(arg_disks, d->uuid, d);
                 if (r < 0) {
                         free(d->uuid);
-                        free(d);
-                        return NULL;
+                        return mfree(d);
                 }
         }
 

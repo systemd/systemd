@@ -134,8 +134,7 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         dns_answer_unref(t->validated_keys);
         dns_resource_key_unref(t->key);
 
-        free(t);
-        return NULL;
+        return mfree(t);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsTransaction*, dns_transaction_free);

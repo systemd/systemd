@@ -325,10 +325,8 @@ static FileDescriptor* fd_add(MMapCache *m, int fd) {
         f->fd = fd;
 
         r = hashmap_put(m->fds, FD_TO_PTR(fd), f);
-        if (r < 0) {
-                free(f);
-                return NULL;
-        }
+        if (r < 0)
+                return mfree(f);
 
         return f;
 }

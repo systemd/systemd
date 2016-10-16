@@ -88,10 +88,8 @@ Unit *unit_new(Manager *m, size_t size) {
                 return NULL;
 
         u->names = set_new(&string_hash_ops);
-        if (!u->names) {
-                free(u);
-                return NULL;
-        }
+        if (!u->names)
+                return mfree(u);
 
         u->manager = m;
         u->type = _UNIT_TYPE_INVALID;

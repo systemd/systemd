@@ -544,8 +544,7 @@ char *replace_env(const char *format, char **env) {
         return k;
 
 fail:
-        free(r);
-        return NULL;
+        return mfree(r);
 }
 
 char **replace_env_argv(char **argv, char **env) {

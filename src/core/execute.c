@@ -3740,9 +3740,7 @@ ExecRuntime *exec_runtime_unref(ExecRuntime *r) {
         free(r->tmp_dir);
         free(r->var_tmp_dir);
         safe_close_pair(r->netns_storage_socket);
-        free(r);
-
-        return NULL;
+        return mfree(r);
 }
 
 int exec_runtime_serialize(Unit *u, ExecRuntime *rt, FILE *f, FDSet *fds) {

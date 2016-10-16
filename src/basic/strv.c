@@ -87,8 +87,7 @@ void strv_clear(char **l) {
 
 char **strv_free(char **l) {
         strv_clear(l);
-        free(l);
-        return NULL;
+        return mfree(l);
 }
 
 char **strv_free_erase(char **l) {
@@ -426,8 +425,7 @@ char *strv_join_quoted(char **l) {
         return buf;
 
  oom:
-        free(buf);
-        return NULL;
+        return mfree(buf);
 }
 
 int strv_push(char ***l, char *value) {
@@ -869,8 +867,7 @@ char ***strv_free_free(char ***l) {
         for (i = l; *i; i++)
                 strv_free(*i);
 
-        free(l);
-        return NULL;
+        return mfree(l);
 }
 
 char **strv_skip(char **l, size_t n) {

@@ -62,9 +62,7 @@ Prioq* prioq_free(Prioq *q) {
                 return NULL;
 
         free(q->items);
-        free(q);
-
-        return NULL;
+        return mfree(q);
 }
 
 int prioq_ensure_allocated(Prioq **q, compare_func_t compare_func) {

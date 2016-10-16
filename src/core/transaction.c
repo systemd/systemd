@@ -1085,10 +1085,8 @@ Transaction *transaction_new(bool irreversible) {
                 return NULL;
 
         tr->jobs = hashmap_new(NULL);
-        if (!tr->jobs) {
-                free(tr);
-                return NULL;
-        }
+        if (!tr->jobs)
+                return mfree(tr);
 
         tr->irreversible = irreversible;
 

@@ -83,9 +83,7 @@ DnsQueryCandidate* dns_query_candidate_free(DnsQueryCandidate *c) {
         if (c->scope)
                 LIST_REMOVE(candidates_by_scope, c->scope->query_candidates, c);
 
-        free(c);
-
-        return NULL;
+        return mfree(c);
 }
 
 static int dns_query_candidate_next_search_domain(DnsQueryCandidate *c) {
@@ -421,9 +419,7 @@ DnsQuery *dns_query_free(DnsQuery *q) {
                 q->manager->n_dns_queries--;
         }
 
-        free(q);
-
-        return NULL;
+        return mfree(q);
 }
 
 int dns_query_new(

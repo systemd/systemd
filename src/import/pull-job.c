@@ -50,9 +50,7 @@ PullJob* pull_job_unref(PullJob *j) {
         free(j->payload);
         free(j->checksum);
 
-        free(j);
-
-        return NULL;
+        return mfree(j);
 }
 
 static void pull_job_finish(PullJob *j, int ret) {

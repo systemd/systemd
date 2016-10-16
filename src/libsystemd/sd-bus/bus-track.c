@@ -74,9 +74,7 @@ static struct track_item* track_item_free(struct track_item *i) {
 
         sd_bus_slot_unref(i->slot);
         free(i->name);
-        free(i);
-
-        return NULL;
+        return mfree(i);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct track_item*, track_item_free);
@@ -206,9 +204,7 @@ _public_ sd_bus_track* sd_bus_track_unref(sd_bus_track *track) {
         bus_track_remove_from_queue(track);
         hashmap_free(track->names);
         sd_bus_unref(track->bus);
-        free(track);
-
-        return NULL;
+        return mfree(track);
 }
 
 static int on_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus_error *error) {

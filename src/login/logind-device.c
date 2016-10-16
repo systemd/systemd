@@ -34,15 +34,12 @@ Device* device_new(Manager *m, const char *sysfs, bool master) {
                 return NULL;
 
         d->sysfs = strdup(sysfs);
-        if (!d->sysfs) {
-                free(d);
-                return NULL;
-        }
+        if (!d->sysfs)
+                return mfree(d);
 
         if (hashmap_put(m->devices, d->sysfs, d) < 0) {
                 free(d->sysfs);
-                free(d);
-                return NULL;
+                return mfree(d);
         }
 
         d->manager = m;

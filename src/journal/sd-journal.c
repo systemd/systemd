@@ -387,7 +387,7 @@ _public_ int sd_journal_add_disjunction(sd_journal *j) {
 }
 
 static char *match_make_string(Match *m) {
-        char *p, *r;
+        char *p = NULL, *r;
         Match *i;
         bool enclose = false;
 
@@ -397,15 +397,12 @@ static char *match_make_string(Match *m) {
         if (m->type == MATCH_DISCRETE)
                 return strndup(m->data, m->size);
 
-        p = NULL;
         LIST_FOREACH(matches, i, m->matches) {
                 char *t, *k;
 
                 t = match_make_string(i);
-                if (!t) {
-                        free(p);
-                        return NULL;
-                }
+                if (!t)
+                        return mfree(p);
 
                 if (p) {
                         k = strjoin(p, m->type == MATCH_OR_TERM ? " OR " : " AND ", t, NULL);

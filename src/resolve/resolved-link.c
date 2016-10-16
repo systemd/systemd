@@ -101,8 +101,7 @@ Link *link_free(Link *l) {
 
         free(l->state_file);
 
-        free(l);
-        return NULL;
+        return mfree(l);
 }
 
 void link_allocate_scopes(Link *l) {
@@ -698,8 +697,7 @@ LinkAddress *link_address_free(LinkAddress *a) {
         dns_resource_record_unref(a->llmnr_address_rr);
         dns_resource_record_unref(a->llmnr_ptr_rr);
 
-        free(a);
-        return NULL;
+        return mfree(a);
 }
 
 void link_address_add_rrs(LinkAddress *a, bool force_remove) {

@@ -90,9 +90,7 @@ sd_ipv4ll *sd_ipv4ll_unref(sd_ipv4ll *ll) {
                 return NULL;
 
         sd_ipv4acd_unref(ll->acd);
-        free(ll);
-
-        return NULL;
+        return mfree(ll);
 }
 
 int sd_ipv4ll_new(sd_ipv4ll **ret) {

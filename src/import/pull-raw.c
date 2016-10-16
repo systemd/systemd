@@ -110,9 +110,7 @@ RawPull* raw_pull_unref(RawPull *i) {
         free(i->settings_path);
         free(i->image_root);
         free(i->local);
-        free(i);
-
-        return NULL;
+        return mfree(i);
 }
 
 int raw_pull_new(

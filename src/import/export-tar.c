@@ -91,9 +91,7 @@ TarExport *tar_export_unref(TarExport *e) {
 
         free(e->buffer);
         free(e->path);
-        free(e);
-
-        return NULL;
+        return mfree(e);
 }
 
 int tar_export_new(

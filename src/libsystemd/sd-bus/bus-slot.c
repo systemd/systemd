@@ -212,9 +212,7 @@ _public_ sd_bus_slot* sd_bus_slot_unref(sd_bus_slot *slot) {
 
         bus_slot_disconnect(slot);
         free(slot->description);
-        free(slot);
-
-        return NULL;
+        return mfree(slot);
 }
 
 _public_ sd_bus* sd_bus_slot_get_bus(sd_bus_slot *slot) {

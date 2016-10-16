@@ -43,15 +43,12 @@ Button* button_new(Manager *m, const char *name) {
                 return NULL;
 
         b->name = strdup(name);
-        if (!b->name) {
-                free(b);
-                return NULL;
-        }
+        if (!b->name)
+                return mfree(b);
 
         if (hashmap_put(m->buttons, b->name, b) < 0) {
                 free(b->name);
-                free(b);
-                return NULL;
+                return mfree(b);
         }
 
         b->manager = m;

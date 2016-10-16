@@ -148,9 +148,7 @@ _public_ sd_ndisc *sd_ndisc_unref(sd_ndisc *nd) {
 
         ndisc_reset(nd);
         sd_ndisc_detach_event(nd);
-        free(nd);
-
-        return NULL;
+        return mfree(nd);
 }
 
 _public_ int sd_ndisc_new(sd_ndisc **ret) {

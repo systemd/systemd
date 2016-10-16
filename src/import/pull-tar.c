@@ -114,9 +114,7 @@ TarPull* tar_pull_unref(TarPull *i) {
         free(i->settings_path);
         free(i->image_root);
         free(i->local);
-        free(i);
-
-        return NULL;
+        return mfree(i);
 }
 
 int tar_pull_new(

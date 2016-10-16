@@ -141,8 +141,7 @@ static Transfer *transfer_unref(Transfer *t) {
         safe_close(t->stdin_fd);
         safe_close(t->stdout_fd);
 
-        free(t);
-        return NULL;
+        return mfree(t);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Transfer*, transfer_unref);
@@ -548,8 +547,7 @@ static Manager *manager_unref(Manager *m) {
         m->bus = sd_bus_flush_close_unref(m->bus);
         sd_event_unref(m->event);
 
-        free(m);
-        return NULL;
+        return mfree(m);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);

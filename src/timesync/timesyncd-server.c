@@ -61,8 +61,7 @@ ServerAddress* server_address_free(ServerAddress *a) {
                         manager_set_server_address(a->name->manager, NULL);
         }
 
-        free(a);
-        return NULL;
+        return mfree(a);
 }
 
 int server_name_new(
@@ -137,9 +136,7 @@ ServerName *server_name_free(ServerName *n) {
         log_debug("Removed server %s.", n->string);
 
         free(n->string);
-        free(n);
-
-        return NULL;
+        return mfree(n);
 }
 
 void server_name_flush_addresses(ServerName *n) {

@@ -100,9 +100,7 @@ RawImport* raw_import_unref(RawImport *i) {
         free(i->final_path);
         free(i->image_root);
         free(i->local);
-        free(i);
-
-        return NULL;
+        return mfree(i);
 }
 
 int raw_import_new(

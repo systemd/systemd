@@ -147,6 +147,5 @@ Operation *operation_free(Operation *o) {
         if (o->machine)
                 LIST_REMOVE(operations_by_machine, o->machine->operations, o);
 
-        free(o);
-        return NULL;
+        return mfree(o);
 }

@@ -139,8 +139,7 @@ DnsServer* dns_server_unref(DnsServer *s)  {
                 return NULL;
 
         free(s->server_string);
-        free(s);
-        return NULL;
+        return mfree(s);
 }
 
 void dns_server_unlink(DnsServer *s) {

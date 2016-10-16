@@ -207,8 +207,7 @@ struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const c
                 udev_monitor->sock = socket(PF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_KOBJECT_UEVENT);
                 if (udev_monitor->sock < 0) {
                         log_debug_errno(errno, "error getting socket: %m");
-                        free(udev_monitor);
-                        return NULL;
+                        return mfree(udev_monitor);
                 }
         } else {
                 udev_monitor->bound = true;

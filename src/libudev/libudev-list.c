@@ -166,17 +166,16 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
         entry = new0(struct udev_list_entry, 1);
         if (entry == NULL)
                 return NULL;
+
         entry->name = strdup(name);
-        if (entry->name == NULL) {
-                free(entry);
-                return NULL;
-        }
+        if (entry->name == NULL)
+                return mfree(entry);
+
         if (value != NULL) {
                 entry->value = strdup(value);
                 if (entry->value == NULL) {
                         free(entry->name);
-                        free(entry);
-                        return NULL;
+                        return mfree(entry);
                 }
         }
 
@@ -193,8 +192,7 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
                         if (entries == NULL) {
                                 free(entry->name);
                                 free(entry->value);
-                                free(entry);
-                                return NULL;
+                                return mfree(entry);
                         }
                         list->entries = entries;
                         list->entries_max += add;

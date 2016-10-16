@@ -107,9 +107,7 @@ TarImport* tar_import_unref(TarImport *i) {
         free(i->final_path);
         free(i->image_root);
         free(i->local);
-        free(i);
-
-        return NULL;
+        return mfree(i);
 }
 
 int tar_import_new(

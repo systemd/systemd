@@ -178,9 +178,7 @@ sd_dhcp_server *sd_dhcp_server_unref(sd_dhcp_server *server) {
         hashmap_free(server->leases_by_client_id);
 
         free(server->bound_leases);
-        free(server);
-
-        return NULL;
+        return mfree(server);
 }
 
 int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {

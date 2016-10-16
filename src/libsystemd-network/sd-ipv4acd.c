@@ -135,9 +135,7 @@ sd_ipv4acd *sd_ipv4acd_unref(sd_ipv4acd *acd) {
         ipv4acd_reset(acd);
         sd_ipv4acd_detach_event(acd);
 
-        free(acd);
-
-        return NULL;
+        return mfree(acd);
 }
 
 int sd_ipv4acd_new(sd_ipv4acd **ret) {

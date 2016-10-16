@@ -1300,9 +1300,7 @@ sd_dhcp6_client *sd_dhcp6_client_unref(sd_dhcp6_client *client) {
         sd_dhcp6_client_detach_event(client);
 
         free(client->req_opts);
-        free(client);
-
-        return NULL;
+        return mfree(client);
 }
 
 int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
