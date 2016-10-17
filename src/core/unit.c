@@ -3053,7 +3053,7 @@ int unit_coldplug(Unit *u) {
         return r;
 }
 
-static bool fragment_mtime_newer(const char *path, usec_t mtime) {
+static bool fragment_mtime_newer(const char *path, usec_t mtime, bool path_masked) {
         struct stat st;
 
         if (!path)
@@ -3063,12 +3063,12 @@ static bool fragment_mtime_newer(const char *path, usec_t mtime) {
                 /* What, cannot access this anymore? */
                 return true;
 
-        if (mtime > 0)
+        if (path_masked)
+                /* For masked files check if they are still so */
+                return !null_or_empty(&st);
+        else
                 /* For non-empty files check the mtime */
                 return timespec_load(&st.st_mtim) > mtime;
-        else if (!null_or_empty(&st))
-                /* For masked files check if they are still so */
-                return true;
 
         return false;
 }
@@ -3079,18 +3079,22 @@ bool unit_need_daemon_reload(Unit *u) {
 
         assert(u);
 
-        if (fragment_mtime_newer(u->fragment_path, u->fragment_mtime))
+        /* For unit files, we allow masking… */
+        if (fragment_mtime_newer(u->fragment_path, u->fragment_mtime,
+                                 u->load_state == UNIT_MASKED))
                 return true;
 
-        if (fragment_mtime_newer(u->source_path, u->source_mtime))
+        /* Source paths should not be masked… */
+        if (fragment_mtime_newer(u->source_path, u->source_mtime, false))
                 return true;
 
         (void) unit_find_dropin_paths(u, &t);
         if (!strv_equal(u->dropin_paths, t))
                 return true;
 
+        /* … any drop-ins that are masked are simply omitted from the list. */
         STRV_FOREACH(path, u->dropin_paths)
-                if (fragment_mtime_newer(*path, u->dropin_mtime))
+                if (fragment_mtime_newer(*path, u->dropin_mtime, false))
                         return true;
 
         return false;
