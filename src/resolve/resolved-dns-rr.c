@@ -73,10 +73,8 @@ DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const D
                         return dns_resource_key_ref((DnsResourceKey*) key);
 
                 k = dns_resource_key_new_consume(key->class, key->type, destination);
-                if (!k) {
-                        free(destination);
-                        return NULL;
-                }
+                if (!k)
+                        return mfree(destination);
 
                 return k;
         }
@@ -513,9 +511,7 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
         }
 
         free(rr->to_string);
-        free(rr);
-
-        return NULL;
+        return mfree(rr);
 }
 
 int dns_resource_record_new_reverse(DnsResourceRecord **ret, int family, const union in_addr_union *address, const char *hostname) {

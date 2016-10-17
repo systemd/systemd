@@ -463,8 +463,7 @@ int pty_forward_new(
 
 PTYForward *pty_forward_free(PTYForward *f) {
         pty_forward_disconnect(f);
-        free(f);
-        return NULL;
+        return mfree(f);
 }
 
 int pty_forward_get_last_char(PTYForward *f, char *ch) {

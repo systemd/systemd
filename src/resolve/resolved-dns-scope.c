@@ -128,9 +128,7 @@ DnsScope* dns_scope_free(DnsScope *s) {
         dns_zone_flush(&s->zone);
 
         LIST_REMOVE(scopes, s->manager->dns_scopes, s);
-        free(s);
-
-        return NULL;
+        return mfree(s);
 }
 
 DnsServer *dns_scope_get_dns_server(DnsScope *s) {

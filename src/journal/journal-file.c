@@ -394,8 +394,7 @@ JournalFile* journal_file_close(JournalFile *f) {
                 gcry_md_close(f->hmac);
 #endif
 
-        free(f);
-        return NULL;
+        return mfree(f);
 }
 
 void journal_file_close_set(Set *s) {

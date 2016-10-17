@@ -1119,8 +1119,7 @@ Manager* manager_free(Manager *m) {
         hashmap_free(m->uid_refs);
         hashmap_free(m->gid_refs);
 
-        free(m);
-        return NULL;
+        return mfree(m);
 }
 
 void manager_enumerate(Manager *m) {

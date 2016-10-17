@@ -1583,8 +1583,7 @@ struct udev_rules *udev_rules_unref(struct udev_rules *rules) {
         strbuf_cleanup(rules->strbuf);
         free(rules->uids);
         free(rules->gids);
-        free(rules);
-        return NULL;
+        return mfree(rules);
 }
 
 bool udev_rules_check_timestamp(struct udev_rules *rules) {

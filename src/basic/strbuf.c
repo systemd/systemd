@@ -62,8 +62,7 @@ struct strbuf *strbuf_new(void) {
 err:
         free(str->buf);
         free(str->root);
-        free(str);
-        return NULL;
+        return mfree(str);
 }
 
 static void strbuf_node_cleanup(struct strbuf_node *node) {

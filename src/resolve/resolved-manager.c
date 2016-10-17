@@ -630,9 +630,7 @@ Manager *manager_free(Manager *m) {
         dns_trust_anchor_flush(&m->trust_anchor);
         manager_etc_hosts_flush(m);
 
-        free(m);
-
-        return NULL;
+        return mfree(m);
 }
 
 int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {

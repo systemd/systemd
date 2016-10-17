@@ -43,6 +43,14 @@ static inline void *mfree(void *memory) {
         return NULL;
 }
 
+#define free_and_replace(a, b)                  \
+        ({                                      \
+                free(a);                        \
+                (a) = (b);                      \
+                (b) = NULL;                     \
+                0;                              \
+        })
+
 void* memdup(const void *p, size_t l) _alloc_(2);
 
 static inline void freep(void *p) {

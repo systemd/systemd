@@ -1873,9 +1873,7 @@ sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client) {
         free(client->req_opts);
         free(client->hostname);
         free(client->vendor_class_identifier);
-        free(client);
-
-        return NULL;
+        return mfree(client);
 }
 
 int sd_dhcp_client_new(sd_dhcp_client **ret) {

@@ -107,6 +107,5 @@ char *replace_var(const char *text, char *(*lookup)(const char *variable, void*u
         return r;
 
 oom:
-        free(r);
-        return NULL;
+        return mfree(r);
 }

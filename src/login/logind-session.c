@@ -62,16 +62,13 @@ Session* session_new(Manager *m, const char *id) {
                 return NULL;
 
         s->state_file = strappend("/run/systemd/sessions/", id);
-        if (!s->state_file) {
-                free(s);
-                return NULL;
-        }
+        if (!s->state_file)
+                return mfree(s);
 
         s->devices = hashmap_new(&devt_hash_ops);
         if (!s->devices) {
                 free(s->state_file);
-                free(s);
-                return NULL;
+                return mfree(s);
         }
 
         s->id = basename(s->state_file);
@@ -79,8 +76,7 @@ Session* session_new(Manager *m, const char *id) {
         if (hashmap_put(m->sessions, s->id, s) < 0) {
                 hashmap_free(s->devices);
                 free(s->state_file);
-                free(s);
-                return NULL;
+                return mfree(s);
         }
 
         s->manager = m;

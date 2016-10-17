@@ -3088,9 +3088,7 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
 
                 if (!streq_ptr(s->status_text, t)) {
 
-                        free(s->status_text);
-                        s->status_text = t;
-                        t = NULL;
+                        free_and_replace(s->status_text, t);
 
                         notify_dbus = true;
                 }

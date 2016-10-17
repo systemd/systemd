@@ -80,9 +80,7 @@ Machine* machine_new(Manager *manager, MachineClass class, const char *name) {
 fail:
         free(m->state_file);
         free(m->name);
-        free(m);
-
-        return NULL;
+        return mfree(m);
 }
 
 void machine_free(Machine *m) {

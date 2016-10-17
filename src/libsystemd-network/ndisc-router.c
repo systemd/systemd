@@ -49,8 +49,7 @@ _public_ sd_ndisc_router* sd_ndisc_router_unref(sd_ndisc_router *rt) {
         if (rt->n_ref > 0)
                 return NULL;
 
-        free(rt);
-        return NULL;
+        return mfree(rt);
 }
 
 sd_ndisc_router *ndisc_router_new(size_t raw_size) {

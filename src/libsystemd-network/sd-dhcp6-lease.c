@@ -389,9 +389,7 @@ sd_dhcp6_lease *sd_dhcp6_lease_unref(sd_dhcp6_lease *lease) {
         free(lease->ntp);
 
         lease->ntp_fqdn = strv_free(lease->ntp_fqdn);
-        free(lease);
-
-        return NULL;
+        return mfree(lease);
 }
 
 int dhcp6_lease_new(sd_dhcp6_lease **ret) {

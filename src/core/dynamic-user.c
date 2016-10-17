@@ -42,9 +42,7 @@ static DynamicUser* dynamic_user_free(DynamicUser *d) {
                 (void) hashmap_remove(d->manager->dynamic_users, d->name);
 
         safe_close_pair(d->storage_socket);
-        free(d);
-
-        return NULL;
+        return mfree(d);
 }
 
 static int dynamic_user_add(Manager *m, const char *name, int storage_socket[2], DynamicUser **ret) {

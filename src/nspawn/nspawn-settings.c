@@ -101,9 +101,7 @@ Settings* settings_free(Settings *s) {
         expose_port_free_all(s->expose_ports);
 
         custom_mount_free_all(s->custom_mounts, s->n_custom_mounts);
-        free(s);
-
-        return NULL;
+        return mfree(s);
 }
 
 bool settings_private_network(Settings *s) {

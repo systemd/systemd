@@ -1591,11 +1591,7 @@ int config_parse_fdname(
                 return 0;
         }
 
-        free(s->fdname);
-        s->fdname = p;
-        p = NULL;
-
-        return 0;
+        return free_and_replace(s->fdname, p);
 }
 
 int config_parse_service_sockets(
@@ -2052,9 +2048,7 @@ int config_parse_working_directory(
                         return 0;
                 }
 
-                free(c->working_directory);
-                c->working_directory = k;
-                k = NULL;
+                free_and_replace(c->working_directory, k);
 
                 c->working_directory_home = false;
         }

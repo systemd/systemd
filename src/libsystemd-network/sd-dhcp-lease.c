@@ -282,9 +282,7 @@ sd_dhcp_lease *sd_dhcp_lease_unref(sd_dhcp_lease *lease) {
         free(lease->static_route);
         free(lease->client_id);
         free(lease->vendor_specific);
-        free(lease);
-
-        return NULL;
+        return mfree(lease);
 }
 
 static int lease_parse_u32(const uint8_t *option, size_t len, uint32_t *ret, uint32_t min) {

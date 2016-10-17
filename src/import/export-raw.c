@@ -87,9 +87,7 @@ RawExport *raw_export_unref(RawExport *e) {
 
         free(e->buffer);
         free(e->path);
-        free(e);
-
-        return NULL;
+        return mfree(e);
 }
 
 int raw_export_new(

@@ -45,17 +45,14 @@ Inhibitor* inhibitor_new(Manager *m, const char* id) {
                 return NULL;
 
         i->state_file = strappend("/run/systemd/inhibit/", id);
-        if (!i->state_file) {
-                free(i);
-                return NULL;
-        }
+        if (!i->state_file)
+                return mfree(i);
 
         i->id = basename(i->state_file);
 
         if (hashmap_put(m->inhibitors, i->id, i) < 0) {
                 free(i->state_file);
-                free(i);
-                return NULL;
+                return mfree(i);
         }
 
         i->manager = m;

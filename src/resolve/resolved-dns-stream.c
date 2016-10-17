@@ -343,9 +343,7 @@ DnsStream *dns_stream_unref(DnsStream *s) {
         dns_packet_unref(s->write_packet);
         dns_packet_unref(s->read_packet);
 
-        free(s);
-
-        return NULL;
+        return mfree(s);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsStream*, dns_stream_unref);

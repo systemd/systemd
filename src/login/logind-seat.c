@@ -48,18 +48,15 @@ Seat *seat_new(Manager *m, const char *id) {
                 return NULL;
 
         s->state_file = strappend("/run/systemd/seats/", id);
-        if (!s->state_file) {
-                free(s);
-                return NULL;
-        }
+        if (!s->state_file)
+                return mfree(s);
 
         s->id = basename(s->state_file);
         s->manager = m;
 
         if (hashmap_put(m->seats, s->id, s) < 0) {
                 free(s->state_file);
-                free(s);
-                return NULL;
+                return mfree(s);
         }
 
         return s;

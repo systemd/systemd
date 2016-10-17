@@ -58,10 +58,8 @@ Bitmap *bitmap_copy(Bitmap *b) {
                 return NULL;
 
         ret->bitmaps = newdup(uint64_t, b->bitmaps, b->n_bitmaps);
-        if (!ret->bitmaps) {
-                free(ret);
-                return NULL;
-        }
+        if (!ret->bitmaps)
+                return mfree(ret);
 
         ret->n_bitmaps = ret->bitmaps_allocated = b->n_bitmaps;
         return ret;

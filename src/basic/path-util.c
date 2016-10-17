@@ -288,9 +288,7 @@ char **path_strv_resolve(char **l, const char *prefix) {
                         } else {
                                 /* canonicalized path goes outside of
                                  * prefix, keep the original path instead */
-                                free(u);
-                                u = orig;
-                                orig = NULL;
+                                free_and_replace(u, orig);
                         }
                 } else
                         free(t);
