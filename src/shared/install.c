@@ -1767,7 +1767,7 @@ static int install_context_mark_for_removal(
 
                 r = install_info_traverse(scope, c, paths, i, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, NULL);
                 if (r == -ENOLINK)
-                        return 0;
+                        continue;
                 else if (r < 0)
                         return r;
 
