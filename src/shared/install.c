@@ -1205,7 +1205,7 @@ static int unit_file_load(
                          config_item_table_lookup, items,
                          true, true, false, info);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to parse %s: %m", info->name);
 
         info->type = UNIT_FILE_TYPE_REGULAR;
 
@@ -1495,7 +1495,9 @@ static int install_info_discover(
                 const LookupPaths *paths,
                 const char *name,
                 SearchFlags flags,
-                UnitFileInstallInfo **ret) {
+                UnitFileInstallInfo **ret,
+                UnitFileChange **changes,
+                unsigned *n_changes) {
 
         UnitFileInstallInfo *i;
         int r;
@@ -1505,10 +1507,12 @@ static int install_info_discover(
         assert(name);
 
         r = install_info_add_auto(c, paths, name, &i);
-        if (r < 0)
-                return r;
+        if (r >= 0)
+                r = install_info_traverse(scope, c, paths, i, flags, ret);
 
-        return install_info_traverse(scope, c, paths, i, flags, ret);
+        if (r < 0)
+                unit_file_changes_add(changes, n_changes, r, name, NULL);
+        return r;
 }
 
 static int install_info_symlink_alias(
@@ -2225,7 +2229,8 @@ int unit_file_add_dependency(
 
         config_path = runtime ? paths.runtime_config : paths.persistent_config;
 
-        r = install_info_discover(scope, &c, &paths, target, SEARCH_FOLLOW_CONFIG_SYMLINKS, &target_info);
+        r = install_info_discover(scope, &c, &paths, target, SEARCH_FOLLOW_CONFIG_SYMLINKS,
+                                  &target_info, changes, n_changes);
         if (r < 0)
                 return r;
         r = install_info_may_process(target_info, &paths, changes, n_changes);
@@ -2237,7 +2242,8 @@ int unit_file_add_dependency(
         STRV_FOREACH(f, files) {
                 char ***l;
 
-                r = install_info_discover(scope, &c, &paths, *f, SEARCH_FOLLOW_CONFIG_SYMLINKS, &i);
+                r = install_info_discover(scope, &c, &paths, *f, SEARCH_FOLLOW_CONFIG_SYMLINKS,
+                                          &i, changes, n_changes);
                 if (r < 0)
                         return r;
                 r = install_info_may_process(i, &paths, changes, n_changes);
@@ -2290,7 +2296,8 @@ int unit_file_enable(
         config_path = runtime ? paths.runtime_config : paths.persistent_config;
 
         STRV_FOREACH(f, files) {
-                r = install_info_discover(scope, &c, &paths, *f, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, &i);
+                r = install_info_discover(scope, &c, &paths, *f, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS,
+                                          &i, changes, n_changes);
                 if (r < 0)
                         return r;
                 r = install_info_may_process(i, &paths, changes, n_changes);
@@ -2403,7 +2410,7 @@ int unit_file_set_default(
         if (r < 0)
                 return r;
 
-        r = install_info_discover(scope, &c, &paths, name, 0, &i);
+        r = install_info_discover(scope, &c, &paths, name, 0, &i, changes, n_changes);
         if (r < 0)
                 return r;
         r = install_info_may_process(i, &paths, changes, n_changes);
@@ -2433,7 +2440,8 @@ int unit_file_get_default(
         if (r < 0)
                 return r;
 
-        r = install_info_discover(scope, &c, &paths, SPECIAL_DEFAULT_TARGET, SEARCH_FOLLOW_CONFIG_SYMLINKS, &i);
+        r = install_info_discover(scope, &c, &paths, SPECIAL_DEFAULT_TARGET, SEARCH_FOLLOW_CONFIG_SYMLINKS,
+                                  &i, NULL, NULL);
         if (r < 0)
                 return r;
         r = install_info_may_process(i, &paths, NULL, 0);
@@ -2465,7 +2473,8 @@ static int unit_file_lookup_state(
         if (!unit_name_is_valid(name, UNIT_NAME_ANY))
                 return -EINVAL;
 
-        r = install_info_discover(scope, &c, paths, name, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, &i);
+        r = install_info_discover(scope, &c, paths, name, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS,
+                                  &i, NULL, NULL);
         if (r < 0)
                 return r;
 
@@ -2552,7 +2561,7 @@ int unit_file_exists(UnitFileScope scope, const LookupPaths *paths, const char *
         if (!unit_name_is_valid(name, UNIT_NAME_ANY))
                 return -EINVAL;
 
-        r = install_info_discover(scope, &c, paths, name, 0, NULL);
+        r = install_info_discover(scope, &c, paths, name, 0, NULL, NULL, NULL);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -2770,7 +2779,8 @@ static int preset_prepare_one(
         if (install_info_find(plus, name) || install_info_find(minus, name))
                 return 0;
 
-        r = install_info_discover(scope, &tmp, paths, name, SEARCH_FOLLOW_CONFIG_SYMLINKS, &i);
+        r = install_info_discover(scope, &tmp, paths, name, SEARCH_FOLLOW_CONFIG_SYMLINKS,
+                                  &i, changes, n_changes);
         if (r < 0)
                 return r;
         if (!streq(name, i->name)) {
@@ -2783,7 +2793,8 @@ static int preset_prepare_one(
                 return r;
 
         if (r > 0) {
-                r = install_info_discover(scope, plus, paths, name, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, &i);
+                r = install_info_discover(scope, plus, paths, name, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS,
+                                          &i, changes, n_changes);
                 if (r < 0)
                         return r;
 
@@ -2791,7 +2802,8 @@ static int preset_prepare_one(
                 if (r < 0)
                         return r;
         } else
-                r = install_info_discover(scope, minus, paths, name, SEARCH_FOLLOW_CONFIG_SYMLINKS, &i);
+                r = install_info_discover(scope, minus, paths, name, SEARCH_FOLLOW_CONFIG_SYMLINKS,
+                                          &i, changes, n_changes);
 
         return r;
 }
