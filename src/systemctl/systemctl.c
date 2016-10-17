@@ -1410,35 +1410,46 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
                 id_cols = max_id_len;
 
         if (!arg_no_legend && c > 0)
-                printf("%-*s %-*s\n",
+                printf("%s%-*s %-*s%s\n",
+                       ansi_underline(),
                        id_cols, "UNIT FILE",
-                       state_cols, "STATE");
+                       state_cols, "STATE",
+                       ansi_normal());
 
         for (u = units; u < units + c; u++) {
                 _cleanup_free_ char *e = NULL;
-                const char *on, *off;
+                const char *on, *off, *on_underline = "", *off_underline = "";
                 const char *id;
+                bool underline = false;
+
+                if (u + 1 < units + c &&
+                    !streq(unit_type_suffix(u->path), unit_type_suffix((u + 1)->path))) {
+                        on_underline = ansi_underline();
+                        off_underline = ansi_normal();
+                        underline = true;
+                }
 
                 if (IN_SET(u->state,
                            UNIT_FILE_MASKED,
                            UNIT_FILE_MASKED_RUNTIME,
                            UNIT_FILE_DISABLED,
-                           UNIT_FILE_BAD)) {
-                        on  = ansi_highlight_red();
-                        off = ansi_normal();
-                } else if (u->state == UNIT_FILE_ENABLED) {
-                        on  = ansi_highlight_green();
-                        off = ansi_normal();
-                } else
-                        on = off = "";
+                           UNIT_FILE_BAD))
+                        on  = underline ? ansi_highlight_red_underline() : ansi_highlight_red();
+                else if (u->state == UNIT_FILE_ENABLED)
+                        on  = underline ? ansi_highlight_green_underline() : ansi_highlight_green();
+                else
+                        on = on_underline;
+                off = off_underline;
 
                 id = basename(u->path);
 
                 e = arg_full ? NULL : ellipsize(id, id_cols, 33);
 
-                printf("%-*s %s%-*s%s\n",
+                printf("%s%-*s %s%-*s%s%s\n",
+                       on_underline,
                        id_cols, e ? e : id,
-                       on, state_cols, unit_file_state_to_string(u->state), off);
+                       on, state_cols, unit_file_state_to_string(u->state), off,
+                       off_underline);
         }
 
         if (!arg_no_legend)
