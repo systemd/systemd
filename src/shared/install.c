@@ -934,11 +934,14 @@ static int install_info_may_process(
 /**
  * Adds a new UnitFileInstallInfo entry under name in the InstallContext.will_process
  * hashmap, or retrieves the existing one if already present.
+ *
+ * Returns negative on error, 0 if the unit was already known, 1 otherwise.
  */
 static int install_info_add(
                 InstallContext *c,
                 const char *name,
                 const char *path,
+                bool auxiliary,
                 UnitFileInstallInfo **ret) {
 
         UnitFileInstallInfo *i = NULL;
@@ -955,6 +958,8 @@ static int install_info_add(
 
         i = install_info_find(c, name);
         if (i) {
+                i->auxiliary = i->auxiliary && auxiliary;
+
                 if (ret)
                         *ret = i;
                 return 0;
@@ -968,6 +973,7 @@ static int install_info_add(
         if (!i)
                 return -ENOMEM;
         i->type = _UNIT_FILE_TYPE_INVALID;
+        i->auxiliary = auxiliary;
 
         i->name = strdup(name);
         if (!i->name) {
@@ -990,7 +996,7 @@ static int install_info_add(
         if (ret)
                 *ret = i;
 
-        return 0;
+        return 1;
 
 fail:
         install_info_free(i);
@@ -1039,7 +1045,7 @@ static int config_parse_also(
                 void *data,
                 void *userdata) {
 
-        UnitFileInstallInfo *i = userdata;
+        UnitFileInstallInfo *info = userdata, *alsoinfo = NULL;
         InstallContext *c = data;
         int r;
 
@@ -1056,11 +1062,11 @@ static int config_parse_also(
                 if (r == 0)
                         break;
 
-                r = install_info_add(c, word, NULL, NULL);
+                r = install_info_add(c, word, NULL, true, &alsoinfo);
                 if (r < 0)
                         return r;
 
-                r = strv_push(&i->also, word);
+                r = strv_push(&info->also, word);
                 if (r < 0)
                         return r;
 
@@ -1432,7 +1438,7 @@ static int install_info_traverse(
                                 bn = buffer;
                         }
 
-                        r = install_info_add(c, bn, NULL, &i);
+                        r = install_info_add(c, bn, NULL, false, &i);
                         if (r < 0)
                                 return r;
 
@@ -1471,9 +1477,9 @@ static int install_info_add_auto(
 
                 pp = prefix_roota(paths->root_dir, name_or_path);
 
-                return install_info_add(c, NULL, pp, ret);
+                return install_info_add(c, NULL, pp, false, ret);
         } else
-                return install_info_add(c, name_or_path, NULL, ret);
+                return install_info_add(c, name_or_path, NULL, false, ret);
 }
 
 static int install_info_discover(
@@ -1766,10 +1772,15 @@ static int install_context_mark_for_removal(
                         return r;
 
                 r = install_info_traverse(scope, c, paths, i, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, NULL);
-                if (r == -ENOLINK)
+                if (r == -ENOLINK) {
+                        log_debug_errno(r, "Name %s leads to a dangling symlink, ignoring.", i->name);
                         continue;
-                else if (r < 0)
-                        return r;
+                } else if (r == -ENOENT && i->auxiliary) {
+                        /* some unit specified in Also= or similar is missing */
+                        log_debug_errno(r, "Auxiliary unit %s not found, ignoring.", i->name);
+                        continue;
+                } else if (r < 0)
+                        return log_debug_errno(r, "Failed to find unit %s: %m", i->name);
 
                 if (i->type != UNIT_FILE_TYPE_REGULAR) {
                         log_debug("Unit %s has type %s, ignoring.",
@@ -2316,7 +2327,7 @@ int unit_file_disable(
                 if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
                         return -EINVAL;
 
-                r = install_info_add(&c, *i, NULL, NULL);
+                r = install_info_add(&c, *i, NULL, false, NULL);
                 if (r < 0)
                         return r;
         }
