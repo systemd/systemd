@@ -1054,7 +1054,7 @@ static int config_parse_also(
         assert(rvalue);
 
         for (;;) {
-                _cleanup_free_ char *word = NULL;
+                _cleanup_free_ char *word = NULL, *printed = NULL;
 
                 r = extract_first_word(&rvalue, &word, NULL, 0);
                 if (r < 0)
@@ -1062,15 +1062,22 @@ static int config_parse_also(
                 if (r == 0)
                         break;
 
-                r = install_info_add(c, word, NULL, true, &alsoinfo);
+                r = install_full_printf(info, word, &printed);
                 if (r < 0)
                         return r;
 
-                r = strv_push(&info->also, word);
+                if (!unit_name_is_valid(printed, UNIT_NAME_ANY))
+                        return -EINVAL;
+
+                r = install_info_add(c, printed, NULL, true, &alsoinfo);
                 if (r < 0)
                         return r;
 
-                word = NULL;
+                r = strv_push(&info->also, printed);
+                if (r < 0)
+                        return r;
+
+                printed = NULL;
         }
 
         return 0;
