@@ -73,7 +73,7 @@ static void test_next(const char *input, const char *new_tz, usec_t after, usec_
 
         u = after;
         r = calendar_spec_next_usec(c, after, &u);
-        printf("At: %s\n", r < 0 ? strerror(-r) : format_timestamp_us(buf, sizeof(buf), u));
+        printf("At: %s\n", r < 0 ? strerror(-r) : format_timestamp_us(buf, sizeof buf, u));
         if (expect != (usec_t)-1)
                 assert_se(r >= 0 && u == expect);
         else
@@ -107,6 +107,28 @@ static void test_timestamp(void) {
 
         assert_se(parse_timestamp(t, &y) >= 0);
         assert_se(y == x);
+}
+
+static void test_hourly_bug_4031(void) {
+        CalendarSpec *c;
+        usec_t n, u, w;
+        char buf[FORMAT_TIMESTAMP_MAX], zaf[FORMAT_TIMESTAMP_MAX];
+        int r;
+
+        assert_se(calendar_spec_from_string("hourly", &c) >= 0);
+        n = now(CLOCK_REALTIME);
+        assert_se((r = calendar_spec_next_usec(c, n, &u)) >= 0);
+
+        printf("Now: %s (%"PRIu64")\n", format_timestamp_us(buf, sizeof buf, n), n);
+        printf("Next hourly: %s (%"PRIu64")\n", r < 0 ? strerror(-r) : format_timestamp_us(buf, sizeof buf, u), u);
+
+        assert_se((r = calendar_spec_next_usec(c, u, &w)) >= 0);
+        printf("Next hourly: %s (%"PRIu64")\n", r < 0 ? strerror(-r) : format_timestamp_us(zaf, sizeof zaf, w), w);
+
+        assert_se(n < u);
+        assert_se(u <= n + USEC_PER_HOUR);
+        assert_se(u < w);
+        assert_se(w <= u + USEC_PER_HOUR);
 }
 
 int main(int argc, char* argv[]) {
@@ -177,6 +199,7 @@ int main(int argc, char* argv[]) {
         assert_se(calendar_spec_from_string("00:00:00.0..00.9", &c) < 0);
 
         test_timestamp();
+        test_hourly_bug_4031();
 
         return 0;
 }
