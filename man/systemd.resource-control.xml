@@ -60,12 +60,10 @@
   <refsect1>
     <title>Description</title>
 
-    <para>Unit configuration files for services, slices, scopes,
-    sockets, mount points, and swap devices share a subset of
-    configuration options for resource control of spawned
-    processes. Internally, this relies on the Control Groups
-    kernel concept for organizing processes in a hierarchical tree of
-    named groups for the purpose of resource management.</para>
+    <para>Unit configuration files for services, slices, scopes, sockets, mount points, and swap devices share a subset
+    of configuration options for resource control of spawned processes. Internally, this relies on the Linux Control
+    Groups (cgroups) kernel concept for organizing processes in a hierarchical tree of named groups for the purpose of
+    resource management.</para>
 
     <para>This man page lists the configuration options shared by
     those six unit types. See
@@ -116,7 +114,7 @@
           <term><option>CPU</option></term>
           <listitem>
             <para>Due to the lack of consensus in the kernel community, the CPU controller support on the unified
-            cgroup hierarchy requires out-of-tree kernel patches. See <ulink
+            control group hierarchy requires out-of-tree kernel patches. See <ulink
             url="https://git.kernel.org/cgit/linux/kernel/git/tj/cgroup.git/tree/Documentation/cgroup-v2-cpu.txt?h=cgroup-v2-cpu">cgroup-v2-cpu.txt</ulink>.</para>
 
             <para><varname>CPUWeight=</varname> and <varname>StartupCPUWeight=</varname> replace

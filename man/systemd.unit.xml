@@ -1252,7 +1252,7 @@
           <row>
       <entry><literal>%r</literal></entry>
       <entry>Control group path of the slice the unit is placed in</entry>
-      <entry>This usually maps to the parent cgroup path of <literal>%c</literal>.</entry>
+      <entry>This usually maps to the parent control group path of <literal>%c</literal>.</entry>
           </row>
           <row>
       <entry><literal>%R</literal></entry>
