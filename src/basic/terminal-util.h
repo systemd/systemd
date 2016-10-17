@@ -87,53 +87,24 @@ bool on_tty(void);
 bool terminal_is_dumb(void);
 bool colors_enabled(void);
 
-static inline const char *ansi_underline(void) {
-        return colors_enabled() ? ANSI_UNDERLINE : "";
-}
+#define DEFINE_ANSI_FUNC(name, NAME)                            \
+        static inline const char *ansi_##name(void) {           \
+                return colors_enabled() ? ANSI_##NAME : "";     \
+        }                                                       \
+        struct __useless_struct_to_allow_trailing_semicolon__
 
-static inline const char *ansi_highlight(void) {
-        return colors_enabled() ? ANSI_HIGHLIGHT : "";
-}
-
-static inline const char *ansi_highlight_underline(void) {
-        return colors_enabled() ? ANSI_HIGHLIGHT_UNDERLINE : "";
-}
-
-static inline const char *ansi_highlight_red(void) {
-        return colors_enabled() ? ANSI_HIGHLIGHT_RED : "";
-}
-
-static inline const char *ansi_highlight_green(void) {
-        return colors_enabled() ? ANSI_HIGHLIGHT_GREEN : "";
-}
-
-static inline const char *ansi_highlight_yellow(void) {
-        return colors_enabled() ? ANSI_HIGHLIGHT_YELLOW : "";
-}
-
-static inline const char *ansi_highlight_blue(void) {
-        return colors_enabled() ? ANSI_HIGHLIGHT_BLUE : "";
-}
-
-static inline const char *ansi_highlight_red_underline(void) {
-        return colors_enabled() ? ANSI_HIGHLIGHT_RED_UNDERLINE : "";
-}
-
-static inline const char *ansi_highlight_green_underline(void) {
-        return colors_enabled() ? ANSI_HIGHLIGHT_GREEN_UNDERLINE : "";
-}
-
-static inline const char *ansi_highlight_yellow_underline(void) {
-        return colors_enabled() ? ANSI_HIGHLIGHT_YELLOW_UNDERLINE : "";
-}
-
-static inline const char *ansi_highlight_blue_underline(void) {
-        return colors_enabled() ? ANSI_HIGHLIGHT_BLUE_UNDERLINE : "";
-}
-
-static inline const char *ansi_normal(void) {
-        return colors_enabled() ? ANSI_NORMAL : "";
-}
+DEFINE_ANSI_FUNC(underline,                  UNDERLINE);
+DEFINE_ANSI_FUNC(highlight,                  HIGHLIGHT);
+DEFINE_ANSI_FUNC(highlight_underline,        HIGHLIGHT_UNDERLINE);
+DEFINE_ANSI_FUNC(highlight_red,              HIGHLIGHT_RED);
+DEFINE_ANSI_FUNC(highlight_green,            HIGHLIGHT_GREEN);
+DEFINE_ANSI_FUNC(highlight_yellow,           HIGHLIGHT_YELLOW);
+DEFINE_ANSI_FUNC(highlight_blue,             HIGHLIGHT_BLUE);
+DEFINE_ANSI_FUNC(highlight_red_underline,    HIGHLIGHT_RED_UNDERLINE);
+DEFINE_ANSI_FUNC(highlight_green_underline,  HIGHLIGHT_GREEN_UNDERLINE);
+DEFINE_ANSI_FUNC(highlight_yellow_underline, HIGHLIGHT_YELLOW_UNDERLINE);
+DEFINE_ANSI_FUNC(highlight_blue_underline,   HIGHLIGHT_BLUE_UNDERLINE);
+DEFINE_ANSI_FUNC(normal,                     NORMAL);
 
 int get_ctty_devnr(pid_t pid, dev_t *d);
 int get_ctty(pid_t, dev_t *_devnr, char **r);
