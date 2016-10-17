@@ -36,6 +36,10 @@
 #define ANSI_HIGHLIGHT_YELLOW "\x1B[0;1;33m"
 #define ANSI_HIGHLIGHT_BLUE "\x1B[0;1;34m"
 #define ANSI_HIGHLIGHT_UNDERLINE "\x1B[0;1;4m"
+#define ANSI_HIGHLIGHT_RED_UNDERLINE "\x1B[0;1;4;31m"
+#define ANSI_HIGHLIGHT_GREEN_UNDERLINE "\x1B[0;1;4;32m"
+#define ANSI_HIGHLIGHT_YELLOW_UNDERLINE "\x1B[0;1;4;33m"
+#define ANSI_HIGHLIGHT_BLUE_UNDERLINE "\x1B[0;1;4;34m"
 #define ANSI_NORMAL "\x1B[0m"
 
 #define ANSI_ERASE_TO_END_OF_LINE "\x1B[K"
@@ -109,6 +113,22 @@ static inline const char *ansi_highlight_yellow(void) {
 
 static inline const char *ansi_highlight_blue(void) {
         return colors_enabled() ? ANSI_HIGHLIGHT_BLUE : "";
+}
+
+static inline const char *ansi_highlight_red_underline(void) {
+        return colors_enabled() ? ANSI_HIGHLIGHT_RED_UNDERLINE : "";
+}
+
+static inline const char *ansi_highlight_green_underline(void) {
+        return colors_enabled() ? ANSI_HIGHLIGHT_GREEN_UNDERLINE : "";
+}
+
+static inline const char *ansi_highlight_yellow_underline(void) {
+        return colors_enabled() ? ANSI_HIGHLIGHT_YELLOW_UNDERLINE : "";
+}
+
+static inline const char *ansi_highlight_blue_underline(void) {
+        return colors_enabled() ? ANSI_HIGHLIGHT_BLUE_UNDERLINE : "";
 }
 
 static inline const char *ansi_normal(void) {
