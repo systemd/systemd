@@ -75,8 +75,7 @@
     [Service], [Socket], [Mount], or [Swap] sections, depending on the
     unit type.</para>
 
-    <para>In addition, options which control resources through cgroups
-    are listed in
+    <para>In addition, options which control resources through Linux Control Groups (cgroups) are listed in
     <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     Those options complement options listed here.</para>
   </refsect1>
