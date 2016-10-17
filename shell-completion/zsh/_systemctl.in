@@ -123,15 +123,11 @@ _systemctl_really_all_units()
 }
 
 _filter_units_by_property() {
-  local property=$1 value=$2 ; shift ; shift
-  local -a units ; units=($*)
-  local props
-  for props in ${(ps:\n\n:)"$(_call_program units "$service $_sys_service_mgr show --no-pager --property="Id,$property" -- ${units} 2>/dev/null")"}; do
-    props=(${(f)props})
-    if [[ "${props[2]}" = "$property=$value" ]]; then
-      echo -E - " ${props[1]#Id=}"
-    fi
-  done
+  local property=$1 value=$2; shift 2
+  local -a units; units=("${(q-)@}")
+  local -A props
+  props=(${(f)"$(_call_program units "$service $_sys_service_mgr show --no-pager --property=\"Id,$property\" -- ${units} 2>/dev/null")"})
+  echo -E - "${(@g:o:)${(k@)props[(Re)$property=$value]}#Id=}"
 }
 
 _systemctl_get_template_names() { echo -E - ${^${(M)${(f)"$(__systemctl list-unit-files)"}##*@.[^[:space:]]##}%%@.*}\@ }
