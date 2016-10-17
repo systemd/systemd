@@ -144,6 +144,9 @@
   <refsect1>
     <title>Notes</title>
 
+    <para>All functions listed here are thread-agnostic and only a single thread may operate
+    on a given <structname>sd_journal</structname> object.</para>
+
     <para>The <function>sd_journal_seek_head()</function>,
     <function>sd_journal_seek_tail()</function>,
     <function>sd_journal_seek_monotonic_usec()</function>,

@@ -203,9 +203,7 @@
     <filename>/run/systemd/system</filename> directories. Drop-in files in <filename>/etc</filename>
     take precedence over those in <filename>/run</filename> which in turn take precedence over those
     in <filename>/usr/lib</filename>. Drop-in files under any of these directories take precedence
-    over unit files wherever located.  (Of course, since <filename>/run</filename> is temporary and
-    <filename>/usr/lib</filename> is for vendors, it is unlikely drop-ins should be used in either
-    of those places.)</para>
+    over unit files wherever located.</para>
 
     <!-- Note that we do not document .include here, as we consider it mostly obsolete, and want
          people to use .d/ drop-ins instead. -->
