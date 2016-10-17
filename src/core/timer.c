@@ -261,6 +261,8 @@ static void timer_set_state(Timer *t, TimerState state) {
         if (state != TIMER_WAITING) {
                 t->monotonic_event_source = sd_event_source_unref(t->monotonic_event_source);
                 t->realtime_event_source = sd_event_source_unref(t->realtime_event_source);
+                t->next_elapse_monotonic_or_boottime = USEC_INFINITY;
+                t->next_elapse_realtime = USEC_INFINITY;
         }
 
         if (state != old_state)
