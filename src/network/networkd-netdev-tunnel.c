@@ -201,12 +201,18 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
 }
 
 static int netdev_vti_fill_message_key(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        Tunnel *t = VTI(netdev);
         uint32_t ikey, okey;
+        Tunnel *t;
         int r;
 
         assert(link);
         assert(m);
+
+        if (netdev->kind == NETDEV_KIND_VTI)
+                t = VTI(netdev);
+        else
+                t = VTI6(netdev);
+
         assert(t);
 
         if (t->key != 0)
