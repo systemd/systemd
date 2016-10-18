@@ -1124,7 +1124,7 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
          * later when transitioning from the initrd to the main
          * systemd or suchlike. */
         if (getrlimit(RLIMIT_NOFILE, saved_rlimit) < 0)
-                return log_error_errno(errno, "Reading RLIMIT_NOFILE failed: %m");
+                return log_warning_errno(errno, "Reading RLIMIT_NOFILE failed, ignoring: %m");
 
         /* Make sure forked processes get the default kernel setting */
         if (!arg_default_rlimit[RLIMIT_NOFILE]) {
@@ -1141,7 +1141,7 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
         nl.rlim_cur = nl.rlim_max = 64*1024;
         r = setrlimit_closest(RLIMIT_NOFILE, &nl);
         if (r < 0)
-                return log_error_errno(r, "Setting RLIMIT_NOFILE failed: %m");
+                return log_warning_errno(r, "Setting RLIMIT_NOFILE failed, ignoring: %m");
 
         return 0;
 }
@@ -1775,7 +1775,7 @@ int main(int argc, char *argv[]) {
                         log_warning_errno(errno, "Failed to make us a subreaper: %m");
 
         if (arg_system) {
-                bump_rlimit_nofile(&saved_rlimit_nofile);
+                (void) bump_rlimit_nofile(&saved_rlimit_nofile);
 
                 if (empty_etc) {
                         r = unit_file_preset_all(UNIT_FILE_SYSTEM, false, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, false, NULL, 0);

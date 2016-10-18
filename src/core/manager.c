@@ -3098,7 +3098,7 @@ int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit) {
 
                 m->rlimit[i] = newdup(struct rlimit, default_rlimit[i], 1);
                 if (!m->rlimit[i])
-                        return -ENOMEM;
+                        return log_oom();
         }
 
         return 0;
