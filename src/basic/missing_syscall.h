@@ -22,6 +22,8 @@
 
 /* Missing glibc definitions to access certain kernel APIs */
 
+#include <sys/types.h>
+
 #if !HAVE_DECL_PIVOT_ROOT
 static inline int pivot_root(const char *new_root, const char *put_old) {
         return syscall(SYS_pivot_root, new_root, put_old);
@@ -315,4 +317,34 @@ static inline ssize_t copy_file_range(int fd_in, loff_t *off_in,
         return -1;
 #  endif
 }
+#endif
+
+#if !HAVE_DECL_BPF
+#  ifndef __NR_bpf
+#    if defined __i386__
+#      define __NR_bpf 357
+#    elif defined __x86_64__
+#      define __NR_bpf 321
+#    elif defined __aarch64__
+#      define __NR_bpf 280
+#    elif defined __sparc__
+#      define __NR_bpf 349
+#    elif defined __s390__
+#      define __NR_bpf 351
+#    else
+#      warning "__NR_bpf not defined for your architecture"
+#    endif
+#  endif
+
+union bpf_attr;
+
+static inline int bpf(int cmd, union bpf_attr *attr, size_t size) {
+#ifdef __NR_bpf
+        return (int) syscall(__NR_bpf, cmd, attr, size);
+#else
+        errno = ENOSYS;
+        return -1;
+#endif
+}
+
 #endif
