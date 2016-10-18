@@ -1911,28 +1911,11 @@ static void manager_handle_ctrl_alt_del(Manager *m) {
          * 7 times within 2s, we reboot/shutdown immediately,
          * unless it was disabled in system.conf */
 
-        if (ratelimit_test(&m->ctrl_alt_del_ratelimit) || m->cad_burst_action == CAD_BURST_ACTION_IGNORE)
+        if (ratelimit_test(&m->ctrl_alt_del_ratelimit) || m->cad_burst_action == EMERGENCY_ACTION_NONE)
                 manager_start_target(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE_IRREVERSIBLY);
-        else {
-                switch (m->cad_burst_action) {
-
-                case CAD_BURST_ACTION_REBOOT:
-                        m->exit_code = MANAGER_REBOOT;
-                        break;
-
-                case CAD_BURST_ACTION_POWEROFF:
-                        m->exit_code = MANAGER_POWEROFF;
-                        break;
-
-                default:
-                        assert_not_reached("Unknown action.");
-                }
-
-                log_notice("Ctrl-Alt-Del was pressed more than 7 times within 2s, performing immediate %s.",
-                                cad_burst_action_to_string(m->cad_burst_action));
-                status_printf(NULL, true, false, "Ctrl-Alt-Del was pressed more than 7 times within 2s, performing immediate %s.",
-                                cad_burst_action_to_string(m->cad_burst_action));
-        }
+        else
+                emergency_action(m, m->cad_burst_action, NULL,
+                                "Ctrl-Alt-Del was pressed more than 7 times within 2s");
 }
 
 static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
@@ -3590,11 +3573,3 @@ static const char *const manager_state_table[_MANAGER_STATE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(manager_state, ManagerState);
-
-static const char *const cad_burst_action_table[_CAD_BURST_ACTION_MAX] = {
-        [CAD_BURST_ACTION_IGNORE] = "ignore",
-        [CAD_BURST_ACTION_REBOOT] = "reboot-force",
-        [CAD_BURST_ACTION_POWEROFF] = "poweroff-force",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(cad_burst_action, CADBurstAction);
