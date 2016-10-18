@@ -362,22 +362,24 @@ static int compare_unit_info(const void *a, const void *b) {
         return strcasecmp(u->id, v->id);
 }
 
+static const char* unit_type_suffix(const char *name) {
+        const char *dot;
+
+        dot = strrchr(name, '.');
+        if (!dot)
+                return "";
+
+        return dot + 1;
+}
+
 static bool output_show_unit(const UnitInfo *u, char **patterns) {
         assert(u);
 
         if (!strv_fnmatch_or_empty(patterns, u->id, FNM_NOESCAPE))
                 return false;
 
-        if (arg_types) {
-                const char *dot;
-
-                dot = strrchr(u->id, '.');
-                if (!dot)
-                        return false;
-
-                if (!strv_find(arg_types, dot+1))
-                        return false;
-        }
+        if (arg_types && !strv_find(arg_types, unit_type_suffix(u->id)))
+                return false;
 
         if (arg_all)
                 return true;
@@ -403,10 +405,10 @@ static bool output_show_unit(const UnitInfo *u, char **patterns) {
 }
 
 static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
-        unsigned circle_len = 0, id_len, max_id_len, load_len, active_len, sub_len, job_len, desc_len;
+        unsigned circle_len = 0, id_len, max_id_len, load_len, active_len, sub_len, job_len;
         const UnitInfo *u;
         unsigned n_shown = 0;
-        int job_count = 0;
+        int job_count = 0, desc_len;
 
         max_id_len = strlen("UNIT");
         load_len = strlen("LOAD");
@@ -464,18 +466,20 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
 
         for (u = unit_infos; u < unit_infos + c; u++) {
                 _cleanup_free_ char *e = NULL, *j = NULL;
+                const char *on_underline = "", *off_underline = "";
                 const char *on_loaded = "", *off_loaded = "";
                 const char *on_active = "", *off_active = "";
                 const char *on_circle = "", *off_circle = "";
                 const char *id;
-                bool circle = false;
+                bool circle = false, underline = false;
 
                 if (!n_shown && !arg_no_legend) {
 
                         if (circle_len > 0)
                                 fputs("  ", stdout);
 
-                        printf("%-*s %-*s %-*s %-*s ",
+                        printf("%s%-*s %-*s %-*s %-*s ",
+                               ansi_underline(),
                                id_len, "UNIT",
                                load_len, "LOAD",
                                active_len, "ACTIVE",
@@ -484,23 +488,33 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                         if (job_count)
                                 printf("%-*s ", job_len, "JOB");
 
-                        if (!arg_full && arg_no_pager)
-                                printf("%.*s\n", desc_len, "DESCRIPTION");
-                        else
-                                printf("%s\n", "DESCRIPTION");
+                        printf("%.*s%s\n",
+                               !arg_full && arg_no_pager ? desc_len : -1,
+                               "DESCRIPTION",
+                               ansi_normal());
                 }
 
                 n_shown++;
 
+                if (u + 1 < unit_infos + c &&
+                    !streq(unit_type_suffix(u->id), unit_type_suffix((u + 1)->id))) {
+                        on_underline = ansi_underline();
+                        off_underline = ansi_normal();
+                        underline = true;
+                }
+
                 if (STR_IN_SET(u->load_state, "error", "not-found", "masked") && !arg_plain) {
-                        on_loaded = ansi_highlight_red();
                         on_circle = ansi_highlight_yellow();
-                        off_loaded = off_circle = ansi_normal();
+                        off_circle = ansi_normal();
                         circle = true;
+                        on_loaded = underline ? ansi_highlight_red_underline() : ansi_highlight_red();
+                        off_loaded = on_underline;
                 } else if (streq(u->active_state, "failed") && !arg_plain) {
-                        on_circle = on_active = ansi_highlight_red();
-                        off_circle = off_active = ansi_normal();
+                        on_circle = ansi_highlight_red();
+                        off_circle = ansi_normal();
                         circle = true;
+                        on_active = underline ? ansi_highlight_red_underline() : ansi_highlight_red();
+                        off_active = on_underline;
                 }
 
                 if (u->machine) {
@@ -523,17 +537,18 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                 if (circle_len > 0)
                         printf("%s%s%s ", on_circle, circle ? special_glyph(BLACK_CIRCLE) : " ", off_circle);
 
-                printf("%s%-*s%s %s%-*s%s %s%-*s %-*s%s %-*s",
+                printf("%s%s%-*s%s %s%-*s%s %s%-*s %-*s%s %-*s",
+                       on_underline,
                        on_active, id_len, id, off_active,
                        on_loaded, load_len, u->load_state, off_loaded,
                        on_active, active_len, u->active_state,
                        sub_len, u->sub_state, off_active,
                        job_count ? job_len + 1 : 0, u->job_id ? u->job_type : "");
 
-                if (desc_len > 0)
-                        printf("%.*s\n", desc_len, u->description);
-                else
-                        printf("%s\n", u->description);
+                printf("%.*s%s\n",
+                       desc_len > 0 ? desc_len : -1,
+                       u->description,
+                       off_underline);
         }
 
         if (!arg_no_legend) {
@@ -1395,35 +1410,46 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
                 id_cols = max_id_len;
 
         if (!arg_no_legend && c > 0)
-                printf("%-*s %-*s\n",
+                printf("%s%-*s %-*s%s\n",
+                       ansi_underline(),
                        id_cols, "UNIT FILE",
-                       state_cols, "STATE");
+                       state_cols, "STATE",
+                       ansi_normal());
 
         for (u = units; u < units + c; u++) {
                 _cleanup_free_ char *e = NULL;
-                const char *on, *off;
+                const char *on, *off, *on_underline = "", *off_underline = "";
                 const char *id;
+                bool underline = false;
+
+                if (u + 1 < units + c &&
+                    !streq(unit_type_suffix(u->path), unit_type_suffix((u + 1)->path))) {
+                        on_underline = ansi_underline();
+                        off_underline = ansi_normal();
+                        underline = true;
+                }
 
                 if (IN_SET(u->state,
                            UNIT_FILE_MASKED,
                            UNIT_FILE_MASKED_RUNTIME,
                            UNIT_FILE_DISABLED,
-                           UNIT_FILE_BAD)) {
-                        on  = ansi_highlight_red();
-                        off = ansi_normal();
-                } else if (u->state == UNIT_FILE_ENABLED) {
-                        on  = ansi_highlight_green();
-                        off = ansi_normal();
-                } else
-                        on = off = "";
+                           UNIT_FILE_BAD))
+                        on  = underline ? ansi_highlight_red_underline() : ansi_highlight_red();
+                else if (u->state == UNIT_FILE_ENABLED)
+                        on  = underline ? ansi_highlight_green_underline() : ansi_highlight_green();
+                else
+                        on = on_underline;
+                off = off_underline;
 
                 id = basename(u->path);
 
                 e = arg_full ? NULL : ellipsize(id, id_cols, 33);
 
-                printf("%-*s %s%-*s%s\n",
+                printf("%s%-*s %s%-*s%s%s\n",
+                       on_underline,
                        id_cols, e ? e : id,
-                       on, state_cols, unit_file_state_to_string(u->state), off);
+                       on, state_cols, unit_file_state_to_string(u->state), off,
+                       off_underline);
         }
 
         if (!arg_no_legend)
