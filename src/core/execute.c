@@ -411,7 +411,8 @@ static int fixup_output(ExecOutput std_output, int socket_fd) {
 static int setup_input(
                 const ExecContext *context,
                 const ExecParameters *params,
-                int socket_fd) {
+                int socket_fd,
+                int named_iofds[3]) {
 
         ExecInput i;
 
@@ -461,6 +462,10 @@ static int setup_input(
         case EXEC_INPUT_SOCKET:
                 return dup2(socket_fd, STDIN_FILENO) < 0 ? -errno : STDIN_FILENO;
 
+        case EXEC_INPUT_NAMED_FD:
+                (void) fd_nonblock(named_iofds[STDIN_FILENO], false);
+                return dup2(named_iofds[STDIN_FILENO], STDIN_FILENO) < 0 ? -errno : STDIN_FILENO;
+
         default:
                 assert_not_reached("Unknown input type");
         }
@@ -472,6 +477,7 @@ static int setup_output(
                 const ExecParameters *params,
                 int fileno,
                 int socket_fd,
+                int named_iofds[3],
                 const char *ident,
                 uid_t uid,
                 gid_t gid,
@@ -523,7 +529,7 @@ static int setup_output(
                         return fileno;
 
                 /* Duplicate from stdout if possible */
-                if (e == o || e == EXEC_OUTPUT_INHERIT)
+                if ((e == o && e != EXEC_OUTPUT_NAMED_FD) || e == EXEC_OUTPUT_INHERIT)
                         return dup2(STDOUT_FILENO, fileno) < 0 ? -errno : fileno;
 
                 o = e;
@@ -584,6 +590,10 @@ static int setup_output(
         case EXEC_OUTPUT_SOCKET:
                 assert(socket_fd >= 0);
                 return dup2(socket_fd, fileno) < 0 ? -errno : fileno;
+
+        case EXEC_OUTPUT_NAMED_FD:
+                (void) fd_nonblock(named_iofds[fileno], false);
+                return dup2(named_iofds[fileno], fileno) < 0 ? -errno : fileno;
 
         default:
                 assert_not_reached("Unknown error type");
@@ -2157,6 +2167,7 @@ static int exec_child(
                 DynamicCreds *dcreds,
                 char **argv,
                 int socket_fd,
+                int named_iofds[3],
                 int *fds, unsigned n_fds,
                 char **files_env,
                 int user_lookup_fd,
@@ -2298,19 +2309,19 @@ static int exec_child(
         if (socket_fd >= 0)
                 (void) fd_nonblock(socket_fd, false);
 
-        r = setup_input(context, params, socket_fd);
+        r = setup_input(context, params, socket_fd, named_iofds);
         if (r < 0) {
                 *exit_status = EXIT_STDIN;
                 return r;
         }
 
-        r = setup_output(unit, context, params, STDOUT_FILENO, socket_fd, basename(command->path), uid, gid, &journal_stream_dev, &journal_stream_ino);
+        r = setup_output(unit, context, params, STDOUT_FILENO, socket_fd, named_iofds, basename(command->path), uid, gid, &journal_stream_dev, &journal_stream_ino);
         if (r < 0) {
                 *exit_status = EXIT_STDOUT;
                 return r;
         }
 
-        r = setup_output(unit, context, params, STDERR_FILENO, socket_fd, basename(command->path), uid, gid, &journal_stream_dev, &journal_stream_ino);
+        r = setup_output(unit, context, params, STDERR_FILENO, socket_fd, named_iofds, basename(command->path), uid, gid, &journal_stream_dev, &journal_stream_ino);
         if (r < 0) {
                 *exit_status = EXIT_STDERR;
                 return r;
@@ -2829,6 +2840,7 @@ int exec_spawn(Unit *unit,
         int *fds = NULL; unsigned n_fds = 0;
         _cleanup_free_ char *line = NULL;
         int socket_fd, r;
+        int named_iofds[3] = { -1, -1, -1 };
         char **argv;
         pid_t pid;
 
@@ -2854,6 +2866,10 @@ int exec_spawn(Unit *unit,
                 fds = params->fds;
                 n_fds = params->n_fds;
         }
+
+        r = exec_context_named_iofds(unit, context, params, named_iofds);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to load a named file descriptor: %m");
 
         r = exec_context_load_environment(unit, context, &files_env);
         if (r < 0)
@@ -2884,6 +2900,7 @@ int exec_spawn(Unit *unit,
                                dcreds,
                                argv,
                                socket_fd,
+                               named_iofds,
                                fds, n_fds,
                                files_env,
                                unit->manager->user_lookup_fds[1],
@@ -2945,6 +2962,9 @@ void exec_context_done(ExecContext *c) {
 
         for (l = 0; l < ELEMENTSOF(c->rlimit); l++)
                 c->rlimit[l] = mfree(c->rlimit[l]);
+
+        for (l = 0; l < 3; l++)
+                c->stdio_fdname[l] = mfree(c->stdio_fdname[l]);
 
         c->working_directory = mfree(c->working_directory);
         c->root_directory = mfree(c->root_directory);
@@ -3042,6 +3062,56 @@ static void invalid_env(const char *p, void *userdata) {
         InvalidEnvInfo *info = userdata;
 
         log_unit_error(info->unit, "Ignoring invalid environment assignment '%s': %s", p, info->path);
+}
+
+const char* exec_context_fdname(const ExecContext *c, int fd_index) {
+        assert(c);
+
+        switch (fd_index) {
+        case STDIN_FILENO:
+                if (c->std_input != EXEC_INPUT_NAMED_FD)
+                        return NULL;
+                return c->stdio_fdname[STDIN_FILENO] ?: "stdin";
+        case STDOUT_FILENO:
+                if (c->std_output != EXEC_OUTPUT_NAMED_FD)
+                        return NULL;
+                return c->stdio_fdname[STDOUT_FILENO] ?: "stdout";
+        case STDERR_FILENO:
+                if (c->std_error != EXEC_OUTPUT_NAMED_FD)
+                        return NULL;
+                return c->stdio_fdname[STDERR_FILENO] ?: "stderr";
+        default:
+                return NULL;
+        }
+}
+
+int exec_context_named_iofds(Unit *unit, const ExecContext *c, const ExecParameters *p, int named_iofds[3]) {
+        unsigned i, targets;
+        const char *stdio_fdname[3];
+
+        assert(c);
+        assert(p);
+
+        targets = (c->std_input == EXEC_INPUT_NAMED_FD) +
+                  (c->std_output == EXEC_OUTPUT_NAMED_FD) +
+                  (c->std_error == EXEC_OUTPUT_NAMED_FD);
+
+        for (i = 0; i < 3; i++)
+                stdio_fdname[i] = exec_context_fdname(c, i);
+
+        for (i = 0; i < p->n_fds && targets > 0; i++)
+                if (named_iofds[STDIN_FILENO] < 0 && c->std_input == EXEC_INPUT_NAMED_FD && stdio_fdname[STDIN_FILENO] && streq(p->fd_names[i], stdio_fdname[STDIN_FILENO])) {
+                        named_iofds[STDIN_FILENO] = p->fds[i];
+                        targets--;
+                } else if (named_iofds[STDOUT_FILENO] < 0 && c->std_output == EXEC_OUTPUT_NAMED_FD && stdio_fdname[STDOUT_FILENO] && streq(p->fd_names[i], stdio_fdname[STDOUT_FILENO])) {
+                        named_iofds[STDOUT_FILENO] = p->fds[i];
+                        targets--;
+                } else if (named_iofds[STDERR_FILENO] < 0 && c->std_error == EXEC_OUTPUT_NAMED_FD && stdio_fdname[STDERR_FILENO] && streq(p->fd_names[i], stdio_fdname[STDERR_FILENO])) {
+                        named_iofds[STDERR_FILENO] = p->fds[i];
+                        targets--;
+                }
+
+        return (targets == 0 ? 0 : -ENOENT);
 }
 
 int exec_context_load_environment(Unit *unit, const ExecContext *c, char ***l) {
@@ -3896,7 +3966,8 @@ static const char* const exec_input_table[_EXEC_INPUT_MAX] = {
         [EXEC_INPUT_TTY] = "tty",
         [EXEC_INPUT_TTY_FORCE] = "tty-force",
         [EXEC_INPUT_TTY_FAIL] = "tty-fail",
-        [EXEC_INPUT_SOCKET] = "socket"
+        [EXEC_INPUT_SOCKET] = "socket",
+        [EXEC_INPUT_NAMED_FD] = "fd",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_input, ExecInput);
@@ -3911,7 +3982,8 @@ static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
         [EXEC_OUTPUT_KMSG_AND_CONSOLE] = "kmsg+console",
         [EXEC_OUTPUT_JOURNAL] = "journal",
         [EXEC_OUTPUT_JOURNAL_AND_CONSOLE] = "journal+console",
-        [EXEC_OUTPUT_SOCKET] = "socket"
+        [EXEC_OUTPUT_SOCKET] = "socket",
+        [EXEC_OUTPUT_NAMED_FD] = "fd",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_output, ExecOutput);

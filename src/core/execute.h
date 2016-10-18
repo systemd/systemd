@@ -50,6 +50,7 @@ typedef enum ExecInput {
         EXEC_INPUT_TTY_FORCE,
         EXEC_INPUT_TTY_FAIL,
         EXEC_INPUT_SOCKET,
+        EXEC_INPUT_NAMED_FD,
         _EXEC_INPUT_MAX,
         _EXEC_INPUT_INVALID = -1
 } ExecInput;
@@ -65,6 +66,7 @@ typedef enum ExecOutput {
         EXEC_OUTPUT_JOURNAL,
         EXEC_OUTPUT_JOURNAL_AND_CONSOLE,
         EXEC_OUTPUT_SOCKET,
+        EXEC_OUTPUT_NAMED_FD,
         _EXEC_OUTPUT_MAX,
         _EXEC_OUTPUT_INVALID = -1
 } ExecOutput;
@@ -120,6 +122,7 @@ struct ExecContext {
         ExecInput std_input;
         ExecOutput std_output;
         ExecOutput std_error;
+        char *stdio_fdname[3];
 
         nsec_t timer_slack_nsec;
 
@@ -284,6 +287,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix);
 int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_root);
 
 int exec_context_load_environment(Unit *unit, const ExecContext *c, char ***l);
+int exec_context_named_iofds(Unit *unit, const ExecContext *c, const ExecParameters *p, int named_iofds[3]);
+const char* exec_context_fdname(const ExecContext *c, int fd_index);
 
 bool exec_context_may_touch_console(ExecContext *c);
 bool exec_context_maintains_privileges(ExecContext *c);
