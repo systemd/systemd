@@ -1009,26 +1009,26 @@ void log_parse_environment(void) {
         const char *e;
 
         if (get_ctty_devnr(0, NULL) < 0)
-                /* Only try to read the command line in daemons.
-                   We assume that anything that has a controlling
-                   tty is user stuff. */
+                /* Only try to read the kernel command line in daemons. We
+                 * assume that anything that has a controlling tty is user stuff.
+                 */
                 (void) parse_proc_cmdline(parse_proc_cmdline_item);
 
-        e = secure_getenv("SYSTEMD_LOG_TARGET");
+        e = getenv("SYSTEMD_LOG_TARGET");
         if (e && log_set_target_from_string(e) < 0)
-                log_warning("Failed to parse log target '%s'. Ignoring.", e);
+                log_warning("Failed to parse SYSTEMD_LOG_TARGET '%s'. Ignoring.", e);
 
-        e = secure_getenv("SYSTEMD_LOG_LEVEL");
+        e = getenv("SYSTEMD_LOG_LEVEL");
         if (e && log_set_max_level_from_string(e) < 0)
-                log_warning("Failed to parse log level '%s'. Ignoring.", e);
+                log_warning("Failed to parse SYSTEMD_LOG_LEVEL '%s'. Ignoring.", e);
 
-        e = secure_getenv("SYSTEMD_LOG_COLOR");
+        e = getenv("SYSTEMD_LOG_COLOR");
         if (e && log_show_color_from_string(e) < 0)
-                log_warning("Failed to parse bool '%s'. Ignoring.", e);
+                log_warning("Failed to parse SYSTEMD_LOG_COLOR '%s'. Ignoring.", e);
 
-        e = secure_getenv("SYSTEMD_LOG_LOCATION");
+        e = getenv("SYSTEMD_LOG_LOCATION");
         if (e && log_show_location_from_string(e) < 0)
-                log_warning("Failed to parse bool '%s'. Ignoring.", e);
+                log_warning("Failed to parse SYSTEMD_LOG_LOCATION '%s'. Ignoring.", e);
 }
 
 LogTarget log_get_target(void) {
