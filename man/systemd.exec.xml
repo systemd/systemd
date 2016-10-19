@@ -141,8 +141,13 @@
         <term><varname>Group=</varname></term>
 
         <listitem><para>Set the UNIX user or group that the processes are executed as, respectively. Takes a single
-        user or group name, or numeric ID as argument. If no group is set, the default group of the user is used. This
-        setting does not affect commands whose command line is prefixed with <literal>+</literal>.</para></listitem>
+        user or group name, or numeric ID as argument. For system services (services run by the system service manager,
+        i.e. managed by PID 1) and for user services of the root user (services managed by root's instance of
+        <command>systemd --user</command>), the default is <literal>root</literal>, but <varname>User=</varname> may be
+        used to specify a different user. For user services of any other user, switching user identity is not
+        permitted, hence the only valid setting is the same user the user's service manager is running as. If no group
+        is set, the default group of the user is used. This setting does not affect commands whose command line is
+        prefixed with <literal>+</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
