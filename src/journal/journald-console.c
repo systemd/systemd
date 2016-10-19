@@ -102,6 +102,11 @@ void server_forward_console(
 
         tty = s->tty_path ? s->tty_path : "/dev/console";
 
+        /* Before you ask: yes, on purpose we open/close the console for each log line we write individually. This is a
+         * good strategy to avoid journald getting killed by the kernel's SAK concept (it doesn't fix this entirely,
+         * but minimizes the time window the kernel might end up killing journald due to SAK). It also makes things
+         * easier for us so that we don't have to recover from hangups and suchlike triggered on the console. */
+
         fd = open_terminal(tty, O_WRONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0) {
                 log_debug_errno(fd, "Failed to open %s for logging: %m", tty);
