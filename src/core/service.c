@@ -2646,7 +2646,14 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 f = SERVICE_SUCCESS;
                 }
 
-                log_struct(f == SERVICE_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
+                /* When this is a successful exit, let's log about the exit code on DEBUG level. If this is a failure
+                 * and the process exited on its own via exit(), then let's make this a NOTICE, under the assumption
+                 * that the service already logged the reason at a higher log level on its own. However, if the service
+                 * died due to a signal, then it most likely didn't say anything about any reason, hence let's raise
+                 * our log level to WARNING then. */
+
+                log_struct(f == SERVICE_SUCCESS ? LOG_DEBUG :
+                           (code == CLD_EXITED ? LOG_NOTICE : LOG_WARNING),
                            LOG_UNIT_ID(u),
                            LOG_UNIT_MESSAGE(u, "Main process exited, code=%s, status=%i/%s",
                                             sigchld_code_to_string(code), status,
