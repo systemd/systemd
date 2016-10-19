@@ -91,6 +91,8 @@ def property_grammar():
     props = (('MOUSE_DPI', Group(OneOrMore(setting('SETTINGS*')))),
              ('MOUSE_WHEEL_CLICK_ANGLE', INTEGER),
              ('MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL', INTEGER),
+             ('MOUSE_WHEEL_CLICK_COUNT', INTEGER),
+             ('MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL', INTEGER),
              ('ID_INPUT_TRACKBALL', Literal('1')),
              ('POINTINGSTICK_SENSITIVITY', INTEGER),
              ('POINTINGSTICK_CONST_ACCEL', REAL),

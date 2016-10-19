@@ -48,6 +48,8 @@
 #    MOUSE_DPI
 #    MOUSE_WHEEL_CLICK_ANGLE
 #    MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL
+#    MOUSE_WHEEL_CLICK_COUNT
+#    MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL
 #
 #########################################
 #         ID_INPUT_TRACKBALL            #
@@ -104,6 +106,9 @@
 #     MOUSE_WHEEL_CLICK_ANGLE=<degrees>
 #
 # Most mice have a 15 degree click stop (24 clicks per full rotation).
+# For backwards-compatibility, the click angle must be an integer.
+# Where a device has non-integer click angles, the MOUSE_WHEEL_CLICK_COUNT
+# property should also be specified.
 #
 #########################################
 #   MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL  #
@@ -113,6 +118,21 @@
 # This property may only be specified if the angle for the horizontal
 # scroll wheel differs from the vertical wheel. If so, *both* click angles
 # must be specified.
+#
+#########################################
+#   MOUSE_WHEEL_CLICK_COUNT             #
+#   MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL  #
+#########################################
+#
+# The number of clicks the wheel sends per 360 degree rotation. This
+# property should only be used where the click angle is not an integer.
+# For backwards compatibility it must be specified in addition to
+# MOUSE_WHEEL_CLICK_ANGLE.
+# Clients should prefer MOUSE_WHEEL_CLICK_COUNT where available, it is more
+# precise than MOUSE_WHEEL_CLICK_ANGLE.
+#
+# MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL works the same way but also follows the
+# rules of MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL.
 
 #
 # Sort by brand, type (usb, bluetooth), DPI, frequency.
@@ -361,6 +381,8 @@ mouse:usb:v046dp4041:name:Logitech MX Master:
  MOUSE_DPI=1000@166
  MOUSE_WHEEL_CLICK_ANGLE=15
  MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL=26
+ MOUSE_WHEEL_CLICK_COUNT=24
+ MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL=14
 
 # Logitech MK260 Wireless Combo Receiver aka M-R0011
 mouse:usb:v046dpc52e:name:Logitech USB Receiver:
