@@ -918,7 +918,7 @@ static int remove_binaries(const char *esp_path) {
         if (q < 0 && r == 0)
                 r = q;
 
-        for (i = ELEMENTSOF(efi_subdirs); i > 0; i--) {
+        for (i = ELEMENTSOF(efi_subdirs)-1; i > 0; i--) {
                 q = rmdir_one(esp_path, efi_subdirs[i-1]);
                 if (q < 0 && r == 0)
                         r = q;
