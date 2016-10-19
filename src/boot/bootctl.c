@@ -621,7 +621,8 @@ static const char *efi_subdirs[] = {
         "EFI/systemd",
         "EFI/BOOT",
         "loader",
-        "loader/entries"
+        "loader/entries",
+        NULL
 };
 
 static int create_dirs(const char *esp_path) {
