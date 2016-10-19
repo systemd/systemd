@@ -544,8 +544,10 @@
         <listitem>
           <para>When used with
           <command>enable</command>/<command>disable</command>/<command>is-enabled</command>
-          (and related commands), use an alternate root path when
-          looking for unit files.</para>
+          (and related commands), use the specified root path when looking for unit
+          files. If this option is present, <command>systemctl</command> will operate on
+          the file system directly, instead of communicating with the <command>systemd</command>
+          daemon to carry out changes.</para>
         </listitem>
 
       </varlistentry>

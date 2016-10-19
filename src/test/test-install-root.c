@@ -326,7 +326,9 @@ static void test_default(const char *root) {
         assert_se(unit_file_get_default(UNIT_FILE_SYSTEM, root, &def) == -ENOENT);
 
         assert_se(unit_file_set_default(UNIT_FILE_SYSTEM, root, "idontexist.target", false, &changes, &n_changes) == -ENOENT);
-        assert_se(n_changes == 0);
+        assert_se(n_changes == 1);
+        assert_se(changes[0].type == -ENOENT);
+        assert_se(streq_ptr(changes[0].path, "idontexist.target"));
         unit_file_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
