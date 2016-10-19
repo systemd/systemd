@@ -169,6 +169,13 @@ REQUIREMENTS:
         under all circumstances. In fact, systemd-hostnamed will warn
         if nss-myhostname is not installed.
 
+        Additional packages are necessary to run some tests:
+        - busybox            (used by test/TEST-13-NSPAWN-SMOKE)
+        - nc                 (used by test/TEST-12-ISSUE-3171)
+        - python3-pyparsing
+        - python3-evdev      (used by hwdb parsing tests)
+        - strace             (used by test/test-functions)
+
 USERS AND GROUPS:
         Default udev rules use the following standard system group
         names, which need to be resolvable by getgrnam() at any time,
