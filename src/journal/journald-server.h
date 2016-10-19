@@ -49,6 +49,24 @@ typedef enum SplitMode {
         _SPLIT_INVALID = -1
 } SplitMode;
 
+typedef struct JournalStorageSpace {
+        usec_t   timestamp;
+
+        uint64_t available;
+        uint64_t limit;
+
+        uint64_t vfs_used; /* space used by journal files */
+        uint64_t vfs_available;
+} JournalStorageSpace;
+
+typedef struct JournalStorage {
+        const char *name;
+        const char *path;
+
+        JournalMetrics metrics;
+        JournalStorageSpace space;
+} JournalStorage;
+
 struct Server {
         int syslog_fd;
         int native_fd;
@@ -89,8 +107,8 @@ struct Server {
         usec_t rate_limit_interval;
         unsigned rate_limit_burst;
 
-        JournalMetrics runtime_metrics;
-        JournalMetrics system_metrics;
+        JournalStorage runtime_storage;
+        JournalStorage system_storage;
 
         bool compress;
         bool seal;
@@ -102,10 +120,6 @@ struct Server {
 
         unsigned n_forward_syslog_missed;
         usec_t last_warn_forward_syslog_missed;
-
-        uint64_t cached_space_available;
-        uint64_t cached_space_limit;
-        usec_t cached_space_timestamp;
 
         uint64_t var_available_timestamp;
 
@@ -180,9 +194,10 @@ SplitMode split_mode_from_string(const char *s) _pure_;
 int server_init(Server *s);
 void server_done(Server *s);
 void server_sync(Server *s);
-int server_vacuum(Server *s, bool verbose, bool patch_min_use);
+int server_vacuum(Server *s, bool verbose);
 void server_rotate(Server *s);
 int server_schedule_sync(Server *s, int priority);
 int server_flush_to_var(Server *s);
 void server_maybe_append_tags(Server *s);
 int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userdata);
+void server_space_usage_message(Server *s, JournalStorage *storage);

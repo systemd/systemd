@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        server_vacuum(&server, false, false);
+        server_vacuum(&server, false);
         server_flush_to_var(&server);
         server_flush_dev_kmsg(&server);
 
@@ -59,6 +59,11 @@ int main(int argc, char *argv[]) {
         server_driver_message(&server, SD_MESSAGE_JOURNAL_START,
                               LOG_MESSAGE("Journal started"),
                               NULL);
+
+        /* Make sure to send the usage message *after* flushing the
+         * journal so entries from the runtime journals are ordered
+         * before this message. See #4190 for some details. */
+        server_space_usage_message(&server, NULL);
 
         for (;;) {
                 usec_t t = USEC_INFINITY, n;
@@ -77,7 +82,7 @@ int main(int argc, char *argv[]) {
                         if (server.oldest_file_usec + server.max_retention_usec < n) {
                                 log_info("Retention time reached.");
                                 server_rotate(&server);
-                                server_vacuum(&server, false, false);
+                                server_vacuum(&server, false);
                                 continue;
                         }
 
