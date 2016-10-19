@@ -96,9 +96,12 @@
     <varname>After=</varname> on
     <filename>dbus.socket</filename>.</para>
 
-    <para>Socket activated service are automatically ordered after
-    their activated <filename>.socket</filename> units via an
-    automatic <varname>After=</varname> dependency.</para>
+    <para>Socket activated services are automatically ordered after
+    their activating <filename>.socket</filename> units via an
+    automatic <varname>After=</varname> dependency.
+    Services also pull in all <filename>.socket</filename> units
+    listed in <varname>Sockets=</varname> via automatic
+    <varname>Wants=</varname> and <varname>After=</varname> dependencies.</para>
 
     <para>Unless <varname>DefaultDependencies=</varname> in the <literal>[Unit]</literal> is set to
     <option>false</option>, service units will implicitly have dependencies of type <varname>Requires=</varname> and
