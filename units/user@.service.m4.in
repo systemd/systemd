@@ -18,3 +18,4 @@ Slice=user-%i.slice
 KillMode=mixed
 Delegate=yes
 TasksMax=infinity
+TimeoutStopSec=120s
