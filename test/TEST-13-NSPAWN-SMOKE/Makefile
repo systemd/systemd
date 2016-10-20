@@ -1,7 +1,7 @@
-all: has-overflow
+all:
 	@make -s --no-print-directory -C ../.. all
 	@basedir=../.. TEST_BASE_DIR=../ ./test.sh --all
-setup: has-overflow
+setup:
 	@make --no-print-directory -C ../.. all
 	@basedir=../.. TEST_BASE_DIR=../ ./test.sh --setup
 clean:
