@@ -59,4 +59,12 @@ sleep 3
 systemctl stop forever-print-hola
 [[ ! -f "/i-lose-my-logs" ]]
 
+# https://github.com/systemd/systemd/issues/4408
+rm -f /i-lose-my-logs
+systemctl start forever-print-hola
+sleep 3
+systemctl kill --signal=SIGKILL systemd-journald
+sleep 3
+[[ ! -f "/i-lose-my-logs" ]]
+
 touch /testok
