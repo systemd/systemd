@@ -34,6 +34,7 @@
 #include "log.h"
 #include "macro.h"
 #include "special.h"
+#include "strv.h"
 #include "unit-name.h"
 #include "util.h"
 #include "utmp-wtmp.h"
@@ -107,7 +108,7 @@ static int get_current_runlevel(Context *c) {
                 if (r < 0)
                         return log_warning_errno(r, "Failed to get state: %s", bus_error_message(&error, r));
 
-                if (streq(state, "active") || streq(state, "reloading"))
+                if (STR_IN_SET(state, "active", "reloading"))
                         return table[i].runlevel;
         }
 
