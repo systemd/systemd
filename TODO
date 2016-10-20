@@ -32,6 +32,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* add a percentage syntax for TimeoutStopSec=, e.g. TimeoutStopSec=150%, and
+  then use that for the setting used in user@.service. It should be understood
+  relative to the configured default value.
+
 * on cgroupsv2 add DelegateControllers=, to pick the precise cgroup controllers to delegate
 
 * in networkd, when matching device types, fix up DEVTYPE rubbish the kernel passes to us
