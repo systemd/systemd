@@ -126,7 +126,8 @@ static void manager_free(Manager *m) {
         Inhibitor *i;
         Button *b;
 
-        assert(m);
+        if (!m)
+                return;
 
         while ((session = hashmap_first(m->sessions)))
                 session_free(session);
