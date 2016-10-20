@@ -66,18 +66,23 @@ args="$args $@"
 cd $oldpwd
 
 if [ "$verb" = "c" ]; then
+        set -x
         $topdir/configure CFLAGS='-g -O0 -ftrapv' $args
-        make clean
+        make clean >/dev/null
 elif [ "$verb" = "g" ]; then
+        set -x
         $topdir/configure CFLAGS='-g -Og -ftrapv' $args
-        make clean
+        make clean >/dev/null
 elif [ "$verb" = "a" ]; then
+        set -x
         $topdir/configure CFLAGS='-g -O0 -Wsuggest-attribute=pure -Wsuggest-attribute=const -ftrapv' $args
-        make clean
+        make clean >/dev/null
 elif [ "$verb" = "l" ]; then
+        set -x
         $topdir/configure CC=clang CFLAGS='-g -O0 -ftrapv' $args
-        make clean
+        make clean >/dev/null
 elif [ "$verb" = "s" ]; then
+        set -x
         scan-build $topdir/configure CFLAGS='-std=gnu99 -g -O0 -ftrapv' $args
         scan-build make
 else
