@@ -17,6 +17,16 @@
 
 set -e
 
+verb="$1"
+
+if [[ -n "$verb" ]]; then
+        if [[ "$verb" != [cgals] ]]; then
+                echo "Unexpected argument: $verb" >&2
+                exit 1
+        fi
+        shift
+fi
+
 oldpwd=$(pwd)
 topdir=$(dirname $0)
 cd $topdir
@@ -52,21 +62,27 @@ args="$args \
 "
 fi
 
+args="$args $@"
 cd $oldpwd
 
-if [ "x$1" = "xc" ]; then
+if [ "$verb" = "c" ]; then
+        set -x
         $topdir/configure CFLAGS='-g -O0 -ftrapv' $args
-        make clean
-elif [ "x$1" = "xg" ]; then
+        make clean >/dev/null
+elif [ "$verb" = "g" ]; then
+        set -x
         $topdir/configure CFLAGS='-g -Og -ftrapv' $args
-        make clean
-elif [ "x$1" = "xa" ]; then
+        make clean >/dev/null
+elif [ "$verb" = "a" ]; then
+        set -x
         $topdir/configure CFLAGS='-g -O0 -Wsuggest-attribute=pure -Wsuggest-attribute=const -ftrapv' $args
-        make clean
-elif [ "x$1" = "xl" ]; then
+        make clean >/dev/null
+elif [ "$verb" = "l" ]; then
+        set -x
         $topdir/configure CC=clang CFLAGS='-g -O0 -ftrapv' $args
-        make clean
-elif [ "x$1" = "xs" ]; then
+        make clean >/dev/null
+elif [ "$verb" = "s" ]; then
+        set -x
         scan-build $topdir/configure CFLAGS='-std=gnu99 -g -O0 -ftrapv' $args
         scan-build make
 else
