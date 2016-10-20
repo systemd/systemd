@@ -27,6 +27,7 @@
 #include "install.h"
 #include "macro.h"
 #include "specifier.h"
+#include "string-util.h"
 #include "unit-name.h"
 #include "user-util.h"
 
@@ -47,7 +48,7 @@ static int specifier_prefix(char specifier, void *data, void *userdata, char **r
 }
 
 static int specifier_instance(char specifier, void *data, void *userdata, char **ret) {
-        UnitFileInstallInfo *i = userdata;
+        const UnitFileInstallInfo *i = userdata;
         char *instance;
         int r;
 
@@ -57,8 +58,8 @@ static int specifier_instance(char specifier, void *data, void *userdata, char *
         if (r < 0)
                 return r;
 
-        if (!instance) {
-                instance = strdup("");
+        if (isempty(instance)) {
+                instance = strdup(i->default_instance ?: "");
                 if (!instance)
                         return -ENOMEM;
         }
