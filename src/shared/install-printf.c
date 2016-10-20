@@ -108,9 +108,13 @@ static int specifier_user_name(char specifier, void *data, void *userdata, char 
         /* If we are UID 0 (root), this will not result in NSS,
          * otherwise it might. This is good, as we want to be able to
          * run this in PID 1, where our user ID is 0, but where NSS
-         * lookups are not allowed. */
+         * lookups are not allowed.
 
-        t = getusername_malloc();
+         * We don't user getusername_malloc() here, because we don't want to look
+         * at $USER, to remain consistent with specifer_user_id() below.
+         */
+
+        t = uid_to_name(getuid());
         if (!t)
                 return -ENOMEM;
 
