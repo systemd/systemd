@@ -1805,10 +1805,9 @@ static int install_context_mark_for_removal(
 
 int unit_file_mask(
                 UnitFileScope scope,
-                bool runtime,
+                UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
-                bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
@@ -1824,7 +1823,7 @@ int unit_file_mask(
         if (r < 0)
                 return r;
 
-        config_path = runtime ? paths.runtime_config : paths.persistent_config;
+        config_path = (flags & UNIT_FILE_RUNTIME) ? paths.runtime_config : paths.persistent_config;
 
         STRV_FOREACH(i, files) {
                 _cleanup_free_ char *path = NULL;
@@ -1840,7 +1839,7 @@ int unit_file_mask(
                 if (!path)
                         return -ENOMEM;
 
-                q = create_symlink(&paths, "/dev/null", path, force, changes, n_changes);
+                q = create_symlink(&paths, "/dev/null", path, !!(flags & UNIT_FILE_FORCE), changes, n_changes);
                 if (q < 0 && r >= 0)
                         r = q;
         }
@@ -1850,7 +1849,7 @@ int unit_file_mask(
 
 int unit_file_unmask(
                 UnitFileScope scope,
-                bool runtime,
+                UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
@@ -1871,7 +1870,7 @@ int unit_file_unmask(
         if (r < 0)
                 return r;
 
-        config_path = runtime ? paths.runtime_config : paths.persistent_config;
+        config_path = (flags & UNIT_FILE_RUNTIME) ? paths.runtime_config : paths.persistent_config;
 
         STRV_FOREACH(i, files) {
                 _cleanup_free_ char *path = NULL;
@@ -1935,10 +1934,9 @@ int unit_file_unmask(
 
 int unit_file_link(
                 UnitFileScope scope,
-                bool runtime,
+                UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
-                bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
@@ -1956,7 +1954,7 @@ int unit_file_link(
         if (r < 0)
                 return r;
 
-        config_path = runtime ? paths.runtime_config : paths.persistent_config;
+        config_path = (flags & UNIT_FILE_RUNTIME) ? paths.runtime_config : paths.persistent_config;
 
         STRV_FOREACH(i, files) {
                 _cleanup_free_ char *full = NULL;
@@ -2005,7 +2003,7 @@ int unit_file_link(
                 if (!new_path)
                         return -ENOMEM;
 
-                q = create_symlink(&paths, *i, new_path, force, changes, n_changes);
+                q = create_symlink(&paths, *i, new_path, !!(flags & UNIT_FILE_FORCE), changes, n_changes);
                 if (q < 0 && r >= 0)
                         r = q;
         }
@@ -2190,12 +2188,11 @@ int unit_file_revert(
 
 int unit_file_add_dependency(
                 UnitFileScope scope,
-                bool runtime,
+                UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 const char *target,
                 UnitDependency dep,
-                bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
@@ -2220,7 +2217,7 @@ int unit_file_add_dependency(
         if (r < 0)
                 return r;
 
-        config_path = runtime ? paths.runtime_config : paths.persistent_config;
+        config_path = (flags & UNIT_FILE_RUNTIME) ? paths.runtime_config : paths.persistent_config;
 
         r = install_info_discover(scope, &c, &paths, target, SEARCH_FOLLOW_CONFIG_SYMLINKS,
                                   &target_info, changes, n_changes);
@@ -2260,15 +2257,14 @@ int unit_file_add_dependency(
                         return -ENOMEM;
         }
 
-        return install_context_apply(scope, &c, &paths, config_path, force, SEARCH_FOLLOW_CONFIG_SYMLINKS, changes, n_changes);
+        return install_context_apply(scope, &c, &paths, config_path, !!(flags & UNIT_FILE_FORCE), SEARCH_FOLLOW_CONFIG_SYMLINKS, changes, n_changes);
 }
 
 int unit_file_enable(
                 UnitFileScope scope,
-                bool runtime,
+                UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
-                bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
@@ -2286,7 +2282,7 @@ int unit_file_enable(
         if (r < 0)
                 return r;
 
-        config_path = runtime ? paths.runtime_config : paths.persistent_config;
+        config_path = (flags & UNIT_FILE_RUNTIME) ? paths.runtime_config : paths.persistent_config;
 
         STRV_FOREACH(f, files) {
                 r = install_info_discover(scope, &c, &paths, *f, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS,
@@ -2305,12 +2301,12 @@ int unit_file_enable(
            is useful to determine whether the passed files had any
            installation data at all. */
 
-        return install_context_apply(scope, &c, &paths, config_path, force, SEARCH_LOAD, changes, n_changes);
+        return install_context_apply(scope, &c, &paths, config_path, !!(flags & UNIT_FILE_FORCE), SEARCH_LOAD, changes, n_changes);
 }
 
 int unit_file_disable(
                 UnitFileScope scope,
-                bool runtime,
+                UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
@@ -2330,7 +2326,7 @@ int unit_file_disable(
         if (r < 0)
                 return r;
 
-        config_path = runtime ? paths.runtime_config : paths.persistent_config;
+        config_path = (flags & UNIT_FILE_RUNTIME) ? paths.runtime_config : paths.persistent_config;
 
         STRV_FOREACH(i, files) {
                 if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
@@ -2350,10 +2346,9 @@ int unit_file_disable(
 
 int unit_file_reenable(
                 UnitFileScope scope,
-                bool runtime,
+                UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
-                bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
@@ -2368,19 +2363,19 @@ int unit_file_reenable(
                 n[i] = basename(files[i]);
         n[i] = NULL;
 
-        r = unit_file_disable(scope, runtime, root_dir, n, changes, n_changes);
+        r = unit_file_disable(scope, flags, root_dir, n, changes, n_changes);
         if (r < 0)
                 return r;
 
         /* But the enable command with the full name */
-        return unit_file_enable(scope, runtime, root_dir, files, force, changes, n_changes);
+        return unit_file_enable(scope, flags, root_dir, files, changes, n_changes);
 }
 
 int unit_file_set_default(
                 UnitFileScope scope,
+                UnitFileFlags flags,
                 const char *root_dir,
                 const char *name,
-                bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
@@ -2411,7 +2406,7 @@ int unit_file_set_default(
                 return r;
 
         new_path = strjoina(paths.persistent_config, "/" SPECIAL_DEFAULT_TARGET);
-        return create_symlink(&paths, i->path, new_path, force, changes, n_changes);
+        return create_symlink(&paths, i->path, new_path, !!(flags & UNIT_FILE_FORCE), changes, n_changes);
 }
 
 int unit_file_get_default(
@@ -2803,11 +2798,10 @@ static int preset_prepare_one(
 
 int unit_file_preset(
                 UnitFileScope scope,
-                bool runtime,
+                UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFilePresetMode mode,
-                bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
@@ -2826,7 +2820,7 @@ int unit_file_preset(
         if (r < 0)
                 return r;
 
-        config_path = runtime ? paths.runtime_config : paths.persistent_config;
+        config_path = (flags & UNIT_FILE_RUNTIME) ? paths.runtime_config : paths.persistent_config;
 
         r = read_presets(scope, root_dir, &presets);
         if (r < 0)
@@ -2838,15 +2832,14 @@ int unit_file_preset(
                         return r;
         }
 
-        return execute_preset(scope, &plus, &minus, &paths, config_path, files, mode, force, changes, n_changes);
+        return execute_preset(scope, &plus, &minus, &paths, config_path, files, mode, !!(flags & UNIT_FILE_FORCE), changes, n_changes);
 }
 
 int unit_file_preset_all(
                 UnitFileScope scope,
-                bool runtime,
+                UnitFileFlags flags,
                 const char *root_dir,
                 UnitFilePresetMode mode,
-                bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
@@ -2865,7 +2858,7 @@ int unit_file_preset_all(
         if (r < 0)
                 return r;
 
-        config_path = runtime ? paths.runtime_config : paths.persistent_config;
+        config_path = (flags & UNIT_FILE_RUNTIME) ? paths.runtime_config : paths.persistent_config;
 
         r = read_presets(scope, root_dir, &presets);
         if (r < 0)
@@ -2906,7 +2899,7 @@ int unit_file_preset_all(
                 }
         }
 
-        return execute_preset(scope, &plus, &minus, &paths, config_path, NULL, mode, force, changes, n_changes);
+        return execute_preset(scope, &plus, &minus, &paths, config_path, NULL, mode, !!(flags & UNIT_FILE_FORCE), changes, n_changes);
 }
 
 static void unit_file_list_free_one(UnitFileList *f) {

@@ -47,6 +47,11 @@
 #include "virt.h"
 #include "watchdog.h"
 
+static UnitFileFlags unit_file_bools_to_flags(bool runtime, bool force) {
+        return (runtime ? UNIT_FILE_RUNTIME : 0) |
+               (force   ? UNIT_FILE_FORCE   : 0);
+}
+
 static int property_get_version(
                 sd_bus *bus,
                 const char *path,
@@ -1948,13 +1953,14 @@ static int install_error(
 static int method_enable_unit_files_generic(
                 sd_bus_message *message,
                 Manager *m,
-                int (*call)(UnitFileScope scope, bool runtime, const char *root_dir, char *files[], bool force, UnitFileChange **changes, unsigned *n_changes),
+                int (*call)(UnitFileScope scope, UnitFileFlags flags, const char *root_dir, char *files[], UnitFileChange **changes, unsigned *n_changes),
                 bool carries_install_info,
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
         UnitFileChange *changes = NULL;
         unsigned n_changes = 0;
+        UnitFileFlags flags;
         int runtime, force, r;
 
         assert(message);
@@ -1968,13 +1974,15 @@ static int method_enable_unit_files_generic(
         if (r < 0)
                 return r;
 
+        flags = unit_file_bools_to_flags(runtime, force);
+
         r = bus_verify_manage_unit_files_async(m, message, error);
         if (r < 0)
                 return r;
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = call(m->unit_file_scope, runtime, NULL, l, force, &changes, &n_changes);
+        r = call(m->unit_file_scope, flags, NULL, l, &changes, &n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -1993,8 +2001,8 @@ static int method_link_unit_files(sd_bus_message *message, void *userdata, sd_bu
         return method_enable_unit_files_generic(message, userdata, unit_file_link, false, error);
 }
 
-static int unit_file_preset_without_mode(UnitFileScope scope, bool runtime, const char *root_dir, char **files, bool force, UnitFileChange **changes, unsigned *n_changes) {
-        return unit_file_preset(scope, runtime, root_dir, files, UNIT_FILE_PRESET_FULL, force, changes, n_changes);
+static int unit_file_preset_without_mode(UnitFileScope scope, UnitFileFlags flags, const char *root_dir, char **files, UnitFileChange **changes, unsigned *n_changes) {
+        return unit_file_preset(scope, flags, root_dir, files, UNIT_FILE_PRESET_FULL, changes, n_changes);
 }
 
 static int method_preset_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2013,6 +2021,7 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         Manager *m = userdata;
         UnitFilePresetMode mm;
         int runtime, force, r;
+        UnitFileFlags flags;
         const char *mode;
 
         assert(message);
@@ -2025,6 +2034,8 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         r = sd_bus_message_read(message, "sbb", &mode, &runtime, &force);
         if (r < 0)
                 return r;
+
+        flags = unit_file_bools_to_flags(runtime, force);
 
         if (isempty(mode))
                 mm = UNIT_FILE_PRESET_FULL;
@@ -2040,7 +2051,7 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_preset(m->unit_file_scope, runtime, NULL, l, mm, force, &changes, &n_changes);
+        r = unit_file_preset(m->unit_file_scope, flags, NULL, l, mm, &changes, &n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2050,7 +2061,7 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
 static int method_disable_unit_files_generic(
                 sd_bus_message *message,
                 Manager *m,
-                int (*call)(UnitFileScope scope, bool runtime, const char *root_dir, char *files[], UnitFileChange **changes, unsigned *n_changes),
+                int (*call)(UnitFileScope scope, UnitFileFlags flags, const char *root_dir, char *files[], UnitFileChange **changes, unsigned *n_changes),
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
@@ -2075,7 +2086,7 @@ static int method_disable_unit_files_generic(
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = call(m->unit_file_scope, runtime, NULL, l, &changes, &n_changes);
+        r = call(m->unit_file_scope, runtime ? UNIT_FILE_RUNTIME : 0, NULL, l, &changes, &n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2141,7 +2152,7 @@ static int method_set_default_target(sd_bus_message *message, void *userdata, sd
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_set_default(m->unit_file_scope, NULL, name, force, &changes, &n_changes);
+        r = unit_file_set_default(m->unit_file_scope, force ? UNIT_FILE_FORCE : 0, NULL, name, &changes, &n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2154,6 +2165,7 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         Manager *m = userdata;
         UnitFilePresetMode mm;
         const char *mode;
+        UnitFileFlags flags;
         int force, runtime, r;
 
         assert(message);
@@ -2166,6 +2178,8 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         r = sd_bus_message_read(message, "sbb", &mode, &runtime, &force);
         if (r < 0)
                 return r;
+
+        flags = unit_file_bools_to_flags(runtime, force);
 
         if (isempty(mode))
                 mm = UNIT_FILE_PRESET_FULL;
@@ -2181,7 +2195,7 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_preset_all(m->unit_file_scope, runtime, NULL, mm, force, &changes, &n_changes);
+        r = unit_file_preset_all(m->unit_file_scope, flags, NULL, mm, &changes, &n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2196,6 +2210,7 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         int runtime, force, r;
         char *target, *type;
         UnitDependency dep;
+        UnitFileFlags flags;
 
         assert(message);
         assert(m);
@@ -2214,11 +2229,13 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         if (r < 0)
                 return r;
 
+        flags = unit_file_bools_to_flags(runtime, force);
+
         dep = unit_dependency_from_string(type);
         if (dep < 0)
                 return -EINVAL;
 
-        r = unit_file_add_dependency(m->unit_file_scope, runtime, NULL, l, target, dep, force, &changes, &n_changes);
+        r = unit_file_add_dependency(m->unit_file_scope, flags, NULL, l, target, dep, &changes, &n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 

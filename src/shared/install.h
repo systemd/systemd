@@ -23,6 +23,7 @@ typedef enum UnitFileScope UnitFileScope;
 typedef enum UnitFileState UnitFileState;
 typedef enum UnitFilePresetMode UnitFilePresetMode;
 typedef enum UnitFileChangeType UnitFileChangeType;
+typedef enum UnitFileFlags UnitFileFlags;
 typedef enum UnitFileType UnitFileType;
 typedef struct UnitFileChange UnitFileChange;
 typedef struct UnitFileList UnitFileList;
@@ -76,6 +77,11 @@ enum UnitFileChangeType {
         UNIT_FILE_IS_DANGLING,
         _UNIT_FILE_CHANGE_TYPE_MAX,
         _UNIT_FILE_CHANGE_INVALID = INT_MIN
+};
+
+enum UnitFileFlags {
+        UNIT_FILE_RUNTIME = 1,
+        UNIT_FILE_FORCE = 1 << 1,
 };
 
 /* type can either one of the UnitFileChangeTypes listed above, or a negative error.
@@ -144,65 +150,59 @@ bool unit_type_may_template(UnitType type) _const_;
 
 int unit_file_enable(
                 UnitFileScope scope,
-                bool runtime,
+                UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
-                bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes);
 int unit_file_disable(
                 UnitFileScope scope,
-                bool runtime,
+                UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
                 unsigned *n_changes);
 int unit_file_reenable(
                 UnitFileScope scope,
-                bool runtime,
+                UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
-                bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes);
 int unit_file_preset(
                 UnitFileScope scope,
-                bool runtime,
+                UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFilePresetMode mode,
-                bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes);
 int unit_file_preset_all(
                 UnitFileScope scope,
-                bool runtime,
+                UnitFileFlags flags,
                 const char *root_dir,
                 UnitFilePresetMode mode,
-                bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes);
 int unit_file_mask(
                 UnitFileScope scope,
-                bool runtime,
+                UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
-                bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes);
 int unit_file_unmask(
                 UnitFileScope scope,
-                bool runtime,
+                UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
                 unsigned *n_changes);
 int unit_file_link(
                 UnitFileScope scope,
-                bool runtime,
+                UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
-                bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes);
 int unit_file_revert(
@@ -213,9 +213,9 @@ int unit_file_revert(
                 unsigned *n_changes);
 int unit_file_set_default(
                 UnitFileScope scope,
+                UnitFileFlags flags,
                 const char *root_dir,
                 const char *file,
-                bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes);
 int unit_file_get_default(
@@ -224,12 +224,11 @@ int unit_file_get_default(
                 char **name);
 int unit_file_add_dependency(
                 UnitFileScope scope,
-                bool runtime,
+                UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 const char *target,
                 UnitDependency dep,
-                bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes);
 
