@@ -129,6 +129,8 @@ static void test_hourly_bug_4031(void) {
         assert_se(u <= n + USEC_PER_HOUR);
         assert_se(u < w);
         assert_se(w <= u + USEC_PER_HOUR);
+
+        calendar_spec_free(c);
 }
 
 int main(int argc, char* argv[]) {
