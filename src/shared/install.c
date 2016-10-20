@@ -518,6 +518,7 @@ static int remove_marked_symlinks_fd(
                 const char *path,
                 const char *config_path,
                 const LookupPaths *lp,
+                bool dry_run,
                 bool *restart,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
@@ -566,7 +567,7 @@ static int remove_marked_symlinks_fd(
                         }
 
                         /* This will close nfd, regardless whether it succeeds or not */
-                        q = remove_marked_symlinks_fd(remove_symlinks_to, nfd, p, config_path, lp, restart, changes, n_changes);
+                        q = remove_marked_symlinks_fd(remove_symlinks_to, nfd, p, config_path, lp, dry_run, restart, changes, n_changes);
                         if (q < 0 && r == 0)
                                 r = q;
 
@@ -603,14 +604,16 @@ static int remove_marked_symlinks_fd(
                         if (!found)
                                 continue;
 
-                        if (unlinkat(fd, de->d_name, 0) < 0 && errno != ENOENT) {
-                                if (r == 0)
-                                        r = -errno;
-                                unit_file_changes_add(changes, n_changes, -errno, p, NULL);
-                                continue;
-                        }
+                        if (!dry_run) {
+                                if (unlinkat(fd, de->d_name, 0) < 0 && errno != ENOENT) {
+                                        if (r == 0)
+                                                r = -errno;
+                                        unit_file_changes_add(changes, n_changes, -errno, p, NULL);
+                                        continue;
+                                }
 
-                        (void) rmdir_parents(p, config_path);
+                                (void) rmdir_parents(p, config_path);
+                        }
 
                         unit_file_changes_add(changes, n_changes, UNIT_FILE_UNLINK, p, NULL);
 
@@ -621,7 +624,7 @@ static int remove_marked_symlinks_fd(
                         q = mark_symlink_for_removal(&remove_symlinks_to, rp ?: p);
                         if (q < 0)
                                 return q;
-                        if (q > 0)
+                        if (q > 0 && !dry_run)
                                 *restart = true;
                 }
         }
@@ -633,6 +636,7 @@ static int remove_marked_symlinks(
                 Set *remove_symlinks_to,
                 const char *config_path,
                 const LookupPaths *lp,
+                bool dry_run,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
@@ -659,7 +663,7 @@ static int remove_marked_symlinks(
                         return -errno;
 
                 /* This takes possession of cfd and closes it */
-                q = remove_marked_symlinks_fd(remove_symlinks_to, cfd, config_path, config_path, lp, &restart, changes, n_changes);
+                q = remove_marked_symlinks_fd(remove_symlinks_to, cfd, config_path, config_path, lp, dry_run, &restart, changes, n_changes);
                 if (r == 0)
                         r = q;
         } while (restart);
@@ -1861,6 +1865,7 @@ int unit_file_unmask(
         size_t n_todo = 0, n_allocated = 0;
         const char *config_path;
         char **i;
+        bool dry_run;
         int r, q;
 
         assert(scope >= 0);
@@ -1871,6 +1876,7 @@ int unit_file_unmask(
                 return r;
 
         config_path = (flags & UNIT_FILE_RUNTIME) ? paths.runtime_config : paths.persistent_config;
+        dry_run = !!(flags & UNIT_FILE_DRY_RUN);
 
         STRV_FOREACH(i, files) {
                 _cleanup_free_ char *path = NULL;
@@ -1907,7 +1913,7 @@ int unit_file_unmask(
                 if (!path)
                         return -ENOMEM;
 
-                if (unlink(path) < 0) {
+                if (!dry_run && unlink(path) < 0) {
                         if (errno != ENOENT) {
                                 if (r >= 0)
                                         r = -errno;
@@ -1925,7 +1931,7 @@ int unit_file_unmask(
                         return q;
         }
 
-        q = remove_marked_symlinks(remove_symlinks_to, config_path, &paths, changes, n_changes);
+        q = remove_marked_symlinks(remove_symlinks_to, config_path, &paths, dry_run, changes, n_changes);
         if (r >= 0)
                 r = q;
 
@@ -2175,11 +2181,11 @@ int unit_file_revert(
                         return q;
         }
 
-        q = remove_marked_symlinks(remove_symlinks_to, paths.runtime_config, &paths, changes, n_changes);
+        q = remove_marked_symlinks(remove_symlinks_to, paths.runtime_config, &paths, false, changes, n_changes);
         if (r >= 0)
                 r = q;
 
-        q = remove_marked_symlinks(remove_symlinks_to, paths.persistent_config, &paths, changes, n_changes);
+        q = remove_marked_symlinks(remove_symlinks_to, paths.persistent_config, &paths, false, changes, n_changes);
         if (r >= 0)
                 r = q;
 
@@ -2341,7 +2347,7 @@ int unit_file_disable(
         if (r < 0)
                 return r;
 
-        return remove_marked_symlinks(remove_symlinks_to, config_path, &paths, changes, n_changes);
+        return remove_marked_symlinks(remove_symlinks_to, config_path, &paths, !!(flags & UNIT_FILE_DRY_RUN), changes, n_changes);
 }
 
 int unit_file_reenable(
@@ -2730,7 +2736,7 @@ static int execute_preset(
                 if (r < 0)
                         return r;
 
-                r = remove_marked_symlinks(remove_symlinks_to, config_path, paths, changes, n_changes);
+                r = remove_marked_symlinks(remove_symlinks_to, config_path, paths, false, changes, n_changes);
         } else
                 r = 0;
 

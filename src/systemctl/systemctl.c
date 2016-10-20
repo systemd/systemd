@@ -6271,6 +6271,63 @@ finish:
         return r;
 }
 
+static int show_installation_targets_client_side(const char *name) {
+        UnitFileChange *changes = NULL;
+        unsigned n_changes = 0, i;
+        UnitFileFlags flags;
+        char **p;
+        int r;
+
+        p = STRV_MAKE(name);
+        flags = UNIT_FILE_DRY_RUN |
+                (arg_runtime ? UNIT_FILE_RUNTIME : 0);
+
+        r = unit_file_disable(UNIT_FILE_SYSTEM, flags, NULL, p, &changes, &n_changes);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get file links for %s: %m", name);
+
+        for (i = 0; i < n_changes; i++)
+                if (changes[i].type == UNIT_FILE_UNLINK)
+                        printf("  %s\n", changes[i].path);
+
+        return 0;
+}
+
+static int show_installation_targets(sd_bus *bus, const char *name) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        const char *link;
+        int r;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "GetUnitFileLinks",
+                        &error,
+                        &reply,
+                        "sb", name, arg_runtime);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get unit file links for %s: %s", name, bus_error_message(&error, r));
+
+        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "s");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        while ((r = sd_bus_message_read(reply, "s", &link)) > 0)
+                printf("  %s\n", link);
+
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return 0;
+}
+
 static int unit_is_enabled(int argc, char *argv[], void *userdata) {
 
         _cleanup_strv_free_ char **names = NULL;
@@ -6289,7 +6346,6 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
         enabled = r > 0;
 
         if (install_client_side()) {
-
                 STRV_FOREACH(name, names) {
                         UnitFileState state;
 
@@ -6305,8 +6361,14 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
                                    UNIT_FILE_GENERATED))
                                 enabled = true;
 
-                        if (!arg_quiet)
+                        if (!arg_quiet) {
                                 puts(unit_file_state_to_string(state));
+                                if (arg_full) {
+                                        r = show_installation_targets_client_side(*name);
+                                        if (r < 0)
+                                                return r;
+                                }
+                        }
                 }
 
                 r = 0;
@@ -6341,8 +6403,14 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
                         if (STR_IN_SET(s, "enabled", "enabled-runtime", "static", "indirect", "generated"))
                                 enabled = true;
 
-                        if (!arg_quiet)
+                        if (!arg_quiet) {
                                 puts(s);
+                                if (arg_full) {
+                                        r = show_installation_targets(bus, *name);
+                                        if (r < 0)
+                                                return r;
+                                }
+                        }
                 }
         }
 

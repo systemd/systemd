@@ -2242,6 +2242,49 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes);
 }
 
+static int method_get_unit_file_links(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        UnitFileChange *changes = NULL;
+        unsigned n_changes = 0, i;
+        UnitFileFlags flags;
+        const char *name;
+        char **p;
+        int runtime, r;
+
+        r = sd_bus_message_read(message, "sb", &name, &runtime);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, SD_BUS_TYPE_ARRAY, "s");
+        if (r < 0)
+                return r;
+
+        p = STRV_MAKE(name);
+        flags = UNIT_FILE_DRY_RUN |
+                (runtime ? UNIT_FILE_RUNTIME : 0);
+
+        r = unit_file_disable(UNIT_FILE_SYSTEM, flags, NULL, p, &changes, &n_changes);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get file links for %s: %m", name);
+
+        for (i = 0; i < n_changes; i++)
+                if (changes[i].type == UNIT_FILE_UNLINK) {
+                        r = sd_bus_message_append(reply, "s", changes[i].path);
+                        if (r < 0)
+                                return r;
+                }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
 const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -2387,6 +2430,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_METHOD("GetDefaultTarget", NULL, "s", method_get_default_target, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("PresetAllUnitFiles", "sbb", "a(sss)", method_preset_all_unit_files, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("AddDependencyUnitFiles", "asssbb", "a(sss)", method_add_dependency_unit_files, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetUnitFileLinks", "sb", "as", method_get_unit_file_links, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetExitCode", "y", NULL, method_set_exit_code, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("LookupDynamicUserByName", "s", "u", method_lookup_dynamic_user_by_name, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("LookupDynamicUserByUID", "u", "s", method_lookup_dynamic_user_by_uid, SD_BUS_VTABLE_UNPRIVILEGED),

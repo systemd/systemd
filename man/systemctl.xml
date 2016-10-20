@@ -233,6 +233,8 @@
           of <command>status</command>, <command>list-units</command>,
           <command>list-jobs</command>, and
           <command>list-timers</command>.</para>
+          <para>Also, show installation targets in the output of
+          <command>is-enabled</command>.</para>
         </listitem>
       </varlistentry>
 
@@ -1136,6 +1138,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             exit code of 0 if at least one is enabled, non-zero
             otherwise. Prints the current enable status (see table).
             To suppress this output, use <option>--quiet</option>.
+            To show installation targets, use <option>--full</option>.
             </para>
 
             <table>
