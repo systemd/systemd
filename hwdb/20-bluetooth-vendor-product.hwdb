@@ -3026,3 +3026,96 @@ bluetooth:v03ED*
 
 bluetooth:v03EE*
  ID_VENDOR_FROM_DATABASE=CUBE TECHNOLOGIES
+
+bluetooth:v03EF*
+ ID_VENDOR_FROM_DATABASE=foolography GmbH
+
+bluetooth:v03F0*
+ ID_VENDOR_FROM_DATABASE=CLINK
+
+bluetooth:v03F1*
+ ID_VENDOR_FROM_DATABASE=Hestan Smart Cooking Inc.
+
+bluetooth:v03F2*
+ ID_VENDOR_FROM_DATABASE=WindowMaster A/S
+
+bluetooth:v03F3*
+ ID_VENDOR_FROM_DATABASE=Flowscape AB
+
+bluetooth:v03F4*
+ ID_VENDOR_FROM_DATABASE=PAL Technologies Ltd
+
+bluetooth:v03F5*
+ ID_VENDOR_FROM_DATABASE=WHERE, Inc.
+
+bluetooth:v03F6*
+ ID_VENDOR_FROM_DATABASE=Iton Technology Corp.
+
+bluetooth:v03F7*
+ ID_VENDOR_FROM_DATABASE=Owl Labs Inc.
+
+bluetooth:v03F8*
+ ID_VENDOR_FROM_DATABASE=Rockford Corp.
+
+bluetooth:v03F9*
+ ID_VENDOR_FROM_DATABASE=Becon Technologies Co.,Ltd.
+
+bluetooth:v03FA*
+ ID_VENDOR_FROM_DATABASE=Vyassoft Technologies Inc
+
+bluetooth:v03FB*
+ ID_VENDOR_FROM_DATABASE=Nox Medical
+
+bluetooth:v03FC*
+ ID_VENDOR_FROM_DATABASE=Kimberly-Clark
+
+bluetooth:v03FD*
+ ID_VENDOR_FROM_DATABASE=Trimble Navigation Ltd.
+
+bluetooth:v03FE*
+ ID_VENDOR_FROM_DATABASE=Littelfuse
+
+bluetooth:v03FF*
+ ID_VENDOR_FROM_DATABASE=Withings
+
+bluetooth:v0400*
+ ID_VENDOR_FROM_DATABASE=i-developer IT Beratung UG
+
+bluetooth:v0401*
+ ID_VENDOR_FROM_DATABASE=リレーションズ株式会社
+
+bluetooth:v0402*
+ ID_VENDOR_FROM_DATABASE=Sears Holdings Corporation
+
+bluetooth:v0403*
+ ID_VENDOR_FROM_DATABASE=Gantner Electronic GmbH
+
+bluetooth:v0404*
+ ID_VENDOR_FROM_DATABASE=Authomate Inc
+
+bluetooth:v0405*
+ ID_VENDOR_FROM_DATABASE=Vertex International, Inc.
+
+bluetooth:v0406*
+ ID_VENDOR_FROM_DATABASE=Airtago
+
+bluetooth:v0407*
+ ID_VENDOR_FROM_DATABASE=Swiss Audio SA
+
+bluetooth:v0408*
+ ID_VENDOR_FROM_DATABASE=ToGetHome Inc.
+
+bluetooth:v0409*
+ ID_VENDOR_FROM_DATABASE=AXIS
+
+bluetooth:v040A*
+ ID_VENDOR_FROM_DATABASE=Openmatics
+
+bluetooth:v040B*
+ ID_VENDOR_FROM_DATABASE=Jana Care Inc.
+
+bluetooth:v040C*
+ ID_VENDOR_FROM_DATABASE=Senix Corporation
+
+bluetooth:v040D*
+ ID_VENDOR_FROM_DATABASE=NorthStar Battery Company, LLC
