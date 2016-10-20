@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
         test_table(device_state, DEVICE_STATE);
         test_table(exec_input, EXEC_INPUT);
         test_table(exec_output, EXEC_OUTPUT);
-        test_table(failure_action, FAILURE_ACTION);
+        test_table(emergency_action, EMERGENCY_ACTION);
         test_table(job_mode, JOB_MODE);
         test_table(job_result, JOB_RESULT);
         test_table(job_state, JOB_STATE);

@@ -178,7 +178,7 @@ struct Service {
         char *status_text;
         int status_errno;
 
-        FailureAction failure_action;
+        EmergencyAction emergency_action;
 
         UnitRef accept_socket;
 
