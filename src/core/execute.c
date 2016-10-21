@@ -1534,19 +1534,14 @@ finish:
 }
 
 static int apply_protect_kernel_modules(Unit *u, const ExecContext *c) {
-        static const int module_syscalls[] = {
-                SCMP_SYS(delete_module),
-                SCMP_SYS(finit_module),
-                SCMP_SYS(init_module),
-        };
 
         scmp_filter_ctx *seccomp;
-        unsigned i;
+        const char *sys;
         int r;
 
         assert(c);
 
-        /* Turn of module syscalls on ProtectKernelModules=yes */
+        /* Turn off module syscalls on ProtectKernelModules=yes */
 
         if (skip_seccomp_unavailable(u, "ProtectKernelModules="))
                 return 0;
@@ -1559,12 +1554,9 @@ static int apply_protect_kernel_modules(Unit *u, const ExecContext *c) {
         if (r < 0)
                 goto finish;
 
-        for (i = 0; i < ELEMENTSOF(module_syscalls); i++) {
-                r = seccomp_rule_add(seccomp, SCMP_ACT_ERRNO(EPERM),
-                                     module_syscalls[i], 0);
-                if (r < 0)
-                        goto finish;
-        }
+        r = seccomp_add_syscall_filter_set(seccomp, syscall_filter_sets + SYSCALL_FILTER_SET_MODULE, SCMP_ACT_ERRNO(EPERM));
+        if (r < 0)
+                goto finish;
 
         r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
         if (r < 0)
