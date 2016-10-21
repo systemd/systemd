@@ -2632,6 +2632,13 @@ static int exec_child(
                 }
         }
 
+        if (context->working_directory_home)
+                wd = home;
+        else if (context->working_directory)
+                wd = context->working_directory;
+        else
+                wd = "/";
+
         /* Drop group as early as possbile */
         if ((params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged) {
                 r = enforce_groups(context, gid, supplementary_gids, ngids);
@@ -2640,13 +2647,6 @@ static int exec_child(
                         return r;
                 }
         }
-
-        if (context->working_directory_home)
-                wd = home;
-        else if (context->working_directory)
-                wd = context->working_directory;
-        else
-                wd = "/";
 
         if (params->flags & EXEC_APPLY_CHROOT) {
                 if (!needs_mount_namespace && context->root_directory)
