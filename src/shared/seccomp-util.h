@@ -20,6 +20,7 @@
 ***/
 
 #include <seccomp.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 const char* seccomp_arch_to_string(uint32_t c);
