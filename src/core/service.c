@@ -1756,7 +1756,15 @@ static void service_enter_start(Service *s) {
         }
 
         if (!c) {
-                assert(s->type == SERVICE_ONESHOT);
+                if (s->type != SERVICE_ONESHOT) {
+                        /* There's no command line configured for the main command? Hmm, that is strange. This can only
+                         * happen if the configuration changes at runtime. In this case, let's enter a failure
+                         * state. */
+                        log_unit_error(UNIT(s), "There's no 'start' task anymore we could start: %m");
+                        r = -ENXIO;
+                        goto fail;
+                }
+
                 service_enter_start_post(s);
                 return;
         }
