@@ -569,13 +569,13 @@ CHANGES WITH 230:
           of the owners and the ACLs of all files and directories in a
           container tree to match the UID/GID user namespacing range selected
           for the container invocation. This mode is enabled via the new
-          --private-user-chown switch. It also gained support for automatically
-          choosing a free, previously unused UID/GID range when starting a
-          container, via the new --private-users=pick setting (which implies
-          --private-user-chown). Together, these options for the first time
-          make user namespacing for nspawn containers fully automatic and thus
-          deployable. The systemd-nspawn@.service template unit file has been
-          changed to use this functionality by default.
+          --private-users-chown switch. It also gained support for
+          automatically choosing a free, previously unused UID/GID range when
+          starting a container, via the new --private-users=pick setting (which
+          implies --private-users-chown). Together, these options for the first
+          time make user namespacing for nspawn containers fully automatic and
+          thus deployable. The systemd-nspawn@.service template unit file has
+          been changed to use this functionality by default.
 
         * systemd-nspawn gained a new --network-zone= switch, that allows
           creating ad-hoc virtual Ethernet links between multiple containers,
