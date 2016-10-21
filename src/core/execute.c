@@ -1502,9 +1502,6 @@ finish:
 }
 
 static int apply_protect_kernel_modules(Unit *u, const ExecContext *c) {
-        scmp_filter_ctx seccomp;
-        int r;
-
         assert(c);
 
         /* Turn off module syscalls on ProtectKernelModules=yes */
@@ -1512,25 +1509,10 @@ static int apply_protect_kernel_modules(Unit *u, const ExecContext *c) {
         if (skip_seccomp_unavailable(u, "ProtectKernelModules="))
                 return 0;
 
-        r = seccomp_init_conservative(&seccomp, SCMP_ACT_ALLOW);
-        if (r < 0)
-                return r;
-
-        r = seccomp_add_syscall_filter_set(seccomp, syscall_filter_sets + SYSCALL_FILTER_SET_MODULE, SCMP_ACT_ERRNO(EPERM));
-        if (r < 0)
-                goto finish;
-
-        r = seccomp_load(seccomp);
-
-finish:
-        seccomp_release(seccomp);
-        return r;
+        return seccomp_load_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_MODULE, SCMP_ACT_ERRNO(EPERM));
 }
 
 static int apply_private_devices(Unit *u, const ExecContext *c) {
-        scmp_filter_ctx seccomp;
-        int r;
-
         assert(c);
 
         /* If PrivateDevices= is set, also turn off iopl and all @raw-io syscalls. */
@@ -1538,19 +1520,7 @@ static int apply_private_devices(Unit *u, const ExecContext *c) {
         if (skip_seccomp_unavailable(u, "PrivateDevices="))
                 return 0;
 
-        r = seccomp_init_conservative(&seccomp, SCMP_ACT_ALLOW);
-        if (r < 0)
-                return r;
-
-        r = seccomp_add_syscall_filter_set(seccomp, syscall_filter_sets + SYSCALL_FILTER_SET_RAW_IO, SCMP_ACT_ERRNO(EPERM));
-        if (r < 0)
-                goto finish;
-
-        r = seccomp_load(seccomp);
-
-finish:
-        seccomp_release(seccomp);
-        return r;
+        return seccomp_load_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_RAW_IO, SCMP_ACT_ERRNO(EPERM));
 }
 
 #endif

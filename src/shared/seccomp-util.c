@@ -452,3 +452,27 @@ int seccomp_add_syscall_filter_set(scmp_filter_ctx seccomp, const SyscallFilterS
 
         return 0;
 }
+
+int seccomp_load_filter_set(uint32_t default_action, const SyscallFilterSet *set, uint32_t action) {
+        scmp_filter_ctx seccomp;
+        int r;
+
+        assert(set);
+
+        /* The one-stop solution: allocate a seccomp object, add a filter to it, and apply it */
+
+        r = seccomp_init_conservative(&seccomp, default_action);
+        if (r < 0)
+                return r;
+
+        r = seccomp_add_syscall_filter_set(seccomp, set, action);
+        if (r < 0)
+                goto finish;
+
+        r = seccomp_load(seccomp);
+
+finish:
+        seccomp_release(seccomp);
+        return r;
+
+}
