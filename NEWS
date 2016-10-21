@@ -35,14 +35,14 @@ CHANGES WITH 232 in spe
           ProtectSystem=strict enabled, so they are not able to make any
           permanent modifications to the system.
 
-          The nss-systemd module also always resolves root and nobody, making
+        * The nss-systemd module also always resolves root and nobody, making
           it possible to have no /etc/passwd or /etc/group files in minimal
-          container systems.
+          container or chroot environments.
 
         * Services may be started with their own user namespace using the new
-          PrivateUsers= option. Only root, nobody, and the uid/gid under which
-          the service is running are mapped. All other users are mapped to
-          nobody.
+          boolean PrivateUsers= option. Only root, nobody, and the uid/gid
+          under which the service is running are mapped. All other users are
+          mapped to nobody.
 
         * Support for the cgroup namespace has been added to systemd-nspawn. If
           supported by kernel, the container system started by systemd-nspawn
@@ -57,12 +57,22 @@ CHANGES WITH 232 in spe
           options. This controller requires out-of-tree patches for the kernel
           and the support is provisional.
 
-        * .automount units may now be transient.
+        * Mount and automount units may now be created transiently
+          (i.e. dynamically at runtime via the bus API, instead of requiring
+          unit files in the file system).
 
-        * systemd-mount is a new tool which wraps mount(8) to pull in
-          additional dependencies through transient .mount and .automount
-          units. For example, this automatically runs fsck on the block device
-          before mounting, and allows the automount logic to be used.
+        * systemd-mount is a new tool which may mount file systems – much like
+          mount(8), optionally pulling in additional dependencies through
+          transient .mount and .automount units. For example, this tool
+          automatically runs fsck on a backing block device before mounting,
+          and allows the automount logic to be used dynamically from the
+          command line for establishing mount points. This tool is particularly
+          useful when dealing with removable media, as it will ensure fsck is
+          run – if necessary – before the first access and that the file system
+          is quickly unmounted after each access by utilizing the automount
+          logic. This maximizes the chance that the file system on the
+          removable media stays in a clean state, and if it isn't in a clean
+          state is fixed automatically.
 
         * LazyUnmount=yes option for mount units has been added to expose the
           umount --lazy option. Similarly, ForceUnmount=yes exposes the --force
@@ -74,6 +84,12 @@ CHANGES WITH 232 in spe
           /boot will be used as before. This makes it easier to automatically
           mount the EFI partition on systems where /boot is used for something
           else.
+
+        * When operating on GPT disk images for containers, systemd-nspawn will
+          now mount the ESP to /boot or /efi according to the same rules as PID
+          1 running on a host. This allows tools like "bootctl" to operate
+          correctly within such containers, in order to make container images
+          bootable on physical systems.
 
         * disk/by-id and disk/by-path symlinks are now created for NVMe drives.
 
@@ -95,7 +111,7 @@ CHANGES WITH 232 in spe
           the top of the process hierarchy (which is usually the init process
           of the container).
 
-        * systemd-journal-gatewayd learned the --directory option to serve
+        * systemd-journal-gatewayd learned the --directory= option to serve
           files from the specified location.
 
         * journalctl --root=… can be used to peruse the journal in the
@@ -112,23 +128,26 @@ CHANGES WITH 232 in spe
           a click rate that is different than the one for the vertical wheel.
 
         * systemd-run gained a new --wait option that makes service execution
-          synchronous.
+          synchronous. (Specifically, the command will not return until the
+          specified service binary exited.)
 
-          systemctl gained a new --wait option that causes the start command to
+        * systemctl gained a new --wait option that causes the start command to
           wait until the units being started have terminated again.
 
-        * A new journal output mode "short-full" has been added which uses
+        * A new journal output mode "short-full" has been added which displays
           timestamps with abbreviated English day names and adds a timezone
-          suffix. Those timestamps include more information and can be parsed
-          by journalctl.
+          suffix. Those timestamps include more information than the default
+          "short" output mode, and can be passed directly to journalctl's
+          --since= and --until= options.
 
         * /etc/resolv.conf will be bind-mounted into containers started by
           systemd-nspawn, if possible, so any changes to resolv.conf contents
           are automatically propagated to the container.
 
         * The number of instances for socket-activated services originating
-          from a single IP can be limited with MaxConnectionsPerSource=,
-          extending the existing setting of MaxConnections.
+          from a single IP address can be limited with
+          MaxConnectionsPerSource=, extending the existing setting of
+          MaxConnections=.
 
         * systemd-networkd gained support for vcan ("Virtual CAN") interface
           configuration.
@@ -143,21 +162,23 @@ CHANGES WITH 232 in spe
           GenericReceiveOffload=, LargeReceiveOffload= options in the
           [Link] section of .link files.
 
-          Spanning Tree Protocol enablement, Priority, Aging Time, and the
-          Default Port VLAN ID can be configured for bridge devices using the
-          new STP=, Priority=, AgeingTimeSec=, and DefaultPVID= settings in the
-          [Bridge] section of .netdev files.
+        * The Spanning Tree Protocol, Priority, Aging Time, and the Default
+          Port VLAN ID can be configured for bridge devices using the new STP=,
+          Priority=, AgeingTimeSec=, and DefaultPVID= settings in the [Bridge]
+          section of .netdev files.
 
-          The route table to which routes received over DHCP or RA should be
+        * The route table to which routes received over DHCP or RA should be
           added can be configured with the new RouteTable= option in the [DHCP]
           and [IPv6AcceptRA] sections of .network files.
 
-          Address Resolution Protocol can be disabled on links managed by
+        * The Address Resolution Protocol can be disabled on links managed by
           systemd-networkd using the ARP=no setting in the [Link] section of
           .network files.
 
-        * $SERVICE_RESULT, $EXIT_CODE, $EXIT_STATUS are set for ExecStop= and
-          ExecStopPost= commands.
+        * New environment variables $SERVICE_RESULT, $EXIT_CODE and
+          $EXIT_STATUS are set for ExecStop= and ExecStopPost= commands, and
+          encode information about the result and exit codes of the current
+          service runtime cycle.
 
         * systemd-sysctl will now configure kernel parameters in the order
           they occur in the configuration files. This matches what sysctl
@@ -183,6 +204,30 @@ CHANGES WITH 232 in spe
           $SYSTEMD_NSPAWN_SHARE_NS_IPC, $SYSTEMD_NSPAWN_SHARE_NS_PID,
           $SYSTEMD_NSPAWN_SHARE_NS_UTS may be used to control the unsharing of
           individual namespaces.
+
+        * "machinectl list" now shows the IP address of running containers in
+          the output, as well as OS release information.
+
+        * "loginctl list" now shows the TTY of each session in the output.
+
+        * sd-bus gained new API calls sd_bus_track_set_recursive(),
+          sd_bus_track_get_recursive(), sd_bus_track_count_name(),
+          sd_bus_track_count_sender(). They permit usage of sd_bus_track peer
+          tracking objects in a "recursive" mode, where a single client can be
+          counted multiple times, if it takes multiple references.
+
+        * sd-bus gained new API calls sd_bus_set_exit_on_disconnect() and
+          sd_bus_get_exit_on_disconnect(). They may be used to to make a
+          process using sd-bus automatically exit if the bus connection is
+          severed.
+
+        * Bus clients of the service manager may now "pin" loaded units into
+          memory, by taking an explicit reference on them. This is useful to
+          ensure the client can retrieve runtime data about the service even
+          after the service completed execution. Taking such a reference is
+          available only for privileged clients and should be helpful to watch
+          running services in a race-free manner, and in particular collect
+          information about exit statuses and results.
 
 CHANGES WITH 231:
 
