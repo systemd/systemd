@@ -27,19 +27,54 @@
 #include "install.h"
 #include "macro.h"
 #include "specifier.h"
+#include "string-util.h"
 #include "unit-name.h"
 #include "user-util.h"
 
 static int specifier_prefix_and_instance(char specifier, void *data, void *userdata, char **ret) {
-        UnitFileInstallInfo *i = userdata;
+        const UnitFileInstallInfo *i = userdata;
+        _cleanup_free_ char *prefix = NULL;
+        int r;
 
         assert(i);
 
-        return unit_name_to_prefix_and_instance(i->name, ret);
+        r = unit_name_to_prefix_and_instance(i->name, &prefix);
+        if (r < 0)
+                return r;
+
+        if (endswith(prefix, "@") && i->default_instance) {
+                char *ans;
+
+                ans = strjoin(prefix, i->default_instance, NULL);
+                if (!ans)
+                        return -ENOMEM;
+                *ret = ans;
+        } else {
+                *ret = prefix;
+                prefix = NULL;
+        }
+
+        return 0;
+}
+
+static int specifier_name(char specifier, void *data, void *userdata, char **ret) {
+        const UnitFileInstallInfo *i = userdata;
+        char *ans;
+
+        assert(i);
+
+        if (unit_name_is_valid(i->name, UNIT_NAME_TEMPLATE) && i->default_instance)
+                return unit_name_replace_instance(i->name, i->default_instance, ret);
+
+        ans = strdup(i->name);
+        if (!ans)
+                return -ENOMEM;
+        *ret = ans;
+        return 0;
 }
 
 static int specifier_prefix(char specifier, void *data, void *userdata, char **ret) {
-        UnitFileInstallInfo *i = userdata;
+        const UnitFileInstallInfo *i = userdata;
 
         assert(i);
 
@@ -47,7 +82,7 @@ static int specifier_prefix(char specifier, void *data, void *userdata, char **r
 }
 
 static int specifier_instance(char specifier, void *data, void *userdata, char **ret) {
-        UnitFileInstallInfo *i = userdata;
+        const UnitFileInstallInfo *i = userdata;
         char *instance;
         int r;
 
@@ -57,8 +92,8 @@ static int specifier_instance(char specifier, void *data, void *userdata, char *
         if (r < 0)
                 return r;
 
-        if (!instance) {
-                instance = strdup("");
+        if (isempty(instance)) {
+                instance = strdup(i->default_instance ?: "");
                 if (!instance)
                         return -ENOMEM;
         }
@@ -73,9 +108,13 @@ static int specifier_user_name(char specifier, void *data, void *userdata, char 
         /* If we are UID 0 (root), this will not result in NSS,
          * otherwise it might. This is good, as we want to be able to
          * run this in PID 1, where our user ID is 0, but where NSS
-         * lookups are not allowed. */
+         * lookups are not allowed.
 
-        t = getusername_malloc();
+         * We don't user getusername_malloc() here, because we don't want to look
+         * at $USER, to remain consistent with specifer_user_id() below.
+         */
+
+        t = uid_to_name(getuid());
         if (!t)
                 return -ENOMEM;
 
@@ -110,7 +149,7 @@ int install_full_printf(UnitFileInstallInfo *i, const char *format, char **ret) 
          */
 
         const Specifier table[] = {
-                { 'n', specifier_string,              i->name },
+                { 'n', specifier_name,                NULL },
                 { 'N', specifier_prefix_and_instance, NULL },
                 { 'p', specifier_prefix,              NULL },
                 { 'i', specifier_instance,            NULL },
