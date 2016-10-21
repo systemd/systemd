@@ -1197,7 +1197,7 @@ static bool skip_seccomp_unavailable(const Unit* u, const char* msg) {
 
 static int apply_seccomp(const Unit* u, const ExecContext *c) {
         uint32_t negative_action, action;
-        scmp_filter_ctx *seccomp;
+        scmp_filter_ctx seccomp;
         Iterator i;
         void *id;
         int r;
@@ -1248,7 +1248,7 @@ finish:
 }
 
 static int apply_address_families(const Unit* u, const ExecContext *c) {
-        scmp_filter_ctx *seccomp;
+        scmp_filter_ctx seccomp;
         Iterator i;
         int r;
 
@@ -1257,13 +1257,9 @@ static int apply_address_families(const Unit* u, const ExecContext *c) {
         if (skip_seccomp_unavailable(u, "RestrictAddressFamilies="))
                 return 0;
 
-        seccomp = seccomp_init(SCMP_ACT_ALLOW);
-        if (!seccomp)
-                return -ENOMEM;
-
-        r = seccomp_add_secondary_archs(seccomp);
+        r = seccomp_init_conservative(&seccomp, SCMP_ACT_ALLOW);
         if (r < 0)
-                goto finish;
+                return r;
 
         if (c->address_families_whitelist) {
                 int af, first = 0, last = 0;
@@ -1360,10 +1356,6 @@ static int apply_address_families(const Unit* u, const ExecContext *c) {
                 }
         }
 
-        r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
-        if (r < 0)
-                goto finish;
-
         r = seccomp_load(seccomp);
 
 finish:
@@ -1372,7 +1364,7 @@ finish:
 }
 
 static int apply_memory_deny_write_execute(const Unit* u, const ExecContext *c) {
-        scmp_filter_ctx *seccomp;
+        scmp_filter_ctx seccomp;
         int r;
 
         assert(c);
@@ -1380,13 +1372,9 @@ static int apply_memory_deny_write_execute(const Unit* u, const ExecContext *c) 
         if (skip_seccomp_unavailable(u, "MemoryDenyWriteExecute="))
                 return 0;
 
-        seccomp = seccomp_init(SCMP_ACT_ALLOW);
-        if (!seccomp)
-                return -ENOMEM;
-
-        r = seccomp_add_secondary_archs(seccomp);
+        r = seccomp_init_conservative(&seccomp, SCMP_ACT_ALLOW);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = seccomp_rule_add(
                         seccomp,
@@ -1406,10 +1394,6 @@ static int apply_memory_deny_write_execute(const Unit* u, const ExecContext *c) 
         if (r < 0)
                 goto finish;
 
-        r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
-        if (r < 0)
-                goto finish;
-
         r = seccomp_load(seccomp);
 
 finish:
@@ -1424,7 +1408,7 @@ static int apply_restrict_realtime(const Unit* u, const ExecContext *c) {
                 SCHED_IDLE,
         };
 
-        scmp_filter_ctx *seccomp;
+        scmp_filter_ctx seccomp;
         unsigned i;
         int r, p, max_policy = 0;
 
@@ -1433,13 +1417,9 @@ static int apply_restrict_realtime(const Unit* u, const ExecContext *c) {
         if (skip_seccomp_unavailable(u, "RestrictRealtime="))
                 return 0;
 
-        seccomp = seccomp_init(SCMP_ACT_ALLOW);
-        if (!seccomp)
-                return -ENOMEM;
-
-        r = seccomp_add_secondary_archs(seccomp);
+        r = seccomp_init_conservative(&seccomp, SCMP_ACT_ALLOW);
         if (r < 0)
-                goto finish;
+                return r;
 
         /* Determine the highest policy constant we want to allow */
         for (i = 0; i < ELEMENTSOF(permitted_policies); i++)
@@ -1483,10 +1463,6 @@ static int apply_restrict_realtime(const Unit* u, const ExecContext *c) {
         if (r < 0)
                 goto finish;
 
-        r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
-        if (r < 0)
-                goto finish;
-
         r = seccomp_load(seccomp);
 
 finish:
@@ -1495,7 +1471,7 @@ finish:
 }
 
 static int apply_protect_sysctl(Unit *u, const ExecContext *c) {
-        scmp_filter_ctx *seccomp;
+        scmp_filter_ctx seccomp;
         int r;
 
         assert(c);
@@ -1506,23 +1482,15 @@ static int apply_protect_sysctl(Unit *u, const ExecContext *c) {
         if (skip_seccomp_unavailable(u, "ProtectKernelTunables="))
                 return 0;
 
-        seccomp = seccomp_init(SCMP_ACT_ALLOW);
-        if (!seccomp)
-                return -ENOMEM;
-
-        r = seccomp_add_secondary_archs(seccomp);
+        r = seccomp_init_conservative(&seccomp, SCMP_ACT_ALLOW);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = seccomp_rule_add(
                         seccomp,
                         SCMP_ACT_ERRNO(EPERM),
                         SCMP_SYS(_sysctl),
                         0);
-        if (r < 0)
-                goto finish;
-
-        r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
         if (r < 0)
                 goto finish;
 
@@ -1534,9 +1502,7 @@ finish:
 }
 
 static int apply_protect_kernel_modules(Unit *u, const ExecContext *c) {
-
-        scmp_filter_ctx *seccomp;
-        const char *sys;
+        scmp_filter_ctx seccomp;
         int r;
 
         assert(c);
@@ -1546,19 +1512,11 @@ static int apply_protect_kernel_modules(Unit *u, const ExecContext *c) {
         if (skip_seccomp_unavailable(u, "ProtectKernelModules="))
                 return 0;
 
-        seccomp = seccomp_init(SCMP_ACT_ALLOW);
-        if (!seccomp)
-                return -ENOMEM;
-
-        r = seccomp_add_secondary_archs(seccomp);
+        r = seccomp_init_conservative(&seccomp, SCMP_ACT_ALLOW);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = seccomp_add_syscall_filter_set(seccomp, syscall_filter_sets + SYSCALL_FILTER_SET_MODULE, SCMP_ACT_ERRNO(EPERM));
-        if (r < 0)
-                goto finish;
-
-        r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
         if (r < 0)
                 goto finish;
 
@@ -1570,7 +1528,7 @@ finish:
 }
 
 static int apply_private_devices(Unit *u, const ExecContext *c) {
-        scmp_filter_ctx *seccomp;
+        scmp_filter_ctx seccomp;
         int r;
 
         assert(c);
@@ -1580,19 +1538,11 @@ static int apply_private_devices(Unit *u, const ExecContext *c) {
         if (skip_seccomp_unavailable(u, "PrivateDevices="))
                 return 0;
 
-        seccomp = seccomp_init(SCMP_ACT_ALLOW);
-        if (!seccomp)
-                return -ENOMEM;
-
-        r = seccomp_add_secondary_archs(seccomp);
+        r = seccomp_init_conservative(&seccomp, SCMP_ACT_ALLOW);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = seccomp_add_syscall_filter_set(seccomp, syscall_filter_sets + SYSCALL_FILTER_SET_RAW_IO, SCMP_ACT_ERRNO(EPERM));
-        if (r < 0)
-                goto finish;
-
-        r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
         if (r < 0)
                 goto finish;
 

@@ -74,7 +74,34 @@ int seccomp_arch_from_string(const char *n, uint32_t *ret) {
         return 0;
 }
 
-int seccomp_add_secondary_archs(scmp_filter_ctx *c) {
+int seccomp_init_conservative(scmp_filter_ctx *ret, uint32_t default_action) {
+        scmp_filter_ctx seccomp;
+        int r;
+
+        /* Much like seccomp_init(), but tries to be a bit more conservative in its defaults: all secondary archs are
+         * added by default, and NNP is turned off. */
+
+        seccomp = seccomp_init(default_action);
+        if (!seccomp)
+                return -ENOMEM;
+
+        r = seccomp_add_secondary_archs(seccomp);
+        if (r < 0)
+                goto finish;
+
+        r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
+        if (r < 0)
+                goto finish;
+
+        *ret = seccomp;
+        return 0;
+
+finish:
+        seccomp_release(seccomp);
+        return r;
+}
+
+int seccomp_add_secondary_archs(scmp_filter_ctx c) {
 
 #if defined(__i386__) || defined(__x86_64__)
         int r;
@@ -111,7 +138,6 @@ int seccomp_add_secondary_archs(scmp_filter_ctx *c) {
 #endif
 
         return 0;
-
 }
 
 static bool is_basic_seccomp_available(void) {

@@ -135,15 +135,9 @@ int setup_seccomp(uint64_t cap_list_retain) {
                 return 0;
         }
 
-        seccomp = seccomp_init(SCMP_ACT_ALLOW);
-        if (!seccomp)
-                return log_oom();
-
-        r = seccomp_add_secondary_archs(seccomp);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add secondary archs to seccomp filter: %m");
-                goto finish;
-        }
+        r = seccomp_init_conservative(&seccomp, SCMP_ACT_ALLOW);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate seccomp object: %m");
 
         r = seccomp_add_default_syscall_filter(seccomp, cap_list_retain);
         if (r < 0)
@@ -168,12 +162,6 @@ int setup_seccomp(uint64_t cap_list_retain) {
                         SCMP_A2(SCMP_CMP_EQ, NETLINK_AUDIT));
         if (r < 0) {
                 log_error_errno(r, "Failed to add audit seccomp rule: %m");
-                goto finish;
-        }
-
-        r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to unset NO_NEW_PRIVS: %m");
                 goto finish;
         }
 
