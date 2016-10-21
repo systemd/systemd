@@ -67,6 +67,7 @@ int detect_vm(void);
 int detect_container(void);
 int detect_virtualization(void);
 
+int running_in_userns(void);
 int running_in_chroot(void);
 
 const char *virtualization_to_string(int v) _const_;
