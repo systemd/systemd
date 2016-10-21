@@ -162,6 +162,12 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>PersistUserInstances=</varname></term>
+
+        <listitem><para>Takes a boolean argument. Configures whether the per-user systemd instance is persisted after the user logs out of all the sessions.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>IdleAction=</varname></term>
 
         <listitem><para>Configures the action to take when the system

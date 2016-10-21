@@ -71,6 +71,7 @@ struct Manager {
 
         char **kill_only_users, **kill_exclude_users;
         bool kill_user_processes;
+        bool persist_user_instances;
 
         unsigned long session_counter;
         unsigned long inhibit_counter;

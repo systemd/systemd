@@ -689,6 +689,9 @@ bool user_check_gc(User *u, bool drop_not_started) {
         if (drop_not_started && !u->started)
                 return false;
 
+        if (u->manager->persist_user_instances)
+                return true;
+
         if (u->sessions)
                 return true;
 

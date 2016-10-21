@@ -68,6 +68,7 @@ static void manager_reset_config(Manager *m) {
         m->inhibitors_max = 8192;
 
         m->kill_user_processes = KILL_USER_PROCESSES;
+        m->persist_user_instances = false;
 
         m->kill_only_users = strv_free(m->kill_only_users);
         m->kill_exclude_users = strv_free(m->kill_exclude_users);

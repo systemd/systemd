@@ -17,6 +17,7 @@
 #KillUserProcesses=@KILL_USER_PROCESSES@
 #KillOnlyUsers=
 #KillExcludeUsers=root
+#PersistUserInstances=false
 #InhibitDelayMaxSec=5
 #HandlePowerKey=poweroff
 #HandleSuspendKey=suspend
