@@ -12,7 +12,7 @@ CHANGES WITH 232 in spe
           whole file system tree with the exception of /dev, /proc, and /sys,
           to be remounted read-only for a service.
 
-        * The new ProtectedKernelTunables= option can be used to disable
+        * The new ProtectKernelTunables= option can be used to disable
           modification of configuration files in /sys and /proc by a service.
           Various directories and files are remounted read-only, so access is
           restricted even if the file permissions would allow it.
