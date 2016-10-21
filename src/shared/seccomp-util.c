@@ -26,6 +26,7 @@
 #include "macro.h"
 #include "seccomp-util.h"
 #include "string-util.h"
+#include "util.h"
 
 const char* seccomp_arch_to_string(uint32_t c) {
 
@@ -132,28 +133,30 @@ bool is_seccomp_available(void) {
         return cached_enabled;
 }
 
-const SystemCallFilterSet syscall_filter_sets[] = {
-        {
+const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
+        [SYSCALL_FILTER_SET_CLOCK] = {
                 /* Clock */
-                .set_name = "@clock",
+                .name = "@clock",
                 .value =
                 "adjtimex\0"
                 "clock_adjtime\0"
                 "clock_settime\0"
                 "settimeofday\0"
                 "stime\0"
-        }, {
+        },
+        [SYSCALL_FILTER_SET_CPU_EMULATION] = {
                 /* CPU emulation calls */
-                .set_name = "@cpu-emulation",
+                .name = "@cpu-emulation",
                 .value =
                 "modify_ldt\0"
                 "subpage_prot\0"
                 "switch_endian\0"
                 "vm86\0"
                 "vm86old\0"
-        }, {
+        },
+        [SYSCALL_FILTER_SET_DEBUG] = {
                 /* Debugging/Performance Monitoring/Tracing */
-                .set_name = "@debug",
+                .name = "@debug",
                 .value =
                 "lookup_dcookie\0"
                 "perf_event_open\0"
@@ -161,11 +164,14 @@ const SystemCallFilterSet syscall_filter_sets[] = {
                 "process_vm_writev\0"
                 "ptrace\0"
                 "rtas\0"
+#ifdef __NR_s390_runtime_instr
                 "s390_runtime_instr\0"
+#endif
                 "sys_debug_setcontext\0"
-        }, {
+        },
+        [SYSCALL_FILTER_SET_DEFAULT] = {
                 /* Default list */
-                .set_name = "@default",
+                .name = "@default",
                 .value =
                 "execve\0"
                 "exit\0"
@@ -173,9 +179,10 @@ const SystemCallFilterSet syscall_filter_sets[] = {
                 "getrlimit\0"      /* make sure processes can query stack size and such */
                 "rt_sigreturn\0"
                 "sigreturn\0"
-        }, {
+        },
+        [SYSCALL_FILTER_SET_IO_EVENT] = {
                 /* Event loop use */
-                .set_name = "@io-event",
+                .name = "@io-event",
                 .value =
                 "_newselect\0"
                 "epoll_create1\0"
@@ -191,9 +198,10 @@ const SystemCallFilterSet syscall_filter_sets[] = {
                 "ppoll\0"
                 "pselect6\0"
                 "select\0"
-        }, {
+        },
+        [SYSCALL_FILTER_SET_IPC] = {
                 /* Message queues, SYSV IPC or other IPC: unusual */
-                .set_name = "@ipc",
+                .name = "@ipc",
                 .value = "ipc\0"
                 "mq_getsetattr\0"
                 "mq_notify\0"
@@ -215,23 +223,26 @@ const SystemCallFilterSet syscall_filter_sets[] = {
                 "shmctl\0"
                 "shmdt\0"
                 "shmget\0"
-        }, {
+        },
+        [SYSCALL_FILTER_SET_KEYRING] = {
                 /* Keyring */
-                .set_name = "@keyring",
+                .name = "@keyring",
                 .value =
                 "add_key\0"
                 "keyctl\0"
                 "request_key\0"
-        }, {
+        },
+        [SYSCALL_FILTER_SET_MODULE] = {
                 /* Kernel module control */
-                .set_name = "@module",
+                .name = "@module",
                 .value =
                 "delete_module\0"
                 "finit_module\0"
                 "init_module\0"
-        }, {
+        },
+        [SYSCALL_FILTER_SET_MOUNT] = {
                 /* Mounting */
-                .set_name = "@mount",
+                .name = "@mount",
                 .value =
                 "chroot\0"
                 "mount\0"
@@ -239,9 +250,10 @@ const SystemCallFilterSet syscall_filter_sets[] = {
                 "pivot_root\0"
                 "umount2\0"
                 "umount\0"
-        }, {
+        },
+        [SYSCALL_FILTER_SET_NETWORK_IO] = {
                 /* Network or Unix socket IO, should not be needed if not network facing */
-                .set_name = "@network-io",
+                .name = "@network-io",
                 .value =
                 "accept4\0"
                 "accept\0"
@@ -264,9 +276,10 @@ const SystemCallFilterSet syscall_filter_sets[] = {
                 "socket\0"
                 "socketcall\0"
                 "socketpair\0"
-        }, {
+        },
+        [SYSCALL_FILTER_SET_OBSOLETE] = {
                 /* Unusual, obsolete or unimplemented, some unknown even to libseccomp */
-                .set_name = "@obsolete",
+                .name = "@obsolete",
                 .value =
                 "_sysctl\0"
                 "afs_syscall\0"
@@ -292,9 +305,10 @@ const SystemCallFilterSet syscall_filter_sets[] = {
                 "uselib\0"
                 "ustat\0"
                 "vserver\0"
-        }, {
+        },
+        [SYSCALL_FILTER_SET_PRIVILEGED] = {
                 /* Nice grab-bag of all system calls which need superuser capabilities */
-                .set_name = "@privileged",
+                .name = "@privileged",
                 .value =
                 "@clock\0"
                 "@module\0"
@@ -333,9 +347,10 @@ const SystemCallFilterSet syscall_filter_sets[] = {
                 "swapon\0"
                 "sysctl\0"
                 "vhangup\0"
-        }, {
+        },
+        [SYSCALL_FILTER_SET_PROCESS] = {
                 /* Process control, execution, namespaces */
-                .set_name = "@process",
+                .name = "@process",
                 .value =
                 "arch_prctl\0"
                 "clone\0"
@@ -349,19 +364,66 @@ const SystemCallFilterSet syscall_filter_sets[] = {
                 "tkill\0"
                 "unshare\0"
                 "vfork\0"
-        }, {
+        },
+        [SYSCALL_FILTER_SET_RAW_IO] = {
                 /* Raw I/O ports */
-                .set_name = "@raw-io",
+                .name = "@raw-io",
                 .value =
                 "ioperm\0"
                 "iopl\0"
                 "pciconfig_iobase\0"
                 "pciconfig_read\0"
                 "pciconfig_write\0"
+#ifdef __NR_s390_pci_mmio_read
                 "s390_pci_mmio_read\0"
+#endif
+#ifdef __NR_s390_pci_mmio_write
                 "s390_pci_mmio_write\0"
-        }, {
-                .set_name = NULL,
-                .value = NULL
-        }
+#endif
+        },
 };
+
+const SyscallFilterSet *syscall_filter_set_find(const char *name) {
+        unsigned i;
+
+        if (isempty(name) || name[0] != '@')
+                return NULL;
+
+        for (i = 0; i < _SYSCALL_FILTER_SET_MAX; i++)
+                if (streq(syscall_filter_sets[i].name, name))
+                        return syscall_filter_sets + i;
+
+        return NULL;
+}
+
+int seccomp_add_syscall_filter_set(scmp_filter_ctx seccomp, const SyscallFilterSet *set, uint32_t action) {
+        const char *sys;
+        int r;
+
+        assert(seccomp);
+        assert(set);
+
+        NULSTR_FOREACH(sys, set->value) {
+                int id;
+
+                if (sys[0] == '@') {
+                        const SyscallFilterSet *other;
+
+                        other = syscall_filter_set_find(sys);
+                        if (!other)
+                                return -EINVAL;
+
+                        r = seccomp_add_syscall_filter_set(seccomp, other, action);
+                } else {
+                        id = seccomp_syscall_resolve_name(sys);
+                        if (id == __NR_SCMP_ERROR)
+                                return -EINVAL;
+
+                        r = seccomp_rule_add(seccomp, action, id, 0);
+                }
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}

@@ -1578,10 +1578,7 @@ finish:
 }
 
 static int apply_private_devices(Unit *u, const ExecContext *c) {
-        const SystemCallFilterSet *set;
         scmp_filter_ctx *seccomp;
-        const char *sys;
-        bool syscalls_found = false;
         int r;
 
         assert(c);
@@ -1599,43 +1596,9 @@ static int apply_private_devices(Unit *u, const ExecContext *c) {
         if (r < 0)
                 goto finish;
 
-        for (set = syscall_filter_sets; set->set_name; set++)
-                if (streq(set->set_name, "@raw-io")) {
-                        syscalls_found = true;
-                        break;
-                }
-
-        /* We should never fail here */
-        if (!syscalls_found) {
-                r = -EOPNOTSUPP;
+        r = seccomp_add_syscall_filter_set(seccomp, syscall_filter_sets + SYSCALL_FILTER_SET_RAW_IO, SCMP_ACT_ERRNO(EPERM));
+        if (r < 0)
                 goto finish;
-        }
-
-        NULSTR_FOREACH(sys, set->value) {
-                int id;
-                bool add = true;
-
-#ifndef __NR_s390_pci_mmio_read
-                if (streq(sys, "s390_pci_mmio_read"))
-                        add = false;
-#endif
-#ifndef __NR_s390_pci_mmio_write
-                if (streq(sys, "s390_pci_mmio_write"))
-                        add = false;
-#endif
-
-                if (!add)
-                        continue;
-
-                id = seccomp_syscall_resolve_name(sys);
-
-                r = seccomp_rule_add(
-                                seccomp,
-                                SCMP_ACT_ERRNO(EPERM),
-                                id, 0);
-                if (r < 0)
-                        goto finish;
-        }
 
         r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
         if (r < 0)
