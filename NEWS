@@ -5,16 +5,19 @@ CHANGES WITH 232 in spe
         * The new RemoveIPC= option can be used to remove IPC objects owned by
           the user or group of a service when that service exits.
 
+        * The new ProtectKernelModules= option can be used to disable explicit
+          load and unload operations of kernel modules by a service.
+
         * ProtectSystem= option gained a new value "strict", which causes the
           whole file system tree with the exception of /dev, /proc, and /sys,
           to be remounted read-only for a service.
 
-          The new ProtectedKernelTunables= options can be used to disable
+        * The new ProtectedKernelTunables= option can be used to disable
           modification of configuration files in /sys and /proc by a service.
           Various directories and files are remounted read-only, so access is
           restricted even if the file permissions would allow it.
 
-          The new ProtectControlGroups= option can be used to disable write
+        * The new ProtectControlGroups= option can be used to disable write
           access by a service to /sys/fs/cgroup.
 
         * Various systemd services have been hardened with
