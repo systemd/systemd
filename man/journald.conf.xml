@@ -348,7 +348,14 @@
         <literal>notice</literal> for <varname>MaxLevelKMsg=</varname>,
         <literal>info</literal> for <varname>MaxLevelConsole=</varname>,
         and <literal>emerg</literal> for
-        <varname>MaxLevelWall=</varname>.</para></listitem>
+        <varname>MaxLevelWall=</varname>. These settings may be
+        overridden at boot time with the kernel command line options
+        <literal>systemd.journald.max_level_store=</literal>,
+        <literal>systemd.journald.max_level_syslog=</literal>,
+        <literal>systemd.journald.max_level_kmsg=</literal>,
+        <literal>systemd.journald.max_level_console=</literal>,
+        <literal>systemd.journald.max_level_wall=</literal>.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>

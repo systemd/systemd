@@ -71,6 +71,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "user-util.h"
+#include "syslog-util.h"
 
 #define USER_JOURNALS_MAX 1024
 
@@ -1573,6 +1574,36 @@ static int server_parse_proc_cmdline(Server *s) {
                                 log_warning("Failed to parse forward to wall switch %s. Ignoring.", word + 33);
                         else
                                 s->forward_to_wall = r;
+                } else if (startswith(word, "systemd.journald.max_level_console=")) {
+                        r = log_level_from_string(word + 35);
+                        if (r < 0)
+                                log_warning("Failed to parse max level console value %s. Ignoring.", word + 35);
+                        else
+                                s->max_level_console = r;
+                } else if (startswith(word, "systemd.journald.max_level_store=")) {
+                        r = log_level_from_string(word + 33);
+                        if (r < 0)
+                                log_warning("Failed to parse max level store value %s. Ignoring.", word + 33);
+                        else
+                                s->max_level_store = r;
+                } else if (startswith(word, "systemd.journald.max_level_syslog=")) {
+                        r = log_level_from_string(word + 34);
+                        if (r < 0)
+                                log_warning("Failed to parse max level syslog value %s. Ignoring.", word + 34);
+                        else
+                                s->max_level_syslog = r;
+                } else if (startswith(word, "systemd.journald.max_level_kmsg=")) {
+                        r = log_level_from_string(word + 32);
+                        if (r < 0)
+                                log_warning("Failed to parse max level kmsg value %s. Ignoring.", word + 32);
+                        else
+                                s->max_level_kmsg = r;
+                } else if (startswith(word, "systemd.journald.max_level_wall=")) {
+                        r = log_level_from_string(word + 32);
+                        if (r < 0)
+                                log_warning("Failed to parse max level wall value %s. Ignoring.", word + 32);
+                        else
+                                s->max_level_wall = r;
                 } else if (startswith(word, "systemd.journald"))
                         log_warning("Invalid systemd.journald parameter. Ignoring.");
         }
