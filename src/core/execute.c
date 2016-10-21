@@ -1891,9 +1891,9 @@ static int setup_private_users(uid_t uid, gid_t gid) {
                 asprintf(&uid_map,
                          "0 0 1\n"                      /* Map root → root */
                          UID_FMT " " UID_FMT " 1\n",    /* Map $UID → $UID */
-                         uid, uid);                     /* The case where the above is the same */
+                         uid, uid);
         else
-                uid_map = strdup("0 0 1\n");
+                uid_map = strdup("0 0 1\n");            /* The case where the above is the same */
         if (!uid_map)
                 return -ENOMEM;
 
