@@ -272,7 +272,6 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .value =
                 "chroot\0"
                 "mount\0"
-                "oldumount\0"
                 "pivot_root\0"
                 "umount2\0"
                 "umount\0"
@@ -371,7 +370,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "setuid\0"
                 "swapoff\0"
                 "swapon\0"
-                "sysctl\0"
+                "_sysctl\0"
                 "vhangup\0"
         },
         [SYSCALL_FILTER_SET_PROCESS] = {
