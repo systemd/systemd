@@ -42,7 +42,7 @@ int proc_cmdline(char **ret) {
                 return read_one_line_file("/proc/cmdline", ret);
 }
 
-int parse_proc_cmdline(int (*parse_item)(const char *key, const char *value)) {
+int parse_proc_cmdline(int (*parse_item)(const char *key, const char *value, void *data), void *data) {
         _cleanup_free_ char *line = NULL;
         const char *p;
         int r;
@@ -73,7 +73,7 @@ int parse_proc_cmdline(int (*parse_item)(const char *key, const char *value)) {
                 if (value)
                         *(value++) = 0;
 
-                r = parse_item(word, value);
+                r = parse_item(word, value, data);
                 if (r < 0)
                         return r;
         }

@@ -967,7 +967,7 @@ int log_set_max_level_from_string(const char *e) {
         return 0;
 }
 
-static int parse_proc_cmdline_item(const char *key, const char *value) {
+static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
 
         /*
          * The systemd.log_xyz= settings are parsed by all tools, and
@@ -1012,7 +1012,7 @@ void log_parse_environment(void) {
                 /* Only try to read the command line in daemons.
                    We assume that anything that has a controlling
                    tty is user stuff. */
-                (void) parse_proc_cmdline(parse_proc_cmdline_item);
+                (void) parse_proc_cmdline(parse_proc_cmdline_item, NULL);
 
         e = secure_getenv("SYSTEMD_LOG_TARGET");
         if (e && log_set_target_from_string(e) < 0)

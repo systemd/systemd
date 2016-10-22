@@ -20,7 +20,7 @@
 ***/
 
 int proc_cmdline(char **ret);
-int parse_proc_cmdline(int (*parse_word)(const char *key, const char *value));
+int parse_proc_cmdline(int (*parse_word)(const char *key, const char *value, void *data), void *data);
 int get_proc_cmdline_key(const char *parameter, char **value);
 
 int shall_restore_state(void);

@@ -1362,7 +1362,7 @@ static int listen_fds(int *rctrl, int *rnetlink) {
  *   udev.exec-delay=<number of seconds>       delay execution of every executed program
  *   udev.event-timeout=<number of seconds>    seconds to wait before terminating an event
  */
-static int parse_proc_cmdline_item(const char *key, const char *value) {
+static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         const char *full_key = key;
         int r;
 
@@ -1665,7 +1665,7 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto exit;
 
-        r = parse_proc_cmdline(parse_proc_cmdline_item);
+        r = parse_proc_cmdline(parse_proc_cmdline_item, NULL);
         if (r < 0)
                 log_warning_errno(r, "failed to parse kernel command line, ignoring: %m");
 
