@@ -25,6 +25,7 @@
 #
 # Translator :
 #     Seong-ho Cho <darkcircle.0426@gmail.com>, 2015.
+#     Dongsu Park <dpark@posteo.net>, 2016.
 
 -- f77379a8490b408bbe5f6940505a777b
 Subject: 저널 시작
@@ -42,6 +43,24 @@ Support: %SUPPORT_URL%
 시스템 저널 프로세스를 껐고 현재 활성화 중인 저널 파일을 모두
 닫았습니다.
 
+-- ec387f577b844b8fa948f33cad9a75e6
+Subject: 저널이 디스크 공간을 점유중
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+저널 @JOURNAL_NAME@ (@JOURNAL_PATH@)이 현재 @CURRENT_USE_PRETTY@
+만큼의 용량을 사용하고 있습니다. 최대 허용 용량은
+@MAX_USE_PRETTY@입니다. 최소한 @DISK_KEEP_FREE_PRETTY@의 빈공간을
+남겨둡니다. (현재 디스크 전체 용량은 @DISK_AVAILABLE_PRETTY@)
+따라서 실제 사용 최대 한도는 @LIMIT_PRETTY@으로 설정되며,
+@AVAILABLE_PRETTY@ 만큼의 용량이 계속 비어있습니다.
+
+저널이 차지하는 디스크 공간을 제어하기 위해서는
+/etc/systemd/journald.conf 의 SystemMaxUse=, SystemKeepFree=,
+SystemMaxFileSize=, RuntimeMaxUse=, RuntimeKeepFree=,
+RuntimeMaxFileSize= 변수를 설정합니다. 자세한 내용은
+journald.conf(5)을 살펴보십시오.
+
 -- a596d6fe7bfa4994828e72309e95d61e
 Subject: 서비스의 메시지를 거절함
 Defined-By: systemd
@@ -56,7 +75,7 @@ Documentation: man:journald.conf(5)
 
 메시지 거절 제어 제한 값은 /etc/systemd/journald.conf 의
 RateLimitIntervalSec= 변수와 RateLimitBurst= 변수로 설정합니다.
-자세한 내용은 ournald.conf(5)를 살펴보십시오.
+자세한 내용은 journald.conf(5)를 살펴보십시오.
 
 -- e9bf28e6e834481bb6f48f548ad13606
 Subject: 저널 메시지 놓침
@@ -246,7 +265,7 @@ Support: %SUPPORT_URL%
  두번째 필드 또는 systemd 유닛 파일의 Where= 필드) 비어있지 않습니다.
 마운트 과정에 방해가 되진 않지만 이전에 이 디렉터리에 존재하는 파일에
  접근할 수 없게 됩니다. 중복으로 마운트한 파일을 보려면, 근본 파일
-시스템의 다음 위치에 직접 마운트하십시오.
+시스템을 별도 위치에 직접 마운트하십시오.
 
 -- 24d8d4452573402496068381a6312df2
 Subject: 가상 머신 또는 컨테이너 시작
@@ -262,3 +281,41 @@ Defined-By: systemd
 Support: %SUPPORT_URL%
 
 @LEADER@ 프로세스 ID로 동작하는 @NAME@ 가상 머신을 껐습니다.
+
+-- 36db2dfa5a9045e1bd4af5f93e1cf057
+Subject: 서버 미지원으로 인하여 DNSSEC 모드 종료
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-resolved.service(8) resolved.conf(5)
+
+해당 DNS 서버가 DNSSEC을 지원하지 않는다는 것을 리졸버 서비스
+(systemd-resolved.service)가 인식했습니다. 따라서 DNSSEC 검증 기능도
+꺼집니다.
+
+이 이벤트는 resolved.conf 파일에 DNSSEC=allow-downgrade가 설정되었고, 해당
+DNS 서버가 DNSSEC과 비호환일 경우에만 발생합니다. 이 모드를 켤 경우에는
+DNSSEC 다운그레이드 공격을 허용할수 있다는 점에 주의하세요. 이는 공격자
+역시 다운그레이드가 발생한 통신 채널에 DNS 응답 메시지를 끼워넣는 방식으로
+DNSSEC 검증 기능을 꺼버릴수 있기 때문입니다.
+
+이 이벤트가 의미하는 것은, DNS 서버가 실제로 DNSSEC과 비호환이거나, 또는
+공격자가 위와 같은 다운그레이드 공격을 수행하는데 성공했다는 뜻입니다.
+
+-- 1675d7f172174098b1108bf8c7dc8f5d
+Subject: DNSSEC 검증 실패
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-resolved.service(8)
+
+DNS 요청 또는 리소스 레코드가 DNSSEC 검증에 실패했습니다. 이것은 보통
+해당 통신 채널이 조작되었다는 뜻입니다.
+
+-- 4d4408cfd0d144859184d1e65d7c8a65
+Subject: DNSSEC 신뢰성 시작점 취소
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-resolved.service(8)
+
+DNSSEC 신뢰성 시작점이 취소되었습니다. 새로운 신뢰성 시작점이 설정되거나,
+또는 업데이트된 DNSSEC 신뢰성 시작점을 제공하기 위해서 운영체제를 업데이트
+해야 합니다.
