@@ -33,14 +33,6 @@
 #include "user-util.h"
 #include "util.h"
 
-#ifndef NOBODY_USER_NAME
-#define NOBODY_USER_NAME "nobody"
-#endif
-
-#ifndef NOBODY_GROUP_NAME
-#define NOBODY_GROUP_NAME "nobody"
-#endif
-
 static const struct passwd root_passwd = {
         .pw_name = (char*) "root",
         .pw_passwd = (char*) "x", /* see shadow file */
