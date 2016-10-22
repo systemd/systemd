@@ -83,7 +83,7 @@
     <title>Automatic Dependencies</title>
 
     <para>Unless <varname>DefaultDependencies=</varname> is set to
-    <option>no</option> in either of releated units or an explicit ordering
+    <option>no</option> in either of related units or an explicit ordering
     dependency is already defined, target units will implicitly complement all
     configured dependencies of type <varname>Wants=</varname> or
     <varname>Requires=</varname> with dependencies of type
