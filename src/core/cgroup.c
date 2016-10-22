@@ -928,7 +928,7 @@ static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
                 }
 
                 LIST_FOREACH(device_allow, a, c->device_allow) {
-                        char acc[4];
+                        char acc[4], *val;
                         unsigned k = 0;
 
                         if (a->r)
@@ -945,10 +945,10 @@ static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
 
                         if (startswith(a->path, "/dev/"))
                                 whitelist_device(path, a->path, acc);
-                        else if (startswith(a->path, "block-"))
-                                whitelist_major(path, a->path + 6, 'b', acc);
-                        else if (startswith(a->path, "char-"))
-                                whitelist_major(path, a->path + 5, 'c', acc);
+                        else if ((val = startswith(a->path, "block-")))
+                                whitelist_major(path, val, 'b', acc);
+                        else if ((val = startswith(a->path, "char-")))
+                                whitelist_major(path, val, 'c', acc);
                         else
                                 log_unit_debug(u, "Ignoring device %s while writing cgroup attribute.", a->path);
                 }
