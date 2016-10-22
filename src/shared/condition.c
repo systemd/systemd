@@ -146,6 +146,9 @@ static int condition_test_virtualization(Condition *c) {
         assert(c->parameter);
         assert(c->type == CONDITION_VIRTUALIZATION);
 
+        if (streq(c->parameter, "private-users"))
+                return running_in_userns();
+
         v = detect_virtualization();
         if (v < 0)
                 return v;

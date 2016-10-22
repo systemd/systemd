@@ -31,6 +31,8 @@
 #include "macro.h"
 #include "selinux-util.h"
 #include "smack-util.h"
+#include "strv.h"
+#include "virt.h"
 #include "util.h"
 
 static void test_condition_test_path(void) {
@@ -265,7 +267,64 @@ static void test_condition_test_security(void) {
         condition_free(condition);
 }
 
+static void test_condition_test_virtualization(void) {
+        Condition *condition;
+        const char *virt;
+        int r;
+
+        condition = condition_new(CONDITION_VIRTUALIZATION, "garbage oifdsjfoidsjoj", false, false);
+        assert_se(condition);
+        r = condition_test(condition);
+        log_info("ConditionVirtualization=garbage → %i", r);
+        assert_se(r == 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_VIRTUALIZATION, "container", false, false);
+        assert_se(condition);
+        r = condition_test(condition);
+        log_info("ConditionVirtualization=container → %i", r);
+        assert_se(r == !!detect_container());
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_VIRTUALIZATION, "vm", false, false);
+        assert_se(condition);
+        r = condition_test(condition);
+        log_info("ConditionVirtualization=vm → %i", r);
+        assert_se(r == (detect_vm() && !detect_container()));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_VIRTUALIZATION, "private-users", false, false);
+        assert_se(condition);
+        r = condition_test(condition);
+        log_info("ConditionVirtualization=private-users → %i", r);
+        assert_se(r == !!running_in_userns());
+        condition_free(condition);
+
+        NULSTR_FOREACH(virt,
+                       "kvm\0"
+                       "qemu\0"
+                       "bochs\0"
+                       "xen\0"
+                       "uml\0"
+                       "vmware\0"
+                       "oracle\0"
+                       "microsoft\0"
+                       "zvm\0"
+                       "parallels\0"
+                       "bhyve\0"
+                       "vm_other\0") {
+
+                condition = condition_new(CONDITION_VIRTUALIZATION, virt, false, false);
+                assert_se(condition);
+                r = condition_test(condition);
+                log_info("ConditionVirtualization=%s → %i", virt, r);
+                assert_se(r >= 0);
+                condition_free(condition);
+        }
+}
+
 int main(int argc, char *argv[]) {
+        log_set_max_level(LOG_DEBUG);
         log_parse_environment();
         log_open();
 
@@ -276,6 +335,7 @@ int main(int argc, char *argv[]) {
         test_condition_test_kernel_command_line();
         test_condition_test_null();
         test_condition_test_security();
+        test_condition_test_virtualization();
 
         return 0;
 }
