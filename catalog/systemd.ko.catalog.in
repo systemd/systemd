@@ -56,7 +56,7 @@ Documentation: man:journald.conf(5)
 
 메시지 거절 제어 제한 값은 /etc/systemd/journald.conf 의
 RateLimitIntervalSec= 변수와 RateLimitBurst= 변수로 설정합니다.
-자세한 내용은 ournald.conf(5)를 살펴보십시오.
+자세한 내용은 journald.conf(5)를 살펴보십시오.
 
 -- e9bf28e6e834481bb6f48f548ad13606
 Subject: 저널 메시지 놓침
@@ -246,7 +246,7 @@ Support: %SUPPORT_URL%
  두번째 필드 또는 systemd 유닛 파일의 Where= 필드) 비어있지 않습니다.
 마운트 과정에 방해가 되진 않지만 이전에 이 디렉터리에 존재하는 파일에
  접근할 수 없게 됩니다. 중복으로 마운트한 파일을 보려면, 근본 파일
-시스템의 다음 위치에 직접 마운트하십시오.
+시스템을 별도 위치에 직접 마운트하십시오.
 
 -- 24d8d4452573402496068381a6312df2
 Subject: 가상 머신 또는 컨테이너 시작
