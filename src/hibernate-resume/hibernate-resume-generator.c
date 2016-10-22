@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
         if (!in_initrd())
                 return EXIT_SUCCESS;
 
-        r = parse_proc_cmdline(parse_proc_cmdline_item, NULL);
+        r = parse_proc_cmdline(parse_proc_cmdline_item, NULL, false);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 

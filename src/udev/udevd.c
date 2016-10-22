@@ -1370,9 +1370,6 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         if (!value)
                 return 0;
 
-        if (startswith(key, "rd."))
-                key += strlen("rd.");
-
         if (streq(key, "udev.log-priority") && value) {
                 r = util_log_priority(value);
                 if (r >= 0)
@@ -1652,7 +1649,7 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto exit;
 
-        r = parse_proc_cmdline(parse_proc_cmdline_item, NULL);
+        r = parse_proc_cmdline(parse_proc_cmdline_item, NULL, true);
         if (r < 0)
                 log_warning_errno(r, "failed to parse kernel command line, ignoring: %m");
 

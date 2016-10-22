@@ -36,7 +36,7 @@ static int parse_item(const char *key, const char *value, void *data) {
 }
 
 static void test_parse_proc_cmdline(void) {
-        assert_se(parse_proc_cmdline(parse_item, &obj) >= 0);
+        assert_se(parse_proc_cmdline(parse_item, &obj, true) >= 0);
 }
 
 static void test_runlevel_to_target(void) {

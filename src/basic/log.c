@@ -1012,7 +1012,7 @@ void log_parse_environment(void) {
                 /* Only try to read the command line in daemons.
                    We assume that anything that has a controlling
                    tty is user stuff. */
-                (void) parse_proc_cmdline(parse_proc_cmdline_item, NULL);
+                (void) parse_proc_cmdline(parse_proc_cmdline_item, NULL, true);
 
         e = secure_getenv("SYSTEMD_LOG_TARGET");
         if (e && log_set_target_from_string(e) < 0)

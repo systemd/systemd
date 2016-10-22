@@ -62,7 +62,7 @@ static int add_modules(const char *p) {
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
 
-        if (STR_IN_SET(key, "modules-load", "rd.modules-load") && value) {
+        if (streq(key, "modules-load") && value) {
                 r = add_modules(value);
                 if (r < 0)
                         return r;
@@ -226,7 +226,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = parse_proc_cmdline(parse_proc_cmdline_item, NULL);
+        r = parse_proc_cmdline(parse_proc_cmdline_item, NULL, true);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 

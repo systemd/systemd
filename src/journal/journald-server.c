@@ -1900,7 +1900,7 @@ int server_init(Server *s) {
         journal_reset_metrics(&s->runtime_storage.metrics);
 
         server_parse_config_file(s);
-        parse_proc_cmdline(parse_proc_cmdline_item, s);
+        parse_proc_cmdline(parse_proc_cmdline_item, s, true);
 
         if (!!s->rate_limit_interval ^ !!s->rate_limit_burst) {
                 log_debug("Setting both rate limit interval and burst from "USEC_FMT",%u to 0,0",
