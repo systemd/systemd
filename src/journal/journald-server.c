@@ -131,8 +131,6 @@ static void cache_space_invalidate(JournalStorageSpace *space) {
 }
 
 static int cache_space_refresh(Server *s, JournalStorage *storage) {
-
-        _cleanup_closedir_ DIR *d = NULL;
         JournalStorageSpace *space;
         JournalMetrics *metrics;
         uint64_t vfs_used, vfs_avail, avail;
