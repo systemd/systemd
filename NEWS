@@ -360,7 +360,7 @@ CHANGES WITH 231:
           file. It can be used in lieu of %systemd_requires in packages which
           don't use any systemd functionality and are intended to be installed
           in minimal containers without systemd present. This macro provides
-          ordering dependecies to ensure that if the package is installed in
+          ordering dependencies to ensure that if the package is installed in
           the same rpm transaction as systemd, systemd will be installed before
           the scriptlets for the package are executed, allowing unit presets
           to be handled.
@@ -395,7 +395,7 @@ CHANGES WITH 231:
           "mkosi" is invoked in the build tree a new raw OS image is generated
           incorporating the systemd sources currently being worked on and a
           clean, fresh distribution installation. The generated OS image may be
-          booted up with "systemd-nspawn -b -i", qemu-kvm or on any physcial
+          booted up with "systemd-nspawn -b -i", qemu-kvm or on any physical
           UEFI PC. This functionality is particularly useful to easily test
           local changes made to systemd in a pristine, defined environment. See
           HACKING for details.
@@ -1058,7 +1058,7 @@ CHANGES WITH 228:
           --user instance of systemd these specifiers where correctly
           resolved, but hardly made any sense, since the user instance
           lacks privileges to do user switches anyway, and User= is
-          hence useless. Morever, even in the --user instance of
+          hence useless. Moreover, even in the --user instance of
           systemd behaviour was awkward as it would only take settings
           from User= assignment placed before the specifier into
           account. In order to unify and simplify the logic around
@@ -1194,7 +1194,7 @@ CHANGES WITH 227:
         * The RuntimeDirectory= setting now understands unit
           specifiers like %i or %f.
 
-        * A new (still internal) libary API sd-ipv4acd has been added,
+        * A new (still internal) library API sd-ipv4acd has been added,
           that implements address conflict detection for IPv4. It's
           based on code from sd-ipv4ll, and will be useful for
           detecting DHCP address conflicts.
@@ -1763,7 +1763,7 @@ CHANGES WITH 220:
 
         * systemd-nspawn gained a new --property= setting to set unit
           properties for the container scope. This is useful for
-          setting resource parameters (e.g "CPUShares=500") on
+          setting resource parameters (e.g. "CPUShares=500") on
           containers started from the command line.
 
         * systemd-nspawn gained a new --private-users= switch to make
@@ -3109,7 +3109,7 @@ CHANGES WITH 214:
           time, the extended attribute calls have moved to glibc, and
           libattr is thus unnecessary.
 
-        * Virtualization detection works without priviliges now. This
+        * Virtualization detection works without privileges now. This
           means the systemd-detect-virt binary no longer requires
           CAP_SYS_PTRACE file capabilities, and our daemons can run
           with fewer privileges.
@@ -3833,7 +3833,7 @@ CHANGES WITH 209:
           /usr/lib/net/links/99-default.link. Old
           80-net-name-slot.rules udev configuration file has been
           removed, so local configuration overriding this file should
-          be adapated to override 99-default.link instead.
+          be adapted to override 99-default.link instead.
 
         * When the User= switch is used in a unit file, also
           initialize $SHELL= based on the user database entry.
@@ -4476,7 +4476,7 @@ CHANGES WITH 206:
 
         * logind's device ACLs may now be applied to these "dead"
           devices nodes too, thus finally allowing managed access to
-          devices such as /dev/snd/sequencer whithout loading the
+          devices such as /dev/snd/sequencer without loading the
           backing module right-away.
 
         * A new RPM macro has been added that may be used to apply
@@ -4967,7 +4967,7 @@ CHANGES WITH 199:
           processes executed in parallel based on the number of available
           CPUs instead of the amount of available RAM. This is supposed
           to provide a more reliable default and limit a too aggressive
-          paralellism for setups with 1000s of devices connected.
+          parallelism for setups with 1000s of devices connected.
 
         Contributions from: Auke Kok, Colin Walters, Cristian
         Rodríguez, Daniel Buch, Dave Reisner, Frederic Crozat, Hannes
@@ -5305,7 +5305,7 @@ CHANGES WITH 197:
           presenting log data.
 
         * systemctl will no longer show control group information for
-          a unit if a the control group is empty anyway.
+          a unit if the control group is empty anyway.
 
         * logind can now automatically suspend/hibernate/shutdown the
           system on idle.
@@ -6096,7 +6096,7 @@ CHANGES WITH 186:
         * The SysV search path is no longer exported on the D-Bus
           Manager object.
 
-        * The Names= option is been removed from unit file parsing.
+        * The Names= option has been removed from unit file parsing.
 
         * There's a new man page bootup(7) detailing the boot process.
 
@@ -6241,7 +6241,7 @@ CHANGES WITH 183:
           about this in more detail.
 
         * var-run.mount and var-lock.mount are no longer provided
-          (which prevously bind mounted these directories to their new
+          (which previously bind mounted these directories to their new
           places). Distributions which have not converted these
           directories to symlinks should consider stealing these files
           from git history and add them downstream.
@@ -6382,7 +6382,7 @@ CHANGES WITH 44:
         * Many bugfixes for the journal, including endianness fixes and
           ensuring that disk space enforcement works
 
-        * sd-login.h is C++ comptaible again
+        * sd-login.h is C++ compatible again
 
         * Extend the /etc/os-release format on request of the Debian
           folks
@@ -6610,7 +6610,7 @@ CHANGES WITH 38:
 
         * New man pages for all APIs from libsystemd-login.
 
-        * The build tree got reorganized and a the build system is a
+        * The build tree got reorganized and the build system is a
           lot more modular allowing embedded setups to specifically
           select the components of systemd they are interested in.
 
