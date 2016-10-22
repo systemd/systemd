@@ -368,6 +368,8 @@ static int service_add_fd_store(Service *s, int fd, const char *name) {
         ServiceFDStore *fs;
         int r;
 
+        /* fd is always consumed if we return >= 0 */
+
         assert(s);
         assert(fd >= 0);
 
@@ -379,9 +381,8 @@ static int service_add_fd_store(Service *s, int fd, const char *name) {
                 if (r < 0)
                         return r;
                 if (r > 0) {
-                        /* Already included */
                         safe_close(fd);
-                        return 1;
+                        return 0; /* fd already included */
                 }
         }
 
@@ -409,7 +410,7 @@ static int service_add_fd_store(Service *s, int fd, const char *name) {
         LIST_PREPEND(fd_store, s->fd_store, fs);
         s->n_fd_store++;
 
-        return 1;
+        return 1; /* fd newly stored */
 }
 
 static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name) {
@@ -430,10 +431,9 @@ static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name) {
                 r = service_add_fd_store(s, fd, name);
                 if (r < 0)
                         return log_unit_error_errno(UNIT(s), r, "Couldn't add fd to fd store: %m");
-                if (r > 0) {
+                if (r > 0)
                         log_unit_debug(UNIT(s), "Added fd to fd store.");
-                        fd = -1;
-                }
+                fd = -1;
         }
 
         if (fdset_size(fds) > 0)
@@ -2336,7 +2336,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         r = service_add_fd_store(s, fd, t);
                         if (r < 0)
                                 log_unit_error_errno(u, r, "Failed to add fd to store: %m");
-                        else if (r > 0)
+                        else
                                 fdset_remove(fds, fd);
                 }
 
