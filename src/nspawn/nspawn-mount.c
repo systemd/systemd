@@ -193,11 +193,9 @@ static int tmpfs_patch_options(
         if ((userns && uid_shift != 0) || patch_ids) {
                 assert(uid_shift != UID_INVALID);
 
-                if (options)
-                        (void) asprintf(&buf, "%s,uid=" UID_FMT ",gid=" UID_FMT, options, uid_shift, uid_shift);
-                else
-                        (void) asprintf(&buf, "uid=" UID_FMT ",gid=" UID_FMT, uid_shift, uid_shift);
-                if (!buf)
+                if (asprintf(&buf, "%s%suid=" UID_FMT ",gid=" UID_FMT,
+                             options ?: "", options ? "," : "",
+                             uid_shift, uid_shift) < 0)
                         return -ENOMEM;
 
                 options = buf;
@@ -207,16 +205,12 @@ static int tmpfs_patch_options(
         if (selinux_apifs_context) {
                 char *t;
 
-                if (options)
-                        t = strjoin(options, ",context=\"", selinux_apifs_context, "\"");
-                else
-                        t = strjoin("context=\"", selinux_apifs_context, "\"");
-                if (!t) {
-                        free(buf);
-                        return -ENOMEM;
-                }
-
+                t = strjoin(options ?: "", options ? "," : "",
+                            "context=\"", selinux_apifs_context, "\"");
                 free(buf);
+                if (!t)
+                        return -ENOMEM;
+
                 buf = t;
         }
 #endif
