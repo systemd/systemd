@@ -360,6 +360,10 @@ static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *us
         assert(fs);
 
         /* If we get either EPOLLHUP or EPOLLERR, it's time to remove this entry from the fd store */
+        log_unit_debug(UNIT(fs->service),
+                       "Received %s on stored fd %d (%s), closing.",
+                       revents & EPOLLERR ? "EPOLLERR" : "EPOLLHUP",
+                       fs->fd, strna(fs->fdname));
         service_fd_store_unlink(fs);
         return 0;
 }
@@ -432,7 +436,7 @@ static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name) {
                 if (r < 0)
                         return log_unit_error_errno(UNIT(s), r, "Couldn't add fd to fd store: %m");
                 if (r > 0)
-                        log_unit_debug(UNIT(s), "Added fd to fd store.");
+                        log_unit_debug(UNIT(s), "Added fd %u (%s) to fd store.", fd, strna(name));
                 fd = -1;
         }
 
@@ -1225,6 +1229,7 @@ static int service_spawn(
                         return r;
 
                 n_fds = r;
+                log_unit_debug(UNIT(s), "Passing %i fds to service", n_fds);
         }
 
         r = service_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), timeout));
