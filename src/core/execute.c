@@ -730,74 +730,146 @@ static int ask_for_confirmation(char *response, char **argv) {
         return r;
 }
 
-static int enforce_groups(const ExecContext *context, const char *username, gid_t gid) {
+static int get_fixed_user(const ExecContext *c, const char **user,
+                          uid_t *uid, gid_t *gid,
+                          const char **home, const char **shell) {
+        int r;
+        const char *name;
+
+        assert(c);
+
+        if (!c->user)
+                return 0;
+
+        /* Note that we don't set $HOME or $SHELL if they are not particularly enlightening anyway
+         * (i.e. are "/" or "/bin/nologin"). */
+
+        name = c->user;
+        r = get_user_creds_clean(&name, uid, gid, home, shell);
+        if (r < 0)
+                return r;
+
+        *user = name;
+        return 0;
+}
+
+static int get_fixed_group(const ExecContext *c, const char **group, gid_t *gid) {
+        int r;
+        const char *name;
+
+        assert(c);
+
+        if (!c->group)
+                return 0;
+
+        name = c->group;
+        r = get_group_creds(&name, gid);
+        if (r < 0)
+                return r;
+
+        *group = name;
+        return 0;
+}
+
+static int get_fixed_supplementary_groups(const ExecContext *c,
+                                          const char *user,
+                                          const char *group,
+                                          gid_t gid,
+                                          gid_t **supplementary_gids, int *ngids) {
+        char **i;
+        int r, k = 0;
+        int ngroups_max;
         bool keep_groups = false;
+        gid_t *groups = NULL;
+        _cleanup_free_ gid_t *l_gids = NULL;
+
+        assert(c);
+
+        if (!c->supplementary_groups)
+                return 0;
+
+        /*
+         * If user is given, then lookup GID and supplementary group list.
+         * We avoid NSS lookups for gid=0.
+         */
+        if (user && gid_is_valid(gid) && gid != 0) {
+                /* First step, initialize groups from /etc/groups */
+                if (initgroups(user, gid) < 0)
+                        return -errno;
+
+                keep_groups = true;
+        }
+
+        assert_se((ngroups_max = (int) sysconf(_SC_NGROUPS_MAX)) > 0);
+
+        l_gids = new(gid_t, ngroups_max);
+        if (!l_gids)
+                return -ENOMEM;
+
+        if (keep_groups) {
+                /*
+                 * Lookup the list of groups that the user belongs to, we
+                 * avoid NSS lookups here too for gid=0.
+                 */
+                k = ngroups_max;
+                if (getgrouplist(user, gid, l_gids, &k) < 0)
+                        return -EINVAL;
+        } else
+                k = 0;
+
+        STRV_FOREACH(i, c->supplementary_groups) {
+                const char *g;
+
+                if (k >= ngroups_max)
+                        return -E2BIG;
+
+                g = *i;
+                r = get_group_creds(&g, l_gids+k);
+                if (r < 0)
+                        return r;
+
+                k++;
+        }
+
+        /*
+         * Sets ngids to zero to drop all supplementary groups, happens
+         * when we are under root and SupplementaryGroups= is empty.
+         */
+        if (k == 0) {
+                *ngids = 0;
+                return 0;
+        }
+
+        /* Otherwise get the final list of supplementary groups */
+        groups = memdup(l_gids, sizeof(gid_t) * k);
+        if (!groups)
+                return -ENOMEM;
+
+        *supplementary_gids = groups;
+        *ngids = k;
+
+        groups = NULL;
+
+        return 0;
+}
+
+static int enforce_groups(const ExecContext *context, gid_t gid,
+                          gid_t *supplementary_gids, int ngids) {
         int r;
 
         assert(context);
 
-        /* Lookup and set GID and supplementary group list. Here too
-         * we avoid NSS lookups for gid=0. */
-
-        if (context->group || username) {
-                /* First step, initialize groups from /etc/groups */
-                if (username && gid != 0) {
-                        if (initgroups(username, gid) < 0)
-                                return -errno;
-
-                        keep_groups = true;
-                }
-
-                /* Second step, set our gids */
-                if (setresgid(gid, gid, gid) < 0)
-                        return -errno;
+        /* Handle SupplementaryGroups= even if it is empty */
+        if (context->supplementary_groups) {
+                r = maybe_setgroups(ngids, supplementary_gids);
+                if (r < 0)
+                        return r;
         }
 
-        if (context->supplementary_groups) {
-                int ngroups_max, k;
-                gid_t *gids;
-                char **i;
-
-                /* Final step, initialize any manually set supplementary groups */
-                assert_se((ngroups_max = (int) sysconf(_SC_NGROUPS_MAX)) > 0);
-
-                if (!(gids = new(gid_t, ngroups_max)))
-                        return -ENOMEM;
-
-                if (keep_groups) {
-                        k = getgroups(ngroups_max, gids);
-                        if (k < 0) {
-                                free(gids);
-                                return -errno;
-                        }
-                } else
-                        k = 0;
-
-                STRV_FOREACH(i, context->supplementary_groups) {
-                        const char *g;
-
-                        if (k >= ngroups_max) {
-                                free(gids);
-                                return -E2BIG;
-                        }
-
-                        g = *i;
-                        r = get_group_creds(&g, gids+k);
-                        if (r < 0) {
-                                free(gids);
-                                return r;
-                        }
-
-                        k++;
-                }
-
-                r = maybe_setgroups(k, gids);
-                if (r < 0) {
-                        free(gids);
-                        return r;
-                }
-
-                free(gids);
+        if (gid_is_valid(gid)) {
+                /* Then set our gids */
+                if (setresgid(gid, gid, gid) < 0)
+                        return -errno;
         }
 
         return 0;
@@ -805,6 +877,9 @@ static int enforce_groups(const ExecContext *context, const char *username, gid_
 
 static int enforce_user(const ExecContext *context, uid_t uid) {
         assert(context);
+
+        if (!uid_is_valid(uid))
+                return 0;
 
         /* Sets (but doesn't look up) the uid and make sure we keep the
          * capabilities while doing so. */
@@ -2175,13 +2250,15 @@ static int exec_child(
 
         _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **accum_env = NULL, **final_argv = NULL;
         _cleanup_free_ char *mac_selinux_context_net = NULL;
-        const char *username = NULL, *home = NULL, *shell = NULL, *wd;
+        _cleanup_free_ gid_t *supplementary_gids = NULL;
+        const char *username = NULL, *groupname = NULL;
+        const char *home = NULL, *shell = NULL, *wd;
         dev_t journal_stream_dev = 0;
         ino_t journal_stream_ino = 0;
         bool needs_mount_namespace;
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
-        int i, r;
+        int i, r, ngids = 0;
 
         assert(unit);
         assert(command);
@@ -2273,26 +2350,23 @@ static int exec_child(
                         username = dcreds->user->name;
 
         } else {
-                if (context->user) {
-                        username = context->user;
-                        r = get_user_creds_clean(&username, &uid, &gid, &home, &shell);
-                        if (r < 0) {
-                                *exit_status = EXIT_USER;
-                                return r;
-                        }
-
-                        /* Note that we don't set $HOME or $SHELL if they are not particularly enlightening anyway
-                         * (i.e. are "/" or "/bin/nologin"). */
+                r = get_fixed_user(context, &username, &uid, &gid, &home, &shell);
+                if (r < 0) {
+                        *exit_status = EXIT_USER;
+                        return r;
                 }
 
-                if (context->group) {
-                        const char *g = context->group;
+                r = get_fixed_group(context, &groupname, &gid);
+                if (r < 0) {
+                        *exit_status = EXIT_GROUP;
+                        return r;
+                }
 
-                        r = get_group_creds(&g, &gid);
-                        if (r < 0) {
-                                *exit_status = EXIT_GROUP;
-                                return r;
-                        }
+                r = get_fixed_supplementary_groups(context, username, groupname,
+                                                   gid, &supplementary_gids, &ngids);
+                if (r < 0) {
+                        *exit_status = EXIT_GROUP;
+                        return r;
                 }
         }
 
@@ -2558,20 +2632,21 @@ static int exec_child(
                 }
         }
 
-        if ((params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged) {
-                r = enforce_groups(context, username, gid);
-                if (r < 0) {
-                        *exit_status = EXIT_GROUP;
-                        return r;
-                }
-        }
-
         if (context->working_directory_home)
                 wd = home;
         else if (context->working_directory)
                 wd = context->working_directory;
         else
                 wd = "/";
+
+        /* Drop group as early as possbile */
+        if ((params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged) {
+                r = enforce_groups(context, gid, supplementary_gids, ngids);
+                if (r < 0) {
+                        *exit_status = EXIT_GROUP;
+                        return r;
+                }
+        }
 
         if (params->flags & EXEC_APPLY_CHROOT) {
                 if (!needs_mount_namespace && context->root_directory)
