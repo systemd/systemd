@@ -505,7 +505,7 @@ static int session_start_scope(Session *s) {
                 char *scope, *job = NULL;
                 const char *description;
 
-                scope = strjoin("session-", s->id, ".scope", NULL);
+                scope = strjoin("session-", s->id, ".scope");
                 if (!scope)
                         return log_oom();
 

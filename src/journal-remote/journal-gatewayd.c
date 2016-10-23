@@ -434,7 +434,7 @@ static int request_parse_arguments_iterator(
                 return MHD_YES;
         }
 
-        p = strjoin(key, "=", strempty(value), NULL);
+        p = strjoin(key, "=", strempty(value));
         if (!p) {
                 m->argument_parse_error = log_oom();
                 return MHD_NO;

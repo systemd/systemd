@@ -335,7 +335,7 @@ static int context_write_data_machine_info(Context *c) {
                         continue;
                 }
 
-                t = strjoin(name[p], "=", c->data[p], NULL);
+                t = strjoin(name[p], "=", c->data[p]);
                 if (!t)
                         return -ENOMEM;
 

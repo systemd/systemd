@@ -57,7 +57,7 @@ void server_forward_wall(
 
         } else if (identifier) {
 
-                l = l_buf = strjoin(identifier, ": ", message, NULL);
+                l = l_buf = strjoin(identifier, ": ", message);
                 if (!l_buf) {
                         log_oom();
                         return;

@@ -223,7 +223,7 @@ int main(int argc, char *argv[]) {
 
                                 controller = c ?: SYSTEMD_CGROUP_CONTROLLER;
                                 if (p) {
-                                        j = strjoin(root, "/", p, NULL);
+                                        j = strjoin(root, "/", p);
                                         if (!j) {
                                                 r = log_oom();
                                                 goto finish;

@@ -208,9 +208,9 @@ static int tmpfs_patch_options(
                 char *t;
 
                 if (options)
-                        t = strjoin(options, ",context=\"", selinux_apifs_context, "\"", NULL);
+                        t = strjoin(options, ",context=\"", selinux_apifs_context, "\"");
                 else
-                        t = strjoin("context=\"", selinux_apifs_context, "\"", NULL);
+                        t = strjoin("context=\"", selinux_apifs_context, "\"");
                 if (!t) {
                         free(buf);
                         return -ENOMEM;

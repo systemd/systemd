@@ -116,7 +116,8 @@ const char* split(const char **state, size_t *l, const char *separator, bool quo
 char *strappend(const char *s, const char *suffix);
 char *strnappend(const char *s, const char *suffix, size_t length);
 
-char *strjoin(const char *x, ...) _sentinel_;
+char *strjoin_real(const char *x, ...) _sentinel_;
+#define strjoin(a, ...) strjoin_real((a), __VA_ARGS__, NULL)
 
 #define strjoina(a, ...)                                                \
         ({                                                              \

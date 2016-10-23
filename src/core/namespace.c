@@ -909,7 +909,7 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path) {
         if (r < 0)
                 return r;
 
-        x = strjoin(prefix, "/systemd-private-", sd_id128_to_string(boot_id, bid), "-", id, "-XXXXXX", NULL);
+        x = strjoin(prefix, "/systemd-private-", sd_id128_to_string(boot_id, bid), "-", id, "-XXXXXX");
         if (!x)
                 return -ENOMEM;
 

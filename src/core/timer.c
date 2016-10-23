@@ -147,7 +147,7 @@ static int timer_setup_persistent(Timer *t) {
 
                 e = getenv("XDG_DATA_HOME");
                 if (e)
-                        t->stamp_path = strjoin(e, "/systemd/timers/stamp-", UNIT(t)->id, NULL);
+                        t->stamp_path = strjoin(e, "/systemd/timers/stamp-", UNIT(t)->id);
                 else {
 
                         _cleanup_free_ char *h = NULL;
@@ -156,7 +156,7 @@ static int timer_setup_persistent(Timer *t) {
                         if (r < 0)
                                 return log_unit_error_errno(UNIT(t), r, "Failed to determine home directory: %m");
 
-                        t->stamp_path = strjoin(h, "/.local/share/systemd/timers/stamp-", UNIT(t)->id, NULL);
+                        t->stamp_path = strjoin(h, "/.local/share/systemd/timers/stamp-", UNIT(t)->id);
                 }
         }
 

@@ -45,7 +45,7 @@ static int specifier_prefix_and_instance(char specifier, void *data, void *userd
         if (endswith(prefix, "@") && i->default_instance) {
                 char *ans;
 
-                ans = strjoin(prefix, i->default_instance, NULL);
+                ans = strjoin(prefix, i->default_instance);
                 if (!ans)
                         return -ENOMEM;
                 *ret = ans;

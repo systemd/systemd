@@ -184,9 +184,9 @@ static int determine_state_file(
                 if (!escaped_path_id)
                         return log_oom();
 
-                state_file = strjoin("/var/lib/systemd/rfkill/", escaped_path_id, ":", type, NULL);
+                state_file = strjoin("/var/lib/systemd/rfkill/", escaped_path_id, ":", type);
         } else
-                state_file = strjoin("/var/lib/systemd/rfkill/", type, NULL);
+                state_file = strjoin("/var/lib/systemd/rfkill/", type);
 
         if (!state_file)
                 return log_oom();

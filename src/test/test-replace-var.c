@@ -25,7 +25,7 @@
 #include "util.h"
 
 static char *lookup(const char *variable, void *userdata) {
-        return strjoin("<<<", variable, ">>>", NULL);
+        return strjoin("<<<", variable, ">>>");
 }
 
 int main(int argc, char *argv[]) {

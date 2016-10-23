@@ -192,7 +192,7 @@ static int add_matches_for_device(sd_journal *j, const char *devpath) {
                         continue;
                 }
 
-                match = strjoin("_KERNEL_DEVICE=+", subsys, ":", sysname, NULL);
+                match = strjoin("_KERNEL_DEVICE=+", subsys, ":", sysname);
                 if (!match)
                         return log_oom();
 

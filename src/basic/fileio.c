@@ -676,7 +676,7 @@ static int load_env_file_push(
                 return -EINVAL;
         }
 
-        p = strjoin(key, "=", strempty(value), NULL);
+        p = strjoin(key, "=", strempty(value));
         if (!p)
                 return -ENOMEM;
 
@@ -963,9 +963,9 @@ static int search_and_fopen_internal(const char *path, const char *mode, const c
                 FILE *f;
 
                 if (root)
-                        p = strjoin(root, *i, "/", path, NULL);
+                        p = strjoin(root, *i, "/", path);
                 else
-                        p = strjoin(*i, "/", path, NULL);
+                        p = strjoin(*i, "/", path);
                 if (!p)
                         return -ENOMEM;
 

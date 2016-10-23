@@ -239,7 +239,7 @@ static int device_update_description(Unit *u, struct udev_device *dev, const cha
                 if (label) {
                         _cleanup_free_ char *j;
 
-                        j = strjoin(model, " ", label, NULL);
+                        j = strjoin(model, " ", label);
                         if (j)
                                 r = unit_set_description(u, j);
                         else

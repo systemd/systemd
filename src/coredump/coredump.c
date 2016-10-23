@@ -729,7 +729,10 @@ static int submit_coredump(
 
                 r = coredump_make_stack_trace(coredump_fd, context[CONTEXT_EXE], &stacktrace);
                 if (r >= 0)
-                        core_message = strjoin("MESSAGE=Process ", context[CONTEXT_PID], " (", context[CONTEXT_COMM], ") of user ", context[CONTEXT_UID], " dumped core.\n\n", stacktrace, NULL);
+                        core_message = strjoin("MESSAGE=Process ", context[CONTEXT_PID],
+                                               " (", context[CONTEXT_COMM], ") of user ",
+                                               context[CONTEXT_UID], " dumped core.\n\n",
+                                               stacktrace);
                 else if (r == -EINVAL)
                         log_warning("Failed to generate stack trace: %s", dwfl_errmsg(dwfl_errno()));
                 else
@@ -741,7 +744,9 @@ static int submit_coredump(
         if (!core_message)
 #endif
 log:
-        core_message = strjoin("MESSAGE=Process ", context[CONTEXT_PID], " (", context[CONTEXT_COMM], ") of user ", context[CONTEXT_UID], " dumped core.", NULL);
+        core_message = strjoin("MESSAGE=Process ", context[CONTEXT_PID], " (",
+                               context[CONTEXT_COMM], ") of user ",
+                               context[CONTEXT_UID], " dumped core.");
         if (core_message)
                 IOVEC_SET_STRING(iovec[n_iovec++], core_message);
 

@@ -431,7 +431,7 @@ static int refresh_one(
                 if (r == 0)
                         break;
 
-                p = strjoin(path, "/", fn, NULL);
+                p = strjoin(path, "/", fn);
                 if (!p)
                         return -ENOMEM;
 

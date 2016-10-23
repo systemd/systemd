@@ -676,7 +676,7 @@ int bus_connect_user_systemd(sd_bus **_bus) {
         if (r < 0)
                 return r;
 
-        bus->address = strjoin("unix:path=", ee, "/systemd/private", NULL);
+        bus->address = strjoin("unix:path=", ee, "/systemd/private");
         if (!bus->address)
                 return -ENOMEM;
 
@@ -1460,7 +1460,7 @@ int bus_path_encode_unique(sd_bus *b, const char *prefix, const char *sender_id,
         if (!external_label)
                 return -ENOMEM;
 
-        p = strjoin(prefix, "/", sender_label, "/", external_label, NULL);
+        p = strjoin(prefix, "/", sender_label, "/", external_label);
         if (!p)
                 return -ENOMEM;
 

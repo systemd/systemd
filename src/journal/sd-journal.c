@@ -405,7 +405,7 @@ static char *match_make_string(Match *m) {
                         return mfree(p);
 
                 if (p) {
-                        k = strjoin(p, m->type == MATCH_OR_TERM ? " OR " : " AND ", t, NULL);
+                        k = strjoin(p, m->type == MATCH_OR_TERM ? " OR " : " AND ", t);
                         free(p);
                         free(t);
 
@@ -420,7 +420,7 @@ static char *match_make_string(Match *m) {
         }
 
         if (enclose) {
-                r = strjoin("(", p, ")", NULL);
+                r = strjoin("(", p, ")");
                 free(p);
                 return r;
         }
@@ -1416,7 +1416,7 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
          * and reenumerates directory contents */
 
         if (dirname)
-                path = strjoin(prefix, "/", dirname, NULL);
+                path = strjoin(prefix, "/", dirname);
         else
                 path = strdup(prefix);
         if (!path) {

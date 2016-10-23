@@ -1303,7 +1303,7 @@ static int nsec3_hashed_domain_format(const uint8_t *hashed, size_t hashed_size,
         if (!l)
                 return -ENOMEM;
 
-        j = strjoin(l, ".", zone, NULL);
+        j = strjoin(l, ".", zone);
         if (!j)
                 return -ENOMEM;
 

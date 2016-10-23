@@ -108,7 +108,7 @@ static int add_match(Set *set, const char *match) {
         else
                 prefix = "COREDUMP_COMM=";
 
-        pattern = strjoin(prefix, match, NULL);
+        pattern = strjoin(prefix, match);
         if (!pattern) {
                 r = -ENOMEM;
                 goto fail;
@@ -667,7 +667,7 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire temporary directory path: %m");
 
-                temp = strjoin(vt, "/coredump-XXXXXX", NULL);
+                temp = strjoin(vt, "/coredump-XXXXXX");
                 if (!temp)
                         return log_oom();
 

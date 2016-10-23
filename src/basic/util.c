@@ -131,7 +131,7 @@ static int do_execute(char **directories, usec_t timeout, char *argv[]) {
                         if (r < 0)
                                 return log_oom();
 
-                        path = strjoin(*directory, "/", de->d_name, NULL);
+                        path = strjoin(*directory, "/", de->d_name);
                         if (!path)
                                 return log_oom();
 

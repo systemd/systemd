@@ -1196,7 +1196,7 @@ static void manager_build_unit_path_cache(Manager *m) {
                 FOREACH_DIRENT(de, d, r = -errno; goto fail) {
                         char *p;
 
-                        p = strjoin(streq(*i, "/") ? "" : *i, "/", de->d_name, NULL);
+                        p = strjoin(streq(*i, "/") ? "" : *i, "/", de->d_name);
                         if (!p) {
                                 r = -ENOMEM;
                                 goto fail;

@@ -1303,7 +1303,7 @@ static int unit_file_search(
         STRV_FOREACH(p, paths->search_path) {
                 _cleanup_free_ char *path = NULL;
 
-                path = strjoin(*p, "/", info->name, NULL);
+                path = strjoin(*p, "/", info->name);
                 if (!path)
                         return -ENOMEM;
 
@@ -1328,7 +1328,7 @@ static int unit_file_search(
                 STRV_FOREACH(p, paths->search_path) {
                         _cleanup_free_ char *path = NULL;
 
-                        path = strjoin(*p, "/", template, NULL);
+                        path = strjoin(*p, "/", template);
                         if (!path)
                                 return -ENOMEM;
 
@@ -1608,7 +1608,7 @@ static int install_info_symlink_wants(
                         continue;
                 }
 
-                path = strjoin(config_path, "/", dst, suffix, n, NULL);
+                path = strjoin(config_path, "/", dst, suffix, n);
                 if (!path)
                         return -ENOMEM;
 
@@ -1642,7 +1642,7 @@ static int install_info_symlink_link(
         if (r > 0)
                 return 0;
 
-        path = strjoin(config_path, "/", i->name, NULL);
+        path = strjoin(config_path, "/", i->name);
         if (!path)
                 return -ENOMEM;
 
@@ -2162,7 +2162,7 @@ int unit_file_revert(
                 STRV_FOREACH(j, fs) {
                         _cleanup_free_ char *t = NULL;
 
-                        t = strjoin(*i, "/", *j, NULL);
+                        t = strjoin(*i, "/", *j);
                         if (!t)
                                 return -ENOMEM;
 

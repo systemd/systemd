@@ -141,8 +141,8 @@ static void test_copy_tree(void) {
         STRV_FOREACH_PAIR(link, p, links) {
                 _cleanup_free_ char *target = NULL, *f, *l;
 
-                assert_se(f = strjoin(original_dir, *p, NULL));
-                assert_se(l = strjoin(copy_dir, *link, NULL));
+                assert_se(f = strjoin(original_dir, *p));
+                assert_se(l = strjoin(copy_dir, *link));
 
                 assert_se(readlink_and_canonicalize(l, &target) == 0);
                 assert_se(path_equal(f, target));

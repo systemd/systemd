@@ -438,7 +438,7 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
         }
 
         if (strchr(host, ':'))
-                u->url = strjoin(proto, url, "/upload", NULL);
+                u->url = strjoin(proto, url, "/upload");
         else {
                 char *t;
                 size_t x;
@@ -448,7 +448,7 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
                 while (x > 0 && t[x - 1] == '/')
                         t[x - 1] = '\0';
 
-                u->url = strjoin(proto, t, ":" STRINGIFY(DEFAULT_PORT), "/upload", NULL);
+                u->url = strjoin(proto, t, ":" STRINGIFY(DEFAULT_PORT), "/upload");
         }
         if (!u->url)
                 return log_oom();

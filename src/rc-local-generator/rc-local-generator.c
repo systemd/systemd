@@ -45,11 +45,11 @@ static int add_symlink(const char *service, const char *where) {
         assert(service);
         assert(where);
 
-        from = strjoin(SYSTEM_DATA_UNIT_PATH, "/", service, NULL);
+        from = strjoin(SYSTEM_DATA_UNIT_PATH, "/", service);
         if (!from)
                 return log_oom();
 
-        to = strjoin(arg_dest, "/", where, ".wants/", service, NULL);
+        to = strjoin(arg_dest, "/", where, ".wants/", service);
         if (!to)
                 return log_oom();
 

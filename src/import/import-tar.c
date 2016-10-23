@@ -222,7 +222,7 @@ static int tar_import_fork_tar(TarImport *i) {
         assert(!i->temp_path);
         assert(i->tar_fd < 0);
 
-        i->final_path = strjoin(i->image_root, "/", i->local, NULL);
+        i->final_path = strjoin(i->image_root, "/", i->local);
         if (!i->final_path)
                 return log_oom();
 

@@ -236,14 +236,14 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
                         return h;
 
                 if (max_length == 0)
-                        r = strjoin("[", t, "]", NULL);
+                        r = strjoin("[", t, "]");
                 else {
                         size_t l;
 
                         l = strlen(t);
 
                         if (l + 3 <= max_length)
-                                r = strjoin("[", t, "]", NULL);
+                                r = strjoin("[", t, "]");
                         else if (max_length <= 6) {
 
                                 r = new(char, max_length);
@@ -263,7 +263,7 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
                                         e--;
                                 *e = 0;
 
-                                r = strjoin("[", t, "...]", NULL);
+                                r = strjoin("[", t, "...]");
                         }
                 }
                 if (!r)

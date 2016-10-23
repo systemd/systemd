@@ -56,7 +56,7 @@ static int process_resume(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        lnk = strjoin(arg_dest, "/" SPECIAL_SYSINIT_TARGET ".wants/", name, NULL);
+        lnk = strjoin(arg_dest, "/" SPECIAL_SYSINIT_TARGET ".wants/", name);
         if (!lnk)
                 return log_oom();
 

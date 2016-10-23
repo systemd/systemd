@@ -241,7 +241,7 @@ static char *tag_to_udev_node(const char *tagvalue, const char *by) {
         if (encode_devnode_name(u, t, enc_len) < 0)
                 return NULL;
 
-        return strjoin("/dev/disk/by-", by, "/", t, NULL);
+        return strjoin("/dev/disk/by-", by, "/", t);
 }
 
 char *fstab_node_to_udev_node(const char *p) {

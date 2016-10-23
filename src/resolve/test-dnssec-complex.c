@@ -42,7 +42,7 @@ static void prefix_random(const char *name, char **ret) {
                 char *x;
 
                 assert_se(asprintf(&b, "x%" PRIu64 "x", random_u64()));
-                x = strjoin(b, ".", name, NULL);
+                x = strjoin(b, ".", name);
                 assert_se(x);
 
                 free(m);

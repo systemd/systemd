@@ -113,7 +113,7 @@ static int generate_mask_symlinks(void) {
         STRV_FOREACH(u, arg_mask) {
                 _cleanup_free_ char *p = NULL;
 
-                p = strjoin(arg_dest, "/", *u, NULL);
+                p = strjoin(arg_dest, "/", *u);
                 if (!p)
                         return log_oom();
 
@@ -136,7 +136,7 @@ static int generate_wants_symlinks(void) {
         STRV_FOREACH(u, arg_wants) {
                 _cleanup_free_ char *p = NULL, *f = NULL;
 
-                p = strjoin(arg_dest, "/", arg_default_unit, ".wants/", *u, NULL);
+                p = strjoin(arg_dest, "/", arg_default_unit, ".wants/", *u);
                 if (!p)
                         return log_oom();
 

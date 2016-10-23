@@ -87,7 +87,7 @@ int locale_setup(char ***environment) {
                 if (!variables[i])
                         continue;
 
-                s = strjoin(locale_variable_to_string(i), "=", variables[i], NULL);
+                s = strjoin(locale_variable_to_string(i), "=", variables[i]);
                 if (!s) {
                         r = -ENOMEM;
                         goto finish;
