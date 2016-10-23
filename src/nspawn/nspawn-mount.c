@@ -300,6 +300,60 @@ int mount_sysfs(const char *dest) {
                              MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, NULL);
 }
 
+static int mkdir_userns(const char *path, mode_t mode, bool in_userns, uid_t uid_shift) {
+        int r;
+
+        assert(path);
+
+        r = mkdir(path, mode);
+        if (r < 0 && errno != EEXIST)
+                return -errno;
+
+        if (!in_userns) {
+                r = lchown(path, uid_shift, uid_shift);
+                if (r < 0)
+                        return -errno;
+        }
+
+        return 0;
+}
+
+static int mkdir_userns_p(const char *prefix, const char *path, mode_t mode, bool in_userns, uid_t uid_shift) {
+        const char *p, *e;
+        int r;
+
+        assert(path);
+
+        if (prefix && !path_startswith(path, prefix))
+                return -ENOTDIR;
+
+        /* create every parent directory in the path, except the last component */
+        p = path + strspn(path, "/");
+        for (;;) {
+                char t[strlen(path) + 1];
+
+                e = p + strcspn(p, "/");
+                p = e + strspn(e, "/");
+
+                /* Is this the last component? If so, then we're
+                 * done */
+                if (*p == 0)
+                        break;
+
+                memcpy(t, path, e - path);
+                t[e-path] = 0;
+
+                if (prefix && path_startswith(prefix, t))
+                        continue;
+
+                r = mkdir_userns(t, mode, in_userns, uid_shift);
+                if (r < 0)
+                        return r;
+        }
+
+        return mkdir_userns(path, mode, in_userns, uid_shift);
+}
+
 int mount_all(const char *dest,
               bool use_userns, bool in_userns,
               bool use_netns,
@@ -361,7 +415,7 @@ int mount_all(const char *dest,
                 if (mount_table[k].what && r > 0)
                         continue;
 
-                r = mkdir_p(where, 0755);
+                r = mkdir_userns_p(dest, where, 0755, in_userns, uid_shift);
                 if (r < 0 && r != -EEXIST) {
                         if (mount_table[k].fatal)
                                 return log_error_errno(r, "Failed to create directory %s: %m", where);

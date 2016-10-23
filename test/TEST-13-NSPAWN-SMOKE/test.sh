@@ -40,7 +40,6 @@ test_setup() {
 
         setup_basic_environment
         dracut_install busybox chmod rmdir
-        dracut_install ./has-overflow
 
         cp create-busybox-container $initdir/
 
@@ -93,22 +92,8 @@ function run {
     /create-busybox-container "$_root"
     UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" systemd-nspawn --register=no -D "$_root" -b
     UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" systemd-nspawn --register=no -D "$_root" --private-network -b
-
-    if ! UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" systemd-nspawn --register=no -D "$_root" -U -b; then
-        if [[ "$1" = "no" && "$2" = "yes" ]] && /has-overflow -M '0 1073283072 65536' -G '0 1073283072 65536'; then
-            printf "Failure expected, ignoring (see https://github.com/systemd/systemd/issues/4352)\n" >&2
-        else
-            return 1
-        fi
-    fi
-
-    if ! UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" systemd-nspawn --register=no -D "$_root" --private-network -U -b; then
-        if [[ "$1" = "no" && "$2" = "yes" ]] && /has-overflow -M '0 1073283072 65536' -G '0 1073283072 65536'; then
-            printf "Failure expected, ignoring (see https://github.com/systemd/systemd/issues/4352)\n" >&2
-        else
-            return 1
-        fi
-    fi
+    UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" systemd-nspawn --register=no -D "$_root" -U -b
+    UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" systemd-nspawn --register=no -D "$_root" --private-network -U -b
 
     return 0
 }

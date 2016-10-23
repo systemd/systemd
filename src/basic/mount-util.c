@@ -162,7 +162,7 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
 
 fallback_fdinfo:
         r = fd_fdinfo_mnt_id(fd, filename, flags, &mount_id);
-        if (r == -EOPNOTSUPP)
+        if (IN_SET(r, -EOPNOTSUPP, -EACCES))
                 goto fallback_fstat;
         if (r < 0)
                 return r;
