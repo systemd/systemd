@@ -927,7 +927,7 @@ static int job_dispatch_timer(sd_event_source *s, uint64_t monotonic, void *user
         u = j->unit;
         job_finish_and_invalidate(j, JOB_TIMEOUT, true, false);
 
-        failure_action(u->manager, u->job_timeout_action, u->job_timeout_reboot_arg);
+        emergency_action(u->manager, u->job_timeout_action, u->job_timeout_reboot_arg, "job timed out");
 
         return 0;
 }

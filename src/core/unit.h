@@ -29,7 +29,7 @@ typedef struct UnitRef UnitRef;
 typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 
 #include "condition.h"
-#include "failure-action.h"
+#include "emergency-action.h"
 #include "install.h"
 #include "list.h"
 #include "unit-name.h"
@@ -114,7 +114,7 @@ struct Unit {
 
         /* Job timeout and action to take */
         usec_t job_timeout;
-        FailureAction job_timeout_action;
+        EmergencyAction job_timeout_action;
         char *job_timeout_reboot_arg;
 
         /* References to this */
@@ -178,7 +178,7 @@ struct Unit {
 
         /* Put a ratelimit on unit starting */
         RateLimit start_limit;
-        FailureAction start_limit_action;
+        EmergencyAction start_limit_action;
         char *reboot_arg;
 
         /* Make sure we never enter endless loops with the check unneeded logic, or the BindsTo= logic */

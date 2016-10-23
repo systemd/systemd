@@ -1455,7 +1455,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
 
         if (s->result != SERVICE_SUCCESS) {
                 log_unit_warning(UNIT(s), "Failed with result '%s'.", service_result_to_string(s->result));
-                failure_action(UNIT(s)->manager, s->failure_action, UNIT(s)->reboot_arg);
+                emergency_action(UNIT(s)->manager, s->emergency_action, UNIT(s)->reboot_arg, "service failed");
         }
 
         if (allow_restart && service_shall_restart(s)) {

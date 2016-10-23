@@ -20,22 +20,22 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-typedef enum FailureAction {
-        FAILURE_ACTION_NONE,
-        FAILURE_ACTION_REBOOT,
-        FAILURE_ACTION_REBOOT_FORCE,
-        FAILURE_ACTION_REBOOT_IMMEDIATE,
-        FAILURE_ACTION_POWEROFF,
-        FAILURE_ACTION_POWEROFF_FORCE,
-        FAILURE_ACTION_POWEROFF_IMMEDIATE,
-        _FAILURE_ACTION_MAX,
-        _FAILURE_ACTION_INVALID = -1
-} FailureAction;
+typedef enum EmergencyAction {
+        EMERGENCY_ACTION_NONE,
+        EMERGENCY_ACTION_REBOOT,
+        EMERGENCY_ACTION_REBOOT_FORCE,
+        EMERGENCY_ACTION_REBOOT_IMMEDIATE,
+        EMERGENCY_ACTION_POWEROFF,
+        EMERGENCY_ACTION_POWEROFF_FORCE,
+        EMERGENCY_ACTION_POWEROFF_IMMEDIATE,
+        _EMERGENCY_ACTION_MAX,
+        _EMERGENCY_ACTION_INVALID = -1
+} EmergencyAction;
 
 #include "macro.h"
 #include "manager.h"
 
-int failure_action(Manager *m, FailureAction action, const char *reboot_arg);
+int emergency_action(Manager *m, EmergencyAction action, const char *reboot_arg, const char *reason);
 
-const char* failure_action_to_string(FailureAction i) _const_;
-FailureAction failure_action_from_string(const char *s) _pure_;
+const char* emergency_action_to_string(EmergencyAction i) _const_;
+EmergencyAction emergency_action_from_string(const char *s) _pure_;

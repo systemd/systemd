@@ -982,8 +982,8 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         if (u->job_timeout != USEC_INFINITY)
                 fprintf(f, "%s\tJob Timeout: %s\n", prefix, format_timespan(timespan, sizeof(timespan), u->job_timeout, 0));
 
-        if (u->job_timeout_action != FAILURE_ACTION_NONE)
-                fprintf(f, "%s\tJob Timeout Action: %s\n", prefix, failure_action_to_string(u->job_timeout_action));
+        if (u->job_timeout_action != EMERGENCY_ACTION_NONE)
+                fprintf(f, "%s\tJob Timeout Action: %s\n", prefix, emergency_action_to_string(u->job_timeout_action));
 
         if (u->job_timeout_reboot_arg)
                 fprintf(f, "%s\tJob Timeout Reboot Argument: %s\n", prefix, u->job_timeout_reboot_arg);
@@ -1490,7 +1490,7 @@ int unit_start_limit_test(Unit *u) {
         log_unit_warning(u, "Start request repeated too quickly.");
         u->start_limit_hit = true;
 
-        return failure_action(u->manager, u->start_limit_action, u->reboot_arg);
+        return emergency_action(u->manager, u->start_limit_action, u->reboot_arg, "unit failed");
 }
 
 /* Errors:
