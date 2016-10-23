@@ -171,6 +171,7 @@ struct Service {
         bool start_timeout_defined:1;
 
         bool reset_cpu_usage:1;
+        bool preserve_fds:1;
 
         char *bus_name;
         char *bus_name_owner; /* unique name of the current owner */
