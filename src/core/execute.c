@@ -800,7 +800,14 @@ static int get_fixed_supplementary_groups(const ExecContext *c,
                 keep_groups = true;
         }
 
-        assert_se((ngroups_max = (int) sysconf(_SC_NGROUPS_MAX)) > 0);
+        errno = 0;
+        ngroups_max = (int) sysconf(_SC_NGROUPS_MAX);
+        if (ngroups_max <= 0) {
+                if (errno > 0)
+                        return -errno;
+                else
+                        return -EOPNOTSUPP;
+        }
 
         l_gids = new(gid_t, ngroups_max);
         if (!l_gids)
