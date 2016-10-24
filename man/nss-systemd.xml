@@ -83,7 +83,7 @@
 group:          compat mymachines <command>systemd</command>
 shadow:         compat
 
-hosts:          files mymachines resolve myhostname
+hosts:          files mymachines resolve [!UNAVAIL=return] dns myhostname
 networks:       files
 
 protocols:      db files

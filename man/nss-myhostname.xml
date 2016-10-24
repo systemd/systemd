@@ -110,7 +110,7 @@
 group:          compat mymachines systemd
 shadow:         compat
 
-hosts:          files mymachines resolve <command>myhostname</command>
+hosts:          files mymachines resolve [!UNAVAIL=return] dns <command>myhostname</command>
 networks:       files
 
 protocols:      db files
