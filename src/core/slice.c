@@ -130,6 +130,30 @@ static int slice_verify(Slice *s) {
         return 0;
 }
 
+static int slice_load_root_slice(Unit *u) {
+        assert(u);
+
+        if (!unit_has_name(u, SPECIAL_ROOT_SLICE))
+                return 0;
+
+        u->no_gc = true;
+
+        /* The root slice is a bit special. For example it is always running and cannot be terminated. Because of its
+         * special semantics we synthesize it here, instead of relying on the unit file on disk. */
+
+        u->default_dependencies = false;
+        u->ignore_on_isolate = true;
+        u->refuse_manual_start = true;
+        u->refuse_manual_stop = true;
+
+        if (!u->description)
+                u->description = strdup("Root Slice");
+        if (!u->documentation)
+                u->documentation = strv_new("man:systemd.special(7)", NULL);
+
+        return 1;
+}
+
 static int slice_load(Unit *u) {
         Slice *s = SLICE(u);
         int r;
@@ -137,6 +161,9 @@ static int slice_load(Unit *u) {
         assert(s);
         assert(u->load_state == UNIT_STUB);
 
+        r = slice_load_root_slice(u);
+        if (r < 0)
+                return r;
         r = unit_load_fragment_and_dropin_optional(u);
         if (r < 0)
                 return r;
@@ -283,22 +310,13 @@ static void slice_enumerate(Manager *m) {
                 r = unit_add_name(u, SPECIAL_ROOT_SLICE);
                 if (r < 0) {
                         unit_free(u);
-                        log_error_errno(r, "Failed to add -.slice name");
+                        log_error_errno(r, "Failed to add the "SPECIAL_ROOT_SLICE " name: %m");
                         return;
                 }
         }
 
-        u->default_dependencies = false;
         u->no_gc = true;
-        u->ignore_on_isolate = true;
-        u->refuse_manual_start = true;
-        u->refuse_manual_stop = true;
         SLICE(u)->deserialized_state = SLICE_ACTIVE;
-
-        if (!u->description)
-                u->description = strdup("Root Slice");
-        if (!u->documentation)
-                (void) strv_extend(&u->documentation, "man:systemd.special(7)");
 
         unit_add_to_load_queue(u);
         unit_add_to_dbus_queue(u);

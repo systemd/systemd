@@ -147,6 +147,34 @@ static int scope_verify(Scope *s) {
         return 0;
 }
 
+static int scope_load_init_scope(Unit *u) {
+        assert(u);
+
+        if (!unit_has_name(u, SPECIAL_INIT_SCOPE))
+                return 0;
+
+        u->transient = true;
+        u->no_gc = true;
+
+        /* init.scope is a bit special, as it has to stick around forever. Because of its special semantics we
+         * synthesize it here, instead of relying on the unit file on disk. */
+
+        u->default_dependencies = false;
+        u->ignore_on_isolate = true;
+        u->refuse_manual_start = true;
+        u->refuse_manual_stop = true;
+
+        SCOPE(u)->kill_context.kill_signal = SIGRTMIN+14;
+
+        /* Prettify things, if we can. */
+        if (!u->description)
+                u->description = strdup("System and Service Manager");
+        if (!u->documentation)
+                (void) strv_extend(&u->documentation, "man:systemd(1)");
+
+        return 1;
+}
+
 static int scope_load(Unit *u) {
         Scope *s = SCOPE(u);
         int r;
@@ -158,6 +186,9 @@ static int scope_load(Unit *u) {
                 /* Refuse to load non-transient scope units, but allow them while reloading. */
                 return -ENOENT;
 
+        r = scope_load_init_scope(u);
+        if (r < 0)
+                return r;
         r = unit_load_fragment_and_dropin_optional(u);
         if (r < 0)
                 return r;
@@ -543,25 +574,14 @@ static void scope_enumerate(Manager *m) {
                 r = unit_add_name(u, SPECIAL_INIT_SCOPE);
                 if (r < 0)  {
                         unit_free(u);
-                        log_error_errno(r, "Failed to add init.scope name");
+                        log_error_errno(r, "Failed to add the " SPECIAL_INIT_SCOPE " name: %m");
                         return;
                 }
         }
 
         u->transient = true;
-        u->default_dependencies = false;
         u->no_gc = true;
-        u->ignore_on_isolate = true;
-        u->refuse_manual_start = true;
-        u->refuse_manual_stop = true;
         SCOPE(u)->deserialized_state = SCOPE_RUNNING;
-        SCOPE(u)->kill_context.kill_signal = SIGRTMIN+14;
-
-        /* Prettify things, if we can. */
-        if (!u->description)
-                u->description = strdup("System and Service Manager");
-        if (!u->documentation)
-                (void) strv_extend(&u->documentation, "man:systemd(1)");
 
         unit_add_to_load_queue(u);
         unit_add_to_dbus_queue(u);
