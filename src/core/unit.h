@@ -481,6 +481,7 @@ DEFINE_CAST(SCOPE, Scope);
 Unit *unit_new(Manager *m, size_t size);
 void unit_free(Unit *u);
 
+int unit_new_for_name(Manager *m, size_t size, const char *name, Unit **ret);
 int unit_add_name(Unit *u, const char *name);
 
 int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_reference);

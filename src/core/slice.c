@@ -299,16 +299,9 @@ static void slice_enumerate(Manager *m) {
 
         u = manager_get_unit(m, SPECIAL_ROOT_SLICE);
         if (!u) {
-                u = unit_new(m, sizeof(Slice));
-                if (!u) {
-                        log_oom();
-                        return;
-                }
-
-                r = unit_add_name(u, SPECIAL_ROOT_SLICE);
+                r = unit_new_for_name(m, sizeof(Slice), SPECIAL_ROOT_SLICE, &u);
                 if (r < 0) {
-                        unit_free(u);
-                        log_error_errno(r, "Failed to add the " SPECIAL_ROOT_SLICE " name: %m");
+                        log_error_errno(r, "Failed to allocate the special " SPECIAL_ROOT_SLICE " unit: %m");
                         return;
                 }
         }

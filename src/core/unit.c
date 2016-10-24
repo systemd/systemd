@@ -109,6 +109,24 @@ Unit *unit_new(Manager *m, size_t size) {
         return u;
 }
 
+int unit_new_for_name(Manager *m, size_t size, const char *name, Unit **ret) {
+        Unit *u;
+        int r;
+
+        u = unit_new(m, size);
+        if (!u)
+                return -ENOMEM;
+
+        r = unit_add_name(u, name);
+        if (r < 0) {
+                unit_free(u);
+                return r;
+        }
+
+        *ret = u;
+        return r;
+}
+
 bool unit_has_name(Unit *u, const char *name) {
         assert(u);
         assert(name);

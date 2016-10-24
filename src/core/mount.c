@@ -1404,11 +1404,7 @@ static int mount_setup_unit(
         if (!u) {
                 delete = true;
 
-                u = unit_new(m, sizeof(Mount));
-                if (!u)
-                        return log_oom();
-
-                r = unit_add_name(u, e);
+                r = unit_new_for_name(m, sizeof(Mount), e, &u);
                 if (r < 0)
                         goto fail;
 
@@ -1614,16 +1610,9 @@ static void synthesize_root_mount(Manager *m) {
 
         u = manager_get_unit(m, SPECIAL_ROOT_MOUNT);
         if (!u) {
-                u = unit_new(m, sizeof(Mount));
-                if (!u) {
-                        log_oom();
-                        return;
-                }
-
-                r = unit_add_name(u, SPECIAL_ROOT_MOUNT);
+                r = unit_new_for_name(m, sizeof(Mount), SPECIAL_ROOT_MOUNT, &u);
                 if (r < 0) {
-                        unit_free(u);
-                        log_error_errno(r, "Failed to add the " SPECIAL_ROOT_MOUNT " name: %m");
+                        log_error_errno(r, "Failed to allocate the special " SPECIAL_ROOT_MOUNT " unit: %m");
                         return;
                 }
         }

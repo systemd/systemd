@@ -563,16 +563,9 @@ static void scope_enumerate(Manager *m) {
 
         u = manager_get_unit(m, SPECIAL_INIT_SCOPE);
         if (!u) {
-                u = unit_new(m, sizeof(Scope));
-                if (!u) {
-                        log_oom();
-                        return;
-                }
-
-                r = unit_add_name(u, SPECIAL_INIT_SCOPE);
+                r = unit_new_for_name(m, sizeof(Scope), SPECIAL_INIT_SCOPE, &u);
                 if (r < 0)  {
-                        unit_free(u);
-                        log_error_errno(r, "Failed to add the " SPECIAL_INIT_SCOPE " name: %m");
+                        log_error_errno(r, "Failed to allocate the special " SPECIAL_INIT_SCOPE " unit: %m");
                         return;
                 }
         }
