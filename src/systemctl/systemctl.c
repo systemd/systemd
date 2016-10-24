@@ -189,6 +189,11 @@ typedef enum BusFocus {
 
 static sd_bus *busses[_BUS_FOCUS_MAX] = {};
 
+static UnitFileFlags args_to_flags(void) {
+        return (arg_runtime ? UNIT_FILE_RUNTIME : 0) |
+               (arg_force   ? UNIT_FILE_FORCE   : 0);
+}
+
 static int acquire_bus(BusFocus focus, sd_bus **ret) {
         int r;
 
@@ -2137,7 +2142,7 @@ static int set_default(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to mangle unit name: %m");
 
         if (install_client_side()) {
-                r = unit_file_set_default(arg_scope, arg_root, unit, true, &changes, &n_changes);
+                r = unit_file_set_default(arg_scope, UNIT_FILE_FORCE, arg_root, unit, &changes, &n_changes);
                 unit_file_dump_changes(r, "set default", changes, n_changes, arg_quiet);
 
                 if (r > 0)
@@ -5955,22 +5960,25 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
         }
 
         if (install_client_side()) {
+                UnitFileFlags flags;
+
+                flags = args_to_flags();
                 if (streq(verb, "enable")) {
-                        r = unit_file_enable(arg_scope, arg_runtime, arg_root, names, arg_force, &changes, &n_changes);
+                        r = unit_file_enable(arg_scope, flags, arg_root, names, &changes, &n_changes);
                         carries_install_info = r;
                 } else if (streq(verb, "disable"))
-                        r = unit_file_disable(arg_scope, arg_runtime, arg_root, names, &changes, &n_changes);
+                        r = unit_file_disable(arg_scope, flags, arg_root, names, &changes, &n_changes);
                 else if (streq(verb, "reenable")) {
-                        r = unit_file_reenable(arg_scope, arg_runtime, arg_root, names, arg_force, &changes, &n_changes);
+                        r = unit_file_reenable(arg_scope, flags, arg_root, names, &changes, &n_changes);
                         carries_install_info = r;
                 } else if (streq(verb, "link"))
-                        r = unit_file_link(arg_scope, arg_runtime, arg_root, names, arg_force, &changes, &n_changes);
+                        r = unit_file_link(arg_scope, flags, arg_root, names, &changes, &n_changes);
                 else if (streq(verb, "preset")) {
-                        r = unit_file_preset(arg_scope, arg_runtime, arg_root, names, arg_preset_mode, arg_force, &changes, &n_changes);
+                        r = unit_file_preset(arg_scope, flags, arg_root, names, arg_preset_mode, &changes, &n_changes);
                 } else if (streq(verb, "mask"))
-                        r = unit_file_mask(arg_scope, arg_runtime, arg_root, names, arg_force, &changes, &n_changes);
+                        r = unit_file_mask(arg_scope, flags, arg_root, names, &changes, &n_changes);
                 else if (streq(verb, "unmask"))
-                        r = unit_file_unmask(arg_scope, arg_runtime, arg_root, names, &changes, &n_changes);
+                        r = unit_file_unmask(arg_scope, flags, arg_root, names, &changes, &n_changes);
                 else if (streq(verb, "revert"))
                         r = unit_file_revert(arg_scope, arg_root, names, &changes, &n_changes);
                 else
@@ -6152,7 +6160,7 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
                 assert_not_reached("Unknown verb");
 
         if (install_client_side()) {
-                r = unit_file_add_dependency(arg_scope, arg_runtime, arg_root, names, target, dep, arg_force, &changes, &n_changes);
+                r = unit_file_add_dependency(arg_scope, args_to_flags(), arg_root, names, target, dep, &changes, &n_changes);
                 unit_file_dump_changes(r, "add dependency on", changes, n_changes, arg_quiet);
 
                 if (r > 0)
@@ -6214,7 +6222,7 @@ static int preset_all(int argc, char *argv[], void *userdata) {
         int r;
 
         if (install_client_side()) {
-                r = unit_file_preset_all(arg_scope, arg_runtime, arg_root, arg_preset_mode, arg_force, &changes, &n_changes);
+                r = unit_file_preset_all(arg_scope, args_to_flags(), arg_root, arg_preset_mode, &changes, &n_changes);
                 unit_file_dump_changes(r, "preset", changes, n_changes, arg_quiet);
 
                 if (r > 0)
@@ -6263,6 +6271,63 @@ finish:
         return r;
 }
 
+static int show_installation_targets_client_side(const char *name) {
+        UnitFileChange *changes = NULL;
+        unsigned n_changes = 0, i;
+        UnitFileFlags flags;
+        char **p;
+        int r;
+
+        p = STRV_MAKE(name);
+        flags = UNIT_FILE_DRY_RUN |
+                (arg_runtime ? UNIT_FILE_RUNTIME : 0);
+
+        r = unit_file_disable(UNIT_FILE_SYSTEM, flags, NULL, p, &changes, &n_changes);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get file links for %s: %m", name);
+
+        for (i = 0; i < n_changes; i++)
+                if (changes[i].type == UNIT_FILE_UNLINK)
+                        printf("  %s\n", changes[i].path);
+
+        return 0;
+}
+
+static int show_installation_targets(sd_bus *bus, const char *name) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        const char *link;
+        int r;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "GetUnitFileLinks",
+                        &error,
+                        &reply,
+                        "sb", name, arg_runtime);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get unit file links for %s: %s", name, bus_error_message(&error, r));
+
+        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "s");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        while ((r = sd_bus_message_read(reply, "s", &link)) > 0)
+                printf("  %s\n", link);
+
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return 0;
+}
+
 static int unit_is_enabled(int argc, char *argv[], void *userdata) {
 
         _cleanup_strv_free_ char **names = NULL;
@@ -6281,7 +6346,6 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
         enabled = r > 0;
 
         if (install_client_side()) {
-
                 STRV_FOREACH(name, names) {
                         UnitFileState state;
 
@@ -6297,8 +6361,14 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
                                    UNIT_FILE_GENERATED))
                                 enabled = true;
 
-                        if (!arg_quiet)
+                        if (!arg_quiet) {
                                 puts(unit_file_state_to_string(state));
+                                if (arg_full) {
+                                        r = show_installation_targets_client_side(*name);
+                                        if (r < 0)
+                                                return r;
+                                }
+                        }
                 }
 
                 r = 0;
@@ -6333,8 +6403,14 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
                         if (STR_IN_SET(s, "enabled", "enabled-runtime", "static", "indirect", "generated"))
                                 enabled = true;
 
-                        if (!arg_quiet)
+                        if (!arg_quiet) {
                                 puts(s);
+                                if (arg_full) {
+                                        r = show_installation_targets(bus, *name);
+                                        if (r < 0)
+                                                return r;
+                                }
+                        }
                 }
         }
 
