@@ -2778,6 +2778,58 @@ static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error
         return 0;
 }
 
+static void print_condition_not_met (
+                unsigned indent,
+                const char *branch,
+                const char *name,
+                int trigger,
+                int negate,
+                const char *param) {
+        for (; indent > 0; indent--)
+                putchar(' ');
+
+        if (!isempty(branch))
+                printf("%s", branch);
+
+        printf("%s=%s%s%s was not met\n",
+               name,
+               trigger ? "|" : "",
+               negate ? "!" : "",
+               param);
+}
+
+static int warn_unit_condition_not_met(sd_bus *bus, const char *path, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        char *cond, *param;
+        int trigger, negate, state, r;
+
+        log_notice("The service you attempted to start was skipped, because conditions were not met.");
+
+        r = sd_bus_get_property(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.systemd1.Unit",
+                        "Conditions",
+                        error,
+                        &reply,
+                        "a(sbbsi)");
+        if (r < 0)
+                return log_error_errno(r, "Failed to get property Conditions: %s", bus_error_message(error, r));
+
+        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(sbbsi)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        while ((r = sd_bus_message_read(reply, "(sbbsi)", &cond, &trigger, &negate, &param, &state)) > 0)
+                if (state < 0)
+                        print_condition_not_met(2, NULL, cond, trigger, negate, param);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return 0;
+}
+
 static int start_unit_one(
                 sd_bus *bus,
                 const char *method,
@@ -2788,16 +2840,20 @@ static int start_unit_one(
                 WaitContext *wait_context) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_free_ char *unit_path = NULL;
         const char *path;
-        int r;
+        int condition_met, r;
 
         assert(method);
         assert(name);
         assert(mode);
         assert(error);
 
+        unit_path = unit_dbus_path_from_name(name);
+        if (!unit_path)
+                return log_oom();
+
         if (wait_context) {
-                _cleanup_free_ char *unit_path = NULL;
                 const char* mt;
 
                 log_debug("Watching for property changes of %s", name);
@@ -2812,10 +2868,6 @@ static int start_unit_one(
                                 "s", name);
                 if (r < 0)
                         return log_error_errno(r, "Failed to RefUnit %s: %s", name, bus_error_message(error, r));
-
-                unit_path = unit_dbus_path_from_name(name);
-                if (!unit_path)
-                        return log_oom();
 
                 r = set_put_strdup(wait_context->unit_paths, unit_path);
                 if (r < 0)
@@ -2877,7 +2929,21 @@ static int start_unit_one(
                         return log_oom();
         }
 
-        return 0;
+        r = sd_bus_get_property_trivial(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        unit_path,
+                        "org.freedesktop.systemd1.Unit",
+                        "ConditionResult",
+                        error,
+                        SD_BUS_TYPE_BOOLEAN, &condition_met);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get property ConditionResult: %s", bus_error_message(error, r));
+
+        if (!condition_met)
+                r = warn_unit_condition_not_met(bus, unit_path, error);
+
+        return r;
 }
 
 static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***ret) {
@@ -3911,12 +3977,12 @@ static void print_status_info(
 
                 LIST_FOREACH(conditions, c, i->conditions)
                         if (c->tristate < 0)
-                                printf("           %s %s=%s%s%s was not met\n",
-                                       --n ? special_glyph(TREE_BRANCH) : special_glyph(TREE_RIGHT),
-                                       c->name,
-                                       c->trigger ? "|" : "",
-                                       c->negate ? "!" : "",
-                                       c->param);
+                                print_condition_not_met(11,
+                                                        --n ? special_glyph(TREE_BRANCH) : special_glyph(TREE_RIGHT),
+                                                        c->name,
+                                                        c->trigger,
+                                                        c->negate,
+                                                        c->param);
         }
 
         if (!i->assert_result && i->assert_timestamp > 0) {
