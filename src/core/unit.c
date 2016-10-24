@@ -323,7 +323,7 @@ bool unit_check_gc(Unit *u) {
         if (state != UNIT_INACTIVE)
                 return true;
 
-        if (u->no_gc)
+        if (u->perpetual)
                 return true;
 
         if (u->refs)
@@ -924,6 +924,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tGC Check Good: %s\n"
                 "%s\tNeed Daemon Reload: %s\n"
                 "%s\tTransient: %s\n"
+                "%s\tPerpetual: %s\n"
                 "%s\tSlice: %s\n"
                 "%s\tCGroup: %s\n"
                 "%s\tCGroup realized: %s\n"
@@ -942,6 +943,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(unit_check_gc(u)),
                 prefix, yes_no(unit_need_daemon_reload(u)),
                 prefix, yes_no(u->transient),
+                prefix, yes_no(u->perpetual),
                 prefix, strna(unit_slice_name(u)),
                 prefix, strna(u->cgroup_path),
                 prefix, yes_no(u->cgroup_realized),
@@ -1616,6 +1618,18 @@ int unit_stop(Unit *u) {
         return UNIT_VTABLE(u)->stop(u);
 }
 
+bool unit_can_stop(Unit *u) {
+        assert(u);
+
+        if (!unit_supported(u))
+                return false;
+
+        if (u->perpetual)
+                return false;
+
+        return !!UNIT_VTABLE(u)->stop;
+}
+
 /* Errors:
  *         -EBADR:    This unit type does not support reloading.
  *         -ENOEXEC:  Unit is not started.
@@ -2150,13 +2164,20 @@ bool unit_job_is_applicable(Unit *u, JobType j) {
 
         case JOB_VERIFY_ACTIVE:
         case JOB_START:
-        case JOB_STOP:
         case JOB_NOP:
+                /* Note that we don't check unit_can_start() here. That's because .device units and suchlike are not
+                 * startable by us but may appear due to external events, and it thus makes sense to permit enqueing
+                 * jobs for it. */
                 return true;
+
+        case JOB_STOP:
+                /* Similar as above. However, perpetual units can never be stopped (neither explicitly nor due to
+                 * external events), hence it makes no sense to permit enqueing such a request either. */
+                return !u->perpetual;
 
         case JOB_RESTART:
         case JOB_TRY_RESTART:
-                return unit_can_start(u);
+                return unit_can_stop(u) && unit_can_start(u);
 
         case JOB_RELOAD:
         case JOB_TRY_RELOAD:

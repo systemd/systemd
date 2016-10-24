@@ -136,15 +136,13 @@ static int slice_load_root_slice(Unit *u) {
         if (!unit_has_name(u, SPECIAL_ROOT_SLICE))
                 return 0;
 
-        u->no_gc = true;
+        u->perpetual = true;
 
         /* The root slice is a bit special. For example it is always running and cannot be terminated. Because of its
          * special semantics we synthesize it here, instead of relying on the unit file on disk. */
 
         u->default_dependencies = false;
         u->ignore_on_isolate = true;
-        u->refuse_manual_start = true;
-        u->refuse_manual_stop = true;
 
         if (!u->description)
                 u->description = strdup("Root Slice");
@@ -302,7 +300,7 @@ static void slice_enumerate(Manager *m) {
         u = manager_get_unit(m, SPECIAL_ROOT_SLICE);
         if (!u) {
                 u = unit_new(m, sizeof(Slice));
-                if (!u)  {
+                if (!u) {
                         log_oom();
                         return;
                 }
@@ -310,12 +308,12 @@ static void slice_enumerate(Manager *m) {
                 r = unit_add_name(u, SPECIAL_ROOT_SLICE);
                 if (r < 0) {
                         unit_free(u);
-                        log_error_errno(r, "Failed to add the "SPECIAL_ROOT_SLICE " name: %m");
+                        log_error_errno(r, "Failed to add the " SPECIAL_ROOT_SLICE " name: %m");
                         return;
                 }
         }
 
-        u->no_gc = true;
+        u->perpetual = true;
         SLICE(u)->deserialized_state = SLICE_ACTIVE;
 
         unit_add_to_load_queue(u);
