@@ -159,17 +159,6 @@ static void mount_init(Unit *u) {
         m->timeout_usec = u->manager->default_timeout_start_usec;
         m->directory_mode = 0755;
 
-        if (unit_has_name(u, "-.mount")) {
-                /* Don't allow start/stop for root directory */
-                u->refuse_manual_start = true;
-                u->refuse_manual_stop = true;
-        } else {
-                /* The stdio/kmsg bridge socket is on /, in order to avoid a
-                 * dep loop, don't use kmsg logging for -.mount */
-                m->exec_context.std_output = u->manager->default_std_output;
-                m->exec_context.std_error = u->manager->default_std_error;
-        }
-
         /* We need to make sure that /usr/bin/mount is always called
          * in the same process group as us, so that the autofs kernel
          * side doesn't send us another mount request while we are
@@ -577,6 +566,25 @@ static int mount_add_extras(Mount *m) {
         return 0;
 }
 
+static int mount_load_root_mount(Unit *u) {
+        assert(u);
+
+        if (!unit_has_name(u, SPECIAL_ROOT_MOUNT))
+                return 0;
+
+        u->perpetual = true;
+        u->default_dependencies = false;
+
+        /* The stdio/kmsg bridge socket is on /, in order to avoid a dep loop, don't use kmsg logging for -.mount */
+        MOUNT(u)->exec_context.std_output = EXEC_OUTPUT_NULL;
+        MOUNT(u)->exec_context.std_input = EXEC_INPUT_NULL;
+
+        if (!u->description)
+                u->description = strdup("Root Mount");
+
+        return 1;
+}
+
 static int mount_load(Unit *u) {
         Mount *m = MOUNT(u);
         int r;
@@ -584,11 +592,14 @@ static int mount_load(Unit *u) {
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
-        if (m->from_proc_self_mountinfo)
+        r = mount_load_root_mount(u);
+        if (r < 0)
+                return r;
+
+        if (m->from_proc_self_mountinfo || u->perpetual)
                 r = unit_load_fragment_and_dropin_optional(u);
         else
                 r = unit_load_fragment_and_dropin(u);
-
         if (r < 0)
                 return r;
 
@@ -1592,10 +1603,50 @@ static int mount_get_timeout(Unit *u, usec_t *timeout) {
         return 1;
 }
 
+static void synthesize_root_mount(Manager *m) {
+        Unit *u;
+        int r;
+
+        assert(m);
+
+        /* Whatever happens, we know for sure that the root directory is around, and cannot go away. Let's
+         * unconditionally synthesize it here and mark it as perpetual. */
+
+        u = manager_get_unit(m, SPECIAL_ROOT_MOUNT);
+        if (!u) {
+                u = unit_new(m, sizeof(Mount));
+                if (!u) {
+                        log_oom();
+                        return;
+                }
+
+                r = unit_add_name(u, SPECIAL_ROOT_MOUNT);
+                if (r < 0) {
+                        unit_free(u);
+                        log_error_errno(r, "Failed to add the " SPECIAL_ROOT_MOUNT " name: %m");
+                        return;
+                }
+        }
+
+        u->perpetual = true;
+        MOUNT(u)->deserialized_state = MOUNT_MOUNTED;
+
+        unit_add_to_load_queue(u);
+        unit_add_to_dbus_queue(u);
+}
+
+static bool mount_is_mounted(Mount *m) {
+        assert(m);
+
+        return UNIT(m)->perpetual || m->is_mounted;
+}
+
 static void mount_enumerate(Manager *m) {
         int r;
 
         assert(m);
+
+        synthesize_root_mount(m);
 
         mnt_init_debug(0);
 
@@ -1703,7 +1754,7 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
         LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT]) {
                 Mount *mount = MOUNT(u);
 
-                if (!mount->is_mounted) {
+                if (!mount_is_mounted(mount)) {
 
                         /* A mount point is not around right now. It
                          * might be gone, or might never have
@@ -1764,7 +1815,7 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
                         }
                 }
 
-                if (mount->is_mounted &&
+                if (mount_is_mounted(mount) &&
                     mount->from_proc_self_mountinfo &&
                     mount->parameters_proc_self_mountinfo.what) {
 

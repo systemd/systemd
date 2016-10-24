@@ -117,3 +117,6 @@
 
 /* The scope unit systemd itself lives in. */
 #define SPECIAL_INIT_SCOPE "init.scope"
+
+/* The root directory. */
+#define SPECIAL_ROOT_MOUNT "-.mount"
