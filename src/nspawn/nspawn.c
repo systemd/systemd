@@ -2684,6 +2684,10 @@ static int inner_child(
                 }
         }
 
+        r = reset_uid_gid();
+        if (r < 0)
+                return log_error_errno(r, "Couldn't become new root: %m");
+
         r = mount_all(NULL,
                       arg_userns_mode != USER_NAMESPACE_NO,
                       true,
@@ -2725,10 +2729,6 @@ static int inner_child(
                 if (r < 0)
                         return r;
         }
-
-        r = reset_uid_gid();
-        if (r < 0)
-                return log_error_errno(r, "Couldn't become new root: %m");
 
         r = setup_boot_id(NULL);
         if (r < 0)

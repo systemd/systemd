@@ -6034,7 +6034,6 @@ EXTRA_DIST += \
 	test/TEST-12-ISSUE-3171/Makefile \
 	test/TEST-12-ISSUE-3171/test.sh \
 	test/TEST-13-NSPAWN-SMOKE/Makefile \
-	test/TEST-13-NSPAWN-SMOKE/has-overflow.c \
 	test/TEST-13-NSPAWN-SMOKE/create-busybox-container \
 	test/TEST-13-NSPAWN-SMOKE/test.sh \
 	test/test-functions
