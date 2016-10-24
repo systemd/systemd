@@ -575,8 +575,7 @@ void dns_server_warn_downgrade(DnsServer *server) {
         server->warned_downgrade = true;
 }
 
-bool dns_server_limited_domains(DnsServer *server)
-{
+bool dns_server_limited_domains(DnsServer *server) {
         DnsSearchDomain *domain;
         bool domain_restricted = false;
 
@@ -589,7 +588,7 @@ bool dns_server_limited_domains(DnsServer *server)
                 if (domain->route_only) {
                         domain_restricted = true;
                         /* ~. means "any domain", thus it is a global server */
-                        if (streq(DNS_SEARCH_DOMAIN_NAME(domain), "."))
+                        if (dns_name_is_root(DNS_SEARCH_DOMAIN_NAME(domain)))
                                 return false;
                 }
 
