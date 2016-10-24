@@ -268,13 +268,13 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
         if (b->arp_all_targets != _NETDEV_BOND_ARP_ALL_TARGETS_INVALID) {
                 r = sd_netlink_message_append_u32(m, IFLA_BOND_ARP_ALL_TARGETS, b->arp_all_targets);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_ARP_VALIDATE attribute: %m");
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_ARP_ALL_TARGETS attribute: %m");
         }
 
         if (b->primary_reselect != _NETDEV_BOND_PRIMARY_RESELECT_INVALID) {
-                r = sd_netlink_message_append_u32(m, IFLA_BOND_ARP_ALL_TARGETS, b->primary_reselect);
+                r = sd_netlink_message_append_u8(m, IFLA_BOND_PRIMARY_RESELECT, b->primary_reselect);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_ARP_ALL_TARGETS attribute: %m");
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_PRIMARY_RESELECT attribute: %m");
         }
 
         if (b->resend_igmp <= RESEND_IGMP_MAX) {
