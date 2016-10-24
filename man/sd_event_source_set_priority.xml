@@ -57,9 +57,9 @@
       <funcsynopsisinfo>#include &lt;systemd/sd-event.h&gt;</funcsynopsisinfo>
 
       <funcsynopsisinfo><token>enum</token> {
-        <constant>SD_EVENT_SOURCE_IMPORTANT</constant> = -100,
-        <constant>SD_EVENT_SOURCE_NORMAL</constant> = 0,
-        <constant>SD_EVENT_SOURCE_IDLE</constant> = 100,
+        <constant>SD_EVENT_PRIORITY_IMPORTANT</constant> = -100,
+        <constant>SD_EVENT_PRIORITY_NORMAL</constant> = 0,
+        <constant>SD_EVENT_PRIORITY_IDLE</constant> = 100,
 };</funcsynopsisinfo>
 
       <funcprototype>
