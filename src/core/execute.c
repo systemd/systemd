@@ -789,6 +789,19 @@ static int get_fixed_supplementary_groups(const ExecContext *c,
                 return 0;
 
         /*
+         * If SupplementaryGroups= was passed then NGROUPS_MAX has to
+         * be positive, otherwise fail.
+         */
+        errno = 0;
+        ngroups_max = (int) sysconf(_SC_NGROUPS_MAX);
+        if (ngroups_max <= 0) {
+                if (errno > 0)
+                        return -errno;
+                else
+                        return -EOPNOTSUPP; /* For all other values */
+        }
+
+        /*
          * If user is given, then lookup GID and supplementary group list.
          * We avoid NSS lookups for gid=0.
          */
@@ -799,8 +812,6 @@ static int get_fixed_supplementary_groups(const ExecContext *c,
 
                 keep_groups = true;
         }
-
-        assert_se((ngroups_max = (int) sysconf(_SC_NGROUPS_MAX)) > 0);
 
         l_gids = new(gid_t, ngroups_max);
         if (!l_gids)
