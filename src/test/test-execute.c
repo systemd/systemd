@@ -222,6 +222,9 @@ static void test_exec_supplementary_groups(Manager *m) {
         test(m, "exec-supplementarygroups.service", 0, CLD_EXITED);
         test(m, "exec-supplementarygroups-single-group.service", 0, CLD_EXITED);
         test(m, "exec-supplementarygroups-single-group-user.service", 0, CLD_EXITED);
+        test(m, "exec-supplementarygroups-multiple-groups-default-group-user.service", 0, CLD_EXITED);
+        test(m, "exec-supplementarygroups-multiple-groups-withgid.service", 0, CLD_EXITED);
+        test(m, "exec-supplementarygroups-multiple-groups-withuid.service", 0, CLD_EXITED);
 }
 
 static void test_exec_environment(Manager *m) {
