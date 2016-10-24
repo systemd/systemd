@@ -57,6 +57,8 @@ static void ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         unsigned preference;
         usec_t time_now;
         int r;
+        Address *address;
+        Iterator i;
 
         assert(link);
         assert(rt);
@@ -73,6 +75,32 @@ static void ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         if (r < 0) {
                 log_link_warning_errno(link, r, "Failed to get gateway address from RA: %m");
                 return;
+        }
+
+        SET_FOREACH(address, link->addresses, i) {
+                if (!memcmp(&gateway, &address->in_addr.in6,
+                            sizeof(address->in_addr.in6))) {
+                        char buffer[INET6_ADDRSTRLEN];
+
+                        log_link_debug(link, "No NDisc route added, gateway %s matches local address",
+                                       inet_ntop(AF_INET6,
+                                                 &address->in_addr.in6,
+                                                 buffer, sizeof(buffer)));
+                        return;
+                }
+        }
+
+        SET_FOREACH(address, link->addresses_foreign, i) {
+                if (!memcmp(&gateway, &address->in_addr.in6,
+                            sizeof(address->in_addr.in6))) {
+                        char buffer[INET6_ADDRSTRLEN];
+
+                        log_link_debug(link, "No NDisc route added, gateway %s matches local address",
+                                       inet_ntop(AF_INET6,
+                                                 &address->in_addr.in6,
+                                                 buffer, sizeof(buffer)));
+                        return;
+                }
         }
 
         r = sd_ndisc_router_get_preference(rt, &preference);
