@@ -590,7 +590,7 @@ static int add_sysroot_usr_mount(void) {
                          "/proc/cmdline");
 }
 
-static int parse_proc_cmdline_item(const char *key, const char *value) {
+static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
 
         /* root=, usr=, usrfstype= and roofstype= may occur more than once, the last
@@ -674,7 +674,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = parse_proc_cmdline(parse_proc_cmdline_item);
+        r = parse_proc_cmdline(parse_proc_cmdline_item, NULL, false);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 

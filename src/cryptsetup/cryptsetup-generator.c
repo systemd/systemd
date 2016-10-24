@@ -277,12 +277,12 @@ static crypto_device *get_crypto_device(const char *uuid) {
         return d;
 }
 
-static int parse_proc_cmdline_item(const char *key, const char *value) {
+static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
         crypto_device *d;
         _cleanup_free_ char *uuid = NULL, *uuid_value = NULL;
 
-        if (STR_IN_SET(key, "luks", "rd.luks") && value) {
+        if (streq(key, "luks") && value) {
 
                 r = parse_boolean(value);
                 if (r < 0)
@@ -290,7 +290,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 else
                         arg_enabled = r;
 
-        } else if (STR_IN_SET(key, "luks.crypttab", "rd.luks.crypttab") && value) {
+        } else if (streq(key, "luks.crypttab") && value) {
 
                 r = parse_boolean(value);
                 if (r < 0)
@@ -298,7 +298,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 else
                         arg_read_crypttab = r;
 
-        } else if (STR_IN_SET(key, "luks.uuid", "rd.luks.uuid") && value) {
+        } else if (streq(key, "luks.uuid") && value) {
 
                 d = get_crypto_device(startswith(value, "luks-") ? value+5 : value);
                 if (!d)
@@ -306,7 +306,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
 
                 d->create = arg_whitelist = true;
 
-        } else if (STR_IN_SET(key, "luks.options", "rd.luks.options") && value) {
+        } else if (streq(key, "luks.options") && value) {
 
                 r = sscanf(value, "%m[0-9a-fA-F-]=%ms", &uuid, &uuid_value);
                 if (r == 2) {
@@ -320,7 +320,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 } else if (free_and_strdup(&arg_default_options, value) < 0)
                         return log_oom();
 
-        } else if (STR_IN_SET(key, "luks.key", "rd.luks.key") && value) {
+        } else if (streq(key, "luks.key") && value) {
 
                 r = sscanf(value, "%m[0-9a-fA-F-]=%ms", &uuid, &uuid_value);
                 if (r == 2) {
@@ -334,7 +334,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 } else if (free_and_strdup(&arg_default_keyfile, value) < 0)
                         return log_oom();
 
-        } else if (STR_IN_SET(key, "luks.name", "rd.luks.name") && value) {
+        } else if (streq(key, "luks.name") && value) {
 
                 r = sscanf(value, "%m[0-9a-fA-F-]=%ms", &uuid, &uuid_value);
                 if (r == 2) {
@@ -478,7 +478,7 @@ int main(int argc, char *argv[]) {
         if (!arg_disks)
                 goto cleanup;
 
-        r = parse_proc_cmdline(parse_proc_cmdline_item);
+        r = parse_proc_cmdline(parse_proc_cmdline_item, NULL, true);
         if (r < 0) {
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
                 r = EXIT_FAILURE;

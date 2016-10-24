@@ -1362,49 +1362,33 @@ static int listen_fds(int *rctrl, int *rnetlink) {
  *   udev.exec-delay=<number of seconds>       delay execution of every executed program
  *   udev.event-timeout=<number of seconds>    seconds to wait before terminating an event
  */
-static int parse_proc_cmdline_item(const char *key, const char *value) {
-        const char *full_key = key;
-        int r;
+static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
+        int r = 0;
 
         assert(key);
 
         if (!value)
                 return 0;
 
-        if (startswith(key, "rd."))
-                key += strlen("rd.");
-
-        if (startswith(key, "udev."))
-                key += strlen("udev.");
-        else
-                return 0;
-
-        if (streq(key, "log-priority")) {
-                int prio;
-
-                prio = util_log_priority(value);
-                if (prio < 0)
-                        goto invalid;
-                log_set_max_level(prio);
-        } else if (streq(key, "children-max")) {
-                r = safe_atou(value, &arg_children_max);
-                if (r < 0)
-                        goto invalid;
-        } else if (streq(key, "exec-delay")) {
-                r = safe_atoi(value, &arg_exec_delay);
-                if (r < 0)
-                        goto invalid;
-        } else if (streq(key, "event-timeout")) {
+        if (streq(key, "udev.log-priority") && value) {
+                r = util_log_priority(value);
+                if (r >= 0)
+                        log_set_max_level(r);
+        } else if (streq(key, "udev.event-timeout") && value) {
                 r = safe_atou64(value, &arg_event_timeout_usec);
-                if (r < 0)
-                        goto invalid;
-                arg_event_timeout_usec *= USEC_PER_SEC;
-                arg_event_timeout_warn_usec = (arg_event_timeout_usec / 3) ? : 1;
-        }
+                if (r >= 0) {
+                        arg_event_timeout_usec *= USEC_PER_SEC;
+                        arg_event_timeout_warn_usec = (arg_event_timeout_usec / 3) ? : 1;
+                }
+        } else if (streq(key, "udev.children-max") && value)
+                r = safe_atou(value, &arg_children_max);
+        else if (streq(key, "udev.exec-delay") && value)
+                r = safe_atoi(value, &arg_exec_delay);
+        else if (startswith(key, "udev."))
+                log_warning("Unknown udev kernel command line option \"%s\"", key);
 
-        return 0;
-invalid:
-        log_warning("invalid %s ignored: %s", full_key, value);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse \"%s=%s\", ignoring: %m", key, value);
         return 0;
 }
 
@@ -1665,7 +1649,7 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto exit;
 
-        r = parse_proc_cmdline(parse_proc_cmdline_item);
+        r = parse_proc_cmdline(parse_proc_cmdline_item, NULL, true);
         if (r < 0)
                 log_warning_errno(r, "failed to parse kernel command line, ignoring: %m");
 

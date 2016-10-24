@@ -94,7 +94,7 @@ static void start_target(const char *target, const char *mode) {
                 log_error("Failed to start unit: %s", bus_error_message(&error, r));
 }
 
-static int parse_proc_cmdline_item(const char *key, const char *value) {
+static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
 
         assert(key);
@@ -293,7 +293,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = parse_proc_cmdline(parse_proc_cmdline_item);
+        r = parse_proc_cmdline(parse_proc_cmdline_item, NULL, true);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 

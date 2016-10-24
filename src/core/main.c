@@ -308,7 +308,7 @@ static int set_machine_id(const char *m) {
         return 0;
 }
 
-static int parse_proc_cmdline_item(const char *key, const char *value) {
+static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
 
         int r;
 
@@ -1569,7 +1569,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (arg_system) {
-                r = parse_proc_cmdline(parse_proc_cmdline_item);
+                r = parse_proc_cmdline(parse_proc_cmdline_item, NULL, false);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
         }

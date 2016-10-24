@@ -1526,85 +1526,68 @@ static int setup_signals(Server *s) {
         return 0;
 }
 
-static int server_parse_proc_cmdline(Server *s) {
-        _cleanup_free_ char *line = NULL;
-        const char *p;
+static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
+        Server *s = data;
         int r;
 
-        r = proc_cmdline(&line);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to read /proc/cmdline, ignoring: %m");
-                return 0;
-        }
+        assert(s);
 
-        p = line;
-        for (;;) {
-                _cleanup_free_ char *word = NULL;
-
-                r = extract_first_word(&p, &word, NULL, 0);
+        if (streq(key, "systemd.journald.forward_to_syslog")) {
+                r = value ? parse_boolean(value) : true;
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse journald syntax \"%s\": %m", line);
-
-                if (r == 0)
-                        break;
-
-                if (startswith(word, "systemd.journald.forward_to_syslog=")) {
-                        r = parse_boolean(word + 35);
-                        if (r < 0)
-                                log_warning("Failed to parse forward to syslog switch %s. Ignoring.", word + 35);
-                        else
-                                s->forward_to_syslog = r;
-                } else if (startswith(word, "systemd.journald.forward_to_kmsg=")) {
-                        r = parse_boolean(word + 33);
-                        if (r < 0)
-                                log_warning("Failed to parse forward to kmsg switch %s. Ignoring.", word + 33);
-                        else
-                                s->forward_to_kmsg = r;
-                } else if (startswith(word, "systemd.journald.forward_to_console=")) {
-                        r = parse_boolean(word + 36);
-                        if (r < 0)
-                                log_warning("Failed to parse forward to console switch %s. Ignoring.", word + 36);
-                        else
-                                s->forward_to_console = r;
-                } else if (startswith(word, "systemd.journald.forward_to_wall=")) {
-                        r = parse_boolean(word + 33);
-                        if (r < 0)
-                                log_warning("Failed to parse forward to wall switch %s. Ignoring.", word + 33);
-                        else
-                                s->forward_to_wall = r;
-                } else if (startswith(word, "systemd.journald.max_level_console=")) {
-                        r = log_level_from_string(word + 35);
-                        if (r < 0)
-                                log_warning("Failed to parse max level console value %s. Ignoring.", word + 35);
-                        else
-                                s->max_level_console = r;
-                } else if (startswith(word, "systemd.journald.max_level_store=")) {
-                        r = log_level_from_string(word + 33);
-                        if (r < 0)
-                                log_warning("Failed to parse max level store value %s. Ignoring.", word + 33);
-                        else
-                                s->max_level_store = r;
-                } else if (startswith(word, "systemd.journald.max_level_syslog=")) {
-                        r = log_level_from_string(word + 34);
-                        if (r < 0)
-                                log_warning("Failed to parse max level syslog value %s. Ignoring.", word + 34);
-                        else
-                                s->max_level_syslog = r;
-                } else if (startswith(word, "systemd.journald.max_level_kmsg=")) {
-                        r = log_level_from_string(word + 32);
-                        if (r < 0)
-                                log_warning("Failed to parse max level kmsg value %s. Ignoring.", word + 32);
-                        else
-                                s->max_level_kmsg = r;
-                } else if (startswith(word, "systemd.journald.max_level_wall=")) {
-                        r = log_level_from_string(word + 32);
-                        if (r < 0)
-                                log_warning("Failed to parse max level wall value %s. Ignoring.", word + 32);
-                        else
-                                s->max_level_wall = r;
-                } else if (startswith(word, "systemd.journald"))
-                        log_warning("Invalid systemd.journald parameter. Ignoring.");
-        }
+                        log_warning("Failed to parse forward to syslog switch \"%s\". Ignoring.", value);
+                else
+                        s->forward_to_syslog = r;
+        } else if (streq(key, "systemd.journald.forward_to_kmsg")) {
+                r = value ? parse_boolean(value) : true;
+                if (r < 0)
+                        log_warning("Failed to parse forward to kmsg switch \"%s\". Ignoring.", value);
+                else
+                        s->forward_to_kmsg = r;
+        } else if (streq(key, "systemd.journald.forward_to_console")) {
+                r = value ? parse_boolean(value) : true;
+                if (r < 0)
+                        log_warning("Failed to parse forward to console switch \"%s\". Ignoring.", value);
+                else
+                        s->forward_to_console = r;
+        } else if (streq(key, "systemd.journald.forward_to_wall")) {
+                r = value ? parse_boolean(value) : true;
+                if (r < 0)
+                        log_warning("Failed to parse forward to wall switch \"%s\". Ignoring.", value);
+                else
+                        s->forward_to_wall = r;
+        } else if (streq(key, "systemd.journald.max_level_console") && value) {
+                r = log_level_from_string(value);
+                if (r < 0)
+                        log_warning("Failed to parse max level console value \"%s\". Ignoring.", value);
+                else
+                        s->max_level_console = r;
+        } else if (streq(key, "systemd.journald.max_level_store") && value) {
+                r = log_level_from_string(value);
+                if (r < 0)
+                        log_warning("Failed to parse max level store value \"%s\". Ignoring.", value);
+                else
+                        s->max_level_store = r;
+        } else if (streq(key, "systemd.journald.max_level_syslog") && value) {
+                r = log_level_from_string(value);
+                if (r < 0)
+                        log_warning("Failed to parse max level syslog value \"%s\". Ignoring.", value);
+                else
+                        s->max_level_syslog = r;
+        } else if (streq(key, "systemd.journald.max_level_kmsg") && value) {
+                r = log_level_from_string(value);
+                if (r < 0)
+                        log_warning("Failed to parse max level kmsg value \"%s\". Ignoring.", value);
+                else
+                        s->max_level_kmsg = r;
+        } else if (streq(key, "systemd.journald.max_level_wall") && value) {
+                r = log_level_from_string(value);
+                if (r < 0)
+                        log_warning("Failed to parse max level wall value \"%s\". Ignoring.", value);
+                else
+                        s->max_level_wall = r;
+        } else if (startswith(key, "systemd.journald"))
+                log_warning("Unknown journald kernel command line option \"%s\". Ignoring.", key);
 
         /* do not warn about state here, since probably systemd already did */
         return 0;
@@ -1915,7 +1898,7 @@ int server_init(Server *s) {
         journal_reset_metrics(&s->runtime_storage.metrics);
 
         server_parse_config_file(s);
-        server_parse_proc_cmdline(s);
+        parse_proc_cmdline(parse_proc_cmdline_item, s, true);
 
         if (!!s->rate_limit_interval ^ !!s->rate_limit_burst) {
                 log_debug("Setting both rate limit interval and burst from "USEC_FMT",%u to 0,0",

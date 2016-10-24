@@ -25,15 +25,18 @@
 #include "string-util.h"
 #include "util.h"
 
-static int parse_item(const char *key, const char *value) {
+static int obj;
+
+static int parse_item(const char *key, const char *value, void *data) {
         assert_se(key);
+        assert_se(data == &obj);
 
         log_info("kernel cmdline option <%s> = <%s>", key, strna(value));
         return 0;
 }
 
 static void test_parse_proc_cmdline(void) {
-        assert_se(parse_proc_cmdline(parse_item) >= 0);
+        assert_se(parse_proc_cmdline(parse_item, &obj, true) >= 0);
 }
 
 static void test_runlevel_to_target(void) {

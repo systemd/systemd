@@ -33,7 +33,7 @@
 static const char *arg_dest = "/tmp";
 static char *arg_resume_dev = NULL;
 
-static int parse_proc_cmdline_item(const char *key, const char *value) {
+static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
 
         if (streq(key, "resume") && value) {
                 free(arg_resume_dev);
@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
         if (!in_initrd())
                 return EXIT_SUCCESS;
 
-        r = parse_proc_cmdline(parse_proc_cmdline_item);
+        r = parse_proc_cmdline(parse_proc_cmdline_item, NULL, false);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 

@@ -42,7 +42,9 @@ int proc_cmdline(char **ret) {
                 return read_one_line_file("/proc/cmdline", ret);
 }
 
-int parse_proc_cmdline(int (*parse_item)(const char *key, const char *value)) {
+int parse_proc_cmdline(int (*parse_item)(const char *key, const char *value, void *data),
+                       void *data,
+                       bool strip_prefix) {
         _cleanup_free_ char *line = NULL;
         const char *p;
         int r;
@@ -56,7 +58,7 @@ int parse_proc_cmdline(int (*parse_item)(const char *key, const char *value)) {
         p = line;
         for (;;) {
                 _cleanup_free_ char *word = NULL;
-                char *value = NULL;
+                char *value = NULL, *unprefixed;
 
                 r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES|EXTRACT_RELAX);
                 if (r < 0)
@@ -66,14 +68,15 @@ int parse_proc_cmdline(int (*parse_item)(const char *key, const char *value)) {
 
                 /* Filter out arguments that are intended only for the
                  * initrd */
-                if (!in_initrd() && startswith(word, "rd."))
+                unprefixed = startswith(word, "rd.");
+                if (unprefixed && !in_initrd())
                         continue;
 
                 value = strchr(word, '=');
                 if (value)
                         *(value++) = 0;
 
-                r = parse_item(word, value);
+                r = parse_item(strip_prefix && unprefixed ? unprefixed : word, value, data);
                 if (r < 0)
                         return r;
         }
