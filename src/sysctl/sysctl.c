@@ -51,11 +51,18 @@ static int apply_all(OrderedHashmap *sysctl_options) {
 
                 k = sysctl_write(property, value);
                 if (k < 0) {
-                        log_full_errno(k == -ENOENT ? LOG_INFO : LOG_WARNING, k,
-                                       "Couldn't write '%s' to '%s', ignoring: %m", value, property);
+                        /* If the sysctl is not available in the kernel or we are running with reduced privileges and
+                         * cannot write it, then log about the issue at LOG_NOTICE level, and proceed without
+                         * failing. (EROFS is treated as a permission problem here, since that's how container managers
+                         * usually protected their sysctls.) In all other cases log an error and make the tool fail. */
 
-                        if (r == 0 && k != -ENOENT)
-                                r = k;
+                        if (IN_SET(k, -EPERM, -EACCES, -EROFS, -ENOENT))
+                                log_notice_errno(k, "Couldn't write '%s' to '%s', ignoring: %m", value, property);
+                        else {
+                                log_error_errno(k, "Couldn't write '%s' to '%s': %m", value, property);
+                                if (r == 0)
+                                        r = k;
+                        }
                 }
         }
 
