@@ -1319,7 +1319,7 @@
               </row>
               <row>
                 <entry>@ipc</entry>
-                <entry>SysV IPC, POSIX Message Queues or other IPC (<citerefentry project='man-pages'><refentrytitle>mq_overview</refentrytitle><manvolnum>7</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>svipc</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
+                <entry>Pipes, SysV IPC, POSIX Message Queues and other IPC (<citerefentry project='man-pages'><refentrytitle>mq_overview</refentrytitle><manvolnum>7</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>svipc</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
               </row>
               <row>
                 <entry>@keyring</entry>

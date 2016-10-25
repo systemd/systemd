@@ -290,9 +290,10 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "select\0"
         },
         [SYSCALL_FILTER_SET_IPC] = {
-                /* Message queues, SYSV IPC or other IPC: unusual */
+                /* Message queues, SYSV IPC or other IPC */
                 .name = "@ipc",
                 .value = "ipc\0"
+                "memfd_create\0"
                 "mq_getsetattr\0"
                 "mq_notify\0"
                 "mq_open\0"
@@ -303,6 +304,8 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "msgget\0"
                 "msgrcv\0"
                 "msgsnd\0"
+                "pipe2\0"
+                "pipe\0"
                 "process_vm_readv\0"
                 "process_vm_writev\0"
                 "semctl\0"
