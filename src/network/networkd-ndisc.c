@@ -680,13 +680,13 @@ void ndisc_vacuum(Link *link) {
 
         SET_FOREACH(r, link->ndisc_rdnss, i)
                 if (r->valid_until < time_now) {
-                        (void) set_remove(link->ndisc_rdnss, r);
+                        free(set_remove(link->ndisc_rdnss, r));
                         link_dirty(link);
                 }
 
         SET_FOREACH(d, link->ndisc_dnssl, i)
                 if (d->valid_until < time_now) {
-                        (void) set_remove(link->ndisc_dnssl, d);
+                        free(set_remove(link->ndisc_dnssl, d));
                         link_dirty(link);
                 }
 }
