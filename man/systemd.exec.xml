@@ -1351,13 +1351,13 @@
               </row>
               <row>
                 <entry>@raw-io</entry>
-                <entry>Raw I/O port access (<citerefentry project='man-pages'><refentrytitle>ioperm</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>iopl</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <function>pciconfig_read()</function>, …</entry>
+                <entry>Raw I/O port access (<citerefentry project='man-pages'><refentrytitle>ioperm</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>iopl</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <function>pciconfig_read()</function>, …)</entry>
               </row>
             </tbody>
           </tgroup>
         </table>
 
-        Note, that as new system calls are added to the kernel, additional system calls might be added to the groups
+        Note that as new system calls are added to the kernel, additional system calls might be added to the groups
         above, so the contents of the sets may change between systemd versions.</para>
 
         <para>It is recommended to combine the file system namespacing related options with
