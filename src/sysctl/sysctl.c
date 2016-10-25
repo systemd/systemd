@@ -69,6 +69,25 @@ static int apply_all(OrderedHashmap *sysctl_options) {
         return r;
 }
 
+static bool test_prefix(const char *p) {
+        char **i;
+
+        if (strv_isempty(arg_prefixes))
+                return true;
+
+        STRV_FOREACH(i, arg_prefixes) {
+                const char *t;
+
+                t = path_startswith(*i, "/proc/sys/");
+                if (!t)
+                        t = *i;
+                if (path_startswith(p, t))
+                        return true;
+        }
+
+        return false;
+}
+
 static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ignore_enoent) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -118,20 +137,9 @@ static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ign
                 p = sysctl_normalize(strstrip(p));
                 value = strstrip(value);
 
-                if (!strv_isempty(arg_prefixes)) {
-                        char **i, *t;
-                        STRV_FOREACH(i, arg_prefixes) {
-                                t = path_startswith(*i, "/proc/sys/");
-                                if (t == NULL)
-                                        t = *i;
-                                if (path_startswith(p, t))
-                                        goto found;
-                        }
-                        /* not found */
+                if (!test_prefix(p))
                         continue;
-                }
 
-found:
                 existing = ordered_hashmap_get2(sysctl_options, p, &v);
                 if (existing) {
                         if (streq(value, existing))
