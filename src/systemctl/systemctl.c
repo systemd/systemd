@@ -513,13 +513,13 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                         off_circle = ansi_normal();
                         circle = true;
                         on_loaded = underline ? ansi_highlight_red_underline() : ansi_highlight_red();
-                        off_loaded = on_underline;
+                        off_loaded = underline ? on_underline : ansi_normal();
                 } else if (streq(u->active_state, "failed") && !arg_plain) {
                         on_circle = ansi_highlight_red();
                         off_circle = ansi_normal();
                         circle = true;
                         on_active = underline ? ansi_highlight_red_underline() : ansi_highlight_red();
-                        off_active = on_underline;
+                        off_active = underline ? on_underline : ansi_normal();
                 }
 
                 if (u->machine) {
