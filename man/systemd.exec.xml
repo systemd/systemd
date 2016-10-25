@@ -1270,6 +1270,14 @@
         filter is reset, all prior assignments will have no effect. This does not affect commands prefixed with
         <literal>+</literal>.</para>
 
+        <para>Note that strict system call filters may impact execution and error handling code paths of the service
+        invocation. Specifically, access to the <function>execve</function> system call is required for the execution
+        of the service binary — if it is blocked service invocation will necessarily fail. Also, if execution of the
+        service binary fails for some reason (for example: missing service executable), the error handling logic might
+        require access to an additional set of system calls in order to process and log this failure correctly. It
+        might be necessary to temporarily disable system call filters in order to simplify debugging of such
+        failures.</para>
+
         <para>If you specify both types of this option (i.e.
         whitelisting and blacklisting), the first encountered will
         take precedence and will dictate the default action
