@@ -443,7 +443,6 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .value =
                 "arch_prctl\0"
                 "clone\0"
-                "execve\0"
                 "execveat\0"
                 "fork\0"
                 "kill\0"

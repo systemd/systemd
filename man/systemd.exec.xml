@@ -1347,7 +1347,7 @@
               </row>
               <row>
                 <entry>@process</entry>
-                <entry>Process control, execution, namespaces (<citerefentry project='man-pages'><refentrytitle>execve</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>, …</entry>
+                <entry>Process control, execution, namespaces (<citerefentry project='man-pages'><refentrytitle>clone</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>, …</entry>
               </row>
               <row>
                 <entry>@raw-io</entry>
