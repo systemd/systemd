@@ -20,18 +20,45 @@
 ***/
 
 #include <seccomp.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 const char* seccomp_arch_to_string(uint32_t c);
 int seccomp_arch_from_string(const char *n, uint32_t *ret);
 
-int seccomp_add_secondary_archs(scmp_filter_ctx *c);
+int seccomp_init_conservative(scmp_filter_ctx *ret, uint32_t default_action);
+
+int seccomp_add_secondary_archs(scmp_filter_ctx c);
 
 bool is_seccomp_available(void);
 
-typedef struct SystemCallFilterSet {
-        const char *set_name;
+typedef struct SyscallFilterSet {
+        const char *name;
         const char *value;
-} SystemCallFilterSet;
+} SyscallFilterSet;
 
-extern const SystemCallFilterSet syscall_filter_sets[];
+enum {
+        SYSCALL_FILTER_SET_CLOCK,
+        SYSCALL_FILTER_SET_CPU_EMULATION,
+        SYSCALL_FILTER_SET_DEBUG,
+        SYSCALL_FILTER_SET_DEFAULT,
+        SYSCALL_FILTER_SET_IO_EVENT,
+        SYSCALL_FILTER_SET_IPC,
+        SYSCALL_FILTER_SET_KEYRING,
+        SYSCALL_FILTER_SET_MODULE,
+        SYSCALL_FILTER_SET_MOUNT,
+        SYSCALL_FILTER_SET_NETWORK_IO,
+        SYSCALL_FILTER_SET_OBSOLETE,
+        SYSCALL_FILTER_SET_PRIVILEGED,
+        SYSCALL_FILTER_SET_PROCESS,
+        SYSCALL_FILTER_SET_RAW_IO,
+        _SYSCALL_FILTER_SET_MAX
+};
+
+extern const SyscallFilterSet syscall_filter_sets[];
+
+const SyscallFilterSet *syscall_filter_set_find(const char *name);
+
+int seccomp_add_syscall_filter_set(scmp_filter_ctx seccomp, const SyscallFilterSet *set, uint32_t action);
+
+int seccomp_load_filter_set(uint32_t default_action, const SyscallFilterSet *set, uint32_t action);

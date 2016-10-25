@@ -329,9 +329,9 @@ static int condition_test_needs_update(Condition *c) {
                 uint64_t timestamp;
                 int r;
 
-                r = parse_env_file(p, NULL, "TimestampNSec", &timestamp_str, NULL);
+                r = parse_env_file(p, NULL, "TIMESTAMP_NSEC", &timestamp_str, NULL);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to parse timestamp file '%s', using mtime: %m", p);
+                        log_error_errno(r, "Failed to parse timestamp file '%s', using mtime: %m", p);
                         return true;
                 } else if (r == 0) {
                         log_debug("No data in timestamp file '%s', using mtime", p);
@@ -340,12 +340,11 @@ static int condition_test_needs_update(Condition *c) {
 
                 r = safe_atou64(timestamp_str, &timestamp);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to parse timestamp value '%s' in file '%s', using mtime: %m",
-                                        timestamp_str, p);
+                        log_error_errno(r, "Failed to parse timestamp value '%s' in file '%s', using mtime: %m", timestamp_str, p);
                         return true;
                 }
 
-                other.st_mtim.tv_nsec = timestamp % NSEC_PER_SEC;
+                timespec_store(&other.st_mtim, timestamp);
         }
 
         return usr.st_mtim.tv_nsec > other.st_mtim.tv_nsec;

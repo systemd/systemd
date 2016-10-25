@@ -18,6 +18,7 @@
 ***/
 
 #include "fd-util.h"
+#include "fileio.h"
 #include "io-util.h"
 #include "selinux-util.h"
 #include "util.h"
@@ -32,8 +33,8 @@ static int apply_timestamp(const char *path, struct timespec *ts) {
                 *ts,
                 *ts
         };
-        int fd = -1;
         _cleanup_fclose_ FILE *f = NULL;
+        int fd = -1;
         int r;
 
         assert(path);
@@ -59,18 +60,20 @@ static int apply_timestamp(const char *path, struct timespec *ts) {
                 return log_error_errno(errno, "Failed to create/open timestamp file %s: %m", path);
         }
 
-        f = fdopen(fd, "w");
+        f = fdopen(fd, "we");
         if (!f) {
                 safe_close(fd);
                 return log_error_errno(errno, "Failed to fdopen() timestamp file %s: %m", path);
         }
 
         (void) fprintf(f,
-                       "%s"
-                       "TimestampNSec=" NSEC_FMT "\n",
-                       MESSAGE, timespec_load_nsec(ts));
+                       MESSAGE
+                       "TIMESTAMP_NSEC=" NSEC_FMT "\n",
+                       timespec_load_nsec(ts));
 
-        fflush(f);
+        r = fflush_and_check(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write timestamp file: %m");
 
         if (futimens(fd, twice) < 0)
                 return log_error_errno(errno, "Failed to update timestamp on %s: %m", path);

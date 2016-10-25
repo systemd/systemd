@@ -1558,6 +1558,11 @@ tests += \
 	test-acl-util
 endif
 
+if HAVE_SECCOMP
+tests += \
+	test-seccomp
+endif
+
 EXTRA_DIST += \
 	test/a.service \
 	test/basic.target \
@@ -2024,6 +2029,12 @@ test_acl_util_SOURCES = \
 	src/test/test-acl-util.c
 
 test_acl_util_LDADD = \
+	libsystemd-shared.la
+
+test_seccomp_SOURCES = \
+	src/test/test-seccomp.c
+
+test_seccomp_LDADD = \
 	libsystemd-shared.la
 
 test_namespace_LDADD = \

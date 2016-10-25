@@ -2618,6 +2618,7 @@ int config_parse_documentation(const char *unit,
 }
 
 #ifdef HAVE_SECCOMP
+
 static int syscall_filter_parse_one(
                 const char *unit,
                 const char *filename,
@@ -2628,27 +2629,29 @@ static int syscall_filter_parse_one(
                 bool warn) {
         int r;
 
-        if (*t == '@') {
-                const SystemCallFilterSet *set;
+        if (t[0] == '@') {
+                const SyscallFilterSet *set;
+                const char *i;
 
-                for (set = syscall_filter_sets; set->set_name; set++)
-                        if (streq(set->set_name, t)) {
-                                const char *sys;
+                set = syscall_filter_set_find(t);
+                if (!set) {
+                        if (warn)
+                                log_syntax(unit, LOG_WARNING, filename, line, 0, "Don't know system call group, ignoring: %s", t);
+                        return 0;
+                }
 
-                                NULSTR_FOREACH(sys, set->value) {
-                                        r = syscall_filter_parse_one(unit, filename, line, c, invert, sys, false);
-                                        if (r < 0)
-                                                return r;
-                                }
-                                break;
-                        }
+                NULSTR_FOREACH(i, set->value) {
+                        r = syscall_filter_parse_one(unit, filename, line, c, invert, i, false);
+                        if (r < 0)
+                                return r;
+                }
         } else {
                 int id;
 
                 id = seccomp_syscall_resolve_name(t);
                 if (id == __NR_SCMP_ERROR)  {
                         if (warn)
-                                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse system call, ignoring: %s", t);
+                                log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse system call, ignoring: %s", t);
                         return 0;
                 }
 
@@ -2662,8 +2665,9 @@ static int syscall_filter_parse_one(
                         if (r < 0)
                                 return log_oom();
                 } else
-                        set_remove(c->syscall_filter, INT_TO_PTR(id + 1));
+                        (void) set_remove(c->syscall_filter, INT_TO_PTR(id + 1));
         }
+
         return 0;
 }
 
@@ -2682,8 +2686,7 @@ int config_parse_syscall_filter(
         ExecContext *c = data;
         Unit *u = userdata;
         bool invert = false;
-        const char *word, *state;
-        size_t l;
+        const char *p;
         int r;
 
         assert(filename);
@@ -2722,19 +2725,24 @@ int config_parse_syscall_filter(
                 }
         }
 
-        FOREACH_WORD_QUOTED(word, l, rvalue, state) {
-                _cleanup_free_ char *t = NULL;
+        p = rvalue;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
 
-                t = strndup(word, l);
-                if (!t)
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
                         return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        break;
+                }
 
-                r = syscall_filter_parse_one(unit, filename, line, c, invert, t, true);
+                r = syscall_filter_parse_one(unit, filename, line, c, invert, word, true);
                 if (r < 0)
                         return r;
         }
-        if (!isempty(state))
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Trailing garbage, ignoring.");
 
         /* Turn on NNP, but only if it wasn't configured explicitly
          * before, and only if we are in user mode. */
