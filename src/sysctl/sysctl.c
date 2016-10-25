@@ -247,12 +247,12 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
+        OrderedHashmap *sysctl_options = NULL;
         int r = 0, k;
-        OrderedHashmap *sysctl_options;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+                goto finish;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
