@@ -2559,6 +2559,13 @@ static int exec_child(
                 }
         }
 
+        /* Apply just after mount namespace setup */
+        r = apply_working_directory(context, params, home, needs_mount_namespace);
+        if (r < 0) {
+                *exit_status = EXIT_CHROOT;
+                return r;
+        }
+
         /* Drop group as early as possbile */
         if ((params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged) {
                 r = enforce_groups(context, gid, supplementary_gids, ngids);
@@ -2566,12 +2573,6 @@ static int exec_child(
                         *exit_status = EXIT_GROUP;
                         return r;
                 }
-        }
-
-        r = apply_working_directory(context, params, home, needs_mount_namespace);
-        if (r < 0) {
-                *exit_status = EXIT_CHROOT;
-                return r;
         }
 
 #ifdef HAVE_SELINUX
