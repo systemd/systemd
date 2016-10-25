@@ -690,3 +690,12 @@ void ndisc_vacuum(Link *link) {
                         link_dirty(link);
                 }
 }
+
+void ndisc_flush(Link *link) {
+        assert(link);
+
+        /* Removes all RDNSS and DNSSL entries, without exception */
+
+        link->ndisc_rdnss = set_free_free(link->ndisc_rdnss);
+        link->ndisc_dnssl = set_free_free(link->ndisc_dnssl);
+}
