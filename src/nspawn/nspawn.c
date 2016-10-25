@@ -2260,7 +2260,7 @@ static int dissect_image(
 static int mount_device(const char *what, const char *where, const char *directory, bool rw) {
 #ifdef HAVE_BLKID
         _cleanup_blkid_free_probe_ blkid_probe b = NULL;
-        const char *fstype, *p;
+        const char *fstype, *p, *options;
         int r;
 
         assert(what);
@@ -2309,7 +2309,17 @@ static int mount_device(const char *what, const char *where, const char *directo
                 return -EOPNOTSUPP;
         }
 
-        return mount_verbose(LOG_ERR, what, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), NULL);
+        /* If this is a loopback device then let's mount the image with discard, so that the underlying file remains
+         * sparse when possible. */
+        if (STR_IN_SET(fstype, "btrfs", "ext4", "vfat", "xfs")) {
+                const char *l;
+
+                l = path_startswith(what, "/dev");
+                if (l && startswith(l, "loop"))
+                        options = "discard";
+        }
+
+        return mount_verbose(LOG_ERR, what, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), options);
 #else
         log_error("--image= is not supported, compiled without blkid support.");
         return -EOPNOTSUPP;
