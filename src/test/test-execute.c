@@ -70,6 +70,24 @@ static void check(Manager *m, Unit *unit, int status_expected, int code_expected
         assert_se(service->main_exec_status.code == code_expected);
 }
 
+static bool is_inaccessible_available(void) {
+        char *p;
+
+        FOREACH_STRING(p,
+                "/run/systemd/inaccessible/reg",
+                "/run/systemd/inaccessible/dir",
+                "/run/systemd/inaccessible/chr",
+                "/run/systemd/inaccessible/blk",
+                "/run/systemd/inaccessible/fifo",
+                "/run/systemd/inaccessible/sock"
+        ) {
+                if (access(p, F_OK) < 0)
+                        return false;
+        }
+
+        return true;
+}
+
 static void test(Manager *m, const char *unit_name, int status_expected, int code_expected) {
         Unit *unit;
 
@@ -129,6 +147,11 @@ static void test_exec_privatedevices(Manager *m) {
                 log_notice("testing in container, skipping private device tests");
                 return;
         }
+        if (!is_inaccessible_available()) {
+                log_notice("testing without inaccessible, skipping private device tests");
+                return;
+        }
+
         test(m, "exec-privatedevices-yes.service", 0, CLD_EXITED);
         test(m, "exec-privatedevices-no.service", 0, CLD_EXITED);
 }
@@ -138,6 +161,11 @@ static void test_exec_privatedevices_capabilities(Manager *m) {
                 log_notice("testing in container, skipping private device tests");
                 return;
         }
+        if (!is_inaccessible_available()) {
+                log_notice("testing without inaccessible, skipping private device tests");
+                return;
+        }
+
         test(m, "exec-privatedevices-yes-capability-mknod.service", 0, CLD_EXITED);
         test(m, "exec-privatedevices-no-capability-mknod.service", 0, CLD_EXITED);
         test(m, "exec-privatedevices-yes-capability-sys-rawio.service", 0, CLD_EXITED);
@@ -147,6 +175,10 @@ static void test_exec_privatedevices_capabilities(Manager *m) {
 static void test_exec_protectkernelmodules(Manager *m) {
         if (detect_container() > 0) {
                 log_notice("testing in container, skipping protectkernelmodules tests");
+                return;
+        }
+        if (!is_inaccessible_available()) {
+                log_notice("testing without inaccessible, skipping protectkernelmodules tests");
                 return;
         }
 
