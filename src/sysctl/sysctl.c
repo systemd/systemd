@@ -90,6 +90,7 @@ static bool test_prefix(const char *p) {
 
 static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ignore_enoent) {
         _cleanup_fclose_ FILE *f = NULL;
+        unsigned c = 0;
         int r;
 
         assert(path);
@@ -115,6 +116,8 @@ static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ign
                         return log_error_errno(errno, "Failed to read file '%s', ignoring: %m", path);
                 }
 
+                c++;
+
                 p = strstrip(l);
                 if (!*p)
                         continue;
@@ -124,7 +127,7 @@ static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ign
 
                 value = strchr(p, '=');
                 if (!value) {
-                        log_error("Line is not an assignment in file '%s': %s", path, value);
+                        log_error("Line is not an assignment at '%s:%u': %s", path, c, value);
 
                         if (r == 0)
                                 r = -EINVAL;
@@ -145,7 +148,7 @@ static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ign
                         if (streq(value, existing))
                                 continue;
 
-                        log_debug("Overwriting earlier assignment of %s in file '%s'.", p, path);
+                        log_debug("Overwriting earlier assignment of %s at '%s:%u'.", p, path, c);
                         free(ordered_hashmap_remove(sysctl_options, p));
                         free(v);
                 }
