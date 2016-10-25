@@ -2721,7 +2721,7 @@ typedef struct {
 static void wait_context_free(WaitContext *c) {
         c->match = sd_bus_slot_unref(c->match);
         c->event = sd_event_unref(c->event);
-        c->unit_paths = set_free(c->unit_paths);
+        c->unit_paths = set_free_free(c->unit_paths);
 }
 
 static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
@@ -2738,31 +2738,37 @@ static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error
         r = sd_bus_message_skip(m, "s");
         if (r < 0)
                 return bus_log_parse_error(r);
+
         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "{sv}");
         if (r < 0)
                 return bus_log_parse_error(r);
 
         while ((r = sd_bus_message_enter_container(m, SD_BUS_TYPE_DICT_ENTRY, "sv")) > 0) {
                 const char *s;
-                bool is_failed;
 
                 r = sd_bus_message_read(m, "s", &s);
                 if (r < 0)
                         return bus_log_parse_error(r);
+
                 if (streq(s, "ActiveState")) {
+                        bool is_failed;
+
                         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_VARIANT, "s");
                         if (r < 0)
                                 return bus_log_parse_error(r);
+
                         r = sd_bus_message_read(m, "s", &s);
                         if (r < 0)
                                 return bus_log_parse_error(r);
+
                         is_failed = streq(s, "failed");
                         if (streq(s, "inactive") || is_failed) {
                                 log_debug("%s became %s, dropping from --wait tracking", path, s);
-                                set_remove(c->unit_paths, path);
-                                c->any_failed |= is_failed;
+                                free(set_remove(c->unit_paths, path));
+                                c->any_failed = c->any_failed || is_failed;
                         } else
                                 log_debug("ActiveState on %s changed to %s", path, s);
+
                         break; /* no need to dissect the rest of the message */
                 } else {
                         /* other property */

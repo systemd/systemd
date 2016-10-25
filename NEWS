@@ -6,7 +6,8 @@ CHANGES WITH 232 in spe
           the user or group of a service when that service exits.
 
         * The new ProtectKernelModules= option can be used to disable explicit
-          load and unload operations of kernel modules by a service.
+          load and unload operations of kernel modules by a service. In
+          addition access to /usr/lib/modules is removed if this option is set.
 
         * ProtectSystem= option gained a new value "strict", which causes the
           whole file system tree with the exception of /dev, /proc, and /sys,
@@ -228,6 +229,87 @@ CHANGES WITH 232 in spe
           available only for privileged clients and should be helpful to watch
           running services in a race-free manner, and in particular collect
           information about exit statuses and results.
+
+        * The nss-resolve module has been changed to strictly return UNAVAIL
+          when communication via D-Bus with resolved failed, and NOTFOUND when
+          a lookup completed but was negative. This means it is now possible to
+          neatly configure fallbacks using nsswitch.conf result checking
+          expressions. Taking benefit of this, the new recommended
+          configuration line for the "hosts" entry in /etc/nsswitch.conf is:
+
+              hosts: files mymachines resolve [!UNAVAIL=return] dns myhostname
+
+        * A new setting CtrlAltDelBurstAction= has been added to
+          /etc/systemd/system.conf which may be used to configure the precise
+          behaviour if the user on the console presses Ctrl-Alt-Del more often
+          than 7 times in 2s. Previously this would unconditionally result in
+          an expedited, immediate reboot. With this new setting the precise
+          operation may be configured in more detail, and also turned off
+          entirely.
+
+        * In .netdev files two new settings RemoteChecksumTx= and
+          RemoteChecksumRx= are now understood that permit configuring the
+          remote checksumming logic for VXLAN networks.
+
+        * The service manager learnt a new "invocation ID" concept for invoked
+          services. Each runtime cycle of a service will get a new invocation
+          ID (a 128bit random UUID) assigned that identifies the current
+          run of the service uniquely and globally. A new invocation ID
+          is generated each time a service starts up. The journal will store
+          the invocation ID of a service along with any logged messages, thus
+          making the invocation ID useful for matching the online runtime of a
+          service with the offline log data it generated in a safe way without
+          relying on synchronized timestamps. In many ways this new service
+          invocation ID concept is similar to the kernel's boot ID concept that
+          uniquely and globally identifies the runtime of each boot. The
+          invocation ID of a service is passed to the service itself via an
+          environment variable ($INVOCATION_ID). A new bus call
+          GetUnitByInvocationID() has been added that is similar to GetUnit()
+          but instead of retrieving the bus path for a unit by its name
+          retrieves it by its invocation ID. The returned path is valid only as
+          long as the passed invocation ID is current.
+
+        * systemd-resolved gained a new "DNSStubListener" setting in
+          resolved.conf. It either takes a boolean value or the special values
+          "udp" and "tcp", and configures whether to enable the stub DNS
+          listener on 127.0.0.53:53.
+
+        * IP addresses configured via networkd may now carry additional
+          configuration settings supported by the kernel. New options include:
+          HomeAddress=, DuplicateAddressDetection=, ManageTemporaryAddress=,
+          PrefixRoute=, AutoJoin=.
+
+        * The PAM configuration fragment file for "user@.service" shipped with
+          systemd (i.e. the --user instance of systemd) has been stripped to
+          the minimum necessary to make the system boot. Previously, it
+          contained Fedora-specific stanzas that did not apply to other
+          distributions. It is expected that downstream distributions add
+          additional configuration lines, matching their needs to this file,
+          using it only as rough template of what systemd itself needs. Note
+          that this reduced fragment does not even include an invocation of
+          pam_limits which most distributions probably want to add, even though
+          systemd itself does not need it. (There's also the new build time
+          option --with-pamconfdir=no to disable installation of the PAM
+          fragment entirely.)
+
+        * If PrivateDevices=yes is set for a service the CAP_SYS_RAWIO
+          capability is now also dropped from its set (in addition to
+          CAP_SYS_MKNOD as before).
+
+        * In service unit files it is now possible to connect a specific named
+          file descriptor with stdin/stdout/stdout of an executed service. The
+          name may be specified in matching .socket units using the
+          FileDescriptorName= setting.
+
+        * A number of journal settings may now be configured on the kernel
+          command line. Specifically, the following options are now understood:
+          systemd.journald.max_level_console=,
+          systemd.journald.max_level_store=,
+          systemd.journald.max_level_syslog=, systemd.journald.max_level_kmsg=,
+          systemd.journald.max_level_wall=.
+
+        * "systemctl is-enabled --full" will now show by which symlinks a unit
+          file is enabled in the unit dependency tree.
 
 CHANGES WITH 231:
 
@@ -2106,7 +2188,7 @@ CHANGES WITH 219:
           files.
 
         * systemd now provides a way to store file descriptors
-          per-service in PID 1.This is useful for daemons to ensure
+          per-service in PID 1. This is useful for daemons to ensure
           that fds they require are not lost during a daemon
           restart. The fds are passed to the daemon on the next
           invocation in the same way socket activation fds are
