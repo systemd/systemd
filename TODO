@@ -32,6 +32,11 @@ Janitorial Clean-ups:
 
 Features:
 
+* drop nss-myhostname in favour of nss-resolve?
+
+* drop internal dlopen() based nss-dns fallback in nss-resolve, and rely on the
+  external nsswitch.conf based one
+
 * add a percentage syntax for TimeoutStopSec=, e.g. TimeoutStopSec=150%, and
   then use that for the setting used in user@.service. It should be understood
   relative to the configured default value.
