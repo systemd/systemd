@@ -5272,6 +5272,20 @@ static int cat(int argc, char *argv[], void *userdata) {
                 else
                         puts("");
 
+                if (need_daemon_reload(bus, *name))
+                        fprintf(stderr,
+                                "%s# Warning: %s changed on disk, the version systemd has loaded is outdated.\n"
+                                "%s# This output shows the current version of the unit's original fragment and drop-in files.\n"
+                                "%s# If fragments or drop-ins were added or removed, they are not properly reflected in this output.\n"
+                                "%s# Run 'systemctl%s daemon-reload' to reload units.%s\n",
+                                ansi_highlight_red(),
+                                *name,
+                                ansi_highlight_red(),
+                                ansi_highlight_red(),
+                                ansi_highlight_red(),
+                                arg_scope == UNIT_FILE_SYSTEM ? "" : " --user",
+                                ansi_normal());
+
                 if (fragment_path) {
                         r = cat_file(fragment_path, false);
                         if (r < 0)
