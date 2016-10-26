@@ -1516,12 +1516,15 @@
         <term><varname>MemoryDenyWriteExecute=</varname></term>
 
         <listitem><para>Takes a boolean argument. If set, attempts to create memory mappings that are writable and
-        executable at the same time, or to change existing memory mappings to become executable are prohibited.
+        executable at the same time, or to change existing memory mappings to become executable, or mapping shared memory
+        segments as executable are prohibited.
         Specifically, a system call filter is added that rejects
         <citerefentry><refentrytitle>mmap</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        system calls with both <constant>PROT_EXEC</constant> and <constant>PROT_WRITE</constant> set
-        and <citerefentry><refentrytitle>mprotect</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        system calls with <constant>PROT_EXEC</constant> set. Note that this option is incompatible with programs
+        system calls with both <constant>PROT_EXEC</constant> and <constant>PROT_WRITE</constant> set,
+        <citerefentry><refentrytitle>mprotect</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        system calls with <constant>PROT_EXEC</constant> set and
+        <citerefentry><refentrytitle>shmat</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        system calls with <constant>SHM_EXEC</constant> set. Note that this option is incompatible with programs
         that generate program code dynamically at runtime, such as JIT execution engines, or programs compiled making
         use of the code "trampoline" feature of various C compilers. This option improves service security, as it makes
         harder for software exploits to change running code dynamically.

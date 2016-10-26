@@ -29,8 +29,10 @@
 #include <sys/mman.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
+#include <sys/shm.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
 #include <utmpx.h>
@@ -1391,6 +1393,15 @@ static int apply_memory_deny_write_execute(const Unit* u, const ExecContext *c) 
                         SCMP_SYS(mprotect),
                         1,
                         SCMP_A2(SCMP_CMP_MASKED_EQ, PROT_EXEC, PROT_EXEC));
+        if (r < 0)
+                goto finish;
+
+        r = seccomp_rule_add(
+                        seccomp,
+                        SCMP_ACT_ERRNO(EPERM),
+                        SCMP_SYS(shmat),
+                        1,
+                        SCMP_A2(SCMP_CMP_MASKED_EQ, SHM_EXEC, SHM_EXEC));
         if (r < 0)
                 goto finish;
 
