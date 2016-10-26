@@ -979,6 +979,56 @@ int config_parse_dhcp_server_ntp(
         }
 }
 
+int config_parse_dns(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *n = userdata;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        for (;;) {
+                _cleanup_free_ char *w = NULL;
+                union in_addr_union a;
+                int family;
+
+                r = extract_first_word(&rvalue, &w, WHITESPACE, EXTRACT_QUOTES|EXTRACT_RETAIN_ESCAPE);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        break;
+                }
+
+                r = in_addr_from_string_auto(w, &family, &a);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse dns server address, ignoring: %s", w);
+                        continue;
+                }
+
+                r = strv_consume(&n->dns, w);
+                if (r < 0)
+                        return log_oom();
+
+                w = NULL;
+        }
+
+        return 0;
+}
+
 int config_parse_dnssec_negative_trust_anchors(
                 const char *unit,
                 const char *filename,

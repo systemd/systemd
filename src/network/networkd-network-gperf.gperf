@@ -49,7 +49,7 @@ Network.EmitLLDP,                       config_parse_lldp_emit,                 
 Network.Address,                        config_parse_address,                           0,                             0
 Network.Gateway,                        config_parse_gateway,                           0,                             0
 Network.Domains,                        config_parse_domains,                           0,                             0
-Network.DNS,                            config_parse_strv,                              0,                             offsetof(Network, dns)
+Network.DNS,                            config_parse_dns,                               0,                             0
 Network.LLMNR,                          config_parse_resolve_support,                   0,                             offsetof(Network, llmnr)
 Network.MulticastDNS,                   config_parse_resolve_support,                   0,                             offsetof(Network, mdns)
 Network.DNSSEC,                         config_parse_dnssec_mode,                       0,                             offsetof(Network, dnssec_mode)
