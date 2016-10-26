@@ -261,6 +261,7 @@
 /test-ring
 /test-rlimit-util
 /test-sched-prio
+/test-seccomp
 /test-selinux
 /test-set
 /test-sizeof
