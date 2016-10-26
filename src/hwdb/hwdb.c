@@ -172,8 +172,8 @@ static int trie_node_add_value(struct trie *trie, struct trie_node *node,
         if (v < 0)
                 return v;
         fn = strbuf_add_string(trie->strings, filename, strlen(filename));
-        if (v < 0)
-                return v;
+        if (fn < 0)
+                return fn;
 
         if (node->values_count) {
                 struct trie_value_entry search = {
