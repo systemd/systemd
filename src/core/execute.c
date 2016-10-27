@@ -2003,6 +2003,59 @@ static int compile_read_write_paths(
         return 0;
 }
 
+static int apply_mount_namespace(Unit *u, const ExecContext *context,
+                                 const ExecParameters *params,
+                                 ExecRuntime *runtime) {
+        int r;
+        _cleanup_free_ char **rw = NULL;
+        char *tmp = NULL, *var = NULL;
+        const char *root_dir = NULL;
+        NameSpaceInfo ns_info = {
+                .private_dev = context->private_devices,
+                .protect_control_groups = context->protect_control_groups,
+                .protect_kernel_tunables = context->protect_kernel_tunables,
+                .protect_kernel_modules = context->protect_kernel_modules,
+        };
+
+        /* The runtime struct only contains the parent of the private /tmp,
+         * which is non-accessible to world users. Inside of it there's a /tmp
+         * that is sticky, and that's the one we want to use here. */
+
+        if (context->private_tmp && runtime) {
+                if (runtime->tmp_dir)
+                        tmp = strjoina(runtime->tmp_dir, "/tmp");
+                if (runtime->var_tmp_dir)
+                        var = strjoina(runtime->var_tmp_dir, "/tmp");
+        }
+
+        r = compile_read_write_paths(context, params, &rw);
+        if (r < 0)
+                return r;
+
+        if (params->flags & EXEC_APPLY_CHROOT)
+                root_dir = context->root_directory;
+
+        r = setup_namespace(root_dir, &ns_info, rw,
+                            context->read_only_paths,
+                            context->inaccessible_paths,
+                            tmp,
+                            var,
+                            context->protect_home,
+                            context->protect_system,
+                            context->mount_flags);
+
+        /* If we couldn't set up the namespace this is probably due to a
+         * missing capability. In this case, silently proceeed. */
+        if (IN_SET(r, -EPERM, -EACCES)) {
+                log_open();
+                log_unit_debug_errno(u, r, "Failed to set up namespace, assuming containerized execution, ignoring: %m");
+                log_close();
+                r = 0;
+        }
+
+        return r;
+}
+
 static void append_socket_pair(int *array, unsigned *n, int pair[2]) {
         assert(array);
         assert(n);
@@ -2466,54 +2519,8 @@ static int exec_child(
 
         needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);
         if (needs_mount_namespace) {
-                _cleanup_free_ char **rw = NULL;
-                char *tmp = NULL, *var = NULL;
-                NameSpaceInfo ns_info = {
-                        .private_dev = context->private_devices,
-                        .protect_control_groups = context->protect_control_groups,
-                        .protect_kernel_tunables = context->protect_kernel_tunables,
-                        .protect_kernel_modules = context->protect_kernel_modules,
-                };
-
-                /* The runtime struct only contains the parent
-                 * of the private /tmp, which is
-                 * non-accessible to world users. Inside of it
-                 * there's a /tmp that is sticky, and that's
-                 * the one we want to use here. */
-
-                if (context->private_tmp && runtime) {
-                        if (runtime->tmp_dir)
-                                tmp = strjoina(runtime->tmp_dir, "/tmp");
-                        if (runtime->var_tmp_dir)
-                                var = strjoina(runtime->var_tmp_dir, "/tmp");
-                }
-
-                r = compile_read_write_paths(context, params, &rw);
+                r = apply_mount_namespace(unit, context, params, runtime);
                 if (r < 0) {
-                        *exit_status = EXIT_NAMESPACE;
-                        return r;
-                }
-
-                r = setup_namespace(
-                                (params->flags & EXEC_APPLY_CHROOT) ? context->root_directory : NULL,
-                                &ns_info,
-                                rw,
-                                context->read_only_paths,
-                                context->inaccessible_paths,
-                                tmp,
-                                var,
-                                context->protect_home,
-                                context->protect_system,
-                                context->mount_flags);
-
-                /* If we couldn't set up the namespace this is
-                 * probably due to a missing capability. In this case,
-                 * silently proceeed. */
-                if (r == -EPERM || r == -EACCES) {
-                        log_open();
-                        log_unit_debug_errno(unit, r, "Failed to set up namespace, assuming containerized execution, ignoring: %m");
-                        log_close();
-                } else if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
                         return r;
                 }
