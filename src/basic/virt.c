@@ -485,6 +485,76 @@ int detect_virtualization(void) {
         return r;
 }
 
+static int userns_has_mapping(const char *name) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *buf = NULL;
+        size_t n_allocated = 0;
+        ssize_t n;
+        uint32_t a, b, c;
+        int r;
+
+        f = fopen(name, "re");
+        if (!f) {
+                log_debug_errno(errno, "Failed to open %s: %m", name);
+                return errno == -ENOENT ? false : -errno;
+        }
+
+        n = getline(&buf, &n_allocated, f);
+        if (n < 0) {
+                if (feof(f)) {
+                        log_debug("%s is empty, we're in an uninitialized user namespace", name);
+                        return true;
+                }
+
+                return log_debug_errno(errno, "Failed to read %s: %m", name);
+        }
+
+        r = sscanf(buf, "%"PRIu32" %"PRIu32" %"PRIu32, &a, &b, &c);
+        if (r < 3)
+                return log_debug_errno(errno, "Failed to parse %s: %m", name);
+
+        if (a == 0 && b == 0 && c == UINT32_MAX) {
+                /* The kernel calls mappings_overlap() and does not allow overlaps */
+                log_debug("%s has a full 1:1 mapping", name);
+                return false;
+        }
+
+        /* Anything else implies that we are in a user namespace */
+        log_debug("Mapping found in %s, we're in a user namespace", name);
+        return true;
+}
+
+int running_in_userns(void) {
+        _cleanup_free_ char *line = NULL;
+        int r;
+
+        r = userns_has_mapping("/proc/self/uid_map");
+        if (r != 0)
+                return r;
+
+        r = userns_has_mapping("/proc/self/gid_map");
+        if (r != 0)
+                return r;
+
+        /* "setgroups" file was added in kernel v3.18-rc6-15-g9cc46516dd. It is also
+         * possible to compile a kernel without CONFIG_USER_NS, in which case "setgroups"
+         * also does not exist. We cannot distinguish those two cases, so assume that
+         * we're running on a stripped-down recent kernel, rather than on an old one,
+         * and if the file is not found, return false.
+         */
+        r = read_one_line_file("/proc/self/setgroups", &line);
+        if (r < 0) {
+                log_debug_errno(r, "/proc/self/setgroups: %m");
+                return r == -ENOENT ? false : r;
+        }
+
+        truncate_nl(line);
+        r = streq(line, "deny");
+        /* See user_namespaces(7) for a description of this "setgroups" contents. */
+        log_debug("/proc/self/setgroups contains \"%s\", %s user namespace", line, r ? "in" : "not in");
+        return r;
+}
+
 int running_in_chroot(void) {
         int ret;
 

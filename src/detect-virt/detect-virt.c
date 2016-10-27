@@ -31,6 +31,7 @@ static enum {
         ONLY_VM,
         ONLY_CONTAINER,
         ONLY_CHROOT,
+        ONLY_PRIVATE_USERS,
 } arg_mode = ANY_VIRTUALIZATION;
 
 static void help(void) {
@@ -41,6 +42,7 @@ static void help(void) {
                "  -c --container        Only detect whether we are run in a container\n"
                "  -v --vm               Only detect whether we are run in a VM\n"
                "  -r --chroot           Detect whether we are run in a chroot() environment\n"
+               "     --private-users    Only detect whether we are running in a user namespace\n"
                "  -q --quiet            Don't output anything, just set return value\n"
                , program_invocation_short_name);
 }
@@ -48,16 +50,18 @@ static void help(void) {
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
-                ARG_VERSION = 0x100
+                ARG_VERSION = 0x100,
+                ARG_PRIVATE_USERS,
         };
 
         static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "container", no_argument,       NULL, 'c'           },
-                { "vm",        no_argument,       NULL, 'v'           },
-                { "chroot",    no_argument,       NULL, 'r'           },
-                { "quiet",     no_argument,       NULL, 'q'           },
+                { "help",          no_argument, NULL, 'h'               },
+                { "version",       no_argument, NULL, ARG_VERSION       },
+                { "container",     no_argument, NULL, 'c'               },
+                { "vm",            no_argument, NULL, 'v'               },
+                { "chroot",        no_argument, NULL, 'r'               },
+                { "private-users", no_argument, NULL, ARG_PRIVATE_USERS },
+                { "quiet",         no_argument, NULL, 'q'               },
                 {}
         };
 
@@ -83,6 +87,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'c':
                         arg_mode = ONLY_CONTAINER;
+                        break;
+
+                case ARG_PRIVATE_USERS:
+                        arg_mode = ONLY_PRIVATE_USERS;
                         break;
 
                 case 'v':
@@ -146,6 +154,15 @@ int main(int argc, char *argv[]) {
                 r = running_in_chroot();
                 if (r < 0) {
                         log_error_errno(r, "Failed to check for chroot() environment: %m");
+                        return EXIT_FAILURE;
+                }
+
+                return r ? EXIT_SUCCESS : EXIT_FAILURE;
+
+        case ONLY_PRIVATE_USERS:
+                r = running_in_userns();
+                if (r < 0) {
+                        log_error_errno(r, "Failed to check for user namespace: %m");
                         return EXIT_FAILURE;
                 }
 

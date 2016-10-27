@@ -146,25 +146,24 @@ static int condition_test_virtualization(Condition *c) {
         assert(c->parameter);
         assert(c->type == CONDITION_VIRTUALIZATION);
 
+        if (streq(c->parameter, "private-users"))
+                return running_in_userns();
+
         v = detect_virtualization();
         if (v < 0)
                 return v;
 
         /* First, compare with yes/no */
         b = parse_boolean(c->parameter);
-
-        if (v > 0 && b > 0)
-                return true;
-
-        if (v == 0 && b == 0)
-                return true;
+        if (b >= 0)
+                return b == !!v;
 
         /* Then, compare categorization */
-        if (VIRTUALIZATION_IS_VM(v) && streq(c->parameter, "vm"))
-                return true;
+        if (streq(c->parameter, "vm"))
+                return VIRTUALIZATION_IS_VM(v);
 
-        if (VIRTUALIZATION_IS_CONTAINER(v) && streq(c->parameter, "container"))
-                return true;
+        if (streq(c->parameter, "container"))
+                return VIRTUALIZATION_IS_CONTAINER(v);
 
         /* Finally compare id */
         return v != VIRTUALIZATION_NONE && streq(c->parameter, virtualization_to_string(v));
