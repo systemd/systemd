@@ -2056,6 +2056,33 @@ static int apply_mount_namespace(Unit *u, const ExecContext *context,
         return r;
 }
 
+static int apply_working_directory(const ExecContext *context,
+                                   const ExecParameters *params,
+                                   const char *working_directory,
+                                   const bool needs_mount_ns) {
+
+        if (params->flags & EXEC_APPLY_CHROOT) {
+                if (!needs_mount_ns && context->root_directory)
+                        if (chroot(context->root_directory) < 0)
+                                return -errno;
+
+                if (chdir(working_directory) < 0 &&
+                    !context->working_directory_missing_ok)
+                        return -errno;
+
+        } else {
+                const char *d;
+
+                d = strjoina(strempty(context->root_directory), "/",
+                             strempty(working_directory));
+                if (chdir(d) < 0 &&
+                    !context->working_directory_missing_ok)
+                        return -errno;
+        }
+
+        return 0;
+}
+
 static void append_socket_pair(int *array, unsigned *n, int pair[2]) {
         assert(array);
         assert(n);
@@ -2542,27 +2569,10 @@ static int exec_child(
                 }
         }
 
-        if (params->flags & EXEC_APPLY_CHROOT) {
-                if (!needs_mount_namespace && context->root_directory)
-                        if (chroot(context->root_directory) < 0) {
-                                *exit_status = EXIT_CHROOT;
-                                return -errno;
-                        }
-
-                if (chdir(wd) < 0 &&
-                    !context->working_directory_missing_ok) {
-                        *exit_status = EXIT_CHDIR;
-                        return -errno;
-                }
-        } else {
-                const char *d;
-
-                d = strjoina(strempty(context->root_directory), "/", strempty(wd));
-                if (chdir(d) < 0 &&
-                    !context->working_directory_missing_ok) {
-                        *exit_status = EXIT_CHDIR;
-                        return -errno;
-                }
+        r = apply_working_directory(context, params, wd, needs_mount_namespace);
+        if (r < 0) {
+                *exit_status = EXIT_CHROOT;
+                return r;
         }
 
 #ifdef HAVE_SELINUX
