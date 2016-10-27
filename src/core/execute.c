@@ -2017,6 +2017,8 @@ static int apply_mount_namespace(Unit *u, const ExecContext *context,
                 .protect_kernel_modules = context->protect_kernel_modules,
         };
 
+        assert(context);
+
         /* The runtime struct only contains the parent of the private /tmp,
          * which is non-accessible to world users. Inside of it there's a /tmp
          * that is sticky, and that's the one we want to use here. */
@@ -2058,27 +2060,31 @@ static int apply_mount_namespace(Unit *u, const ExecContext *context,
 
 static int apply_working_directory(const ExecContext *context,
                                    const ExecParameters *params,
-                                   const char *working_directory,
+                                   const char *home,
                                    const bool needs_mount_ns) {
+        const char *d;
+        const char *wd;
+
+        assert(context);
+
+        if (context->working_directory_home)
+                wd = home;
+        else if (context->working_directory)
+                wd = context->working_directory;
+        else
+                wd = "/";
 
         if (params->flags & EXEC_APPLY_CHROOT) {
                 if (!needs_mount_ns && context->root_directory)
                         if (chroot(context->root_directory) < 0)
                                 return -errno;
 
-                if (chdir(working_directory) < 0 &&
-                    !context->working_directory_missing_ok)
-                        return -errno;
+                d = wd;
+        } else
+                d = strjoina(strempty(context->root_directory), "/", strempty(wd));
 
-        } else {
-                const char *d;
-
-                d = strjoina(strempty(context->root_directory), "/",
-                             strempty(working_directory));
-                if (chdir(d) < 0 &&
-                    !context->working_directory_missing_ok)
-                        return -errno;
-        }
+        if (chdir(d) < 0 && !context->working_directory_missing_ok)
+                return -errno;
 
         return 0;
 }
@@ -2219,7 +2225,7 @@ static int exec_child(
         _cleanup_free_ char *mac_selinux_context_net = NULL;
         _cleanup_free_ gid_t *supplementary_gids = NULL;
         const char *username = NULL, *groupname = NULL;
-        const char *home = NULL, *shell = NULL, *wd;
+        const char *home = NULL, *shell = NULL;
         dev_t journal_stream_dev = 0;
         ino_t journal_stream_ino = 0;
         bool needs_mount_namespace;
@@ -2553,13 +2559,6 @@ static int exec_child(
                 }
         }
 
-        if (context->working_directory_home)
-                wd = home;
-        else if (context->working_directory)
-                wd = context->working_directory;
-        else
-                wd = "/";
-
         /* Drop group as early as possbile */
         if ((params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged) {
                 r = enforce_groups(context, gid, supplementary_gids, ngids);
@@ -2569,7 +2568,7 @@ static int exec_child(
                 }
         }
 
-        r = apply_working_directory(context, params, wd, needs_mount_namespace);
+        r = apply_working_directory(context, params, home, needs_mount_namespace);
         if (r < 0) {
                 *exit_status = EXIT_CHROOT;
                 return r;
