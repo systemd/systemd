@@ -1470,7 +1470,7 @@ finish:
         return r;
 }
 
-static int apply_protect_sysctl(Unit *u, const ExecContext *c) {
+static int apply_protect_sysctl(const Unit *u, const ExecContext *c) {
         scmp_filter_ctx seccomp;
         int r;
 
@@ -1501,7 +1501,7 @@ finish:
         return r;
 }
 
-static int apply_protect_kernel_modules(Unit *u, const ExecContext *c) {
+static int apply_protect_kernel_modules(const Unit *u, const ExecContext *c) {
         assert(c);
 
         /* Turn off module syscalls on ProtectKernelModules=yes */
@@ -1512,7 +1512,7 @@ static int apply_protect_kernel_modules(Unit *u, const ExecContext *c) {
         return seccomp_load_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_MODULE, SCMP_ACT_ERRNO(EPERM));
 }
 
-static int apply_private_devices(Unit *u, const ExecContext *c) {
+static int apply_private_devices(const Unit *u, const ExecContext *c) {
         assert(c);
 
         /* If PrivateDevices= is set, also turn off iopl and all @raw-io syscalls. */
