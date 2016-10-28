@@ -606,7 +606,7 @@ int config_parse_exec(
 
                 semicolon = false;
 
-                r = extract_first_word_and_warn(&p, &firstword, WHITESPACE, EXTRACT_QUOTES|EXTRACT_CUNESCAPE, unit, filename, line, rvalue);
+                r = extract_first_word_and_warn(&p, &firstword, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE, unit, filename, line, rvalue);
                 if (r <= 0)
                         return 0;
 
@@ -695,7 +695,7 @@ int config_parse_exec(
                                 continue;
                         }
 
-                        r = extract_first_word_and_warn(&p, &word, WHITESPACE, EXTRACT_QUOTES|EXTRACT_CUNESCAPE, unit, filename, line, rvalue);
+                        r = extract_first_word_and_warn(&p, &word, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE, unit, filename, line, rvalue);
                         if (r == 0)
                                 break;
                         else if (r < 0)
@@ -1951,7 +1951,7 @@ int config_parse_user_group_strv(
         for (;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
-                r = extract_first_word(&p, &word, WHITESPACE, 0);
+                r = extract_first_word(&p, &word, NULL, 0);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
@@ -2300,7 +2300,7 @@ int config_parse_pass_environ(const char *unit,
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&rvalue, &word, WHITESPACE, EXTRACT_QUOTES);
+                r = extract_first_word(&rvalue, &word, NULL, EXTRACT_QUOTES);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
