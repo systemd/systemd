@@ -1,5 +1,6 @@
 *.a
 *.cache
+*.gch
 *.la
 *.lo
 *.log
