@@ -232,21 +232,25 @@ static void test_foreach_word(void) {
 }
 
 static void check(const char *test, char** expected, bool trailing) {
-        const char *word, *state;
-        size_t l;
-        int i = 0;
+        int i = 0, r;
 
         printf("<<<%s>>>\n", test);
-        FOREACH_WORD_QUOTED(word, l, test, state) {
-                _cleanup_free_ char *t = NULL;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
 
-                assert_se(t = strndup(word, l));
-                assert_se(strneq(expected[i++], word, l));
-                printf("<%s>\n", t);
+                r = extract_first_word(&test, &word, NULL, EXTRACT_QUOTES);
+                if (r == 0) {
+                        assert_se(!trailing);
+                        break;
+                } else if (r < 0) {
+                        assert_se(trailing);
+                        break;
+                }
+
+                assert_se(streq(word, expected[i++]));
+                printf("<%s>\n", word);
         }
-        printf("<<<%s>>>\n", state);
         assert_se(expected[i] == NULL);
-        assert_se(isempty(state) == !trailing);
 }
 
 static void test_foreach_word_quoted(void) {
