@@ -2744,11 +2744,6 @@ int config_parse_syscall_filter(
                         return r;
         }
 
-        /* Turn on NNP, but only if it wasn't configured explicitly
-         * before, and only if we are in user mode. */
-        if (!c->no_new_privileges_set && MANAGER_IS_USER(u->manager))
-                c->no_new_privileges = true;
-
         return 0;
 }
 
@@ -3837,7 +3832,7 @@ int config_parse_no_new_privileges(
                 return 0;
         }
 
-        c->no_new_privileges = !!k;
+        c->no_new_privileges = k;
         c->no_new_privileges_set = true;
 
         return 0;
