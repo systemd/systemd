@@ -577,8 +577,8 @@
 
       <para>The <varname>NAME</varname>, <varname>SYMLINK</varname>,
       <varname>PROGRAM</varname>, <varname>OWNER</varname>,
-      <varname>GROUP</varname>, <varname>MODE</varname>, and
-      <varname>RUN</varname> fields support simple string substitutions.
+      <varname>GROUP</varname>, <varname>MODE</varname>, <varname>SECLABEL</varname>,
+      and <varname>RUN</varname> fields support simple string substitutions.
       The <varname>RUN</varname> substitutions are performed after all rules
       have been processed, right before the program is executed, allowing for
       the use of device properties set by earlier matching rules. For all other
