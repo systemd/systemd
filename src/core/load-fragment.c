@@ -2240,7 +2240,6 @@ int config_parse_environ(const char *unit,
 
         for (p = rvalue;; ) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
-                char **x;
 
                 r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_QUOTES);
                 if (r == 0)
@@ -2271,12 +2270,10 @@ int config_parse_environ(const char *unit,
                         continue;
                 }
 
-                x = strv_env_set(*env, k);
-                if (!x)
+                r = strv_env_replace(env, k);
+                if (r < 0)
                         return log_oom();
-
-                strv_free(*env);
-                *env = x;
+                k = NULL;
         }
 }
 
