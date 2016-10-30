@@ -144,7 +144,7 @@
   <refsect1>
     <title>Examples</title>
 
-    <para>Escape a single string:</para>
+    <para>To escape a single string:</para>
     <programlisting>$ systemd-escape 'Hallöchen, Meister'
 Hall\xc3\xb6chen\x2c\x20Meister</programlisting>
 
@@ -156,7 +156,7 @@ Hallöchen, Meister</programlisting>
     <programlisting>$ systemd-escape -p --suffix=mount "/tmp//waldi/foobar/"
 tmp-waldi-foobar.mount</programlisting>
 
-    <para>To generate instance names of three strings</para>
+    <para>To generate instance names of three strings:</para>
     <programlisting>$ systemd-escape --template=systemd-nspawn@.service 'My Container 1' 'containerb' 'container/III'
 systemd-nspawn@My\x20Container\x201.service systemd-nspawn@containerb.service systemd-nspawn@container-III.service</programlisting>
   </refsect1>
