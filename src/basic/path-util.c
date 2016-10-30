@@ -354,6 +354,16 @@ char* path_startswith(const char *path, const char *prefix) {
         assert(path);
         assert(prefix);
 
+        /* Returns a pointer to the start of the first component after the parts matched by
+         * the prefix, iff
+         * - both paths are absolute or both paths are relative,
+         * and
+         * - each component in prefix in turn matches a component in path at the same position.
+         * An empty string will be returned when the prefix and path are equivalent.
+         *
+         * Returns NULL otherwise.
+         */
+
         if ((path[0] == '/') != (prefix[0] == '/'))
                 return NULL;
 

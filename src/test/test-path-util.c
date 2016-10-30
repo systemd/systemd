@@ -263,16 +263,37 @@ static void test_strv_resolve(void) {
 }
 
 static void test_path_startswith(void) {
-        assert_se(path_startswith("/foo/bar/barfoo/", "/foo"));
-        assert_se(path_startswith("/foo/bar/barfoo/", "/foo/"));
-        assert_se(path_startswith("/foo/bar/barfoo/", "/"));
-        assert_se(path_startswith("/foo/bar/barfoo/", "////"));
-        assert_se(path_startswith("/foo/bar/barfoo/", "/foo//bar/////barfoo///"));
-        assert_se(path_startswith("/foo/bar/barfoo/", "/foo/bar/barfoo////"));
-        assert_se(path_startswith("/foo/bar/barfoo/", "/foo/bar///barfoo/"));
-        assert_se(path_startswith("/foo/bar/barfoo/", "/foo////bar/barfoo/"));
-        assert_se(path_startswith("/foo/bar/barfoo/", "////foo/bar/barfoo/"));
-        assert_se(path_startswith("/foo/bar/barfoo/", "/foo/bar/barfoo"));
+        const char *p;
+
+        p = path_startswith("/foo/bar/barfoo/", "/foo");
+        assert_se(streq_ptr(p, "bar/barfoo/"));
+
+        p = path_startswith("/foo/bar/barfoo/", "/foo/");
+        assert_se(streq_ptr(p, "bar/barfoo/"));
+
+        p = path_startswith("/foo/bar/barfoo/", "/");
+        assert_se(streq_ptr(p, "foo/bar/barfoo/"));
+
+        p = path_startswith("/foo/bar/barfoo/", "////");
+        assert_se(streq_ptr(p, "foo/bar/barfoo/"));
+
+        p = path_startswith("/foo/bar/barfoo/", "/foo//bar/////barfoo///");
+        assert_se(streq_ptr(p, ""));
+
+        p = path_startswith("/foo/bar/barfoo/", "/foo/bar/barfoo////");
+        assert_se(streq_ptr(p, ""));
+
+        p = path_startswith("/foo/bar/barfoo/", "/foo/bar///barfoo/");
+        assert_se(streq_ptr(p, ""));
+
+        p = path_startswith("/foo/bar/barfoo/", "/foo////bar/barfoo/");
+        assert_se(streq_ptr(p, ""));
+
+        p = path_startswith("/foo/bar/barfoo/", "////foo/bar/barfoo/");
+        assert_se(streq_ptr(p, ""));
+
+        p = path_startswith("/foo/bar/barfoo/", "/foo/bar/barfoo");
+        assert_se(streq_ptr(p, ""));
 
         assert_se(!path_startswith("/foo/bar/barfoo/", "/foo/bar/barfooa/"));
         assert_se(!path_startswith("/foo/bar/barfoo/", "/foo/bar/barfooa"));
