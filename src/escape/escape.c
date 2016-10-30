@@ -21,6 +21,7 @@ static enum {
 static const char *arg_suffix = NULL;
 static const char *arg_template = NULL;
 static bool arg_path = false;
+static bool arg_instance = false;
 
 static void help(void) {
         printf("%s [OPTIONS...] [NAME...]\n\n"
@@ -29,6 +30,7 @@ static void help(void) {
                "     --version            Show package version\n"
                "     --suffix=SUFFIX      Unit suffix to append to escaped strings\n"
                "     --template=TEMPLATE  Insert strings as instance into template\n"
+               "     --instance           With --unescape, show just the instance part\n"
                "  -u --unescape           Unescape strings\n"
                "  -m --mangle             Mangle strings\n"
                "  -p --path               When escaping/unescaping assume the string is a path\n"
@@ -51,6 +53,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "unescape",  no_argument,       NULL, 'u'           },
                 { "mangle",    no_argument,       NULL, 'm'           },
                 { "path",      no_argument,       NULL, 'p'           },
+                { "instance",  no_argument,       NULL, 'i'           },
                 {}
         };
 
@@ -102,6 +105,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_path = true;
                         break;
 
+                case 'i':
+                        arg_instance = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -131,6 +138,16 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_path && !IN_SET(arg_action, ACTION_ESCAPE, ACTION_UNESCAPE)) {
                 log_error("--path may not be combined with --mangle.");
+                return -EINVAL;
+        }
+
+        if (arg_instance && arg_action != ACTION_UNESCAPE) {
+                log_error("--instance must be used in conjunction with --unescape.");
+                return -EINVAL;
+        }
+
+        if (arg_instance && arg_template) {
+                log_error("--instance may not be combined with --template.");
                 return -EINVAL;
         }
 
@@ -197,7 +214,7 @@ int main(int argc, char *argv[]) {
                 case ACTION_UNESCAPE: {
                         _cleanup_free_ char *name = NULL;
 
-                        if (arg_template) {
+                        if (arg_template || arg_instance) {
                                 _cleanup_free_ char *template = NULL;
 
                                 r = unit_name_to_instance(*i, &name);
@@ -215,7 +232,7 @@ int main(int argc, char *argv[]) {
                                         log_error_errno(r, "Failed to extract template: %m");
                                         goto finish;
                                 }
-                                if (!streq(arg_template, template)) {
+                                if (arg_template && !streq(arg_template, template)) {
                                         log_error("Unit %s template %s does not match specified template %s.", *i, template, arg_template);
                                         r = -EINVAL;
                                         goto finish;

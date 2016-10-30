@@ -80,7 +80,8 @@
         <option>--unescape</option>, expects instantiated unit names
         for this template and extracts and unescapes just the instance
         part. May not be used in conjunction with
-        <option>--suffix=</option> or
+        <option>--suffix=</option>,
+        <option>--instance</option> or
         <option>--mangle</option>.</para></listitem>
       </varlistentry>
 
@@ -118,6 +119,19 @@
         <option>--unescape</option>.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--instance</option></term>
+
+        <listitem><para>With <option>--unescape</option>, unescape
+        and print only the instance part of an instantiated unit name
+        template. Results in an error for an uninstantiated template
+        like <filename>ssh@.service</filename> or a non-template name
+        like <filename>ssh.service</filename>.
+        Must be used in conjunction with <option>--unescape</option>
+        and may not be used in conjunction with
+        <option>--template</option>.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
@@ -144,6 +158,10 @@ tmp-waldi-foobar.mount</programlisting>
 systemd-nspawn@My\x20Container\x201.service systemd-nspawn@containerb.service systemd-nspawn@container-III.service</programlisting>
 
     <para>To extract the instance part of an instantiated unit:</para>
+    <programlisting>$ systemd-escape -u --instance 'systemd-nspawn@My\x20Container\x201.service'
+My Container 1</programlisting>
+
+    <para>To extract the instance part of an instance of a particular template:</para>
     <programlisting>$ systemd-escape -u --template=systemd-nspawn@.service 'systemd-nspawn@My\x20Container\x201.service'
 My Container 1</programlisting>
   </refsect1>
