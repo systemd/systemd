@@ -108,9 +108,10 @@
         <term><option>-p</option></term>
 
         <listitem><para>When escaping or unescaping a string, assume
-        it refers to a file system path. This enables special
-        processing of the initial <literal>/</literal> of the
-        path.</para></listitem>
+        it refers to a file system path. This eliminates leading,
+        trailing or duplicate <literal>/</literal> characters
+        and rejects <literal>.</literal> and <literal>..</literal>
+        path components.</para></listitem>
       </varlistentry>
 
       <varlistentry>
