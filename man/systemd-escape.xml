@@ -97,7 +97,7 @@
 
         <listitem><para>Inserts the escaped strings in a unit name
         template. Takes a unit name template such as
-        <filename>foobar@.service</filename> May not be used in
+        <filename>foobar@.service</filename>. May not be used in
         conjunction with <option>--suffix=</option>,
         <option>--unescape</option> or
         <option>--mangle</option>.</para></listitem>
