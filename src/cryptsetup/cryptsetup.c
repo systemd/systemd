@@ -52,6 +52,7 @@ static bool arg_verify = false;
 static bool arg_discards = false;
 static bool arg_tcrypt_hidden = false;
 static bool arg_tcrypt_system = false;
+static bool arg_tcrypt_veracrypt = false;
 static char **arg_tcrypt_keyfiles = NULL;
 static uint64_t arg_offset = 0;
 static uint64_t arg_skip = 0;
@@ -179,6 +180,14 @@ static int parse_one_option(const char *option) {
         } else if (streq(option, "tcrypt-system")) {
                 arg_type = CRYPT_TCRYPT;
                 arg_tcrypt_system = true;
+        } else if (streq(option, "tcrypt-veracrypt")) {
+#ifdef CRYPT_TCRYPT_VERA_MODES
+                arg_type = CRYPT_TCRYPT;
+                arg_tcrypt_veracrypt = true;
+#else
+                log_error("This version of cryptsetup does not support tcrypt-veracrypt; refusing.");
+                return -EINVAL;
+#endif
         } else if (STR_IN_SET(option, "plain", "swap", "tmp"))
                 arg_type = CRYPT_PLAIN;
         else if (startswith(option, "timeout=")) {
@@ -440,6 +449,11 @@ static int attach_tcrypt(
 
         if (arg_tcrypt_system)
                 params.flags |= CRYPT_TCRYPT_SYSTEM_HEADER;
+
+#ifdef CRYPT_TCRYPT_VERA_MODES
+        if (arg_tcrypt_veracrypt)
+                params.flags |= CRYPT_TCRYPT_VERA_MODES;
+#endif
 
         if (key_file) {
                 r = read_one_line_file(key_file, &passphrase);

@@ -327,6 +327,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>tcrypt-veracrypt</option></term>
+
+        <listitem><para>Check for a VeraCrypt volume.  VeraCrypt is a fork of
+        TrueCrypt that is mostly compatible, but uses different, stronger key
+        derivation algorithms that cannot be detected without this flag.
+        Enabling this option could substantially slow down unlocking, because
+        VeraCrypt's key derivation takes much longer than TrueCrypt's.  This
+        option implies <option>tcrypt</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>timeout=</option></term>
 
         <listitem><para>Specifies the timeout for querying for a
