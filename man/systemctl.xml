@@ -1265,7 +1265,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <literal>foo.service.d/</literal> with all their contained files are removed, both below the persistent and
             runtime configuration directories (i.e. below <filename>/etc/systemd/system</filename> and
             <filename>/run/systemd/system</filename>); if the unit file has a vendor-supplied version (i.e. a unit file
-            located below <filename>/usr</filename>) any matching peristent or runtime unit file that overrides it is
+            located below <filename>/usr</filename>) any matching persistent or runtime unit file that overrides it is
             removed, too. Note that if a unit file has no vendor-supplied version (i.e. is only defined below
             <filename>/etc/systemd/system</filename> or <filename>/run/systemd/system</filename>, but not in a unit
             file stored below <filename>/usr</filename>), then it is not removed. Also, if a unit is masked, it is

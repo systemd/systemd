@@ -644,7 +644,7 @@ d /run/uscreens 0755 root screen 10d12h
 t /run/cups - - - - security.SMACK64=printing user.attr-with-spaces="foo bar"
       </programlisting>
 
-      <para>The direcory will be owned by root and have default mode. It's contents are
+      <para>The directory will be owned by root and have default mode. Its contents are
       not subject to time based cleanup, but will be obliterated when
       <command>systemd-tmpfiles --remove</command> runs.</para>
     </example>
