@@ -830,6 +830,8 @@ static int process_socket(int fd) {
         log_parse_environment();
         log_open();
 
+        log_debug("Processing coredump received on stdin...");
+
         for (;;) {
                 union {
                         struct cmsghdr cmsghdr;
@@ -1045,6 +1047,7 @@ static char* set_iovec_field_free(struct iovec iovec[27], size_t *n_iovec, const
 static int gather_pid_metadata(
                 const char *context[_CONTEXT_MAX],
                 char **comm_fallback,
+                char **comm_ret,
                 struct iovec iovec[27], size_t *n_iovec) {
 
         _cleanup_free_ char *exe = NULL, *comm = NULL;
@@ -1056,7 +1059,7 @@ static int gather_pid_metadata(
 
         r = parse_pid(context[CONTEXT_PID], &pid);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse PID.");
+                return log_error_errno(r, "Failed to parse PID \"%s\": %m", context[CONTEXT_PID]);
 
         r = get_process_comm(pid, &comm);
         if (r < 0) {
@@ -1182,6 +1185,11 @@ static int gather_pid_metadata(
         if (t)
                 IOVEC_SET_STRING(iovec[(*n_iovec)++], t);
 
+        if (comm_ret) {
+                *comm_ret = comm;
+                comm = NULL;
+        }
+
         return 0;
 }
 
@@ -1189,11 +1197,13 @@ static int process_kernel(int argc, char* argv[]) {
 
         const char *context[_CONTEXT_MAX];
         struct iovec iovec[27];
-        size_t n_iovec = 0, i, n_to_free;
+        size_t i, n_iovec, n_to_free = 0;
         int r;
 
+        log_debug("Processing coredump received from the kernel...");
+
         if (argc < CONTEXT_COMM + 1) {
-                log_error("Not enough arguments passed from kernel (%i, expected %i).", argc - 1, CONTEXT_COMM + 1 - 1);
+                log_error("Not enough arguments passed by the kernel (%i, expected %i).", argc - 1, CONTEXT_COMM + 1 - 1);
                 return -EINVAL;
         }
 
@@ -1204,10 +1214,10 @@ static int process_kernel(int argc, char* argv[]) {
         context[CONTEXT_TIMESTAMP] = argv[CONTEXT_TIMESTAMP + 1];
         context[CONTEXT_RLIMIT]    = argv[CONTEXT_RLIMIT + 1];
 
-        r = gather_pid_metadata(context, argv + CONTEXT_COMM + 1, iovec, &n_iovec);
+        r = gather_pid_metadata(context, argv + CONTEXT_COMM + 1, NULL, iovec, &n_to_free);
         if (r < 0)
                 goto finish;
-        n_to_free = n_iovec;
+        n_iovec = n_to_free;
 
         IOVEC_SET_STRING(iovec[n_iovec++], "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1");
 
@@ -1217,6 +1227,74 @@ static int process_kernel(int argc, char* argv[]) {
         assert(n_iovec <= ELEMENTSOF(iovec));
 
         r = send_iovec(iovec, n_iovec, STDIN_FILENO);
+
+ finish:
+        for (i = 0; i < n_to_free; i++)
+                free(iovec[i].iov_base);
+
+        return r;
+}
+
+static int process_backtrace(int argc, char *argv[]) {
+        const char *context[_CONTEXT_MAX];
+        char *t;
+        _cleanup_free_ char *comm = NULL;
+        struct iovec iovec[27];
+        size_t n_iovec = 0, i, n_to_free;
+        uint8_t buf[4096];
+        ssize_t buf_bytes;
+        int r;
+
+        log_debug("Processing backtrace on stdin...");
+
+        if (argc < CONTEXT_COMM + 1) {
+                log_error("Not enough arguments passed (%i, expected %i).", argc - 1, CONTEXT_COMM + 1 - 1);
+                return -EINVAL;
+        }
+
+        context[CONTEXT_PID]       = argv[CONTEXT_PID + 2];
+        context[CONTEXT_UID]       = argv[CONTEXT_UID + 2];
+        context[CONTEXT_GID]       = argv[CONTEXT_GID + 2];
+        context[CONTEXT_SIGNAL]    = argv[CONTEXT_SIGNAL + 2];
+        context[CONTEXT_TIMESTAMP] = argv[CONTEXT_TIMESTAMP + 2];
+        context[CONTEXT_RLIMIT]    = argv[CONTEXT_RLIMIT + 2];
+
+        r = gather_pid_metadata(context, argv + CONTEXT_COMM + 2, &comm, iovec, &n_iovec);
+        if (r < 0)
+                goto finish;
+
+        if (isempty(context[CONTEXT_SIGNAL]))
+                context[CONTEXT_SIGNAL] = "an exception";
+
+        buf_bytes = loop_read(STDIN_FILENO, buf, sizeof(buf) - 1, false);
+        if (buf_bytes < 0) {
+                log_error_errno(buf_bytes, "Failed to read backtrace from stdin: %m");
+                goto finish;
+        }
+        buf[buf_bytes] = '\0';
+
+        t = strjoin("MESSAGE=Process ", context[CONTEXT_PID], " (", comm, ")"
+                    " of user ", context[CONTEXT_UID],
+                    " failed with ", context[CONTEXT_SIGNAL],
+                    ":\n\n", buf, NULL);
+        if (!t) {
+                log_oom();
+                goto finish;
+        }
+        IOVEC_SET_STRING(iovec[n_iovec++], t);
+
+        n_to_free = n_iovec;
+
+        IOVEC_SET_STRING(iovec[n_iovec++], "MESSAGE_ID=1f4e0a44a88649939aaea34fc6da8c95");
+
+        assert_cc(2 == LOG_CRIT);
+        IOVEC_SET_STRING(iovec[n_iovec++], "PRIORITY=2");
+
+        assert(n_iovec <= ELEMENTSOF(iovec));
+
+        r = sd_journal_sendv(iovec, n_iovec);
+        if (r < 0)
+                log_error_errno(r, "Failed to log backtrace: %m");
 
  finish:
         for (i = 0; i < n_to_free; i++)
@@ -1251,9 +1329,12 @@ int main(int argc, char *argv[]) {
 
         /* If we got an fd passed, we are running in coredumpd mode. Otherwise we
          * are invoked from the kernel as coredump handler. */
-        if (r == 0)
-                r = process_kernel(argc, argv);
-        else if (r == 1)
+        if (r == 0) {
+                if (streq_ptr(argv[1], "--backtrace"))
+                        r = process_backtrace(argc, argv);
+                else
+                        r = process_kernel(argc, argv);
+        } else if (r == 1)
                 r = process_socket(SD_LISTEN_FDS_START);
         else {
                 log_error("Received unexpected number of file descriptors.");
