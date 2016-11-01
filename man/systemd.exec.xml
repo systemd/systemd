@@ -1396,28 +1396,25 @@
       <varlistentry>
         <term><varname>SystemCallArchitectures=</varname></term>
 
-        <listitem><para>Takes a space-separated list of architecture
-        identifiers to include in the system call filter. The known
-        architecture identifiers are <constant>x86</constant>,
-        <constant>x86-64</constant>, <constant>x32</constant>,
-        <constant>arm</constant>, <constant>s390</constant>,
-        <constant>s390x</constant> as well as the special identifier
-        <constant>native</constant>. Only system calls of the
-        specified architectures will be permitted to processes of this
-        unit. This is an effective way to disable compatibility with
-        non-native architectures for processes, for example to
-        prohibit execution of 32-bit x86 binaries on 64-bit x86-64
-        systems. The special <constant>native</constant> identifier
-        implicitly maps to the native architecture of the system (or
-        more strictly: to the architecture the system manager is
-        compiled for). If running in user mode, or in system mode,
-        but without the <constant>CAP_SYS_ADMIN</constant>
-        capability (e.g. setting <varname>User=nobody</varname>),
-        <varname>NoNewPrivileges=yes</varname> is implied. Note
-        that setting this option to a non-empty list implies that
-        <constant>native</constant> is included too. By default, this
-        option is set to the empty list, i.e. no architecture system
-        call filtering is applied.</para></listitem>
+        <listitem><para>Takes a space-separated list of architecture identifiers to
+        include in the system call filter. The known architecture identifiers are the same
+        as for <varname>ConditionArchitecture=</varname> described in
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        as well as <constant>x32</constant>, <constant>mips64-n32</constant>,
+        <constant>mips64-le-n32</constant>, and the special identifier
+        <constant>native</constant>. Only system calls of the specified architectures will
+        be permitted to processes of this unit. This is an effective way to disable
+        compatibility with non-native architectures for processes, for example to prohibit
+        execution of 32-bit x86 binaries on 64-bit x86-64 systems. The special
+        <constant>native</constant> identifier implicitly maps to the native architecture
+        of the system (or more strictly: to the architecture the system manager is
+        compiled for). If running in user mode, or in system mode, but without the
+        <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
+        <varname>User=nobody</varname>), <varname>NoNewPrivileges=yes</varname> is
+        implied. Note that setting this option to a non-empty list implies that
+        <constant>native</constant> is included too. By default, this option is set to the
+        empty list, i.e. no architecture system call filtering is applied.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>

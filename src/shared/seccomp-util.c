@@ -29,23 +29,49 @@
 #include "util.h"
 
 const char* seccomp_arch_to_string(uint32_t c) {
+        /* Maintain order used in <seccomp.h>.
+         *
+         * Names used here should be the same as those used for ConditionArchitecture=,
+         * except for "subarchitectures" like x32. */
 
-        if (c == SCMP_ARCH_NATIVE)
+        switch(c) {
+        case SCMP_ARCH_NATIVE:
                 return "native";
-        if (c == SCMP_ARCH_X86)
+        case SCMP_ARCH_X86:
                 return "x86";
-        if (c == SCMP_ARCH_X86_64)
+        case SCMP_ARCH_X86_64:
                 return "x86-64";
-        if (c == SCMP_ARCH_X32)
+        case SCMP_ARCH_X32:
                 return "x32";
-        if (c == SCMP_ARCH_ARM)
+        case SCMP_ARCH_ARM:
                 return "arm";
-        if (c == SCMP_ARCH_S390)
+        case SCMP_ARCH_AARCH64:
+                return "arm64";
+        case SCMP_ARCH_MIPS:
+                return "mips";
+        case SCMP_ARCH_MIPS64:
+                return "mips64";
+        case SCMP_ARCH_MIPS64N32:
+                return "mips64-n32";
+        case SCMP_ARCH_MIPSEL:
+                return "mips-le";
+        case SCMP_ARCH_MIPSEL64:
+                return "mips64-le";
+        case SCMP_ARCH_MIPSEL64N32:
+                return "mips64-le-n32";
+        case SCMP_ARCH_PPC:
+                return "ppc";
+        case SCMP_ARCH_PPC64:
+                return "ppc64";
+        case SCMP_ARCH_PPC64LE:
+                return "ppc64-le";
+        case SCMP_ARCH_S390:
                 return "s390";
-        if (c == SCMP_ARCH_S390X)
+        case SCMP_ARCH_S390X:
                 return "s390x";
-
-        return NULL;
+        default:
+                return NULL;
+        }
 }
 
 int seccomp_arch_from_string(const char *n, uint32_t *ret) {
@@ -64,6 +90,26 @@ int seccomp_arch_from_string(const char *n, uint32_t *ret) {
                 *ret = SCMP_ARCH_X32;
         else if (streq(n, "arm"))
                 *ret = SCMP_ARCH_ARM;
+        else if (streq(n, "arm64"))
+                *ret = SCMP_ARCH_AARCH64;
+        else if (streq(n, "mips"))
+                *ret = SCMP_ARCH_MIPS;
+        else if (streq(n, "mips64"))
+                *ret = SCMP_ARCH_MIPS64;
+        else if (streq(n, "mips64-n32"))
+                *ret = SCMP_ARCH_MIPS64N32;
+        else if (streq(n, "mips-le"))
+                *ret = SCMP_ARCH_MIPSEL;
+        else if (streq(n, "mips64-le"))
+                *ret = SCMP_ARCH_MIPSEL64;
+        else if (streq(n, "mips64-le-n32"))
+                *ret = SCMP_ARCH_MIPSEL64N32;
+        else if (streq(n, "ppc"))
+                *ret = SCMP_ARCH_PPC;
+        else if (streq(n, "ppc64"))
+                *ret = SCMP_ARCH_PPC64;
+        else if (streq(n, "ppc64-le"))
+                *ret = SCMP_ARCH_PPC64LE;
         else if (streq(n, "s390"))
                 *ret = SCMP_ARCH_S390;
         else if (streq(n, "s390x"))
@@ -101,41 +147,52 @@ finish:
         return r;
 }
 
-int seccomp_add_secondary_archs(scmp_filter_ctx c) {
-
-#if defined(__i386__) || defined(__x86_64__)
-        int r;
+int seccomp_add_secondary_archs(scmp_filter_ctx ctx) {
 
         /* Add in all possible secondary archs we are aware of that
          * this kernel might support. */
 
-        r = seccomp_arch_add(c, SCMP_ARCH_X86);
-        if (r < 0 && r != -EEXIST)
-                return r;
+        static const int seccomp_arches[] = {
+#if defined(__i386__) || defined(__x86_64__)
+                SCMP_ARCH_X86,
+                SCMP_ARCH_X86_64,
+                SCMP_ARCH_X32,
 
-        r = seccomp_arch_add(c, SCMP_ARCH_X86_64);
-        if (r < 0 && r != -EEXIST)
-                return r;
+#elif defined(__arm__) || defined(__aarch64__)
+                SCMP_ARCH_ARM,
+                SCMP_ARCH_AARCH64,
 
-        r = seccomp_arch_add(c, SCMP_ARCH_X32);
-        if (r < 0 && r != -EEXIST)
-                return r;
+#elif defined(__arm__) || defined(__aarch64__)
+                SCMP_ARCH_ARM,
+                SCMP_ARCH_AARCH64,
+
+#elif defined(__mips__) || defined(__mips64__)
+                SCMP_ARCH_MIPS,
+                SCMP_ARCH_MIPS64,
+                SCMP_ARCH_MIPS64N32,
+                SCMP_ARCH_MIPSEL,
+                SCMP_ARCH_MIPSEL64,
+                SCMP_ARCH_MIPSEL64N32,
+
+#elif defined(__powerpc__) || defined(__powerpc64__)
+                SCMP_ARCH_PPC,
+                SCMP_ARCH_PPC64,
+                SCMP_ARCH_PPC64LE,
 
 #elif defined(__s390__) || defined(__s390x__)
+                SCMP_ARCH_S390,
+                SCMP_ARCH_S390X,
+#endif
+        };
+
+        unsigned i;
         int r;
 
-        /* Add in all possible secondary archs we are aware of that
-         * this kernel might support. */
-
-        r = seccomp_arch_add(c, SCMP_ARCH_S390);
-        if (r < 0 && r != -EEXIST)
-                return r;
-
-        r = seccomp_arch_add(c, SCMP_ARCH_S390X);
-        if (r < 0 && r != -EEXIST)
-                return r;
-
-#endif
+        for (i = 0; i < ELEMENTSOF(seccomp_arches); i++) {
+                r = seccomp_arch_add(ctx, seccomp_arches[i]);
+                if (r < 0 && r != -EEXIST)
+                        return r;
+        }
 
         return 0;
 }

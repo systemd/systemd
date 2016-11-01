@@ -25,6 +25,8 @@
 #include "macro.h"
 #include "process-util.h"
 #include "seccomp-util.h"
+#include "string-util.h"
+#include "util.h"
 
 static void test_seccomp_arch_to_string(void) {
         uint32_t a, b;
@@ -36,6 +38,36 @@ static void test_seccomp_arch_to_string(void) {
         assert_se(name);
         assert_se(seccomp_arch_from_string(name, &b) >= 0);
         assert_se(a == b);
+}
+
+static void test_architecture_table(void) {
+        const char *n, *n2;
+
+        NULSTR_FOREACH(n,
+                       "native\0"
+                       "x86\0"
+                       "x86-64\0"
+                       "x32\0"
+                       "arm\0"
+                       "arm64\0"
+                       "mips\0"
+                       "mips64\0"
+                       "mips64-n32\0"
+                       "mips-le\0"
+                       "mips64-le\0"
+                       "mips64-le-n32\0"
+                       "ppc\0"
+                       "ppc64\0"
+                       "ppc64-le\0"
+                       "s390\0"
+                       "s390x\0") {
+                uint32_t c;
+
+                assert_se(seccomp_arch_from_string(n, &c) >= 0);
+                n2 = seccomp_arch_to_string(c);
+                log_info("seccomp-arch: %s → 0x%"PRIx32" → %s", n, c, n2);
+                assert_se(streq_ptr(n, n2));
+        }
 }
 
 static void test_syscall_filter_set_find(void) {
@@ -96,6 +128,7 @@ static void test_filter_sets(void) {
 int main(int argc, char *argv[]) {
 
         test_seccomp_arch_to_string();
+        test_architecture_table();
         test_syscall_filter_set_find();
         test_filter_sets();
 
