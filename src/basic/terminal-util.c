@@ -455,7 +455,7 @@ int acquire_terminal(
                                         goto fail;
                                 }
 
-                                r = fd_wait_for_event(fd, POLLIN, ts + timeout - n);
+                                r = fd_wait_for_event(notify, POLLIN, ts + timeout - n);
                                 if (r < 0)
                                         goto fail;
 
