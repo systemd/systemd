@@ -5272,7 +5272,7 @@ static int cat(int argc, char *argv[], void *userdata) {
                 else
                         puts("");
 
-                if (need_daemon_reload(bus, *name))
+                if (need_daemon_reload(bus, *name) > 0) /* ignore errors (<0), this is informational output */
                         fprintf(stderr,
                                 "%s# Warning: %s changed on disk, the version systemd has loaded is outdated.\n"
                                 "%s# This output shows the current version of the unit's original fragment and drop-in files.\n"
