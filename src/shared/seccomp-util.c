@@ -217,6 +217,24 @@ bool is_seccomp_available(void) {
 }
 
 const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
+        [SYSCALL_FILTER_SET_DEFAULT] = {
+                /* Default list: the most basic of operations */
+                .name = "@default",
+                .value =
+                "clock_getres\0"
+                "clock_gettime\0"
+                "clock_nanosleep\0"
+                "execve\0"
+                "exit\0"
+                "exit_group\0"
+                "getrlimit\0"      /* make sure processes can query stack size and such */
+                "gettimeofday\0"
+                "nanosleep\0"
+                "pause\0"
+                "rt_sigreturn\0"
+                "sigreturn\0"
+                "time\0"
+        },
         [SYSCALL_FILTER_SET_BASIC_IO] = {
                 /* Basic IO */
                 .name = "@basic-io",
@@ -269,24 +287,6 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "s390_runtime_instr\0"
 #endif
                 "sys_debug_setcontext\0"
-        },
-        [SYSCALL_FILTER_SET_DEFAULT] = {
-                /* Default list: the most basic of operations */
-                .name = "@default",
-                .value =
-                "clock_getres\0"
-                "clock_gettime\0"
-                "clock_nanosleep\0"
-                "execve\0"
-                "exit\0"
-                "exit_group\0"
-                "getrlimit\0"      /* make sure processes can query stack size and such */
-                "gettimeofday\0"
-                "nanosleep\0"
-                "pause\0"
-                "rt_sigreturn\0"
-                "sigreturn\0"
-                "time\0"
         },
         [SYSCALL_FILTER_SET_IO_EVENT] = {
                 /* Event loop use */

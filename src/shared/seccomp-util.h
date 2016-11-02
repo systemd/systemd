@@ -38,11 +38,12 @@ typedef struct SyscallFilterSet {
 } SyscallFilterSet;
 
 enum {
+        /* Please leave DEFAULT first, but sort the rest alphabetically */
+        SYSCALL_FILTER_SET_DEFAULT,
         SYSCALL_FILTER_SET_BASIC_IO,
         SYSCALL_FILTER_SET_CLOCK,
         SYSCALL_FILTER_SET_CPU_EMULATION,
         SYSCALL_FILTER_SET_DEBUG,
-        SYSCALL_FILTER_SET_DEFAULT,
         SYSCALL_FILTER_SET_IO_EVENT,
         SYSCALL_FILTER_SET_IPC,
         SYSCALL_FILTER_SET_KEYRING,
