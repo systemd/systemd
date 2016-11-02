@@ -386,7 +386,9 @@ static int service_add_fd_store(Service *s, int fd, const char *name) {
         assert(fd >= 0);
 
         if (s->n_fd_store >= s->n_fd_store_max)
-                return 0;
+                return -EXFULL; /* Our store is full.
+                                 * Use this errno rather than E[NM]FILE to distinguish from
+                                 * the case where systemd itself hits the file limit. */
 
         LIST_FOREACH(fd_store, fs, s->fd_store) {
                 r = same_fd(fs->fd, fd);
@@ -430,10 +432,7 @@ static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name) {
 
         assert(s);
 
-        if (fdset_size(fds) <= 0)
-                return 0;
-
-        while (s->n_fd_store < s->n_fd_store_max) {
+        while (fdset_size(fds) > 0) {
                 _cleanup_close_ int fd = -1;
 
                 fd = fdset_steal_first(fds);
@@ -441,15 +440,16 @@ static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name) {
                         break;
 
                 r = service_add_fd_store(s, fd, name);
+                if (r == -EXFULL)
+                        return log_unit_warning_errno(UNIT(s), r,
+                                                      "Cannot store more fds than FileDescriptorStoreMax=%u, closing remaining.",
+                                                      s->n_fd_store_max);
                 if (r < 0)
-                        return log_unit_error_errno(UNIT(s), r, "Couldn't add fd to fd store: %m");
+                        return log_unit_error_errno(UNIT(s), r, "Failed to add fd to store: %m");
                 if (r > 0)
                         log_unit_debug(UNIT(s), "Added fd %u (%s) to fd store.", fd, strna(name));
                 fd = -1;
         }
-
-        if (fdset_size(fds) > 0)
-                log_unit_warning(UNIT(s), "Tried to store more fds than FileDescriptorStoreMax=%u allows, closing remaining.", s->n_fd_store_max);
 
         return 0;
 }
