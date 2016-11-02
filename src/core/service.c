@@ -289,6 +289,16 @@ static void service_fd_store_unlink(ServiceFDStore *fs) {
         free(fs);
 }
 
+static void service_release_fd_store(Service *s) {
+        assert(s);
+
+        log_unit_debug(UNIT(s), "Releasing all stored fds");
+        while (s->fd_store)
+                service_fd_store_unlink(s->fd_store);
+
+        assert(s->n_fd_store == 0);
+}
+
 static void service_release_resources(Unit *u) {
         Service *s = SERVICE(u);
 
@@ -297,16 +307,16 @@ static void service_release_resources(Unit *u) {
         if (!s->fd_store && s->stdin_fd < 0 && s->stdout_fd < 0 && s->stderr_fd < 0)
                 return;
 
-        log_unit_debug(u, "Releasing all resources.");
+        log_unit_debug(u, "Releasing resources.");
 
         s->stdin_fd = safe_close(s->stdin_fd);
         s->stdout_fd = safe_close(s->stdout_fd);
         s->stderr_fd = safe_close(s->stderr_fd);
 
-        while (s->fd_store)
-                service_fd_store_unlink(s->fd_store);
-
-        assert(s->n_fd_store == 0);
+        if (s->preserve_fds)
+                s->preserve_fds = false;
+        else
+                service_release_fd_store(s);
 }
 
 static void service_done(Unit *u) {
@@ -360,6 +370,10 @@ static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *us
         assert(fs);
 
         /* If we get either EPOLLHUP or EPOLLERR, it's time to remove this entry from the fd store */
+        log_unit_debug(UNIT(fs->service),
+                       "Received %s on stored fd %d (%s), closing.",
+                       revents & EPOLLERR ? "EPOLLERR" : "EPOLLHUP",
+                       fs->fd, strna(fs->fdname));
         service_fd_store_unlink(fs);
         return 0;
 }
@@ -367,6 +381,8 @@ static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *us
 static int service_add_fd_store(Service *s, int fd, const char *name) {
         ServiceFDStore *fs;
         int r;
+
+        /* fd is always consumed if we return >= 0 */
 
         assert(s);
         assert(fd >= 0);
@@ -379,9 +395,8 @@ static int service_add_fd_store(Service *s, int fd, const char *name) {
                 if (r < 0)
                         return r;
                 if (r > 0) {
-                        /* Already included */
                         safe_close(fd);
-                        return 1;
+                        return 0; /* fd already included */
                 }
         }
 
@@ -409,7 +424,7 @@ static int service_add_fd_store(Service *s, int fd, const char *name) {
         LIST_PREPEND(fd_store, s->fd_store, fs);
         s->n_fd_store++;
 
-        return 1;
+        return 1; /* fd newly stored */
 }
 
 static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name) {
@@ -430,10 +445,9 @@ static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name) {
                 r = service_add_fd_store(s, fd, name);
                 if (r < 0)
                         return log_unit_error_errno(UNIT(s), r, "Couldn't add fd to fd store: %m");
-                if (r > 0) {
-                        log_unit_debug(UNIT(s), "Added fd to fd store.");
-                        fd = -1;
-                }
+                if (r > 0)
+                        log_unit_debug(UNIT(s), "Added fd %u (%s) to fd store.", fd, strna(name));
+                fd = -1;
         }
 
         if (fdset_size(fds) > 0)
@@ -1225,6 +1239,7 @@ static int service_spawn(
                         return r;
 
                 n_fds = r;
+                log_unit_debug(UNIT(s), "Passing %i fds to service", n_fds);
         }
 
         r = service_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), timeout));
@@ -1446,10 +1461,17 @@ static bool service_shall_restart(Service *s) {
 
 static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) {
         int r;
+        bool shall_restart;
+
         assert(s);
 
         if (s->result == SERVICE_SUCCESS)
                 s->result = f;
+
+        shall_restart = allow_restart && service_shall_restart(s);
+        if (shall_restart)
+                /* Do not close stored fds in the call to service_set_state below */
+                s->preserve_fds = true;
 
         service_set_state(s, s->result != SERVICE_SUCCESS ? SERVICE_FAILED : SERVICE_DEAD);
 
@@ -1458,8 +1480,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 emergency_action(UNIT(s)->manager, s->emergency_action, UNIT(s)->reboot_arg, "service failed");
         }
 
-        if (allow_restart && service_shall_restart(s)) {
-
+        if (shall_restart) {
                 r = service_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->restart_usec));
                 if (r < 0)
                         goto fail;
@@ -2336,7 +2357,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         r = service_add_fd_store(s, fd, t);
                         if (r < 0)
                                 log_unit_error_errno(u, r, "Failed to add fd to store: %m");
-                        else if (r > 0)
+                        else
                                 fdset_remove(fds, fd);
                 }
 
