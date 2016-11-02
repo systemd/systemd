@@ -1302,6 +1302,10 @@
             </thead>
             <tbody>
               <row>
+                <entry>@basic-io</entry>
+                <entry>System calls for basic I/O: reading, writing, seeking, file descriptor duplication and closing (<citerefentry project='man-pages'><refentrytitle>read</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>write</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and related calls)</entry>
+              </row>
+              <row>
                 <entry>@clock</entry>
                 <entry>System calls for changing the system clock (<citerefentry project='man-pages'><refentrytitle>adjtimex</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>settimeofday</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and related calls)</entry>
               </row>
@@ -1352,6 +1356,10 @@
               <row>
                 <entry>@raw-io</entry>
                 <entry>Raw I/O port access (<citerefentry project='man-pages'><refentrytitle>ioperm</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>iopl</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <function>pciconfig_read()</function>, …)</entry>
+              </row>
+              <row>
+                <entry>@resources</entry>
+                <entry>System calls for changing resource limits, memory and scheduling parameters (<citerefentry project='man-pages'><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>setpriority</refentrytitle><manvolnum>2</manvolnum></citerefentry>, …)</entry>
               </row>
             </tbody>
           </tgroup>

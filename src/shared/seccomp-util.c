@@ -217,6 +217,24 @@ bool is_seccomp_available(void) {
 }
 
 const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
+        [SYSCALL_FILTER_SET_BASIC_IO] = {
+                /* Basic IO */
+                .name = "@basic-io",
+                .value =
+                "close\0"
+                "dup2\0"
+                "dup3\0"
+                "dup\0"
+                "lseek\0"
+                "pread64\0"
+                "preadv\0"
+                "pwrite64\0"
+                "pwritev\0"
+                "read\0"
+                "readv\0"
+                "write\0"
+                "writev\0"
+        },
         [SYSCALL_FILTER_SET_CLOCK] = {
                 /* Clock */
                 .name = "@clock",
@@ -471,6 +489,22 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
 #ifdef __NR_s390_pci_mmio_write
                 "s390_pci_mmio_write\0"
 #endif
+        },
+        [SYSCALL_FILTER_SET_RESOURCES] = {
+                /* Alter resource settings */
+                .name = "@resources",
+                .value =
+                "sched_setparam\0"
+                "sched_setscheduler\0"
+                "sched_setaffinity\0"
+                "setpriority\0"
+                "setrlimit\0"
+                "set_mempolicy\0"
+                "migrate_pages\0"
+                "move_pages\0"
+                "mbind\0"
+                "sched_setattr\0"
+                "prlimit64\0"
         },
 };
 
