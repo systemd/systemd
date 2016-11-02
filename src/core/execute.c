@@ -669,21 +669,27 @@ static int setup_confirm_stdio(const char *vc, int *_saved_stdin, int *_saved_st
         return 0;
 }
 
-_printf_(2, 3) static int write_confirm_message(const char *vc, const char *format, ...) {
-        _cleanup_close_ int fd = -1;
-        va_list ap;
+static void write_confirm_error_fd(int err, int fd) {
+        assert(err < 0);
 
-        assert(format);
+        if (err == -ETIMEDOUT)
+                dprintf(fd, "Confirmation question timed out, assuming positive response.\n");
+        else {
+                errno = -err;
+                dprintf(fd, "Couldn't ask confirmation: %m, assuming positive response.\n");
+        }
+}
+
+static void write_confirm_error(int err, const char *vc) {
+        _cleanup_close_ int fd = -1;
+
+        assert(vc);
 
         fd = open_terminal(vc, O_WRONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
-                return fd;
+                return;
 
-        va_start(ap, format);
-        vdprintf(fd, format, ap);
-        va_end(ap);
-
-        return 0;
+        write_confirm_error_fd(err, fd);
 }
 
 static int restore_confirm_stdio(int *saved_stdin, int *saved_stdout) {
@@ -708,22 +714,48 @@ static int restore_confirm_stdio(int *saved_stdin, int *saved_stdout) {
         return r;
 }
 
-static int ask_for_confirmation(const char *vc, char *response, char **argv) {
+enum {
+        CONFIRM_PRETEND_FAILURE = -1,
+        CONFIRM_PRETEND_SUCCESS =  0,
+        CONFIRM_EXECUTE = 1,
+};
+
+static int ask_for_confirmation(const char *vc, const char *cmdline) {
         int saved_stdout = -1, saved_stdin = -1, r;
-        _cleanup_free_ char *line = NULL;
+        char c;
 
+        /* For any internal errors, assume a positive response. */
         r = setup_confirm_stdio(vc, &saved_stdin, &saved_stdout);
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                write_confirm_error(r, vc);
+                return CONFIRM_EXECUTE;
+        }
 
-        line = exec_command_line(argv);
-        if (!line)
-                return -ENOMEM;
+        r = ask_char(&c, "yns", "Execute %s? [Yes, No, Skip] ", cmdline);
+        if (r < 0) {
+                write_confirm_error_fd(r, STDOUT_FILENO);
+                r = CONFIRM_EXECUTE;
+                goto restore_stdio;
+        }
 
-        r = ask_char(response, "yns", "Execute %s? [Yes, No, Skip] ", line);
+        switch (c) {
+        case 'n':
+                printf("Failing execution.\n");
+                r = CONFIRM_PRETEND_SUCCESS;
+                break;
+        case 's':
+                printf("Skipping execution.\n");
+                r = CONFIRM_PRETEND_FAILURE;
+                break;
+        case 'y':
+                r = CONFIRM_EXECUTE;
+                break;
+        default:
+                assert_not_reached("Unhandled choice");
+        }
 
+restore_stdio:
         restore_confirm_stdio(&saved_stdin, &saved_stdout);
-
         return r;
 }
 
@@ -2311,21 +2343,22 @@ static int exec_child(
 
         if (params->confirm_spawn) {
                 const char *vc = params->confirm_spawn;
-                char response;
+                _cleanup_free_ char *cmdline = NULL;
 
-                r = ask_for_confirmation(vc, &response, argv);
-                if (r == -ETIMEDOUT)
-                        write_confirm_message(vc, "Confirmation question timed out, assuming positive response.\n");
-                else if (r < 0)
-                        write_confirm_message(vc, "Couldn't ask confirmation question, assuming positive response: %s\n", strerror(-r));
-                else if (response == 's') {
-                        write_confirm_message(vc, "Skipping execution.\n");
+                cmdline = exec_command_line(argv);
+                if (!cmdline) {
+                        *exit_status = EXIT_CONFIRM;
+                        return -ENOMEM;
+                }
+
+                r = ask_for_confirmation(vc, cmdline);
+                if (r != CONFIRM_EXECUTE) {
+                        if (r == CONFIRM_PRETEND_SUCCESS) {
+                                *exit_status = EXIT_SUCCESS;
+                                return 0;
+                        }
                         *exit_status = EXIT_CONFIRM;
                         return -ECANCELED;
-                } else if (response == 'n') {
-                        write_confirm_message(vc, "Failing execution.\n");
-                        *exit_status = 0;
-                        return 0;
                 }
         }
 
