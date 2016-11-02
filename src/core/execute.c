@@ -773,11 +773,9 @@ static int get_fixed_group(const ExecContext *c, const char **group, gid_t *gid)
         return 0;
 }
 
-static int get_fixed_supplementary_groups(const ExecContext *c,
-                                          const char *user,
-                                          const char *group,
-                                          gid_t gid,
-                                          gid_t **supplementary_gids, int *ngids) {
+static int get_supplementary_groups(const ExecContext *c, const char *user,
+                                    const char *group, gid_t gid,
+                                    gid_t **supplementary_gids, int *ngids) {
         char **i;
         int r, k = 0;
         int ngroups_max;
@@ -790,8 +788,8 @@ static int get_fixed_supplementary_groups(const ExecContext *c,
         /*
          * If user is given, then lookup GID and supplementary groups list.
          * We avoid NSS lookups for gid=0. Also we have to initialize groups
-         * as early as possible so we keep the list of supplementary groups
-         * of the caller.
+         * here and as early as possible so we keep the list of supplementary
+         * groups of the caller.
          */
         if (user && gid_is_valid(gid) && gid != 0) {
                 /* First step, initialize groups from /etc/groups */
@@ -2347,13 +2345,14 @@ static int exec_child(
                         *exit_status = EXIT_GROUP;
                         return r;
                 }
+        }
 
-                r = get_fixed_supplementary_groups(context, username, groupname,
-                                                   gid, &supplementary_gids, &ngids);
-                if (r < 0) {
-                        *exit_status = EXIT_GROUP;
-                        return r;
-                }
+        /* Initialize user supplementary groups and get SupplementaryGroups= ones */
+        r = get_supplementary_groups(context, username, groupname, gid,
+                                     &supplementary_gids, &ngids);
+        if (r < 0) {
+                *exit_status = EXIT_GROUP;
+                return r;
         }
 
         r = send_user_lookup(unit, user_lookup_fd, uid, gid);
