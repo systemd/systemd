@@ -35,10 +35,12 @@
  * Type of names:
  *   b<number>                             — BCMA bus core number
  *   c<bus_id>                             — CCW bus group name, without leading zeros [s390]
- *   o<index>[d<dev_port>]                 — on-board device index number
- *   s<slot>[f<function>][d<dev_port>]     — hotplug slot index number
+ *   o<index>[n<phys_port_name>|d<dev_port>]
+ *                                         — on-board device index number
+ *   s<slot>[f<function>][n<phys_port_name>|d<dev_port>]
+ *                                         — hotplug slot index number
  *   x<MAC>                                — MAC address
- *   [P<domain>]p<bus>s<slot>[f<function>][d<dev_port>]
+ *   [P<domain>]p<bus>s<slot>[f<function>][n<phys_port_name>|d<dev_port>]
  *                                         — PCI geographical location
  *   [P<domain>]p<bus>s<slot>[f<function>][u<port>][..][c<config>][i<interface>]
  *                                         — USB port number chain
@@ -137,7 +139,7 @@ static int dev_pci_onboard(struct udev_device *dev, struct netnames *names) {
         unsigned dev_port = 0;
         size_t l;
         char *s;
-        const char *attr;
+        const char *attr, *port_name;
         int idx;
 
         /* ACPI _DSM  — device specific method for naming a PCI or PCI Express device */
@@ -164,10 +166,15 @@ static int dev_pci_onboard(struct udev_device *dev, struct netnames *names) {
         if (attr)
                 dev_port = strtol(attr, NULL, 10);
 
+        /* kernel provided front panel port name for multiple port PCI device */
+        port_name = udev_device_get_sysattr_value(dev, "phys_port_name");
+
         s = names->pci_onboard;
         l = sizeof(names->pci_onboard);
         l = strpcpyf(&s, l, "o%d", idx);
-        if (dev_port > 0)
+        if (port_name)
+                l = strpcpyf(&s, l, "n%s", port_name);
+        else if (dev_port > 0)
                 l = strpcpyf(&s, l, "d%d", dev_port);
         if (l == 0)
                 names->pci_onboard[0] = '\0';
@@ -202,7 +209,7 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         unsigned domain, bus, slot, func, dev_port = 0;
         size_t l;
         char *s;
-        const char *attr;
+        const char *attr, *port_name;
         struct udev_device *pci = NULL;
         char slots[256], str[256];
         _cleanup_closedir_ DIR *dir = NULL;
@@ -217,6 +224,9 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         if (attr)
                 dev_port = strtol(attr, NULL, 10);
 
+        /* kernel provided front panel port name for multiple port PCI device */
+        port_name = udev_device_get_sysattr_value(dev, "phys_port_name");
+
         /* compose a name based on the raw kernel's PCI bus, slot numbers */
         s = names->pci_path;
         l = sizeof(names->pci_path);
@@ -225,7 +235,9 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         l = strpcpyf(&s, l, "p%us%u", bus, slot);
         if (func > 0 || is_pci_multifunction(names->pcidev))
                 l = strpcpyf(&s, l, "f%u", func);
-        if (dev_port > 0)
+        if (port_name)
+                l = strpcpyf(&s, l, "n%s", port_name);
+        else if (dev_port > 0)
                 l = strpcpyf(&s, l, "d%u", dev_port);
         if (l == 0)
                 names->pci_path[0] = '\0';
@@ -275,7 +287,9 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                 l = strpcpyf(&s, l, "s%d", hotplug_slot);
                 if (func > 0 || is_pci_multifunction(names->pcidev))
                         l = strpcpyf(&s, l, "f%d", func);
-                if (dev_port > 0)
+                if (port_name)
+                        l = strpcpyf(&s, l, "n%s", port_name);
+                else if (dev_port > 0)
                         l = strpcpyf(&s, l, "d%d", dev_port);
                 if (l == 0)
                         names->pci_slot[0] = '\0';
