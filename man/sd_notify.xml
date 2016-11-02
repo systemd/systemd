@@ -205,28 +205,25 @@
       <varlistentry>
         <term>FDSTORE=1</term>
 
-        <listitem><para>Stores additional file descriptors in the
-        service manager. File descriptors sent this way will be
-        maintained per-service by the service manager and be passed
-        again using the usual file descriptor passing logic on the
-        next invocation of the service (see
-        <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
-        This is useful for implementing service restart schemes where
-        services serialize their state to <filename>/run</filename>,
-        push their file descriptors to the system manager, and are
-        then restarted, retrieving their state again via socket
-        passing and <filename>/run</filename>. Note that the service
-        manager will accept messages for a service only if
-        <varname>FileDescriptorStoreMax=</varname> is set to non-zero
-        for it (defaults to zero). See
-        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details. Multiple arrays of file descriptors may be sent
-        in separate messages, in which case the arrays are combined.
-        Note that the service manager removes duplicate file
-        descriptors before passing them to the service. Use
-        <function>sd_pid_notify_with_fds()</function> to send messages
-        with <literal>FDSTORE=1</literal>, see
-        below.</para></listitem>
+        <listitem><para>Stores additional file descriptors in the service manager. File
+        descriptors sent this way will be maintained per-service by the service manager
+        and will be passed again using the usual file descriptor passing logic on the next
+        invocation of the service, see
+        <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        This is useful for implementing service restart schemes where services serialize
+        their state to <filename>/run</filename>, push their file descriptors to the
+        system manager, and are then restarted, retrieving their state again via socket
+        passing and <filename>/run</filename>. Note that the service manager will accept
+        messages for a service only if <varname>FileDescriptorStoreMax=</varname> is set
+        to non-zero for it (defaults to zero, see
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        File descriptors must be pollable, see
+        <citerefentry><refentrytitle>epoll_ctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
+        Multiple arrays of file descriptors may be sent in separate messages, in which
+        case the arrays are combined.  Note that the service manager removes duplicate
+        file descriptors before passing them to the service. Use
+        <function>sd_pid_notify_with_fds()</function> to send messages with
+        <literal>FDSTORE=1</literal>, see below.</para></listitem>
       </varlistentry>
 
       <varlistentry>
