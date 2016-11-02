@@ -311,6 +311,35 @@ CHANGES WITH 232 in spe
         * "systemctl is-enabled --full" will now show by which symlinks a unit
           file is enabled in the unit dependency tree.
 
+        Contributions from: Alban Crequy, Alexander Kuleshov, Alfie John,
+        Andreas Henriksson, Andrew Jeddeloh, Balázs Úr, Bart Rulon, Benjamin
+        Richter, Ben Gamari, Ben Harris, Brian J. Murrell, Christian Brauner,
+        Christian Rebischke, Clinton Roy, Colin Walters, Cristian Rodríguez,
+        Daniel Hahler, Daniel Mack, Daniel Maixner, Daniel Rusek, Dan Dedrick,
+        Davide Cavalca, David Herrmann, David Michael, Dennis Wassenberg,
+        Djalal Harouni, Dongsu Park, Douglas Christman, Elias Probst, Eric
+        Cook, Erik Karlsson, Evgeny Vereshchagin, Felipe Sateler, Felix Zhang,
+        Franck Bui, George Hilliard, Giuseppe Scrivano, HATAYAMA Daisuke,
+        Heikki Kemppainen, Hendrik Brueckner, hi117, Ismo Puustinen, Ivan
+        Shapovalov, Jakub Filak, Jakub Wilk, Jan Synacek, Jason Kölker,
+        Jean-Sébastien Bour, Jiří Pírko, Jonathan Boulle, Jorge Niedbalski,
+        Keith Busch, kristbaum, Kyle Russell, Lans Zhang, Lennart Poettering,
+        Leonardo Brondani Schenkel, Lucas Werkmeister, Luca Bruno, Lukáš
+        Nykrýn, Maciek Borzecki, Mantas Mikulėnas, Marc-Antoine Perennou,
+        Marcel Holtmann, Marcos Mello, Martin Ejdestig, Martin Pitt, Matej
+        Habrnal, Maxime de Roucy, Michael Biebl, Michael Chapman, Michael Hoy,
+        Michael Olbrich, Michael Pope, Michal Sekletar, Michal Soltys, Mike
+        Gilbert, Nick Owens, Patrik Flykt, Paweł Szewczyk, Peter Hutterer,
+        Piotr Drąg, Reid Price, Richard W.M. Jones, Roman Stingler, Ronny
+        Chevalier, Seraphime Kirkovski, Stefan Schweter, Steve Muir, Susant
+        Sahani, Tejun Heo, Thomas Blume, Thomas H. P. Andersen, Tiago Levit,
+        Tobias Jungel, Tomáš Janoušek, Topi Miettinen, Torstein Husebø, Umut
+        Tezduyar Lindskog, Vito Caputo, WaLyong Cho, Wilhelm Schuster, Yann
+        E. MORIN, Yi EungJun, Yuki Inoguchi, Yu Watanabe, Zbigniew
+        Jędrzejewski-Szmek, Zeal Jagannatha
+
+        — Santa Fe, 2016-11-XX
+
 CHANGES WITH 231:
 
         * In service units the various ExecXYZ= settings have been extended
