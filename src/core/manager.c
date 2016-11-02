@@ -111,6 +111,12 @@ static void manager_watch_jobs_in_progress(Manager *m) {
 
         assert(m);
 
+        /* We do not want to show the cylon animation if the user
+         * needs to confirm service executions otherwise confirmation
+         * messages will be screwed by the cylon animation. */
+        if (m->confirm_spawn)
+                return;
+
         if (m->jobs_in_progress_event_source)
                 return;
 
