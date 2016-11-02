@@ -2540,12 +2540,6 @@ static int exec_child(
         (void) umask(context->umask);
 
         if ((params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged) {
-                r = setup_smack(context, command);
-                if (r < 0) {
-                        *exit_status = EXIT_SMACK_PROCESS_LABEL;
-                        return r;
-                }
-
                 if (context->pam_name && username) {
                         r = setup_pam(context->pam_name, username, uid, gid, context->tty_path, &accum_env, fds, n_fds);
                         if (r < 0) {
@@ -2695,6 +2689,41 @@ static int exec_child(
                         }
                 }
 
+                /* Apply the MAC contexts late, but before seccomp syscall filtering, as those should really be last to
+                 * influence our own codepaths as little as possible. Moreover, applying MAC contexts usually requires
+                 * syscalls that are subject to seccomp filtering, hence should probably be applied before the syscalls
+                 * are restricted. */
+
+#ifdef HAVE_SELINUX
+                if (mac_selinux_use()) {
+                        char *exec_context = mac_selinux_context_net ?: context->selinux_context;
+
+                        if (exec_context) {
+                                r = setexeccon(exec_context);
+                                if (r < 0) {
+                                        *exit_status = EXIT_SELINUX_CONTEXT;
+                                        return r;
+                                }
+                        }
+                }
+#endif
+
+                r = setup_smack(context, command);
+                if (r < 0) {
+                        *exit_status = EXIT_SMACK_PROCESS_LABEL;
+                        return r;
+                }
+
+#ifdef HAVE_APPARMOR
+                if (context->apparmor_profile && mac_apparmor_use()) {
+                        r = aa_change_onexec(context->apparmor_profile);
+                        if (r < 0 && !context->apparmor_profile_ignore) {
+                                *exit_status = EXIT_APPARMOR_PROFILE;
+                                return -errno;
+                        }
+                }
+#endif
+
                 /* PR_GET_SECUREBITS is not privileged, while
                  * PR_SET_SECUREBITS is. So to suppress
                  * potential EPERMs we'll try not to call
@@ -2760,35 +2789,13 @@ static int exec_child(
                         }
                 }
 
+                /* This really should remain the last step before the execve(), to make sure our own code is unaffected
+                 * by the filter as little as possible. */
                 if (context_has_syscall_filters(context)) {
                         r = apply_seccomp(unit, context);
                         if (r < 0) {
                                 *exit_status = EXIT_SECCOMP;
                                 return r;
-                        }
-                }
-#endif
-
-#ifdef HAVE_SELINUX
-                if (mac_selinux_use()) {
-                        char *exec_context = mac_selinux_context_net ?: context->selinux_context;
-
-                        if (exec_context) {
-                                r = setexeccon(exec_context);
-                                if (r < 0) {
-                                        *exit_status = EXIT_SELINUX_CONTEXT;
-                                        return r;
-                                }
-                        }
-                }
-#endif
-
-#ifdef HAVE_APPARMOR
-                if (context->apparmor_profile && mac_apparmor_use()) {
-                        r = aa_change_onexec(context->apparmor_profile);
-                        if (r < 0 && !context->apparmor_profile_ignore) {
-                                *exit_status = EXIT_APPARMOR_PROFILE;
-                                return -errno;
                         }
                 }
 #endif
@@ -3613,7 +3620,8 @@ char *exec_command_line(char **argv) {
         STRV_FOREACH(a, argv)
                 k += strlen(*a)+3;
 
-        if (!(n = new(char, k)))
+        n = new(char, k);
+        if (!n)
                 return NULL;
 
         p = n;

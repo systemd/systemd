@@ -38,6 +38,7 @@ typedef struct SyscallFilterSet {
 } SyscallFilterSet;
 
 enum {
+        SYSCALL_FILTER_SET_BASIC_IO,
         SYSCALL_FILTER_SET_CLOCK,
         SYSCALL_FILTER_SET_CPU_EMULATION,
         SYSCALL_FILTER_SET_DEBUG,
@@ -52,6 +53,7 @@ enum {
         SYSCALL_FILTER_SET_PRIVILEGED,
         SYSCALL_FILTER_SET_PROCESS,
         SYSCALL_FILTER_SET_RAW_IO,
+        SYSCALL_FILTER_SET_RESOURCES,
         _SYSCALL_FILTER_SET_MAX
 };
 

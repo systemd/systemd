@@ -217,6 +217,24 @@ bool is_seccomp_available(void) {
 }
 
 const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
+        [SYSCALL_FILTER_SET_BASIC_IO] = {
+                /* Basic IO */
+                .name = "@basic-io",
+                .value =
+                "close\0"
+                "dup2\0"
+                "dup3\0"
+                "dup\0"
+                "lseek\0"
+                "pread64\0"
+                "preadv\0"
+                "pwrite64\0"
+                "pwritev\0"
+                "read\0"
+                "readv\0"
+                "write\0"
+                "writev\0"
+        },
         [SYSCALL_FILTER_SET_CLOCK] = {
                 /* Clock */
                 .name = "@clock",
@@ -253,15 +271,22 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "sys_debug_setcontext\0"
         },
         [SYSCALL_FILTER_SET_DEFAULT] = {
-                /* Default list */
+                /* Default list: the most basic of operations */
                 .name = "@default",
                 .value =
+                "clock_getres\0"
+                "clock_gettime\0"
+                "clock_nanosleep\0"
                 "execve\0"
                 "exit\0"
                 "exit_group\0"
                 "getrlimit\0"      /* make sure processes can query stack size and such */
+                "gettimeofday\0"
+                "nanosleep\0"
+                "pause\0"
                 "rt_sigreturn\0"
                 "sigreturn\0"
+                "time\0"
         },
         [SYSCALL_FILTER_SET_IO_EVENT] = {
                 /* Event loop use */
@@ -283,9 +308,10 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "select\0"
         },
         [SYSCALL_FILTER_SET_IPC] = {
-                /* Message queues, SYSV IPC or other IPC: unusual */
+                /* Message queues, SYSV IPC or other IPC */
                 .name = "@ipc",
                 .value = "ipc\0"
+                "memfd_create\0"
                 "mq_getsetattr\0"
                 "mq_notify\0"
                 "mq_open\0"
@@ -296,6 +322,8 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "msgget\0"
                 "msgrcv\0"
                 "msgsnd\0"
+                "pipe2\0"
+                "pipe\0"
                 "process_vm_readv\0"
                 "process_vm_writev\0"
                 "semctl\0"
@@ -436,7 +464,6 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .value =
                 "arch_prctl\0"
                 "clone\0"
-                "execve\0"
                 "execveat\0"
                 "fork\0"
                 "kill\0"
@@ -462,6 +489,22 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
 #ifdef __NR_s390_pci_mmio_write
                 "s390_pci_mmio_write\0"
 #endif
+        },
+        [SYSCALL_FILTER_SET_RESOURCES] = {
+                /* Alter resource settings */
+                .name = "@resources",
+                .value =
+                "sched_setparam\0"
+                "sched_setscheduler\0"
+                "sched_setaffinity\0"
+                "setpriority\0"
+                "setrlimit\0"
+                "set_mempolicy\0"
+                "migrate_pages\0"
+                "move_pages\0"
+                "mbind\0"
+                "sched_setattr\0"
+                "prlimit64\0"
         },
 };
 
