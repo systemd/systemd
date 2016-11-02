@@ -262,6 +262,7 @@ static void test_exec_supplementary_groups(Manager *m) {
 static void test_exec_dynamic_user(Manager *m) {
         test(m, "exec-dynamicuser-fixeduser.service", 0, CLD_EXITED);
         test(m, "exec-dynamicuser-fixeduser-one-supplementarygroup.service", 0, CLD_EXITED);
+        test(m, "exec-dynamicuser-supplementarygroups.service", 0, CLD_EXITED);
 }
 
 static void test_exec_environment(Manager *m) {

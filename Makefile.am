@@ -1628,6 +1628,7 @@ EXTRA_DIST += \
 	test/test-execute/exec-supplementarygroups-multiple-groups-withuid.service \
 	test/test-execute/exec-dynamicuser-fixeduser.service \
 	test/test-execute/exec-dynamicuser-fixeduser-one-supplementarygroup.service \
+	test/test-execute/exec-dynamicuser-supplementarygroups.service \
 	test/test-execute/exec-ignoresigpipe-no.service \
 	test/test-execute/exec-ignoresigpipe-yes.service \
 	test/test-execute/exec-personality-x86-64.service \
