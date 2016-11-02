@@ -59,13 +59,9 @@ Features:
 
 * define gpt header bits to select volatility mode
 
-* nspawn: mount loopback filesystems with "discard"
-
 * ProtectKernelLogs= (drops CAP_SYSLOG, add seccomp for syslog() syscall, and DeviceAllow to /dev/kmsg) in service files
 
 * ProtectClock= (drops CAP_SYS_TIMES, adds seecomp filters for settimeofday, adjtimex), sets DeviceAllow o /dev/rtc
-
-* ProtectKernelModules= (drops CAP_SYS_MODULE and filters the kmod syscalls)
 
 * ProtectTracing= (drops CAP_SYS_PTRACE, blocks ptrace syscall, makes /sys/kernel/tracing go away)
 
@@ -87,8 +83,6 @@ Features:
 * Add BindDirectory= for allowing arbitrary, private bind mounts for services
 
 * Add RootImage= for mounting a disk image or file as root directory
-
-* RestrictNamespaces= or so in services (taking away the ability to create namespaces, with setns, unshare, clone)
 
 * make sure the ratelimit object can deal with USEC_INFINITY as way to turn off things
 

@@ -781,6 +781,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("RuntimeDirectory", "as", NULL, offsetof(ExecContext, runtime_directory), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MemoryDenyWriteExecute", "b", bus_property_get_bool, offsetof(ExecContext, memory_deny_write_execute), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictRealtime", "b", bus_property_get_bool, offsetof(ExecContext, restrict_realtime), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RestrictNamespace", "t", bus_property_get_ulong, offsetof(ExecContext, restrict_namespaces), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };
 
@@ -1591,7 +1592,27 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        } else if (streq(name, "RestrictNamespaces")) {
+                uint64_t flags;
 
+                r = sd_bus_message_read(message, "t", &flags);
+                if (r < 0)
+                        return r;
+                if ((flags & NAMESPACE_FLAGS_ALL) != flags)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown namespace types");
+
+                if (mode != UNIT_CHECK) {
+                        _cleanup_free_ char *s = NULL;
+
+                        r = namespace_flag_to_string_many(flags, &s);
+                        if (r < 0)
+                                return r;
+
+                        c->restrict_namespaces = flags;
+                        unit_write_drop_in_private_format(u, mode, name, "%s=%s", name, s);
+                }
+
+                return 1;
         }
 
         ri = rlimit_from_string(name);

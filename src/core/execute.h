@@ -35,6 +35,7 @@ typedef struct ExecParameters ExecParameters;
 #include "list.h"
 #include "missing.h"
 #include "namespace.h"
+#include "nsflags.h"
 
 typedef enum ExecUtmpMode {
         EXEC_UTMP_INIT,
@@ -195,6 +196,8 @@ struct ExecContext {
 
         unsigned long personality;
 
+        unsigned long restrict_namespaces; /* The CLONE_NEWxyz flags permitted to the unit's processes */
+
         Set *syscall_filter;
         Set *syscall_archs;
         int syscall_errno;
@@ -215,6 +218,12 @@ struct ExecContext {
         bool cpu_sched_set:1;
         bool no_new_privileges_set:1;
 };
+
+static inline bool exec_context_restrict_namespaces_set(const ExecContext *c) {
+        assert(c);
+
+        return (c->restrict_namespaces & NAMESPACE_FLAGS_ALL) != NAMESPACE_FLAGS_ALL;
+}
 
 typedef enum ExecFlags {
         EXEC_CONFIRM_SPAWN     = 1U << 0,
