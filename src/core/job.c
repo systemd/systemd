@@ -690,16 +690,16 @@ _pure_ static const char *job_get_status_message_format(Unit *u, JobType t, JobR
 }
 
 static void job_print_status_message(Unit *u, JobType t, JobResult result) {
-        static struct {
+        static const struct {
                 const char *color, *word;
         } const statuses[_JOB_RESULT_MAX] = {
-                [JOB_DONE]        = {ANSI_GREEN,            "  OK  "},
-                [JOB_TIMEOUT]     = {ANSI_HIGHLIGHT_RED,    " TIME "},
-                [JOB_FAILED]      = {ANSI_HIGHLIGHT_RED,    "FAILED"},
-                [JOB_DEPENDENCY]  = {ANSI_HIGHLIGHT_YELLOW, "DEPEND"},
-                [JOB_SKIPPED]     = {ANSI_HIGHLIGHT,        " INFO "},
-                [JOB_ASSERT]      = {ANSI_HIGHLIGHT_YELLOW, "ASSERT"},
-                [JOB_UNSUPPORTED] = {ANSI_HIGHLIGHT_YELLOW, "UNSUPP"},
+                [JOB_DONE]        = { ANSI_GREEN,            "  OK  " },
+                [JOB_TIMEOUT]     = { ANSI_HIGHLIGHT_RED,    " TIME " },
+                [JOB_FAILED]      = { ANSI_HIGHLIGHT_RED,    "FAILED" },
+                [JOB_DEPENDENCY]  = { ANSI_HIGHLIGHT_YELLOW, "DEPEND" },
+                [JOB_SKIPPED]     = { ANSI_HIGHLIGHT,        " INFO " },
+                [JOB_ASSERT]      = { ANSI_HIGHLIGHT_YELLOW, "ASSERT" },
+                [JOB_UNSUPPORTED] = { ANSI_HIGHLIGHT_YELLOW, "UNSUPP" },
         };
 
         const char *format;
