@@ -311,6 +311,15 @@ CHANGES WITH 232 in spe
         * "systemctl is-enabled --full" will now show by which symlinks a unit
           file is enabled in the unit dependency tree.
 
+        * Support for VeraCrypt encrypted partitions has been added to the
+          "cryptsetup" logic and /etc/crypttab.
+
+        * systemd-detect-virt gained support for a new --private-users switch
+          that checks whether the invoking processes are running inside a user
+          namespace. Similar, a new special value "private-users" for the
+          existing ConditionVirtualization= setting has been added, permitting
+          skipping of specific units in user namespace environments.
+
         Contributions from: Alban Crequy, Alexander Kuleshov, Alfie John,
         Andreas Henriksson, Andrew Jeddeloh, Balázs Úr, Bart Rulon, Benjamin
         Richter, Ben Gamari, Ben Harris, Brian J. Murrell, Christian Brauner,
