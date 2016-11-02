@@ -636,7 +636,7 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
                 goto fail;
 
         exec_params.environment = UNIT(s)->manager->environment;
-        exec_params.flags |= UNIT(s)->manager->confirm_spawn ? EXEC_CONFIRM_SPAWN : 0;
+        exec_params.confirm_spawn = manager_get_confirm_spawn(UNIT(s)->manager);
         exec_params.cgroup_supported = UNIT(s)->manager->cgroup_supported;
         exec_params.cgroup_path = UNIT(s)->cgroup_path;
         exec_params.cgroup_delegate = s->cgroup_context.delegate;

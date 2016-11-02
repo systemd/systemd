@@ -624,7 +624,7 @@ static int chown_terminal(int fd, uid_t uid) {
         return 0;
 }
 
-static int setup_confirm_stdio(int *_saved_stdin, int *_saved_stdout) {
+static int setup_confirm_stdio(const char *vc, int *_saved_stdin, int *_saved_stdout) {
         _cleanup_close_ int fd = -1, saved_stdin = -1, saved_stdout = -1;
         int r;
 
@@ -639,12 +639,7 @@ static int setup_confirm_stdio(int *_saved_stdin, int *_saved_stdout) {
         if (saved_stdout < 0)
                 return -errno;
 
-        fd = acquire_terminal(
-                        "/dev/console",
-                        false,
-                        false,
-                        false,
-                        DEFAULT_CONFIRM_USEC);
+        fd = acquire_terminal(vc, false, false, false, DEFAULT_CONFIRM_USEC);
         if (fd < 0)
                 return fd;
 
@@ -674,13 +669,13 @@ static int setup_confirm_stdio(int *_saved_stdin, int *_saved_stdout) {
         return 0;
 }
 
-_printf_(1, 2) static int write_confirm_message(const char *format, ...) {
+_printf_(2, 3) static int write_confirm_message(const char *vc, const char *format, ...) {
         _cleanup_close_ int fd = -1;
         va_list ap;
 
         assert(format);
 
-        fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal(vc, O_WRONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
                 return fd;
 
@@ -713,11 +708,11 @@ static int restore_confirm_stdio(int *saved_stdin, int *saved_stdout) {
         return r;
 }
 
-static int ask_for_confirmation(char *response, char **argv) {
+static int ask_for_confirmation(const char *vc, char *response, char **argv) {
         int saved_stdout = -1, saved_stdin = -1, r;
         _cleanup_free_ char *line = NULL;
 
-        r = setup_confirm_stdio(&saved_stdin, &saved_stdout);
+        r = setup_confirm_stdio(vc, &saved_stdin, &saved_stdout);
         if (r < 0)
                 return r;
 
@@ -2314,20 +2309,21 @@ static int exec_child(
 
         exec_context_tty_reset(context, params);
 
-        if (params->flags & EXEC_CONFIRM_SPAWN) {
+        if (params->confirm_spawn) {
+                const char *vc = params->confirm_spawn;
                 char response;
 
-                r = ask_for_confirmation(&response, argv);
+                r = ask_for_confirmation(vc, &response, argv);
                 if (r == -ETIMEDOUT)
-                        write_confirm_message("Confirmation question timed out, assuming positive response.\n");
+                        write_confirm_message(vc, "Confirmation question timed out, assuming positive response.\n");
                 else if (r < 0)
-                        write_confirm_message("Couldn't ask confirmation question, assuming positive response: %s\n", strerror(-r));
+                        write_confirm_message(vc, "Couldn't ask confirmation question, assuming positive response: %s\n", strerror(-r));
                 else if (response == 's') {
-                        write_confirm_message("Skipping execution.\n");
+                        write_confirm_message(vc, "Skipping execution.\n");
                         *exit_status = EXIT_CONFIRM;
                         return -ECANCELED;
                 } else if (response == 'n') {
-                        write_confirm_message("Failing execution.\n");
+                        write_confirm_message(vc, "Failing execution.\n");
                         *exit_status = 0;
                         return 0;
                 }

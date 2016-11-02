@@ -940,10 +940,14 @@
       <varlistentry>
         <term><varname>systemd.confirm_spawn=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If
-        <option>yes</option>, the system manager (PID 1) asks for
-        confirmation when spawning processes. Defaults to
-        <option>no</option>.</para></listitem>
+        <listitem><para>Takes a boolean argument or a path to the
+        virtual console where the confirmation messages should be
+        emitted. If <option>yes</option>, the system manager (PID 1)
+        asks for confirmation when spawning processes using
+        <option>/dev/console</option>. If a path or a console name
+        (such as <literal>ttyS0</literal>) is provided, the virtual
+        console pointed to by this path or described by the give name
+        will be used instead. Defaults to <option>no</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
