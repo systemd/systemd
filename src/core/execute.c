@@ -787,6 +787,20 @@ static int get_fixed_supplementary_groups(const ExecContext *c,
 
         assert(c);
 
+        /*
+         * If user is given, then lookup GID and supplementary groups list.
+         * We avoid NSS lookups for gid=0. Also we have to initialize groups
+         * as early as possible so we keep the list of supplementary groups
+         * of the caller.
+         */
+        if (user && gid_is_valid(gid) && gid != 0) {
+                /* First step, initialize groups from /etc/groups */
+                if (initgroups(user, gid) < 0)
+                        return -errno;
+
+                keep_groups = true;
+        }
+
         if (!c->supplementary_groups)
                 return 0;
 
@@ -801,18 +815,6 @@ static int get_fixed_supplementary_groups(const ExecContext *c,
                         return -errno;
                 else
                         return -EOPNOTSUPP; /* For all other values */
-        }
-
-        /*
-         * If user is given, then lookup GID and supplementary group list.
-         * We avoid NSS lookups for gid=0.
-         */
-        if (user && gid_is_valid(gid) && gid != 0) {
-                /* First step, initialize groups from /etc/groups */
-                if (initgroups(user, gid) < 0)
-                        return -errno;
-
-                keep_groups = true;
         }
 
         l_gids = new(gid_t, ngroups_max);
@@ -2577,7 +2579,7 @@ static int exec_child(
                 return r;
         }
 
-        /* Drop group as early as possbile */
+        /* Drop groups as early as possbile */
         if ((params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged) {
                 r = enforce_groups(context, gid, supplementary_gids, ngids);
                 if (r < 0) {
