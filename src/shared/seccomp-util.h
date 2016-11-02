@@ -34,6 +34,7 @@ bool is_seccomp_available(void);
 
 typedef struct SyscallFilterSet {
         const char *name;
+        const char *help;
         const char *value;
 } SyscallFilterSet;
 

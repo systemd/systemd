@@ -1280,6 +1280,7 @@ static void dump_syscall_filter(const SyscallFilterSet *set) {
         const char *syscall;
 
         printf("%s\n", set->name);
+        printf("    # %s\n", set->help);
         NULSTR_FOREACH(syscall, set->value)
                 printf("    %s\n", syscall);
 }
