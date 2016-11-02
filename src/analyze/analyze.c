@@ -36,6 +36,7 @@
 #include "log.h"
 #include "pager.h"
 #include "parse-util.h"
+#include "seccomp-util.h"
 #include "special.h"
 #include "strv.h"
 #include "strxcpyx.h"
@@ -1275,36 +1276,85 @@ static int set_log_target(sd_bus *bus, char **args) {
         return 0;
 }
 
+static void dump_syscall_filter(const SyscallFilterSet *set) {
+        const char *syscall;
+
+        printf("%s\n", set->name);
+        NULSTR_FOREACH(syscall, set->value)
+                printf("    %s\n", syscall);
+}
+
+static int dump_syscall_filters(char** names) {
+        bool first = true;
+
+        pager_open(arg_no_pager, false);
+
+        if (strv_isempty(names)) {
+                int i;
+
+                for (i = 0; i < _SYSCALL_FILTER_SET_MAX; i++) {
+                        if (!first)
+                                puts("");
+                        dump_syscall_filter(syscall_filter_sets + i);
+                        first = false;
+                }
+        } else {
+                char **name;
+
+                STRV_FOREACH(name, names) {
+                        const SyscallFilterSet *set;
+
+                        if (!first)
+                                puts("");
+
+                        set = syscall_filter_set_find(*name);
+                        if (!set) {
+                                /* make sure the error appears below normal output */
+                                fflush(stdout);
+
+                                log_error("Filter set \"%s\" not found.", *name);
+                                return -ENOENT;
+                        }
+
+                        dump_syscall_filter(set);
+                        first = false;
+                }
+        }
+
+        return 0;
+}
+
 static void help(void) {
 
         pager_open(arg_no_pager, false);
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Profile systemd, show unit dependencies, check unit files.\n\n"
-               "  -h --help               Show this help\n"
-               "     --version            Show package version\n"
-               "     --no-pager           Do not pipe output into a pager\n"
-               "     --system             Operate on system systemd instance\n"
-               "     --user               Operate on user systemd instance\n"
-               "  -H --host=[USER@]HOST   Operate on remote host\n"
-               "  -M --machine=CONTAINER  Operate on local container\n"
-               "     --order              Show only order in the graph\n"
-               "     --require            Show only requirement in the graph\n"
-               "     --from-pattern=GLOB  Show only origins in the graph\n"
-               "     --to-pattern=GLOB    Show only destinations in the graph\n"
-               "     --fuzz=SECONDS       Also print also services which finished SECONDS\n"
-               "                          earlier than the latest in the branch\n"
-               "     --man[=BOOL]         Do [not] check for existence of man pages\n\n"
+               "  -h --help                Show this help\n"
+               "     --version             Show package version\n"
+               "     --no-pager            Do not pipe output into a pager\n"
+               "     --system              Operate on system systemd instance\n"
+               "     --user                Operate on user systemd instance\n"
+               "  -H --host=[USER@]HOST    Operate on remote host\n"
+               "  -M --machine=CONTAINER   Operate on local container\n"
+               "     --order               Show only order in the graph\n"
+               "     --require             Show only requirement in the graph\n"
+               "     --from-pattern=GLOB   Show only origins in the graph\n"
+               "     --to-pattern=GLOB     Show only destinations in the graph\n"
+               "     --fuzz=SECONDS        Also print also services which finished SECONDS\n"
+               "                           earlier than the latest in the branch\n"
+               "     --man[=BOOL]          Do [not] check for existence of man pages\n\n"
                "Commands:\n"
-               "  time                    Print time spent in the kernel\n"
-               "  blame                   Print list of running units ordered by time to init\n"
-               "  critical-chain          Print a tree of the time critical chain of units\n"
-               "  plot                    Output SVG graphic showing service initialization\n"
-               "  dot                     Output dependency graph in dot(1) format\n"
-               "  set-log-level LEVEL     Set logging threshold for manager\n"
-               "  set-log-target TARGET   Set logging target for manager\n"
-               "  dump                    Output state serialization of service manager\n"
-               "  verify FILE...          Check unit files for correctness\n"
+               "  time                     Print time spent in the kernel\n"
+               "  blame                    Print list of running units ordered by time to init\n"
+               "  critical-chain           Print a tree of the time critical chain of units\n"
+               "  plot                     Output SVG graphic showing service initialization\n"
+               "  dot                      Output dependency graph in dot(1) format\n"
+               "  set-log-level LEVEL      Set logging threshold for manager\n"
+               "  set-log-target TARGET    Set logging target for manager\n"
+               "  dump                     Output state serialization of service manager\n"
+               "  syscall-filter [NAME...] Print list of syscalls in seccomp filter\n"
+               "  verify FILE...           Check unit files for correctness\n"
                , program_invocation_short_name);
 
         /* When updating this list, including descriptions, apply
@@ -1471,6 +1521,8 @@ int main(int argc, char *argv[]) {
                         r = set_log_level(bus, argv+optind+1);
                 else if (streq(argv[optind], "set-log-target"))
                         r = set_log_target(bus, argv+optind+1);
+                else if (streq(argv[optind], "syscall-filter"))
+                        r = dump_syscall_filters(argv+optind+1);
                 else
                         log_error("Unknown operation '%s'.", argv[optind]);
         }
