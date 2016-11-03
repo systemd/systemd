@@ -247,6 +247,9 @@ int main(int argc, char *argv[]) {
                 "text\0foofoofoofoo AAAA aaaaaaaaa ghost busters barbarbar FFF"
                 "foofoofoofoo AAAA aaaaaaaaa ghost busters barbarbar FFF";
 
+        /* The file to test compression on can be specified as the first argument */
+        const char *srcfile = argc > 1 ? argv[1] : argv[0];
+
         char data[512] = "random\0";
 
         char huge[4096*1024];
@@ -275,7 +278,7 @@ int main(int argc, char *argv[]) {
                                    huge, sizeof(huge), true);
 
         test_compress_stream(OBJECT_COMPRESSED_XZ, "xzcat",
-                             compress_stream_xz, decompress_stream_xz, argv[0]);
+                             compress_stream_xz, decompress_stream_xz, srcfile);
 #else
         log_info("/* XZ test skipped */");
 #endif
@@ -297,7 +300,7 @@ int main(int argc, char *argv[]) {
                                    huge, sizeof(huge), true);
 
         test_compress_stream(OBJECT_COMPRESSED_LZ4, "lz4cat",
-                             compress_stream_lz4, decompress_stream_lz4, argv[0]);
+                             compress_stream_lz4, decompress_stream_lz4, srcfile);
 
         test_lz4_decompress_partial();
 #else
