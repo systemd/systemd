@@ -339,6 +339,17 @@ tests += [
          [libbasic],
          []],
 
+        [['src/test/test-bpf.c',
+          'src/test/test-helper.c'],
+         [libcore,
+          libshared],
+         [libmount,
+          threads,
+          librt,
+          libseccomp,
+          libselinux,
+          libblkid]],
+
         [['src/test/test-hashmap.c',
           'src/test/test-hashmap-plain.c',
           test_hashmap_ordered_c],
