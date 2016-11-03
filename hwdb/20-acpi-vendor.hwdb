@@ -9,6 +9,9 @@
 acpi:3NOD*:
  ID_VENDOR_FROM_DATABASE=Shenzhen three Connaught Information Technology Co., Ltd. (3nod Group)
 
+acpi:AANT*:
+ ID_VENDOR_FROM_DATABASE=AAEON Technology Inc.
+
 acpi:AAVA*:
  ID_VENDOR_FROM_DATABASE=Aava Mobile Oy
 
@@ -72,6 +75,9 @@ acpi:FRSC*:
 acpi:FTSC*:
  ID_VENDOR_FROM_DATABASE=FocalTech Systems Co., Ltd.
 
+acpi:GHSW*:
+ ID_VENDOR_FROM_DATABASE=Green Hills Software
+
 acpi:GOOG*:
  ID_VENDOR_FROM_DATABASE=Google, Inc.
 
@@ -125,6 +131,9 @@ acpi:LNRO*:
 
 acpi:LNUX*:
  ID_VENDOR_FROM_DATABASE=The Linux Foundation
+
+acpi:MCHP*:
+ ID_VENDOR_FROM_DATABASE=Microchip Technology Inc
 
 acpi:MIPI*:
  ID_VENDOR_FROM_DATABASE=MIPI Alliance
@@ -227,6 +236,9 @@ acpi:AAE*:
 
 acpi:AAM*:
  ID_VENDOR_FROM_DATABASE=Aava Mobile Oy
+
+acpi:AAN*:
+ ID_VENDOR_FROM_DATABASE=AAEON Technology Inc.
 
 acpi:AAT*:
  ID_VENDOR_FROM_DATABASE=Ann Arbor Technologies
@@ -878,6 +890,9 @@ acpi:AXB*:
 
 acpi:AXC*:
  ID_VENDOR_FROM_DATABASE=AXIOMTEK CO., LTD.
+
+acpi:AXE*:
+ ID_VENDOR_FROM_DATABASE=Axell Corporation
 
 acpi:AXE*:
  ID_VENDOR_FROM_DATABASE=D-Link Systems Inc
@@ -3684,6 +3699,9 @@ acpi:KOW*:
 acpi:KPC*:
  ID_VENDOR_FROM_DATABASE=King Phoenix Company
 
+acpi:KPT*:
+ ID_VENDOR_FROM_DATABASE=TPK Holding Co., Ltd
+
 acpi:KRL*:
  ID_VENDOR_FROM_DATABASE=Krell Industries Inc.
 
@@ -6420,6 +6438,9 @@ acpi:TDC*:
 acpi:TDD*:
  ID_VENDOR_FROM_DATABASE=Tandberg Data Display AS
 
+acpi:TDG*:
+ ID_VENDOR_FROM_DATABASE=Six15 Technologies
+
 acpi:TDK*:
  ID_VENDOR_FROM_DATABASE=TDK USA Corporation
 
@@ -6857,6 +6878,9 @@ acpi:UMG*:
 
 acpi:UMM*:
  ID_VENDOR_FROM_DATABASE=Universal Multimedia
+
+acpi:UMT*:
+ ID_VENDOR_FROM_DATABASE=UltiMachine
 
 acpi:UNA*:
  ID_VENDOR_FROM_DATABASE=Unisys DSD
