@@ -89,7 +89,7 @@ unlink:
 }
 
 void udev_watch_begin(struct udev *udev, struct udev_device *dev) {
-        char filename[UTIL_PATH_SIZE];
+        char filename[sizeof("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
         int wd;
         int r;
 
@@ -116,7 +116,7 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev) {
 
 void udev_watch_end(struct udev *udev, struct udev_device *dev) {
         int wd;
-        char filename[UTIL_PATH_SIZE];
+        char filename[sizeof("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
 
         if (inotify_fd < 0)
                 return;
@@ -135,7 +135,7 @@ void udev_watch_end(struct udev *udev, struct udev_device *dev) {
 }
 
 struct udev_device *udev_watch_lookup(struct udev *udev, int wd) {
-        char filename[UTIL_PATH_SIZE];
+        char filename[sizeof("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
         char device[UTIL_NAME_SIZE];
         ssize_t len;
 
