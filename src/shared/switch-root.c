@@ -75,17 +75,29 @@ int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot, 
         NULSTR_FOREACH(i, move_mounts) {
                 char new_mount[PATH_MAX];
                 struct stat sb;
+                size_t n;
 
-                xsprintf(new_mount, "%s%s", new_root, i);
+                n = snprintf(new_mount, sizeof new_mount, "%s%s", new_root, i);
+                if (n >= sizeof new_mount) {
+                        bool move = mountflags & MS_MOVE;
+
+                        log_warning("New path is too long, %s: %s%s",
+                                    move ? "forcing unmount instead" : "ignoring",
+                                    new_root, i);
+
+                        if (move)
+                                if (umount2(i, MNT_FORCE) < 0)
+                                        log_warning_errno(errno, "Failed to unmount %s: %m", i);
+                        continue;
+                }
 
                 mkdir_p_label(new_mount, 0755);
 
-                if ((stat(new_mount, &sb) < 0) ||
+                if (stat(new_mount, &sb) < 0 ||
                     sb.st_dev != new_root_stat.st_dev) {
 
                         /* Mount point seems to be mounted already or
-                         * stat failed. Unmount the old mount
-                         * point. */
+                         * stat failed. Unmount the old mount point. */
                         if (umount2(i, MNT_DETACH) < 0)
                                 log_warning_errno(errno, "Failed to unmount %s: %m", i);
                         continue;
@@ -97,10 +109,9 @@ int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot, 
 
                                 if (umount2(i, MNT_FORCE) < 0)
                                         log_warning_errno(errno, "Failed to unmount %s: %m", i);
-                        }
-                        if (mountflags & MS_BIND)
-                                log_error_errno(errno, "Failed to bind mount %s to %s: %m", i, new_mount);
 
+                        } else if (mountflags & MS_BIND)
+                                log_error_errno(errno, "Failed to bind mount %s to %s: %m", i, new_mount);
                 }
         }
 

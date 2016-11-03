@@ -848,8 +848,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
         if (k->src_id == KDBUS_SRC_ID_KERNEL)
                 bus_message_set_sender_driver(bus, m);
         else {
-                xsprintf(m->sender_buffer, ":1.%llu",
-                         (unsigned long long)k->src_id);
+                xsprintf(m->sender_buffer, ":1.%"PRIu64, k->src_id);
                 m->sender = m->creds.unique_name = m->sender_buffer;
         }
 
@@ -860,8 +859,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
         else if (k->dst_id == KDBUS_DST_ID_NAME)
                 m->destination = bus->unique_name; /* fill in unique name if the well-known name is missing */
         else {
-                xsprintf(m->destination_buffer, ":1.%llu",
-                         (unsigned long long)k->dst_id);
+                xsprintf(m->destination_buffer, ":1.%"PRIu64, k->dst_id);
                 m->destination = m->destination_buffer;
         }
 

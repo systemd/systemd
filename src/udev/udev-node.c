@@ -337,7 +337,7 @@ out:
 void udev_node_add(struct udev_device *dev, bool apply,
                    mode_t mode, uid_t uid, gid_t gid,
                    struct udev_list *seclabel_list) {
-        char filename[UTIL_PATH_SIZE];
+        char filename[sizeof("/dev/block/:") + 2*DECIMAL_STR_MAX(unsigned)];
         struct udev_list_entry *list_entry;
 
         log_debug("handling device node '%s', devnum=%s, mode=%#o, uid="UID_FMT", gid="GID_FMT,
@@ -360,7 +360,7 @@ void udev_node_add(struct udev_device *dev, bool apply,
 
 void udev_node_remove(struct udev_device *dev) {
         struct udev_list_entry *list_entry;
-        char filename[UTIL_PATH_SIZE];
+        char filename[sizeof("/dev/block/:") + 2*DECIMAL_STR_MAX(unsigned)];
 
         /* remove/update symlinks, remove symlinks from name index */
         udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(dev))

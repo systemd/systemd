@@ -782,7 +782,7 @@ static void log_assert(
                 return;
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        xsprintf(buffer, format, text, file, line, func);
+        snprintf(buffer, sizeof buffer, format, text, file, line, func);
         REENABLE_WARNING;
 
         log_abort_msg = buffer;
