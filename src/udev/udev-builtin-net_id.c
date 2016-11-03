@@ -211,7 +211,7 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         char *s;
         const char *attr, *port_name;
         struct udev_device *pci = NULL;
-        char slots[256], str[256];
+        char slots[PATH_MAX];
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *dent;
         int hotplug_slot = 0, err = 0;
@@ -248,7 +248,8 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                 err = -ENOENT;
                 goto out;
         }
-        xsprintf(slots, "%s/slots", udev_device_get_syspath(pci));
+
+        snprintf(slots, sizeof slots, "%s/slots", udev_device_get_syspath(pci));
         dir = opendir(slots);
         if (!dir) {
                 err = -errno;
@@ -257,8 +258,7 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
 
         for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
                 int i;
-                char *rest;
-                char *address;
+                char *rest, *address, str[PATH_MAX];
 
                 if (dent->d_name[0] == '.')
                         continue;
@@ -267,7 +267,8 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                         continue;
                 if (i < 1)
                         continue;
-                xsprintf(str, "%s/%s/address", slots, dent->d_name);
+
+                snprintf(str, sizeof str, "%s/%s/address", slots, dent->d_name);
                 if (read_one_line_file(str, &address) >= 0) {
                         /* match slot address with device by stripping the function */
                         if (strneq(address, udev_device_get_sysname(names->pcidev), strlen(address)))
