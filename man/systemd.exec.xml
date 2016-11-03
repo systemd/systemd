@@ -1235,13 +1235,13 @@
         <term><varname>NoNewPrivileges=</varname></term>
 
         <listitem><para>Takes a boolean argument. If true, ensures that the service
-        process and all its children can never gain new privileges. This option is more
-        powerful than the respective secure bits flags (see above), as it also prohibits
-        UID changes of any kind. This is the simplest and most effective way to ensure that
+        process and all its children can never gain new privileges through
+        <function>execve</function> (e.g. via setuid or setgid bits, or filesystem
+        capabilities). This is the simplest and most effective way to ensure that
         a process and its children can never elevate privileges again. Defaults to false,
         but in the user manager instance certain settings force
         <varname>NoNewPrivileges=yes</varname>, ignoring the value of this setting.
-        Those is the case when <varname>SystemCallFilter=</varname>,
+        This is the case when <varname>SystemCallFilter=</varname>,
         <varname>SystemCallArchitectures=</varname>,
         <varname>RestrictAddressFamilies=</varname>,
         <varname>PrivateDevices=</varname>,
