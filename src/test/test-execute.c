@@ -259,6 +259,12 @@ static void test_exec_supplementary_groups(Manager *m) {
         test(m, "exec-supplementarygroups-multiple-groups-withuid.service", 0, CLD_EXITED);
 }
 
+static void test_exec_dynamic_user(Manager *m) {
+        test(m, "exec-dynamicuser-fixeduser.service", 0, CLD_EXITED);
+        test(m, "exec-dynamicuser-fixeduser-one-supplementarygroup.service", 0, CLD_EXITED);
+        test(m, "exec-dynamicuser-supplementarygroups.service", 0, CLD_EXITED);
+}
+
 static void test_exec_environment(Manager *m) {
         test(m, "exec-environment.service", 0, CLD_EXITED);
         test(m, "exec-environment-multiple.service", 0, CLD_EXITED);
@@ -432,6 +438,7 @@ int main(int argc, char *argv[]) {
                 test_exec_user,
                 test_exec_group,
                 test_exec_supplementary_groups,
+                test_exec_dynamic_user,
                 test_exec_environment,
                 test_exec_environmentfile,
                 test_exec_passenvironment,
