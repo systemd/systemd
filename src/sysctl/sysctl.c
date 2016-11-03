@@ -51,19 +51,46 @@ static int apply_all(OrderedHashmap *sysctl_options) {
 
                 k = sysctl_write(property, value);
                 if (k < 0) {
-                        log_full_errno(k == -ENOENT ? LOG_INFO : LOG_WARNING, k,
-                                       "Couldn't write '%s' to '%s', ignoring: %m", value, property);
+                        /* If the sysctl is not available in the kernel or we are running with reduced privileges and
+                         * cannot write it, then log about the issue at LOG_NOTICE level, and proceed without
+                         * failing. (EROFS is treated as a permission problem here, since that's how container managers
+                         * usually protected their sysctls.) In all other cases log an error and make the tool fail. */
 
-                        if (r == 0 && k != -ENOENT)
-                                r = k;
+                        if (IN_SET(k, -EPERM, -EACCES, -EROFS, -ENOENT))
+                                log_notice_errno(k, "Couldn't write '%s' to '%s', ignoring: %m", value, property);
+                        else {
+                                log_error_errno(k, "Couldn't write '%s' to '%s': %m", value, property);
+                                if (r == 0)
+                                        r = k;
+                        }
                 }
         }
 
         return r;
 }
 
+static bool test_prefix(const char *p) {
+        char **i;
+
+        if (strv_isempty(arg_prefixes))
+                return true;
+
+        STRV_FOREACH(i, arg_prefixes) {
+                const char *t;
+
+                t = path_startswith(*i, "/proc/sys/");
+                if (!t)
+                        t = *i;
+                if (path_startswith(p, t))
+                        return true;
+        }
+
+        return false;
+}
+
 static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ignore_enoent) {
         _cleanup_fclose_ FILE *f = NULL;
+        unsigned c = 0;
         int r;
 
         assert(path);
@@ -77,7 +104,7 @@ static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ign
         }
 
         log_debug("Parsing %s", path);
-        while (!feof(f)) {
+        for (;;) {
                 char l[LINE_MAX], *p, *value, *new_value, *property, *existing;
                 void *v;
                 int k;
@@ -89,6 +116,8 @@ static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ign
                         return log_error_errno(errno, "Failed to read file '%s', ignoring: %m", path);
                 }
 
+                c++;
+
                 p = strstrip(l);
                 if (!*p)
                         continue;
@@ -98,7 +127,7 @@ static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ign
 
                 value = strchr(p, '=');
                 if (!value) {
-                        log_error("Line is not an assignment in file '%s': %s", path, value);
+                        log_error("Line is not an assignment at '%s:%u': %s", path, c, value);
 
                         if (r == 0)
                                 r = -EINVAL;
@@ -111,26 +140,15 @@ static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ign
                 p = sysctl_normalize(strstrip(p));
                 value = strstrip(value);
 
-                if (!strv_isempty(arg_prefixes)) {
-                        char **i, *t;
-                        STRV_FOREACH(i, arg_prefixes) {
-                                t = path_startswith(*i, "/proc/sys/");
-                                if (t == NULL)
-                                        t = *i;
-                                if (path_startswith(p, t))
-                                        goto found;
-                        }
-                        /* not found */
+                if (!test_prefix(p))
                         continue;
-                }
 
-found:
                 existing = ordered_hashmap_get2(sysctl_options, p, &v);
                 if (existing) {
                         if (streq(value, existing))
                                 continue;
 
-                        log_debug("Overwriting earlier assignment of %s in file '%s'.", p, path);
+                        log_debug("Overwriting earlier assignment of %s at '%s:%u'.", p, path, c);
                         free(ordered_hashmap_remove(sysctl_options, p));
                         free(v);
                 }
@@ -229,12 +247,12 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
+        OrderedHashmap *sysctl_options = NULL;
         int r = 0, k;
-        OrderedHashmap *sysctl_options;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+                goto finish;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();

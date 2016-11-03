@@ -514,12 +514,11 @@ static void link_free(Link *link) {
         sd_lldp_unref(link->lldp);
         free(link->lldp_file);
 
+        ndisc_flush(link);
+
         sd_ipv4ll_unref(link->ipv4ll);
         sd_dhcp6_client_unref(link->dhcp6_client);
         sd_ndisc_unref(link->ndisc);
-
-        set_free_free(link->ndisc_rdnss);
-        set_free_free(link->ndisc_dnssl);
 
         if (link->manager)
                 hashmap_remove(link->manager->links, INT_TO_PTR(link->ifindex));
@@ -2426,6 +2425,8 @@ static int link_drop_config(Link *link) {
                 if (r < 0)
                         return r;
         }
+
+        ndisc_flush(link);
 
         return 0;
 }

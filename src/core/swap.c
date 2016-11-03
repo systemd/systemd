@@ -381,11 +381,7 @@ static int swap_setup_unit(
         if (!u) {
                 delete = true;
 
-                u = unit_new(m, sizeof(Swap));
-                if (!u)
-                        return log_oom();
-
-                r = unit_add_name(u, e);
+                r = unit_new_for_name(m, sizeof(Swap), e, &u);
                 if (r < 0)
                         goto fail;
 

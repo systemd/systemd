@@ -236,6 +236,9 @@ struct Unit {
         /* Is this a transient unit? */
         bool transient;
 
+        /* Is this a unit that is always running and cannot be stopped? */
+        bool perpetual;
+
         bool in_load_queue:1;
         bool in_dbus_queue:1;
         bool in_cleanup_queue:1;
@@ -243,8 +246,6 @@ struct Unit {
         bool in_cgroup_queue:1;
 
         bool sent_dbus_new_signal:1;
-
-        bool no_gc:1;
 
         bool in_audit:1;
 
@@ -480,6 +481,7 @@ DEFINE_CAST(SCOPE, Scope);
 Unit *unit_new(Manager *m, size_t size);
 void unit_free(Unit *u);
 
+int unit_new_for_name(Manager *m, size_t size, const char *name, Unit **ret);
 int unit_add_name(Unit *u, const char *name);
 
 int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_reference);
@@ -524,6 +526,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix);
 
 bool unit_can_reload(Unit *u) _pure_;
 bool unit_can_start(Unit *u) _pure_;
+bool unit_can_stop(Unit *u) _pure_;
 bool unit_can_isolate(Unit *u) _pure_;
 
 int unit_start(Unit *u);

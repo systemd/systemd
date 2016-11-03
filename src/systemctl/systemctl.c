@@ -410,23 +410,24 @@ static bool output_show_unit(const UnitInfo *u, char **patterns) {
 }
 
 static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
-        unsigned circle_len = 0, id_len, max_id_len, load_len, active_len, sub_len, job_len;
+        unsigned circle_len = 0, id_len, max_id_len, load_len, active_len, sub_len, job_len, desc_len, max_desc_len;
         const UnitInfo *u;
         unsigned n_shown = 0;
-        int job_count = 0, desc_len;
+        int job_count = 0;
 
         max_id_len = strlen("UNIT");
         load_len = strlen("LOAD");
         active_len = strlen("ACTIVE");
         sub_len = strlen("SUB");
         job_len = strlen("JOB");
-        desc_len = 0;
+        max_desc_len = strlen("DESCRIPTION");
 
         for (u = unit_infos; u < unit_infos + c; u++) {
                 max_id_len = MAX(max_id_len, strlen(u->id) + (u->machine ? strlen(u->machine)+1 : 0));
                 load_len = MAX(load_len, strlen(u->load_state));
                 active_len = MAX(active_len, strlen(u->active_state));
                 sub_len = MAX(sub_len, strlen(u->sub_state));
+                max_desc_len = MAX(max_desc_len, strlen(u->description));
 
                 if (u->job_id != 0) {
                         job_len = MAX(job_len, strlen(u->job_type));
@@ -442,7 +443,7 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
         if (!arg_full && original_stdout_is_tty) {
                 unsigned basic_len;
 
-                id_len = MIN(max_id_len, 25u);
+                id_len = MIN(max_id_len, 25u); /* as much as it needs, but at most 25 for now */
                 basic_len = circle_len + 5 + id_len + 5 + active_len + sub_len;
 
                 if (job_count)
@@ -455,19 +456,21 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                         /* Either UNIT already got 25, or is fully satisfied.
                          * Grant up to 25 to DESC now. */
                         incr = MIN(extra_len, 25u);
-                        desc_len += incr;
+                        desc_len = incr;
                         extra_len -= incr;
 
-                        /* split the remaining space between UNIT and DESC,
-                         * but do not give UNIT more than it needs. */
+                        /* Of the remainder give as much as the ID needs to the ID, and give the rest to the
+                         * description but not more than it needs. */
                         if (extra_len > 0) {
-                                incr = MIN(extra_len / 2, max_id_len - id_len);
+                                incr = MIN(max_id_len - id_len, extra_len);
                                 id_len += incr;
-                                desc_len += extra_len - incr;
+                                desc_len += MIN(extra_len - incr, max_desc_len - desc_len);
                         }
                 }
-        } else
+        } else {
                 id_len = max_id_len;
+                desc_len = max_desc_len;
+        }
 
         for (u = unit_infos; u < unit_infos + c; u++) {
                 _cleanup_free_ char *e = NULL, *j = NULL;
@@ -493,8 +496,9 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                         if (job_count)
                                 printf("%-*s ", job_len, "JOB");
 
-                        printf("%.*s%s\n",
-                               !arg_full && arg_no_pager ? desc_len : -1,
+                        printf("%-*.*s%s\n",
+                               desc_len,
+                               !arg_full && arg_no_pager ? (int) desc_len : -1,
                                "DESCRIPTION",
                                ansi_normal());
                 }
@@ -513,13 +517,13 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                         off_circle = ansi_normal();
                         circle = true;
                         on_loaded = underline ? ansi_highlight_red_underline() : ansi_highlight_red();
-                        off_loaded = on_underline;
+                        off_loaded = underline ? on_underline : ansi_normal();
                 } else if (streq(u->active_state, "failed") && !arg_plain) {
                         on_circle = ansi_highlight_red();
                         off_circle = ansi_normal();
                         circle = true;
                         on_active = underline ? ansi_highlight_red_underline() : ansi_highlight_red();
-                        off_active = on_underline;
+                        off_active = underline ? on_underline : ansi_normal();
                 }
 
                 if (u->machine) {
@@ -550,8 +554,9 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                        sub_len, u->sub_state, off_active,
                        job_count ? job_len + 1 : 0, u->job_id ? u->job_type : "");
 
-                printf("%.*s%s\n",
-                       desc_len > 0 ? desc_len : -1,
+                printf("%-*.*s%s\n",
+                       desc_len,
+                       !arg_full && arg_no_pager ? (int) desc_len : -1,
                        u->description,
                        off_underline);
         }
