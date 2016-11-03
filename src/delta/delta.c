@@ -214,7 +214,7 @@ static int enumerate_dir_d(Hashmap *top, Hashmap *bottom, Hashmap *drops, const 
 
         assert(!endswith(drop, "/"));
 
-        path = strjoin(toppath, "/", drop, NULL);
+        path = strjoin(toppath, "/", drop);
         if (!path)
                 return -ENOMEM;
 
@@ -242,7 +242,7 @@ static int enumerate_dir_d(Hashmap *top, Hashmap *bottom, Hashmap *drops, const 
                 if (!endswith(*file, ".conf"))
                         continue;
 
-                p = strjoin(path, "/", *file, NULL);
+                p = strjoin(path, "/", *file);
                 if (!p)
                         return -ENOMEM;
                 d = p + strlen(toppath) + 1;
@@ -330,7 +330,7 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
                 if (!dirent_is_file(de))
                         continue;
 
-                p = strjoin(path, "/", de->d_name, NULL);
+                p = strjoin(path, "/", de->d_name);
                 if (!p)
                         return -ENOMEM;
 
@@ -383,7 +383,7 @@ static int process_suffix(const char *suffix, const char *onlyprefix) {
         NULSTR_FOREACH(p, prefixes) {
                 _cleanup_free_ char *t = NULL;
 
-                t = strjoin(p, "/", suffix, NULL);
+                t = strjoin(p, "/", suffix);
                 if (!t) {
                         r = -ENOMEM;
                         goto finish;

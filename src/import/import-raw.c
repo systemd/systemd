@@ -267,7 +267,7 @@ static int raw_import_open_disk(RawImport *i) {
         assert(!i->temp_path);
         assert(i->output_fd < 0);
 
-        i->final_path = strjoin(i->image_root, "/", i->local, ".raw", NULL);
+        i->final_path = strjoin(i->image_root, "/", i->local, ".raw");
         if (!i->final_path)
                 return log_oom();
 

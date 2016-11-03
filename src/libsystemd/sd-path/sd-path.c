@@ -77,7 +77,7 @@ static int from_home_dir(const char *envname, const char *suffix, char **buffer,
         if (endswith(h, "/"))
                 cc = strappend(h, suffix);
         else
-                cc = strjoin(h, "/", suffix, NULL);
+                cc = strjoin(h, "/", suffix);
         if (!cc)
                 return -ENOMEM;
 
@@ -387,7 +387,7 @@ _public_ int sd_path_home(uint64_t type, const char *suffix, char **path) {
         if (endswith(ret, "/"))
                 cc = strappend(ret, suffix);
         else
-                cc = strjoin(ret, "/", suffix, NULL);
+                cc = strjoin(ret, "/", suffix);
 
         free(buffer);
 
@@ -455,7 +455,7 @@ static int search_from_environment(
                         if (endswith(e, "/"))
                                 h = strappend(e, home_suffix);
                         else
-                                h = strjoin(e, "/", home_suffix, NULL);
+                                h = strjoin(e, "/", home_suffix);
 
                         if (!h) {
                                 strv_free(l);
@@ -621,7 +621,7 @@ _public_ int sd_path_search(uint64_t type, const char *suffix, char ***paths) {
                 if (endswith(*i, "/"))
                         *j = strappend(*i, suffix);
                 else
-                        *j = strjoin(*i, "/", suffix, NULL);
+                        *j = strjoin(*i, "/", suffix);
 
                 if (!*j) {
                         strv_free(l);

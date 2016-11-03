@@ -2510,7 +2510,7 @@ int unit_set_default_slice(Unit *u) {
                         return -ENOMEM;
 
                 if (MANAGER_IS_SYSTEM(u->manager))
-                        b = strjoin("system-", escaped, ".slice", NULL);
+                        b = strjoin("system-", escaped, ".slice");
                 else
                         b = strappend(escaped, ".slice");
                 if (!b)
@@ -3670,7 +3670,7 @@ int unit_make_transient(Unit *u) {
         if (!UNIT_VTABLE(u)->can_transient)
                 return -EOPNOTSUPP;
 
-        path = strjoin(u->manager->lookup_paths.transient, "/", u->id, NULL);
+        path = strjoin(u->manager->lookup_paths.transient, "/", u->id);
         if (!path)
                 return -ENOMEM;
 

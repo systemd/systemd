@@ -83,7 +83,7 @@ char *path_make_absolute(const char *p, const char *prefix) {
         if (path_is_absolute(p) || !prefix)
                 return strdup(p);
 
-        return strjoin(prefix, "/", p, NULL);
+        return strjoin(prefix, "/", p);
 }
 
 int path_make_absolute_cwd(const char *p, char **ret) {
@@ -104,7 +104,7 @@ int path_make_absolute_cwd(const char *p, char **ret) {
                 if (!cwd)
                         return negative_errno();
 
-                c = strjoin(cwd, "/", p, NULL);
+                c = strjoin(cwd, "/", p);
         }
         if (!c)
                 return -ENOMEM;
@@ -454,13 +454,11 @@ char* path_join(const char *root, const char *path, const char *rest) {
                 return strjoin(root, endswith(root, "/") ? "" : "/",
                                path[0] == '/' ? path+1 : path,
                                rest ? (endswith(path, "/") ? "" : "/") : NULL,
-                               rest && rest[0] == '/' ? rest+1 : rest,
-                               NULL);
+                               rest && rest[0] == '/' ? rest+1 : rest);
         else
                 return strjoin(path,
                                rest ? (endswith(path, "/") ? "" : "/") : NULL,
-                               rest && rest[0] == '/' ? rest+1 : rest,
-                               NULL);
+                               rest && rest[0] == '/' ? rest+1 : rest);
 }
 
 int find_binary(const char *name, char **ret) {
@@ -504,7 +502,7 @@ int find_binary(const char *name, char **ret) {
                 if (!path_is_absolute(element))
                         continue;
 
-                j = strjoin(element, "/", name, NULL);
+                j = strjoin(element, "/", name);
                 if (!j)
                         return -ENOMEM;
 

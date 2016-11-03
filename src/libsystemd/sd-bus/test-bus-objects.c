@@ -49,7 +49,7 @@ static int something_handler(sd_bus_message *m, void *userdata, sd_bus_error *er
         r = sd_bus_message_read(m, "s", &s);
         assert_se(r > 0);
 
-        n = strjoin("<<<", s, ">>>", NULL);
+        n = strjoin("<<<", s, ">>>");
         assert_se(n);
 
         free(c->something);

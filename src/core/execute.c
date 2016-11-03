@@ -1603,7 +1603,7 @@ static int build_environment(
                 if (!joined)
                         return -ENOMEM;
 
-                x = strjoin("LISTEN_FDNAMES=", joined, NULL);
+                x = strjoin("LISTEN_FDNAMES=", joined);
                 if (!x)
                         return -ENOMEM;
                 our_env[n_env++] = x;
@@ -1710,7 +1710,7 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
                 v = getenv(*i);
                 if (!v)
                         continue;
-                x = strjoin(*i, "=", v, NULL);
+                x = strjoin(*i, "=", v);
                 if (!x)
                         return -ENOMEM;
                 if (!GREEDY_REALLOC(pass_env, n_bufsize, n_env + 2))
@@ -1924,7 +1924,7 @@ static int setup_runtime_directory(
         STRV_FOREACH(rt, context->runtime_directory) {
                 _cleanup_free_ char *p;
 
-                p = strjoin(params->runtime_prefix, "/", *rt, NULL);
+                p = strjoin(params->runtime_prefix, "/", *rt);
                 if (!p)
                         return -ENOMEM;
 
@@ -2000,7 +2000,7 @@ static int compile_read_write_paths(
         STRV_FOREACH(rt, context->runtime_directory) {
                 char *s;
 
-                s = strjoin(params->runtime_prefix, "/", *rt, NULL);
+                s = strjoin(params->runtime_prefix, "/", *rt);
                 if (!s)
                         return -ENOMEM;
 
@@ -3004,7 +3004,7 @@ int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_p
         STRV_FOREACH(i, c->runtime_directory) {
                 _cleanup_free_ char *p;
 
-                p = strjoin(runtime_prefix, "/", *i, NULL);
+                p = strjoin(runtime_prefix, "/", *i);
                 if (!p)
                         return -ENOMEM;
 

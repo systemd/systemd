@@ -731,7 +731,7 @@ static int get_invocation_id(const char *cgroup_root, const char *slice, const c
         if (!escaped)
                 return -ENOMEM;
 
-        p = strjoin(cgroup_root, "/", slice_path, "/", escaped, NULL);
+        p = strjoin(cgroup_root, "/", slice_path, "/", escaped);
         if (!p)
                 return -ENOMEM;
 
@@ -2051,8 +2051,8 @@ int server_init(Server *s) {
         s->runtime_storage.name = "Runtime journal";
         s->system_storage.name = "System journal";
 
-        s->runtime_storage.path = strjoin("/run/log/journal/", SERVER_MACHINE_ID(s), NULL);
-        s->system_storage.path  = strjoin("/var/log/journal/", SERVER_MACHINE_ID(s), NULL);
+        s->runtime_storage.path = strjoin("/run/log/journal/", SERVER_MACHINE_ID(s));
+        s->system_storage.path  = strjoin("/var/log/journal/", SERVER_MACHINE_ID(s));
         if (!s->runtime_storage.path || !s->system_storage.path)
                 return -ENOMEM;
 

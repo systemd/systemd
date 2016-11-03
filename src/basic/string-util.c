@@ -218,7 +218,7 @@ char *strappend(const char *s, const char *suffix) {
         return strnappend(s, suffix, suffix ? strlen(suffix) : 0);
 }
 
-char *strjoin(const char *x, ...) {
+char *strjoin_real(const char *x, ...) {
         va_list ap;
         size_t l;
         char *r, *p;

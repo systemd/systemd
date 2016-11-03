@@ -82,7 +82,7 @@ int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
                                 if (table[i].exists) {
                                         _cleanup_free_ char *p = NULL;
 
-                                        p = strjoin(s, "/", table[i].exists, NULL);
+                                        p = strjoin(s, "/", table[i].exists);
                                         if (!p)
                                                 return log_oom();
 

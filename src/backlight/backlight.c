@@ -357,9 +357,9 @@ int main(int argc, char *argv[]) {
                         return EXIT_FAILURE;
                 }
 
-                saved = strjoin("/var/lib/systemd/backlight/", escaped_path_id, ":", escaped_ss, ":", escaped_sysname, NULL);
+                saved = strjoin("/var/lib/systemd/backlight/", escaped_path_id, ":", escaped_ss, ":", escaped_sysname);
         } else
-                saved = strjoin("/var/lib/systemd/backlight/", escaped_ss, ":", escaped_sysname, NULL);
+                saved = strjoin("/var/lib/systemd/backlight/", escaped_ss, ":", escaped_sysname);
 
         if (!saved) {
                 log_oom();

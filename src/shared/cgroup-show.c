@@ -158,7 +158,7 @@ int show_cgroup_by_path(
         while ((r = cg_read_subgroup(d, &gn)) > 0) {
                 _cleanup_free_ char *k = NULL;
 
-                k = strjoin(fn, "/", gn, NULL);
+                k = strjoin(fn, "/", gn);
                 free(gn);
                 if (!k)
                         return -ENOMEM;

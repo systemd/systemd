@@ -3273,7 +3273,7 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock, bool selinux_context
                 if (UNIT(s)->description) {
                         _cleanup_free_ char *a;
 
-                        a = strjoin(UNIT(s)->description, " (", peer, ")", NULL);
+                        a = strjoin(UNIT(s)->description, " (", peer, ")");
                         if (!a)
                                 return -ENOMEM;
 

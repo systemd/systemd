@@ -928,7 +928,7 @@ static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
                 }
 
                 LIST_FOREACH(device_allow, a, c->device_allow) {
-                        char acc[4];
+                        char acc[4], *val;
                         unsigned k = 0;
 
                         if (a->r)
@@ -945,10 +945,10 @@ static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
 
                         if (startswith(a->path, "/dev/"))
                                 whitelist_device(path, a->path, acc);
-                        else if (startswith(a->path, "block-"))
-                                whitelist_major(path, a->path + 6, 'b', acc);
-                        else if (startswith(a->path, "char-"))
-                                whitelist_major(path, a->path + 5, 'c', acc);
+                        else if ((val = startswith(a->path, "block-")))
+                                whitelist_major(path, val, 'b', acc);
+                        else if ((val = startswith(a->path, "char-")))
+                                whitelist_major(path, val, 'c', acc);
                         else
                                 log_unit_debug(u, "Ignoring device %s while writing cgroup attribute.", a->path);
                 }
@@ -1201,9 +1201,10 @@ char *unit_default_cgroup_path(Unit *u) {
                 return NULL;
 
         if (slice)
-                return strjoin(u->manager->cgroup_root, "/", slice, "/", escaped, NULL);
+                return strjoin(u->manager->cgroup_root, "/", slice, "/",
+                               escaped);
         else
-                return strjoin(u->manager->cgroup_root, "/", escaped, NULL);
+                return strjoin(u->manager->cgroup_root, "/", escaped);
 }
 
 int unit_set_cgroup_path(Unit *u, const char *path) {
@@ -1643,7 +1644,7 @@ static int unit_watch_pids_in_path(Unit *u, const char *path) {
                 while ((r = cg_read_subgroup(d, &fn)) > 0) {
                         _cleanup_free_ char *p = NULL;
 
-                        p = strjoin(path, "/", fn, NULL);
+                        p = strjoin(path, "/", fn);
                         free(fn);
 
                         if (!p)

@@ -60,7 +60,7 @@ static int files_add(Hashmap *h, const char *root, const char *path, const char 
                 if (!dirent_is_file_with_suffix(de, suffix))
                         continue;
 
-                p = strjoin(dirpath, "/", de->d_name, NULL);
+                p = strjoin(dirpath, "/", de->d_name);
                 if (!p)
                         return -ENOMEM;
 

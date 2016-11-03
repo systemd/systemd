@@ -697,7 +697,7 @@ static int acquire_mount_where(struct udev_device *d) {
                 if (!filename_is_valid(escaped))
                         return 0;
 
-                arg_mount_where = strjoin("/run/media/system/", escaped, NULL);
+                arg_mount_where = strjoin("/run/media/system/", escaped);
         } else
                 arg_mount_where = strdup(v);
 
@@ -721,7 +721,7 @@ static int acquire_description(struct udev_device *d) {
                 label = udev_device_get_property_value(d, "ID_PART_ENTRY_NUMBER");
 
         if (model && label)
-                arg_description = strjoin(model, " ", label, NULL);
+                arg_description = strjoin(model, " ", label);
         else if (label)
                 arg_description = strdup(label);
         else if (model)

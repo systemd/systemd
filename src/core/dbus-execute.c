@@ -1368,7 +1368,7 @@ int bus_exec_context_set_transient_property(
                         if (mode != UNIT_CHECK) {
                                 char *buf = NULL;
 
-                                buf = strjoin(b ? "-" : "", path, NULL);
+                                buf = strjoin(b ? "-" : "", path);
                                 if (!buf)
                                         return -ENOMEM;
 

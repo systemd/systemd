@@ -69,26 +69,25 @@ static usec_t arg_timeout = 0;
 */
 
 static int parse_one_option(const char *option) {
+        const char *val;
+        int r;
+
         assert(option);
 
         /* Handled outside of this tool */
         if (STR_IN_SET(option, "noauto", "auto", "nofail", "fail"))
                 return 0;
 
-        if (startswith(option, "cipher=")) {
-                char *t;
-
-                t = strdup(option+7);
-                if (!t)
+        if ((val = startswith(option, "cipher="))) {
+                r = free_and_strdup(&arg_cipher, val);
+                if (r < 0)
                         return log_oom();
 
-                free(arg_cipher);
-                arg_cipher = t;
+        } else if ((val = startswith(option, "size="))) {
 
-        } else if (startswith(option, "size=")) {
-
-                if (safe_atou(option+5, &arg_key_size) < 0) {
-                        log_error("size= parse failure, ignoring.");
+                r = safe_atou(val, &arg_key_size);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
                         return 0;
                 }
 
@@ -99,68 +98,67 @@ static int parse_one_option(const char *option) {
 
                 arg_key_size /= 8;
 
-        } else if (startswith(option, "key-slot=")) {
+        } else if ((val = startswith(option, "key-slot="))) {
 
                 arg_type = CRYPT_LUKS1;
-                if (safe_atoi(option+9, &arg_key_slot) < 0) {
-                        log_error("key-slot= parse failure, ignoring.");
+                r = safe_atoi(val, &arg_key_slot);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
                         return 0;
                 }
 
-        } else if (startswith(option, "tcrypt-keyfile=")) {
+        } else if ((val = startswith(option, "tcrypt-keyfile="))) {
 
                 arg_type = CRYPT_TCRYPT;
-                if (path_is_absolute(option+15)) {
-                        if (strv_extend(&arg_tcrypt_keyfiles, option + 15) < 0)
+                if (path_is_absolute(val)) {
+                        if (strv_extend(&arg_tcrypt_keyfiles, val) < 0)
                                 return log_oom();
                 } else
-                        log_error("Key file path '%s' is not absolute. Ignoring.", option+15);
+                        log_error("Key file path \"%s\" is not absolute. Ignoring.", val);
 
-        } else if (startswith(option, "keyfile-size=")) {
+        } else if ((val = startswith(option, "keyfile-size="))) {
 
-                if (safe_atou(option+13, &arg_keyfile_size) < 0) {
-                        log_error("keyfile-size= parse failure, ignoring.");
+                r = safe_atou(val, &arg_keyfile_size);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
                         return 0;
                 }
 
-        } else if (startswith(option, "keyfile-offset=")) {
+        } else if ((val = startswith(option, "keyfile-offset="))) {
 
-                if (safe_atou(option+15, &arg_keyfile_offset) < 0) {
-                        log_error("keyfile-offset= parse failure, ignoring.");
+                r = safe_atou(val, &arg_keyfile_offset);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
                         return 0;
                 }
 
-        } else if (startswith(option, "hash=")) {
-                char *t;
-
-                t = strdup(option+5);
-                if (!t)
+        } else if ((val = startswith(option, "hash="))) {
+                r = free_and_strdup(&arg_hash, val);
+                if (r < 0)
                         return log_oom();
 
-                free(arg_hash);
-                arg_hash = t;
-
-        } else if (startswith(option, "header=")) {
+        } else if ((val = startswith(option, "header="))) {
                 arg_type = CRYPT_LUKS1;
 
-                if (!path_is_absolute(option+7)) {
-                        log_error("Header path '%s' is not absolute, refusing.", option+7);
+                if (!path_is_absolute(val)) {
+                        log_error("Header path \"%s\" is not absolute, refusing.", val);
                         return -EINVAL;
                 }
 
                 if (arg_header) {
-                        log_error("Duplicate header= options, refusing.");
+                        log_error("Duplicate header= option, refusing.");
                         return -EINVAL;
                 }
 
-                arg_header = strdup(option+7);
+                arg_header = strdup(val);
                 if (!arg_header)
                         return log_oom();
 
-        } else if (startswith(option, "tries=")) {
+        } else if ((val = startswith(option, "tries="))) {
 
-                if (safe_atou(option+6, &arg_tries) < 0) {
-                        log_error("tries= parse failure, ignoring.");
+                r = safe_atou(val, &arg_tries);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
                         return 0;
                 }
 
@@ -190,29 +188,28 @@ static int parse_one_option(const char *option) {
 #endif
         } else if (STR_IN_SET(option, "plain", "swap", "tmp"))
                 arg_type = CRYPT_PLAIN;
-        else if (startswith(option, "timeout=")) {
+        else if ((val = startswith(option, "timeout="))) {
 
-                if (parse_sec(option+8, &arg_timeout) < 0) {
-                        log_error("timeout= parse failure, ignoring.");
+                r = parse_sec(val, &arg_timeout);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
                         return 0;
                 }
 
-        } else if (startswith(option, "offset=")) {
+        } else if ((val = startswith(option, "offset="))) {
 
-                if (safe_atou64(option+7, &arg_offset) < 0) {
-                        log_error("offset= parse failure, refusing.");
-                        return -EINVAL;
-                }
+                r = safe_atou64(val, &arg_offset);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s: %m", option);
 
-        } else if (startswith(option, "skip=")) {
+        } else if ((val = startswith(option, "skip="))) {
 
-                if (safe_atou64(option+5, &arg_skip) < 0) {
-                        log_error("skip= parse failure, refusing.");
-                        return -EINVAL;
-                }
+                r = safe_atou64(val, &arg_skip);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s: %m", option);
 
         } else if (!streq(option, "none"))
-                log_error("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
+                log_warning("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
 
         return 0;
 }

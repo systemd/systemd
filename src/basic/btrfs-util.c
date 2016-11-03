@@ -1642,7 +1642,7 @@ static int subvol_snapshot_children(int old_fd, int new_fd, const char *subvolum
                         if (old_child_fd < 0)
                                 return -errno;
 
-                        np = strjoin(subvolume, "/", ino_args.name, NULL);
+                        np = strjoin(subvolume, "/", ino_args.name);
                         if (!np)
                                 return -ENOMEM;
 

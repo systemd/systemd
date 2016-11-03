@@ -792,7 +792,7 @@ static char *format_types(Bitmap *types) {
         if (!str)
                 return NULL;
 
-        return strjoin("( ", str, " )", NULL);
+        return strjoin("( ", str, " )");
 }
 
 static char *format_txt(DnsTxtItem *first) {
@@ -861,14 +861,14 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
         case DNS_TYPE_NS:
         case DNS_TYPE_CNAME:
         case DNS_TYPE_DNAME:
-                s = strjoin(k, " ", rr->ptr.name, NULL);
+                s = strjoin(k, " ", rr->ptr.name);
                 if (!s)
                         return NULL;
 
                 break;
 
         case DNS_TYPE_HINFO:
-                s = strjoin(k, " ", rr->hinfo.cpu, " ", rr->hinfo.os, NULL);
+                s = strjoin(k, " ", rr->hinfo.cpu, " ", rr->hinfo.os);
                 if (!s)
                         return NULL;
                 break;
@@ -879,7 +879,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 if (!t)
                         return NULL;
 
-                s = strjoin(k, " ", t, NULL);
+                s = strjoin(k, " ", t);
                 if (!s)
                         return NULL;
                 break;
@@ -891,7 +891,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 if (r < 0)
                         return NULL;
 
-                s = strjoin(k, " ", x, NULL);
+                s = strjoin(k, " ", x);
                 if (!s)
                         return NULL;
                 break;
@@ -902,7 +902,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 if (r < 0)
                         return NULL;
 
-                s = strjoin(k, " ", t, NULL);
+                s = strjoin(k, " ", t);
                 if (!s)
                         return NULL;
                 break;
@@ -942,7 +942,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 if (!t)
                         return NULL;
 
-                s = strjoin(k, " ", t, NULL);
+                s = strjoin(k, " ", t);
                 if (!s)
                         return NULL;
                 break;

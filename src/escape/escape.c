@@ -191,7 +191,7 @@ int main(int argc, char *argv[]) {
                         } else if (arg_suffix) {
                                 char *x;
 
-                                x = strjoin(e, ".", arg_suffix, NULL);
+                                x = strjoin(e, ".", arg_suffix);
                                 if (!x) {
                                         r = log_oom();
                                         goto finish;

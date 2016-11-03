@@ -2547,7 +2547,7 @@ static int determine_names(void) {
                  * search for a machine, but instead create a new one
                  * in /var/lib/machine. */
 
-                arg_directory = strjoin("/var/lib/machines/", arg_machine, NULL);
+                arg_directory = strjoin("/var/lib/machines/", arg_machine);
                 if (!arg_directory)
                         return log_oom();
         }
@@ -3390,7 +3390,7 @@ static int load_settings(void) {
         FOREACH_STRING(i, "/etc/systemd/nspawn", "/run/systemd/nspawn") {
                 _cleanup_free_ char *j = NULL;
 
-                j = strjoin(i, "/", fn, NULL);
+                j = strjoin(i, "/", fn);
                 if (!j)
                         return log_oom();
 

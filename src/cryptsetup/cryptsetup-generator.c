@@ -86,7 +86,7 @@ static int create_disk(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        p = strjoin(arg_dest, "/", n, NULL);
+        p = strjoin(arg_dest, "/", n);
         if (!p)
                 return log_oom();
 
@@ -188,7 +188,7 @@ static int create_disk(
 
         if (!noauto) {
 
-                to = strjoin(arg_dest, "/", d, ".wants/", n, NULL);
+                to = strjoin(arg_dest, "/", d, ".wants/", n);
                 if (!to)
                         return log_oom();
 
@@ -198,9 +198,9 @@ static int create_disk(
 
                 free(to);
                 if (!nofail)
-                        to = strjoin(arg_dest, "/cryptsetup.target.requires/", n, NULL);
+                        to = strjoin(arg_dest, "/cryptsetup.target.requires/", n);
                 else
-                        to = strjoin(arg_dest, "/cryptsetup.target.wants/", n, NULL);
+                        to = strjoin(arg_dest, "/cryptsetup.target.wants/", n);
                 if (!to)
                         return log_oom();
 
@@ -210,7 +210,7 @@ static int create_disk(
         }
 
         free(to);
-        to = strjoin(arg_dest, "/dev-mapper-", e, ".device.requires/", n, NULL);
+        to = strjoin(arg_dest, "/dev-mapper-", e, ".device.requires/", n);
         if (!to)
                 return log_oom();
 
@@ -220,7 +220,7 @@ static int create_disk(
 
         if (!noauto && !nofail) {
                 _cleanup_free_ char *dmname;
-                dmname = strjoin("dev-mapper-", e, ".device", NULL);
+                dmname = strjoin("dev-mapper-", e, ".device");
                 if (!dmname)
                         return log_oom();
 

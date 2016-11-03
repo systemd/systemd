@@ -481,7 +481,7 @@ int bus_unit_method_start_generic(
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Job mode %s invalid", smode);
 
         if (reload_if_possible)
-                verb = strjoin("reload-or-", job_type_to_string(job_type), NULL);
+                verb = strjoin("reload-or-", job_type_to_string(job_type));
         else
                 verb = strdup(job_type_to_string(job_type));
         if (!verb)
@@ -984,7 +984,7 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
                 if (r == 0)
                         break;
 
-                j = strjoin(p, "/", g, NULL);
+                j = strjoin(p, "/", g);
                 if (!j)
                         return -ENOMEM;
 
@@ -1363,7 +1363,7 @@ static int bus_unit_set_transient_property(
                                 if (r < 0)
                                         return r;
 
-                                label = strjoin(name, "-", other, NULL);
+                                label = strjoin(name, "-", other);
                                 if (!label)
                                         return -ENOMEM;
 

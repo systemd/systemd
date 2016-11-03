@@ -747,7 +747,7 @@ static int make_unit_name(sd_bus *bus, UnitType t, char **ret) {
                 return -EINVAL;
         }
 
-        p = strjoin("run-u", id, ".", unit_type_to_string(t), NULL);
+        p = strjoin("run-u", id, ".", unit_type_to_string(t));
         if (!p)
                 return log_oom();
 

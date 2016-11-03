@@ -1102,7 +1102,7 @@ static int monitor(sd_bus *bus, char *argv[], int (*dump)(sd_bus_message *m, FIL
                         return -EINVAL;
                 }
 
-                m = strjoin("sender='", *i, "'", NULL);
+                m = strjoin("sender='", *i, "'");
                 if (!m)
                         return log_oom();
 
@@ -1111,7 +1111,7 @@ static int monitor(sd_bus *bus, char *argv[], int (*dump)(sd_bus_message *m, FIL
                         return bus_log_create_error(r);
 
                 free(m);
-                m = strjoin("destination='", *i, "'", NULL);
+                m = strjoin("destination='", *i, "'");
                 if (!m)
                         return log_oom();
 

@@ -642,7 +642,7 @@ static char* mount_flags_to_string(long unsigned flags) {
                     FLAG(MS_I_VERSION),
                     FLAG(MS_STRICTATIME),
                     FLAG(MS_LAZYTIME),
-                    y, NULL);
+                    y);
         if (!x)
                 return NULL;
         if (!y)

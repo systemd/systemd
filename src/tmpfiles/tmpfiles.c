@@ -422,7 +422,7 @@ static int dir_cleanup(
                         continue;
                 }
 
-                sub_path = strjoin(p, "/", dent->d_name, NULL);
+                sub_path = strjoin(p, "/", dent->d_name);
                 if (!sub_path) {
                         r = log_oom();
                         goto finish;
@@ -1082,7 +1082,7 @@ static int item_do_children(Item *i, const char *path, action_t action) {
                 if (STR_IN_SET(de->d_name, ".", ".."))
                         continue;
 
-                p = strjoin(path, "/", de->d_name, NULL);
+                p = strjoin(path, "/", de->d_name);
                 if (!p)
                         return -ENOMEM;
 

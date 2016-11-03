@@ -742,7 +742,7 @@ int chase_symlinks(const char *path, const char *_root, char **ret) {
                                 /* A relative destination. If so, this is what we'll prefix what's left to do with what
                                  * we just read, and start the loop again, but remain in the current directory. */
 
-                                joined = strjoin("/", destination, todo, NULL);
+                                joined = strjoin("/", destination, todo);
                                 if (!joined)
                                         return -ENOMEM;
 

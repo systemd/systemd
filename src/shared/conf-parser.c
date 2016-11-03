@@ -101,7 +101,7 @@ int config_item_perf_lookup(
         else {
                 char *key;
 
-                key = strjoin(section, ".", lvalue, NULL);
+                key = strjoin(section, ".", lvalue);
                 if (!key)
                         return -ENOMEM;
 

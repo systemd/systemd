@@ -294,7 +294,7 @@ int inhibitor_create_fifo(Inhibitor *i) {
                 if (r < 0)
                         return r;
 
-                i->fifo_path = strjoin("/run/systemd/inhibit/", i->id, ".ref", NULL);
+                i->fifo_path = strjoin("/run/systemd/inhibit/", i->id, ".ref");
                 if (!i->fifo_path)
                         return -ENOMEM;
 

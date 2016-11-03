@@ -773,7 +773,7 @@ static int parent_crawl_children(sd_device_enumerator *enumerator, const char *p
                 if (dent->d_type != DT_DIR)
                         continue;
 
-                child = strjoin(path, "/", dent->d_name, NULL);
+                child = strjoin(path, "/", dent->d_name);
                 if (!child)
                         return -ENOMEM;
 

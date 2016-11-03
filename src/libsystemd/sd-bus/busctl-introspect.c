@@ -285,7 +285,7 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         if (endswith(prefix, "/"))
                                                 node_path = strappend(prefix, name);
                                         else
-                                                node_path = strjoin(prefix, "/", name, NULL);
+                                                node_path = strjoin(prefix, "/", name);
                                         if (!node_path)
                                                 return log_oom();
                                 }

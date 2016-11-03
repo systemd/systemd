@@ -60,7 +60,7 @@ static void test_one(const char *p) {
         _cleanup_free_ char *with_utc;
 
         log_info("Test: %s", p);
-        with_utc = strjoin(p, " UTC", NULL);
+        with_utc = strjoin(p, " UTC");
         test_should_pass(p);
         test_should_pass(with_utc);
 }
@@ -69,7 +69,7 @@ static void test_one_noutc(const char *p) {
         _cleanup_free_ char *with_utc;
 
         log_info("Test: %s", p);
-        with_utc = strjoin(p, " UTC", NULL);
+        with_utc = strjoin(p, " UTC");
         test_should_pass(p);
         test_should_fail(with_utc);
 }

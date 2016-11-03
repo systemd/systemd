@@ -61,11 +61,11 @@ int drop_in_file(const char *dir, const char *unit, unsigned level,
         if (!filename_is_valid(b))
                 return -EINVAL;
 
-        p = strjoin(dir, "/", unit, ".d", NULL);
+        p = strjoin(dir, "/", unit, ".d");
         if (!p)
                 return -ENOMEM;
 
-        q = strjoin(p, "/", prefix, "-", b, ".conf", NULL);
+        q = strjoin(p, "/", prefix, "-", b, ".conf");
         if (!q) {
                 free(p);
                 return -ENOMEM;
@@ -163,7 +163,7 @@ static int iterate_dir(
                 if (hidden_or_backup_file(de->d_name))
                         continue;
 
-                f = strjoin(path, "/", de->d_name, NULL);
+                f = strjoin(path, "/", de->d_name);
                 if (!f)
                         return log_oom();
 
@@ -192,7 +192,7 @@ int unit_file_process_dir(
         assert(name);
         assert(suffix);
 
-        path = strjoin(unit_path, "/", name, suffix, NULL);
+        path = strjoin(unit_path, "/", name, suffix);
         if (!path)
                 return log_oom();
 
@@ -207,7 +207,7 @@ int unit_file_process_dir(
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate template from unit name: %m");
 
-                p = strjoin(unit_path, "/", template, suffix, NULL);
+                p = strjoin(unit_path, "/", template, suffix);
                 if (!p)
                         return log_oom();
 

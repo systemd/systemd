@@ -527,7 +527,7 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                 }
 
                 if (u->machine) {
-                        j = strjoin(u->machine, ":", u->id, NULL);
+                        j = strjoin(u->machine, ":", u->id);
                         if (!j)
                                 return log_oom();
 
@@ -939,7 +939,7 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
                         char **a;
 
                         if (s->machine) {
-                                j = strjoin(s->machine, ":", s->path, NULL);
+                                j = strjoin(s->machine, ":", s->path);
                                 if (!j)
                                         return log_oom();
                                 path = j;
@@ -1223,7 +1223,7 @@ static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
                         format_timestamp_relative(trel2, sizeof(trel2), t->last_trigger);
 
                         if (t->machine) {
-                                j = strjoin(t->machine, ":", t->id, NULL);
+                                j = strjoin(t->machine, ":", t->id);
                                 if (!j)
                                         return log_oom();
                                 unit = j;
@@ -6519,12 +6519,12 @@ static int get_file_to_edit(
         assert(name);
         assert(ret_path);
 
-        path = strjoin(paths->persistent_config, "/", name, NULL);
+        path = strjoin(paths->persistent_config, "/", name);
         if (!path)
                 return log_oom();
 
         if (arg_runtime) {
-                run = strjoin(paths->runtime_config, "/", name, NULL);
+                run = strjoin(paths->runtime_config, "/", name);
                 if (!run)
                         return log_oom();
         }
