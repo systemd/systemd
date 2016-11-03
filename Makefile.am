@@ -2038,7 +2038,8 @@ test_seccomp_SOURCES = \
 	src/test/test-seccomp.c
 
 test_seccomp_LDADD = \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	$(SECCOMP_LIBS)
 
 test_namespace_LDADD = \
 	libcore.la
