@@ -49,6 +49,12 @@ except ImportError:
     ecodes = None
     print('WARNING: evdev is not available')
 
+try:
+    from functools import lru_cache
+except ImportError:
+    # don't do caching on old python
+    lru_cache = lambda: (lambda f: f)
+
 EOL = LineEnd().suppress()
 EMPTYLINE = LineStart() + LineEnd()
 COMMENTLINE = pythonStyleComment + EOL
@@ -62,7 +68,7 @@ TYPES = {'mouse':    ('usb', 'bluetooth', 'ps2', '*'),
          'keyboard': ('name', ),
          }
 
-@functools.lru_cache()
+@lru_cache()
 def hwdb_grammar():
     ParserElement.setDefaultWhitespaceChars('')
 
@@ -83,7 +89,7 @@ def hwdb_grammar():
 
     return grammar
 
-@functools.lru_cache()
+@lru_cache()
 def property_grammar():
     ParserElement.setDefaultWhitespaceChars(' ')
 
