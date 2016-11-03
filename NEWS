@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 232 in spe
+CHANGES WITH 232:
 
         * The new RemoveIPC= option can be used to remove IPC objects owned by
           the user or group of a service when that service exits.
@@ -347,7 +347,7 @@ CHANGES WITH 232 in spe
         E. MORIN, Yi EungJun, Yuki Inoguchi, Yu Watanabe, Zbigniew
         Jędrzejewski-Szmek, Zeal Jagannatha
 
-        — Santa Fe, 2016-11-XX
+        — Santa Fe, 2016-11-03
 
 CHANGES WITH 231:
 
