@@ -1276,6 +1276,7 @@ static int set_log_target(sd_bus *bus, char **args) {
         return 0;
 }
 
+#ifdef HAVE_SECCOMP
 static void dump_syscall_filter(const SyscallFilterSet *set) {
         const char *syscall;
 
@@ -1324,6 +1325,13 @@ static int dump_syscall_filters(char** names) {
 
         return 0;
 }
+
+#else
+static int dump_syscall_filters(char** names) {
+        log_error("Not compiled with syscall filters, sorry.");
+        return -EOPNOTSUPP;
+}
+#endif
 
 static void help(void) {
 
