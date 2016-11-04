@@ -45,6 +45,7 @@ _systemd_analyze() {
                 [DOT]='dot'
                 [LOG_LEVEL]='set-log-level'
                 [VERIFY]='verify'
+                [SECCOMP_FILTER]='syscall-filter'
         )
 
         _init_completion || return
@@ -98,6 +99,11 @@ _systemd_analyze() {
                         comps='--help --version --system --user'
                 else
                         comps='debug info notice warning err crit alert emerg'
+                fi
+
+        elif __contains_word "$verb" ${VERBS[SECCOMP_FILTER]}; then
+                if [[ $cur = -* ]]; then
+                        comps='--help --version'
                 fi
 
         elif __contains_word "$verb" ${VERBS[VERIFY]}; then

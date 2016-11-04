@@ -217,9 +217,27 @@ bool is_seccomp_available(void) {
 }
 
 const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
+        [SYSCALL_FILTER_SET_DEFAULT] = {
+                .name = "@default",
+                .help = "System calls that are always permitted",
+                .value =
+                "clock_getres\0"
+                "clock_gettime\0"
+                "clock_nanosleep\0"
+                "execve\0"
+                "exit\0"
+                "exit_group\0"
+                "getrlimit\0"      /* make sure processes can query stack size and such */
+                "gettimeofday\0"
+                "nanosleep\0"
+                "pause\0"
+                "rt_sigreturn\0"
+                "sigreturn\0"
+                "time\0"
+        },
         [SYSCALL_FILTER_SET_BASIC_IO] = {
-                /* Basic IO */
                 .name = "@basic-io",
+                .help = "Basic IO",
                 .value =
                 "close\0"
                 "dup2\0"
@@ -236,8 +254,8 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "writev\0"
         },
         [SYSCALL_FILTER_SET_CLOCK] = {
-                /* Clock */
                 .name = "@clock",
+                .help = "Change the system time",
                 .value =
                 "adjtimex\0"
                 "clock_adjtime\0"
@@ -246,8 +264,8 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "stime\0"
         },
         [SYSCALL_FILTER_SET_CPU_EMULATION] = {
-                /* CPU emulation calls */
                 .name = "@cpu-emulation",
+                .help = "System calls for CPU emulation functionality",
                 .value =
                 "modify_ldt\0"
                 "subpage_prot\0"
@@ -256,8 +274,8 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "vm86old\0"
         },
         [SYSCALL_FILTER_SET_DEBUG] = {
-                /* Debugging/Performance Monitoring/Tracing */
                 .name = "@debug",
+                .help = "Debugging, performance monitoring and tracing functionality",
                 .value =
                 "lookup_dcookie\0"
                 "perf_event_open\0"
@@ -270,27 +288,9 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
 #endif
                 "sys_debug_setcontext\0"
         },
-        [SYSCALL_FILTER_SET_DEFAULT] = {
-                /* Default list: the most basic of operations */
-                .name = "@default",
-                .value =
-                "clock_getres\0"
-                "clock_gettime\0"
-                "clock_nanosleep\0"
-                "execve\0"
-                "exit\0"
-                "exit_group\0"
-                "getrlimit\0"      /* make sure processes can query stack size and such */
-                "gettimeofday\0"
-                "nanosleep\0"
-                "pause\0"
-                "rt_sigreturn\0"
-                "sigreturn\0"
-                "time\0"
-        },
         [SYSCALL_FILTER_SET_IO_EVENT] = {
-                /* Event loop use */
                 .name = "@io-event",
+                .help = "Event loop system calls",
                 .value =
                 "_newselect\0"
                 "epoll_create1\0"
@@ -308,9 +308,10 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "select\0"
         },
         [SYSCALL_FILTER_SET_IPC] = {
-                /* Message queues, SYSV IPC or other IPC */
                 .name = "@ipc",
-                .value = "ipc\0"
+                .help = "SysV IPC, POSIX Message Queues or other IPC",
+                .value =
+                "ipc\0"
                 "memfd_create\0"
                 "mq_getsetattr\0"
                 "mq_notify\0"
@@ -336,24 +337,24 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "shmget\0"
         },
         [SYSCALL_FILTER_SET_KEYRING] = {
-                /* Keyring */
                 .name = "@keyring",
+                .help = "Kernel keyring access",
                 .value =
                 "add_key\0"
                 "keyctl\0"
                 "request_key\0"
         },
         [SYSCALL_FILTER_SET_MODULE] = {
-                /* Kernel module control */
                 .name = "@module",
+                .help = "Loading and unloading of kernel modules",
                 .value =
                 "delete_module\0"
                 "finit_module\0"
                 "init_module\0"
         },
         [SYSCALL_FILTER_SET_MOUNT] = {
-                /* Mounting */
                 .name = "@mount",
+                .help = "Mounting and unmounting of file systems",
                 .value =
                 "chroot\0"
                 "mount\0"
@@ -362,8 +363,8 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "umount\0"
         },
         [SYSCALL_FILTER_SET_NETWORK_IO] = {
-                /* Network or Unix socket IO, should not be needed if not network facing */
                 .name = "@network-io",
+                .help = "Network or Unix socket IO, should not be needed if not network facing",
                 .value =
                 "accept4\0"
                 "accept\0"
@@ -388,8 +389,9 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "socketpair\0"
         },
         [SYSCALL_FILTER_SET_OBSOLETE] = {
-                /* Unusual, obsolete or unimplemented, some unknown even to libseccomp */
+                /* some unknown even to libseccomp */
                 .name = "@obsolete",
+                .help = "Unusual, obsolete or unimplemented system calls",
                 .value =
                 "_sysctl\0"
                 "afs_syscall\0"
@@ -417,8 +419,8 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "vserver\0"
         },
         [SYSCALL_FILTER_SET_PRIVILEGED] = {
-                /* Nice grab-bag of all system calls which need superuser capabilities */
                 .name = "@privileged",
+                .help = "All system calls which need super-user capabilities",
                 .value =
                 "@clock\0"
                 "@module\0"
@@ -459,8 +461,8 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "vhangup\0"
         },
         [SYSCALL_FILTER_SET_PROCESS] = {
-                /* Process control, execution, namespaces */
                 .name = "@process",
+                .help = "Process control, execution, namespaceing operations",
                 .value =
                 "arch_prctl\0"
                 "clone\0"
@@ -475,8 +477,8 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "vfork\0"
         },
         [SYSCALL_FILTER_SET_RAW_IO] = {
-                /* Raw I/O ports */
                 .name = "@raw-io",
+                .help = "Raw I/O port access",
                 .value =
                 "ioperm\0"
                 "iopl\0"

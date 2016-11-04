@@ -104,6 +104,12 @@
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">syscall-filter</arg>
+      <arg choice="opt"><replaceable>SET</replaceable>...</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">verify</arg>
       <arg choice="opt" rep="repeat"><replaceable>FILES</replaceable></arg>
     </cmdsynopsis>
@@ -180,6 +186,11 @@
     <replaceable>TARGET</replaceable> (accepts the same values as
     <option>--log-target=</option>, described in
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>).</para>
+
+    <para><command>systemd-analyze syscall-filter <optional><replaceable>SET</replaceable>...</optional></command>
+    will list system calls contained in the specified system call set <replaceable>SET</replaceable>,
+    or all known sets if no sets are specified. Argument <replaceable>SET</replaceable> must include
+    the <literal>@</literal> prefix.</para>
 
     <para><command>systemd-analyze verify</command> will load unit files and print
     warnings if any errors are detected. Files specified on the command line will be
