@@ -359,6 +359,20 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>AutoNegotiation=</varname></term>
+        <listitem>
+          <para>Enables or disables automatic negotiation of transmission parameters.
+          Autonegotiation is a procedure by which two connected ethernet devices choose
+          common transmission parameters, such as speed, duplex mode, and flow control.
+          Takes a boolean value. Unset by default, which means that the kernel default
+          will be used.</para>
+
+          <para>Note that if autonegotiation is enabled, speed and duplex settings are
+          read-only. If autonegotation is disabled, speed and duplex settings are writable
+          if the driver supports multiple link modes.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>WakeOnLan=</varname></term>
         <listitem>
           <para>The Wake-on-LAN policy to set for the device. The
