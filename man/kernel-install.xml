@@ -89,11 +89,12 @@
         <listitem>
           <para><command>kernel-install</command> creates the directory
           <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename>
-          and calls every executable
+          and calls executables from
           <filename>/usr/lib/kernel/install.d/*.install</filename> and
           <filename>/etc/kernel/install.d/*.install</filename> with
           the arguments
-          <programlisting>add <replaceable>KERNEL-VERSION</replaceable> <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename></programlisting>
+          <programlisting>add <replaceable>KERNEL-VERSION</replaceable> \
+    <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename> <replaceable>KERNEL-IMAGE</replaceable></programlisting>
           </para>
 
           <para>The kernel-install plugin <filename>50-depmod.install</filename> runs depmod for the <replaceable>KERNEL-VERSION</replaceable>.</para>
@@ -119,7 +120,7 @@
       <varlistentry>
         <term><command>remove <replaceable>KERNEL-VERSION</replaceable></command></term>
         <listitem>
-          <para>Calls every executable <filename>/usr/lib/kernel/install.d/*.install</filename>
+          <para>Calls executables from <filename>/usr/lib/kernel/install.d/*.install</filename>
           and <filename>/etc/kernel/install.d/*.install</filename> with the arguments
           <programlisting>remove <replaceable>KERNEL-VERSION</replaceable> <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename></programlisting>
           </para>
@@ -138,7 +139,7 @@
 
   <refsect1>
     <title>Exit status</title>
-    <para>If every executable returns with 0, 0 is returned, a non-zero failure code otherwise.</para>
+    <para>If every executable returns 0 or 77, 0 is returned, and a non-zero failure code otherwise.</para>
   </refsect1>
 
   <refsect1>
