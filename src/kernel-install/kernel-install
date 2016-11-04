@@ -127,7 +127,7 @@ case $COMMAND in
                 "$f" add "$KERNEL_VERSION" "$BOOT_DIR_ABS" "$KERNEL_IMAGE"
                 x=$?
                 if [[ $x == $SKIP_REMAINING ]]; then
-                    return 0
+                    exit 0
                 fi
                 ((ret+=$x))
             fi
@@ -140,7 +140,7 @@ case $COMMAND in
                 "$f" remove "$KERNEL_VERSION" "$BOOT_DIR_ABS"
                 x=$?
                 if [[ $x == $SKIP_REMAINING ]]; then
-                    return 0
+                    exit 0
                 fi
                 ((ret+=$x))
             fi
