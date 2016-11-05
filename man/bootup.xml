@@ -179,6 +179,13 @@
     identical to the system manager bootup (see above) until it
     reaches <filename>basic.target</filename>. From there, systemd
     approaches the special target <filename>initrd.target</filename>.
+
+    Before any file systems are mounted, it must be determined whether
+    the system will resume from hibernation or proceed with normal boot.
+    This is accomplished by <filename>systemd-hibernate-resume@.service</filename>
+    which must be finished before <filename>local-fs-pre.target</filename>,
+    so no filesystems can be mounted before the check is complete.
+
     When the root device becomes available,
     <filename>initd-root-device.target</filename> is reached.
     If the root device can be mounted at
