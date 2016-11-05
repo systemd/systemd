@@ -6054,6 +6054,7 @@ EXTRA_DIST += \
 
 # ------------------------------------------------------------------------------
 substitutions = \
+       '|rootlibdir=$(rootlibdir)|' \
        '|rootlibexecdir=$(rootlibexecdir)|' \
        '|rootbindir=$(rootbindir)|' \
        '|bindir=$(bindir)|' \
