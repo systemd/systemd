@@ -39,7 +39,7 @@ test_setup() {
         eval $(udevadm info --export --query=env --name=${LOOPDEV}p2)
 
         setup_basic_environment
-        dracut_install busybox chmod rmdir
+        dracut_install busybox chmod rmdir unshare
 
         cp create-busybox-container $initdir/
 
@@ -78,6 +78,11 @@ if [[ -f /proc/1/ns/cgroup ]]; then
     is_cgns_supported=yes
 fi
 
+is_user_ns_supported=no
+if unshare -U sh -c :; then
+    is_user_ns_supported=yes
+fi
+
 function run {
     if [[ "$1" = "yes" && "$is_v2_supported" = "no" ]]; then
         printf "Unified cgroup hierarchy is not supported. Skipping.\n" >&2
@@ -88,20 +93,32 @@ function run {
         return 0
     fi
 
-    local _root="/var/lib/machines/unified-$1-cgns-$2"
+    local _root="/var/lib/machines/unified-$1-cgns-$2-api-vfs-writable-$3"
     /create-busybox-container "$_root"
-    UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" systemd-nspawn --register=no -D "$_root" -b
-    UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" systemd-nspawn --register=no -D "$_root" --private-network -b
-    UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" systemd-nspawn --register=no -D "$_root" -U -b
-    UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" systemd-nspawn --register=no -D "$_root" --private-network -U -b
+    UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" -b
+    UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" --private-network -b
+
+    if UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" -U -b; then
+       [[ "$is_user_ns_supported" = "yes" && "$3" = "network" ]] && return 1
+    else
+       [[ "$is_user_ns_supported" = "no" && "$3" = "network" ]] && return 1
+    fi
+
+    if UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" --private-network -U -b; then
+       [[ "$is_user_ns_supported" = "yes" && "$3" = "yes" ]] && return 1
+    else
+       [[ "$is_user_ns_supported" = "no" && "$3" = "yes" ]] && return 1
+    fi
 
     return 0
 }
 
-run no no
-run yes no
-run no yes
-run yes yes
+for api_vfs_writable in yes no network; do
+    run no no $api_vfs_writable
+    run yes no $api_vfs_writable
+    run no yes $api_vfs_writable
+    run yes yes $api_vfs_writable
+done
 
 touch /testok
 EOF
