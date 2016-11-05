@@ -162,7 +162,7 @@ int add_base_acls_if_needed(acl_t *acl_p, const char *path) {
 
 int acl_search_groups(const char *path, char ***ret_groups) {
         _cleanup_strv_free_ char **g = NULL;
-        _cleanup_(acl_free) acl_t acl = NULL;
+        _cleanup_(acl_freep) acl_t acl = NULL;
         bool ret = false;
         acl_entry_t entry;
         int r;
