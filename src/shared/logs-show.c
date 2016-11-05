@@ -418,7 +418,7 @@ static int output_short(
 
         if (flags & OUTPUT_NO_HOSTNAME) {
                 /* Suppress display of the hostname if this is requested. */
-                hostname = NULL;
+                hostname = mfree(hostname);
                 hostname_len = 0;
         }
 
