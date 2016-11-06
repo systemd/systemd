@@ -79,6 +79,7 @@ typedef struct Manager {
         struct udev *udev;
         sd_event *event;
         Hashmap *workers;
+        LIST_HEAD(struct worker, idle_workers);
         LIST_HEAD(struct event, events);
         const char *cgroup;
         pid_t pid; /* the process that originally allocated the manager object */
@@ -144,6 +145,7 @@ struct worker {
         struct udev_monitor *monitor;
         enum worker_state state;
         struct event *event;
+        LIST_FIELDS(struct worker, idlers);
 };
 
 /* passed from worker to main process */
@@ -185,6 +187,9 @@ static void worker_free(struct worker *worker) {
 
         assert(worker->manager);
 
+        if (worker->state == WORKER_IDLE) {
+                LIST_REMOVE(idlers,worker->manager->idle_workers,worker);
+        }
         hashmap_remove(worker->manager->workers, PID_TO_PTR(worker->pid));
         udev_monitor_unref(worker->monitor);
         event_free(worker->event);
@@ -244,6 +249,9 @@ static int on_event_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         assert(event);
         assert(event->worker);
 
+        if (event->worker->state == WORKER_IDLE)
+                LIST_REMOVE(idlers, event->manager->idle_workers, event->worker);
+
         kill_and_sigcont(event->worker->pid, SIGKILL);
         event->worker->state = WORKER_KILLED;
 
@@ -272,6 +280,8 @@ static void worker_attach_event(struct worker *worker, struct event *event) {
         assert(!event->worker);
         assert(!worker->event);
 
+        if (worker->state == WORKER_IDLE)
+                LIST_REMOVE(idlers, worker->manager->idle_workers, worker);
         worker->state = WORKER_RUNNING;
         worker->event = event;
         event->state = EVENT_RUNNING;
@@ -545,25 +555,23 @@ out:
 }
 
 static void event_run(Manager *manager, struct event *event) {
-        struct worker *worker;
-        Iterator i;
-
         assert(manager);
         assert(event);
-
-        HASHMAP_FOREACH(worker, manager->workers, i) {
+retry:
+        if (!LIST_IS_EMPTY(manager->idle_workers)) {
+                struct worker *worker = manager->idle_workers;
                 ssize_t count;
 
-                if (worker->state != WORKER_IDLE)
-                        continue;
+                assert(worker->state == WORKER_IDLE);
 
                 count = udev_monitor_send_device(manager->monitor, worker->monitor, event->dev);
                 if (count < 0) {
                         log_error_errno(errno, "worker ["PID_FMT"] did not accept message %zi (%m), kill it",
                                         worker->pid, count);
                         kill(worker->pid, SIGKILL);
+                        LIST_REMOVE(idlers, worker->manager->idle_workers, worker);
                         worker->state = WORKER_KILLED;
-                        continue;
+                        goto retry;
                 }
                 worker_attach_event(worker, event);
                 return;
@@ -634,6 +642,9 @@ static void manager_kill_workers(Manager *manager) {
         HASHMAP_FOREACH(worker, manager->workers, i) {
                 if (worker->state == WORKER_KILLED)
                         continue;
+
+                if (worker->state == WORKER_IDLE)
+                        LIST_REMOVE(idlers, worker->manager->idle_workers, worker);
 
                 worker->state = WORKER_KILLED;
                 kill(worker->pid, SIGTERM);
@@ -885,8 +896,10 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                         continue;
                 }
 
-                if (worker->state != WORKER_KILLED)
+                if (worker->state != WORKER_KILLED) {
                         worker->state = WORKER_IDLE;
+                        LIST_PREPEND(idlers, manager->idle_workers, worker);
+                }
 
                 /* worker returned */
                 event_free(worker->event);
