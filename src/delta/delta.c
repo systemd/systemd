@@ -355,6 +355,21 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
         }
 }
 
+static int should_skip_prefix(const char* p) {
+#ifdef HAVE_SPLIT_USR
+        int r;
+        _cleanup_free_ char *target = NULL;
+
+        r = chase_symlinks(p, NULL, &target);
+        if (r < 0)
+                return r;
+
+        return !streq(p, target) && nulstr_contains(prefixes, target);
+#else
+        return 0;
+#endif
+}
+
 static int process_suffix(const char *suffix, const char *onlyprefix) {
         const char *p;
         char *f;
@@ -382,6 +397,15 @@ static int process_suffix(const char *suffix, const char *onlyprefix) {
 
         NULSTR_FOREACH(p, prefixes) {
                 _cleanup_free_ char *t = NULL;
+                int skip;
+
+                skip = should_skip_prefix(p);
+                if (skip < 0) {
+                        r = skip;
+                        goto finish;
+                }
+                if (skip)
+                        continue;
 
                 t = strjoin(p, "/", suffix);
                 if (!t) {
@@ -459,6 +483,13 @@ static int process_suffix_chop(const char *arg) {
         /* Strip prefix from the suffix */
         NULSTR_FOREACH(p, prefixes) {
                 const char *suffix;
+                int skip;
+
+                skip = should_skip_prefix(p);
+                if (skip < 0)
+                        return skip;
+                if (skip)
+                        continue;
 
                 suffix = startswith(arg, p);
                 if (suffix) {
