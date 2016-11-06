@@ -960,7 +960,9 @@ libbasic_la_SOURCES = \
 	src/basic/format-util.h \
 	src/basic/nss-util.h \
 	src/basic/khash.h \
-	src/basic/khash.c
+	src/basic/khash.c \
+	src/basic/journal-importer.h \
+	src/basic/journal-importer.c
 
 nodist_libbasic_la_SOURCES = \
 	src/basic/errno-from-name.h \

@@ -512,7 +512,8 @@ static int process_http_upload(
         if (*upload_data_size) {
                 log_trace("Received %zu bytes", *upload_data_size);
 
-                r = push_data(source, upload_data, *upload_data_size);
+                r = journal_importer_push_data(&source->importer,
+                                               upload_data, *upload_data_size);
                 if (r < 0)
                         return mhd_respond_oom(connection);
 
@@ -542,7 +543,7 @@ static int process_http_upload(
 
         /* The upload is finished */
 
-        remaining = source_non_empty(source);
+        remaining = journal_importer_bytes_remaining(&source->importer);
         if (remaining > 0) {
                 log_warning("Premature EOF byte. %zu bytes lost.", remaining);
                 return mhd_respondf(connection,
@@ -1036,19 +1037,19 @@ static int handle_raw_source(sd_event_source *event,
 
         assert(fd >= 0 && fd < (ssize_t) s->sources_size);
         source = s->sources[fd];
-        assert(source->fd == fd);
+        assert(source->importer.fd == fd);
 
         r = process_source(source, arg_compress, arg_seal);
-        if (source->state == STATE_EOF) {
+        if (journal_importer_eof(&source->importer)) {
                 size_t remaining;
 
-                log_debug("EOF reached with source fd:%d (%s)",
-                          source->fd, source->name);
+                log_debug("EOF reached with source %s (fd=%d)",
+                          source->importer.name, source->importer.fd);
 
-                remaining = source_non_empty(source);
+                remaining = journal_importer_bytes_remaining(&source->importer);
                 if (remaining > 0)
                         log_notice("Premature EOF. %zu bytes lost.", remaining);
-                remove_source(s, source->fd);
+                remove_source(s, source->importer.fd);
                 log_debug("%zu active sources remaining", s->active);
                 return 0;
         } else if (r == -E2BIG) {
@@ -1072,7 +1073,7 @@ static int dispatch_raw_source_until_block(sd_event_source *event,
         /* Make sure event stays around even if source is destroyed */
         sd_event_source_ref(event);
 
-        r = handle_raw_source(event, source->fd, EPOLLIN, server);
+        r = handle_raw_source(event, source->importer.fd, EPOLLIN, server);
         if (r != 1)
                 /* No more data for now */
                 sd_event_source_set_enabled(event, SD_EVENT_OFF);
@@ -1105,7 +1106,7 @@ static int dispatch_blocking_source_event(sd_event_source *event,
                                           void *userdata) {
         RemoteSource *source = userdata;
 
-        return handle_raw_source(event, source->fd, EPOLLIN, server);
+        return handle_raw_source(event, source->importer.fd, EPOLLIN, server);
 }
 
 static int accept_connection(const char* type, int fd,

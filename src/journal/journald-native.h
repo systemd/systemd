@@ -21,11 +21,6 @@
 
 #include "journald-server.h"
 
-/* Make sure not to make this smaller than the maximum coredump
- * size. See COREDUMP_MAX in coredump.c */
-#define ENTRY_SIZE_MAX (1024*1024*770u)
-#define DATA_SIZE_MAX (1024*1024*768u)
-
 bool valid_user_field(const char *p, size_t l, bool allow_protected);
 
 void server_process_native_message(Server *s, const void *buffer, size_t buffer_size, const struct ucred *ucred, const struct timeval *tv, const char *label, size_t label_len);

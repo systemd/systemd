@@ -20,39 +20,6 @@
 #include "alloc-util.h"
 #include "journal-remote.h"
 
-int iovw_put(struct iovec_wrapper *iovw, void* data, size_t len) {
-        if (!GREEDY_REALLOC(iovw->iovec, iovw->size_bytes, iovw->count + 1))
-                return log_oom();
-
-        iovw->iovec[iovw->count++] = (struct iovec) {data, len};
-        return 0;
-}
-
-void iovw_free_contents(struct iovec_wrapper *iovw) {
-        iovw->iovec = mfree(iovw->iovec);
-        iovw->size_bytes = iovw->count = 0;
-}
-
-size_t iovw_size(struct iovec_wrapper *iovw) {
-        size_t n = 0, i;
-
-        for (i = 0; i < iovw->count; i++)
-                n += iovw->iovec[i].iov_len;
-
-        return n;
-}
-
-void iovw_rebase(struct iovec_wrapper *iovw, char *old, char *new) {
-        size_t i;
-
-        for (i = 0; i < iovw->count; i++)
-                iovw->iovec[i].iov_base = (char*) iovw->iovec[i].iov_base - old + new;
-}
-
-/**********************************************************************
- **********************************************************************
- **********************************************************************/
-
 static int do_rotate(JournalFile **f, bool compress, bool seal) {
         int r = journal_file_rotate(f, compress, seal, NULL);
         if (r < 0) {
