@@ -139,7 +139,6 @@ enum worker_state {
 
 struct worker {
         Manager *manager;
-        struct udev_list_node node;
         int refcount;
         pid_t pid;
         struct udev_monitor *monitor;
