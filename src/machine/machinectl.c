@@ -330,10 +330,12 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                         printf("-\n");
         }
 
-        if (arg_legend && n_machines > 0)
-                printf("\n%zu machines listed.\n", n_machines);
-        else
-                printf("No machines.\n");
+        if (arg_legend) {
+                if (n_machines > 0)
+                        printf("\n%zu machines listed.\n", n_machines);
+                else
+                        printf("No machines.\n");
+        }
 
 out:
         clean_machine_info(machines, n_machines);
