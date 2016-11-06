@@ -103,6 +103,10 @@ static int add_matches(sd_journal *j) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add match \"%s\": %m", "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR);
 
+        r = sd_journal_add_match(j, "MESSAGE_ID=" SD_MESSAGE_BACKTRACE_STR, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match \"%s\": %m", "MESSAGE_ID=" SD_MESSAGE_BACKTRACE_STR);
+
         STRV_FOREACH(match, arg_matches) {
                 r = add_match(j, *match);
                 if (r < 0)
@@ -312,7 +316,7 @@ static int print_field(FILE* file, sd_journal *j) {
 
 static int print_list(FILE* file, sd_journal *j, int had_legend) {
         _cleanup_free_ char
-                *pid = NULL, *uid = NULL, *gid = NULL,
+                *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
                 *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
                 *filename = NULL, *coredump = NULL;
         const void *d;
@@ -321,11 +325,13 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
         char buf[FORMAT_TIMESTAMP_MAX];
         int r;
         const char *present;
+        bool normal_coredump;
 
         assert(file);
         assert(j);
 
         SD_JOURNAL_FOREACH_DATA(j, d, l) {
+                RETRIEVE(d, l, "MESSAGE_ID", mid);
                 RETRIEVE(d, l, "COREDUMP_PID", pid);
                 RETRIEVE(d, l, "COREDUMP_UID", uid);
                 RETRIEVE(d, l, "COREDUMP_GID", gid);
@@ -358,6 +364,8 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
                         8, "COREFILE",
                            "EXE");
 
+        normal_coredump = streq_ptr(mid, SD_MESSAGE_COREDUMP_STR);
+
         if (filename)
                 if (access(filename, R_OK) == 0)
                         present = "present";
@@ -367,15 +375,17 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
                         present = "error";
         else if (coredump)
                 present = "journal";
-        else
+        else if (normal_coredump)
                 present = "none";
+        else
+                present = "-";
 
         fprintf(file, "%-*s %*s %*s %*s %*s %-*s %s\n",
                 FORMAT_TIMESTAMP_WIDTH, buf,
                 6, strna(pid),
                 5, strna(uid),
                 5, strna(gid),
-                3, strna(sgnl),
+                3, normal_coredump ? strna(sgnl) : "-",
                 8, present,
                 strna(exe ?: (comm ?: cmdline)));
 
@@ -384,7 +394,7 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
 
 static int print_info(FILE *file, sd_journal *j, bool need_space) {
         _cleanup_free_ char
-                *pid = NULL, *uid = NULL, *gid = NULL,
+                *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
                 *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
                 *unit = NULL, *user_unit = NULL, *session = NULL,
                 *boot_id = NULL, *machine_id = NULL, *hostname = NULL,
@@ -393,12 +403,14 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 *coredump = NULL;
         const void *d;
         size_t l;
+        bool normal_coredump;
         int r;
 
         assert(file);
         assert(j);
 
         SD_JOURNAL_FOREACH_DATA(j, d, l) {
+                RETRIEVE(d, l, "MESSAGE_ID", mid);
                 RETRIEVE(d, l, "COREDUMP_PID", pid);
                 RETRIEVE(d, l, "COREDUMP_UID", uid);
                 RETRIEVE(d, l, "COREDUMP_GID", gid);
@@ -423,6 +435,8 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
 
         if (need_space)
                 fputs("\n", file);
+
+        normal_coredump = streq_ptr(mid, SD_MESSAGE_COREDUMP_STR);
 
         if (comm)
                 fprintf(file,
@@ -469,11 +483,12 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
 
         if (sgnl) {
                 int sig;
+                const char *name = normal_coredump ? "Signal" : "Reason";
 
-                if (safe_atoi(sgnl, &sig) >= 0)
-                        fprintf(file, "        Signal: %s (%s)\n", sgnl, signal_to_string(sig));
+                if (normal_coredump && safe_atoi(sgnl, &sig) >= 0)
+                        fprintf(file, "        %s: %s (%s)\n", name, sgnl, signal_to_string(sig));
                 else
-                        fprintf(file, "        Signal: %s\n", sgnl);
+                        fprintf(file, "        %s: %s\n", name, sgnl);
         }
 
         if (timestamp) {
