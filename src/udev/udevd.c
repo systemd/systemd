@@ -53,6 +53,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "io-util.h"
+#include "list.h"
 #include "netlink-util.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
@@ -78,7 +79,7 @@ typedef struct Manager {
         struct udev *udev;
         sd_event *event;
         Hashmap *workers;
-        struct udev_list_node events;
+        LIST_HEAD(struct event, events);
         const char *cgroup;
         pid_t pid; /* the process that originally allocated the manager object */
 
@@ -108,7 +109,7 @@ enum event_state {
 };
 
 struct event {
-        struct udev_list_node node;
+        LIST_FIELDS(struct event, event);
         Manager *manager;
         struct udev *udev;
         struct udev_device *dev;
@@ -126,10 +127,6 @@ struct event {
         sd_event_source *timeout_warning;
         sd_event_source *timeout;
 };
-
-static inline struct event *node_to_event(struct udev_list_node *node) {
-        return container_of(node, struct event, node);
-}
 
 static void event_queue_cleanup(Manager *manager, enum event_state type);
 
@@ -159,8 +156,9 @@ static void event_free(struct event *event) {
 
         if (!event)
                 return;
+        assert(event->manager);
 
-        udev_list_node_remove(&event->node);
+        LIST_REMOVE(event,event->manager->events,event);
         udev_device_unref(event->dev);
         udev_device_unref(event->dev_kernel);
 
@@ -170,9 +168,7 @@ static void event_free(struct event *event) {
         if (event->worker)
                 event->worker->event = NULL;
 
-        assert(event->manager);
-
-        if (udev_list_node_is_empty(&event->manager->events)) {
+        if (LIST_IS_EMPTY(event->manager->events)) {
                 /* only clean up the queue from the process that created it */
                 if (event->manager->pid == getpid()) {
                         r = unlink("/run/udev/queue");
@@ -619,13 +615,13 @@ static int event_queue_insert(Manager *manager, struct udev_device *dev) {
 
         event->state = EVENT_QUEUED;
 
-        if (udev_list_node_is_empty(&manager->events)) {
+        if (LIST_IS_EMPTY(manager->events)) {
                 r = touch("/run/udev/queue");
                 if (r < 0)
                         log_warning_errno(r, "could not touch /run/udev/queue: %m");
         }
 
-        udev_list_node_append(&event->node, &manager->events);
+        LIST_APPEND(event,manager->events,event);
 
         return 0;
 }
@@ -647,13 +643,11 @@ static void manager_kill_workers(Manager *manager) {
 
 /* lookup event for identical, parent, child device */
 static bool is_devpath_busy(Manager *manager, struct event *event) {
-        struct udev_list_node *loop;
+        struct event *loop_event;
         size_t common;
 
         /* check if queue contains events we depend on */
-        udev_list_node_foreach(loop, &manager->events) {
-                struct event *loop_event = node_to_event(loop);
-
+        LIST_FOREACH(event,loop_event,manager->events) {
                 /* we already found a later event, earlier can not block us, no need to check again */
                 if (loop_event->seqnum < event->delaying_seqnum)
                         continue;
@@ -782,12 +776,12 @@ static void manager_reload(Manager *manager) {
 }
 
 static void event_queue_start(Manager *manager) {
-        struct udev_list_node *loop;
+        struct event *event;
         usec_t usec;
 
         assert(manager);
 
-        if (udev_list_node_is_empty(&manager->events) ||
+        if (LIST_IS_EMPTY(manager->events) ||
             manager->exit || manager->stop_exec_queue)
                 return;
 
@@ -810,9 +804,7 @@ static void event_queue_start(Manager *manager) {
                         return;
         }
 
-        udev_list_node_foreach(loop, &manager->events) {
-                struct event *event = node_to_event(loop);
-
+        LIST_FOREACH(event,event,manager->events) {
                 if (event->state != EVENT_QUEUED)
                         continue;
 
@@ -825,11 +817,9 @@ static void event_queue_start(Manager *manager) {
 }
 
 static void event_queue_cleanup(Manager *manager, enum event_state match_type) {
-        struct udev_list_node *loop, *tmp;
+        struct event *event, *tmp;
 
-        udev_list_node_foreach_safe(loop, tmp, &manager->events) {
-                struct event *event = node_to_event(loop);
-
+        LIST_FOREACH_SAFE(event, event, tmp, manager->events) {
                 if (match_type != EVENT_UNDEF && match_type != event->state)
                         continue;
 
@@ -1246,7 +1236,7 @@ static int on_post(sd_event_source *s, void *userdata) {
 
         assert(manager);
 
-        if (udev_list_node_is_empty(&manager->events)) {
+        if (LIST_IS_EMPTY(manager->events)) {
                 /* no pending events */
                 if (!hashmap_isempty(manager->workers)) {
                         /* there are idle workers */
@@ -1510,7 +1500,7 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         if (!manager->rules)
                 return log_error_errno(ENOMEM, "error reading rules");
 
-        udev_list_node_init(&manager->events);
+        LIST_HEAD_INIT(manager->events);
         udev_list_init(manager->udev, &manager->properties, true);
 
         manager->cgroup = cgroup;
