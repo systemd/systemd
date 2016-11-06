@@ -465,10 +465,12 @@ static int list_images(int argc, char *argv[], void *userdata) {
                        (int) max_mtime, strna(format_timestamp(mtime_buf, sizeof(mtime_buf), images[j].mtime)));
         }
 
-        if (arg_legend && n_images > 0)
-                printf("\n%zu images listed.\n", n_images);
-        else
-                printf("No images.\n");
+        if (arg_legend) {
+                if (n_images > 0)
+                        printf("\n%zu images listed.\n", n_images);
+                else
+                        printf("No images.\n");
+        }
 
         return 0;
 }
@@ -2491,10 +2493,12 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
                        (int) max_local, transfers[j].local,
                        (int) max_remote, transfers[j].remote);
 
-        if (arg_legend && n_transfers > 0)
-                printf("\n%zu transfers listed.\n", n_transfers);
-        else
-                printf("No transfers.\n");
+        if (arg_legend) {
+                if (n_transfers > 0)
+                        printf("\n%zu transfers listed.\n", n_transfers);
+                else
+                        printf("No transfers.\n");
+        }
 
         return 0;
 }
