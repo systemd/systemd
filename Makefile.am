@@ -251,6 +251,19 @@ AM_CFLAGS = $(OUR_CFLAGS)
 AM_LDFLAGS = $(OUR_LDFLAGS)
 
 # ------------------------------------------------------------------------------
+
+# distros may require that *.so symlinks are always placed in ${libdir}, use
+# this macro to move devel *.so to libdir if needed
+define move-so-to-libdir
+	if test "$(libdir)" != "$(rootlibdir)"; then \
+		$(MKDIR_P) $(DESTDIR)$(libdir) && \
+		so_img_name=$$(readlink $(DESTDIR)$(rootlibdir)/$$libname) && \
+		rm -f $(DESTDIR)$(rootlibdir)/$$libname && \
+		$(LN_S) --relative -f $(DESTDIR)$(rootlibdir)/$$so_img_name \
+			$(DESTDIR)$(libdir)/$$libname; \
+	fi
+endef
+
 INSTALL_DIRS =
 
 SHUTDOWN_TARGET_WANTS =
@@ -3290,6 +3303,16 @@ libsystemd_la_LIBADD = \
 	libbasic.la \
 	libsystemd-journal-internal.la
 
+# move devel so link from $(rootlibdir) to $(libdir) if needed
+libsystemd-install-hook:
+	libname=libsystemd.so && $(move-so-to-libdir)
+
+libsystemd-uninstall-hook:
+	rm -f $(DESTDIR)$(libdir)/libsystemd.so
+
+INSTALL_EXEC_HOOKS += libsystemd-install-hook
+UNINSTALL_EXEC_HOOKS += libsystemd-uninstall-hook
+
 pkgconfiglib_DATA += \
 	src/libsystemd/libsystemd.pc
 
@@ -3659,6 +3682,16 @@ libudev_la_LDFLAGS = \
 libudev_la_LIBADD = \
 	libsystemd-internal.la \
 	libbasic.la
+
+# move devel so link from $(rootlibdir) to $(libdir) if needed
+libudev-install-hook:
+	libname=libudev.so && $(move-so-to-libdir)
+
+libudev-uninstall-hook:
+	rm -f $(DESTDIR)$(libdir)/libudev.so
+
+INSTALL_EXEC_HOOKS += libudev-install-hook
+UNINSTALL_EXEC_HOOKS += libudev-uninstall-hook
 
 pkgconfiglib_DATA += \
 	src/libudev/libudev.pc
@@ -6357,6 +6390,10 @@ INSTALL_DIRS += \
 	$(sysconfdir)/xdg/systemd
 
 install-exec-hook: $(INSTALL_EXEC_HOOKS)
+
+# rootlibdir targets are not automatically classified as install-exec target,
+# help automake to make the right decision
+install-exec-local: install-rootlibLTLIBRARIES
 
 uninstall-hook: $(UNINSTALL_DATA_HOOKS) $(UNINSTALL_EXEC_HOOKS)
 
