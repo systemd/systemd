@@ -200,13 +200,15 @@ static int append_mounts(BindMount **p, char **strv, MountMode mode) {
         return 0;
 }
 
-static int append_target_mounts(BindMount **p, const char *root_directory, const TargetMount *mounts, const size_t size) {
+static int append_target_mounts(BindMount **p, const char *root_directory,
+                                const TargetMount *mounts, const size_t size, bool ignore_protect) {
         unsigned i;
 
         assert(p);
         assert(mounts);
 
         for (i = 0; i < size; i++) {
+                bool ignore;
                 /*
                  * Here we assume that the ignore field is set during
                  * declaration we do not support "-" at the beginning.
@@ -221,27 +223,33 @@ static int append_target_mounts(BindMount **p, const char *root_directory, const
                 if (!path_is_absolute(path))
                         return -EINVAL;
 
-                set_bind_mount((*p)++, path, m->mode, m->ignore);
+                /*
+                 * Ignore paths if they are not present. First we use our
+                 * static tables otherwise fallback to Unit context.
+                 */
+                ignore = m->ignore || ignore_protect;
+
+                set_bind_mount((*p)++, path, m->mode, ignore);
         }
 
         return 0;
 }
 
-static int append_protect_kernel_tunables(BindMount **p, const char *root_directory) {
+static int append_protect_kernel_tunables(BindMount **p, const char *root_directory, bool ignore_protect) {
         assert(p);
 
         return append_target_mounts(p, root_directory, protect_kernel_tunables_table,
-                                    ELEMENTSOF(protect_kernel_tunables_table));
+                                    ELEMENTSOF(protect_kernel_tunables_table), ignore_protect);
 }
 
-static int append_protect_kernel_modules(BindMount **p, const char *root_directory) {
+static int append_protect_kernel_modules(BindMount **p, const char *root_directory, bool ignore_protect) {
         assert(p);
 
         return append_target_mounts(p, root_directory, protect_kernel_modules_table,
-                                    ELEMENTSOF(protect_kernel_modules_table));
+                                    ELEMENTSOF(protect_kernel_modules_table), ignore_protect);
 }
 
-static int append_protect_home(BindMount **p, const char *root_directory, ProtectHome protect_home) {
+static int append_protect_home(BindMount **p, const char *root_directory, ProtectHome protect_home, bool ignore_protect) {
         int r = 0;
 
         assert(p);
@@ -252,11 +260,12 @@ static int append_protect_home(BindMount **p, const char *root_directory, Protec
         switch (protect_home) {
         case PROTECT_HOME_READ_ONLY:
                 r = append_target_mounts(p, root_directory, protect_home_read_only_table,
-                                         ELEMENTSOF(protect_home_read_only_table));
+                                         ELEMENTSOF(protect_home_read_only_table),
+                                         ignore_protect);
                 break;
         case PROTECT_HOME_YES:
                 r = append_target_mounts(p, root_directory, protect_home_yes_table,
-                                         ELEMENTSOF(protect_home_yes_table));
+                                         ELEMENTSOF(protect_home_yes_table), ignore_protect);
                 break;
         default:
                 r = -EINVAL;
@@ -266,7 +275,7 @@ static int append_protect_home(BindMount **p, const char *root_directory, Protec
         return r;
 }
 
-static int append_protect_system(BindMount **p, const char *root_directory, ProtectSystem protect_system) {
+static int append_protect_system(BindMount **p, const char *root_directory, ProtectSystem protect_system, bool ignore_protect) {
         int r = 0;
 
         assert(p);
@@ -277,15 +286,15 @@ static int append_protect_system(BindMount **p, const char *root_directory, Prot
         switch (protect_system) {
         case PROTECT_SYSTEM_STRICT:
                 r = append_target_mounts(p, root_directory, protect_system_strict_table,
-                                         ELEMENTSOF(protect_system_strict_table));
+                                         ELEMENTSOF(protect_system_strict_table), ignore_protect);
                 break;
         case PROTECT_SYSTEM_YES:
                 r = append_target_mounts(p, root_directory, protect_system_yes_table,
-                                         ELEMENTSOF(protect_system_yes_table));
+                                         ELEMENTSOF(protect_system_yes_table), ignore_protect);
                 break;
         case PROTECT_SYSTEM_FULL:
                 r = append_target_mounts(p, root_directory, protect_system_full_table,
-                                         ELEMENTSOF(protect_system_full_table));
+                                         ELEMENTSOF(protect_system_full_table), ignore_protect);
                 break;
         default:
                 r = -EINVAL;
@@ -614,7 +623,6 @@ static int apply_mount(
                         return log_debug_errno(r, "Failed to determine whether %s is already a mount point: %m", m->path);
                 if (r > 0) /* Nothing to do here, it is already a mount. We just later toggle the MS_RDONLY bit for the mount point if needed. */
                         return 0;
-
                 /* This isn't a mount point yet, let's make it one. */
                 what = m->path;
                 break;
@@ -801,13 +809,15 @@ int setup_namespace(
                 }
 
                 if (ns_info->protect_kernel_tunables) {
-                        r = append_protect_kernel_tunables(&m, root_directory);
+                        r = append_protect_kernel_tunables(&m, root_directory,
+                                                           ns_info->ignore_protect_paths);
                         if (r < 0)
                                 goto finish;
                 }
 
                 if (ns_info->protect_kernel_modules) {
-                        r = append_protect_kernel_modules(&m, root_directory);
+                        r = append_protect_kernel_modules(&m, root_directory,
+                                                          ns_info->ignore_protect_paths);
                         if (r < 0)
                                 goto finish;
                 }
@@ -818,11 +828,12 @@ int setup_namespace(
                                 goto finish;
                 }
 
-                r = append_protect_home(&m, root_directory, protect_home);
+                r = append_protect_home(&m, root_directory, protect_home,
+                                        ns_info->ignore_protect_paths);
                 if (r < 0)
                         goto finish;
 
-                r = append_protect_system(&m, root_directory, protect_system);
+                r = append_protect_system(&m, root_directory, protect_system, false);
                 if (r < 0)
                         goto finish;
 

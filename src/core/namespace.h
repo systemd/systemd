@@ -44,6 +44,7 @@ typedef enum ProtectSystem {
 } ProtectSystem;
 
 struct NameSpaceInfo {
+        bool ignore_protect_paths:1;
         bool private_dev:1;
         bool protect_control_groups:1;
         bool protect_kernel_tunables:1;
