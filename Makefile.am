@@ -2470,7 +2470,8 @@ test_journal_importer_LDADD = \
 	libsystemd-shared.la
 
 EXTRA_DIST += \
-	test/journal-data/journal-1.txt
+	test/journal-data/journal-1.txt \
+	test/journal-data/journal-2.txt
 
 # ------------------------------------------------------------------------------
 ## .PHONY so it always rebuilds it

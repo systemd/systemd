@@ -44,7 +44,7 @@ static void test_basic_parsing(void) {
 
         do
                 r = journal_importer_process_data(&imp);
-        while (r == 0);
+        while (r == 0 && !journal_importer_eof(&imp));
         assert_se(r == 1);
 
         /* We read one entry, so we should get EOF on next read, but not yet */
@@ -64,11 +64,27 @@ static void test_basic_parsing(void) {
         assert_se(journal_importer_eof(&imp));
 }
 
+static void test_bad_input(void) {
+        _cleanup_(journal_importer_cleanup) JournalImporter imp = {};
+        int r;
+
+        imp.fd = open(TEST_DATA_DIR("/journal-data/journal-2.txt"), O_RDONLY|O_CLOEXEC);
+        assert_se(imp.fd >= 0);
+
+        do
+                r = journal_importer_process_data(&imp);
+        while (!journal_importer_eof(&imp));
+        assert_se(r == 0); /* If we don't have enough input, 0 is returned */
+
+        assert_se(journal_importer_eof(&imp));
+}
+
 int main(int argc, char **argv) {
         log_set_max_level(LOG_DEBUG);
         log_parse_environment();
 
         test_basic_parsing();
+        test_bad_input();
 
         return 0;
 }
