@@ -820,7 +820,7 @@ static void map_context_fields(const struct iovec *iovec, const char *context[])
 static int process_socket(int fd) {
         _cleanup_close_ int coredump_fd = -1;
         struct iovec *iovec = NULL;
-        size_t n_iovec = 0, n_iovec_allocated = 0, i;
+        size_t n_iovec = 0, n_allocated = 0, i;
         const char *context[_CONTEXT_MAX] = {};
         int r;
 
@@ -845,7 +845,7 @@ static int process_socket(int fd) {
                 ssize_t n;
                 ssize_t l;
 
-                if (!GREEDY_REALLOC(iovec, n_iovec_allocated, n_iovec + 3)) {
+                if (!GREEDY_REALLOC(iovec, n_allocated, n_iovec + 3)) {
                         r = log_oom();
                         goto finish;
                 }
@@ -909,7 +909,7 @@ static int process_socket(int fd) {
                 n_iovec++;
         }
 
-        if (!GREEDY_REALLOC(iovec, n_iovec_allocated, n_iovec + 3)) {
+        if (!GREEDY_REALLOC(iovec, n_allocated, n_iovec + 3)) {
                 r = log_oom();
                 goto finish;
         }
@@ -924,7 +924,7 @@ static int process_socket(int fd) {
         assert(context[CONTEXT_COMM]);
         assert(coredump_fd >= 0);
 
-        r = submit_coredump(context, iovec, n_iovec_allocated, n_iovec, coredump_fd);
+        r = submit_coredump(context, iovec, n_allocated, n_iovec, coredump_fd);
 
 finish:
         for (i = 0; i < n_iovec; i++)
@@ -1048,7 +1048,8 @@ static int gather_pid_metadata(
                 const char *context[_CONTEXT_MAX],
                 char **comm_fallback,
                 char **comm_ret,
-                struct iovec iovec[27], size_t *n_iovec) {
+                struct iovec *iovec, size_t *n_iovec) {
+        /* We need 25 empty slots in iovec! */
 
         _cleanup_free_ char *exe = NULL, *comm = NULL;
         uid_t owner_uid;
@@ -1237,13 +1238,13 @@ static int process_kernel(int argc, char* argv[]) {
 
 static int process_backtrace(int argc, char *argv[]) {
         const char *context[_CONTEXT_MAX];
-        char *t;
-        _cleanup_free_ char *comm = NULL;
-        struct iovec iovec[27];
-        size_t n_iovec = 0, i, n_to_free;
-        uint8_t buf[4096];
-        ssize_t buf_bytes;
+        _cleanup_free_ char *comm = NULL, *message = NULL;
+        _cleanup_free_ struct iovec *iovec = NULL;
+        size_t n_iovec, n_allocated, n_to_free = 0, i;
         int r;
+        JournalImporter importer = {
+                .fd = STDIN_FILENO,
+        };
 
         log_debug("Processing backtrace on stdin...");
 
@@ -1259,38 +1260,50 @@ static int process_backtrace(int argc, char *argv[]) {
         context[CONTEXT_TIMESTAMP] = argv[CONTEXT_TIMESTAMP + 2];
         context[CONTEXT_RLIMIT]    = argv[CONTEXT_RLIMIT + 2];
 
-        r = gather_pid_metadata(context, argv + CONTEXT_COMM + 2, &comm, iovec, &n_iovec);
+        n_allocated = 32; /* 25 metadata, 2 static, +unknown input, rounded up */
+        iovec = new(struct iovec, n_allocated);
+        if (!iovec)
+                return log_oom();
+
+        r = gather_pid_metadata(context, argv + CONTEXT_COMM + 2, &comm, iovec, &n_to_free);
         if (r < 0)
                 goto finish;
+        n_iovec = n_to_free;
 
-        if (isempty(context[CONTEXT_SIGNAL]))
-                context[CONTEXT_SIGNAL] = "an exception";
-
-        buf_bytes = loop_read(STDIN_FILENO, buf, sizeof(buf) - 1, false);
-        if (buf_bytes < 0) {
-                log_error_errno(buf_bytes, "Failed to read backtrace from stdin: %m");
-                goto finish;
+        while (true) {
+                r = journal_importer_process_data(&importer);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse journal entry on stdin: %m");
+                        goto finish;
+                }
+                if (r == 1)
+                        break;
         }
-        buf[buf_bytes] = '\0';
 
-        t = strjoin("MESSAGE=Process ", context[CONTEXT_PID], " (", comm, ")"
-                    " of user ", context[CONTEXT_UID],
-                    " failed with ", context[CONTEXT_SIGNAL],
-                    ":\n\n", buf, NULL);
-        if (!t) {
-                log_oom();
-                goto finish;
+        if (!GREEDY_REALLOC(iovec, n_allocated, n_iovec + importer.iovw.count + 2))
+                return log_oom();
+
+        if (journal_importer_eof(&importer)) {
+                log_warning("Did not receive a full journal entry on stdin, ignoring message sent by reporter");
+
+                message = strjoin("MESSAGE=Process ", context[CONTEXT_PID], " (", comm, ")"
+                                  " of user ", context[CONTEXT_UID],
+                                  " failed with ", context[CONTEXT_SIGNAL]);
+                if (!message) {
+                        r = log_oom();
+                        goto finish;
+                }
+                IOVEC_SET_STRING(iovec[n_iovec++], message);
+        } else {
+                for (i = 0; i < importer.iovw.count; i++)
+                        iovec[n_iovec++] = importer.iovw.iovec[i];
         }
-        IOVEC_SET_STRING(iovec[n_iovec++], t);
-
-        n_to_free = n_iovec;
 
         IOVEC_SET_STRING(iovec[n_iovec++], "MESSAGE_ID=1f4e0a44a88649939aaea34fc6da8c95");
-
         assert_cc(2 == LOG_CRIT);
         IOVEC_SET_STRING(iovec[n_iovec++], "PRIORITY=2");
 
-        assert(n_iovec <= ELEMENTSOF(iovec));
+        assert(n_iovec <= n_allocated);
 
         r = sd_journal_sendv(iovec, n_iovec);
         if (r < 0)
