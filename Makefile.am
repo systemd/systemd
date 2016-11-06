@@ -1598,7 +1598,8 @@ tests += \
 	test-rlimit-util \
 	test-signal-util \
 	test-selinux \
-	test-sizeof
+	test-sizeof \
+	test-journal-importer
 
 if HAVE_ACL
 tests += \
@@ -2461,6 +2462,15 @@ test_arphrd_list_SOURCES = \
 
 test_arphrd_list_LDADD = \
 	libsystemd-shared.la
+
+test_journal_importer_SOURCES = \
+	src/test/test-journal-importer.c
+
+test_journal_importer_LDADD = \
+	libsystemd-shared.la
+
+EXTRA_DIST += \
+	test/journal-data/journal-1.txt
 
 # ------------------------------------------------------------------------------
 ## .PHONY so it always rebuilds it
