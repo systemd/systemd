@@ -2022,6 +2022,7 @@ static int apply_mount_namespace(Unit *u, const ExecContext *context,
         char *tmp = NULL, *var = NULL;
         const char *root_dir = NULL;
         NameSpaceInfo ns_info = {
+                .ignore_protect_paths = false,
                 .private_dev = context->private_devices,
                 .protect_control_groups = context->protect_control_groups,
                 .protect_kernel_tunables = context->protect_kernel_tunables,
@@ -2047,6 +2048,14 @@ static int apply_mount_namespace(Unit *u, const ExecContext *context,
 
         if (params->flags & EXEC_APPLY_CHROOT)
                 root_dir = context->root_directory;
+
+        /*
+         * If DynamicUser=no and RootDirectory= is set then lets pass a relaxed
+         * sandbox info, otherwise enforce it, don't ignore protected paths and
+         * fail if we are enable to apply the sandbox inside the mount namespace.
+         */
+        if (!context->dynamic_user && root_dir)
+                ns_info.ignore_protect_paths = true;
 
         r = setup_namespace(root_dir, &ns_info, rw,
                             context->read_only_paths,
