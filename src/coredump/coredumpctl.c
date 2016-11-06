@@ -25,6 +25,7 @@
 #include <unistd.h>
 
 #include "sd-journal.h"
+#include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "compress.h"
@@ -98,10 +99,9 @@ static int add_matches(sd_journal *j) {
         char **match;
         int r;
 
-        r = sd_journal_add_match(j, "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1", 0);
+        r = sd_journal_add_match(j, "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR, 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to add match \"%s\": %m",
-                                       "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1");
+                return log_error_errno(r, "Failed to add match \"%s\": %m", "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR);
 
         STRV_FOREACH(match, arg_matches) {
                 r = add_match(j, *match);

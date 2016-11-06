@@ -1466,9 +1466,8 @@ static void unit_status_print_starting_stopping(Unit *u, JobType t) {
 }
 
 static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
-        const char *format;
+        const char *format, *mid;
         char buf[LINE_MAX];
-        sd_id128_t mid;
 
         assert(u);
 
@@ -1486,9 +1485,9 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
         snprintf(buf, sizeof buf, format, unit_description(u));
         REENABLE_WARNING;
 
-        mid = t == JOB_START ? SD_MESSAGE_UNIT_STARTING :
-              t == JOB_STOP  ? SD_MESSAGE_UNIT_STOPPING :
-                               SD_MESSAGE_UNIT_RELOADING;
+        mid = t == JOB_START ? "MESSAGE_ID=" SD_MESSAGE_UNIT_STARTING_STR :
+              t == JOB_STOP  ? "MESSAGE_ID=" SD_MESSAGE_UNIT_STOPPING_STR :
+                               "MESSAGE_ID=" SD_MESSAGE_UNIT_RELOADING_STR;
 
         /* Note that we deliberately use LOG_MESSAGE() instead of
          * LOG_UNIT_MESSAGE() here, since this is supposed to mimic
@@ -1497,7 +1496,7 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
          * possible, which means we should avoid the low-level unit
          * name. */
         log_struct(LOG_INFO,
-                   LOG_MESSAGE_ID(mid),
+                   mid,
                    LOG_UNIT_ID(u),
                    LOG_MESSAGE("%s", buf),
                    NULL);
@@ -4036,7 +4035,7 @@ void unit_warn_if_dir_nonempty(Unit *u, const char* where) {
         }
 
         log_struct(LOG_NOTICE,
-                   LOG_MESSAGE_ID(SD_MESSAGE_OVERMOUNTING),
+                   "MESSAGE_ID=" SD_MESSAGE_OVERMOUNTING_STR,
                    LOG_UNIT_ID(u),
                    LOG_UNIT_MESSAGE(u, "Directory %s to mount over is not empty, mounting anyway.", where),
                    "WHERE=%s", where,
@@ -4058,7 +4057,7 @@ int unit_fail_if_symlink(Unit *u, const char* where) {
                 return 0;
 
         log_struct(LOG_ERR,
-                   LOG_MESSAGE_ID(SD_MESSAGE_OVERMOUNTING),
+                   "MESSAGE_ID=" SD_MESSAGE_OVERMOUNTING_STR,
                    LOG_UNIT_ID(u),
                    LOG_UNIT_MESSAGE(u, "Mount on symlink %s not allowed.", where),
                    "WHERE=%s", where,

@@ -744,9 +744,8 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
 }
 
 static void job_log_status_message(Unit *u, JobType t, JobResult result) {
-        const char *format;
+        const char *format, *mid;
         char buf[LINE_MAX];
-        sd_id128_t mid;
         static const int job_result_log_level[_JOB_RESULT_MAX] = {
                 [JOB_DONE]        = LOG_INFO,
                 [JOB_CANCELED]    = LOG_INFO,
@@ -782,16 +781,19 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
         switch (t) {
 
         case JOB_START:
-                mid = result == JOB_DONE ? SD_MESSAGE_UNIT_STARTED : SD_MESSAGE_UNIT_FAILED;
+                if (result == JOB_DONE)
+                        mid = "MESSAGE_ID=" SD_MESSAGE_UNIT_STARTED_STR;
+                else
+                        mid = "MESSAGE_ID=" SD_MESSAGE_UNIT_FAILED_STR;
                 break;
 
         case JOB_RELOAD:
-                mid = SD_MESSAGE_UNIT_RELOADED;
+                mid = "MESSAGE_ID=" SD_MESSAGE_UNIT_RELOADED_STR;
                 break;
 
         case JOB_STOP:
         case JOB_RESTART:
-                mid = SD_MESSAGE_UNIT_STOPPED;
+                mid = "MESSAGE_ID=" SD_MESSAGE_UNIT_STOPPED_STR;
                 break;
 
         default:
@@ -804,7 +806,7 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
         }
 
         log_struct(job_result_log_level[result],
-                   LOG_MESSAGE_ID(mid),
+                   mid,
                    LOG_UNIT_ID(u),
                    LOG_MESSAGE("%s", buf),
                    "RESULT=%s", job_result_to_string(result),

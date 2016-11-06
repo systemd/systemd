@@ -2981,7 +2981,7 @@ int exec_spawn(Unit *unit,
                         log_open();
                         if (error_message)
                                 log_struct_errno(LOG_ERR, r,
-                                                 LOG_MESSAGE_ID(SD_MESSAGE_SPAWN_FAILED),
+                                                 "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
                                                  LOG_UNIT_ID(unit),
                                                  LOG_UNIT_MESSAGE(unit, "%s: %m",
                                                                   error_message),
@@ -2989,7 +2989,7 @@ int exec_spawn(Unit *unit,
                                                  NULL);
                         else
                                 log_struct_errno(LOG_ERR, r,
-                                                 LOG_MESSAGE_ID(SD_MESSAGE_SPAWN_FAILED),
+                                                 "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
                                                  LOG_UNIT_ID(unit),
                                                  LOG_UNIT_MESSAGE(unit, "Failed at step %s spawning %s: %m",
                                                                   exit_status_to_string(exit_status, EXIT_STATUS_SYSTEMD),

@@ -360,7 +360,7 @@ static int save_external_coredump(
                 log_struct(LOG_INFO,
                            LOG_MESSAGE("Core file was truncated to %zu bytes.", max_size),
                            "SIZE_LIMIT=%zu", max_size,
-                           LOG_MESSAGE_ID(SD_MESSAGE_TRUNCATED_CORE),
+                           "MESSAGE_ID=" SD_MESSAGE_TRUNCATED_CORE_STR,
                            NULL);
 
         if (fstat(fd, &st) < 0) {
@@ -1220,7 +1220,7 @@ static int process_kernel(int argc, char* argv[]) {
                 goto finish;
         n_iovec = n_to_free;
 
-        IOVEC_SET_STRING(iovec[n_iovec++], "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1");
+        IOVEC_SET_STRING(iovec[n_iovec++], "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR);
 
         assert_cc(2 == LOG_CRIT);
         IOVEC_SET_STRING(iovec[n_iovec++], "PRIORITY=2");
@@ -1299,7 +1299,7 @@ static int process_backtrace(int argc, char *argv[]) {
                         iovec[n_iovec++] = importer.iovw.iovec[i];
         }
 
-        IOVEC_SET_STRING(iovec[n_iovec++], "MESSAGE_ID=1f4e0a44a88649939aaea34fc6da8c95");
+        IOVEC_SET_STRING(iovec[n_iovec++], "MESSAGE_ID=" SD_MESSAGE_BACKTRACE_STR);
         assert_cc(2 == LOG_CRIT);
         IOVEC_SET_STRING(iovec[n_iovec++], "PRIORITY=2");
 
