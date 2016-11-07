@@ -739,27 +739,36 @@ static int ask_for_confirmation(const char *vc, const char *cmdline) {
                 goto restore_stdio;
         }
 
-        r = ask_char(&c, "yfs", "Execute %s? [Yes, Fail, Skip] ", e);
-        if (r < 0) {
-                write_confirm_error_fd(r, STDOUT_FILENO);
-                r = CONFIRM_EXECUTE;
-                goto restore_stdio;
-        }
+        for (;;) {
+                r = ask_char(&c, "yfsh", "Execute %s? [y, f, s – h for help] ", e);
+                if (r < 0) {
+                        write_confirm_error_fd(r, STDOUT_FILENO);
+                        r = CONFIRM_EXECUTE;
+                        goto restore_stdio;
+                }
 
-        switch (c) {
-        case 'f':
-                printf("Failing execution.\n");
-                r = CONFIRM_PRETEND_FAILURE;
+                switch (c) {
+                case 'f':
+                        printf("Failing execution.\n");
+                        r = CONFIRM_PRETEND_FAILURE;
+                        break;
+                case 'h':
+                        printf("  f - fail, don't execute the command and pretend it failed\n"
+                               "  h - help\n"
+                               "  s - skip, don't execute the command and pretend it succeeded\n"
+                               "  y - yes, execute the command\n");
+                        continue;
+                case 's':
+                        printf("Skipping execution.\n");
+                        r = CONFIRM_PRETEND_SUCCESS;
+                        break;
+                case 'y':
+                        r = CONFIRM_EXECUTE;
+                        break;
+                default:
+                        assert_not_reached("Unhandled choice");
+                }
                 break;
-        case 's':
-                printf("Skipping execution.\n");
-                r = CONFIRM_PRETEND_SUCCESS;
-                break;
-        case 'y':
-                r = CONFIRM_EXECUTE;
-                break;
-        default:
-                assert_not_reached("Unhandled choice");
         }
 
 restore_stdio:

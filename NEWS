@@ -6,6 +6,7 @@ CHANGES WITH 233 in spe
           following choices:
 
            (f)ail, don't execute the command and pretend it failed
+           (h)elp
            (s)kip, don't execute the command and pretend it succeeded
            (y)es, execute the command
 
