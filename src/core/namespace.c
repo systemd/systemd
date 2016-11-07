@@ -154,10 +154,10 @@ static const TargetMount protect_system_strict_table[] = {
         { "/root",      READWRITE,      true  },      /* ProtectHome= */
 };
 
-static void set_bind_mount(BindMount **p, char *path, MountMode mode, bool ignore) {
-        (*p)->path = path;
-        (*p)->mode = mode;
-        (*p)->ignore = ignore;
+static void set_bind_mount(BindMount *p, char *path, MountMode mode, bool ignore) {
+        p->path = path;
+        p->mode = mode;
+        p->ignore = ignore;
 }
 
 static int append_one_mount(BindMount **p, const char *root_directory,
@@ -169,9 +169,7 @@ static int append_one_mount(BindMount **p, const char *root_directory,
         if (!lpath)
                 return -ENOMEM;
 
-        set_bind_mount(p, lpath, mode, ignore);
-        (*p)++;
-
+        set_bind_mount((*p)++, lpath, mode, ignore);
         return 0;
 }
 
@@ -196,8 +194,7 @@ static int append_mounts(BindMount **p, char **strv, MountMode mode) {
                 if (!path)
                         return -ENOMEM;
 
-                set_bind_mount(p, path, mode, ignore);
-                (*p)++;
+                set_bind_mount((*p)++, path, mode, ignore);
         }
 
         return 0;
@@ -224,8 +221,7 @@ static int append_target_mounts(BindMount **p, const char *root_directory, const
                 if (!path_is_absolute(path))
                         return -EINVAL;
 
-                set_bind_mount(p, path, m->mode, m->ignore);
-                (*p)++;
+                set_bind_mount((*p)++, path, m->mode, m->ignore);
         }
 
         return 0;
