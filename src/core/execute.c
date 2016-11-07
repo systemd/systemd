@@ -722,6 +722,7 @@ enum {
 
 static int ask_for_confirmation(const char *vc, const char *cmdline) {
         int saved_stdout = -1, saved_stdin = -1, r;
+        _cleanup_free_ char *e = NULL;
         char c;
 
         /* For any internal errors, assume a positive response. */
@@ -731,7 +732,14 @@ static int ask_for_confirmation(const char *vc, const char *cmdline) {
                 return CONFIRM_EXECUTE;
         }
 
-        r = ask_char(&c, "yfs", "Execute %s? [Yes, Fail, Skip] ", cmdline);
+        e = ellipsize(cmdline, 60, 100);
+        if (!e) {
+                log_oom();
+                r = CONFIRM_EXECUTE;
+                goto restore_stdio;
+        }
+
+        r = ask_char(&c, "yfs", "Execute %s? [Yes, Fail, Skip] ", e);
         if (r < 0) {
                 write_confirm_error_fd(r, STDOUT_FILENO);
                 r = CONFIRM_EXECUTE;
