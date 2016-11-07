@@ -22,7 +22,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "formats-util.h"
+#include "format-util.h"
 #include "install-printf.h"
 #include "install.h"
 #include "macro.h"

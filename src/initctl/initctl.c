@@ -31,7 +31,7 @@
 #include "bus-util.h"
 #include "def.h"
 #include "fd-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "initreq.h"
 #include "list.h"
 #include "log.h"

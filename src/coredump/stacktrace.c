@@ -22,7 +22,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "macro.h"
 #include "stacktrace.h"
 #include "string-util.h"

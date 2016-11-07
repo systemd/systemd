@@ -30,7 +30,7 @@
 #include "def.h"
 #include "fd-util.h"
 #include "fileio-label.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "hashmap.h"
 #include "path-util.h"
 #include "selinux-util.h"

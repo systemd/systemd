@@ -38,7 +38,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "log.h"
 #include "login-util.h"

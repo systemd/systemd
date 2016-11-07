@@ -37,7 +37,7 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "in-addr-util.h"
 #include "local-addresses.h"

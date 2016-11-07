@@ -33,7 +33,7 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "load-dropin.h"
 #include "load-fragment.h"

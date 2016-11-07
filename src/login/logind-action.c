@@ -23,7 +23,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "conf-parser.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "logind-action.h"
 #include "process-util.h"
 #include "sleep-config.h"

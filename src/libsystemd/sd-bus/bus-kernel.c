@@ -42,7 +42,7 @@
 #include "capability-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "memfd-util.h"
 #include "parse-util.h"
 #include "stdio-util.h"

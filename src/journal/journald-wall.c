@@ -18,7 +18,7 @@
 ***/
 
 #include "alloc-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "journald-server.h"
 #include "journald-wall.h"
 #include "process-util.h"

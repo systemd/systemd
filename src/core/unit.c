@@ -36,7 +36,7 @@
 #include "escape.h"
 #include "execute.h"
 #include "fileio-label.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "id128-util.h"
 #include "load-dropin.h"
 #include "load-fragment.h"

@@ -29,7 +29,7 @@
 #include "escape.h"
 #include "exit-status.h"
 #include "fd-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "fstab-util.h"
 #include "parse-util.h"
 #include "path-util.h"

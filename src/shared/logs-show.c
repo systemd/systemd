@@ -33,7 +33,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
 #include "io-util.h"

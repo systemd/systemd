@@ -24,7 +24,7 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "missing.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
