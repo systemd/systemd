@@ -376,12 +376,12 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
         m->drift_ppm = tmx.freq / 65536;
 
         log_debug("  status       : %04i %s\n"
-                  "  time now     : %li.%03llu\n"
+                  "  time now     : %li.%03"PRI_USEC"\n"
                   "  constant     : %li\n"
                   "  offset       : %+.3f sec\n"
                   "  freq offset  : %+li (%i ppm)\n",
                   tmx.status, tmx.status & STA_UNSYNC ? "unsync" : "sync",
-                  tmx.time.tv_sec, (unsigned long long) (tmx.time.tv_usec / NSEC_PER_MSEC),
+                  tmx.time.tv_sec, tmx.time.tv_usec / NSEC_PER_MSEC,
                   tmx.constant,
                   (double)tmx.offset / NSEC_PER_SEC,
                   tmx.freq, m->drift_ppm);

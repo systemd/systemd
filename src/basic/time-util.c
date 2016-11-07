@@ -309,7 +309,7 @@ static char *format_timestamp_internal(
                 if (n + 8 > l)
                         return NULL; /* Microseconds part doesn't fit. */
 
-                sprintf(buf + n, ".%06llu", (unsigned long long) (t % USEC_PER_SEC));
+                sprintf(buf + n, ".%06"PRI_USEC, t % USEC_PER_SEC);
         }
 
         /* Append the timezone */
@@ -499,11 +499,11 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
 
                         if (j > 0) {
                                 k = snprintf(p, l,
-                                             "%s"USEC_FMT".%0*llu%s",
+                                             "%s"USEC_FMT".%0*"PRI_USEC"%s",
                                              p > buf ? " " : "",
                                              a,
                                              j,
-                                             (unsigned long long) b,
+                                             b,
                                              table[i].suffix);
 
                                 t = 0;
@@ -1320,7 +1320,7 @@ unsigned long usec_to_jiffies(usec_t u) {
                 r = sysconf(_SC_CLK_TCK);
 
                 assert(r > 0);
-                hz = (unsigned long) r;
+                hz = r;
         }
 
         return DIV_ROUND_UP(u , USEC_PER_SEC / hz);
