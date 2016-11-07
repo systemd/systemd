@@ -678,8 +678,9 @@ static int chase_all_symlinks(const char *root_directory, BindMount *m, unsigned
          * chase the symlinks on our own first. This call wil do so for all entries and remove all entries where we
          * can't resolve the path, and which have been marked for such removal. */
 
-        for (f = m, t = m; f < m+*n; f++) {
+        for (f = m, t = m; f < m + *n; f++) {
                 _cleanup_free_ char *chased = NULL;
+
                 r = chase_symlinks(f->path, root_directory, &chased);
                 if (r == -ENOENT && f->ignore) {
                         /* Doesn't exist? Then remove it! */
@@ -691,7 +692,7 @@ static int chase_all_symlinks(const char *root_directory, BindMount *m, unsigned
 
                 if (!path_equal(f->path, chased)) {
                         log_debug("Chased %s → %s", f->path, chased);
-                        r = free_and_strdup(&f->path, chased);
+                        r = free_and_replace(f->path, chased);
                         if (r < 0)
                                 return r;
                 }
