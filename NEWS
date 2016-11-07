@@ -648,7 +648,7 @@ CHANGES WITH 230:
 
         * systemd-logind will now by default terminate user processes that are
           part of the user session scope unit (session-XX.scope) when the user
-          logs out. This behavior is controlled by the KillUserProcesses=
+          logs out. This behaviour is controlled by the KillUserProcesses=
           setting in logind.conf, and the previous default of "no" is now
           changed to "yes". This means that user sessions will be properly
           cleaned up after, but additional steps are necessary to allow
@@ -806,7 +806,7 @@ CHANGES WITH 230:
         * Note that the effect of the PrivateDevices= unit file setting changed
           slightly with this release: the per-device /dev file system will be
           mounted read-only from this version on, and will have "noexec"
-          set. This (minor) change of behavior might cause some (exceptional)
+          set. This (minor) change of behaviour might cause some (exceptional)
           legacy software to break, when PrivateDevices=yes is set for its
           service. Please leave PrivateDevices= off if you run into problems
           with this.
@@ -2340,7 +2340,7 @@ CHANGES WITH 219:
         * In addition to collecting mouse dpi data in the udev
           hardware database, there's now support for collecting angle
           information for mouse scroll wheels. The database is
-          supposed to guarantee similar scrolling behavior on mice
+          supposed to guarantee similar scrolling behaviour on mice
           that it knows about. There's also support for collecting
           information about Touchpad types.
 
@@ -2974,7 +2974,7 @@ CHANGES WITH 216:
 
         * udev will now default to respect network device names given
           by the kernel when the kernel indicates that these are
-          predictable. This behavior can be tweaked by changing
+          predictable. This behaviour can be tweaked by changing
           NamePolicy= in the relevant .link file.
 
         * A new library systemd-terminal has been added that
