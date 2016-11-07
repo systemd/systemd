@@ -58,8 +58,7 @@ typedef enum MountMode {
 } MountMode;
 
 typedef struct BindMount {
-        const char *path; /* stack memory, doesn't need to be freed explicitly */
-        char *chased; /* malloc()ed memory, needs to be freed */
+        char *path;
         MountMode mode;
         bool ignore; /* Ignore if path does not exist */
 } BindMount;
@@ -155,10 +154,25 @@ static const TargetMount protect_system_strict_table[] = {
         { "/root",      READWRITE,      true  },      /* ProtectHome= */
 };
 
-static void set_bind_mount(BindMount **p, const char *path, MountMode mode, bool ignore) {
+static void set_bind_mount(BindMount **p, char *path, MountMode mode, bool ignore) {
         (*p)->path = path;
         (*p)->mode = mode;
         (*p)->ignore = ignore;
+}
+
+static int append_one_mount(BindMount **p, const char *root_directory,
+                            const char *path, MountMode mode, bool ignore) {
+        char *lpath;
+        assert(p);
+
+        lpath = prefix_root(root_directory, path);
+        if (!lpath)
+                return -ENOMEM;
+
+        set_bind_mount(p, lpath, mode, ignore);
+        (*p)++;
+
+        return 0;
 }
 
 static int append_mounts(BindMount **p, char **strv, MountMode mode) {
@@ -168,6 +182,7 @@ static int append_mounts(BindMount **p, char **strv, MountMode mode) {
 
         STRV_FOREACH(i, strv) {
                 bool ignore = false;
+                char *path;
 
                 if (IN_SET(mode, INACCESSIBLE, READONLY, READWRITE) && startswith(*i, "-")) {
                         (*i)++;
@@ -177,52 +192,68 @@ static int append_mounts(BindMount **p, char **strv, MountMode mode) {
                 if (!path_is_absolute(*i))
                         return -EINVAL;
 
-                set_bind_mount(p, *i, mode, ignore);
+                path = strdup(*i);
+                if (!path)
+                        return -ENOMEM;
+
+                set_bind_mount(p, path, mode, ignore);
                 (*p)++;
         }
 
         return 0;
 }
 
-static int append_target_mounts(BindMount **p, const char *root_directory, const TargetMount *mounts, const size_t size) {
+static int append_target_mounts(BindMount **p, const char *root_directory,
+                                const TargetMount *mounts, const size_t size, bool ignore_protect) {
         unsigned i;
 
         assert(p);
         assert(mounts);
 
         for (i = 0; i < size; i++) {
+                bool ignore;
                 /*
                  * Here we assume that the ignore field is set during
                  * declaration we do not support "-" at the beginning.
                  */
                 const TargetMount *m = &mounts[i];
-                const char *path = prefix_roota(root_directory, m->path);
+                char *path;
+
+                path = prefix_root(root_directory, m->path);
+                if (!path)
+                        return -ENOMEM;
 
                 if (!path_is_absolute(path))
                         return -EINVAL;
 
-                set_bind_mount(p, path, m->mode, m->ignore);
+                /*
+                 * Ignore paths if they are not present. First we use our
+                 * static tables otherwise fallback to Unit context.
+                 */
+                ignore = m->ignore || ignore_protect;
+
+                set_bind_mount(p, path, m->mode, ignore);
                 (*p)++;
         }
 
         return 0;
 }
 
-static int append_protect_kernel_tunables(BindMount **p, const char *root_directory) {
+static int append_protect_kernel_tunables(BindMount **p, const char *root_directory, bool ignore_protect) {
         assert(p);
 
         return append_target_mounts(p, root_directory, protect_kernel_tunables_table,
-                                    ELEMENTSOF(protect_kernel_tunables_table));
+                                    ELEMENTSOF(protect_kernel_tunables_table), ignore_protect);
 }
 
-static int append_protect_kernel_modules(BindMount **p, const char *root_directory) {
+static int append_protect_kernel_modules(BindMount **p, const char *root_directory, bool ignore_protect) {
         assert(p);
 
         return append_target_mounts(p, root_directory, protect_kernel_modules_table,
-                                    ELEMENTSOF(protect_kernel_modules_table));
+                                    ELEMENTSOF(protect_kernel_modules_table), ignore_protect);
 }
 
-static int append_protect_home(BindMount **p, const char *root_directory, ProtectHome protect_home) {
+static int append_protect_home(BindMount **p, const char *root_directory, ProtectHome protect_home, bool ignore_protect) {
         int r = 0;
 
         assert(p);
@@ -233,11 +264,12 @@ static int append_protect_home(BindMount **p, const char *root_directory, Protec
         switch (protect_home) {
         case PROTECT_HOME_READ_ONLY:
                 r = append_target_mounts(p, root_directory, protect_home_read_only_table,
-                                         ELEMENTSOF(protect_home_read_only_table));
+                                         ELEMENTSOF(protect_home_read_only_table),
+                                         ignore_protect);
                 break;
         case PROTECT_HOME_YES:
                 r = append_target_mounts(p, root_directory, protect_home_yes_table,
-                                         ELEMENTSOF(protect_home_yes_table));
+                                         ELEMENTSOF(protect_home_yes_table), ignore_protect);
                 break;
         default:
                 r = -EINVAL;
@@ -247,7 +279,7 @@ static int append_protect_home(BindMount **p, const char *root_directory, Protec
         return r;
 }
 
-static int append_protect_system(BindMount **p, const char *root_directory, ProtectSystem protect_system) {
+static int append_protect_system(BindMount **p, const char *root_directory, ProtectSystem protect_system, bool ignore_protect) {
         int r = 0;
 
         assert(p);
@@ -258,15 +290,15 @@ static int append_protect_system(BindMount **p, const char *root_directory, Prot
         switch (protect_system) {
         case PROTECT_SYSTEM_STRICT:
                 r = append_target_mounts(p, root_directory, protect_system_strict_table,
-                                         ELEMENTSOF(protect_system_strict_table));
+                                         ELEMENTSOF(protect_system_strict_table), ignore_protect);
                 break;
         case PROTECT_SYSTEM_YES:
                 r = append_target_mounts(p, root_directory, protect_system_yes_table,
-                                         ELEMENTSOF(protect_system_yes_table));
+                                         ELEMENTSOF(protect_system_yes_table), ignore_protect);
                 break;
         case PROTECT_SYSTEM_FULL:
                 r = append_target_mounts(p, root_directory, protect_system_full_table,
-                                         ELEMENTSOF(protect_system_full_table));
+                                         ELEMENTSOF(protect_system_full_table), ignore_protect);
                 break;
         default:
                 r = -EINVAL;
@@ -309,6 +341,7 @@ static void drop_duplicates(BindMount *m, unsigned *n) {
                  * above. */
                 if (previous && path_equal(f->path, previous->path)) {
                         log_debug("%s is duplicate.", f->path);
+                        f->path = mfree(f->path);
                         continue;
                 }
 
@@ -336,6 +369,7 @@ static void drop_inaccessible(BindMount *m, unsigned *n) {
                  * it, as inaccessible paths really should drop the entire subtree. */
                 if (clear && path_startswith(f->path, clear)) {
                         log_debug("%s is masked by %s.", f->path, clear);
+                        f->path = mfree(f->path);
                         continue;
                 }
 
@@ -375,6 +409,7 @@ static void drop_nop(BindMount *m, unsigned *n) {
                         /* We found it, let's see if it's the same mode, if so, we can drop this entry */
                         if (found && p->mode == f->mode) {
                                 log_debug("%s is redundant by %s", f->path, p->path);
+                                f->path = mfree(f->path);
                                 continue;
                         }
                 }
@@ -401,6 +436,7 @@ static void drop_outside_root(const char *root_directory, BindMount *m, unsigned
 
                 if (!path_startswith(f->path, root_directory)) {
                         log_debug("%s is outside of root directory.", f->path);
+                        f->path = mfree(f->path);
                         continue;
                 }
 
@@ -591,7 +627,6 @@ static int apply_mount(
                         return log_debug_errno(r, "Failed to determine whether %s is already a mount point: %m", m->path);
                 if (r > 0) /* Nothing to do here, it is already a mount. We just later toggle the MS_RDONLY bit for the mount point if needed. */
                         return 0;
-
                 /* This isn't a mount point yet, let's make it one. */
                 what = m->path;
                 break;
@@ -652,18 +687,21 @@ static int chase_all_symlinks(const char *root_directory, BindMount *m, unsigned
          * can't resolve the path, and which have been marked for such removal. */
 
         for (f = m, t = m; f < m+*n; f++) {
-
-                r = chase_symlinks(f->path, root_directory, &f->chased);
-                if (r == -ENOENT && f->ignore) /* Doesn't exist? Then remove it! */
+                _cleanup_free_ char *chased = NULL;
+                r = chase_symlinks(f->path, root_directory, &chased);
+                if (r == -ENOENT && f->ignore) {
+                        /* Doesn't exist? Then remove it! */
+                        f->path = mfree(f->path);
                         continue;
+                }
                 if (r < 0)
                         return log_debug_errno(r, "Failed to chase symlinks for %s: %m", f->path);
 
-                if (path_equal(f->path, f->chased))
-                        f->chased = mfree(f->chased);
-                else {
-                        log_debug("Chased %s → %s", f->path, f->chased);
-                        f->path = f->chased;
+                if (!path_equal(f->path, chased)) {
+                        log_debug("Chased %s → %s", f->path, chased);
+                        r = free_and_strdup(&f->path, chased);
+                        if (r < 0)
+                                return r;
                 }
 
                 *t = *f;
@@ -724,96 +762,99 @@ int setup_namespace(
 
         BindMount *m, *mounts = NULL;
         bool make_slave = false;
-        unsigned n;
+        unsigned n_mounts;
         int r = 0;
 
         if (mount_flags == 0)
                 mount_flags = MS_SHARED;
 
-        n = namespace_calculate_mounts(ns_info,
-                                       read_write_paths,
-                                       read_only_paths,
-                                       inaccessible_paths,
-                                       tmp_dir, var_tmp_dir,
-                                       protect_home, protect_system);
+        n_mounts = namespace_calculate_mounts(ns_info,
+                                              read_write_paths,
+                                              read_only_paths,
+                                              inaccessible_paths,
+                                              tmp_dir, var_tmp_dir,
+                                              protect_home, protect_system);
 
         /* Set mount slave mode */
-        if (root_directory || n > 0)
+        if (root_directory || n_mounts > 0)
                 make_slave = true;
 
-        if (n > 0) {
-                m = mounts = (BindMount *) alloca0(n * sizeof(BindMount));
+        if (n_mounts > 0) {
+                m = mounts = (BindMount *) alloca0(n_mounts * sizeof(BindMount));
                 r = append_mounts(&m, read_write_paths, READWRITE);
                 if (r < 0)
-                        return r;
+                        goto finish;
 
                 r = append_mounts(&m, read_only_paths, READONLY);
                 if (r < 0)
-                        return r;
+                        goto finish;
 
                 r = append_mounts(&m, inaccessible_paths, INACCESSIBLE);
                 if (r < 0)
-                        return r;
+                        goto finish;
 
                 if (tmp_dir) {
-                        m->path = prefix_roota(root_directory, "/tmp");
-                        m->mode = PRIVATE_TMP;
-                        m++;
+                        r = append_one_mount(&m, root_directory, "/tmp", PRIVATE_TMP, false);
+                        if (r < 0)
+                                goto finish;
                 }
 
                 if (var_tmp_dir) {
-                        m->path = prefix_roota(root_directory, "/var/tmp");
-                        m->mode = PRIVATE_VAR_TMP;
-                        m++;
+                        r = append_one_mount(&m, root_directory, "/var/tmp", PRIVATE_VAR_TMP, false);
+                        if (r < 0)
+                                goto finish;
                 }
 
                 if (ns_info->private_dev) {
-                        m->path = prefix_roota(root_directory, "/dev");
-                        m->mode = PRIVATE_DEV;
-                        m++;
+                        r = append_one_mount(&m, root_directory, "/dev", PRIVATE_DEV, false);
+                        if (r < 0)
+                                goto finish;
                 }
 
                 if (ns_info->protect_kernel_tunables) {
-                        r = append_protect_kernel_tunables(&m, root_directory);
+                        r = append_protect_kernel_tunables(&m, root_directory,
+                                                           ns_info->ignore_protect_paths);
                         if (r < 0)
-                                return r;
+                                goto finish;
                 }
 
                 if (ns_info->protect_kernel_modules) {
-                        r = append_protect_kernel_modules(&m, root_directory);
+                        r = append_protect_kernel_modules(&m, root_directory,
+                                                          ns_info->ignore_protect_paths);
                         if (r < 0)
-                                return r;
+                                goto finish;
                 }
 
                 if (ns_info->protect_control_groups) {
-                        m->path = prefix_roota(root_directory, "/sys/fs/cgroup");
-                        m->mode = READONLY;
-                        m++;
+                        r = append_one_mount(&m, root_directory, "/sys/fs/cgroup", READONLY, false);
+                        if (r < 0)
+                                goto finish;
                 }
 
-                r = append_protect_home(&m, root_directory, protect_home);
+                r = append_protect_home(&m, root_directory, protect_home,
+                                        ns_info->ignore_protect_paths);
                 if (r < 0)
-                        return r;
+                        goto finish;
 
-                r = append_protect_system(&m, root_directory, protect_system);
+                r = append_protect_system(&m, root_directory, protect_system, false);
                 if (r < 0)
-                        return r;
+                        goto finish;
 
-                assert(mounts + n == m);
+                assert(mounts + n_mounts == m);
 
                 /* Resolve symlinks manually first, as mount() will always follow them relative to the host's
                  * root. Moreover we want to suppress duplicates based on the resolved paths. This of course is a bit
                  * racy. */
-                r = chase_all_symlinks(root_directory, mounts, &n);
+                r = chase_all_symlinks(root_directory, mounts, &n_mounts);
                 if (r < 0)
                         goto finish;
 
-                qsort(mounts, n, sizeof(BindMount), mount_path_compare);
+                qsort(mounts, n_mounts, sizeof(BindMount), mount_path_compare);
 
-                drop_duplicates(mounts, &n);
-                drop_outside_root(root_directory, mounts, &n);
-                drop_inaccessible(mounts, &n);
-                drop_nop(mounts, &n);
+                drop_duplicates(mounts, &n_mounts);
+                drop_outside_root(root_directory, mounts, &n_mounts);
+                drop_inaccessible(mounts, &n_mounts);
+                drop_nop(mounts, &n_mounts);
         }
 
         if (unshare(CLONE_NEWNS) < 0) {
@@ -843,25 +884,25 @@ int setup_namespace(
                 }
         }
 
-        if (n > 0) {
+        if (n_mounts > 0) {
                 char **blacklist;
                 unsigned j;
 
                 /* First round, add in all special mounts we need */
-                for (m = mounts; m < mounts + n; ++m) {
+                for (m = mounts; m < mounts + n_mounts; ++m) {
                         r = apply_mount(m, tmp_dir, var_tmp_dir);
                         if (r < 0)
                                 goto finish;
                 }
 
                 /* Create a blacklist we can pass to bind_mount_recursive() */
-                blacklist = newa(char*, n+1);
-                for (j = 0; j < n; j++)
+                blacklist = newa(char*, n_mounts+1);
+                for (j = 0; j < n_mounts; j++)
                         blacklist[j] = (char*) mounts[j].path;
                 blacklist[j] = NULL;
 
                 /* Second round, flip the ro bits if necessary. */
-                for (m = mounts; m < mounts + n; ++m) {
+                for (m = mounts; m < mounts + n_mounts; ++m) {
                         r = make_read_only(m, blacklist);
                         if (r < 0)
                                 goto finish;
@@ -886,8 +927,8 @@ int setup_namespace(
         r = 0;
 
 finish:
-        for (m = mounts; m < mounts + n; m++)
-                free(m->chased);
+        for (m = mounts; m < mounts + n_mounts; m++)
+                free(m->path);
 
         return r;
 }
