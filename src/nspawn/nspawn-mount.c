@@ -429,7 +429,7 @@ int mount_all(const char *dest,
                                 o = options;
                 }
 
-                r = mount_verbose(mount_table[k].fatal ? LOG_ERR : LOG_WARNING,
+                r = mount_verbose(mount_table[k].fatal ? LOG_ERR : LOG_DEBUG,
                                   mount_table[k].what,
                                   where,
                                   mount_table[k].type,
