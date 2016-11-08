@@ -22,7 +22,7 @@
 
 #include "alloc-util.h"
 #include "bus-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "logind-user.h"
 #include "logind.h"
 #include "signal-util.h"

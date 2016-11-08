@@ -26,7 +26,7 @@
 #include <time.h>
 
 #include "fd-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "udev-util.h"
 #include "udev.h"
 

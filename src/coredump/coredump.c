@@ -111,7 +111,7 @@ static CoredumpStorage arg_storage = COREDUMP_STORAGE_EXTERNAL;
 static bool arg_compress = true;
 static uint64_t arg_process_size_max = PROCESS_SIZE_MAX;
 static uint64_t arg_external_size_max = EXTERNAL_SIZE_MAX;
-static size_t arg_journal_size_max = JOURNAL_SIZE_MAX;
+static uint64_t arg_journal_size_max = JOURNAL_SIZE_MAX;
 static uint64_t arg_keep_free = (uint64_t) -1;
 static uint64_t arg_max_use = (uint64_t) -1;
 
@@ -708,7 +708,7 @@ static int submit_coredump(
                 coredump_filename = strjoina("COREDUMP_FILENAME=", filename);
                 IOVEC_SET_STRING(iovec[n_iovec++], coredump_filename);
         } else if (arg_storage == COREDUMP_STORAGE_EXTERNAL)
-                log_info("The core will not be stored: size %zu is greater than %zu (the configured maximum)",
+                log_info("The core will not be stored: size %"PRIu64" is greater than %"PRIu64" (the configured maximum)",
                          coredump_size, arg_external_size_max);
 
         /* Vacuum again, but exclude the coredump we just created */
@@ -738,7 +738,7 @@ static int submit_coredump(
                 else
                         log_warning_errno(r, "Failed to generate stack trace: %m");
         } else
-                log_debug("Not generating stack trace: core size %zu is greater than %zu (the configured maximum)",
+                log_debug("Not generating stack trace: core size %"PRIu64" is greater than %"PRIu64" (the configured maximum)",
                           coredump_size, arg_process_size_max);
 
         if (!core_message)
@@ -765,7 +765,7 @@ log:
                         } else
                                 log_warning_errno(r, "Failed to attach the core to the journal entry: %m");
                 } else
-                        log_info("The core will not be stored: size %zu is greater than %zu (the configured maximum)",
+                        log_info("The core will not be stored: size %"PRIu64" is greater than %"PRIu64" (the configured maximum)",
                                  coredump_size, arg_journal_size_max);
         }
 

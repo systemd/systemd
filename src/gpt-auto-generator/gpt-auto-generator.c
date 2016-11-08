@@ -429,10 +429,10 @@ static int add_automount(
                 "Documentation=man:systemd-gpt-auto-generator(8)\n"
                 "[Automount]\n"
                 "Where=%s\n"
-                "TimeoutIdleSec=%lld\n",
+                "TimeoutIdleSec="USEC_FMT"\n",
                 description,
                 where,
-                (unsigned long long)timeout / USEC_PER_SEC);
+                timeout / USEC_PER_SEC);
 
         r = fflush_and_check(f);
         if (r < 0)

@@ -26,7 +26,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "logind-inhibit.h"
 #include "mkdir.h"
 #include "parse-util.h"

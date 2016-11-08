@@ -27,7 +27,7 @@
 
 #include "alloc-util.h"
 #include "env-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "log.h"
 #include "parse-util.h"
 #include "string-util.h"

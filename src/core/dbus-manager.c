@@ -34,7 +34,7 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "install.h"
 #include "log.h"
 #include "path-util.h"

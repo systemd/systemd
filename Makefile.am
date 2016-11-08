@@ -932,7 +932,7 @@ libbasic_la_SOURCES = \
 	src/basic/copy.h \
 	src/basic/alloc-util.h \
 	src/basic/alloc-util.c \
-	src/basic/formats-util.h \
+	src/basic/format-util.h \
 	src/basic/nss-util.h
 
 nodist_libbasic_la_SOURCES = \

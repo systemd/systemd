@@ -36,7 +36,7 @@
 #include "def.h"
 #include "exit-status.h"
 #include "fd-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "io-util.h"
 #include "label.h"
 #include "log.h"

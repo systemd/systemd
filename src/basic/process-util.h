@@ -28,7 +28,7 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 
-#include "formats-util.h"
+#include "format-util.h"
 #include "macro.h"
 
 #define procfs_file_alloca(pid, field)                                  \

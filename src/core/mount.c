@@ -28,7 +28,7 @@
 #include "dbus-mount.h"
 #include "escape.h"
 #include "exit-status.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "fstab-util.h"
 #include "log.h"
 #include "manager.h"

@@ -29,8 +29,10 @@
 typedef uint64_t usec_t;
 typedef uint64_t nsec_t;
 
-#define NSEC_FMT "%" PRIu64
-#define USEC_FMT "%" PRIu64
+#define PRI_NSEC PRIu64
+#define PRI_USEC PRIu64
+#define NSEC_FMT "%" PRI_NSEC
+#define USEC_FMT "%" PRI_USEC
 
 #include "macro.h"
 

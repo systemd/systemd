@@ -27,7 +27,7 @@
 #include "busname.h"
 #include "dbus-busname.h"
 #include "fd-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "kdbus.h"
 #include "parse-util.h"
 #include "process-util.h"

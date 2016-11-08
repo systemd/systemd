@@ -37,7 +37,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "macro.h"

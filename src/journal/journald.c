@@ -22,7 +22,7 @@
 #include "sd-daemon.h"
 #include "sd-messages.h"
 
-#include "formats-util.h"
+#include "format-util.h"
 #include "journal-authenticate.h"
 #include "journald-kmsg.h"
 #include "journald-server.h"

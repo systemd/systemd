@@ -25,7 +25,7 @@
 #include "alloc-util.h"
 #include "def.h"
 #include "fd-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "killall.h"
 #include "parse-util.h"
 #include "process-util.h"

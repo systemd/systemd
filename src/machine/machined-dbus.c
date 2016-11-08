@@ -30,7 +30,7 @@
 #include "cgroup-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "hostname-util.h"
 #include "image-dbus.h"
 #include "io-util.h"

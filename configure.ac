@@ -216,25 +216,21 @@ AS_CASE([$CFLAGS], [*-O[[12345sz\ ]]*],
                [CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [-flto])],
                [AC_MSG_RESULT([disabling -flto as requested])])],
         [AC_MSG_RESULT([skipping -flto, optimization not enabled])])
-AC_SUBST([OUR_CFLAGS], "$with_cflags $sanitizer_cflags")
 
 AS_CASE([$CFLAGS], [*-O[[12345sz\ ]]*],
         [CC_CHECK_FLAGS_APPEND([with_cppflags], [CPPFLAGS], [\
                -Wp,-D_FORTIFY_SOURCE=2])],
         [AC_MSG_RESULT([skipping -D_FORTIFY_SOURCE, optimization not enabled])])
-AC_SUBST([OUR_CPPFLAGS], "$with_cppflags $sanitizer_cppflags")
 
 AS_CASE([$CFLAGS], [*-O[[12345sz\ ]]*],
         [CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
                -Wl,--gc-sections])],
         [AC_MSG_RESULT([skipping --gc-sections, optimization not enabled])])
-AC_SUBST([OUR_CFLAGS], "$with_ldflags $sanitizer_cflags")
 
 AS_CASE([$CFLAGS], [*-O[[12345sz\ ]]*],
         [CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
                -ffunction-sections -fdata-sections])],
         [AC_MSG_RESULT([skipping -ffunction/data-section, optimization not enabled])])
-AC_SUBST([OUR_CFLAGS], "$with_cflags $sanitizer_cflags")
 
 CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
         -Wl,--as-needed \
@@ -243,6 +239,9 @@ CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
         -Wl,-z,now \
         -pie \
         -Wl,-fuse-ld=gold])
+
+AC_SUBST([OUR_CPPFLAGS], "$with_cppflags $sanitizer_cppflags")
+AC_SUBST([OUR_CFLAGS], "-D__SANE_USERSPACE_TYPES__ $with_cflags $sanitizer_cflags")
 AC_SUBST([OUR_LDFLAGS], "$with_ldflags $sanitizer_ldflags")
 
 AC_CHECK_SIZEOF(pid_t)
