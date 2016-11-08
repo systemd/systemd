@@ -686,7 +686,7 @@ e  /var/chache/dnf/ - - - 30d
     </example>
 
     <example>
-      <title>Empty the contents of the a cache directory on boot</title>
+      <title>Empty the contents of a cache directory on boot</title>
 
       <programlisting># /usr/lib/tmpfiles.d/krb5rcache.conf
 e! /var/cache/krb5rcache - - - 0
