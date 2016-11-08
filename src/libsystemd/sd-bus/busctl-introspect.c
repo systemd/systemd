@@ -194,6 +194,7 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                 STATE_SIGNAL_ARG,
                 STATE_SIGNAL_ARG_NAME,
                 STATE_SIGNAL_ARG_TYPE,
+                STATE_SIGNAL_ARG_DIRECTION,
                 STATE_PROPERTY,
                 STATE_PROPERTY_NAME,
                 STATE_PROPERTY_TYPE,
@@ -432,7 +433,7 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                 else if (streq_ptr(name, "type"))
                                         state = STATE_METHOD_ARG_TYPE;
                                 else if (streq_ptr(name, "direction"))
-                                         state = STATE_METHOD_ARG_DIRECTION;
+                                        state = STATE_METHOD_ARG_DIRECTION;
                                 else {
                                         log_error("Unexpected method <arg> attribute %s.", name);
                                         return -EBADMSG;
@@ -458,7 +459,8 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                                 } else if (streq(argument_direction, "out")) {
                                                         if (!strextend(&context->member_result, argument_type, NULL))
                                                                 return log_oom();
-                                                }
+                                                } else
+                                                        log_error("Unexpected method <arg> direction value '%s'.", argument_direction);
                                         }
 
                                         argument_type = mfree(argument_type);
@@ -582,6 +584,8 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         state = STATE_SIGNAL_ARG_NAME;
                                 else if (streq_ptr(name, "type"))
                                         state = STATE_SIGNAL_ARG_TYPE;
+                                else if (streq_ptr(name, "direction"))
+                                        state = STATE_SIGNAL_ARG_DIRECTION;
                                 else {
                                         log_error("Unexpected signal <arg> attribute %s.", name);
                                         return -EBADMSG;
@@ -599,8 +603,11 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                    (t == XML_TAG_CLOSE && streq_ptr(name, "arg"))) {
 
                                 if (argument_type) {
-                                        if (!strextend(&context->member_signature, argument_type, NULL))
-                                                return log_oom();
+                                        if (!argument_direction || streq(argument_direction, "out")) {
+                                                if (!strextend(&context->member_signature, argument_type, NULL))
+                                                        return log_oom();
+                                        } else
+                                                log_error("Unexpected signal <arg> direction value '%s'.", argument_direction);
 
                                         argument_type = mfree(argument_type);
                                 }
@@ -634,6 +641,19 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                 state = STATE_SIGNAL_ARG;
                         } else {
                                 log_error("Unexpected token in signal <arg> (3).");
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case STATE_SIGNAL_ARG_DIRECTION:
+
+                        if (t == XML_ATTRIBUTE_VALUE) {
+                                free_and_replace(argument_direction, name);
+
+                                state = STATE_SIGNAL_ARG;
+                        } else {
+                                log_error("Unexpected token in signal <arg>. (4)");
                                 return -EINVAL;
                         }
 
