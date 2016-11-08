@@ -256,39 +256,33 @@ static int device_update_description(Unit *u, struct udev_device *dev, const cha
 }
 
 static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
-        const char *wants;
-        const char *word, *state;
-        size_t l;
+        const char *wants, *property, *p;
         int r;
-        const char *property;
 
         assert(u);
         assert(dev);
 
         property = MANAGER_IS_USER(u->manager) ? "SYSTEMD_USER_WANTS" : "SYSTEMD_WANTS";
         wants = udev_device_get_property_value(dev, property);
-        if (!wants)
-                return 0;
+        for (p = wants;;) {
+                _cleanup_free_ char *word = NULL, *k = NULL;
 
-        FOREACH_WORD_QUOTED(word, l, wants, state) {
-                _cleanup_free_ char *n = NULL;
-                char e[l+1];
-
-                memcpy(e, word, l);
-                e[l] = 0;
-
-                r = unit_name_mangle(e, UNIT_NAME_NOGLOB, &n);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                if (r == 0)
+                        return 0;
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0)
-                        return log_unit_error_errno(u, r, "Failed to mangle unit name: %m");
+                        return log_unit_error_errno(u, r, "Failed to add parse %s: %m", property);
 
-                r = unit_add_dependency_by_name(u, UNIT_WANTS, n, NULL, true);
+                r = unit_name_mangle(word, UNIT_NAME_NOGLOB, &k);
+                if (r < 0)
+                        return log_unit_error_errno(u, r, "Failed to mangle unit name \"%s\": %m", word);
+
+                r = unit_add_dependency_by_name(u, UNIT_WANTS, k, NULL, true);
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Failed to add wants dependency: %m");
         }
-        if (!isempty(state))
-                log_unit_warning(u, "Property %s on %s has trailing garbage, ignoring.", property, strna(udev_device_get_syspath(dev)));
-
-        return 0;
 }
 
 static int device_setup_unit(Manager *m, struct udev_device *dev, const char *path, bool main) {
@@ -423,26 +417,22 @@ static int device_process_new(Manager *m, struct udev_device *dev) {
         /* Add additional units for all explicitly configured
          * aliases */
         alias = udev_device_get_property_value(dev, "SYSTEMD_ALIAS");
-        if (alias) {
-                const char *word, *state;
-                size_t l;
+        for (;;) {
+                _cleanup_free_ char *word = NULL, *k = NULL;
 
-                FOREACH_WORD_QUOTED(word, l, alias, state) {
-                        char e[l+1];
+                r = extract_first_word(&alias, &word, NULL, EXTRACT_QUOTES);
+                if (r == 0)
+                        return 0;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to add parse SYSTEMD_ALIAS for %s: %m", sysfs);
 
-                        memcpy(e, word, l);
-                        e[l] = 0;
-
-                        if (path_is_absolute(e))
-                                (void) device_setup_unit(m, dev, e, false);
-                        else
-                                log_warning("SYSTEMD_ALIAS for %s is not an absolute path, ignoring: %s", sysfs, e);
-                }
-                if (!isempty(state))
-                        log_warning("SYSTEMD_ALIAS for %s has trailing garbage, ignoring.", sysfs);
+                if (path_is_absolute(word))
+                        (void) device_setup_unit(m, dev, word, false);
+                else
+                        log_warning("SYSTEMD_ALIAS for %s is not an absolute path, ignoring: %s", sysfs, word);
         }
-
-        return 0;
 }
 
 static void device_update_found_one(Device *d, bool add, DeviceFound found, bool now) {

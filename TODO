@@ -23,9 +23,6 @@ External:
 
 Janitorial Clean-ups:
 
-* code cleanup: retire FOREACH_WORD_QUOTED, port to extract_first_word() loops instead.
-  For example, most conf parsing callbacks should use it.
-
 * replace manual readdir() loops with FOREACH_DIRENT or FOREACH_DIRENT_ALL
 
 * Rearrange tests so that the various test-xyz.c match a specific src/basic/xyz.c again

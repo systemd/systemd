@@ -1003,7 +1003,7 @@ int config_parse_dns(
                 union in_addr_union a;
                 int family;
 
-                r = extract_first_word(&rvalue, &w, WHITESPACE, EXTRACT_QUOTES|EXTRACT_RETAIN_ESCAPE);
+                r = extract_first_word(&rvalue, &w, NULL, EXTRACT_QUOTES|EXTRACT_RETAIN_ESCAPE);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
