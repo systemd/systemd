@@ -4033,7 +4033,7 @@ int main(int argc, char *argv[]) {
         bool root_device_rw = true, home_device_rw = true, srv_device_rw = true;
         _cleanup_close_ int master = -1, image_fd = -1;
         _cleanup_fdset_free_ FDSet *fds = NULL;
-        int r, n_fd_passed, loop_nr = -1, ret = EXIT_FAILURE;
+        int r, n_fd_passed, loop_nr = -1, ret = EXIT_SUCCESS;
         char veth_name[IFNAMSIZ] = "";
         bool secondary = false, remove_subvol = false;
         pid_t pid = 0;
