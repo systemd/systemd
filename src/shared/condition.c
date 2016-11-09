@@ -111,9 +111,8 @@ static int condition_test_kernel_command_line(Condition *c) {
                 return r;
 
         equal = !!strchr(c->parameter, '=');
-        p = line;
 
-        for (;;) {
+        for (p = line;;) {
                 _cleanup_free_ char *word = NULL;
                 bool found;
 

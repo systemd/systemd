@@ -7214,14 +7214,12 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 return -EINVAL;
                         }
 
-                        p = optarg;
-                        for (;;) {
+                        for (p = optarg;;) {
                                 _cleanup_free_ char *type = NULL;
 
                                 r = extract_first_word(&p, &type, ",", 0);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse type: %s", optarg);
-
                                 if (r == 0)
                                         break;
 
@@ -7263,15 +7261,13 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 arg_properties = new0(char*, 1);
                                 if (!arg_properties)
                                         return log_oom();
-                        } else {
-                                p = optarg;
-                                for (;;) {
+                        } else
+                                for (p = optarg;;) {
                                         _cleanup_free_ char *prop = NULL;
 
                                         r = extract_first_word(&p, &prop, ",", 0);
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to parse property: %s", optarg);
-
                                         if (r == 0)
                                                 break;
 
@@ -7280,7 +7276,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                                         prop = NULL;
                                 }
-                        }
 
                         /* If the user asked for a particular
                          * property, show it to him, even if it is
@@ -7457,14 +7452,12 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 return -EINVAL;
                         }
 
-                        p = optarg;
-                        for (;;) {
+                        for (p = optarg;;) {
                                 _cleanup_free_ char *s = NULL;
 
                                 r = extract_first_word(&p, &s, ",", 0);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse signal: %s", optarg);
-
                                 if (r == 0)
                                         break;
 
