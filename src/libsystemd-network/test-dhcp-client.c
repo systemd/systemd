@@ -195,7 +195,7 @@ int dhcp_network_bind_raw_socket(
                 union sockaddr_union *link,
                 uint32_t id,
                 const uint8_t *addr, size_t addr_len,
-                uint16_t arp_type) {
+                uint16_t arp_type, uint16_t port) {
 
         if (socketpair(AF_UNIX, SOCK_STREAM, 0, test_fd) < 0)
                 return -errno;

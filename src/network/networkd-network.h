@@ -124,6 +124,7 @@ struct Network {
         bool dhcp_use_timezone;
         unsigned dhcp_route_metric;
         uint32_t dhcp_route_table;
+        uint32_t dhcp_client_port;
 
         /* DHCP Server Support */
         bool dhcp_server;

@@ -126,6 +126,9 @@ int sd_dhcp_client_get_client_id(
 int sd_dhcp_client_set_mtu(
                 sd_dhcp_client *client,
                 uint32_t mtu);
+int sd_dhcp_client_set_client_port(
+                sd_dhcp_client *client,
+                uint16_t port);
 int sd_dhcp_client_set_hostname(
                 sd_dhcp_client *client,
                 const char *hostname);
