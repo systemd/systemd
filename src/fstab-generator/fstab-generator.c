@@ -141,13 +141,14 @@ static bool mount_in_initrd(struct mntent *me) {
                streq(me->mnt_dir, "/usr");
 }
 
-static int write_idle_timeout(FILE *f, const char *where, const char *opts) {
+static int write_timeout(FILE *f, const char *where, const char *opts,
+                const char *filter, const char *variable) {
         _cleanup_free_ char *timeout = NULL;
         char timespan[FORMAT_TIMESPAN_MAX];
         usec_t u;
         int r;
 
-        r = fstab_filter_options(opts, "x-systemd.idle-timeout\0", NULL, &timeout, NULL);
+        r = fstab_filter_options(opts, filter, NULL, &timeout, NULL);
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse options: %m");
         if (r == 0)
@@ -159,9 +160,19 @@ static int write_idle_timeout(FILE *f, const char *where, const char *opts) {
                 return 0;
         }
 
-        fprintf(f, "TimeoutIdleSec=%s\n", format_timespan(timespan, sizeof(timespan), u, 0));
+        fprintf(f, "%s=%s\n", variable, format_timespan(timespan, sizeof(timespan), u, 0));
 
         return 0;
+}
+
+static int write_idle_timeout(FILE *f, const char *where, const char *opts) {
+        return write_timeout(f, where, opts,
+                             "x-systemd.idle-timeout\0", "TimeoutIdleSec");
+}
+
+static int write_mount_timeout(FILE *f, const char *where, const char *opts) {
+        return write_timeout(f, where, opts,
+                             "x-systemd.mount-timeout\0", "TimeoutSec");
 }
 
 static int write_requires_after(FILE *f, const char *opts) {
@@ -324,6 +335,10 @@ static int add_mount(
                 fprintf(f, "Type=%s\n", fstype);
 
         r = generator_write_timeouts(arg_dest, what, where, opts, &filtered);
+        if (r < 0)
+                return r;
+
+        r = write_mount_timeout(f, where, opts);
         if (r < 0)
                 return r;
 

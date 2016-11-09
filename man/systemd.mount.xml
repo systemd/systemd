@@ -241,6 +241,25 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>x-systemd.mount-timeout=</option></term>
+
+        <listitem><para>Configure how long systemd should wait for the
+        mount command to finish before giving up on an entry from
+        <filename>/etc/fstab</filename>. Specify a time in seconds or
+        explicitly append a unit such as <literal>s</literal>,
+        <literal>min</literal>, <literal>h</literal>,
+        <literal>ms</literal>.</para>
+
+        <para>Note that this option can only be used in
+        <filename>/etc/fstab</filename>, and will be
+        ignored when part of the <varname>Options=</varname>
+        setting in a unit file.</para>
+
+        <para>See <varname>TimeoutSec=</varname> below for
+        details.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><option>noauto</option></term>
         <term><option>auto</option></term>
 
