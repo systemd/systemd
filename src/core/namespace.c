@@ -331,7 +331,7 @@ static void drop_duplicates(BindMount *m, unsigned *n) {
 
         /* Drops duplicate entries. Expects that the array is properly ordered already. */
 
-        for (f = m, t = m, previous = NULL; f < m+*n; f++) {
+        for (f = m, t = m, previous = NULL; f < m + *n; f++) {
 
                 /* The first one wins (which is the one with the more restrictive mode), see mount_path_compare()
                  * above. */
@@ -359,7 +359,7 @@ static void drop_inaccessible(BindMount *m, unsigned *n) {
         /* Drops all entries obstructed by another entry further up the tree. Expects that the array is properly
          * ordered already. */
 
-        for (f = m, t = m; f < m+*n; f++) {
+        for (f = m, t = m; f < m + *n; f++) {
 
                 /* If we found a path set for INACCESSIBLE earlier, and this entry has it as prefix we should drop
                  * it, as inaccessible paths really should drop the entire subtree. */
@@ -387,7 +387,7 @@ static void drop_nop(BindMount *m, unsigned *n) {
         /* Drops all entries which have an immediate parent that has the same type, as they are redundant. Assumes the
          * list is ordered by prefixes. */
 
-        for (f = m, t = m; f < m+*n; f++) {
+        for (f = m, t = m; f < m + *n; f++) {
 
                 /* Only suppress such subtrees for READONLY and READWRITE entries */
                 if (IN_SET(f->mode, READONLY, READWRITE)) {
@@ -423,12 +423,13 @@ static void drop_outside_root(const char *root_directory, BindMount *m, unsigned
         assert(m);
         assert(n);
 
+        /* Nothing to do */
         if (!root_directory)
                 return;
 
         /* Drops all mounts that are outside of the root directory. */
 
-        for (f = m, t = m; f < m+*n; f++) {
+        for (f = m, t = m; f < m + *n; f++) {
 
                 if (!path_startswith(f->path, root_directory)) {
                         log_debug("%s is outside of root directory.", f->path);
@@ -671,9 +672,10 @@ static int make_read_only(BindMount *m, char **blacklist) {
         return r;
 }
 
+/* Chase symlinks and remove failed paths from mounts */
 static int chase_all_symlinks(const char *root_directory, BindMount *m, unsigned *n) {
         BindMount *f, *t;
-        int r;
+        int r = 0;
 
         assert(m);
         assert(n);
@@ -683,22 +685,24 @@ static int chase_all_symlinks(const char *root_directory, BindMount *m, unsigned
          * can't resolve the path, and which have been marked for such removal. */
 
         for (f = m, t = m; f < m + *n; f++) {
+                int k;
                 _cleanup_free_ char *chased = NULL;
 
-                r = chase_symlinks(f->path, root_directory, &chased);
-                if (r == -ENOENT && f->ignore) {
-                        /* Doesn't exist? Then remove it! */
+                k = chase_symlinks(f->path, root_directory, &chased);
+                if (k < 0) {
+                        /* Get only real errors */
+                        if (r >= 0 && (k != -ENOENT || !f->ignore))
+                                r = k;
+
+                        log_debug_errno(r, "Failed to chase symlinks for %s: %m", f->path);
+                        /* Doesn't exist or failed? Then remove it and continue! */
                         f->path = mfree(f->path);
                         continue;
                 }
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to chase symlinks for %s: %m", f->path);
 
                 if (!path_equal(f->path, chased)) {
                         log_debug("Chased %s → %s", f->path, chased);
-                        r = free_and_replace(f->path, chased);
-                        if (r < 0)
-                                return r;
+                        free_and_replace(f->path, chased);
                 }
 
                 *t = *f;
@@ -706,7 +710,7 @@ static int chase_all_symlinks(const char *root_directory, BindMount *m, unsigned
         }
 
         *n = t - m;
-        return 0;
+        return r;
 }
 
 static unsigned namespace_calculate_mounts(
