@@ -663,6 +663,12 @@
         or signal is specified in
         <varname>RestartForceExitStatus=</varname> (see below).</para>
 
+        <para>Note that service restart is subject to unit start rate
+        limiting configured with <varname>StartLimitIntervalSec=</varname>
+        and <varname>StartLimitBurst=</varname>, see
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.</para>
+
         <para>Setting this to <option>on-failure</option> is the
         recommended choice for long-running services, in order to
         increase reliability by attempting automatic recovery from
