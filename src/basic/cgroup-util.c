@@ -2423,10 +2423,10 @@ bool cg_is_unified_systemd_controller_wanted(void) {
 
                 r = get_proc_cmdline_key("systemd.legacy_systemd_cgroup_controller=", &value);
                 if (r < 0)
-                        return true;
+                        return false;
 
                 if (r == 0)
-                        wanted = true;
+                        wanted = false;
                 else
                         wanted = parse_boolean(value) <= 0;
         }
