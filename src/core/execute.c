@@ -1534,6 +1534,18 @@ static int apply_private_devices(const Unit *u, const ExecContext *c) {
         return seccomp_load_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_RAW_IO, SCMP_ACT_ERRNO(EPERM));
 }
 
+static int apply_restrict_namespaces(Unit *u, const ExecContext *c) {
+        assert(c);
+
+        if (!exec_context_restrict_namespaces_set(c))
+                return 0;
+
+        if (skip_seccomp_unavailable(u, "RestrictNamespaces="))
+                return 0;
+
+        return seccomp_restrict_namespaces(c->restrict_namespaces);
+}
+
 #endif
 
 static void do_idle_pipe_dance(int idle_pipe[4]) {
@@ -2183,6 +2195,7 @@ static bool context_has_no_new_privileges(const ExecContext *c) {
         return context_has_address_families(c) || /* we need NNP if we have any form of seccomp and are unprivileged */
                 c->memory_deny_write_execute ||
                 c->restrict_realtime ||
+                exec_context_restrict_namespaces_set(c) ||
                 c->protect_kernel_tunables ||
                 c->protect_kernel_modules ||
                 c->private_devices ||
@@ -2764,6 +2777,12 @@ static int exec_child(
                         }
                 }
 
+                r = apply_restrict_namespaces(unit, context);
+                if (r < 0) {
+                        *exit_status = EXIT_SECCOMP;
+                        return r;
+                }
+
                 if (context->protect_kernel_tunables) {
                         r = apply_protect_sysctl(unit, context);
                         if (r < 0) {
@@ -2947,6 +2966,7 @@ void exec_context_init(ExecContext *c) {
         c->personality = PERSONALITY_INVALID;
         c->runtime_directory_mode = 0755;
         c->capability_bounding_set = CAP_ALL;
+        c->restrict_namespaces = NAMESPACE_FLAGS_ALL;
 }
 
 void exec_context_done(ExecContext *c) {
@@ -3244,6 +3264,7 @@ static void strv_fprintf(FILE *f, char **l) {
 void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         char **e, **d;
         unsigned i;
+        int r;
 
         assert(c);
         assert(f);
@@ -3522,6 +3543,15 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         fprintf(f, " %s", strna(seccomp_arch_to_string(PTR_TO_UINT32(id) - 1)));
 #endif
                 fputc('\n', f);
+        }
+
+        if (exec_context_restrict_namespaces_set(c)) {
+                _cleanup_free_ char *s = NULL;
+
+                r = namespace_flag_to_string_many(c->restrict_namespaces, &s);
+                if (r >= 0)
+                        fprintf(f, "%sRestrictNamespaces: %s\n",
+                                prefix, s);
         }
 
         if (c->syscall_errno > 0)

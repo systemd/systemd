@@ -1046,7 +1046,9 @@ libshared_la_SOURCES = \
 	src/shared/tests.h \
 	src/shared/tests.c \
 	src/shared/fdset.c \
-	src/shared/fdset.h
+	src/shared/fdset.h \
+	src/shared/nsflags.h \
+	src/shared/nsflags.c
 
 if HAVE_UTMP
 libshared_la_SOURCES += \

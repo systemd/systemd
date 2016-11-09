@@ -23,7 +23,9 @@
 #include <sys/prctl.h>
 #include <linux/seccomp.h>
 
+#include "alloc-util.h"
 #include "macro.h"
+#include "nsflags.h"
 #include "seccomp-util.h"
 #include "string-util.h"
 #include "util.h"
@@ -576,5 +578,92 @@ int seccomp_load_filter_set(uint32_t default_action, const SyscallFilterSet *set
 finish:
         seccomp_release(seccomp);
         return r;
+}
 
+int seccomp_restrict_namespaces(unsigned long retain) {
+        scmp_filter_ctx seccomp;
+        unsigned i;
+        int r;
+
+        if (log_get_max_level() >= LOG_DEBUG) {
+                _cleanup_free_ char *s = NULL;
+
+                (void) namespace_flag_to_string_many(retain, &s);
+                log_debug("Restricting namespace to: %s.", strna(s));
+        }
+
+        /* NOOP? */
+        if ((retain & NAMESPACE_FLAGS_ALL) == NAMESPACE_FLAGS_ALL)
+                return 0;
+
+        r = seccomp_init_conservative(&seccomp, SCMP_ACT_ALLOW);
+        if (r < 0)
+                return r;
+
+        if ((retain & NAMESPACE_FLAGS_ALL) == 0)
+                /* If every single kind of namespace shall be prohibited, then let's block the whole setns() syscall
+                 * altogether. */
+                r = seccomp_rule_add(
+                                seccomp,
+                                SCMP_ACT_ERRNO(EPERM),
+                                SCMP_SYS(setns),
+                                0);
+        else
+                /* Otherwise, block only the invocations with the appropriate flags in the loop below, but also the
+                 * special invocation with a zero flags argument, right here. */
+                r = seccomp_rule_add(
+                                seccomp,
+                                SCMP_ACT_ERRNO(EPERM),
+                                SCMP_SYS(setns),
+                                1,
+                                SCMP_A1(SCMP_CMP_EQ, 0));
+        if (r < 0)
+                goto finish;
+
+        for (i = 0; namespace_flag_map[i].name; i++) {
+                unsigned long f;
+
+                f = namespace_flag_map[i].flag;
+                if ((retain & f) == f) {
+                        log_debug("Permitting %s.", namespace_flag_map[i].name);
+                        continue;
+                }
+
+                log_debug("Blocking %s.", namespace_flag_map[i].name);
+
+                r = seccomp_rule_add(
+                                seccomp,
+                                SCMP_ACT_ERRNO(EPERM),
+                                SCMP_SYS(unshare),
+                                1,
+                                SCMP_A0(SCMP_CMP_MASKED_EQ, f, f));
+                if (r < 0)
+                        goto finish;
+
+                r = seccomp_rule_add(
+                                seccomp,
+                                SCMP_ACT_ERRNO(EPERM),
+                                SCMP_SYS(clone),
+                                1,
+                                SCMP_A0(SCMP_CMP_MASKED_EQ, f, f));
+                if (r < 0)
+                        goto finish;
+
+                if ((retain & NAMESPACE_FLAGS_ALL) != 0) {
+                        r = seccomp_rule_add(
+                                        seccomp,
+                                        SCMP_ACT_ERRNO(EPERM),
+                                        SCMP_SYS(setns),
+                                        1,
+                                        SCMP_A1(SCMP_CMP_MASKED_EQ, f, f));
+                        if (r < 0)
+                                goto finish;
+                }
+        }
+
+        r = seccomp_load(seccomp);
+
+finish:
+        seccomp_release(seccomp);
+        return r;
 }
