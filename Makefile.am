@@ -3713,6 +3713,7 @@ pkgconfigdata_DATA += \
 	src/udev/udev.pc
 
 EXTRA_DIST += \
+	rules/60-cdrom_id.rules.in \
 	rules/99-systemd.rules.in \
 	src/udev/udev.pc.in
 
