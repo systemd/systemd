@@ -69,6 +69,7 @@ struct link_config {
         size_t mtu;
         size_t speed;
         Duplex duplex;
+        int autonegotiation;
         WakeOnLan wol;
         NetDevFeature features[_NET_DEV_FEAT_MAX];
 

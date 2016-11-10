@@ -34,6 +34,7 @@ Link.Alias,                      config_parse_ifalias,       0,                 
 Link.MTUBytes,                   config_parse_iec_size,      0,                             offsetof(link_config, mtu)
 Link.BitsPerSecond,              config_parse_si_size,       0,                             offsetof(link_config, speed)
 Link.Duplex,                     config_parse_duplex,        0,                             offsetof(link_config, duplex)
+Link.AutoNegotiation,            config_parse_tristate,      0,                             offsetof(link_config, autonegotiation)
 Link.WakeOnLan,                  config_parse_wol,           0,                             offsetof(link_config, wol)
 Link.GenericSegmentationOffload, config_parse_tristate,      0,                             offsetof(link_config, features[NET_DEV_FEAT_GSO])
 Link.TCPSegmentationOffload,     config_parse_tristate,      0,                             offsetof(link_config, features[NET_DEV_FEAT_TSO])

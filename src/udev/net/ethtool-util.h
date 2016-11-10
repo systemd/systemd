@@ -20,6 +20,9 @@
 ***/
 
 #include <macro.h>
+#include <linux/ethtool.h>
+
+#include "missing.h"
 
 /* we can't use DUPLEX_ prefix, as it
  * clashes with <linux/ethtool.h> */
@@ -48,12 +51,27 @@ typedef enum NetDevFeature {
         _NET_DEV_FEAT_INVALID = -1
 } NetDevFeature;
 
+
+#define ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32    (SCHAR_MAX)
+
+/* layout of the struct passed from/to userland */
+struct ethtool_link_usettings {
+        struct ethtool_link_settings base;
+
+        struct {
+                uint32_t supported[ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32];
+                uint32_t advertising[ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32];
+                uint32_t lp_advertising[ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32];
+        } link_modes;
+};
+
 int ethtool_connect(int *ret);
 
 int ethtool_get_driver(int *fd, const char *ifname, char **ret);
 int ethtool_set_speed(int *fd, const char *ifname, unsigned int speed, Duplex duplex);
 int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol);
 int ethtool_set_features(int *fd, const char *ifname, NetDevFeature *features);
+int ethtool_set_glinksettings(int *fd, const char *ifname, unsigned int speed, Duplex duplex, int autoneg);
 
 const char *duplex_to_string(Duplex d) _const_;
 Duplex duplex_from_string(const char *d) _pure_;
