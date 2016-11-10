@@ -669,18 +669,18 @@ static int setup_confirm_stdio(const char *vc, int *_saved_stdin, int *_saved_st
         return 0;
 }
 
-static void write_confirm_error_fd(int err, int fd) {
+static void write_confirm_error_fd(int err, int fd, const Unit *u) {
         assert(err < 0);
 
         if (err == -ETIMEDOUT)
-                dprintf(fd, "Confirmation question timed out, assuming positive response.\n");
+                dprintf(fd, "Confirmation question timed out for %s, assuming positive response.\n", u->id);
         else {
                 errno = -err;
-                dprintf(fd, "Couldn't ask confirmation: %m, assuming positive response.\n");
+                dprintf(fd, "Couldn't ask confirmation for %s: %m, assuming positive response.\n", u->id);
         }
 }
 
-static void write_confirm_error(int err, const char *vc) {
+static void write_confirm_error(int err, const char *vc, const Unit *u) {
         _cleanup_close_ int fd = -1;
 
         assert(vc);
@@ -689,7 +689,7 @@ static void write_confirm_error(int err, const char *vc) {
         if (fd < 0)
                 return;
 
-        write_confirm_error_fd(err, fd);
+        write_confirm_error_fd(err, fd, u);
 }
 
 static int restore_confirm_stdio(int *saved_stdin, int *saved_stdout) {
@@ -728,7 +728,7 @@ static int ask_for_confirmation(const char *vc, Unit *u, const char *cmdline) {
         /* For any internal errors, assume a positive response. */
         r = setup_confirm_stdio(vc, &saved_stdin, &saved_stdout);
         if (r < 0) {
-                write_confirm_error(r, vc);
+                write_confirm_error(r, vc, u);
                 return CONFIRM_EXECUTE;
         }
 
@@ -748,7 +748,7 @@ static int ask_for_confirmation(const char *vc, Unit *u, const char *cmdline) {
         for (;;) {
                 r = ask_char(&c, "yfshiDjc", "Execute %s? [y, f, s – h for help] ", e);
                 if (r < 0) {
-                        write_confirm_error_fd(r, STDOUT_FILENO);
+                        write_confirm_error_fd(r, STDOUT_FILENO, u);
                         r = CONFIRM_EXECUTE;
                         goto restore_stdio;
                 }
