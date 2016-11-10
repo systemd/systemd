@@ -55,6 +55,7 @@ struct sd_dhcp_client {
         sd_event_source *timeout_resend;
         int ifindex;
         int fd;
+        uint16_t port;
         union sockaddr_union link;
         sd_event_source *receive_message;
         bool request_broadcast;
@@ -426,6 +427,17 @@ int sd_dhcp_client_set_vendor_class_identifier(
         return 0;
 }
 
+int sd_dhcp_client_set_client_port(
+                sd_dhcp_client *client,
+                uint16_t port) {
+
+        assert_return(client, -EINVAL);
+
+        client->port = port;
+
+        return 0;
+}
+
 int sd_dhcp_client_set_mtu(sd_dhcp_client *client, uint32_t mtu) {
         assert_return(client, -EINVAL);
         assert_return(mtu >= DHCP_DEFAULT_MIN_SIZE, -ERANGE);
@@ -668,7 +680,7 @@ static int dhcp_client_send_raw(
                 DHCPPacket *packet,
                 size_t len) {
 
-        dhcp_packet_append_ip_headers(packet, INADDR_ANY, DHCP_PORT_CLIENT,
+        dhcp_packet_append_ip_headers(packet, INADDR_ANY, client->port,
                                       INADDR_BROADCAST, DHCP_PORT_SERVER, len);
 
         return dhcp_network_send_raw_socket(client->fd, &client->link,
@@ -1120,7 +1132,7 @@ static int client_start_delayed(sd_dhcp_client *client) {
 
         r = dhcp_network_bind_raw_socket(client->ifindex, &client->link,
                                          client->xid, client->mac_addr,
-                                         client->mac_addr_len, client->arp_type);
+                                         client->mac_addr_len, client->arp_type, client->port);
         if (r < 0) {
                 client_stop(client, r);
                 return r;
@@ -1170,7 +1182,8 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
 
         r = dhcp_network_bind_raw_socket(client->ifindex, &client->link,
                                          client->xid, client->mac_addr,
-                                         client->mac_addr_len, client->arp_type);
+                                         client->mac_addr_len, client->arp_type,
+                                         client->port);
         if (r < 0) {
                 client_stop(client, r);
                 return 0;
@@ -1555,8 +1568,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
                                 goto error;
                         }
 
-                        r = dhcp_network_bind_udp_socket(client->lease->address,
-                                                         DHCP_PORT_CLIENT);
+                        r = dhcp_network_bind_udp_socket(client->lease->address, client->port);
                         if (r < 0) {
                                 log_dhcp_client(client, "could not bind UDP socket");
                                 goto error;
@@ -1766,7 +1778,7 @@ static int client_receive_message_raw(
                 }
         }
 
-        r = dhcp_packet_verify_headers(packet, len, checksum);
+        r = dhcp_packet_verify_headers(packet, len, checksum, client->port);
         if (r < 0)
                 return 0;
 
@@ -1891,6 +1903,7 @@ int sd_dhcp_client_new(sd_dhcp_client **ret) {
         client->fd = -1;
         client->attempt = 1;
         client->mtu = DHCP_DEFAULT_MIN_SIZE;
+        client->port = DHCP_PORT_CLIENT;
 
         client->req_opts_size = ELEMENTSOF(default_req_opts);
         client->req_opts = memdup(default_req_opts, client->req_opts_size);

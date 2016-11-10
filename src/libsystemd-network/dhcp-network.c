@@ -36,7 +36,8 @@ static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
                             size_t mac_addr_len,
                             const uint8_t *bcast_addr,
                             const struct ether_addr *eth_mac,
-                            uint16_t arp_type, uint8_t dhcp_hlen) {
+                            uint16_t arp_type, uint8_t dhcp_hlen,
+                            uint16_t port) {
         struct sock_filter filter[] = {
                 BPF_STMT(BPF_LD + BPF_W + BPF_LEN, 0),                                 /* A <- packet length */
                 BPF_JUMP(BPF_JMP + BPF_JGE + BPF_K, sizeof(DHCPPacket), 1, 0),         /* packet >= DHCPPacket ? */
@@ -53,7 +54,7 @@ static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0, 1, 0),                          /* A == 0 ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
                 BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(DHCPPacket, udp.dest)),    /* A <- UDP destination port */
-                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, DHCP_PORT_CLIENT, 1, 0),           /* UDP destination port == DHCP client port ? */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, port, 1, 0),                       /* UDP destination port == DHCP client port ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
                 BPF_STMT(BPF_LD + BPF_B + BPF_ABS, offsetof(DHCPPacket, dhcp.op)),     /* A <- DHCP op */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, BOOTREPLY, 1, 0),                  /* op == BOOTREPLY ? */
@@ -125,7 +126,8 @@ static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
 
 int dhcp_network_bind_raw_socket(int ifindex, union sockaddr_union *link,
                                  uint32_t xid, const uint8_t *mac_addr,
-                                 size_t mac_addr_len, uint16_t arp_type) {
+                                 size_t mac_addr_len, uint16_t arp_type,
+                                 uint16_t port) {
         static const uint8_t eth_bcast[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
         /* Default broadcast address for IPoIB */
         static const uint8_t ib_bcast[] = {
@@ -151,7 +153,7 @@ int dhcp_network_bind_raw_socket(int ifindex, union sockaddr_union *link,
                 return -EINVAL;
 
         return _bind_raw_socket(ifindex, link, xid, mac_addr, mac_addr_len,
-                                bcast_addr, &eth_mac, arp_type, dhcp_hlen);
+                                bcast_addr, &eth_mac, arp_type, dhcp_hlen, port);
 }
 
 int dhcp_network_bind_udp_socket(be32_t address, uint16_t port) {

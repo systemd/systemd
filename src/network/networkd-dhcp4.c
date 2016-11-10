@@ -630,6 +630,12 @@ int dhcp4_configure(Link *link) {
                         return r;
         }
 
+        if (link->network->dhcp_client_port) {
+                r = sd_dhcp_client_set_client_port(link->dhcp_client, link->network->dhcp_client_port);
+                if (r < 0)
+                        return r;
+        }
+
         switch (link->network->dhcp_client_identifier) {
         case DHCP_CLIENT_ID_DUID: {
                 /* If configured, apply user specified DUID and/or IAID */

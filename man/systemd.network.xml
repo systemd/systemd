@@ -984,6 +984,13 @@
             </para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>ListenPort=</varname></term>
+          <listitem>
+            <para>Allow setting custom port for the DHCP client to listen on.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
     </refsect1>
 
