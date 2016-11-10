@@ -22,7 +22,6 @@
 #include "alloc-util.h"
 #include "extract-word.h"
 #include "nsflags.h"
-#include "seccomp-util.h"
 #include "string-util.h"
 
 const struct namespace_flag_map namespace_flag_map[] = {
