@@ -330,11 +330,13 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
                 tmx.esterror = 0;
                 log_debug("  adjust (slew): %+.3f sec", offset);
         } else {
-                tmx.modes = ADJ_STATUS | ADJ_NANO | ADJ_SETOFFSET;
+                tmx.modes = ADJ_STATUS | ADJ_NANO | ADJ_SETOFFSET | ADJ_MAXERROR | ADJ_ESTERROR;
 
                 /* ADJ_NANO uses nanoseconds in the microseconds field */
                 tmx.time.tv_sec = (long)offset;
                 tmx.time.tv_usec = (offset - tmx.time.tv_sec) * NSEC_PER_SEC;
+                tmx.maxerror = 0;
+                tmx.esterror = 0;
 
                 /* the kernel expects -0.3s as {-1, 7000.000.000} */
                 if (tmx.time.tv_usec < 0) {
