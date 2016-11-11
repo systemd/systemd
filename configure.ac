@@ -1376,7 +1376,7 @@ fi
 AM_CONDITIONAL(HAVE_MYHOSTNAME, [test "$have_myhostname" = "yes"])
 
 # ------------------------------------------------------------------------------
-AC_ARG_ENABLE(hwdb, [AC_HELP_STRING([--disable-hwdb], [disable hardware database support])],
+AC_ARG_ENABLE(hwdb, [AS_HELP_STRING([--disable-hwdb], [disable hardware database support])],
        enable_hwdb=$enableval, enable_hwdb=yes)
 AM_CONDITIONAL(ENABLE_HWDB, [test x$enable_hwdb = xyes])
 
@@ -1393,13 +1393,13 @@ AM_CONDITIONAL(ENABLE_MANPAGES, [test "x$have_manpages" = "xyes"])
 
 # ------------------------------------------------------------------------------
 AC_ARG_ENABLE(hibernate,
-       [AC_HELP_STRING([--disable-hibernate], [disable hibernation support])],
+       [AS_HELP_STRING([--disable-hibernate], [disable hibernation support])],
        enable_hibernate=$enableval, enable_hibernate=yes)
 AM_CONDITIONAL(ENABLE_HIBERNATE, [test x$enable_hibernate = xyes])
 
 # ------------------------------------------------------------------------------
 AC_ARG_ENABLE(ldconfig,
-       [AC_HELP_STRING([--disable-ldconfig], [disable ldconfig])],
+       [AS_HELP_STRING([--disable-ldconfig], [disable ldconfig])],
        enable_ldconfig=$enableval, enable_ldconfig=yes)
 AM_CONDITIONAL(ENABLE_LDCONFIG, [test x$enable_ldconfig = xyes])
 
@@ -1539,13 +1539,13 @@ AS_IF([test x"$cross_compiling" = "xyes"], [], [
 ])
 
 AC_ARG_ENABLE(tests,
-        [AC_HELP_STRING([--disable-tests], [disable tests, or enable extra tests with =unsafe])],
+        [AS_HELP_STRING([--disable-tests], [disable tests, or enable extra tests with =unsafe])],
         enable_tests=$enableval, enable_tests=yes)
 AM_CONDITIONAL(ENABLE_TESTS, [test x$enable_tests = xyes -o x$enable_tests = xunsafe])
 AM_CONDITIONAL(ENABLE_UNSAFE_TESTS, [test x$enable_tests = xunsafe])
 
 AC_ARG_ENABLE(debug,
-        [AC_HELP_STRING([--enable-debug@<:@=LIST@:>@], [enable extra debugging (hashmap,mmap-cache)])],
+        [AS_HELP_STRING([--enable-debug@<:@=LIST@:>@], [enable extra debugging (hashmap,mmap-cache)])],
         [if test "x$enableval" = "xyes"; then
                 enableval="hashmap,mmap-cache"
         fi
