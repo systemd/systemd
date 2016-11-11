@@ -53,30 +53,31 @@
   <refsect1>
     <title>Description</title>
 
-    <para>The <filename>/etc/machine-id</filename> file contains the
-    unique machine ID of the local system that is set during
-    installation. The machine ID is a single newline-terminated,
-    hexadecimal, 32-character, lowercase machine ID string. When
-    decoded from hexadecimal, this corresponds with a 16-byte/128-bit
-    string.</para>
+    <para>The <filename>/etc/machine-id</filename> file contains the unique machine ID of the local
+    system that is set during installation. The machine ID is a single newline-terminated,
+    hexadecimal, 32-character, lowercase ID. When decoded from hexadecimal, this corresponds to a
+    16-byte/128-bit value.</para>
 
     <para>The machine ID is usually generated from a random source
     during system installation and stays constant for all subsequent
     boots. Optionally, for stateless systems, it is generated during
     runtime at early boot if it is found to be empty.</para>
 
-    <para>The machine ID does not change based on user configuration
-    or when hardware is replaced.</para>
+    <para>The machine ID does not change based on local or network configuration or when hardware is
+    replaced. Due to this and its greater length, it is a more useful replacement for the
+    <citerefentry project='man-pages'><refentrytitle>gethostid</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    call that POSIX specifies.</para>
 
     <para>This machine ID adheres to the same format and logic as the
     D-Bus machine ID.</para>
 
-    <para>Programs may use this ID to identify the host with a
-    globally unique ID in the network, which does not change even if
-    the local network configuration changes. Due to this and its
-    greater length, it is a more useful replacement for the
-    <citerefentry project='man-pages'><refentrytitle>gethostid</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    call that POSIX specifies.</para>
+    <para>This ID uniquely identifies the host. It should be considered "confidential", and must not
+    be exposed in untrusted environments, in particular on the network. If a stable unique
+    identifier that is tied to the machine is needed for some application, the machine ID or any
+    part of it must not be used directly. Instead the machine ID should be hashed with a
+    cryptographic, keyed hash function, using a fixed, application-specific key. That way the ID
+    will be properly unique, and derived in a constant way from the machine ID but there will be no
+    way to retrieve the original machine ID from the application-specific one.</para>
 
     <para>The
     <citerefentry><refentrytitle>systemd-machine-id-setup</refentrytitle><manvolnum>1</manvolnum></citerefentry>
