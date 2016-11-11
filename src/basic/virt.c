@@ -496,7 +496,7 @@ static int userns_has_mapping(const char *name) {
         f = fopen(name, "re");
         if (!f) {
                 log_debug_errno(errno, "Failed to open %s: %m", name);
-                return errno == -ENOENT ? false : -errno;
+                return errno == ENOENT ? false : -errno;
         }
 
         n = getline(&buf, &n_allocated, f);
