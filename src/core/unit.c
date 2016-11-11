@@ -35,6 +35,7 @@
 #include "dropin.h"
 #include "escape.h"
 #include "execute.h"
+#include "fd-util.h"
 #include "fileio-label.h"
 #include "format-util.h"
 #include "id128-util.h"
@@ -103,6 +104,13 @@ Unit *unit_new(Manager *m, size_t size) {
         u->ref_gid = GID_INVALID;
         u->cpu_usage_last = NSEC_INFINITY;
 
+        u->ip_accounting_ingress_map_fd = -1;
+        u->ip_accounting_egress_map_fd = -1;
+        u->ipv4_allow_map_fd = -1;
+        u->ipv6_allow_map_fd = -1;
+        u->ipv4_deny_map_fd = -1;
+        u->ipv6_deny_map_fd = -1;
+
         RATELIMIT_INIT(u->start_limit, m->default_start_limit_interval, m->default_start_limit_burst);
         RATELIMIT_INIT(u->auto_stop_ratelimit, 10 * USEC_PER_SEC, 16);
 
@@ -156,6 +164,7 @@ static void unit_init(Unit *u) {
                 cc->blockio_accounting = u->manager->default_blockio_accounting;
                 cc->memory_accounting = u->manager->default_memory_accounting;
                 cc->tasks_accounting = u->manager->default_tasks_accounting;
+                cc->ip_accounting = u->manager->default_ip_accounting;
 
                 if (u->type != UNIT_SLICE)
                         cc->tasks_max = u->manager->default_tasks_max;
@@ -609,6 +618,17 @@ void unit_free(Unit *u) {
 
         while (u->refs)
                 unit_ref_unset(u->refs);
+
+        safe_close(u->ip_accounting_ingress_map_fd);
+        safe_close(u->ip_accounting_egress_map_fd);
+
+        safe_close(u->ipv4_allow_map_fd);
+        safe_close(u->ipv6_allow_map_fd);
+        safe_close(u->ipv4_deny_map_fd);
+        safe_close(u->ipv6_deny_map_fd);
+
+        bpf_program_unref(u->ip_bpf_ingress);
+        bpf_program_unref(u->ip_bpf_egress);
 
         free(u);
 }

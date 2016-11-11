@@ -28,6 +28,7 @@ typedef struct UnitVTable UnitVTable;
 typedef struct UnitRef UnitRef;
 typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 
+#include "bpf-program.h"
 #include "condition.h"
 #include "emergency-action.h"
 #include "install.h"
@@ -204,6 +205,18 @@ struct Unit {
         CGroupMask cgroup_subtree_mask;
         CGroupMask cgroup_members_mask;
         int cgroup_inotify_wd;
+
+        /* IP BPF Firewalling/accounting */
+        int ip_accounting_ingress_map_fd;
+        int ip_accounting_egress_map_fd;
+
+        int ipv4_allow_map_fd;
+        int ipv6_allow_map_fd;
+        int ipv4_deny_map_fd;
+        int ipv6_deny_map_fd;
+
+        BPFProgram *ip_bpf_ingress;
+        BPFProgram *ip_bpf_egress;
 
         /* How to start OnFailure units */
         JobMode on_failure_job_mode;
