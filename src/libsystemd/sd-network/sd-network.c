@@ -224,13 +224,8 @@ static int network_link_get_ifindexes(int ifindex, const char *key, int **ret) {
                 return -ENODATA;
         if (r < 0)
                 return r;
-        if (isempty(s)) {
-                *ret = NULL;
-                return 0;
-        }
 
-        x = s;
-        for (;;) {
+        for (x = s;;) {
                 _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&x, &word, NULL, 0);
@@ -243,15 +238,14 @@ static int network_link_get_ifindexes(int ifindex, const char *key, int **ret) {
                 if (r < 0)
                         return r;
 
-                if (!GREEDY_REALLOC(ifis, allocated, c + 1))
+                if (!GREEDY_REALLOC(ifis, allocated, c + 2))
                         return -ENOMEM;
 
                 ifis[c++] = ifindex;
         }
 
-        if (!GREEDY_REALLOC(ifis, allocated, c + 1))
-                return -ENOMEM;
-        ifis[c] = 0; /* Let's add a 0 ifindex to the end, to be nice*/
+        if (ifis)
+                ifis[c] = 0; /* Let's add a 0 ifindex to the end, to be nice*/
 
         *ret = ifis;
         ifis = NULL;

@@ -48,7 +48,7 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
 
         /* Bail early if called after last value or with no input */
         if (!*p)
-                goto finish_force_terminate;
+                goto finish;
         c = **p;
 
         if (!separators)

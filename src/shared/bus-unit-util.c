@@ -398,9 +398,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                p = eq;
-
-                for (;;) {
+                for (p = eq;;) {
                         _cleanup_free_ char *word = NULL;
 
                         r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE);
@@ -482,9 +480,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                p = eq;
-
-                for (;;) {
+                for (p = eq;;) {
                         _cleanup_free_ char *word = NULL;
                         int offset;
 
@@ -531,9 +527,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                p = eq;
-
-                for (;;) {
+                for (p = eq;;) {
                         _cleanup_free_ char *word = NULL;
 
                         r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);

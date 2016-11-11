@@ -69,11 +69,6 @@ int namespace_flag_from_string_many(const char *name, unsigned long *ret) {
 
         assert_se(ret);
 
-        if (!name) {
-                *ret = 0;
-                return 0;
-        }
-
         for (;;) {
                 _cleanup_free_ char *word = NULL;
                 unsigned long f;
