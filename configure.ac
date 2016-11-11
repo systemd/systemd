@@ -259,7 +259,7 @@ AC_CHECK_SIZEOF(rlim_t,,[
 # we use python to build the man page index
 have_python=no
 AC_ARG_WITH([python],
-        [AS_HELP_STRING([--without-python], [Disable building the man page index and systemd-python (default: test)])])
+        [AS_HELP_STRING([--without-python], [disable building the man page index and systemd-python (default: test)])])
 
 have_lxml=no
 AS_IF([test "x$with_python" != "xno"], [
@@ -455,7 +455,7 @@ AM_CONDITIONAL(HAVE_LIBMOUNT, [test "$have_libmount" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_seccomp=no
-AC_ARG_ENABLE(seccomp, AS_HELP_STRING([--disable-seccomp], [Disable optional SECCOMP support]))
+AC_ARG_ENABLE(seccomp, AS_HELP_STRING([--disable-seccomp], [disable optional SECCOMP support]))
 if test "x$enable_seccomp" != "xno"; then
         PKG_CHECK_MODULES(SECCOMP, [libseccomp >= 2.3.1],
                [AC_DEFINE(HAVE_SECCOMP, 1, [Define if seccomp is available])
@@ -470,7 +470,7 @@ AM_CONDITIONAL(HAVE_SECCOMP, [test "$have_seccomp" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_ima=yes
-AC_ARG_ENABLE([ima], AS_HELP_STRING([--disable-ima],[Disable optional IMA support]),
+AC_ARG_ENABLE([ima], AS_HELP_STRING([--disable-ima], [disable optional IMA support]),
                 [case "${enableval}" in
                         yes) have_ima=yes ;;
                         no) have_ima=no ;;
@@ -484,7 +484,7 @@ fi
 
 # ------------------------------------------------------------------------------
 have_selinux=no
-AC_ARG_ENABLE(selinux, AS_HELP_STRING([--disable-selinux], [Disable optional SELINUX support]))
+AC_ARG_ENABLE(selinux, AS_HELP_STRING([--disable-selinux], [disable optional SELINUX support]))
 if test "x$enable_selinux" != "xno"; then
         PKG_CHECK_MODULES([SELINUX], [libselinux >= 2.1.9],
                 [AC_DEFINE(HAVE_SELINUX, 1, [Define if SELinux is available])
@@ -498,7 +498,7 @@ fi
 AM_CONDITIONAL(HAVE_SELINUX, [test "$have_selinux" = "yes"])
 
 have_apparmor=no
-AC_ARG_ENABLE(apparmor, AS_HELP_STRING([--disable-apparmor], [Disable optional AppArmor support]))
+AC_ARG_ENABLE(apparmor, AS_HELP_STRING([--disable-apparmor], [disable optional AppArmor support]))
 if test "x$enable_apparmor" != "xno"; then
         PKG_CHECK_MODULES([APPARMOR], [libapparmor],
                 [AC_DEFINE(HAVE_APPARMOR, 1, [Define if AppArmor is available])
@@ -530,7 +530,7 @@ AS_IF([test "x$enable_wheel_group" != "xno"], [
 
 AC_ARG_WITH(debug-shell,
         AS_HELP_STRING([--with-debug-shell=PATH],
-                [Path to debug shell binary]),
+                [path to debug shell binary]),
         [SUSHELL="$withval"],[
         AS_IF([test "x${have_selinux}" != "xno"], [SUSHELL="/sbin/sushell"] , [SUSHELL="/bin/sh"])])
 
@@ -538,7 +538,7 @@ AC_SUBST(SUSHELL)
 
 AC_ARG_WITH([debug-tty],
         AS_HELP_STRING([--with-debug-tty=PATH],
-                [Specify the tty device for debug shell]),
+                [specify the tty device for debug shell]),
         [DEBUGTTY="$withval"],
         [DEBUGTTY=/dev/tty9])
 
@@ -546,7 +546,7 @@ AC_SUBST(DEBUGTTY)
 
 AC_ARG_WITH([certificate-root],
         AS_HELP_STRING([--with-certificate-root=PATH],
-                [Specify the prefix for TLS certificates [/etc/ssl]]),
+                [specify the prefix for TLS certificates [/etc/ssl]]),
         [CERTIFICATEROOT="$withval"],
         [CERTIFICATEROOT="/etc/ssl"])
 
@@ -554,7 +554,7 @@ AC_SUBST(CERTIFICATEROOT)
 
 AC_ARG_WITH([support-url],
         AS_HELP_STRING([--with-support-url=URL],
-                [Specify the support URL to show in catalog entries included in systemd]),
+                [specify the support URL to show in catalog entries included in systemd]),
         [SUPPORT_URL="$withval"],
         [SUPPORT_URL=http://lists.freedesktop.org/mailman/listinfo/systemd-devel])
 
@@ -562,7 +562,7 @@ AC_SUBST(SUPPORT_URL)
 
 AC_ARG_WITH([nobody-user],
         AS_HELP_STRING([--with-nobody-user=NAME],
-                [Specify the name of the nobody user (the one with UID 65534)]),
+                [specify the name of the nobody user (the one with UID 65534)]),
         [NOBODY_USER_NAME="$withval"],
         [NOBODY_USER_NAME=nobody])
 
@@ -571,7 +571,7 @@ AC_DEFINE_UNQUOTED(NOBODY_USER_NAME, ["$NOBODY_USER_NAME"], [The name of the nob
 
 AC_ARG_WITH([nobody-group],
         AS_HELP_STRING([--with-nobody-group=NAME],
-                [Specify the name of the nobody group (the one with GID 65534)]),
+                [specify the name of the nobody group (the one with GID 65534)]),
         [NOBODY_GROUP_NAME="$withval"],
         [NOBODY_GROUP_NAME=nobody])
 
@@ -580,7 +580,7 @@ AC_DEFINE_UNQUOTED(NOBODY_GROUP_NAME, ["$NOBODY_GROUP_NAME"], [The name of the n
 
 # ------------------------------------------------------------------------------
 have_xz=no
-AC_ARG_ENABLE(xz, AS_HELP_STRING([--disable-xz], [Disable optional XZ support]))
+AC_ARG_ENABLE(xz, AS_HELP_STRING([--disable-xz], [disable optional XZ support]))
 AS_IF([test "x$enable_xz" != "xno"], [
         PKG_CHECK_MODULES(XZ, [ liblzma ],
                 [AC_DEFINE(HAVE_XZ, 1, [Define if XZ is available])
@@ -593,7 +593,7 @@ AM_CONDITIONAL(HAVE_XZ, [test "$have_xz" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_zlib=no
-AC_ARG_ENABLE(zlib, AS_HELP_STRING([--disable-zlib], [Disable optional ZLIB support]))
+AC_ARG_ENABLE(zlib, AS_HELP_STRING([--disable-zlib], [disable optional ZLIB support]))
 AS_IF([test "x$enable_zlib" != "xno"], [
         PKG_CHECK_MODULES(ZLIB, [ zlib ],
                 [AC_DEFINE(HAVE_ZLIB, 1, [Define if ZLIB is available])
@@ -619,7 +619,7 @@ AM_CONDITIONAL(HAVE_BZIP2, [test "$have_bzip2" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_lz4=no
-AC_ARG_ENABLE(lz4, AS_HELP_STRING([--disable-lz4], [Disable optional LZ4 support]))
+AC_ARG_ENABLE(lz4, AS_HELP_STRING([--disable-lz4], [disable optional LZ4 support]))
 AS_IF([test "x$enable_lz4" != "xno"], [
         PKG_CHECK_MODULES(LZ4, [ liblz4 >= 125 ],
                [AC_DEFINE(HAVE_LZ4, 1, [Define in LZ4 is available])
@@ -634,7 +634,7 @@ AM_CONDITIONAL(HAVE_COMPRESSION, [test "$have_xz" = "yes" -o "$have_lz4" = "yes"
 
 # ------------------------------------------------------------------------------
 AC_ARG_ENABLE([pam],
-        AS_HELP_STRING([--disable-pam],[Disable optional PAM support]),
+        AS_HELP_STRING([--disable-pam], [disable optional PAM support]),
                 [case "${enableval}" in
                         yes) have_pam=yes ;;
                         no) have_pam=no ;;
@@ -673,7 +673,7 @@ AM_CONDITIONAL([HAVE_PAM], [test "x$have_pam" != xno])
 
 # ------------------------------------------------------------------------------
 AC_ARG_ENABLE([acl],
-        AS_HELP_STRING([--disable-acl],[Disable optional ACL support]),
+        AS_HELP_STRING([--disable-acl], [disable optional ACL support]),
                 [case "${enableval}" in
                         yes) have_acl=yes ;;
                         no) have_acl=no ;;
@@ -711,7 +711,7 @@ AC_SUBST(ACL_LIBS)
 AM_CONDITIONAL([HAVE_ACL], [test "x$have_acl" != xno])
 
 # ------------------------------------------------------------------------------
-AC_ARG_ENABLE([smack], AS_HELP_STRING([--disable-smack],[Disable optional SMACK support]),
+AC_ARG_ENABLE([smack], AS_HELP_STRING([--disable-smack], [disable optional SMACK support]),
                 [case "${enableval}" in
                         yes) have_smack=yes ;;
                         no) have_smack=no ;;
@@ -746,7 +746,7 @@ AS_HELP_STRING([--with-smack-default-process-label=STRING],
 
 # ------------------------------------------------------------------------------
 AC_ARG_ENABLE([gcrypt],
-        AS_HELP_STRING([--disable-gcrypt],[Disable optional GCRYPT support]),
+        AS_HELP_STRING([--disable-gcrypt], [disable optional GCRYPT support]),
                 [case "${enableval}" in
                         yes) have_gcrypt=yes ;;
                         no) have_gcrypt=no ;;
@@ -798,7 +798,7 @@ AM_CONDITIONAL([HAVE_GCRYPT], [test "x$have_gcrypt" != xno])
 
 # ------------------------------------------------------------------------------
 AC_ARG_ENABLE([audit],
-        AS_HELP_STRING([--disable-audit],[Disable optional AUDIT support]),
+        AS_HELP_STRING([--disable-audit], [disable optional AUDIT support]),
                 [case "${enableval}" in
                         yes) have_audit=yes ;;
                         no) have_audit=no ;;
@@ -836,7 +836,7 @@ AM_CONDITIONAL([HAVE_AUDIT], [test "x$have_audit" != xno])
 
 # ------------------------------------------------------------------------------
 AC_ARG_ENABLE([elfutils],
-        AS_HELP_STRING([--disable-elfutils],[Disable optional ELFUTILS support]),
+        AS_HELP_STRING([--disable-elfutils], [disable optional ELFUTILS support]),
                 [case "${enableval}" in
                         yes) have_elfutils=yes ;;
                         no) have_elfutils=no ;;
@@ -943,7 +943,7 @@ AM_CONDITIONAL(HAVE_REMOTE, [test "$have_microhttpd" = "yes" -o "$have_libcurl" 
 
 # ------------------------------------------------------------------------------
 have_libidn=no
-AC_ARG_ENABLE(libidn, AS_HELP_STRING([--disable-libidn], [Disable optional LIBIDN support]))
+AC_ARG_ENABLE(libidn, AS_HELP_STRING([--disable-libidn], [disable optional LIBIDN support]))
 if test "x$enable_libidn" != "xno"; then
         PKG_CHECK_MODULES(LIBIDN, [libidn],
                [AC_DEFINE(HAVE_LIBIDN, 1, [Define if libidn is available])
@@ -958,7 +958,7 @@ AM_CONDITIONAL(HAVE_LIBIDN, [test "$have_libidn" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_libiptc=no
-AC_ARG_ENABLE(libiptc, AS_HELP_STRING([--disable-libiptc], [Disable optional LIBIPTC support]))
+AC_ARG_ENABLE(libiptc, AS_HELP_STRING([--disable-libiptc], [disable optional LIBIPTC support]))
 if test "x$enable_libiptc" != "xno"; then
         PKG_CHECK_MODULES(LIBIPTC, [libiptc],
                [AC_DEFINE(HAVE_LIBIPTC, 1, [Define if libiptc is available])
@@ -1053,7 +1053,7 @@ AM_CONDITIONAL(ENABLE_LOGIND, [test "$have_logind" = "yes"])
 AS_IF([test "$have_logind" = "yes"], [ AC_DEFINE(HAVE_LOGIND, [1], [Logind support available]) ])
 
 AC_ARG_WITH([kill-user-processes],
-        [AS_HELP_STRING([--without-kill-user-processes], [Set logind's KillUserProcesses=no by default])])
+        [AS_HELP_STRING([--without-kill-user-processes], [set logind's KillUserProcesses=no by default])])
 AS_IF([test "$with_kill_user_processes" != "no"],
        [kill_user_processes=true
         KILL_USER_PROCESSES=yes],
@@ -1107,7 +1107,7 @@ AM_CONDITIONAL(ENABLE_TIMESYNCD, [test "$have_timesyncd" = "yes"])
 
 AC_ARG_WITH(ntp-servers,
         AS_HELP_STRING([--with-ntp-servers=NTPSERVERS],
-                [Space-separated list of default NTP servers]),
+                [space-separated list of default NTP servers]),
         [NTP_SERVERS="$withval"],
         [NTP_SERVERS="time1.google.com time2.google.com time3.google.com time4.google.com"
         AC_MSG_WARN([*** Using Google NTP servers.
@@ -1119,7 +1119,7 @@ AC_SUBST(NTP_SERVERS)
 
 AC_ARG_WITH(time-epoch,
         AS_HELP_STRING([--with-time-epoch=SECONDS],
-                [Time epoch for time clients]),
+                [time epoch for time clients]),
         [TIME_EPOCH="$withval"],
         [TIME_EPOCH="`stat -c %Y ${srcdir}/NEWS 2>/dev/null || echo 0`"])
 
@@ -1128,7 +1128,7 @@ AC_DEFINE_UNQUOTED(TIME_EPOCH, [$TIME_EPOCH], [Time Epoch])
 # ------------------------------------------------------------------------------
 AC_ARG_WITH(system-uid-max,
         AS_HELP_STRING([--with-system-uid-max=UID]
-                [Maximum UID for system users]),
+                [maximum UID for system users]),
         [SYSTEM_UID_MAX="$withval"],
         [SYSTEM_UID_MAX="`awk 'BEGIN { uid=999 } /^\s*SYS_UID_MAX\s+/ { uid=$2 } END { print uid }' /etc/login.defs 2>/dev/null || echo 999`"])
 
@@ -1138,7 +1138,7 @@ AC_SUBST(SYSTEM_UID_MAX)
 # ------------------------------------------------------------------------------
 AC_ARG_WITH(system-gid-max,
         AS_HELP_STRING([--with-system-gid-max=GID]
-                [Maximum GID for system groups]),
+                [maximum GID for system groups]),
         [SYSTEM_GID_MAX="$withval"],
         [SYSTEM_GID_MAX="`awk 'BEGIN { gid=999 } /^\s*SYS_GID_MAX\s+/ { gid=$2 } END { print gid }' /etc/login.defs 2>/dev/null || echo 999`"])
 
@@ -1185,7 +1185,7 @@ AM_CONDITIONAL(ENABLE_RESOLVED, [test "$have_resolved" = "yes"])
 
 AC_ARG_WITH(dns-servers,
         AS_HELP_STRING([--with-dns-servers=DNSSERVERS],
-                [Space-separated list of default DNS servers]),
+                [space-separated list of default DNS servers]),
         [DNS_SERVERS="$withval"],
         [DNS_SERVERS="8.8.8.8 8.8.4.4 2001:4860:4860::8888 2001:4860:4860::8844"])
 
@@ -1194,7 +1194,7 @@ AC_SUBST(DNS_SERVERS)
 
 AC_ARG_WITH(default-dnssec,
         AS_HELP_STRING([--with-default-dnssec=MODE],
-               [Default DNSSEC mode, defaults to "allow-downgrade"]),
+               [default DNSSEC mode, defaults to "allow-downgrade"]),
         [DEFAULT_DNSSEC_MODE="$withval"],
         [DEFAULT_DNSSEC_MODE="allow-downgrade"])
 
@@ -1244,7 +1244,7 @@ AC_SUBST([EFI_ARCH])
 AC_SUBST([EFI_MACHINE_TYPE_NAME])
 
 have_gnuefi=no
-AC_ARG_ENABLE(gnuefi, AS_HELP_STRING([--enable-gnuefi], [Enable optional gnuefi support]))
+AC_ARG_ENABLE(gnuefi, AS_HELP_STRING([--enable-gnuefi], [enable optional gnuefi support]))
 AS_IF([test "x$enable_gnuefi" != "xno"], [
         AC_CHECK_HEADERS(efi/${EFI_ARCH}/efibind.h,
                 [AC_DEFINE(HAVE_GNUEFI, 1, [Define if gnuefi is available])
@@ -1257,14 +1257,14 @@ AS_IF([test "x$enable_gnuefi" != "xno"], [
 
         EFI_LIB_DIR="$efiroot"
         AC_ARG_WITH(efi-libdir,
-                AS_HELP_STRING([--with-efi-libdir=PATH], [Path to EFI lib directory]),
+                AS_HELP_STRING([--with-efi-libdir=PATH], [path to EFI lib directory]),
                 [EFI_LIB_DIR="$withval"], [EFI_LIB_DIR="$efiroot"]
         )
         AC_SUBST([EFI_LIB_DIR])
 
         have_efi_lds=no
         AC_ARG_WITH(efi-ldsdir,
-                AS_HELP_STRING([--with-efi-ldsdir=PATH], [Path to EFI lds directory]),
+                AS_HELP_STRING([--with-efi-ldsdir=PATH], [path to EFI lds directory]),
                 [EFI_LDS_DIR="$withval" && AS_IF([test -f "${EFI_LDS_DIR}/elf_${EFI_ARCH}_efi.lds"],
                         [have_efi_lds=yes])],
                 [AS_FOR([DIR], [EFI_LDS_DIR], ["${EFI_LIB_DIR}/gnuefi" "${EFI_LIB_DIR}"],
@@ -1277,7 +1277,7 @@ AS_IF([test "x$enable_gnuefi" != "xno"], [
                      [have_gnuefi=no])])
 
         AC_ARG_WITH(efi-includedir,
-                AS_HELP_STRING([--with-efi-includedir=PATH], [Path to EFI include directory]),
+                AS_HELP_STRING([--with-efi-includedir=PATH], [path to EFI include directory]),
                 [EFI_INC_DIR="$withval"], [EFI_INC_DIR="/usr/include"]
         )
         AC_SUBST([EFI_INC_DIR])
@@ -1286,7 +1286,7 @@ AM_CONDITIONAL(HAVE_GNUEFI, [test "x$have_gnuefi" = xyes])
 
 # ------------------------------------------------------------------------------
 have_tpm=no
-AC_ARG_ENABLE([tpm], AS_HELP_STRING([--enable-tpm],[Enable optional TPM support]),
+AC_ARG_ENABLE([tpm], AS_HELP_STRING([--enable-tpm], [enable optional TPM support]),
                 [case "${enableval}" in
                         yes) have_tpm=yes ;;
                         no) have_tpm=no ;;
@@ -1309,13 +1309,13 @@ AC_DEFINE_UNQUOTED(SD_TPM_PCR, [$SD_TPM_PCR], [TPM PCR register number to use])
 # ------------------------------------------------------------------------------
 AC_ARG_WITH(rc-local-script-path-start,
         AS_HELP_STRING([--with-rc-local-script-path-start=PATH],
-                [Path to /etc/rc.local]),
+                [path to /etc/rc.local]),
         [RC_LOCAL_SCRIPT_PATH_START="$withval"],
         [RC_LOCAL_SCRIPT_PATH_START="/etc/rc.local"])
 
 AC_ARG_WITH(rc-local-script-path-stop,
         AS_HELP_STRING([--with-rc-local-script-path-stop=PATH],
-                [Path to /usr/sbin/halt.local]),
+                [path to /usr/sbin/halt.local]),
         [RC_LOCAL_SCRIPT_PATH_STOP="$withval"],
         [RC_LOCAL_SCRIPT_PATH_STOP="/usr/sbin/halt.local"])
 
@@ -1328,13 +1328,13 @@ AC_SUBST(RC_LOCAL_SCRIPT_PATH_STOP)
 # ------------------------------------------------------------------------------
 AC_ARG_WITH(kbd-loadkeys,
         AS_HELP_STRING([--with-kbd-loadkeys=PATH],
-                [Path to loadkeys]),
+                [path to loadkeys]),
         [KBD_LOADKEYS="$withval"],
         [KBD_LOADKEYS="/usr/bin/loadkeys"])
 
 AC_ARG_WITH(kbd-setfont,
         AS_HELP_STRING([--with-kbd-setfont=PATH],
-                [Path to setfont]),
+                [path to setfont]),
         [KBD_SETFONT="$withval"],
         [KBD_SETFONT="/usr/bin/setfont"])
 
@@ -1346,7 +1346,7 @@ AC_SUBST(KBD_SETFONT)
 
 AC_ARG_WITH(telinit,
         AS_HELP_STRING([--with-telinit=PATH],
-                [Path to telinit]),
+                [path to telinit]),
         [TELINIT="$withval"],
         [TELINIT="/lib/sysvinit/telinit"])
 
@@ -1410,13 +1410,13 @@ SYSTEM_SYSVRCND_PATH=/etc/rc.d
 
 AC_ARG_WITH([sysvinit-path],
         [AS_HELP_STRING([--with-sysvinit-path=PATH],
-                [Specify the path to where the SysV init scripts are located])],
+                [specify the path to where the SysV init scripts are located])],
         [SYSTEM_SYSVINIT_PATH="$withval"],
         [])
 
 AC_ARG_WITH([sysvrcnd-path],
         [AS_HELP_STRING([--with-sysvrcnd-path=PATH],
-                [Specify the path to the base directory for the SysV rcN.d directories])],
+                [specify the path to the base directory for the SysV rcN.d directories])],
         [SYSTEM_SYSVRCND_PATH="$withval"],
         [])
 
@@ -1438,7 +1438,7 @@ AM_CONDITIONAL(HAVE_SYSV_COMPAT, test "$SYSTEM_SYSV_COMPAT" = "yes")
 
 AC_ARG_WITH([tty-gid],
         [AS_HELP_STRING([--with-tty-gid=GID],
-                [Specify the numeric GID of the 'tty' group])],
+                [specify the numeric GID of the 'tty' group])],
         [TTY_GID="$withval"],
         [TTY_GID="5"])
 
@@ -1464,7 +1464,7 @@ AC_ARG_WITH([dbussystemservicedir],
 AX_NORMALIZE_PATH([with_dbussystemservicedir])
 
 AC_ARG_WITH([bashcompletiondir],
-        AS_HELP_STRING([--with-bashcompletiondir=DIR], [Bash completions directory]),
+        AS_HELP_STRING([--with-bashcompletiondir=DIR], [bash completions directory]),
         [],
         [AS_IF([$($PKG_CONFIG --exists bash-completion)], [
                 with_bashcompletiondir=$($PKG_CONFIG --variable=completionsdir bash-completion)
@@ -1475,7 +1475,7 @@ AM_CONDITIONAL(ENABLE_BASH_COMPLETION, [test "$with_bashcompletiondir" != "no"])
 AX_NORMALIZE_PATH([with_bashcompletiondir])
 
 AC_ARG_WITH([zshcompletiondir],
-        AS_HELP_STRING([--with-zshcompletiondir=DIR], [Zsh completions directory]),
+        AS_HELP_STRING([--with-zshcompletiondir=DIR], [zsh completions directory]),
         [], [with_zshcompletiondir=${datadir}/zsh/site-functions])
 AM_CONDITIONAL(ENABLE_ZSH_COMPLETION, [test "$with_zshcompletiondir" != "no"])
 AX_NORMALIZE_PATH([with_zshcompletiondir])
@@ -1493,26 +1493,26 @@ fi
 AX_NORMALIZE_PATH([with_rootprefix])
 
 AC_ARG_WITH([rootlibdir],
-        AS_HELP_STRING([--with-rootlibdir=DIR], [Root directory for libraries necessary for boot]),
+        AS_HELP_STRING([--with-rootlibdir=DIR], [root directory for libraries necessary for boot]),
         [],
         [with_rootlibdir=${libdir}])
 AX_NORMALIZE_PATH([with_rootlibdir])
 
 AC_ARG_WITH([pamlibdir],
-        AS_HELP_STRING([--with-pamlibdir=DIR], [Directory for PAM modules]),
+        AS_HELP_STRING([--with-pamlibdir=DIR], [directory for PAM modules]),
         [],
         [with_pamlibdir=${with_rootlibdir}/security])
 AX_NORMALIZE_PATH([with_pamlibdir])
 
 AC_ARG_WITH([pamconfdir],
-        AS_HELP_STRING([--with-pamconfdir=DIR], [Directory for PAM configuration (pass no to disable installing)]),
+        AS_HELP_STRING([--with-pamconfdir=DIR], [directory for PAM configuration (pass no to disable installing)]),
         [],
         [with_pamconfdir=${sysconfdir}/pam.d])
 AM_CONDITIONAL(ENABLE_PAM_CONFIG, [test "$with_pamconfdir" != "no"])
 AX_NORMALIZE_PATH([with_pamconfdir])
 
 AC_ARG_ENABLE([split-usr],
-        AS_HELP_STRING([--enable-split-usr], [Assume that /bin, /sbin aren\'t symlinks into /usr]),
+        AS_HELP_STRING([--enable-split-usr], [assume that /bin, /sbin aren't symlinks into /usr]),
         [],
         [AS_IF([test "x${ac_default_prefix}" != "x${with_rootprefix}"], [
                 enable_split_usr=yes
