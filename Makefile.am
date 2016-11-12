@@ -633,7 +633,6 @@ EXTRA_DIST += \
 	units/halt-local.service.in
 
 GENERAL_ALIASES += \
-	$(systemunitdir)/reboot.target $(pkgsysconfdir)/system/ctrl-alt-del.target \
 	$(systemunitdir)/machines.target $(pkgsysconfdir)/system/multi-user.target.wants/machines.target
 
 dist_doc_DATA = \
