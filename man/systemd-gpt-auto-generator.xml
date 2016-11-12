@@ -123,6 +123,11 @@
             <entry>On 64-bit ARM systems, the first ARM root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
           </row>
           <row>
+            <entry>993d8d3d-f80e-4225-855a-9daf8ed7ea97</entry>
+            <entry><filename>Root Partition (Itanium/IA-64)</filename></entry>
+            <entry>On Itanium systems, the first Itanium root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
+          </row>
+          <row>
             <entry>933ac7e1-2eb4-4f13-b844-0e14e2aef915</entry>
             <entry>Home Partition</entry>
             <entry>The first home partition on the disk the root partition is located on is mounted to <filename>/home</filename>.</entry>
