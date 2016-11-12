@@ -5,6 +5,7 @@ CHANGES WITH 233 in spe
         * The confirmation spawn prompt has been reworked to offer the
           following choices:
 
+           (D)ump, show the state of the unit
            (f)ail, don't execute the command and pretend it failed
            (h)elp
            (i)nfo, show a short summary of the unit

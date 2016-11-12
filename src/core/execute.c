@@ -740,7 +740,7 @@ static int ask_for_confirmation(const char *vc, Unit *u, const char *cmdline) {
         }
 
         for (;;) {
-                r = ask_char(&c, "yfshi", "Execute %s? [y, f, s – h for help] ", e);
+                r = ask_char(&c, "yfshiD", "Execute %s? [y, f, s – h for help] ", e);
                 if (r < 0) {
                         write_confirm_error_fd(r, STDOUT_FILENO);
                         r = CONFIRM_EXECUTE;
@@ -748,17 +748,21 @@ static int ask_for_confirmation(const char *vc, Unit *u, const char *cmdline) {
                 }
 
                 switch (c) {
+                case 'D':
+                        unit_dump(u, stdout, "  ");
+                        continue; /* ask again */
                 case 'f':
                         printf("Failing execution.\n");
                         r = CONFIRM_PRETEND_FAILURE;
                         break;
                 case 'h':
-                        printf("  f - fail, don't execute the command and pretend it failed\n"
+                        printf("  D - dump, show the state of the unit\n"
+                               "  f - fail, don't execute the command and pretend it failed\n"
                                "  h - help\n"
                                "  i - info, show a short summary of the unit\n"
                                "  s - skip, don't execute the command and pretend it succeeded\n"
                                "  y - yes, execute the command\n");
-                        continue;
+                        continue; /* ask again */
                 case 'i':
                         printf("  Description: %s\n"
                                "  Unit:        %s\n"
