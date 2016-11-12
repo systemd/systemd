@@ -2432,17 +2432,24 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **un
         assert(unit_path);
 
         STRV_FOREACH(p, lp->search_path) {
-                _cleanup_free_ char *path;
+                _cleanup_free_ char *path = NULL, *lpath = NULL;
+                int r;
 
                 path = path_join(arg_root, *p, unit_name);
                 if (!path)
                         return log_oom();
 
-                if (access(path, F_OK) == 0) {
-                        *unit_path = path;
-                        path = NULL;
-                        return 1;
-                }
+                r = chase_symlinks(path, arg_root, &lpath);
+                if (r == -ENOENT)
+                        continue;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to access path '%s': %m", path);
+
+                *unit_path = lpath;
+                lpath = NULL;
+                return 1;
         }
 
         return 0;
@@ -2509,10 +2516,6 @@ static int unit_find_paths(
                 if (!names)
                         return log_oom();
 
-                r = set_put(names, unit_name);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add unit name: %m");
-
                 r = unit_file_find_path(lp, unit_name, &path);
                 if (r < 0)
                         return r;
@@ -2529,6 +2532,10 @@ static int unit_find_paths(
                                         return r;
                         }
                 }
+
+                r = set_put(names, basename(path));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add unit name: %m");
 
                 if (dropin_paths) {
                         r = unit_file_find_dropin_paths(lp->search_path, NULL, names, &dropins);
@@ -6735,9 +6742,9 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
 
                 if (path) {
                         if (arg_full)
-                                r = unit_file_create_copy(&lp, *name, path, &new_path, &tmp_path);
+                                r = unit_file_create_copy(&lp, basename(path), path, &new_path, &tmp_path);
                         else
-                                r = unit_file_create_new(&lp, *name, ".d/override.conf", &new_path, &tmp_path);
+                                r = unit_file_create_new(&lp, basename(path), ".d/override.conf", &new_path, &tmp_path);
                 } else
                         r = unit_file_create_new(&lp, *name, NULL, &new_path, &tmp_path);
                 if (r < 0)
