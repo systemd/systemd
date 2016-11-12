@@ -7,6 +7,7 @@ CHANGES WITH 233 in spe
 
            (f)ail, don't execute the command and pretend it failed
            (h)elp
+           (i)nfo, show a short summary of the unit
            (s)kip, don't execute the command and pretend it succeeded
            (y)es, execute the command
 
