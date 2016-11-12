@@ -481,6 +481,123 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>IPAccounting=</varname></term>
+
+        <listitem>
+          <para>Takes a boolean argument. If true, turns on IPv4 and IPv6 network traffic accounting for packets sent
+          or received by the unit. When this option is turned on, all IPv4 and IPv6 sockets created by any process of
+          the unit are accounted for. When this option is used in socket units, it applies to all IPv4 and IPv6 sockets
+          associated with it (including both listening and connection sockets where this applies). Note that for
+          socket-activated services, this configuration setting and the accounting data of the service unit and the
+          socket unit are kept separate, and displayed separately. No propagation of the setting and the collected
+          statistics is done, in either direction. Moreover, any traffic sent or received on any of the socket unit's
+          sockets is accounted to the socket unit — and never to the service unit it might have activated, even if the
+          socket is used by it. Note that IP accounting is currently not supported for slice units, and enabling this
+          option for them has no effect. The system default for this setting may be controlled with
+          <varname>DefaultIPAccounting=</varname> in
+          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IPAddressAllow=<replaceable>ADDDRESS[/PREFIXLENGTH]…</replaceable></varname></term>
+        <term><varname>IPAddressDeny=<replaceable>ADDRESS[/PREFIXLENGTH]…</replaceable></varname></term>
+
+        <listitem>
+          <para>Turn on address range network traffic filtering for packets sent and received over AF_INET and AF_INET6
+          sockets.  Both directives take a space separated list of IPv4 or IPv6 addresses, each optionally suffixed
+          with an address prefix length (separated by a <literal>/</literal> character). If the latter is omitted, the
+          address is considered a host address, i.e. the prefix covers the whole address (32 for IPv4, 128 for IPv6).
+          </para>
+
+          <para>The access lists configured with this option are applied to all sockets created by processes of this
+          unit (or in the case of socket units, associated with it). The lists are implicitly combined with any lists
+          configured for any of the parent slice units this unit might be a member of. By default all access lists are
+          empty. When configured the lists are enforced as follows:</para>
+
+          <itemizedlist>
+            <listitem><para>Access will be granted in case its destination/source address matches any entry in the
+            <varname>IPAddressAllow=</varname> setting.</para></listitem>
+
+            <listitem><para>Otherwise, access will be denied in case its destination/source address matches any entry
+            in the <varname>IPAddressDeny=</varname> setting.</para></listitem>
+
+            <listitem><para>Otherwise, access will be granted.</para></listitem>
+          </itemizedlist>
+
+          <para>In order to implement a whitelisting IP firewall, it is recommended to use a
+          <varname>IPAddressDeny=</varname><constant>any</constant> setting on an upper-level slice unit (such as the
+          root slice <filename>-.slice</filename> or the slice containing all system services
+          <filename>system.slice</filename> – see
+          <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+          details on these slice units), plus individual per-service <varname>IPAddressAllow=</varname> lines
+          permitting network access to relevant services, and only them.</para>
+
+          <para>Note that for socket-activated services, the IP access list configured on the socket unit applies to
+          all sockets associated with it directly, but not to any sockets created by the ultimately activated services
+          for it. Conversely, the IP access list configured for the service is not applied to any sockets passed into
+          the service via socket activation. Thus, it is usually a good idea, to replicate the IP access lists on both
+          the socket and the service unit, however it often makes sense to maintain one list more open and the other
+          one more restricted, depending on the usecase.</para>
+
+          <para>If these settings are used multiple times in the same unit the specified lists are combined. If an
+          empty string is assigned to these settings the specific access list is reset and all previous settings undone.</para>
+
+          <para>In place of explicit IPv4 or IPv6 address and prefix length specifications a small set of symbolic
+          names may be used. The following names are defined:</para>
+
+          <table>
+            <title>Special address/network names</title>
+
+            <tgroup cols='3'>
+              <colspec colname='name'/>
+              <colspec colname='definition'/>
+              <colspec colname='meaning'/>
+
+              <thead>
+                <row>
+                  <entry>Symbolic Name</entry>
+                  <entry>Definition</entry>
+                  <entry>Meaning</entry>
+                </row>
+              </thead>
+
+            <tbody>
+              <row>
+                <entry><constant>any</constant></entry>
+                <entry>0.0.0.0/0 ::/0</entry>
+                <entry>Any host</entry>
+              </row>
+
+              <row>
+                <entry><constant>localhost</constant></entry>
+                <entry>127.0.0.0/8 ::1/128</entry>
+                <entry>All addresses on the local loopback</entry>
+              </row>
+
+              <row>
+                <entry><constant>link-local</constant></entry>
+                <entry>169.254.0.0/16 fe80::/64</entry>
+                <entry>All link-local IP addresses</entry>
+              </row>
+
+              <row>
+                <entry><constant>multicast</constant></entry>
+                <entry>224.0.0.0/4 ff00::/8</entry>
+                <entry>All IP multicasting addresses</entry>
+              </row>
+            </tbody>
+            </tgroup>
+          </table>
+
+          <para>Note that these settings might not be supported on some systems (for example if eBPF control group
+          support is not enabled in the underlying kernel or container manager). These settings will have no effect in
+          that case. If compatibility with such systems is desired it is hence recommended to not exclusively rely on
+          them for IP security.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DeviceAllow=</varname></term>
 
         <listitem>

@@ -1009,17 +1009,17 @@ PartOf=graphical-session.target
   <refsect1>
     <title>Special Slice Units</title>
 
-    <para>There are four <literal>.slice</literal> units which form
-    the basis of the hierarchy for assignment of resources for
-    services, users, and virtual machines or containers.</para>
+    <para>There are four <literal>.slice</literal> units which form the basis of the hierarchy for assignment of
+    resources for services, users, and virtual machines or containers. See
+    <citerefentry><refentrytitle>-.slice</refentrytitle><manvolnum>7</manvolnum></citerefentry> for details about slice
+    units.</para>
 
     <variablelist>
       <varlistentry>
         <term><filename>-.slice</filename></term>
         <listitem>
-          <para>The root slice is the root of the hierarchy. It
-          usually does not contain units directly, but may be used to
-          set defaults for the whole tree.</para>
+          <para>The root slice is the root of the slice hierarchy. It usually does not contain units directly, but may
+          be used to set defaults for the whole tree.</para>
         </listitem>
       </varlistentry>
 
