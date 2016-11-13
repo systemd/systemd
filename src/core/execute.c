@@ -731,7 +731,7 @@ static int ask_for_confirmation(const char *vc, const char *cmdline) {
                 return CONFIRM_EXECUTE;
         }
 
-        r = ask_char(&c, "yns", "Execute %s? [Yes, No, Skip] ", cmdline);
+        r = ask_char(&c, "yfs", "Execute %s? [Yes, Fail, Skip] ", cmdline);
         if (r < 0) {
                 write_confirm_error_fd(r, STDOUT_FILENO);
                 r = CONFIRM_EXECUTE;
@@ -739,13 +739,13 @@ static int ask_for_confirmation(const char *vc, const char *cmdline) {
         }
 
         switch (c) {
-        case 'n':
+        case 'f':
                 printf("Failing execution.\n");
-                r = CONFIRM_PRETEND_SUCCESS;
+                r = CONFIRM_PRETEND_FAILURE;
                 break;
         case 's':
                 printf("Skipping execution.\n");
-                r = CONFIRM_PRETEND_FAILURE;
+                r = CONFIRM_PRETEND_SUCCESS;
                 break;
         case 'y':
                 r = CONFIRM_EXECUTE;

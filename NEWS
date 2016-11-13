@@ -1,5 +1,17 @@
 systemd System and Service Manager
 
+CHANGES WITH 233 in spe
+
+        * The confirmation spawn prompt has been reworked to offer the
+          following choices:
+
+           (f)ail, don't execute the command and pretend it failed
+           (s)kip, don't execute the command and pretend it succeeded
+           (y)es, execute the command
+
+          The 'n' choice for the confirmation spawn prompt has been removed,
+          because its meaning was confusing.
+
 CHANGES WITH 232:
 
         * The new RemoveIPC= option can be used to remove IPC objects owned by
