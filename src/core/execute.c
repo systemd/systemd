@@ -740,7 +740,7 @@ static int ask_for_confirmation(const char *vc, Unit *u, const char *cmdline) {
         }
 
         for (;;) {
-                r = ask_char(&c, "yfshiD", "Execute %s? [y, f, s – h for help] ", e);
+                r = ask_char(&c, "yfshiDj", "Execute %s? [y, f, s – h for help] ", e);
                 if (r < 0) {
                         write_confirm_error_fd(r, STDOUT_FILENO);
                         r = CONFIRM_EXECUTE;
@@ -760,6 +760,7 @@ static int ask_for_confirmation(const char *vc, Unit *u, const char *cmdline) {
                                "  f - fail, don't execute the command and pretend it failed\n"
                                "  h - help\n"
                                "  i - info, show a short summary of the unit\n"
+                               "  j - jobs, show jobs that are in progress\n"
                                "  s - skip, don't execute the command and pretend it succeeded\n"
                                "  y - yes, execute the command\n");
                         continue; /* ask again */
@@ -768,6 +769,9 @@ static int ask_for_confirmation(const char *vc, Unit *u, const char *cmdline) {
                                "  Unit:        %s\n"
                                "  Command:     %s\n",
                                u->id, u->description, cmdline);
+                        continue; /* ask again */
+                case 'j':
+                        manager_dump_jobs(u->manager, stdout, "  ");
                         continue; /* ask again */
                 case 's':
                         printf("Skipping execution.\n");
