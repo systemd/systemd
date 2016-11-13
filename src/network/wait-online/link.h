@@ -20,9 +20,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-typedef struct Link Link;
+#include "sd-netlink.h"
 
-#include "networkd-wait-online.h"
+typedef struct Link Link;
+typedef struct Manager Manager;
 
 struct Link {
         Manager *manager;

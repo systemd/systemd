@@ -21,7 +21,9 @@
 #include "sd-network.h"
 
 #include "alloc-util.h"
-#include "networkd-wait-online-link.h"
+#include "hashmap.h"
+#include "link.h"
+#include "manager.h"
 #include "string-util.h"
 
 int link_new(Manager *m, Link **ret, int ifindex, const char *ifname) {

@@ -26,8 +26,7 @@
 #include "hashmap.h"
 
 typedef struct Manager Manager;
-
-#include "networkd-wait-online-link.h"
+typedef struct Link Link;
 
 struct Manager {
         Hashmap *links;

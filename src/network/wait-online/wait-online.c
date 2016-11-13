@@ -22,7 +22,7 @@
 
 #include "sd-daemon.h"
 
-#include "networkd-wait-online.h"
+#include "manager.h"
 #include "signal-util.h"
 #include "strv.h"
 

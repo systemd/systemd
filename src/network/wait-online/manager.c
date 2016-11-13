@@ -22,10 +22,10 @@
 #include <fnmatch.h>
 
 #include "alloc-util.h"
+#include "link.h"
+#include "manager.h"
 #include "netlink-util.h"
 #include "network-internal.h"
-#include "networkd-wait-online-link.h"
-#include "networkd-wait-online.h"
 #include "time-util.h"
 #include "util.h"
 
