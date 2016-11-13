@@ -20,8 +20,8 @@
 #include "sd-daemon.h"
 
 #include "capability-util.h"
-#include "networkd.h"
 #include "networkd-conf.h"
+#include "networkd-manager.h"
 #include "signal-util.h"
 #include "user-util.h"
 

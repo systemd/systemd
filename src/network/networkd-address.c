@@ -24,7 +24,7 @@
 #include "firewall-util.h"
 #include "netlink-util.h"
 #include "networkd-address.h"
-#include "networkd.h"
+#include "networkd-manager.h"
 #include "parse-util.h"
 #include "set.h"
 #include "socket-util.h"

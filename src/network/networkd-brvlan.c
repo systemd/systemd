@@ -25,7 +25,9 @@
 #include "conf-parser.h"
 #include "netlink-util.h"
 #include "networkd-brvlan.h"
-#include "networkd.h"
+#include "networkd-link.h"
+#include "networkd-manager.h"
+#include "networkd-network.h"
 #include "parse-util.h"
 #include "vlan-util.h"
 

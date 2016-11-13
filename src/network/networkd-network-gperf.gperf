@@ -1,8 +1,8 @@
 %{
 #include <stddef.h>
 #include "conf-parser.h"
-#include "networkd.h"
 #include "networkd-conf.h"
+#include "networkd-network.h"
 #include "network-internal.h"
 #include "vlan-util.h"
 %}

@@ -31,9 +31,9 @@
 #include "networkd-brvlan.h"
 #include "networkd-fdb.h"
 #include "networkd-lldp-tx.h"
-#include "networkd-netdev.h"
 #include "networkd-route.h"
 #include "networkd-util.h"
+#include "netdev/netdev.h"
 
 #define DHCP_ROUTE_METRIC 1024
 #define IPV4LL_ROUTE_METRIC 2048
@@ -213,7 +213,7 @@ int network_load(Manager *manager);
 
 int network_get_by_name(Manager *manager, const char *name, Network **ret);
 int network_get(Manager *manager, struct udev_device *device, const char *ifname, const struct ether_addr *mac, Network **ret);
-int network_apply(Manager *manager, Network *network, Link *link);
+int network_apply(Network *network, Link *link);
 
 bool network_has_static_ipv6_addresses(Network *network);
 

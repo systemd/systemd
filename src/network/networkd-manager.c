@@ -33,7 +33,7 @@
 #include "libudev-private.h"
 #include "local-addresses.h"
 #include "netlink-util.h"
-#include "networkd.h"
+#include "networkd-manager.h"
 #include "ordered-set.h"
 #include "path-util.h"
 #include "set.h"
