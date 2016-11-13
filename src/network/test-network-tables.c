@@ -3,8 +3,10 @@
 #include "ethtool-util.h"
 #include "netlink-internal.h"
 #include "netdev/bond.h"
+#include "netdev/ipvlan.h"
 #include "netdev/macvlan.h"
-#include "networkd.h"
+#include "networkd-link.h"
+#include "networkd-util.h"
 #include "test-tables.h"
 
 int main(int argc, char **argv) {

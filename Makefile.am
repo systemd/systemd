@@ -5610,11 +5610,6 @@ libnetworkd_core_la_CFLAGS = \
 
 libnetworkd_core_la_SOURCES = \
 	src/libsystemd-network/network-internal.h \
-	src/network/networkd.h \
-	src/network/networkd-conf.h \
-	src/network/networkd-conf.c \
-	src/network/networkd-link.h \
-	src/network/networkd-link.c \
 	src/network/netdev/netdev.h \
 	src/network/netdev/netdev.c \
 	src/network/netdev/vrf.h \
@@ -5641,6 +5636,13 @@ libnetworkd_core_la_SOURCES = \
 	src/network/netdev/bridge.c \
 	src/network/netdev/vcan.h \
 	src/network/netdev/vcan.c \
+	src/network/networkd-manager.h \
+	src/network/networkd-manager.c \
+	src/network/networkd-manager-bus.c \
+	src/network/networkd-conf.h \
+	src/network/networkd-conf.c \
+	src/network/networkd-link.h \
+	src/network/networkd-link.c \
 	src/network/networkd-link-bus.c \
 	src/network/networkd-ipv4ll.c \
 	src/network/networkd-dhcp4.c \
@@ -5654,8 +5656,6 @@ libnetworkd_core_la_SOURCES = \
 	src/network/networkd-address.c \
 	src/network/networkd-route.h \
 	src/network/networkd-route.c \
-	src/network/networkd-manager.c \
-	src/network/networkd-manager-bus.c \
 	src/network/networkd-fdb.h \
 	src/network/networkd-fdb.c \
 	src/network/networkd-brvlan.h \

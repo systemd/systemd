@@ -18,11 +18,12 @@
 ***/
 
 #include <netinet/icmp6.h>
+#include <arpa/inet.h>
 
 #include "sd-ndisc.h"
 
-#include "networkd.h"
 #include "networkd-ndisc.h"
+#include "networkd-route.h"
 
 #define NDISC_DNSSL_MAX 64U
 #define NDISC_RDNSS_MAX 64U
