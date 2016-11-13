@@ -4,7 +4,6 @@
 #include "netlink-internal.h"
 #include "netdev/bond.h"
 #include "netdev/macvlan.h"
-#include "networkd.h"
 #include "test-tables.h"
 
 int main(int argc, char **argv) {

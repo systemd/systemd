@@ -23,7 +23,8 @@
 #include "sd-dhcp6-client.h"
 
 #include "network-internal.h"
-#include "networkd.h"
+#include "networkd-link.h"
+#include "networkd-manager.h"
 
 static int dhcp6_lease_address_acquired(sd_dhcp6_client *client, Link *link);
 
@@ -125,7 +126,6 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
 
         assert(link);
         assert(link->network);
-        assert(link->manager);
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return;

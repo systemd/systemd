@@ -20,7 +20,7 @@
 #include "alloc-util.h"
 #include "bus-util.h"
 #include "networkd-link.h"
-#include "networkd.h"
+#include "networkd-manager.h"
 #include "parse-util.h"
 #include "strv.h"
 

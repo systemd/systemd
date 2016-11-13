@@ -18,7 +18,7 @@
 ***/
 
 #include "alloc-util.h"
-#include "networkd.h"
+#include "networkd-manager.h"
 #include "string-util.h"
 #include "strv.h"
 

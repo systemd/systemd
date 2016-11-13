@@ -32,20 +32,7 @@
 
 #include "networkd-address-pool.h"
 #include "networkd-link.h"
-#include "netdev/bond.h"
-#include "netdev/bridge.h"
-#include "netdev/dummy.h"
-#include "netdev/ipvlan.h"
-#include "netdev/macvlan.h"
-#include "netdev/tunnel.h"
-#include "netdev/tuntap.h"
-#include "netdev/veth.h"
-#include "netdev/vlan.h"
-#include "netdev/vrf.h"
-#include "netdev/vxlan.h"
-#include "netdev/vcan.h"
 #include "networkd-network.h"
-#include "networkd-util.h"
 
 extern const char* const network_dirs[];
 

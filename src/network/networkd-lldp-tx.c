@@ -26,7 +26,7 @@
 #include "fileio.h"
 #include "hostname-util.h"
 #include "networkd-lldp-tx.h"
-#include "networkd.h"
+#include "networkd-manager.h"
 #include "parse-util.h"
 #include "random-util.h"
 #include "socket-util.h"

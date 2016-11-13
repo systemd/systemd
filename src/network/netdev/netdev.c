@@ -27,11 +27,24 @@
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "netdev/netdev.h"
-#include "networkd.h"
+#include "networkd-manager.h"
 #include "siphash24.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+
+#include "netdev/bridge.h"
+#include "netdev/bond.h"
+#include "netdev/vlan.h"
+#include "netdev/macvlan.h"
+#include "netdev/ipvlan.h"
+#include "netdev/vxlan.h"
+#include "netdev/tunnel.h"
+#include "netdev/tuntap.h"
+#include "netdev/veth.h"
+#include "netdev/dummy.h"
+#include "netdev/vrf.h"
+#include "netdev/vcan.h"
 
 const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_BRIDGE] = &bridge_vtable,

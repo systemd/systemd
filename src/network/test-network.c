@@ -20,7 +20,7 @@
 #include "alloc-util.h"
 #include "dhcp-lease-internal.h"
 #include "network-internal.h"
-#include "networkd.h"
+#include "networkd-manager.h"
 
 static void test_deserialize_in_addr(void) {
         _cleanup_free_ struct in_addr *addresses = NULL;

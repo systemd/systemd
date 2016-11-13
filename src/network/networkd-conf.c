@@ -22,8 +22,10 @@
 #include "conf-parser.h"
 #include "def.h"
 #include "dhcp-identifier.h"
+#include "extract-word.h"
 #include "hexdecoct.h"
 #include "networkd-conf.h"
+#include "networkd-network.h"
 #include "string-table.h"
 
 int manager_parse_config_file(Manager *m) {
