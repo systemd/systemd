@@ -1,7 +1,9 @@
+#pragma once
+
 /***
   This file is part of systemd.
 
-  Copyright 2016 Susant Sahani
+  Copyright 2014 Tom Gundersen <teg@jklm.no>
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -17,9 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "networkd-netdev-vcan.h"
+#include "netdev/netdev.h"
 
-const NetDevVTable vcan_vtable = {
-        .object_size = sizeof(VCan),
-        .create_type = NETDEV_CREATE_INDEPENDENT,
-};
+typedef struct Dummy {
+        NetDev meta;
+} Dummy;
+
+DEFINE_NETDEV_CAST(DUMMY, Dummy);
+extern const NetDevVTable dummy_vtable;

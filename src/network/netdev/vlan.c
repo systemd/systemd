@@ -19,7 +19,7 @@
 
 #include <net/if.h>
 
-#include "networkd-netdev-vlan.h"
+#include "netdev/vlan.h"
 #include "vlan-util.h"
 
 static int netdev_vlan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *req) {

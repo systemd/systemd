@@ -3,7 +3,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2016 Andreas Rammhold <andreas@rammhold.de>
+  Copyright 2014 Tom Gundersen <teg@jklm.no>
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -19,15 +19,23 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-typedef struct Vrf Vrf;
+#include "netdev/netdev.h"
 
-#include "networkd-netdev.h"
-
-struct Vrf {
+typedef struct Bridge {
         NetDev meta;
 
-        uint32_t table_id;
-};
+        int mcast_querier;
+        int mcast_snooping;
+        int vlan_filtering;
+        int stp;
+        uint16_t priority;
+        uint16_t default_pvid;
 
-DEFINE_NETDEV_CAST(VRF, Vrf);
-extern const NetDevVTable vrf_vtable;
+        usec_t forward_delay;
+        usec_t hello_time;
+        usec_t max_age;
+        usec_t ageing_time;
+} Bridge;
+
+DEFINE_NETDEV_CAST(BRIDGE, Bridge);
+extern const NetDevVTable bridge_vtable;

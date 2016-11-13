@@ -21,7 +21,7 @@
 
 #include "sd-netlink.h"
 #include "missing.h"
-#include "networkd-netdev-vrf.h"
+#include "netdev/vrf.h"
 
 static int netdev_vrf_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         Vrf *v;

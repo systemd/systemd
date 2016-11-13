@@ -21,7 +21,7 @@
 
 #include "in-addr-util.h"
 
-#include "networkd-netdev.h"
+#include "netdev/netdev.h"
 
 typedef enum Ip6TnlMode {
         NETDEV_IP6_TNL_MODE_IP6IP6,

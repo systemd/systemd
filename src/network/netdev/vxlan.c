@@ -28,7 +28,7 @@
 #include "missing.h"
 
 #include "networkd-link.h"
-#include "networkd-netdev-vxlan.h"
+#include "netdev/vxlan.h"
 
 static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         VxLan *v;

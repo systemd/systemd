@@ -27,7 +27,7 @@
 #include "conf-parser.h"
 #include "extract-word.h"
 #include "missing.h"
-#include "networkd-netdev-bond.h"
+#include "netdev/bond.h"
 #include "string-table.h"
 #include "string-util.h"
 

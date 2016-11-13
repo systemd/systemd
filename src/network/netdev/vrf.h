@@ -3,7 +3,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2014 Tom Gundersen <teg@jklm.no>
+  Copyright 2016 Andreas Rammhold <andreas@rammhold.de>
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -19,15 +19,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-typedef struct VLan VLan;
+typedef struct Vrf Vrf;
 
-#include "networkd-netdev.h"
+#include "netdev/netdev.h"
 
-struct VLan {
+struct Vrf {
         NetDev meta;
 
-        uint16_t id;
+        uint32_t table_id;
 };
 
-DEFINE_NETDEV_CAST(VLAN, VLan);
-extern const NetDevVTable vlan_vtable;
+DEFINE_NETDEV_CAST(VRF, Vrf);
+extern const NetDevVTable vrf_vtable;

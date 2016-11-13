@@ -26,7 +26,7 @@
 #include "list.h"
 #include "netlink-util.h"
 #include "network-internal.h"
-#include "networkd-netdev.h"
+#include "netdev/netdev.h"
 #include "networkd.h"
 #include "siphash24.h"
 #include "stat-util.h"

@@ -20,7 +20,7 @@
 ***/
 
 #include "missing.h"
-#include "networkd-netdev.h"
+#include "netdev/netdev.h"
 
 typedef enum IPVlanMode {
         NETDEV_IPVLAN_MODE_L2 = IPVLAN_MODE_L2,

@@ -19,11 +19,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "networkd-netdev.h"
+typedef struct VLan VLan;
 
-typedef struct Dummy {
+#include "netdev/netdev.h"
+
+struct VLan {
         NetDev meta;
-} Dummy;
 
-DEFINE_NETDEV_CAST(DUMMY, Dummy);
-extern const NetDevVTable dummy_vtable;
+        uint16_t id;
+};
+
+DEFINE_NETDEV_CAST(VLAN, VLan);
+extern const NetDevVTable vlan_vtable;

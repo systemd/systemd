@@ -19,7 +19,7 @@
 ***/
 
 
-#include "networkd-netdev-dummy.h"
+#include "netdev/dummy.h"
 
 const NetDevVTable dummy_vtable = {
         .object_size = sizeof(Dummy),

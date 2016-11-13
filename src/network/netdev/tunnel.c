@@ -28,7 +28,7 @@
 #include "conf-parser.h"
 #include "missing.h"
 #include "networkd-link.h"
-#include "networkd-netdev-tunnel.h"
+#include "netdev/tunnel.h"
 #include "parse-util.h"
 #include "string-table.h"
 #include "string-util.h"

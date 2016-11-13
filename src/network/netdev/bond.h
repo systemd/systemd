@@ -22,7 +22,7 @@
 #include "in-addr-util.h"
 #include "list.h"
 
-#include "networkd-netdev.h"
+#include "netdev/netdev.h"
 
 /*
  * Maximum number of targets supported by the kernel for a single

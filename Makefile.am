@@ -5615,32 +5615,32 @@ libnetworkd_core_la_SOURCES = \
 	src/network/networkd-conf.c \
 	src/network/networkd-link.h \
 	src/network/networkd-link.c \
-	src/network/networkd-netdev.h \
-	src/network/networkd-netdev.c \
-	src/network/networkd-netdev-vrf.h \
-	src/network/networkd-netdev-vrf.c \
-	src/network/networkd-netdev-tunnel.h \
-	src/network/networkd-netdev-tunnel.c \
-	src/network/networkd-netdev-veth.h \
-	src/network/networkd-netdev-veth.c \
-	src/network/networkd-netdev-vxlan.h \
-	src/network/networkd-netdev-vxlan.c \
-	src/network/networkd-netdev-vlan.h \
-	src/network/networkd-netdev-vlan.c \
-	src/network/networkd-netdev-macvlan.h \
-	src/network/networkd-netdev-macvlan.c \
-	src/network/networkd-netdev-ipvlan.h \
-	src/network/networkd-netdev-ipvlan.c \
-	src/network/networkd-netdev-dummy.h \
-	src/network/networkd-netdev-dummy.c \
-	src/network/networkd-netdev-tuntap.h \
-	src/network/networkd-netdev-tuntap.c \
-	src/network/networkd-netdev-bond.h \
-	src/network/networkd-netdev-bond.c \
-	src/network/networkd-netdev-bridge.h \
-	src/network/networkd-netdev-bridge.c \
-	src/network/networkd-netdev-vcan.h \
-	src/network/networkd-netdev-vcan.c \
+	src/network/netdev/netdev.h \
+	src/network/netdev/netdev.c \
+	src/network/netdev/vrf.h \
+	src/network/netdev/vrf.c \
+	src/network/netdev/tunnel.h \
+	src/network/netdev/tunnel.c \
+	src/network/netdev/veth.h \
+	src/network/netdev/veth.c \
+	src/network/netdev/vxlan.h \
+	src/network/netdev/vxlan.c \
+	src/network/netdev/vlan.h \
+	src/network/netdev/vlan.c \
+	src/network/netdev/macvlan.h \
+	src/network/netdev/macvlan.c \
+	src/network/netdev/ipvlan.h \
+	src/network/netdev/ipvlan.c \
+	src/network/netdev/dummy.h \
+	src/network/netdev/dummy.c \
+	src/network/netdev/tuntap.h \
+	src/network/netdev/tuntap.c \
+	src/network/netdev/bond.h \
+	src/network/netdev/bond.c \
+	src/network/netdev/bridge.h \
+	src/network/netdev/bridge.c \
+	src/network/netdev/vcan.h \
+	src/network/netdev/vcan.c \
 	src/network/networkd-link-bus.c \
 	src/network/networkd-ipv4ll.c \
 	src/network/networkd-dhcp4.c \
@@ -5670,7 +5670,7 @@ libnetworkd_core_la_SOURCES = \
 nodist_libnetworkd_core_la_SOURCES = \
 	src/network/networkd-gperf.c \
 	src/network/networkd-network-gperf.c \
-	src/network/networkd-netdev-gperf.c
+	src/network/netdev/netdev-gperf.c
 
 libnetworkd_core_la_LIBADD = \
 	libsystemd-network.la \
@@ -5774,7 +5774,7 @@ endif
 gperf_gperf_sources += \
 	src/network/networkd-gperf.gperf \
 	src/network/networkd-network-gperf.gperf \
-	src/network/networkd-netdev-gperf.gperf
+	src/network/netdev/netdev-gperf.gperf
 
 EXTRA_DIST += \
 	units/systemd-networkd.service.m4.in \

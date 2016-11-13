@@ -3,7 +3,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2014 Tom Gundersen <teg@jklm.no>
+  Copyright 2016 Susant Sahani
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -19,22 +19,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-typedef struct TunTap TunTap;
+typedef struct VCan VCan;
 
-#include "networkd-netdev.h"
+#include <linux/can/netlink.h>
 
-struct TunTap {
+#include "netdev/netdev.h"
+
+struct VCan {
         NetDev meta;
-
-        char *user_name;
-        char *group_name;
-        bool one_queue;
-        bool multi_queue;
-        bool packet_info;
-        bool vnet_hdr;
 };
 
-DEFINE_NETDEV_CAST(TUN, TunTap);
-DEFINE_NETDEV_CAST(TAP, TunTap);
-extern const NetDevVTable tun_vtable;
-extern const NetDevVTable tap_vtable;
+DEFINE_NETDEV_CAST(VCAN, VCan);
+
+extern const NetDevVTable vcan_vtable;

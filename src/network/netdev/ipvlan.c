@@ -20,7 +20,7 @@
 #include <net/if.h>
 
 #include "conf-parser.h"
-#include "networkd-netdev-ipvlan.h"
+#include "netdev/ipvlan.h"
 #include "string-table.h"
 
 static const char* const ipvlan_mode_table[_NETDEV_IPVLAN_MODE_MAX] = {

@@ -20,7 +20,7 @@
 #include <net/if.h>
 
 #include "conf-parser.h"
-#include "networkd-netdev-macvlan.h"
+#include "netdev/macvlan.h"
 #include "string-table.h"
 
 static const char* const macvlan_mode_table[_NETDEV_MACVLAN_MODE_MAX] = {

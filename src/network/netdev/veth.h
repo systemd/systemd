@@ -21,7 +21,7 @@
 
 typedef struct Veth Veth;
 
-#include "networkd-netdev.h"
+#include "netdev/netdev.h"
 
 struct Veth {
         NetDev meta;

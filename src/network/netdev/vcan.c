@@ -1,9 +1,7 @@
-#pragma once
-
 /***
   This file is part of systemd.
 
-  Copyright 2014 Tom Gundersen <teg@jklm.no>
+  Copyright 2016 Susant Sahani
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -19,23 +17,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "networkd-netdev.h"
+#include "netdev/vcan.h"
 
-typedef struct Bridge {
-        NetDev meta;
-
-        int mcast_querier;
-        int mcast_snooping;
-        int vlan_filtering;
-        int stp;
-        uint16_t priority;
-        uint16_t default_pvid;
-
-        usec_t forward_delay;
-        usec_t hello_time;
-        usec_t max_age;
-        usec_t ageing_time;
-} Bridge;
-
-DEFINE_NETDEV_CAST(BRIDGE, Bridge);
-extern const NetDevVTable bridge_vtable;
+const NetDevVTable vcan_vtable = {
+        .object_size = sizeof(VCan),
+        .create_type = NETDEV_CREATE_INDEPENDENT,
+};
