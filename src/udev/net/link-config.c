@@ -169,7 +169,7 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
         link->duplex = _DUP_INVALID;
         link->autonegotiation = -1;
 
-        memset(&link->features, -1, _NET_DEV_FEAT_MAX);
+        memset(&link->features, -1, sizeof(link->features));
 
         r = config_parse(NULL, filename, file,
                          "Match\0Link\0Ethernet\0",
