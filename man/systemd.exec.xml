@@ -999,7 +999,11 @@
         using <citerefentry><refentrytitle>mmap</refentrytitle><manvolnum>2</manvolnum></citerefentry> of
         <filename>/dev/zero</filename> instead of using <constant>MAP_ANON</constant>. This setting is implied if
         <varname>DynamicUser=</varname> is set. For this setting the same restrictions regarding mount propagation and
-        privileges apply as for <varname>ReadOnlyPaths=</varname> and related calls, see above.</para></listitem>
+        privileges apply as for <varname>ReadOnlyPaths=</varname> and related calls, see above.
+        If turned on and if running in user mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant>
+        capability (e.g. setting <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname>
+        is implied.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1090,9 +1094,11 @@
         mechanism. Almost no services need to write to these at runtime; it is hence recommended to turn this on for
         most services. For this setting the same restrictions regarding mount propagation and privileges apply as for
         <varname>ReadOnlyPaths=</varname> and related calls, see above. Defaults to off.
-        Note that this option does not prevent kernel tuning through IPC interfaces and external programs. However
-        <varname>InaccessiblePaths=</varname> can be used to make some IPC file system objects
-        inaccessible.</para></listitem>
+        If turned on and if running in user mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant>
+        capability (e.g. setting <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname>
+        is implied. Note that this option does not prevent kernel tuning through IPC interfaces
+        and external programs. However <varname>InaccessiblePaths=</varname> can be used to
+        make some IPC file system objects inaccessible.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1237,7 +1243,7 @@
         <listitem><para>Takes a boolean argument. If true, ensures that the service process and all its children can
         never gain new privileges through <function>execve()</function> (e.g. via setuid or setgid bits, or filesystem
         capabilities). This is the simplest and most effective way to ensure that a process and its children can never
-        elevate privileges again. Defaults to false, but in the user manager instance certain settings force
+        elevate privileges again. Defaults to false, but certain settings force
         <varname>NoNewPrivileges=yes</varname>, ignoring the value of this setting.  This is the case when
         <varname>SystemCallFilter=</varname>, <varname>SystemCallArchitectures=</varname>,
         <varname>RestrictAddressFamilies=</varname>, <varname>RestrictNamespaces=</varname>,
@@ -1482,7 +1488,11 @@
         <citerefentry><refentrytitle>setns</refentrytitle><manvolnum>2</manvolnum></citerefentry> system calls, taking
         the specified flags parameters into account. Note that — if this option is used — in addition to restricting
         creation and switching of the specified types of namespaces (or all of them, if true) access to the
-        <function>setns()</function> system call with a zero flags parameter is prohibited.</para></listitem>
+        <function>setns()</function> system call with a zero flags parameter is prohibited.
+        If running in user mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant>
+        capability (e.g. setting <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname>
+        is implied.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1502,7 +1512,11 @@
         both privileged and unprivileged. To disable module auto-load feature please see
         <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         <constant>kernel.modules_disabled</constant> mechanism and
-        <filename>/proc/sys/kernel/modules_disabled</filename> documentation.</para></listitem>
+        <filename>/proc/sys/kernel/modules_disabled</filename> documentation.
+        If turned on and if running in user mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant>
+        capability (e.g. setting <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname>
+        is implied.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1563,6 +1577,9 @@
         that generate program code dynamically at runtime, such as JIT execution engines, or programs compiled making
         use of the code "trampoline" feature of various C compilers. This option improves service security, as it makes
         harder for software exploits to change running code dynamically.
+        If running in user mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant>
+        capability (e.g. setting <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname>
+        is implied.
         </para></listitem>
       </varlistentry>
 
@@ -1573,7 +1590,10 @@
         the unit are refused. This restricts access to realtime task scheduling policies such as
         <constant>SCHED_FIFO</constant>, <constant>SCHED_RR</constant> or <constant>SCHED_DEADLINE</constant>. See
         <citerefentry project='man-pages'><refentrytitle>sched</refentrytitle><manvolnum>7</manvolnum></citerefentry> for details about
-        these scheduling policies. Realtime scheduling policies may be used to monopolize CPU time for longer periods
+        these scheduling policies. If running in user mode, or in system mode, but
+        without the <constant>CAP_SYS_ADMIN</constant> capability
+        (e.g. setting <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname>
+        is implied. Realtime scheduling policies may be used to monopolize CPU time for longer periods
         of time, and may hence be used to lock up or otherwise trigger Denial-of-Service situations on the system. It
         is hence recommended to restrict access to realtime scheduling to the few programs that actually require
         them. Defaults to off.</para></listitem>
