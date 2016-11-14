@@ -111,6 +111,8 @@
  * the init process in the container pid can send messages to nspawn following the sd_notify(3) protocol */
 #define NSPAWN_NOTIFY_SOCKET_PATH "/run/systemd/nspawn/notify"
 
+#define EXIT_FORCE_RESTART 133
+
 typedef enum ContainerStatus {
         CONTAINER_TERMINATED,
         CONTAINER_REBOOTED
@@ -4002,7 +4004,7 @@ static int run(int master,
                  *         because 133 is special-cased in the service file to reboot the container.
                  * otherwise → The container exited with zero status and a reboot was not requested.
                  */
-                if (r == 133)
+                if (r == EXIT_FORCE_RESTART)
                         r = EXIT_FAILURE; /* replace 133 with the general failure code */
                 *ret = r;
                 return 0; /* finito */
@@ -4017,8 +4019,8 @@ static int run(int master,
                  * file uses RestartForceExitStatus=133 so that this results in a full
                  * nspawn restart. This is necessary since we might have cgroup parameters
                  * set we want to have flushed out. */
-                *ret = 0;
-                return 133;
+                *ret = EXIT_FORCE_RESTART;
+                return 0; /* finito */
         }
 
         expose_port_flush(arg_expose_ports, exposed);
@@ -4276,8 +4278,8 @@ int main(int argc, char *argv[]) {
 
 finish:
         sd_notify(false,
-                  "STOPPING=1\n"
-                  "STATUS=Terminating...");
+                  r == 0 && ret == EXIT_FORCE_RESTART ? "STOPPING=1\nSTATUS=Restarting..." :
+                                                        "STOPPING=1\nSTATUS=Terminating...");
 
         if (pid > 0)
                 kill(pid, SIGKILL);
