@@ -22,9 +22,10 @@
 
 #include "alloc-util.h"
 #include "conf-parser.h"
+#include "netdev/bridge.h"
 #include "netlink-util.h"
 #include "networkd-fdb.h"
-#include "networkd.h"
+#include "networkd-manager.h"
 #include "util.h"
 #include "vlan-util.h"
 

@@ -2,9 +2,11 @@
 #include "dhcp6-protocol.h"
 #include "ethtool-util.h"
 #include "netlink-internal.h"
-#include "networkd-netdev-bond.h"
-#include "networkd-netdev-macvlan.h"
-#include "networkd.h"
+#include "netdev/bond.h"
+#include "netdev/ipvlan.h"
+#include "netdev/macvlan.h"
+#include "networkd-link.h"
+#include "networkd-util.h"
 #include "test-tables.h"
 
 int main(int argc, char **argv) {

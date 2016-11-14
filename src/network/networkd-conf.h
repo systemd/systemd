@@ -19,7 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "networkd.h"
+typedef struct Manager Manager;
 
 int manager_parse_config_file(Manager *m);
 
