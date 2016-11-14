@@ -654,6 +654,8 @@ void unit_notify_user_lookup(Unit *u, uid_t uid, gid_t gid);
 int unit_set_invocation_id(Unit *u, sd_id128_t id);
 int unit_acquire_invocation_id(Unit *u);
 
+bool unit_shall_confirm_spawn(Unit *u);
+
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
 #define log_unit_full(unit, level, error, ...)                          \

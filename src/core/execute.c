@@ -2385,7 +2385,7 @@ static int exec_child(
 
         exec_context_tty_reset(context, params);
 
-        if (!manager_is_confirm_spawn_disabled(unit->manager)) {
+        if (unit_shall_confirm_spawn(unit)) {
                 const char *vc = params->confirm_spawn;
                 _cleanup_free_ char *cmdline = NULL;
 
