@@ -952,13 +952,19 @@
         assigned to this option, the specific list is reset, and all prior assignments have no effect.</para>
 
         <para>Paths in <varname>ReadWritePaths=</varname>, <varname>ReadOnlyPaths=</varname> and
-        <varname>InaccessiblePaths=</varname> may be prefixed with <literal>-</literal>, in which case they will be ignored
-        when they do not exist. Note that using this setting will disconnect propagation of mounts from the service to
-        the host (propagation in the opposite direction continues to work). This means that this setting may not be used
-        for services which shall be able to install mount points in the main mount namespace. Note that the effect of
-        these settings may be undone by privileged processes. In order to set up an effective sandboxed environment for
-        a unit it is thus recommended to combine these settings with either
-        <varname>CapabilityBoundingSet=~CAP_SYS_ADMIN</varname> or <varname>SystemCallFilter=~@mount</varname>.</para></listitem>
+        <varname>InaccessiblePaths=</varname> may be prefixed with <literal>-</literal>, in which case they will be
+        ignored when they do not exist. If prefixed with <literal>+</literal> the paths are taken relative to the root
+        directory of the unit, as configured with <varname>RootDirectory=</varname>, instead of relative to the root
+        directory of the host (see above). When combining <literal>-</literal> and <literal>+</literal> on the same
+        path make sure to specify <literal>-</literal> first, and <literal>+</literal> second.</para>
+
+        <para>Note that using this setting will disconnect propagation of mounts from the service to the host
+        (propagation in the opposite direction continues to work). This means that this setting may not be used for
+        services which shall be able to install mount points in the main mount namespace. Note that the effect of these
+        settings may be undone by privileged processes. In order to set up an effective sandboxed environment for a
+        unit it is thus recommended to combine these settings with either
+        <varname>CapabilityBoundingSet=~CAP_SYS_ADMIN</varname> or
+        <varname>SystemCallFilter=~@mount</varname>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
