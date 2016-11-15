@@ -191,3 +191,71 @@ void bus_job_send_removed_signal(Job *j) {
         if (r < 0)
                 log_debug_errno(r, "Failed to send job remove signal for %u: %m", j->id);
 }
+
+static int bus_job_track_handler(sd_bus_track *t, void *userdata) {
+        Job *j = userdata;
+
+        assert(t);
+        assert(j);
+
+        j->bus_track = sd_bus_track_unref(j->bus_track); /* make sure we aren't called again */
+
+        /* Last client dropped off the bus, maybe we should GC this now? */
+        job_add_to_gc_queue(j);
+        return 0;
+}
+
+static int bus_job_allocate_bus_track(Job *j) {
+        int r;
+
+        assert(j);
+
+        if (j->bus_track)
+                return 0;
+
+        r = sd_bus_track_new(j->unit->manager->api_bus, &j->bus_track, bus_job_track_handler, j);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int bus_job_coldplug_bus_track(Job *j) {
+        int r = 0;
+
+        assert(j);
+
+        if (strv_isempty(j->deserialized_clients))
+                goto finish;
+
+        if (!j->manager->api_bus)
+                goto finish;
+
+        r = bus_job_allocate_bus_track(j);
+        if (r < 0)
+                goto finish;
+
+        r = bus_track_add_name_many(j->bus_track, j->deserialized_clients);
+
+finish:
+        j->deserialized_clients = strv_free(j->deserialized_clients);
+        return r;
+}
+
+int bus_job_track_sender(Job *j, sd_bus_message *m) {
+        int r;
+
+        assert(j);
+        assert(m);
+
+        if (sd_bus_message_get_bus(m) != j->unit->manager->api_bus) {
+                j->ref_by_private_bus = true;
+                return 0;
+        }
+
+        r = bus_job_allocate_bus_track(j);
+        if (r < 0)
+                return r;
+
+        return sd_bus_track_add_sender(j->bus_track, m);
+}

@@ -981,10 +981,9 @@ good:
         unit_gc_mark_good(u, gc_marker);
 }
 
-static unsigned manager_dispatch_gc_queue(Manager *m) {
+static unsigned manager_dispatch_gc_unit_queue(Manager *m) {
+        unsigned n = 0, gc_marker;
         Unit *u;
-        unsigned n = 0;
-        unsigned gc_marker;
 
         assert(m);
 
@@ -996,12 +995,12 @@ static unsigned manager_dispatch_gc_queue(Manager *m) {
 
         gc_marker = m->gc_marker;
 
-        while ((u = m->gc_queue)) {
+        while ((u = m->gc_unit_queue)) {
                 assert(u->in_gc_queue);
 
                 unit_gc_sweep(u, gc_marker);
 
-                LIST_REMOVE(gc_queue, m->gc_queue, u);
+                LIST_REMOVE(gc_queue, m->gc_unit_queue, u);
                 u->in_gc_queue = false;
 
                 n++;
@@ -1013,6 +1012,30 @@ static unsigned manager_dispatch_gc_queue(Manager *m) {
                         u->gc_marker = gc_marker + GC_OFFSET_BAD;
                         unit_add_to_cleanup_queue(u);
                 }
+        }
+
+        return n;
+}
+
+static unsigned manager_dispatch_gc_job_queue(Manager *m) {
+        unsigned n = 0;
+        Job *j;
+
+        assert(m);
+
+        while ((j = m->gc_job_queue)) {
+                assert(j->in_gc_queue);
+
+                LIST_REMOVE(gc_queue, m->gc_job_queue, j);
+                j->in_gc_queue = false;
+
+                n++;
+
+                if (job_check_gc(j))
+                        continue;
+
+                log_unit_debug(j->unit, "Collecting job.");
+                (void) job_finish_and_invalidate(j, JOB_COLLECTED, false, false);
         }
 
         return n;
@@ -1033,7 +1056,8 @@ static void manager_clear_jobs_and_units(Manager *m) {
         assert(!m->dbus_unit_queue);
         assert(!m->dbus_job_queue);
         assert(!m->cleanup_queue);
-        assert(!m->gc_queue);
+        assert(!m->gc_unit_queue);
+        assert(!m->gc_job_queue);
 
         assert(hashmap_isempty(m->jobs));
         assert(hashmap_isempty(m->units));
@@ -2226,7 +2250,10 @@ int manager_loop(Manager *m) {
                 if (manager_dispatch_load_queue(m) > 0)
                         continue;
 
-                if (manager_dispatch_gc_queue(m) > 0)
+                if (manager_dispatch_gc_job_queue(m) > 0)
+                        continue;
+
+                if (manager_dispatch_gc_unit_queue(m) > 0)
                         continue;
 
                 if (manager_dispatch_cleanup_queue(m) > 0)

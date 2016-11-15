@@ -838,6 +838,8 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet, const char* const*
                         log_error("Assertion failed on job for %s.", strna(d->name));
                 else if (streq(d->result, "unsupported"))
                         log_error("Operation on or unit type of %s not supported on this system.", strna(d->name));
+                else if (streq(d->result, "collected"))
+                        log_error("Queued job for %s was garbage collected.", strna(d->name));
                 else if (!streq(d->result, "done") && !streq(d->result, "skipped")) {
                         if (d->name) {
                                 int q;
@@ -853,7 +855,7 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet, const char* const*
                 }
         }
 
-        if (streq(d->result, "canceled"))
+        if (STR_IN_SET(d->result, "canceled", "collected"))
                 r = -ECANCELED;
         else if (streq(d->result, "timeout"))
                 r = -ETIME;

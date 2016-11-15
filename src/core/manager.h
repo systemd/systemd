@@ -104,8 +104,9 @@ struct Manager {
         /* Units to remove */
         LIST_HEAD(Unit, cleanup_queue);
 
-        /* Units to check when doing GC */
-        LIST_HEAD(Unit, gc_queue);
+        /* Units and jobs to check when doing GC */
+        LIST_HEAD(Unit, gc_unit_queue);
+        LIST_HEAD(Job, gc_job_queue);
 
         /* Units that should be realized */
         LIST_HEAD(Unit, cgroup_queue);

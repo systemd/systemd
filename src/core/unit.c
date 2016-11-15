@@ -389,7 +389,7 @@ void unit_add_to_gc_queue(Unit *u) {
         if (unit_check_gc(u))
                 return;
 
-        LIST_PREPEND(gc_queue, u->manager->gc_queue, u);
+        LIST_PREPEND(gc_queue, u->manager->gc_unit_queue, u);
         u->in_gc_queue = true;
 }
 
@@ -569,7 +569,7 @@ void unit_free(Unit *u) {
                 LIST_REMOVE(cleanup_queue, u->manager->cleanup_queue, u);
 
         if (u->in_gc_queue)
-                LIST_REMOVE(gc_queue, u->manager->gc_queue, u);
+                LIST_REMOVE(gc_queue, u->manager->gc_unit_queue, u);
 
         if (u->in_cgroup_queue)
                 LIST_REMOVE(cgroup_queue, u->manager->cgroup_queue, u);
