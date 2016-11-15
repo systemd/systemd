@@ -1185,7 +1185,6 @@ void bus_track_serialize(sd_bus_track *t, FILE *f, const char *prefix) {
 }
 
 int bus_track_coldplug(Manager *m, sd_bus_track **t, bool recursive, char **l) {
-        char **i;
         int r = 0;
 
         assert(m);
@@ -1207,16 +1206,7 @@ int bus_track_coldplug(Manager *m, sd_bus_track **t, bool recursive, char **l) {
         if (r < 0)
                 return r;
 
-        r = 0;
-        STRV_FOREACH(i, l) {
-                int k;
-
-                k = sd_bus_track_add_name(*t, *i);
-                if (k < 0)
-                        r = k;
-        }
-
-        return r;
+        return bus_track_add_name_many(*t, l);
 }
 
 int bus_verify_manage_units_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
