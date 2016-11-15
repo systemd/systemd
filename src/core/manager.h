@@ -229,7 +229,6 @@ struct Manager {
         int pin_cgroupfs_fd;
 
         int gc_marker;
-        unsigned n_in_gc_queue;
 
         /* Flags */
         ManagerExitCode exit_code:5;

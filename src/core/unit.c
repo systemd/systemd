@@ -391,8 +391,6 @@ void unit_add_to_gc_queue(Unit *u) {
 
         LIST_PREPEND(gc_queue, u->manager->gc_queue, u);
         u->in_gc_queue = true;
-
-        u->manager->n_in_gc_queue++;
 }
 
 void unit_add_to_dbus_queue(Unit *u) {
@@ -570,10 +568,8 @@ void unit_free(Unit *u) {
         if (u->in_cleanup_queue)
                 LIST_REMOVE(cleanup_queue, u->manager->cleanup_queue, u);
 
-        if (u->in_gc_queue) {
+        if (u->in_gc_queue)
                 LIST_REMOVE(gc_queue, u->manager->gc_queue, u);
-                u->manager->n_in_gc_queue--;
-        }
 
         if (u->in_cgroup_queue)
                 LIST_REMOVE(cgroup_queue, u->manager->cgroup_queue, u);

@@ -1015,8 +1015,6 @@ static unsigned manager_dispatch_gc_queue(Manager *m) {
                 }
         }
 
-        m->n_in_gc_queue = 0;
-
         return n;
 }
 
