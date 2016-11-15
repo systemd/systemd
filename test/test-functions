@@ -12,7 +12,7 @@ QEMU_TIMEOUT="${QEMU_TIMEOUT:-infinity}"
 NSPAWN_TIMEOUT="${NSPAWN_TIMEOUT:-infinity}"
 TIMED_OUT=  # will be 1 after run_* if *_TIMEOUT is set and test timed out
 FSTYPE="${FSTYPE:-ext3}"
-UNIFIED_CGROUP_HIERARCHY="${UNIFIED_CGROUP_HIERARCHY:-no}"
+UNIFIED_CGROUP_HIERARCHY="${UNIFIED_CGROUP_HIERARCHY:-default}"
 
 if ! ROOTLIBDIR=$(pkg-config --variable=systemdutildir systemd); then
     echo "WARNING! Cannot determine rootlibdir from pkg-config, assuming /usr/lib/systemd" >&2
@@ -84,6 +84,18 @@ run_qemu() {
 
     find_qemu_bin || return 1
 
+    local _cgroup_args
+    if [[ "$UNIFIED_CGROUP_HIERARCHY" = "yes" ]]; then
+        _cgroup_args="systemd.unified_cgroup_hierarchy=yes"
+    elif [[ "$UNIFIED_CGROUP_HIERARCHY" = "no" ]]; then
+        _cgroup_args="systemd.unified_cgroup_hierarchy=no systemd.legacy_systemd_cgroup_controller=yes"
+    elif [[ "$UNIFIED_CGROUP_HIERARCHY" = "hybrid" ]]; then
+        _cgroup_args="systemd.unified_cgroup_hierarchy=no systemd.legacy_systemd_cgroup_controller=no"
+    elif [[ "$UNIFIED_CGROUP_HIERARCHY" != "default" ]]; then
+        dfatal "Unknown UNIFIED_CGROUP_HIERARCHY. Got $UNIFIED_CGROUP_HIERARCHY, expected [yes|no|hybrid|default]"
+        exit 1
+    fi
+
     KERNEL_APPEND="root=/dev/sda1 \
 raid=noautodetect \
 loglevel=2 \
@@ -91,7 +103,7 @@ init=$ROOTLIBDIR/systemd \
 ro \
 console=ttyS0 \
 selinux=0 \
-systemd.unified_cgroup_hierarchy=$UNIFIED_CGROUP_HIERARCHY \
+$_cgroup_args \
 $KERNEL_APPEND \
 "
 
@@ -135,7 +147,17 @@ run_nspawn() {
         _nspawn_cmd="timeout --foreground $NSPAWN_TIMEOUT $_nspawn_cmd"
     fi
 
-    _nspawn_cmd="env UNIFIED_CGROUP_HIERARCHY=$UNIFIED_CGROUP_HIERARCHY $_nspawn_cmd"
+    if [[ "$UNIFIED_CGROUP_HIERARCHY" = "hybrid" ]]; then
+        dwarn "nspawn doesn't support UNIFIED_CGROUP_HIERARCHY=hybrid, skipping"
+        exit
+    elif [[ "$UNIFIED_CGROUP_HIERARCHY" = "yes" || "$UNIFIED_CGROUP_HIERARCHY" = "no" ]]; then
+        _nspawn_cmd="env UNIFIED_CGROUP_HIERARCHY=$UNIFIED_CGROUP_HIERARCHY $_nspawn_cmd"
+    elif [[ "$UNIFIED_CGROUP_HIERARCHY" = "default" ]]; then
+        _nspawn_cmd="env --unset=UNIFIED_CGROUP_HIERARCHY $_nspawn_cmd"
+    else
+        dfatal "Unknown UNIFIED_CGROUP_HIERARCHY. Got $UNIFIED_CGROUP_HIERARCHY, expected [yes|no|hybrid|default]"
+        exit 1
+    fi
 
     (set -x; $_nspawn_cmd)
     rc=$?
