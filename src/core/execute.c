@@ -2201,7 +2201,8 @@ static bool context_has_no_new_privileges(const ExecContext *c) {
         if (have_effective_cap(CAP_SYS_ADMIN)) /* if we are privileged, we don't need NNP */
                 return false;
 
-        return context_has_address_families(c) || /* we need NNP if we have any form of seccomp and are unprivileged */
+        /* We need NNP if we have any form of seccomp and are unprivileged */
+        return context_has_address_families(c) ||
                 c->memory_deny_write_execute ||
                 c->restrict_realtime ||
                 exec_context_restrict_namespaces_set(c) ||

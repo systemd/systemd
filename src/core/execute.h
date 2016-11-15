@@ -216,7 +216,6 @@ struct ExecContext {
         bool nice_set:1;
         bool ioprio_set:1;
         bool cpu_sched_set:1;
-        bool no_new_privileges_set:1;
 };
 
 static inline bool exec_context_restrict_namespaces_set(const ExecContext *c) {
