@@ -3429,14 +3429,6 @@ int unit_patch_contexts(Unit *u) {
                         ec->working_directory_missing_ok = true;
                 }
 
-                if (MANAGER_IS_USER(u->manager) &&
-                    (ec->syscall_whitelist ||
-                     !set_isempty(ec->syscall_filter) ||
-                     !set_isempty(ec->syscall_archs) ||
-                     ec->address_families_whitelist ||
-                     !set_isempty(ec->address_families)))
-                        ec->no_new_privileges = true;
-
                 if (ec->private_devices)
                         ec->capability_bounding_set &= ~((UINT64_C(1) << CAP_MKNOD) | (UINT64_C(1) << CAP_SYS_RAWIO));
 

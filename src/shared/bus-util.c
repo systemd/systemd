@@ -43,6 +43,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "missing.h"
+#include "nsflags.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
 #include "rlimit-util.h"
@@ -769,6 +770,23 @@ int bus_print_property(const char *name, sd_bus_message *property, bool value, b
                         char timespan[FORMAT_TIMESPAN_MAX];
 
                         print_property(name, "%s", format_timespan(timespan, sizeof(timespan), u, 0));
+                } else if (streq(name, "RestrictNamespaces")) {
+                        _cleanup_free_ char *s = NULL;
+                        const char *result = NULL;
+
+                        if ((u & NAMESPACE_FLAGS_ALL) == 0)
+                                result = "yes";
+                        else if ((u & NAMESPACE_FLAGS_ALL) == NAMESPACE_FLAGS_ALL)
+                                result = "no";
+                        else {
+                                r = namespace_flag_to_string_many(u, &s);
+                                if (r < 0)
+                                        return r;
+
+                                result = s;
+                        }
+
+                        print_property(name, "%s", result);
                 } else
                         print_property(name, "%"PRIu64, u);
 

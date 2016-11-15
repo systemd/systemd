@@ -3896,7 +3896,6 @@ int config_parse_no_new_privileges(
         }
 
         c->no_new_privileges = k;
-        c->no_new_privileges_set = true;
 
         return 0;
 }
