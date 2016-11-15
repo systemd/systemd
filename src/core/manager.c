@@ -114,7 +114,7 @@ static void manager_watch_jobs_in_progress(Manager *m) {
         /* We do not want to show the cylon animation if the user
          * needs to confirm service executions otherwise confirmation
          * messages will be screwed by the cylon animation. */
-        if (m->confirm_spawn)
+        if (!manager_is_confirm_spawn_disabled(m))
                 return;
 
         if (m->jobs_in_progress_event_source)
@@ -3216,6 +3216,17 @@ void manager_set_first_boot(Manager *m, bool b) {
         }
 
         m->first_boot = b;
+}
+
+void manager_disable_confirm_spawn(void) {
+        (void) touch("/run/systemd/confirm_spawn_disabled");
+}
+
+bool manager_is_confirm_spawn_disabled(Manager *m) {
+        if (!m->confirm_spawn)
+                return true;
+
+        return access("/run/systemd/confirm_spawn_disabled", F_OK) >= 0;
 }
 
 void manager_status_printf(Manager *m, StatusType type, const char *status, const char *format, ...) {

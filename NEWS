@@ -5,6 +5,7 @@ CHANGES WITH 233 in spe
         * The confirmation spawn prompt has been reworked to offer the
           following choices:
 
+           (c)ontinue, proceed without asking anymore
            (D)ump, show the state of the unit
            (f)ail, don't execute the command and pretend it failed
            (h)elp
