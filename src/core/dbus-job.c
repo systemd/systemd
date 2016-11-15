@@ -65,7 +65,7 @@ int bus_job_method_cancel(sd_bus_message *message, void *userdata, sd_bus_error 
                 return r;
 
         /* Access is granted to the job owner */
-        if (!sd_bus_track_contains(j->clients, sd_bus_message_get_sender(message))) {
+        if (!sd_bus_track_contains(j->bus_track, sd_bus_message_get_sender(message))) {
 
                 /* And for everybody else consult PolicyKit */
                 r = bus_verify_manage_units_async(j->unit->manager, message, error);
@@ -143,7 +143,7 @@ void bus_job_send_change_signal(Job *j) {
                 j->in_dbus_queue = false;
         }
 
-        r = bus_foreach_bus(j->manager, j->clients, j->sent_dbus_new_signal ? send_changed_signal : send_new_signal, j);
+        r = bus_foreach_bus(j->manager, j->bus_track, j->sent_dbus_new_signal ? send_changed_signal : send_new_signal, j);
         if (r < 0)
                 log_debug_errno(r, "Failed to send job change signal for %u: %m", j->id);
 
@@ -187,7 +187,7 @@ void bus_job_send_removed_signal(Job *j) {
         if (!j->sent_dbus_new_signal)
                 bus_job_send_change_signal(j);
 
-        r = bus_foreach_bus(j->manager, j->clients, send_removed_signal, j);
+        r = bus_foreach_bus(j->manager, j->bus_track, send_removed_signal, j);
         if (r < 0)
                 log_debug_errno(r, "Failed to send job remove signal for %u: %m", j->id);
 }

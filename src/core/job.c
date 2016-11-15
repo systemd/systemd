@@ -92,7 +92,7 @@ void job_free(Job *j) {
 
         sd_event_source_unref(j->timer_event_source);
 
-        sd_bus_track_unref(j->clients);
+        sd_bus_track_unref(j->bus_track);
         strv_free(j->deserialized_clients);
 
         free(j);
@@ -1010,7 +1010,7 @@ int job_serialize(Job *j, FILE *f) {
         if (j->begin_usec > 0)
                 fprintf(f, "job-begin="USEC_FMT"\n", j->begin_usec);
 
-        bus_track_serialize(j->clients, f, "subscribed");
+        bus_track_serialize(j->bus_track, f, "subscribed");
 
         /* End marker */
         fputc('\n', f);
@@ -1121,7 +1121,7 @@ int job_coldplug(Job *j) {
 
         /* After deserialization is complete and the bus connection
          * set up again, let's start watching our subscribers again */
-        (void) bus_track_coldplug(j->manager, &j->clients, false, j->deserialized_clients);
+        (void) bus_track_coldplug(j->manager, &j->bus_track, false, j->deserialized_clients);
         j->deserialized_clients = strv_free(j->deserialized_clients);
 
         if (j->state == JOB_WAITING)

@@ -156,7 +156,7 @@ struct Job {
          *
          * There can be more than one client, because of job merging.
          */
-        sd_bus_track *clients;
+        sd_bus_track *bus_track;
         char **deserialized_clients;
 
         JobResult result;

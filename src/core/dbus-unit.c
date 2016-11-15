@@ -1224,13 +1224,13 @@ int bus_unit_queue_job(
                 return r;
 
         if (sd_bus_message_get_bus(message) == u->manager->api_bus) {
-                if (!j->clients) {
-                        r = sd_bus_track_new(sd_bus_message_get_bus(message), &j->clients, NULL, NULL);
+                if (!j->bus_track) {
+                        r = sd_bus_track_new(sd_bus_message_get_bus(message), &j->bus_track, NULL, NULL);
                         if (r < 0)
                                 return r;
                 }
 
-                r = sd_bus_track_add_sender(j->clients, message);
+                r = sd_bus_track_add_sender(j->bus_track, message);
                 if (r < 0)
                         return r;
         }

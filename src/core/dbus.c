@@ -1054,8 +1054,8 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
                 m->subscribed = sd_bus_track_unref(m->subscribed);
 
         HASHMAP_FOREACH(j, m->jobs, i)
-                if (j->clients && sd_bus_track_get_bus(j->clients) == *bus)
-                        j->clients = sd_bus_track_unref(j->clients);
+                if (j->bus_track && sd_bus_track_get_bus(j->bus_track) == *bus)
+                        j->bus_track = sd_bus_track_unref(j->bus_track);
 
         /* Get rid of queued message on this bus */
         if (m->queued_message && sd_bus_message_get_bus(m->queued_message) == *bus)
