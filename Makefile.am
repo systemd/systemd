@@ -1684,6 +1684,10 @@ EXTRA_DIST += \
 	test/test-execute/exec-runtimedirectory-mode.service \
 	test/test-execute/exec-runtimedirectory-owner.service \
 	test/test-execute/exec-runtimedirectory-owner-nfsnobody.service \
+	test/test-execute/exec-restrict-namespaces-no.service \
+	test/test-execute/exec-restrict-namespaces-yes.service \
+	test/test-execute/exec-restrict-namespaces-mnt.service \
+	test/test-execute/exec-restrict-namespaces-mnt-blacklist.service \
 	test/bus-policy/hello.conf \
 	test/bus-policy/methods.conf \
 	test/bus-policy/ownerships.conf \
