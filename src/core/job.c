@@ -267,7 +267,8 @@ JobDependency* job_dependency_new(Job *subject, Job *object, bool matters, bool 
          * this means the 'anchor' job (i.e. the one the user
          * explicitly asked for) is the requester. */
 
-        if (!(l = new0(JobDependency, 1)))
+        l = new0(JobDependency, 1);
+        if (!l)
                 return NULL;
 
         l->subject = subject;
@@ -457,9 +458,7 @@ static bool job_is_runnable(Job *j) {
         if (j->type == JOB_NOP)
                 return true;
 
-        if (j->type == JOB_START ||
-            j->type == JOB_VERIFY_ACTIVE ||
-            j->type == JOB_RELOAD) {
+        if (IN_SET(j->type, JOB_START, JOB_VERIFY_ACTIVE, JOB_RELOAD)) {
 
                 /* Immediate result is that the job is or might be
                  * started. In this case let's wait for the
@@ -476,8 +475,7 @@ static bool job_is_runnable(Job *j) {
 
         SET_FOREACH(other, j->unit->dependencies[UNIT_BEFORE], i)
                 if (other->job &&
-                    (other->job->type == JOB_STOP ||
-                     other->job->type == JOB_RESTART))
+                    IN_SET(other->job->type, JOB_STOP, JOB_RESTART))
                         return false;
 
         /* This means that for a service a and a service b where b
@@ -1205,7 +1203,7 @@ int job_get_timeout(Job *j, usec_t *timeout) {
 
 static const char* const job_state_table[_JOB_STATE_MAX] = {
         [JOB_WAITING] = "waiting",
-        [JOB_RUNNING] = "running"
+        [JOB_RUNNING] = "running",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(job_state, JobState);

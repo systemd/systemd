@@ -122,8 +122,8 @@ struct JobDependency {
         LIST_FIELDS(JobDependency, subject);
         LIST_FIELDS(JobDependency, object);
 
-        bool matters;
-        bool conflicts;
+        bool matters:1;
+        bool conflicts:1;
 };
 
 struct Job {
