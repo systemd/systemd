@@ -1306,6 +1306,133 @@ void job_add_to_gc_queue(Job *j) {
         j->in_gc_queue = true;
 }
 
+static int job_compare(const void *a, const void *b) {
+        Job *x = *(Job**) a, *y = *(Job**) b;
+
+        if (x->id < y->id)
+                return -1;
+        if (x->id > y->id)
+                return 1;
+
+        return 0;
+}
+
+static size_t sort_job_list(Job **list, size_t n) {
+        Job *previous = NULL;
+        size_t a, b;
+
+        /* Order by numeric IDs */
+        qsort_safe(list, n, sizeof(Job*), job_compare);
+
+        /* Filter out duplicates */
+        for (a = 0, b = 0; a < n; a++) {
+
+                if (previous == list[a])
+                        continue;
+
+                previous = list[b++] = list[a];
+        }
+
+        return b;
+}
+
+int job_get_before(Job *j, Job*** ret) {
+        _cleanup_free_ Job** list = NULL;
+        size_t n = 0, n_allocated = 0;
+        Unit *other = NULL;
+        Iterator i;
+
+        /* Returns a list of all pending jobs that need to finish before this job may be started. */
+
+        assert(j);
+        assert(ret);
+
+        if (j->ignore_order) {
+                *ret = NULL;
+                return 0;
+        }
+
+        if (IN_SET(j->type, JOB_START, JOB_VERIFY_ACTIVE, JOB_RELOAD)) {
+
+                SET_FOREACH(other, j->unit->dependencies[UNIT_AFTER], i) {
+                        if (!other->job)
+                                continue;
+
+                        if (!GREEDY_REALLOC(list, n_allocated, n+1))
+                                return -ENOMEM;
+                        list[n++] = other->job;
+                }
+        }
+
+        SET_FOREACH(other, j->unit->dependencies[UNIT_BEFORE], i) {
+                if (!other->job)
+                        continue;
+
+                if (!IN_SET(other->job->type, JOB_STOP, JOB_RESTART))
+                        continue;
+
+                if (!GREEDY_REALLOC(list, n_allocated, n+1))
+                        return -ENOMEM;
+                list[n++] = other->job;
+        }
+
+        n = sort_job_list(list, n);
+
+        *ret = list;
+        list = NULL;
+
+        return (int) n;
+}
+
+int job_get_after(Job *j, Job*** ret) {
+        _cleanup_free_ Job** list = NULL;
+        size_t n = 0, n_allocated = 0;
+        Unit *other = NULL;
+        Iterator i;
+
+        assert(j);
+        assert(ret);
+
+        /* Returns a list of all pending jobs that are waiting for this job to finish. */
+
+        SET_FOREACH(other, j->unit->dependencies[UNIT_BEFORE], i) {
+                if (!other->job)
+                        continue;
+
+                if (other->job->ignore_order)
+                        continue;
+
+                if (!IN_SET(other->job->type, JOB_START, JOB_VERIFY_ACTIVE, JOB_RELOAD))
+                        continue;
+
+                if (!GREEDY_REALLOC(list, n_allocated, n+1))
+                        return -ENOMEM;
+                list[n++] = other->job;
+        }
+
+        if (IN_SET(j->type, JOB_STOP, JOB_RESTART)) {
+
+                SET_FOREACH(other, j->unit->dependencies[UNIT_AFTER], i) {
+                        if (!other->job)
+                                continue;
+
+                        if (other->job->ignore_order)
+                                continue;
+
+                        if (!GREEDY_REALLOC(list, n_allocated, n+1))
+                                return -ENOMEM;
+                        list[n++] = other->job;
+                }
+        }
+
+        n = sort_job_list(list, n);
+
+        *ret = list;
+        list = NULL;
+
+        return (int) n;
+}
+
 static const char* const job_state_table[_JOB_STATE_MAX] = {
         [JOB_WAITING] = "waiting",
         [JOB_RUNNING] = "running",

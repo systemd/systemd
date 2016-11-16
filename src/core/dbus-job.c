@@ -80,9 +80,61 @@ int bus_job_method_cancel(sd_bus_message *message, void *userdata, sd_bus_error 
         return sd_bus_reply_method_return(message, NULL);
 }
 
+int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_free_ Job **list = NULL;
+        Job *j = userdata;
+        int r, i, n;
+
+        if (strstr(sd_bus_message_get_member(message), "After"))
+                n = job_get_after(j, &list);
+        else
+                n = job_get_before(j, &list);
+        if (n < 0)
+                return n;
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(usssoo)");
+        if (r < 0)
+                return r;
+
+        for (i = 0; i < n; i ++) {
+                _cleanup_free_ char *unit_path = NULL, *job_path = NULL;
+
+                job_path = job_dbus_path(list[i]);
+                if (!job_path)
+                        return -ENOMEM;
+
+                unit_path = unit_dbus_path(list[i]->unit);
+                if (!unit_path)
+                        return -ENOMEM;
+
+                r = sd_bus_message_append(reply, "(usssoo)",
+                                          list[i]->id,
+                                          list[i]->unit->id,
+                                          job_type_to_string(list[i]->type),
+                                          job_state_to_string(list[i]->state),
+                                          job_path,
+                                          unit_path);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
 const sd_bus_vtable bus_job_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_METHOD("Cancel", NULL, NULL, bus_job_method_cancel, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetAfter", NULL, "a(usssoo)", bus_job_method_get_waiting_jobs, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetBefore", NULL, "a(usssoo)", bus_job_method_get_waiting_jobs, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_PROPERTY("Id", "u", NULL, offsetof(Job, id), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Unit", "(so)", property_get_unit, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JobType", "s", property_get_type, offsetof(Job, type), SD_BUS_VTABLE_PROPERTY_CONST),
