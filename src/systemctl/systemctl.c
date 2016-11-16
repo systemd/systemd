@@ -204,6 +204,9 @@ static int acquire_bus(BusFocus focus, sd_bus **ret) {
         if (arg_transport != BUS_TRANSPORT_LOCAL)
                 focus = BUS_FULL;
 
+        if (getenv_bool("SYSTEMCTL_FORCE_BUS") > 0)
+                focus = BUS_FULL;
+
         if (!busses[focus]) {
                 bool user;
 
