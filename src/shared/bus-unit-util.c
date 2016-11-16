@@ -62,6 +62,7 @@ int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u) {
 
 int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignment) {
         const char *eq, *field;
+        UnitDependency dep;
         int r, rl;
 
         assert(m);
@@ -572,7 +573,9 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         flags = (~flags) & NAMESPACE_FLAGS_ALL;
 
                 r = sd_bus_message_append(m, "v", "t", flags);
-        } else {
+        } else if ((dep = unit_dependency_from_string(field)) >= 0)
+                r = sd_bus_message_append(m, "v", "as", 1, eq);
+        else {
                 log_error("Unknown assignment %s.", assignment);
                 return -EINVAL;
         }
