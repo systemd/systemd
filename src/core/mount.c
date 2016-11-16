@@ -135,6 +135,16 @@ static bool mount_state_active(MountState state) {
                       MOUNT_REMOUNTING_SIGKILL);
 }
 
+static bool mount_is_bound_to_device(const Mount *m) {
+        const MountParameters *p;
+
+        if (m->from_fragment)
+                return true;
+
+        p = &m->parameters_proc_self_mountinfo;
+        return fstab_test_option(p->options, "x-systemd.device-bound\0");
+}
+
 static bool needs_quota(const MountParameters *p) {
         assert(p);
 
@@ -324,6 +334,7 @@ static int mount_add_mount_links(Mount *m) {
 static int mount_add_device_links(Mount *m) {
         MountParameters *p;
         bool device_wants_mount = false;
+        UnitDependency dep;
         int r;
 
         assert(m);
@@ -353,7 +364,14 @@ static int mount_add_device_links(Mount *m) {
         if (mount_is_auto(p) && !mount_is_automount(p) && MANAGER_IS_SYSTEM(UNIT(m)->manager))
                 device_wants_mount = true;
 
-        r = unit_add_node_link(UNIT(m), p->what, device_wants_mount, m->from_fragment ? UNIT_BINDS_TO : UNIT_REQUIRES);
+        /* Mount units from /proc/self/mountinfo are not bound to devices
+         * by default since they're subject to races when devices are
+         * unplugged. But the user can still force this dep with an
+         * appropriate option (or udev property) so the mount units are
+         * automatically stopped when the device disappears suddenly. */
+        dep = mount_is_bound_to_device(m) ? UNIT_BINDS_TO : UNIT_REQUIRES;
+
+        r = unit_add_node_link(UNIT(m), p->what, device_wants_mount, dep);
         if (r < 0)
                 return r;
 

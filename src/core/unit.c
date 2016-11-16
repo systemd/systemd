@@ -3047,6 +3047,9 @@ int unit_add_node_link(Unit *u, const char *what, bool wants, UnitDependency dep
         if (r < 0)
                 return r;
 
+        if (dep == UNIT_REQUIRES && device_shall_be_bound_by(device, u))
+                dep = UNIT_BINDS_TO;
+
         r = unit_add_two_dependencies(u, UNIT_AFTER,
                                       MANAGER_IS_SYSTEM(u->manager) ? dep : UNIT_WANTS,
                                       device, true);
