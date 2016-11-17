@@ -258,40 +258,35 @@ static int bus_job_track_handler(sd_bus_track *t, void *userdata) {
 }
 
 static int bus_job_allocate_bus_track(Job *j) {
-        int r;
 
         assert(j);
 
         if (j->bus_track)
                 return 0;
 
-        r = sd_bus_track_new(j->unit->manager->api_bus, &j->bus_track, bus_job_track_handler, j);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return sd_bus_track_new(j->unit->manager->api_bus, &j->bus_track, bus_job_track_handler, j);
 }
 
 int bus_job_coldplug_bus_track(Job *j) {
         int r = 0;
+        _cleanup_strv_free_ char **deserialized_clients = NULL;
 
         assert(j);
 
-        if (strv_isempty(j->deserialized_clients))
-                goto finish;
+        deserialized_clients = j->deserialized_clients;
+        j->deserialized_clients = NULL;
+
+        if (strv_isempty(deserialized_clients))
+                return 0;
 
         if (!j->manager->api_bus)
-                goto finish;
+                return 0;
 
         r = bus_job_allocate_bus_track(j);
         if (r < 0)
-                goto finish;
+                return r;
 
-        r = bus_track_add_name_many(j->bus_track, j->deserialized_clients);
-
-finish:
-        j->deserialized_clients = strv_free(j->deserialized_clients);
-        return r;
+        return bus_track_add_name_many(j->bus_track, deserialized_clients);
 }
 
 int bus_job_track_sender(Job *j, sd_bus_message *m) {
