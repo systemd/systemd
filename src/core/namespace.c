@@ -79,7 +79,7 @@ static const BindMount protect_kernel_tunables_table[] = {
         { "/proc/sysrq-trigger", READONLY,     true  },
         { "/proc/latency_stats", READONLY,     true  },
         { "/proc/mtrr",          READONLY,     true  },
-        { "/proc/apm",           READONLY,     true  },
+        { "/proc/apm",           READONLY,     true  }, /* Obsolete API, there's no point in permitting access to this, ever */
         { "/proc/acpi",          READONLY,     true  },
         { "/proc/timer_stats",   READONLY,     true  },
         { "/proc/asound",        READONLY,     true  },
