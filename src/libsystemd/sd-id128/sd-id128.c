@@ -21,6 +21,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "sd-hash.h"
 #include "sd-id128.h"
 
 #include "fd-util.h"
@@ -179,5 +180,36 @@ _public_ int sd_id128_randomize(sd_id128_t *ret) {
          * pre-existing ones. */
 
         *ret = make_v4_uuid(t);
+        return 0;
+}
+
+_public_ int sd_id128_get_machine_app_specific(sd_id128_t app_id, sd_id128_t *ret) {
+        _cleanup_(sd_hash_unrefp) sd_hash *h = NULL;
+        sd_id128_t m, result;
+        const void *p;
+        int r;
+
+        assert_return(ret, -EINVAL);
+
+        r = sd_id128_get_machine(&m);
+        if (r < 0)
+                return r;
+
+        r = sd_hash_new_with_key(&h, "hmac(sha256)", &app_id, sizeof(app_id));
+        if (r < 0)
+                return r;
+
+        r = sd_hash_put(h, &m, sizeof(m));
+        if (r < 0)
+                return r;
+
+        r = sd_hash_digest_data(h, &p);
+        if (r < 0)
+                return r;
+
+        /* We chop off the trailing 16 bytes */
+        memcpy(&result, p, MIN(sd_hash_get_size(h), sizeof(result)));
+
+        *ret = make_v4_uuid(result);
         return 0;
 }
