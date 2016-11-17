@@ -75,29 +75,29 @@ typedef struct BindMount {
 
 /* ProtectKernelTunables= option and the related filesystem APIs */
 static const BindMount protect_kernel_tunables_table[] = {
-        { "/proc/sys",                  READONLY,       false },
-        { "/proc/sysrq-trigger",        READONLY,       true  },
-        { "/proc/latency_stats",        READONLY,       true  },
-        { "/proc/mtrr",                 READONLY,       true  },
-        { "/proc/apm",                  READONLY,       true  },
-        { "/proc/acpi",                 READONLY,       true  },
-        { "/proc/timer_stats",          READONLY,       true  },
-        { "/proc/asound",               READONLY,       true  },
-        { "/proc/bus",                  READONLY,       true  },
-        { "/proc/fs",                   READONLY,       true  },
-        { "/proc/irq",                  READONLY,       true  },
-        { "/sys",                       READONLY,       false },
-        { "/sys/kernel/debug",          READONLY,       true  },
-        { "/sys/kernel/tracing",        READONLY,       true  },
-        { "/sys/fs/cgroup",             READWRITE,      false }, /* READONLY is set by ProtectControlGroups= option */
+        { "/proc/sys",           READONLY,     false },
+        { "/proc/sysrq-trigger", READONLY,     true  },
+        { "/proc/latency_stats", READONLY,     true  },
+        { "/proc/mtrr",          READONLY,     true  },
+        { "/proc/apm",           READONLY,     true  },
+        { "/proc/acpi",          READONLY,     true  },
+        { "/proc/timer_stats",   READONLY,     true  },
+        { "/proc/asound",        READONLY,     true  },
+        { "/proc/bus",           READONLY,     true  },
+        { "/proc/fs",            READONLY,     true  },
+        { "/proc/irq",           READONLY,     true  },
+        { "/sys",                READONLY,     false },
+        { "/sys/kernel/debug",   READONLY,     true  },
+        { "/sys/kernel/tracing", READONLY,     true  },
+        { "/sys/fs/cgroup",      READWRITE,    false }, /* READONLY is set by ProtectControlGroups= option */
 };
 
 /* ProtectKernelModules= option */
 static const BindMount protect_kernel_modules_table[] = {
 #ifdef HAVE_SPLIT_USR
-        { "/lib/modules",               INACCESSIBLE,   true  },
+        { "/lib/modules",        INACCESSIBLE, true  },
 #endif
-        { "/usr/lib/modules",           INACCESSIBLE,   true  },
+        { "/usr/lib/modules",    INACCESSIBLE, true  },
 };
 
 /*
@@ -105,31 +105,31 @@ static const BindMount protect_kernel_modules_table[] = {
  * system should be protected by ProtectSystem=
  */
 static const BindMount protect_home_read_only_table[] = {
-        { "/home",      READONLY,       true },
-        { "/run/user",  READONLY,       true },
-        { "/root",      READONLY,       true },
+        { "/home",               READONLY,     true  },
+        { "/run/user",           READONLY,     true  },
+        { "/root",               READONLY,     true  },
 };
 
 /* ProtectHome=yes table */
 static const BindMount protect_home_yes_table[] = {
-        { "/home",      INACCESSIBLE,   true },
-        { "/run/user",  INACCESSIBLE,   true },
-        { "/root",      INACCESSIBLE,   true },
+        { "/home",               INACCESSIBLE, true  },
+        { "/run/user",           INACCESSIBLE, true  },
+        { "/root",               INACCESSIBLE, true  },
 };
 
 /* ProtectSystem=yes table */
 static const BindMount protect_system_yes_table[] = {
-        { "/usr",       READONLY,       false },
-        { "/boot",      READONLY,       true  },
-        { "/efi",       READONLY,       true  },
+        { "/usr",                READONLY,     false },
+        { "/boot",               READONLY,     true  },
+        { "/efi",                READONLY,     true  },
 };
 
 /* ProtectSystem=full includes ProtectSystem=yes */
 static const BindMount protect_system_full_table[] = {
-        { "/usr",       READONLY,       false },
-        { "/boot",      READONLY,       true  },
-        { "/efi",       READONLY,       true  },
-        { "/etc",       READONLY,       false },
+        { "/usr",                READONLY,     false },
+        { "/boot",               READONLY,     true  },
+        { "/efi",                READONLY,     true  },
+        { "/etc",                READONLY,     false },
 };
 
 /*
