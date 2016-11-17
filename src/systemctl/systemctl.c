@@ -2197,7 +2197,7 @@ finish:
         return r;
 }
 
-static void output_waiting_jobs(sd_bus *bus, uint32_t id, const char *method, const char *prefix) {
+static int output_waiting_jobs(sd_bus *bus, uint32_t id, const char *method, const char *prefix) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *name, *type, *state, *job_path, *unit_path;
@@ -2215,29 +2215,23 @@ static void output_waiting_jobs(sd_bus *bus, uint32_t id, const char *method, co
                         &error,
                         &reply,
                         "u", id);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to get waiting jobs for job %" PRIu32, id);
-                return;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get waiting jobs for job %" PRIu32, id);
 
         r = sd_bus_message_enter_container(reply, 'a', "(usssoo)");
-        if (r < 0) {
-                bus_log_parse_error(r);
-                return;
-        }
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         while ((r = sd_bus_message_read(reply, "(usssoo)", &other_id, &name, &type, &state, &job_path, &unit_path)) > 0)
                 printf("%s %u (%s/%s)\n", prefix, other_id, name, type);
-        if (r < 0) {
-                bus_log_parse_error(r);
-                return;
-        }
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         r = sd_bus_message_exit_container(reply);
-        if (r < 0) {
-                bus_log_parse_error(r);
-                return;
-        }
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return 0;
 }
 
 struct job_info {
