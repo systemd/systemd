@@ -395,7 +395,8 @@ int strv_env_replace(char ***l, char *p) {
 
         for (f = *l; f && *f; f++)
                 if (env_match(*f, p)) {
-                        free_and_replace(*f, p);
+                        free(*f);
+                        *f = p;
                         strv_env_unset(f + 1, p);
                         return 0;
                 }
