@@ -938,7 +938,9 @@ libbasic_la_SOURCES = \
 	src/basic/alloc-util.h \
 	src/basic/alloc-util.c \
 	src/basic/format-util.h \
-	src/basic/nss-util.h
+	src/basic/nss-util.h \
+	src/basic/khash.h \
+	src/basic/khash.c
 
 nodist_libbasic_la_SOURCES = \
 	src/basic/errno-from-name.h \
@@ -4044,6 +4046,16 @@ test_id128_LDADD = \
 
 tests += \
 	test-id128
+
+# ------------------------------------------------------------------------------
+test_hash_SOURCES = \
+	src/test/test-hash.c
+
+test_hash_LDADD = \
+	libsystemd-shared.la
+
+tests += \
+	test-hash
 
 # ------------------------------------------------------------------------------
 
