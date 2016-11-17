@@ -2227,7 +2227,7 @@ static void output_waiting_jobs(sd_bus *bus, uint32_t id, const char *method, co
         }
 
         while ((r = sd_bus_message_read(reply, "(usssoo)", &other_id, &name, &type, &state, &job_path, &unit_path)) > 0)
-                printf("%s%u (%s/%s)\n", prefix, other_id, name, type);
+                printf("%s %u (%s/%s)\n", prefix, other_id, name, type);
         if (r < 0) {
                 bus_log_parse_error(r);
                 return;
@@ -2309,9 +2309,9 @@ static void output_jobs_list(sd_bus *bus, const struct job_info* jobs, unsigned 
                        on, state_len, j->state, off);
 
                 if (arg_jobs_after)
-                        output_waiting_jobs(bus, j->id, "GetJobAfter", "\tA job waits for this job: ");
+                        output_waiting_jobs(bus, j->id, "GetJobAfter", "\twaiting for job");
                 if (arg_jobs_before)
-                        output_waiting_jobs(bus, j->id, "GetJobBefore", "\tThis job waits for a job: ");
+                        output_waiting_jobs(bus, j->id, "GetJobBefore", "\tblocking job");
         }
 
         if (!arg_no_legend) {
