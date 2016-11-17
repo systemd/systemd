@@ -107,6 +107,7 @@ enum JobResult {
         JOB_INVALID,             /* JOB_RELOAD of inactive unit */
         JOB_ASSERT,              /* Couldn't start a unit, because an assert didn't hold */
         JOB_UNSUPPORTED,         /* Couldn't start a unit, because the unit type is not supported on the system */
+        JOB_COLLECTED,           /* Job was garbage collected, since nothing needed it anymore */
         _JOB_RESULT_MAX,
         _JOB_RESULT_INVALID = -1
 };
@@ -122,8 +123,8 @@ struct JobDependency {
         LIST_FIELDS(JobDependency, subject);
         LIST_FIELDS(JobDependency, object);
 
-        bool matters;
-        bool conflicts;
+        bool matters:1;
+        bool conflicts:1;
 };
 
 struct Job {
@@ -133,6 +134,7 @@ struct Job {
         LIST_FIELDS(Job, transaction);
         LIST_FIELDS(Job, run_queue);
         LIST_FIELDS(Job, dbus_queue);
+        LIST_FIELDS(Job, gc_queue);
 
         LIST_HEAD(JobDependency, subject_list);
         LIST_HEAD(JobDependency, object_list);
@@ -156,7 +158,7 @@ struct Job {
          *
          * There can be more than one client, because of job merging.
          */
-        sd_bus_track *clients;
+        sd_bus_track *bus_track;
         char **deserialized_clients;
 
         JobResult result;
@@ -168,6 +170,8 @@ struct Job {
         bool sent_dbus_new_signal:1;
         bool ignore_order:1;
         bool irreversible:1;
+        bool in_gc_queue:1;
+        bool ref_by_private_bus:1;
 };
 
 Job* job_new(Unit *unit, JobType type);
@@ -226,6 +230,12 @@ char *job_dbus_path(Job *j);
 void job_shutdown_magic(Job *j);
 
 int job_get_timeout(Job *j, usec_t *timeout) _pure_;
+
+bool job_check_gc(Job *j);
+void job_add_to_gc_queue(Job *j);
+
+int job_get_before(Job *j, Job*** ret);
+int job_get_after(Job *j, Job*** ret);
 
 const char* job_type_to_string(JobType t) _const_;
 JobType job_type_from_string(const char *s) _pure_;

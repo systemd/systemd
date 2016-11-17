@@ -209,6 +209,10 @@
           <varname>RequiresMountsFor=</varname>). Both explicitly
           and implicitly introduced dependencies are shown with
           <command>list-dependencies</command>.</para>
+
+          <para>When passed to the <command>list-jobs</command> command, for each printed job show which other jobs are
+          waiting for it. May be combined with <option>--before</option> to show both the jobs waiting for each job as
+          well as all jobs each job is waiting for.</para>
         </listitem>
       </varlistentry>
 
@@ -220,6 +224,10 @@
           units that are ordered after the specified unit. In other
           words, recursively list units following the
           <varname>Before=</varname> dependency.</para>
+
+          <para>When passed to the <command>list-jobs</command> command, for each printed job show which other jobs it
+          is waiting for. May be combined with <option>--after</option> to show both the jobs waiting for each job as
+          well as all jobs each job is waiting for.</para>
         </listitem>
       </varlistentry>
 
@@ -1388,6 +1396,10 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <para>List jobs that are in progress. If one or more
             <replaceable>PATTERN</replaceable>s are specified, only
             jobs for units matching one of them are shown.</para>
+
+            <para>When combined with <option>--after</option> or <option>--before</option> the list is augmented with
+            information on which other job each job is waiting for, and which other jobs are waiting for it, see
+            above.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

@@ -560,7 +560,6 @@ Features:
   - man: maybe sort directives in man pages, and take sections from --help and apply them to man too
 
 * systemctl:
-  - systemctl list-jobs - show dependencies
   - add systemctl switch to dump transaction without executing it
   - Add a verbose mode to "systemctl start" and friends that explains what is being done or not done
   - "systemctl disable" on a static unit prints no message and does
@@ -735,7 +734,6 @@ Features:
   - maybe introduce WantsMountsFor=? Usecase:
     http://lists.freedesktop.org/archives/systemd-devel/2015-January/027729.html
   - recreate systemd's D-Bus private socket file on SIGUSR2
-  - GC unreferenced jobs (such as .device jobs)
   - move PAM code into its own binary
   - when we automatically restart a service, ensure we restart its rdeps, too.
   - hide PAM options in fragment parser when compile time disabled

@@ -22,6 +22,7 @@
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "cgroup-util.h"
+#include "dbus-job.h"
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "fd-util.h"
@@ -1223,17 +1224,9 @@ int bus_unit_queue_job(
         if (r < 0)
                 return r;
 
-        if (sd_bus_message_get_bus(message) == u->manager->api_bus) {
-                if (!j->clients) {
-                        r = sd_bus_track_new(sd_bus_message_get_bus(message), &j->clients, NULL, NULL);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = sd_bus_track_add_sender(j->clients, message);
-                if (r < 0)
-                        return r;
-        }
+        r = bus_job_track_sender(j, message);
+        if (r < 0)
+                return r;
 
         path = job_dbus_path(j);
         if (!path)
@@ -1507,7 +1500,7 @@ int bus_unit_check_load_state(Unit *u, sd_bus_error *error) {
         return sd_bus_error_set_errnof(error, u->load_error, "Unit %s is not loaded properly: %m.", u->id);
 }
 
-static int bus_track_handler(sd_bus_track *t, void *userdata) {
+static int bus_unit_track_handler(sd_bus_track *t, void *userdata) {
         Unit *u = userdata;
 
         assert(t);
@@ -1519,7 +1512,7 @@ static int bus_track_handler(sd_bus_track *t, void *userdata) {
         return 0;
 }
 
-static int allocate_bus_track(Unit *u) {
+static int bus_unit_allocate_bus_track(Unit *u) {
         int r;
 
         assert(u);
@@ -1527,7 +1520,7 @@ static int allocate_bus_track(Unit *u) {
         if (u->bus_track)
                 return 0;
 
-        r = sd_bus_track_new(u->manager->api_bus, &u->bus_track, bus_track_handler, u);
+        r = sd_bus_track_new(u->manager->api_bus, &u->bus_track, bus_unit_track_handler, u);
         if (r < 0)
                 return r;
 
@@ -1545,7 +1538,7 @@ int bus_unit_track_add_name(Unit *u, const char *name) {
 
         assert(u);
 
-        r = allocate_bus_track(u);
+        r = bus_unit_allocate_bus_track(u);
         if (r < 0)
                 return r;
 
@@ -1557,7 +1550,7 @@ int bus_unit_track_add_sender(Unit *u, sd_bus_message *m) {
 
         assert(u);
 
-        r = allocate_bus_track(u);
+        r = bus_unit_allocate_bus_track(u);
         if (r < 0)
                 return r;
 

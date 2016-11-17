@@ -62,6 +62,7 @@ int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u) {
 
 int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignment) {
         const char *eq, *field;
+        UnitDependency dep;
         int r, rl;
 
         assert(m);
@@ -572,7 +573,9 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         flags = (~flags) & NAMESPACE_FLAGS_ALL;
 
                 r = sd_bus_message_append(m, "v", "t", flags);
-        } else {
+        } else if ((dep = unit_dependency_from_string(field)) >= 0)
+                r = sd_bus_message_append(m, "v", "as", 1, eq);
+        else {
                 log_error("Unknown assignment %s.", assignment);
                 return -EINVAL;
         }
@@ -838,6 +841,8 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet, const char* const*
                         log_error("Assertion failed on job for %s.", strna(d->name));
                 else if (streq(d->result, "unsupported"))
                         log_error("Operation on or unit type of %s not supported on this system.", strna(d->name));
+                else if (streq(d->result, "collected"))
+                        log_error("Queued job for %s was garbage collected.", strna(d->name));
                 else if (!streq(d->result, "done") && !streq(d->result, "skipped")) {
                         if (d->name) {
                                 int q;
@@ -853,7 +858,7 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet, const char* const*
                 }
         }
 
-        if (streq(d->result, "canceled"))
+        if (STR_IN_SET(d->result, "canceled", "collected"))
                 r = -ECANCELED;
         else if (streq(d->result, "timeout"))
                 r = -ETIME;

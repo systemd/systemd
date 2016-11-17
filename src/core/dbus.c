@@ -1054,8 +1054,8 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
                 m->subscribed = sd_bus_track_unref(m->subscribed);
 
         HASHMAP_FOREACH(j, m->jobs, i)
-                if (j->clients && sd_bus_track_get_bus(j->clients) == *bus)
-                        j->clients = sd_bus_track_unref(j->clients);
+                if (j->bus_track && sd_bus_track_get_bus(j->bus_track) == *bus)
+                        j->bus_track = sd_bus_track_unref(j->bus_track);
 
         /* Get rid of queued message on this bus */
         if (m->queued_message && sd_bus_message_get_bus(m->queued_message) == *bus)
@@ -1185,7 +1185,6 @@ void bus_track_serialize(sd_bus_track *t, FILE *f, const char *prefix) {
 }
 
 int bus_track_coldplug(Manager *m, sd_bus_track **t, bool recursive, char **l) {
-        char **i;
         int r = 0;
 
         assert(m);
@@ -1207,16 +1206,7 @@ int bus_track_coldplug(Manager *m, sd_bus_track **t, bool recursive, char **l) {
         if (r < 0)
                 return r;
 
-        r = 0;
-        STRV_FOREACH(i, l) {
-                int k;
-
-                k = sd_bus_track_add_name(*t, *i);
-                if (k < 0)
-                        r = k;
-        }
-
-        return r;
+        return bus_track_add_name_many(*t, l);
 }
 
 int bus_verify_manage_units_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {

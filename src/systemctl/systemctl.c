@@ -173,6 +173,8 @@ static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_plain = false;
 static bool arg_firmware_setup = false;
 static bool arg_now = false;
+static bool arg_jobs_before = false;
+static bool arg_jobs_after = false;
 
 static int daemon_reload(int argc, char *argv[], void* userdata);
 static int trivial_method(int argc, char *argv[], void *userdata);
@@ -202,6 +204,9 @@ static int acquire_bus(BusFocus focus, sd_bus **ret) {
 
         /* We only go directly to the manager, if we are using a local transport */
         if (arg_transport != BUS_TRANSPORT_LOCAL)
+                focus = BUS_FULL;
+
+        if (getenv_bool("SYSTEMCTL_FORCE_BUS") > 0)
                 focus = BUS_FULL;
 
         if (!busses[focus]) {
@@ -2192,12 +2197,55 @@ finish:
         return r;
 }
 
+static void output_waiting_jobs(sd_bus *bus, uint32_t id, const char *method, const char *prefix) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        const char *name, *type, *state, *job_path, *unit_path;
+        uint32_t other_id;
+        int r;
+
+        assert(bus);
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        method,
+                        &error,
+                        &reply,
+                        "u", id);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to get waiting jobs for job %" PRIu32, id);
+                return;
+        }
+
+        r = sd_bus_message_enter_container(reply, 'a', "(usssoo)");
+        if (r < 0) {
+                bus_log_parse_error(r);
+                return;
+        }
+
+        while ((r = sd_bus_message_read(reply, "(usssoo)", &other_id, &name, &type, &state, &job_path, &unit_path)) > 0)
+                printf("%s%u (%s/%s)\n", prefix, other_id, name, type);
+        if (r < 0) {
+                bus_log_parse_error(r);
+                return;
+        }
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0) {
+                bus_log_parse_error(r);
+                return;
+        }
+}
+
 struct job_info {
         uint32_t id;
         const char *name, *type, *state;
 };
 
-static void output_jobs_list(const struct job_info* jobs, unsigned n, bool skipped) {
+static void output_jobs_list(sd_bus *bus, const struct job_info* jobs, unsigned n, bool skipped) {
         unsigned id_len, unit_len, type_len, state_len;
         const struct job_info *j;
         const char *on, *off;
@@ -2259,6 +2307,11 @@ static void output_jobs_list(const struct job_info* jobs, unsigned n, bool skipp
                        on, unit_len, e ? e : j->name, off,
                        type_len, j->type,
                        on, state_len, j->state, off);
+
+                if (arg_jobs_after)
+                        output_waiting_jobs(bus, j->id, "GetJobAfter", "\tA job waits for this job: ");
+                if (arg_jobs_before)
+                        output_waiting_jobs(bus, j->id, "GetJobBefore", "\tThis job waits for a job: ");
         }
 
         if (!arg_no_legend) {
@@ -2327,7 +2380,7 @@ static int list_jobs(int argc, char *argv[], void *userdata) {
 
         pager_open(arg_no_pager, false);
 
-        output_jobs_list(jobs, c, skipped);
+        output_jobs_list(bus, jobs, c, skipped);
         return 0;
 }
 
@@ -7302,10 +7355,12 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_AFTER:
                         arg_dependency = DEPENDENCY_AFTER;
+                        arg_jobs_after = true;
                         break;
 
                 case ARG_BEFORE:
                         arg_dependency = DEPENDENCY_BEFORE;
+                        arg_jobs_before = true;
                         break;
 
                 case ARG_SHOW_TYPES:

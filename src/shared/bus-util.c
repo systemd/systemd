@@ -1583,3 +1583,22 @@ int bus_property_get_rlimit(
 
         return sd_bus_message_append(reply, "t", u);
 }
+
+int bus_track_add_name_many(sd_bus_track *t, char **l) {
+        int r = 0;
+        char **i;
+
+        assert(t);
+
+        /* Continues adding after failure, and returns the first failure. */
+
+        STRV_FOREACH(i, l) {
+                int k;
+
+                k = sd_bus_track_add_name(t, *i);
+                if (k < 0 && r >= 0)
+                        r = k;
+        }
+
+        return r;
+}

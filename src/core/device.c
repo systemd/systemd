@@ -831,6 +831,8 @@ const UnitVTable device_vtable = {
                 "Device\0"
                 "Install\0",
 
+        .gc_jobs = true,
+
         .init = device_init,
         .done = device_done,
         .load = unit_load_fragment_and_dropin_optional,
