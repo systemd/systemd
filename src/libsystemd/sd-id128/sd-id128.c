@@ -27,6 +27,7 @@
 #include "hexdecoct.h"
 #include "id128-util.h"
 #include "io-util.h"
+#include "khash.h"
 #include "macro.h"
 #include "random-util.h"
 #include "util.h"
@@ -179,5 +180,36 @@ _public_ int sd_id128_randomize(sd_id128_t *ret) {
          * pre-existing ones. */
 
         *ret = make_v4_uuid(t);
+        return 0;
+}
+
+_public_ int sd_id128_get_machine_app_specific(sd_id128_t app_id, sd_id128_t *ret) {
+        _cleanup_(khash_unrefp) khash *h = NULL;
+        sd_id128_t m, result;
+        const void *p;
+        int r;
+
+        assert_return(ret, -EINVAL);
+
+        r = sd_id128_get_machine(&m);
+        if (r < 0)
+                return r;
+
+        r = khash_new_with_key(&h, "hmac(sha256)", &m, sizeof(m));
+        if (r < 0)
+                return r;
+
+        r = khash_put(h, &app_id, sizeof(app_id));
+        if (r < 0)
+                return r;
+
+        r = khash_digest_data(h, &p);
+        if (r < 0)
+                return r;
+
+        /* We chop off the trailing 16 bytes */
+        memcpy(&result, p, MIN(khash_get_size(h), sizeof(result)));
+
+        *ret = make_v4_uuid(result);
         return 0;
 }
