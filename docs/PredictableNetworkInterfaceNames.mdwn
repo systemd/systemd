@@ -39,7 +39,7 @@ This combined policy is only applied as last resort. That means, if the system h
 With this new scheme you now get: 
 
 * Stable interface names across reboots 
-* Stable interface names even when hardware is added or removed, i.e. no re-enumeration takes place 
+* Stable interface names even when hardware is added or removed, i.e. no re-enumeration takes place (to the level the firmware permits this)
 * Stable interface names when kernels or drivers are updated/changed 
 * Stable interface names even if you have to replace broken ethernet cards by new ones 
 * The names are automatically determined without user configuration, they just work 
