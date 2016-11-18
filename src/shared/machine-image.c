@@ -33,6 +33,7 @@
 #include "chattr-util.h"
 #include "copy.h"
 #include "dirent-util.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
@@ -724,11 +725,16 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
          * uses the device/inode number. This has the benefit that we
          * can even lock a tree that is a mount point, correctly. */
 
-        if (path_equal(path, "/"))
-                return -EBUSY;
-
         if (!path_is_absolute(path))
                 return -EINVAL;
+
+        if (getenv_bool("SYSTEMD_NSPAWN_LOCK") == 0) {
+                *local = *global = (LockFile) LOCK_FILE_INIT;
+                return 0;
+        }
+
+        if (path_equal(path, "/"))
+                return -EBUSY;
 
         if (stat(path, &st) >= 0) {
                 if (asprintf(&p, "/run/systemd/nspawn/locks/inode-%lu:%lu", (unsigned long) st.st_dev, (unsigned long) st.st_ino) < 0)
@@ -783,6 +789,11 @@ int image_name_lock(const char *name, int operation, LockFile *ret) {
 
         if (!image_name_is_valid(name))
                 return -EINVAL;
+
+        if (getenv_bool("SYSTEMD_NSPAWN_LOCK") == 0) {
+                *ret = (LockFile) LOCK_FILE_INIT;
+                return 0;
+        }
 
         if (streq(name, ".host"))
                 return -EBUSY;
