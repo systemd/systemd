@@ -675,7 +675,7 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value) {
                 }
                 line[i] = 0;
 
-                if (memcmp(line, field, l) == 0 && line[l] == '=') {
+                if (strneq(line, field, l) && line[l] == '=') {
                         value = strdup(line + l + 1);
                         if (!value)
                                 return -ENOMEM;
