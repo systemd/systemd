@@ -252,7 +252,7 @@ static bool path_is_busy(const char *where) {
         int r;
 
         /* already a mountpoint; generators run during reload */
-        r = path_is_mount_point(where, AT_SYMLINK_FOLLOW);
+        r = path_is_mount_point(where, NULL, AT_SYMLINK_FOLLOW);
         if (r > 0)
                 return false;
 

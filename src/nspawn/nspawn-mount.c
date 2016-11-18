@@ -418,7 +418,7 @@ int mount_all(const char *dest,
                 if (!where)
                         return log_oom();
 
-                r = path_is_mount_point(where, AT_SYMLINK_FOLLOW);
+                r = path_is_mount_point(where, dest, AT_SYMLINK_FOLLOW);
                 if (r < 0 && r != -ENOENT)
                         return log_error_errno(r, "Failed to detect whether %s is a mount point: %m", where);
 
@@ -726,14 +726,19 @@ static int get_controllers(Set *subsystems) {
         return 0;
 }
 
-static int mount_legacy_cgroup_hierarchy(const char *dest, const char *controller, const char *hierarchy,
-                                         CGroupUnified unified_requested, bool read_only) {
+static int mount_legacy_cgroup_hierarchy(
+                const char *dest,
+                const char *controller,
+                const char *hierarchy,
+                CGroupUnified unified_requested,
+                bool read_only) {
+
         const char *to, *fstype, *opts;
         int r;
 
         to = strjoina(strempty(dest), "/sys/fs/cgroup/", hierarchy);
 
-        r = path_is_mount_point(to, 0);
+        r = path_is_mount_point(to, dest, 0);
         if (r < 0 && r != -ENOENT)
                 return log_error_errno(r, "Failed to determine if %s is mounted already: %m", to);
         if (r > 0)
@@ -773,8 +778,13 @@ static int mount_legacy_cgroup_hierarchy(const char *dest, const char *controlle
 
 /* Mount a legacy cgroup hierarchy when cgroup namespaces are supported. */
 static int mount_legacy_cgns_supported(
-                CGroupUnified unified_requested, bool userns, uid_t uid_shift,
-                uid_t uid_range, const char *selinux_apifs_context) {
+                const char *dest,
+                CGroupUnified unified_requested,
+                bool userns,
+                uid_t uid_shift,
+                uid_t uid_range,
+                const char *selinux_apifs_context) {
+
         _cleanup_set_free_free_ Set *controllers = NULL;
         const char *cgroup_root = "/sys/fs/cgroup", *c;
         int r;
@@ -782,7 +792,7 @@ static int mount_legacy_cgns_supported(
         (void) mkdir_p(cgroup_root, 0755);
 
         /* Mount a tmpfs to /sys/fs/cgroup if it's not mounted there yet. */
-        r = path_is_mount_point(cgroup_root, AT_SYMLINK_FOLLOW);
+        r = path_is_mount_point(cgroup_root, dest, AT_SYMLINK_FOLLOW);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine if /sys/fs/cgroup is already mounted: %m");
         if (r == 0) {
@@ -871,8 +881,12 @@ skip_controllers:
 /* Mount legacy cgroup hierarchy when cgroup namespaces are unsupported. */
 static int mount_legacy_cgns_unsupported(
                 const char *dest,
-                CGroupUnified unified_requested, bool userns, uid_t uid_shift, uid_t uid_range,
+                CGroupUnified unified_requested,
+                bool userns,
+                uid_t uid_shift,
+                uid_t uid_range,
                 const char *selinux_apifs_context) {
+
         _cleanup_set_free_free_ Set *controllers = NULL;
         const char *cgroup_root;
         int r;
@@ -882,7 +896,7 @@ static int mount_legacy_cgns_unsupported(
         (void) mkdir_p(cgroup_root, 0755);
 
         /* Mount a tmpfs to /sys/fs/cgroup if it's not mounted there yet. */
-        r = path_is_mount_point(cgroup_root, AT_SYMLINK_FOLLOW);
+        r = path_is_mount_point(cgroup_root, dest, AT_SYMLINK_FOLLOW);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine if /sys/fs/cgroup is already mounted: %m");
         if (r == 0) {
@@ -975,7 +989,7 @@ static int mount_unified_cgroups(const char *dest) {
 
         (void) mkdir_p(p, 0755);
 
-        r = path_is_mount_point(p, AT_SYMLINK_FOLLOW);
+        r = path_is_mount_point(p, dest, AT_SYMLINK_FOLLOW);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine if %s is mounted already: %m", p);
         if (r > 0) {
@@ -995,14 +1009,16 @@ static int mount_unified_cgroups(const char *dest) {
 int mount_cgroups(
                 const char *dest,
                 CGroupUnified unified_requested,
-                bool userns, uid_t uid_shift, uid_t uid_range,
+                bool userns,
+                uid_t uid_shift,
+                uid_t uid_range,
                 const char *selinux_apifs_context,
                 bool use_cgns) {
 
         if (unified_requested >= CGROUP_UNIFIED_ALL)
                 return mount_unified_cgroups(dest);
         else if (use_cgns)
-                return mount_legacy_cgns_supported(unified_requested, userns, uid_shift, uid_range, selinux_apifs_context);
+                return mount_legacy_cgns_supported(dest, unified_requested, userns, uid_shift, uid_range, selinux_apifs_context);
 
         return mount_legacy_cgns_unsupported(dest, unified_requested, userns, uid_shift, uid_range, selinux_apifs_context);
 }

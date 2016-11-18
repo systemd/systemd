@@ -39,7 +39,7 @@ int readlinkat_malloc(int fd, const char *p, char **ret);
 int readlink_malloc(const char *p, char **r);
 int readlink_value(const char *p, char **ret);
 int readlink_and_make_absolute(const char *p, char **r);
-int readlink_and_canonicalize(const char *p, char **r);
+int readlink_and_canonicalize(const char *p, const char *root, char **r);
 int readlink_and_make_absolute_root(const char *root, const char *path, char **ret);
 
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);

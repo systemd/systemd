@@ -159,7 +159,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
         if (relabel)
                 (void) label_fix(p->where, true, true);
 
-        r = path_is_mount_point(p->where, AT_SYMLINK_FOLLOW);
+        r = path_is_mount_point(p->where, NULL, AT_SYMLINK_FOLLOW);
         if (r < 0 && r != -ENOENT) {
                 log_full_errno((p->mode & MNT_FATAL) ? LOG_ERR : LOG_DEBUG, r, "Failed to determine whether %s is a mount point: %m", p->where);
                 return (p->mode & MNT_FATAL) ? r : 0;

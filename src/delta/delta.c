@@ -87,14 +87,15 @@ static enum {
 
 static int equivalent(const char *a, const char *b) {
         _cleanup_free_ char *x = NULL, *y = NULL;
+        int r;
 
-        x = canonicalize_file_name(a);
-        if (!x)
-                return -errno;
+        r = chase_symlinks(a, NULL, &x);
+        if (r < 0)
+                return r;
 
-        y = canonicalize_file_name(b);
-        if (!y)
-                return -errno;
+        r = chase_symlinks(b, NULL, &y);
+        if (r < 0)
+                return r;
 
         return path_equal(x, y);
 }

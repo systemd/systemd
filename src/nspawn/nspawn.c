@@ -1666,7 +1666,7 @@ static int setup_journal(const char *directory) {
         p = strjoina("/var/log/journal/", id);
         q = prefix_roota(directory, p);
 
-        if (path_is_mount_point(p, 0) > 0) {
+        if (path_is_mount_point(p, NULL, 0) > 0) {
                 if (try)
                         return 0;
 
@@ -1674,7 +1674,7 @@ static int setup_journal(const char *directory) {
                 return -EEXIST;
         }
 
-        if (path_is_mount_point(q, 0) > 0) {
+        if (path_is_mount_point(q, NULL, 0) > 0) {
                 if (try)
                         return 0;
 
@@ -4132,7 +4132,7 @@ int main(int argc, char *argv[]) {
                          * the specified is not a mount point we
                          * create the new snapshot in the parent
                          * directory, just next to it. */
-                        r = path_is_mount_point(arg_directory, 0);
+                        r = path_is_mount_point(arg_directory, NULL, 0);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to determine whether directory %s is mount point: %m", arg_directory);
                                 goto finish;

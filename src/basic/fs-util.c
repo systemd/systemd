@@ -224,25 +224,25 @@ int readlink_and_make_absolute(const char *p, char **r) {
         return 0;
 }
 
-int readlink_and_canonicalize(const char *p, char **r) {
+int readlink_and_canonicalize(const char *p, const char *root, char **ret) {
         char *t, *s;
-        int j;
+        int r;
 
         assert(p);
-        assert(r);
+        assert(ret);
 
-        j = readlink_and_make_absolute(p, &t);
-        if (j < 0)
-                return j;
+        r = readlink_and_make_absolute(p, &t);
+        if (r < 0)
+                return r;
 
-        s = canonicalize_file_name(t);
-        if (s) {
+        r = chase_symlinks(t, root, &s);
+        if (r < 0)
+                /* If we can't follow up, then let's return the original string, slightly cleaned up. */
+                *ret = path_kill_slashes(t);
+        else {
+                *ret = s;
                 free(t);
-                *r = s;
-        } else
-                *r = t;
-
-        path_kill_slashes(*r);
+        }
 
         return 0;
 }

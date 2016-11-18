@@ -596,7 +596,7 @@ static int apply_mount(
         case READONLY:
         case READWRITE:
 
-                r = path_is_mount_point(bind_mount_path(m), 0);
+                r = path_is_mount_point(bind_mount_path(m), NULL, 0);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to determine whether %s is already a mount point: %m", bind_mount_path(m));
                 if (r > 0) /* Nothing to do here, it is already a mount. We just later toggle the MS_RDONLY bit for the mount point if needed. */
@@ -860,7 +860,7 @@ int setup_namespace(
 
         if (root_directory) {
                 /* Turn directory into bind mount, if it isn't one yet */
-                r = path_is_mount_point(root_directory, AT_SYMLINK_FOLLOW);
+                r = path_is_mount_point(root_directory, NULL, AT_SYMLINK_FOLLOW);
                 if (r < 0)
                         goto finish;
                 if (r == 0) {
