@@ -909,13 +909,14 @@ int config_parse_dhcp_server_dns(
                 struct in_addr a, *m;
 
                 r = extract_first_word(&p, &w, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract word, ignoring: %s", rvalue);
                         return 0;
                 }
-
                 if (r == 0)
-                        return 0;
+                        break;
 
                 if (inet_pton(AF_INET, w, &a) <= 0) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse DNS server address, ignoring: %s", w);
@@ -929,6 +930,8 @@ int config_parse_dhcp_server_dns(
                 m[n->n_dhcp_server_dns++] = a;
                 n->dhcp_server_dns = m;
         }
+
+        return 0;
 }
 
 int config_parse_dhcp_server_ntp(
@@ -956,11 +959,12 @@ int config_parse_dhcp_server_ntp(
                 struct in_addr a, *m;
 
                 r = extract_first_word(&p, &w, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract word, ignoring: %s", rvalue);
                         return 0;
                 }
-
                 if (r == 0)
                         return 0;
 
