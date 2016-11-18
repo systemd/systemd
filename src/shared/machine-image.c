@@ -27,6 +27,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <linux/fs.h>
+
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "chattr-util.h"
@@ -37,8 +38,8 @@
 #include "hashmap.h"
 #include "lockfile-util.h"
 #include "log.h"
-#include "macro.h"
 #include "machine-image.h"
+#include "macro.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
@@ -746,7 +747,8 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
                         release_lock_file(&t);
                         return r;
                 }
-        }
+        } else
+                *global = (LockFile) LOCK_FILE_INIT;
 
         *local = t;
         return 0;
