@@ -774,11 +774,48 @@ static int manager_connect_rtnl(Manager *m) {
         return 0;
 }
 
-static int ordered_set_put_in_addr(OrderedSet *s, const struct in_addr *address) {
+static int ordered_set_put_in_addr_data(OrderedSet *s, const struct in_addr_data *address) {
         char *p;
         int r;
 
         assert(s);
+        assert(address);
+
+        r = in_addr_to_string(address->family, &address->address, &p);
+        if (r < 0)
+                return r;
+
+        r = ordered_set_consume(s, p);
+        if (r == -EEXIST)
+                return 0;
+
+        return r;
+}
+
+static int ordered_set_put_in_addr_datav(OrderedSet *s, const struct in_addr_data *addresses, unsigned n) {
+        int r, c = 0;
+        unsigned i;
+
+        assert(s);
+        assert(addresses || n == 0);
+
+        for (i = 0; i < n; i++) {
+                r = ordered_set_put_in_addr_data(s, addresses+i);
+                if (r < 0)
+                        return r;
+
+                c += r;
+        }
+
+        return c;
+}
+
+static int ordered_set_put_in4_addr(OrderedSet *s, const struct in_addr *address) {
+        char *p;
+        int r;
+
+        assert(s);
+        assert(address);
 
         r = in_addr_to_string(AF_INET, (const union in_addr_union*) address, &p);
         if (r < 0)
@@ -791,14 +828,15 @@ static int ordered_set_put_in_addr(OrderedSet *s, const struct in_addr *address)
         return r;
 }
 
-static int ordered_set_put_in_addrv(OrderedSet *s, const struct in_addr *addresses, int n) {
-        int r, i, c = 0;
+static int ordered_set_put_in4_addrv(OrderedSet *s, const struct in_addr *addresses, unsigned n) {
+        int r, c = 0;
+        unsigned i;
 
         assert(s);
-        assert(n <= 0 || addresses);
+        assert(n == 0 || addresses);
 
         for (i = 0; i < n; i++) {
-                r = ordered_set_put_in_addr(s, addresses+i);
+                r = ordered_set_put_in4_addr(s, addresses+i);
                 if (r < 0)
                         return r;
 
@@ -865,7 +903,7 @@ static int manager_save(Manager *m) {
                         continue;
 
                 /* First add the static configured entries */
-                r = ordered_set_put_strdupv(dns, link->network->dns);
+                r = ordered_set_put_in_addr_datav(dns, link->network->dns, link->network->n_dns);
                 if (r < 0)
                         return r;
 
@@ -890,7 +928,7 @@ static int manager_save(Manager *m) {
 
                         r = sd_dhcp_lease_get_dns(link->dhcp_lease, &addresses);
                         if (r > 0) {
-                                r = ordered_set_put_in_addrv(dns, addresses, r);
+                                r = ordered_set_put_in4_addrv(dns, addresses, r);
                                 if (r < 0)
                                         return r;
                         } else if (r < 0 && r != -ENODATA)
@@ -902,7 +940,7 @@ static int manager_save(Manager *m) {
 
                         r = sd_dhcp_lease_get_ntp(link->dhcp_lease, &addresses);
                         if (r > 0) {
-                                r = ordered_set_put_in_addrv(ntp, addresses, r);
+                                r = ordered_set_put_in4_addrv(ntp, addresses, r);
                                 if (r < 0)
                                         return r;
                         } else if (r < 0 && r != -ENODATA)
@@ -934,7 +972,7 @@ static int manager_save(Manager *m) {
         if (r < 0)
                 return r;
 
-        fchmod(fileno(f), 0644);
+        (void) fchmod(fileno(f), 0644);
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"

@@ -244,7 +244,7 @@ void network_free(Network *network) {
         free(network->mac);
 
         strv_free(network->ntp);
-        strv_free(network->dns);
+        free(network->dns);
         strv_free(network->search_domains);
         strv_free(network->route_domains);
         strv_free(network->bind_carrier);
@@ -396,7 +396,7 @@ int network_apply(Network *network, Link *link) {
                 route->protocol = RTPROT_STATIC;
         }
 
-        if (!strv_isempty(network->dns) ||
+        if (network->n_dns > 0 ||
             !strv_isempty(network->ntp) ||
             !strv_isempty(network->search_domains) ||
             !strv_isempty(network->route_domains))
@@ -1004,29 +1004,35 @@ int config_parse_dns(
         for (;;) {
                 _cleanup_free_ char *w = NULL;
                 union in_addr_union a;
+                struct in_addr_data *m;
                 int family;
 
-                r = extract_first_word(&rvalue, &w, NULL, EXTRACT_QUOTES|EXTRACT_RETAIN_ESCAPE);
-                if (r == 0)
-                        break;
+                r = extract_first_word(&rvalue, &w, NULL, 0);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
                         break;
                 }
+                if (r == 0)
+                        break;
 
                 r = in_addr_from_string_auto(w, &family, &a);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse dns server address, ignoring: %s", w);
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse dns server address, ignoring: %s", w);
                         continue;
                 }
 
-                r = strv_consume(&n->dns, w);
-                if (r < 0)
+                m = realloc(n->dns, (n->n_dns + 1) * sizeof(struct in_addr_data));
+                if (!m)
                         return log_oom();
 
-                w = NULL;
+                m[n->n_dns++] = (struct in_addr_data) {
+                        .family = family,
+                        .address = a,
+                };
+
+                n->dns = m;
         }
 
         return 0;

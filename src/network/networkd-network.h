@@ -194,7 +194,10 @@ struct Network {
         Hashmap *routes_by_section;
         Hashmap *fdb_entries_by_section;
 
-        char **search_domains, **route_domains, **dns, **ntp, **bind_carrier;
+        struct in_addr_data *dns;
+        unsigned n_dns;
+
+        char **search_domains, **route_domains, **ntp, **bind_carrier;
 
         ResolveSupport llmnr;
         ResolveSupport mdns;
