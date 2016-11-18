@@ -91,7 +91,7 @@ _public_ int sd_ndisc_router_get_address(sd_ndisc_router *rt, struct in6_addr *r
         assert_return(rt, -EINVAL);
         assert_return(ret_addr, -EINVAL);
 
-        if (in6_addr_is_null(&rt->address))
+        if (IN6_IS_ADDR_UNSPECIFIED(&rt->address))
                 return -ENODATA;
 
         *ret_addr = rt->address;
