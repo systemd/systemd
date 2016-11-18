@@ -1143,11 +1143,6 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if (arg_ephemeral && arg_image) {
-                log_error("--ephemeral and --image= may not be combined.");
-                return -EINVAL;
-        }
-
         if (arg_ephemeral && !IN_SET(arg_link_journal, LINK_NO, LINK_AUTO)) {
                 log_error("--ephemeral and --link-journal= may not be combined.");
                 return -EINVAL;
@@ -2605,7 +2600,7 @@ static int determine_names(void) {
                         r = image_find(arg_machine, &i);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to find image for machine '%s': %m", arg_machine);
-                        else if (r == 0) {
+                        if (r == 0) {
                                 log_error("No image for machine '%s': %m", arg_machine);
                                 return -ENOENT;
                         }
@@ -2615,14 +2610,14 @@ static int determine_names(void) {
                         else
                                 r = free_and_strdup(&arg_directory, i->path);
                         if (r < 0)
-                                return log_error_errno(r, "Invalid image directory: %m");
+                                return log_oom();
 
                         if (!arg_ephemeral)
                                 arg_read_only = arg_read_only || i->read_only;
                 } else
                         arg_directory = get_current_dir_name();
 
-                if (!arg_directory && !arg_machine) {
+                if (!arg_directory && !arg_image) {
                         log_error("Failed to determine path, please use -D or -i.");
                         return -EINVAL;
                 }
@@ -2633,7 +2628,6 @@ static int determine_names(void) {
                         arg_machine = gethostname_malloc();
                 else
                         arg_machine = strdup(basename(arg_image ?: arg_directory));
-
                 if (!arg_machine)
                         return log_oom();
 
@@ -4077,7 +4071,7 @@ int main(int argc, char *argv[]) {
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int r, n_fd_passed, loop_nr = -1, ret = EXIT_SUCCESS;
         char veth_name[IFNAMSIZ] = "";
-        bool secondary = false, remove_subvol = false;
+        bool secondary = false, remove_subvol = false, remove_image = false;
         pid_t pid = 0;
         union in_addr_union exposed = {};
         _cleanup_release_lock_file_ LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
@@ -4148,7 +4142,7 @@ int main(int argc, char *argv[]) {
                         else
                                 r = tempfn_random(arg_directory, "machine.", &np);
                         if (r < 0) {
-                                log_error_errno(r, "Failed to generate name for snapshot: %m");
+                                log_error_errno(r, "Failed to generate name for directory snapshot: %m");
                                 goto finish;
                         }
 
@@ -4219,19 +4213,46 @@ int main(int argc, char *argv[]) {
                 assert(arg_image);
                 assert(!arg_template);
 
-                r = image_path_lock(arg_image, (arg_read_only ? LOCK_SH : LOCK_EX) | LOCK_NB, &tree_global_lock, &tree_local_lock);
-                if (r == -EBUSY) {
-                        r = log_error_errno(r, "Disk image %s is currently busy.", arg_image);
-                        goto finish;
-                }
-                if (r < 0) {
-                        r = log_error_errno(r, "Failed to create image lock: %m");
-                        goto finish;
+                if (arg_ephemeral)  {
+                        _cleanup_free_ char *np = NULL;
+
+                        r = tempfn_random(arg_image, "machine.", &np);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to generate name for image snapshot: %m");
+                                goto finish;
+                        }
+
+                        r = image_path_lock(np, (arg_read_only ? LOCK_SH : LOCK_EX) | LOCK_NB, &tree_global_lock, &tree_local_lock);
+                        if (r < 0) {
+                                r = log_error_errno(r, "Failed to create image lock: %m");
+                                goto finish;
+                        }
+
+                        r = copy_file(arg_image, np, O_EXCL, arg_read_only ? 0400 : 0600, FS_NOCOW_FL);
+                        if (r < 0) {
+                                r = log_error_errno(r, "Failed to copy image file: %m");
+                                goto finish;
+                        }
+
+                        free(arg_image);
+                        arg_image = np;
+                        np = NULL;
+
+                        remove_image = true;
+                } else {
+                        r = image_path_lock(arg_image, (arg_read_only ? LOCK_SH : LOCK_EX) | LOCK_NB, &tree_global_lock, &tree_local_lock);
+                        if (r == -EBUSY) {
+                                r = log_error_errno(r, "Disk image %s is currently busy.", arg_image);
+                                goto finish;
+                        }
+                        if (r < 0) {
+                                r = log_error_errno(r, "Failed to create image lock: %m");
+                                goto finish;
+                        }
                 }
 
                 if (!mkdtemp(template)) {
-                        log_error_errno(errno, "Failed to create temporary directory: %m");
-                        r = -errno;
+                        r = log_error_errno(errno, "Failed to create temporary directory: %m");
                         goto finish;
                 }
 
@@ -4255,6 +4276,10 @@ int main(int argc, char *argv[]) {
                                   &secondary);
                 if (r < 0)
                         goto finish;
+
+                /* Now that we mounted the image, let's try to remove it again, if it is ephemeral */
+                if (remove_image && unlink(arg_image) >= 0)
+                        remove_image = false;
         }
 
         r = custom_mounts_prepare();
@@ -4335,6 +4360,11 @@ finish:
                 k = btrfs_subvol_remove(arg_directory, BTRFS_REMOVE_RECURSIVE|BTRFS_REMOVE_QUOTA);
                 if (k < 0)
                         log_warning_errno(k, "Cannot remove subvolume '%s', ignoring: %m", arg_directory);
+        }
+
+        if (remove_image && arg_image) {
+                if (unlink(arg_image) < 0)
+                        log_warning_errno(errno, "Can't remove image file '%s', ignoring: %m", arg_image);
         }
 
         if (arg_machine) {

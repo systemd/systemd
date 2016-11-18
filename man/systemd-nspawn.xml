@@ -211,13 +211,8 @@
         <term><option>-x</option></term>
         <term><option>--ephemeral</option></term>
 
-        <listitem><para>If specified, the container is run with a
-        temporary <literal>btrfs</literal> snapshot of its root
-        directory (as configured with <option>--directory=</option>),
-        that is removed immediately when the container terminates.
-        This option is only supported if the root file system is
-        <literal>btrfs</literal>. May not be specified together with
-        <option>--image=</option> or
+        <listitem><para>If specified, the container is run with a temporary snapshot of its file system that is removed
+        immediately when the container terminates. May not be specified together with
         <option>--template=</option>.</para>
         <para>Note that this switch leaves host name, machine ID and
         all other settings that could identify the instance
@@ -252,11 +247,12 @@
           Partitions Specification</ulink>.</para></listitem>
         </itemizedlist>
 
-        <para>Any other partitions, such as foreign partitions, swap
-        partitions or EFI system partitions are not mounted. May not
-        be specified together with <option>--directory=</option>,
-        <option>--template=</option> or
-        <option>--ephemeral</option>.</para></listitem>
+        <para>On GPT images, if an EFI System Partition (ESP) is discovered, it is automatically mounted to
+        <filename>/efi</filename> (or <filename>/boot</filename> as fallback) in case a directory by this name exists
+        and is empty.</para>
+
+        <para>Any other partitions, such as foreign partitions or swap partitions are not mounted. May not be specified
+        together with <option>--directory=</option>, <option>--template=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
