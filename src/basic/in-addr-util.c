@@ -283,15 +283,14 @@ fallback:
 }
 
 int in_addr_from_string(int family, const char *s, union in_addr_union *ret) {
-
+        union in_addr_union buffer;
         assert(s);
-        assert(ret);
 
         if (!IN_SET(family, AF_INET, AF_INET6))
                 return -EAFNOSUPPORT;
 
         errno = 0;
-        if (inet_pton(family, s, ret) <= 0)
+        if (inet_pton(family, s, ret ?: &buffer) <= 0)
                 return errno > 0 ? -errno : -EINVAL;
 
         return 0;
@@ -301,18 +300,18 @@ int in_addr_from_string_auto(const char *s, int *family, union in_addr_union *re
         int r;
 
         assert(s);
-        assert(family);
-        assert(ret);
 
         r = in_addr_from_string(AF_INET, s, ret);
         if (r >= 0) {
-                *family = AF_INET;
+                if (family)
+                        *family = AF_INET;
                 return 0;
         }
 
         r = in_addr_from_string(AF_INET6, s, ret);
         if (r >= 0) {
-                *family = AF_INET6;
+                if (family)
+                        *family = AF_INET6;
                 return 0;
         }
 
