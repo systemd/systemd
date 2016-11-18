@@ -390,17 +390,21 @@ int sd_dhcp_client_set_hostname(
 
         assert_return(client, -EINVAL);
 
+        if (!hostname) {
+                client->hostname = mfree(client->hostname);
+                return 0;
+        }
+
+        /* Refuse hostnames that neither qualify as DNS nor as Linux hosntames */
         if (!hostname_is_valid(hostname, false) && !dns_name_is_valid(hostname))
                 return -EINVAL;
 
         if (streq_ptr(client->hostname, hostname))
                 return 0;
 
-        if (hostname) {
-                new_hostname = strdup(hostname);
-                if (!new_hostname)
-                        return -ENOMEM;
-        }
+        new_hostname = strdup(hostname);
+        if (!new_hostname)
+                return -ENOMEM;
 
         free(client->hostname);
         client->hostname = new_hostname;
