@@ -862,15 +862,22 @@ static int link_push_uplink_dns_to_dhcp_server(Link *link, sd_dhcp_server *s) {
                 return 0;
 
         for (i = 0; i < link->network->n_dns; i++) {
+                struct in_addr ia;
 
                 /* Only look for IPv4 addresses */
                 if (link->network->dns[i].family != AF_INET)
                         continue;
 
+                ia = link->network->dns[i].address.in;
+
+                /* Never propagate obviously borked data */
+                if (in4_addr_is_null(&ia) || in4_addr_is_localhost(&ia))
+                        continue;
+
                 if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + 1))
                         return log_oom();
 
-                addresses[n_addresses++] = link->network->dns[i].address.in;
+                addresses[n_addresses++] = ia;
         }
 
         if (link->network->dhcp_use_dns && link->dhcp_lease) {
@@ -909,6 +916,10 @@ static int link_push_uplink_ntp_to_dhcp_server(Link *link, sd_dhcp_server *s) {
 
                 /* Only look for IPv4 addresses */
                 if (inet_pton(AF_INET, *a, &ia) <= 0)
+                        continue;
+
+                /* Never propagate obviously borked data */
+                if (in4_addr_is_null(&ia) || in4_addr_is_localhost(&ia))
                         continue;
 
                 if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + 1))
