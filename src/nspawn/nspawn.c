@@ -4349,8 +4349,13 @@ finish:
                 kill(pid, SIGKILL);
 
         /* Try to flush whatever is still queued in the pty */
-        if (master >= 0)
+        if (master >= 0) {
                 (void) copy_bytes(master, STDOUT_FILENO, (uint64_t) -1, false);
+                master = safe_close(master);
+        }
+
+        if (pid > 0)
+                (void) wait_for_terminate(pid, NULL);
 
         loop_remove(loop_nr, &image_fd);
 
