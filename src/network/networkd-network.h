@@ -112,19 +112,19 @@ struct Network {
         DCHPClientIdentifier dhcp_client_identifier;
         char *dhcp_vendor_class_identifier;
         char *dhcp_hostname;
-        bool dhcp_use_dns;
-        bool dhcp_use_ntp;
-        bool dhcp_use_mtu;
-        bool dhcp_use_hostname;
-        DHCPUseDomains dhcp_use_domains;
-        bool dhcp_send_hostname;
-        bool dhcp_broadcast;
-        bool dhcp_critical;
-        bool dhcp_use_routes;
-        bool dhcp_use_timezone;
         unsigned dhcp_route_metric;
         uint32_t dhcp_route_table;
         uint32_t dhcp_client_port;
+        bool dhcp_send_hostname;
+        bool dhcp_broadcast;
+        bool dhcp_critical;
+        bool dhcp_use_dns;
+        bool dhcp_use_ntp;
+        bool dhcp_use_mtu;
+        bool dhcp_use_routes;
+        bool dhcp_use_timezone;
+        bool dhcp_use_hostname;
+        DHCPUseDomains dhcp_use_domains;
 
         /* DHCP Server Support */
         bool dhcp_server;
