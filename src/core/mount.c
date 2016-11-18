@@ -747,7 +747,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
                 return r;
 
         exec_params.environment = UNIT(m)->manager->environment;
-        exec_params.flags |= UNIT(m)->manager->confirm_spawn ? EXEC_CONFIRM_SPAWN : 0;
+        exec_params.confirm_spawn = manager_get_confirm_spawn(UNIT(m)->manager);
         exec_params.cgroup_supported = UNIT(m)->manager->cgroup_supported;
         exec_params.cgroup_path = UNIT(m)->cgroup_path;
         exec_params.cgroup_delegate = m->cgroup_context.delegate;

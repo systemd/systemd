@@ -111,6 +111,12 @@ static void manager_watch_jobs_in_progress(Manager *m) {
 
         assert(m);
 
+        /* We do not want to show the cylon animation if the user
+         * needs to confirm service executions otherwise confirmation
+         * messages will be screwed by the cylon animation. */
+        if (!manager_is_confirm_spawn_disabled(m))
+                return;
+
         if (m->jobs_in_progress_event_source)
                 return;
 
@@ -2993,7 +2999,7 @@ void manager_check_finished(Manager *m) {
         manager_close_idle_pipe(m);
 
         /* Turn off confirm spawn now */
-        m->confirm_spawn = false;
+        m->confirm_spawn = NULL;
 
         /* No need to update ask password status when we're going non-interactive */
         manager_close_ask_password(m);
@@ -3178,6 +3184,49 @@ static bool manager_get_show_status(Manager *m, StatusType type) {
         return false;
 }
 
+const char *manager_get_confirm_spawn(Manager *m) {
+        static int last_errno = 0;
+        const char *vc = m->confirm_spawn;
+        struct stat st;
+        int r;
+
+        /* Here's the deal: we want to test the validity of the console but don't want
+         * PID1 to go through the whole console process which might block. But we also
+         * want to warn the user only once if something is wrong with the console so we
+         * cannot do the sanity checks after spawning our children. So here we simply do
+         * really basic tests to hopefully trap common errors.
+         *
+         * If the console suddenly disappear at the time our children will really it
+         * then they will simply fail to acquire it and a positive answer will be
+         * assumed. New children will fallback to /dev/console though.
+         *
+         * Note: TTYs are devices that can come and go any time, and frequently aren't
+         * available yet during early boot (consider a USB rs232 dongle...). If for any
+         * reason the configured console is not ready, we fallback to the default
+         * console. */
+
+        if (!vc || path_equal(vc, "/dev/console"))
+                return vc;
+
+        r = stat(vc, &st);
+        if (r < 0)
+                goto fail;
+
+        if (!S_ISCHR(st.st_mode)) {
+                errno = ENOTTY;
+                goto fail;
+        }
+
+        last_errno = 0;
+        return vc;
+fail:
+        if (last_errno != errno) {
+                last_errno = errno;
+                log_warning_errno(errno, "Failed to open %s: %m, using default console", vc);
+        }
+        return "/dev/console";
+}
+
 void manager_set_first_boot(Manager *m, bool b) {
         assert(m);
 
@@ -3192,6 +3241,17 @@ void manager_set_first_boot(Manager *m, bool b) {
         }
 
         m->first_boot = b;
+}
+
+void manager_disable_confirm_spawn(void) {
+        (void) touch("/run/systemd/confirm_spawn_disabled");
+}
+
+bool manager_is_confirm_spawn_disabled(Manager *m) {
+        if (!m->confirm_spawn)
+                return true;
+
+        return access("/run/systemd/confirm_spawn_disabled", F_OK) >= 0;
 }
 
 void manager_status_printf(Manager *m, StatusType type, const char *status, const char *format, ...) {

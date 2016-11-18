@@ -624,7 +624,7 @@ static int chown_terminal(int fd, uid_t uid) {
         return 0;
 }
 
-static int setup_confirm_stdio(int *_saved_stdin, int *_saved_stdout) {
+static int setup_confirm_stdio(const char *vc, int *_saved_stdin, int *_saved_stdout) {
         _cleanup_close_ int fd = -1, saved_stdin = -1, saved_stdout = -1;
         int r;
 
@@ -639,12 +639,7 @@ static int setup_confirm_stdio(int *_saved_stdin, int *_saved_stdout) {
         if (saved_stdout < 0)
                 return -errno;
 
-        fd = acquire_terminal(
-                        "/dev/console",
-                        false,
-                        false,
-                        false,
-                        DEFAULT_CONFIRM_USEC);
+        fd = acquire_terminal(vc, false, false, false, DEFAULT_CONFIRM_USEC);
         if (fd < 0)
                 return fd;
 
@@ -674,21 +669,27 @@ static int setup_confirm_stdio(int *_saved_stdin, int *_saved_stdout) {
         return 0;
 }
 
-_printf_(1, 2) static int write_confirm_message(const char *format, ...) {
+static void write_confirm_error_fd(int err, int fd, const Unit *u) {
+        assert(err < 0);
+
+        if (err == -ETIMEDOUT)
+                dprintf(fd, "Confirmation question timed out for %s, assuming positive response.\n", u->id);
+        else {
+                errno = -err;
+                dprintf(fd, "Couldn't ask confirmation for %s: %m, assuming positive response.\n", u->id);
+        }
+}
+
+static void write_confirm_error(int err, const char *vc, const Unit *u) {
         _cleanup_close_ int fd = -1;
-        va_list ap;
 
-        assert(format);
+        assert(vc);
 
-        fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal(vc, O_WRONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
-                return fd;
+                return;
 
-        va_start(ap, format);
-        vdprintf(fd, format, ap);
-        va_end(ap);
-
-        return 0;
+        write_confirm_error_fd(err, fd, u);
 }
 
 static int restore_confirm_stdio(int *saved_stdin, int *saved_stdout) {
@@ -713,22 +714,96 @@ static int restore_confirm_stdio(int *saved_stdin, int *saved_stdout) {
         return r;
 }
 
-static int ask_for_confirmation(char *response, char **argv) {
+enum {
+        CONFIRM_PRETEND_FAILURE = -1,
+        CONFIRM_PRETEND_SUCCESS =  0,
+        CONFIRM_EXECUTE = 1,
+};
+
+static int ask_for_confirmation(const char *vc, Unit *u, const char *cmdline) {
         int saved_stdout = -1, saved_stdin = -1, r;
-        _cleanup_free_ char *line = NULL;
+        _cleanup_free_ char *e = NULL;
+        char c;
 
-        r = setup_confirm_stdio(&saved_stdin, &saved_stdout);
-        if (r < 0)
-                return r;
+        /* For any internal errors, assume a positive response. */
+        r = setup_confirm_stdio(vc, &saved_stdin, &saved_stdout);
+        if (r < 0) {
+                write_confirm_error(r, vc, u);
+                return CONFIRM_EXECUTE;
+        }
 
-        line = exec_command_line(argv);
-        if (!line)
-                return -ENOMEM;
+        /* confirm_spawn might have been disabled while we were sleeping. */
+        if (manager_is_confirm_spawn_disabled(u->manager)) {
+                r = 1;
+                goto restore_stdio;
+        }
 
-        r = ask_char(response, "yns", "Execute %s? [Yes, No, Skip] ", line);
+        e = ellipsize(cmdline, 60, 100);
+        if (!e) {
+                log_oom();
+                r = CONFIRM_EXECUTE;
+                goto restore_stdio;
+        }
 
+        for (;;) {
+                r = ask_char(&c, "yfshiDjcn", "Execute %s? [y, f, s – h for help] ", e);
+                if (r < 0) {
+                        write_confirm_error_fd(r, STDOUT_FILENO, u);
+                        r = CONFIRM_EXECUTE;
+                        goto restore_stdio;
+                }
+
+                switch (c) {
+                case 'c':
+                        printf("Resuming normal execution.\n");
+                        manager_disable_confirm_spawn();
+                        r = 1;
+                        break;
+                case 'D':
+                        unit_dump(u, stdout, "  ");
+                        continue; /* ask again */
+                case 'f':
+                        printf("Failing execution.\n");
+                        r = CONFIRM_PRETEND_FAILURE;
+                        break;
+                case 'h':
+                        printf("  c - continue, proceed without asking anymore\n"
+                               "  D - dump, show the state of the unit\n"
+                               "  f - fail, don't execute the command and pretend it failed\n"
+                               "  h - help\n"
+                               "  i - info, show a short summary of the unit\n"
+                               "  j - jobs, show jobs that are in progress\n"
+                               "  s - skip, don't execute the command and pretend it succeeded\n"
+                               "  y - yes, execute the command\n");
+                        continue; /* ask again */
+                case 'i':
+                        printf("  Description: %s\n"
+                               "  Unit:        %s\n"
+                               "  Command:     %s\n",
+                               u->id, u->description, cmdline);
+                        continue; /* ask again */
+                case 'j':
+                        manager_dump_jobs(u->manager, stdout, "  ");
+                        continue; /* ask again */
+                case 'n':
+                        /* 'n' was removed in favor of 'f'. */
+                        printf("Didn't understand 'n', did you mean 'f'?\n");
+                        continue; /* ask again */
+                case 's':
+                        printf("Skipping execution.\n");
+                        r = CONFIRM_PRETEND_SUCCESS;
+                        break;
+                case 'y':
+                        r = CONFIRM_EXECUTE;
+                        break;
+                default:
+                        assert_not_reached("Unhandled choice");
+                }
+                break;
+        }
+
+restore_stdio:
         restore_confirm_stdio(&saved_stdin, &saved_stdout);
-
         return r;
 }
 
@@ -2315,22 +2390,24 @@ static int exec_child(
 
         exec_context_tty_reset(context, params);
 
-        if (params->flags & EXEC_CONFIRM_SPAWN) {
-                char response;
+        if (unit_shall_confirm_spawn(unit)) {
+                const char *vc = params->confirm_spawn;
+                _cleanup_free_ char *cmdline = NULL;
 
-                r = ask_for_confirmation(&response, argv);
-                if (r == -ETIMEDOUT)
-                        write_confirm_message("Confirmation question timed out, assuming positive response.\n");
-                else if (r < 0)
-                        write_confirm_message("Couldn't ask confirmation question, assuming positive response: %s\n", strerror(-r));
-                else if (response == 's') {
-                        write_confirm_message("Skipping execution.\n");
+                cmdline = exec_command_line(argv);
+                if (!cmdline) {
+                        *exit_status = EXIT_CONFIRM;
+                        return -ENOMEM;
+                }
+
+                r = ask_for_confirmation(vc, unit, cmdline);
+                if (r != CONFIRM_EXECUTE) {
+                        if (r == CONFIRM_PRETEND_SUCCESS) {
+                                *exit_status = EXIT_SUCCESS;
+                                return 0;
+                        }
                         *exit_status = EXIT_CONFIRM;
                         return -ECANCELED;
-                } else if (response == 'n') {
-                        write_confirm_message("Failing execution.\n");
-                        *exit_status = 0;
-                        return 0;
                 }
         }
 

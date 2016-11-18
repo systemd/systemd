@@ -36,7 +36,9 @@
 #include "log.h"
 #include "pager.h"
 #include "parse-util.h"
+#ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
+#endif
 #include "special.h"
 #include "strv.h"
 #include "strxcpyx.h"

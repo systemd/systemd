@@ -144,12 +144,14 @@ int read_one_char(FILE *f, char *ret, usec_t t, bool *need_nl) {
         return 0;
 }
 
-int ask_char(char *ret, const char *replies, const char *text, ...) {
+#define DEFAULT_ASK_REFRESH_USEC (2*USEC_PER_SEC)
+
+int ask_char(char *ret, const char *replies, const char *fmt, ...) {
         int r;
 
         assert(ret);
         assert(replies);
-        assert(text);
+        assert(fmt);
 
         for (;;) {
                 va_list ap;
@@ -159,8 +161,10 @@ int ask_char(char *ret, const char *replies, const char *text, ...) {
                 if (colors_enabled())
                         fputs(ANSI_HIGHLIGHT, stdout);
 
-                va_start(ap, text);
-                vprintf(text, ap);
+                putchar('\r');
+
+                va_start(ap, fmt);
+                vprintf(fmt, ap);
                 va_end(ap);
 
                 if (colors_enabled())
@@ -168,8 +172,11 @@ int ask_char(char *ret, const char *replies, const char *text, ...) {
 
                 fflush(stdout);
 
-                r = read_one_char(stdin, &c, USEC_INFINITY, &need_nl);
+                r = read_one_char(stdin, &c, DEFAULT_ASK_REFRESH_USEC, &need_nl);
                 if (r < 0) {
+
+                        if (r == -ETIMEDOUT)
+                                continue;
 
                         if (r == -EBADMSG) {
                                 puts("Bad input, please try again.");
@@ -455,7 +462,7 @@ int acquire_terminal(
                                         goto fail;
                                 }
 
-                                r = fd_wait_for_event(fd, POLLIN, ts + timeout - n);
+                                r = fd_wait_for_event(notify, POLLIN, ts + timeout - n);
                                 if (r < 0)
                                         goto fail;
 

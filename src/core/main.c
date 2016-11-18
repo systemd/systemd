@@ -68,6 +68,7 @@
 #include "mount-setup.h"
 #include "pager.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "raw-clone.h"
@@ -104,7 +105,7 @@ static bool arg_dump_core = true;
 static int arg_crash_chvt = -1;
 static bool arg_crash_shell = false;
 static bool arg_crash_reboot = false;
-static bool arg_confirm_spawn = false;
+static char *arg_confirm_spawn = NULL;
 static ShowStatus arg_show_status = _SHOW_STATUS_UNSET;
 static bool arg_switched_root = false;
 static bool arg_no_pager = false;
@@ -294,6 +295,28 @@ static int parse_crash_chvt(const char *value) {
         return 0;
 }
 
+static int parse_confirm_spawn(const char *value, char **console) {
+        char *s;
+        int r;
+
+        r = value ? parse_boolean(value) : 1;
+        if (r == 0) {
+                *console = NULL;
+                return 0;
+        }
+
+        if (r > 0) /* on with default tty */
+                s = strdup("/dev/console");
+        else if (is_path(value)) /* on with fully qualified path */
+                s = strdup(value);
+        else /* on with only a tty file name, not a fully qualified path */
+                s = strjoin("/dev/", value);
+        if (!s)
+                return -ENOMEM;
+        *console = s;
+        return 0;
+}
+
 static int set_machine_id(const char *m) {
         sd_id128_t t;
         assert(m);
@@ -355,11 +378,11 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
         } else if (streq(key, "systemd.confirm_spawn") && value) {
 
-                r = parse_boolean(value);
+                arg_confirm_spawn = mfree(arg_confirm_spawn);
+
+                r = parse_confirm_spawn(value, &arg_confirm_spawn);
                 if (r < 0)
-                        log_warning("Failed to parse confirm spawn switch %s. Ignoring.", value);
-                else
-                        arg_confirm_spawn = r;
+                        log_warning_errno(r, "Failed to parse confirm_spawn switch %s. Ignoring.", value);
 
         } else if (streq(key, "systemd.show_status") && value) {
 
@@ -952,12 +975,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CONFIRM_SPAWN:
-                        r = optarg ? parse_boolean(optarg) : 1;
-                        if (r < 0) {
-                                log_error("Failed to parse confirm spawn boolean %s.", optarg);
-                                return r;
-                        }
-                        arg_confirm_spawn = r;
+                        arg_confirm_spawn = mfree(arg_confirm_spawn);
+
+                        r = parse_confirm_spawn(optarg, &arg_confirm_spawn);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse confirm spawn option: %m");
                         break;
 
                 case ARG_SHOW_STATUS:
@@ -1991,6 +2013,7 @@ finish:
                 arg_default_rlimit[j] = mfree(arg_default_rlimit[j]);
 
         arg_default_unit = mfree(arg_default_unit);
+        arg_confirm_spawn = mfree(arg_confirm_spawn);
         arg_join_controllers = strv_free_free(arg_join_controllers);
         arg_default_environment = strv_free(arg_default_environment);
         arg_syscall_archs = set_free(arg_syscall_archs);
