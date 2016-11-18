@@ -123,10 +123,13 @@ DHCP=%s
             # create interface first, then start networkd
             self.create_iface(ipv6=ipv6)
             subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
-        else:
+        elif coldplug is not None:
             # start networkd first, then create interface
             subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
             self.create_iface(ipv6=ipv6)
+        else:
+            # "None" means test sets up interface by itself
+            subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
 
         try:
             subprocess.check_call([self.networkd_wait_online, '--interface',
@@ -196,7 +199,7 @@ DHCP=%s
         else:
             self.fail('nameserver 192.168.5.1 not found in ' + RESOLV_CONF)
 
-        if not coldplug:
+        if coldplug is False:
             # check post-down.d hook
             self.shutdown_iface()
 
@@ -293,13 +296,15 @@ class DnsmasqClientTest(ClientTestBase, unittest.TestCase):
     def setUp(self):
         super().setUp()
         self.dnsmasq = None
+        self.iface_mac = 'de:ad:be:ef:47:11'
 
     def create_iface(self, ipv6=False, dnsmasq_opts=None):
         '''Create test interface with DHCP server behind it'''
 
         # add veth pair
-        subprocess.check_call(['ip', 'link', 'add', 'name', self.iface, 'type',
-                               'veth', 'peer', 'name', self.if_router])
+        subprocess.check_call(['ip', 'link', 'add', 'name', self.iface,
+                               'address', self.iface_mac,
+                               'type', 'veth', 'peer', 'name', self.if_router])
 
         # give our router an IP
         subprocess.check_call(['ip', 'a', 'flush', 'dev', self.if_router])
@@ -414,6 +419,19 @@ Domains= ~company ~lab''')
         # general domains should not be sent to the VPN DNS
         self.assertRegex(general_log, 'query.*megasearch.net')
         self.assertNotIn('megasearch.net', vpn_log)
+
+    def test_transient_hostname(self):
+        '''networkd sets transient hostname from DHCP'''
+
+        self.create_iface(dnsmasq_opts=['--dhcp-host=%s,192.168.5.210,testgreen' % self.iface_mac])
+        self.do_test(coldplug=None, extra_opts='IPv6AcceptRA=False', dhcp_mode='ipv4')
+
+        # should have received the fixed IP above
+        out = subprocess.check_output(['ip', '-4', 'a', 'show', 'dev', self.iface])
+        self.assertRegex(out, b'inet 192.168.5.210/24 .* scope global dynamic')
+
+        # should have set transient hostname
+        self.assertIn(b'testgreen', subprocess.check_output(['hostnamectl']))
 
 
 class NetworkdClientTest(ClientTestBase, unittest.TestCase):
