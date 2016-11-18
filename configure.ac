@@ -621,10 +621,13 @@ AM_CONDITIONAL(HAVE_BZIP2, [test "$have_bzip2" = "yes"])
 have_lz4=no
 AC_ARG_ENABLE(lz4, AS_HELP_STRING([--disable-lz4], [disable optional LZ4 support]))
 AS_IF([test "x$enable_lz4" != "xno"], [
-        PKG_CHECK_MODULES(LZ4, [ liblz4 >= 125 ],
-               [AC_DEFINE(HAVE_LZ4, 1, [Define in LZ4 is available])
+        PKG_CHECK_MODULES(LZ4, [ liblz4 < 10 ],
+               [AC_DEFINE(HAVE_LZ4, 1, [Define if LZ4 is available])
                 have_lz4=yes],
-                have_lz4=no)
+                [PKG_CHECK_MODULES(LZ4, [ liblz4 >= 125 ],
+                      [AC_DEFINE(HAVE_LZ4, 1, [Define if LZ4 is available])
+                      have_lz4=yes],
+                      have_lz4=no)])
         AS_IF([test "x$have_lz4" = xno -a "x$enable_lz4" = xyes],
               [AC_MSG_ERROR([*** LZ4 support requested but libraries not found])])
 ])
