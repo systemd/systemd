@@ -536,6 +536,28 @@ static void dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
         return;
 }
 
+static int dhcp4_set_hostname(Link *link) {
+        _cleanup_free_ char *hostname = NULL;
+        const char *hn;
+        int r;
+
+        assert(link);
+
+        if (!link->network->dhcp_send_hostname)
+                hn = NULL;
+        else if (link->network->dhcp_hostname)
+                hn = link->network->dhcp_hostname;
+        else {
+                r = gethostname_strict(&hostname);
+                if (r < 0 && r != -ENXIO) /* ENXIO: no hostname set or hostname is "localhost" */
+                        return r;
+
+                hn = hostname;
+        }
+
+        return sd_dhcp_client_set_hostname(link->dhcp_client, hn);
+}
+
 int dhcp4_configure(Link *link) {
         int r;
 
@@ -605,25 +627,9 @@ int dhcp4_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        if (link->network->dhcp_send_hostname) {
-                _cleanup_free_ char *hostname = NULL;
-                const char *hn = NULL;
-
-                if (!link->network->dhcp_hostname) {
-                        hostname = gethostname_malloc();
-                        if (!hostname)
-                                return -ENOMEM;
-
-                        hn = hostname;
-                } else
-                        hn = link->network->dhcp_hostname;
-
-                if (!is_localhost(hn)) {
-                        r = sd_dhcp_client_set_hostname(link->dhcp_client, hn);
-                        if (r < 0)
-                                return r;
-                }
-        }
+        r = dhcp4_set_hostname(link);
+        if (r < 0)
+                return r;
 
         if (link->network->dhcp_vendor_class_identifier) {
                 r = sd_dhcp_client_set_vendor_class_identifier(link->dhcp_client,
