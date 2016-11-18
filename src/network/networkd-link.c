@@ -851,7 +851,7 @@ static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
         return 1;
 }
 
-static int link_push_dns_to_dhcp_server(Link *link, sd_dhcp_server *s) {
+static int link_push_uplink_dns_to_dhcp_server(Link *link, sd_dhcp_server *s) {
         _cleanup_free_ struct in_addr *addresses = NULL;
         size_t n_addresses = 0, n_allocated = 0;
         unsigned i;
@@ -894,7 +894,7 @@ static int link_push_dns_to_dhcp_server(Link *link, sd_dhcp_server *s) {
         return sd_dhcp_server_set_dns(s, addresses, n_addresses);
 }
 
-static int link_push_ntp_to_dhcp_server(Link *link, sd_dhcp_server *s) {
+static int link_push_uplink_ntp_to_dhcp_server(Link *link, sd_dhcp_server *s) {
         _cleanup_free_ struct in_addr *addresses = NULL;
         size_t n_addresses = 0, n_allocated = 0;
         char **a;
@@ -1031,7 +1031,7 @@ static int link_enter_set_addresses(Link *link) {
                                         log_link_debug(link, "Not emitting DNS server information on link, couldn't find suitable uplink.");
                                         r = 0;
                                 } else
-                                        r = link_push_dns_to_dhcp_server(uplink, link->dhcp_server);
+                                        r = link_push_uplink_dns_to_dhcp_server(uplink, link->dhcp_server);
                         }
                         if (r < 0)
                                 log_link_warning_errno(link, r, "Failed to set DNS server for DHCP server, ignoring: %m");
@@ -1050,7 +1050,7 @@ static int link_enter_set_addresses(Link *link) {
                                         log_link_debug(link, "Not emitting NTP server information on link, couldn't find suitable uplink.");
                                         r = 0;
                                 } else
-                                        r = link_push_ntp_to_dhcp_server(uplink, link->dhcp_server);
+                                        r = link_push_uplink_ntp_to_dhcp_server(uplink, link->dhcp_server);
 
                         }
                         if (r < 0)
