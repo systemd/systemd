@@ -3789,7 +3789,6 @@ static int run(int master,
                 l = recv(uid_shift_socket_pair[0], &arg_uid_shift, sizeof arg_uid_shift, 0);
                 if (l < 0)
                         return log_error_errno(errno, "Failed to read UID shift: %m");
-
                 if (l != sizeof arg_uid_shift) {
                         log_error("Short read while reading UID shift.");
                         return -EIO;
@@ -4023,7 +4022,7 @@ static int run(int master,
                 terminate_machine(*pid);
 
         /* Normally redundant, but better safe than sorry */
-        kill(*pid, SIGKILL);
+        (void) kill(*pid, SIGKILL);
 
         r = wait_for_container(*pid, &container_status);
         *pid = 0;
@@ -4075,7 +4074,8 @@ int main(int argc, char *argv[]) {
         pid_t pid = 0;
         union in_addr_union exposed = {};
         _cleanup_release_lock_file_ LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
-        bool interactive, veth_created = false;
+        bool interactive, veth_created = false, remove_tmprootdir = false;
+        char tmprootdir[] = "/tmp/nspawn-root-XXXXXX";
 
         log_parse_environment();
         log_open();
@@ -4208,8 +4208,6 @@ int main(int argc, char *argv[]) {
                 }
 
         } else {
-                char template[] = "/tmp/nspawn-root-XXXXXX";
-
                 assert(arg_image);
                 assert(!arg_template);
 
@@ -4251,12 +4249,14 @@ int main(int argc, char *argv[]) {
                         }
                 }
 
-                if (!mkdtemp(template)) {
+                if (!mkdtemp(tmprootdir)) {
                         r = log_error_errno(errno, "Failed to create temporary directory: %m");
                         goto finish;
                 }
 
-                arg_directory = strdup(template);
+                remove_tmprootdir = true;
+
+                arg_directory = strdup(tmprootdir);
                 if (!arg_directory) {
                         r = log_oom();
                         goto finish;
@@ -4346,7 +4346,7 @@ finish:
                                                         "STOPPING=1\nSTATUS=Terminating...");
 
         if (pid > 0)
-                kill(pid, SIGKILL);
+                (void) kill(pid, SIGKILL);
 
         /* Try to flush whatever is still queued in the pty */
         if (master >= 0) {
@@ -4370,6 +4370,11 @@ finish:
         if (remove_image && arg_image) {
                 if (unlink(arg_image) < 0)
                         log_warning_errno(errno, "Can't remove image file '%s', ignoring: %m", arg_image);
+        }
+
+        if (remove_tmprootdir) {
+                if (rmdir(tmprootdir) < 0)
+                        log_debug_errno(errno, "Can't remove temporary root directory '%s', ignoring: %m", tmprootdir);
         }
 
         if (arg_machine) {
