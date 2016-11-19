@@ -20,14 +20,15 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <kcapi.h>
 
-#include "sd-hash.h"
 #include "sd-id128.h"
 
 #include "fd-util.h"
 #include "hexdecoct.h"
 #include "id128-util.h"
 #include "io-util.h"
+#include "kcapi-util.h"
 #include "macro.h"
 #include "random-util.h"
 #include "util.h"
@@ -184,9 +185,8 @@ _public_ int sd_id128_randomize(sd_id128_t *ret) {
 }
 
 _public_ int sd_id128_get_machine_app_specific(sd_id128_t app_id, sd_id128_t *ret) {
-        _cleanup_(sd_hash_unrefp) sd_hash *h = NULL;
-        sd_id128_t m, result;
-        const void *p;
+        _cleanup_(kcapi_md_destroyp) struct kcapi_handle *handle = NULL;
+        sd_id128_t m, p = {};
         int r;
 
         assert_return(ret, -EINVAL);
@@ -195,21 +195,18 @@ _public_ int sd_id128_get_machine_app_specific(sd_id128_t app_id, sd_id128_t *re
         if (r < 0)
                 return r;
 
-        r = sd_hash_new_with_key(&h, "hmac(sha256)", &app_id, sizeof(app_id));
+        r = kcapi_md_init(&handle, "hmac(sha256)", 0);
         if (r < 0)
                 return r;
 
-        r = sd_hash_put(h, &m, sizeof(m));
+        r = kcapi_md_setkey(handle, (void*) &app_id, sizeof app_id);
         if (r < 0)
                 return r;
 
-        r = sd_hash_digest_data(h, &p);
+        r = kcapi_md_digest(handle, (void*) &m, sizeof m, (void*) &p, sizeof p);
         if (r < 0)
                 return r;
 
-        /* We chop off the trailing 16 bytes */
-        memcpy(&result, p, MIN(sd_hash_get_size(h), sizeof(result)));
-
-        *ret = make_v4_uuid(result);
+        *ret = make_v4_uuid(p);
         return 0;
 }
