@@ -862,6 +862,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pn*U-100*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pn*U100*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pn*N033:*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*VR420*:pvr*
  KEYBOARD_KEY_f7=reserved
  KEYBOARD_KEY_f8=reserved
 
