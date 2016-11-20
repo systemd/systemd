@@ -193,7 +193,14 @@ static void test_get_process_cmdline_harder(void) {
 
         fd = mkostemp(path, O_CLOEXEC);
         assert_se(fd >= 0);
-        assert_se(mount(path, "/proc/self/cmdline", "bind", MS_BIND, NULL) >= 0);
+
+        if (mount(path, "/proc/self/cmdline", "bind", MS_BIND, NULL) < 0) {
+                /* This happens under selinux… Abort the test in this case. */
+                log_warning_errno(errno, "mount(..., \"/proc/self/cmdline\", \"bind\", ...) failed: %m");
+                assert(errno == EACCES);
+                return;
+        }
+
         assert_se(unlink(path) >= 0);
 
         assert_se(prctl(PR_SET_NAME, "testa") >= 0);

@@ -40,6 +40,9 @@ function find_qemu_bin() {
         # i386 version of QEMU
         [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a qemu 2>/dev/null | grep '^/' -m1)
         ;;
+    ppc64*)
+        [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a qemu-system-$ARCH 2>/dev/null | grep '^/' -m1)
+        ;;
     esac
 
     if [ ! -e "$QEMU_BIN" ]; then
