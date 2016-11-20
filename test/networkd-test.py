@@ -77,6 +77,8 @@ class ClientTestBase:
     def tearDown(self):
         self.shutdown_iface()
         subprocess.call(['systemctl', 'stop', 'systemd-networkd'])
+        subprocess.call(['ip', 'link', 'del', 'dummy0'],
+                        stderr=subprocess.DEVNULL)
 
     def writeConfig(self, fname, contents):
         os.makedirs(os.path.dirname(fname), exist_ok=True)
