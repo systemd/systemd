@@ -12,6 +12,7 @@ DefaultDependencies=no
 Wants=systemd-udevd-control.socket systemd-udevd-kernel.socket
 After=systemd-udevd-control.socket systemd-udevd-kernel.socket systemd-sysusers.service
 Before=sysinit.target
+Conflicts=shutdown.target
 ConditionPathIsReadWrite=/sys
 
 [Service]
