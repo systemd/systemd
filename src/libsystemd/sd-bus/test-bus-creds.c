@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        if (cg_all_unified() == -ENOMEDIUM) {
+        if (cg_unified_flush() == -ENOMEDIUM) {
                 log_info("Skipping test: /sys/fs/cgroup/ not available");
                 return EXIT_TEST_SKIP;
         }

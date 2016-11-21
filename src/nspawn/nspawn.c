@@ -316,7 +316,7 @@ static int custom_mount_check_all(void) {
 
 static int detect_unified_cgroup_hierarchy(const char *directory) {
         const char *e;
-        int r, all_unified, systemd_unified;
+        int r;
 
         /* Allow the user to control whether the unified hierarchy is used */
         e = getenv("UNIFIED_CGROUP_HIERARCHY");
@@ -332,15 +332,8 @@ static int detect_unified_cgroup_hierarchy(const char *directory) {
                 return 0;
         }
 
-        all_unified = cg_all_unified();
-        systemd_unified = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
-
-        if (all_unified < 0 || systemd_unified < 0)
-                return log_error_errno(all_unified < 0 ? all_unified : systemd_unified,
-                                       "Failed to determine whether the unified cgroups hierarchy is used: %m");
-
         /* Otherwise inherit the default from the host system */
-        if (all_unified > 0) {
+        if (cg_all_unified()) {
                 /* Unified cgroup hierarchy support was added in 230. Unfortunately the detection
                  * routine only detects 231, so we'll have a false negative here for 230. */
                 r = systemd_installation_has_version(directory, 230);
@@ -350,7 +343,7 @@ static int detect_unified_cgroup_hierarchy(const char *directory) {
                         arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_ALL;
                 else
                         arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
-        } else if (systemd_unified > 0) {
+        } else if (cg_unified(SYSTEMD_CGROUP_CONTROLLER)) {
                 /* Mixed cgroup hierarchy support was added in 232 */
                 r = systemd_installation_has_version(directory, 232);
                 if (r < 0)
@@ -3533,7 +3526,10 @@ int main(int argc, char *argv[]) {
 
         log_parse_environment();
         log_open();
-        cg_unified_flush();
+
+        r = cg_unified_flush();
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether the unified cgroups hierarchy is used: %m");
 
         /* Make sure rename_process() in the stub init process can work */
         saved_argv = argv;

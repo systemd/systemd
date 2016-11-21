@@ -678,7 +678,7 @@ static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
                 bool has_weight = cgroup_context_has_cpu_weight(c);
                 bool has_shares = cgroup_context_has_cpu_shares(c);
 
-                if (cg_all_unified() > 0) {
+                if (cg_all_unified()) {
                         uint64_t weight;
 
                         if (has_weight)
@@ -858,7 +858,7 @@ static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
         }
 
         if ((mask & CGROUP_MASK_MEMORY) && !is_root) {
-                if (cg_all_unified() > 0) {
+                if (cg_all_unified()) {
                         uint64_t max;
                         uint64_t swap_max = CGROUP_LIMIT_MAX;
 
@@ -1033,7 +1033,7 @@ CGroupMask unit_get_own_mask(Unit *u) {
                 e = unit_get_exec_context(u);
                 if (!e ||
                     exec_context_maintains_privileges(e) ||
-                    cg_all_unified() > 0)
+                    cg_all_unified())
                         return _CGROUP_MASK_ALL;
         }
 
@@ -1260,10 +1260,7 @@ int unit_watch_cgroup(Unit *u) {
                 return 0;
 
         /* Only applies to the unified hierarchy */
-        r = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
-        if (r < 0)
-                return log_unit_error_errno(u, r, "Failed detect whether the unified hierarchy is used: %m");
-        if (r == 0)
+        if (!cg_unified(SYSTEMD_CGROUP_CONTROLLER))
                 return 0;
 
         /* Don't watch the root slice, it's pointless. */
@@ -1683,7 +1680,7 @@ int unit_watch_all_pids(Unit *u) {
         if (!u->cgroup_path)
                 return -ENOENT;
 
-        if (cg_unified(SYSTEMD_CGROUP_CONTROLLER) > 0) /* On unified we can use proper notifications */
+        if (cg_unified(SYSTEMD_CGROUP_CONTROLLER)) /* On unified we can use proper notifications */
                 return 0;
 
         return unit_watch_pids_in_path(u, u->cgroup_path);
@@ -1756,7 +1753,7 @@ static int on_cgroup_inotify_event(sd_event_source *s, int fd, uint32_t revents,
 int manager_setup_cgroup(Manager *m) {
         _cleanup_free_ char *path = NULL;
         CGroupController c;
-        int r, all_unified, systemd_unified;
+        int r;
         char *e;
 
         assert(m);
@@ -1793,16 +1790,13 @@ int manager_setup_cgroup(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Cannot find cgroup mount point: %m");
 
-        all_unified = cg_all_unified();
-        systemd_unified = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
+        r = cg_unified_flush();
+        if (r < 0)
+                return log_error_errno(r, "Couldn't determine if we are running in the unified hierarchy: %m");
 
-        if (all_unified < 0 || systemd_unified < 0)
-                return log_error_errno(all_unified < 0 ? all_unified : systemd_unified,
-                                       "Couldn't determine if we are running in the unified hierarchy: %m");
-
-        if (all_unified > 0)
+        if (cg_all_unified())
                 log_debug("Unified cgroup hierarchy is located at %s.", path);
-        else if (systemd_unified > 0)
+        else if (cg_unified(SYSTEMD_CGROUP_CONTROLLER))
                 log_debug("Unified cgroup hierarchy is located at %s. Controllers are on legacy hierarchies.", path);
         else
                 log_debug("Using cgroup controller " SYSTEMD_CGROUP_CONTROLLER ". File system hierarchy is at %s.", path);
@@ -1811,7 +1805,7 @@ int manager_setup_cgroup(Manager *m) {
                 const char *scope_path;
 
                 /* 3. Install agent */
-                if (systemd_unified) {
+                if (cg_unified(SYSTEMD_CGROUP_CONTROLLER)) {
 
                         /* In the unified hierarchy we can get
                          * cgroup empty notifications via inotify. */
@@ -1871,7 +1865,7 @@ int manager_setup_cgroup(Manager *m) {
                         return log_error_errno(errno, "Failed to open pin file: %m");
 
                 /* 6.  Always enable hierarchical support if it exists... */
-                if (!all_unified)
+                if (!cg_all_unified())
                         (void) cg_set_attribute("memory", "/", "memory.use_hierarchy", "1");
         }
 
@@ -1997,7 +1991,7 @@ int unit_get_memory_current(Unit *u, uint64_t *ret) {
         if ((u->cgroup_realized_mask & CGROUP_MASK_MEMORY) == 0)
                 return -ENODATA;
 
-        if (cg_all_unified() <= 0)
+        if (!cg_all_unified())
                 r = cg_get_attribute("memory", u->cgroup_path, "memory.usage_in_bytes", &v);
         else
                 r = cg_get_attribute("memory", u->cgroup_path, "memory.current", &v);
@@ -2042,7 +2036,7 @@ static int unit_get_cpu_usage_raw(Unit *u, nsec_t *ret) {
         if (!u->cgroup_path)
                 return -ENODATA;
 
-        if (cg_all_unified() > 0) {
+        if (cg_all_unified()) {
                 const char *keys[] = { "usage_usec", NULL };
                 _cleanup_free_ char *val = NULL;
                 uint64_t us;
