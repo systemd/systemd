@@ -208,6 +208,12 @@ int cg_rmdir(const char *controller, const char *path) {
         if (r < 0 && errno != ENOENT)
                 return -errno;
 
+        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER) && cg_hybrid_unified()) {
+                r = cg_rmdir(SYSTEMD_CGROUP_CONTROLLER_LEGACY, path);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to remove compat systemd cgroup %s: %m", path);
+        }
+
         return 0;
 }
 
@@ -542,8 +548,12 @@ static const char *controller_to_dirname(const char *controller) {
          * just cuts off the name= prefixed used for named
          * hierarchies, if it is specified. */
 
-        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER))
-                controller = SYSTEMD_CGROUP_CONTROLLER_LEGACY;
+        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
+                if (cg_hybrid_unified())
+                        controller = SYSTEMD_CGROUP_CONTROLLER_HYBRID;
+                else
+                        controller = SYSTEMD_CGROUP_CONTROLLER_LEGACY;
+        }
 
         e = startswith(controller, "name=");
         if (e)
@@ -703,7 +713,7 @@ static int trim_cb(const char *path, const struct stat *sb, int typeflag, struct
 
 int cg_trim(const char *controller, const char *path, bool delete_root) {
         _cleanup_free_ char *fs = NULL;
-        int r = 0;
+        int r = 0, q;
 
         assert(path);
 
@@ -724,6 +734,12 @@ int cg_trim(const char *controller, const char *path, bool delete_root) {
         if (delete_root) {
                 if (rmdir(fs) < 0 && errno != ENOENT)
                         return -errno;
+        }
+
+        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER) && cg_hybrid_unified()) {
+                q = cg_trim(SYSTEMD_CGROUP_CONTROLLER_LEGACY, path, delete_root);
+                if (q < 0)
+                        log_warning_errno(q, "Failed to trim compat systemd cgroup %s: %m", path);
         }
 
         return r;
@@ -747,6 +763,12 @@ int cg_create(const char *controller, const char *path) {
                         return 0;
 
                 return -errno;
+        }
+
+        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER) && cg_hybrid_unified()) {
+                r = cg_create(SYSTEMD_CGROUP_CONTROLLER_LEGACY, path);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to create compat systemd cgroup %s: %m", path);
         }
 
         return 1;
@@ -786,7 +808,17 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
 
         xsprintf(c, PID_FMT "\n", pid);
 
-        return write_string_file(fs, c, 0);
+        r = write_string_file(fs, c, 0);
+        if (r < 0)
+                return r;
+
+        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER) && cg_hybrid_unified()) {
+                r = cg_attach(SYSTEMD_CGROUP_CONTROLLER_LEGACY, path, pid);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to attach %d to compat systemd cgroup %s: %m", pid, path);
+        }
+
+        return 0;
 }
 
 int cg_attach_fallback(const char *controller, const char *path, pid_t pid) {
@@ -835,7 +867,17 @@ int cg_set_group_access(
         if (r < 0)
                 return r;
 
-        return chmod_and_chown(fs, mode, uid, gid);
+        r = chmod_and_chown(fs, mode, uid, gid);
+        if (r < 0)
+                return r;
+
+        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER) && cg_hybrid_unified()) {
+                r = cg_set_group_access(SYSTEMD_CGROUP_CONTROLLER_LEGACY, path, mode, uid, gid);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set group access on compat systemd cgroup %s: %m", path);
+        }
+
+        return 0;
 }
 
 int cg_set_task_access(
@@ -864,13 +906,18 @@ int cg_set_task_access(
         if (r < 0)
                 return r;
 
-        if (cg_unified(controller))
-                return 0;
+        if (!cg_unified(controller)) {
+                /* Compatibility, Always keep values for "tasks" in sync with
+                 * "cgroup.procs" */
+                if (cg_get_path(controller, path, "tasks", &procs) >= 0)
+                        (void) chmod_and_chown(procs, mode, uid, gid);
+        }
 
-        /* Compatibility, Always keep values for "tasks" in sync with
-         * "cgroup.procs" */
-        if (cg_get_path(controller, path, "tasks", &procs) >= 0)
-                (void) chmod_and_chown(procs, mode, uid, gid);
+        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER) && cg_hybrid_unified()) {
+                r = cg_set_task_access(SYSTEMD_CGROUP_CONTROLLER_LEGACY, path, mode, uid, gid);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set task access on compat systemd cgroup %s: %m", path);
+        }
 
         return 0;
 }
@@ -2254,11 +2301,16 @@ static int cg_update_unified(void) {
         if (F_TYPE_EQUAL(fs.f_type, CGROUP2_SUPER_MAGIC))
                 unified_cache = CGROUP_UNIFIED_ALL;
         else if (F_TYPE_EQUAL(fs.f_type, TMPFS_MAGIC)) {
-                if (statfs("/sys/fs/cgroup/systemd/", &fs) < 0)
-                        return -errno;
-
-                unified_cache = F_TYPE_EQUAL(fs.f_type, CGROUP2_SUPER_MAGIC) ?
-                        CGROUP_UNIFIED_SYSTEMD : CGROUP_UNIFIED_NONE;
+                if (statfs("/sys/fs/cgroup/unified/", &fs) == 0 &&
+                    F_TYPE_EQUAL(fs.f_type, CGROUP2_SUPER_MAGIC))
+                        unified_cache = CGROUP_UNIFIED_SYSTEMD;
+                else {
+                        if (statfs("/sys/fs/cgroup/systemd/", &fs) < 0)
+                                return -errno;
+                        if (!F_TYPE_EQUAL(fs.f_type, CGROUP_SUPER_MAGIC))
+                                return -ENOMEDIUM;
+                        unified_cache = CGROUP_UNIFIED_NONE;
+                }
         } else
                 return -ENOMEDIUM;
 
@@ -2278,6 +2330,13 @@ bool cg_unified(const char *controller) {
 bool cg_all_unified(void) {
 
         return cg_unified(NULL);
+}
+
+bool cg_hybrid_unified(void) {
+
+        assert(cg_update_unified() >= 0);
+
+        return unified_cache == CGROUP_UNIFIED_SYSTEMD;
 }
 
 int cg_unified_flush(void) {
@@ -2381,10 +2440,6 @@ bool cg_is_unified_systemd_controller_wanted(void) {
         /* The meaning of the kernel option is reversed wrt. to the return value
          * of this function, hence the negation. */
         return (wanted = r > 0 ? !b : false);
-}
-
-bool cg_is_legacy_systemd_controller_wanted(void) {
-        return cg_is_legacy_wanted() && !cg_is_unified_systemd_controller_wanted();
 }
 
 int cg_weight_parse(const char *s, uint64_t *ret) {

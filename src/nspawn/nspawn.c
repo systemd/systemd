@@ -344,8 +344,8 @@ static int detect_unified_cgroup_hierarchy(const char *directory) {
                 else
                         arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
         } else if (cg_unified(SYSTEMD_CGROUP_CONTROLLER)) {
-                /* Mixed cgroup hierarchy support was added in 232 */
-                r = systemd_installation_has_version(directory, 232);
+                /* Mixed cgroup hierarchy support was added in 233 */
+                r = systemd_installation_has_version(directory, 233);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine systemd version in container: %m");
                 if (r > 0)
