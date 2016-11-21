@@ -174,7 +174,7 @@ struct Network {
         IPv6PrivacyExtensions ipv6_privacy_extensions;
 
         struct ether_addr *mac;
-        unsigned mtu;
+        size_t mtu;
         int arp;
         uint32_t iaid;
         DUID duid;
