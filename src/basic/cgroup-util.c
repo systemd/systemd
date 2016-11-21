@@ -542,6 +542,9 @@ static const char *controller_to_dirname(const char *controller) {
          * just cuts off the name= prefixed used for named
          * hierarchies, if it is specified. */
 
+        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER))
+                controller = SYSTEMD_CGROUP_CONTROLLER_LEGACY;
+
         e = startswith(controller, "name=");
         if (e)
                 return e;
@@ -912,7 +915,7 @@ int cg_get_xattr(const char *controller, const char *path, const char *name, voi
 int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
         _cleanup_fclose_ FILE *f = NULL;
         char line[LINE_MAX];
-        const char *fs;
+        const char *fs, *controller_str;
         size_t cs = 0;
         bool unified;
 
@@ -926,8 +929,14 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
                 controller = SYSTEMD_CGROUP_CONTROLLER;
 
         unified = cg_unified(controller);
-        if (!unified)
-                cs = strlen(controller);
+        if (!unified) {
+                if (streq(controller, SYSTEMD_CGROUP_CONTROLLER))
+                        controller_str = SYSTEMD_CGROUP_CONTROLLER_LEGACY;
+                else
+                        controller_str = controller;
+
+                cs = strlen(controller_str);
+        }
 
         fs = procfs_file_alloca(pid, "cgroup");
         f = fopen(fs, "re");
@@ -964,7 +973,7 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
 
                         *e = 0;
                         FOREACH_WORD_SEPARATOR(word, k, l, ",", state) {
-                                if (k == cs && memcmp(word, controller, cs) == 0) {
+                                if (k == cs && memcmp(word, controller_str, cs) == 0) {
                                         found = true;
                                         break;
                                 }
@@ -1809,6 +1818,9 @@ bool cg_controller_is_valid(const char *p) {
 
         if (!p)
                 return false;
+
+        if (streq(p, SYSTEMD_CGROUP_CONTROLLER))
+                return true;
 
         s = startswith(p, "name=");
         if (s)

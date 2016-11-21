@@ -1799,7 +1799,7 @@ int manager_setup_cgroup(Manager *m) {
         else if (cg_unified(SYSTEMD_CGROUP_CONTROLLER))
                 log_debug("Unified cgroup hierarchy is located at %s. Controllers are on legacy hierarchies.", path);
         else
-                log_debug("Using cgroup controller " SYSTEMD_CGROUP_CONTROLLER ". File system hierarchy is at %s.", path);
+                log_debug("Using cgroup controller " SYSTEMD_CGROUP_CONTROLLER_LEGACY ". File system hierarchy is at %s.", path);
 
         if (!m->test_run) {
                 const char *scope_path;

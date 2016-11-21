@@ -36,7 +36,8 @@
 /* The default value for the net.unix.max_dgram_qlen sysctl */
 #define DEFAULT_UNIX_MAX_DGRAM_QLEN 512UL
 
-#define SYSTEMD_CGROUP_CONTROLLER "name=systemd"
+#define SYSTEMD_CGROUP_CONTROLLER_LEGACY "name=systemd"
+#define SYSTEMD_CGROUP_CONTROLLER "_systemd"
 
 #define SIGNALS_CRASH_HANDLER SIGSEGV,SIGILL,SIGFPE,SIGBUS,SIGQUIT,SIGABRT
 #define SIGNALS_IGNORE SIGPIPE
