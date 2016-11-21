@@ -55,6 +55,8 @@ pamconfdir=@pamconfdir@
 pkgconfigdatadir=$(datadir)/pkgconfig
 pkgconfiglibdir=$(libdir)/pkgconfig
 polkitpolicydir=$(datadir)/polkit-1/actions
+polkitrulesdir=$(datadir)/polkit-1/rules.d
+polkitpkladir=$(localstatedir)/lib/polkit-1/localauthority/10-vendor.d
 bashcompletiondir=@bashcompletiondir@
 zshcompletiondir=@zshcompletiondir@
 rpmmacrosdir=$(prefix)/lib/rpm/macros.d
@@ -116,6 +118,8 @@ pkgconfiglib_DATA =
 polkitpolicy_in_in_files =
 polkitpolicy_in_files =
 polkitpolicy_files =
+polkitrules_files =
+polkitpkla_files =
 dist_udevrules_DATA =
 nodist_udevrules_DATA =
 dist_pkgsysconf_DATA =
@@ -4836,8 +4840,16 @@ endif
 polkitpolicy_in_files += \
 	src/hostname/org.freedesktop.hostname1.policy.in
 
+polkitrules_files += \
+	src/hostname/systemd-networkd-hostname.rules
+
+polkitpkla_files += \
+	src/hostname/systemd-networkd-hostname.pkla
+
 EXTRA_DIST += \
-	units/systemd-hostnamed.service.in
+	units/systemd-hostnamed.service.in \
+	src/hostname/systemd-networkd-hostname.rules \
+	src/hostname/systemd-networkd-hostname.pkla
 
 # ------------------------------------------------------------------------------
 dist_systemunit_DATA_busnames += \
@@ -6189,6 +6201,8 @@ if ENABLE_POLKIT
 nodist_polkitpolicy_DATA = \
 	$(polkitpolicy_files) \
 	$(polkitpolicy_in_in_files:.policy.in.in=.policy)
+polkitrules_DATA = $(polkitrules_files)
+polkitpkla_DATA = $(polkitpkla_files)
 endif
 
 EXTRA_DIST += \
