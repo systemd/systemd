@@ -37,6 +37,7 @@ import unittest
 import tempfile
 import subprocess
 import shutil
+import socket
 
 networkd_active = subprocess.call(['systemctl', 'is-active', '--quiet',
                                    'systemd-networkd']) == 0
@@ -423,15 +424,42 @@ Domains= ~company ~lab''')
     def test_transient_hostname(self):
         '''networkd sets transient hostname from DHCP'''
 
+        orig_hostname = socket.gethostname()
+        self.addCleanup(socket.sethostname, orig_hostname)
+        # temporarily move /etc/hostname away; restart hostnamed to pick it up
+        if os.path.exists('/etc/hostname'):
+            subprocess.check_call(['mount', '--bind', '/dev/null', '/etc/hostname'])
+            self.addCleanup(subprocess.call, ['umount', '/etc/hostname'])
+        subprocess.check_call(['systemctl', 'stop', 'systemd-hostnamed.service'])
+
         self.create_iface(dnsmasq_opts=['--dhcp-host=%s,192.168.5.210,testgreen' % self.iface_mac])
         self.do_test(coldplug=None, extra_opts='IPv6AcceptRA=False', dhcp_mode='ipv4')
 
         # should have received the fixed IP above
         out = subprocess.check_output(['ip', '-4', 'a', 'show', 'dev', self.iface])
         self.assertRegex(out, b'inet 192.168.5.210/24 .* scope global dynamic')
-
-        # should have set transient hostname
+        # should have set transient hostname in hostnamed
         self.assertIn(b'testgreen', subprocess.check_output(['hostnamectl']))
+        # and also applied to the system
+        self.assertEqual(socket.gethostname(), 'testgreen')
+
+    def test_transient_hostname_with_static(self):
+        '''transient hostname is not applied if static hostname exists'''
+
+        orig_hostname = socket.gethostname()
+        self.addCleanup(socket.sethostname, orig_hostname)
+        if not os.path.exists('/etc/hostname'):
+            self.writeConfig('/etc/hostname', orig_hostname)
+        subprocess.check_call(['systemctl', 'stop', 'systemd-hostnamed.service'])
+
+        self.create_iface(dnsmasq_opts=['--dhcp-host=%s,192.168.5.210,testgreen' % self.iface_mac])
+        self.do_test(coldplug=None, extra_opts='IPv6AcceptRA=False', dhcp_mode='ipv4')
+
+        # should have received the fixed IP above
+        out = subprocess.check_output(['ip', '-4', 'a', 'show', 'dev', self.iface])
+        self.assertRegex(out, b'inet 192.168.5.210/24 .* scope global dynamic')
+        # static hostname wins over transient one, thus *not* applied
+        self.assertEqual(socket.gethostname(), orig_hostname)
 
 
 class NetworkdClientTest(ClientTestBase, unittest.TestCase):
