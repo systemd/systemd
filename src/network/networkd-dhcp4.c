@@ -255,7 +255,7 @@ static int dhcp_lease_lost(Link *link) {
 
                 if (hostname) {
                         /* If a hostname was set due to the lease, then unset it now. */
-                        r = link_set_hostname(link, NULL);
+                        r = manager_set_hostname(link->manager, NULL);
                         if (r < 0)
                                 log_link_warning_errno(link, r, "Failed to reset transient hostname: %m");
                 }
@@ -439,7 +439,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                         (void) sd_dhcp_lease_get_hostname(lease, &hostname);
 
                 if (hostname) {
-                        r = link_set_hostname(link, hostname);
+                        r = manager_set_hostname(link->manager, hostname);
                         if (r < 0)
                                 log_link_error_errno(link, r, "Failed to set transient hostname to '%s': %m", hostname);
                 }
@@ -451,7 +451,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                 (void) sd_dhcp_lease_get_timezone(link->dhcp_lease, &tz);
 
                 if (tz) {
-                        r = link_set_timezone(link, tz);
+                        r = manager_set_timezone(link->manager, tz);
                         if (r < 0)
                                 log_link_error_errno(link, r, "Failed to set timezone to '%s': %m", tz);
                 }
