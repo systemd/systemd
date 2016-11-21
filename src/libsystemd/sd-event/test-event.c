@@ -172,6 +172,7 @@ static void test_basic(void) {
         static const char ch = 'x';
         int a[2] = { -1, -1 }, b[2] = { -1, -1}, d[2] = { -1, -1}, k[2] = { -1, -1 };
         uint64_t event_now;
+        int64_t priority;
 
         assert_se(pipe(a) >= 0);
         assert_se(pipe(b) >= 0);
@@ -209,6 +210,8 @@ static void test_basic(void) {
         assert_se(sd_event_add_exit(e, &q, exit_handler, INT_TO_PTR('g')) >= 0);
 
         assert_se(sd_event_source_set_priority(x, 99) >= 0);
+        assert_se(sd_event_source_get_priority(x, &priority) >= 0);
+        assert_se(priority == 99);
         assert_se(sd_event_source_set_enabled(y, SD_EVENT_ONESHOT) >= 0);
         assert_se(sd_event_source_set_prepare(x, prepare_handler) >= 0);
         assert_se(sd_event_source_set_priority(z, 50) >= 0);

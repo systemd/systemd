@@ -1539,7 +1539,8 @@ _public_ int sd_event_source_get_priority(sd_event_source *s, int64_t *priority)
         assert_return(s, -EINVAL);
         assert_return(!event_pid_changed(s->event), -ECHILD);
 
-        return s->priority;
+        *priority = s->priority;
+        return 0;
 }
 
 _public_ int sd_event_source_set_priority(sd_event_source *s, int64_t priority) {
