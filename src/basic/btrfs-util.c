@@ -20,6 +20,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <linux/fs.h>
 #include <linux/loop.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -38,6 +39,7 @@
 #include "alloc-util.h"
 #include "btrfs-ctree.h"
 #include "btrfs-util.h"
+#include "chattr-util.h"
 #include "copy.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -45,6 +47,7 @@
 #include "macro.h"
 #include "missing.h"
 #include "path-util.h"
+#include "rm-rf.h"
 #include "selinux-util.h"
 #include "smack-util.h"
 #include "sparse-endian.h"
@@ -1718,28 +1721,46 @@ int btrfs_subvol_snapshot_fd(int old_fd, const char *new_path, BtrfsSnapshotFlag
         if (r < 0)
                 return r;
         if (r == 0) {
+                bool plain_directory = false;
+
+                /* If the source isn't a proper subvolume, fail unless fallback is requested */
                 if (!(flags & BTRFS_SNAPSHOT_FALLBACK_COPY))
                         return -EISDIR;
 
                 r = btrfs_subvol_make(new_path);
-                if (r < 0)
+                if (r == -ENOTTY && (flags & BTRFS_SNAPSHOT_FALLBACK_DIRECTORY)) {
+                        /* If the destination doesn't support subvolumes, then use a plain directory, if that's requested. */
+                        if (mkdir(new_path, 0755) < 0)
+                                return r;
+
+                        plain_directory = true;
+                } else if (r < 0)
                         return r;
 
                 r = copy_directory_fd(old_fd, new_path, true);
-                if (r < 0) {
-                        (void) btrfs_subvol_remove(new_path, BTRFS_REMOVE_QUOTA);
-                        return r;
-                }
+                if (r < 0)
+                        goto fallback_fail;
 
                 if (flags & BTRFS_SNAPSHOT_READ_ONLY) {
-                        r = btrfs_subvol_set_read_only(new_path, true);
-                        if (r < 0) {
-                                (void) btrfs_subvol_remove(new_path, BTRFS_REMOVE_QUOTA);
-                                return r;
+
+                        if (plain_directory) {
+                                /* Plain directories have no recursive read-only flag, but something pretty close to
+                                 * it: the IMMUTABLE bit. Let's use this here, if this is requested. */
+
+                                if (flags & BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE)
+                                        (void) chattr_path(new_path, FS_IMMUTABLE_FL, FS_IMMUTABLE_FL);
+                        } else {
+                                r = btrfs_subvol_set_read_only(new_path, true);
+                                if (r < 0)
+                                        goto fallback_fail;
                         }
                 }
 
                 return 0;
+
+        fallback_fail:
+                (void) rm_rf(new_path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+                return r;
         }
 
         r = extract_subvolume_name(new_path, &subvolume);

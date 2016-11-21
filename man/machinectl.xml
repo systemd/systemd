@@ -599,8 +599,8 @@
         <listitem><para>Clones a container or VM image. The arguments specify the name of the image to clone and the
         name of the newly cloned image. Note that plain directory container images are cloned into btrfs subvolume
         images with this command, if the underlying file system supports this.  Note that cloning a container or VM
-        image is optimized for btrfs file systems, and might not be efficient on others, due to file system
-        limitations.</para>
+        image is optimized for file systems that support copy-on-write, and might not be efficient on others, due to
+        file system limitations.</para>
 
         <para>Note that this command leaves host name, machine ID and
         all other settings that could identify the instance
@@ -910,7 +910,7 @@
     <filename>/var/lib/machines/</filename> to make them available for
     control with <command>machinectl</command>.</para>
 
-    <para>Note that many image operations are only supported,
+    <para>Note that some image operations are only supported,
     efficient or atomic on btrfs file systems. Due to this, if the
     <command>pull-tar</command>, <command>pull-raw</command>,
     <command>import-tar</command>, <command>import-raw</command> and

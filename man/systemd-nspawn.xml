@@ -181,25 +181,15 @@
       <varlistentry>
         <term><option>--template=</option></term>
 
-        <listitem><para>Directory or <literal>btrfs</literal>
-        subvolume to use as template for the container's root
-        directory. If this is specified and the container's root
-        directory (as configured by <option>--directory=</option>)
-        does not yet exist it is created as <literal>btrfs</literal>
-        subvolume and populated from this template tree. Ideally, the
-        specified template path refers to the root of a
-        <literal>btrfs</literal> subvolume, in which case a simple
-        copy-on-write snapshot is taken, and populating the root
-        directory is instant. If the specified template path does not
-        refer to the root of a <literal>btrfs</literal> subvolume (or
-        not even to a <literal>btrfs</literal> file system at all),
-        the tree is copied, which can be substantially more
-        time-consuming. Note that if this option is used the
-        container's root directory (in contrast to the template
-        directory!) must be located on a <literal>btrfs</literal> file
-        system, so that the <literal>btrfs</literal> subvolume may be
-        created. May not be specified together with
-        <option>--image=</option> or
+        <listitem><para>Directory or <literal>btrfs</literal> subvolume to use as template for the container's root
+        directory. If this is specified and the container's root directory (as configured by
+        <option>--directory=</option>) does not yet exist it is created as <literal>btrfs</literal> snapshot (if
+        supported) or plain directory (otherwise) and populated from this template tree. Ideally, the specified
+        template path refers to the root of a <literal>btrfs</literal> subvolume, in which case a simple copy-on-write
+        snapshot is taken, and populating the root directory is instant. If the specified template path does not refer
+        to the root of a <literal>btrfs</literal> subvolume (or not even to a <literal>btrfs</literal> file system at
+        all), the tree is copied (though possibly in a copy-on-write scheme — if the file system supports that), which
+        can be substantially more time-consuming. May not be specified together with <option>--image=</option> or
         <option>--ephemeral</option>.</para>
 
         <para>Note that this switch leaves host name, machine ID and
@@ -1052,14 +1042,12 @@
     </example>
 
     <example>
-      <title>Boot into an ephemeral <literal>btrfs</literal> snapshot of the host system</title>
+      <title>Boot into an ephemeral snapshot of the host system</title>
 
       <programlisting># systemd-nspawn -D / -xb</programlisting>
 
-      <para>This runs a copy of the host system in a
-      <literal>btrfs</literal> snapshot which is removed immediately
-      when the container exits. All file system changes made during
-      runtime will be lost on shutdown, hence.</para>
+      <para>This runs a copy of the host system in a snapshot which is removed immediately when the container
+      exits. All file system changes made during runtime will be lost on shutdown, hence.</para>
     </example>
 
     <example>

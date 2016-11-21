@@ -4070,7 +4070,7 @@ int main(int argc, char *argv[]) {
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int r, n_fd_passed, loop_nr = -1, ret = EXIT_SUCCESS;
         char veth_name[IFNAMSIZ] = "";
-        bool secondary = false, remove_subvol = false, remove_image = false;
+        bool secondary = false, remove_directory = false, remove_image = false;
         pid_t pid = 0;
         union in_addr_union exposed = {};
         _cleanup_release_lock_file_ LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
@@ -4152,7 +4152,12 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        r = btrfs_subvol_snapshot(arg_directory, np, (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) | BTRFS_SNAPSHOT_FALLBACK_COPY | BTRFS_SNAPSHOT_RECURSIVE | BTRFS_SNAPSHOT_QUOTA);
+                        r = btrfs_subvol_snapshot(arg_directory, np,
+                                                  (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
+                                                  BTRFS_SNAPSHOT_FALLBACK_COPY |
+                                                  BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
+                                                  BTRFS_SNAPSHOT_RECURSIVE |
+                                                  BTRFS_SNAPSHOT_QUOTA);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to create snapshot %s from %s: %m", np, arg_directory);
                                 goto finish;
@@ -4162,7 +4167,7 @@ int main(int argc, char *argv[]) {
                         arg_directory = np;
                         np = NULL;
 
-                        remove_subvol = true;
+                        remove_directory = true;
 
                 } else {
                         r = image_path_lock(arg_directory, (arg_read_only ? LOCK_SH : LOCK_EX) | LOCK_NB, &tree_global_lock, &tree_local_lock);
@@ -4176,7 +4181,13 @@ int main(int argc, char *argv[]) {
                         }
 
                         if (arg_template) {
-                                r = btrfs_subvol_snapshot(arg_template, arg_directory, (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) | BTRFS_SNAPSHOT_FALLBACK_COPY | BTRFS_SNAPSHOT_RECURSIVE | BTRFS_SNAPSHOT_QUOTA);
+                                r = btrfs_subvol_snapshot(arg_template, arg_directory,
+                                                          (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
+                                                          BTRFS_SNAPSHOT_FALLBACK_COPY |
+                                                          BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
+                                                          BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE |
+                                                          BTRFS_SNAPSHOT_RECURSIVE |
+                                                          BTRFS_SNAPSHOT_QUOTA);
                                 if (r == -EEXIST) {
                                         if (!arg_quiet)
                                                 log_info("Directory %s already exists, not populating from template %s.", arg_directory, arg_template);
@@ -4359,12 +4370,12 @@ finish:
 
         loop_remove(loop_nr, &image_fd);
 
-        if (remove_subvol && arg_directory) {
+        if (remove_directory && arg_directory) {
                 int k;
 
-                k = btrfs_subvol_remove(arg_directory, BTRFS_REMOVE_RECURSIVE|BTRFS_REMOVE_QUOTA);
+                k = rm_rf(arg_directory, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
                 if (k < 0)
-                        log_warning_errno(k, "Cannot remove subvolume '%s', ignoring: %m", arg_directory);
+                        log_warning_errno(k, "Cannot remove '%s', ignoring: %m", arg_directory);
         }
 
         if (remove_image && arg_image) {
