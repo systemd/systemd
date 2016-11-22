@@ -37,7 +37,7 @@ try:
                            LineStart, LineEnd,
                            ZeroOrMore, OneOrMore, Combine, Or, Optional, Suppress, Group,
                            nums, alphanums, printables,
-                           stringEnd, pythonStyleComment,
+                           stringEnd, pythonStyleComment, QuotedString,
                            ParseBaseException)
 except ImportError:
     print('pyparsing is not available')
@@ -59,6 +59,7 @@ EOL = LineEnd().suppress()
 EMPTYLINE = LineEnd()
 COMMENTLINE = pythonStyleComment + EOL
 INTEGER = Word(nums)
+STRING =  QuotedString('"')
 REAL = Combine((INTEGER + Optional('.' + Optional(INTEGER))) ^ ('.' + INTEGER))
 UDEV_TAG = Word(string.ascii_uppercase, alphanums + '_')
 
@@ -76,7 +77,7 @@ def hwdb_grammar():
                 for category, conn in TYPES.items())
     matchline = Combine(prefix + Word(printables + ' ' + '®')) + EOL
     propertyline = (White(' ', exact=1).suppress() +
-                    Combine(UDEV_TAG - '=' - Word(alphanums + '_=:@*.! ') - Optional(pythonStyleComment)) +
+                    Combine(UDEV_TAG - '=' - Word(alphanums + '_=:@*.! "') - Optional(pythonStyleComment)) +
                     EOL)
     propertycomment = White(' ', exact=1) + pythonStyleComment + EOL
 
@@ -103,6 +104,8 @@ def property_grammar():
              ('POINTINGSTICK_SENSITIVITY', INTEGER),
              ('POINTINGSTICK_CONST_ACCEL', REAL),
              ('ID_INPUT_TOUCHPAD_INTEGRATION', Or(('internal', 'external'))),
+             ('XKB_FIXED_LAYOUT', STRING),
+             ('XKB_FIXED_VARIANT', STRING)
     )
     fixed_props = [Literal(name)('NAME') - Suppress('=') - val('VALUE')
                    for name, val in props]
