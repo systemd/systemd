@@ -4,7 +4,7 @@
 # scan codes to add to the AT keyboard's 'force-release' list.
 #
 # The lookup keys are composed in:
-#   60-keyboard.rules
+#   60-evdev.rules
 #
 # Note: The format of the "evdev:" prefix match key is a
 # contract between the rules file and the hardware data, it might
