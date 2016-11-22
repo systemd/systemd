@@ -223,6 +223,11 @@
     are matched.  Each component may also contain a range of values
     separated by <literal>..</literal>.</para>
 
+    <para>A date specification may use <literal>~</literal> to indicate the
+    last day(s) in a month. For example, <literal>*-02~03</literal> means
+    "the third last day in February," and <literal>Mon *-05~07/1</literal>
+    means "the last Monday in May."</para>
+
     <para>The seconds component may contain decimal fractions both in
     the value and the repetition. All fractions are rounded to 6
     decimal places.</para>
