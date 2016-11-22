@@ -4840,16 +4840,8 @@ endif
 polkitpolicy_in_files += \
 	src/hostname/org.freedesktop.hostname1.policy.in
 
-polkitrules_files += \
-	src/hostname/systemd-networkd-hostname.rules
-
-polkitpkla_files += \
-	src/hostname/systemd-networkd-hostname.pkla
-
 EXTRA_DIST += \
-	units/systemd-hostnamed.service.in \
-	src/hostname/systemd-networkd-hostname.rules \
-	src/hostname/systemd-networkd-hostname.pkla
+	units/systemd-hostnamed.service.in
 
 # ------------------------------------------------------------------------------
 dist_systemunit_DATA_busnames += \
@@ -5785,6 +5777,12 @@ SYSTEM_UNIT_ALIASES += \
 BUSNAMES_TARGET_WANTS += \
 	org.freedesktop.network1.busname
 
+polkitrules_files += \
+	src/network/systemd-networkd.rules
+
+polkitpkla_files += \
+	src/network/systemd-networkd.pkla
+
 endif
 
 gperf_gperf_sources += \
@@ -5793,6 +5791,8 @@ gperf_gperf_sources += \
 	src/network/netdev/netdev-gperf.gperf
 
 EXTRA_DIST += \
+	src/network/systemd-networkd.rules \
+	src/network/systemd-networkd.pkla \
 	units/systemd-networkd.service.m4.in \
 	units/systemd-networkd-wait-online.service.in \
 	test/networkd-test.py

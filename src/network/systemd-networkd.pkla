@@ -1,0 +1,4 @@
+[Allow systemd-networkd to set timezone and transient hostname]
+Identity=unix-user:systemd-network
+Action=org.freedesktop.hostname1.set-hostname;org.freedesktop.timedate1.set-timezone;
+ResultAny=yes
