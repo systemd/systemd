@@ -689,3 +689,35 @@ int umount_verbose(const char *what) {
                 return log_error_errno(errno, "Failed to unmount %s: %m", what);
         return 0;
 }
+
+const char *mount_propagation_flags_to_string(unsigned long flags) {
+
+        switch (flags & (MS_SHARED|MS_SLAVE|MS_PRIVATE)) {
+
+        case MS_SHARED:
+                return "shared";
+
+        case MS_SLAVE:
+                return "slave";
+
+        case MS_PRIVATE:
+                return "private";
+        }
+
+        return NULL;
+}
+
+unsigned long mount_propagation_flags_from_string(const char *name) {
+
+        if (isempty(name))
+                return 0;
+
+        if (streq(name, "shared"))
+                return MS_SHARED;
+        if (streq(name, "slave"))
+                return MS_SLAVE;
+        if (streq(name, "private"))
+                return MS_PRIVATE;
+
+        return 0;
+}

@@ -49,6 +49,7 @@
 #include "load-fragment.h"
 #include "log.h"
 #include "missing.h"
+#include "mount-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -1264,19 +1265,20 @@ int config_parse_sysv_priority(const char *unit,
 DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_utmp_mode, exec_utmp_mode, ExecUtmpMode, "Failed to parse utmp mode");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
 
-int config_parse_exec_mount_flags(const char *unit,
-                                  const char *filename,
-                                  unsigned line,
-                                  const char *section,
-                                  unsigned section_line,
-                                  const char *lvalue,
-                                  int ltype,
-                                  const char *rvalue,
-                                  void *data,
-                                  void *userdata) {
+int config_parse_exec_mount_flags(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
 
-        unsigned long flags = 0;
+        unsigned long flags;
         ExecContext *c = data;
 
         assert(filename);
@@ -1284,15 +1286,14 @@ int config_parse_exec_mount_flags(const char *unit,
         assert(rvalue);
         assert(data);
 
-        if (streq(rvalue, "shared"))
-                flags = MS_SHARED;
-        else if (streq(rvalue, "slave"))
-                flags = MS_SLAVE;
-        else if (streq(rvalue, "private"))
-                flags = MS_PRIVATE;
+        if (isempty(rvalue))
+                flags = 0;
         else {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse mount flag %s, ignoring.", rvalue);
-                return 0;
+                flags = mount_propagation_flags_from_string(rvalue);
+                if (flags == 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse mount flag %s, ignoring.", rvalue);
+                        return 0;
+                }
         }
 
         c->mount_flags = flags;

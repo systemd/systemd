@@ -27,6 +27,7 @@
 #include "hashmap.h"
 #include "list.h"
 #include "locale-util.h"
+#include "mount-util.h"
 #include "nsflags.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -575,7 +576,21 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 r = sd_bus_message_append(m, "v", "t", flags);
         } else if ((dep = unit_dependency_from_string(field)) >= 0)
                 r = sd_bus_message_append(m, "v", "as", 1, eq);
-        else {
+        else if (streq(field, "MountFlags")) {
+                unsigned long f;
+
+                if (isempty(eq))
+                        f = 0;
+                else {
+                        f = mount_propagation_flags_from_string(eq);
+                        if (f == 0) {
+                                log_error("Failed to parse mount propagation type: %s", eq);
+                                return -EINVAL;
+                        }
+                }
+
+                r = sd_bus_message_append(m, "v", "t", f);
+        } else {
                 log_error("Unknown assignment %s.", assignment);
                 return -EINVAL;
         }

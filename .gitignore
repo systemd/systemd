@@ -239,6 +239,7 @@
 /test-loopback
 /test-machine-tables
 /test-mmap-cache
+/test-mount-util
 /test-namespace
 /test-ndisc-rs
 /test-netlink

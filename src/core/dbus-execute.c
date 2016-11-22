@@ -34,6 +34,7 @@
 #include "fileio.h"
 #include "ioprio.h"
 #include "missing.h"
+#include "mount-util.h"
 #include "namespace.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -1613,8 +1614,23 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
-        }
+        } else if (streq(name, "MountFlags")) {
+                uint64_t flags;
 
+                r = sd_bus_message_read(message, "t", &flags);
+                if (r < 0)
+                        return r;
+                if (!IN_SET(flags, 0, MS_SHARED, MS_PRIVATE, MS_SLAVE))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown mount propagation flags");
+
+                if (mode != UNIT_CHECK) {
+                        c->mount_flags = flags;
+
+                        unit_write_drop_in_private_format(u, mode, name, "%s=%s", name, strempty(mount_propagation_flags_to_string(flags)));
+                }
+
+                return 1;
+        }
         ri = rlimit_from_string(name);
         if (ri < 0) {
                 soft = endswith(name, "Soft");
