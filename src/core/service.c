@@ -2585,9 +2585,9 @@ static void service_notify_cgroup_empty_event(Unit *u) {
 
                         service_unwatch_pid_file(s);
                         if (s->state == SERVICE_START)
-                                service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_RESOURCES);
+                                service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_PROTOCOL);
                         else
-                                service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
+                                service_enter_stop(s, SERVICE_FAILURE_PROTOCOL);
                 }
                 break;
 
@@ -2825,7 +2825,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                         if (!has_start_post && r < 0) {
                                                 r = service_demand_pid_file(s);
                                                 if (r < 0 || !cgroup_good(s))
-                                                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_RESOURCES);
+                                                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_PROTOCOL);
                                                 break;
                                         }
                                 } else
@@ -2847,7 +2847,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                         if (r < 0) {
                                                 r = service_demand_pid_file(s);
                                                 if (r < 0 || !cgroup_good(s))
-                                                        service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
+                                                        service_enter_stop(s, SERVICE_FAILURE_PROTOCOL);
                                                 break;
                                         }
                                 } else
@@ -3384,6 +3384,7 @@ DEFINE_STRING_TABLE_LOOKUP(notify_state, NotifyState);
 static const char* const service_result_table[_SERVICE_RESULT_MAX] = {
         [SERVICE_SUCCESS] = "success",
         [SERVICE_FAILURE_RESOURCES] = "resources",
+        [SERVICE_FAILURE_PROTOCOL] = "protocol",
         [SERVICE_FAILURE_TIMEOUT] = "timeout",
         [SERVICE_FAILURE_EXIT_CODE] = "exit-code",
         [SERVICE_FAILURE_SIGNAL] = "signal",
