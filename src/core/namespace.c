@@ -141,13 +141,13 @@ static const BindMount protect_system_full_table[] = {
  * shall manage those, orthogonally).
  */
 static const BindMount protect_system_strict_table[] = {
-        { "/",          READONLY,       false },
-        { "/proc",      READWRITE,      false },      /* ProtectKernelTunables= */
-        { "/sys",       READWRITE,      false },      /* ProtectKernelTunables= */
-        { "/dev",       READWRITE,      false },      /* PrivateDevices= */
-        { "/home",      READWRITE,      true  },      /* ProtectHome= */
-        { "/run/user",  READWRITE,      true  },      /* ProtectHome= */
-        { "/root",      READWRITE,      true  },      /* ProtectHome= */
+        { "/",                   READONLY,     false },
+        { "/proc",               READWRITE,    false },      /* ProtectKernelTunables= */
+        { "/sys",                READWRITE,    false },      /* ProtectKernelTunables= */
+        { "/dev",                READWRITE,    false },      /* PrivateDevices= */
+        { "/home",               READWRITE,    true  },      /* ProtectHome= */
+        { "/run/user",           READWRITE,    true  },      /* ProtectHome= */
+        { "/root",               READWRITE,    true  },      /* ProtectHome= */
 };
 
 static const char *bind_mount_path(const BindMount *p) {
