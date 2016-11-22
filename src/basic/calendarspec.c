@@ -34,6 +34,8 @@
 
 /* Longest valid date/time range is 1970..2199 */
 #define MAX_RANGE_LEN   230
+#define MIN_YEAR       1970
+#define MAX_YEAR       2199
 #define BITS_WEEKDAYS   127
 
 static void free_chain(CalendarComponent *c) {
@@ -169,7 +171,7 @@ _pure_ bool calendar_spec_valid(CalendarSpec *c) {
         if (c->weekdays_bits > BITS_WEEKDAYS)
                 return false;
 
-        if (!chain_valid(c->year, 1970, 2199))
+        if (!chain_valid(c->year, MIN_YEAR, MAX_YEAR))
                 return false;
 
         if (!chain_valid(c->month, 1, 12))
@@ -1015,6 +1017,14 @@ static bool tm_out_of_bounds(const struct tm *tm, bool utc) {
         t = *tm;
 
         if (mktime_or_timegm(&t, utc) == (time_t) -1)
+                return true;
+
+        /*
+         * Set an upper bound on the year so impossible dates like "*-02-31"
+         * don't cause find_next() to loop forever. tm_year contains years
+         * since 1900, so adjust it accordingly.
+         */
+        if (tm->tm_year + 1900 > MAX_YEAR)
                 return true;
 
         /* Did any normalization take place? If so, it was out of bounds before */
