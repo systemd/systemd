@@ -192,6 +192,18 @@ int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
+       /* Did we get a timezone or transient hostname from DHCP while D-Bus wasn't up yet? */
+        if (m->dynamic_hostname) {
+                r = manager_set_hostname(m, m->dynamic_hostname);
+                if (r < 0)
+                        return r;
+        }
+        if (m->dynamic_timezone) {
+                r = manager_set_timezone(m, m->dynamic_timezone);
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 }
 
@@ -1119,6 +1131,9 @@ void manager_free(Manager *m) {
         sd_bus_slot_unref(m->prepare_for_sleep_slot);
         sd_event_source_unref(m->bus_retry_event_source);
 
+        free(m->dynamic_timezone);
+        free(m->dynamic_hostname);
+
         free(m);
 }
 
@@ -1384,6 +1399,8 @@ int manager_set_hostname(Manager *m, const char *hostname) {
         int r;
 
         log_debug("Setting transient hostname: '%s'", strna(hostname));
+        if (free_and_strdup(&m->dynamic_hostname, hostname) < 0)
+                return log_oom();
 
         if (!m->bus) {
                 /* TODO: replace by assert when we can rely on kdbus */
@@ -1431,6 +1448,8 @@ int manager_set_timezone(Manager *m, const char *tz) {
         assert(tz);
 
         log_debug("Setting system timezone: '%s'", tz);
+        if (free_and_strdup(&m->dynamic_timezone, tz) < 0)
+                return log_oom();
 
         if (!m->bus) {
                 log_info("Not connected to system bus, ignoring timezone.");

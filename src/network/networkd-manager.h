@@ -63,6 +63,8 @@ struct Manager {
         usec_t network_dirs_ts_usec;
 
         DUID duid;
+        char* dynamic_hostname;
+        char* dynamic_timezone;
 };
 
 static inline const DUID* link_duid(const Link *link) {
