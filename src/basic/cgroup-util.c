@@ -2283,6 +2283,20 @@ int cg_kernel_controllers(Set *controllers) {
 
 static thread_local CGroupUnified unified_cache = CGROUP_UNIFIED_UNKNOWN;
 
+/* The hybrid mode was initially implemented in v232 and simply mounted
+ * cgroup v2 on /sys/fs/cgroup/systemd.  This unfortunately broke other
+ * tools (such as docker) which expected the v1 "name=systemd" hierarchy
+ * on /sys/fs/cgroup/systemd.  From v233 and on, the hybrid mode mountnbs
+ * v2 on /sys/fs/cgroup/unified and maintains "name=systemd" hierarchy
+ * on /sys/fs/cgroup/systemd for compatibility with other tools.
+ *
+ * To keep live upgrade working, we detect and support v232 layout.  When
+ * v232 layout is detected, to keep cgroup v2 process management but
+ * disable the compat dual layout, we return %true on
+ * cg_unified(SYSTEMD_CGROUP_CONTROLLER) and %false on cg_hybrid_unified().
+ */
+static thread_local bool unified_systemd_v232;
+
 static int cg_update_unified(void) {
 
         struct statfs fs;
@@ -2302,9 +2316,14 @@ static int cg_update_unified(void) {
                 unified_cache = CGROUP_UNIFIED_ALL;
         else if (F_TYPE_EQUAL(fs.f_type, TMPFS_MAGIC)) {
                 if (statfs("/sys/fs/cgroup/unified/", &fs) == 0 &&
-                    F_TYPE_EQUAL(fs.f_type, CGROUP2_SUPER_MAGIC))
+                    F_TYPE_EQUAL(fs.f_type, CGROUP2_SUPER_MAGIC)) {
                         unified_cache = CGROUP_UNIFIED_SYSTEMD;
-                else {
+                        unified_systemd_v232 = false;
+                } else if (statfs("/sys/fs/cgroup/systemd/", &fs) == 0 &&
+                           F_TYPE_EQUAL(fs.f_type, CGROUP2_SUPER_MAGIC)) {
+                        unified_cache = CGROUP_UNIFIED_SYSTEMD;
+                        unified_systemd_v232 = true;
+                } else {
                         if (statfs("/sys/fs/cgroup/systemd/", &fs) < 0)
                                 return -errno;
                         if (!F_TYPE_EQUAL(fs.f_type, CGROUP_SUPER_MAGIC))
@@ -2336,7 +2355,7 @@ bool cg_hybrid_unified(void) {
 
         assert(cg_update_unified() >= 0);
 
-        return unified_cache == CGROUP_UNIFIED_SYSTEMD;
+        return unified_cache == CGROUP_UNIFIED_SYSTEMD && !unified_systemd_v232;
 }
 
 int cg_unified_flush(void) {
