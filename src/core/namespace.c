@@ -59,9 +59,10 @@ typedef enum MountMode {
 
 typedef struct BindMount {
         const char *path_const;   /* Memory allocated on stack or static */
-        MountMode mode:6;
+        MountMode mode:5;
         bool ignore:1;            /* Ignore if path does not exist? */
         bool has_prefix:1;        /* Already is prefixed by the root dir? */
+        bool read_only:1;         /* Shall this mount point be read-only? */
         char *path_malloc;        /* Use this instead of 'path' if we had to allocate memory */
 } BindMount;
 
@@ -157,6 +158,12 @@ static const char *bind_mount_path(const BindMount *p) {
          * otherwise the stack/static ->path field is returned. */
 
         return p->path_malloc ?: p->path_const;
+}
+
+static bool bind_mount_read_only(const BindMount *p) {
+        assert(p);
+
+        return p->read_only || IN_SET(p->mode, READONLY, INACCESSIBLE);
 }
 
 static int append_access_mounts(BindMount **p, char **strv, MountMode mode) {
@@ -314,6 +321,7 @@ static void drop_duplicates(BindMount *m, unsigned *n) {
                  * above. */
                 if (previous && path_equal(bind_mount_path(f), bind_mount_path(previous))) {
                         log_debug("%s is duplicate.", bind_mount_path(f));
+                        previous->read_only = previous->read_only || bind_mount_read_only(f); /* Propagate the read-only flag to the remaining entry */
                         f->path_malloc = mfree(f->path_malloc);
                         continue;
                 }
@@ -634,7 +642,7 @@ static int make_read_only(BindMount *m, char **blacklist) {
 
         assert(m);
 
-        if (IN_SET(m->mode, INACCESSIBLE, READONLY))
+        if (bind_mount_read_only(m))
                 r = bind_remount_recursive(bind_mount_path(m), true, blacklist);
         else if (m->mode == PRIVATE_DEV) { /* Can be readonly but the submounts can't*/
                 if (mount(NULL, bind_mount_path(m), NULL, MS_REMOUNT|DEV_MOUNT_OPTIONS|MS_RDONLY, NULL) < 0)
@@ -749,12 +757,13 @@ int setup_namespace(
         if (mount_flags == 0)
                 mount_flags = MS_SHARED;
 
-        n_mounts = namespace_calculate_mounts(ns_info,
-                                              read_write_paths,
-                                              read_only_paths,
-                                              inaccessible_paths,
-                                              tmp_dir, var_tmp_dir,
-                                              protect_home, protect_system);
+        n_mounts = namespace_calculate_mounts(
+                        ns_info,
+                        read_write_paths,
+                        read_only_paths,
+                        inaccessible_paths,
+                        tmp_dir, var_tmp_dir,
+                        protect_home, protect_system);
 
         /* Set mount slave mode */
         if (root_directory || n_mounts > 0)
