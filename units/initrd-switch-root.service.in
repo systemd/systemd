@@ -17,4 +17,10 @@ AllowIsolate=yes
 Type=oneshot
 # we have to use "--force" here, otherwise systemd would umount /run
 ExecStart=@rootbindir@/systemctl --no-block --force switch-root /sysroot
-KillMode=none
+
+# Just before switching to the new rootfs, systemd might send us a TERM signal
+# depending on how fast we are to execute the main command and exit. If we get
+# the SIGTERM signal that simply means that we succeed but haven't got enough
+# time to exit properly. Since systemd considers SIGTERM as a failure for
+# short-running process (aka Type=oneshot), instruct it to ignore this case.
+SuccessExitStatus=SIGTERM
