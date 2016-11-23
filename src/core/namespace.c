@@ -50,6 +50,8 @@
 typedef enum MountMode {
         /* This is ordered by priority! */
         INACCESSIBLE,
+        BIND_MOUNT,
+        BIND_MOUNT_RECURSIVE,
         READONLY,
         PRIVATE_TMP,
         PRIVATE_VAR_TMP,
@@ -64,6 +66,8 @@ typedef struct MountEntry {
         bool has_prefix:1;        /* Already is prefixed by the root dir? */
         bool read_only:1;         /* Shall this mount point be read-only? */
         char *path_malloc;        /* Use this instead of 'path' if we had to allocate memory */
+        const char *source_const; /* The source path, for bind mounts */
+        char *source_malloc;
 } MountEntry;
 
 /*
@@ -166,6 +170,12 @@ static bool mount_entry_read_only(const MountEntry *p) {
         return p->read_only || IN_SET(p->mode, READONLY, INACCESSIBLE);
 }
 
+static const char *mount_entry_source(const MountEntry *p) {
+        assert(p);
+
+        return p->source_malloc ?: p->source_const;
+}
+
 static int append_access_mounts(MountEntry **p, char **strv, MountMode mode) {
         char **i;
 
@@ -195,6 +205,25 @@ static int append_access_mounts(MountEntry **p, char **strv, MountMode mode) {
                         .mode = mode,
                         .ignore = ignore,
                         .has_prefix = !needs_prefix,
+                };
+        }
+
+        return 0;
+}
+
+static int append_bind_mounts(MountEntry **p, const BindMount *binds, unsigned n) {
+        unsigned i;
+
+        assert(p);
+
+        for (i = 0; i < n; i++) {
+                const BindMount *b = binds + i;
+
+                *((*p)++) = (MountEntry) {
+                        .path_const = b->destination,
+                        .mode = b->recursive ? BIND_MOUNT_RECURSIVE : BIND_MOUNT,
+                        .read_only = b->read_only,
+                        .source_const = b->source,
                 };
         }
 
@@ -568,27 +597,33 @@ fail:
         return r;
 }
 
-static int mount_entry_chase(MountEntry *m, const char *root_directory) {
+static int mount_entry_chase(
+                const char *root_directory,
+                MountEntry *m,
+                const char *path,
+                char **location) {
+
         char *chased;
         int r;
 
         assert(m);
 
         /* Since mount() will always follow symlinks and we need to take the different root directory into account we
-         * chase the symlinks on our own first. */
+         * chase the symlinks on our own first. This is called for the destination path, as well as the source path (if
+         * that applies). The result is stored in "location". */
 
-        r = chase_symlinks(mount_entry_path(m), root_directory, 0, &chased);
+        r = chase_symlinks(path, root_directory, 0, &chased);
         if (r == -ENOENT && m->ignore) {
-                log_debug_errno(r, "Path %s does not exist, ignoring.", mount_entry_path(m));
+                log_debug_errno(r, "Path %s does not exist, ignoring.", path);
                 return 0;
         }
         if (r < 0)
-                return log_debug_errno(r, "Failed to follow symlinks on %s: %m", mount_entry_path(m));
+                return log_debug_errno(r, "Failed to follow symlinks on %s: %m", path);
 
-        log_debug("Followed symlinks %s → %s.", mount_entry_path(m), chased);
+        log_debug("Followed symlinks %s → %s.", path, chased);
 
-        free(m->path_malloc);
-        m->path_malloc = chased;
+        free(*location);
+        *location = chased;
 
         return 1;
 }
@@ -600,11 +635,12 @@ static int apply_mount(
                 const char *var_tmp_dir) {
 
         const char *what;
+        bool rbind = true;
         int r;
 
         assert(m);
 
-        r = mount_entry_chase(m, root_directory);
+        r = mount_entry_chase(root_directory, m, mount_entry_path(m), &m->path_malloc);
         if (r <= 0)
                 return r;
 
@@ -633,7 +669,6 @@ static int apply_mount(
 
         case READONLY:
         case READWRITE:
-
                 r = path_is_mount_point(mount_entry_path(m), root_directory, 0);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to determine whether %s is already a mount point: %m", mount_entry_path(m));
@@ -641,6 +676,19 @@ static int apply_mount(
                         return 0;
                 /* This isn't a mount point yet, let's make it one. */
                 what = mount_entry_path(m);
+                break;
+
+        case BIND_MOUNT:
+                rbind = false;
+                /* fallthrough */
+
+        case BIND_MOUNT_RECURSIVE:
+                /* Also chase the source mount */
+                r = mount_entry_chase(root_directory, m, mount_entry_source(m), &m->source_malloc);
+                if (r <= 0)
+                        return r;
+
+                what = mount_entry_source(m);
                 break;
 
         case PRIVATE_TMP:
@@ -660,7 +708,7 @@ static int apply_mount(
 
         assert(what);
 
-        if (mount(what, mount_entry_path(m), NULL, MS_BIND|MS_REC, NULL) < 0)
+        if (mount(what, mount_entry_path(m), NULL, MS_BIND|(rbind ? MS_REC : 0), NULL) < 0)
                 return log_debug_errno(errno, "Failed to mount %s to %s: %m", what, mount_entry_path(m));
 
         log_debug("Successfully mounted %s to %s", what, mount_entry_path(m));
@@ -695,6 +743,8 @@ static unsigned namespace_calculate_mounts(
                 char** read_write_paths,
                 char** read_only_paths,
                 char** inaccessible_paths,
+                const BindMount *bind_mounts,
+                unsigned n_bind_mounts,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
                 ProtectHome protect_home,
@@ -719,6 +769,7 @@ static unsigned namespace_calculate_mounts(
                 strv_length(read_write_paths) +
                 strv_length(read_only_paths) +
                 strv_length(inaccessible_paths) +
+                n_bind_mounts +
                 ns_info->private_dev +
                 (ns_info->protect_kernel_tunables ? ELEMENTSOF(protect_kernel_tunables_table) : 0) +
                 (ns_info->protect_control_groups ? 1 : 0) +
@@ -732,6 +783,8 @@ int setup_namespace(
                 char** read_write_paths,
                 char** read_only_paths,
                 char** inaccessible_paths,
+                const BindMount *bind_mounts,
+                unsigned n_bind_mounts,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
                 ProtectHome protect_home,
@@ -751,6 +804,7 @@ int setup_namespace(
                         read_write_paths,
                         read_only_paths,
                         inaccessible_paths,
+                        bind_mounts, n_bind_mounts,
                         tmp_dir, var_tmp_dir,
                         protect_home, protect_system);
 
@@ -769,6 +823,10 @@ int setup_namespace(
                         goto finish;
 
                 r = append_access_mounts(&m, inaccessible_paths, INACCESSIBLE);
+                if (r < 0)
+                        goto finish;
+
+                r = append_bind_mounts(&m, bind_mounts, n_bind_mounts);
                 if (r < 0)
                         goto finish;
 
@@ -909,6 +967,53 @@ finish:
                 free(m->path_malloc);
 
         return r;
+}
+
+void bind_mount_free_many(BindMount *b, unsigned n) {
+        unsigned i;
+
+        assert(b || n == 0);
+
+        for (i = 0; i < n; i++) {
+                free(b[i].source);
+                free(b[i].destination);
+        }
+
+        free(b);
+}
+
+int bind_mount_add(BindMount **b, unsigned *n, const BindMount *item) {
+        _cleanup_free_ char *s = NULL, *d = NULL;
+        BindMount *c;
+
+        assert(b);
+        assert(n);
+        assert(item);
+
+        s = strdup(item->source);
+        if (!s)
+                return -ENOMEM;
+
+        d = strdup(item->destination);
+        if (!d)
+                return -ENOMEM;
+
+        c = realloc_multiply(*b, sizeof(BindMount), *n + 1);
+        if (!c)
+                return -ENOMEM;
+
+        *b = c;
+
+        c[(*n) ++] = (BindMount) {
+                .source = s,
+                .destination = d,
+                .read_only = item->read_only,
+                .recursive = item->recursive,
+                .ignore_enoent = item->ignore_enoent,
+        };
+
+        s = d = NULL;
+        return 0;
 }
 
 static int setup_one_tmp_dir(const char *id, const char *prefix, char **path) {

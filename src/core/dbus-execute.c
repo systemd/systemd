@@ -675,6 +675,49 @@ static int property_get_output_fdname(
         return sd_bus_message_append(reply, "s", name);
 }
 
+static int property_get_bind_paths(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+        unsigned i;
+        bool ro;
+        int r;
+
+        assert(bus);
+        assert(c);
+        assert(property);
+        assert(reply);
+
+        ro = !!strstr(property, "ReadOnly");
+
+        r = sd_bus_message_open_container(reply, 'a', "(ssbt)");
+        if (r < 0)
+                return r;
+
+        for (i = 0; i < c->n_bind_mounts; i++) {
+
+                if (ro != c->bind_mounts[i].read_only)
+                        continue;
+
+                r = sd_bus_message_append(
+                                reply, "(ssbt)",
+                                c->bind_mounts[i].source,
+                                c->bind_mounts[i].destination,
+                                c->bind_mounts[i].ignore_enoent,
+                                c->bind_mounts[i].recursive ? MS_REC : 0);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(ExecContext, environment), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -783,6 +826,8 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("MemoryDenyWriteExecute", "b", bus_property_get_bool, offsetof(ExecContext, memory_deny_write_execute), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictRealtime", "b", bus_property_get_bool, offsetof(ExecContext, restrict_realtime), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictNamespaces", "t", bus_property_get_ulong, offsetof(ExecContext, restrict_namespaces), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("BindPaths", "a(ssbt)", property_get_bind_paths, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("BindReadOnlyPaths", "a(ssbt)", property_get_bind_paths, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };
 
@@ -1364,8 +1409,8 @@ int bus_exec_context_set_transient_property(
                         if (r < 0)
                                 return r;
 
-                        if (!isempty(path) && !path_is_absolute(path))
-                                return sd_bus_error_set_errnof(error, EINVAL, "Path %s is not absolute.", path);
+                        if (!path_is_absolute(path))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not absolute.", path);
 
                         if (mode != UNIT_CHECK) {
                                 char *buf = NULL;
@@ -1630,7 +1675,73 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        } else if (STR_IN_SET(name, "BindPaths", "BindReadOnlyPaths")) {
+                unsigned empty = true;
+
+                r = sd_bus_message_enter_container(message, 'a', "(ssbt)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_enter_container(message, 'r', "ssbt")) > 0) {
+                        const char *source, *destination;
+                        int ignore_enoent;
+                        uint64_t mount_flags;
+
+                        r = sd_bus_message_read(message, "ssbt", &source, &destination, &ignore_enoent, &mount_flags);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_exit_container(message);
+                        if (r < 0)
+                                return r;
+
+                        if (!path_is_absolute(source))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not absolute.", source);
+                        if (!path_is_absolute(destination))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not absolute.", source);
+                        if (!IN_SET(mount_flags, 0, MS_REC))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown mount flags.");
+
+                        if (mode != UNIT_CHECK) {
+                                r = bind_mount_add(&c->bind_mounts, &c->n_bind_mounts,
+                                                   &(BindMount) {
+                                                           .source = strdup(source),
+                                                           .destination = strdup(destination),
+                                                           .read_only = !!strstr(name, "ReadOnly"),
+                                                           .recursive = !!(mount_flags & MS_REC),
+                                                           .ignore_enoent = ignore_enoent,
+                                                   });
+                                if (r < 0)
+                                        return r;
+
+                                unit_write_drop_in_private_format(
+                                                u, mode, name,
+                                                "%s=%s%s:%s:%s",
+                                                name,
+                                                ignore_enoent ? "-" : "",
+                                                source,
+                                                destination,
+                                                (mount_flags & MS_REC) ? "rbind" : "norbind");
+                        }
+
+                        empty = false;
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (empty) {
+                        bind_mount_free_many(c->bind_mounts, c->n_bind_mounts);
+                        c->bind_mounts = NULL;
+                        c->n_bind_mounts = 0;
+                }
+
+                return 1;
         }
+
         ri = rlimit_from_string(name);
         if (ri < 0) {
                 soft = endswith(name, "Soft");

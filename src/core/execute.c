@@ -1826,6 +1826,9 @@ static bool exec_needs_mount_namespace(
             !strv_isempty(context->inaccessible_paths))
                 return true;
 
+        if (context->n_bind_mounts > 0)
+                return true;
+
         if (context->mount_flags != 0)
                 return true;
 
@@ -2147,6 +2150,8 @@ static int apply_mount_namespace(Unit *u, const ExecContext *context,
         r = setup_namespace(root_dir, &ns_info, rw,
                             context->read_only_paths,
                             context->inaccessible_paths,
+                            context->bind_mounts,
+                            context->n_bind_mounts,
                             tmp,
                             var,
                             context->protect_home,
@@ -3086,6 +3091,8 @@ void exec_context_done(ExecContext *c) {
         c->read_write_paths = strv_free(c->read_write_paths);
         c->inaccessible_paths = strv_free(c->inaccessible_paths);
 
+        bind_mount_free_many(c->bind_mounts, c->n_bind_mounts);
+
         if (c->cpuset)
                 CPU_FREE(c->cpuset);
 
@@ -3568,6 +3575,15 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 strv_fprintf(f, c->inaccessible_paths);
                 fputs("\n", f);
         }
+
+        if (c->n_bind_mounts > 0)
+                for (i = 0; i < c->n_bind_mounts; i++) {
+                        fprintf(f, "%s%s: %s:%s:%s\n", prefix,
+                                c->bind_mounts[i].read_only ? "BindReadOnlyPaths" : "BindPaths",
+                                c->bind_mounts[i].source,
+                                c->bind_mounts[i].destination,
+                                c->bind_mounts[i].recursive ? "rbind" : "norbind");
+                }
 
         if (c->utmp_id)
                 fprintf(f,

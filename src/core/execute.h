@@ -161,6 +161,8 @@ struct ExecContext {
 
         char **read_write_paths, **read_only_paths, **inaccessible_paths;
         unsigned long mount_flags;
+        BindMount *bind_mounts;
+        unsigned n_bind_mounts;
 
         uint64_t capability_bounding_set;
         uint64_t capability_ambient_set;
