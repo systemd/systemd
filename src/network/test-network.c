@@ -186,6 +186,7 @@ static void test_address_equality(void) {
 
 int main(void) {
         _cleanup_manager_free_ Manager *manager = NULL;
+        sd_event *event;
         struct udev *udev;
         struct udev_device *loopback;
         int r;
@@ -194,11 +195,16 @@ int main(void) {
         test_deserialize_dhcp_routes();
         test_address_equality();
 
-        assert_se(manager_new(&manager) >= 0);
+        r = sd_event_default(&event);
+        assert_se(r >= 0);
+
+        assert_se(manager_new(&manager, event) >= 0);
 
         r = test_load_config(manager);
-        if (r == -EPERM)
+        if (r == -EPERM) {
+                sd_event_unref(event);
                 return EXIT_TEST_SKIP;
+        }
 
         udev = udev_new();
         assert_se(udev);
@@ -213,4 +219,5 @@ int main(void) {
 
         udev_device_unref(loopback);
         udev_unref(udev);
+        sd_event_unref(event);
 }

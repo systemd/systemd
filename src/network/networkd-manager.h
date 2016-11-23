@@ -74,11 +74,11 @@ static inline const DUID* link_duid(const Link *link) {
 
 extern const sd_bus_vtable manager_vtable[];
 
-int manager_new(Manager **ret);
+int manager_new(Manager **ret, sd_event *event);
 void manager_free(Manager *m);
 
 int manager_connect_bus(Manager *m);
-int manager_run(Manager *m);
+int manager_start(Manager *m);
 
 int manager_load_config(Manager *m);
 bool manager_should_reload(Manager *m);

@@ -1030,7 +1030,7 @@ static int manager_dirty_handler(sd_event_source *s, void *userdata) {
         return 1;
 }
 
-int manager_new(Manager **ret) {
+int manager_new(Manager **ret, sd_event *event) {
         _cleanup_manager_free_ Manager *m = NULL;
         int r;
 
@@ -1042,14 +1042,7 @@ int manager_new(Manager **ret) {
         if (!m->state_file)
                 return -ENOMEM;
 
-        r = sd_event_default(&m->event);
-        if (r < 0)
-                return r;
-
-        sd_event_set_watchdog(m->event, true);
-
-        sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
-        sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+        m->event = sd_event_ref(event);
 
         r = sd_event_add_post(m->event, NULL, manager_dirty_handler, m);
         if (r < 0)
@@ -1122,33 +1115,7 @@ void manager_free(Manager *m) {
         free(m);
 }
 
-static bool manager_check_idle(void *userdata) {
-        Manager *m = userdata;
-        Link *link;
-        Iterator i;
-
-        assert(m);
-
-        /* Check whether we are idle now. The only case when we decide to be idle is when there's only a loopback
-         * device around, for which we have no configuration, and which already left the PENDING state. In all other
-         * cases we are not idle. */
-
-        HASHMAP_FOREACH(link, m->links, i) {
-                /* We are not woken on udev activity, so let's just wait for the pending udev event */
-                if (link->state == LINK_STATE_PENDING)
-                        return false;
-
-                if ((link->flags & IFF_LOOPBACK) == 0)
-                        return false;
-
-                if (link->network)
-                        return false;
-        }
-
-        return true;
-}
-
-int manager_run(Manager *m) {
+int manager_start(Manager *m) {
         Link *link;
         Iterator i;
 
@@ -1162,18 +1129,7 @@ int manager_run(Manager *m) {
         HASHMAP_FOREACH(link, m->links, i)
                 link_save(link);
 
-        if (m->bus)
-                return bus_event_loop_with_idle(
-                                m->event,
-                                m->bus,
-                                "org.freedesktop.network1",
-                                DEFAULT_EXIT_USEC,
-                                manager_check_idle,
-                                m);
-        else
-                /* failed to connect to the bus, so we lose exit-on-idle logic,
-                   this should not happen except if dbus is not around at all */
-                return sd_event_loop(m->event);
+        return 0;
 }
 
 int manager_load_config(Manager *m) {
