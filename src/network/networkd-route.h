@@ -37,6 +37,7 @@ struct Route {
         unsigned char tos;
         uint32_t priority; /* note that ip(8) calls this 'metric' */
         uint32_t table;
+        uint32_t mtu;
         unsigned char pref;
         unsigned flags;
 
