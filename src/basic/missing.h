@@ -143,6 +143,10 @@
 #define GRND_RANDOM 0x0002
 #endif
 
+#ifndef FS_NOCOW_FL
+#define FS_NOCOW_FL 0x00800000
+#endif
+
 #ifndef BTRFS_IOCTL_MAGIC
 #define BTRFS_IOCTL_MAGIC 0x94
 #endif

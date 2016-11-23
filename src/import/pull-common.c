@@ -144,12 +144,12 @@ int pull_make_local_copy(const char *final, const char *image_root, const char *
         if (force_local)
                 (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
 
-        r = btrfs_subvol_snapshot(final, p, BTRFS_SNAPSHOT_QUOTA);
-        if (r == -ENOTTY) {
-                r = copy_tree(final, p, false);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to copy image: %m");
-        } else if (r < 0)
+        r = btrfs_subvol_snapshot(final, p,
+                                  BTRFS_SNAPSHOT_QUOTA|
+                                  BTRFS_SNAPSHOT_FALLBACK_COPY|
+                                  BTRFS_SNAPSHOT_FALLBACK_DIRECTORY|
+                                  BTRFS_SNAPSHOT_RECURSIVE);
+        if (r < 0)
                 return log_error_errno(r, "Failed to create local image: %m");
 
         log_info("Created new local image '%s'.", local);
