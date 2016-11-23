@@ -56,6 +56,7 @@ static void ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         struct in6_addr gateway;
         uint16_t lifetime;
         unsigned preference;
+        uint32_t mtu;
         usec_t time_now;
         int r;
         Address *address;
@@ -116,6 +117,12 @@ static void ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 return;
         }
 
+        r = sd_ndisc_router_get_mtu(rt, &mtu);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to get default router MTU from RA: %m");
+                return;
+        }
+
         r = route_new(&route);
         if (r < 0) {
                 log_link_error_errno(link, r, "Could not allocate route: %m");
@@ -128,6 +135,7 @@ static void ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         route->pref = preference;
         route->gw.in6 = gateway;
         route->lifetime = time_now + lifetime * USEC_PER_SEC;
+        route->mtu = mtu;
 
         r = route_configure(route, link, ndisc_netlink_handler);
         if (r < 0) {
