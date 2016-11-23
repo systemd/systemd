@@ -81,7 +81,7 @@ fi \
 %systemd_user_postun_with_restart() %{nil}
 
 %udev_hwdb_update() \
-udevadm hwdb --update >/dev/null 2>&1 || : \
+systemd-hwdb update >/dev/null 2>&1 || : \
 %{nil}
 
 %udev_rules_update() \

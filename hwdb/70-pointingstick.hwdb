@@ -27,7 +27,7 @@
 # To add local entries, create a new file
 #   /etc/udev/hwdb.d/71-pointingstick-local.hwdb
 # and add your rules there. To load the new rules execute (as root):
-#   udevadm hwdb --update
+#   systemd-hwdb update
 #   udevadm trigger /dev/input/eventXX
 # where /dev/input/eventXX is the pointingstick in question. If in
 # doubt, simply use /dev/input/event* to reload all input rules.
