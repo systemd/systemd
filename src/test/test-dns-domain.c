@@ -627,6 +627,18 @@ static void test_dns_name_apply_idna(void) {
         test_dns_name_apply_idna_one("föö.bär.", "xn--f-1gaa.xn--br-via");
 }
 
+static void test_dns_name_is_valid_or_address(void) {
+        assert_se(dns_name_is_valid_or_address(NULL) == 0);
+        assert_se(dns_name_is_valid_or_address("") == 0);
+        assert_se(dns_name_is_valid_or_address("foobar") > 0);
+        assert_se(dns_name_is_valid_or_address("foobar.com") > 0);
+        assert_se(dns_name_is_valid_or_address("foobar..com") == 0);
+        assert_se(dns_name_is_valid_or_address("foobar.com.") > 0);
+        assert_se(dns_name_is_valid_or_address("127.0.0.1") > 0);
+        assert_se(dns_name_is_valid_or_address("::") > 0);
+        assert_se(dns_name_is_valid_or_address("::1") > 0);
+}
+
 int main(int argc, char *argv[]) {
 
         test_dns_label_unescape();
@@ -654,6 +666,7 @@ int main(int argc, char *argv[]) {
         test_dns_name_compare_func();
         test_dns_name_common_suffix();
         test_dns_name_apply_idna();
+        test_dns_name_is_valid_or_address();
 
         return 0;
 }

@@ -63,16 +63,13 @@
     hostnames via DNS.</para>
 
     <para>To activate the NSS module, add <literal>resolve</literal> to the line starting with
-    <literal>hosts:</literal> in <filename>/etc/nsswitch.conf</filename>.</para>
-
-    <para>It is recommended to place <literal>resolve</literal> early in <filename>/etc/nsswitch.conf</filename>'
-    <literal>hosts:</literal> line (but after the <literal>files</literal> or <literal>mymachines</literal> entries),
-    replacing the <literal>dns</literal> entry if it exists, to ensure DNS queries are always routed via
-    <citerefentry><refentrytitle>systemd-resolved</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
-
-    <para>Note that <command>nss-resolve</command> will chain-load <command>nss-dns</command> if
-    <filename>systemd-resolved.service</filename> is not running, ensuring that basic DNS resolution continues to work
-    if the service is down.</para>
+    <literal>hosts:</literal> in <filename>/etc/nsswitch.conf</filename>. Specifcally, it is recommended to place
+    <literal>resolve</literal> early in <filename>/etc/nsswitch.conf</filename>' <literal>hosts:</literal> line (but
+    after the <literal>files</literal> or <literal>mymachines</literal> entries), right before the
+    <literal>dns</literal> entry if it exists, followed by <literal>[!UNAVAIL=return]</literal>, to ensure DNS queries
+    are always routed via
+    <citerefentry><refentrytitle>systemd-resolved</refentrytitle><manvolnum>8</manvolnum></citerefentry> if it is
+    running, but are routed to <command>nss-dns</command> if this service is not available.</para>
   </refsect1>
 
   <refsect1>
@@ -94,9 +91,6 @@ ethers:         db files
 rpc:            db files
 
 netgroup:       nis</programlisting>
-
-    <para>This keeps the <command>dns</command> module as a fallback for cases where the <command>nss-resolve</command>
-    module is not installed.</para>
   </refsect1>
 
   <refsect1>

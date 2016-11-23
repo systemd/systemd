@@ -851,21 +851,27 @@ static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
         return 1;
 }
 
-static int link_push_dns_to_dhcp_server(Link *link, sd_dhcp_server *s) {
+static int link_push_uplink_dns_to_dhcp_server(Link *link, sd_dhcp_server *s) {
         _cleanup_free_ struct in_addr *addresses = NULL;
         size_t n_addresses = 0, n_allocated = 0;
-        char **a;
+        unsigned i;
 
         log_debug("Copying DNS server information from %s", link->ifname);
 
         if (!link->network)
                 return 0;
 
-        STRV_FOREACH(a, link->network->dns) {
+        for (i = 0; i < link->network->n_dns; i++) {
                 struct in_addr ia;
 
                 /* Only look for IPv4 addresses */
-                if (inet_pton(AF_INET, *a, &ia) <= 0)
+                if (link->network->dns[i].family != AF_INET)
+                        continue;
+
+                ia = link->network->dns[i].address.in;
+
+                /* Never propagate obviously borked data */
+                if (in4_addr_is_null(&ia) || in4_addr_is_localhost(&ia))
                         continue;
 
                 if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + 1))
@@ -874,8 +880,7 @@ static int link_push_dns_to_dhcp_server(Link *link, sd_dhcp_server *s) {
                 addresses[n_addresses++] = ia;
         }
 
-        if (link->network->dhcp_use_dns &&
-            link->dhcp_lease) {
+        if (link->network->dhcp_use_dns && link->dhcp_lease) {
                 const struct in_addr *da = NULL;
                 int n;
 
@@ -896,7 +901,7 @@ static int link_push_dns_to_dhcp_server(Link *link, sd_dhcp_server *s) {
         return sd_dhcp_server_set_dns(s, addresses, n_addresses);
 }
 
-static int link_push_ntp_to_dhcp_server(Link *link, sd_dhcp_server *s) {
+static int link_push_uplink_ntp_to_dhcp_server(Link *link, sd_dhcp_server *s) {
         _cleanup_free_ struct in_addr *addresses = NULL;
         size_t n_addresses = 0, n_allocated = 0;
         char **a;
@@ -913,14 +918,17 @@ static int link_push_ntp_to_dhcp_server(Link *link, sd_dhcp_server *s) {
                 if (inet_pton(AF_INET, *a, &ia) <= 0)
                         continue;
 
+                /* Never propagate obviously borked data */
+                if (in4_addr_is_null(&ia) || in4_addr_is_localhost(&ia))
+                        continue;
+
                 if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + 1))
                         return log_oom();
 
                 addresses[n_addresses++] = ia;
         }
 
-        if (link->network->dhcp_use_ntp &&
-            link->dhcp_lease) {
+        if (link->network->dhcp_use_ntp && link->dhcp_lease) {
                 const struct in_addr *da = NULL;
                 int n;
 
@@ -1034,7 +1042,7 @@ static int link_enter_set_addresses(Link *link) {
                                         log_link_debug(link, "Not emitting DNS server information on link, couldn't find suitable uplink.");
                                         r = 0;
                                 } else
-                                        r = link_push_dns_to_dhcp_server(uplink, link->dhcp_server);
+                                        r = link_push_uplink_dns_to_dhcp_server(uplink, link->dhcp_server);
                         }
                         if (r < 0)
                                 log_link_warning_errno(link, r, "Failed to set DNS server for DHCP server, ignoring: %m");
@@ -1053,7 +1061,7 @@ static int link_enter_set_addresses(Link *link) {
                                         log_link_debug(link, "Not emitting NTP server information on link, couldn't find suitable uplink.");
                                         r = 0;
                                 } else
-                                        r = link_push_ntp_to_dhcp_server(uplink, link->dhcp_server);
+                                        r = link_push_uplink_ntp_to_dhcp_server(uplink, link->dhcp_server);
 
                         }
                         if (r < 0)
@@ -3235,7 +3243,7 @@ int link_save(Link *link) {
         if (r < 0)
                 goto fail;
 
-        fchmod(fileno(f), 0644);
+        (void) fchmod(fileno(f), 0644);
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
@@ -3248,6 +3256,7 @@ int link_save(Link *link) {
                 sd_dhcp6_lease *dhcp6_lease = NULL;
                 const char *dhcp_domainname = NULL;
                 char **dhcp6_domains = NULL;
+                unsigned j;
 
                 if (link->dhcp6_client) {
                         r = sd_dhcp6_client_get_lease(link->dhcp6_client, &dhcp6_lease);
@@ -3259,7 +3268,22 @@ int link_save(Link *link) {
 
                 fputs("DNS=", f);
                 space = false;
-                fputstrv(f, link->network->dns, NULL, &space);
+
+                for (j = 0; j < link->network->n_dns; j++) {
+                        _cleanup_free_ char *b = NULL;
+
+                        r = in_addr_to_string(link->network->dns[j].family,
+                                              &link->network->dns[j].address,  &b);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to format address, ignoring: %m");
+                                continue;
+                        }
+
+                        if (space)
+                                fputc(' ', f);
+                        fputs(b, f);
+                        space = true;
+                }
 
                 if (link->network->dhcp_use_dns &&
                     link->dhcp_lease) {

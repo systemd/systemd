@@ -112,19 +112,19 @@ struct Network {
         DCHPClientIdentifier dhcp_client_identifier;
         char *dhcp_vendor_class_identifier;
         char *dhcp_hostname;
-        bool dhcp_use_dns;
-        bool dhcp_use_ntp;
-        bool dhcp_use_mtu;
-        bool dhcp_use_hostname;
-        DHCPUseDomains dhcp_use_domains;
-        bool dhcp_send_hostname;
-        bool dhcp_broadcast;
-        bool dhcp_critical;
-        bool dhcp_use_routes;
-        bool dhcp_use_timezone;
         unsigned dhcp_route_metric;
         uint32_t dhcp_route_table;
         uint32_t dhcp_client_port;
+        bool dhcp_send_hostname;
+        bool dhcp_broadcast;
+        bool dhcp_critical;
+        bool dhcp_use_dns;
+        bool dhcp_use_ntp;
+        bool dhcp_use_mtu;
+        bool dhcp_use_routes;
+        bool dhcp_use_timezone;
+        bool dhcp_use_hostname;
+        DHCPUseDomains dhcp_use_domains;
 
         /* DHCP Server Support */
         bool dhcp_server;
@@ -194,7 +194,10 @@ struct Network {
         Hashmap *routes_by_section;
         Hashmap *fdb_entries_by_section;
 
-        char **search_domains, **route_domains, **dns, **ntp, **bind_carrier;
+        struct in_addr_data *dns;
+        unsigned n_dns;
+
+        char **search_domains, **route_domains, **ntp, **bind_carrier;
 
         ResolveSupport llmnr;
         ResolveSupport mdns;
@@ -233,6 +236,7 @@ int config_parse_dnssec_negative_trust_anchors(const char *unit, const char *fil
 int config_parse_dhcp_use_domains(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_lldp_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_dhcp_route_table(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_ntp(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
 /* Legacy IPv4LL support */
 int config_parse_ipv4ll(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);

@@ -386,45 +386,23 @@ int sd_dhcp_client_set_hostname(
                 sd_dhcp_client *client,
                 const char *hostname) {
 
-        char *new_hostname = NULL;
-
         assert_return(client, -EINVAL);
 
-        if (!hostname_is_valid(hostname, false) && !dns_name_is_valid(hostname))
+        /* Refuse hostnames that neither qualify as DNS nor as Linux hosntames */
+        if (hostname &&
+            !(hostname_is_valid(hostname, false) || dns_name_is_valid(hostname) > 0))
                 return -EINVAL;
 
-        if (streq_ptr(client->hostname, hostname))
-                return 0;
-
-        if (hostname) {
-                new_hostname = strdup(hostname);
-                if (!new_hostname)
-                        return -ENOMEM;
-        }
-
-        free(client->hostname);
-        client->hostname = new_hostname;
-
-        return 0;
+        return free_and_strdup(&client->hostname, hostname);
 }
 
 int sd_dhcp_client_set_vendor_class_identifier(
                 sd_dhcp_client *client,
                 const char *vci) {
 
-        char *new_vci = NULL;
-
         assert_return(client, -EINVAL);
 
-        new_vci = strdup(vci);
-        if (!new_vci)
-                return -ENOMEM;
-
-        free(client->vendor_class_identifier);
-
-        client->vendor_class_identifier = new_vci;
-
-        return 0;
+        return free_and_strdup(&client->vendor_class_identifier, vci);
 }
 
 int sd_dhcp_client_set_client_port(
