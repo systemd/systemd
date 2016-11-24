@@ -3897,7 +3897,8 @@ EXTRA_DIST += \
 # ------------------------------------------------------------------------------
 if ENABLE_TESTS
 TESTS += \
-	test/udev-test.pl
+	test/udev-test.pl \
+	test/hwdb-test.sh
 
 if HAVE_PYTHON
 TESTS += \
@@ -3952,6 +3953,7 @@ DISTCLEAN_LOCAL_HOOKS += test-sys-distclean
 EXTRA_DIST += \
 	test/sys.tar.xz \
 	test/udev-test.pl \
+	test/hwdb-test.sh \
 	test/rule-syntax-check.py \
 	test/sysv-generator-test.py \
 	test/mocks/fsck \
