@@ -798,11 +798,14 @@
         notification socket, as accessible via the
         <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         call. Takes one of <option>none</option> (the default),
-        <option>main</option> or <option>all</option>. If
-        <option>none</option>, no daemon status updates are accepted
-        from the service processes, all status update messages are
-        ignored. If <option>main</option>, only service updates sent
-        from the main process of the service are accepted. If
+        <option>main</option>, <option>exec</option> or
+        <option>all</option>. If <option>none</option>, no daemon status
+        updates are accepted from the service processes, all status
+        update messages are ignored. If <option>main</option>, only
+        service updates sent from the main process of the service are
+        accepted. If <option>exec</option>, only service updates sent
+        from any of the control processes originating from one of the
+        <varname>Exec*=</varname> commands are accepted. If
         <option>all</option>, all services updates from all members of
         the service's control group are accepted. This option should
         be set to open access to the notification socket when using

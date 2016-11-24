@@ -1179,6 +1179,25 @@ static int service_collect_fds(Service *s, int **fds, char ***fd_names) {
         return rn_fds;
 }
 
+static bool service_exec_needs_notify_socket(Service *s, ExecFlags flags) {
+        assert(s);
+
+        /* Notifications are accepted depending on the process and
+         * the access setting of the service:
+         *     process: \ access:  NONE  MAIN  EXEC   ALL
+         *     main                  no   yes   yes   yes
+         *     control               no    no   yes   yes
+         *     other (forked)        no    no    no   yes */
+
+        if (flags & EXEC_IS_CONTROL)
+                /* A control process */
+                return IN_SET(s->notify_access, NOTIFY_EXEC, NOTIFY_ALL);
+
+        /* We only spawn main processes and control processes, so any
+         * process that is not a control process is a main process */
+        return s->notify_access != NOTIFY_NONE;
+}
+
 static int service_spawn(
                 Service *s,
                 ExecCommand *c,
@@ -1252,7 +1271,7 @@ static int service_spawn(
         if (!our_env)
                 return -ENOMEM;
 
-        if ((flags & EXEC_IS_CONTROL) ? s->notify_access == NOTIFY_ALL : s->notify_access != NOTIFY_NONE)
+        if (service_exec_needs_notify_socket(s, flags))
                 if (asprintf(our_env + n_env++, "NOTIFY_SOCKET=%s", UNIT(s)->manager->notify_socket) < 0)
                         return -ENOMEM;
 
@@ -3061,7 +3080,18 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
                 if (s->main_pid != 0)
                         log_unit_warning(u, "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid, s->main_pid);
                 else
-                        log_unit_debug(u, "Got notification message from PID "PID_FMT", but reception only permitted for main PID which is currently not known", pid);
+                        log_unit_warning(u, "Got notification message from PID "PID_FMT", but reception only permitted for main PID which is currently not known", pid);
+                return;
+        } else if (s->notify_access == NOTIFY_EXEC && pid != s->main_pid && pid != s->control_pid) {
+                if (s->main_pid != 0 && s->control_pid != 0)
+                        log_unit_warning(u, "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT" and control PID "PID_FMT,
+                                         pid, s->main_pid, s->control_pid);
+                else if (s->main_pid != 0)
+                        log_unit_warning(u, "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid, s->main_pid);
+                else if (s->control_pid != 0)
+                        log_unit_warning(u, "Got notification message from PID "PID_FMT", but reception only permitted for control PID "PID_FMT, pid, s->control_pid);
+                else
+                        log_unit_warning(u, "Got notification message from PID "PID_FMT", but reception only permitted for main PID and control PID which are currently not known", pid);
                 return;
         } else
                 log_unit_debug(u, "Got notification message from PID "PID_FMT" (%s)", pid, isempty(cc) ? "n/a" : cc);
@@ -3388,6 +3418,7 @@ DEFINE_STRING_TABLE_LOOKUP(service_exec_command, ServiceExecCommand);
 static const char* const notify_access_table[_NOTIFY_ACCESS_MAX] = {
         [NOTIFY_NONE] = "none",
         [NOTIFY_MAIN] = "main",
+        [NOTIFY_EXEC] = "exec",
         [NOTIFY_ALL] = "all"
 };
 
