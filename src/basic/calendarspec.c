@@ -153,7 +153,7 @@ int calendar_spec_normalize(CalendarSpec *c) {
         return 0;
 }
 
-_pure_ static bool chain_valid(CalendarComponent *c, int from, int to, bool eom) {
+_pure_ static bool chain_valid(CalendarComponent *c, int from, int to, bool end_of_month) {
         if (!c)
                 return true;
 
@@ -163,17 +163,17 @@ _pure_ static bool chain_valid(CalendarComponent *c, int from, int to, bool eom)
         /*
          * c->repeat must be short enough so at least one repetition may
          * occur before the end of the interval.  For dates scheduled
-         * relative to the end of the month (eom), c->value corresponds
-         * to the Nth last day of the month.
+         * relative to the end of the month, c->value corresponds to the
+         * Nth last day of the month.
          */
-        if (eom && c->value - c->repeat < from)
+        if (end_of_month && c->value - c->repeat < from)
                 return false;
 
-        if (!eom && c->value + c->repeat > to)
+        if (!end_of_month && c->value + c->repeat > to)
                 return false;
 
         if (c->next)
-                return chain_valid(c->next, from, to, eom);
+                return chain_valid(c->next, from, to, end_of_month);
 
         return true;
 }
