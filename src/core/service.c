@@ -2579,11 +2579,16 @@ static void service_notify_cgroup_empty_event(Unit *u) {
                  * SIGCHLD for. */
 
         case SERVICE_START:
-        case SERVICE_START_POST:
-                if (s->type == SERVICE_NOTIFY)
+                if (s->type == SERVICE_NOTIFY) {
                         /* No chance of getting a ready notification anymore */
                         service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_PROTOCOL);
-                else if (s->pid_file_pathspec) {
+                        break;
+                }
+
+                /* Fall through */
+
+        case SERVICE_START_POST:
+                if (s->pid_file_pathspec) {
                         /* Give up hoping for the daemon to write its PID file */
                         log_unit_warning(u, "Daemon never wrote its PID file. Failing.");
 
