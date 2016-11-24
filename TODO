@@ -27,6 +27,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* Add ExecMonitor= setting. May be used multiple times. Forks off a process in
+  the service cgroup, which is supposed to monitor the service, and when it
+  exits the service is considered failed by its monitor.
+
 * replace all canonicalize_file_name() invocations by chase_symlinks(), in
   particulr those where a rootdir is relevant.
 
@@ -77,8 +81,6 @@ Features:
 
 * Add DataDirectory=, CacheDirectory= and LogDirectory= to match
   RuntimeDirectory=, and create it as necessary when starting a service, owned by the right user.
-
-* Add BindDirectory= for allowing arbitrary, private bind mounts for services
 
 * Add RootImage= for mounting a disk image or file as root directory
 
@@ -340,8 +342,6 @@ Features:
 
 * refuse boot if /usr/lib/os-release is missing or /etc/machine-id cannot be set up
 
-* btrfs raid assembly: some .device jobs stay stuck in the queue
-
 * man: the documentation of Restart= currently is very misleading and suggests the tools from ExecStartPre= might get restarted.
 
 * load .d/*.conf dropins for device units
@@ -587,15 +587,13 @@ Features:
 
 * on shutdown: move utmp, wall, audit logic all into PID 1 (or logind?), get rid of systemd-update-utmp-runlevel
 
-* make repeated alt-ctrl-del presses printing a dump, or even force a reboot without
-  waiting for the timeout
+* make repeated alt-ctrl-del presses printing a dump
 
 * hostnamed: before returning information from /etc/machine-info.conf check the modification data and reread. Similar for localed, ...
 
 * currently x-systemd.timeout is lost in the initrd, since crypttab is copied into dracut, but fstab is not
 
 * nspawn:
-  - nspawn -x should support ephemeral instances of gpt images
   - emulate /dev/kmsg using CUSE and turn off the syslog syscall
     with seccomp. That should provide us with a useful log buffer that
     systemd can log to during early boot, and disconnect container logs
