@@ -779,9 +779,6 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
         assert(p);
         assert(spec);
 
-        if (isempty(p))
-                return -EINVAL;
-
         c = new0(CalendarSpec, 1);
         if (!c)
                 return -ENOMEM;
@@ -818,6 +815,11 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
                         p = strndupa(p, e - p - 1);
                         c->dst = j;
                 }
+        }
+
+        if (isempty(p)) {
+                r = -EINVAL;
+                goto fail;
         }
 
         if (strcaseeq(p, "minutely")) {

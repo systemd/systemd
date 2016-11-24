@@ -202,6 +202,7 @@ int main(int argc, char* argv[]) {
         test_next("Mon 2017-05~07/1 UTC", "", 12345, 1496016000000000);
 
         assert_se(calendar_spec_from_string("test", &c) < 0);
+        assert_se(calendar_spec_from_string(" utc", &c) < 0);
         assert_se(calendar_spec_from_string("    ", &c) < 0);
         assert_se(calendar_spec_from_string("", &c) < 0);
         assert_se(calendar_spec_from_string("7", &c) < 0);
