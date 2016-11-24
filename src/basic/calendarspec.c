@@ -286,6 +286,7 @@ static void format_chain(FILE *f, int space, const CalendarComponent *c, bool us
 }
 
 int calendar_spec_to_string(const CalendarSpec *c, char **p) {
+        CalendarComponent *cc;
         char *buf = NULL;
         size_t sz = 0;
         FILE *f;
@@ -313,7 +314,12 @@ int calendar_spec_to_string(const CalendarSpec *c, char **p) {
         fputc(':', f);
         format_chain(f, 2, c->minute, false);
         fputc(':', f);
-        format_chain(f, 2, c->microsecond, true);
+
+        cc = c->microsecond;
+        if (cc && !cc->value && cc->repeat == USEC_PER_SEC && !cc->next)
+                fputc('*', f);
+        else
+                format_chain(f, 2, c->microsecond, true);
 
         if (c->utc)
                 fputs(" UTC", f);
