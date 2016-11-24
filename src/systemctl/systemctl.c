@@ -142,6 +142,7 @@ static const char *arg_kill_who = NULL;
 static int arg_signal = SIGTERM;
 static char *arg_root = NULL;
 static usec_t arg_when = 0;
+static char *argv_cmdline = NULL;
 static enum action {
         _ACTION_INVALID,
         ACTION_SYSTEMCTL,
@@ -5638,6 +5639,13 @@ static int switch_root(int argc, char *argv[], void *userdata) {
                         init = NULL;
         }
 
+        /* Instruct PID1 to exclude us from its killing spree applied during
+         * the transition from the initrd to the main system otherwise we would
+         * exit with a failure status even though the switch to the new root
+         * has succeed. */
+        if (in_initrd())
+                argv_cmdline[0] = '@';
+
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
@@ -8372,6 +8380,8 @@ static int logind_cancel_shutdown(void) {
 
 int main(int argc, char*argv[]) {
         int r;
+
+        argv_cmdline = argv[0];
 
         setlocale(LC_ALL, "");
         log_parse_environment();
