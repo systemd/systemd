@@ -486,6 +486,10 @@ static int parse_component_decimal(const char **p, bool usec, unsigned long *res
                 if (*e == '.') {
                         unsigned add;
 
+                        /* This is the start of a range, not a fractional part */
+                        if (e[1] == '.')
+                                goto finish;
+
                         e++;
                         r = parse_fractional_part_u(&e, 6, &add);
                         if (r < 0)
@@ -497,6 +501,7 @@ static int parse_component_decimal(const char **p, bool usec, unsigned long *res
                 }
         }
 
+finish:
         *p = e;
         *res = value;
 
