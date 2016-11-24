@@ -372,9 +372,6 @@ static int parse_weekdays(const char **p, CalendarSpec *c) {
         for (;;) {
                 unsigned i;
 
-                if (!first && **p == ' ')
-                        return 0;
-
                 for (i = 0; i < ELEMENTSOF(day_nr); i++) {
                         size_t skip;
 
@@ -430,7 +427,7 @@ static int parse_weekdays(const char **p, CalendarSpec *c) {
                                 return -EINVAL;
 
                         l = day_nr[i].nr;
-                        *p += 1;
+                        *p += 2;
 
                 /* Support ranges with "-" for backwards compatibility */
                 } else if (**p == '-') {
@@ -438,10 +435,19 @@ static int parse_weekdays(const char **p, CalendarSpec *c) {
                                 return -EINVAL;
 
                         l = day_nr[i].nr;
-                } else
-                        l = -1;
+                        *p += 1;
 
-                *p += 1;
+                } else if (**p == ',') {
+                        l = -1;
+                        *p += 1;
+                }
+
+                /* Allow  a trailing comma but not an open range */
+                if (**p == 0 || **p == ' ') {
+                        *p += strspn(*p, " ");
+                        return l < 0 ? 0 : -EINVAL;
+                }
+
                 first = false;
         }
 }

@@ -143,6 +143,7 @@ int main(int argc, char* argv[]) {
         test_one("Wed-Wed,Wed *-1", "Wed *-*-01 00:00:00");
         test_one("Wed..Wed,Wed *-1", "Wed *-*-01 00:00:00");
         test_one("Wed, 17:48", "Wed *-*-* 17:48:00");
+        test_one("Wednesday,", "Wed *-*-* 00:00:00");
         test_one("Wed-Sat,Tue 12-10-15 1:2:3", "Tue..Sat 2012-10-15 01:02:03");
         test_one("Wed..Sat,Tue 12-10-15 1:2:3", "Tue..Sat 2012-10-15 01:02:03");
         test_one("*-*-7 0:0:0", "*-*-07 00:00:00");
@@ -213,6 +214,8 @@ int main(int argc, char* argv[]) {
         assert_se(calendar_spec_from_string("00:00:00.0..00.9", &c) < 0);
         assert_se(calendar_spec_from_string("2016~11-22", &c) < 0);
         assert_se(calendar_spec_from_string("*-*~5/5", &c) < 0);
+        assert_se(calendar_spec_from_string("Monday.. 12:00", &c) < 0);
+        assert_se(calendar_spec_from_string("Monday..", &c) < 0);
 
         test_timestamp();
         test_hourly_bug_4031();
