@@ -255,6 +255,8 @@ static void format_weekdays(FILE *f, const CalendarSpec *c) {
 }
 
 static void format_chain(FILE *f, int space, const CalendarComponent *c, bool usec) {
+        const CalendarComponent *n, *p;
+
         assert(f);
 
         if (!c) {
@@ -279,7 +281,23 @@ static void format_chain(FILE *f, int space, const CalendarComponent *c, bool us
                         fprintf(f, "/%i.%06i", (int) (c->repeat / USEC_PER_SEC), (int) (c->repeat % USEC_PER_SEC));
         }
 
-        if (c->next) {
+        p = c;
+        for (;;) {
+                n = p->next;
+
+                if (!n || n->repeat || p->repeat)
+                        break;
+
+                if (n->value - p->value != (usec ? (int) USEC_PER_SEC : 1))
+                       break;
+
+                p = n;
+        }
+
+        if (p->value - c->value >= 2 * (usec ? (int) USEC_PER_SEC : 1)) {
+                fputs("..", f);
+                format_chain(f, space, p, usec);
+        } else if (c->next) {
                 fputc(',', f);
                 format_chain(f, space, c->next, usec);
         }
