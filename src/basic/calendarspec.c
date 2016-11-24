@@ -699,14 +699,9 @@ static int parse_calendar_time(const char **p, CalendarSpec *c) {
 
         t = *p;
 
-        if (*t == 0) {
-                /* If no time is specified at all, but a date of some
-                 * kind, then this means 00:00:00 */
-                if (c->day || c->weekdays_bits > 0)
-                        goto null_hour;
-
-                goto finish;
-        }
+        /* If no time is specified at all, then this means 00:00:00 */
+        if (*t == 0)
+                goto null_hour;
 
         r = parse_chain(&t, false, &h);
         if (r < 0)

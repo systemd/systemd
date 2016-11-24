@@ -179,6 +179,9 @@ int main(int argc, char* argv[]) {
         test_one("*-*~1 Utc", "*-*~01 00:00:00 UTC");
         test_one("*-*~05,3 ", "*-*~03,05 00:00:00");
         test_one("*-*~* 00:00:00", "*-*-* 00:00:00");
+        test_one("Monday", "Mon *-*-* 00:00:00");
+        test_one("Monday *-*-*", "Mon *-*-* 00:00:00");
+        test_one("*-*-*", "*-*-* 00:00:00");
 
         test_next("2016-03-27 03:17:00", "", 12345, 1459048620000000);
         test_next("2016-03-27 03:17:00", "CET", 12345, 1459041420000000);
@@ -199,6 +202,7 @@ int main(int argc, char* argv[]) {
         test_next("Mon 2017-05~07/1 UTC", "", 12345, 1496016000000000);
 
         assert_se(calendar_spec_from_string("test", &c) < 0);
+        assert_se(calendar_spec_from_string("    ", &c) < 0);
         assert_se(calendar_spec_from_string("", &c) < 0);
         assert_se(calendar_spec_from_string("7", &c) < 0);
         assert_se(calendar_spec_from_string("121212:1:2", &c) < 0);
