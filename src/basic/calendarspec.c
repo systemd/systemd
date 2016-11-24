@@ -18,6 +18,7 @@
 ***/
 
 #include <alloca.h>
+#include <ctype.h>
 #include <errno.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -457,6 +458,9 @@ static int parse_component_decimal(const char **p, bool usec, unsigned long *res
         const char *e = NULL;
         char *ee = NULL;
         int r;
+
+        if (!isdigit(**p))
+                return -EINVAL;
 
         errno = 0;
         value = strtoul(*p, &ee, 10);

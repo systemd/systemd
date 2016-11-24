@@ -216,6 +216,9 @@ int main(int argc, char* argv[]) {
         assert_se(calendar_spec_from_string("*-*~5/5", &c) < 0);
         assert_se(calendar_spec_from_string("Monday.. 12:00", &c) < 0);
         assert_se(calendar_spec_from_string("Monday..", &c) < 0);
+        assert_se(calendar_spec_from_string("-00:+00/-5", &c) < 0);
+        assert_se(calendar_spec_from_string("00:+00/-5", &c) < 0);
+        assert_se(calendar_spec_from_string("2016- 11- 24 12: 30: 00", &c) < 0);
 
         test_timestamp();
         test_hourly_bug_4031();
