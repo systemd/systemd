@@ -469,7 +469,7 @@ class NetworkdClientTest(ClientTestBase, unittest.TestCase):
         super().setUp()
         self.dnsmasq = None
 
-    def create_iface(self, ipv6=False):
+    def create_iface(self, ipv6=False, dhcpserver_opts=None):
         '''Create test interface with DHCP server behind it'''
 
         # run "router-side" networkd in own mount namespace to shield it from
@@ -507,11 +507,13 @@ DHCPServer=yes
 PoolOffset=10
 PoolSize=50
 DNS=192.168.5.1
+%(dhopts)s
 EOF
 
 # run networkd as in systemd-networkd.service
 exec $(systemctl cat systemd-networkd.service | sed -n '/^ExecStart=/ { s/^.*=//; p}')
-''' % {'ifr': self.if_router, 'ifc': self.iface, 'addr6': ipv6 and 'Address=2600::1/64' or ''})
+''' % {'ifr': self.if_router, 'ifc': self.iface, 'addr6': ipv6 and 'Address=2600::1/64' or '',
+       'dhopts': dhcpserver_opts or ''})
 
             os.fchmod(fd, 0o755)
 
@@ -641,6 +643,32 @@ DNS=127.0.0.1''')
             time.sleep(0.1)
         self.assertIn('nameserver 192.168.42.1\n', contents)
         self.assertIn('nameserver 127.0.0.1\n', contents)
+
+    def test_dhcp_timezone(self):
+        '''networkd sets time zone from DHCP'''
+
+        def get_tz():
+            out = subprocess.check_output(['busctl', 'get-property', 'org.freedesktop.timedate1',
+                                           '/org/freedesktop/timedate1', 'org.freedesktop.timedate1', 'Timezone'])
+            assert out.startswith(b's "')
+            out = out.strip()
+            assert out.endswith(b'"')
+            return out[3:-1].decode()
+
+        orig_timezone = get_tz()
+        self.addCleanup(subprocess.call, ['timedatectl', 'set-timezone', orig_timezone])
+
+        self.create_iface(dhcpserver_opts='EmitTimezone=yes\nTimezone=Pacific/Honolulu')
+        self.do_test(coldplug=None, extra_opts='IPv6AcceptRA=false\n[DHCP]\nUseTimezone=true', dhcp_mode='ipv4')
+
+        # should have applied the received timezone
+        try:
+            self.assertEqual(get_tz(), 'Pacific/Honolulu')
+        except AssertionError:
+            self.show_journal('systemd-networkd.service')
+            self.show_journal('systemd-hostnamed.service')
+            raise
+
 
 if __name__ == '__main__':
     unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,

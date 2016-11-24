@@ -192,6 +192,18 @@ int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
+       /* Did we get a timezone or transient hostname from DHCP while D-Bus wasn't up yet? */
+        if (m->dynamic_hostname) {
+                r = manager_set_hostname(m, m->dynamic_hostname);
+                if (r < 0)
+                        return r;
+        }
+        if (m->dynamic_timezone) {
+                r = manager_set_timezone(m, m->dynamic_timezone);
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 }
 
@@ -1119,6 +1131,9 @@ void manager_free(Manager *m) {
         sd_bus_slot_unref(m->prepare_for_sleep_slot);
         sd_event_source_unref(m->bus_retry_event_source);
 
+        free(m->dynamic_timezone);
+        free(m->dynamic_hostname);
+
         free(m);
 }
 
@@ -1364,4 +1379,97 @@ void manager_dirty(Manager *manager) {
 
         /* the serialized state in /run is no longer up-to-date */
         manager->dirty = true;
+}
+
+static int set_hostname_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+        Manager *manager = userdata;
+        const sd_bus_error *e;
+
+        assert(m);
+        assert(manager);
+
+        e = sd_bus_message_get_error(m);
+        if (e)
+                log_warning_errno(sd_bus_error_get_errno(e), "Could not set hostname: %s", e->message);
+
+        return 1;
+}
+
+int manager_set_hostname(Manager *m, const char *hostname) {
+        int r;
+
+        log_debug("Setting transient hostname: '%s'", strna(hostname));
+        if (free_and_strdup(&m->dynamic_hostname, hostname) < 0)
+                return log_oom();
+
+        if (!m->bus) {
+                /* TODO: replace by assert when we can rely on kdbus */
+                log_info("Not connected to system bus, ignoring transient hostname.");
+                return 0;
+        }
+
+        r = sd_bus_call_method_async(
+                        m->bus,
+                        NULL,
+                        "org.freedesktop.hostname1",
+                        "/org/freedesktop/hostname1",
+                        "org.freedesktop.hostname1",
+                        "SetHostname",
+                        set_hostname_handler,
+                        m,
+                        "sb",
+                        hostname,
+                        false);
+
+        if (r < 0)
+                return log_error_errno(r, "Could not set transient hostname: %m");
+
+        return 0;
+}
+
+static int set_timezone_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+        Manager *manager = userdata;
+        const sd_bus_error *e;
+
+        assert(m);
+        assert(manager);
+
+        e = sd_bus_message_get_error(m);
+        if (e)
+                log_warning_errno(sd_bus_error_get_errno(e), "Could not set timezone: %s", e->message);
+
+        return 1;
+}
+
+int manager_set_timezone(Manager *m, const char *tz) {
+        int r;
+
+        assert(m);
+        assert(tz);
+
+        log_debug("Setting system timezone: '%s'", tz);
+        if (free_and_strdup(&m->dynamic_timezone, tz) < 0)
+                return log_oom();
+
+        if (!m->bus) {
+                log_info("Not connected to system bus, ignoring timezone.");
+                return 0;
+        }
+
+        r = sd_bus_call_method_async(
+                        m->bus,
+                        NULL,
+                        "org.freedesktop.timedate1",
+                        "/org/freedesktop/timedate1",
+                        "org.freedesktop.timedate1",
+                        "SetTimezone",
+                        set_timezone_handler,
+                        m,
+                        "sb",
+                        tz,
+                        false);
+        if (r < 0)
+                return log_error_errno(r, "Could not set timezone: %m");
+
+        return 0;
 }

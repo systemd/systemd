@@ -1,5 +1,0 @@
-polkit.addRule(function(action, subject) {
-    if (action.id == "org.freedesktop.hostname1.set-hostname" && subject.user == "systemd-network") {
-        return polkit.Result.YES;
-    }
-});
