@@ -39,10 +39,11 @@
 #include "set.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "parse-util.h"
 #include "util.h"
 
 #define BUFFER_SIZE (256 * 1024)
-#define CONNECTIONS_MAX 256
+static unsigned arg_connections_max = 256;
 
 static const char *arg_remote_host = NULL;
 
@@ -445,7 +446,7 @@ static int add_connection_socket(Context *context, int fd) {
         assert(context);
         assert(fd >= 0);
 
-        if (set_size(context->connections) > CONNECTIONS_MAX) {
+        if (set_size(context->connections) > arg_connections_max) {
                 log_warning("Hit connection limit, refusing connection.");
                 safe_close(fd);
                 return 0;
@@ -563,6 +564,7 @@ static void help(void) {
         printf("%1$s [HOST:PORT]\n"
                "%1$s [SOCKET]\n\n"
                "Bidirectionally proxy local sockets to another (possibly remote) socket.\n\n"
+               "  -c --max-connections=  Set the maximum number of connections to be accepted\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n",
                program_invocation_short_name);
@@ -576,23 +578,38 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",       no_argument, NULL, 'h'           },
-                { "version",    no_argument, NULL, ARG_VERSION   },
+                { "connections-max", required_argument, NULL, 'c'           },
+                { "help",            no_argument,       NULL, 'h'           },
+                { "version",         no_argument,       NULL, ARG_VERSION   },
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "c:h", options, NULL)) >= 0)
 
                 switch (c) {
 
                 case 'h':
                         help();
                         return 0;
+
+                case 'c':
+                        r = safe_atou(optarg, &arg_connections_max);
+                        if (r < 0) {
+                                log_error("Failed to parse --connections-max= argument: %s", optarg);
+                                return r;
+                        }
+
+                        if (arg_connections_max < 1) {
+                                log_error("Connection limit is too low.");
+                                return -EINVAL;
+                        }
+
+                        break;
 
                 case ARG_VERSION:
                         return version();
