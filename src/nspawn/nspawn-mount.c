@@ -495,10 +495,10 @@ static int parse_mount_bind_options(const char *options, unsigned long *mount_fl
 }
 
 static int mount_bind(const char *dest, CustomMount *m) {
-        struct stat source_st, dest_st;
-        const char *where;
+
+        _cleanup_free_ char *mount_opts = NULL, *where = NULL;
         unsigned long mount_flags = MS_BIND | MS_REC;
-        _cleanup_free_ char *mount_opts = NULL;
+        struct stat source_st, dest_st;
         int r;
 
         assert(m);
@@ -512,7 +512,9 @@ static int mount_bind(const char *dest, CustomMount *m) {
         if (stat(m->source, &source_st) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", m->source);
 
-        where = prefix_roota(dest, m->destination);
+        r = chase_symlinks_prefix(m->destination, dest, &where);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve %s: %m", m->destination);
 
         if (stat(where, &dest_st) >= 0) {
                 if (S_ISDIR(source_st.st_mode) && !S_ISDIR(dest_st.st_mode)) {
@@ -563,14 +565,16 @@ static int mount_tmpfs(
                 bool userns, uid_t uid_shift, uid_t uid_range,
                 const char *selinux_apifs_context) {
 
-        const char *where, *options;
-        _cleanup_free_ char *buf = NULL;
+        const char *options;
+        _cleanup_free_ char *buf = NULL, *where = NULL;
         int r;
 
         assert(dest);
         assert(m);
 
-        where = prefix_roota(dest, m->destination);
+        r = chase_symlinks_prefix(m->destination, dest, &where);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve %s: %m", m->destination);
 
         r = mkdir_p_label(where, 0755);
         if (r < 0 && r != -EEXIST)
@@ -600,14 +604,17 @@ static char *joined_and_escaped_lower_dirs(char * const *lower) {
 }
 
 static int mount_overlay(const char *dest, CustomMount *m) {
-        _cleanup_free_ char *lower = NULL;
-        const char *where, *options;
+
+        _cleanup_free_ char *lower = NULL, *where = NULL;
+        const char *options;
         int r;
 
         assert(dest);
         assert(m);
 
-        where = prefix_roota(dest, m->destination);
+        r = chase_symlinks_prefix(m->destination, dest, &where);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve %s: %m", m->destination);
 
         r = mkdir_label(where, 0755);
         if (r < 0 && r != -EEXIST)
