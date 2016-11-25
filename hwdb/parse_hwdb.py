@@ -133,8 +133,7 @@ def convert_properties(group):
 def parse(fname):
     grammar = hwdb_grammar()
     try:
-        with open(fname, 'r', encoding='UTF-8') as f:
-            parsed = grammar.parseFile(f)
+        parsed = grammar.parseFile(fname)
     except ParseBaseException as e:
         error('Cannot parse {}: {}', fname, e)
         return []
