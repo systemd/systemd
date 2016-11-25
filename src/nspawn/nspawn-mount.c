@@ -47,7 +47,7 @@ CustomMount* custom_mount_add(CustomMount **l, unsigned *n, CustomMountType t) {
         assert(t >= 0);
         assert(t < _CUSTOM_MOUNT_TYPE_MAX);
 
-        c = realloc(*l, (*n + 1) * sizeof(CustomMount));
+        c = realloc_multiply(*l, (*n + 1), sizeof(CustomMount));
         if (!c)
                 return NULL;
 
