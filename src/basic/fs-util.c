@@ -610,15 +610,24 @@ int chase_symlinks(const char *path, const char *_root, char **ret) {
         /* This is a lot like canonicalize_file_name(), but takes an additional "root" parameter, that allows following
          * symlinks relative to a root directory, instead of the root of the host.
          *
-         * Note that "root" matters only if we encounter an absolute symlink, it's unused otherwise. Most importantly
-         * this means the path parameter passed in is not prefixed by it.
+         * Note that "root" primarily matters if we encounter an absolute symlink. It is also used when following
+         * relative symlinks to ensure they cannot be used to "escape" the root directory. (For cases where this is
+         * attempted -EINVAL is returned.). The path parameter passed shall *not* be prefixed by it.
          *
          * Algorithmically this operates on two path buffers: "done" are the components of the path we already
          * processed and resolved symlinks, "." and ".." of. "todo" are the components of the path we still need to
          * process. On each iteration, we move one component from "todo" to "done", processing it's special meaning
          * each time. The "todo" path always starts with at least one slash, the "done" path always ends in no
          * slash. We always keep an O_PATH fd to the component we are currently processing, thus keeping lookup races
-         * at a minimum. */
+         * at a minimum.
+         *
+         * Suggested usage: whenever you want to canonicalize a path, use this function. Pass the absolute path you got
+         * as-is: fully qualified and relative to your host's root. Optionally, specify the root parameter to tell this
+         * function what to do when encountering a symlink with an absolute path as directory: prefix it by the
+         * specified path.
+         *
+         * Note: there's also chase_symlinks_prefix() (see below), which as first step prefixes the passed path by the
+         * passed root. */
 
         r = path_make_absolute_cwd(path, &buffer);
         if (r < 0)
@@ -779,4 +788,14 @@ int chase_symlinks(const char *path, const char *_root, char **ret) {
         done = NULL;
 
         return 0;
+}
+
+int chase_symlinks_prefix(const char *path, const char *root, char **ret) {
+        const char *t;
+
+        /* Same as chase_symlinks(), but prefixes 'path' by 'root' first. */
+
+        t = prefix_roota(root, path);
+
+        return chase_symlinks(t, root, ret);
 }
