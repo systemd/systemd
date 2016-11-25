@@ -256,6 +256,7 @@ static void format_weekdays(FILE *f, const CalendarSpec *c) {
 
 static void format_chain(FILE *f, int space, const CalendarComponent *c, bool usec) {
         const CalendarComponent *n, *p;
+        int d = usec ? (int) USEC_PER_SEC : 1;
 
         assert(f);
 
@@ -265,21 +266,15 @@ static void format_chain(FILE *f, int space, const CalendarComponent *c, bool us
         }
 
         assert(c->value >= 0);
-        if (!usec)
-                fprintf(f, "%0*i", space, c->value);
-        else if (c->value % USEC_PER_SEC == 0)
-                fprintf(f, "%0*i", space, (int) (c->value / USEC_PER_SEC));
-        else
-                fprintf(f, "%0*i.%06i", space, (int) (c->value / USEC_PER_SEC), (int) (c->value % USEC_PER_SEC));
 
-        if (c->repeat > 0) {
-                if (!usec)
-                        fprintf(f, "/%i", c->repeat);
-                else if (c->repeat % USEC_PER_SEC == 0)
-                        fprintf(f, "/%i", (int) (c->repeat / USEC_PER_SEC));
-                else
-                        fprintf(f, "/%i.%06i", (int) (c->repeat / USEC_PER_SEC), (int) (c->repeat % USEC_PER_SEC));
-        }
+        fprintf(f, "%0*i", space, c->value / d);
+        if (c->value % d != 0)
+                fprintf(f, ".%06i", c->value % d);
+
+        if (c->repeat != 0)
+                fprintf(f, "/%i", c->repeat / d);
+        if (c->repeat % d != 0)
+                fprintf(f, ".%06i", c->repeat % d);
 
         p = c;
         for (;;) {
@@ -288,13 +283,13 @@ static void format_chain(FILE *f, int space, const CalendarComponent *c, bool us
                 if (!n || n->repeat || p->repeat)
                         break;
 
-                if (n->value - p->value != (usec ? (int) USEC_PER_SEC : 1))
+                if (n->value - p->value != d)
                        break;
 
                 p = n;
         }
 
-        if (p->value - c->value >= 2 * (usec ? (int) USEC_PER_SEC : 1)) {
+        if (p->value - c->value >= 2 * d) {
                 fputs("..", f);
                 format_chain(f, space, p, usec);
         } else if (c->next) {
