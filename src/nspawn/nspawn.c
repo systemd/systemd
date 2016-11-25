@@ -1133,6 +1133,16 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
+        if (arg_ephemeral && arg_template && !arg_directory) {
+                /* User asked for ephemeral execution but specified --template= instead of --directory=. Semantically
+                 * such an invocation makes some sense, see https://github.com/systemd/systemd/issues/3667. Let's
+                 * accept this here, and silently make "--ephemeral --template=" equivalent to "--ephemeral
+                 * --directory=". */
+
+                arg_directory = arg_template;
+                arg_template = NULL;
+        }
+
         if (arg_template && !(arg_directory || arg_machine)) {
                 log_error("--template= needs --directory= or --machine=.");
                 return -EINVAL;
