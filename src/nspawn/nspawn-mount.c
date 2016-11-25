@@ -464,12 +464,14 @@ static int parse_mount_bind_options(const char *options, unsigned long *mount_fl
         const char *p = options;
         unsigned long flags = *mount_flags;
         char *opts = NULL;
+        int r;
 
         assert(options);
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
-                int r = extract_first_word(&p, &word, ",", 0);
+
+                r = extract_first_word(&p, &word, ",", 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to extract mount option: %m");
                 if (r == 0)
