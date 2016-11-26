@@ -199,6 +199,21 @@ static bool link_proxy_arp_enabled(Link *link) {
         return true;
 }
 
+static bool link_ipv6_proxy_ndp_enabled(Link *link) {
+        assert(link);
+
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (!link->network)
+                return false;
+
+        if (link->network->ipv6_proxy_ndp < 0)
+                return false;
+
+        return true;
+}
+
 static bool link_ipv6_accept_ra_enabled(Link *link) {
         assert(link);
 
@@ -1156,6 +1171,24 @@ static int link_set_proxy_arp(Link *link) {
         r = write_string_file(p, one_zero(link->network->proxy_arp), WRITE_STRING_FILE_VERIFY_ON_FAILURE);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot configure proxy ARP for interface: %m");
+
+        return 0;
+}
+
+static int link_set_ipv6_proxy_ndp(Link *link) {
+        const char *p = NULL;
+        int r;
+
+        assert(link);
+
+        if (!link_ipv6_proxy_ndp_enabled(link))
+                return 0;
+
+        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/proxy_ndp");
+
+        r = write_string_file(p, one_zero(link->network->ipv6_proxy_ndp), WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot configure proxy NDP for interface: %m");
 
         return 0;
 }
@@ -2445,6 +2478,10 @@ static int link_configure(Link *link) {
         }
 
         r = link_set_proxy_arp(link);
+        if (r < 0)
+               return r;
+
+        r = link_set_ipv6_proxy_ndp(link);
         if (r < 0)
                return r;
 
