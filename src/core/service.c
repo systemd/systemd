@@ -3071,6 +3071,8 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
         if (e && IN_SET(s->state, SERVICE_START, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD)) {
                 if (parse_pid(e, &pid) < 0)
                         log_unit_warning(u, "Failed to parse MAINPID= field in notification message: %s", e);
+                else if (pid == s->control_pid)
+                        log_unit_warning(u, "A control process cannot also be the main process");
                 else {
                         service_set_main_pid(s, pid);
                         unit_watch_pid(UNIT(s), pid);
