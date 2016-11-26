@@ -359,7 +359,7 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
 fail:
         log_unit_warning_errno(u, r, "Failed to set up device unit: %m");
 
-        if (delete)
+        if (delete && u)
                 unit_free(u);
 
         return r;
