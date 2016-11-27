@@ -143,13 +143,14 @@ int main(int argc, char* argv[]) {
         test_one("Wed-Wed,Wed *-1", "Wed *-*-01 00:00:00");
         test_one("Wed..Wed,Wed *-1", "Wed *-*-01 00:00:00");
         test_one("Wed, 17:48", "Wed *-*-* 17:48:00");
+        test_one("Wednesday,", "Wed *-*-* 00:00:00");
         test_one("Wed-Sat,Tue 12-10-15 1:2:3", "Tue..Sat 2012-10-15 01:02:03");
         test_one("Wed..Sat,Tue 12-10-15 1:2:3", "Tue..Sat 2012-10-15 01:02:03");
         test_one("*-*-7 0:0:0", "*-*-07 00:00:00");
         test_one("10-15", "*-10-15 00:00:00");
         test_one("monday *-12-* 17:00", "Mon *-12-* 17:00:00");
-        test_one("Mon,Fri *-*-3,1,2 *:30:45", "Mon,Fri *-*-01,02,03 *:30:45");
-        test_one("12,14,13,12:20,10,30", "*-*-* 12,13,14:10,20,30:00");
+        test_one("Mon,Fri *-*-3,1,2 *:30:45", "Mon,Fri *-*-01..03 *:30:45");
+        test_one("12,14,13,12:20,10,30", "*-*-* 12..14:10,20,30:00");
         test_one("mon,fri *-1/2-1,3 *:30:45", "Mon,Fri *-01/2-01,03 *:30:45");
         test_one("03-05 08:05:40", "*-03-05 08:05:40");
         test_one("08:05:40", "*-*-* 08:05:40");
@@ -172,13 +173,19 @@ int main(int argc, char* argv[]) {
         test_one("2016-03-27 03:17:00.4200005", "2016-03-27 03:17:00.420001");
         test_one("2016-03-27 03:17:00/0.42", "2016-03-27 03:17:00/0.420000");
         test_one("2016-03-27 03:17:00/0.42", "2016-03-27 03:17:00/0.420000");
-        test_one("9..11,13:00,30", "*-*-* 09,10,11,13:00,30:00");
-        test_one("1..3-1..3 1..3:1..3", "*-01,02,03-01,02,03 01,02,03:01,02,03:00");
+        test_one("9..11,13:00,30", "*-*-* 09..11,13:00,30:00");
+        test_one("1..3-1..3 1..3:1..3", "*-01..03-01..03 01..03:01..03:00");
         test_one("00:00:1.125..2.125", "*-*-* 00:00:01.125000,02.125000");
-        test_one("00:00:1.0..3.8", "*-*-* 00:00:01,02,03");
+        test_one("00:00:1.0..3.8", "*-*-* 00:00:01..03");
+        test_one("00:00:01..03", "*-*-* 00:00:01..03");
+        test_one("00:00:01/2,02..03", "*-*-* 00:00:01/2,02,03");
         test_one("*-*~1 Utc", "*-*~01 00:00:00 UTC");
         test_one("*-*~05,3 ", "*-*~03,05 00:00:00");
         test_one("*-*~* 00:00:00", "*-*-* 00:00:00");
+        test_one("Monday", "Mon *-*-* 00:00:00");
+        test_one("Monday *-*-*", "Mon *-*-* 00:00:00");
+        test_one("*-*-*", "*-*-* 00:00:00");
+        test_one("*:*:*", "*-*-* *:*:*");
 
         test_next("2016-03-27 03:17:00", "", 12345, 1459048620000000);
         test_next("2016-03-27 03:17:00", "CET", 12345, 1459041420000000);
@@ -199,6 +206,8 @@ int main(int argc, char* argv[]) {
         test_next("Mon 2017-05~07/1 UTC", "", 12345, 1496016000000000);
 
         assert_se(calendar_spec_from_string("test", &c) < 0);
+        assert_se(calendar_spec_from_string(" utc", &c) < 0);
+        assert_se(calendar_spec_from_string("    ", &c) < 0);
         assert_se(calendar_spec_from_string("", &c) < 0);
         assert_se(calendar_spec_from_string("7", &c) < 0);
         assert_se(calendar_spec_from_string("121212:1:2", &c) < 0);
@@ -208,6 +217,11 @@ int main(int argc, char* argv[]) {
         assert_se(calendar_spec_from_string("00:00:00.0..00.9", &c) < 0);
         assert_se(calendar_spec_from_string("2016~11-22", &c) < 0);
         assert_se(calendar_spec_from_string("*-*~5/5", &c) < 0);
+        assert_se(calendar_spec_from_string("Monday.. 12:00", &c) < 0);
+        assert_se(calendar_spec_from_string("Monday..", &c) < 0);
+        assert_se(calendar_spec_from_string("-00:+00/-5", &c) < 0);
+        assert_se(calendar_spec_from_string("00:+00/-5", &c) < 0);
+        assert_se(calendar_spec_from_string("2016- 11- 24 12: 30: 00", &c) < 0);
 
         test_timestamp();
         test_hourly_bug_4031();
