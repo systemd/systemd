@@ -105,6 +105,8 @@ def property_grammar():
              ('MOUSE_WHEEL_CLICK_COUNT', INTEGER),
              ('MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL', INTEGER),
              ('ID_INPUT_TRACKBALL', Literal('1')),
+             ('MOUSE_WHEEL_TILT_HORIZONTAL', Literal('1')),
+             ('MOUSE_WHEEL_TILT_VERTICAL', Literal('1')),
              ('POINTINGSTICK_SENSITIVITY', INTEGER),
              ('POINTINGSTICK_CONST_ACCEL', REAL),
              ('ID_INPUT_TOUCHPAD_INTEGRATION', Or(('internal', 'external'))),
