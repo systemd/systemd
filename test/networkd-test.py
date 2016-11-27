@@ -49,6 +49,17 @@ RESOLV_CONF = '/run/systemd/resolve/resolv.conf'
 @unittest.skipIf(networkd_active,
                  'networkd is already active')
 class ClientTestBase:
+    @classmethod
+    def setUpClass(klass):
+        klass.orig_log_level = subprocess.check_output(
+            ['systemctl', 'show', '--value', '--property', 'LogLevel'],
+            universal_newlines=True).strip()
+        subprocess.check_call(['systemd-analyze', 'set-log-level', 'debug'])
+
+    @classmethod
+    def tearDownClass(klass):
+        subprocess.check_call(['systemd-analyze', 'set-log-level', klass.orig_log_level])
+
     def setUp(self):
         self.iface = 'test_eth42'
         self.if_router = 'router_eth42'
@@ -69,6 +80,7 @@ class ClientTestBase:
             self.fail('systemd-networkd-wait-online not found')
 
         # get current journal cursor
+        subprocess.check_output(['journalctl', '--sync'])
         out = subprocess.check_output(['journalctl', '-b', '--quiet',
                                        '--no-pager', '-n0', '--show-cursor'],
                                       universal_newlines=True)
@@ -91,6 +103,7 @@ class ClientTestBase:
         '''Show journal of given unit since start of the test'''
 
         print('---- %s ----' % unit)
+        subprocess.check_output(['journalctl', '--sync'])
         sys.stdout.flush()
         subprocess.call(['journalctl', '-b', '--no-pager', '--quiet',
                          '--cursor', self.journal_cursor, '-u', unit])
@@ -435,13 +448,19 @@ Domains= ~company ~lab''')
         self.create_iface(dnsmasq_opts=['--dhcp-host=%s,192.168.5.210,testgreen' % self.iface_mac])
         self.do_test(coldplug=None, extra_opts='IPv6AcceptRA=False', dhcp_mode='ipv4')
 
-        # should have received the fixed IP above
-        out = subprocess.check_output(['ip', '-4', 'a', 'show', 'dev', self.iface])
-        self.assertRegex(out, b'inet 192.168.5.210/24 .* scope global dynamic')
-        # should have set transient hostname in hostnamed
-        self.assertIn(b'testgreen', subprocess.check_output(['hostnamectl']))
-        # and also applied to the system
-        self.assertEqual(socket.gethostname(), 'testgreen')
+        try:
+            # should have received the fixed IP above
+            out = subprocess.check_output(['ip', '-4', 'a', 'show', 'dev', self.iface])
+            self.assertRegex(out, b'inet 192.168.5.210/24 .* scope global dynamic')
+            # should have set transient hostname in hostnamed
+            self.assertIn(b'testgreen', subprocess.check_output(['hostnamectl']))
+            # and also applied to the system
+            self.assertEqual(socket.gethostname(), 'testgreen')
+        except AssertionError:
+            self.show_journal('systemd-networkd.service')
+            self.show_journal('systemd-hostnamed.service')
+            self.print_server_log()
+            raise
 
     def test_transient_hostname_with_static(self):
         '''transient hostname is not applied if static hostname exists'''
@@ -455,11 +474,17 @@ Domains= ~company ~lab''')
         self.create_iface(dnsmasq_opts=['--dhcp-host=%s,192.168.5.210,testgreen' % self.iface_mac])
         self.do_test(coldplug=None, extra_opts='IPv6AcceptRA=False', dhcp_mode='ipv4')
 
-        # should have received the fixed IP above
-        out = subprocess.check_output(['ip', '-4', 'a', 'show', 'dev', self.iface])
-        self.assertRegex(out, b'inet 192.168.5.210/24 .* scope global dynamic')
-        # static hostname wins over transient one, thus *not* applied
-        self.assertEqual(socket.gethostname(), orig_hostname)
+        try:
+            # should have received the fixed IP above
+            out = subprocess.check_output(['ip', '-4', 'a', 'show', 'dev', self.iface])
+            self.assertRegex(out, b'inet 192.168.5.210/24 .* scope global dynamic')
+            # static hostname wins over transient one, thus *not* applied
+            self.assertEqual(socket.gethostname(), orig_hostname)
+        except AssertionError:
+            self.show_journal('systemd-networkd.service')
+            self.show_journal('systemd-hostnamed.service')
+            self.print_server_log()
+            raise
 
 
 class NetworkdClientTest(ClientTestBase, unittest.TestCase):
