@@ -263,7 +263,7 @@ AC_ARG_WITH([python],
 
 have_lxml=no
 AS_IF([test "x$with_python" != "xno"], [
-        AM_PATH_PYTHON(,, [:])
+        AM_PATH_PYTHON([3],, [:])
         AS_IF([test "x$PYTHON" != "x:"], [
                 AC_MSG_CHECKING([for python lxml module])
                 AS_IF(["$PYTHON" -c 'import lxml' 2>/dev/null], [have_lxml=yes])

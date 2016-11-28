@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 #  -*- Mode: python; coding: utf-8; indent-tabs-mode: nil -*- */
 #
 #  This file is part of systemd.
