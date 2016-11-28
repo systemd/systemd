@@ -1509,7 +1509,7 @@ static int mount_setup_unit(
 fail:
         log_warning_errno(r, "Failed to set up mount unit: %m");
 
-        if (delete && u)
+        if (delete)
                 unit_free(u);
 
         return r;
