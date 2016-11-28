@@ -1345,7 +1345,7 @@ static int listen_fds(int *rctrl, int *rnetlink) {
                         return log_error_errno(netlink_fd, "could not get uevent fd: %m");
 
                 netlink_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
-                if (ctrl_fd < 0)
+                if (netlink_fd < 0)
                         return log_error_errno(errno, "could not dup netlink fd: %m");
         }
 
