@@ -180,6 +180,61 @@ int tmpfs_mount_parse(CustomMount **l, unsigned *n, const char *s) {
         return 0;
 }
 
+int overlay_mount_parse(CustomMount **l, unsigned *n, const char *s, bool read_only) {
+        _cleanup_free_ char *upper = NULL, *destination = NULL;
+        _cleanup_strv_free_ char **lower = NULL;
+        CustomMount *m;
+        unsigned k = 0;
+        char **i;
+        int r;
+
+        r = strv_split_extract(&lower, s, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(i, lower) {
+                if (!path_is_absolute(*i))
+                        return -EINVAL;
+
+                k++;
+        }
+
+        if (k < 2)
+                return -EADDRNOTAVAIL;
+        if (k == 2) {
+                /* If two parameters are specified,
+                 * the first one is the lower, the
+                 * second one the upper directory. And
+                 * we'll also define the destination
+                 * mount point the same as the upper. */
+                upper = lower[1];
+                lower[1] = NULL;
+
+                destination = strdup(upper);
+                if (!destination)
+                        return -ENOMEM;
+
+        } else {
+                upper = lower[k - 2];
+                destination = lower[k - 1];
+                lower[k - 2] = NULL;
+        }
+
+        m = custom_mount_add(l, n, CUSTOM_MOUNT_OVERLAY);
+        if (!m)
+                return -ENOMEM;
+
+        m->destination = destination;
+        m->source = upper;
+        m->lower = lower;
+        m->read_only = read_only;
+
+        upper = destination = NULL;
+        lower = NULL;
+
+        return 0;
+}
+
 static int tmpfs_patch_options(
                 const char *options,
                 bool userns,

@@ -789,69 +789,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_OVERLAY:
-                case ARG_OVERLAY_RO: {
-                        _cleanup_free_ char *upper = NULL, *destination = NULL;
-                        _cleanup_strv_free_ char **lower = NULL;
-                        CustomMount *m;
-                        unsigned n = 0;
-                        char **i;
-
-                        r = strv_split_extract(&lower, optarg, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
-                        if (r == -ENOMEM)
-                                return log_oom();
-                        else if (r < 0) {
-                                log_error("Invalid overlay specification: %s", optarg);
-                                return r;
-                        }
-
-                        STRV_FOREACH(i, lower) {
-                                if (!path_is_absolute(*i)) {
-                                        log_error("Overlay path %s is not absolute.", *i);
-                                        return -EINVAL;
-                                }
-
-                                n++;
-                        }
-
-                        if (n < 2) {
-                                log_error("--overlay= needs at least two colon-separated directories specified.");
-                                return -EINVAL;
-                        }
-
-                        if (n == 2) {
-                                /* If two parameters are specified,
-                                 * the first one is the lower, the
-                                 * second one the upper directory. And
-                                 * we'll also define the destination
-                                 * mount point the same as the upper. */
-                                upper = lower[1];
-                                lower[1] = NULL;
-
-                                destination = strdup(upper);
-                                if (!destination)
-                                        return log_oom();
-
-                        } else {
-                                upper = lower[n - 2];
-                                destination = lower[n - 1];
-                                lower[n - 2] = NULL;
-                        }
-
-                        m = custom_mount_add(&arg_custom_mounts, &arg_n_custom_mounts, CUSTOM_MOUNT_OVERLAY);
-                        if (!m)
-                                return log_oom();
-
-                        m->destination = destination;
-                        m->source = upper;
-                        m->lower = lower;
-                        m->read_only = c == ARG_OVERLAY_RO;
-
-                        upper = destination = NULL;
-                        lower = NULL;
+                case ARG_OVERLAY_RO:
+                        r = overlay_mount_parse(&arg_custom_mounts, &arg_n_custom_mounts, optarg, c == ARG_OVERLAY_RO);
+                        if (r == -EADDRNOTAVAIL)
+                                return log_error_errno(r, "--overlay(-ro)= needs at least two colon-separated directories specified.");
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --overlay(-ro)= argument %s: %m", optarg);
 
                         arg_settings_mask |= SETTING_CUSTOM_MOUNTS;
                         break;
-                }
 
                 case 'E': {
                         char **n;

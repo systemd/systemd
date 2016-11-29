@@ -61,8 +61,10 @@ typedef struct CustomMount {
 CustomMount* custom_mount_add(CustomMount **l, unsigned *n, CustomMountType t);
 
 void custom_mount_free_all(CustomMount *l, unsigned n);
+
 int bind_mount_parse(CustomMount **l, unsigned *n, const char *s, bool read_only);
 int tmpfs_mount_parse(CustomMount **l, unsigned *n, const char *s);
+int overlay_mount_parse(CustomMount **l, unsigned *n, const char *s, bool read_only);
 
 int custom_mount_compare(const void *a, const void *b);
 
