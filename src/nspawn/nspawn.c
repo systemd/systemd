@@ -2666,7 +2666,7 @@ static int determine_names(void) {
         return 0;
 }
 
-static int chase_symlinks_and_update(char **p) {
+static int chase_symlinks_and_update(char **p, unsigned flags) {
         char *chased;
         int r;
 
@@ -2675,7 +2675,7 @@ static int chase_symlinks_and_update(char **p) {
         if (!*p)
                 return 0;
 
-        r = chase_symlinks(*p, NULL, 0, &chased);
+        r = chase_symlinks(*p, NULL, flags, &chased);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve path %s: %m", *p);
 
@@ -4155,7 +4155,7 @@ int main(int argc, char *argv[]) {
                 if (arg_ephemeral) {
                         _cleanup_free_ char *np = NULL;
 
-                        r = chase_symlinks_and_update(&arg_directory);
+                        r = chase_symlinks_and_update(&arg_directory, 0);
                         if (r < 0)
                                 goto finish;
 
@@ -4203,6 +4203,10 @@ int main(int argc, char *argv[]) {
                         remove_directory = true;
 
                 } else {
+                        r = chase_symlinks_and_update(&arg_directory, arg_template ? CHASE_NON_EXISTING : 0);
+                        if (r < 0)
+                                goto finish;
+
                         r = image_path_lock(arg_directory, (arg_read_only ? LOCK_SH : LOCK_EX) | LOCK_NB, &tree_global_lock, &tree_local_lock);
                         if (r == -EBUSY) {
                                 log_error_errno(r, "Directory tree %s is currently busy.", arg_directory);
@@ -4214,7 +4218,7 @@ int main(int argc, char *argv[]) {
                         }
 
                         if (arg_template) {
-                                r = chase_symlinks_and_update(&arg_template);
+                                r = chase_symlinks_and_update(&arg_template, 0);
                                 if (r < 0)
                                         goto finish;
 
@@ -4236,10 +4240,6 @@ int main(int argc, char *argv[]) {
                                                 log_info("Populated %s from template %s.", arg_directory, arg_template);
                                 }
                         }
-
-                        r = chase_symlinks_and_update(&arg_directory);
-                        if (r < 0)
-                                goto finish;
                 }
 
                 if (arg_start_mode == START_BOOT) {
@@ -4263,7 +4263,7 @@ int main(int argc, char *argv[]) {
                 assert(arg_image);
                 assert(!arg_template);
 
-                r = chase_symlinks_and_update(&arg_image);
+                r = chase_symlinks_and_update(&arg_image, 0);
                 if (r < 0)
                         goto finish;
 
