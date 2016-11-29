@@ -132,7 +132,7 @@ int bind_mount_parse(CustomMount **l, unsigned *n, const char *s, bool read_only
 
         m = custom_mount_add(l, n, CUSTOM_MOUNT_BIND);
         if (!m)
-                return log_oom();
+                return -ENOMEM;
 
         m->source = source;
         m->destination = destination;
