@@ -602,6 +602,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
         _cleanup_free_ char *buffer = NULL, *done = NULL, *root = NULL;
         _cleanup_close_ int fd = -1;
         unsigned max_follow = 32; /* how many symlinks to follow before giving up and returning ELOOP */
+        bool exists = true;
         char *todo;
         int r;
 
@@ -707,8 +708,25 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
 
                 /* Otherwise let's see what this is. */
                 child = openat(fd, first + n, O_CLOEXEC|O_NOFOLLOW|O_PATH);
-                if (child < 0)
+                if (child < 0) {
+
+                        if (errno == ENOENT &&
+                            (flags & CHASE_NON_EXISTING) &&
+                            (isempty(todo) || path_is_safe(todo))) {
+
+                                /* If CHASE_NON_EXISTING is set, and the path does not exist, then that's OK, return
+                                 * what we got so far. But don't allow this if the remaining path contains "../ or "./"
+                                 * or something else weird. */
+
+                                if (!strextend(&done, first, todo, NULL))
+                                        return -ENOMEM;
+
+                                exists = false;
+                                break;
+                        }
+
                         return -errno;
+                }
 
                 if (fstat(child, &st) < 0)
                         return -errno;
@@ -793,5 +811,5 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
         *ret = done;
         done = NULL;
 
-        return 0;
+        return exists;
 }
