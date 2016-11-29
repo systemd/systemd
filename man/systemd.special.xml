@@ -609,14 +609,12 @@
       <varlistentry>
         <term><filename>system-update.target</filename></term>
         <listitem>
-          <para>A special target unit that is used for off-line system
-          updates.
+          <para>A special target unit that is used for offline system updates.
           <citerefentry><refentrytitle>systemd-system-update-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-          will redirect the boot process to this target if
-          <filename>/system-update</filename> exists. For more
-          information see the <ulink
-          url="http://freedesktop.org/wiki/Software/systemd/SystemUpdates">System
-          Updates Specification</ulink>.</para>
+          will redirect the boot process to this target if <filename>/system-update</filename>
+          exists. For more information see
+          <citerefentry><refentrytitle>systemd.offline-updates</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+          </para>
         </listitem>
       </varlistentry>
       <varlistentry>
