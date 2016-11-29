@@ -387,19 +387,35 @@ static int mount_add_quota_links(Mount *m) {
         return 0;
 }
 
-static bool should_umount(Mount *m) {
+static bool mount_is_extrinsic(Mount *m) {
         MountParameters *p;
+        assert(m);
 
-        if (PATH_IN_SET(m->where, "/", "/usr") ||
-            path_startswith(m->where, "/run/initramfs"))
-                return false;
+        /* Returns true for all units that are "magic" and should be excluded from the usual start-up and shutdown
+         * dependencies. We call them "extrinsic" here, as they are generally mounted outside of the systemd dependency
+         * logic. We shouldn't attempt to manage them ourselves but it's fine if the user operates on them with us. */
 
+        if (!MANAGER_IS_SYSTEM(UNIT(m)->manager)) /* We only automatically manage mounts if we are in system mode */
+                return true;
+
+        if (PATH_IN_SET(m->where,  /* Don't bother with the OS data itself */
+                        "/",
+                        "/usr"))
+                return true;
+
+        if (PATH_STARTSWITH_SET(m->where,
+                                "/run/initramfs",    /* This should stay around from before we boot until after we shutdown */
+                                "/proc",             /* All of this is API VFS */
+                                "/sys",              /* … dito … */
+                                "/dev"))             /* … dito … */
+                return true;
+
+        /* If this is an initrd mount, and we are not in the initrd, then leave this around forever, too. */
         p = get_mount_parameters(m);
-        if (p && fstab_test_option(p->options, "x-initrd.mount\0") &&
-            !in_initrd())
-                return false;
+        if (p && fstab_test_option(p->options, "x-initrd.mount\0") && !in_initrd())
+                return true;
 
-        return true;
+        return false;
 }
 
 static int mount_add_default_dependencies(Mount *m) {
@@ -412,20 +428,10 @@ static int mount_add_default_dependencies(Mount *m) {
         if (!UNIT(m)->default_dependencies)
                 return 0;
 
-        if (!MANAGER_IS_SYSTEM(UNIT(m)->manager))
-                return 0;
-
-        /* We do not add any default dependencies to /, /usr or
-         * /run/initramfs/, since they are guaranteed to stay
-         * mounted the whole time, since our system is on it.
-         * Also, don't bother with anything mounted below virtual
-         * file systems, it's also going to be virtual, and hence
-         * not worth the effort. */
-        if (PATH_IN_SET(m->where, "/", "/usr") ||
-            path_startswith(m->where, "/run/initramfs") ||
-            path_startswith(m->where, "/proc") ||
-            path_startswith(m->where, "/sys") ||
-            path_startswith(m->where, "/dev"))
+        /* We do not add any default dependencies to /, /usr or /run/initramfs/, since they are guaranteed to stay
+         * mounted the whole time, since our system is on it.  Also, don't bother with anything mounted below virtual
+         * file systems, it's also going to be virtual, and hence not worth the effort. */
+        if (mount_is_extrinsic(m))
                 return 0;
 
         p = get_mount_parameters(m);
@@ -462,11 +468,9 @@ static int mount_add_default_dependencies(Mount *m) {
         if (r < 0)
                 return r;
 
-        if (should_umount(m)) {
-                r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
-                if (r < 0)
-                        return r;
-        }
+        r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -688,6 +692,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sOptions: %s\n"
                 "%sFrom /proc/self/mountinfo: %s\n"
                 "%sFrom fragment: %s\n"
+                "%sExtrinsic: %s\n"
                 "%sDirectoryMode: %04o\n"
                 "%sSloppyOptions: %s\n"
                 "%sLazyUnmount: %s\n"
@@ -700,6 +705,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, p ? strna(p->options) : "n/a",
                 prefix, yes_no(m->from_proc_self_mountinfo),
                 prefix, yes_no(m->from_fragment),
+                prefix, yes_no(mount_is_extrinsic(m)),
                 prefix, m->directory_mode,
                 prefix, yes_no(m->sloppy_options),
                 prefix, yes_no(m->lazy_unmount),
@@ -1420,7 +1426,7 @@ static int mount_setup_unit(
                         goto fail;
                 }
 
-                if (MANAGER_IS_SYSTEM(m)) {
+                if (!mount_is_extrinsic(MOUNT(u))) {
                         const char* target;
 
                         target = mount_needs_network(options, fstype) ?  SPECIAL_REMOTE_FS_TARGET : SPECIAL_LOCAL_FS_TARGET;
@@ -1428,11 +1434,9 @@ static int mount_setup_unit(
                         if (r < 0)
                                 goto fail;
 
-                        if (should_umount(MOUNT(u))) {
-                                r = unit_add_dependency_by_name(u, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
-                                if (r < 0)
-                                        goto fail;
-                        }
+                        r = unit_add_dependency_by_name(u, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
+                        if (r < 0)
+                                goto fail;
                 }
 
                 unit_add_to_load_queue(u);
@@ -1448,7 +1452,7 @@ static int mount_setup_unit(
                         }
                 }
 
-                if (MANAGER_IS_SYSTEM(m) &&
+                if (!mount_is_extrinsic(MOUNT(u)) &&
                     mount_needs_network(options, fstype)) {
                         /* _netdev option may have shown up late, or on a
                          * remount. Add remote-fs dependencies, even though
