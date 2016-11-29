@@ -529,6 +529,7 @@ nodist_systemunit_DATA = \
 	units/serial-getty@.service \
 	units/console-getty.service \
 	units/container-getty@.service \
+	units/system-update-cleanup.service \
 	units/systemd-initctl.service \
 	units/systemd-remount-fs.service \
 	units/systemd-ask-password-wall.service \
@@ -592,6 +593,7 @@ EXTRA_DIST += \
 	units/console-getty.service.m4.in \
 	units/container-getty@.service.m4.in \
 	units/rescue.service.in \
+	units/system-update-cleanup.service.in \
 	units/systemd-initctl.service.in \
 	units/systemd-remount-fs.service.in \
 	units/systemd-update-utmp.service.in \

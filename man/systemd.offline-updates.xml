@@ -115,7 +115,9 @@
       <listitem>
         <para>The upgrade scripts should exit only after the update is finished. It is expected
         that the service which performs the upgrade will cause the machine to reboot after it
-        is done.</para>
+        is done. If the <filename>system-update.target</filename> is successfully reached, i.e.
+        all update services have run, and the <filename>/system-update</filename> symlink still
+        exists, it will be removed and the machine rebooted as a safety measure.</para>
       </listitem>
 
       <listitem>

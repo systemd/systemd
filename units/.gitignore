@@ -16,6 +16,7 @@
 /rc-local.service
 /rescue.service
 /serial-getty@.service
+/system-update-cleanup.service
 /systemd-ask-password-console.service
 /systemd-ask-password-wall.service
 /systemd-backlight@.service

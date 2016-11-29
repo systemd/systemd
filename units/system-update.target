@@ -14,3 +14,4 @@ Conflicts=shutdown.target
 After=sysinit.target
 Before=shutdown.target
 AllowIsolate=yes
+Wants=system-update-cleanup.service
