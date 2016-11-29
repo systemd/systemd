@@ -5719,6 +5719,9 @@ networkctl_LDADD = \
 dist_bashcompletion_data += \
 	shell-completion/bash/networkctl
 
+dist_zshcompletion_data += \
+	shell-completion/zsh/_networkctl
+
 test_networkd_conf_SOURCES = \
 	src/network/test-networkd-conf.c
 
