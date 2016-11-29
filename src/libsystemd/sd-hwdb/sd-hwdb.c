@@ -48,8 +48,6 @@ struct sd_hwdb {
                 const char *map;
         };
 
-        char *modalias;
-
         OrderedHashmap *properties;
         Iterator properties_iterator;
         bool properties_modified;
@@ -393,7 +391,6 @@ _public_ sd_hwdb *sd_hwdb_unref(sd_hwdb *hwdb) {
                 if (hwdb->map)
                         munmap((void *)hwdb->map, hwdb->st.st_size);
                 safe_fclose(hwdb->f);
-                free(hwdb->modalias);
                 ordered_hashmap_free(hwdb->properties);
                 free(hwdb);
         }
@@ -427,32 +424,13 @@ bool hwdb_validate(sd_hwdb *hwdb) {
 }
 
 static int properties_prepare(sd_hwdb *hwdb, const char *modalias) {
-        _cleanup_free_ char *mod = NULL;
-        int r;
-
         assert(hwdb);
         assert(modalias);
 
-        if (streq_ptr(modalias, hwdb->modalias))
-                return 0;
-
-        mod = strdup(modalias);
-        if (!mod)
-                return -ENOMEM;
-
         ordered_hashmap_clear(hwdb->properties);
-
         hwdb->properties_modified = true;
 
-        r = trie_search_f(hwdb, modalias);
-        if (r < 0)
-                return r;
-
-        free(hwdb->modalias);
-        hwdb->modalias = mod;
-        mod = NULL;
-
-        return 0;
+        return trie_search_f(hwdb, modalias);
 }
 
 _public_ int sd_hwdb_get(sd_hwdb *hwdb, const char *modalias, const char *key, const char **_value) {
