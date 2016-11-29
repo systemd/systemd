@@ -414,11 +414,11 @@ int mount_all(const char *dest,
                 if (!ro && (bool)(mount_table[k].mount_settings & MOUNT_APPLY_APIVFS_RO))
                         continue;
 
-                where = prefix_root(dest, mount_table[k].where);
-                if (!where)
-                        return log_oom();
+                r = chase_symlinks(mount_table[k].where, dest, CHASE_NON_EXISTING|CHASE_PREFIX_ROOT, &where);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve %s: %m", mount_table[k].where);
 
-                r = path_is_mount_point(where, dest, AT_SYMLINK_FOLLOW);
+                r = path_is_mount_point(where, NULL, 0);
                 if (r < 0 && r != -ENOENT)
                         return log_error_errno(r, "Failed to detect whether %s is a mount point: %m", where);
 
@@ -512,11 +512,14 @@ static int mount_bind(const char *dest, CustomMount *m) {
         if (stat(m->source, &source_st) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", m->source);
 
-        r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT, &where);
+        r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT|CHASE_NON_EXISTING, &where);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve %s: %m", m->destination);
+        if (r > 0) { /* Path exists already? */
 
-        if (stat(where, &dest_st) >= 0) {
+                if (stat(where, &dest_st) < 0)
+                        return log_error_errno(errno, "Failed to stat %s: %m", where);
+
                 if (S_ISDIR(source_st.st_mode) && !S_ISDIR(dest_st.st_mode)) {
                         log_error("Cannot bind mount directory %s on file %s.", m->source, where);
                         return -EINVAL;
@@ -527,7 +530,7 @@ static int mount_bind(const char *dest, CustomMount *m) {
                         return -EINVAL;
                 }
 
-        } else if (errno == ENOENT) {
+        } else { /* Path doesn't exist yet? */
                 r = mkdir_parents_label(where, 0755);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make parents of %s: %m", where);
@@ -543,8 +546,7 @@ static int mount_bind(const char *dest, CustomMount *m) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to create mount point %s: %m", where);
 
-        } else
-                return log_error_errno(errno, "Failed to stat %s: %m", where);
+        }
 
         r = mount_verbose(LOG_ERR, m->source, where, NULL, mount_flags, mount_opts);
         if (r < 0)
@@ -572,13 +574,14 @@ static int mount_tmpfs(
         assert(dest);
         assert(m);
 
-        r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT, &where);
+        r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT|CHASE_NON_EXISTING, &where);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve %s: %m", m->destination);
-
-        r = mkdir_p_label(where, 0755);
-        if (r < 0 && r != -EEXIST)
-                return log_error_errno(r, "Creating mount point for tmpfs %s failed: %m", where);
+        if (r == 0) { /* Doesn't exist yet? */
+                r = mkdir_p_label(where, 0755);
+                if (r < 0)
+                        return log_error_errno(r, "Creating mount point for tmpfs %s failed: %m", where);
+        }
 
         r = tmpfs_patch_options(m->options, userns, uid_shift, uid_range, false, selinux_apifs_context, &buf);
         if (r < 0)
@@ -612,13 +615,14 @@ static int mount_overlay(const char *dest, CustomMount *m) {
         assert(dest);
         assert(m);
 
-        r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT, &where);
+        r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT|CHASE_NON_EXISTING, &where);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve %s: %m", m->destination);
-
-        r = mkdir_label(where, 0755);
-        if (r < 0 && r != -EEXIST)
-                return log_error_errno(r, "Creating mount point for overlay %s failed: %m", where);
+        if (r == 0) { /* Doesn't exist yet? */
+                r = mkdir_label(where, 0755);
+                if (r < 0)
+                        return log_error_errno(r, "Creating mount point for overlay %s failed: %m", where);
+        }
 
         (void) mkdir_p_label(m->source, 0755);
 
