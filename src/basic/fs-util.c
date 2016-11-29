@@ -611,8 +611,8 @@ int chase_symlinks(const char *path, const char *_root, char **ret) {
          * symlinks relative to a root directory, instead of the root of the host.
          *
          * Note that "root" primarily matters if we encounter an absolute symlink. It is also used when following
-         * relative symlinks to ensure they cannot be used to "escape" the root directory. (For cases where this is
-         * attempted -EINVAL is returned.). The path parameter passed shall *not* be prefixed by it.
+         * relative symlinks to ensure they cannot be used to "escape" the root directory. The path parameter passed
+         * shall *not* be prefixed by it.
          *
          * Algorithmically this operates on two path buffers: "done" are the components of the path we already
          * processed and resolved symlinks, "." and ".." of. "todo" are the components of the path we still need to
@@ -674,18 +674,20 @@ int chase_symlinks(const char *path, const char *_root, char **ret) {
                         _cleanup_free_ char *parent = NULL;
                         int fd_parent = -1;
 
+                        /* If we already are at the top, then going up will not change anything. This is in-line with
+                         * how the kernel handles this. */
                         if (isempty(done) || path_equal(done, "/"))
-                                return -EINVAL;
+                                continue;
 
                         parent = dirname_malloc(done);
                         if (!parent)
                                 return -ENOMEM;
 
-                        /* Don't allow this to leave the root dir */
+                        /* Don't allow this to leave the root dir.  */
                         if (root &&
                             path_startswith(done, root) &&
                             !path_startswith(parent, root))
-                                return -EINVAL;
+                                continue;
 
                         free_and_replace(done, parent);
 

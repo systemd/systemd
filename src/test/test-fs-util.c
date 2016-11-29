@@ -97,21 +97,21 @@ static void test_chase_symlinks(void) {
 
         result = mfree(result);
         r = chase_symlinks(p, temp, &result);
-        assert_se(r == -EINVAL);
+        assert_se(r == 0 && path_equal(result, temp));
 
         p = strjoina(temp, "/6dotsusr");
         assert_se(symlink("../../../usr", p) >= 0);
 
         result = mfree(result);
         r = chase_symlinks(p, temp, &result);
-        assert_se(r == -EINVAL);
+        assert_se(r == 0 && path_equal(result, q));
 
         p = strjoina(temp, "/top/8dotsusr");
         assert_se(symlink("../../../../usr", p) >= 0);
 
         result = mfree(result);
         r = chase_symlinks(p, temp, &result);
-        assert_se(r == -EINVAL);
+        assert_se(r == 0 && path_equal(result, q));
 
         /* Paths that contain repeated slashes */
 
@@ -137,7 +137,7 @@ static void test_chase_symlinks(void) {
 
         result = mfree(result);
         r = chase_symlinks("/etc/./.././", "/etc", &result);
-        assert_se(r == -EINVAL);
+        assert_se(r == 0 && path_equal(result, "/etc"));
 
         result = mfree(result);
         r = chase_symlinks("/etc/machine-id/foo", NULL, &result);
