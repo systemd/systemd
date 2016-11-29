@@ -293,6 +293,32 @@ int config_parse_tmpfs(
         return 0;
 }
 
+int config_parse_overlay(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Settings *settings = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = overlay_mount_parse(&settings->custom_mounts, &settings->n_custom_mounts, rvalue, ltype);
+        if (r < 0)
+                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid overlay file system specification %s, ignoring: %m", rvalue);
+
+        return 0;
+}
+
 int config_parse_veth_extra(
                 const char *unit,
                 const char *filename,
