@@ -764,6 +764,7 @@ static const struct {
         const char *result, *explanation;
 } explanations [] = {
         { "resources",   "of unavailable resources or another system error" },
+        { "protocol",    "the service did not take the steps required by its unit configuration" },
         { "timeout",     "a timeout was exceeded" },
         { "exit-code",   "the control process exited with error code" },
         { "signal",      "a fatal signal was delivered to the control process" },
