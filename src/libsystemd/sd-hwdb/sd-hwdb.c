@@ -234,7 +234,7 @@ static int trie_search_f(sd_hwdb *hwdb, const char *search) {
                         uint8_t c;
 
                         for (; (c = trie_string(hwdb, node->prefix_off)[p]); p++) {
-                                if (c == '*' || c == '?' || c == '[')
+                                if (IN_SET(c, '*', '?', '['))
                                         return trie_fnmatch_f(hwdb, node, p, &buf, search + i + p);
                                 if (c != search[i + p])
                                         return 0;
