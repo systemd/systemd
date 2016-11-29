@@ -75,8 +75,11 @@ static int target_add_default_dependencies(Target *t) {
                                 return r;
                 }
 
+        if (unit_has_name(UNIT(t), SPECIAL_SHUTDOWN_TARGET))
+                return 0;
+
         /* Make sure targets are unloaded on shutdown */
-        return unit_add_dependency_by_name(UNIT(t), UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
+        return unit_add_two_dependencies_by_name(UNIT(t), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
 }
 
 static int target_load(Unit *u) {
