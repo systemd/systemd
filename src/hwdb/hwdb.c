@@ -163,7 +163,6 @@ static int trie_node_add_value(struct trie *trie, struct trie_node *node,
                                const char *filename, size_t line_number) {
         ssize_t k, v, fn;
         struct trie_value_entry *val;
-        int r;
 
         k = strbuf_add_string(trie->strings, key, strlen(key));
         if (k < 0)
@@ -183,17 +182,9 @@ static int trie_node_add_value(struct trie *trie, struct trie_node *node,
 
                 val = xbsearch_r(&search, node->values, node->values_count, sizeof(struct trie_value_entry), trie_values_cmp, trie);
                 if (val) {
-                        /*
-                         * At this point we have 2 identical properties on the same match-string. We
-                         * strictly order them by filename+line-number, since we know the dynamic
-                         * runtime lookup does the same for multiple matching nodes.
+                        /* At this point we have 2 identical properties on the same match-string.
+                         * Since we process files in order, we just replace the previous value.
                          */
-                        r = strcmp(filename, trie->strings->buf + val->filename_off);
-                        if (r < 0 ||
-                            (r == 0 && line_number < val->line_number))
-                                return 0;
-
-                        /* replace existing earlier key with new value */
                         val->value_off = v;
                         val->filename_off = fn;
                         val->line_number = line_number;
