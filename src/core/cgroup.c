@@ -293,8 +293,11 @@ static int whitelist_device(const char *path, const char *node, const char *acc)
         assert(acc);
 
         if (stat(node, &st) < 0) {
-                log_warning("Couldn't stat device %s", node);
-                return -errno;
+                /* path starting with "-" must be silently ignored */
+                if (errno == ENOENT && startswith(node, "-"))
+                        return 0;
+
+                return log_warning_errno(errno, "Couldn't stat device %s: %m", node);
         }
 
         if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode)) {
@@ -914,8 +917,8 @@ static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
                                 "/dev/tty\0" "rwm\0"
                                 "/dev/pts/ptmx\0" "rw\0" /* /dev/pts/ptmx may not be duplicated, but accessed */
                                 /* Allow /run/systemd/inaccessible/{chr,blk} devices for mapping InaccessiblePaths */
-                                "/run/systemd/inaccessible/chr\0" "rwm\0"
-                                "/run/systemd/inaccessible/blk\0" "rwm\0";
+                                "-/run/systemd/inaccessible/chr\0" "rwm\0"
+                                "-/run/systemd/inaccessible/blk\0" "rwm\0";
 
                         const char *x, *y;
 
