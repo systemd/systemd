@@ -44,6 +44,22 @@ int ima_setup(void) {
                 return 0;
         }
 
+        if (access(IMA_SECFS_POLICY, W_OK) < 0) {
+                log_warning("Another IMA custom policy has already been loaded, ignoring.");
+                return 0;
+        }
+
+        imafd = open(IMA_SECFS_POLICY, O_WRONLY|O_CLOEXEC);
+        if (imafd < 0) {
+                log_error_errno(errno, "Failed to open the IMA kernel interface "IMA_SECFS_POLICY", ignoring: %m");
+                return 0;
+        }
+
+        /* attempt to write the name of the policy file into sysfs file */
+        if (write(imafd, IMA_POLICY_PATH, strlen(IMA_POLICY_PATH)) > 0)
+                goto done;
+
+        /* fall back to copying the policy line-by-line */
         input = fopen(IMA_POLICY_PATH, "re");
         if (!input) {
                 log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
@@ -51,10 +67,7 @@ int ima_setup(void) {
                 return 0;
         }
 
-        if (access(IMA_SECFS_POLICY, F_OK) < 0) {
-                log_warning("Another IMA custom policy has already been loaded, ignoring.");
-                return 0;
-        }
+        close(imafd);
 
         imafd = open(IMA_SECFS_POLICY, O_WRONLY|O_CLOEXEC);
         if (imafd < 0) {
@@ -74,6 +87,7 @@ int ima_setup(void) {
                                                lineno);
         }
 
+done:
         log_info("Successfully loaded the IMA custom policy "IMA_POLICY_PATH".");
 #endif /* HAVE_IMA */
         return 0;
