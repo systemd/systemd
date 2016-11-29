@@ -86,34 +86,44 @@
       </listitem>
 
       <listitem>
-        <para>The system now continues to boot into <filename>default.target</filename>, and thus
-        into <filename>system-update.target</filename>. This target pulls in the system update unit,
-        which starts the system update script after all file systems have been mounted.</para>
+        <para>The system now continues to boot into <filename>default.target</filename>, and
+        thus into <filename>system-update.target</filename>. This target pulls in all system
+        update units. Only one service should perform an update (see the next point), and all
+        the other ones should exit cleanly with a "success" return code and without doing
+        anything. Update services should be ordered after <filename>sysinit.target</filename>
+        so that the update starts after after all file systems have been mounted.</para>
       </listitem>
 
       <listitem>
-        <para>As the first step, the update script should check if the
+        <para>As the first step, an update service should check if the
         <filename>/system-update</filename> symlink points to the location used by that update
-        script. In case it does not exists or points to a different location, the script must exit
+        service. In case it does not exist or points to a different location, the service must exit
         without error. It is possible for multiple update services to be installed, and for multiple
-        update scripts to be launched in parallel, and only the one that corresponds to the tool
+        update services to be launched in parallel, and only the one that corresponds to the tool
         that <emphasis>created</emphasis> the symlink before reboot should perform any actions. It
         is unsafe to run multiple updates in parallel.</para>
       </listitem>
 
       <listitem>
-        <para>The update script should now do its job. If applicable and possible, it should
-        create a file system snapshot, then install all packages.
-        After completion (regardless whether the update succeeded or failed) the machine
-        must be rebooted, for example by calling <command>systemctl reboot</command>.
-        In addition, on failure the script should revert to the old file system snapshot
-        (without the symlink).</para>
+        <para>The update service should now do its job. If applicable and possible, it should
+        create a file system snapshot, then install all packages.  After completion (regardless
+        whether the update succeeded or failed) the machine must be rebooted, for example by
+        calling <command>systemctl reboot</command>. In addition, on failure the script should
+        revert to the old file system snapshot (without the symlink).</para>
       </listitem>
 
       <listitem>
-        <para>The system is rebooted. Since the <filename>/system-update</filename> symlink is gone,
-        the generator won't redirect <filename>default.target</filename> after reboot and the
-        system now boots into the default target again.</para>
+        <para>The upgrade scripts should exit only after the update is finished. It is expected
+        that the service which performs the upgrade will cause the machine to reboot after it
+        is done. If the <filename>system-update.target</filename> is successfully reached, i.e.
+        all update services have run, and the <filename>/system-update</filename> symlink still
+        exists, it will be removed and the machine rebooted as a safety measure.</para>
+      </listitem>
+
+      <listitem>
+        <para>After a reboot, now that the <filename>/system-update</filename> symlink is gone,
+        the generator won't redirect <filename>default.target</filename> anymore and the system
+        now boots into the default target again.</para>
       </listitem>
     </orderedlist>
   </refsect1>
@@ -150,7 +160,8 @@
 
       <listitem>
         <para>The update service should declare <varname>DefaultDependencies=false</varname>,
-        and pull in any services it requires explicitly.</para>
+        <varname>Requires=sysinit.target</varname>, <varname>After=sysinit.target</varname>,
+        and explicitly pull in any other services it requires.</para>
       </listitem>
     </orderedlist>
   </refsect1>

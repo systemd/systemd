@@ -102,6 +102,7 @@
     <filename>sysinit.target</filename>,
     <filename>syslog.socket</filename>,
     <filename>system-update.target</filename>,
+    <filename>system-update-cleanup.service</filename>,
     <filename>time-sync.target</filename>,
     <filename>timers.target</filename>,
     <filename>umount.target</filename>,
@@ -608,15 +609,21 @@
       </varlistentry>
       <varlistentry>
         <term><filename>system-update.target</filename></term>
+        <term><filename>system-update-cleanup.service</filename></term>
         <listitem>
-          <para>A special target unit that is used for off-line system
-          updates.
+          <para>A special target unit that is used for offline system updates.
           <citerefentry><refentrytitle>systemd-system-update-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-          will redirect the boot process to this target if
-          <filename>/system-update</filename> exists. For more
-          information see the <ulink
-          url="http://freedesktop.org/wiki/Software/systemd/SystemUpdates">System
-          Updates Specification</ulink>.</para>
+          will redirect the boot process to this target if <filename>/system-update</filename>
+          exists. For more information see
+          <citerefentry><refentrytitle>systemd.offline-updates</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+          </para>
+
+          <para>Updates should happen before the <filename>system-update.target</filename> is
+          reached, and the services which implement them should cause the machine to reboot. As
+          a safety measure, if this does not happen, and <filename>/system-update</filename>
+          still exists after <filename>system-update.target</filename> is reached,
+          <filename>system-update-cleanup.service</filename> will remove this symlink and
+          reboot the machine.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
