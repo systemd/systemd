@@ -2675,7 +2675,7 @@ static int chase_symlinks_and_update(char **p) {
         if (!*p)
                 return 0;
 
-        r = chase_symlinks(*p, NULL, &chased);
+        r = chase_symlinks(*p, NULL, 0, &chased);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve path %s: %m", *p);
 

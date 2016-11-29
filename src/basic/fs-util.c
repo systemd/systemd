@@ -235,7 +235,7 @@ int readlink_and_canonicalize(const char *p, const char *root, char **ret) {
         if (r < 0)
                 return r;
 
-        r = chase_symlinks(t, root, &s);
+        r = chase_symlinks(t, root, 0, &s);
         if (r < 0)
                 /* If we can't follow up, then let's return the original string, slightly cleaned up. */
                 *ret = path_kill_slashes(t);
@@ -598,7 +598,7 @@ int inotify_add_watch_fd(int fd, int what, uint32_t mask) {
         return r;
 }
 
-int chase_symlinks(const char *path, const char *_root, char **ret) {
+int chase_symlinks(const char *path, const char *original_root, unsigned flags, char **ret) {
         _cleanup_free_ char *buffer = NULL, *done = NULL, *root = NULL;
         _cleanup_close_ int fd = -1;
         unsigned max_follow = 32; /* how many symlinks to follow before giving up and returning ELOOP */
@@ -611,8 +611,9 @@ int chase_symlinks(const char *path, const char *_root, char **ret) {
          * symlinks relative to a root directory, instead of the root of the host.
          *
          * Note that "root" primarily matters if we encounter an absolute symlink. It is also used when following
-         * relative symlinks to ensure they cannot be used to "escape" the root directory. The path parameter passed
-         * shall *not* be prefixed by it.
+         * relative symlinks to ensure they cannot be used to "escape" the root directory. The path parameter passed is
+         * assumed to be already prefixed by it, except if the CHASE_PREFIX_ROOT flag is set, in which case it is first
+         * prefixed accordingly.
          *
          * Algorithmically this operates on two path buffers: "done" are the components of the path we already
          * processed and resolved symlinks, "." and ".." of. "todo" are the components of the path we still need to
@@ -629,15 +630,18 @@ int chase_symlinks(const char *path, const char *_root, char **ret) {
          * Note: there's also chase_symlinks_prefix() (see below), which as first step prefixes the passed path by the
          * passed root. */
 
+        if (original_root) {
+                r = path_make_absolute_cwd(original_root, &root);
+                if (r < 0)
+                        return r;
+
+                if (flags & CHASE_PREFIX_ROOT)
+                        path = prefix_roota(root, path);
+        }
+
         r = path_make_absolute_cwd(path, &buffer);
         if (r < 0)
                 return r;
-
-        if (_root) {
-                r = path_make_absolute_cwd(_root, &root);
-                if (r < 0)
-                        return r;
-        }
 
         fd = open("/", O_CLOEXEC|O_NOFOLLOW|O_PATH);
         if (fd < 0)
@@ -790,14 +794,4 @@ int chase_symlinks(const char *path, const char *_root, char **ret) {
         done = NULL;
 
         return 0;
-}
-
-int chase_symlinks_prefix(const char *path, const char *root, char **ret) {
-        const char *t;
-
-        /* Same as chase_symlinks(), but prefixes 'path' by 'root' first. */
-
-        t = prefix_roota(root, path);
-
-        return chase_symlinks(t, root, ret);
 }

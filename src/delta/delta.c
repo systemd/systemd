@@ -89,11 +89,11 @@ static int equivalent(const char *a, const char *b) {
         _cleanup_free_ char *x = NULL, *y = NULL;
         int r;
 
-        r = chase_symlinks(a, NULL, &x);
+        r = chase_symlinks(a, NULL, 0, &x);
         if (r < 0)
                 return r;
 
-        r = chase_symlinks(b, NULL, &y);
+        r = chase_symlinks(b, NULL, 0, &y);
         if (r < 0)
                 return r;
 
@@ -361,7 +361,7 @@ static int should_skip_prefix(const char* p) {
         int r;
         _cleanup_free_ char *target = NULL;
 
-        r = chase_symlinks(p, NULL, &target);
+        r = chase_symlinks(p, NULL, 0, &target);
         if (r < 0)
                 return r;
 

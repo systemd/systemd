@@ -252,7 +252,7 @@ char **path_strv_resolve(char **l, const char *root) {
                 } else
                         t = *s;
 
-                r = chase_symlinks(t, root, &u);
+                r = chase_symlinks(t, root, 0, &u);
                 if (r == -ENOENT) {
                         if (root) {
                                 u = orig;

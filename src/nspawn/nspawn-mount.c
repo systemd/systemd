@@ -512,7 +512,7 @@ static int mount_bind(const char *dest, CustomMount *m) {
         if (stat(m->source, &source_st) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", m->source);
 
-        r = chase_symlinks_prefix(m->destination, dest, &where);
+        r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT, &where);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve %s: %m", m->destination);
 
@@ -572,7 +572,7 @@ static int mount_tmpfs(
         assert(dest);
         assert(m);
 
-        r = chase_symlinks_prefix(m->destination, dest, &where);
+        r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT, &where);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve %s: %m", m->destination);
 
@@ -612,7 +612,7 @@ static int mount_overlay(const char *dest, CustomMount *m) {
         assert(dest);
         assert(m);
 
-        r = chase_symlinks_prefix(m->destination, dest, &where);
+        r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT, &where);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve %s: %m", m->destination);
 

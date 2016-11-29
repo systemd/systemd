@@ -665,7 +665,7 @@ static int chase_all_symlinks(const char *root_directory, BindMount *m, unsigned
                 _cleanup_free_ char *chased = NULL;
                 int k;
 
-                k = chase_symlinks(bind_mount_path(f), root_directory, &chased);
+                k = chase_symlinks(bind_mount_path(f), root_directory, 0, &chased);
                 if (k < 0) {
                         /* Get only real errors */
                         if (r >= 0 && (k != -ENOENT || !f->ignore))

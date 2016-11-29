@@ -78,5 +78,8 @@ union inotify_event_buffer {
 
 int inotify_add_watch_fd(int fd, int what, uint32_t mask);
 
-int chase_symlinks(const char *path_with_prefix, const char *root, char **ret);
-int chase_symlinks_prefix(const char *path_without_prefix, const char *root, char **ret);
+enum {
+        CHASE_PREFIX_ROOT = 1,   /* If set, the specified path will be prefixed by the specified root before beginning the iteration */
+};
+
+int chase_symlinks(const char *path_with_prefix, const char *root, unsigned flags, char **ret);
