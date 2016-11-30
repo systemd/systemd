@@ -65,6 +65,7 @@ typedef enum NotifyAccess {
         NOTIFY_NONE,
         NOTIFY_ALL,
         NOTIFY_MAIN,
+        NOTIFY_EXEC,
         _NOTIFY_ACCESS_MAX,
         _NOTIFY_ACCESS_INVALID = -1
 } NotifyAccess;

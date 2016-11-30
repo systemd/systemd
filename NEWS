@@ -17,6 +17,10 @@ CHANGES WITH 233 in spe
           The 'n' choice for the confirmation spawn prompt has been removed,
           because its meaning was confusing.
 
+        * Services of Type=notify require a READY=1 notification to be sent
+          during startup. If no such message is sent, the service now fails,
+          even if the main process exited with a successful exit code.
+
 CHANGES WITH 232:
 
         * The new RemoveIPC= option can be used to remove IPC objects owned by
