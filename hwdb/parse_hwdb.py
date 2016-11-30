@@ -56,7 +56,7 @@ except ImportError:
     lru_cache = lambda: (lambda f: f)
 
 EOL = LineEnd().suppress()
-EMPTYLINE = LineStart() + LineEnd()
+EMPTYLINE = LineEnd()
 COMMENTLINE = pythonStyleComment + EOL
 INTEGER = Word(nums)
 REAL = Combine((INTEGER + Optional('.' + Optional(INTEGER))) ^ ('.' + INTEGER))
@@ -133,7 +133,8 @@ def convert_properties(group):
 def parse(fname):
     grammar = hwdb_grammar()
     try:
-        parsed = grammar.parseFile(fname)
+        with open(fname, 'r', encoding='UTF-8') as f:
+            parsed = grammar.parseFile(f)
     except ParseBaseException as e:
         error('Cannot parse {}: {}', fname, e)
         return []
