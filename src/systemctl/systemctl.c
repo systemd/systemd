@@ -6438,7 +6438,7 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
 
                         r = unit_file_get_state(arg_scope, arg_root, *name, &state);
                         if (r < 0)
-                                return log_error_errno(state, "Failed to get unit file state for %s: %m", *name);
+                                return log_error_errno(r, "Failed to get unit file state for %s: %m", *name);
 
                         if (IN_SET(state,
                                    UNIT_FILE_ENABLED,
