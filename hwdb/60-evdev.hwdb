@@ -286,3 +286,12 @@ evdev:name:ETPS/2 Elantech Touchpad:dmi:*svnSAMSUNGELECTRONICSCO.,LTD.:pn305V4A/
  EVDEV_ABS_01=0:1116:24
  EVDEV_ABS_35=0:2480:28
  EVDEV_ABS_36=0:1116:24
+
+#########################################
+# Toshiba
+#########################################
+
+# Toshiba Tecra M11
+evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:*svnTOSHIBA:pnTECRAM11*
+ EVDEV_ABS_00=90:962:11
+ EVDEV_ABS_01=51:681:14
