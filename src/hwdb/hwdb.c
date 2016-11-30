@@ -214,7 +214,7 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
                        const char *key, const char *value,
                        const char *filename, uint16_t file_priority, uint32_t line_number) {
         size_t i = 0;
-        int err = 0;
+        int r = 0;
 
         for (;;) {
                 size_t p;
@@ -255,9 +255,9 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
                         node->children_count = 0;
                         node->values = NULL;
                         node->values_count = 0;
-                        err = node_add_child(trie, node, new_child, c);
-                        if (err < 0)
-                                return err;
+                        r = node_add_child(trie, node, new_child, c);
+                        if (r < 0)
+                                return r;
 
                         new_child = NULL; /* avoid cleanup */
                         break;
@@ -284,10 +284,10 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
                         }
 
                         child->prefix_off = off;
-                        err = node_add_child(trie, node, child, c);
-                        if (err < 0) {
+                        r = node_add_child(trie, node, child, c);
+                        if (r < 0) {
                                 free(child);
-                                return err;
+                                return r;
                         }
 
                         return trie_node_add_value(trie, child, key, value, filename, file_priority, line_number);
@@ -329,11 +329,11 @@ static int64_t trie_store_nodes(struct trie_f *trie, struct trie_node *node) {
                 .children_count = node->children_count,
                 .values_count = htole64(node->values_count),
         };
-        struct trie_child_entry_f *children = NULL;
+        _cleanup_free_ struct trie_child_entry_f *children = NULL;
         int64_t node_off;
 
         if (node->children_count) {
-                children = new0(struct trie_child_entry_f, node->children_count);
+                children = new(struct trie_child_entry_f, node->children_count);
                 if (!children)
                         return -ENOMEM;
         }
@@ -343,12 +343,13 @@ static int64_t trie_store_nodes(struct trie_f *trie, struct trie_node *node) {
                 int64_t child_off;
 
                 child_off = trie_store_nodes(trie, node->children[i].child);
-                if (child_off < 0) {
-                        free(children);
+                if (child_off < 0)
                         return child_off;
-                }
-                children[i].c = node->children[i].c;
-                children[i].child_off = htole64(child_off);
+
+                children[i] = (struct trie_child_entry_f) {
+                        .c = node->children[i].c,
+                        .child_off = htole64(child_off),
+                };
         }
 
         /* write node */
@@ -360,7 +361,6 @@ static int64_t trie_store_nodes(struct trie_f *trie, struct trie_node *node) {
         if (node->children_count) {
                 fwrite(children, sizeof(struct trie_child_entry_f), node->children_count, trie->f);
                 trie->children_count += node->children_count;
-                free(children);
         }
 
         /* append values array */
@@ -374,8 +374,8 @@ static int64_t trie_store_nodes(struct trie_f *trie, struct trie_node *node) {
                 };
 
                 fwrite(&v, sizeof(struct trie_value_entry2_f), 1, trie->f);
-                trie->values_count++;
         }
+        trie->values_count += node->values_count;
 
         return node_off;
 }
@@ -614,7 +614,8 @@ static int hwdb_query(int argc, char *argv[], void *userdata) {
 static int hwdb_update(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *hwdb_bin = NULL;
         _cleanup_(trie_freep) struct trie *trie = NULL;
-        char **files, **f;
+        _cleanup_strv_free_ char **files = NULL;
+        char **f;
         uint16_t file_priority = 1;
         int r;
 
@@ -636,13 +637,12 @@ static int hwdb_update(int argc, char *argv[], void *userdata) {
 
         r = conf_files_list_strv(&files, ".hwdb", arg_root, conf_file_dirs);
         if (r < 0)
-                return log_error_errno(r, "failed to enumerate hwdb files: %m");
+                return log_error_errno(r, "Failed to enumerate hwdb files: %m");
 
         STRV_FOREACH(f, files) {
-                log_debug("reading file '%s'", *f);
+                log_debug("Reading file \"%s\"", *f);
                 import_file(trie, *f, file_priority++);
         }
-        strv_free(files);
 
         strbuf_complete(trie->strings);
 
