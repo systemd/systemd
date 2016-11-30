@@ -86,7 +86,8 @@ struct trie_value_entry {
         size_t key_off;
         size_t value_off;
         size_t filename_off;
-        size_t line_number;
+        uint32_t line_number;
+        uint16_t file_priority;
 };
 
 static int trie_children_cmp(const void *v1, const void *v2) {
@@ -160,7 +161,7 @@ static int trie_values_cmp(const void *v1, const void *v2, void *arg) {
 
 static int trie_node_add_value(struct trie *trie, struct trie_node *node,
                                const char *key, const char *value,
-                               const char *filename, size_t line_number) {
+                               const char *filename, uint16_t file_priority, uint32_t line_number) {
         ssize_t k, v, fn;
         struct trie_value_entry *val;
 
@@ -187,6 +188,7 @@ static int trie_node_add_value(struct trie *trie, struct trie_node *node,
                          */
                         val->value_off = v;
                         val->filename_off = fn;
+                        val->file_priority = file_priority;
                         val->line_number = line_number;
                         return 0;
                 }
@@ -201,6 +203,7 @@ static int trie_node_add_value(struct trie *trie, struct trie_node *node,
         node->values[node->values_count].key_off = k;
         node->values[node->values_count].value_off = v;
         node->values[node->values_count].filename_off = fn;
+        node->values[node->values_count].file_priority = file_priority;
         node->values[node->values_count].line_number = line_number;
         node->values_count++;
         qsort_r(node->values, node->values_count, sizeof(struct trie_value_entry), trie_values_cmp, trie);
@@ -209,7 +212,7 @@ static int trie_node_add_value(struct trie *trie, struct trie_node *node,
 
 static int trie_insert(struct trie *trie, struct trie_node *node, const char *search,
                        const char *key, const char *value,
-                       const char *filename, uint64_t line_number) {
+                       const char *filename, uint16_t file_priority, uint32_t line_number) {
         size_t i = 0;
         int err = 0;
 
@@ -263,7 +266,7 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
 
                 c = search[i];
                 if (c == '\0')
-                        return trie_node_add_value(trie, node, key, value, filename, line_number);
+                        return trie_node_add_value(trie, node, key, value, filename, file_priority, line_number);
 
                 child = node_lookup(node, c);
                 if (!child) {
@@ -287,7 +290,7 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
                                 return err;
                         }
 
-                        return trie_node_add_value(trie, child, key, value, filename, line_number);
+                        return trie_node_add_value(trie, child, key, value, filename, file_priority, line_number);
                 }
 
                 node = child;
@@ -366,7 +369,8 @@ static int64_t trie_store_nodes(struct trie_f *trie, struct trie_node *node) {
                         .key_off = htole64(trie->strings_off + node->values[i].key_off),
                         .value_off = htole64(trie->strings_off + node->values[i].value_off),
                         .filename_off = htole64(trie->strings_off + node->values[i].filename_off),
-                        .line_number = htole64(node->values[i].line_number),
+                        .line_number = htole32(node->values[i].line_number),
+                        .file_priority = htole16(node->values[i].file_priority),
                 };
 
                 fwrite(&v, sizeof(struct trie_value_entry2_f), 1, trie->f);
@@ -454,7 +458,7 @@ static int trie_store(struct trie *trie, const char *filename) {
 }
 
 static int insert_data(struct trie *trie, char **match_list, char *line,
-                       const char *filename, size_t line_number) {
+                       const char *filename, uint16_t file_priority, uint32_t line_number) {
         char *value, **entry;
 
         value = strchr(line, '=');
@@ -476,12 +480,12 @@ static int insert_data(struct trie *trie, char **match_list, char *line,
         }
 
         STRV_FOREACH(entry, match_list)
-                trie_insert(trie, trie->root, *entry, line, value, filename, line_number);
+                trie_insert(trie, trie->root, *entry, line, value, filename, file_priority, line_number);
 
         return 0;
 }
 
-static int import_file(struct trie *trie, const char *filename) {
+static int import_file(struct trie *trie, const char *filename, uint16_t file_priority) {
         enum {
                 HW_NONE,
                 HW_MATCH,
@@ -490,7 +494,7 @@ static int import_file(struct trie *trie, const char *filename) {
         _cleanup_fclose_ FILE *f = NULL;
         char line[LINE_MAX];
         _cleanup_strv_free_ char **match_list = NULL;
-        size_t line_number = 0;
+        uint32_t line_number = 0;
         char *match = NULL;
         int r;
 
@@ -565,7 +569,7 @@ static int import_file(struct trie *trie, const char *filename) {
 
                         /* first data */
                         state = HW_DATA;
-                        insert_data(trie, match_list, line, filename, line_number);
+                        insert_data(trie, match_list, line, filename, file_priority, line_number);
                         break;
 
                 case HW_DATA:
@@ -583,7 +587,7 @@ static int import_file(struct trie *trie, const char *filename) {
                                 break;
                         }
 
-                        insert_data(trie, match_list, line, filename, line_number);
+                        insert_data(trie, match_list, line, filename, file_priority, line_number);
                         break;
                 };
         }
@@ -616,6 +620,7 @@ static int hwdb_update(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *hwdb_bin = NULL;
         _cleanup_(trie_freep) struct trie *trie = NULL;
         char **files, **f;
+        uint16_t file_priority = 1;
         int r;
 
         trie = new0(struct trie, 1);
@@ -640,7 +645,7 @@ static int hwdb_update(int argc, char *argv[], void *userdata) {
 
         STRV_FOREACH(f, files) {
                 log_debug("reading file '%s'", *f);
-                import_file(trie, *f);
+                import_file(trie, *f, file_priority++);
         }
         strv_free(files);
 
