@@ -81,7 +81,7 @@ void custom_mount_free_all(CustomMount *l, unsigned n) {
         free(l);
 }
 
-int custom_mount_compare(const void *a, const void *b) {
+static int custom_mount_compare(const void *a, const void *b) {
         const CustomMount *x = a, *y = b;
         int r;
 
@@ -93,6 +93,91 @@ int custom_mount_compare(const void *a, const void *b) {
                 return -1;
         if (x->type > y->type)
                 return 1;
+
+        return 0;
+}
+
+static bool source_path_is_valid(const char *p) {
+        assert(p);
+
+        if (*p == '+')
+                p++;
+
+        return path_is_absolute(p);
+}
+
+static char *resolve_source_path(const char *dest, const char *source) {
+
+        if (!source)
+                return NULL;
+
+        if (source[0] == '+')
+                return prefix_root(dest, source + 1);
+
+        return strdup(source);
+}
+
+int custom_mount_prepare_all(const char *dest, CustomMount *l, unsigned n) {
+        unsigned i;
+        int r;
+
+        /* Prepare all custom mounts. This will make source we know all temporary directories. This is called in the
+         * parent process, so that we know the temporary directories to remove on exit before we fork off the
+         * children. */
+
+        assert(l || n == 0);
+
+        /* Order the custom mounts, and make sure we have a working directory */
+        qsort_safe(l, n, sizeof(CustomMount), custom_mount_compare);
+
+        for (i = 0; i < n; i++) {
+                CustomMount *m = l + i;
+
+                if (m->source) {
+                        char *s;
+
+                        s = resolve_source_path(dest, m->source);
+                        if (!s)
+                                return log_oom();
+
+                        free(m->source);
+                        m->source = s;
+                }
+
+                if (m->type == CUSTOM_MOUNT_OVERLAY) {
+                        char **j;
+
+                        STRV_FOREACH(j, m->lower) {
+                                char *s;
+
+                                s = resolve_source_path(dest, *j);
+                                if (!s)
+                                        return log_oom();
+
+                                free(*j);
+                                *j = s;
+                        }
+
+                        if (m->work_dir) {
+                                char *s;
+
+                                s = resolve_source_path(dest, m->work_dir);
+                                if (!s)
+                                        return log_oom();
+
+                                free(m->work_dir);
+                                m->work_dir = s;
+                        } else {
+                                assert(m->source);
+
+                                r = tempfn_random(m->source, NULL, &m->work_dir);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to acquire working directory: %m");
+                        }
+
+                        (void) mkdir_label(m->work_dir, 0700);
+                }
+        }
 
         return 0;
 }
@@ -111,22 +196,19 @@ int bind_mount_parse(CustomMount **l, unsigned *n, const char *s, bool read_only
                 return r;
         if (r == 0)
                 return -EINVAL;
-
         if (r == 1) {
-                destination = strdup(source);
+                destination = strdup(source[0] == '+' ? source+1 : source);
                 if (!destination)
                         return -ENOMEM;
         }
-
         if (r == 2 && !isempty(p)) {
                 opts = strdup(p);
                 if (!opts)
                         return -ENOMEM;
         }
 
-        if (!path_is_absolute(source))
+        if (!source_path_is_valid(source))
                 return -EINVAL;
-
         if (!path_is_absolute(destination))
                 return -EINVAL;
 
@@ -184,40 +266,43 @@ int overlay_mount_parse(CustomMount **l, unsigned *n, const char *s, bool read_o
         _cleanup_free_ char *upper = NULL, *destination = NULL;
         _cleanup_strv_free_ char **lower = NULL;
         CustomMount *m;
-        unsigned k = 0;
-        char **i;
-        int r;
+        int k;
 
-        r = strv_split_extract(&lower, s, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
-        if (r < 0)
-                return r;
-
-        STRV_FOREACH(i, lower) {
-                if (!path_is_absolute(*i))
-                        return -EINVAL;
-
-                k++;
-        }
-
+        k = strv_split_extract(&lower, s, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (k < 0)
+                return k;
         if (k < 2)
                 return -EADDRNOTAVAIL;
         if (k == 2) {
-                /* If two parameters are specified,
-                 * the first one is the lower, the
-                 * second one the upper directory. And
-                 * we'll also define the destination
-                 * mount point the same as the upper. */
+                /* If two parameters are specified, the first one is the lower, the second one the upper directory. And
+                 * we'll also define the destination mount point the same as the upper. */
+
+                if (!source_path_is_valid(lower[0]) ||
+                    !source_path_is_valid(lower[1]))
+                        return -EINVAL;
+
                 upper = lower[1];
                 lower[1] = NULL;
 
-                destination = strdup(upper);
+                destination = strdup(upper[0] == '+' ? upper+1 : upper); /* take the destination without "+" prefix */
                 if (!destination)
                         return -ENOMEM;
-
         } else {
-                upper = lower[k - 2];
+                int i;
+
+                /* If more than two parameters are specified, the last one is the destination, the second to last one
+                 * the "upper", and all before that the "lower" directories. */
+
+                for (i = 0; i < k - 1; i++)
+                        if (!source_path_is_valid(lower[i]))
+                                return -EINVAL;
+
                 destination = lower[k - 1];
+                upper = lower[k - 2];
                 lower[k - 2] = NULL;
+
+                if (!path_is_absolute(destination))
+                        return -EINVAL;
         }
 
         m = custom_mount_add(l, n, CUSTOM_MOUNT_OVERLAY);
@@ -556,6 +641,7 @@ static int mount_bind(const char *dest, CustomMount *m) {
         struct stat source_st, dest_st;
         int r;
 
+        assert(dest);
         assert(m);
 
         if (m->options) {
@@ -646,7 +732,7 @@ static int mount_tmpfs(
         return mount_verbose(LOG_ERR, "tmpfs", where, "tmpfs", MS_NODEV|MS_STRICTATIME, options);
 }
 
-static char *joined_and_escaped_lower_dirs(char * const *lower) {
+static char *joined_and_escaped_lower_dirs(char **lower) {
         _cleanup_strv_free_ char **sv = NULL;
 
         sv = strv_copy(lower);
@@ -663,7 +749,7 @@ static char *joined_and_escaped_lower_dirs(char * const *lower) {
 
 static int mount_overlay(const char *dest, CustomMount *m) {
 
-        _cleanup_free_ char *lower = NULL, *where = NULL;
+        _cleanup_free_ char *lower = NULL, *where = NULL, *escaped_source = NULL;
         const char *options;
         int r;
 
@@ -685,23 +771,15 @@ static int mount_overlay(const char *dest, CustomMount *m) {
         if (!lower)
                 return log_oom();
 
-        if (m->read_only) {
-                _cleanup_free_ char *escaped_source = NULL;
+        escaped_source = shell_escape(m->source, ",:");
+        if (!escaped_source)
+                return log_oom();
 
-                escaped_source = shell_escape(m->source, ",:");
-                if (!escaped_source)
-                        return log_oom();
-
+        if (m->read_only)
                 options = strjoina("lowerdir=", escaped_source, ":", lower);
-        } else {
-                _cleanup_free_ char *escaped_source = NULL, *escaped_work_dir = NULL;
+        else {
+                _cleanup_free_ char *escaped_work_dir = NULL;
 
-                assert(m->work_dir);
-                (void) mkdir_label(m->work_dir, 0700);
-
-                escaped_source = shell_escape(m->source, ",:");
-                if (!escaped_source)
-                        return log_oom();
                 escaped_work_dir = shell_escape(m->work_dir, ",:");
                 if (!escaped_work_dir)
                         return log_oom();

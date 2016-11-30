@@ -740,21 +740,17 @@
         <term><option>--bind=</option></term>
         <term><option>--bind-ro=</option></term>
 
-        <listitem><para>Bind mount a file or directory from the host
-        into the container. Takes one of: a path argument — in which
-        case the specified path will be mounted from the host to the
-        same path in the container —, or a colon-separated pair of
-        paths — in which case the first specified path is the source
-        in the host, and the second path is the destination in the
-        container —, or a colon-separated triple of source path,
-        destination path and mount options. Mount options are
-        comma-separated and currently, only "rbind" and "norbind"
-        are allowed. Defaults to "rbind". Backslash escapes are interpreted, so
-        <literal>\:</literal> may be used to embed colons in either path.
-        This option may be specified multiple times for
-        creating multiple independent bind mount points. The
-        <option>--bind-ro=</option> option creates read-only bind
-        mounts.</para></listitem>
+        <listitem><para>Bind mount a file or directory from the host into the container. Takes one of: a path
+        argument — in which case the specified path will be mounted from the host to the same path in the container —,
+        or a colon-separated pair of paths — in which case the first specified path is the source in the host, and the
+        second path is the destination in the container —, or a colon-separated triple of source path, destination path
+        and mount options. The source path may optionally be prefixed with a <literal>+</literal> character. If so, the
+        source path is taken relative to the images root directory. This permits setting up bind mounts within the
+        container image. Mount options are comma-separated and currently, only "rbind" and "norbind" are allowed,
+        controlling whether to create a recursive or a regular bind mount. Defaults to "rbind". Backslash escapes are
+        interpreted, so <literal>\:</literal> may be used to embed colons in either path.  This option may be specified
+        multiple times for creating multiple independent bind mount points. The <option>--bind-ro=</option> option
+        creates read-only bind mounts.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -807,6 +803,9 @@
         the stacking order as seen from the host, as well as the mount
         point for the overlay file system in the container. At least
         two paths have to be specified.</para>
+
+        <para>The source paths may optionally be prefixed with <literal>+</literal> character. If so they are taken
+        relative to the image's root directory.</para>
 
         <para>For details about overlay file systems, see <ulink
         url="https://www.kernel.org/doc/Documentation/filesystems/overlayfs.txt">overlayfs.txt</ulink>. Note

@@ -280,14 +280,9 @@ static void help(void) {
                , program_invocation_short_name);
 }
 
-static int custom_mounts_prepare(void) {
+static int custom_mount_check_all(void) {
         unsigned i;
-        int r;
 
-        /* Ensure the mounts are applied prefix first. */
-        qsort_safe(arg_custom_mounts, arg_n_custom_mounts, sizeof(CustomMount), custom_mount_compare);
-
-        /* Allocate working directories for the overlay file systems that need it */
         for (i = 0; i < arg_n_custom_mounts; i++) {
                 CustomMount *m = &arg_custom_mounts[i];
 
@@ -301,19 +296,6 @@ static int custom_mounts_prepare(void) {
                                 return -EINVAL;
                         }
                 }
-
-                if (m->type != CUSTOM_MOUNT_OVERLAY)
-                        continue;
-
-                if (m->work_dir)
-                        continue;
-
-                if (m->read_only)
-                        continue;
-
-                r = tempfn_random(m->source, NULL, &m->work_dir);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to generate work directory from %s: %m", m->source);
         }
 
         return 0;
@@ -1146,6 +1128,10 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_use_cgns = cg_ns_supported();
         else
                 arg_use_cgns = r;
+
+        r = custom_mount_check_all();
+        if (r < 0)
+                return r;
 
         return 1;
 }
@@ -4284,7 +4270,7 @@ int main(int argc, char *argv[]) {
                         remove_image = false;
         }
 
-        r = custom_mounts_prepare();
+        r = custom_mount_prepare_all(arg_directory, arg_custom_mounts, arg_n_custom_mounts);
         if (r < 0)
                 goto finish;
 

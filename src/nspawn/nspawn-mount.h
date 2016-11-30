@@ -59,14 +59,12 @@ typedef struct CustomMount {
 } CustomMount;
 
 CustomMount* custom_mount_add(CustomMount **l, unsigned *n, CustomMountType t);
-
 void custom_mount_free_all(CustomMount *l, unsigned n);
+int custom_mount_prepare_all(const char *dest, CustomMount *l, unsigned n);
 
 int bind_mount_parse(CustomMount **l, unsigned *n, const char *s, bool read_only);
 int tmpfs_mount_parse(CustomMount **l, unsigned *n, const char *s);
 int overlay_mount_parse(CustomMount **l, unsigned *n, const char *s, bool read_only);
-
-int custom_mount_compare(const void *a, const void *b);
 
 int mount_all(const char *dest, MountSettingsMask mount_settings, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context);
 int mount_sysfs(const char *dest, MountSettingsMask mount_settings);
