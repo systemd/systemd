@@ -32,11 +32,17 @@ D=$(mktemp --directory)
 trap "rm -rf '$D'" EXIT INT QUIT PIPE
 mkdir -p "$D/etc/udev"
 ln -s "$ROOTDIR/hwdb" "$D/etc/udev/hwdb.d"
-err=$("$SYSTEMD_HWDB" update --root "$D" 2>&1 >/dev/null)
+
+err=$("$SYSTEMD_HWDB" update --root "$D" 2>&1 >/dev/null) && rc= || rc=$?
 if [ -n "$err" ]; then
     echo "$err"
-    exit 1
+    exit ${rc:-1}
 fi
+if [ -n "$rc" ]; then
+    echo "$SYSTEMD_HWDB returned $rc"
+    exit $rc
+fi
+
 if [ ! -e "$D/etc/udev/hwdb.bin" ]; then
     echo "$D/etc/udev/hwdb.bin was not generated"
     exit 1
