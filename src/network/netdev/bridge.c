@@ -72,7 +72,7 @@ static int netdev_bridge_post_create(NetDev *netdev, Link *link, sd_netlink_mess
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
 
         /* convert to jiffes */
-        if (b->forward_delay > 0) {
+        if (b->forward_delay != USEC_INFINITY) {
                 r = sd_netlink_message_append_u32(req, IFLA_BR_FORWARD_DELAY, usec_to_jiffies(b->forward_delay));
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_FORWARD_DELAY attribute: %m");
@@ -160,6 +160,7 @@ static void bridge_init(NetDev *n) {
         b->mcast_snooping = -1;
         b->vlan_filtering = -1;
         b->stp = -1;
+        b->forward_delay = USEC_INFINITY;
 }
 
 const NetDevVTable bridge_vtable = {
