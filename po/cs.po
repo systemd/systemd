@@ -9,7 +9,7 @@ msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2016-04-23 14:24+0200\n"
-"PO-Revision-Date: 2016-09-22 16:00+0200\n"
+"PO-Revision-Date: 2016-11-30 16:00+0100\n"
 "Last-Translator: Daniel Rusek <mail@asciiwolf.com>\n"
 "Language: cs\n"
 "MIME-Version: 1.0\n"
@@ -551,32 +551,32 @@ msgid ""
 "shall be enabled."
 msgstr "Autentizace je vyžadována pro kontrolu synchronizace času ze sítě."
 
-#: ../src/core/dbus-unit.c:450
+#: ../src/core/dbus-unit.c:459
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Autentizace je vyžadována pro spuštění „$(unit)”."
 
-#: ../src/core/dbus-unit.c:451
+#: ../src/core/dbus-unit.c:460
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Autentizace je vyžadována pro vypnutí „$(unit)”."
 
-#: ../src/core/dbus-unit.c:452
+#: ../src/core/dbus-unit.c:461
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Autentizace je vyžadována pro znovu načtení „$(unit)”."
 
-#: ../src/core/dbus-unit.c:453 ../src/core/dbus-unit.c:454
+#: ../src/core/dbus-unit.c:462 ../src/core/dbus-unit.c:463
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Autentizace je vyžadována pro restart „$(unit)”."
 
-#: ../src/core/dbus-unit.c:560
+#: ../src/core/dbus-unit.c:570
 msgid "Authentication is required to kill '$(unit)'."
 msgstr "Autentizace je vyžadována pro ukončení „$(unit)”."
 
-#: ../src/core/dbus-unit.c:590
+#: ../src/core/dbus-unit.c:601
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Autentizace je vyžadována pro resetování chybného stavu "
 "„$(unit)”."
 
-#: ../src/core/dbus-unit.c:622
+#: ../src/core/dbus-unit.c:634
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Autentizace je vyžadována pro nastavení vlastností na „$(unit)”."
