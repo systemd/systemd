@@ -264,7 +264,7 @@ static int maybe_remove_external_coredump(const char *filename, uint64_t size) {
 }
 
 static int make_filename(const char *context[_CONTEXT_MAX], char **ret) {
-        _cleanup_free_ char *c = NULL, *u = NULL, *p = NULL, *t = NULL;
+        _cleanup_free_ char *c = NULL, *u = NULL, *p = NULL, *s = NULL, *t = NULL;
         sd_id128_t boot = {};
         int r;
 
@@ -286,16 +286,21 @@ static int make_filename(const char *context[_CONTEXT_MAX], char **ret) {
         if (!p)
                 return -ENOMEM;
 
+        s = filename_escape(context[CONTEXT_SIGNAL]);
+        if (!s)
+                return -ENOMEM;
+
         t = filename_escape(context[CONTEXT_TIMESTAMP]);
         if (!t)
                 return -ENOMEM;
 
         if (asprintf(ret,
-                     "/var/lib/systemd/coredump/core.%s.%s." SD_ID128_FORMAT_STR ".%s.%s000000",
+                     "/var/lib/systemd/coredump/core.%s.%s." SD_ID128_FORMAT_STR ".%s.%s.%s",
                      c,
                      u,
                      SD_ID128_FORMAT_VAL(boot),
                      p,
+                     s,
                      t) < 0)
                 return -ENOMEM;
 
@@ -1038,6 +1043,7 @@ static int process_kernel(int argc, char* argv[]) {
 
         _cleanup_free_ char *exe = NULL, *comm = NULL;
         const char *context[_CONTEXT_MAX];
+        char timestamp[17] = {0};
         bool proc_self_root_is_slash;
         struct iovec iovec[27];
         size_t n_iovec = 0;
@@ -1072,7 +1078,9 @@ static int process_kernel(int argc, char* argv[]) {
         context[CONTEXT_UID] = argv[CONTEXT_UID + 1];
         context[CONTEXT_GID] = argv[CONTEXT_GID + 1];
         context[CONTEXT_SIGNAL] = argv[CONTEXT_SIGNAL + 1];
-        context[CONTEXT_TIMESTAMP] = argv[CONTEXT_TIMESTAMP + 1];
+        strncat(timestamp, argv[CONTEXT_TIMESTAMP + 1], 10);
+        strncat(timestamp, "000000", 6);
+        context[CONTEXT_TIMESTAMP] = timestamp;
         context[CONTEXT_RLIMIT] = argv[CONTEXT_RLIMIT + 1];
         context[CONTEXT_COMM] = comm;
         context[CONTEXT_EXE] = exe;
@@ -1254,7 +1262,7 @@ static int process_kernel(int argc, char* argv[]) {
                         IOVEC_SET_STRING(iovec[n_iovec++], core_environ);
         }
 
-        core_timestamp = strjoina("COREDUMP_TIMESTAMP=", context[CONTEXT_TIMESTAMP], "000000");
+        core_timestamp = strjoina("COREDUMP_TIMESTAMP=", context[CONTEXT_TIMESTAMP]);
         IOVEC_SET_STRING(iovec[n_iovec++], core_timestamp);
 
         IOVEC_SET_STRING(iovec[n_iovec++], "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1");
