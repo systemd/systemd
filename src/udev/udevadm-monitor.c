@@ -143,7 +143,7 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[]) {
 
         /* set signal handlers */
         act.sa_handler = sig_handler;
-        act.sa_flags = SA_RESTART;
+        act.sa_flags = SA_RESTART|SA_RESTART;
         sigaction(SIGINT, &act, NULL);
         sigaction(SIGTERM, &act, NULL);
         sigemptyset(&mask);

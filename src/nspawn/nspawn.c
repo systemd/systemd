@@ -3632,7 +3632,7 @@ static int run(int master,
 
         static const struct sigaction sa = {
                 .sa_handler = nop_signal_handler,
-                .sa_flags = SA_NOCLDSTOP,
+                .sa_flags = SA_NOCLDSTOP|SA_RESTART,
         };
 
         _cleanup_release_lock_file_ LockFile uid_shift_lock = LOCK_FILE_INIT;
