@@ -75,6 +75,11 @@ void custom_mount_free_all(CustomMount *l, unsigned n) {
                         free(m->work_dir);
                 }
 
+                if (m->rm_rf_tmpdir) {
+                        (void) rm_rf(m->rm_rf_tmpdir, REMOVE_ROOT|REMOVE_PHYSICAL);
+                        free(m->rm_rf_tmpdir);
+                }
+
                 strv_free(m->lower);
         }
 
@@ -142,6 +147,24 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, unsigned n) {
 
                         free(m->source);
                         m->source = s;
+                } else {
+                        /* No source specified? In that case, use a throw-away temporary directory in /var/tmp */
+
+                        m->rm_rf_tmpdir = strdup("/var/tmp/nspawn-temp-XXXXXX");
+                        if (!m->rm_rf_tmpdir)
+                                return log_oom();
+
+                        if (!mkdtemp(m->rm_rf_tmpdir)) {
+                                m->rm_rf_tmpdir = mfree(m->rm_rf_tmpdir);
+                                return log_error_errno(errno, "Failed to acquire temporary directory: %m");
+                        }
+
+                        m->source = strjoin(m->rm_rf_tmpdir, "/src");
+                        if (!m->source)
+                                return log_oom();
+
+                        if (mkdir(m->source, 0755) < 0)
+                                return log_error_errno(errno, "Failed to create %s: %m", m->source);
                 }
 
                 if (m->type == CUSTOM_MOUNT_OVERLAY) {
@@ -207,8 +230,11 @@ int bind_mount_parse(CustomMount **l, unsigned *n, const char *s, bool read_only
                         return -ENOMEM;
         }
 
-        if (!source_path_is_valid(source))
+        if (isempty(source))
+                source = NULL;
+        else if (!source_path_is_valid(source))
                 return -EINVAL;
+
         if (!path_is_absolute(destination))
                 return -EINVAL;
 
@@ -288,18 +314,25 @@ int overlay_mount_parse(CustomMount **l, unsigned *n, const char *s, bool read_o
                 if (!destination)
                         return -ENOMEM;
         } else {
-                int i;
+                char **i;
 
                 /* If more than two parameters are specified, the last one is the destination, the second to last one
                  * the "upper", and all before that the "lower" directories. */
 
-                for (i = 0; i < k - 1; i++)
-                        if (!source_path_is_valid(lower[i]))
-                                return -EINVAL;
-
                 destination = lower[k - 1];
                 upper = lower[k - 2];
                 lower[k - 2] = NULL;
+
+                STRV_FOREACH(i, lower)
+                        if (!source_path_is_valid(*i))
+                                return -EINVAL;
+
+                /* If the upper directory is unspecified, then let's create it automatically as a throw-away directory
+                 * in /var/tmp */
+                if (isempty(upper))
+                        upper = NULL;
+                else if (!source_path_is_valid(upper))
+                        return -EINVAL;
 
                 if (!path_is_absolute(destination))
                         return -EINVAL;

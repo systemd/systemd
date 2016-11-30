@@ -56,6 +56,7 @@ typedef struct CustomMount {
         char *options;
         char *work_dir;
         char **lower;
+        char *rm_rf_tmpdir;
 } CustomMount;
 
 CustomMount* custom_mount_add(CustomMount **l, unsigned *n, CustomMountType t);
