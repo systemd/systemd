@@ -56,7 +56,7 @@ except ImportError:
     lru_cache = lambda: (lambda f: f)
 
 EOL = LineEnd().suppress()
-EMPTYLINE = LineStart() + LineEnd()
+EMPTYLINE = LineEnd()
 COMMENTLINE = pythonStyleComment + EOL
 INTEGER = Word(nums)
 REAL = Combine((INTEGER + Optional('.' + Optional(INTEGER))) ^ ('.' + INTEGER))
