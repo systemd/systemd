@@ -452,8 +452,17 @@ Domains= ~company ~lab''')
             # should have received the fixed IP above
             out = subprocess.check_output(['ip', '-4', 'a', 'show', 'dev', self.iface])
             self.assertRegex(out, b'inet 192.168.5.210/24 .* scope global dynamic')
-            # should have set transient hostname in hostnamed
-            self.assertIn(b'testgreen', subprocess.check_output(['hostnamectl']))
+            # should have set transient hostname in hostnamed; this is
+            # sometimes a bit lagging (issue #4753), so retry a few times
+            for retry in range(1, 6):
+                out = subprocess.check_output(['hostnamectl'])
+                if b'testgreen' in out:
+                    break
+                time.sleep(5)
+                sys.stdout.write('[retry %i] ' % retry)
+                sys.stdout.flush()
+            else:
+                self.fail('Transient hostname not found in hostnamectl:\n%s' % out.decode())
             # and also applied to the system
             self.assertEqual(socket.gethostname(), 'testgreen')
         except AssertionError:
