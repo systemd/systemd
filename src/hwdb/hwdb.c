@@ -554,8 +554,8 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
                                 break;
                         }
 
-                        /* another match */
                         if (line[0] != ' ') {
+                                /* another match */
                                 match = strdup(line);
                                 if (!match)
                                         return -ENOMEM;
@@ -573,8 +573,8 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
                         break;
 
                 case HW_DATA:
-                        /* end of record */
                         if (len == 0) {
+                                /* end of record */
                                 state = HW_NONE;
                                 strv_clear(match_list);
                                 break;
@@ -592,6 +592,10 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
                         break;
                 };
         }
+
+        if (state == HW_MATCH)
+                log_syntax(NULL, LOG_WARNING, filename, line_number, EINVAL,
+                           "Property expected, ignoring record with no properties");
 
         return 0;
 }
