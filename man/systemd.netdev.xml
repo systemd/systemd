@@ -512,7 +512,9 @@
       <varlistentry>
         <term><varname>ARPProxy=</varname></term>
         <listitem>
-          <para>A boolean. When true, enables ARP proxying.</para>
+          <para>A boolean. When true bridge-connected VXLAN tunnel endpoint
+	  answers ARP requests from the local bridge on behalf of
+	  remote Distributed Overlay Virtual Ethernet (DOVE) clients.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
