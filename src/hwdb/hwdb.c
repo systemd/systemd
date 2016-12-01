@@ -456,6 +456,8 @@ static int insert_data(struct trie *trie, char **match_list, char *line,
                        const char *filename, uint16_t file_priority, uint32_t line_number) {
         char *value, **entry;
 
+        assert(line[0] == ' ');
+
         value = strchr(line, '=');
         if (!value)
                 return log_syntax(NULL, LOG_WARNING, filename, line_number, EINVAL,
@@ -464,13 +466,15 @@ static int insert_data(struct trie *trie, char **match_list, char *line,
         value[0] = '\0';
         value++;
 
-        /* libudev requires properties to start with a space */
+        /* Replace multiple leading spaces by a single space */
         while (isblank(line[0]) && isblank(line[1]))
                 line++;
 
-        if (line[0] == '\0' || value[0] == '\0')
+        if (isempty(line + 1) || isempty(value))
                 return log_syntax(NULL, LOG_WARNING, filename, line_number, EINVAL,
-                                  "Empty %s in \"%s\", ignoring", line[0] == '\0' ? "key" : "value", line);
+                                  "Empty %s in \"%s=%s\", ignoring",
+                                  isempty(line + 1) ? "key" : "value",
+                                  line, value);
 
         STRV_FOREACH(entry, match_list)
                 trie_insert(trie, trie->root, *entry, line, value, filename, file_priority, line_number);
