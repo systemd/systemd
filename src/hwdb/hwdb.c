@@ -39,7 +39,7 @@
 #include "verbs.h"
 
 /*
- * Generic udev properties, key/value database based on modalias strings.
+ * Generic udev properties, key-value database based on modalias strings.
  * Uses a Patricia/radix trie to index all matches for efficient lookup.
  */
 
@@ -70,7 +70,7 @@ struct trie_node {
         struct trie_child_entry *children;
         uint8_t children_count;
 
-        /* sorted array of key/value pairs */
+        /* sorted array of key-value pairs */
         struct trie_value_entry *values;
         size_t values_count;
 };
@@ -81,7 +81,7 @@ struct trie_child_entry {
         struct trie_node *child;
 };
 
-/* value array item with key/value pairs */
+/* value array item with key-value pairs */
 struct trie_value_entry {
         size_t key_off;
         size_t value_off;
@@ -457,10 +457,9 @@ static int insert_data(struct trie *trie, char **match_list, char *line,
         char *value, **entry;
 
         value = strchr(line, '=');
-        if (!value) {
-                log_error("Error, key/value pair expected but got '%s' in '%s':", line, filename);
-                return -EINVAL;
-        }
+        if (!value)
+                return log_syntax(NULL, LOG_WARNING, filename, line_number, EINVAL,
+                                  "Key-value pair expected but got \"%s\", ignoring", line);
 
         value[0] = '\0';
         value++;
@@ -469,10 +468,9 @@ static int insert_data(struct trie *trie, char **match_list, char *line,
         while (isblank(line[0]) && isblank(line[1]))
                 line++;
 
-        if (line[0] == '\0' || value[0] == '\0') {
-                log_error("Error, empty key or value '%s' in '%s':", line, filename);
-                return -EINVAL;
-        }
+        if (line[0] == '\0' || value[0] == '\0')
+                return log_syntax(NULL, LOG_WARNING, filename, line_number, EINVAL,
+                                  "Empty %s in \"%s\", ignoring", line[0] == '\0' ? "key" : "value", line);
 
         STRV_FOREACH(entry, match_list)
                 trie_insert(trie, trie->root, *entry, line, value, filename, file_priority, line_number);
@@ -524,7 +522,8 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
                                 break;
 
                         if (line[0] == ' ') {
-                                log_error("Error, MATCH expected but got '%s' in '%s':", line, filename);
+                                log_syntax(NULL, LOG_WARNING, filename, line_number, EINVAL,
+                                           "Match expected but got indented property \"%s\", ignoring line", line);
                                 break;
                         }
 
@@ -543,7 +542,9 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
 
                 case HW_MATCH:
                         if (len == 0) {
-                                log_error("Error, DATA expected but got empty line in '%s':", filename);
+                                log_syntax(NULL, LOG_WARNING, filename, line_number, EINVAL,
+                                           "Property expected, ignoring record with no properties");
+
                                 state = HW_NONE;
                                 strv_clear(match_list);
                                 break;
@@ -576,7 +577,8 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
                         }
 
                         if (line[0] != ' ') {
-                                log_error("Error, DATA expected but got '%s' in '%s':", line, filename);
+                                log_syntax(NULL, LOG_WARNING, filename, line_number, EINVAL,
+                                           "Property or empty line expected, got \"%s\", ignoring record", line);
                                 state = HW_NONE;
                                 strv_clear(match_list);
                                 break;

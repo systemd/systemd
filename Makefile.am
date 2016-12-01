@@ -1700,7 +1700,8 @@ EXTRA_DIST += \
 	test/bus-policy/signals.conf \
 	test/bus-policy/check-own-rules.conf \
 	test/bus-policy/many-rules.conf \
-	test/bus-policy/test.conf
+	test/bus-policy/test.conf \
+	test/hwdb/10-bad.hwdb
 
 
 EXTRA_DIST += \
