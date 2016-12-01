@@ -1042,6 +1042,8 @@ libshared_la_SOURCES = \
 	src/shared/machine-image.h \
 	src/shared/machine-pool.c \
 	src/shared/machine-pool.h \
+	src/shared/loop-util.c \
+	src/shared/loop-util.h \
 	src/shared/resolve-util.c \
 	src/shared/resolve-util.h \
 	src/shared/bus-unit-util.c \
@@ -1053,7 +1055,9 @@ libshared_la_SOURCES = \
 	src/shared/fdset.c \
 	src/shared/fdset.h \
 	src/shared/nsflags.h \
-	src/shared/nsflags.c
+	src/shared/nsflags.c \
+	src/shared/dissect-image.c \
+	src/shared/dissect-image.h
 
 if HAVE_UTMP
 libshared_la_SOURCES += \
@@ -1076,7 +1080,8 @@ libshared_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(ACL_CFLAGS) \
 	$(LIBIDN_CFLAGS) \
-	$(SECCOMP_CFLAGS)
+	$(SECCOMP_CFLAGS) \
+	$(BLKID_CFLAGS)
 
 libshared_la_LIBADD = \
 	libsystemd-internal.la \
@@ -1085,7 +1090,8 @@ libshared_la_LIBADD = \
 	libudev-internal.la \
 	$(ACL_LIBS) \
 	$(LIBIDN_LIBS) \
-	$(SECCOMP_LIBS)
+	$(SECCOMP_LIBS) \
+	$(BLKID_LIBS)
 
 rootlibexec_LTLIBRARIES += \
 	libsystemd-shared.la
@@ -1107,6 +1113,7 @@ libsystemd_shared_la_CFLAGS = \
 	$(ACL_CFLAGS) \
 	$(LIBIDN_CFLAGS) \
 	$(SECCOMP_CFLAGS) \
+	$(BLKID_CFLAGS) \
 	-fvisibility=default
 
 # We can't use libshared_la_LIBADD here because it would
@@ -1118,7 +1125,8 @@ libsystemd_shared_la_LIBADD = \
 	$(libudev_internal_la_LIBADD) \
 	$(ACL_LIBS) \
 	$(LIBIDN_LIBS) \
-	$(SECCOMP_LIBS)
+	$(SECCOMP_LIBS) \
+	$(BLKID_LIBS)
 
 libsystemd_shared_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
@@ -1456,7 +1464,8 @@ manual_tests += \
 	test-btrfs \
 	test-acd \
 	test-ipv4ll-manual \
-	test-ask-password-api
+	test-ask-password-api \
+	test-dissect-image
 
 unsafe_tests = \
 	test-hostname \
@@ -2066,6 +2075,17 @@ test_ask_password_api_SOURCES = \
 
 test_ask_password_api_LDADD = \
 	libsystemd-shared.la
+
+test_dissect_image_SOURCES = \
+	src/test/test-dissect-image.c
+
+test_dissect_image_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(BLKID_CFLAGS)
+
+test_dissect_image_LDADD = \
+	libsystemd-shared.la \
+	$(BLKID_LIBS)
 
 test_signal_util_SOURCES = \
 	src/test/test-signal-util.c

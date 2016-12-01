@@ -180,6 +180,7 @@
 /test-dhcp-option
 /test-dhcp-server
 /test-dhcp6-client
+/test-dissect-image
 /test-dns-domain
 /test-dns-packet
 /test-dnssec
