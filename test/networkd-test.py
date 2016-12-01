@@ -166,30 +166,30 @@ DHCP=%s
             else:
                 # should have link-local address on IPv6 only
                 out = subprocess.check_output(['ip', '-6', 'a', 'show', 'dev', self.iface])
-                self.assertRegex(out, b'inet6 fe80::.* scope link')
+                self.assertRegex(out, br'inet6 fe80::.* scope link')
                 self.assertNotIn(b'scope global', out)
 
             # should have IPv4 address
             out = subprocess.check_output(['ip', '-4', 'a', 'show', 'dev', self.iface])
             self.assertIn(b'state UP', out)
-            self.assertRegex(out, b'inet 192.168.5.\d+/.* scope global dynamic')
+            self.assertRegex(out, br'inet 192.168.5.\d+/.* scope global dynamic')
 
             # check networkctl state
             out = subprocess.check_output(['networkctl'])
-            self.assertRegex(out, ('%s\s+ether\s+routable\s+unmanaged' % self.if_router).encode())
-            self.assertRegex(out, ('%s\s+ether\s+routable\s+configured' % self.iface).encode())
+            self.assertRegex(out, (r'%s\s+ether\s+routable\s+unmanaged' % self.if_router).encode())
+            self.assertRegex(out, (r'%s\s+ether\s+routable\s+configured' % self.iface).encode())
 
             out = subprocess.check_output(['networkctl', 'status', self.iface])
-            self.assertRegex(out, b'Type:\s+ether')
-            self.assertRegex(out, b'State:\s+routable.*configured')
-            self.assertRegex(out, b'Address:\s+192.168.5.\d+')
+            self.assertRegex(out, br'Type:\s+ether')
+            self.assertRegex(out, br'State:\s+routable.*configured')
+            self.assertRegex(out, br'Address:\s+192.168.5.\d+')
             if ipv6:
-                self.assertRegex(out, b'2600::')
+                self.assertRegex(out, br'2600::')
             else:
-                self.assertNotIn(b'2600::', out)
-            self.assertRegex(out, b'fe80::')
-            self.assertRegex(out, b'Gateway:\s+192.168.5.1')
-            self.assertRegex(out, b'DNS:\s+192.168.5.1')
+                self.assertNotIn(br'2600::', out)
+            self.assertRegex(out, br'fe80::')
+            self.assertRegex(out, br'Gateway:\s+192.168.5.1')
+            self.assertRegex(out, br'DNS:\s+192.168.5.1')
         except (AssertionError, subprocess.CalledProcessError):
             # show networkd status, journal, and DHCP server log on failure
             with open(self.config) as f:
