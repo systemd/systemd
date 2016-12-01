@@ -356,11 +356,11 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
         return sd_bus_send(NULL, reply, NULL);
 }
 
+#define EXIT_NOT_FOUND 2
+
 int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_strv_free_ char **l = NULL;
         Machine *m = userdata;
-        char **k, **v;
         int r;
 
         assert(message);
@@ -394,7 +394,7 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
                         return sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
 
                 if (child == 0) {
-                        _cleanup_close_ int fd = -1;
+                        int fd = -1;
 
                         pair[0] = safe_close(pair[0]);
 
@@ -402,12 +402,14 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
                         if (r < 0)
                                 _exit(EXIT_FAILURE);
 
-                        fd = open("/etc/os-release", O_RDONLY|O_CLOEXEC);
-                        if (fd < 0) {
-                                fd = open("/usr/lib/os-release", O_RDONLY|O_CLOEXEC);
-                                if (fd < 0)
-                                        _exit(EXIT_FAILURE);
+                        fd = open("/etc/os-release", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                        if (fd < 0 && errno == ENOENT) {
+                                fd = open("/usr/lib/os-release", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                                if (fd < 0 && errno == ENOENT)
+                                        _exit(EXIT_NOT_FOUND);
                         }
+                        if (fd < 0)
+                                _exit(EXIT_FAILURE);
 
                         r = copy_bytes(fd, pair[1], (uint64_t) -1, false);
                         if (r < 0)
@@ -431,6 +433,8 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
                 r = wait_for_terminate(child, &si);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
+                if (si.si_code == CLD_EXITED && si.si_status == EXIT_NOT_FOUND)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Machine does not contain OS release information");
                 if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
 
@@ -441,25 +445,7 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Requesting OS release data is only supported on container machines.");
         }
 
-        r = sd_bus_message_new_method_return(message, &reply);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_open_container(reply, 'a', "{ss}");
-        if (r < 0)
-                return r;
-
-        STRV_FOREACH_PAIR(k, v, l) {
-                r = sd_bus_message_append(reply, "{ss}", *k, *v);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_bus_message_close_container(reply);
-        if (r < 0)
-                return r;
-
-        return sd_bus_send(NULL, reply, NULL);
+        return bus_reply_pair_array(message, l);
 }
 
 int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_error *error) {
