@@ -589,7 +589,7 @@ int mount_all(const char *dest,
 
                 r = chase_symlinks(mount_table[k].where, dest, CHASE_NON_EXISTING|CHASE_PREFIX_ROOT, &where);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to resolve %s: %m", mount_table[k].where);
+                        return log_error_errno(r, "Failed to resolve %s/%s: %m", dest, mount_table[k].where);
 
                 r = path_is_mount_point(where, NULL, 0);
                 if (r < 0 && r != -ENOENT)
@@ -688,7 +688,7 @@ static int mount_bind(const char *dest, CustomMount *m) {
 
         r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT|CHASE_NON_EXISTING, &where);
         if (r < 0)
-                return log_error_errno(r, "Failed to resolve %s: %m", m->destination);
+                return log_error_errno(r, "Failed to resolve %s/%s: %m", dest, m->destination);
         if (r > 0) { /* Path exists already? */
 
                 if (stat(where, &dest_st) < 0)
@@ -750,7 +750,7 @@ static int mount_tmpfs(
 
         r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT|CHASE_NON_EXISTING, &where);
         if (r < 0)
-                return log_error_errno(r, "Failed to resolve %s: %m", m->destination);
+                return log_error_errno(r, "Failed to resolve %s/%s: %m", dest, m->destination);
         if (r == 0) { /* Doesn't exist yet? */
                 r = mkdir_p_label(where, 0755);
                 if (r < 0)
@@ -791,7 +791,7 @@ static int mount_overlay(const char *dest, CustomMount *m) {
 
         r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT|CHASE_NON_EXISTING, &where);
         if (r < 0)
-                return log_error_errno(r, "Failed to resolve %s: %m", m->destination);
+                return log_error_errno(r, "Failed to resolve %s/%s: %m", dest, m->destination);
         if (r == 0) { /* Doesn't exist yet? */
                 r = mkdir_label(where, 0755);
                 if (r < 0)
