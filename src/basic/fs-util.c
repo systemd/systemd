@@ -711,10 +711,10 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                 if (child < 0) {
 
                         if (errno == ENOENT &&
-                            (flags & CHASE_NON_EXISTING) &&
+                            (flags & CHASE_NONEXISTENT) &&
                             (isempty(todo) || path_is_safe(todo))) {
 
-                                /* If CHASE_NON_EXISTING is set, and the path does not exist, then that's OK, return
+                                /* If CHASE_NONEXISTENT is set, and the path does not exist, then that's OK, return
                                  * what we got so far. But don't allow this if the remaining path contains "../ or "./"
                                  * or something else weird. */
 

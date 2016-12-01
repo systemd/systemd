@@ -4135,7 +4135,7 @@ int main(int argc, char *argv[]) {
                         remove_directory = true;
 
                 } else {
-                        r = chase_symlinks_and_update(&arg_directory, arg_template ? CHASE_NON_EXISTING : 0);
+                        r = chase_symlinks_and_update(&arg_directory, arg_template ? CHASE_NONEXISTENT : 0);
                         if (r < 0)
                                 goto finish;
 

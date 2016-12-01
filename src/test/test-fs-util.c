@@ -72,7 +72,7 @@ static void test_chase_symlinks(void) {
 
         q = strjoina(temp, "/usr");
 
-        r = chase_symlinks(p, temp, CHASE_NON_EXISTING, &result);
+        r = chase_symlinks(p, temp, CHASE_NONEXISTENT, &result);
         assert_se(r == 0);
         assert_se(path_equal(result, q));
 
@@ -162,7 +162,7 @@ static void test_chase_symlinks(void) {
         r = chase_symlinks(p, NULL, 0, &result);
         assert_se(r == -ENOENT);
 
-        r = chase_symlinks(p, NULL, CHASE_NON_EXISTING, &result);
+        r = chase_symlinks(p, NULL, CHASE_NONEXISTENT, &result);
         assert_se(r == 0);
         assert_se(path_equal(result, p));
         result = mfree(result);
@@ -171,7 +171,7 @@ static void test_chase_symlinks(void) {
         r = chase_symlinks(p, NULL, 0, &result);
         assert_se(r == -ENOENT);
 
-        r = chase_symlinks(p, NULL, CHASE_NON_EXISTING, &result);
+        r = chase_symlinks(p, NULL, CHASE_NONEXISTENT, &result);
         assert_se(r == 0);
         assert_se(path_equal(result, p));
         result = mfree(result);
@@ -182,7 +182,7 @@ static void test_chase_symlinks(void) {
         r = chase_symlinks(p, NULL, 0, &result);
         assert_se(r == -ENOENT);
 
-        r = chase_symlinks(p, NULL, CHASE_NON_EXISTING, &result);
+        r = chase_symlinks(p, NULL, CHASE_NONEXISTENT, &result);
         assert_se(r == -ENOENT);
 
         assert_se(rm_rf(temp, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);

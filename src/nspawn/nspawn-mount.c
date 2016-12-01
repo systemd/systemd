@@ -587,7 +587,7 @@ int mount_all(const char *dest,
                 if (!ro && (bool)(mount_table[k].mount_settings & MOUNT_APPLY_APIVFS_RO))
                         continue;
 
-                r = chase_symlinks(mount_table[k].where, dest, CHASE_NON_EXISTING|CHASE_PREFIX_ROOT, &where);
+                r = chase_symlinks(mount_table[k].where, dest, CHASE_NONEXISTENT|CHASE_PREFIX_ROOT, &where);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve %s/%s: %m", dest, mount_table[k].where);
 
@@ -686,7 +686,7 @@ static int mount_bind(const char *dest, CustomMount *m) {
         if (stat(m->source, &source_st) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", m->source);
 
-        r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT|CHASE_NON_EXISTING, &where);
+        r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &where);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve %s/%s: %m", dest, m->destination);
         if (r > 0) { /* Path exists already? */
@@ -748,7 +748,7 @@ static int mount_tmpfs(
         assert(dest);
         assert(m);
 
-        r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT|CHASE_NON_EXISTING, &where);
+        r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &where);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve %s/%s: %m", dest, m->destination);
         if (r == 0) { /* Doesn't exist yet? */
@@ -789,7 +789,7 @@ static int mount_overlay(const char *dest, CustomMount *m) {
         assert(dest);
         assert(m);
 
-        r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT|CHASE_NON_EXISTING, &where);
+        r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &where);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve %s/%s: %m", dest, m->destination);
         if (r == 0) { /* Doesn't exist yet? */
