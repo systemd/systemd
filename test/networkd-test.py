@@ -153,7 +153,7 @@ DHCP=%s
                 # check iface state and IP 6 address; FIXME: we need to wait a bit
                 # longer, as the iface is "configured" already with IPv4 *or*
                 # IPv6, but we want to wait for both
-                for timeout in range(10):
+                for _ in range(10):
                     out = subprocess.check_output(['ip', 'a', 'show', 'dev', self.iface])
                     if b'state UP' in out and b'inet6 2600' in out and b'inet 192.168' in out:
                         break
@@ -558,7 +558,7 @@ exec $(systemctl cat systemd-networkd.service | sed -n '/^ExecStart=/ { s/^.*=//
                                '--service-type=notify', script])
 
         # wait until devices got created
-        for timeout in range(50):
+        for _ in range(50):
             out = subprocess.check_output(['ip', 'a', 'show', 'dev', self.if_router])
             if b'state UP' in out and b'scope global' in out:
                 break
