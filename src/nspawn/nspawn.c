@@ -280,14 +280,9 @@ static void help(void) {
                , program_invocation_short_name);
 }
 
-static int custom_mounts_prepare(void) {
+static int custom_mount_check_all(void) {
         unsigned i;
-        int r;
 
-        /* Ensure the mounts are applied prefix first. */
-        qsort_safe(arg_custom_mounts, arg_n_custom_mounts, sizeof(CustomMount), custom_mount_compare);
-
-        /* Allocate working directories for the overlay file systems that need it */
         for (i = 0; i < arg_n_custom_mounts; i++) {
                 CustomMount *m = &arg_custom_mounts[i];
 
@@ -301,19 +296,6 @@ static int custom_mounts_prepare(void) {
                                 return -EINVAL;
                         }
                 }
-
-                if (m->type != CUSTOM_MOUNT_OVERLAY)
-                        continue;
-
-                if (m->work_dir)
-                        continue;
-
-                if (m->read_only)
-                        continue;
-
-                r = tempfn_random(m->source, NULL, &m->work_dir);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to generate work directory from %s: %m", m->source);
         }
 
         return 0;
@@ -789,69 +771,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_OVERLAY:
-                case ARG_OVERLAY_RO: {
-                        _cleanup_free_ char *upper = NULL, *destination = NULL;
-                        _cleanup_strv_free_ char **lower = NULL;
-                        CustomMount *m;
-                        unsigned n = 0;
-                        char **i;
-
-                        r = strv_split_extract(&lower, optarg, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
-                        if (r == -ENOMEM)
-                                return log_oom();
-                        else if (r < 0) {
-                                log_error("Invalid overlay specification: %s", optarg);
-                                return r;
-                        }
-
-                        STRV_FOREACH(i, lower) {
-                                if (!path_is_absolute(*i)) {
-                                        log_error("Overlay path %s is not absolute.", *i);
-                                        return -EINVAL;
-                                }
-
-                                n++;
-                        }
-
-                        if (n < 2) {
-                                log_error("--overlay= needs at least two colon-separated directories specified.");
-                                return -EINVAL;
-                        }
-
-                        if (n == 2) {
-                                /* If two parameters are specified,
-                                 * the first one is the lower, the
-                                 * second one the upper directory. And
-                                 * we'll also define the destination
-                                 * mount point the same as the upper. */
-                                upper = lower[1];
-                                lower[1] = NULL;
-
-                                destination = strdup(upper);
-                                if (!destination)
-                                        return log_oom();
-
-                        } else {
-                                upper = lower[n - 2];
-                                destination = lower[n - 1];
-                                lower[n - 2] = NULL;
-                        }
-
-                        m = custom_mount_add(&arg_custom_mounts, &arg_n_custom_mounts, CUSTOM_MOUNT_OVERLAY);
-                        if (!m)
-                                return log_oom();
-
-                        m->destination = destination;
-                        m->source = upper;
-                        m->lower = lower;
-                        m->read_only = c == ARG_OVERLAY_RO;
-
-                        upper = destination = NULL;
-                        lower = NULL;
+                case ARG_OVERLAY_RO:
+                        r = overlay_mount_parse(&arg_custom_mounts, &arg_n_custom_mounts, optarg, c == ARG_OVERLAY_RO);
+                        if (r == -EADDRNOTAVAIL)
+                                return log_error_errno(r, "--overlay(-ro)= needs at least two colon-separated directories specified.");
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --overlay(-ro)= argument %s: %m", optarg);
 
                         arg_settings_mask |= SETTING_CUSTOM_MOUNTS;
                         break;
-                }
 
                 case 'E': {
                         char **n;
@@ -1133,6 +1061,16 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
+        if (arg_ephemeral && arg_template && !arg_directory) {
+                /* User asked for ephemeral execution but specified --template= instead of --directory=. Semantically
+                 * such an invocation makes some sense, see https://github.com/systemd/systemd/issues/3667. Let's
+                 * accept this here, and silently make "--ephemeral --template=" equivalent to "--ephemeral
+                 * --directory=". */
+
+                arg_directory = arg_template;
+                arg_template = NULL;
+        }
+
         if (arg_template && !(arg_directory || arg_machine)) {
                 log_error("--template= needs --directory= or --machine=.");
                 return -EINVAL;
@@ -1190,6 +1128,10 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_use_cgns = cg_ns_supported();
         else
                 arg_use_cgns = r;
+
+        r = custom_mount_check_all();
+        if (r < 0)
+                return r;
 
         return 1;
 }
@@ -1666,7 +1608,7 @@ static int setup_journal(const char *directory) {
         p = strjoina("/var/log/journal/", id);
         q = prefix_roota(directory, p);
 
-        if (path_is_mount_point(p, 0) > 0) {
+        if (path_is_mount_point(p, NULL, 0) > 0) {
                 if (try)
                         return 0;
 
@@ -1674,7 +1616,7 @@ static int setup_journal(const char *directory) {
                 return -EEXIST;
         }
 
-        if (path_is_mount_point(q, 0) > 0) {
+        if (path_is_mount_point(q, NULL, 0) > 0) {
                 if (try)
                         return 0;
 
@@ -2652,6 +2594,25 @@ static int determine_names(void) {
                         arg_machine = b;
                 }
         }
+
+        return 0;
+}
+
+static int chase_symlinks_and_update(char **p, unsigned flags) {
+        char *chased;
+        int r;
+
+        assert(p);
+
+        if (!*p)
+                return 0;
+
+        r = chase_symlinks(*p, NULL, flags, &chased);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve path %s: %m", *p);
+
+        free(*p);
+        *p = chased;
 
         return 0;
 }
@@ -3657,7 +3618,7 @@ static int run(int master,
 
         static const struct sigaction sa = {
                 .sa_handler = nop_signal_handler,
-                .sa_flags = SA_NOCLDSTOP,
+                .sa_flags = SA_NOCLDSTOP|SA_RESTART,
         };
 
         _cleanup_release_lock_file_ LockFile uid_shift_lock = LOCK_FILE_INIT;
@@ -4126,13 +4087,17 @@ int main(int argc, char *argv[]) {
                 if (arg_ephemeral) {
                         _cleanup_free_ char *np = NULL;
 
+                        r = chase_symlinks_and_update(&arg_directory, 0);
+                        if (r < 0)
+                                goto finish;
+
                         /* If the specified path is a mount point we
                          * generate the new snapshot immediately
                          * inside it under a random name. However if
                          * the specified is not a mount point we
                          * create the new snapshot in the parent
                          * directory, just next to it. */
-                        r = path_is_mount_point(arg_directory, 0);
+                        r = path_is_mount_point(arg_directory, NULL, 0);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to determine whether directory %s is mount point: %m", arg_directory);
                                 goto finish;
@@ -4170,6 +4135,10 @@ int main(int argc, char *argv[]) {
                         remove_directory = true;
 
                 } else {
+                        r = chase_symlinks_and_update(&arg_directory, arg_template ? CHASE_NONEXISTENT : 0);
+                        if (r < 0)
+                                goto finish;
+
                         r = image_path_lock(arg_directory, (arg_read_only ? LOCK_SH : LOCK_EX) | LOCK_NB, &tree_global_lock, &tree_local_lock);
                         if (r == -EBUSY) {
                                 log_error_errno(r, "Directory tree %s is currently busy.", arg_directory);
@@ -4181,6 +4150,10 @@ int main(int argc, char *argv[]) {
                         }
 
                         if (arg_template) {
+                                r = chase_symlinks_and_update(&arg_template, 0);
+                                if (r < 0)
+                                        goto finish;
+
                                 r = btrfs_subvol_snapshot(arg_template, arg_directory,
                                                           (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
                                                           BTRFS_SNAPSHOT_FALLBACK_COPY |
@@ -4221,6 +4194,10 @@ int main(int argc, char *argv[]) {
         } else {
                 assert(arg_image);
                 assert(!arg_template);
+
+                r = chase_symlinks_and_update(&arg_image, 0);
+                if (r < 0)
+                        goto finish;
 
                 if (arg_ephemeral)  {
                         _cleanup_free_ char *np = NULL;
@@ -4293,7 +4270,7 @@ int main(int argc, char *argv[]) {
                         remove_image = false;
         }
 
-        r = custom_mounts_prepare();
+        r = custom_mount_prepare_all(arg_directory, arg_custom_mounts, arg_n_custom_mounts);
         if (r < 0)
                 goto finish;
 

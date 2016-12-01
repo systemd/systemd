@@ -420,7 +420,7 @@ static int swap_setup_unit(
 fail:
         log_unit_warning_errno(u, r, "Failed to load swap unit: %m");
 
-        if (delete && u)
+        if (delete)
                 unit_free(u);
 
         return r;

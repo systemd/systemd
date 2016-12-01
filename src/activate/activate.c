@@ -339,7 +339,7 @@ static void sigchld_hdl(int sig) {
 
 static int install_chld_handler(void) {
         static const struct sigaction act = {
-                .sa_flags = SA_NOCLDSTOP,
+                .sa_flags = SA_NOCLDSTOP|SA_RESTART,
                 .sa_handler = sigchld_hdl,
         };
 

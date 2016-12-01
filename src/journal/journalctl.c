@@ -938,21 +938,21 @@ static int add_matches(sd_journal *j, char **args) {
                         have_term = false;
 
                 } else if (path_is_absolute(*i)) {
-                        _cleanup_free_ char *p, *t = NULL, *t2 = NULL, *interpreter = NULL;
-                        const char *path;
+                        _cleanup_free_ char *p = NULL, *t = NULL, *t2 = NULL, *interpreter = NULL;
                         struct stat st;
 
-                        p = canonicalize_file_name(*i);
-                        path = p ?: *i;
+                        r = chase_symlinks(*i, NULL, 0, &p);
+                        if (r < 0)
+                                return log_error_errno(r, "Couldn't canonicalize path: %m");
 
-                        if (lstat(path, &st) < 0)
+                        if (lstat(p, &st) < 0)
                                 return log_error_errno(errno, "Couldn't stat file: %m");
 
                         if (S_ISREG(st.st_mode) && (0111 & st.st_mode)) {
-                                if (executable_is_script(path, &interpreter) > 0) {
+                                if (executable_is_script(p, &interpreter) > 0) {
                                         _cleanup_free_ char *comm;
 
-                                        comm = strndup(basename(path), 15);
+                                        comm = strndup(basename(p), 15);
                                         if (!comm)
                                                 return log_oom();
 
@@ -968,7 +968,7 @@ static int add_matches(sd_journal *j, char **args) {
                                                         return log_oom();
                                         }
                                 } else {
-                                        t = strappend("_EXE=", path);
+                                        t = strappend("_EXE=", p);
                                         if (!t)
                                                 return log_oom();
                                 }
@@ -979,7 +979,7 @@ static int add_matches(sd_journal *j, char **args) {
                                         r = sd_journal_add_match(j, t2, 0);
 
                         } else if (S_ISCHR(st.st_mode) || S_ISBLK(st.st_mode)) {
-                                r = add_matches_for_device(j, path);
+                                r = add_matches_for_device(j, p);
                                 if (r < 0)
                                         return r;
                         } else {

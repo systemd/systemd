@@ -29,6 +29,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "mount-util.h"
 #include "parse-util.h"
@@ -205,9 +206,10 @@ fallback_fstat:
 }
 
 /* flags can be AT_SYMLINK_FOLLOW or 0 */
-int path_is_mount_point(const char *t, int flags) {
-        _cleanup_close_ int fd = -1;
+int path_is_mount_point(const char *t, const char *root, int flags) {
         _cleanup_free_ char *canonical = NULL, *parent = NULL;
+        _cleanup_close_ int fd = -1;
+        int r;
 
         assert(t);
 
@@ -219,9 +221,9 @@ int path_is_mount_point(const char *t, int flags) {
          * /bin -> /usr/bin/ and /usr is a mount point, then the parent that we
          * look at needs to be /usr, not /. */
         if (flags & AT_SYMLINK_FOLLOW) {
-                canonical = canonicalize_file_name(t);
-                if (!canonical)
-                        return -errno;
+                r = chase_symlinks(t, root, 0, &canonical);
+                if (r < 0)
+                        return r;
 
                 t = canonical;
         }
@@ -473,7 +475,7 @@ int bind_remount_recursive(const char *prefix, bool ro, char **blacklist) {
                                 return r;
 
                         /* Deal with mount points that are obstructed by a later mount */
-                        r = path_is_mount_point(x, 0);
+                        r = path_is_mount_point(x, NULL, 0);
                         if (r == -ENOENT || r == 0)
                                 continue;
                         if (r < 0)

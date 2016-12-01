@@ -164,7 +164,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
         }
 
         if (verify) {
-                r = readlink_and_canonicalize(_syspath, &syspath);
+                r = readlink_and_canonicalize(_syspath, NULL, &syspath);
                 if (r == -ENOENT)
                         /* the device does not exist (any more?) */
                         return -ENODEV;

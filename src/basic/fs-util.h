@@ -39,7 +39,7 @@ int readlinkat_malloc(int fd, const char *p, char **ret);
 int readlink_malloc(const char *p, char **r);
 int readlink_value(const char *p, char **ret);
 int readlink_and_make_absolute(const char *p, char **r);
-int readlink_and_canonicalize(const char *p, char **r);
+int readlink_and_canonicalize(const char *p, const char *root, char **r);
 int readlink_and_make_absolute_root(const char *root, const char *path, char **ret);
 
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
@@ -78,4 +78,9 @@ union inotify_event_buffer {
 
 int inotify_add_watch_fd(int fd, int what, uint32_t mask);
 
-int chase_symlinks(const char *path, const char *_root, char **ret);
+enum {
+        CHASE_PREFIX_ROOT = 1,   /* If set, the specified path will be prefixed by the specified root before beginning the iteration */
+        CHASE_NONEXISTENT = 2,   /* If set, it's OK if the path doesn't actually exist. */
+};
+
+int chase_symlinks(const char *path_with_prefix, const char *root, unsigned flags, char **ret);

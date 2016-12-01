@@ -338,7 +338,7 @@ static int user_mkdir_runtime_path(User *u) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create /run/user: %m");
 
-        if (path_is_mount_point(u->runtime_path, 0) <= 0) {
+        if (path_is_mount_point(u->runtime_path, NULL, 0) <= 0) {
                 _cleanup_free_ char *t = NULL;
 
                 (void) mkdir_label(u->runtime_path, 0700);

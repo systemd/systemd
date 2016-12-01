@@ -224,25 +224,25 @@ int readlink_and_make_absolute(const char *p, char **r) {
         return 0;
 }
 
-int readlink_and_canonicalize(const char *p, char **r) {
+int readlink_and_canonicalize(const char *p, const char *root, char **ret) {
         char *t, *s;
-        int j;
+        int r;
 
         assert(p);
-        assert(r);
+        assert(ret);
 
-        j = readlink_and_make_absolute(p, &t);
-        if (j < 0)
-                return j;
+        r = readlink_and_make_absolute(p, &t);
+        if (r < 0)
+                return r;
 
-        s = canonicalize_file_name(t);
-        if (s) {
+        r = chase_symlinks(t, root, 0, &s);
+        if (r < 0)
+                /* If we can't follow up, then let's return the original string, slightly cleaned up. */
+                *ret = path_kill_slashes(t);
+        else {
+                *ret = s;
                 free(t);
-                *r = s;
-        } else
-                *r = t;
-
-        path_kill_slashes(*r);
+        }
 
         return 0;
 }
@@ -598,10 +598,11 @@ int inotify_add_watch_fd(int fd, int what, uint32_t mask) {
         return r;
 }
 
-int chase_symlinks(const char *path, const char *_root, char **ret) {
+int chase_symlinks(const char *path, const char *original_root, unsigned flags, char **ret) {
         _cleanup_free_ char *buffer = NULL, *done = NULL, *root = NULL;
         _cleanup_close_ int fd = -1;
         unsigned max_follow = 32; /* how many symlinks to follow before giving up and returning ELOOP */
+        bool exists = true;
         char *todo;
         int r;
 
@@ -610,25 +611,38 @@ int chase_symlinks(const char *path, const char *_root, char **ret) {
         /* This is a lot like canonicalize_file_name(), but takes an additional "root" parameter, that allows following
          * symlinks relative to a root directory, instead of the root of the host.
          *
-         * Note that "root" matters only if we encounter an absolute symlink, it's unused otherwise. Most importantly
-         * this means the path parameter passed in is not prefixed by it.
+         * Note that "root" primarily matters if we encounter an absolute symlink. It is also used when following
+         * relative symlinks to ensure they cannot be used to "escape" the root directory. The path parameter passed is
+         * assumed to be already prefixed by it, except if the CHASE_PREFIX_ROOT flag is set, in which case it is first
+         * prefixed accordingly.
          *
          * Algorithmically this operates on two path buffers: "done" are the components of the path we already
          * processed and resolved symlinks, "." and ".." of. "todo" are the components of the path we still need to
          * process. On each iteration, we move one component from "todo" to "done", processing it's special meaning
          * each time. The "todo" path always starts with at least one slash, the "done" path always ends in no
          * slash. We always keep an O_PATH fd to the component we are currently processing, thus keeping lookup races
-         * at a minimum. */
+         * at a minimum.
+         *
+         * Suggested usage: whenever you want to canonicalize a path, use this function. Pass the absolute path you got
+         * as-is: fully qualified and relative to your host's root. Optionally, specify the root parameter to tell this
+         * function what to do when encountering a symlink with an absolute path as directory: prefix it by the
+         * specified path.
+         *
+         * Note: there's also chase_symlinks_prefix() (see below), which as first step prefixes the passed path by the
+         * passed root. */
+
+        if (original_root) {
+                r = path_make_absolute_cwd(original_root, &root);
+                if (r < 0)
+                        return r;
+
+                if (flags & CHASE_PREFIX_ROOT)
+                        path = prefix_roota(root, path);
+        }
 
         r = path_make_absolute_cwd(path, &buffer);
         if (r < 0)
                 return r;
-
-        if (_root) {
-                r = path_make_absolute_cwd(_root, &root);
-                if (r < 0)
-                        return r;
-        }
 
         fd = open("/", O_CLOEXEC|O_NOFOLLOW|O_PATH);
         if (fd < 0)
@@ -665,18 +679,20 @@ int chase_symlinks(const char *path, const char *_root, char **ret) {
                         _cleanup_free_ char *parent = NULL;
                         int fd_parent = -1;
 
+                        /* If we already are at the top, then going up will not change anything. This is in-line with
+                         * how the kernel handles this. */
                         if (isempty(done) || path_equal(done, "/"))
-                                return -EINVAL;
+                                continue;
 
                         parent = dirname_malloc(done);
                         if (!parent)
                                 return -ENOMEM;
 
-                        /* Don't allow this to leave the root dir */
+                        /* Don't allow this to leave the root dir.  */
                         if (root &&
                             path_startswith(done, root) &&
                             !path_startswith(parent, root))
-                                return -EINVAL;
+                                continue;
 
                         free_and_replace(done, parent);
 
@@ -692,8 +708,25 @@ int chase_symlinks(const char *path, const char *_root, char **ret) {
 
                 /* Otherwise let's see what this is. */
                 child = openat(fd, first + n, O_CLOEXEC|O_NOFOLLOW|O_PATH);
-                if (child < 0)
+                if (child < 0) {
+
+                        if (errno == ENOENT &&
+                            (flags & CHASE_NONEXISTENT) &&
+                            (isempty(todo) || path_is_safe(todo))) {
+
+                                /* If CHASE_NONEXISTENT is set, and the path does not exist, then that's OK, return
+                                 * what we got so far. But don't allow this if the remaining path contains "../ or "./"
+                                 * or something else weird. */
+
+                                if (!strextend(&done, first, todo, NULL))
+                                        return -ENOMEM;
+
+                                exists = false;
+                                break;
+                        }
+
                         return -errno;
+                }
 
                 if (fstat(child, &st) < 0)
                         return -errno;
@@ -778,5 +811,5 @@ int chase_symlinks(const char *path, const char *_root, char **ret) {
         *ret = done;
         done = NULL;
 
-        return 0;
+        return exists;
 }

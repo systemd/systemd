@@ -135,6 +135,11 @@ int register_machine(
                                 continue;
 
                         r = is_device_node(cm->source);
+                        if (r == -ENOENT) {
+                                /* The bind source might only appear as the image is put together, hence don't complain */
+                                log_debug_errno(r, "Bind mount source %s not found, ignoring: %m", cm->source);
+                                continue;
+                        }
                         if (r < 0)
                                 return log_error_errno(r, "Failed to stat %s: %m", cm->source);
 
