@@ -84,3 +84,10 @@ enum {
 };
 
 int chase_symlinks(const char *path_with_prefix, const char *root, unsigned flags, char **ret);
+
+/* Useful for usage with _cleanup_(), removes a directory and frees the pointer */
+static inline void rmdir_and_free(char *p) {
+        (void) rmdir(p);
+        free(p);
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(char*, rmdir_and_free);
