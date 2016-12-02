@@ -397,16 +397,17 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
 
         assert(t);
 
-        if (t->family != AF_INET && t->family != AF_INET6 && t->family != 0) {
-                log_warning("Tunnel with invalid address family configured in %s. Ignoring", filename);
+        if (!IN_SET(t->family, AF_INET, AF_INET6, AF_UNSPEC)) {
+                log_netdev_error(netdev,
+                                 "Tunnel with invalid address family configured in %s. Ignoring", filename);
                 return -EINVAL;
         }
 
-        if (netdev->kind == NETDEV_KIND_IP6TNL) {
-                if (t->ip6tnl_mode == _NETDEV_IP6_TNL_MODE_INVALID) {
-                        log_warning("IP6 Tunnel without mode configured in %s. Ignoring", filename);
-                        return -EINVAL;
-                }
+        if (netdev->kind == NETDEV_KIND_IP6TNL &&
+            t->ip6tnl_mode == _NETDEV_IP6_TNL_MODE_INVALID) {
+                log_netdev_error(netdev,
+                                 "ip6tnl without mode configured in %s. Ignoring", filename);
+                return -EINVAL;
         }
 
         return 0;
