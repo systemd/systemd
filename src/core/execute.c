@@ -2226,6 +2226,21 @@ static int setup_keyring(Unit *u, const ExecParameters *p, uid_t uid, gid_t gid)
                 return 0;
         }
 
+        /* Populate they keyring with the invocation ID by default. */
+        if (!sd_id128_is_null(u->invocation_id)) {
+                key_serial_t key;
+
+                key = add_key("user", "invocation_id", &u->invocation_id, sizeof(u->invocation_id), KEY_SPEC_SESSION_KEYRING);
+                if (key == -1)
+                        log_debug_errno(errno, "Failed to add invocation ID to keyring, ignoring: %m");
+                else {
+                        if (keyctl(KEYCTL_SETPERM, key,
+                                   KEY_POS_VIEW|KEY_POS_READ|KEY_POS_SEARCH|
+                                   KEY_USR_VIEW|KEY_USR_READ|KEY_USR_SEARCH, 0, 0) < 0)
+                                return log_error_errno(errno, "Failed to restrict invocation ID permission: %m");
+                }
+        }
+
         /* And now, make the keyring owned by the service's user */
         if (uid_is_valid(uid) || gid_is_valid(gid))
                 if (keyctl(KEYCTL_CHOWN, keyring, uid, gid, 0) < 0)

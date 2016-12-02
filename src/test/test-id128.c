@@ -39,6 +39,7 @@ int main(int argc, char *argv[]) {
         char t[33], q[37];
         _cleanup_free_ char *b = NULL;
         _cleanup_close_ int fd = -1;
+        int r;
 
         assert_se(sd_id128_randomize(&id) == 0);
         printf("random: %s\n", sd_id128_to_string(id, t));
@@ -158,6 +159,13 @@ int main(int argc, char *argv[]) {
         assert_se(sd_id128_equal(id, id2));
         assert_se(sd_id128_get_machine_app_specific(SD_ID128_MAKE(51,df,0b,4b,c3,b0,4c,97,80,e2,99,b9,8c,a3,73,b8), &id2) >= 0);
         assert_se(!sd_id128_equal(id, id2));
+
+        /* Query the invocation ID */
+        r = sd_id128_get_invocation(&id);
+        if (r < 0)
+                log_warning_errno(r, "Failed to get invocation ID, ignoring: %m");
+        else
+                log_info("Invocation ID: " SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(id));
 
         return 0;
 }
