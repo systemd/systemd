@@ -549,7 +549,11 @@ static int dns_scope_multicast_membership(DnsScope *s, bool b, struct in_addr in
                         .imr_ifindex = s->link->ifindex,
                 };
 
-                fd = manager_llmnr_ipv4_udp_fd(s->manager);
+                if (s->protocol == DNS_PROTOCOL_LLMNR)
+                        fd = manager_llmnr_ipv4_udp_fd(s->manager);
+                else
+                        fd = manager_mdns_ipv4_fd(s->manager);
+
                 if (fd < 0)
                         return fd;
 
@@ -568,7 +572,11 @@ static int dns_scope_multicast_membership(DnsScope *s, bool b, struct in_addr in
                         .ipv6mr_interface = s->link->ifindex,
                 };
 
-                fd = manager_llmnr_ipv6_udp_fd(s->manager);
+                if (s->protocol == DNS_PROTOCOL_LLMNR)
+                        fd = manager_llmnr_ipv6_udp_fd(s->manager);
+                else
+                        fd = manager_mdns_ipv6_fd(s->manager);
+
                 if (fd < 0)
                         return fd;
 
