@@ -129,7 +129,7 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
 
         if (d->fd >= 0) {
 
-                if (d->nr >= 0) {
+                if (d->nr >= 0 && !d->relinquished) {
                         if (ioctl(d->fd, LOOP_CLR_FD) < 0)
                                 log_debug_errno(errno, "Failed to clear loop device: %m");
 
@@ -138,7 +138,7 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
                 safe_close(d->fd);
         }
 
-        if (d->nr >= 0) {
+        if (d->nr >= 0 && !d->relinquished) {
                 _cleanup_close_ int control = -1;
 
                 control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
@@ -154,4 +154,13 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
         free(d);
 
         return NULL;
+}
+
+void loop_device_relinquish(LoopDevice *d) {
+        assert(d);
+
+        /* Don't attempt to clean up the loop device anymore from this point on. Leave the clean-ing up to the kernel
+         * itself, using the loop device "auto-clear" logic we already turned on when creating the device. */
+
+        d->relinquished = true;
 }

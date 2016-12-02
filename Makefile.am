@@ -404,6 +404,11 @@ rootlibexec_PROGRAMS = \
 	systemd-socket-proxyd \
 	systemd-update-done
 
+if HAVE_BLKID
+rootlibexec_PROGRAMS += \
+	systemd-dissect
+endif
+
 if HAVE_UTMP
 rootlibexec_PROGRAMS += \
 	systemd-update-utmp
@@ -3071,6 +3076,13 @@ systemd_notify_SOURCES = \
 	src/notify/notify.c
 
 systemd_notify_LDADD = \
+	libsystemd-shared.la
+
+# ------------------------------------------------------------------------------
+systemd_dissect_SOURCES = \
+	src/dissect/dissect.c
+
+systemd_dissect_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------

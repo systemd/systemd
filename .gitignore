@@ -67,6 +67,7 @@
 /systemd-debug-generator
 /systemd-delta
 /systemd-detect-virt
+/systemd-dissect
 /systemd-escape
 /systemd-export
 /systemd-firstboot
