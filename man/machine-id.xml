@@ -71,13 +71,14 @@
     <para>This machine ID adheres to the same format and logic as the
     D-Bus machine ID.</para>
 
-    <para>This ID uniquely identifies the host. It should be considered "confidential", and must not
-    be exposed in untrusted environments, in particular on the network. If a stable unique
-    identifier that is tied to the machine is needed for some application, the machine ID or any
-    part of it must not be used directly. Instead the machine ID should be hashed with a
-    cryptographic, keyed hash function, using a fixed, application-specific key. That way the ID
-    will be properly unique, and derived in a constant way from the machine ID but there will be no
-    way to retrieve the original machine ID from the application-specific one.</para>
+    <para>This ID uniquely identifies the host. It should be considered "confidential", and must not be exposed in
+    untrusted environments, in particular on the network. If a stable unique identifier that is tied to the machine is
+    needed for some application, the machine ID or any part of it must not be used directly. Instead the machine ID
+    should be hashed with a cryptographic, keyed hash function, using a fixed, application-specific key. That way the
+    ID will be properly unique, and derived in a constant way from the machine ID but there will be no way to retrieve
+    the original machine ID from the application-specific one. The
+    <citerefentry><refentrytitle>sd_id128_get_machine_app_specific</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    API provides an implementation of such an algorithm.</para>
 
     <para>The
     <citerefentry><refentrytitle>systemd-machine-id-setup</refentrytitle><manvolnum>1</manvolnum></citerefentry>

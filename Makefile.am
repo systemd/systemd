@@ -938,7 +938,8 @@ libbasic_la_SOURCES = \
 	src/basic/alloc-util.h \
 	src/basic/alloc-util.c \
 	src/basic/format-util.h \
-	src/basic/nss-util.h
+	src/basic/nss-util.h \
+	src/basic/kcapi-uti.h
 
 nodist_libbasic_la_SOURCES = \
 	src/basic/errno-from-name.h \
@@ -3279,7 +3280,8 @@ libsystemd_internal_la_SOURCES = \
 	src/libsystemd/sd-resolve/sd-resolve.c
 
 libsystemd_internal_la_LIBADD = \
-	-lresolv
+	-lresolv \
+	-lkcapi
 
 noinst_LTLIBRARIES += \
 	libsystemd-internal.la

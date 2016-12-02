@@ -20,6 +20,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <kcapi.h>
 
 #include "sd-id128.h"
 
@@ -27,6 +28,7 @@
 #include "hexdecoct.h"
 #include "id128-util.h"
 #include "io-util.h"
+#include "kcapi-util.h"
 #include "macro.h"
 #include "random-util.h"
 #include "util.h"
@@ -179,5 +181,32 @@ _public_ int sd_id128_randomize(sd_id128_t *ret) {
          * pre-existing ones. */
 
         *ret = make_v4_uuid(t);
+        return 0;
+}
+
+_public_ int sd_id128_get_machine_app_specific(sd_id128_t app_id, sd_id128_t *ret) {
+        _cleanup_(kcapi_md_destroyp) struct kcapi_handle *handle = NULL;
+        sd_id128_t m, p = {};
+        int r;
+
+        assert_return(ret, -EINVAL);
+
+        r = sd_id128_get_machine(&m);
+        if (r < 0)
+                return r;
+
+        r = kcapi_md_init(&handle, "hmac(sha256)", 0);
+        if (r < 0)
+                return r;
+
+        r = kcapi_md_setkey(handle, (void*) &app_id, sizeof app_id);
+        if (r < 0)
+                return r;
+
+        r = kcapi_md_digest(handle, (void*) &m, sizeof m, (void*) &p, sizeof p);
+        if (r < 0)
+                return r;
+
+        *ret = make_v4_uuid(p);
         return 0;
 }

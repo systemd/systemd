@@ -34,6 +34,8 @@
 #define STR_WALDI "0102030405060708090a0b0c0d0e0f10"
 #define UUID_WALDI "01020304-0506-0708-090a-0b0c0d0e0f10"
 
+#define ID128_MIMI SD_ID128_MAKE(01, 02, 03, 04, 05, 06, 07, 08, 09, 0a, 0b, 0c, 0d, 0e, 0f, 11)
+
 int main(int argc, char *argv[]) {
         sd_id128_t id, id2;
         char t[33], q[37];
@@ -152,6 +154,15 @@ int main(int argc, char *argv[]) {
         assert_se(lseek(fd, 0, SEEK_SET) == 0);
         assert_se(id128_read_fd(fd, ID128_UUID, &id2) >= 0);
         assert_se(sd_id128_equal(id, id2));
+
+        assert_se(sd_id128_get_machine_app_specific(ID128_WALDI, &id) >= 0);
+        assert_se(sd_id128_get_machine_app_specific(ID128_WALDI, &id2) >= 0);
+        assert_se(sd_id128_equal(id, id2));
+        assert_se(sd_id128_get_machine_app_specific(ID128_MIMI, &id2) >= 0);
+        assert_se(!sd_id128_equal(id, id2));
+
+        printf("waldi app specific: %s\n", sd_id128_to_string(id, t));
+        printf("mimi app specific: %s\n", sd_id128_to_string(id2, t));
 
         return 0;
 }
