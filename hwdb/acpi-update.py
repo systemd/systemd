@@ -31,7 +31,7 @@ class PNPTableParser(HTMLParser):
             elif self.state == State.AFTER_PNPID:
                 self.state = State.DATE
             else:
-                raise Error("Unexpected field")
+                raise ValueError
 
             self.data = ""
 
@@ -48,7 +48,7 @@ class PNPTableParser(HTMLParser):
             elif self.state == State.DATE:
                 self.state = State.NOWHERE
             else:
-                raise Error("Unexpected field")
+                raise ValueError
 
     def handle_data(self, data):
         self.data += data
