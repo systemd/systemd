@@ -26,7 +26,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import functools
 import glob
 import string
 import sys
@@ -35,7 +34,7 @@ import os
 try:
     from pyparsing import (Word, White, Literal, ParserElement, Regex,
                            LineStart, LineEnd,
-                           ZeroOrMore, OneOrMore, Combine, Or, Optional, Suppress, Group,
+                           OneOrMore, Combine, Or, Optional, Suppress, Group,
                            nums, alphanums, printables,
                            stringEnd, pythonStyleComment, QuotedString,
                            ParseBaseException)
@@ -67,7 +66,7 @@ TYPES = {'mouse':    ('usb', 'bluetooth', 'ps2', '*'),
          'evdev':    ('name', 'atkbd', 'input'),
          'touchpad': ('i8042', 'rmi', 'bluetooth', 'usb'),
          'keyboard': ('name', ),
-         }
+        }
 
 @lru_cache()
 def hwdb_grammar():
@@ -83,7 +82,7 @@ def hwdb_grammar():
 
     group = (OneOrMore(matchline('MATCHES*') ^ COMMENTLINE.suppress()) -
              OneOrMore(propertyline('PROPERTIES*') ^ propertycomment.suppress()) -
-             (EMPTYLINE ^ stringEnd()).suppress() )
+             (EMPTYLINE ^ stringEnd()).suppress())
     commentgroup = OneOrMore(COMMENTLINE).suppress() - EMPTYLINE.suppress()
 
     grammar = OneOrMore(group('GROUPS*') ^ commentgroup) + stringEnd()
@@ -105,18 +104,18 @@ def property_grammar():
              ('POINTINGSTICK_CONST_ACCEL', REAL),
              ('ID_INPUT_TOUCHPAD_INTEGRATION', Or(('internal', 'external'))),
              ('XKB_FIXED_LAYOUT', STRING),
-             ('XKB_FIXED_VARIANT', STRING)
-    )
+             ('XKB_FIXED_VARIANT', STRING),
+            )
     fixed_props = [Literal(name)('NAME') - Suppress('=') - val('VALUE')
                    for name, val in props]
     kbd_props = [Regex(r'KEYBOARD_KEY_[0-9a-f]+')('NAME')
                  - Suppress('=') -
                  ('!' ^ (Optional('!') - Word(alphanums + '_')))('VALUE')
-                 ]
+                ]
     abs_props = [Regex(r'EVDEV_ABS_[0-9a-f]{2}')('NAME')
                  - Suppress('=') -
                  Word(nums + ':')('VALUE')
-                 ]
+                ]
 
     grammar = Or(fixed_props + kbd_props + abs_props)
 
@@ -189,8 +188,7 @@ def print_summary(fname, groups):
           .format(fname,
                   len(groups),
                   sum(len(matches) for matches, props in groups),
-                  sum(len(props) for matches, props in groups),
-          ))
+                  sum(len(props) for matches, props in groups)))
 
 if __name__ == '__main__':
     args = sys.argv[1:] or glob.glob(os.path.dirname(sys.argv[0]) + '/[67]0-*.hwdb')
