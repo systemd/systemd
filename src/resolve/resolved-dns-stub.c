@@ -86,7 +86,7 @@ static int dns_stub_make_reply_packet(
 
                 continue;
         add:
-                r = dns_packet_append_rr(p, rr, NULL, NULL);
+                r = dns_packet_append_rr(p, rr, 0, NULL, NULL);
                 if (r < 0)
                         return r;
 

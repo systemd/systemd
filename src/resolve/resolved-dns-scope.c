@@ -847,11 +847,11 @@ static int dns_scope_make_conflict_packet(
         DNS_PACKET_HEADER(p)->qdcount = htobe16(1);
         DNS_PACKET_HEADER(p)->arcount = htobe16(1);
 
-        r = dns_packet_append_key(p, rr->key, NULL);
+        r = dns_packet_append_key(p, rr->key, 0, NULL);
         if (r < 0)
                 return r;
 
-        r = dns_packet_append_rr(p, rr, NULL, NULL);
+        r = dns_packet_append_rr(p, rr, 0, NULL, NULL);
         if (r < 0)
                 return r;
 
@@ -1086,12 +1086,12 @@ void dns_scope_announce(DnsScope *scope) {
 
         answer = dns_answer_new(4);
         LIST_FOREACH(addresses, a, scope->link->addresses) {
-                r = dns_answer_add(answer, a->mdns_address_rr, 0);
+                r = dns_answer_add(answer, a->mdns_address_rr, 0, DNS_ANSWER_CACHE_FLUSH);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to add address RR to answer: %m");
                         return;
                 }
-                r = dns_answer_add(answer, a->mdns_ptr_rr, 0);
+                r = dns_answer_add(answer, a->mdns_ptr_rr, 0, DNS_ANSWER_CACHE_FLUSH);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to add PTR RR to answer: %m");
                         return;

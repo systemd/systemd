@@ -980,7 +980,7 @@ int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p) {
                         if (!j->shared_owner)
                                 continue;
 
-                        r = dns_packet_append_rr(p, j->rr, NULL, NULL);
+                        r = dns_packet_append_rr(p, j->rr, 0, NULL, NULL);
                         if (r == -EMSGSIZE && p->protocol == DNS_PROTOCOL_MDNS) {
                                 /* For mDNS, if we're unable to stuff all known answers into the given packet,
                                  * allocate a new one, push the RR into that one and link it to the current one.
@@ -995,7 +995,7 @@ int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p) {
 
                                 /* continue with new packet */
                                 p = p->more;
-                                r = dns_packet_append_rr(p, j->rr, NULL, NULL);
+                                r = dns_packet_append_rr(p, j->rr, 0, NULL, NULL);
                         }
 
                         if (r < 0)
