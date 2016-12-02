@@ -1003,15 +1003,20 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         if (r > 0) /* Transaction got restarted... */
                 return;
 
-        if (IN_SET(t->scope->protocol, DNS_PROTOCOL_DNS, DNS_PROTOCOL_LLMNR)) {
+        if (IN_SET(t->scope->protocol, DNS_PROTOCOL_DNS, DNS_PROTOCOL_LLMNR, DNS_PROTOCOL_MDNS)) {
 
-                /* Only consider responses with equivalent query section to the request */
-                r = dns_packet_is_reply_for(p, t->key);
-                if (r < 0)
-                        goto fail;
-                if (r == 0) {
-                        dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
-                        return;
+                /* When dealing with protocols other than mDNS only consider responses with
+                 * equivalent query section to the request. For mDNS this check doesn't make
+                 * sense, because the section 6 of RFC6762 states that "Multicast DNS responses MUST NOT
+                 * contain any questions in the Question Section". */
+                if (t->scope->protocol != DNS_PROTOCOL_MDNS) {
+                        r = dns_packet_is_reply_for(p, t->key);
+                        if (r < 0)
+                                goto fail;
+                        if (r == 0) {
+                                dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
+                                return;
+                        }
                 }
 
                 /* Install the answer as answer to the transaction */
