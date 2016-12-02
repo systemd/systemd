@@ -287,14 +287,21 @@ static int lookup_block_device(const char *p, dev_t *dev) {
 static int whitelist_device(const char *path, const char *node, const char *acc) {
         char buf[2+DECIMAL_STR_MAX(dev_t)*2+2+4];
         struct stat st;
+        bool ignore_notfound;
         int r;
 
         assert(path);
         assert(acc);
 
+        if (node[0] == '-') {
+                /* Non-existent paths starting with "-" must be silently ignored */
+                node++;
+                ignore_notfound = true;
+        } else
+                ignore_notfound = false;
+
         if (stat(node, &st) < 0) {
-                /* path starting with "-" must be silently ignored */
-                if (errno == ENOENT && startswith(node, "-"))
+                if (errno == ENOENT && ignore_notfound)
                         return 0;
 
                 return log_warning_errno(errno, "Couldn't stat device %s: %m", node);
