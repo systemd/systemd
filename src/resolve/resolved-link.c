@@ -85,6 +85,10 @@ Link *link_free(Link *l) {
         if (!l)
                 return NULL;
 
+        /* Send goodbye messages. */
+        dns_scope_announce(l->mdns_ipv4_scope, true);
+        dns_scope_announce(l->mdns_ipv6_scope, true);
+
         link_flush_settings(l);
 
         while (l->addresses)

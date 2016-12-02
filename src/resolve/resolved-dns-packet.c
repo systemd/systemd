@@ -796,6 +796,7 @@ int dns_packet_truncate_opt(DnsPacket *p) {
 int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAnswerFlags flags, size_t *start, size_t *rdata_start) {
 
         size_t saved_size, rdlength_offset, end, rdlength, rds;
+        uint32_t ttl;
         int r;
 
         assert(p);
@@ -807,7 +808,8 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAns
         if (r < 0)
                 goto fail;
 
-        r = dns_packet_append_uint32(p, rr->ttl, NULL);
+        ttl = flags & DNS_ANSWER_GOODBYE ? 0 : rr->ttl;
+        r = dns_packet_append_uint32(p, ttl, NULL);
         if (r < 0)
                 goto fail;
 

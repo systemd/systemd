@@ -1068,11 +1068,11 @@ static int on_announcement_timeout(sd_event_source *s, usec_t usec, void *userda
 
         scope->announce_event_source = sd_event_source_unref(scope->announce_event_source);
 
-        dns_scope_announce(scope);
+        dns_scope_announce(scope, false);
         return 0;
 }
 
-void dns_scope_announce(DnsScope *scope) {
+void dns_scope_announce(DnsScope *scope, bool goodbye) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         LinkAddress *a;
@@ -1086,12 +1086,12 @@ void dns_scope_announce(DnsScope *scope) {
 
         answer = dns_answer_new(4);
         LIST_FOREACH(addresses, a, scope->link->addresses) {
-                r = dns_answer_add(answer, a->mdns_address_rr, 0, DNS_ANSWER_CACHE_FLUSH);
+                r = dns_answer_add(answer, a->mdns_address_rr, 0, goodbye ? DNS_ANSWER_GOODBYE : DNS_ANSWER_CACHE_FLUSH);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to add address RR to answer: %m");
                         return;
                 }
-                r = dns_answer_add(answer, a->mdns_ptr_rr, 0, DNS_ANSWER_CACHE_FLUSH);
+                r = dns_answer_add(answer, a->mdns_ptr_rr, 0, goodbye ? DNS_ANSWER_GOODBYE : DNS_ANSWER_CACHE_FLUSH);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to add PTR RR to answer: %m");
                         return;
