@@ -363,6 +363,9 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
         SET_FOREACH_MOVE(z, t->notify_zone_items_done, t->notify_zone_items)
                 dns_zone_item_notify(z);
         SWAP_TWO(t->notify_zone_items, t->notify_zone_items_done);
+        if (t->probing) {
+                dns_scope_announce(t->scope);
+        }
 
         SET_FOREACH_MOVE(d, t->notify_transactions_done, t->notify_transactions)
                 dns_transaction_notify(d, t);
@@ -1209,7 +1212,10 @@ static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
 
         case DNS_PROTOCOL_MDNS:
                 assert(t->n_attempts > 0);
-                return (1 << (t->n_attempts - 1)) * USEC_PER_SEC;
+                if (t->probing)
+                        return MDNS_PROBING_INTERVAL_USEC;
+                else
+                        return (1 << (t->n_attempts - 1)) * USEC_PER_SEC;
 
         case DNS_PROTOCOL_LLMNR:
                 return t->scope->resend_timeout;

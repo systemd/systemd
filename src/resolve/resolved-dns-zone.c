@@ -196,6 +196,7 @@ static int dns_zone_item_probe_start(DnsZoneItem *i)  {
                 goto gc;
 
         i->probe_transaction = t;
+        t->probing = true;
 
         if (t->state == DNS_TRANSACTION_NULL) {
 
