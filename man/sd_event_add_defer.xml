@@ -153,7 +153,7 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, this functions return 0 or a positive
+    <para>On success, these functions return 0 or a positive
     integer. On failure, they return a negative errno-style error
     code.</para>
   </refsect1>

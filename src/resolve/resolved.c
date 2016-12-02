@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
         sd_event_get_exit_code(m->event, &r);
 
 finish:
-        /* systemd-nspawn checks for private resov.conf to decide whether
+        /* systemd-nspawn checks for private resolv.conf to decide whether
            or not to mount it into the container. So just delete it. */
         (void) unlink(PRIVATE_RESOLV_CONF);
 
