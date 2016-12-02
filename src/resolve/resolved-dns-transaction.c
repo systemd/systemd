@@ -1422,7 +1422,7 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
                 if (r < 0)
                         return r;
 
-                (void) sd_event_source_set_description(t->timeout_event_source, "dns-transaction-timeout");
+                (void) sd_event_source_set_description(other->timeout_event_source, "dns-transaction-timeout");
 
                 other->state = DNS_TRANSACTION_PENDING;
                 other->next_attempt_after = ts;
