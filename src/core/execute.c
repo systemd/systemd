@@ -2196,6 +2196,44 @@ static int apply_working_directory(const ExecContext *context,
         return 0;
 }
 
+static int setup_keyring(Unit *u, const ExecParameters *p, uid_t uid, gid_t gid) {
+        key_serial_t keyring;
+
+        assert(u);
+        assert(p);
+
+        /* Let's set up a new per-service "session" kernel keyring for each system service. This has the benefit that
+         * each service runs with its own keyring shared among all processes of the service, but with no hook-up beyond
+         * that scope, and in particular no link to the per-UID keyring. If we don't do this the keyring will be
+         * automatically created on-demand and then linked to the per-UID keyring, by the kernel. The kernel's built-in
+         * on-demand behaviour is very appropriate for login users, but probably not so much for system services, where
+         * UIDs are not necessarily specific to a service but reused (at least in the case of UID 0). */
+
+        if (!(p->flags & EXEC_NEW_KEYRING))
+                return 0;
+
+        keyring = keyctl(KEYCTL_JOIN_SESSION_KEYRING, 0, 0, 0, 0);
+        if (keyring == -1) {
+                if (errno == ENOSYS)
+                        log_debug_errno(errno, "Kernel keyring not supported, ignoring.");
+                else if (IN_SET(errno, EACCES, EPERM))
+                        log_debug_errno(errno, "Kernel keyring access prohibited, ignoring.");
+                else if (errno == EDQUOT)
+                        log_debug_errno(errno, "Out of kernel keyrings to allocate, ignoring.");
+                else
+                        return log_error_errno(errno, "Setting up kernel keyring failed: %m");
+
+                return 0;
+        }
+
+        /* And now, make the keyring owned by the service's user */
+        if (uid_is_valid(uid) || gid_is_valid(gid))
+                if (keyctl(KEYCTL_CHOWN, keyring, uid, gid, 0) < 0)
+                        return log_error_errno(errno, "Failed to change ownership of session keyring: %m");
+
+        return 0;
+}
+
 static void append_socket_pair(int *array, unsigned *n, int pair[2]) {
         assert(array);
         assert(n);
@@ -2637,6 +2675,12 @@ static int exec_child(
         accum_env = strv_env_clean(accum_env);
 
         (void) umask(context->umask);
+
+        r = setup_keyring(unit, params, uid, gid);
+        if (r < 0) {
+                *exit_status = EXIT_KEYRING;
+                return r;
+        }
 
         if ((params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged) {
                 if (context->pam_name && username) {

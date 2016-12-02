@@ -228,12 +228,13 @@ typedef enum ExecFlags {
         EXEC_APPLY_PERMISSIONS = 1U << 0,
         EXEC_APPLY_CHROOT      = 1U << 1,
         EXEC_APPLY_TTY_STDIN   = 1U << 2,
+        EXEC_NEW_KEYRING       = 1U << 3,
 
         /* The following are not used by execute.c, but by consumers internally */
-        EXEC_PASS_FDS          = 1U << 3,
-        EXEC_IS_CONTROL        = 1U << 4,
-        EXEC_SETENV_RESULT     = 1U << 5,
-        EXEC_SET_WATCHDOG      = 1U << 6,
+        EXEC_PASS_FDS          = 1U << 4,
+        EXEC_IS_CONTROL        = 1U << 5,
+        EXEC_SETENV_RESULT     = 1U << 6,
+        EXEC_SET_WATCHDOG      = 1U << 7,
 } ExecFlags;
 
 struct ExecParameters {

@@ -1344,6 +1344,7 @@ static int service_spawn(
         } else
                 path = UNIT(s)->cgroup_path;
 
+        exec_params.flags |= MANAGER_IS_SYSTEM(UNIT(s)->manager) ? EXEC_NEW_KEYRING : 0;
         exec_params.argv = c->argv;
         exec_params.environment = final_env;
         exec_params.fds = fds;
