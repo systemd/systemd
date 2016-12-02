@@ -116,8 +116,9 @@
       current gateway, useful for referencing it independently of the
       current network configuration state.</para></listitem>
 
-      <listitem><para>The mappings defined in <filename>/etc/hosts</filename> are resolved to their configured
-      addresses and back.</para></listitem>
+      <listitem><para>The mappings defined in <filename>/etc/hosts</filename> are resolved
+      to their configured addresses and back, but they will not affect lookups for
+      non-address types (like MX).</para></listitem>
     </itemizedlist>
 
     <para>Lookup requests are routed to the available DNS servers
