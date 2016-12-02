@@ -144,7 +144,7 @@ static int cache_space_refresh(Server *s, JournalStorage *storage) {
 
         ts = now(CLOCK_MONOTONIC);
 
-        if (space->timestamp + RECHECK_SPACE_USEC > ts)
+        if (space->timestamp != 0 && space->timestamp + RECHECK_SPACE_USEC > ts)
                 return 0;
 
         r = determine_path_usage(s, storage->path, &vfs_used, &vfs_avail);
