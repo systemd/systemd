@@ -403,6 +403,20 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
                 return -EINVAL;
         }
 
+        if (netdev->kind == NETDEV_KIND_VTI &&
+            (t->family != AF_INET || in_addr_is_null(t->family, &t->local))) {
+                log_netdev_error(netdev,
+                                 "vti tunnel without a local IPv4 address configured in %s. Ignoring", filename);
+                return -EINVAL;
+        }
+
+        if (netdev->kind == NETDEV_KIND_VTI6 &&
+            (t->family != AF_INET6 || in_addr_is_null(t->family, &t->local))) {
+                log_netdev_error(netdev,
+                                 "vti6 tunnel without a local IPv4 address configured in %s. Ignoring", filename);
+                return -EINVAL;
+        }
+
         if (netdev->kind == NETDEV_KIND_IP6TNL &&
             t->ip6tnl_mode == _NETDEV_IP6_TNL_MODE_INVALID) {
                 log_netdev_error(netdev,
