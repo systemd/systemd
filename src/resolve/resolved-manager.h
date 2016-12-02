@@ -113,6 +113,8 @@ struct Manager {
         char *mdns_hostname;
         DnsResourceKey *llmnr_host_ipv4_key;
         DnsResourceKey *llmnr_host_ipv6_key;
+        DnsResourceKey *mdns_host_ipv4_key;
+        DnsResourceKey *mdns_host_ipv6_key;
 
         /* Watch the system hostname */
         int hostname_fd;
