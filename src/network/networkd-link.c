@@ -2523,6 +2523,9 @@ static int link_initialized_and_synced(sd_netlink *rtnl, sd_netlink_message *m,
                 if (r == -ENOENT) {
                         link_enter_unmanaged(link);
                         return 1;
+                } else if (r == 0 && network->unmanaged) {
+                        link_enter_unmanaged(link);
+                        return 0;
                 } else if (r < 0)
                         return r;
 

@@ -176,6 +176,7 @@ struct Network {
         struct ether_addr *mac;
         size_t mtu;
         int arp;
+        bool unmanaged;
         uint32_t iaid;
         DUID duid;
 

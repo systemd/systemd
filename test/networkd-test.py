@@ -30,6 +30,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
+import errno
 import os
 import sys
 import time
@@ -39,16 +40,101 @@ import subprocess
 import shutil
 import socket
 
-networkd_active = subprocess.call(['systemctl', 'is-active', '--quiet',
-                                   'systemd-networkd']) == 0
-have_dnsmasq = shutil.which('dnsmasq')
+HAVE_DNSMASQ = shutil.which('dnsmasq') is not None
+
+NETWORK_UNITDIR = '/run/systemd/network'
+
+NETWORKD_WAIT_ONLINE = shutil.which('systemd-networkd-wait-online',
+                                    path='/usr/lib/systemd:/lib/systemd')
 
 RESOLV_CONF = '/run/systemd/resolve/resolv.conf'
 
 
-@unittest.skipIf(networkd_active,
-                 'networkd is already active')
-class ClientTestBase:
+def setUpModule():
+    """Initialize the environment, and perform sanity checks on it."""
+    if NETWORKD_WAIT_ONLINE is None:
+        raise OSError(errno.ENOENT, 'systemd-networkd-wait-online not found')
+
+    # Do not run any tests if the system is using networkd already.
+    if subprocess.call(['systemctl', 'is-active', '--quiet',
+                        'systemd-networkd.service']) == 0:
+        raise unittest.SkipTest('networkd is already active')
+
+    # Avoid "Failed to open /dev/tty" errors in containers.
+    os.environ['SYSTEMD_LOG_TARGET'] = 'journal'
+
+    # Ensure the unit directory exists so tests can dump files into it.
+    os.makedirs(NETWORK_UNITDIR, exist_ok=True)
+
+
+class NetworkdTestingUtilities:
+    """Provide a set of utility functions to facilitate networkd tests.
+
+    This class must be inherited along with unittest.TestCase to define
+    some required methods.
+    """
+
+    def write_network(self, unit_name, contents):
+        """Write a network unit file, and queue it to be removed."""
+        unit_path = os.path.join(NETWORK_UNITDIR, unit_name)
+
+        with open(unit_path, 'w') as unit:
+            unit.write(contents)
+        self.addCleanup(os.remove, unit_path)
+
+    def write_network_dropin(self, unit_name, dropin_name, contents):
+        """Write a network unit drop-in, and queue it to be removed."""
+        dropin_dir = os.path.join(NETWORK_UNITDIR, "%s.d" % unit_name)
+        dropin_path = os.path.join(dropin_dir, "%s.conf" % dropin_name)
+
+        os.makedirs(dropin_dir, exist_ok=True)
+        with open(dropin_path, 'w') as dropin:
+            dropin.write(contents)
+        self.addCleanup(os.remove, dropin_path)
+
+    def assert_link_states(self, **kwargs):
+        """Match networkctl link states to the given ones.
+
+        Each keyword argument should be the name of a network interface
+        with its expected value of the "SETUP" column in output from
+        networkctl.  The interfaces have five seconds to come online
+        before the check is performed.  Every specified interface must
+        be present in the output, and any other interfaces found in the
+        output are ignored.
+
+        A special interface state "managed" is supported, which matches
+        any value in the "SETUP" column other than "unmanaged".
+        """
+        if not kwargs:
+            return
+        interfaces = set(kwargs)
+
+        # Wait for the requested interfaces, but don't fail for them.
+        subprocess.call([NETWORKD_WAIT_ONLINE, '--timeout=5'] +
+                        ['--interface=%s' % iface for iface in kwargs])
+
+        # Validate each link state found in the networkctl output.
+        out = subprocess.check_output(['networkctl', '--no-legend']).rstrip()
+        for line in out.decode('utf-8').split('\n'):
+            fields = line.split()
+            if len(fields) >= 5 and fields[1] in kwargs:
+                iface = fields[1]
+                expected = kwargs[iface]
+                actual = fields[-1]
+                if (actual != expected and
+                        not (expected == 'managed' and actual != 'unmanaged')):
+                    self.fail("Link %s expects state %s, found %s" %
+                              (iface, expected, actual))
+                interfaces.remove(iface)
+
+        # Ensure that all requested interfaces have been covered.
+        if interfaces:
+            self.fail("Missing links in status output: %s" % interfaces)
+
+
+class ClientTestBase(NetworkdTestingUtilities):
+    """Provide common methods for testing networkd against servers."""
+
     @classmethod
     def setUpClass(klass):
         klass.orig_log_level = subprocess.check_output(
@@ -65,19 +151,7 @@ class ClientTestBase:
         self.if_router = 'router_eth42'
         self.workdir_obj = tempfile.TemporaryDirectory()
         self.workdir = self.workdir_obj.name
-        self.config = '/run/systemd/network/test_eth42.network'
-
-        # avoid "Failed to open /dev/tty" errors in containers
-        os.environ['SYSTEMD_LOG_TARGET'] = 'journal'
-
-        # determine path to systemd-networkd-wait-online
-        for p in ['/usr/lib/systemd/systemd-networkd-wait-online',
-                  '/lib/systemd/systemd-networkd-wait-online']:
-            if os.path.exists(p):
-                self.networkd_wait_online = p
-                break
-        else:
-            self.fail('systemd-networkd-wait-online not found')
+        self.config = 'test_eth42.network'
 
         # get current journal cursor
         subprocess.check_output(['journalctl', '--sync'])
@@ -92,12 +166,6 @@ class ClientTestBase:
         subprocess.call(['systemctl', 'stop', 'systemd-networkd'])
         subprocess.call(['ip', 'link', 'del', 'dummy0'],
                         stderr=subprocess.DEVNULL)
-
-    def writeConfig(self, fname, contents):
-        os.makedirs(os.path.dirname(fname), exist_ok=True)
-        with open(fname, 'w') as f:
-            f.write(contents)
-        self.addCleanup(os.remove, fname)
 
     def show_journal(self, unit):
         '''Show journal of given unit since start of the test'''
@@ -126,7 +194,7 @@ class ClientTestBase:
     def do_test(self, coldplug=True, ipv6=False, extra_opts='',
                 online_timeout=10, dhcp_mode='yes'):
         subprocess.check_call(['systemctl', 'start', 'systemd-resolved'])
-        self.writeConfig(self.config, '''\
+        self.write_network(self.config, '''\
 [Match]
 Name=%s
 [Network]
@@ -146,7 +214,7 @@ DHCP=%s
             subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
 
         try:
-            subprocess.check_call([self.networkd_wait_online, '--interface',
+            subprocess.check_call([NETWORKD_WAIT_ONLINE, '--interface',
                                    self.iface, '--timeout=%i' % online_timeout])
 
             if ipv6:
@@ -192,7 +260,7 @@ DHCP=%s
             self.assertRegex(out, br'DNS:\s+192.168.5.1')
         except (AssertionError, subprocess.CalledProcessError):
             # show networkd status, journal, and DHCP server log on failure
-            with open(self.config) as f:
+            with open(os.path.join(NETWORK_UNITDIR, self.config)) as f:
                 print('\n---- %s ----\n%s' % (self.config, f.read()))
             print('---- interface status ----')
             sys.stdout.flush()
@@ -247,12 +315,12 @@ DHCP=%s
         self.do_test(coldplug=False, ipv6=True)
 
     def test_route_only_dns(self):
-        self.writeConfig('/run/systemd/network/myvpn.netdev', '''\
+        self.write_network('myvpn.netdev', '''\
 [NetDev]
 Name=dummy0
 Kind=dummy
 MACAddress=12:34:56:78:9a:bc''')
-        self.writeConfig('/run/systemd/network/myvpn.network', '''\
+        self.write_network('myvpn.network', '''\
 [Match]
 Name=dummy0
 [Network]
@@ -273,20 +341,16 @@ Domains= ~company''')
             self.assertNotIn('nameserver 192.168.42.1\n', contents)
 
     def test_route_only_dns_all_domains(self):
-        with open('/run/systemd/network/myvpn.netdev', 'w') as f:
-            f.write('''[NetDev]
+        self.write_network('myvpn.netdev', '''[NetDev]
 Name=dummy0
 Kind=dummy
 MACAddress=12:34:56:78:9a:bc''')
-        with open('/run/systemd/network/myvpn.network', 'w') as f:
-            f.write('''[Match]
+        self.write_network('myvpn.network', '''[Match]
 Name=dummy0
 [Network]
 Address=192.168.42.100
 DNS=192.168.42.1
 Domains= ~company ~.''')
-        self.addCleanup(os.remove, '/run/systemd/network/myvpn.netdev')
-        self.addCleanup(os.remove, '/run/systemd/network/myvpn.network')
 
         self.do_test(coldplug=True, ipv6=False,
                      extra_opts='IPv6AcceptRouterAdvertisements=False')
@@ -303,7 +367,7 @@ Domains= ~company ~.''')
         self.assertIn('nameserver 192.168.42.1\n', contents)
 
 
-@unittest.skipUnless(have_dnsmasq, 'dnsmasq not installed')
+@unittest.skipUnless(HAVE_DNSMASQ, 'dnsmasq not installed')
 class DnsmasqClientTest(ClientTestBase, unittest.TestCase):
     '''Test networkd client against dnsmasq'''
 
@@ -366,7 +430,7 @@ class DnsmasqClientTest(ClientTestBase, unittest.TestCase):
         # create interface for generic connections; this will map all DNS names
         # to 192.168.42.1
         self.create_iface(dnsmasq_opts=['--address=/#/192.168.42.1'])
-        self.writeConfig('/run/systemd/network/general.network', '''\
+        self.write_network('general.network', '''\
 [Match]
 Name=%s
 [Network]
@@ -392,7 +456,7 @@ IPv6AcceptRA=False''' % self.iface)
         self.addCleanup(vpn_dnsmasq.wait)
         self.addCleanup(vpn_dnsmasq.kill)
 
-        self.writeConfig('/run/systemd/network/vpn.network', '''\
+        self.write_network('vpn.network', '''\
 [Match]
 Name=testvpnclient
 [Network]
@@ -402,7 +466,7 @@ DNS=10.241.3.1
 Domains= ~company ~lab''')
 
         subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
-        subprocess.check_call([self.networkd_wait_online, '--interface', self.iface,
+        subprocess.check_call([NETWORKD_WAIT_ONLINE, '--interface', self.iface,
                                '--interface=testvpnclient', '--timeout=20'])
 
         # ensure we start fresh with every test
@@ -592,12 +656,12 @@ exec $(systemctl cat systemd-networkd.service | sed -n '/^ExecStart=/ { s/^.*=//
         # we don't use this interface for this test
         self.if_router = None
 
-        self.writeConfig('/run/systemd/network/test.netdev', '''\
+        self.write_network('test.netdev', '''\
 [NetDev]
 Name=dummy0
 Kind=dummy
 MACAddress=12:34:56:78:9a:bc''')
-        self.writeConfig('/run/systemd/network/test.network', '''\
+        self.write_network('test.network', '''\
 [Match]
 Name=dummy0
 [Network]
@@ -624,12 +688,12 @@ Domains= one two three four five six seven eight nine ten''')
 
         name_prefix = 'a' * 60
 
-        self.writeConfig('/run/systemd/network/test.netdev', '''\
+        self.write_network('test.netdev', '''\
 [NetDev]
 Name=dummy0
 Kind=dummy
 MACAddress=12:34:56:78:9a:bc''')
-        self.writeConfig('/run/systemd/network/test.network', '''\
+        self.write_network('test.network', '''\
 [Match]
 Name=dummy0
 [Network]
@@ -652,18 +716,18 @@ Domains={p}0 {p}1 {p}2 {p}3 {p}4'''.format(p=name_prefix))
         # we don't use this interface for this test
         self.if_router = None
 
-        self.writeConfig('/run/systemd/network/test.netdev', '''\
+        self.write_network('test.netdev', '''\
 [NetDev]
 Name=dummy0
 Kind=dummy
 MACAddress=12:34:56:78:9a:bc''')
-        self.writeConfig('/run/systemd/network/test.network', '''\
+        self.write_network('test.network', '''\
 [Match]
 Name=dummy0
 [Network]
 Address=192.168.42.100
 DNS=192.168.42.1''')
-        self.writeConfig('/run/systemd/network/test.network.d/dns.conf', '''\
+        self.write_network_dropin('test.network', 'dns', '''\
 [Network]
 DNS=127.0.0.1''')
 
@@ -702,6 +766,83 @@ DNS=127.0.0.1''')
             self.show_journal('systemd-networkd.service')
             self.show_journal('systemd-hostnamed.service')
             raise
+
+
+class UnmanagedClientTest(unittest.TestCase, NetworkdTestingUtilities):
+    """Test if networkd manages the correct interfaces."""
+
+    def setUp(self):
+        """Write .network files to match the named veth devices."""
+        # Define the veth+peer pairs to be created.
+        # Their pairing doesn't actually matter, only their names do.
+        self.veths = {
+            'm1def': 'm0unm',
+            'm1man': 'm1unm',
+        }
+
+        # Define the contents of .network files to be read in order.
+        self.configs = (
+            "[Match]\nName=m1def\n",
+            "[Match]\nName=m1unm\n[Link]\nUnmanaged=yes\n",
+            "[Match]\nName=m1*\n[Link]\nUnmanaged=no\n",
+        )
+
+        # Write out the .network files to be cleaned up automatically.
+        for i, config in enumerate(self.configs):
+            self.write_network("%02d-test.network" % i, config)
+
+    def tearDown(self):
+        """Stop networkd."""
+        subprocess.call(['systemctl', 'stop', 'systemd-networkd'])
+
+    def create_iface(self):
+        """Create temporary veth pairs for interface matching."""
+        for veth, peer in self.veths.items():
+            subprocess.check_call(['ip', 'link', 'add',
+                                   'name', veth, 'type', 'veth',
+                                   'peer', 'name', peer])
+            self.addCleanup(subprocess.call,
+                            ['ip', 'link', 'del', 'dev', peer])
+
+    def test_unmanaged_setting(self):
+        """Verify link states with Unmanaged= settings, hot-plug."""
+        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        self.create_iface()
+        self.assert_link_states(m1def='managed',
+                                m1man='managed',
+                                m1unm='unmanaged',
+                                m0unm='unmanaged')
+
+    def test_unmanaged_setting_coldplug(self):
+        """Verify link states with Unmanaged= settings, cold-plug."""
+        self.create_iface()
+        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        self.assert_link_states(m1def='managed',
+                                m1man='managed',
+                                m1unm='unmanaged',
+                                m0unm='unmanaged')
+
+    def test_catchall_config(self):
+        """Verify link states with a catch-all config, hot-plug."""
+        # Don't actually catch ALL interfaces.  It messes up the host.
+        self.write_network('all.network', "[Match]\nName=m[01]???\n")
+        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        self.create_iface()
+        self.assert_link_states(m1def='managed',
+                                m1man='managed',
+                                m1unm='unmanaged',
+                                m0unm='managed')
+
+    def test_catchall_config_coldplug(self):
+        """Verify link states with a catch-all config, cold-plug."""
+        # Don't actually catch ALL interfaces.  It messes up the host.
+        self.write_network('all.network', "[Match]\nName=m[01]???\n")
+        self.create_iface()
+        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        self.assert_link_states(m1def='managed',
+                                m1man='managed',
+                                m1unm='unmanaged',
+                                m0unm='managed')
 
 
 if __name__ == '__main__':
