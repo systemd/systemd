@@ -579,15 +579,9 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
         else if (streq(field, "MountFlags")) {
                 unsigned long f;
 
-                if (isempty(eq))
-                        f = 0;
-                else {
-                        f = mount_propagation_flags_from_string(eq);
-                        if (f == 0) {
-                                log_error("Failed to parse mount propagation type: %s", eq);
-                                return -EINVAL;
-                        }
-                }
+                r = mount_propagation_flags_from_string(eq, &f);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse mount propagation flags: %s", eq);
 
                 r = sd_bus_message_append(m, "v", "t", f);
         } else if (STR_IN_SET(field, "BindPaths", "BindReadOnlyPaths")) {

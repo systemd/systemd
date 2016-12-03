@@ -1278,25 +1278,17 @@ int config_parse_exec_mount_flags(
                 void *userdata) {
 
 
-        unsigned long flags;
         ExecContext *c = data;
+        int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if (isempty(rvalue))
-                flags = 0;
-        else {
-                flags = mount_propagation_flags_from_string(rvalue);
-                if (flags == 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse mount flag %s, ignoring.", rvalue);
-                        return 0;
-                }
-        }
-
-        c->mount_flags = flags;
+        r = mount_propagation_flags_from_string(rvalue, &c->mount_flags);
+        if (r < 0)
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse mount flag %s, ignoring.", rvalue);
 
         return 0;
 }

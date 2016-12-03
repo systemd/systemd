@@ -23,23 +23,35 @@
 #include "mount-util.h"
 #include "string-util.h"
 
-static void test_mount_propagation_flags(const char *name, unsigned long f) {
-        assert(mount_propagation_flags_from_string(name) == f);
+static void test_mount_propagation_flags(const char *name, int ret, unsigned long expected) {
+        long unsigned flags;
 
-        if (f != 0)
-                assert_se(streq_ptr(mount_propagation_flags_to_string(f), name));
+        assert(mount_propagation_flags_from_string(name, &flags) == ret);
+
+        if (ret >= 0) {
+                const char *c;
+
+                assert_se(flags == expected);
+
+                c = mount_propagation_flags_to_string(flags);
+                if (isempty(name))
+                        assert_se(isempty(c));
+                else
+                        assert_se(streq(c, name));
+        }
 }
 
 int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
 
-        test_mount_propagation_flags("shared", MS_SHARED);
-        test_mount_propagation_flags("slave", MS_SLAVE);
-        test_mount_propagation_flags("private", MS_PRIVATE);
-        test_mount_propagation_flags(NULL, 0);
-        test_mount_propagation_flags("", 0);
-        test_mount_propagation_flags("xxxx", 0);
+        test_mount_propagation_flags("shared", 0, MS_SHARED);
+        test_mount_propagation_flags("slave", 0, MS_SLAVE);
+        test_mount_propagation_flags("private", 0, MS_PRIVATE);
+        test_mount_propagation_flags(NULL, 0, 0);
+        test_mount_propagation_flags("", 0, 0);
+        test_mount_propagation_flags("xxxx", -EINVAL, 0);
+        test_mount_propagation_flags(" ", -EINVAL, 0);
 
         return 0;
 }

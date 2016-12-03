@@ -1671,7 +1671,7 @@ int bus_exec_context_set_transient_property(
                 if (mode != UNIT_CHECK) {
                         c->mount_flags = flags;
 
-                        unit_write_drop_in_private_format(u, mode, name, "%s=%s", name, strempty(mount_propagation_flags_to_string(flags)));
+                        unit_write_drop_in_private_format(u, mode, name, "%s=%s", name, mount_propagation_flags_to_string(flags));
                 }
 
                 return 1;
