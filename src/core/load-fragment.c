@@ -579,7 +579,9 @@ int config_parse_exec(
                 void *userdata) {
 
         ExecCommand **e = data;
+        Unit *u = userdata;
         const char *p;
+        char *expanded;
         bool semicolon;
         int r;
 
@@ -597,7 +599,13 @@ int config_parse_exec(
                 return 0;
         }
 
-        p = rvalue;
+        r = unit_full_printf(u, rvalue, &expanded);
+        if (r < 0) {
+          log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to expand path, ignoring: \"%s\"", rvalue);
+          return 0;
+        }
+        p = expanded;
+
         do {
                 _cleanup_free_ char *path = NULL, *firstword = NULL;
                 bool separate_argv0 = false, ignore = false, privileged = false;
