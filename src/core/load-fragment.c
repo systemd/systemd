@@ -581,7 +581,6 @@ int config_parse_exec(
         ExecCommand **e = data;
         Unit *u = userdata;
         const char *p;
-        char *expanded;
         bool semicolon;
         int r;
 
@@ -634,10 +633,9 @@ int config_parse_exec(
                         f++;
                 }
 
-                log_syntax(unit, LOG_ERR, filename, line, 0, "firstword: \"%s\"", f);
                 r = unit_full_printf(u, f, &f);
                 if (r < 0) {
-                  log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to expand path, ignoring: \"%s\"", rvalue);
+                  log_syntax(unit, LOG_ERR, filename, line, 0, "Executable path failed to expand, ignoring: \"%s\"", rvalue);
                   return 0;
                 }
                 if (isempty(f)) {
@@ -729,7 +727,6 @@ int config_parse_exec(
                 if (!nce)
                         return log_oom();
 
-                log_syntax(unit, LOG_ERR, filename, line, 0, "path of command: %s", path);
                 nce->argv = n;
                 nce->path = path;
                 nce->ignore = ignore;
