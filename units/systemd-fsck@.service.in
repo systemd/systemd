@@ -16,5 +16,5 @@ Before=systemd-quotacheck.service shutdown.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-fsck %f
+ExecStart=@rootlibexecdir@/systemd-fsck %F
 TimeoutSec=0
