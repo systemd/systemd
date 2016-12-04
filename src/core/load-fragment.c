@@ -599,12 +599,7 @@ int config_parse_exec(
                 return 0;
         }
 
-        r = unit_full_printf(u, rvalue, &expanded);
-        if (r < 0) {
-          log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to expand path, ignoring: \"%s\"", rvalue);
-          return 0;
-        }
-        p = expanded;
+        p = rvalue;
 
         do {
                 _cleanup_free_ char *path = NULL, *firstword = NULL;
@@ -639,6 +634,12 @@ int config_parse_exec(
                         f++;
                 }
 
+                log_syntax(unit, LOG_ERR, filename, line, 0, "firstword: \"%s\"", f);
+                r = unit_full_printf(u, f, &f);
+                if (r < 0) {
+                  log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to expand path, ignoring: \"%s\"", rvalue);
+                  return 0;
+                }
                 if (isempty(f)) {
                         /* First word is either "-" or "@" with no command. */
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Empty path in command line, ignoring: \"%s\"", rvalue);
@@ -728,6 +729,7 @@ int config_parse_exec(
                 if (!nce)
                         return log_oom();
 
+                log_syntax(unit, LOG_ERR, filename, line, 0, "path of command: %s", path);
                 nce->argv = n;
                 nce->path = path;
                 nce->ignore = ignore;
