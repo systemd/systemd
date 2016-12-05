@@ -2365,7 +2365,7 @@ static int outer_child(
                 return r;
 
         if (dissected_image) {
-                r = dissected_image_mount(dissected_image, directory, DISSECTED_IMAGE_DISCARD_ON_LOOP|(arg_read_only ? DISSECTED_IMAGE_READ_ONLY : 0));
+                r = dissected_image_mount(dissected_image, directory, DISSECT_IMAGE_DISCARD_ON_LOOP|(arg_read_only ? DISSECT_IMAGE_READ_ONLY : 0));
                 if (r < 0)
                         return r;
         }
@@ -3410,8 +3410,9 @@ int main(int argc, char *argv[]) {
         _cleanup_release_lock_file_ LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
         bool interactive, veth_created = false, remove_tmprootdir = false;
         char tmprootdir[] = "/tmp/nspawn-root-XXXXXX";
-        _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
+        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
+        _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
 
         log_parse_environment();
         log_open();
@@ -3651,6 +3652,10 @@ int main(int argc, char *argv[]) {
                         log_error_errno(r, "Failed to dissect image: %m");
                         goto finish;
                 }
+
+                r = dissected_image_decrypt_interactively(dissected_image, NULL, 0, &decrypted_image);
+                if (r < 0)
+                        goto finish;
 
                 /* Now that we mounted the image, let's try to remove it again, if it is ephemeral */
                 if (remove_image && unlink(arg_image) >= 0)

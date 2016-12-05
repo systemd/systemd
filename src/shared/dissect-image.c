@@ -17,18 +17,72 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#ifdef HAVE_LIBCRYPTSETUP
+#include <libcryptsetup.h>
+#endif
+#include <linux/dm-ioctl.h>
 #include <sys/mount.h>
 
 #include "architecture.h"
+#include "ask-password-api.h"
 #include "blkid-util.h"
 #include "dissect-image.h"
+#include "fd-util.h"
 #include "gpt.h"
 #include "mount-util.h"
 #include "path-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "udev-util.h"
+
+static int probe_filesystem(const char *node, char **ret_fstype) {
+#ifdef HAVE_BLKID
+        _cleanup_blkid_free_probe_ blkid_probe b = NULL;
+        const char *fstype;
+        int r;
+
+        b = blkid_new_probe_from_filename(node);
+        if (!b)
+                return -ENOMEM;
+
+        blkid_probe_enable_superblocks(b, 1);
+        blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
+
+        errno = 0;
+        r = blkid_do_safeprobe(b);
+        if (r == -2 || r == 1) {
+                log_debug("Failed to identify any partition type on partition %s", node);
+                goto not_found;
+        }
+        if (r != 0) {
+                if (errno == 0)
+                        return -EIO;
+
+                return -errno;
+        }
+
+        (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
+
+        if (fstype) {
+                char *t;
+
+                t = strdup(fstype);
+                if (!t)
+                        return -ENOMEM;
+
+                *ret_fstype = t;
+                return 1;
+        }
+
+not_found:
+        *ret_fstype = NULL;
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
 
 int dissect_image(int fd, DissectedImage **ret) {
 
@@ -96,7 +150,7 @@ int dissect_image(int fd, DissectedImage **ret) {
                 return -ENOMEM;
 
         (void) blkid_probe_lookup_value(b, "USAGE", &usage, NULL);
-        if (streq_ptr(usage, "filesystem")) {
+        if (STRPTR_IN_SET(usage, "filesystem", "crypto")) {
                 _cleanup_free_ char *t = NULL, *n = NULL;
                 const char *fstype = NULL;
 
@@ -122,6 +176,8 @@ int dissect_image(int fd, DissectedImage **ret) {
                 };
 
                 t = n = NULL;
+
+                m->encrypted = streq(fstype, "crypto_LUKS");
 
                 *ret = m;
                 m = NULL;
@@ -385,52 +441,24 @@ int dissect_image(int fd, DissectedImage **ret) {
                         return -ENXIO;
         }
 
+        blkid_free_probe(b);
+        b = NULL;
+
         /* Fill in file system types if we don't know them yet. */
         for (i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
-                const char *fstype;
+                DissectedPartition *p = m->partitions + i;
 
-                if (!m->partitions[i].found) /* not found? */
+                if (!p->found)
                         continue;
 
-                if (m->partitions[i].fstype) /* already know the type? */
-                        continue;
-
-                if (!m->partitions[i].node) /* have no device node for? */
-                        continue;
-
-                if (b)
-                        blkid_free_probe(b);
-
-                b = blkid_new_probe_from_filename(m->partitions[i].node);
-                if (!b)
-                        return -ENOMEM;
-
-                blkid_probe_enable_superblocks(b, 1);
-                blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
-
-                errno = 0;
-                r = blkid_do_safeprobe(b);
-                if (r == -2 || r == 1) {
-                        log_debug("Failed to identify any partition type on partition %i", m->partitions[i].partno);
-                        continue;
-                }
-                if (r != 0) {
-                        if (errno == 0)
-                                return -EIO;
-
-                        return -errno;
+                if (!p->fstype && p->node) {
+                        r = probe_filesystem(p->node, &p->fstype);
+                        if (r < 0)
+                                return r;
                 }
 
-                (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
-                if (fstype) {
-                        char *t;
-
-                        t = strdup(fstype);
-                        if (!t)
-                                return -ENOMEM;
-
-                        m->partitions[i].fstype = t;
-                }
+                if (streq_ptr(p->fstype, "crypto_LUKS"))
+                        m->encrypted = true;
         }
 
         *ret = m;
@@ -451,48 +479,79 @@ DissectedImage* dissected_image_unref(DissectedImage *m) {
         for (i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
                 free(m->partitions[i].fstype);
                 free(m->partitions[i].node);
+                free(m->partitions[i].decrypted_fstype);
+                free(m->partitions[i].decrypted_node);
         }
 
         free(m);
         return NULL;
 }
 
-static int mount_partition(DissectedPartition *m, const char *where, const char *directory, DissectedImageMountFlags flags) {
-        const char *p, *options = NULL;
+static int is_loop_device(const char *path) {
+        char s[strlen("/sys/dev/block/") + DECIMAL_STR_MAX(dev_t) + 1 + DECIMAL_STR_MAX(dev_t) + strlen("/../loop/")];
+        struct stat st;
+
+        assert(path);
+
+        if (stat(path, &st) < 0)
+                return -errno;
+
+        if (!S_ISBLK(st.st_mode))
+                return -ENOTBLK;
+
+        xsprintf(s, "/sys/dev/block/%u:%u/loop/", major(st.st_rdev), minor(st.st_rdev));
+        if (access(s, F_OK) < 0) {
+                if (errno != ENOENT)
+                        return -errno;
+
+                /* The device itself isn't a loop device, but maybe it's a partition and its parent is? */
+                xsprintf(s, "/sys/dev/block/%u:%u/../loop/", major(st.st_rdev), minor(st.st_rdev));
+                if (access(s, F_OK) < 0)
+                        return errno == ENOENT ? false : -errno;
+        }
+
+        return true;
+}
+
+static int mount_partition(
+                DissectedPartition *m,
+                const char *where,
+                const char *directory,
+                DissectImageFlags flags) {
+
+        const char *p, *options = NULL, *node, *fstype;
         bool rw;
 
         assert(m);
         assert(where);
 
-        if (!m->found || !m->node || !m->fstype)
+        node = m->decrypted_node ?: m->node;
+        fstype = m->decrypted_fstype ?: m->fstype;
+
+        if (!m->found || !node || !fstype)
                 return 0;
 
-        rw = m->rw && !(flags & DISSECTED_IMAGE_READ_ONLY);
+        /* Stacked encryption? Yuck */
+        if (streq_ptr(fstype, "crypto_LUKS"))
+                return -ELOOP;
+
+        rw = m->rw && !(flags & DISSECT_IMAGE_READ_ONLY);
 
         if (directory)
                 p = strjoina(where, directory);
         else
                 p = where;
 
-        /* Not supported for now. */
-        if (streq(m->fstype, "crypto_LUKS"))
-                return -EOPNOTSUPP;
+        /* If requested, turn on discard support. */
+        if (STR_IN_SET(fstype, "btrfs", "ext4", "vfat", "xfs") &&
+            ((flags & DISSECT_IMAGE_DISCARD) ||
+             ((flags & DISSECT_IMAGE_DISCARD_ON_LOOP) && is_loop_device(m->node))))
+                options = "discard";
 
-        /* If this is a loopback device then let's mount the image with discard, so that the underlying file remains
-         * sparse when possible. */
-        if ((flags & DISSECTED_IMAGE_DISCARD_ON_LOOP) &&
-            STR_IN_SET(m->fstype, "btrfs", "ext4", "vfat", "xfs")) {
-                const char *l;
-
-                l = path_startswith(m->node, "/dev");
-                if (l && startswith(l, "loop"))
-                        options = "discard";
-        }
-
-        return mount_verbose(LOG_DEBUG, m->node, p, m->fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), options);
+        return mount_verbose(LOG_DEBUG, node, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), options);
 }
 
-int dissected_image_mount(DissectedImage *m, const char *where, DissectedImageMountFlags flags) {
+int dissected_image_mount(DissectedImage *m, const char *where, DissectImageFlags flags) {
         int r;
 
         assert(m);
@@ -532,6 +591,284 @@ int dissected_image_mount(DissectedImage *m, const char *where, DissectedImageMo
                                 return r;
                 }
         }
+
+        return 0;
+}
+
+#ifdef HAVE_LIBCRYPTSETUP
+typedef struct DecryptedPartition {
+        struct crypt_device *device;
+        char *name;
+        bool relinquished;
+} DecryptedPartition;
+
+struct DecryptedImage {
+        DecryptedPartition *decrypted;
+        size_t n_decrypted;
+        size_t n_allocated;
+};
+#endif
+
+DecryptedImage* decrypted_image_unref(DecryptedImage* d) {
+#ifdef HAVE_LIBCRYPTSETUP
+        size_t i;
+        int r;
+
+        if (!d)
+                return NULL;
+
+        for (i = 0; i < d->n_decrypted; i++) {
+                DecryptedPartition *p = d->decrypted + i;
+
+                if (p->device && p->name && !p->relinquished) {
+                        r = crypt_deactivate(p->device, p->name);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to deactivate encrypted partition %s", p->name);
+                }
+
+                if (p->device)
+                        crypt_free(p->device);
+                free(p->name);
+        }
+
+        free(d);
+#endif
+        return NULL;
+}
+
+#ifdef HAVE_LIBCRYPTSETUP
+static int decrypt_partition(
+                DissectedPartition *m,
+                const char *passphrase,
+                DissectImageFlags flags,
+                DecryptedImage *d) {
+
+        _cleanup_free_ char *node = NULL, *name = NULL;
+        struct crypt_device *cd;
+        const char *suffix;
+        int r;
+
+        assert(m);
+        assert(d);
+
+        if (!m->found || !m->node || !m->fstype)
+                return 0;
+
+        if (!streq(m->fstype, "crypto_LUKS"))
+                return 0;
+
+        suffix = strrchr(m->node, '/');
+        if (!suffix)
+                return -EINVAL;
+        suffix++;
+        if (isempty(suffix))
+                return -EINVAL;
+
+        name = strjoin(suffix, "-decrypted");
+        if (!name)
+                return -ENOMEM;
+        if (!filename_is_valid(name))
+                return -EINVAL;
+
+        node = strjoin(crypt_get_dir(), "/", name);
+        if (!node)
+                return -ENOMEM;
+
+        if (!GREEDY_REALLOC0(d->decrypted, d->n_allocated, d->n_decrypted + 1))
+                return -ENOMEM;
+
+        r = crypt_init(&cd, m->node);
+        if (r < 0)
+                return r;
+
+        r = crypt_load(cd, CRYPT_LUKS1, NULL);
+        if (r < 0)
+                goto fail;
+
+        r = crypt_activate_by_passphrase(cd, name, CRYPT_ANY_SLOT, passphrase, strlen(passphrase),
+                                         ((flags & DISSECT_IMAGE_READ_ONLY) ? CRYPT_ACTIVATE_READONLY : 0) |
+                                         ((flags & DISSECT_IMAGE_DISCARD_ON_CRYPTO) ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0));
+        if (r == -EPERM) {
+                r = -EKEYREJECTED;
+                goto fail;
+        }
+        if (r < 0)
+                goto fail;
+
+        d->decrypted[d->n_decrypted].name = name;
+        name = NULL;
+
+        d->decrypted[d->n_decrypted].device = cd;
+        d->n_decrypted++;
+
+        m->decrypted_node = node;
+        node = NULL;
+
+        return 0;
+
+fail:
+        crypt_free(cd);
+        return r;
+}
+#endif
+
+int dissected_image_decrypt(
+                DissectedImage *m,
+                const char *passphrase,
+                DissectImageFlags flags,
+                DecryptedImage **ret) {
+
+        _cleanup_(decrypted_image_unrefp) DecryptedImage *d = NULL;
+#ifdef HAVE_LIBCRYPTSETUP
+        unsigned i;
+        int r;
+#endif
+
+        assert(m);
+
+        /* Returns:
+         *
+         *      = 0           → There was nothing to decrypt
+         *      > 0           → Decrypted successfully
+         *      -ENOKEY       → There's some to decrypt but no key was supplied
+         *      -EKEYREJECTED → Passed key was not correct
+         */
+
+        if (!m->encrypted) {
+                *ret = NULL;
+                return 0;
+        }
+
+#ifdef HAVE_LIBCRYPTSETUP
+        if (!passphrase)
+                return -ENOKEY;
+
+        d = new0(DecryptedImage, 1);
+        if (!d)
+                return -ENOMEM;
+
+        for (i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                DissectedPartition *p = m->partitions + i;
+
+                if (!p->found)
+                        continue;
+
+                r = decrypt_partition(p, passphrase, flags, d);
+                if (r < 0)
+                        return r;
+
+                if (!p->decrypted_fstype && p->decrypted_node) {
+                        r = probe_filesystem(p->decrypted_node, &p->decrypted_fstype);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        *ret = d;
+        d = NULL;
+
+        return 1;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+int dissected_image_decrypt_interactively(
+                DissectedImage *m,
+                const char *passphrase,
+                DissectImageFlags flags,
+                DecryptedImage **ret) {
+
+        _cleanup_strv_free_erase_ char **z = NULL;
+        int n = 3, r;
+
+        if (passphrase)
+                n--;
+
+        for (;;) {
+                r = dissected_image_decrypt(m, passphrase, flags, ret);
+                if (r >= 0)
+                        return r;
+                if (r == -EKEYREJECTED)
+                        log_error_errno(r, "Incorrect passphrase, try again!");
+                else if (r != -ENOKEY) {
+                        log_error_errno(r, "Failed to decrypt image: %m");
+                        return r;
+                }
+
+                if (--n < 0) {
+                        log_error("Too many retries.");
+                        return -EKEYREJECTED;
+                }
+
+                z = strv_free(z);
+
+                r = ask_password_auto("Please enter image passphrase!", NULL, "dissect", "dissect", USEC_INFINITY, 0, &z);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query for passphrase: %m");
+
+                passphrase = z[0];
+        }
+}
+
+#ifdef HAVE_LIBCRYPTSETUP
+static int deferred_remove(DecryptedPartition *p) {
+
+        struct dm_ioctl dm = {
+                .version = {
+                        DM_VERSION_MAJOR,
+                        DM_VERSION_MINOR,
+                        DM_VERSION_PATCHLEVEL
+                },
+                .data_size = sizeof(dm),
+                .flags = DM_DEFERRED_REMOVE,
+        };
+
+        _cleanup_close_ int fd = -1;
+
+        assert(p);
+
+        /* Unfortunately, libcryptsetup doesn't provide a proper API for this, hence call the ioctl() directly. */
+
+        fd = open("/dev/mapper/control", O_RDWR|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        strncpy(dm.name, p->name, sizeof(dm.name));
+
+        if (ioctl(fd, DM_DEV_REMOVE, &dm))
+                return -errno;
+
+        return 0;
+}
+#endif
+
+int decrypted_image_relinquish(DecryptedImage *d) {
+
+#ifdef HAVE_LIBCRYPTSETUP
+        size_t i;
+        int r;
+#endif
+
+        assert(d);
+
+        /* Turns on automatic removal after the last use ended for all DM devices of this image, and sets a boolean so
+         * that we don't clean it up ourselves either anymore */
+
+#ifdef HAVE_LIBCRYPTSETUP
+        for (i = 0; i < d->n_decrypted; i++) {
+                DecryptedPartition *p = d->decrypted + i;
+
+                if (p->relinquished)
+                        continue;
+
+                r = deferred_remove(p);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to mark %s for auto-removal: %m", p->name);
+
+                p->relinquished = true;
+        }
+#endif
 
         return 0;
 }

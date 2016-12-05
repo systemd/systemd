@@ -34,7 +34,7 @@ static enum {
 } arg_action = ACTION_DISSECT;
 static const char *arg_image = NULL;
 static const char *arg_path = NULL;
-static bool arg_read_only = false;
+static DissectImageFlags arg_flags = DISSECT_IMAGE_DISCARD_ON_LOOP;
 
 static void help(void) {
         printf("%s [OPTIONS...] IMAGE\n"
@@ -43,7 +43,8 @@ static void help(void) {
                "  -h --help            Show this help\n"
                "     --version         Show package version\n"
                "  -m --mount           Mount the image to the specified directory\n"
-               "  -r --read-only       Mount read-only\n",
+               "  -r --read-only       Mount read-only\n"
+               "     --discard=MODE    Choose 'discard' mode (disabled, loop, all, crypto)\n",
                program_invocation_short_name,
                program_invocation_short_name);
 }
@@ -52,6 +53,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
+                ARG_DISCARD,
         };
 
         static const struct option options[] = {
@@ -59,6 +61,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",   no_argument,       NULL, ARG_VERSION   },
                 { "mount",     no_argument,       NULL, 'm'           },
                 { "read-only", no_argument,       NULL, 'r'           },
+                { "discard",   required_argument, NULL, ARG_DISCARD   },
                 {}
         };
 
@@ -83,7 +86,23 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'r':
-                        arg_read_only = true;
+                        arg_flags |= DISSECT_IMAGE_READ_ONLY;
+                        break;
+
+                case ARG_DISCARD:
+                        if (streq(optarg, "disabled"))
+                                arg_flags &= ~(DISSECT_IMAGE_DISCARD_ON_LOOP|DISSECT_IMAGE_DISCARD|DISSECT_IMAGE_DISCARD_ON_CRYPTO);
+                        else if (streq(optarg, "loop"))
+                                arg_flags = (arg_flags & ~(DISSECT_IMAGE_DISCARD|DISSECT_IMAGE_DISCARD_ON_CRYPTO)) | DISSECT_IMAGE_DISCARD_ON_LOOP;
+                        else if (streq(optarg, "all"))
+                                arg_flags = (arg_flags & ~(DISSECT_IMAGE_DISCARD_ON_CRYPTO)) | DISSECT_IMAGE_DISCARD_ON_LOOP | DISSECT_IMAGE_DISCARD;
+                        else if (streq(optarg, "crypt"))
+                                arg_flags |= DISSECT_IMAGE_DISCARD_ON_LOOP | DISSECT_IMAGE_DISCARD | DISSECT_IMAGE_DISCARD_ON_CRYPTO;
+                        else {
+                                log_error("Unknown --discard= parameter: %s", optarg);
+                                return -EINVAL;
+                        }
+
                         break;
 
                 case '?':
@@ -104,7 +123,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 arg_image = argv[optind];
-                arg_read_only = true;
+                arg_flags |= DISSECT_IMAGE_READ_ONLY;
                 break;
 
         case ACTION_MOUNT:
@@ -126,6 +145,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 int main(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+        _cleanup_(decrypted_image_unrefp) DecryptedImage *di = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         int r;
 
@@ -136,7 +156,7 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        r = loop_device_make_by_path(arg_image, arg_read_only ? O_RDONLY : O_RDWR, &d);
+        r = loop_device_make_by_path(arg_image, (arg_flags & DISSECT_IMAGE_READ_ONLY) ? O_RDONLY : O_RDWR, &d);
         if (r < 0) {
                 log_error_errno(r, "Failed to set up loopback device: %m");
                 goto finish;
@@ -186,12 +206,22 @@ int main(int argc, char *argv[]) {
         }
 
         case ACTION_MOUNT:
-                r = dissected_image_mount(m, arg_path,
-                                          (arg_read_only ? DISSECTED_IMAGE_READ_ONLY : 0) |
-                                          DISSECTED_IMAGE_DISCARD_ON_LOOP);
+                r = dissected_image_decrypt_interactively(m, NULL, arg_flags, &di);
+                if (r < 0)
+                        goto finish;
+
+                r = dissected_image_mount(m, arg_path, arg_flags);
                 if (r < 0) {
                         log_error_errno(r, "Failed to mount image: %m");
                         goto finish;
+                }
+
+                if (di) {
+                        r = decrypted_image_relinquish(di);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to relinquish DM devices: %m");
+                                goto finish;
+                        }
                 }
 
                 loop_device_relinquish(d);

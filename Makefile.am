@@ -1086,7 +1086,8 @@ libshared_la_CFLAGS = \
 	$(ACL_CFLAGS) \
 	$(LIBIDN_CFLAGS) \
 	$(SECCOMP_CFLAGS) \
-	$(BLKID_CFLAGS)
+	$(BLKID_CFLAGS) \
+	$(LIBCRYPTSETUP_CFLAGS)
 
 libshared_la_LIBADD = \
 	libsystemd-internal.la \
@@ -1096,7 +1097,8 @@ libshared_la_LIBADD = \
 	$(ACL_LIBS) \
 	$(LIBIDN_LIBS) \
 	$(SECCOMP_LIBS) \
-	$(BLKID_LIBS)
+	$(BLKID_LIBS) \
+	$(LIBCRYPTSETUP_LIBS)
 
 rootlibexec_LTLIBRARIES += \
 	libsystemd-shared.la
@@ -1119,6 +1121,7 @@ libsystemd_shared_la_CFLAGS = \
 	$(LIBIDN_CFLAGS) \
 	$(SECCOMP_CFLAGS) \
 	$(BLKID_CFLAGS) \
+	$(LIBCRYPTSETUP_CFLAGS) \
 	-fvisibility=default
 
 # We can't use libshared_la_LIBADD here because it would
@@ -1131,7 +1134,8 @@ libsystemd_shared_la_LIBADD = \
 	$(ACL_LIBS) \
 	$(LIBIDN_LIBS) \
 	$(SECCOMP_LIBS) \
-	$(BLKID_LIBS)
+	$(BLKID_LIBS) \
+	$(LIBCRYPTSETUP_LIBS)
 
 libsystemd_shared_la_LDFLAGS = \
 	$(AM_LDFLAGS) \

@@ -358,7 +358,7 @@ static int raw_image_get_os_release(Image *image, char ***ret, sd_bus_error *err
                 if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0)
                         _exit(EXIT_FAILURE);
 
-                r = dissected_image_mount(m, t, DISSECTED_IMAGE_READ_ONLY);
+                r = dissected_image_mount(m, t, DISSECT_IMAGE_READ_ONLY);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
