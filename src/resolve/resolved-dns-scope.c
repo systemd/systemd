@@ -609,7 +609,7 @@ int dns_scope_mdns_membership(DnsScope *s, bool b) {
         return dns_scope_multicast_membership(s, b, MDNS_MULTICAST_IPV4_ADDRESS, MDNS_MULTICAST_IPV6_ADDRESS);
 }
 
-static int dns_scope_make_reply_packet(
+int dns_scope_make_reply_packet(
                 DnsScope *s,
                 uint16_t id,
                 int rcode,
