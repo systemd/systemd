@@ -83,6 +83,14 @@ if unshare -U sh -c :; then
     is_user_ns_supported=yes
 fi
 
+function check_bind_tmp_path {
+    # https://github.com/systemd/systemd/issues/4789
+    local _root="/var/lib/machines/bind-tmp-path"
+    /create-busybox-container "$_root"
+    >/tmp/bind
+    systemd-nspawn --register=no -D "$_root" --bind=/tmp/bind /bin/sh -c 'test -e /tmp/bind'
+}
+
 function run {
     if [[ "$1" = "yes" && "$is_v2_supported" = "no" ]]; then
         printf "Unified cgroup hierarchy is not supported. Skipping.\n" >&2
@@ -112,6 +120,8 @@ function run {
 
     return 0
 }
+
+check_bind_tmp_path
 
 for api_vfs_writable in yes no network; do
     run no no $api_vfs_writable
