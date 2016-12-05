@@ -1336,7 +1336,7 @@ int config_parse_exec_selinux_context(
         } else
                 ignore = false;
 
-        r = unit_name_printf(u, rvalue, &k);
+        r = unit_full_printf(u, rvalue, &k);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve specifiers, ignoring: %m");
                 return 0;
@@ -1384,7 +1384,7 @@ int config_parse_exec_apparmor_profile(
         } else
                 ignore = false;
 
-        r = unit_name_printf(u, rvalue, &k);
+        r = unit_full_printf(u, rvalue, &k);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve specifiers, ignoring: %m");
                 return 0;
@@ -1432,7 +1432,7 @@ int config_parse_exec_smack_process_label(
         } else
                 ignore = false;
 
-        r = unit_name_printf(u, rvalue, &k);
+        r = unit_full_printf(u, rvalue, &k);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve specifiers, ignoring: %m");
                 return 0;
@@ -1699,7 +1699,7 @@ int config_parse_fdname(
                 return 0;
         }
 
-        r = unit_name_printf(UNIT(s), rvalue, &p);
+        r = unit_full_printf(UNIT(s), rvalue, &p);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve specifiers, ignoring: %s", rvalue);
                 return 0;
@@ -3720,7 +3720,7 @@ int config_parse_runtime_directory(
                         return 0;
                 }
 
-                r = unit_name_printf(u, word, &k);
+                r = unit_full_printf(u, word, &k);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
                                    "Failed to resolve specifiers in \"%s\", ignoring: %m", word);
