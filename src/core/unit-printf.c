@@ -194,13 +194,20 @@ static int specifier_user_shell(char specifier, void *data, void *userdata, char
 int unit_name_printf(Unit *u, const char* format, char **ret) {
 
         /*
-         * This will use the passed string as format string and
-         * replace the following specifiers:
+         * This will use the passed string as format string and replace the following specifiers (which should all be
+         * safe for inclusion in unit names):
          *
          * %n: the full id of the unit                 (foo@bar.waldo)
          * %N: the id of the unit without the suffix   (foo@bar)
          * %p: the prefix                              (foo)
          * %i: the instance                            (bar)
+         *
+         * %U: the UID of the running user
+         * %u: the username of the running user
+         *
+         * %m: the machine ID of the running system
+         * %H: the host name of the running system
+         * %b: the boot ID of the running system
          */
 
         const Specifier table[] = {
@@ -208,7 +215,14 @@ int unit_name_printf(Unit *u, const char* format, char **ret) {
                 { 'N', specifier_prefix_and_instance, NULL },
                 { 'p', specifier_prefix,              NULL },
                 { 'i', specifier_string,              u->instance },
-                { 0, NULL, NULL }
+
+                { 'U', specifier_user_id,             NULL },
+                { 'u', specifier_user_name,           NULL },
+
+                { 'm', specifier_machine_id,          NULL },
+                { 'H', specifier_host_name,           NULL },
+                { 'b', specifier_boot_id,             NULL },
+                {}
         };
 
         assert(u);
@@ -220,22 +234,19 @@ int unit_name_printf(Unit *u, const char* format, char **ret) {
 
 int unit_full_printf(Unit *u, const char *format, char **ret) {
 
-        /* This is similar to unit_name_printf() but also supports
-         * unescaping. Also, adds a couple of additional codes:
+        /* This is similar to unit_name_printf() but also supports unescaping. Also, adds a couple of additional codes
+         * (which are likely not suitable for unescaped inclusion in unit names):
          *
-         * %f the instance if set, otherwise the id
-         * %c cgroup path of unit
-         * %r where units in this slice are placed in the cgroup tree
-         * %R the root of this systemd's instance tree
-         * %t the runtime directory to place sockets in (e.g. "/run" or $XDG_RUNTIME_DIR)
-         * %U the UID of the running user
-         * %u the username of the running user
-         * %h the homedir of the running user
-         * %s the shell of the running user
-         * %m the machine ID of the running system
-         * %H the host name of the running system
-         * %b the boot ID of the running system
-         * %v `uname -r` of the running system
+         * %f: the unescaped instance if set, otherwise the id unescaped as path
+         * %c: cgroup path of unit
+         * %r: where units in this slice are placed in the cgroup tree
+         * %R: the root of this systemd's instance tree
+         * %t: the runtime directory to place sockets in (e.g. "/run" or $XDG_RUNTIME_DIR)
+         *
+         * %h: the homedir of the running user
+         * %s: the shell of the running user
+         *
+         * %v: `uname -r` of the running system
          */
 
         const Specifier table[] = {
