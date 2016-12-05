@@ -686,18 +686,18 @@ static Address* link_find_dhcp_server_address(Link *link) {
         return NULL;
 }
 
-static int link_enter_configured(Link *link) {
+static void link_enter_configured(Link *link) {
         assert(link);
         assert(link->network);
-        assert(link->state == LINK_STATE_SETTING_ROUTES);
+
+        if (link->state != LINK_STATE_SETTING_ROUTES)
+                return;
 
         log_link_info(link, "Configured");
 
         link_set_state(link, LINK_STATE_CONFIGURED);
 
         link_dirty(link);
-
-        return 0;
 }
 
 void link_check_ready(Link *link) {
