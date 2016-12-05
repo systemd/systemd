@@ -579,6 +579,7 @@ int config_parse_exec(
                 void *userdata) {
 
         ExecCommand **e = data;
+        Unit *u = userdata;
         const char *p;
         bool semicolon;
         int r;
@@ -604,7 +605,7 @@ int config_parse_exec(
                 _cleanup_free_ ExecCommand *nce = NULL;
                 _cleanup_strv_free_ char **n = NULL;
                 size_t nlen = 0, nbufsize = 0;
-                char *f;
+                const char *f;
                 int i;
 
                 semicolon = false;
@@ -631,47 +632,47 @@ int config_parse_exec(
                         f++;
                 }
 
-                if (isempty(f)) {
+                r = unit_full_printf(u, f, &path);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers on %s, ignoring: %m", f);
+                        return 0;
+                }
+
+                if (isempty(path)) {
                         /* First word is either "-" or "@" with no command. */
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Empty path in command line, ignoring: \"%s\"", rvalue);
                         return 0;
                 }
-                if (!string_is_safe(f)) {
+                if (!string_is_safe(path)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Executable path contains special characters, ignoring: %s", rvalue);
                         return 0;
                 }
-                if (!path_is_absolute(f)) {
+                if (!path_is_absolute(path)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Executable path is not absolute, ignoring: %s", rvalue);
                         return 0;
                 }
-                if (endswith(f, "/")) {
+                if (endswith(path, "/")) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Executable path specifies a directory, ignoring: %s", rvalue);
                         return 0;
                 }
 
-                if (f == firstword) {
-                        path = firstword;
-                        firstword = NULL;
-                } else {
-                        path = strdup(f);
-                        if (!path)
-                                return log_oom();
-                }
-
                 if (!separate_argv0) {
+                        char *w = NULL;
+
                         if (!GREEDY_REALLOC(n, nbufsize, nlen + 2))
                                 return log_oom();
-                        f = strdup(path);
-                        if (!f)
+
+                        w = strdup(path);
+                        if (!w)
                                 return log_oom();
-                        n[nlen++] = f;
+                        n[nlen++] = w;
                         n[nlen] = NULL;
                 }
 
                 path_kill_slashes(path);
 
                 while (!isempty(p)) {
-                        _cleanup_free_ char *word = NULL;
+                        _cleanup_free_ char *word = NULL, *resolved = NULL;
 
                         /* Check explicitly for an unquoted semicolon as
                          * command separator token.  */
@@ -682,18 +683,21 @@ int config_parse_exec(
                                 break;
                         }
 
-                        /* Check for \; explicitly, to not confuse it with \\;
-                         * or "\;" or "\\;" etc.  extract_first_word would
-                         * return the same for all of those.  */
+                        /* Check for \; explicitly, to not confuse it with \\; or "\;" or "\\;" etc.
+                         * extract_first_word() would return the same for all of those.  */
                         if (p[0] == '\\' && p[1] == ';' && (!p[2] || strchr(WHITESPACE, p[2]))) {
+                                char *w;
+
                                 p += 2;
                                 p += strspn(p, WHITESPACE);
+
                                 if (!GREEDY_REALLOC(n, nbufsize, nlen + 2))
                                         return log_oom();
-                                f = strdup(";");
-                                if (!f)
+
+                                w = strdup(";");
+                                if (!w)
                                         return log_oom();
-                                n[nlen++] = f;
+                                n[nlen++] = w;
                                 n[nlen] = NULL;
                                 continue;
                         }
@@ -701,14 +705,20 @@ int config_parse_exec(
                         r = extract_first_word_and_warn(&p, &word, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE, unit, filename, line, rvalue);
                         if (r == 0)
                                 break;
-                        else if (r < 0)
+                        if (r < 0)
                                 return 0;
+
+                        r = unit_full_printf(u, word, &resolved);
+                        if (r < 0) {
+                                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to resolve unit specifiers on %s, ignoring: %m", word);
+                                return 0;
+                        }
 
                         if (!GREEDY_REALLOC(n, nbufsize, nlen + 2))
                                 return log_oom();
-                        n[nlen++] = word;
+                        n[nlen++] = resolved;
                         n[nlen] = NULL;
-                        word = NULL;
+                        resolved = NULL;
                 }
 
                 if (!n || !n[0]) {
