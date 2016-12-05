@@ -1314,13 +1314,6 @@
       </tgroup>
     </table>
 
-    <para>Please note that specifiers <literal>%U</literal>,
-    <literal>%h</literal>, <literal>%s</literal> are mostly useless
-    when systemd is running in system mode. PID 1 cannot query the
-    user account database for information, so the specifiers only work
-    as shortcuts for things which are already specified in a different
-    way in the unit file. They are fully functional when systemd is
-    running in <option>--user</option> mode.</para>
   </refsect1>
 
   <refsect1>
