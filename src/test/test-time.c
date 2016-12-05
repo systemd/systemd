@@ -42,6 +42,10 @@ static void test_parse_sec(void) {
         assert_se(u == 2500 * USEC_PER_MSEC);
         assert_se(parse_sec(".7", &u) >= 0);
         assert_se(u == 700 * USEC_PER_MSEC);
+        assert_se(parse_sec("23us", &u) >= 0);
+        assert_se(u == 23);
+        assert_se(parse_sec("23µs", &u) >= 0);
+        assert_se(u == 23);
         assert_se(parse_sec("infinity", &u) >= 0);
         assert_se(u == USEC_INFINITY);
         assert_se(parse_sec(" infinity ", &u) >= 0);
