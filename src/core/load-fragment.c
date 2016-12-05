@@ -3828,8 +3828,8 @@ int config_parse_namespace_path_strv(
                 void *data,
                 void *userdata) {
 
+        Unit *u = userdata;
         char*** sv = data;
-        const char *prev;
         const char *cur;
         int r;
 
@@ -3844,10 +3844,10 @@ int config_parse_namespace_path_strv(
                 return 0;
         }
 
-        prev = cur = rvalue;
+        cur = rvalue;
         for (;;) {
-                _cleanup_free_ char *word = NULL;
-                int offset;
+                _cleanup_free_ char *word = NULL, *resolved = NULL, *joined = NULL;
+                bool ignore_enoent;
 
                 r = extract_first_word(&cur, &word, NULL, EXTRACT_QUOTES);
                 if (r == 0)
@@ -3855,31 +3855,37 @@ int config_parse_namespace_path_strv(
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Trailing garbage, ignoring: %s", prev);
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract first word, ignoring: %s", rvalue);
                         return 0;
                 }
 
                 if (!utf8_is_valid(word)) {
                         log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, word);
-                        prev = cur;
                         continue;
                 }
 
-                offset = word[0] == '-';
-                if (!path_is_absolute(word + offset)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Not an absolute path, ignoring: %s", word);
-                        prev = cur;
+                ignore_enoent = word[0] == '-';
+
+                r = unit_full_printf(u, word + ignore_enoent, &resolved);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve specifiers in %s: %m", word);
                         continue;
                 }
 
-                path_kill_slashes(word + offset);
+                if (!path_is_absolute(resolved)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Not an absolute path, ignoring: %s", resolved);
+                        continue;
+                }
 
-                r = strv_push(sv, word);
+                path_kill_slashes(resolved);
+
+                joined = strjoin(ignore_enoent ? "-" : "", resolved);
+
+                r = strv_push(sv, joined);
                 if (r < 0)
                         return log_oom();
 
-                prev = cur;
-                word = NULL;
+                joined = NULL;
         }
 
         return 0;
