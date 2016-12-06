@@ -79,6 +79,8 @@ typedef enum NotifyState {
         _NOTIFY_STATE_INVALID = -1
 } NotifyState;
 
+/* The values of this enum are referenced in man/systemd.exec.xml and src/shared/bus-unit-util.c.
+ * Update those sources for each change to this enum. */
 typedef enum ServiceResult {
         SERVICE_SUCCESS,
         SERVICE_FAILURE_RESOURCES, /* a bit of a misnomer, just our catch-all error for errnos we didn't expect */

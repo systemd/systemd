@@ -1806,23 +1806,32 @@
           <title>Summary of possible service result variable values</title>
           <tgroup cols='3'>
             <colspec colname='result' />
-            <colspec colname='status' />
             <colspec colname='code' />
+            <colspec colname='status' />
             <thead>
               <row>
                 <entry><varname>$SERVICE_RESULT</varname></entry>
-                <entry><varname>$EXIT_STATUS</varname></entry>
                 <entry><varname>$EXIT_CODE</varname></entry>
+                <entry><varname>$EXIT_STATUS</varname></entry>
               </row>
             </thead>
 
             <tbody>
               <row>
+                <entry morerows="1" valign="top"><literal>protocol</literal></entry>
+                <entry valign="top">not set</entry>
+                <entry>not set</entry>
+              </row>
+              <row>
+                <entry><literal>exited</literal></entry>
+                <entry><literal>0</literal></entry>
+              </row>
+
+              <row>
                 <entry morerows="1" valign="top"><literal>timeout</literal></entry>
                 <entry valign="top"><literal>killed</literal></entry>
                 <entry><literal>TERM</literal>, <literal>KILL</literal></entry>
               </row>
-
               <row>
                 <entry valign="top"><literal>exited</literal></entry>
                 <entry><literal>0</literal>, <literal>1</literal>, <literal>2</literal>, <literal
