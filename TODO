@@ -32,8 +32,6 @@ Features:
 * replace all canonicalize_file_name() invocations by chase_symlinks(), in
   particulr those where a rootdir is relevant.
 
-* add parse_ip_port() or so, that is like safe_atou16() but checks for != 0
-
 * drop nss-myhostname in favour of nss-resolve?
 
 * drop internal dlopen() based nss-dns fallback in nss-resolve, and rely on the

@@ -252,8 +252,8 @@ int config_parse_destination_port(const char *unit,
         assert(rvalue);
         assert(data);
 
-        r = safe_atou16(rvalue, &port);
-        if (r < 0 || port <= 0) {
+        r = parse_ip_port(rvalue, &port);
+        if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse VXLAN destination port '%s'.", rvalue);
                 return 0;
         }

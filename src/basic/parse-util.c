@@ -574,3 +574,19 @@ int parse_nice(const char *p, int *ret) {
         *ret = n;
         return 0;
 }
+
+int parse_ip_port(const char *s, uint16_t *ret) {
+        uint16_t l;
+        int r;
+
+        r = safe_atou16(s, &l);
+        if (r < 0)
+                return r;
+
+        if (l == 0)
+                return -EINVAL;
+
+        *ret = (uint16_t) l;
+
+        return 0;
+}
