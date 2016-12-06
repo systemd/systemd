@@ -752,12 +752,8 @@ static int parse_calendar_time(const char **p, CalendarSpec *c) {
                 goto fail;
 
         /* Already at the end? Then it's hours and minutes, and seconds are 0 */
-        if (*t == 0) {
-                if (m != NULL)
-                        goto null_second;
-
-                goto finish;
-        }
+        if (*t == 0)
+                goto null_second;
 
         if (*t != ':') {
                 r = -EINVAL;
