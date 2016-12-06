@@ -22,4 +22,6 @@
 
 ./autogen.sh c
 make -j `nproc`
+
+make check
 make install
