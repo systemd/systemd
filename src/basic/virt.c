@@ -409,8 +409,7 @@ int detect_container(void) {
         if (cached_found >= 0)
                 return cached_found;
 
-        /* /proc/vz exists in container and outside of the container,
-         * /proc/bc only outside of the container. */
+        /* /proc/vz exists in container and outside of the container, /proc/bc only outside of the container. */
         if (access("/proc/vz", F_OK) >= 0 &&
             access("/proc/bc", F_OK) < 0) {
                 r = VIRTUALIZATION_OPENVZ;
@@ -418,50 +417,58 @@ int detect_container(void) {
         }
 
         if (getpid() == 1) {
-                /* If we are PID 1 we can just check our own
-                 * environment variable */
+                /* If we are PID 1 we can just check our own environment variable, and that's authoritative. */
 
                 e = getenv("container");
                 if (isempty(e)) {
                         r = VIRTUALIZATION_NONE;
                         goto finish;
                 }
-        } else {
 
-                /* Otherwise, PID 1 dropped this information into a
-                 * file in /run. This is better than accessing
-                 * /proc/1/environ, since we don't need CAP_SYS_PTRACE
-                 * for that. */
-
-                r = read_one_line_file("/run/systemd/container", &m);
-                if (r == -ENOENT) {
-
-                        /* Fallback for cases where PID 1 was not
-                         * systemd (for example, cases where
-                         * init=/bin/sh is used. */
-
-                        r = getenv_for_pid(1, "container", &m);
-                        if (r <= 0) {
-
-                                /* If that didn't work, give up,
-                                 * assume no container manager.
-                                 *
-                                 * Note: This means we still cannot
-                                 * detect containers if init=/bin/sh
-                                 * is passed but privileges dropped,
-                                 * as /proc/1/environ is only readable
-                                 * with privileges. */
-
-                                r = VIRTUALIZATION_NONE;
-                                goto finish;
-                        }
-                }
-                if (r < 0)
-                        return r;
-
-                e = m;
+                goto translate_name;
         }
 
+        /* Otherwise, PID 1 might have dropped this information into a file in /run. This is better than accessing
+         * /proc/1/environ, since we don't need CAP_SYS_PTRACE for that. */
+        r = read_one_line_file("/run/systemd/container", &m);
+        if (r >= 0) {
+                e = m;
+                goto translate_name;
+        }
+        if (r != -ENOENT)
+                return log_debug_errno(r, "Failed to read /run/systemd/container: %m");
+
+        /* Fallback for cases where PID 1 was not systemd (for example, cases where init=/bin/sh is used. */
+        r = getenv_for_pid(1, "container", &m);
+        if (r > 0) {
+                e = m;
+                goto translate_name;
+        }
+        if (r < 0) /* This only works if we have CAP_SYS_PTRACE, hence let's better ignore failures here */
+                log_debug_errno(r, "Failed to read $container of PID 1, ignoring: %m");
+
+        /* Interestingly /proc/1/sched actually shows the host's PID for what we see as PID 1. Hence, if the PID shown
+         * there is not 1, we know we are in a PID namespace. and hence a container. */
+        r = read_one_line_file("/proc/1/sched", &m);
+        if (r >= 0) {
+                const char *t;
+
+                t = strrchr(m, '(');
+                if (!t)
+                        return -EIO;
+
+                if (!startswith(t, "(1,")) {
+                        r = VIRTUALIZATION_CONTAINER_OTHER;
+                        goto finish;
+                }
+        } else if (r != -ENOENT)
+                return r;
+
+        /* If that didn't work, give up, assume no container manager. */
+        r = VIRTUALIZATION_NONE;
+        goto finish;
+
+translate_name:
         for (j = 0; j < ELEMENTSOF(value_table); j++)
                 if (streq(e, value_table[j].value)) {
                         r = value_table[j].id;
@@ -471,7 +478,7 @@ int detect_container(void) {
         r = VIRTUALIZATION_CONTAINER_OTHER;
 
 finish:
-        log_debug("Found container virtualization %s", virtualization_to_string(r));
+        log_debug("Found container virtualization %s.", virtualization_to_string(r));
         cached_found = r;
         return r;
 }
