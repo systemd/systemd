@@ -418,7 +418,7 @@ static int device_process_new(Manager *m, struct udev_device *dev) {
          * aliases */
         alias = udev_device_get_property_value(dev, "SYSTEMD_ALIAS");
         for (;;) {
-                _cleanup_free_ char *word = NULL, *k = NULL;
+                _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&alias, &word, NULL, EXTRACT_QUOTES);
                 if (r == 0)
