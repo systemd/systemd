@@ -1022,7 +1022,7 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
         }
         server->fd_raw = r;
 
-        r = dhcp_network_bind_udp_socket(INADDR_ANY, DHCP_PORT_SERVER);
+        r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_ANY, DHCP_PORT_SERVER);
         if (r < 0) {
                 sd_dhcp_server_stop(server);
                 return r;
