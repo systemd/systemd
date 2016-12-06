@@ -2318,7 +2318,7 @@ int main(int argc, char *argv[]) {
         if (arg_boot_offset != 0 &&
             sd_journal_has_runtime_files(j) > 0 &&
             sd_journal_has_persistent_files(j) == 0) {
-                log_info("Specifying boot ID has no effect, no persistent journal was found");
+                log_info("Specifying boot ID or boot offset has no effect, no persistent journal was found.");
                 r = 0;
                 goto finish;
         }
