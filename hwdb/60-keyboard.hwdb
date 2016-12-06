@@ -1260,5 +1260,9 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDIXONSP:pnDIXON*:pvr*
 evdev:input:b0003v1050p0010*
 # Yubico Yubikey NEO OTP+CCID
 evdev:input:b0003v1050p0111*
+# Yubico Yubikey NEO OTP+U2F+CCID
+evdev:input:b0003v1050p0116*
+# OKE Electron Company USB barcode reader
+evdev:input:b0003v05FEp1010*
  XKB_FIXED_LAYOUT="us"
  XKB_FIXED_VARIANT=""
