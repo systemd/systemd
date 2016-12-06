@@ -114,7 +114,7 @@ struct Network {
         char *dhcp_hostname;
         unsigned dhcp_route_metric;
         uint32_t dhcp_route_table;
-        uint32_t dhcp_client_port;
+        uint16_t dhcp_client_port;
         bool dhcp_send_hostname;
         bool dhcp_broadcast;
         bool dhcp_critical;
