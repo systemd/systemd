@@ -20,6 +20,7 @@
 #include <sys/reboot.h>
 #include <sys/unistd.h>
 #include <sys/wait.h>
+#include <sys/prctl.h>
 
 #include "fd-util.h"
 #include "log.h"
@@ -29,7 +30,22 @@
 #include "time-util.h"
 #include "def.h"
 
-int stub_pid1(void) {
+static int reset_environ(const char *new_environment, size_t length) {
+        unsigned long start, end;
+
+        start = (unsigned long) new_environment;
+        end = start + length;
+
+        if (prctl(PR_SET_MM, PR_SET_MM_ENV_START, start, 0, 0) < 0)
+                return -errno;
+
+        if (prctl(PR_SET_MM, PR_SET_MM_ENV_END, end, 0, 0) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int stub_pid1(sd_id128_t uuid) {
         enum {
                 STATE_RUNNING,
                 STATE_REBOOT,
@@ -40,6 +56,11 @@ int stub_pid1(void) {
         usec_t quit_usec = USEC_INFINITY;
         pid_t pid;
         int r;
+
+        /* The new environment we set up, on the stack. */
+        char new_environment[] =
+                "container=systemd-nspawn\0"
+                "container_uuid=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
 
         /* Implements a stub PID 1, that reaps all processes and processes a couple of standard signals. This is useful
          * for allowing arbitrary processes run in a container, and still have all zombies reaped. */
@@ -63,6 +84,12 @@ int stub_pid1(void) {
         log_close();
         close_all_fds(NULL, 0);
         log_open();
+
+        /* Flush out /proc/self/environ, so that we don't leak the environment from the host into the container. Also,
+         * set $container= and $container_uuid= so that clients in the container that query it from /proc/1/environ
+         * find them set set. */
+        sd_id128_to_string(uuid, new_environment + sizeof(new_environment) - SD_ID128_STRING_MAX);
+        reset_environ(new_environment, sizeof(new_environment));
 
         rename_process("STUBINIT");
 

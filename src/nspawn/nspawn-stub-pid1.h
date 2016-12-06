@@ -19,4 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-int stub_pid1(void);
+#include "sd-id128.h"
+
+int stub_pid1(sd_id128_t uuid);
