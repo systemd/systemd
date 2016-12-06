@@ -292,8 +292,10 @@ static int sysv_translate_facility(SysvStub *s, unsigned line, const char *name,
                 if (!streq(table[i], n))
                         continue;
 
-                if (!table[i+1])
+                if (!table[i+1]) {
+                        *ret = NULL;
                         return 0;
+                }
 
                 m = strdup(table[i+1]);
                 if (!m)
@@ -312,7 +314,7 @@ static int sysv_translate_facility(SysvStub *s, unsigned line, const char *name,
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Could not build name for facility %s: %m", s->path, line, name);
 
-                return r;
+                return 1;
         }
 
         /* Strip ".sh" suffix from file name for comparison */
@@ -324,8 +326,10 @@ static int sysv_translate_facility(SysvStub *s, unsigned line, const char *name,
         }
 
         /* Names equaling the file name of the services are redundant */
-        if (streq_ptr(n, filename))
+        if (streq_ptr(n, filename)) {
+                *ret = NULL;
                 return 0;
+        }
 
         /* Everything else we assume to be normal service names */
         m = sysv_translate_name(n);
