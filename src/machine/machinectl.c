@@ -2769,7 +2769,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         for (;;) {
-                static const char option_string[] = "-hp:als:H:M:qn:o:";
+                static const char option_string[] = "-hp:als:H:M:qn:o:E:";
 
                 c = getopt_long(argc, argv, option_string + reorder, options, NULL);
                 if (c < 0)
