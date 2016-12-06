@@ -882,17 +882,21 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <term><command>show</command> <optional><replaceable>PATTERN</replaceable>…|<replaceable>JOB</replaceable>…</optional></term>
 
           <listitem>
-            <para>Show properties of one or more units, jobs, or the
-            manager itself. If no argument is specified, properties of
-            the manager will be shown. If a unit name is specified,
-            properties of the unit are shown, and if a job ID is
-            specified, properties of the job are shown. By default, empty
-            properties are suppressed. Use <option>--all</option> to
-            show those too. To select specific properties to show, use
-            <option>--property=</option>. This command is intended to be
-            used whenever computer-parsable output is required. Use
-            <command>status</command> if you are looking for formatted
-            human-readable output.</para>
+            <para>Show properties of one or more units, jobs, or the manager itself. If no argument is specified,
+            properties of the manager will be shown. If a unit name is specified, properties of the unit are shown, and
+            if a job ID is specified, properties of the job are shown. By default, empty properties are suppressed. Use
+            <option>--all</option> to show those too. To select specific properties to show, use
+            <option>--property=</option>. This command is intended to be used whenever computer-parsable output is
+            required. Use <command>status</command> if you are looking for formatted human-readable output.</para>
+
+            <para>Many properties shown by <command>systemctl show</command> map directly to configuration settings of
+            the system and service manager and its unit files. Note that the properties shown by the command are
+            generally more low-level, normalized versions of the original configuration settings and expose runtime
+            state in addition to configuration. For example, properties shown for service units include the service's
+            current main process identifier as <literal>MainPID</literal> (which is runtime state), and time settings
+            are always exposed as properties ending in the <literal>…USec</literal> suffix even if a matching
+            configuration options end in <literal>…Sec</literal>, because microseconds is the normalized time unit used
+            by the system and service manager.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
