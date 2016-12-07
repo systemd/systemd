@@ -1246,21 +1246,6 @@
       <entry>This is either the unescaped instance name (if applicable) with <filename>/</filename> prepended (if applicable), or the unescaped prefix name prepended with <filename>/</filename>.</entry>
           </row>
           <row>
-      <entry><literal>%c</literal></entry>
-      <entry>Control group path of the unit</entry>
-      <entry>This path does not include the <filename>/sys/fs/cgroup/systemd/</filename> prefix.</entry>
-          </row>
-          <row>
-      <entry><literal>%r</literal></entry>
-      <entry>Control group path of the slice the unit is placed in</entry>
-      <entry>This usually maps to the parent control group path of <literal>%c</literal>.</entry>
-          </row>
-          <row>
-      <entry><literal>%R</literal></entry>
-      <entry>Root control group path below which slices and units are placed</entry>
-      <entry>For system instances, this resolves to <filename>/</filename>, except in containers, where this maps to the container's root control group path.</entry>
-          </row>
-          <row>
       <entry><literal>%t</literal></entry>
       <entry>Runtime directory</entry>
       <entry>This is either <filename>/run</filename> (for the system manager) or the path <literal>$XDG_RUNTIME_DIR</literal> resolves to (for user managers).</entry>

@@ -78,11 +78,17 @@ static int specifier_filename(char specifier, void *data, void *userdata, char *
                 return unit_name_to_path(u->id, ret);
 }
 
+static void bad_specifier(Unit *u, char specifier) {
+        log_unit_warning(u, "Specifier '%%%c' used in unit configuration, which is deprecated. Please update your unit file, as it does not work as intended.", specifier);
+}
+
 static int specifier_cgroup(char specifier, void *data, void *userdata, char **ret) {
         Unit *u = userdata;
         char *n;
 
         assert(u);
+
+        bad_specifier(u, specifier);
 
         if (u->cgroup_path)
                 n = strdup(u->cgroup_path);
@@ -101,6 +107,8 @@ static int specifier_cgroup_root(char specifier, void *data, void *userdata, cha
 
         assert(u);
 
+        bad_specifier(u, specifier);
+
         n = strdup(u->manager->cgroup_root);
         if (!n)
                 return -ENOMEM;
@@ -114,6 +122,8 @@ static int specifier_cgroup_slice(char specifier, void *data, void *userdata, ch
         char *n;
 
         assert(u);
+
+        bad_specifier(u, specifier);
 
         if (UNIT_ISSET(u->slice)) {
                 Unit *slice;
@@ -238,9 +248,9 @@ int unit_full_printf(Unit *u, const char *format, char **ret) {
          * (which are likely not suitable for unescaped inclusion in unit names):
          *
          * %f: the unescaped instance if set, otherwise the id unescaped as path
-         * %c: cgroup path of unit
-         * %r: where units in this slice are placed in the cgroup tree
-         * %R: the root of this systemd's instance tree
+         * %c: cgroup path of unit (deprecated)
+         * %r: where units in this slice are placed in the cgroup tree (deprecated)
+         * %R: the root of this systemd's instance tree (deprecated)
          * %t: the runtime directory to place sockets in (e.g. "/run" or $XDG_RUNTIME_DIR)
          *
          * %h: the homedir of the running user
