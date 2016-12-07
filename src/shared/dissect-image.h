@@ -61,9 +61,12 @@ static inline int PARTITION_VERITY_OF(int p) {
 
 typedef enum DissectImageFlags {
         DISSECT_IMAGE_READ_ONLY = 1,
-        DISSECT_IMAGE_DISCARD_ON_LOOP = 2,   /* Turn on "discard" if on loop device and file system supports it */
+        DISSECT_IMAGE_DISCARD_ON_LOOP = 2,   /* Turn on "discard" if on a loop device and file system supports it */
         DISSECT_IMAGE_DISCARD = 4,           /* Turn on "discard" if file system supports it, on all block devices */
         DISSECT_IMAGE_DISCARD_ON_CRYPTO = 8, /* Turn on "discard" also on crypto devices */
+        DISSECT_IMAGE_DISCARD_ANY = DISSECT_IMAGE_DISCARD_ON_LOOP |
+                                    DISSECT_IMAGE_DISCARD |
+                                    DISSECT_IMAGE_DISCARD_ON_CRYPTO,
 } DissectImageFlags;
 
 struct DissectedImage {

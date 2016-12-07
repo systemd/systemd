@@ -95,21 +95,25 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_flags |= DISSECT_IMAGE_READ_ONLY;
                         break;
 
-                case ARG_DISCARD:
+                case ARG_DISCARD: {
+                        DissectImageFlags flags;
+
                         if (streq(optarg, "disabled"))
-                                arg_flags &= ~(DISSECT_IMAGE_DISCARD_ON_LOOP|DISSECT_IMAGE_DISCARD|DISSECT_IMAGE_DISCARD_ON_CRYPTO);
+                                flags = 0;
                         else if (streq(optarg, "loop"))
-                                arg_flags = (arg_flags & ~(DISSECT_IMAGE_DISCARD|DISSECT_IMAGE_DISCARD_ON_CRYPTO)) | DISSECT_IMAGE_DISCARD_ON_LOOP;
+                                flags = DISSECT_IMAGE_DISCARD_ON_LOOP;
                         else if (streq(optarg, "all"))
-                                arg_flags = (arg_flags & ~(DISSECT_IMAGE_DISCARD_ON_CRYPTO)) | DISSECT_IMAGE_DISCARD_ON_LOOP | DISSECT_IMAGE_DISCARD;
+                                flags = DISSECT_IMAGE_DISCARD_ON_LOOP | DISSECT_IMAGE_DISCARD;
                         else if (streq(optarg, "crypt"))
-                                arg_flags |= DISSECT_IMAGE_DISCARD_ON_LOOP | DISSECT_IMAGE_DISCARD | DISSECT_IMAGE_DISCARD_ON_CRYPTO;
+                                flags = DISSECT_IMAGE_DISCARD_ANY;
                         else {
                                 log_error("Unknown --discard= parameter: %s", optarg);
                                 return -EINVAL;
                         }
+                        arg_flags = (arg_flags & ~DISSECT_IMAGE_DISCARD_ANY) | flags;
 
                         break;
+                }
 
                 case ARG_ROOT_HASH: {
                         void *p;
