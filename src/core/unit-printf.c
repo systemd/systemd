@@ -257,6 +257,10 @@ int unit_full_printf(Unit *u, const char *format, char **ret) {
          * %s: the shell of the running user
          *
          * %v: `uname -r` of the running system
+         *
+         * NOTICE: When you add new entries here, please be careful: specifiers which depend on settings of the unit
+         * file itself are broken by design, as they would resolve differently depending on whether they are used
+         * before or after the relevant configuration setting. Hence: don't add them.
          */
 
         const Specifier table[] = {
