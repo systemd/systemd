@@ -61,6 +61,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "gpt.h"
+#include "hexdecoct.h"
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "log.h"
@@ -200,6 +201,8 @@ static bool arg_notify_ready = false;
 static bool arg_use_cgns = true;
 static unsigned long arg_clone_ns_flags = CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS;
 static MountSettingsMask arg_mount_settings = MOUNT_APPLY_APIVFS_RO;
+static void *arg_root_hash = NULL;
+static size_t arg_root_hash_size = 0;
 
 static void help(void) {
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
@@ -213,6 +216,7 @@ static void help(void) {
                "  -x --ephemeral            Run container with snapshot of root directory, and\n"
                "                            remove it after exit\n"
                "  -i --image=PATH           File system device or disk image for the container\n"
+               "     --root-hash=HASH       Specify verity root hash\n"
                "  -a --as-pid2              Maintain a stub init as PID1, invoke binary as PID2\n"
                "  -b --boot                 Boot up full system (i.e. invoke init)\n"
                "     --chdir=PATH           Set working directory in the container\n"
@@ -424,6 +428,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CHDIR,
                 ARG_PRIVATE_USERS_CHOWN,
                 ARG_NOTIFY_READY,
+                ARG_ROOT_HASH,
         };
 
         static const struct option options[] = {
@@ -473,6 +478,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "settings",              required_argument, NULL, ARG_SETTINGS            },
                 { "chdir",                 required_argument, NULL, ARG_CHDIR               },
                 { "notify-ready",          required_argument, NULL, ARG_NOTIFY_READY        },
+                { "root-hash",             required_argument, NULL, ARG_ROOT_HASH           },
                 {}
         };
 
@@ -1015,6 +1021,25 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_notify_ready = r;
                         arg_settings_mask |= SETTING_NOTIFY_READY;
                         break;
+
+                case ARG_ROOT_HASH: {
+                        void *k;
+                        size_t l;
+
+                        r = unhexmem(optarg, strlen(optarg), &k, &l);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse root hash: %s", optarg);
+                        if (l < sizeof(sd_id128_t)) {
+                                log_error("Root hash must be at least 128bit long: %s", optarg);
+                                free(k);
+                                return -EINVAL;
+                        }
+
+                        free(arg_root_hash);
+                        arg_root_hash = k;
+                        arg_root_hash_size = l;
+                        break;
+                }
 
                 case '?':
                         return -EINVAL;
@@ -3409,6 +3434,53 @@ static int run(int master,
         return 1; /* loop again */
 }
 
+static int load_root_hash(const char *image) {
+        _cleanup_free_ char *text = NULL;
+        char *fn, *n, *e;
+        void *k;
+        size_t l;
+        int r;
+
+        assert_se(image);
+
+        /* Try to load the root hash from a file next to the image file if it exists. */
+
+        if (arg_root_hash)
+                return 0;
+
+        fn = new(char, strlen(image) + strlen(".roothash") + 1);
+        if (!fn)
+                return log_oom();
+
+        n = stpcpy(fn, image);
+        e = endswith(fn, ".raw");
+        if (e)
+                n = e;
+
+        strcpy(n, ".roothash");
+
+        r = read_one_line_file(fn, &text);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0) {
+                log_warning_errno(r, "Failed to read %s, ignoring: %m", fn);
+                return 0;
+        }
+
+        r = unhexmem(text, strlen(text), &k, &l);
+        if (r < 0)
+                return log_error_errno(r, "Invalid root hash: %s", text);
+        if (l < sizeof(sd_id128_t)) {
+                free(k);
+                return log_error_errno(r, "Root hash too short: %s", text);
+        }
+
+        arg_root_hash = k;
+        arg_root_hash_size = l;
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
 
         _cleanup_free_ char *console = NULL;
@@ -3623,6 +3695,10 @@ int main(int argc, char *argv[]) {
                                 r = log_error_errno(r, "Failed to create image lock: %m");
                                 goto finish;
                         }
+
+                        r = load_root_hash(arg_image);
+                        if (r < 0)
+                                goto finish;
                 }
 
                 if (!mkdtemp(tmprootdir)) {
@@ -3644,7 +3720,7 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                r = dissect_image(loop->fd, &dissected_image);
+                r = dissect_image(loop->fd, arg_root_hash, arg_root_hash_size, &dissected_image);
                 if (r == -ENOPKG) {
                         log_error_errno(r, "Could not find a suitable file system or partition table in image: %s", arg_image);
 
@@ -3656,6 +3732,10 @@ int main(int argc, char *argv[]) {
                                    "in order to be bootable with systemd-nspawn.");
                         goto finish;
                 }
+                if (r == -EADDRNOTAVAIL) {
+                        log_error_errno(r, "No root partition for specified root hash found.");
+                        goto finish;
+                }
                 if (r == -EOPNOTSUPP) {
                         log_error_errno(r, "--image= is not supported, compiled without blkid support.");
                         goto finish;
@@ -3665,7 +3745,10 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                r = dissected_image_decrypt_interactively(dissected_image, NULL, 0, &decrypted_image);
+                if (!arg_root_hash && dissected_image->can_verity)
+                        log_notice("Note: image %s contains verity information, but no root hash specified! Proceeding without integrity checking.", arg_image);
+
+                r = dissected_image_decrypt_interactively(dissected_image, NULL, arg_root_hash, arg_root_hash_size, 0, &decrypted_image);
                 if (r < 0)
                         goto finish;
 
@@ -3792,6 +3875,7 @@ finish:
         strv_free(arg_parameters);
         custom_mount_free_all(arg_custom_mounts, arg_n_custom_mounts);
         expose_port_free_all(arg_expose_ports);
+        free(arg_root_hash);
 
         return r < 0 ? EXIT_FAILURE : ret;
 }

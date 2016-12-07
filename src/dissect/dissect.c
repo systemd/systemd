@@ -23,6 +23,7 @@
 
 #include "architecture.h"
 #include "dissect-image.h"
+#include "hexdecoct.h"
 #include "log.h"
 #include "loop-util.h"
 #include "string-util.h"
@@ -35,6 +36,8 @@ static enum {
 static const char *arg_image = NULL;
 static const char *arg_path = NULL;
 static DissectImageFlags arg_flags = DISSECT_IMAGE_DISCARD_ON_LOOP;
+static void *arg_root_hash = NULL;
+static size_t arg_root_hash_size = 0;
 
 static void help(void) {
         printf("%s [OPTIONS...] IMAGE\n"
@@ -44,7 +47,8 @@ static void help(void) {
                "     --version         Show package version\n"
                "  -m --mount           Mount the image to the specified directory\n"
                "  -r --read-only       Mount read-only\n"
-               "     --discard=MODE    Choose 'discard' mode (disabled, loop, all, crypto)\n",
+               "     --discard=MODE    Choose 'discard' mode (disabled, loop, all, crypto)\n"
+               "     --root-hash=HASH  Specify root hash for verity\n",
                program_invocation_short_name,
                program_invocation_short_name);
 }
@@ -54,6 +58,7 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_DISCARD,
+                ARG_ROOT_HASH,
         };
 
         static const struct option options[] = {
@@ -62,10 +67,11 @@ static int parse_argv(int argc, char *argv[]) {
                 { "mount",     no_argument,       NULL, 'm'           },
                 { "read-only", no_argument,       NULL, 'r'           },
                 { "discard",   required_argument, NULL, ARG_DISCARD   },
+                { "root-hash", required_argument, NULL, ARG_ROOT_HASH },
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -104,6 +110,25 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         break;
+
+                case ARG_ROOT_HASH: {
+                        void *p;
+                        size_t l;
+
+                        r = unhexmem(optarg, strlen(optarg), &p, &l);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse root hash: %s", optarg);
+                        if (l < sizeof(sd_id128_t)) {
+                                log_error("Root hash must be at least 128bit long: %s", optarg);
+                                free(p);
+                                return -EINVAL;
+                        }
+
+                        free(arg_root_hash);
+                        arg_root_hash = p;
+                        arg_root_hash_size = l;
+                        break;
+                }
 
                 case '?':
                         return -EINVAL;
@@ -162,9 +187,13 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = dissect_image(d->fd, &m);
+        r = dissect_image(d->fd, arg_root_hash, arg_root_hash_size, &m);
         if (r == -ENOPKG) {
                 log_error_errno(r, "Couldn't identify a suitable partition table or file system in %s.", arg_image);
+                goto finish;
+        }
+        if (r == -EADDRNOTAVAIL) {
+                log_error_errno(r, "No root partition for specified root hash found in %s.", arg_image);
                 goto finish;
         }
         if (r < 0) {
@@ -179,6 +208,7 @@ int main(int argc, char *argv[]) {
 
                 for (i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
                         DissectedPartition *p = m->partitions + i;
+                        int k;
 
                         if (!p->found)
                                 continue;
@@ -193,6 +223,10 @@ int main(int argc, char *argv[]) {
                         if (p->architecture != _ARCHITECTURE_INVALID)
                                 printf(" for %s", architecture_to_string(p->architecture));
 
+                        k = PARTITION_VERITY_OF(i);
+                        if (k >= 0)
+                                printf(" %s verity", m->partitions[k].found ? "with" : "without");
+
                         if (p->partno >= 0)
                                 printf(" on partition #%i", p->partno);
 
@@ -206,7 +240,7 @@ int main(int argc, char *argv[]) {
         }
 
         case ACTION_MOUNT:
-                r = dissected_image_decrypt_interactively(m, NULL, arg_flags, &di);
+                r = dissected_image_decrypt_interactively(m, NULL, arg_root_hash, arg_root_hash_size, arg_flags, &di);
                 if (r < 0)
                         goto finish;
 
@@ -232,5 +266,6 @@ int main(int argc, char *argv[]) {
         }
 
 finish:
+        free(arg_root_hash);
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

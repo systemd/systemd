@@ -45,9 +45,19 @@ enum  {
         PARTITION_SRV,
         PARTITION_ESP,
         PARTITION_SWAP,
+        PARTITION_ROOT_VERITY, /* verity data for the PARTITION_ROOT partition */
+        PARTITION_ROOT_SECONDARY_VERITY, /* verity data for the PARTITION_ROOT_SECONDARY partition */
         _PARTITION_DESIGNATOR_MAX,
         _PARTITION_DESIGNATOR_INVALID = -1
 };
+
+static inline int PARTITION_VERITY_OF(int p) {
+        if (p == PARTITION_ROOT)
+                return PARTITION_ROOT_VERITY;
+        if (p == PARTITION_ROOT_SECONDARY)
+                return PARTITION_ROOT_SECONDARY_VERITY;
+        return _PARTITION_DESIGNATOR_INVALID;
+}
 
 typedef enum DissectImageFlags {
         DISSECT_IMAGE_READ_ONLY = 1,
@@ -57,17 +67,19 @@ typedef enum DissectImageFlags {
 } DissectImageFlags;
 
 struct DissectedImage {
-        bool encrypted;
+        bool encrypted:1;
+        bool verity:1;     /* verity available and usable */
+        bool can_verity:1; /* verity available, but not necessarily used */
         DissectedPartition partitions[_PARTITION_DESIGNATOR_MAX];
 };
 
-int dissect_image(int fd, DissectedImage **ret);
+int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectedImage **ret);
 
 DissectedImage* dissected_image_unref(DissectedImage *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DissectedImage*, dissected_image_unref);
 
-int dissected_image_decrypt(DissectedImage *m, const char *passphrase, DissectImageFlags flags, DecryptedImage **ret);
-int dissected_image_decrypt_interactively(DissectedImage *m, const char *passphrase, DissectImageFlags flags, DecryptedImage **ret);
+int dissected_image_decrypt(DissectedImage *m, const char *passphrase, const void *root_hash, size_t root_hash_size, DissectImageFlags flags, DecryptedImage **ret);
+int dissected_image_decrypt_interactively(DissectedImage *m, const char *passphrase, const void *root_hash, size_t root_hash_size, DissectImageFlags flags, DecryptedImage **ret);
 int dissected_image_mount(DissectedImage *m, const char *dest, DissectImageFlags flags);
 
 DecryptedImage* decrypted_image_unref(DecryptedImage *p);

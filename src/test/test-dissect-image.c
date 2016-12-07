@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        r = dissect_image(d->fd, &m);
+        r = dissect_image(d->fd, NULL, 0, &m);
         if (r < 0) {
                 log_error_errno(r, "Failed to dissect image: %m");
                 return EXIT_FAILURE;

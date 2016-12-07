@@ -84,9 +84,10 @@ not_found:
 #endif
 }
 
-int dissect_image(int fd, DissectedImage **ret) {
+int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectedImage **ret) {
 
 #ifdef HAVE_BLKID
+        sd_id128_t root_uuid = SD_ID128_NULL, verity_uuid = SD_ID128_NULL;
         _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
         bool is_gpt, is_mbr, generic_rw, multiple_generic = false;
         _cleanup_udev_device_unref_ struct udev_device *d = NULL;
@@ -103,10 +104,29 @@ int dissect_image(int fd, DissectedImage **ret) {
 
         assert(fd >= 0);
         assert(ret);
+        assert(root_hash || root_hash_size == 0);
 
         /* Probes a disk image, and returns information about what it found in *ret.
          *
-         * Returns -ENOPKG if no suitable partition table or file system could be found. */
+         * Returns -ENOPKG if no suitable partition table or file system could be found.
+         * Returns -EADDRNOTAVAIL if a root hash was specified but no matching root/verity partitions found. */
+
+        if (root_hash) {
+                /* If a root hash is supplied, then we use the root partition that has a UUID that match the first
+                 * 128bit of the root hash. And we use the verity partition that has a UUID that match the final
+                 * 128bit. */
+
+                if (root_hash_size < sizeof(sd_id128_t))
+                        return -EINVAL;
+
+                memcpy(&root_uuid, root_hash, sizeof(sd_id128_t));
+                memcpy(&verity_uuid, (const uint8_t*) root_hash + root_hash_size - sizeof(sd_id128_t), sizeof(sd_id128_t));
+
+                if (sd_id128_is_null(root_uuid))
+                        return -EINVAL;
+                if (sd_id128_is_null(verity_uuid))
+                        return -EINVAL;
+        }
 
         if (fstat(fd, &st) < 0)
                 return -errno;
@@ -313,17 +333,22 @@ int dissect_image(int fd, DissectedImage **ret) {
 
                 if (is_gpt) {
                         int designator = _PARTITION_DESIGNATOR_INVALID, architecture = _ARCHITECTURE_INVALID;
-                        const char *stype, *fstype = NULL;
-                        sd_id128_t type_id;
+                        const char *stype, *sid, *fstype = NULL;
+                        sd_id128_t type_id, id;
                         bool rw = true;
 
                         if (flags & GPT_FLAG_NO_AUTO)
                                 continue;
 
+                        sid = blkid_partition_get_uuid(pp);
+                        if (!sid)
+                                continue;
+                        if (sd_id128_from_string(sid, &id) < 0)
+                                continue;
+
                         stype = blkid_partition_get_type_string(pp);
                         if (!stype)
                                 continue;
-
                         if (sd_id128_from_string(stype, &type_id) < 0)
                                 continue;
 
@@ -339,17 +364,57 @@ int dissect_image(int fd, DissectedImage **ret) {
                         }
 #ifdef GPT_ROOT_NATIVE
                         else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE)) {
+
+                                /* If a root ID is specified, ignore everything but the root id */
+                                if (!sd_id128_is_null(root_uuid) && !sd_id128_equal(root_uuid, id))
+                                        continue;
+
                                 designator = PARTITION_ROOT;
                                 architecture = native_architecture();
                                 rw = !(flags & GPT_FLAG_READ_ONLY);
                         }
+#ifdef GPT_ROOT_NATIVE_VERITY
+                        else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE_VERITY)) {
+
+                                m->can_verity = true;
+
+                                /* Ignore verity unless a root hash is specified */
+                                if (sd_id128_is_null(verity_uuid) || !sd_id128_equal(verity_uuid, id))
+                                        continue;
+
+                                designator = PARTITION_ROOT_VERITY;
+                                fstype = "DM_verity_hash";
+                                architecture = native_architecture();
+                                rw = false;
+                        }
+#endif
 #endif
 #ifdef GPT_ROOT_SECONDARY
                         else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY)) {
+
+                                /* If a root ID is specified, ignore everything but the root id */
+                                if (!sd_id128_is_null(root_uuid) && !sd_id128_equal(root_uuid, id))
+                                        continue;
+
                                 designator = PARTITION_ROOT_SECONDARY;
                                 architecture = SECONDARY_ARCHITECTURE;
                                 rw = !(flags & GPT_FLAG_READ_ONLY);
                         }
+#ifdef GPT_ROOT_SECONDARY_VERITY
+                        else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY_VERITY)) {
+
+                                m->can_verity = true;
+
+                                /* Ignore verity unless root has is specified */
+                                if (sd_id128_is_null(verity_uuid) || !sd_id128_equal(verity_uuid, id))
+                                        continue;
+
+                                designator = PARTITION_ROOT_SECONDARY_VERITY;
+                                fstype = "DM_verity_hash";
+                                architecture = SECONDARY_ARCHITECTURE;
+                                rw = false;
+                        }
+#endif
 #endif
                         else if (sd_id128_equal(type_id, GPT_SWAP)) {
                                 designator = PARTITION_SWAP;
@@ -420,10 +485,17 @@ int dissect_image(int fd, DissectedImage **ret) {
                 /* No root partition found? Then let's see if ther's one for the secondary architecture. And if not
                  * either, then check if there's a single generic one, and use that. */
 
+                if (m->partitions[PARTITION_ROOT_VERITY].found)
+                        return -ENXIO;
+
                 if (m->partitions[PARTITION_ROOT_SECONDARY].found) {
                         m->partitions[PARTITION_ROOT] = m->partitions[PARTITION_ROOT_SECONDARY];
                         zero(m->partitions[PARTITION_ROOT_SECONDARY]);
-                } else if (generic_node) {
+
+                        m->partitions[PARTITION_ROOT_VERITY] = m->partitions[PARTITION_ROOT_SECONDARY_VERITY];
+                        zero(m->partitions[PARTITION_ROOT_SECONDARY_VERITY]);
+
+                } else if (generic_node && !root_hash) {
 
                         if (multiple_generic)
                                 return -ENOTUNIQ;
@@ -439,6 +511,24 @@ int dissect_image(int fd, DissectedImage **ret) {
                         generic_node = NULL;
                 } else
                         return -ENXIO;
+        }
+
+        assert(m->partitions[PARTITION_ROOT].found);
+
+        if (root_hash) {
+                if (!m->partitions[PARTITION_ROOT_VERITY].found)
+                        return -EADDRNOTAVAIL;
+
+                /* If we found the primary root with the hash, then we definitely want to suppress any secondary root
+                 * (which would be weird, after all the root hash should only be assigned to one pair of
+                 * partitions... */
+                m->partitions[PARTITION_ROOT_SECONDARY].found = false;
+                m->partitions[PARTITION_ROOT_SECONDARY_VERITY].found = false;
+
+                /* If we found a verity setup, then the root partition is necessarily read-only. */
+                m->partitions[PARTITION_ROOT].rw = false;
+
+                m->verity = true;
         }
 
         blkid_free_probe(b);
@@ -637,6 +727,40 @@ DecryptedImage* decrypted_image_unref(DecryptedImage* d) {
 }
 
 #ifdef HAVE_LIBCRYPTSETUP
+
+static int make_dm_name_and_node(const void *original_node, const char *suffix, char **ret_name, char **ret_node) {
+        _cleanup_free_ char *name = NULL, *node = NULL;
+        const char *base;
+
+        assert(original_node);
+        assert(suffix);
+        assert(ret_name);
+        assert(ret_node);
+
+        base = strrchr(original_node, '/');
+        if (!base)
+                return -EINVAL;
+        base++;
+        if (isempty(base))
+                return -EINVAL;
+
+        name = strjoin(base, suffix);
+        if (!name)
+                return -ENOMEM;
+        if (!filename_is_valid(name))
+                return -EINVAL;
+
+        node = strjoin(crypt_get_dir(), "/", name);
+        if (!node)
+                return -ENOMEM;
+
+        *ret_name = name;
+        *ret_node = node;
+
+        name = node = NULL;
+        return 0;
+}
+
 static int decrypt_partition(
                 DissectedPartition *m,
                 const char *passphrase,
@@ -645,7 +769,6 @@ static int decrypt_partition(
 
         _cleanup_free_ char *node = NULL, *name = NULL;
         struct crypt_device *cd;
-        const char *suffix;
         int r;
 
         assert(m);
@@ -657,22 +780,9 @@ static int decrypt_partition(
         if (!streq(m->fstype, "crypto_LUKS"))
                 return 0;
 
-        suffix = strrchr(m->node, '/');
-        if (!suffix)
-                return -EINVAL;
-        suffix++;
-        if (isempty(suffix))
-                return -EINVAL;
-
-        name = strjoin(suffix, "-decrypted");
-        if (!name)
-                return -ENOMEM;
-        if (!filename_is_valid(name))
-                return -EINVAL;
-
-        node = strjoin(crypt_get_dir(), "/", name);
-        if (!node)
-                return -ENOMEM;
+        r = make_dm_name_and_node(m->node, "-decrypted", &name, &node);
+        if (r < 0)
+                return r;
 
         if (!GREEDY_REALLOC0(d->decrypted, d->n_allocated, d->n_decrypted + 1))
                 return -ENOMEM;
@@ -710,11 +820,78 @@ fail:
         crypt_free(cd);
         return r;
 }
+
+static int verity_partition(
+                DissectedPartition *m,
+                DissectedPartition *v,
+                const void *root_hash,
+                size_t root_hash_size,
+                DissectImageFlags flags,
+                DecryptedImage *d) {
+
+        _cleanup_free_ char *node = NULL, *name = NULL;
+        struct crypt_device *cd;
+        int r;
+
+        assert(m);
+        assert(v);
+
+        if (!root_hash)
+                return 0;
+
+        if (!m->found || !m->node || !m->fstype)
+                return 0;
+        if (!v->found || !v->node || !v->fstype)
+                return 0;
+
+        if (!streq(v->fstype, "DM_verity_hash"))
+                return 0;
+
+        r = make_dm_name_and_node(m->node, "-verity", &name, &node);
+        if (r < 0)
+                return r;
+
+        if (!GREEDY_REALLOC0(d->decrypted, d->n_allocated, d->n_decrypted + 1))
+                return -ENOMEM;
+
+        r = crypt_init(&cd, v->node);
+        if (r < 0)
+                return r;
+
+        r = crypt_load(cd, CRYPT_VERITY, NULL);
+        if (r < 0)
+                goto fail;
+
+        r = crypt_set_data_device(cd, m->node);
+        if (r < 0)
+                goto fail;
+
+        r = crypt_activate_by_volume_key(cd, name, root_hash, root_hash_size, CRYPT_ACTIVATE_READONLY);
+        if (r < 0)
+                goto fail;
+
+        d->decrypted[d->n_decrypted].name = name;
+        name = NULL;
+
+        d->decrypted[d->n_decrypted].device = cd;
+        d->n_decrypted++;
+
+        m->decrypted_node = node;
+        node = NULL;
+
+        return 0;
+
+fail:
+        crypt_free(cd);
+        return r;
+}
 #endif
 
 int dissected_image_decrypt(
                 DissectedImage *m,
                 const char *passphrase,
+                const void *root_hash,
+                size_t root_hash_size,
                 DissectImageFlags flags,
                 DecryptedImage **ret) {
 
@@ -725,6 +902,7 @@ int dissected_image_decrypt(
 #endif
 
         assert(m);
+        assert(root_hash || root_hash_size == 0);
 
         /* Returns:
          *
@@ -734,13 +912,16 @@ int dissected_image_decrypt(
          *      -EKEYREJECTED → Passed key was not correct
          */
 
-        if (!m->encrypted) {
+        if (root_hash && root_hash_size < sizeof(sd_id128_t))
+                return -EINVAL;
+
+        if (!m->encrypted && !m->verity) {
                 *ret = NULL;
                 return 0;
         }
 
 #ifdef HAVE_LIBCRYPTSETUP
-        if (!passphrase)
+        if (m->encrypted && !passphrase)
                 return -ENOKEY;
 
         d = new0(DecryptedImage, 1);
@@ -749,6 +930,7 @@ int dissected_image_decrypt(
 
         for (i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
                 DissectedPartition *p = m->partitions + i;
+                int k;
 
                 if (!p->found)
                         continue;
@@ -756,6 +938,13 @@ int dissected_image_decrypt(
                 r = decrypt_partition(p, passphrase, flags, d);
                 if (r < 0)
                         return r;
+
+                k = PARTITION_VERITY_OF(i);
+                if (k >= 0) {
+                        r = verity_partition(p, m->partitions + k, root_hash, root_hash_size, flags, d);
+                        if (r < 0)
+                                return r;
+                }
 
                 if (!p->decrypted_fstype && p->decrypted_node) {
                         r = probe_filesystem(p->decrypted_node, &p->decrypted_fstype);
@@ -776,6 +965,8 @@ int dissected_image_decrypt(
 int dissected_image_decrypt_interactively(
                 DissectedImage *m,
                 const char *passphrase,
+                const void *root_hash,
+                size_t root_hash_size,
                 DissectImageFlags flags,
                 DecryptedImage **ret) {
 
@@ -786,7 +977,7 @@ int dissected_image_decrypt_interactively(
                 n--;
 
         for (;;) {
-                r = dissected_image_decrypt(m, passphrase, flags, ret);
+                r = dissected_image_decrypt(m, passphrase, root_hash, root_hash_size, flags, ret);
                 if (r >= 0)
                         return r;
                 if (r == -EKEYREJECTED)
@@ -880,6 +1071,8 @@ static const char *const partition_designator_table[] = {
         [PARTITION_SRV] = "srv",
         [PARTITION_ESP] = "esp",
         [PARTITION_SWAP] = "swap",
+        [PARTITION_ROOT_VERITY] = "root-verity",
+        [PARTITION_ROOT_SECONDARY_VERITY] = "root-secondary-verity",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(partition_designator, int);
