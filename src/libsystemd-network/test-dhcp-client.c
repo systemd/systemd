@@ -203,7 +203,7 @@ int dhcp_network_bind_raw_socket(
         return test_fd[0];
 }
 
-int dhcp_network_bind_udp_socket(be32_t address, uint16_t port) {
+int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port) {
         int fd;
 
         fd = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC, 0);

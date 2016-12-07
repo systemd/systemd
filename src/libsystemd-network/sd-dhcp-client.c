@@ -1546,7 +1546,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
                                 goto error;
                         }
 
-                        r = dhcp_network_bind_udp_socket(client->lease->address, client->port);
+                        r = dhcp_network_bind_udp_socket(client->ifindex, client->lease->address, client->port);
                         if (r < 0) {
                                 log_dhcp_client(client, "could not bind UDP socket");
                                 goto error;
