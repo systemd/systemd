@@ -1951,10 +1951,22 @@ static int determine_names(void) {
         }
 
         if (!arg_machine) {
+
                 if (arg_directory && path_equal(arg_directory, "/"))
                         arg_machine = gethostname_malloc();
-                else
-                        arg_machine = strdup(basename(arg_image ?: arg_directory));
+                else {
+                        if (arg_image) {
+                                char *e;
+
+                                arg_machine = strdup(basename(arg_image));
+
+                                /* Truncate suffix if there is one */
+                                e = endswith(arg_machine, ".raw");
+                                if (e)
+                                        *e = 0;
+                        } else
+                                arg_machine = strdup(basename(arg_directory));
+                }
                 if (!arg_machine)
                         return log_oom();
 
