@@ -74,6 +74,14 @@ class NetworkdTestingUtilities:
     some required methods.
     """
 
+    def add_veth_pair(self, veth, peer, veth_options=(), peer_options=()):
+        """Add a veth interface pair, and queue them to be removed."""
+        subprocess.check_call(['ip', 'link', 'add', 'name', veth] +
+                              list(veth_options) +
+                              ['type', 'veth', 'peer', 'name', peer] +
+                              list(peer_options))
+        self.addCleanup(subprocess.call, ['ip', 'link', 'del', 'dev', peer])
+
     def write_network(self, unit_name, contents):
         """Write a network unit file, and queue it to be removed."""
         unit_path = os.path.join(NETWORK_UNITDIR, unit_name)
@@ -439,9 +447,7 @@ IPv6AcceptRA=False''' % self.iface)
 
         # create second device/dnsmasq for a .company/.lab VPN interface
         # static IPs for simplicity
-        subprocess.check_call(['ip', 'link', 'add', 'name', 'testvpnclient', 'type',
-                               'veth', 'peer', 'name', 'testvpnrouter'])
-        self.addCleanup(subprocess.call, ['ip', 'link', 'del', 'dev', 'testvpnrouter'])
+        self.add_veth_pair('testvpnclient', 'testvpnrouter')
         subprocess.check_call(['ip', 'a', 'flush', 'dev', 'testvpnrouter'])
         subprocess.check_call(['ip', 'a', 'add', '10.241.3.1/24', 'dev', 'testvpnrouter'])
         subprocess.check_call(['ip', 'link', 'set', 'testvpnrouter', 'up'])
@@ -768,6 +774,42 @@ DNS=127.0.0.1''')
             raise
 
 
+class MatchClientTest(unittest.TestCase, NetworkdTestingUtilities):
+    """Test [Match] sections in .network files.
+
+    Be aware that matching the test host's interfaces will wipe their
+    configuration, so as a precaution, all network files should have a
+    restrictive [Match] section to only ever interfere with the
+    temporary veth interfaces created here.
+    """
+
+    def tearDown(self):
+        """Stop networkd."""
+        subprocess.call(['systemctl', 'stop', 'systemd-networkd'])
+
+    def test_basic_matching(self):
+        """Verify the Name= line works throughout this class."""
+        self.add_veth_pair('test_if1', 'fake_if2')
+        self.write_network('test.network', "[Match]\nName=test_*\n[Network]")
+        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        self.assert_link_states(test_if1='managed', fake_if2='unmanaged')
+
+    def test_inverted_matching(self):
+        """Verify that a '!'-prefixed value inverts the match."""
+        # Use a MAC address as the interfaces' common matching attribute
+        # to avoid depending on udev, to support testing in containers.
+        mac = '00:01:02:03:98:99'
+        self.add_veth_pair('test_veth', 'test_peer',
+                           ['addr', mac], ['addr', mac])
+        self.write_network('no-veth.network', """\
+[Match]
+MACAddress=%s
+Name=!nonexistent *peer*
+[Network]""" % mac)
+        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        self.assert_link_states(test_veth='managed', test_peer='unmanaged')
+
+
 class UnmanagedClientTest(unittest.TestCase, NetworkdTestingUtilities):
     """Test if networkd manages the correct interfaces."""
 
@@ -798,11 +840,7 @@ class UnmanagedClientTest(unittest.TestCase, NetworkdTestingUtilities):
     def create_iface(self):
         """Create temporary veth pairs for interface matching."""
         for veth, peer in self.veths.items():
-            subprocess.check_call(['ip', 'link', 'add',
-                                   'name', veth, 'type', 'veth',
-                                   'peer', 'name', peer])
-            self.addCleanup(subprocess.call,
-                            ['ip', 'link', 'del', 'dev', peer])
+            self.add_veth_pair(veth, peer)
 
     def test_unmanaged_setting(self):
         """Verify link states with Unmanaged= settings, hot-plug."""
