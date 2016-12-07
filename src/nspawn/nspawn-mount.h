@@ -22,6 +22,7 @@
 #include <stdbool.h>
 
 #include "cgroup-util.h"
+#include "volatile-util.h"
 
 typedef enum MountSettingsMask {
         MOUNT_FATAL              = 1 << 0, /* if set, a mount error is considered fatal */
@@ -31,14 +32,6 @@ typedef enum MountSettingsMask {
         MOUNT_APPLY_APIVFS_NETNS = 1 << 4, /* if set, /proc/sys/net will be mounted read-write.
                                               Works only if MOUNT_APPLY_APIVFS_RO is also set. */
 } MountSettingsMask;
-
-typedef enum VolatileMode {
-        VOLATILE_NO,
-        VOLATILE_YES,
-        VOLATILE_STATE,
-        _VOLATILE_MODE_MAX,
-        _VOLATILE_MODE_INVALID = -1
-} VolatileMode;
 
 typedef enum CustomMountType {
         CUSTOM_MOUNT_BIND,
@@ -77,5 +70,3 @@ int mount_custom(const char *dest, CustomMount *mounts, unsigned n, bool userns,
 
 int setup_volatile(const char *directory, VolatileMode mode, bool userns, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context);
 int setup_volatile_state(const char *directory, VolatileMode mode, bool userns, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context);
-
-VolatileMode volatile_mode_from_string(const char *s);

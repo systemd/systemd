@@ -1349,21 +1349,3 @@ fail:
         (void) rmdir(template);
         return r;
 }
-
-VolatileMode volatile_mode_from_string(const char *s) {
-        int b;
-
-        if (isempty(s))
-                return _VOLATILE_MODE_INVALID;
-
-        b = parse_boolean(s);
-        if (b > 0)
-                return VOLATILE_YES;
-        if (b == 0)
-                return VOLATILE_NO;
-
-        if (streq(s, "state"))
-                return VOLATILE_STATE;
-
-        return _VOLATILE_MODE_INVALID;
-}

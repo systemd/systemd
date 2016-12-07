@@ -1065,7 +1065,9 @@ libshared_la_SOURCES = \
 	src/shared/nsflags.h \
 	src/shared/nsflags.c \
 	src/shared/dissect-image.c \
-	src/shared/dissect-image.h
+	src/shared/dissect-image.h \
+	src/shared/volatile-util.c \
+	src/shared/volatile-util.h
 
 if HAVE_UTMP
 libshared_la_SOURCES += \
