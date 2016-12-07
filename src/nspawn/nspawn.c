@@ -1299,6 +1299,8 @@ static int setup_resolv_conf(const char *dest) {
                  * advantage that the container will be able to follow the host's DNS server configuration changes
                  * transparently. */
 
+                (void) touch(where);
+
                 r = mount_verbose(LOG_WARNING, "/usr/lib/systemd/resolv.conf", where, NULL, MS_BIND, NULL);
                 if (r >= 0)
                         return mount_verbose(LOG_ERR, NULL, where, NULL,
