@@ -86,7 +86,8 @@ int net_get_unique_predictable_data(struct udev_device *device, uint64_t *result
         return 0;
 }
 
-static bool net_condition_test_strv(char * const *raw_patterns, char *string) {
+static bool net_condition_test_strv(char * const *raw_patterns,
+                                    const char *string) {
         if (strv_isempty(raw_patterns))
                 return true;
 
