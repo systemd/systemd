@@ -35,6 +35,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "install.h"
 #include "log.h"
 #include "path-util.h"
@@ -1484,25 +1485,36 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
         if (r < 0)
                 return r;
 
-        if (path_equal(root, "/") || !path_is_absolute(root))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid switch root path %s", root);
+        if (isempty(root))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "New root directory may not be the empty string.");
+        if (!path_is_absolute(root))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "New root path '%s' is not absolute.", root);
+        if (path_equal(root, "/"))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "New root directory cannot be the old root directory.");
 
         /* Safety check */
         if (isempty(init)) {
-                if (!path_is_os_tree(root))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified switch root path %s does not seem to be an OS tree. os-release file is missing.", root);
+                r = path_is_os_tree(root);
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error, r, "Failed to determine whether root path '%s' contains an OS tree: %m", root);
+                if (r == 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified switch root path '%s' does not seem to be an OS tree. os-release file is missing.", root);
         } else {
-                _cleanup_free_ char *p = NULL;
+                _cleanup_free_ char *chased = NULL;
 
                 if (!path_is_absolute(init))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid init path %s", init);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path to init binary '%s' not absolute.", init);
 
-                p = strappend(root, init);
-                if (!p)
-                        return -ENOMEM;
+                r = chase_symlinks(init, root, CHASE_PREFIX_ROOT, &chased);
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error, r, "Could not resolve init executable %s: %m", init);
 
-                if (access(p, X_OK) < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified init binary %s does not exist.", p);
+                if (laccess(chased, X_OK) < 0) {
+                        if (errno == EACCES)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Init binary %s is not executable.", init);
+
+                        return sd_bus_error_set_errnof(error, r, "Could not check whether init binary %s is executable: %m", init);
+                }
         }
 
         rt = strdup(root);
