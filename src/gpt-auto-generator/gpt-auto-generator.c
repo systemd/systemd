@@ -449,7 +449,7 @@ static int add_automount(
         return 0;
 }
 
-static int add_boot(const char *what) {
+static int add_esp(const char *what) {
         const char *esp;
         int r;
 
@@ -547,7 +547,7 @@ static int add_boot(const char *what) {
                           120 * USEC_PER_SEC);
 }
 #else
-static int add_boot(const char *what) {
+static int add_esp(const char *what) {
         return 0;
 }
 #endif
@@ -789,7 +789,7 @@ static int enumerate_partitions(dev_t devnum) {
         }
 
         if (boot) {
-                k = add_boot(boot);
+                k = add_esp(boot);
                 if (k < 0)
                         r = k;
         }
