@@ -799,8 +799,10 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                         return -ENOMEM;
         }
 
-        *ret = done;
-        done = NULL;
+        if (ret) {
+                *ret = done;
+                done = NULL;
+        }
 
         return exists;
 }
