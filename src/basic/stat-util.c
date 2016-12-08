@@ -224,3 +224,13 @@ int fd_is_temporary_fs(int fd) {
 
         return is_temporary_fs(&s);
 }
+
+int path_is_temporary_fs(const char *path) {
+        _cleanup_close_ int fd = -1;
+
+        fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0)
+                return -errno;
+
+        return fd_is_temporary_fs(fd);
+}
