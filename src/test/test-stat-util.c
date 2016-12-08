@@ -60,9 +60,16 @@ static void test_is_symlink(void) {
         unlink(name_link);
 }
 
+static void test_path_is_os_tree(void) {
+        assert_se(path_is_os_tree("/") > 0);
+        assert_se(path_is_os_tree("/etc") == 0);
+        assert_se(path_is_os_tree("/idontexist") == -ENOENT);
+}
+
 int main(int argc, char *argv[]) {
         test_files_same();
         test_is_symlink();
+        test_path_is_os_tree();
 
         return 0;
 }
