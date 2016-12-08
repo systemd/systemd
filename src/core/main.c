@@ -49,6 +49,7 @@
 #include "cpu-set-util.h"
 #include "dbus-manager.h"
 #include "def.h"
+#include "emergency-action.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fdset.h"
@@ -90,7 +91,6 @@
 #include "user-util.h"
 #include "virt.h"
 #include "watchdog.h"
-#include "emergency-action.h"
 
 static enum {
         ACTION_RUN,
@@ -1411,7 +1411,7 @@ int main(int argc, char *argv[]) {
            called 'systemd'. That is confusing, hence let's call us
            systemd right-away. */
         program_invocation_short_name = systemd;
-        prctl(PR_SET_NAME, systemd);
+        (void) prctl(PR_SET_NAME, systemd);
 
         saved_argv = argv;
         saved_argc = argc;
@@ -1435,9 +1435,10 @@ int main(int argc, char *argv[]) {
                 if (!skip_setup) {
                         r = mount_setup_early();
                         if (r < 0) {
-                                error_message = "Failed to early mount API filesystems";
+                                error_message = "Failed to mount early API filesystems";
                                 goto finish;
                         }
+
                         dual_timestamp_get(&security_start_timestamp);
                         if (mac_selinux_setup(&loaded_policy) < 0) {
                                 error_message = "Failed to load SELinux policy";
@@ -1513,7 +1514,7 @@ int main(int argc, char *argv[]) {
                 log_close_console(); /* force reopen of /dev/console */
                 log_open();
 
-                /* For the later on, see above... */
+                /* For later on, see above... */
                 log_set_target(LOG_TARGET_JOURNAL);
 
                 /* clear the kernel timestamp,
