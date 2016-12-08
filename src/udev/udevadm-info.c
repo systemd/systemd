@@ -16,7 +16,6 @@
  */
 
 #include <ctype.h>
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
@@ -26,6 +25,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "dirent-util.h"
 #include "fd-util.h"
 #include "string-util.h"
 #include "udev-util.h"
@@ -196,7 +196,7 @@ static void cleanup_dir(DIR *dir, mode_t mask, int depth) {
         if (depth <= 0)
                 return;
 
-        for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
+        FOREACH_DIRENT_ALL(dent, dir, break) {
                 struct stat stats;
 
                 if (dent->d_name[0] == '.')

@@ -17,7 +17,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dirent.h>
 #include <errno.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -446,6 +445,7 @@ int mkfifo_atomic(const char *path, mode_t mode) {
 
 int get_files_in_directory(const char *path, char ***list) {
         _cleanup_closedir_ DIR *d = NULL;
+        struct dirent *de;
         size_t bufsize = 0, n = 0;
         _cleanup_strv_free_ char **l = NULL;
 
@@ -459,16 +459,7 @@ int get_files_in_directory(const char *path, char ***list) {
         if (!d)
                 return -errno;
 
-        for (;;) {
-                struct dirent *de;
-
-                errno = 0;
-                de = readdir(d);
-                if (!de && errno > 0)
-                        return -errno;
-                if (!de)
-                        break;
-
+        FOREACH_DIRENT_ALL(de, d, return -errno) {
                 dirent_ensure_type(d, de);
 
                 if (!dirent_is_file(de))

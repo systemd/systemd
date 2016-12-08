@@ -18,7 +18,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
@@ -44,6 +43,7 @@
 #include "conf-files.h"
 #include "copy.h"
 #include "def.h"
+#include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -380,7 +380,7 @@ static int dir_cleanup(
         bool deleted = false;
         int r = 0;
 
-        while ((dent = readdir(d))) {
+        FOREACH_DIRENT_ALL(dent, d, break) {
                 struct stat s;
                 usec_t age;
                 _cleanup_free_ char *sub_path = NULL;
@@ -1053,6 +1053,7 @@ typedef int (*action_t)(Item *, const char *);
 
 static int item_do_children(Item *i, const char *path, action_t action) {
         _cleanup_closedir_ DIR *d;
+        struct dirent *de;
         int r = 0;
 
         assert(i);
@@ -1065,19 +1066,11 @@ static int item_do_children(Item *i, const char *path, action_t action) {
         if (!d)
                 return errno == ENOENT || errno == ENOTDIR ? 0 : -errno;
 
-        for (;;) {
+        FOREACH_DIRENT_ALL(de, d, r = -errno) {
                 _cleanup_free_ char *p = NULL;
-                struct dirent *de;
                 int q;
 
                 errno = 0;
-                de = readdir(d);
-                if (!de) {
-                        if (errno > 0 && r == 0)
-                                r = -errno;
-
-                        break;
-                }
 
                 if (STR_IN_SET(de->d_name, ".", ".."))
                         continue;

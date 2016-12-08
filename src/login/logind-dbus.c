@@ -1286,8 +1286,7 @@ static int flush_devices(Manager *m) {
         } else {
                 struct dirent *de;
 
-                while ((de = readdir(d))) {
-
+                FOREACH_DIRENT_ALL(de, d, break) {
                         if (!dirent_is_file(de))
                                 continue;
 

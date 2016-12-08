@@ -15,7 +15,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
@@ -25,6 +24,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "dirent-util.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "selinux-util.h"
@@ -129,6 +129,7 @@ exit:
 static const char *link_find_prioritized(struct udev_device *dev, bool add, const char *stackdir, char *buf, size_t bufsize) {
         struct udev *udev = udev_device_get_udev(dev);
         DIR *dir;
+        struct dirent *dent;
         int priority = 0;
         const char *target = NULL;
 
@@ -141,12 +142,10 @@ static const char *link_find_prioritized(struct udev_device *dev, bool add, cons
         dir = opendir(stackdir);
         if (dir == NULL)
                 return target;
-        for (;;) {
+        FOREACH_DIRENT_ALL(dent, dir, break) {
                 struct udev_device *dev_db;
-                struct dirent *dent;
 
-                dent = readdir(dir);
-                if (dent == NULL || dent->d_name[0] == '\0')
+                if (dent->d_name[0] == '\0')
                         break;
                 if (dent->d_name[0] == '.')
                         continue;

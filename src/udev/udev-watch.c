@@ -17,13 +17,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <dirent.h>
 #include <errno.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <sys/inotify.h>
 #include <unistd.h>
 
+#include "dirent-util.h"
 #include "stdio-util.h"
 #include "udev.h"
 
@@ -57,7 +57,7 @@ void udev_watch_restore(struct udev *udev) {
                         return;
                 }
 
-                for (ent = readdir(dir); ent != NULL; ent = readdir(dir)) {
+                FOREACH_DIRENT_ALL(ent, dir, break) {
                         char device[UTIL_PATH_SIZE];
                         ssize_t len;
                         struct udev_device *dev;

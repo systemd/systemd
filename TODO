@@ -23,8 +23,6 @@ External:
 
 Janitorial Clean-ups:
 
-* replace manual readdir() loops with FOREACH_DIRENT or FOREACH_DIRENT_ALL
-
 * Rearrange tests so that the various test-xyz.c match a specific src/basic/xyz.c again
 
 Features:

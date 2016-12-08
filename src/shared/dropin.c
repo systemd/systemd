@@ -17,7 +17,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dirent.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -25,6 +24,7 @@
 
 #include "alloc-util.h"
 #include "conf-files.h"
+#include "dirent-util.h"
 #include "dropin.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -124,6 +124,7 @@ static int iterate_dir(
                 char ***strv) {
 
         _cleanup_closedir_ DIR *d = NULL;
+        struct dirent *de;
         int r;
 
         assert(path);
@@ -148,20 +149,8 @@ static int iterate_dir(
                 return log_error_errno(errno, "Failed to open directory %s: %m", path);
         }
 
-        for (;;) {
-                struct dirent *de;
+        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read directory %s: %m", path)) {
                 _cleanup_free_ char *f = NULL;
-
-                errno = 0;
-                de = readdir(d);
-                if (!de && errno > 0)
-                        return log_error_errno(errno, "Failed to read directory %s: %m", path);
-
-                if (!de)
-                        break;
-
-                if (hidden_or_backup_file(de->d_name))
-                        continue;
 
                 f = strjoin(path, "/", de->d_name);
                 if (!f)

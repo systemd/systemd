@@ -28,6 +28,7 @@
 #include "device-internal.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -1627,7 +1628,7 @@ static int device_sysattrs_read_all(sd_device *device) {
         if (r < 0)
                 return r;
 
-        for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
+        FOREACH_DIRENT_ALL(dent, dir, return -errno) {
                 char *path;
                 struct stat statbuf;
 

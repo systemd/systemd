@@ -17,7 +17,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/kd.h>
@@ -233,6 +232,7 @@ static void manager_print_jobs_in_progress(Manager *m) {
 
 static int have_ask_password(void) {
         _cleanup_closedir_ DIR *dir;
+        struct dirent *de;
 
         dir = opendir("/run/systemd/ask-password");
         if (!dir) {
@@ -242,19 +242,11 @@ static int have_ask_password(void) {
                         return -errno;
         }
 
-        for (;;) {
-                struct dirent *de;
-
-                errno = 0;
-                de = readdir(dir);
-                if (!de && errno > 0)
-                        return -errno;
-                if (!de)
-                        return false;
-
+        FOREACH_DIRENT_ALL(de, dir, return -errno) {
                 if (startswith(de->d_name, "ask."))
                         return true;
         }
+        return false;
 }
 
 static int manager_dispatch_ask_password_fd(sd_event_source *source,
