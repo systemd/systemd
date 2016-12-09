@@ -84,7 +84,7 @@ not_found:
 #endif
 }
 
-int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectedImage **ret) {
+int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectImageFlags flags, DissectedImage **ret) {
 
 #ifdef HAVE_BLKID
         sd_id128_t root_uuid = SD_ID128_NULL, verity_uuid = SD_ID128_NULL;
@@ -95,7 +95,7 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, Dissecte
         _cleanup_blkid_free_probe_ blkid_probe b = NULL;
         _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_free_ char *generic_node = NULL;
-        const char *pttype = NULL, *usage = NULL;
+        const char *pttype = NULL;
         struct udev_list_entry *first, *item;
         blkid_partlist pl;
         int r, generic_nr;
@@ -147,8 +147,12 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, Dissecte
                 return -errno;
         }
 
-        blkid_probe_enable_superblocks(b, 1);
-        blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE|BLKID_SUBLKS_USAGE);
+        if ((flags & DISSECT_IMAGE_GPT_ONLY) == 0) {
+                /* Look for file system superblocks, unless we only shall look for GPT partition tables */
+                blkid_probe_enable_superblocks(b, 1);
+                blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE|BLKID_SUBLKS_USAGE);
+        }
+
         blkid_probe_enable_partitions(b, 1);
         blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
 
@@ -169,40 +173,44 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, Dissecte
         if (!m)
                 return -ENOMEM;
 
-        (void) blkid_probe_lookup_value(b, "USAGE", &usage, NULL);
-        if (STRPTR_IN_SET(usage, "filesystem", "crypto")) {
-                _cleanup_free_ char *t = NULL, *n = NULL;
-                const char *fstype = NULL;
+        if ((flags & DISSECT_IMAGE_GPT_ONLY) == 0) {
+                const char *usage = NULL;
 
-                /* OK, we have found a file system, that's our root partition then. */
-                (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
+                (void) blkid_probe_lookup_value(b, "USAGE", &usage, NULL);
+                if (STRPTR_IN_SET(usage, "filesystem", "crypto")) {
+                        _cleanup_free_ char *t = NULL, *n = NULL;
+                        const char *fstype = NULL;
 
-                if (fstype) {
-                        t = strdup(fstype);
-                        if (!t)
+                        /* OK, we have found a file system, that's our root partition then. */
+                        (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
+
+                        if (fstype) {
+                                t = strdup(fstype);
+                                if (!t)
+                                        return -ENOMEM;
+                        }
+
+                        if (asprintf(&n, "/dev/block/%u:%u", major(st.st_rdev), minor(st.st_rdev)) < 0)
                                 return -ENOMEM;
+
+                        m->partitions[PARTITION_ROOT] = (DissectedPartition) {
+                                .found = true,
+                                .rw = true,
+                                .partno = -1,
+                                .architecture = _ARCHITECTURE_INVALID,
+                                .fstype = t,
+                                .node = n,
+                        };
+
+                        t = n = NULL;
+
+                        m->encrypted = streq(fstype, "crypto_LUKS");
+
+                        *ret = m;
+                        m = NULL;
+
+                        return 0;
                 }
-
-                if (asprintf(&n, "/dev/block/%u:%u", major(st.st_rdev), minor(st.st_rdev)) < 0)
-                        return -ENOMEM;
-
-                m->partitions[PARTITION_ROOT] = (DissectedPartition) {
-                        .found = true,
-                        .rw = true,
-                        .partno = -1,
-                        .architecture = _ARCHITECTURE_INVALID,
-                        .fstype = t,
-                        .node = n,
-                };
-
-                t = n = NULL;
-
-                m->encrypted = streq(fstype, "crypto_LUKS");
-
-                *ret = m;
-                m = NULL;
-
-                return 0;
         }
 
         (void) blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
@@ -212,7 +220,7 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, Dissecte
         is_gpt = streq_ptr(pttype, "gpt");
         is_mbr = streq_ptr(pttype, "dos");
 
-        if (!is_gpt && !is_mbr)
+        if (!is_gpt && ((flags & DISSECT_IMAGE_GPT_ONLY) || !is_mbr))
                 return -ENOPKG;
 
         errno = 0;
@@ -300,7 +308,7 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, Dissecte
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
                 _cleanup_udev_device_unref_ struct udev_device *q;
-                unsigned long long flags;
+                unsigned long long pflags;
                 blkid_partition pp;
                 const char *node;
                 dev_t qn;
@@ -325,7 +333,7 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, Dissecte
                 if (!pp)
                         continue;
 
-                flags = blkid_partition_get_flags(pp);
+                pflags = blkid_partition_get_flags(pp);
 
                 nr = blkid_partition_get_partno(pp);
                 if (nr < 0)
@@ -337,7 +345,7 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, Dissecte
                         sd_id128_t type_id, id;
                         bool rw = true;
 
-                        if (flags & GPT_FLAG_NO_AUTO)
+                        if (pflags & GPT_FLAG_NO_AUTO)
                                 continue;
 
                         sid = blkid_partition_get_uuid(pp);
@@ -354,10 +362,10 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, Dissecte
 
                         if (sd_id128_equal(type_id, GPT_HOME)) {
                                 designator = PARTITION_HOME;
-                                rw = !(flags & GPT_FLAG_READ_ONLY);
+                                rw = !(pflags & GPT_FLAG_READ_ONLY);
                         } else if (sd_id128_equal(type_id, GPT_SRV)) {
                                 designator = PARTITION_SRV;
-                                rw = !(flags & GPT_FLAG_READ_ONLY);
+                                rw = !(pflags & GPT_FLAG_READ_ONLY);
                         } else if (sd_id128_equal(type_id, GPT_ESP)) {
                                 designator = PARTITION_ESP;
                                 fstype = "vfat";
@@ -371,7 +379,7 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, Dissecte
 
                                 designator = PARTITION_ROOT;
                                 architecture = native_architecture();
-                                rw = !(flags & GPT_FLAG_READ_ONLY);
+                                rw = !(pflags & GPT_FLAG_READ_ONLY);
                         } else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE_VERITY)) {
 
                                 m->can_verity = true;
@@ -395,9 +403,8 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, Dissecte
 
                                 designator = PARTITION_ROOT_SECONDARY;
                                 architecture = SECONDARY_ARCHITECTURE;
-                                rw = !(flags & GPT_FLAG_READ_ONLY);
+                                rw = !(pflags & GPT_FLAG_READ_ONLY);
                         } else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY_VERITY)) {
-
                                 m->can_verity = true;
 
                                 /* Ignore verity unless root has is specified */
@@ -419,7 +426,7 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, Dissecte
                                         multiple_generic = true;
                                 else {
                                         generic_nr = nr;
-                                        generic_rw = !(flags & GPT_FLAG_READ_ONLY);
+                                        generic_rw = !(pflags & GPT_FLAG_READ_ONLY);
                                         generic_node = strdup(node);
                                         if (!generic_node)
                                                 return -ENOMEM;
@@ -457,7 +464,7 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, Dissecte
 
                 } else if (is_mbr) {
 
-                        if (flags != 0x80) /* Bootable flag */
+                        if (pflags != 0x80) /* Bootable flag */
                                 continue;
 
                         if (blkid_partition_get_type(pp) != 0x83) /* Linux partition */

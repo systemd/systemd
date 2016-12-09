@@ -191,7 +191,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = dissect_image(d->fd, arg_root_hash, arg_root_hash_size, &m);
+        r = dissect_image(d->fd, arg_root_hash, arg_root_hash_size, 0, &m);
         if (r == -ENOPKG) {
                 log_error_errno(r, "Couldn't identify a suitable partition table or file system in %s.", arg_image);
                 goto finish;

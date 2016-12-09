@@ -67,6 +67,7 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_DISCARD_ANY = DISSECT_IMAGE_DISCARD_ON_LOOP |
                                     DISSECT_IMAGE_DISCARD |
                                     DISSECT_IMAGE_DISCARD_ON_CRYPTO,
+        DISSECT_IMAGE_GPT_ONLY = 16,         /* Only recognize images with GPT partition tables */
 } DissectImageFlags;
 
 struct DissectedImage {
@@ -76,7 +77,7 @@ struct DissectedImage {
         DissectedPartition partitions[_PARTITION_DESIGNATOR_MAX];
 };
 
-int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectedImage **ret);
+int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectImageFlags flags, DissectedImage **ret);
 
 DissectedImage* dissected_image_unref(DissectedImage *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DissectedImage*, dissected_image_unref);

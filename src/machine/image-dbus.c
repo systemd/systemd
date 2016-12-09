@@ -336,7 +336,7 @@ static int raw_image_get_os_release(Image *image, char ***ret, sd_bus_error *err
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to set up loop block device for %s: %m", image->path);
 
-        r = dissect_image(d->fd, NULL, 0, &m);
+        r = dissect_image(d->fd, NULL, 0, 0, &m);
         if (r == -ENOPKG)
                 return sd_bus_error_set_errnof(error, r, "Disk image %s not understood: %m", image->path);
         if (r < 0)

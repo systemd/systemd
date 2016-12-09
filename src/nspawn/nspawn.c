@@ -3743,7 +3743,7 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                r = dissect_image(loop->fd, arg_root_hash, arg_root_hash_size, &dissected_image);
+                r = dissect_image(loop->fd, arg_root_hash, arg_root_hash_size, 0, &dissected_image);
                 if (r == -ENOPKG) {
                         log_error_errno(r, "Could not find a suitable file system or partition table in image: %s", arg_image);
 
