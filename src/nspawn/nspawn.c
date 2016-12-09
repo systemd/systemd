@@ -38,6 +38,7 @@
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
@@ -2523,6 +2524,26 @@ static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo
         return 0;
 }
 
+static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *ssi, void *userdata) {
+        for (;;) {
+                siginfo_t si = {};
+                if (waitid(P_ALL, 0, &si, WNOHANG|WNOWAIT|WEXITED) < 0)
+                        return log_error_errno(errno, "Failed to waitid(): %m");
+                if (si.si_pid == 0) /* No pending children. */
+                        break;
+                if (si.si_pid == PTR_TO_PID(userdata)) {
+                        /* The main process we care for has exited. Return from
+                         * signal handler but leave the zombie. */
+                        sd_event_exit(sd_event_source_get_event(s), 0);
+                        break;
+                }
+                /* Reap all other children. */
+                (void) waitid(P_PID, si.si_pid, &si, WNOHANG|WEXITED);
+        }
+
+        return 0;
+}
+
 static int determine_names(void) {
         int r;
 
@@ -3950,8 +3971,8 @@ static int run(int master,
                 sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
         }
 
-        /* simply exit on sigchld */
-        sd_event_add_signal(event, NULL, SIGCHLD, NULL, NULL);
+        /* Exit when the child exits */
+        sd_event_add_signal(event, NULL, SIGCHLD, on_sigchld, PID_TO_PTR(*pid));
 
         if (arg_expose_ports) {
                 r = expose_port_watch_rtnl(event, rtnl_socket_pair[0], on_address_change, exposed, &rtnl);
