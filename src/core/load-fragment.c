@@ -579,6 +579,7 @@ int config_parse_exec(
                 void *userdata) {
 
         ExecCommand **e = data;
+        Unit *u = userdata;
         const char *p;
         bool semicolon;
         int r;
@@ -598,6 +599,7 @@ int config_parse_exec(
         }
 
         p = rvalue;
+
         do {
                 _cleanup_free_ char *path = NULL, *firstword = NULL;
                 bool separate_argv0 = false, ignore = false, privileged = false;
@@ -631,6 +633,11 @@ int config_parse_exec(
                         f++;
                 }
 
+                r = unit_full_printf(u, f, &f);
+                if (r < 0) {
+                  log_syntax(unit, LOG_ERR, filename, line, 0, "Executable path failed to expand, ignoring: \"%s\"", rvalue);
+                  return 0;
+                }
                 if (isempty(f)) {
                         /* First word is either "-" or "@" with no command. */
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Empty path in command line, ignoring: \"%s\"", rvalue);
