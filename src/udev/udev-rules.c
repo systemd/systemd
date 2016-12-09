@@ -16,7 +16,6 @@
  */
 
 #include <ctype.h>
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
@@ -31,6 +30,7 @@
 
 #include "alloc-util.h"
 #include "conf-files.h"
+#include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fs-util.h"
@@ -703,7 +703,7 @@ static void attr_subst_subdir(char *attr, size_t len) {
         if (dir == NULL)
                 return;
 
-        for (dent = readdir(dir); dent != NULL; dent = readdir(dir))
+        FOREACH_DIRENT_ALL(dent, dir, break)
                 if (dent->d_name[0] != '.') {
                         char n[strlen(dent->d_name) + strlen(tail) + 1];
 

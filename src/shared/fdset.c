@@ -18,13 +18,13 @@
 ***/
 
 #include <alloca.h>
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stddef.h>
 
 #include "sd-daemon.h"
 
+#include "dirent-util.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "log.h"
@@ -148,11 +148,8 @@ int fdset_new_fill(FDSet **_s) {
                 goto finish;
         }
 
-        while ((de = readdir(d))) {
+        FOREACH_DIRENT(de, d, return -errno) {
                 int fd = -1;
-
-                if (hidden_or_backup_file(de->d_name))
-                        continue;
 
                 r = safe_atoi(de->d_name, &fd);
                 if (r < 0)
