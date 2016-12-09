@@ -353,6 +353,15 @@
           <citerefentry><refentrytitle>systemd-hibernate-resume-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.firstboot=</varname></term>
+
+        <listitem><para>Takes a boolean argument, defaults to on. If off,
+        <citerefentry><refentrytitle>systemd-firstboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        will not query the user for basic system settings, even if the system boots up for the first time and the
+        relevant settings are not initialized yet.</para></listitem>
+      </varlistentry>
     </variablelist>
 
   </refsect1>
@@ -376,7 +385,8 @@
         <citerefentry><refentrytitle>systemd-modules-load.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-backlight@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-rfkill.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-hibernate-resume-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <citerefentry><refentrytitle>systemd-hibernate-resume-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-firstboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       </para>
   </refsect1>
 

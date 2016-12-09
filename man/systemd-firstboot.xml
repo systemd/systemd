@@ -241,6 +241,20 @@
   </refsect1>
 
   <refsect1>
+    <title>Kernel Command Line</title>
+
+    <variablelist class='kernel-commandline-options'>
+      <varlistentry>
+        <term><varname>systemd.firstboot=</varname></term>
+
+        <listitem><para>Takes a boolean argument, defaults to on. If off <filename>systemd-firstboot.service</filename>
+        won't interactively query the user for basic settings at first boot, even if if the settings are not
+        initialized yet.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
