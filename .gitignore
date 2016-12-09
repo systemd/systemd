@@ -198,6 +198,7 @@
 /test-fs-util
 /test-fstab-util
 /test-glob-util
+/test-hash
 /test-hashmap
 /test-hexdecoct
 /test-hostname

@@ -1109,4 +1109,8 @@ struct ethtool_link_settings {
 
 #endif
 
+#ifndef SOL_ALG
+#define SOL_ALG 279
+#endif
+
 #include "missing_syscall.h"
