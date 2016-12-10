@@ -123,7 +123,7 @@ def property_grammar():
                  Word(nums + ':')('VALUE')
                 ]
 
-    grammar = Or(fixed_props + kbd_props + abs_props)
+    grammar = Or(fixed_props + kbd_props + abs_props) + EOL
 
     return grammar
 
