@@ -409,8 +409,8 @@ static void test_exec_spec_interpolation(Manager *m) {
         test(m, "exec-spec-interpolation.service", 0, CLD_EXITED);
 }
 
-static int run_tests(UnitFileScope scope, test_function_t *tests) {
-        test_function_t *test = NULL;
+static int run_tests(UnitFileScope scope, const test_function_t *tests) {
+        const test_function_t *test = NULL;
         Manager *m = NULL;
         int r;
 
@@ -433,7 +433,7 @@ static int run_tests(UnitFileScope scope, test_function_t *tests) {
 }
 
 int main(int argc, char *argv[]) {
-        test_function_t user_tests[] = {
+        static const test_function_t user_tests[] = {
                 test_exec_workingdirectory,
                 test_exec_personality,
                 test_exec_ignoresigpipe,
@@ -464,7 +464,7 @@ int main(int argc, char *argv[]) {
                 test_exec_spec_interpolation,
                 NULL,
         };
-        test_function_t system_tests[] = {
+        static const test_function_t system_tests[] = {
                 test_exec_systemcall_system_mode_with_user,
                 NULL,
         };

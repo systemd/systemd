@@ -116,8 +116,6 @@ Features:
 * journald: sigbus API via a signal-handler safe function that people may call
   from the SIGBUS handler
 
-* move specifier expansion from service_spawn() into load-fragment.c
-
 * optionally, also require WATCHDOG=1 notifications during service start-up and shutdown
 
 * resolved: when routing queries, make sure only look for the *longest* suffix...
