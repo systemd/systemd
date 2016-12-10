@@ -60,12 +60,14 @@ COMMENTLINE = pythonStyleComment + EOL
 INTEGER = Word(nums)
 STRING =  QuotedString('"')
 REAL = Combine((INTEGER + Optional('.' + Optional(INTEGER))) ^ ('.' + INTEGER))
+SIGNED_REAL = Combine(Optional(Word('-+')) + REAL)
 UDEV_TAG = Word(string.ascii_uppercase, alphanums + '_')
 
 TYPES = {'mouse':    ('usb', 'bluetooth', 'ps2', '*'),
          'evdev':    ('name', 'atkbd', 'input'),
          'touchpad': ('i8042', 'rmi', 'bluetooth', 'usb'),
          'keyboard': ('name', ),
+         'sensor':   ('modalias', ),
         }
 
 @lru_cache()
@@ -76,7 +78,7 @@ def hwdb_grammar():
                 for category, conn in TYPES.items())
     matchline = Combine(prefix + Word(printables + ' ' + '®')) + EOL
     propertyline = (White(' ', exact=1).suppress() +
-                    Combine(UDEV_TAG - '=' - Word(alphanums + '_=:@*.! "') - Optional(pythonStyleComment)) +
+                    Combine(UDEV_TAG - '=' - Word(alphanums + '_=:@*.!-;, "') - Optional(pythonStyleComment)) +
                     EOL)
     propertycomment = White(' ', exact=1) + pythonStyleComment + EOL
 
@@ -93,8 +95,11 @@ def hwdb_grammar():
 def property_grammar():
     ParserElement.setDefaultWhitespaceChars(' ')
 
-    setting = Optional('*')('DEFAULT') + INTEGER('DPI') + Suppress('@') + INTEGER('HZ')
-    props = (('MOUSE_DPI', Group(OneOrMore(setting('SETTINGS*')))),
+    dpi_setting = (Optional('*')('DEFAULT') + INTEGER('DPI') + Suppress('@') + INTEGER('HZ'))('SETTINGS*')
+    mount_matrix_row = SIGNED_REAL + ',' + SIGNED_REAL + ',' + SIGNED_REAL
+    mount_matrix = (mount_matrix_row + ';' + mount_matrix_row + ';' + mount_matrix_row)('MOUNT_MATRIX')
+
+    props = (('MOUSE_DPI', Group(OneOrMore(dpi_setting))),
              ('MOUSE_WHEEL_CLICK_ANGLE', INTEGER),
              ('MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL', INTEGER),
              ('MOUSE_WHEEL_CLICK_COUNT', INTEGER),
@@ -105,6 +110,7 @@ def property_grammar():
              ('ID_INPUT_TOUCHPAD_INTEGRATION', Or(('internal', 'external'))),
              ('XKB_FIXED_LAYOUT', STRING),
              ('XKB_FIXED_VARIANT', STRING),
+             ('ACCEL_MOUNT_MATRIX', mount_matrix),
             )
     fixed_props = [Literal(name)('NAME') - Suppress('=') - val('VALUE')
                    for name, val in props]
@@ -117,7 +123,7 @@ def property_grammar():
                  Word(nums + ':')('VALUE')
                 ]
 
-    grammar = Or(fixed_props + kbd_props + abs_props)
+    grammar = Or(fixed_props + kbd_props + abs_props) + EOL
 
     return grammar
 

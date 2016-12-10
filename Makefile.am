@@ -3741,6 +3741,7 @@ dist_udevrules_DATA += \
 	rules/60-persistent-input.rules \
 	rules/60-persistent-alsa.rules \
 	rules/60-persistent-storage.rules \
+	rules/60-sensor.rules \
 	rules/60-serial.rules \
 	rules/64-btrfs.rules \
 	rules/70-mouse.rules \
@@ -3910,6 +3911,7 @@ dist_udevhwdb_DATA = \
 	hwdb/20-net-ifname.hwdb \
 	hwdb/60-evdev.hwdb \
 	hwdb/60-keyboard.hwdb \
+	hwdb/60-sensor.hwdb \
 	hwdb/70-mouse.hwdb \
 	hwdb/70-pointingstick.hwdb \
 	hwdb/70-touchpad.hwdb

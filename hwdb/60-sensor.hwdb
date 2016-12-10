@@ -1,0 +1,45 @@
+# This file is part of systemd.
+#
+# The lookup keys are composed in:
+#   60-sensor.rules
+#
+# Note: The format of the "sensor:" prefix match key is a
+# contract between the rules file and the hardware data, it might
+# change in later revisions to support more or better matches, it
+# is not necessarily expected to be a stable ABI.
+#
+# Match string formats:
+# sensor:modalias:<parent device modalias>:dmi:<dmi string>
+#
+# To add local entries, create a new file
+#   /etc/udev/hwdb.d/61-sensor-local.hwdb
+# and add your rules there. To load the new rules execute (as root):
+#   systemd-hwdb update
+#   udevadm trigger `dirname $(udevadm info -n "/dev/iio:deviceXXX" -q path)`
+# where /dev/iio:deviceXXX is the device in question.
+#
+# If your changes are generally applicable, preferably send them as a pull
+# request to
+#   https://github.com/systemd/systemd
+# or create a bug report on https://github.com/systemd/systemd/issues and
+# include your new rules, a description of the device, and the output of
+#   udevadm info --export-db
+#
+# Allowed properties are:
+#    ACCEL_MOUNT_MATRIX=<matrix>
+#
+# where <matrix> is a mount-matrix in the format specified in the IIO
+# subsystem[1]. The default, when unset, is equivalent to:
+#   ACCEL_MOUNT_MATRIX=1, 0, 0; 0, 1, 0; 0, 0, 1
+# eg. the identity matrix.
+#
+# [1]: https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=dfc57732ad38f93ae6232a3b4e64fd077383a0f1
+
+#
+# Sort by brand, model
+
+#########################################
+# Winbook
+#########################################
+sensor:modalias:acpi:BMA250*:dmi:*svn*WinBook*:*pn*TW100*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 0
