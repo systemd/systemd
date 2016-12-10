@@ -150,6 +150,7 @@ int uname_architecture(void);
 #  else
 #    define native_architecture() ARCHITECTURE_ARM64
 #    define LIB_ARCH_TUPLE "aarch64-linux-gnu"
+#    define SECONDARY_ARCHITECTURE ARCHITECTURE_ARM
 #  endif
 #elif defined(__arm__)
 #  if __BYTE_ORDER == __BIG_ENDIAN
