@@ -651,7 +651,7 @@ int main(int argc, char *argv[]) {
                         k = crypt_init(&cd, arg_header);
                 } else
                         k = crypt_init(&cd, argv[3]);
-                if (k) {
+                if (k != 0) {
                         log_error_errno(k, "crypt_init() failed: %m");
                         goto finish;
                 }

@@ -53,6 +53,7 @@
 #include "cgroup-util.h"
 #include "copy.h"
 #include "dev-setup.h"
+#include "dissect-image.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fdset.h"
@@ -60,9 +61,11 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "gpt.h"
+#include "hexdecoct.h"
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "log.h"
+#include "loop-util.h"
 #include "loopback-setup.h"
 #include "machine-image.h"
 #include "macro.h"
@@ -198,6 +201,8 @@ static bool arg_notify_ready = false;
 static bool arg_use_cgns = true;
 static unsigned long arg_clone_ns_flags = CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS;
 static MountSettingsMask arg_mount_settings = MOUNT_APPLY_APIVFS_RO;
+static void *arg_root_hash = NULL;
+static size_t arg_root_hash_size = 0;
 
 static void help(void) {
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
@@ -211,6 +216,7 @@ static void help(void) {
                "  -x --ephemeral            Run container with snapshot of root directory, and\n"
                "                            remove it after exit\n"
                "  -i --image=PATH           File system device or disk image for the container\n"
+               "     --root-hash=HASH       Specify verity root hash\n"
                "  -a --as-pid2              Maintain a stub init as PID1, invoke binary as PID2\n"
                "  -b --boot                 Boot up full system (i.e. invoke init)\n"
                "     --chdir=PATH           Set working directory in the container\n"
@@ -422,6 +428,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CHDIR,
                 ARG_PRIVATE_USERS_CHOWN,
                 ARG_NOTIFY_READY,
+                ARG_ROOT_HASH,
         };
 
         static const struct option options[] = {
@@ -471,6 +478,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "settings",              required_argument, NULL, ARG_SETTINGS            },
                 { "chdir",                 required_argument, NULL, ARG_CHDIR               },
                 { "notify-ready",          required_argument, NULL, ARG_NOTIFY_READY        },
+                { "root-hash",             required_argument, NULL, ARG_ROOT_HASH           },
                 {}
         };
 
@@ -1013,6 +1021,25 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_notify_ready = r;
                         arg_settings_mask |= SETTING_NOTIFY_READY;
                         break;
+
+                case ARG_ROOT_HASH: {
+                        void *k;
+                        size_t l;
+
+                        r = unhexmem(optarg, strlen(optarg), &k, &l);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse root hash: %s", optarg);
+                        if (l < sizeof(sd_id128_t)) {
+                                log_error("Root hash must be at least 128bit long: %s", optarg);
+                                free(k);
+                                return -EINVAL;
+                        }
+
+                        free(arg_root_hash);
+                        arg_root_hash = k;
+                        arg_root_hash_size = l;
+                        break;
+                }
 
                 case '?':
                         return -EINVAL;
@@ -1771,546 +1798,6 @@ static int setup_propagate(const char *root) {
         return mount_verbose(LOG_ERR, NULL, q, NULL, MS_SLAVE, NULL);
 }
 
-static int setup_image(char **device_path, int *loop_nr) {
-        struct loop_info64 info = {
-                .lo_flags = LO_FLAGS_AUTOCLEAR|LO_FLAGS_PARTSCAN
-        };
-        _cleanup_close_ int fd = -1, control = -1, loop = -1;
-        _cleanup_free_ char* loopdev = NULL;
-        struct stat st;
-        int r, nr;
-
-        assert(device_path);
-        assert(loop_nr);
-        assert(arg_image);
-
-        fd = open(arg_image, O_CLOEXEC|(arg_read_only ? O_RDONLY : O_RDWR)|O_NONBLOCK|O_NOCTTY);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to open %s: %m", arg_image);
-
-        if (fstat(fd, &st) < 0)
-                return log_error_errno(errno, "Failed to stat %s: %m", arg_image);
-
-        if (S_ISBLK(st.st_mode)) {
-                char *p;
-
-                p = strdup(arg_image);
-                if (!p)
-                        return log_oom();
-
-                *device_path = p;
-
-                *loop_nr = -1;
-
-                r = fd;
-                fd = -1;
-
-                return r;
-        }
-
-        if (!S_ISREG(st.st_mode)) {
-                log_error("%s is not a regular file or block device.", arg_image);
-                return -EINVAL;
-        }
-
-        control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
-        if (control < 0)
-                return log_error_errno(errno, "Failed to open /dev/loop-control: %m");
-
-        nr = ioctl(control, LOOP_CTL_GET_FREE);
-        if (nr < 0)
-                return log_error_errno(errno, "Failed to allocate loop device: %m");
-
-        if (asprintf(&loopdev, "/dev/loop%i", nr) < 0)
-                return log_oom();
-
-        loop = open(loopdev, O_CLOEXEC|(arg_read_only ? O_RDONLY : O_RDWR)|O_NONBLOCK|O_NOCTTY);
-        if (loop < 0)
-                return log_error_errno(errno, "Failed to open loop device %s: %m", loopdev);
-
-        if (ioctl(loop, LOOP_SET_FD, fd) < 0)
-                return log_error_errno(errno, "Failed to set loopback file descriptor on %s: %m", loopdev);
-
-        if (arg_read_only)
-                info.lo_flags |= LO_FLAGS_READ_ONLY;
-
-        if (ioctl(loop, LOOP_SET_STATUS64, &info) < 0)
-                return log_error_errno(errno, "Failed to set loopback settings on %s: %m", loopdev);
-
-        *device_path = loopdev;
-        loopdev = NULL;
-
-        *loop_nr = nr;
-
-        r = loop;
-        loop = -1;
-
-        return r;
-}
-
-#define PARTITION_TABLE_BLURB \
-        "Note that the disk image needs to either contain only a single MBR partition of\n" \
-        "type 0x83 that is marked bootable, or a single GPT partition of type " \
-        "0FC63DAF-8483-4772-8E79-3D69D8477DE4 or follow\n" \
-        "    http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/\n" \
-        "to be bootable with systemd-nspawn."
-
-static int dissect_image(
-                int fd,
-                char **root_device, bool *root_device_rw,
-                char **home_device, bool *home_device_rw,
-                char **srv_device, bool *srv_device_rw,
-                char **esp_device,
-                bool *secondary) {
-
-#ifdef HAVE_BLKID
-        int home_nr = -1, srv_nr = -1, esp_nr = -1;
-#ifdef GPT_ROOT_NATIVE
-        int root_nr = -1;
-#endif
-#ifdef GPT_ROOT_SECONDARY
-        int secondary_root_nr = -1;
-#endif
-        _cleanup_free_ char *home = NULL, *root = NULL, *secondary_root = NULL, *srv = NULL, *esp = NULL, *generic = NULL;
-        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-        _cleanup_blkid_free_probe_ blkid_probe b = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
-        struct udev_list_entry *first, *item;
-        bool home_rw = true, root_rw = true, secondary_root_rw = true, srv_rw = true, generic_rw = true;
-        bool is_gpt, is_mbr, multiple_generic = false;
-        const char *pttype = NULL;
-        blkid_partlist pl;
-        struct stat st;
-        unsigned i;
-        int r;
-
-        assert(fd >= 0);
-        assert(root_device);
-        assert(home_device);
-        assert(srv_device);
-        assert(esp_device);
-        assert(secondary);
-        assert(arg_image);
-
-        b = blkid_new_probe();
-        if (!b)
-                return log_oom();
-
-        errno = 0;
-        r = blkid_probe_set_device(b, fd, 0, 0);
-        if (r != 0) {
-                if (errno == 0)
-                        return log_oom();
-
-                return log_error_errno(errno, "Failed to set device on blkid probe: %m");
-        }
-
-        blkid_probe_enable_partitions(b, 1);
-        blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
-
-        errno = 0;
-        r = blkid_do_safeprobe(b);
-        if (r == -2 || r == 1) {
-                log_error("Failed to identify any partition table on\n"
-                          "    %s\n"
-                          PARTITION_TABLE_BLURB, arg_image);
-                return -EINVAL;
-        } else if (r != 0) {
-                if (errno == 0)
-                        errno = EIO;
-                return log_error_errno(errno, "Failed to probe: %m");
-        }
-
-        (void) blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
-
-        is_gpt = streq_ptr(pttype, "gpt");
-        is_mbr = streq_ptr(pttype, "dos");
-
-        if (!is_gpt && !is_mbr) {
-                log_error("No GPT or MBR partition table discovered on\n"
-                          "    %s\n"
-                          PARTITION_TABLE_BLURB, arg_image);
-                return -EINVAL;
-        }
-
-        errno = 0;
-        pl = blkid_probe_get_partitions(b);
-        if (!pl) {
-                if (errno == 0)
-                        return log_oom();
-
-                log_error("Failed to list partitions of %s", arg_image);
-                return -errno;
-        }
-
-        udev = udev_new();
-        if (!udev)
-                return log_oom();
-
-        if (fstat(fd, &st) < 0)
-                return log_error_errno(errno, "Failed to stat block device: %m");
-
-        d = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
-        if (!d)
-                return log_oom();
-
-        for (i = 0;; i++) {
-                int n, m;
-
-                if (i >= 10) {
-                        log_error("Kernel partitions never appeared.");
-                        return -ENXIO;
-                }
-
-                e = udev_enumerate_new(udev);
-                if (!e)
-                        return log_oom();
-
-                r = udev_enumerate_add_match_parent(e, d);
-                if (r < 0)
-                        return log_oom();
-
-                r = udev_enumerate_scan_devices(e);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to scan for partition devices of %s: %m", arg_image);
-
-                /* Count the partitions enumerated by the kernel */
-                n = 0;
-                first = udev_enumerate_get_list_entry(e);
-                udev_list_entry_foreach(item, first)
-                        n++;
-
-                /* Count the partitions enumerated by blkid */
-                m = blkid_partlist_numof_partitions(pl);
-                if (n == m + 1)
-                        break;
-                if (n > m + 1) {
-                        log_error("blkid and kernel partition list do not match.");
-                        return -EIO;
-                }
-                if (n < m + 1) {
-                        unsigned j;
-
-                        /* The kernel has probed fewer partitions than
-                         * blkid? Maybe the kernel prober is still
-                         * running or it got EBUSY because udev
-                         * already opened the device. Let's reprobe
-                         * the device, which is a synchronous call
-                         * that waits until probing is complete. */
-
-                        for (j = 0; j < 20; j++) {
-
-                                r = ioctl(fd, BLKRRPART, 0);
-                                if (r < 0)
-                                        r = -errno;
-                                if (r >= 0 || r != -EBUSY)
-                                        break;
-
-                                /* If something else has the device
-                                 * open, such as an udev rule, the
-                                 * ioctl will return EBUSY. Since
-                                 * there's no way to wait until it
-                                 * isn't busy anymore, let's just wait
-                                 * a bit, and try again.
-                                 *
-                                 * This is really something they
-                                 * should fix in the kernel! */
-
-                                usleep(50 * USEC_PER_MSEC);
-                        }
-
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to reread partition table: %m");
-                }
-
-                e = udev_enumerate_unref(e);
-        }
-
-        first = udev_enumerate_get_list_entry(e);
-        udev_list_entry_foreach(item, first) {
-                _cleanup_udev_device_unref_ struct udev_device *q;
-                const char *node;
-                unsigned long long flags;
-                blkid_partition pp;
-                dev_t qn;
-                int nr;
-
-                errno = 0;
-                q = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
-                if (!q) {
-                        if (!errno)
-                                errno = ENOMEM;
-
-                        return log_error_errno(errno, "Failed to get partition device of %s: %m", arg_image);
-                }
-
-                qn = udev_device_get_devnum(q);
-                if (major(qn) == 0)
-                        continue;
-
-                if (st.st_rdev == qn)
-                        continue;
-
-                node = udev_device_get_devnode(q);
-                if (!node)
-                        continue;
-
-                pp = blkid_partlist_devno_to_partition(pl, qn);
-                if (!pp)
-                        continue;
-
-                flags = blkid_partition_get_flags(pp);
-
-                nr = blkid_partition_get_partno(pp);
-                if (nr < 0)
-                        continue;
-
-                if (is_gpt) {
-                        sd_id128_t type_id;
-                        const char *stype;
-
-                        if (flags & GPT_FLAG_NO_AUTO)
-                                continue;
-
-                        stype = blkid_partition_get_type_string(pp);
-                        if (!stype)
-                                continue;
-
-                        if (sd_id128_from_string(stype, &type_id) < 0)
-                                continue;
-
-                        if (sd_id128_equal(type_id, GPT_HOME)) {
-
-                                if (home && nr >= home_nr)
-                                        continue;
-
-                                home_nr = nr;
-                                home_rw = !(flags & GPT_FLAG_READ_ONLY);
-
-                                r = free_and_strdup(&home, node);
-                                if (r < 0)
-                                        return log_oom();
-
-                        } else if (sd_id128_equal(type_id, GPT_SRV)) {
-
-                                if (srv && nr >= srv_nr)
-                                        continue;
-
-                                srv_nr = nr;
-                                srv_rw = !(flags & GPT_FLAG_READ_ONLY);
-
-                                r = free_and_strdup(&srv, node);
-                                if (r < 0)
-                                        return log_oom();
-                        } else if (sd_id128_equal(type_id, GPT_ESP)) {
-
-                                if (esp && nr >= esp_nr)
-                                        continue;
-
-                                esp_nr = nr;
-
-                                r = free_and_strdup(&esp, node);
-                                if (r < 0)
-                                        return log_oom();
-                        }
-#ifdef GPT_ROOT_NATIVE
-                        else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE)) {
-
-                                if (root && nr >= root_nr)
-                                        continue;
-
-                                root_nr = nr;
-                                root_rw = !(flags & GPT_FLAG_READ_ONLY);
-
-                                r = free_and_strdup(&root, node);
-                                if (r < 0)
-                                        return log_oom();
-                        }
-#endif
-#ifdef GPT_ROOT_SECONDARY
-                        else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY)) {
-
-                                if (secondary_root && nr >= secondary_root_nr)
-                                        continue;
-
-                                secondary_root_nr = nr;
-                                secondary_root_rw = !(flags & GPT_FLAG_READ_ONLY);
-
-                                r = free_and_strdup(&secondary_root, node);
-                                if (r < 0)
-                                        return log_oom();
-                        }
-#endif
-                        else if (sd_id128_equal(type_id, GPT_LINUX_GENERIC)) {
-
-                                if (generic)
-                                        multiple_generic = true;
-                                else {
-                                        generic_rw = !(flags & GPT_FLAG_READ_ONLY);
-
-                                        r = free_and_strdup(&generic, node);
-                                        if (r < 0)
-                                                return log_oom();
-                                }
-                        }
-
-                } else if (is_mbr) {
-                        int type;
-
-                        if (flags != 0x80) /* Bootable flag */
-                                continue;
-
-                        type = blkid_partition_get_type(pp);
-                        if (type != 0x83) /* Linux partition */
-                                continue;
-
-                        if (generic)
-                                multiple_generic = true;
-                        else {
-                                generic_rw = true;
-
-                                r = free_and_strdup(&root, node);
-                                if (r < 0)
-                                        return log_oom();
-                        }
-                }
-        }
-
-        if (root) {
-                *root_device = root;
-                root = NULL;
-
-                *root_device_rw = root_rw;
-                *secondary = false;
-        } else if (secondary_root) {
-                *root_device = secondary_root;
-                secondary_root = NULL;
-
-                *root_device_rw = secondary_root_rw;
-                *secondary = true;
-        } else if (generic) {
-
-                /* There were no partitions with precise meanings
-                 * around, but we found generic partitions. In this
-                 * case, if there's only one, we can go ahead and boot
-                 * it, otherwise we bail out, because we really cannot
-                 * make any sense of it. */
-
-                if (multiple_generic) {
-                        log_error("Identified multiple bootable Linux partitions on\n"
-                                  "    %s\n"
-                                  PARTITION_TABLE_BLURB, arg_image);
-                        return -EINVAL;
-                }
-
-                *root_device = generic;
-                generic = NULL;
-
-                *root_device_rw = generic_rw;
-                *secondary = false;
-        } else {
-                log_error("Failed to identify root partition in disk image\n"
-                          "    %s\n"
-                          PARTITION_TABLE_BLURB, arg_image);
-                return -EINVAL;
-        }
-
-        if (home) {
-                *home_device = home;
-                home = NULL;
-
-                *home_device_rw = home_rw;
-        }
-
-        if (srv) {
-                *srv_device = srv;
-                srv = NULL;
-
-                *srv_device_rw = srv_rw;
-        }
-
-        if (esp) {
-                *esp_device = esp;
-                esp = NULL;
-        }
-
-        return 0;
-#else
-        log_error("--image= is not supported, compiled without blkid support.");
-        return -EOPNOTSUPP;
-#endif
-}
-
-static int mount_device(const char *what, const char *where, const char *directory, bool rw) {
-#ifdef HAVE_BLKID
-        _cleanup_blkid_free_probe_ blkid_probe b = NULL;
-        const char *fstype, *p, *options;
-        int r;
-
-        assert(what);
-        assert(where);
-
-        if (arg_read_only)
-                rw = false;
-
-        if (directory)
-                p = strjoina(where, directory);
-        else
-                p = where;
-
-        errno = 0;
-        b = blkid_new_probe_from_filename(what);
-        if (!b) {
-                if (errno == 0)
-                        return log_oom();
-                return log_error_errno(errno, "Failed to allocate prober for %s: %m", what);
-        }
-
-        blkid_probe_enable_superblocks(b, 1);
-        blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
-
-        errno = 0;
-        r = blkid_do_safeprobe(b);
-        if (r == -1 || r == 1) {
-                log_error("Cannot determine file system type of %s", what);
-                return -EINVAL;
-        } else if (r != 0) {
-                if (errno == 0)
-                        errno = EIO;
-                return log_error_errno(errno, "Failed to probe %s: %m", what);
-        }
-
-        errno = 0;
-        if (blkid_probe_lookup_value(b, "TYPE", &fstype, NULL) < 0) {
-                if (errno == 0)
-                        errno = EINVAL;
-                log_error("Failed to determine file system type of %s", what);
-                return -errno;
-        }
-
-        if (streq(fstype, "crypto_LUKS")) {
-                log_error("nspawn currently does not support LUKS disk images.");
-                return -EOPNOTSUPP;
-        }
-
-        /* If this is a loopback device then let's mount the image with discard, so that the underlying file remains
-         * sparse when possible. */
-        if (STR_IN_SET(fstype, "btrfs", "ext4", "vfat", "xfs")) {
-                const char *l;
-
-                l = path_startswith(what, "/dev");
-                if (l && startswith(l, "loop"))
-                        options = "discard";
-        }
-
-        return mount_verbose(LOG_ERR, what, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), options);
-#else
-        log_error("--image= is not supported, compiled without blkid support.");
-        return -EOPNOTSUPP;
-#endif
-}
-
 static int setup_machine_id(const char *directory) {
         const char *etc_machine_id;
         sd_id128_t id;
@@ -2368,83 +1855,6 @@ static int recursive_chown(const char *directory, uid_t shift, uid_t range) {
                 log_debug("Patched directory tree to match UID/GID range.");
 
         return r;
-}
-
-static int mount_devices(
-                const char *where,
-                const char *root_device, bool root_device_rw,
-                const char *home_device, bool home_device_rw,
-                const char *srv_device, bool srv_device_rw,
-                const char *esp_device) {
-        int r;
-
-        assert(where);
-
-        if (root_device) {
-                r = mount_device(root_device, arg_directory, NULL, root_device_rw);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to mount root directory: %m");
-        }
-
-        if (home_device) {
-                r = mount_device(home_device, arg_directory, "/home", home_device_rw);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to mount home directory: %m");
-        }
-
-        if (srv_device) {
-                r = mount_device(srv_device, arg_directory, "/srv", srv_device_rw);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to mount server data directory: %m");
-        }
-
-        if (esp_device) {
-                const char *mp, *x;
-
-                /* Mount the ESP to /efi if it exists and is empty. If it doesn't exist, use /boot instead. */
-
-                mp = "/efi";
-                x = strjoina(arg_directory, mp);
-                r = dir_is_empty(x);
-                if (r == -ENOENT) {
-                        mp = "/boot";
-                        x = strjoina(arg_directory, mp);
-                        r = dir_is_empty(x);
-                }
-
-                if (r > 0) {
-                        r = mount_device(esp_device, arg_directory, mp, true);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to  mount ESP: %m");
-                }
-        }
-
-        return 0;
-}
-
-static void loop_remove(int nr, int *image_fd) {
-        _cleanup_close_ int control = -1;
-        int r;
-
-        if (nr < 0)
-                return;
-
-        if (image_fd && *image_fd >= 0) {
-                r = ioctl(*image_fd, LOOP_CLR_FD);
-                if (r < 0)
-                        log_debug_errno(errno, "Failed to close loop image: %m");
-                *image_fd = safe_close(*image_fd);
-        }
-
-        control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
-        if (control < 0) {
-                log_warning_errno(errno, "Failed to open /dev/loop-control: %m");
-                return;
-        }
-
-        r = ioctl(control, LOOP_CTL_REMOVE, nr);
-        if (r < 0)
-                log_debug_errno(errno, "Failed to remove loop %d: %m", nr);
 }
 
 /*
@@ -2568,10 +1978,22 @@ static int determine_names(void) {
         }
 
         if (!arg_machine) {
+
                 if (arg_directory && path_equal(arg_directory, "/"))
                         arg_machine = gethostname_malloc();
-                else
-                        arg_machine = strdup(basename(arg_image ?: arg_directory));
+                else {
+                        if (arg_image) {
+                                char *e;
+
+                                arg_machine = strdup(basename(arg_image));
+
+                                /* Truncate suffix if there is one */
+                                e = endswith(arg_machine, ".raw");
+                                if (e)
+                                        *e = 0;
+                        } else
+                                arg_machine = strdup(basename(arg_directory));
+                }
                 if (!arg_machine)
                         return log_oom();
 
@@ -2921,10 +2343,7 @@ static int outer_child(
                 Barrier *barrier,
                 const char *directory,
                 const char *console,
-                const char *root_device, bool root_device_rw,
-                const char *home_device, bool home_device_rw,
-                const char *srv_device, bool srv_device_rw,
-                const char *esp_device,
+                DissectedImage *dissected_image,
                 bool interactive,
                 bool secondary,
                 int pid_socket,
@@ -2984,13 +2403,11 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        r = mount_devices(directory,
-                          root_device, root_device_rw,
-                          home_device, home_device_rw,
-                          srv_device, srv_device_rw,
-                          esp_device);
-        if (r < 0)
-                return r;
+        if (dissected_image) {
+                r = dissected_image_mount(dissected_image, directory, DISSECT_IMAGE_DISCARD_ON_LOOP|(arg_read_only ? DISSECT_IMAGE_READ_ONLY : 0));
+                if (r < 0)
+                        return r;
+        }
 
         r = determine_uid_shift(directory);
         if (r < 0)
@@ -3607,10 +3024,7 @@ static int load_settings(void) {
 
 static int run(int master,
                const char* console,
-               const char *root_device, bool root_device_rw,
-               const char *home_device, bool home_device_rw,
-               const char *srv_device, bool srv_device_rw,
-               const char *esp_device,
+               DissectedImage *dissected_image,
                bool interactive,
                bool secondary,
                FDSet *fds,
@@ -3717,10 +3131,7 @@ static int run(int master,
                 r = outer_child(&barrier,
                                 arg_directory,
                                 console,
-                                root_device, root_device_rw,
-                                home_device, home_device_rw,
-                                srv_device, srv_device_rw,
-                                esp_device,
+                                dissected_image,
                                 interactive,
                                 secondary,
                                 pid_socket_pair[1],
@@ -4025,13 +3436,59 @@ static int run(int master,
         return 1; /* loop again */
 }
 
+static int load_root_hash(const char *image) {
+        _cleanup_free_ char *text = NULL;
+        char *fn, *n, *e;
+        void *k;
+        size_t l;
+        int r;
+
+        assert_se(image);
+
+        /* Try to load the root hash from a file next to the image file if it exists. */
+
+        if (arg_root_hash)
+                return 0;
+
+        fn = new(char, strlen(image) + strlen(".roothash") + 1);
+        if (!fn)
+                return log_oom();
+
+        n = stpcpy(fn, image);
+        e = endswith(fn, ".raw");
+        if (e)
+                n = e;
+
+        strcpy(n, ".roothash");
+
+        r = read_one_line_file(fn, &text);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0) {
+                log_warning_errno(r, "Failed to read %s, ignoring: %m", fn);
+                return 0;
+        }
+
+        r = unhexmem(text, strlen(text), &k, &l);
+        if (r < 0)
+                return log_error_errno(r, "Invalid root hash: %s", text);
+        if (l < sizeof(sd_id128_t)) {
+                free(k);
+                return log_error_errno(r, "Root hash too short: %s", text);
+        }
+
+        arg_root_hash = k;
+        arg_root_hash_size = l;
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
 
-        _cleanup_free_ char *device_path = NULL, *root_device = NULL, *home_device = NULL, *srv_device = NULL, *esp_device = NULL, *console = NULL;
-        bool root_device_rw = true, home_device_rw = true, srv_device_rw = true;
-        _cleanup_close_ int master = -1, image_fd = -1;
+        _cleanup_free_ char *console = NULL;
+        _cleanup_close_ int master = -1;
         _cleanup_fdset_free_ FDSet *fds = NULL;
-        int r, n_fd_passed, loop_nr = -1, ret = EXIT_SUCCESS;
+        int r, n_fd_passed, ret = EXIT_SUCCESS;
         char veth_name[IFNAMSIZ] = "";
         bool secondary = false, remove_directory = false, remove_image = false;
         pid_t pid = 0;
@@ -4039,6 +3496,9 @@ int main(int argc, char *argv[]) {
         _cleanup_release_lock_file_ LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
         bool interactive, veth_created = false, remove_tmprootdir = false;
         char tmprootdir[] = "/tmp/nspawn-root-XXXXXX";
+        _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
+        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
+        _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
 
         log_parse_environment();
         log_open();
@@ -4237,6 +3697,10 @@ int main(int argc, char *argv[]) {
                                 r = log_error_errno(r, "Failed to create image lock: %m");
                                 goto finish;
                         }
+
+                        r = load_root_hash(arg_image);
+                        if (r < 0)
+                                goto finish;
                 }
 
                 if (!mkdtemp(tmprootdir)) {
@@ -4252,18 +3716,41 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                image_fd = setup_image(&device_path, &loop_nr);
-                if (image_fd < 0) {
-                        r = image_fd;
+                r = loop_device_make_by_path(arg_image, arg_read_only ? O_RDONLY : O_RDWR, &loop);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to set up loopback block device: %m");
                         goto finish;
                 }
 
-                r = dissect_image(image_fd,
-                                  &root_device, &root_device_rw,
-                                  &home_device, &home_device_rw,
-                                  &srv_device, &srv_device_rw,
-                                  &esp_device,
-                                  &secondary);
+                r = dissect_image(loop->fd, arg_root_hash, arg_root_hash_size, &dissected_image);
+                if (r == -ENOPKG) {
+                        log_error_errno(r, "Could not find a suitable file system or partition table in image: %s", arg_image);
+
+                        log_notice("Note that the disk image needs to\n"
+                                   "    a) either contain only a single MBR partition of type 0x83 that is marked bootable\n"
+                                   "    b) or contain a single GPT partition of type 0FC63DAF-8483-4772-8E79-3D69D8477DE4\n"
+                                   "    c) or follow http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/\n"
+                                   "    d) or contain a file system without a partition table\n"
+                                   "in order to be bootable with systemd-nspawn.");
+                        goto finish;
+                }
+                if (r == -EADDRNOTAVAIL) {
+                        log_error_errno(r, "No root partition for specified root hash found.");
+                        goto finish;
+                }
+                if (r == -EOPNOTSUPP) {
+                        log_error_errno(r, "--image= is not supported, compiled without blkid support.");
+                        goto finish;
+                }
+                if (r < 0) {
+                        log_error_errno(r, "Failed to dissect image: %m");
+                        goto finish;
+                }
+
+                if (!arg_root_hash && dissected_image->can_verity)
+                        log_notice("Note: image %s contains verity information, but no root hash specified! Proceeding without integrity checking.", arg_image);
+
+                r = dissected_image_decrypt_interactively(dissected_image, NULL, arg_root_hash, arg_root_hash_size, 0, &decrypted_image);
                 if (r < 0)
                         goto finish;
 
@@ -4317,10 +3804,7 @@ int main(int argc, char *argv[]) {
         for (;;) {
                 r = run(master,
                         console,
-                        root_device, root_device_rw,
-                        home_device, home_device_rw,
-                        srv_device, srv_device_rw,
-                        esp_device,
+                        dissected_image,
                         interactive, secondary,
                         fds,
                         veth_name, &veth_created,
@@ -4346,8 +3830,6 @@ finish:
 
         if (pid > 0)
                 (void) wait_for_terminate(pid, NULL);
-
-        loop_remove(loop_nr, &image_fd);
 
         if (remove_directory && arg_directory) {
                 int k;
@@ -4395,6 +3877,7 @@ finish:
         strv_free(arg_parameters);
         custom_mount_free_all(arg_custom_mounts, arg_n_custom_mounts);
         expose_port_free_all(arg_expose_ports);
+        free(arg_root_hash);
 
         return r < 0 ? EXIT_FAILURE : ret;
 }

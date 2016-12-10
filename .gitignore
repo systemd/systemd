@@ -67,6 +67,7 @@
 /systemd-debug-generator
 /systemd-delta
 /systemd-detect-virt
+/systemd-dissect
 /systemd-escape
 /systemd-export
 /systemd-firstboot
@@ -180,6 +181,7 @@
 /test-dhcp-option
 /test-dhcp-server
 /test-dhcp6-client
+/test-dissect-image
 /test-dns-domain
 /test-dns-packet
 /test-dnssec

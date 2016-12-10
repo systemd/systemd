@@ -33,3 +33,4 @@ int bus_image_method_rename(sd_bus_message *message, void *userdata, sd_bus_erro
 int bus_image_method_clone(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_image_method_mark_read_only(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_image_method_set_limit(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_image_method_get_os_release(sd_bus_message *message, void *userdata, sd_bus_error *error);
