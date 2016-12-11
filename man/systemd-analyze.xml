@@ -333,7 +333,7 @@ $ eog targets.svg</programlisting>
       </para></listitem>
 
       <listitem><para>missing dependencies which are required to start
-      the given unit, </para></listitem>
+      the given unit,</para></listitem>
 
       <listitem><para>man pages listed in
       <varname>Documentation=</varname> which are not found in the
