@@ -172,14 +172,25 @@ Defined-By: systemd
 Support: %SUPPORT_URL%
 
 All system services necessary queued for starting at boot have been
-successfully started. Note that this does not mean that the machine is
-now idle as services might still be busy with completing start-up.
+started. Note that this does not mean that the machine is now idle as services
+might still be busy with completing start-up.
 
 Kernel start-up required @KERNEL_USEC@ microseconds.
 
 Initial RAM disk start-up required @INITRD_USEC@ microseconds.
 
 Userspace start-up required @USERSPACE_USEC@ microseconds.
+
+-- eed00a68ffd84e31882105fd973abdd1
+Subject: User manager start-up is now complete
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The user manager instance for user @_UID@ has been started. All services queued
+for starting have been started. Note that other services might still be starting
+up or be started at any later time.
+
+Startup of the manager took @USERSPACE_USEC@ microseconds.
 
 -- 6bbd95ee977941e497c48be27c254128
 Subject: System sleep state @SLEEP@ entered

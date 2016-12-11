@@ -500,7 +500,7 @@ static int log_do_header(
                  line ? "CODE_LINE=" : "",
                  line ? 1 : 0, line, /* %.0d means no output too, special case for 0 */
                  line ? "\n" : "",
-                 isempty(func) ? "" : "CODE_FUNCTION=",
+                 isempty(func) ? "" : "CODE_FUNC=",
                  isempty(func) ? "" : func,
                  isempty(func) ? "" : "\n",
                  error ? "ERRNO=" : "",
@@ -1134,8 +1134,8 @@ int log_syntax_internal(
 
         PROTECT_ERRNO;
         char buffer[LINE_MAX];
-        int r;
         va_list ap;
+        const char *unit_fmt = NULL;
 
         if (error < 0)
                 error = -error;
@@ -1154,24 +1154,15 @@ int log_syntax_internal(
         va_end(ap);
 
         if (unit)
-                r = log_struct_internal(
-                                level, error,
-                                file, line, func,
-                                getpid() == 1 ? "UNIT=%s" : "USER_UNIT=%s", unit,
-                                LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION),
-                                "CONFIG_FILE=%s", config_file,
-                                "CONFIG_LINE=%u", config_line,
-                                LOG_MESSAGE("[%s:%u] %s", config_file, config_line, buffer),
-                                NULL);
-        else
-                r = log_struct_internal(
-                                level, error,
-                                file, line, func,
-                                LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION),
-                                "CONFIG_FILE=%s", config_file,
-                                "CONFIG_LINE=%u", config_line,
-                                LOG_MESSAGE("[%s:%u] %s", config_file, config_line, buffer),
-                                NULL);
+                unit_fmt = getpid() == 1 ? "UNIT=%s" : "USER_UNIT=%s";
 
-        return r;
+        return log_struct_internal(
+                        level, error,
+                        file, line, func,
+                        LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION),
+                        "CONFIG_FILE=%s", config_file,
+                        "CONFIG_LINE=%u", config_line,
+                        LOG_MESSAGE("%s:%u: %s", config_file, config_line, buffer),
+                        unit_fmt, unit,
+                        NULL);
 }
