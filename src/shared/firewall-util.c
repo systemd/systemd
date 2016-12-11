@@ -17,8 +17,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#warning "Temporary work-around for broken glibc vs. linux kernel header definitions"
-#warning "This really should be removed sooner rather than later, when this is fixed upstream"
+/* Temporary work-around for broken glibc vs. linux kernel header definitions
+ * This is already fixed upstream, remove this when distributions have updated.
+ */
 #define _NET_IF_H 1
 
 #include <alloca.h>

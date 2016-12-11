@@ -372,9 +372,7 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, Dissecte
                                 designator = PARTITION_ROOT;
                                 architecture = native_architecture();
                                 rw = !(flags & GPT_FLAG_READ_ONLY);
-                        }
-#ifdef GPT_ROOT_NATIVE_VERITY
-                        else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE_VERITY)) {
+                        } else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE_VERITY)) {
 
                                 m->can_verity = true;
 
@@ -388,7 +386,6 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, Dissecte
                                 rw = false;
                         }
 #endif
-#endif
 #ifdef GPT_ROOT_SECONDARY
                         else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY)) {
 
@@ -399,9 +396,7 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, Dissecte
                                 designator = PARTITION_ROOT_SECONDARY;
                                 architecture = SECONDARY_ARCHITECTURE;
                                 rw = !(flags & GPT_FLAG_READ_ONLY);
-                        }
-#ifdef GPT_ROOT_SECONDARY_VERITY
-                        else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY_VERITY)) {
+                        } else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY_VERITY)) {
 
                                 m->can_verity = true;
 
@@ -414,7 +409,6 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, Dissecte
                                 architecture = SECONDARY_ARCHITECTURE;
                                 rw = false;
                         }
-#endif
 #endif
                         else if (sd_id128_equal(type_id, GPT_SWAP)) {
                                 designator = PARTITION_SWAP;

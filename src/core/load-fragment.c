@@ -606,7 +606,6 @@ int config_parse_exec(
                 _cleanup_strv_free_ char **n = NULL;
                 size_t nlen = 0, nbufsize = 0;
                 const char *f;
-                int i;
 
                 semicolon = false;
 
@@ -615,7 +614,7 @@ int config_parse_exec(
                         return 0;
 
                 f = firstword;
-                for (i = 0; i < 3; i++) {
+                for (;;) {
                         /* We accept an absolute path as first argument.
                          * If it's prefixed with - and the path doesn't exist,
                          * we ignore it instead of erroring out;
