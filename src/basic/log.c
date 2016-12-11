@@ -500,7 +500,7 @@ static int log_do_header(
                  line ? "CODE_LINE=" : "",
                  line ? 1 : 0, line, /* %.0d means no output too, special case for 0 */
                  line ? "\n" : "",
-                 isempty(func) ? "" : "CODE_FUNCTION=",
+                 isempty(func) ? "" : "CODE_FUNC=",
                  isempty(func) ? "" : func,
                  isempty(func) ? "" : "\n",
                  error ? "ERRNO=" : "",
