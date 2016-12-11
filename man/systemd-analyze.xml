@@ -105,7 +105,7 @@
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">syscall-filter</arg>
-      <arg choice="opt"><replaceable>SET</replaceable>...</arg>
+      <arg choice="opt"><replaceable>SET</replaceable>…</arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>systemd-analyze</command>
@@ -140,7 +140,7 @@
     initialization of another service to complete.</para>
 
     <para><command>systemd-analyze critical-chain
-    [<replaceable>UNIT...</replaceable>]</command> prints a tree of
+    [<replaceable>UNIT…</replaceable>]</command> prints a tree of
     the time-critical chain of units (for each of the specified
     <replaceable>UNIT</replaceable>s or for the default target
     otherwise). The time after the unit is active or started is
@@ -187,7 +187,7 @@
     <option>--log-target=</option>, described in
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>).</para>
 
-    <para><command>systemd-analyze syscall-filter <optional><replaceable>SET</replaceable>...</optional></command>
+    <para><command>systemd-analyze syscall-filter <optional><replaceable>SET</replaceable>…</optional></command>
     will list system calls contained in the specified system call set <replaceable>SET</replaceable>,
     or all known sets if no sets are specified. Argument <replaceable>SET</replaceable> must include
     the <literal>@</literal> prefix.</para>

@@ -60,7 +60,7 @@
         <funcdef>int <function>sd_journal_print</function></funcdef>
         <paramdef>int <parameter>priority</parameter></paramdef>
         <paramdef>const char *<parameter>format</parameter></paramdef>
-        <paramdef>...</paramdef>
+        <paramdef>…</paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -73,7 +73,7 @@
       <funcprototype>
         <funcdef>int <function>sd_journal_send</function></funcdef>
         <paramdef>const char *<parameter>format</parameter></paramdef>
-        <paramdef>...</paramdef>
+        <paramdef>…</paramdef>
       </funcprototype>
 
       <funcprototype>

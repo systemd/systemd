@@ -66,7 +66,7 @@
         <funcdef>int <function>sd_bus_path_encode_many</function></funcdef>
         <paramdef>char **<parameter>out</parameter></paramdef>
         <paramdef>const char *<parameter>path_template</parameter></paramdef>
-        <paramdef>...</paramdef>
+        <paramdef>…</paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -80,7 +80,7 @@
         <funcdef>int <function>sd_bus_path_decode_many</function></funcdef>
         <paramdef>const char *<parameter>path</parameter></paramdef>
         <paramdef>const char *<parameter>path_template</parameter></paramdef>
-        <paramdef>...</paramdef>
+        <paramdef>…</paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>

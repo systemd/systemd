@@ -120,7 +120,7 @@
     originating from local, trusted sources is also reported authenticated, including resolution of the local host
     name, the <literal>localhost</literal> host name or all data from <filename>/etc/hosts</filename>.</para>
 
-    <para>The <option>--type=</option> switch may be used to specify a DNS resource record type (A, AAAA, SOA, MX, ...) in
+    <para>The <option>--type=</option> switch may be used to specify a DNS resource record type (A, AAAA, SOA, MX, …) in
     order to request a specific DNS resource record, instead of the address or reverse address lookups.
     The special value <literal>help</literal> may be used to list known values.</para>
 
@@ -356,7 +356,7 @@ _xmpp-server._tcp/gmail.com: alt1.xmpp-server.l.google.com:5269 [priority=20, we
                              173.194.210.125
                              alt4.xmpp-server.l.google.com:5269 [priority=20, weight=0]
                              173.194.65.125
-                             ...
+                             …
 </programlisting>
     </example>
 
@@ -367,7 +367,7 @@ _xmpp-server._tcp/gmail.com: alt1.xmpp-server.l.google.com:5269 [priority=20, we
 d08ee310438ca124a6149ea5cc21b6313b390dce485576eff96f8722._openpgpkey.fedoraproject.org. IN OPENPGPKEY
         mQINBFBHPMsBEACeInGYJCb+7TurKfb6wGyTottCDtiSJB310i37/6ZYoeIay/5soJjlMyf
         MFQ9T2XNT/0LM6gTa0MpC1st9LnzYTMsT6tzRly1D1UbVI6xw0g0vE5y2Cjk3xUwAynCsSs
-        ...
+        …
 </programlisting>
     </example>
 

@@ -127,10 +127,10 @@ PrivateNetwork=yes]]></programlisting>
       <example>
         <title>nginx.conf</title>
         <programlisting>
-<![CDATA[[...]
+<![CDATA[[…]
 server {
     listen       unix:/tmp/nginx.sock;
-    [...]]]>
+    […]]]>
 </programlisting>
       </example>
       <example>
@@ -169,10 +169,10 @@ PrivateNetwork=yes]]></programlisting>
       </example>
       <example>
         <title>nginx.conf</title>
-        <programlisting><![CDATA[[...]
+        <programlisting><![CDATA[[…]
 server {
     listen       8080;
-    [...]]]></programlisting>
+    […]]]></programlisting>
       </example>
       <example>
         <title>Enabling the proxy</title>

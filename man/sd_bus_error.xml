@@ -68,7 +68,7 @@
       <funcsynopsisinfo>typedef struct {
         const char *name;
         const char *message;
-        ...
+        …
 } sd_bus_error;</funcsynopsisinfo>
 
       <para>
@@ -95,7 +95,7 @@
         <paramdef>sd_bus_error *<parameter>e</parameter></paramdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>const char *<parameter>format</parameter></paramdef>
-        <paramdef>...</paramdef>
+        <paramdef>…</paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -116,7 +116,7 @@
         <paramdef>sd_bus_error *<parameter>e</parameter></paramdef>
         <paramdef>int <parameter>error</parameter></paramdef>
         <paramdef>const char *<parameter>format</parameter></paramdef>
-        <paramdef>...</paramdef>
+        <paramdef>…</paramdef>
       </funcprototype>
 
       <funcprototype>

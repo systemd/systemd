@@ -327,7 +327,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>status</command> <replaceable>NAME</replaceable>...</term>
+        <term><command>status</command> <replaceable>NAME</replaceable>…</term>
 
         <listitem><para>Show runtime status information about
         one or more virtual machines and containers, followed by the
@@ -341,7 +341,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>show</command> [<replaceable>NAME</replaceable>...]</term>
+        <term><command>show</command> [<replaceable>NAME</replaceable>…]</term>
 
         <listitem><para>Show properties of one or more registered virtual machines or containers or the manager
         itself. If no argument is specified, properties of the manager will be shown. If a NAME is specified,
@@ -353,7 +353,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>start</command> <replaceable>NAME</replaceable>...</term>
+        <term><command>start</command> <replaceable>NAME</replaceable>…</term>
 
         <listitem><para>Start a container as a system service, using
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
@@ -410,7 +410,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>shell</command> [[<replaceable>NAME</replaceable>@]<replaceable>NAME</replaceable> [<replaceable>PATH</replaceable> [<replaceable>ARGUMENTS</replaceable>...]]] </term>
+        <term><command>shell</command> [[<replaceable>NAME</replaceable>@]<replaceable>NAME</replaceable> [<replaceable>PATH</replaceable> [<replaceable>ARGUMENTS</replaceable>…]]] </term>
 
         <listitem><para>Open an interactive shell session in a
         container or on the local host. The first argument refers to
@@ -449,8 +449,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>enable</command> <replaceable>NAME</replaceable>...</term>
-        <term><command>disable</command> <replaceable>NAME</replaceable>...</term>
+        <term><command>enable</command> <replaceable>NAME</replaceable>…</term>
+        <term><command>disable</command> <replaceable>NAME</replaceable>…</term>
 
         <listitem><para>Enable or disable a container as a system
         service to start at system boot, using
@@ -463,7 +463,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>poweroff</command> <replaceable>NAME</replaceable>...</term>
+        <term><command>poweroff</command> <replaceable>NAME</replaceable>…</term>
 
         <listitem><para>Power off one or more containers. This will
         trigger a reboot by sending SIGRTMIN+4 to the container's init
@@ -478,7 +478,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>reboot</command> <replaceable>NAME</replaceable>...</term>
+        <term><command>reboot</command> <replaceable>NAME</replaceable>…</term>
 
         <listitem><para>Reboot one or more containers. This will
         trigger a reboot by sending SIGINT to the container's init
@@ -488,7 +488,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>terminate</command> <replaceable>NAME</replaceable>...</term>
+        <term><command>terminate</command> <replaceable>NAME</replaceable>…</term>
 
         <listitem><para>Immediately terminates a virtual machine or
         container, without cleanly shutting it down. This kills all
@@ -499,7 +499,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>kill</command> <replaceable>NAME</replaceable>...</term>
+        <term><command>kill</command> <replaceable>NAME</replaceable>…</term>
 
         <listitem><para>Send a signal to one or more processes of the
         virtual machine or container. This means processes as seen by
@@ -568,7 +568,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>image-status</command> [<replaceable>NAME</replaceable>...]</term>
+        <term><command>image-status</command> [<replaceable>NAME</replaceable>…]</term>
 
         <listitem><para>Show terse status information about one or
         more container or VM images. This function is intended to
@@ -578,7 +578,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>show-image</command> [<replaceable>NAME</replaceable>...]</term>
+        <term><command>show-image</command> [<replaceable>NAME</replaceable>…]</term>
 
         <listitem><para>Show properties of one or more registered
         virtual machine or container images, or the manager itself. If
@@ -630,7 +630,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>remove</command> <replaceable>NAME</replaceable>...</term>
+        <term><command>remove</command> <replaceable>NAME</replaceable>…</term>
 
         <listitem><para>Removes one or more container or VM images.
         The special image <literal>.host</literal>, which refers to
@@ -849,7 +849,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>cancel-transfers</command> <replaceable>ID</replaceable>...</term>
+        <term><command>cancel-transfers</command> <replaceable>ID</replaceable>…</term>
 
         <listitem><para>Aborts a download, import or export of the
         container or VM image with the specified ID. To list ongoing

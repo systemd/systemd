@@ -191,7 +191,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>session-status</command> <optional><replaceable>ID</replaceable>...</optional></term>
+        <term><command>session-status</command> <optional><replaceable>ID</replaceable>…</optional></term>
 
         <listitem><para>Show terse runtime status information about
         one or more sessions, followed by the most recent log data
@@ -204,7 +204,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>show-session</command> <optional><replaceable>ID</replaceable>...</optional></term>
+        <term><command>show-session</command> <optional><replaceable>ID</replaceable>…</optional></term>
 
         <listitem><para>Show properties of one or more sessions or the
         manager itself. If no argument is specified, properties of the
@@ -229,8 +229,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>lock-session</command> <optional><replaceable>ID</replaceable>...</optional></term>
-        <term><command>unlock-session</command> <optional><replaceable>ID</replaceable>...</optional></term>
+        <term><command>lock-session</command> <optional><replaceable>ID</replaceable>…</optional></term>
+        <term><command>unlock-session</command> <optional><replaceable>ID</replaceable>…</optional></term>
 
         <listitem><para>Activates/deactivates the screen lock on one
         or more sessions, if the session supports it. Takes one or
@@ -248,7 +248,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>terminate-session</command> <replaceable>ID</replaceable>...</term>
+        <term><command>terminate-session</command> <replaceable>ID</replaceable>…</term>
 
         <listitem><para>Terminates a session. This kills all processes
         of the session and deallocates all resources attached to the
@@ -256,7 +256,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>kill-session</command> <replaceable>ID</replaceable>...</term>
+        <term><command>kill-session</command> <replaceable>ID</replaceable>…</term>
 
         <listitem><para>Send a signal to one or more processes of the
         session. Use <option>--kill-who=</option> to select which
@@ -274,7 +274,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>user-status</command> <optional><replaceable>USER</replaceable>...</optional></term>
+        <term><command>user-status</command> <optional><replaceable>USER</replaceable>…</optional></term>
 
         <listitem><para>Show terse runtime status information about
         one or more logged in users, followed by the most recent log
@@ -288,7 +288,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>show-user</command> <optional><replaceable>USER</replaceable>...</optional></term>
+        <term><command>show-user</command> <optional><replaceable>USER</replaceable>…</optional></term>
 
         <listitem><para>Show properties of one or more users or the
         manager itself. If no argument is specified, properties of the
@@ -303,8 +303,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>enable-linger</command> <optional><replaceable>USER</replaceable>...</optional></term>
-        <term><command>disable-linger</command> <optional><replaceable>USER</replaceable>...</optional></term>
+        <term><command>enable-linger</command> <optional><replaceable>USER</replaceable>…</optional></term>
+        <term><command>disable-linger</command> <optional><replaceable>USER</replaceable>…</optional></term>
 
         <listitem><para>Enable/disable user lingering for one or more
         users. If enabled for a specific user, a user manager is
@@ -320,7 +320,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>terminate-user</command> <replaceable>USER</replaceable>...</term>
+        <term><command>terminate-user</command> <replaceable>USER</replaceable>…</term>
 
         <listitem><para>Terminates all sessions of a user. This kills
         all processes of all sessions of the user and deallocates all
@@ -328,7 +328,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>kill-user</command> <replaceable>USER</replaceable>...</term>
+        <term><command>kill-user</command> <replaceable>USER</replaceable>…</term>
 
         <listitem><para>Send a signal to all processes of a user. Use
         <option>--signal=</option> to select the signal to send.
@@ -345,7 +345,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>seat-status</command> <optional><replaceable>NAME</replaceable>...</optional></term>
+        <term><command>seat-status</command> <optional><replaceable>NAME</replaceable>…</optional></term>
 
         <listitem><para>Show terse runtime status information about
         one or more seats. Takes one or more seat names as parameters.
@@ -357,7 +357,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>show-seat</command> <optional><replaceable>NAME</replaceable>...</optional></term>
+        <term><command>show-seat</command> <optional><replaceable>NAME</replaceable>…</optional></term>
 
         <listitem><para>Show properties of one or more seats or the
         manager itself. If no argument is specified, properties of the
@@ -372,7 +372,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>attach</command> <replaceable>NAME</replaceable> <replaceable>DEVICE</replaceable>...</term>
+        <term><command>attach</command> <replaceable>NAME</replaceable> <replaceable>DEVICE</replaceable>…</term>
 
         <listitem><para>Persistently attach one or more devices to a
         seat. The devices should be specified via device paths in the
@@ -396,7 +396,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>terminate-seat</command> <replaceable>NAME</replaceable>...</term>
+        <term><command>terminate-seat</command> <replaceable>NAME</replaceable>…</term>
 
         <listitem><para>Terminates all sessions on a seat. This kills
         all processes of all sessions on the seat and deallocates all
@@ -426,9 +426,9 @@ fatima (1005)
         Sessions: 5 *3
             Unit: user-1005.slice
                   ├─user@1005.service
-                    ...
+                    …
                   ├─session-3.scope
-                    ...
+                    …
                   └─session-5.scope
                     ├─3473 login -- fatima
                     └─3515 -zsh
