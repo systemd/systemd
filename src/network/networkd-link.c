@@ -255,9 +255,10 @@ static int link_enable_ipv6(Link *link) {
 
         r = write_string_file(p, one_zero(disabled), WRITE_STRING_FILE_VERIFY_ON_FAILURE);
         if (r < 0)
-                log_link_warning_errno(link, r, "Cannot %s IPv6 for interface %s: %m", disabled ? "disable" : "enable", link->ifname);
+                log_link_warning_errno(link, r, "Cannot %s IPv6 for interface %s: %m",
+                                       enable_disable(!disabled), link->ifname);
         else
-                log_link_info(link, "IPv6 %sd for interface: %m", enable_disable(!disabled));
+                log_link_info(link, "IPv6 successfully %sd", enable_disable(!disabled));
 
         return 0;
 }

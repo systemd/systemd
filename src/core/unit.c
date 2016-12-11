@@ -3755,14 +3755,14 @@ int unit_kill_context(
                 bool main_pid_alien) {
 
         bool wait_for_exit = false, send_sighup;
-        cg_kill_log_func_t log_func;
+        cg_kill_log_func_t log_func = NULL;
         int sig, r;
 
         assert(u);
         assert(c);
 
-        /* Kill the processes belonging to this unit, in preparation for shutting the unit down. Returns > 0 if we
-         * killed something worth waiting for, 0 otherwise. */
+        /* Kill the processes belonging to this unit, in preparation for shutting the unit down.
+         * Returns > 0 if we killed something worth waiting for, 0 otherwise. */
 
         if (c->kill_mode == KILL_NONE)
                 return 0;
@@ -3774,9 +3774,8 @@ int unit_kill_context(
                 IN_SET(k, KILL_TERMINATE, KILL_TERMINATE_AND_LOG) &&
                 sig != SIGHUP;
 
-        log_func =
-                k != KILL_TERMINATE ||
-                IN_SET(sig, SIGKILL, SIGABRT) ? log_kill : NULL;
+        if (k != KILL_TERMINATE || IN_SET(sig, SIGKILL, SIGABRT))
+                log_func = log_kill;
 
         if (main_pid > 0) {
                 if (log_func)

@@ -397,16 +397,31 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
 
         assert(t);
 
-        if (t->family != AF_INET && t->family != AF_INET6 && t->family != 0) {
-                log_warning("Tunnel with invalid address family configured in %s. Ignoring", filename);
+        if (!IN_SET(t->family, AF_INET, AF_INET6, AF_UNSPEC)) {
+                log_netdev_error(netdev,
+                                 "Tunnel with invalid address family configured in %s. Ignoring", filename);
                 return -EINVAL;
         }
 
-        if (netdev->kind == NETDEV_KIND_IP6TNL) {
-                if (t->ip6tnl_mode == _NETDEV_IP6_TNL_MODE_INVALID) {
-                        log_warning("IP6 Tunnel without mode configured in %s. Ignoring", filename);
-                        return -EINVAL;
-                }
+        if (netdev->kind == NETDEV_KIND_VTI &&
+            (t->family != AF_INET || in_addr_is_null(t->family, &t->local))) {
+                log_netdev_error(netdev,
+                                 "vti tunnel without a local IPv4 address configured in %s. Ignoring", filename);
+                return -EINVAL;
+        }
+
+        if (netdev->kind == NETDEV_KIND_VTI6 &&
+            (t->family != AF_INET6 || in_addr_is_null(t->family, &t->local))) {
+                log_netdev_error(netdev,
+                                 "vti6 tunnel without a local IPv4 address configured in %s. Ignoring", filename);
+                return -EINVAL;
+        }
+
+        if (netdev->kind == NETDEV_KIND_IP6TNL &&
+            t->ip6tnl_mode == _NETDEV_IP6_TNL_MODE_INVALID) {
+                log_netdev_error(netdev,
+                                 "ip6tnl without mode configured in %s. Ignoring", filename);
+                return -EINVAL;
         }
 
         return 0;
@@ -431,26 +446,40 @@ int config_parse_tunnel_address(const char *unit,
         assert(rvalue);
         assert(data);
 
+        /* This is used to parse addresses on both local and remote ends of the tunnel.
+         * Address families must match.
+         *
+         * "any" is a special value which means that the address is unspecified.
+         */
+
         if (streq(rvalue, "any")) {
-                t->family = 0;
+                *addr = IN_ADDR_NULL;
+
+                /* As a special case, if both the local and remote addresses are
+                 * unspecified, also clear the address family.
+                 */
+                if (t->family != AF_UNSPEC &&
+                    in_addr_is_null(t->family, &t->local) &&
+                    in_addr_is_null(t->family, &t->remote))
+                        t->family = AF_UNSPEC;
                 return 0;
-        } else {
+        }
 
-                r = in_addr_from_string_auto(rvalue, &f, &buffer);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Tunnel address is invalid, ignoring assignment: %s", rvalue);
-                        return 0;
-                }
+        r = in_addr_from_string_auto(rvalue, &f, &buffer);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Tunnel address \"%s\" invalid, ignoring assignment: %m", rvalue);
+                return 0;
+        }
 
-                if (t->family != AF_UNSPEC && t->family != f) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Tunnel addresses incompatible, ignoring assignment: %s", rvalue);
-                        return 0;
-                }
+        if (t->family != AF_UNSPEC && t->family != f) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Tunnel addresses incompatible, ignoring assignment: %s", rvalue);
+                return 0;
         }
 
         t->family = f;
         *addr = buffer;
-
         return 0;
 }
 
@@ -578,7 +607,6 @@ static void ipip_init(NetDev *n) {
         assert(t);
 
         t->pmtudisc = true;
-        t->family = AF_UNSPEC;
 }
 
 static void sit_init(NetDev *n) {
@@ -588,7 +616,6 @@ static void sit_init(NetDev *n) {
         assert(t);
 
         t->pmtudisc = true;
-        t->family = AF_UNSPEC;
 }
 
 static void vti_init(NetDev *n) {
@@ -619,7 +646,6 @@ static void gre_init(NetDev *n) {
         assert(t);
 
         t->pmtudisc = true;
-        t->family = AF_UNSPEC;
 }
 
 static void ip6gre_init(NetDev *n) {

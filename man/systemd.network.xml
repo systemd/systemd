@@ -614,47 +614,57 @@
         <varlistentry>
           <term><varname>Bridge=</varname></term>
           <listitem>
-            <para>The name of the bridge to add the link to.</para>
+            <para>The name of the bridge to add the link to. See
+            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>Bond=</varname></term>
           <listitem>
-            <para>The name of the bond to add the link to.</para>
+            <para>The name of the bond to add the link to. See
+            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>VRF=</varname></term>
           <listitem>
-            <para>The name of the VRF to add the link to.</para>
+            <para>The name of the VRF to add the link to. See
+            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>VLAN=</varname></term>
           <listitem>
-            <para>The name of a VLAN to create on the link. This
-            option may be specified more than once.</para>
+            <para>The name of a VLAN to create on the link. See
+            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            This option may be specified more than once.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>MACVLAN=</varname></term>
           <listitem>
-            <para>The name of a MACVLAN to create on the link. This
-            option may be specified more than once.</para>
+            <para>The name of a MACVLAN to create on the link. See
+            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            This option may be specified more than once.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>VXLAN=</varname></term>
           <listitem>
-            <para>The name of a VXLAN to create on the link. This
-            option may be specified more than once.</para>
+            <para>The name of a VXLAN to create on the link. See
+            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            This option may be specified more than once.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>Tunnel=</varname></term>
           <listitem>
-            <para>The name of a Tunnel to create on the link. This
-            option may be specified more than once.</para>
+            <para>The name of a Tunnel to create on the link. See
+            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            This option may be specified more than once.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -1293,53 +1303,75 @@
   </refsect1>
 
   <refsect1>
-    <title>Example</title>
+    <title>Examples</title>
     <example>
-      <title>/etc/systemd/network/50-static.network</title>
+      <title>Static network configuration</title>
 
-      <programlisting>[Match]
+      <programlisting># /etc/systemd/network/50-static.network
+[Match]
 Name=enp2s0
 
 [Network]
 Address=192.168.0.15/24
 Gateway=192.168.0.1</programlisting>
+
+      <para>This brings interface <literal>enp2s0</literal> up with a static address. The
+      specified gateway will be used for a default route.</para>
     </example>
 
     <example>
-      <title>/etc/systemd/network/80-dhcp.network</title>
+      <title>DHCP on ethernet links</title>
 
-      <programlisting>[Match]
+      <programlisting># /etc/systemd/network/80-dhcp.network
+[Match]
 Name=en*
 
 [Network]
 DHCP=yes</programlisting>
+
+      <para>This will enable DHCPv4 and DHCPv6 on all interfaces with names starting with
+      <literal>en</literal> (i.e. ethernet interfaces).</para>
     </example>
 
     <example>
-      <title>/etc/systemd/network/25-bridge-static.network</title>
+      <title>A bridge with two enslaved links</title>
 
-      <programlisting>[Match]
+      <programlisting># /etc/systemd/network/25-bridge-static.network
+[Match]
 Name=bridge0
 
 [Network]
 Address=192.168.0.15/24
 Gateway=192.168.0.1
 DNS=192.168.0.1</programlisting>
-    </example>
 
-    <example>
-      <title>/etc/systemd/network/25-bridge-slave-interface.network</title>
-
-      <programlisting>[Match]
+      <programlisting># /etc/systemd/network/25-bridge-slave-interface-1.network
+[Match]
 Name=enp2s0
 
 [Network]
 Bridge=bridge0</programlisting>
-    </example>
-    <example>
-      <title>/etc/systemd/network/25-bridge-slave-interface-vlan.network</title>
 
-      <programlisting>[Match]
+      <programlisting># /etc/systemd/network/25-bridge-slave-interface-2.network
+[Match]
+Name=wlp3s0
+
+[Network]
+Bridge=bridge0</programlisting>
+
+      <para>This creates a bridge and attaches devices <literal>enp2s0</literal> and
+      <literal>wlp3s0</literal> to it. The bridge will have the specified static address
+      and network assigned, and a default route via the specified gateway will be
+      added. The specified DNS server will be added to the global list of DNS resolvers.
+      </para>
+    </example>
+
+    <example>
+      <title></title>
+
+      <programlisting>
+# /etc/systemd/network/20-bridge-slave-interface-vlan.network
+[Match]
 Name=enp2s0
 
 [Network]
@@ -1355,66 +1387,106 @@ VLAN=100-200
 
 [BridgeVLAN]
 EgressUntagged=300-400</programlisting>
-    </example>
-    <example>
-      <title>/etc/systemd/network/25-ipip.network</title>
 
-      <programlisting>[Match]
-Name=em1
+    <para>This overrides the configuration specified in the previous example for the
+    interface <literal>enp2s0</literal>, and enables VLAN on that bridge port. VLAN IDs
+    1-32, 42, 100-400 will be allowed. Packets tagged with VLAN IDs 42, 300-400 will be
+    untagged when they leave on this interface. Untagged packets which arrive on this
+    interface will be assigned VLAN ID 42.</para>
+    </example>
+
+    <example>
+      <title>Various tunnels</title>
+
+      <programlisting>/etc/systemd/network/25-tunnels.network
+[Match]
+Name=ens1
 
 [Network]
-Tunnel=ipip-tun</programlisting>
+Tunnel=ipip-tun
+Tunnel=sit-tun
+Tunnel=gre-tun
+Tunnel=vti-tun
+      </programlisting>
+
+      <programlisting>/etc/systemd/network/25-tunnel-ipip.netdev
+[NetDev]
+Name=ipip-tun
+Kind=ipip
+      </programlisting>
+
+      <programlisting>/etc/systemd/network/25-tunnel-sit.netdev
+[NetDev]
+Name=sit-tun
+Kind=sit
+      </programlisting>
+
+      <programlisting>/etc/systemd/network/25-tunnel-gre.netdev
+[NetDev]
+Name=gre-tun
+Kind=gre
+      </programlisting>
+
+      <programlisting>/etc/systemd/network/25-tunnel-vti.netdev
+[NetDev]
+Name=vti-tun
+Kind=vti
+      </programlisting>
+
+      <para>This will bring interface <literal>ens1</literal> up and create an IPIP tunnel,
+      a SIT tunnel, a GRE tunnel, and a VTI tunnel using it.</para>
     </example>
 
     <example>
-      <title>/etc/systemd/network/25-sit.network</title>
+      <title>A bond device</title>
 
-      <programlisting>[Match]
-Name=em1
-
-[Network]
-Tunnel=sit-tun</programlisting>
-    </example>
-
-    <example>
-      <title>/etc/systemd/network/25-gre.network</title>
-
-      <programlisting>[Match]
-Name=em1
-
-[Network]
-Tunnel=gre-tun</programlisting>
-    </example>
-
-    <example>
-      <title>/etc/systemd/network/25-vti.network</title>
-
-      <programlisting>[Match]
-Name=em1
-
-[Network]
-Tunnel=vti-tun</programlisting>
-    </example>
-
-    <example>
-      <title>/etc/systemd/network/25-bond.network</title>
-
-      <programlisting>[Match]
+      <programlisting># /etc/systemd/network/30-bond1.network
+[Match]
 Name=bond1
 
 [Network]
-DHCP=yes
+DHCP=ipv6
 </programlisting>
+
+      <programlisting># /etc/systemd/network/30-bond1.netdev
+[NetDev]
+Name=bond1
+Kind=bond
+</programlisting>
+
+      <programlisting># /etc/systemd/network/30-bond1-dev1.nework
+[Match]
+MACAddress=52:54:00:e9:64:41
+
+[Network]
+Bond=bond1
+</programlisting>
+
+      <programlisting># /etc/systemd/network/30-bond1-dev2.nework
+[Match]
+MACAddress=52:54:00:e9:64:42
+
+[Network]
+Bond=bond1
+</programlisting>
+
+    <para>This will create a bond device <literal>bond1</literal> and enslave the two
+    devices with MAC addresses 52:54:00:e9:64:41 and 52:54:00:e9:64:42 to it. IPv6 DHCP
+    will be used to acquire an address.</para>
     </example>
 
     <example>
-      <title>/etc/systemd/network/25-vrf.network</title>
-      <para>Add the bond1 interface to the VRF master interface vrf-test. This will redirect routes generated on this interface to be within the routing table defined during VRF creation. Traffic won't be redirected towards the VRFs routing table unless specific ip-rules are added.</para>
-      <programlisting>[Match]
+      <title>Virtual Routing and Forwarding (VRF)</title>
+      <para>Add the <literal>bond1</literal> interface to the VRF master interface
+      <literal>vrf1</literal>. This will redirect routes generated on this interface to be
+      within the routing table defined during VRF creation. Traffic won't be redirected
+      towards the VRFs routing table unless specific ip-rules are added.</para>
+      <programlisting># /etc/systemd/network/25-vrf.network
+[Match]
 Name=bond1
 
 [Network]
-VRF=vrf-test
+VRF=vrf1
 </programlisting>
     </example>
 
