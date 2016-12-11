@@ -1162,7 +1162,7 @@ int log_syntax_internal(
                         LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION),
                         "CONFIG_FILE=%s", config_file,
                         "CONFIG_LINE=%u", config_line,
-                        LOG_MESSAGE("[%s:%u] %s", config_file, config_line, buffer),
+                        LOG_MESSAGE("%s:%u: %s", config_file, config_line, buffer),
                         unit_fmt, unit,
                         NULL);
 }
