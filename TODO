@@ -618,6 +618,10 @@ Features:
   - maybe make copying of /etc/resolv.conf optional, and skip it if --read-only
     is used
 
+* dissect
+  - refuse mounting over a mount point
+  - automatically discover .roothash files in dissect, similarly to nspawn
+
 * machined:
   - add an API so that libvirt-lxc can inform us about network interfaces being
     removed or added to an existing machine
