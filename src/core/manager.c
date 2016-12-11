@@ -2950,7 +2950,7 @@ static void manager_notify_finished(Manager *m) {
                 total_usec = userspace_usec = m->finish_timestamp.monotonic - m->userspace_timestamp.monotonic;
 
                 log_struct(LOG_INFO,
-                           LOG_MESSAGE_ID(SD_MESSAGE_STARTUP_FINISHED),
+                           LOG_MESSAGE_ID(SD_MESSAGE_USER_STARTUP_FINISHED),
                            "USERSPACE_USEC="USEC_FMT, userspace_usec,
                            LOG_MESSAGE("Startup finished in %s.",
                                        format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC)),
