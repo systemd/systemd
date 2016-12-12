@@ -21,6 +21,11 @@ All tools:
 * `$SD_EVENT_PROFILE_DELAYS=1` — if set, the sd-event event loop implementation
   will print latency information at runtime.
 
+* `$SYSTEMD_PROC_CMDLINE` — if set, may contain a string that is used as kernel
+  command line instead of the actual one readable from /proc/cmdline. This is
+  useful for debugging, in order to test generators and other code against
+  specific kernel command lines.
+
 systemctl:
 
 * `$SYSTEMCTL_FORCE_BUS=1` — if set, do not connect to PID1's private D-Bus
