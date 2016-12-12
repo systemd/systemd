@@ -492,7 +492,7 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
         u = nmemb;
         while (l < u) {
                 idx = (l + u) / 2;
-                p = (void *)(((const char *) base) + (idx * size));
+                p = (const char *) base + idx * size;
                 comparison = compar(key, p, arg);
                 if (comparison < 0)
                         u = idx;

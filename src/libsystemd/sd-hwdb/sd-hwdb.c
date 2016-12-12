@@ -48,8 +48,6 @@ struct sd_hwdb {
                 const char *map;
         };
 
-        char *modalias;
-
         OrderedHashmap *properties;
         Iterator properties_iterator;
         bool properties_modified;
@@ -164,10 +162,38 @@ static int hwdb_add_property(sd_hwdb *hwdb, const struct trie_value_entry_f *ent
                 entry2 = (const struct trie_value_entry2_f *)entry;
                 old = ordered_hashmap_get(hwdb->properties, key);
                 if (old) {
-                        /* on duplicates, we order by filename and line-number */
-                        r = strcmp(trie_string(hwdb, entry2->filename_off), trie_string(hwdb, old->filename_off));
-                        if (r < 0 ||
-                            (r == 0 && entry2->line_number < old->line_number))
+                        /* On duplicates, we order by filename priority and line-number.
+                         *
+                         *
+                         * v2 of the format had 64 bits for the line number.
+                         * v3 reuses top 32 bits of line_number to store the priority.
+                         * We check the top bits — if they are zero we have v2 format.
+                         * This means that v2 clients will print wrong line numbers with
+                         * v3 data.
+                         *
+                         * For v3 data: we compare the priority (of the source file)
+                         * and the line number.
+                         *
+                         * For v2 data: we rely on the fact that the filenames in the hwdb
+                         * are added in the order of priority (higher later), because they
+                         * are *processed* in the order of priority. So we compare the
+                         * indices to determine which file had higher priority. Comparing
+                         * the strings alphabetically would be useless, because those are
+                         * full paths, and e.g. /usr/lib would sort after /etc, even
+                         * though it has lower priority. This is not reliable because of
+                         * suffix compression, but should work for the most common case of
+                         * /usr/lib/udev/hwbd.d and /etc/udev/hwdb.d, and is better than
+                         * not doing the comparison at all.
+                         */
+                        bool lower;
+
+                        if (entry2->file_priority == 0)
+                                lower = entry2->filename_off < old->filename_off ||
+                                        (entry2->filename_off == old->filename_off && entry2->line_number < old->line_number);
+                        else
+                                lower = entry2->file_priority < old->file_priority ||
+                                        (entry2->file_priority == old->file_priority && entry2->line_number < old->line_number);
+                        if (lower)
                                 return 0;
                 }
         }
@@ -234,7 +260,7 @@ static int trie_search_f(sd_hwdb *hwdb, const char *search) {
                         uint8_t c;
 
                         for (; (c = trie_string(hwdb, node->prefix_off)[p]); p++) {
-                                if (c == '*' || c == '?' || c == '[')
+                                if (IN_SET(c, '*', '?', '['))
                                         return trie_fnmatch_f(hwdb, node, p, &buf, search + i + p);
                                 if (c != search[i + p])
                                         return 0;
@@ -365,7 +391,6 @@ _public_ sd_hwdb *sd_hwdb_unref(sd_hwdb *hwdb) {
                 if (hwdb->map)
                         munmap((void *)hwdb->map, hwdb->st.st_size);
                 safe_fclose(hwdb->f);
-                free(hwdb->modalias);
                 ordered_hashmap_free(hwdb->properties);
                 free(hwdb);
         }
@@ -399,32 +424,13 @@ bool hwdb_validate(sd_hwdb *hwdb) {
 }
 
 static int properties_prepare(sd_hwdb *hwdb, const char *modalias) {
-        _cleanup_free_ char *mod = NULL;
-        int r;
-
         assert(hwdb);
         assert(modalias);
 
-        if (streq_ptr(modalias, hwdb->modalias))
-                return 0;
-
-        mod = strdup(modalias);
-        if (!mod)
-                return -ENOMEM;
-
         ordered_hashmap_clear(hwdb->properties);
-
         hwdb->properties_modified = true;
 
-        r = trie_search_f(hwdb, modalias);
-        if (r < 0)
-                return r;
-
-        free(hwdb->modalias);
-        hwdb->modalias = mod;
-        mod = NULL;
-
-        return 0;
+        return trie_search_f(hwdb, modalias);
 }
 
 _public_ int sd_hwdb_get(sd_hwdb *hwdb, const char *modalias, const char *key, const char **_value) {

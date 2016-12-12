@@ -39,7 +39,7 @@
 #include "verbs.h"
 
 /*
- * Generic udev properties, key/value database based on modalias strings.
+ * Generic udev properties, key-value database based on modalias strings.
  * Uses a Patricia/radix trie to index all matches for efficient lookup.
  */
 
@@ -70,7 +70,7 @@ struct trie_node {
         struct trie_child_entry *children;
         uint8_t children_count;
 
-        /* sorted array of key/value pairs */
+        /* sorted array of key-value pairs */
         struct trie_value_entry *values;
         size_t values_count;
 };
@@ -81,12 +81,13 @@ struct trie_child_entry {
         struct trie_node *child;
 };
 
-/* value array item with key/value pairs */
+/* value array item with key-value pairs */
 struct trie_value_entry {
         size_t key_off;
         size_t value_off;
         size_t filename_off;
-        size_t line_number;
+        uint32_t line_number;
+        uint16_t file_priority;
 };
 
 static int trie_children_cmp(const void *v1, const void *v2) {
@@ -160,10 +161,9 @@ static int trie_values_cmp(const void *v1, const void *v2, void *arg) {
 
 static int trie_node_add_value(struct trie *trie, struct trie_node *node,
                                const char *key, const char *value,
-                               const char *filename, size_t line_number) {
+                               const char *filename, uint16_t file_priority, uint32_t line_number) {
         ssize_t k, v, fn;
         struct trie_value_entry *val;
-        int r;
 
         k = strbuf_add_string(trie->strings, key, strlen(key));
         if (k < 0)
@@ -183,19 +183,12 @@ static int trie_node_add_value(struct trie *trie, struct trie_node *node,
 
                 val = xbsearch_r(&search, node->values, node->values_count, sizeof(struct trie_value_entry), trie_values_cmp, trie);
                 if (val) {
-                        /*
-                         * At this point we have 2 identical properties on the same match-string. We
-                         * strictly order them by filename+line-number, since we know the dynamic
-                         * runtime lookup does the same for multiple matching nodes.
+                        /* At this point we have 2 identical properties on the same match-string.
+                         * Since we process files in order, we just replace the previous value.
                          */
-                        r = strcmp(filename, trie->strings->buf + val->filename_off);
-                        if (r < 0 ||
-                            (r == 0 && line_number < val->line_number))
-                                return 0;
-
-                        /* replace existing earlier key with new value */
                         val->value_off = v;
                         val->filename_off = fn;
+                        val->file_priority = file_priority;
                         val->line_number = line_number;
                         return 0;
                 }
@@ -210,6 +203,7 @@ static int trie_node_add_value(struct trie *trie, struct trie_node *node,
         node->values[node->values_count].key_off = k;
         node->values[node->values_count].value_off = v;
         node->values[node->values_count].filename_off = fn;
+        node->values[node->values_count].file_priority = file_priority;
         node->values[node->values_count].line_number = line_number;
         node->values_count++;
         qsort_r(node->values, node->values_count, sizeof(struct trie_value_entry), trie_values_cmp, trie);
@@ -218,9 +212,9 @@ static int trie_node_add_value(struct trie *trie, struct trie_node *node,
 
 static int trie_insert(struct trie *trie, struct trie_node *node, const char *search,
                        const char *key, const char *value,
-                       const char *filename, uint64_t line_number) {
+                       const char *filename, uint16_t file_priority, uint32_t line_number) {
         size_t i = 0;
-        int err = 0;
+        int r = 0;
 
         for (;;) {
                 size_t p;
@@ -261,9 +255,9 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
                         node->children_count = 0;
                         node->values = NULL;
                         node->values_count = 0;
-                        err = node_add_child(trie, node, new_child, c);
-                        if (err < 0)
-                                return err;
+                        r = node_add_child(trie, node, new_child, c);
+                        if (r < 0)
+                                return r;
 
                         new_child = NULL; /* avoid cleanup */
                         break;
@@ -272,7 +266,7 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
 
                 c = search[i];
                 if (c == '\0')
-                        return trie_node_add_value(trie, node, key, value, filename, line_number);
+                        return trie_node_add_value(trie, node, key, value, filename, file_priority, line_number);
 
                 child = node_lookup(node, c);
                 if (!child) {
@@ -290,13 +284,13 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
                         }
 
                         child->prefix_off = off;
-                        err = node_add_child(trie, node, child, c);
-                        if (err < 0) {
+                        r = node_add_child(trie, node, child, c);
+                        if (r < 0) {
                                 free(child);
-                                return err;
+                                return r;
                         }
 
-                        return trie_node_add_value(trie, child, key, value, filename, line_number);
+                        return trie_node_add_value(trie, child, key, value, filename, file_priority, line_number);
                 }
 
                 node = child;
@@ -335,11 +329,11 @@ static int64_t trie_store_nodes(struct trie_f *trie, struct trie_node *node) {
                 .children_count = node->children_count,
                 .values_count = htole64(node->values_count),
         };
-        struct trie_child_entry_f *children = NULL;
+        _cleanup_free_ struct trie_child_entry_f *children = NULL;
         int64_t node_off;
 
         if (node->children_count) {
-                children = new0(struct trie_child_entry_f, node->children_count);
+                children = new(struct trie_child_entry_f, node->children_count);
                 if (!children)
                         return -ENOMEM;
         }
@@ -349,12 +343,13 @@ static int64_t trie_store_nodes(struct trie_f *trie, struct trie_node *node) {
                 int64_t child_off;
 
                 child_off = trie_store_nodes(trie, node->children[i].child);
-                if (child_off < 0) {
-                        free(children);
+                if (child_off < 0)
                         return child_off;
-                }
-                children[i].c = node->children[i].c;
-                children[i].child_off = htole64(child_off);
+
+                children[i] = (struct trie_child_entry_f) {
+                        .c = node->children[i].c,
+                        .child_off = htole64(child_off),
+                };
         }
 
         /* write node */
@@ -366,7 +361,6 @@ static int64_t trie_store_nodes(struct trie_f *trie, struct trie_node *node) {
         if (node->children_count) {
                 fwrite(children, sizeof(struct trie_child_entry_f), node->children_count, trie->f);
                 trie->children_count += node->children_count;
-                free(children);
         }
 
         /* append values array */
@@ -375,12 +369,13 @@ static int64_t trie_store_nodes(struct trie_f *trie, struct trie_node *node) {
                         .key_off = htole64(trie->strings_off + node->values[i].key_off),
                         .value_off = htole64(trie->strings_off + node->values[i].value_off),
                         .filename_off = htole64(trie->strings_off + node->values[i].filename_off),
-                        .line_number = htole64(node->values[i].line_number),
+                        .line_number = htole32(node->values[i].line_number),
+                        .file_priority = htole16(node->values[i].file_priority),
                 };
 
                 fwrite(&v, sizeof(struct trie_value_entry2_f), 1, trie->f);
-                trie->values_count++;
         }
+        trie->values_count += node->values_count;
 
         return node_off;
 }
@@ -401,24 +396,21 @@ static int trie_store(struct trie *trie, const char *filename) {
                 .child_entry_size = htole64(sizeof(struct trie_child_entry_f)),
                 .value_entry_size = htole64(sizeof(struct trie_value_entry2_f)),
         };
-        int err;
+        int r;
 
         /* calculate size of header, nodes, children entries, value entries */
         t.strings_off = sizeof(struct trie_header_f);
         trie_store_nodes_size(&t, trie->root);
 
-        err = fopen_temporary(filename , &t.f, &filename_tmp);
-        if (err < 0)
-                return err;
+        r = fopen_temporary(filename , &t.f, &filename_tmp);
+        if (r < 0)
+                return r;
         fchmod(fileno(t.f), 0444);
 
         /* write nodes */
-        err = fseeko(t.f, sizeof(struct trie_header_f), SEEK_SET);
-        if (err < 0) {
-                fclose(t.f);
-                unlink_noerrno(filename_tmp);
-                return -errno;
-        }
+        if (fseeko(t.f, sizeof(struct trie_header_f), SEEK_SET) < 0)
+                goto error;
+
         root_off = trie_store_nodes(&t, trie->root);
         h.nodes_root_off = htole64(root_off);
         pos = ftello(t.f);
@@ -431,20 +423,13 @@ static int trie_store(struct trie *trie, const char *filename) {
         /* write header */
         size = ftello(t.f);
         h.file_size = htole64(size);
-        err = fseeko(t.f, 0, SEEK_SET);
-        if (err < 0) {
-                fclose(t.f);
+        if (fseeko(t.f, 0, SEEK_SET) < 0)
+                goto error;
+
+        fwrite(&h, sizeof(struct trie_header_f), 1, t.f);
+        if (fclose(t.f) < 0 || rename(filename_tmp, filename) < 0) {
                 unlink_noerrno(filename_tmp);
                 return -errno;
-        }
-        fwrite(&h, sizeof(struct trie_header_f), 1, t.f);
-        err = ferror(t.f);
-        if (err)
-                err = -errno;
-        fclose(t.f);
-        if (err < 0 || rename(filename_tmp, filename) < 0) {
-                unlink_noerrno(filename_tmp);
-                return err < 0 ? err : -errno;
         }
 
         log_debug("=== trie on-disk ===");
@@ -458,39 +443,46 @@ static int trie_store(struct trie *trie, const char *filename) {
                   t.values_count * sizeof(struct trie_value_entry2_f), t.values_count);
         log_debug("string store:     %8zu bytes", trie->strings->len);
         log_debug("strings start:    %8"PRIu64, t.strings_off);
-
         return 0;
+
+ error:
+        r = -errno;
+        fclose(t.f);
+        unlink(filename_tmp);
+        return r;
 }
 
 static int insert_data(struct trie *trie, char **match_list, char *line,
-                       const char *filename, size_t line_number) {
+                       const char *filename, uint16_t file_priority, uint32_t line_number) {
         char *value, **entry;
 
+        assert(line[0] == ' ');
+
         value = strchr(line, '=');
-        if (!value) {
-                log_error("Error, key/value pair expected but got '%s' in '%s':", line, filename);
-                return -EINVAL;
-        }
+        if (!value)
+                return log_syntax(NULL, LOG_WARNING, filename, line_number, EINVAL,
+                                  "Key-value pair expected but got \"%s\", ignoring", line);
 
         value[0] = '\0';
         value++;
 
-        /* libudev requires properties to start with a space */
+        /* Replace multiple leading spaces by a single space */
         while (isblank(line[0]) && isblank(line[1]))
                 line++;
 
-        if (line[0] == '\0' || value[0] == '\0') {
-                log_error("Error, empty key or value '%s' in '%s':", line, filename);
-                return -EINVAL;
-        }
+        if (isempty(line + 1) || isempty(value))
+                return log_syntax(NULL, LOG_WARNING, filename, line_number, EINVAL,
+                                  "Empty %s in \"%s=%s\", ignoring",
+                                  isempty(line + 1) ? "key" : "value",
+                                  line, value);
 
         STRV_FOREACH(entry, match_list)
-                trie_insert(trie, trie->root, *entry, line, value, filename, line_number);
+                trie_insert(trie, trie->root, *entry, line, value, filename, file_priority, line_number);
 
         return 0;
 }
 
-static int import_file(struct trie *trie, const char *filename) {
+static int import_file(struct trie *trie, const char *filename, uint16_t file_priority) {
         enum {
                 HW_NONE,
                 HW_MATCH,
@@ -499,7 +491,7 @@ static int import_file(struct trie *trie, const char *filename) {
         _cleanup_fclose_ FILE *f = NULL;
         char line[LINE_MAX];
         _cleanup_strv_free_ char **match_list = NULL;
-        size_t line_number = 0;
+        uint32_t line_number = 0;
         char *match = NULL;
         int r;
 
@@ -534,7 +526,8 @@ static int import_file(struct trie *trie, const char *filename) {
                                 break;
 
                         if (line[0] == ' ') {
-                                log_error("Error, MATCH expected but got '%s' in '%s':", line, filename);
+                                log_syntax(NULL, LOG_WARNING, filename, line_number, EINVAL,
+                                           "Match expected but got indented property \"%s\", ignoring line", line);
                                 break;
                         }
 
@@ -553,14 +546,16 @@ static int import_file(struct trie *trie, const char *filename) {
 
                 case HW_MATCH:
                         if (len == 0) {
-                                log_error("Error, DATA expected but got empty line in '%s':", filename);
+                                log_syntax(NULL, LOG_WARNING, filename, line_number, EINVAL,
+                                           "Property expected, ignoring record with no properties");
+
                                 state = HW_NONE;
                                 strv_clear(match_list);
                                 break;
                         }
 
-                        /* another match */
                         if (line[0] != ' ') {
+                                /* another match */
                                 match = strdup(line);
                                 if (!match)
                                         return -ENOMEM;
@@ -574,28 +569,33 @@ static int import_file(struct trie *trie, const char *filename) {
 
                         /* first data */
                         state = HW_DATA;
-                        insert_data(trie, match_list, line, filename, line_number);
+                        insert_data(trie, match_list, line, filename, file_priority, line_number);
                         break;
 
                 case HW_DATA:
-                        /* end of record */
                         if (len == 0) {
+                                /* end of record */
                                 state = HW_NONE;
                                 strv_clear(match_list);
                                 break;
                         }
 
                         if (line[0] != ' ') {
-                                log_error("Error, DATA expected but got '%s' in '%s':", line, filename);
+                                log_syntax(NULL, LOG_WARNING, filename, line_number, EINVAL,
+                                           "Property or empty line expected, got \"%s\", ignoring record", line);
                                 state = HW_NONE;
                                 strv_clear(match_list);
                                 break;
                         }
 
-                        insert_data(trie, match_list, line, filename, line_number);
+                        insert_data(trie, match_list, line, filename, file_priority, line_number);
                         break;
                 };
         }
+
+        if (state == HW_MATCH)
+                log_syntax(NULL, LOG_WARNING, filename, line_number, EINVAL,
+                           "Property expected, ignoring record with no properties");
 
         return 0;
 }
@@ -624,7 +624,9 @@ static int hwdb_query(int argc, char *argv[], void *userdata) {
 static int hwdb_update(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *hwdb_bin = NULL;
         _cleanup_(trie_freep) struct trie *trie = NULL;
-        char **files, **f;
+        _cleanup_strv_free_ char **files = NULL;
+        char **f;
+        uint16_t file_priority = 1;
         int r;
 
         trie = new0(struct trie, 1);
@@ -645,13 +647,12 @@ static int hwdb_update(int argc, char *argv[], void *userdata) {
 
         r = conf_files_list_strv(&files, ".hwdb", arg_root, conf_file_dirs);
         if (r < 0)
-                return log_error_errno(r, "failed to enumerate hwdb files: %m");
+                return log_error_errno(r, "Failed to enumerate hwdb files: %m");
 
         STRV_FOREACH(f, files) {
-                log_debug("reading file '%s'", *f);
-                import_file(trie, *f);
+                log_debug("Reading file \"%s\"", *f);
+                import_file(trie, *f, file_priority++);
         }
-        strv_free(files);
 
         strbuf_complete(trie->strings);
 
