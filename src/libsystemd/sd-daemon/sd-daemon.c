@@ -322,6 +322,64 @@ _public_ int sd_is_socket_inet(int fd, int family, int type, int listening, uint
         return 1;
 }
 
+_public_ int sd_is_socket_sockaddr(int fd, int type, const struct sockaddr* addr, unsigned addr_len, int listening) {
+        union sockaddr_union sockaddr = {};
+        socklen_t l = sizeof(sockaddr);
+        int r;
+
+        assert_return(fd >= 0, -EBADF);
+        assert_return(addr, -EINVAL);
+        assert_return(addr_len >= sizeof(sa_family_t), -ENOBUFS);
+        assert_return(IN_SET(addr->sa_family, AF_INET, AF_INET6), -EPFNOSUPPORT);
+
+        r = sd_is_socket_internal(fd, type, listening);
+        if (r <= 0)
+                return r;
+
+        if (getsockname(fd, &sockaddr.sa, &l) < 0)
+                return -errno;
+
+        if (l < sizeof(sa_family_t))
+                return -EINVAL;
+
+        if (sockaddr.sa.sa_family != addr->sa_family)
+                return 0;
+
+        if (sockaddr.sa.sa_family == AF_INET) {
+                const struct sockaddr_in *in = (const struct sockaddr_in *) addr;
+
+                if (l < sizeof(struct sockaddr_in) || addr_len < sizeof(struct sockaddr_in))
+                        return -EINVAL;
+
+                if (in->sin_port != 0 &&
+                    sockaddr.in.sin_port != in->sin_port)
+                        return false;
+
+                return sockaddr.in.sin_addr.s_addr == in->sin_addr.s_addr;
+
+        } else {
+                const struct sockaddr_in6 *in = (const struct sockaddr_in6 *) addr;
+
+                if (l < sizeof(struct sockaddr_in6) || addr_len < sizeof(struct sockaddr_in6))
+                        return -EINVAL;
+
+                if (in->sin6_port != 0 &&
+                    sockaddr.in6.sin6_port != in->sin6_port)
+                        return false;
+
+                if (in->sin6_flowinfo != 0 &&
+                    sockaddr.in6.sin6_flowinfo != in->sin6_flowinfo)
+                        return false;
+
+                if (in->sin6_scope_id != 0 &&
+                    sockaddr.in6.sin6_scope_id != in->sin6_scope_id)
+                        return false;
+
+                return memcmp(sockaddr.in6.sin6_addr.s6_addr, in->sin6_addr.s6_addr,
+                              sizeof(in->sin6_addr.s6_addr)) == 0;
+        }
+}
+
 _public_ int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t length) {
         union sockaddr_union sockaddr = {};
         socklen_t l = sizeof(sockaddr);
