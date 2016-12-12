@@ -112,7 +112,7 @@
         <listitem><para>Send a free-form status string for the daemon
         to the init systemd. This option takes the status string as
         argument. This is equivalent to <command>systemd-notify
-        STATUS=...</command>. For details about the semantics of this
+        STATUS=…</command>. For details about the semantics of this
         option see
         <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
@@ -158,15 +158,15 @@
       <programlisting>#!/bin/bash
 
 mkfifo /tmp/waldo
-systemd-notify --ready --status="Waiting for data..."
+systemd-notify --ready --status="Waiting for data…"
 
 while : ; do
         read a &lt; /tmp/waldo
         systemd-notify --status="Processing $a"
 
-        # Do something with $a ...
+        # Do something with $a …
 
-        systemd-notify --status="Waiting for data..."
+        systemd-notify --status="Waiting for data…"
 done</programlisting>
     </example>
   </refsect1>

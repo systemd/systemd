@@ -280,9 +280,9 @@
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     however some are created automatically from other configuration,
     dynamically from system state or programmatically at runtime.
-    Units may be "active" (meaning started, bound, plugged in, ...,
+    Units may be "active" (meaning started, bound, plugged in, …,
     depending on the unit type, see below), or "inactive" (meaning
-    stopped, unbound, unplugged, ...), as well as in the process of
+    stopped, unbound, unplugged, …), as well as in the process of
     being activated or deactivated, i.e. between the two states (these
     states are called "activating", "deactivating"). A special
     "failed" state is available as well, which is very similar to

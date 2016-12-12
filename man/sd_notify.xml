@@ -66,7 +66,7 @@
         <funcdef>int <function>sd_notifyf</function></funcdef>
         <paramdef>int <parameter>unset_environment</parameter></paramdef>
         <paramdef>const char *<parameter>format</parameter></paramdef>
-        <paramdef>...</paramdef>
+        <paramdef>…</paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -81,7 +81,7 @@
         <paramdef>pid_t <parameter>pid</parameter></paramdef>
         <paramdef>int <parameter>unset_environment</parameter></paramdef>
         <paramdef>const char *<parameter>format</parameter></paramdef>
-        <paramdef>...</paramdef>
+        <paramdef>…</paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -152,7 +152,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term>STATUS=...</term>
+        <term>STATUS=…</term>
 
         <listitem><para>Passes a single-line UTF-8 status string back
         to the service manager that describes the service state. This
@@ -160,11 +160,11 @@
         state feedback, fsck-like programs could pass completion
         percentages and failing programs could pass a human-readable
         error message. Example: <literal>STATUS=Completed 66% of file
-        system check...</literal></para></listitem>
+        system check…</literal></para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>ERRNO=...</term>
+        <term>ERRNO=…</term>
 
         <listitem><para>If a service fails, the errno-style error
         code, formatted as string. Example: <literal>ERRNO=2</literal>
@@ -172,7 +172,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term>BUSERROR=...</term>
+        <term>BUSERROR=…</term>
 
         <listitem><para>If a service fails, the D-Bus error-style
         error code. Example:
@@ -180,7 +180,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term>MAINPID=...</term>
+        <term>MAINPID=…</term>
 
         <listitem><para>The main process ID (PID) of the service, in
         case the service manager did not fork off the process itself.
@@ -227,7 +227,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term>FDNAME=...</term>
+        <term>FDNAME=…</term>
 
         <listitem><para>When used in combination with
         <varname>FDSTORE=1</varname>, specifies a name for the
@@ -248,7 +248,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term>WATCHDOG_USEC=...</term>
+        <term>WATCHDOG_USEC=…</term>
 
         <listitem><para>Reset <varname>watchdog_usec</varname> value during runtime.
         Notice that this is not available when using <function>sd_event_set_watchdog()</function>
@@ -362,7 +362,7 @@
       initialization:</para>
 
       <programlisting>sd_notifyf(0, "READY=1\n"
-        "STATUS=Processing requests...\n"
+        "STATUS=Processing requests…\n"
         "MAINPID=%lu",
         (unsigned long) getpid());</programlisting>
     </example>

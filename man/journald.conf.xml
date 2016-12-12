@@ -227,7 +227,7 @@
         rotated journal files are kept as history.</para>
 
         <para>Specify values in bytes or use K, M, G, T, P, E as
-        units for the specified sizes (equal to 1024, 1024², ... bytes).
+        units for the specified sizes (equal to 1024, 1024², … bytes).
         Note that size limits are enforced synchronously when journal
         files are extended, and no explicit rotation step triggered by
         time is needed.</para>

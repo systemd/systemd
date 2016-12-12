@@ -58,7 +58,7 @@
         <funcdef>int sd_bus_message_append</funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>const char *<parameter>types</parameter></paramdef>
-        <paramdef>...</paramdef>
+        <paramdef>…</paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -198,7 +198,7 @@ dictionary ::= "a" "{" basic_type complete_type "}"
     </para>
 
     <programlisting>sd_bus_message *m;
-...
+…
 sd_bus_message_append(m, "s", "a string");</programlisting>
 
     <para>Append all types of integers:</para>

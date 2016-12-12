@@ -919,8 +919,8 @@
     as <literal>\;</literal>.</para>
 
     <para>Each command line is split on whitespace, with the first item being the command to
-    execute, and the subsequent items being the arguments. Double quotes ("...") and single quotes
-    ('...') may be used, in which case everything until the next matching quote becomes part of the
+    execute, and the subsequent items being the arguments. Double quotes ("…") and single quotes
+    ('…') may be used, in which case everything until the next matching quote becomes part of the
     same argument. Quotes themselves are removed. C-style escapes are also supported. The table
     below contains the list of known escape patterns. Only escape patterns which match the syntax in
     the table are allowed; other patterns may be added in the future and unknown patterns will

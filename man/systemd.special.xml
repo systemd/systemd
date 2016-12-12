@@ -930,7 +930,7 @@ Description=Render the desktop icons with Nautilus
 PartOf=graphical-session.target
 
 [Service]
-...
+…
         </programlisting>
       </example>
     </refsect2>

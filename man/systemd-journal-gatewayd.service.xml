@@ -128,7 +128,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><uri>/entries[?option1&amp;option2=value...]</uri></term>
+        <term><uri>/entries[?option1&amp;option2=value…]</uri></term>
 
         <listitem><para>Retrieval of events in various formats.</para>
 
@@ -157,7 +157,7 @@
   "hostname" : "fedora",
   "os_pretty_name" : "Fedora 19 (Rawhide)",
   "virtualization" : "kvm",
-  ...}</programlisting>
+  …}</programlisting>
         </para>
         </listitem>
       </varlistentry>
