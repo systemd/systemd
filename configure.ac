@@ -531,8 +531,8 @@ AS_IF([test "x$enable_wheel_group" != "xno"], [
 AC_ARG_WITH(debug-shell,
         AS_HELP_STRING([--with-debug-shell=PATH],
                 [path to debug shell binary]),
-        [SUSHELL="$withval"],[
-        AS_IF([test "x${have_selinux}" != "xno"], [SUSHELL="/sbin/sushell"] , [SUSHELL="/bin/sh"])])
+        [SUSHELL="$withval"],
+        [SUSHELL="/bin/sh"])
 
 AC_SUBST(SUSHELL)
 
