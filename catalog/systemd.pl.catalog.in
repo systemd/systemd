@@ -157,15 +157,27 @@ Defined-By: systemd
 Support: %SUPPORT_URL%
 
 Wszystkie usługi systemowe obowiązkowo zakolejkowane do włączenia podczas
-uruchamiania systemu zostały pomyślnie uruchomione. Proszę zauważyć, że nie
-oznacza to, że komputer jest bezczynny, jako że usługi mogą wciąż kończyć
-proces uruchamiania.
+uruchamiania systemu zostały uruchomione. Proszę zauważyć, że nie oznacza
+to, że komputer jest bezczynny, jako że usługi mogą wciąż kończyć proces
+uruchamiania.
 
 Uruchamianie jądra zajęło @KERNEL_USEC@ μs.
 
 Uruchamianie początkowego dysku RAM zajęło @INITRD_USEC@ μs.
 
 Uruchamianie przestrzeni użytkownika zajęło @USERSPACE_USEC@ μs.
+
+-- eed00a68ffd84e31882105fd973abdd1
+Subject: Ukończono uruchamianie menedżera użytkownika
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Wystąpienie menedżera dla użytkownika @_UID@ zostało uruchomione.
+Wszystkie usługi zakolejkowane do włączenia zostały uruchomione.
+Proszę zauważyć, że inne usługi mogą być nadal uruchamiane
+lub zostać uruchomione później.
+
+Uruchamianie menedżera zajęło @USERSPACE_USEC@ μs.
 
 -- 6bbd95ee977941e497c48be27c254128
 Subject: Przejście do stanu uśpienia @SLEEP@
