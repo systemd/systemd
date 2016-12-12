@@ -2470,20 +2470,6 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        /* Mark everything as shared so our mounts get propagated down. This is
-         * required to make new bind mounts available in systemd services
-         * inside the containter that create a new mount namespace.
-         * See https://github.com/systemd/systemd/issues/3860
-         * Further submounts (such as /dev) done after this will inherit the
-         * shared propagation mode.*/
-        r = mount_verbose(LOG_ERR, NULL, directory, NULL, MS_SHARED|MS_REC, NULL);
-        if (r < 0)
-                return r;
-
-        r = recursive_chown(directory, arg_uid_shift, arg_uid_range);
-        if (r < 0)
-                return r;
-
         r = setup_volatile(
                         directory,
                         arg_volatile_mode,
@@ -2501,6 +2487,20 @@ static int outer_child(
                         arg_uid_shift,
                         arg_uid_range,
                         arg_selinux_context);
+        if (r < 0)
+                return r;
+
+        /* Mark everything as shared so our mounts get propagated down. This is
+         * required to make new bind mounts available in systemd services
+         * inside the containter that create a new mount namespace.
+         * See https://github.com/systemd/systemd/issues/3860
+         * Further submounts (such as /dev) done after this will inherit the
+         * shared propagation mode.*/
+        r = mount_verbose(LOG_ERR, NULL, directory, NULL, MS_SHARED|MS_REC, NULL);
+        if (r < 0)
+                return r;
+
+        r = recursive_chown(directory, arg_uid_shift, arg_uid_range);
         if (r < 0)
                 return r;
 
