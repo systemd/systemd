@@ -986,11 +986,11 @@ static int add_mounts(void) {
         r = get_block_device_harder("/", &devno);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine block device of root file system: %m");
-        else if (r == 0) {
+        if (r == 0) {
                 r = get_block_device_harder("/usr", &devno);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine block device of /usr file system: %m");
-                else if (r == 0) {
+                if (r == 0) {
                         log_debug("Neither root nor /usr file system are on a (single) block device.");
                         return 0;
                 }
@@ -1000,7 +1000,7 @@ static int add_mounts(void) {
 }
 
 int main(int argc, char *argv[]) {
-        int r = 0;
+        int r = 0, k;
 
         if (argc > 1 && argc != 4) {
                 log_error("This program takes three or no arguments.");
@@ -1034,8 +1034,6 @@ int main(int argc, char *argv[]) {
                 r = add_root_mount();
 
         if (!in_initrd()) {
-                int k;
-
                 k = add_mounts();
                 if (k < 0)
                         r = k;

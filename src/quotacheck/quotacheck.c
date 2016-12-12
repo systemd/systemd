@@ -107,9 +107,10 @@ int main(int argc, char *argv[]) {
 
         pid = fork();
         if (pid < 0) {
-                log_error_errno(errno, "fork(): %m");
-                return EXIT_FAILURE;
-        } else if (pid == 0) {
+                r = log_error_errno(errno, "fork(): %m");
+                goto finish;
+        }
+        if (pid == 0) {
 
                 /* Child */
 
@@ -123,5 +124,6 @@ int main(int argc, char *argv[]) {
 
         r = wait_for_terminate_and_warn("quotacheck", pid, true);
 
+finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
