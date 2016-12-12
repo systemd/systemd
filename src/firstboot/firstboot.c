@@ -826,7 +826,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_free_ char *enabled = NULL;
+        bool enabled;
         int r;
 
         r = parse_argv(argc, argv);
@@ -839,15 +839,14 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = get_proc_cmdline_key("systemd.firstboot=", &enabled);
-        if (r < 0)
-                return r;
-        if (r > 0) {
-                r = parse_boolean(enabled);
-                if (r == 0)
-                        goto finish;
-                if (r < 0)
-                        log_warning_errno(r, "Failed to parse systemd.firstboot= kernel command line argument, ignoring: %s", enabled);
+        r = proc_cmdline_get_bool("systemd.firstboot", &enabled);
+        if (r < 0) {
+                log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument, ignoring.");
+                goto finish;
+        }
+        if (r > 0 && !enabled) {
+                r = 0; /* disabled */
+                goto finish;
         }
 
         r = process_locale();

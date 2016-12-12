@@ -56,9 +56,8 @@ int proc_cmdline(char **ret) {
                 return read_one_line_file("/proc/cmdline", ret);
 }
 
-int parse_proc_cmdline(int (*parse_item)(const char *key, const char *value, void *data),
-                       void *data,
-                       bool strip_prefix) {
+int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, unsigned flags) {
+
         _cleanup_free_ char *line = NULL;
         const char *p;
         int r;
@@ -72,7 +71,7 @@ int parse_proc_cmdline(int (*parse_item)(const char *key, const char *value, voi
         p = line;
         for (;;) {
                 _cleanup_free_ char *word = NULL;
-                char *value = NULL, *unprefixed;
+                char *value, *key, *q;
 
                 r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES|EXTRACT_RELAX);
                 if (r < 0)
@@ -80,17 +79,23 @@ int parse_proc_cmdline(int (*parse_item)(const char *key, const char *value, voi
                 if (r == 0)
                         break;
 
-                /* Filter out arguments that are intended only for the
-                 * initrd */
-                unprefixed = startswith(word, "rd.");
-                if (unprefixed && !in_initrd())
-                        continue;
+                key = word;
 
-                value = strchr(word, '=');
+                /* Filter out arguments that are intended only for the initrd */
+                q = startswith(word, "rd.");
+                if (q) {
+                        if (!in_initrd())
+                                continue;
+
+                        if (flags & PROC_CMDLINE_STRIP_RD_PREFIX)
+                                key = q;
+                }
+
+                value = strchr(key, '=');
                 if (value)
                         *(value++) = 0;
 
-                r = parse_item(strip_prefix && unprefixed ? unprefixed : word, value, data);
+                r = parse_item(key, value, data);
                 if (r < 0)
                         return r;
         }
@@ -98,13 +103,64 @@ int parse_proc_cmdline(int (*parse_item)(const char *key, const char *value, voi
         return 0;
 }
 
-int get_proc_cmdline_key(const char *key, char **value) {
+static bool relaxed_equal_char(char a, char b) {
+
+        return a == b ||
+                (a == '_' && b == '-') ||
+                (a == '-' && b == '_');
+}
+
+char *proc_cmdline_key_startswith(const char *s, const char *prefix) {
+
+        assert(s);
+        assert(prefix);
+
+        /* Much like startswith(), but considers "-" and "_" the same */
+
+        for (; *prefix != 0; s++, prefix++)
+                if (!relaxed_equal_char(*s, *prefix))
+                        return NULL;
+
+        return (char*) s;
+}
+
+bool proc_cmdline_key_streq(const char *x, const char *y) {
+        assert(x);
+        assert(y);
+
+        /* Much like streq(), but considers "-" and "_" the same */
+
+        for (; *x != 0 || *y != 0; x++, y++)
+                if (!relaxed_equal_char(*x, *y))
+                        return false;
+
+        return true;
+}
+
+int proc_cmdline_get_key(const char *key, unsigned flags, char **value) {
         _cleanup_free_ char *line = NULL, *ret = NULL;
         bool found = false;
         const char *p;
         int r;
 
-        assert(key);
+        /* Looks for a specific key on the kernel command line. Supports two modes:
+         *
+         * a) The "value" parameter is used. In this case a parameter beginning with the "key" string followed by "="
+         *    is searched, and the value following this is returned in "value".
+         *
+         * b) as above, but the PROC_CMDLINE_VALUE_OPTIONAL flag is set. In this case if the the key is found as a
+         *    separate word (i.e. not followed by "=" but instead by whitespace or the end of the command line), then
+         *    this is also accepted, and "value" is returned as NULL.
+         *
+         * c) The "value" parameter is NULL. In this case a search for the exact "key" parameter is performed.
+         *
+         * In all three cases, > 0 is returned if the key is found, 0 if not.*/
+
+        if (isempty(key))
+                return -EINVAL;
+
+        if ((flags & PROC_CMDLINE_VALUE_OPTIONAL) && !value)
+                return -EINVAL;
 
         r = proc_cmdline(&line);
         if (r < 0)
@@ -121,21 +177,26 @@ int get_proc_cmdline_key(const char *key, char **value) {
                 if (r == 0)
                         break;
 
-                /* Filter out arguments that are intended only for the
-                 * initrd */
+                /* Automatically filter out arguments that are intended only for the initrd, if we are not in the
+                 * initrd. */
                 if (!in_initrd() && startswith(word, "rd."))
                         continue;
 
                 if (value) {
-                        e = startswith(word, key);
+                        e = proc_cmdline_key_startswith(word, key);
                         if (!e)
                                 continue;
 
-                        r = free_and_strdup(&ret, e);
-                        if (r < 0)
-                                return r;
+                        if (*e == '=') {
+                                r = free_and_strdup(&ret, e+1);
+                                if (r < 0)
+                                        return r;
 
-                        found = true;
+                                found = true;
+
+                        } else if (*e == 0 && (flags & PROC_CMDLINE_VALUE_OPTIONAL))
+                                found = true;
+
                 } else {
                         if (streq(word, key))
                                 found = true;
@@ -148,20 +209,42 @@ int get_proc_cmdline_key(const char *key, char **value) {
         }
 
         return found;
+}
 
+int proc_cmdline_get_bool(const char *key, bool *ret) {
+        _cleanup_free_ char *v = NULL;
+        int r;
+
+        assert(ret);
+
+        r = proc_cmdline_get_key(key, PROC_CMDLINE_VALUE_OPTIONAL, &v);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                *ret = false;
+                return 0;
+        }
+
+        if (v) { /* parameter passed */
+                r = parse_boolean(v);
+                if (r < 0)
+                        return r;
+                *ret = r;
+        } else /* no parameter passed */
+                *ret = true;
+
+        return 1;
 }
 
 int shall_restore_state(void) {
-        _cleanup_free_ char *value = NULL;
+        bool ret;
         int r;
 
-        r = get_proc_cmdline_key("systemd.restore_state=", &value);
+        r = proc_cmdline_get_bool("systemd.restore_state", &ret);
         if (r < 0)
                 return r;
-        if (r == 0)
-                return true;
 
-        return parse_boolean(value);
+        return r > 0 ? ret : true;
 }
 
 static const char * const rlmap[] = {

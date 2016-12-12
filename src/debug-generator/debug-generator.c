@@ -39,56 +39,53 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         assert(key);
 
         if (streq(key, "systemd.mask")) {
+                char *n;
 
-                if (!value)
-                        log_error("Missing argument for systemd.mask= kernel command line parameter.");
-                else {
-                        char *n;
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
 
-                        r = unit_name_mangle(value, UNIT_NAME_NOGLOB, &n);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to glob unit name: %m");
+                r = unit_name_mangle(value, UNIT_NAME_NOGLOB, &n);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to glob unit name: %m");
 
-                        r = strv_consume(&arg_mask, n);
-                        if (r < 0)
-                                return log_oom();
-                }
+                r = strv_consume(&arg_mask, n);
+                if (r < 0)
+                        return log_oom();
 
         } else if (streq(key, "systemd.wants")) {
+                char *n;
 
-                if (!value)
-                        log_error("Missing argument for systemd.want= kernel command line parameter.");
-                else {
-                        char *n;
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
 
-                        r = unit_name_mangle(value, UNIT_NAME_NOGLOB, &n);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to glob unit name: %m");
+                r = unit_name_mangle(value, UNIT_NAME_NOGLOB, &n);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to glob unit name: %m");
 
-                        r = strv_consume(&arg_wants, n);
-                        if (r < 0)
-                                return log_oom();
-                }
+                r = strv_consume(&arg_wants, n);
+                if (r < 0)
+                        return log_oom();
 
-        } else if (streq(key, "systemd.debug-shell")) {
+        } else if (proc_cmdline_key_streq(key, "systemd.debug_shell")) {
 
                 if (value) {
                         r = parse_boolean(value);
                         if (r < 0)
-                                log_error("Failed to parse systemd.debug-shell= argument '%s', ignoring.", value);
+                                log_error("Failed to parse systemd.debug_shell= argument '%s', ignoring.", value);
                         else
                                 arg_debug_shell = r;
                 } else
                         arg_debug_shell = true;
+
         } else if (streq(key, "systemd.unit")) {
 
-                if (!value)
-                        log_error("Missing argument for systemd.unit= kernel command line parameter.");
-                else {
-                        r = free_and_strdup(&arg_default_unit, value);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set default unit %s: %m", value);
-                }
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = free_and_strdup(&arg_default_unit, value);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set default unit %s: %m", value);
+
         } else if (!value) {
                 const char *target;
 
@@ -173,7 +170,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = parse_proc_cmdline(parse_proc_cmdline_item, NULL, false);
+        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 

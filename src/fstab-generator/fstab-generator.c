@@ -612,26 +612,35 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
          * instance should take precedence.  In the case of multiple rootflags=
          * or usrflags= the arguments should be concatenated */
 
-        if (STR_IN_SET(key, "fstab", "rd.fstab") && value) {
+        if (STR_IN_SET(key, "fstab", "rd.fstab")) {
 
-                r = parse_boolean(value);
+                r = value ? parse_boolean(value) : 1;
                 if (r < 0)
                         log_warning("Failed to parse fstab switch %s. Ignoring.", value);
                 else
                         arg_fstab_enabled = r;
 
-        } else if (streq(key, "root") && value) {
+        } else if (streq(key, "root")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
 
                 if (free_and_strdup(&arg_root_what, value) < 0)
                         return log_oom();
 
-        } else if (streq(key, "rootfstype") && value) {
+        } else if (streq(key, "rootfstype")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
 
                 if (free_and_strdup(&arg_root_fstype, value) < 0)
                         return log_oom();
 
-        } else if (streq(key, "rootflags") && value) {
+        } else if (streq(key, "rootflags")) {
                 char *o;
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
 
                 o = arg_root_options ?
                         strjoin(arg_root_options, ",", value) :
@@ -642,18 +651,27 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 free(arg_root_options);
                 arg_root_options = o;
 
-        } else if (streq(key, "mount.usr") && value) {
+        } else if (streq(key, "mount.usr")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
 
                 if (free_and_strdup(&arg_usr_what, value) < 0)
                         return log_oom();
 
-        } else if (streq(key, "mount.usrfstype") && value) {
+        } else if (streq(key, "mount.usrfstype")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
 
                 if (free_and_strdup(&arg_usr_fstype, value) < 0)
                         return log_oom();
 
-        } else if (streq(key, "mount.usrflags") && value) {
+        } else if (streq(key, "mount.usrflags")) {
                 char *o;
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
 
                 o = arg_usr_options ?
                         strjoin(arg_usr_options, ",", value) :
@@ -689,7 +707,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = parse_proc_cmdline(parse_proc_cmdline_item, NULL, false);
+        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 

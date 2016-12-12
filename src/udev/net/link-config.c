@@ -192,14 +192,9 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
 }
 
 static bool enable_name_policy(void) {
-        _cleanup_free_ char *value = NULL;
-        int r;
+        bool b;
 
-        r = get_proc_cmdline_key("net.ifnames=", &value);
-        if (r > 0 && streq(value, "0"))
-            return false;
-
-        return true;
+        return proc_cmdline_get_bool("net.ifnames", &b) <= 0 || b;
 }
 
 int link_config_load(link_config_ctx *ctx) {

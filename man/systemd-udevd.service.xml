@@ -133,22 +133,22 @@
       <para>Parameters starting with "rd." will be read when
       <command>systemd-udevd</command> is used in an initrd.</para>
       <varlistentry>
-        <term><varname>udev.log-priority=</varname></term>
-        <term><varname>rd.udev.log-priority=</varname></term>
+        <term><varname>udev.log_priority=</varname></term>
+        <term><varname>rd.udev.log_priority=</varname></term>
         <listitem>
           <para>Set the log level.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>udev.children-max=</varname></term>
-        <term><varname>rd.udev.children-max=</varname></term>
+        <term><varname>udev.children_max=</varname></term>
+        <term><varname>rd.udev.children_max=</varname></term>
         <listitem>
           <para>Limit the number of events executed in parallel.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>udev.exec-delay=</varname></term>
-        <term><varname>rd.udev.exec-delay=</varname></term>
+        <term><varname>udev.exec_delay=</varname></term>
+        <term><varname>rd.udev.exec_delay=</varname></term>
         <listitem>
           <para>Delay the execution of <varname>RUN</varname> instructions by the given
           number of seconds. This option might be useful when
@@ -157,8 +157,8 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>udev.event-timeout=</varname></term>
-        <term><varname>rd.udev.event-timeout=</varname></term>
+        <term><varname>udev.event_timeout=</varname></term>
+        <term><varname>rd.udev.event_timeout=</varname></term>
         <listitem>
           <para>Wait for events to finish up to the given number
           of seconds. This option might be useful if events are

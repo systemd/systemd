@@ -278,27 +278,30 @@ static crypto_device *get_crypto_device(const char *uuid) {
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
-        int r;
-        crypto_device *d;
         _cleanup_free_ char *uuid = NULL, *uuid_value = NULL;
+        crypto_device *d;
+        int r;
 
-        if (streq(key, "luks") && value) {
+        if (streq(key, "luks")) {
 
-                r = parse_boolean(value);
+                r = value ? parse_boolean(value) : 1;
                 if (r < 0)
-                        log_warning("Failed to parse luks switch %s. Ignoring.", value);
+                        log_warning("Failed to parse luks= kernel command line switch %s. Ignoring.", value);
                 else
                         arg_enabled = r;
 
-        } else if (streq(key, "luks.crypttab") && value) {
+        } else if (streq(key, "luks.crypttab")) {
 
-                r = parse_boolean(value);
+                r = value ? parse_boolean(value) : 1;
                 if (r < 0)
-                        log_warning("Failed to parse luks crypttab switch %s. Ignoring.", value);
+                        log_warning("Failed to parse luks.crypttab= kernel command line switch %s. Ignoring.", value);
                 else
                         arg_read_crypttab = r;
 
-        } else if (streq(key, "luks.uuid") && value) {
+        } else if (streq(key, "luks.uuid")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
 
                 d = get_crypto_device(startswith(value, "luks-") ? value+5 : value);
                 if (!d)
@@ -306,7 +309,10 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 d->create = arg_whitelist = true;
 
-        } else if (streq(key, "luks.options") && value) {
+        } else if (streq(key, "luks.options")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
 
                 r = sscanf(value, "%m[0-9a-fA-F-]=%ms", &uuid, &uuid_value);
                 if (r == 2) {
@@ -314,13 +320,14 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         if (!d)
                                 return log_oom();
 
-                        free(d->options);
-                        d->options = uuid_value;
-                        uuid_value = NULL;
+                        free_and_replace(d->options, uuid_value);
                 } else if (free_and_strdup(&arg_default_options, value) < 0)
                         return log_oom();
 
-        } else if (streq(key, "luks.key") && value) {
+        } else if (streq(key, "luks.key")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
 
                 r = sscanf(value, "%m[0-9a-fA-F-]=%ms", &uuid, &uuid_value);
                 if (r == 2) {
@@ -328,13 +335,14 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         if (!d)
                                 return log_oom();
 
-                        free(d->keyfile);
-                        d->keyfile = uuid_value;
-                        uuid_value = NULL;
+                        free_and_replace(d->keyfile, uuid_value);
                 } else if (free_and_strdup(&arg_default_keyfile, value) < 0)
                         return log_oom();
 
-        } else if (streq(key, "luks.name") && value) {
+        } else if (streq(key, "luks.name")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
 
                 r = sscanf(value, "%m[0-9a-fA-F-]=%ms", &uuid, &uuid_value);
                 if (r == 2) {
@@ -478,7 +486,7 @@ int main(int argc, char *argv[]) {
         if (!arg_disks)
                 goto cleanup;
 
-        r = parse_proc_cmdline(parse_proc_cmdline_item, NULL, true);
+        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
         if (r < 0) {
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
                 r = EXIT_FAILURE;

@@ -912,15 +912,18 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
         assert(key);
 
-        if (STR_IN_SET(key, "systemd.gpt_auto", "rd.systemd.gpt_auto") && value) {
+        if (STR_IN_SET(key, "systemd.gpt_auto", "rd.systemd.gpt_auto")) {
 
-                r = parse_boolean(value);
+                r = value ? parse_boolean(value) : 1;
                 if (r < 0)
                         log_warning("Failed to parse gpt-auto switch \"%s\". Ignoring.", value);
                 else
                         arg_enabled = r;
 
-        } else if (streq(key, "root") && value) {
+        } else if (streq(key, "root")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
 
                 /* Disable root disk logic if there's a root= value
                  * specified (unless it happens to be "gpt-auto") */
@@ -1018,7 +1021,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_SUCCESS;
         }
 
-        r = parse_proc_cmdline(parse_proc_cmdline_item, NULL, false);
+        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 

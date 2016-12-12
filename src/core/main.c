@@ -337,60 +337,73 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
         assert(key);
 
-        if (streq(key, "systemd.unit") && value) {
+        if (STR_IN_SET(key, "systemd.unit", "rd.systemd.unit")) {
 
-                if (!in_initrd())
-                        return free_and_strdup(&arg_default_unit, value);
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
 
-        } else if (streq(key, "rd.systemd.unit") && value) {
+                if (!unit_name_is_valid(value, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
+                        log_warning("Unit name specified on %s= is not valid, ignoring: %s", key, value);
+                else if (in_initrd() == !!startswith(key, "rd.")) {
+                        if (free_and_strdup(&arg_default_unit, value) < 0)
+                                return log_oom();
+                }
 
-                if (in_initrd())
-                        return free_and_strdup(&arg_default_unit, value);
+        } else if (proc_cmdline_key_streq(key, "systemd.dump_core")) {
 
-        } else if (streq(key, "systemd.dump_core") && value) {
-
-                r = parse_boolean(value);
+                r = value ? parse_boolean(value) : true;
                 if (r < 0)
                         log_warning("Failed to parse dump core switch %s. Ignoring.", value);
                 else
                         arg_dump_core = r;
 
-        } else if (streq(key, "systemd.crash_chvt") && value) {
+        } else if (proc_cmdline_key_streq(key, "systemd.crash_chvt")) {
 
-                if (parse_crash_chvt(value) < 0)
+                if (!value)
+                        arg_crash_chvt = 0; /* turn on */
+                else if (parse_crash_chvt(value) < 0)
                         log_warning("Failed to parse crash chvt switch %s. Ignoring.", value);
 
-        } else if (streq(key, "systemd.crash_shell") && value) {
+        } else if (proc_cmdline_key_streq(key, "systemd.crash_shell")) {
 
-                r = parse_boolean(value);
+                r = value ? parse_boolean(value) : true;
                 if (r < 0)
                         log_warning("Failed to parse crash shell switch %s. Ignoring.", value);
                 else
                         arg_crash_shell = r;
 
-        } else if (streq(key, "systemd.crash_reboot") && value) {
+        } else if (proc_cmdline_key_streq(key, "systemd.crash_reboot")) {
 
-                r = parse_boolean(value);
+                r = value ? parse_boolean(value) : true;
                 if (r < 0)
                         log_warning("Failed to parse crash reboot switch %s. Ignoring.", value);
                 else
                         arg_crash_reboot = r;
 
-        } else if (streq(key, "systemd.confirm_spawn") && value) {
+        } else if (proc_cmdline_key_streq(key, "systemd.confirm_spawn")) {
+                char *s;
 
-                arg_confirm_spawn = mfree(arg_confirm_spawn);
-
-                r = parse_confirm_spawn(value, &arg_confirm_spawn);
+                r = parse_confirm_spawn(value, &s);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse confirm_spawn switch %s. Ignoring.", value);
+                else {
+                        free(arg_confirm_spawn);
+                        arg_confirm_spawn = s;
+                }
 
-        } else if (streq(key, "systemd.show_status") && value) {
+        } else if (proc_cmdline_key_streq(key, "systemd.show_status")) {
 
-                r = parse_show_status(value, &arg_show_status);
-                if (r < 0)
-                        log_warning("Failed to parse show status switch %s. Ignoring.", value);
+                if (value) {
+                        r = parse_show_status(value, &arg_show_status);
+                        if (r < 0)
+                                log_warning("Failed to parse show status switch %s. Ignoring.", value);
+                } else
+                        arg_show_status = SHOW_STATUS_YES;
 
-        } else if (streq(key, "systemd.default_standard_output") && value) {
+        } else if (proc_cmdline_key_streq(key, "systemd.default_standard_output")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
 
                 r = exec_output_from_string(value);
                 if (r < 0)
@@ -398,7 +411,10 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 else
                         arg_default_std_output = r;
 
-        } else if (streq(key, "systemd.default_standard_error") && value) {
+        } else if (proc_cmdline_key_streq(key, "systemd.default_standard_error")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
 
                 r = exec_output_from_string(value);
                 if (r < 0)
@@ -406,24 +422,42 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 else
                         arg_default_std_error = r;
 
-        } else if (streq(key, "systemd.setenv") && value) {
+        } else if (streq(key, "systemd.setenv")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
 
                 if (env_assignment_is_valid(value)) {
                         char **env;
 
                         env = strv_env_set(arg_default_environment, value);
-                        if (env)
-                                arg_default_environment = env;
-                        else
-                                log_warning_errno(ENOMEM, "Setting environment variable '%s' failed, ignoring: %m", value);
+                        if (!env)
+                                return log_oom();
+
+                        arg_default_environment = env;
                 } else
                         log_warning("Environment variable name '%s' is not valid. Ignoring.", value);
 
-        } else if (streq(key, "systemd.machine_id") && value) {
+        } else if (proc_cmdline_key_streq(key, "systemd.machine_id")) {
 
-               r = set_machine_id(value);
-               if (r < 0)
-                       log_warning("MachineID '%s' is not valid. Ignoring.", value);
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = set_machine_id(value);
+                if (r < 0)
+                        log_warning("MachineID '%s' is not valid. Ignoring.", value);
+
+        } else if (proc_cmdline_key_streq(key, "systemd.default_timeout_start_sec")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = parse_sec(value, &arg_default_timeout_start_usec);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse default start timeout: %s, ignoring.", value);
+
+                if (arg_default_timeout_start_usec <= 0)
+                        arg_default_timeout_start_usec = USEC_INFINITY;
 
         } else if (streq(key, "quiet") && !value) {
 
@@ -445,15 +479,6 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 target = runlevel_to_target(key);
                 if (target)
                         return free_and_strdup(&arg_default_unit, target);
-
-        } else if (streq(key, "systemd.default_timeout_start_sec") && value) {
-
-                r = parse_sec(value, &arg_default_timeout_start_usec);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to parse default start timeout: %s, ignoring.", value);
-
-                if (arg_default_timeout_start_usec <= 0)
-                        arg_default_timeout_start_usec = USEC_INFINITY;
         }
 
         return 0;
@@ -1341,10 +1366,9 @@ static int fixup_environment(void) {
          * However if TERM was configured through the kernel
          * command line then leave it alone. */
 
-        r = get_proc_cmdline_key("TERM=", &term);
+        r = proc_cmdline_get_key("TERM", 0, &term);
         if (r < 0)
                 return r;
-
         if (r == 0) {
                 term = strdup(default_term_for_tty("/dev/console"));
                 if (!term)
@@ -1591,7 +1615,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (arg_system) {
-                r = parse_proc_cmdline(parse_proc_cmdline_item, NULL, false);
+                r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
         }

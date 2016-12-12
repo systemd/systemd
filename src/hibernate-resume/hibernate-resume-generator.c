@@ -31,15 +31,22 @@
 #include "util.h"
 
 static const char *arg_dest = "/tmp";
-static char *arg_resume_dev = NULL;
+static char *arg_resume_device = NULL;
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
 
-        if (streq(key, "resume") && value) {
-                free(arg_resume_dev);
-                arg_resume_dev = fstab_node_to_udev_node(value);
-                if (!arg_resume_dev)
+        if (streq(key, "resume")) {
+                char *s;
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                s = fstab_node_to_udev_node(value);
+                if (!s)
                         return log_oom();
+
+                free(arg_resume_device);
+                arg_resume_device = s;
         }
 
         return 0;
@@ -49,10 +56,10 @@ static int process_resume(void) {
         _cleanup_free_ char *name = NULL, *lnk = NULL;
         int r;
 
-        if (!arg_resume_dev)
+        if (!arg_resume_device)
                 return 0;
 
-        r = unit_name_from_path_instance("systemd-hibernate-resume", arg_resume_dev, ".service", &name);
+        r = unit_name_from_path_instance("systemd-hibernate-resume", arg_resume_device, ".service", &name);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
@@ -88,12 +95,12 @@ int main(int argc, char *argv[]) {
         if (!in_initrd())
                 return EXIT_SUCCESS;
 
-        r = parse_proc_cmdline(parse_proc_cmdline_item, NULL, false);
+        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
         r = process_resume();
-        free(arg_resume_dev);
+        free(arg_resume_device);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
