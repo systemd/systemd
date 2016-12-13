@@ -83,7 +83,8 @@ check expected "$r/etc/machine-id"
 
 r="$(pwd)/transient-machine-id"
 setup_root "$r"
-touch "$r/etc/machine-id"
+systemd-machine-id-setup --print --root "$r"
+echo abc >>"$r/etc/machine-id"
 mount -o remount,ro "$r"
 mount -t tmpfs tmpfs "$r/run"
 transient_id=$(systemd-machine-id-setup --print --root "$r")
