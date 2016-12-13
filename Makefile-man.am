@@ -142,6 +142,7 @@ MANPAGES += \
 	man/systemd-tty-ask-password-agent.1 \
 	man/systemd-udevd.service.8 \
 	man/systemd-update-done.service.8 \
+	man/systemd-volatile-root.service.8 \
 	man/systemd.1 \
 	man/systemd.automount.5 \
 	man/systemd.device.5 \
@@ -482,6 +483,7 @@ MANPAGES_ALIAS += \
 	man/systemd-udevd.8 \
 	man/systemd-update-done.8 \
 	man/systemd-user.conf.5 \
+	man/systemd-volatile-root.8 \
 	man/udev_device_get_action.3 \
 	man/udev_device_get_devlinks_list_entry.3 \
 	man/udev_device_get_devnode.3 \
@@ -837,6 +839,7 @@ man/systemd-udevd-kernel.socket.8: man/systemd-udevd.service.8
 man/systemd-udevd.8: man/systemd-udevd.service.8
 man/systemd-update-done.8: man/systemd-update-done.service.8
 man/systemd-user.conf.5: man/systemd-system.conf.5
+man/systemd-volatile-root.8: man/systemd-volatile-root.service.8
 man/udev_device_get_action.3: man/udev_device_get_syspath.3
 man/udev_device_get_devlinks_list_entry.3: man/udev_device_has_tag.3
 man/udev_device_get_devnode.3: man/udev_device_get_syspath.3
@@ -1788,6 +1791,9 @@ man/systemd-update-done.html: man/systemd-update-done.service.html
 	$(html-alias)
 
 man/systemd-user.conf.html: man/systemd-system.conf.html
+	$(html-alias)
+
+man/systemd-volatile-root.html: man/systemd-volatile-root.service.html
 	$(html-alias)
 
 man/udev_device_get_action.html: man/udev_device_get_syspath.html
@@ -2804,6 +2810,7 @@ EXTRA_DIST += \
 	man/systemd-update-utmp.service.xml \
 	man/systemd-user-sessions.service.xml \
 	man/systemd-vconsole-setup.service.xml \
+	man/systemd-volatile-root.service.xml \
 	man/systemd.automount.xml \
 	man/systemd.device.xml \
 	man/systemd.exec.xml \

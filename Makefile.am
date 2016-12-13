@@ -397,6 +397,7 @@ rootlibexec_PROGRAMS = \
 	systemd-initctl \
 	systemd-shutdown \
 	systemd-remount-fs \
+	systemd-volatile-root \
 	systemd-reply-password \
 	systemd-fsck \
 	systemd-ac-power \
@@ -538,6 +539,7 @@ nodist_systemunit_DATA = \
 	units/system-update-cleanup.service \
 	units/systemd-initctl.service \
 	units/systemd-remount-fs.service \
+	units/systemd-volatile-root.service \
 	units/systemd-ask-password-wall.service \
 	units/systemd-ask-password-console.service \
 	units/systemd-sysctl.service \
@@ -602,6 +604,7 @@ EXTRA_DIST += \
 	units/system-update-cleanup.service.in \
 	units/systemd-initctl.service.in \
 	units/systemd-remount-fs.service.in \
+	units/systemd-volatile-root.service.in \
 	units/systemd-update-utmp.service.in \
 	units/systemd-update-utmp-runlevel.service.in \
 	units/systemd-ask-password-wall.service.in \
@@ -3065,6 +3068,13 @@ systemd_remount_fs_SOURCES = \
 	src/core/mount-setup.h
 
 systemd_remount_fs_LDADD = \
+	libsystemd-shared.la
+
+# ------------------------------------------------------------------------------
+systemd_volatile_root_SOURCES = \
+	src/volatile-root/volatile-root.c
+
+systemd_volatile_root_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------

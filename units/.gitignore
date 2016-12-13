@@ -75,5 +75,6 @@
 /systemd-update-utmp.service
 /systemd-user-sessions.service
 /systemd-vconsole-setup.service
+/systemd-volatile-root.service
 /tmp.mount
 /user@.service

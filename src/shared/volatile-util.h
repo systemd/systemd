@@ -28,3 +28,5 @@ typedef enum VolatileMode {
 } VolatileMode;
 
 VolatileMode volatile_mode_from_string(const char *s);
+
+int query_volatile_mode(VolatileMode *ret);

@@ -42,8 +42,10 @@
 #include "unit-name.h"
 #include "util.h"
 #include "virt.h"
+#include "volatile-util.h"
 
 static const char *arg_dest = "/tmp";
+static const char *arg_dest_late = "/tmp";
 static bool arg_fstab_enabled = true;
 static char *arg_root_what = NULL;
 static char *arg_root_fstype = NULL;
@@ -52,6 +54,7 @@ static int arg_root_rw = -1;
 static char *arg_usr_what = NULL;
 static char *arg_usr_fstype = NULL;
 static char *arg_usr_options = NULL;
+static VolatileMode arg_volatile_mode = _VOLATILE_MODE_INVALID;
 
 static int add_swap(
                 const char *what,
@@ -235,6 +238,7 @@ static int write_requires_mounts_for(FILE *f, const char *opts) {
 }
 
 static int add_mount(
+                const char *dest,
                 const char *what,
                 const char *where,
                 const char *fstype,
@@ -286,7 +290,7 @@ static int add_mount(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        unit = strjoin(arg_dest, "/", name);
+        unit = strjoin(dest, "/", name);
         if (!unit)
                 return log_oom();
 
@@ -318,7 +322,7 @@ static int add_mount(
         }
 
         if (passno != 0) {
-                r = generator_write_fsck_deps(f, arg_dest, what, where, fstype);
+                r = generator_write_fsck_deps(f, dest, what, where, fstype);
                 if (r < 0)
                         return r;
         }
@@ -334,7 +338,7 @@ static int add_mount(
         if (!isempty(fstype) && !streq(fstype, "auto"))
                 fprintf(f, "Type=%s\n", fstype);
 
-        r = generator_write_timeouts(arg_dest, what, where, opts, &filtered);
+        r = generator_write_timeouts(dest, what, where, opts, &filtered);
         if (r < 0)
                 return r;
 
@@ -350,7 +354,7 @@ static int add_mount(
                 return log_error_errno(r, "Failed to write unit file %s: %m", unit);
 
         if (!noauto && !automount) {
-                lnk = strjoin(arg_dest, "/", post, nofail ? ".wants/" : ".requires/", name);
+                lnk = strjoin(dest, "/", post, nofail ? ".wants/" : ".requires/", name);
                 if (!lnk)
                         return log_oom();
 
@@ -364,7 +368,7 @@ static int add_mount(
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate unit name: %m");
 
-                automount_unit = strjoin(arg_dest, "/", automount_name);
+                automount_unit = strjoin(dest, "/", automount_name);
                 if (!automount_unit)
                         return log_oom();
 
@@ -406,7 +410,7 @@ static int add_mount(
                         return log_error_errno(r, "Failed to write unit file %s: %m", automount_unit);
 
                 free(lnk);
-                lnk = strjoin(arg_dest, "/", post, nofail ? ".wants/" : ".requires/", automount_name);
+                lnk = strjoin(dest, "/", post, nofail ? ".wants/" : ".requires/", automount_name);
                 if (!lnk)
                         return log_oom();
 
@@ -479,7 +483,8 @@ static int parse_fstab(bool initrd) {
                         else
                                 post = SPECIAL_LOCAL_FS_TARGET;
 
-                        k = add_mount(what,
+                        k = add_mount(arg_dest,
+                                      what,
                                       where,
                                       me->mnt_type,
                                       me->mnt_opts,
@@ -540,7 +545,8 @@ static int add_sysroot_mount(void) {
                         return r;
         }
 
-        return add_mount(what,
+        return add_mount(arg_dest,
+                         what,
                          "/sysroot",
                          arg_root_fstype,
                          opts,
@@ -593,7 +599,8 @@ static int add_sysroot_usr_mount(void) {
                 opts = arg_usr_options;
 
         log_debug("Found entry what=%s where=/sysroot/usr type=%s", what, strna(arg_usr_fstype));
-        return add_mount(what,
+        return add_mount(arg_dest,
+                         what,
                          "/sysroot/usr",
                          arg_usr_fstype,
                          opts,
@@ -602,6 +609,46 @@ static int add_sysroot_usr_mount(void) {
                          false,                        /* nofail off */
                          false,                        /* automount off */
                          SPECIAL_INITRD_FS_TARGET,
+                         "/proc/cmdline");
+}
+
+static int add_volatile_root(void) {
+        const char *from, *to;
+
+        if (arg_volatile_mode != VOLATILE_YES)
+                return 0;
+
+        /* Let's add in systemd-remount-volatile.service which will remount the root device to tmpfs if this is
+         * requested, leaving only /usr from the root mount inside. */
+
+        from = strjoina(SYSTEM_DATA_UNIT_PATH "/systemd-volatile-root.service");
+        to = strjoina(arg_dest, "/" SPECIAL_INITRD_ROOT_FS_TARGET, ".requires/systemd-volatile-root.service");
+
+        (void) mkdir_parents(to, 0755);
+
+        if (symlink(from, to) < 0)
+                return log_error_errno(errno, "Failed to hook in volatile remount service: %m");
+
+        return 0;
+}
+
+static int add_volatile_var(void) {
+
+        if (arg_volatile_mode != VOLATILE_STATE)
+                return 0;
+
+        /* If requested, mount /var as tmpfs, but do so only if there's nothing else defined for this. */
+
+        return add_mount(arg_dest_late,
+                         "tmpfs",
+                         "/var",
+                         "tmpfs",
+                         "mode=0755",
+                         0,
+                         false,
+                         false,
+                         false,
+                         SPECIAL_LOCAL_FS_TARGET,
                          "/proc/cmdline");
 }
 
@@ -686,6 +733,18 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 arg_root_rw = true;
         else if (streq(key, "ro") && !value)
                 arg_root_rw = false;
+        else if (streq(key, "systemd.volatile")) {
+                VolatileMode m;
+
+                if (value) {
+                        m = volatile_mode_from_string(value);
+                        if (m < 0)
+                                log_warning("Failed to parse systemd.volatile= argument: %s", value);
+                        else
+                                arg_volatile_mode = m;
+                } else
+                        arg_volatile_mode = VOLATILE_YES;
+        }
 
         return 0;
 }
@@ -700,6 +759,8 @@ int main(int argc, char *argv[]) {
 
         if (argc > 1)
                 arg_dest = argv[1];
+        if (argc > 3)
+                arg_dest_late = argv[3];
 
         log_set_target(LOG_TARGET_SAFE);
         log_parse_environment();
@@ -720,8 +781,12 @@ int main(int argc, char *argv[]) {
                 k = add_sysroot_usr_mount();
                 if (k < 0)
                         r = k;
+
+                k = add_volatile_root();
+                if (k < 0)
+                        r = k;
         } else
-                r = 0;
+                r = add_volatile_var();
 
         /* Honour /etc/fstab only when that's enabled */
         if (arg_fstab_enabled) {
