@@ -186,7 +186,7 @@ int id128_write_fd(int fd, Id128Format f, sd_id128_t id, bool do_sync) {
 int id128_write(const char *p, Id128Format f, sd_id128_t id, bool do_sync) {
         _cleanup_close_ int fd = -1;
 
-        fd = open(p, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, 0444);
+        fd = open(p, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_TRUNC, 0444);
         if (fd < 0)
                 return -errno;
 

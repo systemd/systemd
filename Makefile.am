@@ -6117,6 +6117,8 @@ EXTRA_DIST += \
 	test/TEST-13-NSPAWN-SMOKE/Makefile \
 	test/TEST-13-NSPAWN-SMOKE/create-busybox-container \
 	test/TEST-13-NSPAWN-SMOKE/test.sh \
+	test/TEST-14-MACHINE-ID/Makefile \
+	test/TEST-14-MACHINE-ID/test.sh \
 	test/test-functions
 
 EXTRA_DIST += \
