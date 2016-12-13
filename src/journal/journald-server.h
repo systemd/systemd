@@ -167,6 +167,8 @@ struct Server {
         usec_t last_realtime_clock;
 };
 
+#define BUFFER_SIZE (64 * 1024)
+
 #define SERVER_MACHINE_ID(s) ((s)->machine_id_field + strlen("_MACHINE_ID="))
 
 #define N_IOVEC_META_FIELDS 22
