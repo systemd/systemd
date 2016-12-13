@@ -146,14 +146,18 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, sd_id128_t *ret) {
                 r = generate_machine_id(root, &machine_id);
                 if (r < 0)
                         return r;
-
-                if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
-                        return log_error_errno(errno, "Failed to seek: %m");
         }
 
-        if (writable)
+        if (writable) {
+                if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
+                        return log_error_errno(errno, "Failed to seek %s: %m", etc_machine_id);
+
+                if (ftruncate(fd, 0) < 0)
+                        return log_error_errno(errno, "Failed to truncate %s: %m", etc_machine_id);
+
                 if (id128_write_fd(fd, ID128_PLAIN, machine_id, true) >= 0)
                         goto finish;
+        }
 
         fd = safe_close(fd);
 
