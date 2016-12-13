@@ -12,8 +12,10 @@ KERNEL=="sr[0-9]*", ENV{ID_CDROM}="1"
 ENV{DISK_EJECT_REQUEST}=="?*", RUN+="cdrom_id --eject-media $devnode", GOTO="cdrom_end"
 
 # import device and media properties and lock tray to
-# enable the receiving of media eject button events
-IMPORT{program}="cdrom_id --lock-media $devnode"
+# enable the receiving of media eject button events;
+# do not lock in virtual machines
+PROGRAM="@rootbindir@/systemd-detect-virt -v"
+RESULT=="none", IMPORT{program}="cdrom_id --lock-media $devnode"
 
 # ejecting a CD does not remove the device node, so mark the systemd device
 # unit as inactive while there is no medium; this automatically cleans up of
