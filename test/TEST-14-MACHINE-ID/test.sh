@@ -80,6 +80,17 @@ echo abc >>"$r/etc/machine-id"
 id=$(systemd-machine-id-setup --print --root "$r")
 echo $id >expected
 check expected "$r/etc/machine-id"
+
+r="$(pwd)/transient-machine-id"
+setup_root "$r"
+touch "$r/etc/machine-id"
+mount -o remount,ro "$r"
+mount -t tmpfs tmpfs "$r/run"
+transient_id=$(systemd-machine-id-setup --print --root "$r")
+mount -o remount,rw "$r"
+commited_id=$(systemd-machine-id-setup --print --commit --root "$r")
+[[ "$transient_id" = "$commited_id" ]]
+check "$r/etc/machine-id" "$r/run/machine-id"
 EOF
 chmod +x $initdir/test-machine-id-setup.sh
 
