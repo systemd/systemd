@@ -568,7 +568,33 @@ fail:
         return r;
 }
 
+static int mount_entry_chase(MountEntry *m, const char *root_directory) {
+        char *chased;
+        int r;
+
+        assert(m);
+
+        /* Since mount() will always follow symlinks and we need to take the different root directory into account we
+         * chase the symlinks on our own first. */
+
+        r = chase_symlinks(mount_entry_path(m), root_directory, 0, &chased);
+        if (r == -ENOENT && m->ignore) {
+                log_debug_errno(r, "Path %s does not exist, ignoring.", mount_entry_path(m));
+                return 0;
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to follow symlinks on %s: %m", mount_entry_path(m));
+
+        log_debug("Followed symlinks %s → %s.", mount_entry_path(m), chased);
+
+        free(m->path_malloc);
+        m->path_malloc = chased;
+
+        return 1;
+}
+
 static int apply_mount(
+                const char *root_directory,
                 MountEntry *m,
                 const char *tmp_dir,
                 const char *var_tmp_dir) {
@@ -577,6 +603,10 @@ static int apply_mount(
         int r;
 
         assert(m);
+
+        r = mount_entry_chase(m, root_directory);
+        if (r <= 0)
+                return r;
 
         log_debug("Applying namespace mount on %s", mount_entry_path(m));
 
@@ -604,7 +634,7 @@ static int apply_mount(
         case READONLY:
         case READWRITE:
 
-                r = path_is_mount_point(mount_entry_path(m), NULL, 0);
+                r = path_is_mount_point(mount_entry_path(m), root_directory, 0);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to determine whether %s is already a mount point: %m", mount_entry_path(m));
                 if (r > 0) /* Nothing to do here, it is already a mount. We just later toggle the MS_RDONLY bit for the mount point if needed. */
@@ -654,50 +684,9 @@ static int make_read_only(MountEntry *m, char **blacklist) {
          * already stays this way. This improves compatibility with container managers, where we won't attempt to undo
          * read-only mounts already applied. */
 
-        return r;
-}
+        if (r == -ENOENT && m->ignore)
+                r = 0;
 
-/* Chase symlinks and remove failed paths from mounts */
-static int chase_all_symlinks(const char *root_directory, MountEntry *m, unsigned *n) {
-        MountEntry *f, *t;
-        int r = 0;
-
-        assert(m);
-        assert(n);
-
-        /* Since mount() will always follow symlinks and we need to take the different root directory into account we
-         * chase the symlinks on our own first. This call wil do so for all entries and remove all entries where we
-         * can't resolve the path, and which have been marked for such removal. */
-
-        for (f = m, t = m; f < m + *n; f++) {
-                _cleanup_free_ char *chased = NULL;
-                int k;
-
-                k = chase_symlinks(mount_entry_path(f), root_directory, 0, &chased);
-                if (k < 0) {
-                        /* Get only real errors */
-                        if (r >= 0 && (k != -ENOENT || !f->ignore))
-                                r = k;
-
-                        /* Doesn't exist or failed? Then remove it and continue! */
-                        log_debug_errno(k, "Failed to chase symlinks for %s: %m", mount_entry_path(f));
-                        f->path_malloc = mfree(f->path_malloc);
-                        continue;
-                }
-
-                if (!path_equal(mount_entry_path(f), chased)) {
-                        log_debug("Chased %s → %s", mount_entry_path(f), chased);
-
-                        free(f->path_malloc);
-                        f->path_malloc = chased;
-                        chased = NULL;
-                }
-
-                *t = *f;
-                t++;
-        }
-
-        *n = t - m;
         return r;
 }
 
@@ -838,13 +827,6 @@ int setup_namespace(
                 if (r < 0)
                         goto finish;
 
-                /* Resolve symlinks manually first, as mount() will always follow them relative to the host's
-                 * root. Moreover we want to suppress duplicates based on the resolved paths. This of course is a bit
-                 * racy. */
-                r = chase_all_symlinks(root_directory, mounts, &n_mounts);
-                if (r < 0)
-                        goto finish;
-
                 qsort(mounts, n_mounts, sizeof(MountEntry), mount_path_compare);
 
                 drop_duplicates(mounts, &n_mounts);
@@ -886,7 +868,7 @@ int setup_namespace(
 
                 /* First round, add in all special mounts we need */
                 for (m = mounts; m < mounts + n_mounts; ++m) {
-                        r = apply_mount(m, tmp_dir, var_tmp_dir);
+                        r = apply_mount(root_directory, m, tmp_dir, var_tmp_dir);
                         if (r < 0)
                                 goto finish;
                 }
