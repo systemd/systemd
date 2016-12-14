@@ -78,6 +78,7 @@ static void test_chase_symlinks(void) {
 
         assert_se(mkdir(q, 0700) >= 0);
 
+        result = mfree(result);
         r = chase_symlinks(p, temp, 0, &result);
         assert_se(r > 0);
         assert_se(path_equal(result, q));
