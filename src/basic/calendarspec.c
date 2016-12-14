@@ -688,8 +688,11 @@ static int parse_date(const char **p, CalendarSpec *c) {
                 c->month = first;
                 c->day = second;
                 return 0;
-        } else if (c->end_of_month)
+        } else if (c->end_of_month) {
+                free_chain(first);
+                free_chain(second);
                 return -EINVAL;
+        }
 
         if (*t == '~')
                 c->end_of_month = true;
