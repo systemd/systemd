@@ -1512,6 +1512,7 @@ tests += \
 	test-utf8 \
 	test-ellipsize \
 	test-util \
+	test-mount-util \
 	test-cpu-set-util \
 	test-hexdecoct \
 	test-escape \
@@ -1888,6 +1889,12 @@ test_util_SOURCES = \
 	src/test/test-util.c
 
 test_util_LDADD = \
+	libsystemd-shared.la
+
+test_mount_util_SOURCES = \
+	src/test/test-mount-util.c
+
+test_mount_util_LDADD = \
 	libsystemd-shared.la
 
 test_hexdecoct_SOURCES = \

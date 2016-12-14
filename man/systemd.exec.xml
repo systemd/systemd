@@ -968,6 +968,31 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>BindPaths=</varname></term>
+        <term><varname>BindReadOnlyPaths=</varname></term>
+
+        <listitem><para>Configures unit-specific bind mounts. A bind mount makes a particular file or directory
+        available at an additional place in the unit's view of the file system. Any bind mounts created with this
+        option are specific to the unit, and are not visible in the host's mount table. This option expects a
+        whitespace separated list of bind mount definitions. Each definition consists of a colon-separated triple of
+        source path, destination path and option string, where the latter two are optional. If only a source path is
+        specified the source and destination is taken to be the same. The option string may be either
+        <literal>rbind</literal> or <literal>norbind</literal> for configuring a recursive or non-recursive bind
+        mount. If the destination parth is omitted, the option string must be omitted too.</para>
+
+        <para><varname>BindPaths=</varname> creates regular writable bind mounts (unless the source file system mount
+        is already marked read-only), while <varname>BindReadOnlyPaths=</varname> creates read-only bind mounts. These
+        settings may be used more than once, each usage appends to the unit's list of bind mounts. If the empty string
+        is assigned to either of these two options the entire list of bind mounts defined prior to this is reset. Note
+        that in this case both read-only and regular bind mounts are reset, regardless which of the two settings is
+        used.</para>
+
+        <para>This option is particularly useful when <varname>RootDirectory=</varname> is used. In this case the
+        source path refers to a path on the host file system, while the destination path referes to a path below the
+        root directory of the unit.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>PrivateTmp=</varname></term>
 
         <listitem><para>Takes a boolean argument. If true, sets up a new file system namespace for the executed

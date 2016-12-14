@@ -49,6 +49,7 @@
 #include "load-fragment.h"
 #include "log.h"
 #include "missing.h"
+#include "mount-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -1264,19 +1265,20 @@ int config_parse_sysv_priority(const char *unit,
 DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_utmp_mode, exec_utmp_mode, ExecUtmpMode, "Failed to parse utmp mode");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
 
-int config_parse_exec_mount_flags(const char *unit,
-                                  const char *filename,
-                                  unsigned line,
-                                  const char *section,
-                                  unsigned section_line,
-                                  const char *lvalue,
-                                  int ltype,
-                                  const char *rvalue,
-                                  void *data,
-                                  void *userdata) {
+int config_parse_exec_mount_flags(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
 
-        unsigned long flags = 0;
+        unsigned long flags;
         ExecContext *c = data;
 
         assert(filename);
@@ -1284,15 +1286,14 @@ int config_parse_exec_mount_flags(const char *unit,
         assert(rvalue);
         assert(data);
 
-        if (streq(rvalue, "shared"))
-                flags = MS_SHARED;
-        else if (streq(rvalue, "slave"))
-                flags = MS_SLAVE;
-        else if (streq(rvalue, "private"))
-                flags = MS_PRIVATE;
+        if (isempty(rvalue))
+                flags = 0;
         else {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse mount flag %s, ignoring.", rvalue);
-                return 0;
+                flags = mount_propagation_flags_from_string(rvalue);
+                if (flags == 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse mount flag %s, ignoring.", rvalue);
+                        return 0;
+                }
         }
 
         c->mount_flags = flags;
@@ -3890,6 +3891,132 @@ int config_parse_namespace_path_strv(
         return 0;
 }
 
+int config_parse_bind_paths(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        const char *p;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                bind_mount_free_many(c->bind_mounts, c->n_bind_mounts);
+                c->bind_mounts = NULL;
+                c->n_bind_mounts = 0;
+                return 0;
+        }
+
+        p = rvalue;
+        for (;;) {
+                _cleanup_free_ char *source = NULL, *destination = NULL;
+                char *s = NULL, *d = NULL;
+                bool rbind = true, ignore_enoent = false;
+
+                r = extract_first_word(&p, &source, ":" WHITESPACE, EXTRACT_QUOTES|EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s: %s", lvalue, rvalue);
+                        return 0;
+                }
+
+                s = source;
+                if (s[0] == '-') {
+                        ignore_enoent = true;
+                        s++;
+                }
+
+                if (!utf8_is_valid(s)) {
+                        log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, s);
+                        return 0;
+                }
+                if (!path_is_absolute(s)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Not an absolute source path, ignoring: %s", s);
+                        return 0;
+                }
+
+                path_kill_slashes(s);
+
+                /* Optionally, the destination is specified. */
+                if (p && p[-1] == ':') {
+                        r = extract_first_word(&p, &destination, ":" WHITESPACE, EXTRACT_QUOTES|EXTRACT_DONT_COALESCE_SEPARATORS);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0) {
+                                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s: %s", lvalue, rvalue);
+                                return 0;
+                        }
+                        if (r == 0) {
+                                log_syntax(unit, LOG_ERR, filename, line, 0, "Missing argument after ':': %s", rvalue);
+                                return 0;
+                        }
+
+                        if (!utf8_is_valid(destination)) {
+                                log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, destination);
+                                return 0;
+                        }
+                        if (!path_is_absolute(destination)) {
+                                log_syntax(unit, LOG_ERR, filename, line, 0, "Not an absolute destination path, ignoring: %s", destination);
+                                return 0;
+                        }
+
+                        d = path_kill_slashes(destination);
+
+                        /* Optionally, there's also a short option string specified */
+                        if (p && p[-1] == ':') {
+                                _cleanup_free_ char *options = NULL;
+
+                                r = extract_first_word(&p, &options, NULL, EXTRACT_QUOTES);
+                                if (r == -ENOMEM)
+                                        return log_oom();
+                                if (r < 0) {
+                                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s: %s", lvalue, rvalue);
+                                        return 0;
+                                }
+
+                                if (isempty(options) || streq(options, "rbind"))
+                                        rbind = true;
+                                else if (streq(options, "norbind"))
+                                        rbind = false;
+                                else {
+                                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid option string, ignoring setting: %s", options);
+                                        return 0;
+                                }
+                        }
+                } else
+                        d = s;
+
+                r = bind_mount_add(&c->bind_mounts, &c->n_bind_mounts,
+                                   &(BindMount) {
+                                           .source = s,
+                                           .destination = d,
+                                           .read_only = !!strstr(lvalue, "ReadOnly"),
+                                           .recursive = rbind,
+                                           .ignore_enoent = ignore_enoent,
+                                   });
+                if (r < 0)
+                        return log_oom();
+        }
+
+        return 0;
+}
+
 int config_parse_no_new_privileges(
                 const char* unit,
                 const char *filename,
@@ -4387,6 +4514,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_sec,                   "SECONDS" },
                 { config_parse_nsec,                  "NANOSECONDS" },
                 { config_parse_namespace_path_strv,   "PATH [...]" },
+                { config_parse_bind_paths,            "PATH[:PATH[:OPTIONS]] [...]" },
                 { config_parse_unit_requires_mounts_for, "PATH [...]" },
                 { config_parse_exec_mount_flags,      "MOUNTFLAG [...]" },
                 { config_parse_unit_string_printf,    "STRING" },

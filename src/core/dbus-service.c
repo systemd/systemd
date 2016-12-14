@@ -143,6 +143,29 @@ static int bus_service_set_transient_property(
 
                 return 1;
 
+        } else if (streq(name, "Restart")) {
+                ServiceRestart sr;
+                const char *v;
+
+                r = sd_bus_message_read(message, "s", &v);
+                if (r < 0)
+                        return r;
+
+                if (isempty(v))
+                        sr = SERVICE_RESTART_NO;
+                else {
+                        sr = service_restart_from_string(v);
+                        if (sr < 0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid restart setting: %s", v);
+                }
+
+                if (mode != UNIT_CHECK) {
+                        s->restart = sr;
+                        unit_write_drop_in_private_format(UNIT(s), mode, name, "Restart=%s", service_restart_to_string(sr));
+                }
+
+                return 1;
+
         } else if (STR_IN_SET(name,
                               "StandardInputFileDescriptor",
                               "StandardOutputFileDescriptor",

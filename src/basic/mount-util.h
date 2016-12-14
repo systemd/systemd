@@ -61,3 +61,6 @@ int mount_verbose(
                 unsigned long flags,
                 const char *options);
 int umount_verbose(const char *where);
+
+const char *mount_propagation_flags_to_string(unsigned long flags);
+unsigned long mount_propagation_flags_from_string(const char *name);

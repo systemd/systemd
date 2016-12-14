@@ -89,6 +89,8 @@ $1.InaccessibleDirectories,      config_parse_namespace_path_strv,   0,         
 $1.ReadWritePaths,               config_parse_namespace_path_strv,   0,                             offsetof($1, exec_context.read_write_paths)
 $1.ReadOnlyPaths,                config_parse_namespace_path_strv,   0,                             offsetof($1, exec_context.read_only_paths)
 $1.InaccessiblePaths,            config_parse_namespace_path_strv,   0,                             offsetof($1, exec_context.inaccessible_paths)
+$1.BindPaths,                    config_parse_bind_paths,            0,                             offsetof($1, exec_context)
+$1.BindReadOnlyPaths,            config_parse_bind_paths,            0,                             offsetof($1, exec_context)
 $1.PrivateTmp,                   config_parse_bool,                  0,                             offsetof($1, exec_context.private_tmp)
 $1.PrivateDevices,               config_parse_bool,                  0,                             offsetof($1, exec_context.private_devices)
 $1.ProtectKernelTunables,        config_parse_bool,                  0,                             offsetof($1, exec_context.protect_kernel_tunables)

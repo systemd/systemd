@@ -27,6 +27,7 @@
 #include "hashmap.h"
 #include "list.h"
 #include "locale-util.h"
+#include "mount-util.h"
 #include "nsflags.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -265,7 +266,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                               "StandardInput", "StandardOutput", "StandardError",
                               "Description", "Slice", "Type", "WorkingDirectory",
                               "RootDirectory", "SyslogIdentifier", "ProtectSystem",
-                              "ProtectHome", "SELinuxContext"))
+                              "ProtectHome", "SELinuxContext", "Restart"))
                 r = sd_bus_message_append(m, "v", "s", eq);
 
         else if (streq(field, "SyslogLevel")) {
@@ -575,7 +576,91 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 r = sd_bus_message_append(m, "v", "t", flags);
         } else if ((dep = unit_dependency_from_string(field)) >= 0)
                 r = sd_bus_message_append(m, "v", "as", 1, eq);
-        else {
+        else if (streq(field, "MountFlags")) {
+                unsigned long f;
+
+                if (isempty(eq))
+                        f = 0;
+                else {
+                        f = mount_propagation_flags_from_string(eq);
+                        if (f == 0) {
+                                log_error("Failed to parse mount propagation type: %s", eq);
+                                return -EINVAL;
+                        }
+                }
+
+                r = sd_bus_message_append(m, "v", "t", f);
+        } else if (STR_IN_SET(field, "BindPaths", "BindReadOnlyPaths")) {
+                const char *p = eq;
+
+                r = sd_bus_message_open_container(m, 'v', "a(ssbt)");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_open_container(m, 'a', "(ssbt)");
+                if (r < 0)
+                        return r;
+
+                for (;;) {
+                        _cleanup_free_ char *source = NULL, *destination = NULL;
+                        char *s = NULL, *d = NULL;
+                        bool ignore_enoent = false;
+                        uint64_t flags = MS_REC;
+
+                        r = extract_first_word(&p, &source, ":" WHITESPACE, EXTRACT_QUOTES|EXTRACT_DONT_COALESCE_SEPARATORS);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse argument: %m");
+                        if (r == 0)
+                                break;
+
+                        s = source;
+                        if (s[0] == '-') {
+                                ignore_enoent = true;
+                                s++;
+                        }
+
+                        if (p && p[-1] == ':') {
+                                r = extract_first_word(&p, &destination, ":" WHITESPACE, EXTRACT_QUOTES|EXTRACT_DONT_COALESCE_SEPARATORS);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse argument: %m");
+                                if (r == 0) {
+                                        log_error("Missing argument after ':': %s", eq);
+                                        return -EINVAL;
+                                }
+
+                                d = destination;
+
+                                if (p && p[-1] == ':') {
+                                        _cleanup_free_ char *options = NULL;
+
+                                        r = extract_first_word(&p, &options, NULL, EXTRACT_QUOTES);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to parse argument: %m");
+
+                                        if (isempty(options) || streq(options, "rbind"))
+                                                flags = MS_REC;
+                                        else if (streq(options, "norbind"))
+                                                flags = 0;
+                                        else {
+                                                log_error("Unknown options: %s", eq);
+                                                return -EINVAL;
+                                        }
+                                }
+                        } else
+                                d = s;
+
+
+                        r = sd_bus_message_append(m, "(ssbt)", s, d, ignore_enoent, flags);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_close_container(m);
+        } else {
                 log_error("Unknown assignment %s.", assignment);
                 return -EINVAL;
         }
