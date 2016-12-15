@@ -69,6 +69,7 @@ typedef enum DissectImageFlags {
                                     DISSECT_IMAGE_DISCARD |
                                     DISSECT_IMAGE_DISCARD_ON_CRYPTO,
         DISSECT_IMAGE_GPT_ONLY = 16,         /* Only recognize images with GPT partition tables */
+        DISSECT_IMAGE_REQUIRE_ROOT = 32,     /* Don't accept disks without root partition */
 } DissectImageFlags;
 
 struct DissectedImage {

@@ -35,7 +35,7 @@ static enum {
 } arg_action = ACTION_DISSECT;
 static const char *arg_image = NULL;
 static const char *arg_path = NULL;
-static DissectImageFlags arg_flags = DISSECT_IMAGE_DISCARD_ON_LOOP;
+static DissectImageFlags arg_flags = DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_DISCARD_ON_LOOP;
 static void *arg_root_hash = NULL;
 static size_t arg_root_hash_size = 0;
 
@@ -191,7 +191,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = dissect_image(d->fd, arg_root_hash, arg_root_hash_size, 0, &m);
+        r = dissect_image(d->fd, arg_root_hash, arg_root_hash_size, arg_flags, &m);
         if (r == -ENOPKG) {
                 log_error_errno(r, "Couldn't identify a suitable partition table or file system in %s.", arg_image);
                 goto finish;

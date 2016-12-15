@@ -174,7 +174,8 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
         if (!m)
                 return -ENOMEM;
 
-        if ((flags & DISSECT_IMAGE_GPT_ONLY) == 0) {
+        if (!(flags & DISSECT_IMAGE_GPT_ONLY) &&
+            (flags & DISSECT_IMAGE_REQUIRE_ROOT)) {
                 const char *usage = NULL;
 
                 (void) blkid_probe_lookup_value(b, "USAGE", &usage, NULL);
@@ -490,7 +491,7 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                  * either, then check if there's a single generic one, and use that. */
 
                 if (m->partitions[PARTITION_ROOT_VERITY].found)
-                        return -ENXIO;
+                        return -EADDRNOTAVAIL;
 
                 if (m->partitions[PARTITION_ROOT_SECONDARY].found) {
                         m->partitions[PARTITION_ROOT] = m->partitions[PARTITION_ROOT_SECONDARY];
@@ -499,8 +500,19 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                         m->partitions[PARTITION_ROOT_VERITY] = m->partitions[PARTITION_ROOT_SECONDARY_VERITY];
                         zero(m->partitions[PARTITION_ROOT_SECONDARY_VERITY]);
 
-                } else if (generic_node && !root_hash) {
+                } else if (flags & DISSECT_IMAGE_REQUIRE_ROOT) {
 
+                        /* If the root has was set, then we won't fallback to a generic node, because the root hash
+                         * decides */
+                        if (root_hash)
+                                return -EADDRNOTAVAIL;
+
+                        /* If we didn't find a generic node, then we can't fix this up either */
+                        if (!generic_node)
+                                return -ENXIO;
+
+                        /* If we didn't find a properly marked root partition, but we did find a single suitable
+                         * generic Linux partition, then use this as root partition, if the caller asked for it. */
                         if (multiple_generic)
                                 return -ENOTUNIQ;
 
@@ -514,14 +526,11 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                         };
 
                         generic_node = NULL;
-                } else
-                        return -ENXIO;
+                }
         }
 
-        assert(m->partitions[PARTITION_ROOT].found);
-
         if (root_hash) {
-                if (!m->partitions[PARTITION_ROOT_VERITY].found)
+                if (!m->partitions[PARTITION_ROOT_VERITY].found || !m->partitions[PARTITION_ROOT].found)
                         return -EADDRNOTAVAIL;
 
                 /* If we found the primary root with the hash, then we definitely want to suppress any secondary root
