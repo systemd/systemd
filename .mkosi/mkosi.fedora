@@ -64,7 +64,6 @@ BuildPackages=
         libxslt
         lz4-devel
         make
-        diffutils
         pam-devel
         pkgconfig
         python3-devel
