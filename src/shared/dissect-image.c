@@ -95,6 +95,7 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
         _cleanup_blkid_free_probe_ blkid_probe b = NULL;
         _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_free_ char *generic_node = NULL;
+        sd_id128_t generic_uuid = SD_ID128_NULL;
         const char *pttype = NULL;
         struct udev_list_entry *first, *item;
         blkid_partlist pl;
@@ -427,6 +428,7 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                                 else {
                                         generic_nr = nr;
                                         generic_rw = !(pflags & GPT_FLAG_READ_ONLY);
+                                        generic_uuid = id;
                                         generic_node = strdup(node);
                                         if (!generic_node)
                                                 return -ENOMEM;
@@ -457,6 +459,7 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                                         .architecture = architecture,
                                         .node = n,
                                         .fstype = t,
+                                        .uuid = id,
                                 };
 
                                 n = t = NULL;
@@ -507,6 +510,7 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                                 .partno = generic_nr,
                                 .architecture = _ARCHITECTURE_INVALID,
                                 .node = generic_node,
+                                .uuid = generic_uuid,
                         };
 
                         generic_node = NULL;

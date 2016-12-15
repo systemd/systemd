@@ -32,6 +32,7 @@ struct DissectedPartition {
         bool rw:1;
         int partno;        /* -1 if there was no partition and the images contains a file system directly */
         int architecture;  /* Intended architecture: either native, secondary or unset (-1). */
+        sd_id128_t uuid;   /* Partition entry UUID as reported by the GPT */
         char *fstype;
         char *node;
         char *decrypted_node;

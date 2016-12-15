@@ -221,6 +221,9 @@ int main(int argc, char *argv[]) {
                                p->rw ? "writable" : "read-only",
                                partition_designator_to_string(i));
 
+                        if (!sd_id128_is_null(p->uuid))
+                                printf(" (UUID " SD_ID128_FORMAT_STR ")", SD_ID128_FORMAT_VAL(p->uuid));
+
                         if (p->fstype)
                                 printf(" of type %s", p->fstype);
 
