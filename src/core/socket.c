@@ -423,8 +423,7 @@ static const char *socket_find_symlink_target(Socket *s) {
                         break;
 
                 case SOCKET_SOCKET:
-                        if (p->address.sockaddr.un.sun_path[0] != 0)
-                                f = p->address.sockaddr.un.sun_path;
+                        f = socket_address_get_path(&p->address);
                         break;
 
                 default:
