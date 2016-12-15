@@ -24,6 +24,19 @@ Janitorial Clean-ups:
 
 Features:
 
+* Maybe add a small tool invoked early at boot, that adds in or resizes
+  partitions automatically, to be used when the media used is actually larger
+  than the image written onto it is.
+
+* change the dependency Set* objects in Unit structures to become Hashmap*, and
+  then store a bit mask who created a specific dependency: the source unit via
+  fragment configuration, the destination unit via fragment configuration, or
+  the source unit via udev rules (in case of .device units), or any combination
+  there of. This information can then be used to flush out old udev-created
+  dependencies when the udev properties change, and eventually to implement a
+  "systemctl refresh" operation for reloading the configuration of individual
+  units without reloading the whole set.
+
 * Add ExecMonitor= setting. May be used multiple times. Forks off a process in
   the service cgroup, which is supposed to monitor the service, and when it
   exits the service is considered failed by its monitor.
@@ -54,8 +67,6 @@ Features:
 * gpt-auto logic: related to the above, maybe support a "secondary" root
   partition, that is mounted to / and is writable, and where the actual root's
   /usr is mounted into.
-
-* add dm-verity boots, and in nspawn (libcryptsetup knows this, should be relatively straight-forward)
 
 * machined: add apis to query /etc/machine-info data of a container
 
@@ -295,7 +306,6 @@ Features:
 
 * support empty /etc boots nicely:
   - nspawn/gpt-generator: introduce new gpt partition type for /usr
-  - fstab-generator: support systemd.volatile=yes|no|state on the kernel cmdline, too, similar to nspawn's --volatile=
 
 * generator that automatically discovers btrfs subvolumes, identifies their purpose based on some xattr on them.
 
@@ -311,7 +321,6 @@ Features:
 * add bus api to query unit file's X fields.
 
 * gpt-auto-generator:
-  - Support LUKS for root devices
   - Define new partition type for encrypted swap? Support probed LUKS for encrypted swap?
   - Make /home automount rather than mount?
 
