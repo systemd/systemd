@@ -48,6 +48,13 @@ SUBSYSTEMS=="firewire", ATTRS{guid}=="?*", \
 SUBSYSTEMS=="firewire", GOTO="skip_pci"
 
 SUBSYSTEMS=="pci", ENV{ID_BUS}="pci", ENV{ID_VENDOR_ID}="$attr{vendor}", ENV{ID_MODEL_ID}="$attr{device}"
+SUBSYSTEMS=="pci", GOTO="skip_pci"
+
+# If we reach here, the device nor any of its parents are USB/PCI/firewire bus devices.
+# If we now find a parent that is a platform device, assume that we're working with
+# an internal sound card.
+SUBSYSTEMS=="platform", ENV{SOUND_FORM_FACTOR}="internal", GOTO="sound_end"
+
 LABEL="skip_pci"
 
 # Define ID_ID if ID_BUS and ID_SERIAL are set. This will work for both
