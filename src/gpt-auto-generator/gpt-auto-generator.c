@@ -463,11 +463,6 @@ static int add_esp(const char *what) {
                 return 0;
         }
 
-        if (detect_container() > 0) {
-                log_debug("In a container, ignoring the ESP.");
-                return 0;
-        }
-
         /* If /efi exists we'll use that. Otherwise we'll use /boot, as that's usually the better choice */
         esp = access("/efi/", F_OK) >= 0 ? "/efi" : "/boot";
 
