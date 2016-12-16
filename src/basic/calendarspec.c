@@ -132,8 +132,6 @@ static void fix_year(CalendarComponent *c) {
         /* Turns 12 → 2012, 89 → 1989 */
 
         while (c) {
-                CalendarComponent *n = c->next;
-
                 if (c->start >= 0 && c->start < 70)
                         c->start += 2000;
 
@@ -146,7 +144,7 @@ static void fix_year(CalendarComponent *c) {
                 if (c->stop >= 70 && c->stop < 100)
                         c->stop += 1900;
 
-                c = n;
+                c = c->next;
         }
 }
 
@@ -294,6 +292,11 @@ static void format_chain(FILE *f, int space, const CalendarComponent *c, bool us
                 return;
         }
 
+        if (usec && c->start == 0 && c->repeat == USEC_PER_SEC && !c->next) {
+                fputc('*', f);
+                return;
+        }
+
         assert(c->start >= 0);
 
         fprintf(f, "%0*i", space, c->start / d);
@@ -317,7 +320,6 @@ static void format_chain(FILE *f, int space, const CalendarComponent *c, bool us
 }
 
 int calendar_spec_to_string(const CalendarSpec *c, char **p) {
-        CalendarComponent *cc;
         char *buf = NULL;
         size_t sz = 0;
         FILE *f;
@@ -345,12 +347,7 @@ int calendar_spec_to_string(const CalendarSpec *c, char **p) {
         fputc(':', f);
         format_chain(f, 2, c->minute, false);
         fputc(':', f);
-
-        cc = c->microsecond;
-        if (cc && !cc->start && cc->step == USEC_PER_SEC && !cc->next)
-                fputc('*', f);
-        else
-                format_chain(f, 2, c->microsecond, true);
+        format_chain(f, 2, c->microsecond, true);
 
         if (c->utc)
                 fputs(" UTC", f);
@@ -480,7 +477,7 @@ static int parse_weekdays(const char **p, CalendarSpec *c) {
                         *p += 1;
                 }
 
-                /* Allow  a trailing comma but not an open range */
+                /* Allow a trailing comma but not an open range */
                 if (**p == 0 || **p == ' ') {
                         *p += strspn(*p, " ");
                         return l < 0 ? 0 : -EINVAL;
@@ -1035,7 +1032,7 @@ static int find_end_of_month(struct tm *tm, bool utc, int day)
 
 static int find_matching_component(const CalendarSpec *spec, const CalendarComponent *c,
                                    struct tm *tm, int *val) {
-        const CalendarComponent *n, *p = c;
+        const CalendarComponent *p = c;
         int start, stop, d = -1;
         bool d_set = false;
         int r;
@@ -1046,8 +1043,6 @@ static int find_matching_component(const CalendarSpec *spec, const CalendarCompo
                 return 0;
 
         while (c) {
-                n = c->next;
-
                 start = c->start;
                 stop = c->stop;
 
@@ -1077,7 +1072,7 @@ static int find_matching_component(const CalendarSpec *spec, const CalendarCompo
                         }
                 }
 
-                c = n;
+                c = c->next;
         }
 
         if (!d_set)
