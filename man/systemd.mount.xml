@@ -206,6 +206,19 @@
        </varlistentry>
 
       <varlistentry>
+        <term><option>x-systemd.device-bound</option></term>
+
+        <listitem><para>The block device backed file system will be upgraded
+        to <varname>BindsTo=</varname> dependency. This option is only useful
+        when mounting file systems manually with
+        <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        as the default dependency in this case is <varname>Requires=</varname>.
+        This option is already implied by entries in <filename>/etc/fstab</filename>
+        or by mount units.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>x-systemd.automount</option></term>
 
         <listitem><para>An automount unit will be created for the file
