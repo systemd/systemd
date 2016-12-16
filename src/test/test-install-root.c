@@ -22,6 +22,7 @@
 #include "install.h"
 #include "mkdir.h"
 #include "rm-rf.h"
+#include "special.h"
 #include "string-util.h"
 
 static void test_basic_mask_and_enable(const char *root) {
@@ -338,7 +339,7 @@ static void test_default(const char *root) {
         assert_se(n_changes == 1);
         assert_se(changes[0].type == UNIT_FILE_SYMLINK);
         assert_se(streq(changes[0].source, "/usr/lib/systemd/system/test-default-real.target"));
-        p = strjoina(root, SYSTEM_CONFIG_UNIT_PATH"/default.target");
+        p = strjoina(root, SYSTEM_CONFIG_UNIT_PATH "/" SPECIAL_DEFAULT_TARGET);
         assert_se(streq(changes[0].path, p));
         unit_file_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
