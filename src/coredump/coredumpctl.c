@@ -821,6 +821,9 @@ static int run_gdb(sd_journal *j) {
         if (r < 0)
                 return r;
 
+        /* Don't interfere with gdb and its handling of SIGINT. */
+        (void) ignore_signals(SIGINT, -1);
+
         pid = fork();
         if (pid < 0) {
                 r = log_error_errno(errno, "Failed to fork(): %m");
@@ -845,6 +848,8 @@ static int run_gdb(sd_journal *j) {
         r = st.si_code == CLD_EXITED ? st.si_status : 255;
 
 finish:
+        (void) default_signals(SIGINT, -1);
+
         if (unlink_path) {
                 log_debug("Removed temporary file %s", path);
                 unlink(path);
