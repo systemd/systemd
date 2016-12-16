@@ -255,7 +255,7 @@ static int find_esp(uint32_t *part, uint64_t *pstart, uint64_t *psize, sd_id128_
                 if (!arg_path)
                         return log_oom();
 
-                log_info("Using EFI System Parition at %s.", path);
+                log_info("Using EFI System Partition at %s.", path);
                 return 0;
         }
 
