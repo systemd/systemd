@@ -904,7 +904,6 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_UNIT:
-
                         r = free_and_strdup(&arg_default_unit, optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set default unit %s: %m", optarg);
