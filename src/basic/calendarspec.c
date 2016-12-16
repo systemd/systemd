@@ -33,11 +33,9 @@
 #include "parse-util.h"
 #include "string-util.h"
 
-/* Longest valid date/time range is 1970..2199 */
-#define MAX_RANGE_LEN   230
-#define MIN_YEAR       1970
-#define MAX_YEAR       2199
-#define BITS_WEEKDAYS   127
+#define BITS_WEEKDAYS 127
+#define MIN_YEAR 1970
+#define MAX_YEAR 2199
 
 static void free_chain(CalendarComponent *c) {
         CalendarComponent *n;
@@ -72,6 +70,11 @@ static int component_compare(const void *_a, const void *_b) {
         if ((*a)->value > (*b)->value)
                 return 1;
 
+        if ((*a)->range_end < (*b)->range_end)
+                return -1;
+        if ((*a)->range_end > (*b)->range_end)
+                return 1;
+
         if ((*a)->repeat < (*b)->repeat)
                 return -1;
         if ((*a)->repeat > (*b)->repeat)
@@ -80,14 +83,23 @@ static int component_compare(const void *_a, const void *_b) {
         return 0;
 }
 
-static void sort_chain(CalendarComponent **c) {
+static void normalize_chain(CalendarComponent **c) {
         unsigned n = 0, k;
         CalendarComponent **b, *i, **j, *next;
 
         assert(c);
 
-        for (i = *c; i; i = i->next)
+        for (i = *c; i; i = i->next) {
                 n++;
+
+                /*
+                 * While we're counting the chain, also normalize `range_end`
+                 * so the length of the range is a multiple of `repeat`
+                 */
+                if (i->range_end > i->value)
+                        i->range_end -= (i->range_end - i->value) % i->repeat;
+
+        }
 
         if (n <= 1)
                 return;
@@ -125,8 +137,14 @@ static void fix_year(CalendarComponent *c) {
                 if (c->value >= 0 && c->value < 70)
                         c->value += 2000;
 
+                if (c->range_end >= 0 && c->range_end < 70)
+                        c->range_end += 2000;
+
                 if (c->value >= 70 && c->value < 100)
                         c->value += 1900;
+
+                if (c->range_end >= 70 && c->range_end < 100)
+                        c->range_end += 1900;
 
                 c = n;
         }
@@ -143,12 +161,12 @@ int calendar_spec_normalize(CalendarSpec *c) {
 
         fix_year(c->year);
 
-        sort_chain(&c->year);
-        sort_chain(&c->month);
-        sort_chain(&c->day);
-        sort_chain(&c->hour);
-        sort_chain(&c->minute);
-        sort_chain(&c->microsecond);
+        normalize_chain(&c->year);
+        normalize_chain(&c->month);
+        normalize_chain(&c->day);
+        normalize_chain(&c->hour);
+        normalize_chain(&c->minute);
+        normalize_chain(&c->microsecond);
 
         return 0;
 }
@@ -157,20 +175,32 @@ _pure_ static bool chain_valid(CalendarComponent *c, int from, int to, bool end_
         if (!c)
                 return true;
 
+        /* Forbid dates more than 28 days from the end of the month */
+        if (end_of_month)
+                to -= 3;
+
         if (c->value < from || c->value > to)
                 return false;
 
         /*
          * c->repeat must be short enough so at least one repetition may
          * occur before the end of the interval.  For dates scheduled
-         * relative to the end of the month, c->value corresponds to the
-         * Nth last day of the month.
+         * relative to the end of the month, c->value and c->range_end
+         * correspond to the Nth last day of the month.
          */
-        if (end_of_month && c->value - c->repeat < from)
-                return false;
+        if (c->range_end >= 0) {
+                if (c->range_end < from || c ->range_end > to)
+                        return false;
 
-        if (!end_of_month && c->value + c->repeat > to)
-                return false;
+                if (c->value + c->repeat > c->range_end)
+                        return false;
+        } else {
+                if (end_of_month && c->value - c->repeat < from)
+                        return false;
+
+                if (!end_of_month && c->value + c->repeat > to)
+                        return false;
+        }
 
         if (c->next)
                 return chain_valid(c->next, from, to, end_of_month);
@@ -255,7 +285,6 @@ static void format_weekdays(FILE *f, const CalendarSpec *c) {
 }
 
 static void format_chain(FILE *f, int space, const CalendarComponent *c, bool usec) {
-        const CalendarComponent *n, *p;
         int d = usec ? (int) USEC_PER_SEC : 1;
 
         assert(f);
@@ -268,31 +297,20 @@ static void format_chain(FILE *f, int space, const CalendarComponent *c, bool us
         assert(c->value >= 0);
 
         fprintf(f, "%0*i", space, c->value / d);
-        if (c->value % d != 0)
+        if (c->value % d > 0)
                 fprintf(f, ".%06i", c->value % d);
 
-        if (c->repeat != 0)
+        if (c->range_end > 0)
+                fprintf(f, "..%0*i", space, c->range_end / d);
+        if (c->range_end % d > 0)
+                fprintf(f, ".%06i", c->range_end % d);
+
+        if (c->repeat > 0 && !(c->range_end > 0 && c->repeat == d))
                 fprintf(f, "/%i", c->repeat / d);
-        if (c->repeat % d != 0)
+        if (c->repeat % d > 0)
                 fprintf(f, ".%06i", c->repeat % d);
 
-        p = c;
-        for (;;) {
-                n = p->next;
-
-                if (!n || n->repeat || p->repeat)
-                        break;
-
-                if (n->value - p->value != d)
-                       break;
-
-                p = n;
-        }
-
-        if (p->value - c->value >= 2 * d) {
-                fputs("..", f);
-                format_chain(f, space, p, usec);
-        } else if (c->next) {
+        if (c->next) {
                 fputc(',', f);
                 format_chain(f, space, c->next, usec);
         }
@@ -531,6 +549,7 @@ static int const_chain(int value, CalendarComponent **c) {
                 return -ENOMEM;
 
         cc->value = value;
+        cc->range_end = -1;
         cc->repeat = 0;
         cc->next = *c;
 
@@ -540,7 +559,7 @@ static int const_chain(int value, CalendarComponent **c) {
 }
 
 static int prepend_component(const char **p, bool usec, CalendarComponent **c) {
-        unsigned long i, value, range_end, range_inc, repeat = 0;
+        unsigned long value, range_end = -1, repeat = 0;
         CalendarComponent *cc;
         int r;
         const char *e;
@@ -554,6 +573,15 @@ static int prepend_component(const char **p, bool usec, CalendarComponent **c) {
         if (r < 0)
                 return r;
 
+        if (e[0] == '.' && e[1] == '.') {
+                e += 2;
+                r = parse_component_decimal(&e, usec, &range_end);
+                if (r < 0)
+                        return r;
+
+                repeat = usec ? USEC_PER_SEC : 1;
+        }
+
         if (*e == '/') {
                 e++;
                 r = parse_component_decimal(&e, usec, &repeat);
@@ -562,30 +590,6 @@ static int prepend_component(const char **p, bool usec, CalendarComponent **c) {
 
                 if (repeat == 0)
                         return -ERANGE;
-        } else if (e[0] == '.' && e[1] == '.') {
-                e += 2;
-                r = parse_component_decimal(&e, usec, &range_end);
-                if (r < 0)
-                        return r;
-
-                if (value >= range_end)
-                        return -EINVAL;
-
-                range_inc = usec ? USEC_PER_SEC : 1;
-
-                /* Don't allow impossibly large ranges... */
-                if (range_end - value >= MAX_RANGE_LEN * range_inc)
-                        return -EINVAL;
-
-                /* ...or ranges with only a single element */
-                if (range_end - value < range_inc)
-                        return -EINVAL;
-
-                for (i = value; i <= range_end; i += range_inc) {
-                        r = const_chain(i, c);
-                        if (r < 0)
-                                return r;
-                }
         }
 
         if (*e != 0 && *e != ' ' && *e != ',' && *e != '-' && *e != '~' && *e != ':')
@@ -596,6 +600,7 @@ static int prepend_component(const char **p, bool usec, CalendarComponent **c) {
                 return -ENOMEM;
 
         cc->value = value;
+        cc->range_end = range_end;
         cc->repeat = repeat;
         cc->next = *c;
 
@@ -1014,11 +1019,24 @@ fail:
         return r;
 }
 
+static int find_end_of_month(struct tm *tm, bool utc, int day)
+{
+        struct tm t = *tm;
+
+        t.tm_mon++;
+        t.tm_mday = 1 - day;
+
+        if (mktime_or_timegm(&t, utc) == (time_t) -1 ||
+            t.tm_mon != tm->tm_mon)
+                return -1;
+
+        return t.tm_mday;
+}
+
 static int find_matching_component(const CalendarSpec *spec, const CalendarComponent *c,
                                    struct tm *tm, int *val) {
         const CalendarComponent *n, *p = c;
-        struct tm t;
-        int v, d = -1;
+        int v, e, d = -1;
         bool d_set = false;
         int r;
 
@@ -1030,18 +1048,16 @@ static int find_matching_component(const CalendarSpec *spec, const CalendarCompo
         while (c) {
                 n = c->next;
 
-                if (spec->end_of_month && p == spec->day) {
-                        t = *tm;
-                        t.tm_mon++;
-                        t.tm_mday = 1 - c->value;
+                v = c->value;
+                e = c->range_end;
 
-                        if (mktime_or_timegm(&t, spec->utc) == (time_t) -1 ||
-                            t.tm_mon != tm->tm_mon)
-                                v = -1;
-                        else
-                                v = t.tm_mday;
-                } else
-                        v = c->value;
+                if (spec->end_of_month && p == spec->day) {
+                        v = find_end_of_month(tm, spec->utc, v);
+                        e = find_end_of_month(tm, spec->utc, e);
+
+                        if (e > 0)
+                                SWAP_TWO(v, e);
+                }
 
                 if (v >= *val) {
 
@@ -1053,9 +1069,9 @@ static int find_matching_component(const CalendarSpec *spec, const CalendarCompo
                 } else if (c->repeat > 0) {
                         int k;
 
-                        k = v + c->repeat * ((*val - v + c->repeat -1) / c->repeat);
+                        k = v + c->repeat * ((*val - v + c->repeat - 1) / c->repeat);
 
-                        if (!d_set || k < d) {
+                        if ((!d_set || k < d) && (e < 0 || k <= e)) {
                                 d = k;
                                 d_set = true;
                         }

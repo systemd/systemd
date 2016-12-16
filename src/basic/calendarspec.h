@@ -29,6 +29,7 @@
 
 typedef struct CalendarComponent {
         int value;
+        int range_end;
         int repeat;
 
         struct CalendarComponent *next;
