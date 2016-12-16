@@ -4833,10 +4833,12 @@ EXTRA_DIST += \
 # ------------------------------------------------------------------------------
 if HAVE_LIBCRYPTSETUP
 rootlibexec_PROGRAMS += \
-	systemd-cryptsetup
+	systemd-cryptsetup \
+	systemd-veritysetup
 
 systemgenerator_PROGRAMS += \
-	systemd-cryptsetup-generator
+	systemd-cryptsetup-generator \
+	systemd-veritysetup-generator
 
 dist_systemunit_DATA += \
 	units/cryptsetup.target \
@@ -4857,6 +4859,23 @@ systemd_cryptsetup_generator_SOURCES = \
 	src/cryptsetup/cryptsetup-generator.c
 
 systemd_cryptsetup_generator_LDADD = \
+	libsystemd-shared.la
+
+systemd_veritysetup_SOURCES = \
+	src/veritysetup/veritysetup.c
+
+systemd_veritysetup_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(LIBCRYPTSETUP_CFLAGS)
+
+systemd_veritysetup_LDADD = \
+	libsystemd-shared.la \
+	$(LIBCRYPTSETUP_LIBS)
+
+systemd_veritysetup_generator_SOURCES = \
+	src/veritysetup/veritysetup-generator.c
+
+systemd_veritysetup_generator_LDADD = \
 	libsystemd-shared.la
 
 SYSINIT_TARGET_WANTS += \

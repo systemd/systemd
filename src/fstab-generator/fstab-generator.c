@@ -50,6 +50,7 @@ static bool arg_fstab_enabled = true;
 static char *arg_root_what = NULL;
 static char *arg_root_fstype = NULL;
 static char *arg_root_options = NULL;
+static char *arg_root_hash = NULL;
 static int arg_root_rw = -1;
 static char *arg_usr_what = NULL;
 static char *arg_usr_fstype = NULL;
@@ -697,6 +698,13 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 free(arg_root_options);
                 arg_root_options = o;
+        } else if (streq(key, "roothash")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                if (free_and_strdup(&arg_root_hash, value) < 0)
+                        return log_oom();
 
         } else if (streq(key, "mount.usr")) {
 
@@ -749,6 +757,24 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
+static int determine_root(void) {
+        /* If we have a root hash but no root device then Verity is used, and we use the "root" DM device as root. */
+
+        if (arg_root_what)
+                return 0;
+
+        if (!arg_root_hash)
+                return 0;
+
+        arg_root_what = strdup("/dev/mapper/root");
+        if (!arg_root_what)
+                return log_oom();
+
+        log_info("Using verity root device %s.", arg_root_what);
+
+        return 1;
+}
+
 int main(int argc, char *argv[]) {
         int r = 0;
 
@@ -771,6 +797,8 @@ int main(int argc, char *argv[]) {
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
+
+        (void) determine_root();
 
         /* Always honour root= and usr= in the kernel command line if we are in an initrd */
         if (in_initrd()) {
@@ -812,6 +840,7 @@ int main(int argc, char *argv[]) {
         free(arg_root_what);
         free(arg_root_fstype);
         free(arg_root_options);
+        free(arg_root_hash);
 
         free(arg_usr_what);
         free(arg_usr_fstype);

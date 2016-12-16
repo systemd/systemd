@@ -718,6 +718,15 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 arg_root_enabled = streq(value, "gpt-auto");
 
+        } else if (streq(key, "roothash")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                /* Disable root disk logic if there's roothash= defined (i.e. verity enabled) */
+
+                arg_root_enabled = false;
+
         } else if (streq(key, "rw") && !value)
                 arg_root_rw = true;
         else if (streq(key, "ro") && !value)
