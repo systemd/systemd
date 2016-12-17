@@ -155,7 +155,6 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -Wall \
         -Wextra \
         -Wundef \
-        "-Wformat=2 -Wformat-security -Wformat-nonliteral" \
         -Wlogical-op \
         -Wmissing-include-dirs \
         -Wold-style-definition \
@@ -168,6 +167,7 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -Werror=implicit-function-declaration \
         -Werror=missing-declarations \
         -Werror=return-type \
+        -Werror=format=2 \
         -Wstrict-prototypes \
         -Wredundant-decls \
         -Wmissing-noreturn \
