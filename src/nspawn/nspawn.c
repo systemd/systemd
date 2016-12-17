@@ -2278,7 +2278,7 @@ static int inner_child(
                         return log_error_errno(errno, "Failed to change to specified working directory %s: %m", arg_chdir);
 
         if (arg_start_mode == START_PID2) {
-                r = stub_pid1();
+                r = stub_pid1(arg_uuid);
                 if (r < 0)
                         return r;
         }

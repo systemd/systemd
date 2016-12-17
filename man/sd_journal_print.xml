@@ -189,10 +189,9 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
   <refsect1>
     <title>Return Value</title>
 
-    <para>The four calls return 0 on success or a negative errno-style
-    error code. The
-    <citerefentry project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    variable itself is not altered.</para>
+    <para>The five calls return 0 on success or a negative errno-style error code. The <citerefentry
+    project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry> variable itself is
+    not altered.</para>
 
     <para>If
     <citerefentry><refentrytitle>systemd-journald</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -218,13 +217,11 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
   <refsect1>
     <title>Notes</title>
 
-    <para>The <function>sd_journal_print()</function>,
-    <function>sd_journal_printv()</function>,
-    <function>sd_journal_send()</function> and
-    <function>sd_journal_sendv()</function> interfaces are available
-    as a shared library, which can be compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
+    <para>The <function>sd_journal_print()</function>, <function>sd_journal_printv()</function>,
+    <function>sd_journal_send()</function>, <function>sd_journal_sendv()</function> and
+    <function>sd_journal_perror()</function> interfaces are available as a shared library, which can be compiled and
+    linked to with the <constant>libsystemd</constant> <citerefentry
+    project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry> file.</para>
   </refsect1>
 
   <refsect1>
