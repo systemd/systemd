@@ -2165,7 +2165,7 @@ static int manager_dispatch_time_change_fd(sd_event_source *source, int fd, uint
         assert(m);
         assert(m->time_change_fd == fd);
 
-        log_struct(LOG_INFO,
+        log_struct(LOG_DEBUG,
                    LOG_MESSAGE_ID(SD_MESSAGE_TIME_CHANGE),
                    LOG_MESSAGE("Time has been changed"),
                    NULL);
