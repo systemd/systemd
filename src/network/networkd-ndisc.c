@@ -118,7 +118,9 @@ static void ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         }
 
         r = sd_ndisc_router_get_mtu(rt, &mtu);
-        if (r < 0) {
+        if (r == -ENODATA)
+                mtu = 0;
+        else if (r < 0) {
                 log_link_warning_errno(link, r, "Failed to get default router MTU from RA: %m");
                 return;
         }
