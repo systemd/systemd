@@ -364,7 +364,7 @@ m4_pattern_forbid([^_?PKG_[A-Z_]+$],[*** pkg.m4 missing, please install pkg-conf
 have_dbus=no
 AC_ARG_ENABLE(dbus, AS_HELP_STRING([--disable-dbus], [disable usage of dbus-1 in tests]))
 AS_IF([test "x$enable_dbus" != "xno"], [
-        PKG_CHECK_MODULES(DBUS, [dbus-1 >= 1.3.2],
+        PKG_CHECK_MODULES(DBUS, [dbus-1 >= 1.9.18],
                 [AC_DEFINE(HAVE_DBUS, 1, [Define if dbus-1 library is available]) have_dbus=yes],
                 [have_dbus=no])
         AS_IF([test "x$have_dbus" = "xno" -a "x$enable_dbus" = "xyes"],
@@ -1451,7 +1451,7 @@ AC_SUBST(TTY_GID)
 AC_ARG_WITH([dbuspolicydir],
         AS_HELP_STRING([--with-dbuspolicydir=DIR], [D-Bus policy directory]),
         [],
-        [with_dbuspolicydir=${sysconfdir}/dbus-1/system.d])
+        [with_dbuspolicydir=${datadir}/dbus-1/system.d])
 AX_NORMALIZE_PATH([with_dbuspolicydir])
 
 AC_ARG_WITH([dbussessionservicedir],
