@@ -2559,6 +2559,7 @@ static int unit_find_paths(
                 }
         } else {
                 _cleanup_set_free_ Set *names;
+                _cleanup_free_ char *template = NULL;
 
                 names = set_new(NULL);
                 if (!names)
@@ -2569,8 +2570,6 @@ static int unit_find_paths(
                         return r;
 
                 if (r == 0) {
-                        _cleanup_free_ char *template = NULL;
-
                         r = unit_name_template(unit_name, &template);
                         if (r < 0 && r != -EINVAL)
                                 return log_error_errno(r, "Failed to determine template name: %m");
@@ -2581,7 +2580,22 @@ static int unit_find_paths(
                         }
                 }
 
-                r = set_put(names, basename(path));
+                if (path)
+                        /* We found the unit file. If we followed symlinks, this name might be
+                         * different then the unit_name with started with. Look for dropins matching
+                         * that "final" name. */
+                        r = set_put(names, basename(path));
+                else if (!template)
+                        /* No unit file, let's look for dropins matching the original name.
+                         * systemd has fairly complicated rules (based on unit type and provenience),
+                         * which units are allowed not to have the main unit file. We err on the
+                         * side of including too many files, and always try to load dropins. */
+                        r = set_put(names, unit_name);
+                else
+                        /* The cases where we allow a unit to exist without the main file are
+                         * never valid for templates. Don't try to load dropins in this case. */
+                        goto not_found;
+
                 if (r < 0)
                         return log_error_errno(r, "Failed to add unit name: %m");
 
@@ -2605,7 +2619,7 @@ static int unit_find_paths(
                 dropins = NULL;
                 r = 1;
         }
-
+ not_found:
         if (r == 0 && !arg_force)
                 log_error("No files found for %s.", unit_name);
 
