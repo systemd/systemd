@@ -135,8 +135,9 @@ static int generate_wants_symlinks(void) {
 
         STRV_FOREACH(u, arg_wants) {
                 _cleanup_free_ char *p = NULL, *f = NULL;
+                const char *target = arg_default_unit ?: SPECIAL_DEFAULT_TARGET;
 
-                p = strjoin(arg_dest, "/", arg_default_unit, ".wants/", *u);
+                p = strjoin(arg_dest, "/", target, ".wants/", *u);
                 if (!p)
                         return log_oom();
 
@@ -172,12 +173,6 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = free_and_strdup(&arg_default_unit, SPECIAL_DEFAULT_TARGET);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set default unit %s: %m", SPECIAL_DEFAULT_TARGET);
-                goto finish;
-        }
-
         r = parse_proc_cmdline(parse_proc_cmdline_item, NULL, false);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
@@ -197,6 +192,7 @@ int main(int argc, char *argv[]) {
                 r = q;
 
 finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        arg_default_unit = mfree(arg_default_unit);
 
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
