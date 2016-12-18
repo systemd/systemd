@@ -2796,15 +2796,14 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
         return 0;
 }
 
-static int setup_sd_notify_parent(sd_event *event, int fd, pid_t *inner_child_pid) {
+static int setup_sd_notify_parent(sd_event *event, int fd, pid_t *inner_child_pid, sd_event_source **notify_event_source) {
         int r;
-        sd_event_source *notify_event_source;
 
-        r = sd_event_add_io(event, &notify_event_source, fd, EPOLLIN, nspawn_dispatch_notify_fd, inner_child_pid);
+        r = sd_event_add_io(event, notify_event_source, fd, EPOLLIN, nspawn_dispatch_notify_fd, inner_child_pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate notify event source: %m");
 
-        (void) sd_event_source_set_description(notify_event_source, "nspawn-notify");
+        (void) sd_event_source_set_description(*notify_event_source, "nspawn-notify");
 
         return 0;
 }
@@ -3069,6 +3068,7 @@ static int run(int master,
                 uid_shift_socket_pair[2] = { -1, -1 };
         _cleanup_close_ int notify_socket= -1;
         _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
@@ -3352,7 +3352,7 @@ static int run(int master,
         if (r < 0)
                 return log_error_errno(r, "Failed to get default event source: %m");
 
-        r = setup_sd_notify_parent(event, notify_socket, PID_TO_PTR(*pid));
+        r = setup_sd_notify_parent(event, notify_socket, PID_TO_PTR(*pid), &notify_event_source);
         if (r < 0)
                 return r;
 
