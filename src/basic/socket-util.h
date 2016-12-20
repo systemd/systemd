@@ -30,6 +30,7 @@
 #include <linux/if_packet.h>
 
 #include "macro.h"
+#include "missing.h"
 #include "util.h"
 
 union sockaddr_union {
@@ -40,6 +41,7 @@ union sockaddr_union {
         struct sockaddr_nl nl;
         struct sockaddr_storage storage;
         struct sockaddr_ll ll;
+        struct sockaddr_vm vm;
 };
 
 typedef struct SocketAddress {
