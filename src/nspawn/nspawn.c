@@ -1311,31 +1311,43 @@ static int setup_timezone(const char *dest) {
 }
 
 static int setup_resolv_conf(const char *dest) {
-        const char *where = NULL;
-        int r;
+        _cleanup_free_ char *resolved = NULL, *etc = NULL;
+        const char *where;
+        int r, found;
 
         assert(dest);
 
         if (arg_private_network)
                 return 0;
 
-        /* Fix resolv.conf, if possible */
-        where = prefix_roota(dest, "/etc/resolv.conf");
+        r = chase_symlinks("/etc", dest, CHASE_PREFIX_ROOT, &etc);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to resolve /etc path in container, ignoring: %m");
+                return 0;
+        }
+
+        where = strjoina(etc, "/resolv.conf");
+        found = chase_symlinks(where, dest, CHASE_NONEXISTENT, &resolved);
+        if (found < 0) {
+                log_warning_errno(found, "Failed to resolve /etc/resolv.conf path in container, ignoring: %m");
+                return 0;
+        }
 
         if (access("/run/systemd/resolve/resolv.conf", F_OK) >= 0 &&
-                        access("/usr/lib/systemd/resolv.conf", F_OK) >= 0) {
+            access("/usr/lib/systemd/resolv.conf", F_OK) >= 0) {
+
                 /* resolved is enabled on the host. In this, case bind mount its static resolv.conf file into the
                  * container, so that the container can use the host's resolver. Given that network namespacing is
                  * disabled it's only natural of the container also uses the host's resolver. It also has the big
                  * advantage that the container will be able to follow the host's DNS server configuration changes
                  * transparently. */
 
-                (void) touch(where);
+                if (found == 0) /* missing? */
+                        (void) touch(resolved);
 
-                r = mount_verbose(LOG_WARNING, "/usr/lib/systemd/resolv.conf", where, NULL, MS_BIND, NULL);
+                r = mount_verbose(LOG_DEBUG, "/usr/lib/systemd/resolv.conf", resolved, NULL, MS_BIND, NULL);
                 if (r >= 0)
-                        return mount_verbose(LOG_ERR, NULL, where, NULL,
-                                             MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL);
+                        return mount_verbose(LOG_ERR, NULL, resolved, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL);
         }
 
         /* If that didn't work, let's copy the file */
@@ -1346,7 +1358,7 @@ static int setup_resolv_conf(const char *dest) {
                  *
                  * If the disk image is read-only, there's also no point in complaining.
                  */
-                log_full_errno(IN_SET(r, -ELOOP, -EROFS) ? LOG_DEBUG : LOG_WARNING, r,
+                log_full_errno(IN_SET(r, -ELOOP, -EROFS, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to copy /etc/resolv.conf to %s, ignoring: %m", where);
                 return 0;
         }
