@@ -217,11 +217,12 @@
     <para>In the date and time specifications, any component may be
     specified as <literal>*</literal> in which case any value will
     match. Alternatively, each component can be specified as a list of
-    values separated by commas. Values may also be suffixed with
+    values separated by commas. Values may be suffixed with
     <literal>/</literal> and a repetition value, which indicates that
     the value itself and the value plus all multiples of the repetition value
-    are matched.  Each component may also contain a range of values
-    separated by <literal>..</literal>.</para>
+    are matched.  Two values separated by <literal>..</literal> may be used
+    to indicate a range of values; ranges may also be followed with
+    <literal>/</literal> and a repetition value.</para>
 
     <para>A date specification may use <literal>~</literal> to indicate the
     last day(s) in a month. For example, <literal>*-02~03</literal> means
@@ -281,7 +282,7 @@ Wed..Sat,Tue 12-10-15 1:2:3 → Tue..Sat 2012-10-15 01:02:03
      Sat,Sun 12-05 08:05:40 → Sat,Sun *-12-05 08:05:40
            Sat,Sun 08:05:40 → Sat,Sun *-*-* 08:05:40
            2003-03-05 05:40 → 2003-03-05 05:40:00
- 05:40:23.4200004/3.1700005 → 05:40:23.420000/3.170001
+ 05:40:23.4200004/3.1700005 → *-*-* 05:40:23.420000/3.170001
              2003-02..04-05 → 2003-02..04-05 00:00:00
        2003-03-05 05:40 UTC → 2003-03-05 05:40:00 UTC
                  2003-03-05 → 2003-03-05 00:00:00

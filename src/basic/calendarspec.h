@@ -28,7 +28,8 @@
 #include "util.h"
 
 typedef struct CalendarComponent {
-        int value;
+        int start;
+        int stop;
         int repeat;
 
         struct CalendarComponent *next;
