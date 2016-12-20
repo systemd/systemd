@@ -204,7 +204,7 @@ int fd_check_fstype(int fd, statfs_f_type_t magic_value) {
 int path_check_fstype(const char *path, statfs_f_type_t magic_value) {
         _cleanup_close_ int fd = -1;
 
-        fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_PATH);
         if (fd < 0)
                 return -errno;
 
@@ -228,7 +228,7 @@ int fd_is_temporary_fs(int fd) {
 int path_is_temporary_fs(const char *path) {
         _cleanup_close_ int fd = -1;
 
-        fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_PATH);
         if (fd < 0)
                 return -errno;
 
