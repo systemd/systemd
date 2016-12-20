@@ -459,6 +459,7 @@ _public_ int sd_ndisc_router_prefix_get_preferred_lifetime(sd_ndisc_router *rt, 
 
 _public_ int sd_ndisc_router_prefix_get_flags(sd_ndisc_router *rt, uint8_t *ret) {
         struct nd_opt_prefix_info *pi;
+        uint8_t flags;
         int r;
 
         assert_return(rt, -EINVAL);
@@ -468,7 +469,14 @@ _public_ int sd_ndisc_router_prefix_get_flags(sd_ndisc_router *rt, uint8_t *ret)
         if (r < 0)
                 return r;
 
-        *ret = pi->nd_opt_pi_flags_reserved;
+        flags = pi->nd_opt_pi_flags_reserved;
+
+        if ((flags & ND_OPT_PI_FLAG_AUTO) && (pi->nd_opt_pi_prefix_len != 64)) {
+                log_ndisc("Invalid prefix length, ignoring prefix for stateless autoconfiguration.");
+                flags &= ~ND_OPT_PI_FLAG_AUTO;
+        }
+
+        *ret = flags;
         return 0;
 }
 
