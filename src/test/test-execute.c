@@ -33,6 +33,7 @@
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
+#include "stat-util.h"
 #include "test-helper.h"
 #include "unit.h"
 #include "util.h"
@@ -188,15 +189,27 @@ static void test_exec_protectkernelmodules(Manager *m) {
 }
 
 static void test_exec_readonlypaths(Manager *m) {
+
+        if (path_is_read_only_fs("/var") > 0)
+                return;
+
         test(m, "exec-readonlypaths.service", 0, CLD_EXITED);
         test(m, "exec-readonlypaths-mount-propagation.service", 0, CLD_EXITED);
 }
 
 static void test_exec_readwritepaths(Manager *m) {
+
+        if (path_is_read_only_fs("/") > 0)
+                return;
+
         test(m, "exec-readwritepaths-mount-propagation.service", 0, CLD_EXITED);
 }
 
 static void test_exec_inaccessiblepaths(Manager *m) {
+
+        if (path_is_read_only_fs("/") > 0)
+                return;
+
         test(m, "exec-inaccessiblepaths-mount-propagation.service", 0, CLD_EXITED);
 }
 
