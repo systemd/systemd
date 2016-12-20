@@ -510,12 +510,10 @@ static int parse_component_decimal(const char **p, bool usec, int *res) {
                         return -ERANGE;
 
                 value *= USEC_PER_SEC;
-                if (*e == '.') {
-                        unsigned add;
 
-                        /* This is the start of a range, not a fractional part */
-                        if (e[1] == '.')
-                                goto finish;
+                /* One "." is a decimal point, but ".." is a range separator */
+                if (e[0] == '.' && e[1] != '.') {
+                        unsigned add;
 
                         e++;
                         r = parse_fractional_part_u(&e, 6, &add);
@@ -528,7 +526,6 @@ static int parse_component_decimal(const char **p, bool usec, int *res) {
                 }
         }
 
-finish:
         if (value > INT_MAX)
                 return -ERANGE;
 
@@ -1017,8 +1014,7 @@ fail:
         return r;
 }
 
-static int find_end_of_month(struct tm *tm, bool utc, int day)
-{
+static int find_end_of_month(struct tm *tm, bool utc, int day) {
         struct tm t = *tm;
 
         t.tm_mon++;
