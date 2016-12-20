@@ -480,7 +480,7 @@ bool socket_address_matches_fd(const SocketAddress *a, int fd) {
         return socket_address_equal(a, &b);
 }
 
-int sockaddr_port(const struct sockaddr *_sa) {
+int sockaddr_port(const struct sockaddr *_sa, unsigned *port) {
         union sockaddr_union *sa = (union sockaddr_union*) _sa;
 
         assert(sa);
@@ -488,7 +488,8 @@ int sockaddr_port(const struct sockaddr *_sa) {
         if (!IN_SET(sa->sa.sa_family, AF_INET, AF_INET6))
                 return -EAFNOSUPPORT;
 
-        return be16toh(sa->sa.sa_family == AF_INET6 ? sa->in6.sin6_port : sa->in.sin_port);
+        *port = be16toh(sa->sa.sa_family == AF_INET6 ? sa->in6.sin6_port : sa->in.sin_port);
+        return 0;
 }
 
 int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_ipv6, bool include_port, char **ret) {

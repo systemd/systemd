@@ -1295,7 +1295,7 @@ static int service_spawn(
                 if (r == 0 && IN_SET(sa.sa.sa_family, AF_INET, AF_INET6)) {
                         _cleanup_free_ char *addr = NULL;
                         char *t;
-                        int port;
+                        unsigned port;
 
                         r = sockaddr_pretty(&sa.sa, salen, true, false, &addr);
                         if (r < 0)
@@ -1306,9 +1306,9 @@ static int service_spawn(
                                 return -ENOMEM;
                         our_env[n_env++] = t;
 
-                        port = sockaddr_port(&sa.sa);
-                        if (port < 0)
-                                return port;
+                        r = sockaddr_port(&sa.sa, &port);
+                        if (r < 0)
+                                return r;
 
                         if (asprintf(&t, "REMOTE_PORT=%u", port) < 0)
                                 return -ENOMEM;
