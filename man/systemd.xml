@@ -183,10 +183,14 @@
       <varlistentry>
         <term><option>--show-status=</option></term>
 
-        <listitem><para>Show terse service status information while
-        booting. This switch has no effect when run as user instance.
-        Takes a boolean argument which may be omitted which is
-        interpreted as <option>true</option>.</para></listitem>
+        <listitem><para>Takes a boolean argument or the special value <constant>auto</constant>. If on, terse unit
+        status information is shown on the console during boot-up and shutdown. If off, no such status information is
+        shown. If set to <constant>auto</constant> behavior is similar to off, except that it is automatically switched
+        to on, as soon as the first unit failure or significant boot delay is encountered. This switch has no effect
+        when invoked as user instance. If specified, overrides both the kernel command line setting
+        <varname>systemd.show_status=</varname> (see below) and the configuration file option
+        <option>ShowStatus=</option>, see
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
       <varlistentry>
         <term><option>--log-target=</option></term>
@@ -953,15 +957,15 @@
       <varlistentry>
         <term><varname>systemd.show_status=</varname></term>
 
-        <listitem><para>Takes a boolean argument or the constant
-        <constant>auto</constant>. If <option>yes</option>, the
-        systemd manager (PID 1) shows terse service status updates on
-        the console during bootup.  <constant>auto</constant> behaves
-        like <option>false</option> until a service fails or there is
-        a significant delay in boot.  Defaults to
-        <option>yes</option>, unless <option>quiet</option> is passed
-        as kernel command line option, in which case it defaults to
-        <constant>auto</constant>.</para></listitem>
+        <listitem><para>Takes a boolean argument or the constant <constant>auto</constant>. If <option>yes</option>,
+        the systemd manager (PID 1) shows terse service status updates on the console during bootup.
+        <constant>auto</constant> behaves like <option>false</option> until a unit fails or there is a significant
+        delay in boot.  Defaults to <option>yes</option>, unless <option>quiet</option> is passed as kernel command
+        line option, in which case it defaults to <constant>auto</constant>. If specified overrides the system manager
+        configuration file option <option>ShowStatus=</option>, see
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. However,
+        the process command line option <option>--show-status=</option> takes precedence over both this kernel command
+        line option and the configuration file option.</para></listitem>
       </varlistentry>
 
       <varlistentry>
