@@ -664,8 +664,40 @@ static int get_block_device_harder(const char *path, dev_t *dev) {
                 if (!IN_SET(de->d_type, DT_LNK, DT_UNKNOWN))
                         continue;
 
-                if (found) /* Don't try to support multiple backing block devices */
-                        goto fallback;
+                if (found) {
+                        _cleanup_free_ char *u = NULL, *v = NULL, *a = NULL, *b = NULL;
+
+                        /* We found a device backed by multiple other devices. We don't really support automatic
+                         * discovery on such setups, with the exception of dm-verity partitions. In this case there are
+                         * two backing devices: the data partitoin and the hash partition. We are fine with such
+                         * setups, however, only if both partitions are on the same physical device. Hence, let's
+                         * verify this. */
+
+                        u = strjoin(p, "/", de->d_name, "/../dev");
+                        if (!u)
+                                return -ENOMEM;
+
+                        v = strjoin(p, "/", found->d_name, "/../dev");
+                        if (!v)
+                                return -ENOMEM;
+
+                        r = read_one_line_file(u, &a);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to read %s: %m", u);
+                                goto fallback;
+                        }
+
+                        r = read_one_line_file(v, &b);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to read %s: %m", v);
+                                goto fallback;
+                        }
+
+                        /* Check if the parent device is the same. If not, then the two backing devices are on
+                         * different physical devices, and we don't support that. */
+                        if (!streq(a, b))
+                                goto fallback;
+                }
 
                 found = de;
         }
