@@ -93,6 +93,14 @@ evdev:input:b0003v05ACp025B*
 #########################################
 # ASUS
 #########################################
+
+# Asus VivoBook E402SA
+evdev:name:Elan Touchpad:dmi:*svnASUSTeKCOMPUTERINC.:pnE402SA*
+ EVDEV_ABS_00=::29
+ EVDEV_ABS_01=::29
+ EVDEV_ABS_35=::29
+ EVDEV_ABS_36=::29
+
 # Asus K52JT
 evdev:name:ETPS/2 Elantech Touchpad:dmi:bvn*:bvr*:bd*:svnASUSTeKComputerInc.:pnK52JT:*
  EVDEV_ABS_00=::18
@@ -191,6 +199,13 @@ evdev:name:SynPS/2 Synaptics TouchPad*:dmi:*svnHewlett-Packard:pnHPPaviliondv7*
  EVDEV_ABS_35=1068:5805:44
  EVDEV_ABS_36=1197:4890:57
 
+# HP Spectre
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:i*svnHP:pnHPSpectreNotebook*
+ EVDEV_ABS_00=1205:5691:47
+ EVDEV_ABS_01=1083:4808:65
+ EVDEV_ABS_35=1205:5691:47
+ EVDEV_ABS_36=1083:4808:65
+
 #########################################
 # Lenovo
 #########################################
@@ -243,6 +258,13 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO:*pvrLenovoV360*
  EVDEV_ABS_00=1243:5927:60
  EVDEV_ABS_01=902:5330:108
 
+# Lenovo W530
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO:*pvrThinkPadW530*
+ EVDEV_ABS_00=1250:5631:59
+ EVDEV_ABS_01=1205:4834:81
+ EVDEV_ABS_35=1250:5631:59
+ EVDEV_ABS_36=1205:4834:81
+
 # Lenovo X220 series
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO:*pvrThinkPadX220*
  EVDEV_ABS_00=1316:5627:58
@@ -286,3 +308,12 @@ evdev:name:ETPS/2 Elantech Touchpad:dmi:*svnSAMSUNGELECTRONICSCO.,LTD.:pn305V4A/
  EVDEV_ABS_01=0:1116:24
  EVDEV_ABS_35=0:2480:28
  EVDEV_ABS_36=0:1116:24
+
+#########################################
+# Toshiba
+#########################################
+
+# Toshiba Tecra M11
+evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:*svnTOSHIBA:pnTECRAM11*
+ EVDEV_ABS_00=90:962:11
+ EVDEV_ABS_01=51:681:14
