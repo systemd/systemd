@@ -60,6 +60,8 @@ Network.IPForward,                      config_parse_address_family_boolean_with
 Network.IPMasquerade,                   config_parse_bool,                              0,                             offsetof(Network, ip_masquerade)
 Network.IPv6PrivacyExtensions,          config_parse_ipv6_privacy_extensions,           0,                             offsetof(Network, ipv6_privacy_extensions)
 Network.IPv6AcceptRA,                   config_parse_tristate,                          0,                             offsetof(Network, ipv6_accept_ra)
+Network.ActiveSlave,                    config_parse_bool,                              0,                             offsetof(Network, active_slave)
+Network.PrimarySlave,                   config_parse_bool,                              0,                             offsetof(Network, primary_slave)
 /* legacy alias for the above */
 Network.IPv6AcceptRouterAdvertisements, config_parse_tristate,                          0,                             offsetof(Network, ipv6_accept_ra)
 Network.IPv6DuplicateAddressDetection,  config_parse_int,                               0,                             offsetof(Network, ipv6_dad_transmits)
