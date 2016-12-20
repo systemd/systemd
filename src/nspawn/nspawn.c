@@ -1288,15 +1288,18 @@ static int setup_timezone(const char *dest) {
                 return 0;
         }
 
-        r = unlink(where);
-        if (r < 0 && errno != ENOENT) {
-                log_error_errno(errno, "Failed to remove existing timezone info %s in container: %m", where);
+        if (unlink(where) < 0 && errno != ENOENT) {
+                log_full_errno(IN_SET(errno, EROFS, EACCES, EPERM) ? LOG_DEBUG : LOG_WARNING, /* Don't complain on read-only images */
+                               errno,
+                               "Failed to remove existing timezone info %s in container, ignoring: %m", where);
                 return 0;
         }
 
         what = strjoina("../usr/share/zoneinfo/", z);
         if (symlink(what, where) < 0) {
-                log_error_errno(errno, "Failed to correct timezone of container: %m");
+                log_full_errno(IN_SET(errno, EROFS, EACCES, EPERM) ? LOG_DEBUG : LOG_WARNING,
+                               errno,
+                               "Failed to correct timezone of container, ignoring: %m");
                 return 0;
         }
 
