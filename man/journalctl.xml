@@ -319,7 +319,9 @@
                 text-based) stream suitable for backups and network
                 transfer (see
                 <ulink url="http://www.freedesktop.org/wiki/Software/systemd/export">Journal Export Format</ulink>
-                for more information).</para>
+                for more information). To import the binary stream back
+                into native journald format use
+                <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
               </listitem>
             </varlistentry>
 
