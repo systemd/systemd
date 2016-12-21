@@ -18,17 +18,19 @@
 #    ZZZZ is the bus-id (see /usr/include/linux/input.h BUS_*), YYYY, XXXX and
 #    WWW are the 4-digit hex uppercase vendor, product and version ID and VVVV
 #    is an arbitrary length input-modalias describing the device capabilities.
+#    The vendor, product and version ID for a device node "eventX" is listed
+#    in /sys/class/input/eventX/device/id.
 #
 #  - AT keyboard DMI data matches:
 #      evdev:atkbd:dmi:bvn*:bvr*:bd*:svn<vendor>:pn<product>:pvr*
 #    <vendor> and <product> are the firmware-provided strings
-#    exported by the kernel DMI modalias.
+#    exported by the kernel DMI modalias, see /sys/class/dmi/id/modalias
 #
 #  - Input driver device name and DMI data match:
 #      evdev:name:<input device name>:dmi:bvn*:bvr*:bd*:svn<vendor>:pn*
 #    <input device name> is the name device specified by the
 #    driver, <vendor> is the firmware-provided string exported
-#    by the kernel DMI modalias.
+#    by the kernel DMI modalias, see /sys/class/dmi/id/modalias
 #
 # Scan codes are specified as:
 #   KEYBOARD_KEY_<hex scan code>=<key code identifier>
