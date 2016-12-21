@@ -1292,7 +1292,7 @@ static int service_spawn(
                                 return r;
                 }
 
-                if (r == 0 && IN_SET(sa.sa.sa_family, AF_INET, AF_INET6)) {
+                if (r == 0 && IN_SET(sa.sa.sa_family, AF_INET, AF_INET6, AF_VSOCK)) {
                         _cleanup_free_ char *addr = NULL;
                         char *t;
                         unsigned port;
