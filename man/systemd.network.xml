@@ -603,8 +603,8 @@
         </para></listitem>
         </varlistentry>
         <varlistentry>
-          <term><varname>ProxyARP=</varname></term>
-          <listitem><para>A boolean. Configures proxy ARP. Proxy ARP is the technique in which one host,
+          <term><varname>IPv4ProxyARP=</varname></term>
+          <listitem><para>A boolean. Configures proxy ARP for IPv4. Proxy ARP is the technique in which one host,
           usually a router, answers ARP requests intended for another machine. By "faking" its identity,
           the router accepts responsibility for routing packets to the "real" destination. (see <ulink
           url="https://tools.ietf.org/html/rfc1027">RFC 1027</ulink>.
