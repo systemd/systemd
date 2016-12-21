@@ -31,8 +31,10 @@ RootSize=2G
 
 [Packages]
 BuildPackages=
+        acl
         autoconf
         automake
+        diffutils
         docbook-xml
         docbook-xsl
         gcc
@@ -57,10 +59,12 @@ BuildPackages=
         libkmod-dev
         liblzma-dev
         liblz4-dev
+        liblz4-tool
         libmicrohttpd-dev
         libmount-dev
         libpam0g-dev
         libqrencode-dev
+        libqrencode3
         libseccomp-dev
         libsmartcols-dev
         libtool
@@ -69,5 +73,7 @@ BuildPackages=
         pkg-config
         python3
         python3-lxml
+        tree
         uuid-dev
         xsltproc
+        xz-utils
