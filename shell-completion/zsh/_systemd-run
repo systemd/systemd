@@ -51,10 +51,10 @@ _arguments \
         '--nice=[Nice level]:nice level' \
         '--setenv=[Set environment]:NAME=VALUE' \
         '--on-active=[Run after SEC seconds]:SEC' \
-        '--on-boot=[Run after SEC seconds from machine was booted up]:SEC' \
-        '--on-statup=[Run after SEC seconds from systemd was first started]:SEC' \
-        '--on-unit-active=[Run after SEC seconds from the last activation]:SEC' \
-        '--on-unit-inactive=[Run after SEC seconds from the last deactivation]:SEC' \
+        '--on-boot=[Run SEC seconds after machine was booted up]:SEC' \
+        '--on-startup=[Run SEC seconds after systemd was first started]:SEC' \
+        '--on-unit-active=[Run SEC seconds after the last activation]:SEC' \
+        '--on-unit-inactive=[Run SEC seconds after the last deactivation]:SEC' \
         '--on-calendar=[Realtime timer]:SPEC' \
         '--timer-property=[Set timer unit property]:NAME=VALUE' \
         '--wait=[Wait until service stopped again]' \
