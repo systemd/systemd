@@ -20,6 +20,7 @@
 #include <alloca.h>
 #include <ctype.h>
 #include <errno.h>
+#include <limits.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -96,7 +97,7 @@ static void normalize_chain(CalendarComponent **c) {
                  * While we're counting the chain, also normalize `stop`
                  * so the length of the range is a multiple of `repeat`
                  */
-                if (i->stop > i->start)
+                if (i->stop > i->start && i->repeat > 0)
                         i->stop -= (i->stop - i->start) % i->repeat;
 
         }
@@ -487,7 +488,7 @@ static int parse_weekdays(const char **p, CalendarSpec *c) {
         }
 }
 
-static int parse_component_decimal(const char **p, bool usec, unsigned long *res) {
+static int parse_component_decimal(const char **p, bool usec, int *res) {
         unsigned long value;
         const char *e = NULL;
         char *ee = NULL;
@@ -502,8 +503,6 @@ static int parse_component_decimal(const char **p, bool usec, unsigned long *res
                 return -errno;
         if (ee == *p)
                 return -EINVAL;
-        if ((unsigned long) (int) value != value)
-                return -ERANGE;
         e = ee;
 
         if (usec) {
@@ -511,12 +510,10 @@ static int parse_component_decimal(const char **p, bool usec, unsigned long *res
                         return -ERANGE;
 
                 value *= USEC_PER_SEC;
-                if (*e == '.') {
-                        unsigned add;
 
-                        /* This is the start of a range, not a fractional part */
-                        if (e[1] == '.')
-                                goto finish;
+                /* One "." is a decimal point, but ".." is a range separator */
+                if (e[0] == '.' && e[1] != '.') {
+                        unsigned add;
 
                         e++;
                         r = parse_fractional_part_u(&e, 6, &add);
@@ -529,7 +526,9 @@ static int parse_component_decimal(const char **p, bool usec, unsigned long *res
                 }
         }
 
-finish:
+        if (value > INT_MAX)
+                return -ERANGE;
+
         *p = e;
         *res = value;
 
@@ -556,9 +555,8 @@ static int const_chain(int value, CalendarComponent **c) {
 }
 
 static int prepend_component(const char **p, bool usec, CalendarComponent **c) {
-        unsigned long start, stop = -1, repeat = 0;
+        int r, start, stop = -1, repeat = 0;
         CalendarComponent *cc;
-        int r;
         const char *e;
 
         assert(p);
@@ -1016,8 +1014,7 @@ fail:
         return r;
 }
 
-static int find_end_of_month(struct tm *tm, bool utc, int day)
-{
+static int find_end_of_month(struct tm *tm, bool utc, int day) {
         struct tm t = *tm;
 
         t.tm_mon++;
