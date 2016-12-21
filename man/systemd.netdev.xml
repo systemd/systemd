@@ -1072,6 +1072,33 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>ActiveSlave=</varname></term>
+        <listitem>
+          <para>A boolean. Specifies the new active slave. The <literal>ActiveSlave=</literal>
+          option is only valid for following modes:
+          <literal>active-backup</literal>,
+          <literal>balance-alb</literal> and
+          <literal>balance-tlb</literal>. Defaults to false.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>PrimarySlave=</varname></term>
+        <listitem>
+          <para>A boolean. Specifies which slave is the primary device. The specified
+          device will always be the active slave while it is available. Only when the
+          primary is off-line will alternate devices be used.  This is useful when
+          one slave is preferred over another, e.g. when one slave has higher throughput
+          than another. The <literal>PrimarySlave=</literal> option is only valid for
+          following modes:
+          <literal>active-backup</literal>,
+          <literal>balance-alb</literal> and
+          <literal>balance-tlb</literal>. Defaults to false.
+          </para>
+        </listitem>
+      </varlistentry>
     </variablelist>
 
     <para>For more detail information see
