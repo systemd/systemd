@@ -2683,11 +2683,11 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                 if (streq_ptr(path, user->service_job))
                         user->service_job = mfree(user->service_job);
 
-                if (streq_ptr(path, user->slice_job))
+                if (streq_ptr(path, user->slice_job)) {
                         user->slice_job = mfree(user->slice_job);
-
-                LIST_FOREACH(sessions_by_user, session, user->sessions)
-                        session_jobs_reply(session, unit, result);
+                        LIST_FOREACH(sessions_by_user, session, user->sessions)
+                                session_jobs_reply(session, unit, result);
+                }
 
                 user_save(user);
                 user_add_to_gc_queue(user);
