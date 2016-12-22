@@ -50,6 +50,7 @@ struct NameSpaceInfo {
         bool protect_control_groups:1;
         bool protect_kernel_tunables:1;
         bool protect_kernel_modules:1;
+        bool mount_apivfs:1;
 };
 
 struct BindMount {

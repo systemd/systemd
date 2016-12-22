@@ -101,6 +101,7 @@ $1.PrivateUsers,                 config_parse_bool,                  0,         
 $1.ProtectSystem,                config_parse_protect_system,        0,                             offsetof($1, exec_context)
 $1.ProtectHome,                  config_parse_protect_home,          0,                             offsetof($1, exec_context)
 $1.MountFlags,                   config_parse_exec_mount_flags,      0,                             offsetof($1, exec_context)
+$1.MountAPIVFS,                  config_parse_bool,                  0,                             offsetof($1, exec_context.mount_apivfs)
 $1.Personality,                  config_parse_personality,           0,                             offsetof($1, exec_context.personality)
 $1.RuntimeDirectoryMode,         config_parse_mode,                  0,                             offsetof($1, exec_context.runtime_directory_mode)
 $1.RuntimeDirectory,             config_parse_runtime_directory,     0,                             offsetof($1, exec_context.runtime_directory)

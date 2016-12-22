@@ -828,6 +828,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("RestrictNamespaces", "t", bus_property_get_ulong, offsetof(ExecContext, restrict_namespaces), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("BindPaths", "a(ssbt)", property_get_bind_paths, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("BindReadOnlyPaths", "a(ssbt)", property_get_bind_paths, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("MountAPIVFS", "b", bus_property_get_bool, offsetof(ExecContext, mount_apivfs), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };
 
@@ -1207,7 +1208,7 @@ int bus_exec_context_set_transient_property(
                               "PrivateTmp", "PrivateDevices", "PrivateNetwork", "PrivateUsers",
                               "NoNewPrivileges", "SyslogLevelPrefix", "MemoryDenyWriteExecute",
                               "RestrictRealtime", "DynamicUser", "RemoveIPC", "ProtectKernelTunables",
-                              "ProtectKernelModules", "ProtectControlGroups")) {
+                              "ProtectKernelModules", "ProtectControlGroups", "MountAPIVFS")) {
                 int b;
 
                 r = sd_bus_message_read(message, "b", &b);
@@ -1247,6 +1248,8 @@ int bus_exec_context_set_transient_property(
                                 c->protect_kernel_modules = b;
                         else if (streq(name, "ProtectControlGroups"))
                                 c->protect_control_groups = b;
+                        else if (streq(name, "MountAPIVFS"))
+                                c->mount_apivfs = b;
 
                         unit_write_drop_in_private_format(u, mode, name, "%s=%s", name, yes_no(b));
                 }

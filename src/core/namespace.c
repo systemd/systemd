@@ -52,10 +52,13 @@ typedef enum MountMode {
         INACCESSIBLE,
         BIND_MOUNT,
         BIND_MOUNT_RECURSIVE,
-        READONLY,
         PRIVATE_TMP,
         PRIVATE_VAR_TMP,
         PRIVATE_DEV,
+        BIND_DEV,
+        SYSFS,
+        PROCFS,
+        READONLY,
         READWRITE,
 } MountMode;
 
@@ -70,13 +73,13 @@ typedef struct MountEntry {
         char *source_malloc;
 } MountEntry;
 
-/*
- * The following Protect tables are to protect paths and mark some of them
- * READONLY, in case a path is covered by an option from another table, then
- * it is marked READWRITE in the current one, and the more restrictive mode is
- * applied from that other table. This way all options can be combined in a
- * safe and comprehensible way for users.
- */
+/* If MountAPIVFS= is used, let's mount /sys and /proc into the it, but only as a fallback if the user hasn't mounted
+ * something there already. These mounts are hence overriden by any other explicitly configured mounts. */
+static const MountEntry apivfs_table[] = {
+        { "/proc",               PROCFS,       false },
+        { "/dev",                BIND_DEV,     false },
+        { "/sys",                SYSFS,        false },
+};
 
 /* ProtectKernelTunables= option and the related filesystem APIs */
 static const MountEntry protect_kernel_tunables_table[] = {
@@ -465,7 +468,7 @@ static void drop_outside_root(const char *root_directory, MountEntry *m, unsigne
         *n = t - m;
 }
 
-static int mount_dev(MountEntry *m) {
+static int mount_private_dev(MountEntry *m) {
         static const char devnodes[] =
                 "/dev/null\0"
                 "/dev/zero\0"
@@ -604,6 +607,62 @@ fail:
         return r;
 }
 
+static int mount_bind_dev(MountEntry *m) {
+        int r;
+
+        assert(m);
+
+        /* Implements the little brother of mount_private_dev(): simply bind mounts the host's /dev into the service's
+         * /dev. This is only used when RootDirectory= is set. */
+
+        r = path_is_mount_point(mount_entry_path(m), NULL, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to determine whether /dev is already mounted: %m");
+        if (r > 0) /* make this a NOP if /dev is already a mount point */
+                return 0;
+
+        if (mount("/dev", mount_entry_path(m), NULL, MS_BIND|MS_REC, NULL) < 0)
+                return log_debug_errno(errno, "Failed to bind mount %s: %m", mount_entry_path(m));
+
+        return 1;
+}
+
+static int mount_sysfs(MountEntry *m) {
+        int r;
+
+        assert(m);
+
+        r = path_is_mount_point(mount_entry_path(m), NULL, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to determine whether /sys is already mounted: %m");
+        if (r > 0) /* make this a NOP if /sys is already a mount point */
+                return 0;
+
+        /* Bind mount the host's version so that we get all child mounts of it, too. */
+        if (mount("/sys", mount_entry_path(m), NULL, MS_BIND|MS_REC, NULL) < 0)
+                return log_debug_errno(errno, "Failed to mount %s: %m", mount_entry_path(m));
+
+        return 1;
+}
+
+static int mount_procfs(MountEntry *m) {
+        int r;
+
+        assert(m);
+
+        r = path_is_mount_point(mount_entry_path(m), NULL, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to determine whether /proc is already mounted: %m");
+        if (r > 0) /* make this a NOP if /proc is already a mount point */
+                return 0;
+
+        /* Mount a new instance, so that we get the one that matches our user namespace, if we are running in one */
+        if (mount("proc", mount_entry_path(m), "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL) < 0)
+                return log_debug_errno(errno, "Failed to mount %s: %m", mount_entry_path(m));
+
+        return 1;
+}
+
 static int mount_entry_chase(
                 const char *root_directory,
                 MountEntry *m,
@@ -691,6 +750,7 @@ static int apply_mount(
 
         case BIND_MOUNT_RECURSIVE:
                 /* Also chase the source mount */
+
                 r = mount_entry_chase(root_directory, m, mount_entry_source(m), &m->source_malloc);
                 if (r <= 0)
                         return r;
@@ -707,7 +767,16 @@ static int apply_mount(
                 break;
 
         case PRIVATE_DEV:
-                return mount_dev(m);
+                return mount_private_dev(m);
+
+        case BIND_DEV:
+                return mount_bind_dev(m);
+
+        case SYSFS:
+                return mount_sysfs(m);
+
+        case PROCFS:
+                return mount_procfs(m);
 
         default:
                 assert_not_reached("Unknown mode");
@@ -729,7 +798,7 @@ static int make_read_only(MountEntry *m, char **blacklist) {
 
         if (mount_entry_read_only(m))
                 r = bind_remount_recursive(mount_entry_path(m), true, blacklist);
-        else if (m->mode == PRIVATE_DEV) { /* Can be readonly but the submounts can't*/
+        else if (m->mode == PRIVATE_DEV) { /* Superblock can be readonly but the submounts can't*/
                 if (mount(NULL, mount_entry_path(m), NULL, MS_REMOUNT|DEV_MOUNT_OPTIONS|MS_RDONLY, NULL) < 0)
                         r = -errno;
         } else
@@ -743,6 +812,17 @@ static int make_read_only(MountEntry *m, char **blacklist) {
                 r = 0;
 
         return r;
+}
+
+static bool namespace_info_mount_apivfs(const NameSpaceInfo *ns_info) {
+        assert(ns_info);
+
+        /* ProtectControlGroups= and ProtectKernelTunables= imply MountAPIVFS=, since to protect the API VFS mounts,
+         * they need to be around in the first place... */
+
+        return ns_info->mount_apivfs ||
+                ns_info->protect_control_groups ||
+                ns_info->protect_kernel_tunables;
 }
 
 static unsigned namespace_calculate_mounts(
@@ -781,7 +861,8 @@ static unsigned namespace_calculate_mounts(
                 (ns_info->protect_kernel_tunables ? ELEMENTSOF(protect_kernel_tunables_table) : 0) +
                 (ns_info->protect_control_groups ? 1 : 0) +
                 (ns_info->protect_kernel_modules ? ELEMENTSOF(protect_kernel_modules_table) : 0) +
-                protect_home_cnt + protect_system_cnt;
+                protect_home_cnt + protect_system_cnt +
+                (namespace_info_mount_apivfs(ns_info) ? ELEMENTSOF(apivfs_table) : 0);
 }
 
 int setup_namespace(
@@ -884,6 +965,12 @@ int setup_namespace(
                 r = append_protect_system(&m, protect_system, false);
                 if (r < 0)
                         goto finish;
+
+                if (namespace_info_mount_apivfs(ns_info)) {
+                        r = append_static_mounts(&m, apivfs_table, ELEMENTSOF(apivfs_table), ns_info->ignore_protect_paths);
+                        if (r < 0)
+                                goto finish;
+                }
 
                 assert(mounts + n_mounts == m);
 

@@ -183,6 +183,7 @@ struct ExecContext {
         bool protect_kernel_tunables;
         bool protect_kernel_modules;
         bool protect_control_groups;
+        bool mount_apivfs;
 
         bool no_new_privileges;
 

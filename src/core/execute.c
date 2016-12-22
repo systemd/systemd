@@ -1662,6 +1662,9 @@ static bool exec_needs_mount_namespace(
             context->protect_control_groups)
                 return true;
 
+        if (context->mount_apivfs)
+                return true;
+
         return false;
 }
 
@@ -1942,6 +1945,7 @@ static int apply_mount_namespace(Unit *u, const ExecContext *context,
                 .protect_control_groups = context->protect_control_groups,
                 .protect_kernel_tunables = context->protect_kernel_tunables,
                 .protect_kernel_modules = context->protect_kernel_modules,
+                .mount_apivfs = context->mount_apivfs,
         };
 
         assert(context);
@@ -3294,6 +3298,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sPrivateUsers: %s\n"
                 "%sProtectHome: %s\n"
                 "%sProtectSystem: %s\n"
+                "%sMountAPIVFS: %s\n"
                 "%sIgnoreSIGPIPE: %s\n"
                 "%sMemoryDenyWriteExecute: %s\n"
                 "%sRestrictRealtime: %s\n",
@@ -3310,6 +3315,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->private_users),
                 prefix, protect_home_to_string(c->protect_home),
                 prefix, protect_system_to_string(c->protect_system),
+                prefix, yes_no(c->mount_apivfs),
                 prefix, yes_no(c->ignore_sigpipe),
                 prefix, yes_no(c->memory_deny_write_execute),
                 prefix, yes_no(c->restrict_realtime));

@@ -208,7 +208,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                               "PrivateTmp", "PrivateDevices", "PrivateNetwork", "PrivateUsers", "NoNewPrivileges",
                               "SyslogLevelPrefix", "Delegate", "RemainAfterElapse", "MemoryDenyWriteExecute",
                               "RestrictRealtime", "DynamicUser", "RemoveIPC", "ProtectKernelTunables",
-                              "ProtectKernelModules", "ProtectControlGroups")) {
+                              "ProtectKernelModules", "ProtectControlGroups", "MountAPIVFS")) {
 
                 r = parse_boolean(eq);
                 if (r < 0)
