@@ -1490,6 +1490,18 @@ VRF=vrf1
 </programlisting>
     </example>
 
+    <example>
+      <title>MacVTap</title>
+      <para>This brings up a network interface <literal>macvtap-test</literal>
+      and attaches it to <literal>enp0s25</literal>.</para>
+      <programlisting># /lib/systemd/network/25-macvtap.network
+[Match]
+Name=enp0s25
+
+[Network]
+MACVTAP=macvtap-test
+</programlisting>
+    </example>
   </refsect1>
 
   <refsect1>
