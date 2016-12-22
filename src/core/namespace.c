@@ -176,6 +176,13 @@ static const char *mount_entry_source(const MountEntry *p) {
         return p->source_malloc ?: p->source_const;
 }
 
+static void mount_entry_done(MountEntry *p) {
+        assert(p);
+
+        p->path_malloc = mfree(p->path_malloc);
+        p->source_malloc = mfree(p->source_malloc);
+}
+
 static int append_access_mounts(MountEntry **p, char **strv, MountMode mode) {
         char **i;
 
@@ -351,7 +358,7 @@ static void drop_duplicates(MountEntry *m, unsigned *n) {
                 if (previous && path_equal(mount_entry_path(f), mount_entry_path(previous))) {
                         log_debug("%s is duplicate.", mount_entry_path(f));
                         previous->read_only = previous->read_only || mount_entry_read_only(f); /* Propagate the read-only flag to the remaining entry */
-                        f->path_malloc = mfree(f->path_malloc);
+                        mount_entry_done(f);
                         continue;
                 }
 
@@ -379,7 +386,7 @@ static void drop_inaccessible(MountEntry *m, unsigned *n) {
                  * it, as inaccessible paths really should drop the entire subtree. */
                 if (clear && path_startswith(mount_entry_path(f), clear)) {
                         log_debug("%s is masked by %s.", mount_entry_path(f), clear);
-                        f->path_malloc = mfree(f->path_malloc);
+                        mount_entry_done(f);
                         continue;
                 }
 
@@ -419,7 +426,7 @@ static void drop_nop(MountEntry *m, unsigned *n) {
                         /* We found it, let's see if it's the same mode, if so, we can drop this entry */
                         if (found && p->mode == f->mode) {
                                 log_debug("%s is redundant by %s", mount_entry_path(f), mount_entry_path(p));
-                                f->path_malloc = mfree(f->path_malloc);
+                                mount_entry_done(f);
                                 continue;
                         }
                 }
@@ -447,7 +454,7 @@ static void drop_outside_root(const char *root_directory, MountEntry *m, unsigne
 
                 if (!path_startswith(mount_entry_path(f), root_directory)) {
                         log_debug("%s is outside of root directory.", mount_entry_path(f));
-                        f->path_malloc = mfree(f->path_malloc);
+                        mount_entry_done(f);
                         continue;
                 }
 
@@ -964,7 +971,7 @@ int setup_namespace(
 
 finish:
         for (m = mounts; m < mounts + n_mounts; m++)
-                free(m->path_malloc);
+                mount_entry_done(m);
 
         return r;
 }
