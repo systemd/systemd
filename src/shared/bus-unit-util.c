@@ -484,7 +484,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 for (p = eq;;) {
                         _cleanup_free_ char *word = NULL;
-                        int offset;
+                        size_t offset;
 
                         r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
                         if (r < 0) {
@@ -500,6 +500,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         }
 
                         offset = word[0] == '-';
+                        offset += word[offset] == '+';
+
                         if (!path_is_absolute(word + offset)) {
                                 log_error("Failed to parse %s value %s", field, eq);
                                 return -EINVAL;

@@ -1498,12 +1498,15 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 STRV_FOREACH(p, l) {
-                        int offset;
-                        if (!utf8_is_valid(*p))
+                        const char *i = *p;
+                        size_t offset;
+
+                        if (!utf8_is_valid(i))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s", name);
 
-                        offset = **p == '-';
-                        if (!path_is_absolute(*p + offset))
+                        offset = i[0] == '-';
+                        offset += i[offset] == '+';
+                        if (!path_is_absolute(i + offset))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s", name);
                 }
 
@@ -1522,7 +1525,6 @@ int bus_exec_context_set_transient_property(
                                 unit_write_drop_in_private_format(u, mode, name, "%s=", name);
                         } else {
                                 r = strv_extend_strv(dirs, l, true);
-
                                 if (r < 0)
                                         return -ENOMEM;
 

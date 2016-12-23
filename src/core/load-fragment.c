@@ -3839,7 +3839,8 @@ int config_parse_namespace_path_strv(
         cur = rvalue;
         for (;;) {
                 _cleanup_free_ char *word = NULL, *resolved = NULL, *joined = NULL;
-                bool ignore_enoent;
+                const char *w;
+                bool ignore_enoent = false, shall_prefix = false;
 
                 r = extract_first_word(&cur, &word, NULL, EXTRACT_QUOTES);
                 if (r == 0)
@@ -3856,9 +3857,17 @@ int config_parse_namespace_path_strv(
                         continue;
                 }
 
-                ignore_enoent = word[0] == '-';
+                w = word;
+                if (startswith(w, "-")) {
+                        ignore_enoent = true;
+                        w++;
+                }
+                if (startswith(w, "+")) {
+                        shall_prefix = true;
+                        w++;
+                }
 
-                r = unit_full_printf(u, word + ignore_enoent, &resolved);
+                r = unit_full_printf(u, w, &resolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve specifiers in %s: %m", word);
                         continue;
@@ -3871,7 +3880,9 @@ int config_parse_namespace_path_strv(
 
                 path_kill_slashes(resolved);
 
-                joined = strjoin(ignore_enoent ? "-" : "", resolved);
+                joined = strjoin(ignore_enoent ? "-" : "",
+                                 shall_prefix ? "+" : "",
+                                 resolved);
 
                 r = strv_push(sv, joined);
                 if (r < 0)
