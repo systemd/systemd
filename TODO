@@ -120,8 +120,6 @@ Features:
 
 * switch to ProtectSystem=strict for all our long-running services where that's possible
 
-* If RootDirectory= is used, mount /proc, /sys, /dev into it, if not mounted yet
-
 * Permit masking specific netlink APIs with RestrictAddressFamily=
 
 * nspawn: start UID allocation loop from hash of container name
@@ -150,8 +148,6 @@ Features:
 
 * Add DataDirectory=, CacheDirectory= and LogDirectory= to match
   RuntimeDirectory=, and create it as necessary when starting a service, owned by the right user.
-
-* Add RootImage= for mounting a disk image or file as root directory
 
 * make sure the ratelimit object can deal with USEC_INFINITY as way to turn off things
 
