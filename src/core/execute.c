@@ -1640,6 +1640,9 @@ static bool exec_needs_mount_namespace(
         assert(context);
         assert(params);
 
+        if (context->root_image)
+                return true;
+
         if (!strv_isempty(context->read_write_paths) ||
             !strv_isempty(context->read_only_paths) ||
             !strv_isempty(context->inaccessible_paths))
@@ -1938,7 +1941,7 @@ static int apply_mount_namespace(Unit *u, const ExecContext *context,
         int r;
         _cleanup_strv_free_ char **rw = NULL;
         char *tmp = NULL, *var = NULL;
-        const char *root_dir = NULL;
+        const char *root_dir = NULL, *root_image = NULL;
         NameSpaceInfo ns_info = {
                 .ignore_protect_paths = false,
                 .private_dev = context->private_devices,
@@ -1965,8 +1968,12 @@ static int apply_mount_namespace(Unit *u, const ExecContext *context,
         if (r < 0)
                 return r;
 
-        if (params->flags & EXEC_APPLY_CHROOT)
-                root_dir = context->root_directory;
+        if (params->flags & EXEC_APPLY_CHROOT) {
+                root_image = context->root_image;
+
+                if (!root_image)
+                        root_dir = context->root_directory;
+        }
 
         /*
          * If DynamicUser=no and RootDirectory= is set then lets pass a relaxed
@@ -1976,7 +1983,8 @@ static int apply_mount_namespace(Unit *u, const ExecContext *context,
         if (!context->dynamic_user && root_dir)
                 ns_info.ignore_protect_paths = true;
 
-        r = setup_namespace(root_dir, &ns_info, rw,
+        r = setup_namespace(root_dir, root_image,
+                            &ns_info, rw,
                             context->read_only_paths,
                             context->inaccessible_paths,
                             context->bind_mounts,
@@ -1985,7 +1993,8 @@ static int apply_mount_namespace(Unit *u, const ExecContext *context,
                             var,
                             context->protect_home,
                             context->protect_system,
-                            context->mount_flags);
+                            context->mount_flags,
+                            DISSECT_IMAGE_DISCARD_ON_LOOP);
 
         /* If we couldn't set up the namespace this is probably due to a
          * missing capability. In this case, silently proceeed. */
@@ -1999,10 +2008,12 @@ static int apply_mount_namespace(Unit *u, const ExecContext *context,
         return r;
 }
 
-static int apply_working_directory(const ExecContext *context,
-                                   const ExecParameters *params,
-                                   const char *home,
-                                   const bool needs_mount_ns) {
+static int apply_working_directory(
+                const ExecContext *context,
+                const ExecParameters *params,
+                const char *home,
+                const bool needs_mount_ns) {
+
         const char *d;
         const char *wd;
 
@@ -2983,6 +2994,7 @@ void exec_context_done(ExecContext *c) {
 
         c->working_directory = mfree(c->working_directory);
         c->root_directory = mfree(c->root_directory);
+        c->root_image = mfree(c->root_image);
         c->tty_path = mfree(c->tty_path);
         c->syslog_identifier = mfree(c->syslog_identifier);
         c->user = mfree(c->user);
@@ -3319,6 +3331,9 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->ignore_sigpipe),
                 prefix, yes_no(c->memory_deny_write_execute),
                 prefix, yes_no(c->restrict_realtime));
+
+        if (c->root_image)
+                fprintf(f, "%sRootImage: %s\n", prefix, c->root_image);
 
         STRV_FOREACH(e, c->environment)
                 fprintf(f, "%sEnvironment: %s\n", prefix, *e);

@@ -77,6 +77,7 @@ int main(int argc, char *argv[]) {
                 log_info("Not chrooted");
 
         r = setup_namespace(root_directory,
+                            NULL,
                             &ns_info,
                             (char **) writable,
                             (char **) readonly,
@@ -86,6 +87,7 @@ int main(int argc, char *argv[]) {
                             var_tmp_dir,
                             PROTECT_HOME_NO,
                             PROTECT_SYSTEM_NO,
+                            0,
                             0);
         if (r < 0) {
                 log_error_errno(r, "Failed to setup namespace: %m");

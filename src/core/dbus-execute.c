@@ -758,6 +758,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("LimitRTTIMESoft", "t", bus_property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_RTTIME]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("WorkingDirectory", "s", property_get_working_directory, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootDirectory", "s", NULL, offsetof(ExecContext, root_directory), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RootImage", "s", NULL, offsetof(ExecContext, root_image), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OOMScoreAdjust", "i", property_get_oom_score_adjust, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Nice", "i", property_get_nice, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IOScheduling", "i", property_get_ioprio, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1048,7 +1049,7 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-        } else if (STR_IN_SET(name, "TTYPath", "RootDirectory")) {
+        } else if (STR_IN_SET(name, "TTYPath", "RootDirectory", "RootImage")) {
                 const char *s;
 
                 r = sd_bus_message_read(message, "s", &s);
@@ -1061,6 +1062,8 @@ int bus_exec_context_set_transient_property(
                 if (mode != UNIT_CHECK) {
                         if (streq(name, "TTYPath"))
                                 r = free_and_strdup(&c->tty_path, s);
+                        else if (streq(name, "RootImage"))
+                                r = free_and_strdup(&c->root_image, s);
                         else {
                                 assert(streq(name, "RootDirectory"));
                                 r = free_and_strdup(&c->root_directory, s);

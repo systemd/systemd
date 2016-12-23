@@ -86,12 +86,10 @@
     <para>A few execution parameters result in additional, automatic
     dependencies to be added.</para>
 
-    <para>Units with <varname>WorkingDirectory=</varname> or
-    <varname>RootDirectory=</varname> set automatically gain
-    dependencies of type <varname>Requires=</varname> and
-    <varname>After=</varname> on all mount units required to access
-    the specified paths. This is equivalent to having them listed
-    explicitly in <varname>RequiresMountsFor=</varname>.</para>
+    <para>Units with <varname>WorkingDirectory=</varname>, <varname>RootDirectory=</varname> or
+    <varname>RootImage=</varname> set automatically gain dependencies of type <varname>Requires=</varname> and
+    <varname>After=</varname> on all mount units required to access the specified paths. This is equivalent to having
+    them listed explicitly in <varname>RequiresMountsFor=</varname>.</para>
 
     <para>Similar, units with <varname>PrivateTmp=</varname> enabled automatically get mount unit dependencies for all
     mounts required to access <filename>/tmp</filename> and <filename>/var/tmp</filename>. They will also gain an
@@ -117,9 +115,10 @@
         <varname>User=</varname> is used. If not set, defaults to the root directory when systemd is running as a
         system instance and the respective user's home directory if run as user. If the setting is prefixed with the
         <literal>-</literal> character, a missing working directory is not considered fatal. If
-        <varname>RootDirectory=</varname> is not set, then <varname>WorkingDirectory=</varname> is relative to the root
-        of the system running the service manager.  Note that setting this parameter might result in additional
-        dependencies to be added to the unit (see above).</para></listitem>
+        <varname>RootDirectory=</varname>/<varname>RootImage=</varname> is not set, then
+        <varname>WorkingDirectory=</varname> is relative to the root of the system running the service manager.  Note
+        that setting this parameter might result in additional dependencies to be added to the unit (see
+        above).</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -137,12 +136,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RootImage=</varname></term>
+        <listitem><para>Takes a path to a block device node or regular file as argument. This call is similar to
+        <varname>RootDirectory=</varname> however mounts a file system hierarchy from a block device node or loopack
+        file instead of a directory. The device node or file system image file needs to contain a file system without a
+        partition table, or a file system within an MBR/MS-DOS or GPT partition table with only a single
+        Linux-compatible partition, or a set of file systems within a GPT partition table that follows the <ulink
+        url="http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable Partitions
+        Specification</ulink>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MountAPIVFS=</varname></term>
 
         <listitem><para>Takes a boolean argument. If on, a private mount namespace for the unit's processes is created
         and the API file systems <filename>/proc</filename>, <filename>/sys</filename> and <filename>/dev</filename>
         will be mounted inside of it, unless they are already mounted. Note that this option has no effect unless used
-        in conjunction with <varname>RootDirectory=</varname> as these three mounts are generally mounted in the host
+        in conjunction with <varname>RootDirectory=</varname>/<varname>RootImage=</varname> as these three mounts are generally mounted in the host
         anyway, and unless the root directory is changed the private mount namespace will be a 1:1 copy of the host's,
         and include these three mounts. Note that the <filename>/dev</filename> file system of the host is bind mounted
         if this option is used without <varname>PrivateDevices=</varname>. To run the service with a private, minimal
@@ -952,7 +962,7 @@
         access a process might have to the file system hierarchy. Each setting takes a space-separated list of paths
         relative to the host's root directory (i.e. the system running the service manager).  Note that if paths
         contain symlinks, they are resolved relative to the root directory set with
-        <varname>RootDirectory=</varname>.</para>
+        <varname>RootDirectory=</varname>/<varname>RootImage=</varname>.</para>
 
         <para>Paths listed in <varname>ReadWritePaths=</varname> are accessible from within the namespace with the same
         access modes as from outside of it. Paths listed in <varname>ReadOnlyPaths=</varname> are accessible for
@@ -971,9 +981,10 @@
         <para>Paths in <varname>ReadWritePaths=</varname>, <varname>ReadOnlyPaths=</varname> and
         <varname>InaccessiblePaths=</varname> may be prefixed with <literal>-</literal>, in which case they will be
         ignored when they do not exist. If prefixed with <literal>+</literal> the paths are taken relative to the root
-        directory of the unit, as configured with <varname>RootDirectory=</varname>, instead of relative to the root
-        directory of the host (see above). When combining <literal>-</literal> and <literal>+</literal> on the same
-        path make sure to specify <literal>-</literal> first, and <literal>+</literal> second.</para>
+        directory of the unit, as configured with <varname>RootDirectory=</varname>/<varname>RootImage=</varname>,
+        instead of relative to the root directory of the host (see above). When combining <literal>-</literal> and
+        <literal>+</literal> on the same path make sure to specify <literal>-</literal> first, and <literal>+</literal>
+        second.</para>
 
         <para>Note that using this setting will disconnect propagation of mounts from the service to the host
         (propagation in the opposite direction continues to work). This means that this setting may not be used for
@@ -1004,9 +1015,9 @@
         that in this case both read-only and regular bind mounts are reset, regardless which of the two settings is
         used.</para>
 
-        <para>This option is particularly useful when <varname>RootDirectory=</varname> is used. In this case the
-        source path refers to a path on the host file system, while the destination path refers to a path below the
-        root directory of the unit.</para></listitem>
+        <para>This option is particularly useful when <varname>RootDirectory=</varname>/<varname>RootImage=</varname>
+        is used. In this case the source path refers to a path on the host file system, while the destination path
+        refers to a path below the root directory of the unit.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1094,10 +1105,10 @@
         such as <varname>CapabilityBoundingSet=</varname> will affect only the latter, and there's no way to acquire
         additional capabilities in the host's user namespace. Defaults to off.</para>
 
-        <para>This setting is particularly useful in conjunction with <varname>RootDirectory=</varname>, as the need to
-        synchronize the user and group databases in the root directory and on the host is reduced, as the only users
-        and groups who need to be matched are <literal>root</literal>, <literal>nobody</literal> and the unit's own
-        user and group.</para></listitem>
+        <para>This setting is particularly useful in conjunction with
+        <varname>RootDirectory=</varname>/<varname>RootImage=</varname>, as the need to synchronize the user and group
+        databases in the root directory and on the host is reduced, as the only users and groups who need to be matched
+        are <literal>root</literal>, <literal>nobody</literal> and the unit's own user and group.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -30,6 +30,7 @@
 #include "dev-setup.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "loop-util.h"
 #include "loopback-setup.h"
 #include "missing.h"
 #include "mkdir.h"
@@ -867,6 +868,7 @@ static unsigned namespace_calculate_mounts(
 
 int setup_namespace(
                 const char* root_directory,
+                const char* root_image,
                 const NameSpaceInfo *ns_info,
                 char** read_write_paths,
                 char** read_only_paths,
@@ -877,15 +879,45 @@ int setup_namespace(
                 const char* var_tmp_dir,
                 ProtectHome protect_home,
                 ProtectSystem protect_system,
-                unsigned long mount_flags) {
+                unsigned long mount_flags,
+                DissectImageFlags dissect_image_flags) {
 
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         MountEntry *m, *mounts = NULL;
         bool make_slave = false;
         unsigned n_mounts;
         int r = 0;
 
+        assert(ns_info);
+
         if (mount_flags == 0)
                 mount_flags = MS_SHARED;
+
+        if (root_image) {
+                dissect_image_flags |= DISSECT_IMAGE_REQUIRE_ROOT;
+
+                if (protect_system == PROTECT_SYSTEM_STRICT && strv_isempty(read_write_paths))
+                        dissect_image_flags |= DISSECT_IMAGE_READ_ONLY;
+
+                r = loop_device_make_by_path(root_image,
+                                             dissect_image_flags & DISSECT_IMAGE_READ_ONLY ? O_RDONLY : O_RDWR,
+                                             &loop_device);
+                if (r < 0)
+                        return r;
+
+                r = dissect_image(loop_device->fd, NULL, 0, dissect_image_flags, &dissected_image);
+                if (r < 0)
+                        return r;
+
+                if (!root_directory) {
+                        /* Create a mount point for the image, if it's still missing. We use the same mount point for
+                         * all images, which is safe, since they all live in their own namespaces after all, and hence
+                         * won't see each other. */
+                        root_directory = "/run/systemd/unit-root";
+                        (void) mkdir(root_directory, 0700);
+                }
+        }
 
         n_mounts = namespace_calculate_mounts(
                         ns_info,
@@ -1001,7 +1033,15 @@ int setup_namespace(
                 }
         }
 
-        if (root_directory) {
+        if (root_image) {
+                r = dissected_image_mount(dissected_image, root_directory, dissect_image_flags);
+                if (r < 0)
+                        goto finish;
+
+                loop_device_relinquish(loop_device);
+
+        } else if (root_directory) {
+
                 /* Turn directory into bind mount, if it isn't one yet */
                 r = path_is_mount_point(root_directory, NULL, AT_SYMLINK_FOLLOW);
                 if (r < 0)
