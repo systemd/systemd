@@ -28,6 +28,7 @@
 #include "blkid-util.h"
 #include "dissect-image.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "gpt.h"
 #include "mount-util.h"
 #include "path-util.h"
@@ -35,6 +36,7 @@
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "udev-util.h"
 
 static int probe_filesystem(const char *node, char **ret_fstype) {
@@ -624,7 +626,9 @@ static int mount_partition(
                 DissectImageFlags flags) {
 
         const char *p, *options = NULL, *node, *fstype;
+        _cleanup_free_ char *chased = NULL;
         bool rw;
+        int r;
 
         assert(m);
         assert(where);
@@ -641,9 +645,13 @@ static int mount_partition(
 
         rw = m->rw && !(flags & DISSECT_IMAGE_READ_ONLY);
 
-        if (directory)
-                p = strjoina(where, directory);
-        else
+        if (directory) {
+                r = chase_symlinks(directory, where, CHASE_PREFIX_ROOT, &chased);
+                if (r < 0)
+                        return r;
+
+                p = chased;
+        } else
                 p = where;
 
         /* If requested, turn on discard support. */
@@ -677,22 +685,23 @@ int dissected_image_mount(DissectedImage *m, const char *where, DissectImageFlag
                 return r;
 
         if (m->partitions[PARTITION_ESP].found) {
-                const char *mp, *x;
+                const char *mp;
 
                 /* Mount the ESP to /efi if it exists and is empty. If it doesn't exist, use /boot instead. */
 
-                mp = "/efi";
-                x = strjoina(where, mp);
-                r = dir_is_empty(x);
-                if (r == -ENOENT) {
-                        mp = "/boot";
-                        x = strjoina(where, mp);
-                        r = dir_is_empty(x);
-                }
-                if (r > 0) {
-                        r = mount_partition(m->partitions + PARTITION_ESP, where, mp, flags);
+                FOREACH_STRING(mp, "/efi", "/boot") {
+                        _cleanup_free_ char *p = NULL;
+
+                        r = chase_symlinks(mp, where, CHASE_PREFIX_ROOT, &p);
                         if (r < 0)
-                                return r;
+                                continue;
+
+                        r = dir_is_empty(p);
+                        if (r > 0) {
+                                r = mount_partition(m->partitions + PARTITION_ESP, where, mp, flags);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
         }
 
