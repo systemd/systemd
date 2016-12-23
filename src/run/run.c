@@ -798,7 +798,7 @@ static void run_context_check_done(RunContext *c) {
                 sd_event_exit(c->event, EXIT_SUCCESS);
 }
 
-static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int run_context_update(RunContext *c, const char *path) {
 
         static const struct bus_properties_map map[] = {
                 { "ActiveState",                      "s", NULL, offsetof(RunContext, active_state)        },
@@ -811,12 +811,11 @@ static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error
                 {}
         };
 
-        RunContext *c = userdata;
         int r;
 
         r = bus_map_all_properties(c->bus,
                                    "org.freedesktop.systemd1",
-                                   sd_bus_message_get_path(m),
+                                   path,
                                    map,
                                    c);
         if (r < 0) {
@@ -826,6 +825,15 @@ static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error
 
         run_context_check_done(c);
         return 0;
+}
+
+static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        RunContext *c = userdata;
+
+        assert(m);
+        assert(c);
+
+        return run_context_update(c, sd_bus_message_get_path(m));
 }
 
 static int pty_forward_handler(PTYForward *f, int rcode, void *userdata) {
@@ -1027,6 +1035,10 @@ static int start_transient_service(
                         r = sd_bus_attach_event(bus, c.event, 0);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to attach bus to event loop.");
+
+                        r = run_context_update(&c, path);
+                        if (r < 0)
+                                return r;
                 }
 
                 r = sd_event_loop(c.event);
