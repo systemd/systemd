@@ -403,6 +403,11 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
+        if (arg_pty && arg_no_block) {
+                log_error("--pty is not compatible with --no-block.");
+                return -EINVAL;
+        }
+
         if (arg_scope && with_timer()) {
                 log_error("Timer options are not supported in --scope mode.");
                 return -EINVAL;
