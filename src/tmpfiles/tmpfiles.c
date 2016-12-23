@@ -649,7 +649,7 @@ static int path_set_perms(Item *i, const char *path) {
                         else {
                                 log_debug("chmod \"%s\" to mode %o", path, m);
                                 if (chmod(fn, m) < 0)
-                                        return log_error_errno(errno, "chmod(%s) failed: %m", path);
+                                        return log_error_errno(errno, "chmod() of %s via %s failed: %m", path, fn);
                         }
                 }
 
@@ -662,7 +662,7 @@ static int path_set_perms(Item *i, const char *path) {
                         if (chown(fn,
                                   i->uid_set ? i->uid : UID_INVALID,
                                   i->gid_set ? i->gid : GID_INVALID) < 0)
-                                return log_error_errno(errno, "chown(%s) failed: %m", path);
+                                return log_error_errno(errno, "chown() of %s via %s failed: %m", path, fn);
                 }
         }
 
