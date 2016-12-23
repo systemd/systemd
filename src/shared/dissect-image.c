@@ -40,6 +40,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "udev-util.h"
+#include "xattr-util.h"
 
 static int probe_filesystem(const char *node, char **ret_fstype) {
 #ifdef HAVE_BLKID
@@ -1092,7 +1093,6 @@ int decrypted_image_relinquish(DecryptedImage *d) {
 int root_hash_load(const char *image, void **ret, size_t *ret_size) {
         _cleanup_free_ char *text = NULL;
         _cleanup_free_ void *k = NULL;
-        char *fn, *e, *n;
         size_t l;
         int r;
 
@@ -1107,22 +1107,30 @@ int root_hash_load(const char *image, void **ret, size_t *ret_size) {
                 return 0;
         }
 
-        fn = newa(char, strlen(image) + strlen(".roothash") + 1);
-        n = stpcpy(fn, image);
-        e = endswith(fn, ".raw");
-        if (e)
-                n = e;
+        r = getxattr_malloc(image, "user.verity.roothash", &text, true);
+        if (r < 0) {
+                char *fn, *e, *n;
 
-        strcpy(n, ".roothash");
+                if (!IN_SET(r, -ENODATA, -EOPNOTSUPP, -ENOENT))
+                        return r;
 
-        r = read_one_line_file(fn, &text);
-        if (r == -ENOENT) {
-                *ret = NULL;
-                *ret_size = 0;
-                return 0;
+                fn = newa(char, strlen(image) + strlen(".roothash") + 1);
+                n = stpcpy(fn, image);
+                e = endswith(fn, ".raw");
+                if (e)
+                        n = e;
+
+                strcpy(n, ".roothash");
+
+                r = read_one_line_file(fn, &text);
+                if (r == -ENOENT) {
+                        *ret = NULL;
+                        *ret_size = 0;
+                        return 0;
+                }
+                if (r < 0)
+                        return r;
         }
-        if (r < 0)
-                return r;
 
         r = unhexmem(text, strlen(text), &k, &l);
         if (r < 0)

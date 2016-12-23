@@ -257,9 +257,13 @@
         <listitem><para>Takes a data integrity (dm-verity) root hash specified in hexadecimal. This option enables data
         integrity checks using dm-verity, if the used image contains the appropriate integrity data (see above). The
         specified hash must match the root hash of integrity data, and is usually at least 256bits (and hence 64
-        hexadecimal characters) long (in case of SHA256 for example). If this option is not specified, but a file with
-        the <filename>.roothash</filename> suffix is found next to the image file, bearing otherwise the same name the
-        root hash is read from it and automatically used.</para></listitem>
+        formatted hexadecimal characters) long (in case of SHA256 for example). If this option is not specified, but
+        the image file carries the <literal>user.verity.roothash</literal> extended file attribute (see <citerefentry
+        project='man-pages'><refentrytitle>xattr</refentrytitle><manvolnum>7</manvolnum></citerefentry>), then the root
+        hash is read from it, also as formatted hexadecimal characters. If the extended file attribute is not found (or
+        not supported by the underlying file system), but a file with the <filename>.roothash</filename> suffix is
+        found next to the image file, bearing otherwise the same name the root hash is read from it and automatically
+        used (again, as formatted hexadecimal characters).</para></listitem>
       </varlistentry>
 
       <varlistentry>
