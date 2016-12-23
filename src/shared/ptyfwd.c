@@ -438,6 +438,9 @@ int pty_forward_new(
                 r = sd_event_add_io(f->event, &f->stdin_event_source, STDIN_FILENO, EPOLLIN|EPOLLET, on_stdin_event, f);
                 if (r < 0 && r != -EPERM)
                         return r;
+
+                if (r >= 0)
+                        (void) sd_event_source_set_description(f->stdin_event_source, "ptyfwd-stdin");
         }
 
         r = sd_event_add_io(f->event, &f->stdout_event_source, STDOUT_FILENO, EPOLLOUT|EPOLLET, on_stdout_event, f);
@@ -446,14 +449,20 @@ int pty_forward_new(
                 f->stdout_writable = true;
         else if (r < 0)
                 return r;
+        else
+                (void) sd_event_source_set_description(f->stdout_event_source, "ptyfwd-stdout");
 
         r = sd_event_add_io(f->event, &f->master_event_source, master, EPOLLIN|EPOLLOUT|EPOLLET, on_master_event, f);
         if (r < 0)
                 return r;
 
+        (void) sd_event_source_set_description(f->master_event_source, "ptyfwd-master");
+
         r = sd_event_add_signal(f->event, &f->sigwinch_event_source, SIGWINCH, on_sigwinch_event, f);
         if (r < 0)
                 return r;
+
+        (void) sd_event_source_set_description(f->sigwinch_event_source, "ptyfwd-sigwinch");
 
         *ret = f;
         f = NULL;
