@@ -883,8 +883,11 @@ int setup_namespace(
                 DissectImageFlags dissect_image_flags) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
+        _cleanup_free_ void *root_hash = NULL;
         MountEntry *m, *mounts = NULL;
+        size_t root_hash_size = 0;
         bool make_slave = false;
         unsigned n_mounts;
         int r = 0;
@@ -906,7 +909,15 @@ int setup_namespace(
                 if (r < 0)
                         return r;
 
-                r = dissect_image(loop_device->fd, NULL, 0, dissect_image_flags, &dissected_image);
+                r = root_hash_load(root_image, &root_hash, &root_hash_size);
+                if (r < 0)
+                        return r;
+
+                r = dissect_image(loop_device->fd, root_hash, root_hash_size, dissect_image_flags, &dissected_image);
+                if (r < 0)
+                        return r;
+
+                r = dissected_image_decrypt(dissected_image, NULL, root_hash, root_hash_size, dissect_image_flags, &decrypted_image);
                 if (r < 0)
                         return r;
 
@@ -1035,6 +1046,10 @@ int setup_namespace(
 
         if (root_image) {
                 r = dissected_image_mount(dissected_image, root_directory, dissect_image_flags);
+                if (r < 0)
+                        goto finish;
+
+                r = decrypted_image_relinquish(decrypted_image);
                 if (r < 0)
                         goto finish;
 

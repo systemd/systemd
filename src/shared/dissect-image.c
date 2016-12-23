@@ -28,8 +28,10 @@
 #include "blkid-util.h"
 #include "dissect-image.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "gpt.h"
+#include "hexdecoct.h"
 #include "mount-util.h"
 #include "path-util.h"
 #include "stat-util.h"
@@ -1085,6 +1087,55 @@ int decrypted_image_relinquish(DecryptedImage *d) {
 #endif
 
         return 0;
+}
+
+int root_hash_load(const char *image, void **ret, size_t *ret_size) {
+        _cleanup_free_ char *text = NULL;
+        _cleanup_free_ void *k = NULL;
+        char *fn, *e, *n;
+        size_t l;
+        int r;
+
+        assert(image);
+        assert(ret);
+        assert(ret_size);
+
+        if (is_device_path(image)) {
+                /* If we are asked to load the root hash for a device node, exit early */
+                *ret = NULL;
+                *ret_size = 0;
+                return 0;
+        }
+
+        fn = newa(char, strlen(image) + strlen(".roothash") + 1);
+        n = stpcpy(fn, image);
+        e = endswith(fn, ".raw");
+        if (e)
+                n = e;
+
+        strcpy(n, ".roothash");
+
+        r = read_one_line_file(fn, &text);
+        if (r == -ENOENT) {
+                *ret = NULL;
+                *ret_size = 0;
+                return 0;
+        }
+        if (r < 0)
+                return r;
+
+        r = unhexmem(text, strlen(text), &k, &l);
+        if (r < 0)
+                return r;
+        if (l < sizeof(sd_id128_t))
+                return -EINVAL;
+
+        *ret = k;
+        *ret_size = l;
+
+        k = NULL;
+
+        return 1;
 }
 
 static const char *const partition_designator_table[] = {

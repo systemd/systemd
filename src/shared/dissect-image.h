@@ -94,3 +94,5 @@ int decrypted_image_relinquish(DecryptedImage *d);
 
 const char* partition_designator_to_string(int i) _const_;
 int partition_designator_from_string(const char *name) _pure_;
+
+int root_hash_load(const char *image, void **ret, size_t *ret_size);
