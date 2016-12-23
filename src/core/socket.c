@@ -63,6 +63,7 @@ struct SocketPeer {
 
         Socket *socket;
         union sockaddr_union peer;
+        socklen_t peer_salen;
 };
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
@@ -488,8 +489,10 @@ static void peer_address_hash_func(const void *p, struct siphash *state) {
 
         if (s->peer.sa.sa_family == AF_INET)
                 siphash24_compress(&s->peer.in.sin_addr, sizeof(s->peer.in.sin_addr), state);
-        else
+        else if (s->peer.sa.sa_family == AF_INET6)
                 siphash24_compress(&s->peer.in6.sin6_addr, sizeof(s->peer.in6.sin6_addr), state);
+        else
+                assert_not_reached("Unknown address family.");
 }
 
 static int peer_address_compare_func(const void *a, const void *b) {
@@ -607,6 +610,7 @@ int socket_acquire_peer(Socket *s, int fd, SocketPeer **p) {
                 return log_oom();
 
         remote->peer = sa.peer;
+        remote->peer_salen = salen;
 
         r = set_put(s->peers_by_address, remote);
         if (r < 0)
@@ -2189,7 +2193,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                         } else if (r > 0 && p->n_ref > s->max_connections_per_source) {
                                 _cleanup_free_ char *t = NULL;
 
-                                sockaddr_pretty(&p->peer.sa, FAMILY_ADDRESS_SIZE(p->peer.sa.sa_family), true, false, &t);
+                                (void) sockaddr_pretty(&p->peer.sa, p->peer_salen, true, false, &t);
 
                                 log_unit_warning(UNIT(s),
                                                  "Too many incoming connections (%u) from source %s, dropping connection.",
