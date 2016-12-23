@@ -1059,6 +1059,12 @@ static int start_transient_service(
                 }
 
                 if (!arg_quiet) {
+
+                        /* Explicitly destroy the PTY forwarder, so that the PTY device is usable again, in its
+                         * original settings (i.e. proper line breaks), so that we can show the summary in a pretty
+                         * way. */
+                        c.forward = pty_forward_free(c.forward);
+
                         if (!isempty(c.result))
                                 log_info("Finished with result: %s", strna(c.result));
 
