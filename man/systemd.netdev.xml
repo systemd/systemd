@@ -1230,6 +1230,15 @@ Kind=vrf
 [VRF]
 TableId=42</programlisting>
     </example>
+
+    <example>
+      <title>/etc/systemd/network/25-macvtap.netdev</title>
+      <para>Create a MacVTap device.</para>
+      <programlisting>[NetDev]
+Name=macvtap-test
+Kind=macvtap
+      </programlisting>
+    </example>
   </refsect1>
   <refsect1>
     <title>See Also</title>
