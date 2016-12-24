@@ -390,15 +390,11 @@
         variable substitution is supported (including
         <varname>$MAINPID</varname>, see above).</para>
 
-        <para>Note that it is usually not sufficient to specify a
-        command for this setting that only asks the service to
-        terminate (for example, by queuing some form of termination
-        signal for it), but does not wait for it to do so. Since the
-        remaining processes of the services are killed using
-        <constant>SIGKILL</constant> immediately after the command
-        exited, this would not result in a clean stop. The specified
-        command should hence be a synchronous operation, not an
-        asynchronous one.</para>
+        <para>Note that it is usually not sufficient to specify a command for this setting that only asks the service
+        to terminate (for example, by queuing some form of termination signal for it), but does not wait for it to do
+        so. Since the remaining processes of the services are killed according to <varname>KillMode=</varname> and
+        <varname>KillSignal=</varname> as described above immediately after the command exited, this may not result in
+        a clean stop. The specified command should hence be a synchronous operation, not an asynchronous one.</para>
 
         <para>Note that the commands specified in <varname>ExecStop=</varname> are only executed when the service
         started successfully first. They are not invoked if the service was never started at all, or in case its
