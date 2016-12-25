@@ -331,7 +331,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                        (int) max_version_id, strdash_if_empty(machines[j].version_id));
 
                 r = print_addresses(bus, machines[j].name, 0, "", prefix, arg_addrs);
-                if (r == -ENOSYS)
+                if (r == -EOPNOTSUPP)
                         printf("-\n");
         }
 
