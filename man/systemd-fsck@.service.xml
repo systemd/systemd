@@ -88,8 +88,8 @@
   <refsect1>
     <title>Kernel Command Line</title>
 
-    <para><filename>systemd-fsck</filename> understands one kernel
-    command line parameter:</para>
+    <para><filename>systemd-fsck</filename> understands these kernel
+    command line parameters:</para>
 
     <variablelist class='kernel-commandline-options'>
       <varlistentry>
@@ -110,9 +110,9 @@
 
         <listitem><para>One of <literal>preen</literal>,
         <literal>yes</literal>, <literal>no</literal>. Controls the
-        mode of operation. The default is <literal> preen</literal>,
+        mode of operation. The default is <literal>preen</literal>,
         and will automatically repair problems that can be safely
-        fixed. <literal>yes </literal> will answer yes to all
+        fixed. <literal>yes</literal> will answer yes to all
         questions by fsck and <literal>no</literal> will answer no to
         all questions. </para></listitem>
       </varlistentry>
