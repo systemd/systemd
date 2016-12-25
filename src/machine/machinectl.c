@@ -258,8 +258,6 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                                 "VERSION_ID\0",
                                 &machines[n_machines].os,
                                 &machines[n_machines].version_id);
-                if (r < 0)
-                        goto out;
 
                 machines[n_machines].name = name;
                 machines[n_machines].class = class;
