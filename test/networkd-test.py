@@ -497,8 +497,8 @@ Domains= ~company ~lab''')
         # VPN domains should only be sent to VPN DNS
         self.assertRegex(vpn_log, 'query.*math.lab')
         self.assertRegex(vpn_log, 'query.*cantina.company')
-        self.assertNotIn('lab', general_log)
-        self.assertNotIn('company', general_log)
+        self.assertNotIn('.lab', general_log)
+        self.assertNotIn('.company', general_log)
 
         # general domains should not be sent to the VPN DNS
         self.assertRegex(general_log, 'query.*megasearch.net')
