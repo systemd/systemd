@@ -469,6 +469,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .value =
                 "_sysctl\0"
                 "afs_syscall\0"
+                "bdflush\0"
                 "break\0"
                 "create_module\0"
                 "ftime\0"
@@ -500,7 +501,6 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "@module\0"
                 "@raw-io\0"
                 "acct\0"
-                "bdflush\0"
                 "bpf\0"
                 "capset\0"
                 "chown32\0"
