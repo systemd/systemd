@@ -1259,6 +1259,41 @@ static void rename_process_from_path(const char *path) {
         rename_process(process_name);
 }
 
+static bool context_has_address_families(const ExecContext *c) {
+        assert(c);
+
+        return c->address_families_whitelist ||
+                !set_isempty(c->address_families);
+}
+
+static bool context_has_syscall_filters(const ExecContext *c) {
+        assert(c);
+
+        return c->syscall_whitelist ||
+                !set_isempty(c->syscall_filter);
+}
+
+static bool context_has_no_new_privileges(const ExecContext *c) {
+        assert(c);
+
+        if (c->no_new_privileges)
+                return true;
+
+        if (have_effective_cap(CAP_SYS_ADMIN)) /* if we are privileged, we don't need NNP */
+                return false;
+
+        /* We need NNP if we have any form of seccomp and are unprivileged */
+        return context_has_address_families(c) ||
+                c->memory_deny_write_execute ||
+                c->restrict_realtime ||
+                exec_context_restrict_namespaces_set(c) ||
+                c->protect_kernel_tunables ||
+                c->protect_kernel_modules ||
+                c->private_devices ||
+                context_has_syscall_filters(c) ||
+                !set_isempty(c->syscall_archs);
+}
+
 #ifdef HAVE_SECCOMP
 
 static bool skip_seccomp_unavailable(const Unit* u, const char* msg) {
@@ -1272,344 +1307,131 @@ static bool skip_seccomp_unavailable(const Unit* u, const char* msg) {
         return true;
 }
 
-static int apply_seccomp(const Unit* u, const ExecContext *c) {
-        uint32_t negative_action, action;
-        scmp_filter_ctx seccomp;
-        Iterator i;
-        void *id;
-        int r;
+static int apply_syscall_filter(const Unit* u, const ExecContext *c) {
+        uint32_t negative_action, default_action, action;
 
+        assert(u);
         assert(c);
 
-        if (skip_seccomp_unavailable(u, "syscall filtering"))
+        if (!context_has_syscall_filters(c))
+                return 0;
+
+        if (skip_seccomp_unavailable(u, "SystemCallFilter="))
                 return 0;
 
         negative_action = c->syscall_errno == 0 ? SCMP_ACT_KILL : SCMP_ACT_ERRNO(c->syscall_errno);
 
-        seccomp = seccomp_init(c->syscall_whitelist ? negative_action : SCMP_ACT_ALLOW);
-        if (!seccomp)
-                return -ENOMEM;
-
-        if (c->syscall_archs) {
-
-                SET_FOREACH(id, c->syscall_archs, i) {
-                        r = seccomp_arch_add(seccomp, PTR_TO_UINT32(id) - 1);
-                        if (r == -EEXIST)
-                                continue;
-                        if (r < 0)
-                                goto finish;
-                }
-
+        if (c->syscall_whitelist) {
+                default_action = negative_action;
+                action = SCMP_ACT_ALLOW;
         } else {
-                r = seccomp_add_secondary_archs(seccomp);
-                if (r < 0)
-                        goto finish;
+                default_action = SCMP_ACT_ALLOW;
+                action = negative_action;
         }
 
-        action = c->syscall_whitelist ? SCMP_ACT_ALLOW : negative_action;
-        SET_FOREACH(id, c->syscall_filter, i) {
-                r = seccomp_rule_add(seccomp, action, PTR_TO_INT(id) - 1, 0);
-                if (r < 0)
-                        goto finish;
-        }
+        return seccomp_load_syscall_filter_set_raw(default_action, c->syscall_filter, action);
+}
 
-        r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
-        if (r < 0)
-                goto finish;
+static int apply_syscall_archs(const Unit *u, const ExecContext *c) {
+        assert(u);
+        assert(c);
 
-        r = seccomp_load(seccomp);
+        if (set_isempty(c->syscall_archs))
+                return 0;
 
-finish:
-        seccomp_release(seccomp);
-        return r;
+        if (skip_seccomp_unavailable(u, "SystemCallArchitectures="))
+                return 0;
+
+        return seccomp_restrict_archs(c->syscall_archs);
 }
 
 static int apply_address_families(const Unit* u, const ExecContext *c) {
-        scmp_filter_ctx seccomp;
-        Iterator i;
-        int r;
-
+        assert(u);
         assert(c);
+
+        if (!context_has_address_families(c))
+                return 0;
 
         if (skip_seccomp_unavailable(u, "RestrictAddressFamilies="))
                 return 0;
 
-        r = seccomp_init_conservative(&seccomp, SCMP_ACT_ALLOW);
-        if (r < 0)
-                return r;
-
-        if (c->address_families_whitelist) {
-                int af, first = 0, last = 0;
-                void *afp;
-
-                /* If this is a whitelist, we first block the address
-                 * families that are out of range and then everything
-                 * that is not in the set. First, we find the lowest
-                 * and highest address family in the set. */
-
-                SET_FOREACH(afp, c->address_families, i) {
-                        af = PTR_TO_INT(afp);
-
-                        if (af <= 0 || af >= af_max())
-                                continue;
-
-                        if (first == 0 || af < first)
-                                first = af;
-
-                        if (last == 0 || af > last)
-                                last = af;
-                }
-
-                assert((first == 0) == (last == 0));
-
-                if (first == 0) {
-
-                        /* No entries in the valid range, block everything */
-                        r = seccomp_rule_add(
-                                        seccomp,
-                                        SCMP_ACT_ERRNO(EPROTONOSUPPORT),
-                                        SCMP_SYS(socket),
-                                        0);
-                        if (r < 0)
-                                goto finish;
-
-                } else {
-
-                        /* Block everything below the first entry */
-                        r = seccomp_rule_add(
-                                        seccomp,
-                                        SCMP_ACT_ERRNO(EPROTONOSUPPORT),
-                                        SCMP_SYS(socket),
-                                        1,
-                                        SCMP_A0(SCMP_CMP_LT, first));
-                        if (r < 0)
-                                goto finish;
-
-                        /* Block everything above the last entry */
-                        r = seccomp_rule_add(
-                                        seccomp,
-                                        SCMP_ACT_ERRNO(EPROTONOSUPPORT),
-                                        SCMP_SYS(socket),
-                                        1,
-                                        SCMP_A0(SCMP_CMP_GT, last));
-                        if (r < 0)
-                                goto finish;
-
-                        /* Block everything between the first and last
-                         * entry */
-                        for (af = 1; af < af_max(); af++) {
-
-                                if (set_contains(c->address_families, INT_TO_PTR(af)))
-                                        continue;
-
-                                r = seccomp_rule_add(
-                                                seccomp,
-                                                SCMP_ACT_ERRNO(EPROTONOSUPPORT),
-                                                SCMP_SYS(socket),
-                                                1,
-                                                SCMP_A0(SCMP_CMP_EQ, af));
-                                if (r < 0)
-                                        goto finish;
-                        }
-                }
-
-        } else {
-                void *af;
-
-                /* If this is a blacklist, then generate one rule for
-                 * each address family that are then combined in OR
-                 * checks. */
-
-                SET_FOREACH(af, c->address_families, i) {
-
-                        r = seccomp_rule_add(
-                                        seccomp,
-                                        SCMP_ACT_ERRNO(EPROTONOSUPPORT),
-                                        SCMP_SYS(socket),
-                                        1,
-                                        SCMP_A0(SCMP_CMP_EQ, PTR_TO_INT(af)));
-                        if (r < 0)
-                                goto finish;
-                }
-        }
-
-        r = seccomp_load(seccomp);
-
-finish:
-        seccomp_release(seccomp);
-        return r;
+        return seccomp_restrict_address_families(c->address_families, c->address_families_whitelist);
 }
 
 static int apply_memory_deny_write_execute(const Unit* u, const ExecContext *c) {
-        scmp_filter_ctx seccomp;
-        int r;
-
+        assert(u);
         assert(c);
+
+        if (!c->memory_deny_write_execute)
+                return 0;
 
         if (skip_seccomp_unavailable(u, "MemoryDenyWriteExecute="))
                 return 0;
 
-        r = seccomp_init_conservative(&seccomp, SCMP_ACT_ALLOW);
-        if (r < 0)
-                return r;
-
-        r = seccomp_rule_add(
-                        seccomp,
-                        SCMP_ACT_ERRNO(EPERM),
-                        SCMP_SYS(mmap),
-                        1,
-                        SCMP_A2(SCMP_CMP_MASKED_EQ, PROT_EXEC|PROT_WRITE, PROT_EXEC|PROT_WRITE));
-        if (r < 0)
-                goto finish;
-
-        r = seccomp_rule_add(
-                        seccomp,
-                        SCMP_ACT_ERRNO(EPERM),
-                        SCMP_SYS(mprotect),
-                        1,
-                        SCMP_A2(SCMP_CMP_MASKED_EQ, PROT_EXEC, PROT_EXEC));
-        if (r < 0)
-                goto finish;
-
-        r = seccomp_rule_add(
-                        seccomp,
-                        SCMP_ACT_ERRNO(EPERM),
-                        SCMP_SYS(shmat),
-                        1,
-                        SCMP_A2(SCMP_CMP_MASKED_EQ, SHM_EXEC, SHM_EXEC));
-        if (r < 0)
-                goto finish;
-
-        r = seccomp_load(seccomp);
-
-finish:
-        seccomp_release(seccomp);
-        return r;
+        return seccomp_memory_deny_write_execute();
 }
 
 static int apply_restrict_realtime(const Unit* u, const ExecContext *c) {
-        static const int permitted_policies[] = {
-                SCHED_OTHER,
-                SCHED_BATCH,
-                SCHED_IDLE,
-        };
-
-        scmp_filter_ctx seccomp;
-        unsigned i;
-        int r, p, max_policy = 0;
-
+        assert(u);
         assert(c);
+
+        if (!c->restrict_realtime)
+                return 0;
 
         if (skip_seccomp_unavailable(u, "RestrictRealtime="))
                 return 0;
 
-        r = seccomp_init_conservative(&seccomp, SCMP_ACT_ALLOW);
-        if (r < 0)
-                return r;
-
-        /* Determine the highest policy constant we want to allow */
-        for (i = 0; i < ELEMENTSOF(permitted_policies); i++)
-                if (permitted_policies[i] > max_policy)
-                        max_policy = permitted_policies[i];
-
-        /* Go through all policies with lower values than that, and block them -- unless they appear in the
-         * whitelist. */
-        for (p = 0; p < max_policy; p++) {
-                bool good = false;
-
-                /* Check if this is in the whitelist. */
-                for (i = 0; i < ELEMENTSOF(permitted_policies); i++)
-                        if (permitted_policies[i] == p) {
-                                good = true;
-                                break;
-                        }
-
-                if (good)
-                        continue;
-
-                /* Deny this policy */
-                r = seccomp_rule_add(
-                                seccomp,
-                                SCMP_ACT_ERRNO(EPERM),
-                                SCMP_SYS(sched_setscheduler),
-                                1,
-                                SCMP_A1(SCMP_CMP_EQ, p));
-                if (r < 0)
-                        goto finish;
-        }
-
-        /* Blacklist all other policies, i.e. the ones with higher values. Note that all comparisons are unsigned here,
-         * hence no need no check for < 0 values. */
-        r = seccomp_rule_add(
-                        seccomp,
-                        SCMP_ACT_ERRNO(EPERM),
-                        SCMP_SYS(sched_setscheduler),
-                        1,
-                        SCMP_A1(SCMP_CMP_GT, max_policy));
-        if (r < 0)
-                goto finish;
-
-        r = seccomp_load(seccomp);
-
-finish:
-        seccomp_release(seccomp);
-        return r;
+        return seccomp_restrict_realtime();
 }
 
 static int apply_protect_sysctl(const Unit *u, const ExecContext *c) {
-        scmp_filter_ctx seccomp;
-        int r;
-
+        assert(u);
         assert(c);
 
         /* Turn off the legacy sysctl() system call. Many distributions turn this off while building the kernel, but
          * let's protect even those systems where this is left on in the kernel. */
 
+        if (!c->protect_kernel_tunables)
+                return 0;
+
         if (skip_seccomp_unavailable(u, "ProtectKernelTunables="))
                 return 0;
 
-        r = seccomp_init_conservative(&seccomp, SCMP_ACT_ALLOW);
-        if (r < 0)
-                return r;
-
-        r = seccomp_rule_add(
-                        seccomp,
-                        SCMP_ACT_ERRNO(EPERM),
-                        SCMP_SYS(_sysctl),
-                        0);
-        if (r < 0)
-                goto finish;
-
-        r = seccomp_load(seccomp);
-
-finish:
-        seccomp_release(seccomp);
-        return r;
+        return seccomp_protect_sysctl();
 }
 
 static int apply_protect_kernel_modules(const Unit *u, const ExecContext *c) {
+        assert(u);
         assert(c);
 
         /* Turn off module syscalls on ProtectKernelModules=yes */
 
+        if (!c->protect_kernel_modules)
+                return 0;
+
         if (skip_seccomp_unavailable(u, "ProtectKernelModules="))
                 return 0;
 
-        return seccomp_load_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_MODULE, SCMP_ACT_ERRNO(EPERM));
+        return seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_MODULE, SCMP_ACT_ERRNO(EPERM));
 }
 
 static int apply_private_devices(const Unit *u, const ExecContext *c) {
+        assert(u);
         assert(c);
 
         /* If PrivateDevices= is set, also turn off iopl and all @raw-io syscalls. */
 
+        if (!c->private_devices)
+                return 0;
+
         if (skip_seccomp_unavailable(u, "PrivateDevices="))
                 return 0;
 
-        return seccomp_load_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_RAW_IO, SCMP_ACT_ERRNO(EPERM));
+        return seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_RAW_IO, SCMP_ACT_ERRNO(EPERM));
 }
 
 static int apply_restrict_namespaces(Unit *u, const ExecContext *c) {
+        assert(u);
         assert(c);
 
         if (!exec_context_restrict_namespaces_set(c))
@@ -2310,41 +2132,6 @@ static int close_remaining_fds(
         return close_all_fds(dont_close, n_dont_close);
 }
 
-static bool context_has_address_families(const ExecContext *c) {
-        assert(c);
-
-        return c->address_families_whitelist ||
-                !set_isempty(c->address_families);
-}
-
-static bool context_has_syscall_filters(const ExecContext *c) {
-        assert(c);
-
-        return c->syscall_whitelist ||
-                !set_isempty(c->syscall_filter) ||
-                !set_isempty(c->syscall_archs);
-}
-
-static bool context_has_no_new_privileges(const ExecContext *c) {
-        assert(c);
-
-        if (c->no_new_privileges)
-                return true;
-
-        if (have_effective_cap(CAP_SYS_ADMIN)) /* if we are privileged, we don't need NNP */
-                return false;
-
-        /* We need NNP if we have any form of seccomp and are unprivileged */
-        return context_has_address_families(c) ||
-                c->memory_deny_write_execute ||
-                c->restrict_realtime ||
-                exec_context_restrict_namespaces_set(c) ||
-                c->protect_kernel_tunables ||
-                c->protect_kernel_modules ||
-                c->private_devices ||
-                context_has_syscall_filters(c);
-}
-
 static int send_user_lookup(
                 Unit *unit,
                 int user_lookup_fd,
@@ -2904,28 +2691,22 @@ static int exec_child(
                         }
 
 #ifdef HAVE_SECCOMP
-                if (context_has_address_families(context)) {
-                        r = apply_address_families(unit, context);
-                        if (r < 0) {
-                                *exit_status = EXIT_ADDRESS_FAMILIES;
-                                return r;
-                        }
+                r = apply_address_families(unit, context);
+                if (r < 0) {
+                        *exit_status = EXIT_ADDRESS_FAMILIES;
+                        return r;
                 }
 
-                if (context->memory_deny_write_execute) {
-                        r = apply_memory_deny_write_execute(unit, context);
-                        if (r < 0) {
-                                *exit_status = EXIT_SECCOMP;
-                                return r;
-                        }
+                r = apply_memory_deny_write_execute(unit, context);
+                if (r < 0) {
+                        *exit_status = EXIT_SECCOMP;
+                        return r;
                 }
 
-                if (context->restrict_realtime) {
-                        r = apply_restrict_realtime(unit, context);
-                        if (r < 0) {
-                                *exit_status = EXIT_SECCOMP;
-                                return r;
-                        }
+                r = apply_restrict_realtime(unit, context);
+                if (r < 0) {
+                        *exit_status = EXIT_SECCOMP;
+                        return r;
                 }
 
                 r = apply_restrict_namespaces(unit, context);
@@ -2934,38 +2715,36 @@ static int exec_child(
                         return r;
                 }
 
-                if (context->protect_kernel_tunables) {
-                        r = apply_protect_sysctl(unit, context);
-                        if (r < 0) {
-                                *exit_status = EXIT_SECCOMP;
-                                return r;
-                        }
+                r = apply_protect_sysctl(unit, context);
+                if (r < 0) {
+                        *exit_status = EXIT_SECCOMP;
+                        return r;
                 }
 
-                if (context->protect_kernel_modules) {
-                        r = apply_protect_kernel_modules(unit, context);
-                        if (r < 0) {
-                                *exit_status = EXIT_SECCOMP;
-                                return r;
-                        }
+                r = apply_protect_kernel_modules(unit, context);
+                if (r < 0) {
+                        *exit_status = EXIT_SECCOMP;
+                        return r;
                 }
 
-                if (context->private_devices) {
-                        r = apply_private_devices(unit, context);
-                        if (r < 0) {
-                                *exit_status = EXIT_SECCOMP;
-                                return r;
-                        }
+                r = apply_private_devices(unit, context);
+                if (r < 0) {
+                        *exit_status = EXIT_SECCOMP;
+                        return r;
+                }
+
+                r = apply_syscall_archs(unit, context);
+                if (r < 0) {
+                        *exit_status = EXIT_SECCOMP;
+                        return r;
                 }
 
                 /* This really should remain the last step before the execve(), to make sure our own code is unaffected
                  * by the filter as little as possible. */
-                if (context_has_syscall_filters(context)) {
-                        r = apply_seccomp(unit, context);
-                        if (r < 0) {
-                                *exit_status = EXIT_SECCOMP;
-                                return r;
-                        }
+                r = apply_syscall_filter(unit, context);
+                if (r < 0) {
+                        *exit_status = EXIT_SECCOMP;
+                        return r;
                 }
 #endif
         }
