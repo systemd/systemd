@@ -575,8 +575,8 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "reboot\0"
         },
         [SYSCALL_FILTER_SET_RESOURCES] = {
-                /* Alter resource settings */
                 .name = "@resources",
+                .help = "Alter resource settings",
                 .value =
                 "sched_setparam\0"
                 "sched_setscheduler\0"
