@@ -12,7 +12,7 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 After=local-fs.target
 Before=sysinit.target shutdown.target systemd-update-done.service
-ConditionNeedsUpdate=/etc
+ConditionNeedsUpdate=/var
 
 [Service]
 Type=oneshot
