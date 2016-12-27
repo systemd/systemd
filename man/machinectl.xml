@@ -428,6 +428,9 @@
         user may be selected. Use <option>--setenv=</option> to set
         environment variables for the executed process.</para>
 
+        <para>Note that <command>machinectl shell</command> does not propagate the exit code/status of the invoked
+        shell process. Use <command>systemd-run</command> instead if that information is required (see below).</para>
+
         <para>When using the <command>shell</command> command without
         arguments, (thus invoking the executed shell or command on the
         local host), it is in many ways similar to a <citerefentry
@@ -440,12 +443,15 @@
         environment variables or resource limits, among other
         properties.</para>
 
-        <para>Note that
-        <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        may be used in place of the <command>shell</command> command,
-        and allows more detailed, low-level configuration of the
-        invoked unit. However, it is frequently more privileged than
-        the <command>shell</command> command.</para></listitem>
+        <para>Note that <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        with its <option>--machine=</option> switch may be used in place of the <command>machinectl shell</command>
+        command, and allows non-interactive operation, more detailed and low-level configuration of the invoked unit,
+        as well as access to runtime and exit code/status information of the invoked shell process. In particular, use
+        <command>systemd-run</command>'s <option>--wait</option> switch to propagate exit status information of the
+        invoked process. Use <command>systemd-run</command>'s <option>--pty</option> switch for acquiring an
+        interactive shell, similar to <command>machinectl shell</command>. In general, <command>systemd-run</command>
+        is preferable for scripting purposes. However, note that <command>systemd-run</command> might require higher
+        privileges than <command>machinectl shell</command>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
