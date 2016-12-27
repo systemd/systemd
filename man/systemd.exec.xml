@@ -93,10 +93,10 @@
     the specified paths. This is equivalent to having them listed
     explicitly in <varname>RequiresMountsFor=</varname>.</para>
 
-    <para>Similar, units with <varname>PrivateTmp=</varname> enabled
-    automatically get mount unit dependencies for all mounts
-    required to access <filename>/tmp</filename> and
-    <filename>/var/tmp</filename>.</para>
+    <para>Similar, units with <varname>PrivateTmp=</varname> enabled automatically get mount unit dependencies for all
+    mounts required to access <filename>/tmp</filename> and <filename>/var/tmp</filename>. They will also gain an
+    automatic <varname>After=</varname> dependency on
+    <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
     <para>Units whose standard output or error output is connected to <option>journal</option>, <option>syslog</option>
     or <option>kmsg</option> (or their combinations with console output, see below) automatically acquire dependencies
@@ -1006,8 +1006,11 @@
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
         details. This setting is implied if <varname>DynamicUser=</varname> is set. For this setting the same
         restrictions regarding mount propagation and privileges apply as for <varname>ReadOnlyPaths=</varname> and
-        related calls, see above.</para></listitem>
-
+        related calls, see above. Enabling this setting has the side effect of adding <varname>Requires=</varname> and
+        <varname>After=</varname> dependencies on all mount units necessary to access <filename>/tmp</filename> and
+        <filename>/var/tmp</filename>. Moreover an implicitly <varname>After=</varname> ordering on
+        <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        is added.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -866,11 +866,15 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                 return 0;
 
         if (c->private_tmp) {
-                r = unit_require_mounts_for(u, "/tmp");
-                if (r < 0)
-                        return r;
+                const char *p;
 
-                r = unit_require_mounts_for(u, "/var/tmp");
+                FOREACH_STRING(p, "/tmp", "/var/tmp") {
+                        r = unit_require_mounts_for(u, p);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_TMPFILES_SETUP_SERVICE, NULL, true);
                 if (r < 0)
                         return r;
         }
