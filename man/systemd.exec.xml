@@ -1425,8 +1425,16 @@
                 <entry>Raw I/O port access (<citerefentry project='man-pages'><refentrytitle>ioperm</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>iopl</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <function>pciconfig_read()</function>, …)</entry>
               </row>
               <row>
+                <entry>@reboot</entry>
+                <entry>System calls for rebooting and reboot preparation (<citerefentry project='man-pages'><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <function>kexec()</function>, …)</entry>
+              </row>
+              <row>
                 <entry>@resources</entry>
                 <entry>System calls for changing resource limits, memory and scheduling parameters (<citerefentry project='man-pages'><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>setpriority</refentrytitle><manvolnum>2</manvolnum></citerefentry>, …)</entry>
+              </row>
+              <row>
+                <entry>@swap</entry>
+                <entry>System calls for enabling/disabling swap devices (<citerefentry project='man-pages'><refentrytitle>swapon</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>swapoff</refentrytitle><manvolnum>2</manvolnum></citerefentry>)</entry>
               </row>
             </tbody>
           </tgroup>

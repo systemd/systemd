@@ -566,6 +566,14 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "s390_pci_mmio_write\0"
 #endif
         },
+        [SYSCALL_FILTER_SET_REBOOT] = {
+                .name = "@reboot",
+                .help = "Reboot and reboot preparation/kexec",
+                .value =
+                "kexec\0"
+                "kexec_file_load\0"
+                "reboot\0"
+        },
         [SYSCALL_FILTER_SET_RESOURCES] = {
                 /* Alter resource settings */
                 .name = "@resources",
@@ -581,6 +589,13 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "mbind\0"
                 "sched_setattr\0"
                 "prlimit64\0"
+        },
+        [SYSCALL_FILTER_SET_SWAP] = {
+                .name = "@swap",
+                .help = "Enable/disable swap devices",
+                .value =
+                "swapoff\0"
+                "swapon\0"
         },
 };
 
