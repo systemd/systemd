@@ -448,7 +448,7 @@ static int socket_verify(Socket *s) {
                 return 0;
 
         if (!s->ports) {
-                log_unit_error(UNIT(s), "Unit lacks Listen setting. Refusing.");
+                log_unit_error(UNIT(s), "Unit has no Listen setting (e.g. ListenStream=, ListenDatagram=, ListenFIFO, ...). Refusing.");
                 return -EINVAL;
         }
 
