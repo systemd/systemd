@@ -204,21 +204,22 @@ finish:
 }
 
 static bool is_basic_seccomp_available(void) {
-        int r;
-        r = prctl(PR_GET_SECCOMP, 0, 0, 0, 0);
-        return r >= 0;
+        return prctl(PR_GET_SECCOMP, 0, 0, 0, 0) >= 0;
 }
 
 static bool is_seccomp_filter_available(void) {
-        int r;
-        r = prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, NULL, 0, 0);
-        return r < 0 && errno == EFAULT;
+        return prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, NULL, 0, 0) < 0 &&
+                errno == EFAULT;
 }
 
 bool is_seccomp_available(void) {
         static int cached_enabled = -1;
+
         if (cached_enabled < 0)
-                cached_enabled = is_basic_seccomp_available() && is_seccomp_filter_available();
+                cached_enabled =
+                        is_basic_seccomp_available() &&
+                        is_seccomp_filter_available();
+
         return cached_enabled;
 }
 
