@@ -1567,17 +1567,11 @@ static int install_info_symlink_wants(
         if (strv_isempty(list))
                 return 0;
 
-        if (unit_name_is_valid(i->name, UNIT_NAME_TEMPLATE)) {
+        if (unit_name_is_valid(i->name, UNIT_NAME_TEMPLATE) && i->default_instance) {
                 UnitFileInstallInfo instance = {
                         .type = _UNIT_FILE_TYPE_INVALID,
                 };
                 _cleanup_free_ char *path = NULL;
-
-                /* Don't install any symlink if there's no default
-                 * instance configured */
-
-                if (!i->default_instance)
-                        return 0;
 
                 r = unit_name_replace_instance(i->name, i->default_instance, &buf);
                 if (r < 0)
