@@ -46,6 +46,8 @@
 
 bool uid_is_valid(uid_t uid) {
 
+        /* Also see POSIX IEEE Std 1003.1-2008, 2016 Edition, 3.436. */
+
         /* Some libc APIs use UID_INVALID as special placeholder */
         if (uid == (uid_t) UINT32_C(0xFFFFFFFF))
                 return false;
@@ -519,7 +521,15 @@ bool valid_user_group_name(const char *u) {
         const char *i;
         long sz;
 
-        /* Checks if the specified name is a valid user/group name. */
+        /* Checks if the specified name is a valid user/group name. Also see POSIX IEEE Std 1003.1-2008, 2016 Edition,
+         * 3.437. We are a bit stricter here however. Specifically we deviate from POSIX rules:
+         *
+         * - We don't allow any dots (this would break chown syntax which permits dots as user/group name separator)
+         * - We require that names fit into the appropriate utmp field
+         * - We don't allow empty user names
+         *
+         * Note that other systems are even more restrictive, and don't permit underscores or uppercase characters.
+         */
 
         if (isempty(u))
                 return false;
