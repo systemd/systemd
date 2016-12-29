@@ -293,7 +293,6 @@ int bus_image_method_set_limit(
 static int directory_image_get_os_release(Image *image, char ***ret, sd_bus_error *error) {
 
         _cleanup_free_ char *path = NULL;
-        _cleanup_close_ int fd = -1;
         int r;
 
         assert(image);
