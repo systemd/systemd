@@ -859,14 +859,17 @@
 
       <varlistentry>
         <term><varname>PAMName=</varname></term>
-        <listitem><para>Sets the PAM service name to set up a session
-        as. If set, the executed process will be registered as a PAM
-        session under the specified service name. This is only useful
-        in conjunction with the <varname>User=</varname> setting. If
-        not set, no PAM session will be opened for the executed
-        processes. See
-        <citerefentry project='man-pages'><refentrytitle>pam</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        for details.</para></listitem>
+        <listitem><para>Sets the PAM service name to set up a session as. If set, the executed process will be
+        registered as a PAM session under the specified service name. This is only useful in conjunction with the
+        <varname>User=</varname> setting, and is otherwise ignored. If not set, no PAM session will be opened for the
+        executed processes. See <citerefentry
+        project='man-pages'><refentrytitle>pam</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+        details.</para>
+
+        <para>Note that for each unit making use of this option a PAM session handler process will be maintained as
+        part of the unit and stays around as long as the unit is active, to ensure that appropriate actions can be
+        taken when the unit and hence the PAM session terminates. This process is named <literal>(sd-pam)</literal> and
+        is an immediate child process of the unit's main process.</para></listitem>
       </varlistentry>
 
       <varlistentry>
