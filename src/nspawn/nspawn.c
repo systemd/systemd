@@ -1425,12 +1425,9 @@ static int copy_devnodes(const char *dest) {
 
                 } else {
                         if (mknod(to, st.st_mode, st.st_rdev) < 0) {
-                                /*
-                                 * This is some sort of protection too against
-                                 * recursive userns chown on shared /dev/
-                                 */
+                                /* Explicitly warn the user when /dev is already populated. */
                                 if (errno == EEXIST)
-                                        log_notice("%s/dev/ should be an empty directory", dest);
+                                        log_notice("%s/dev is pre-mounted and pre-populated. If a pre-mounted /dev is provided it needs to be an unpopulated file system.", dest);
                                 if (errno != EPERM)
                                         return log_error_errno(errno, "mknod(%s) failed: %m", to);
 
