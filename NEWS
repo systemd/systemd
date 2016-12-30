@@ -2,6 +2,10 @@ systemd System and Service Manager
 
 CHANGES WITH 233 in spe
 
+        * DBus policy files are now installed into /usr rather than /etc. Make
+          sure your system has dbus >= 1.9.18 running before upgrading to this
+          version, or override the install path with --with-dbuspolicydir= .
+
         * The confirmation spawn prompt has been reworked to offer the
           following choices:
 
