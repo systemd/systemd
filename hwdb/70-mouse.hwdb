@@ -346,6 +346,10 @@ mouse:usb:v046dpc24c:name:Logitech G400s Optical Gaming Mouse:
 mouse:usb:v046dpc07e:name:Logitech Gaming Mouse G402:
  MOUSE_DPI=400@1000 *800@1000 1600@1000 3200@1000
 
+# Logitech G502 Proteus Spectrum
+mouse:usb:v046dpc332:name:Logitech Gaming Mouse G502:
+ MOUSE_DPI=1200@1000 *2400@1000 3200@1000 6400@1000
+
 # Logitech B605 Wireless Mouse (also M505)
 mouse:usb:v046dp101d:name:Logitech B605:
 mouse:usb:v046dp101d:name:Logitech M505:
