@@ -1182,9 +1182,9 @@
         processes will receive or propagate mounts or unmounts. See <citerefentry
         project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details. Defaults to <option>shared</option>. Use <option>shared</option> to ensure that mounts and unmounts
-        are propagated from the host to the container and vice versa. Use <option>slave</option> to run processes so
-        that none of their mounts and unmounts will propagate to the host. Use <option>private</option> to also ensure
-        that no mounts and unmounts from the host will propagate into the unit processes' namespace. Note that
+        are propagated from systemd's namespace to the service's namespace and vice versa. Use <option>slave</option>
+        to run processes so that none of their mounts and unmounts will propagate to the host. Use <option>private</option>
+        to also ensure that no mounts and unmounts from the host will propagate into the unit processes' namespace. Note that
         <option>slave</option> means that file systems mounted on the host might stay mounted continuously in the
         unit's namespace, and thus keep the device busy. Note that the file system namespace related options
         (<varname>PrivateTmp=</varname>, <varname>PrivateDevices=</varname>, <varname>ProtectSystem=</varname>,
