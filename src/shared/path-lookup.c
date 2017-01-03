@@ -139,7 +139,7 @@ static char** user_dirs(
         const char *e;
         _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
         _cleanup_free_ char *data_home = NULL;
-        _cleanup_free_ char **res = NULL;
+        _cleanup_strv_free_ char **res = NULL;
         char **tmp;
         int r;
 
