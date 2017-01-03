@@ -73,7 +73,9 @@ void udev_event_unref(struct udev_event *event) {
         free(event);
 }
 
-size_t udev_event_apply_format(struct udev_event *event, const char *src, char *dest, size_t size) {
+size_t udev_event_apply_format(struct udev_event *event,
+                               const char *src, char *dest, size_t size,
+                               bool replace_whitespace) {
         struct udev_device *dev = event->dev;
         enum subst_type {
                 SUBST_UNKNOWN,
@@ -130,8 +132,10 @@ size_t udev_event_apply_format(struct udev_event *event, const char *src, char *
 
         for (;;) {
                 enum subst_type type = SUBST_UNKNOWN;
-                char attrbuf[UTIL_PATH_SIZE];
-                char *attr = NULL;
+                char attrbuf[UTIL_PATH_SIZE], sbuf[UTIL_PATH_SIZE];
+                char *attr = NULL, *_s;
+                size_t _l;
+                bool replws = replace_whitespace;
 
                 while (from[0] != '\0') {
                         if (from[0] == '$') {
@@ -198,6 +202,19 @@ subst:
                         attr = attrbuf;
                 } else {
                         attr = NULL;
+                }
+
+                /* result subst handles space as field separator */
+                if (type == SUBST_RESULT)
+                        replws = false;
+
+                if (replws) {
+                        /* store dest string ptr and remaining len */
+                        _s = s;
+                        _l = l;
+                        /* temporarily use sbuf */
+                        s = &sbuf;
+                        l = UTIL_PATH_SIZE;
                 }
 
                 switch (type) {
@@ -379,6 +396,20 @@ subst:
                 default:
                         log_error("unknown substitution type=%i", type);
                         break;
+                }
+
+                /* replace whitespace in sbuf and copy to dest */
+                if (replws) {
+                        size_t tmplen = UTIL_PATH_SIZE - l;
+
+                        /* restore s and l to dest string values */
+                        s = _s;
+                        l = _l;
+
+                        /* copy ws-replaced value to s */
+                        tmplen = util_replace_whitespace(sbuf, s, MIN(tmplen, l));
+                        l -= tmplen;
+                        s += tmplen;
                 }
         }
 
@@ -927,7 +958,7 @@ void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_
                 const char *cmd = udev_list_entry_get_name(list_entry);
                 enum udev_builtin_cmd builtin_cmd = udev_list_entry_get_num(list_entry);
 
-                udev_event_apply_format(event, cmd, command, sizeof(command));
+                udev_event_apply_format(event, cmd, command, sizeof(command), false);
 
                 if (builtin_cmd < UDEV_BUILTIN_MAX)
                         udev_builtin_run(event->dev, builtin_cmd, command, false);
