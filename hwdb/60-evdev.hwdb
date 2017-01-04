@@ -144,6 +144,13 @@ evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLati
  EVDEV_ABS_35=76:1815:22
  EVDEV_ABS_36=131:1330:30
 
+# Dell Latitude E6320
+evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE6320*
+ EVDEV_ABS_00=79:1841:22
+ EVDEV_ABS_01=140:1325:29
+ EVDEV_ABS_35=79:1841:22
+ EVDEV_ABS_36=140:1325:29
+
 # Dell Precision 5510
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnPrecision5510*
  EVDEV_ABS_00=::42
