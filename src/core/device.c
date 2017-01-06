@@ -385,7 +385,7 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
          * on its radar. In this case the device unit is partially initialized
          * and includes the deps on the mount unit but at that time the "bind
          * mounts" flag wasn't not present. Fix this up now. */
-        if (device_is_bound_by_mounts(u, dev))
+        if (dev && device_is_bound_by_mounts(u, dev))
                 device_upgrade_mount_deps(u);
 
         /* Note that this won't dispatch the load queue, the caller
