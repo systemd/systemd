@@ -1385,7 +1385,7 @@ int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void 
 
         if (fd == s->syslog_fd) {
                 if (n > 0 && n_fds == 0)
-                        server_process_syslog_message(s, strstrip(s->buffer), ucred, tv, label, label_len);
+                        server_process_syslog_message(s, s->buffer, n, ucred, tv, label, label_len);
                 else if (n_fds > 0)
                         log_warning("Got file descriptors via syslog socket. Ignoring.");
 
