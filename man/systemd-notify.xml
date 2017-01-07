@@ -76,6 +76,11 @@
     from this command unless <varname>NotifyAccess=all</varname> is
     set for the service unit this command is called from.</para>
 
+    <para>Due to current limitations of the Linux kernel and the systemd, this
+    command requires <constant>CAP_SYS_ADMIN</constant> privileges to work
+    reliably. I.e. it's useful only in shell scripts running as a root
+    user.</para>
+
   </refsect1>
 
   <refsect1>
