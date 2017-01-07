@@ -1,0 +1,314 @@
+#  This file is part of systemd.
+#
+#  Copyright 2012 Lennart Poettering
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+#
+#  systemd is distributed in the hope that it will be useful, but
+#  WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+#  Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public License
+#  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+
+# Message catalog for systemd's own messages
+# Croatian translation
+
+# Format kataloga je dokumentiran na
+# http://www.freedesktop.org/wiki/Software/systemd/catalog
+
+# Za pojašnjenje zašto ovo radimo, posjetite https://xkcd.com/1024/
+
+-- f77379a8490b408bbe5f6940505a777b
+Subject: journal je pokrenut
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Journal proces sustava se pokrenuo, otvorio je journal
+ datoteke za upis i spreman je za obradu zahtjeva.
+
+-- d93fb3c9c24d451a97cea615ce59c00b
+Subject: journal je zaustavljen
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Journal proces sustava je isključio i zatvorio sve trenutno
+aktivne journal datoteke.
+
+-- ec387f577b844b8fa948f33cad9a75e6
+Subject: Diskovni prostor koji koristi journal
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@JOURNAL_NAME@ (@JOURNAL_PATH@) trenutno koristi @CURRENT_USE_PRETTY@.
+Najveća dopuštena upotreba je postavljena na @MAX_USE_PRETTY@.
+Ostavljam najmanje @DISK_KEEP_FREE_PRETTY@ slobodno (trenutno dostupno @DISK_AVAILABLE_PRETTY@ diskovnog prostora).
+Prisilno ograničenje upotrebe je @LIMIT_PRETTY@, od kojeg je @AVAILABLE_PRETTY@ još dostupno.
+
+Ograničenja kontroliraju koliko diskovnog prostora koristi journal mogu
+se podesiti sa SystemMaxUse=, SystemKeepFree=, SystemMaxFileSize=,
+RuntimeMaxUse=, RuntimeKeepFree=, RuntimeMaxFileSize= settings u
+/etc/systemd/journald.conf. Pogledajte journald.conf(5) za više pojedinosti.
+
+-- a596d6fe7bfa4994828e72309e95d61e
+Subject: Poruka iz usluge je potisnuta
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:journald.conf(5)
+
+Usluga je prijavila previše poruka u određenom vremenskom razdoblju. Poruke
+iz usluge su odbačene.
+
+Zapamtite da samo poruke iz usluge u upitu su
+odbačene, ostale poruke usluga nisu zahvaćene.
+
+Ograničenja koja kontroliraju kada je poruka odbačena mogu se podesiti
+sa RateLimitInterval= i RateLimitBurst= u
+/etc/systemd/journald.conf. Pogledajte journald.conf(5) za više pojedinosti.
+
+-- e9bf28e6e834481bb6f48f548ad13606
+Subject: Journal poruka je propuštena
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Kernel poruka je izgubljena zato jer ih journal sustav nije mogao
+dovoljno brzo obraditi.
+
+-- fc2e22bc6ee647b6b90729ab34a250b1
+Subject: Proces @COREDUMP_PID@ (@COREDUMP_COMM@) je izbacio jezgru
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:core(5)
+
+Proces @COREDUMP_PID@ (@COREDUMP_COMM@) se srušio i izbacio jezgru.
+
+Rušenje programa je uobičajeno uzrokovano greškom u programiranju i
+trebalo bi se prijaviti razvijatelju kao greška.
+
+-- 8d45620c1a4348dbb17410da57c60c66
+Subject: Nova sesija @SESSION_ID@ je stvorena za korisnika @USER_ID@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+Nova sesija sa ID @SESSION_ID@ je stvorena za korisnika @USER_ID@.
+
+Glavni proces sesije je @LEADER@.
+
+-- 3354939424b4456d9802ca8333ed424a
+Subject: Sesija @SESSION_ID@ je prekinuta
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+Sesija sa ID @SESSION_ID@ je prekinuta.
+
+-- fcbefc5da23d428093f97c82a9290f7b
+Subject: Novo sjedište @SEAT_ID@ je sada dostupno
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+Novo sjedište @SEAT_ID@ je podešeno i sada je dostupno.
+
+-- e7852bfe46784ed0accde04bc864c2d5
+Subject: Sjedište @SEAT_ID@ je sada uklonjeno
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+Sjedište @SEAT_ID@ je uklonjeno i više nije dostupno.
+
+-- c7a787079b354eaaa9e77b371893cd27
+Subject: Vrijeme promjene
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Sat sustava je promijenjen na @REALTIME@ microsekundi nakon 1. Siječnja, 1970 godine.
+
+-- 45f82f4aef7a4bbf942ce861d1f20990
+Subject: Vremenska zona je promijenjena u @TIMEZONE@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Vremenska zona je promijenjena u @TIMEZONE@.
+
+-- b07a249cd024414a82dd00cd181378ff
+Subject: Pokretanje sustava je sada završeno
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Sve usluge sustava koje su zadane za pokretanje pri pokretanju sustava
+su uspješno pokrenute. Zapamtite da ovo ne znači da sada računalo
+miruje zato jer se neke usluge još uvijek mogu pokretati.
+
+Pokretanje kernela zahtijeva @KERNEL_USEC@ mikrosekundi.
+
+Pokretanje početnog RAM diska zahtijeva @INITRD_USEC@ mikrosekundi.
+
+Pokretanje prostora korisnika zahtijeva @USERSPACE_USEC@ mikrosekundi.
+
+-- 6bbd95ee977941e497c48be27c254128
+Subject: Pokrenuto je stanje spavanja @SLEEP@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Sustav je sada pokrenuo stanje spavanja @SLEEP@
+
+-- 8811e6df2a8e40f58a94cea26f8ebf14
+Subject: Završeno je stanje spavanja @SLEEP@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Sustav je sada završio stanje spavanja @SLEEP@
+
+-- 98268866d1d54a499c4e98921d93bc40
+Subject: Pokrenuto je isključivanje sustava
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Pokrenuto je isključivanje sustava. Isključivanje je sada pokrenuto,
+sve usluge sustava su prekinute i svi datotečni sustavi su odmontirani.
+
+-- 7d4958e842da4a758f6c1cdc7b36dcc5
+Subject: Jedinica @UNIT@ je započela pokretanje
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Jedinica @UNIT@ je započela pokretanje.
+
+-- 39f53479d3a045ac8e11786248231fbf
+Subject: Jedinica @UNIT@ je završila pokretanje
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Jedinica @UNIT@ je završila pokretanje.
+
+Rezultat pokretanja je @RESULT@.
+
+-- de5b426a63be47a7b6ac3eaac82e2f6f
+Subject: Jedinica @UNIT@ je započela isključivanje
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Jedinica @UNIT@ je započela isključivanje.
+
+-- 9d1aaa27d60140bd96365438aad20286
+Subject: Jedinica @UNIT@ je završila isključivanje
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Jedinica @UNIT@ je završila isključivanje.
+
+-- be02cf6855d2428ba40df7e9d022f03d
+Subject: Jedinica @UNIT@ nije uspjela
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Jedinica @UNIT@ nije uspjela.
+
+Rezultat je @RESULT@.
+
+-- d34d037fff1847e6ae669a370e694725
+Subject: Jedinica @UNIT@ je započela ponovno učitavati podešavanja
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Jedinica @UNIT@ je započela ponovno učitavati podešavanja
+
+-- 7b05ebc668384222baa8881179cfda54
+Subject: Jedinica @UNIT@ je završila ponovno učitavati podešavanja
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Jedinica @UNIT@ je završila ponovno učitavati podešavanja
+
+Rezultat je @RESULT@.
+
+-- 641257651c1b4ec9a8624d7a40a9e1e7
+Subject: Proces @EXECUTABLE@ se ne može pokrenuti
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Proces @EXECUTABLE@ se ne može pokrenuti i nije uspio.
+
+Broj greške vraćen ovim procesom je @ERRNO@.
+
+-- 0027229ca0644181a76c4e92458afa2e
+Subject: Jedna ili više poruka se ne mogu proslijediti u dnevnik sustava
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Jedna ili više poruka se ne mogu proslijediti u dnevnik sustava, usluge
+su pokrenute istovremeno s journalom. Ovo uobičajeno označava da
+implementacija dnevnika sustava ne može slijediti brzinu
+zahtjeva poruka.
+
+-- 1dee0369c7fc4736b7099b38ecb46ee7
+Subject: Točka montiranja nije prazna
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Direktorij @WHERE@ je određen za točku montiranja (drugi redak u
+/etc/fstab ili Where= redak u datoteci systemd jedinice) i nije prazan.
+To ne utječe na montiranje, ali postojeće datoteke u ovom direktoriju
+postaju nedostupne. Kako bi vidjeli datoteke preko kojih je montirano,
+ručno montirajte osnovni datotečni sustav na drugu lokaciju.
+
+-- 24d8d4452573402496068381a6312df2
+Subject: Virtualni stroj ili spremnik su pokrenuti
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Virtualni stroj @NAME@ sa vodećim @LEADER@ PID-om je
+pokrenut i spreman je za korištenje.
+
+-- 58432bd3bace477cb514b56381b8a758
+Subject: Virtualni stroj ili spremnik su isključeni
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Virtualni stroj @NAME@ sa vodećim PID-om @LEADER@ je
+isključen.
+
+-- 36db2dfa5a9045e1bd4af5f93e1cf057
+Subject: DNSSEC način je isključen, jer ga poslužitelj ne podržava
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:systemd-resolved.service(8) resolved.conf(5)
+
+Usluga razrješavanja (systemd-resolved.service) je otkrila da
+podešeni DNS poslužitelj ne podržava DNSSEC, i DNSSEC, kao rezultat
+provjera je isključena.
+
+Ovaj događaj će zauzeti mjesto ako je DNSSEC=allow-downgrade podešen u
+resolved.conf i podešeni DNS poslužitelj je nekompatibilan s DNSSEC. Zapamtite
+da korištenje ovog načina dopušta povećanje DNSSEC napada, napadač bi mogao
+isključiti DNSSEC provjeru na sustavu umetanjem DNS odgovora u
+komunikacijski kanal što rezultira povećanjem napada poput ovog.
+
+Ovaj događaj bi mogao označavati da je DNS poslužitelj uistinu nekompatibilan s
+DNSSEC ili da je napadač uspješno izvršio takav napad.
+
+-- 1675d7f172174098b1108bf8c7dc8f5d
+Subject: DNSSEC provjera neuspješna
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:systemd-resolved.service(8)
+
+DNS zahtjev ili snimak resursa nije prošao DNSSEC provjeru. To uobičajeno
+označava da je komunikacijski kanal mijenjan.
+
+-- 4d4408cfd0d144859184d1e65d7c8a65
+Subject: DNSSEC pouzdano sidro je opozvano
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:systemd-resolved.service(8)
+
+A DNSSEC trust anchor has been revoked. A new trust anchor has to be
+configured, or the operating system needs to be updated, to provide an updated
+DNSSEC trust anchor.
