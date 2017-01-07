@@ -49,7 +49,9 @@
   <refsynopsisdiv>
     <para><filename>/etc/modules-load.d/*.conf</filename></para>
     <para><filename>/run/modules-load.d/*.conf</filename></para>
+    <para><filename>/usr/local/lib/modules-load.d/*.conf</filename></para>
     <para><filename>/usr/lib/modules-load.d/*.conf</filename></para>
+    <para><filename>/lib/modules-load.d/*.conf</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
