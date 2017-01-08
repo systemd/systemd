@@ -585,11 +585,13 @@ static void ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
                         break;
 
                 case SD_NDISC_OPTION_RDNSS:
-                        ndisc_router_process_rdnss(link, rt);
+                        if (link->network->ipv6_accept_ra_use_dns)
+                                ndisc_router_process_rdnss(link, rt);
                         break;
 
                 case SD_NDISC_OPTION_DNSSL:
-                        ndisc_router_process_dnssl(link, rt);
+                        if (link->network->ipv6_accept_ra_use_dns)
+                                ndisc_router_process_dnssl(link, rt);
                         break;
                 }
 
