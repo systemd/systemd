@@ -564,7 +564,7 @@ static void help(void) {
         printf("%1$s [HOST:PORT]\n"
                "%1$s [SOCKET]\n\n"
                "Bidirectionally proxy local sockets to another (possibly remote) socket.\n\n"
-               "  -c --max-connections=  Set the maximum number of connections to be accepted\n"
+               "  -c --connections-max=  Set the maximum number of connections to be accepted\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n",
                program_invocation_short_name);
