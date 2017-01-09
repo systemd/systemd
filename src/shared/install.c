@@ -1893,7 +1893,11 @@ int unit_file_unmask(
                 if (!GREEDY_REALLOC0(todo, n_allocated, n_todo + 2))
                         return -ENOMEM;
 
-                todo[n_todo++] = strdup(*i);
+                todo[n_todo] = strdup(*i);
+                if (!todo[n_todo])
+                        return -ENOMEM;
+
+                n_todo++;
         }
 
         strv_uniq(todo);
