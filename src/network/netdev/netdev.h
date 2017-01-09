@@ -175,7 +175,7 @@ NetDevKind netdev_kind_from_string(const char *d) _pure_;
 int config_parse_netdev_kind(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
 /* gperf */
-const struct ConfigPerfItem* network_netdev_gperf_lookup(const char *key, unsigned length);
+const struct ConfigPerfItem* network_netdev_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
 /* Macros which append INTERFACE= to the message */
 

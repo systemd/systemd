@@ -255,6 +255,28 @@ AC_CHECK_SIZEOF(rlim_t,,[
        #include <sys/resource.h>
 ])
 
+GPERF_TEST="$(echo foo,bar | ${GPERF} -L ANSI-C)"
+
+AC_COMPILE_IFELSE(
+        [AC_LANG_PROGRAM([
+                #include <string.h>
+                const char * in_word_set(const char *, size_t);
+                $GPERF_TEST]
+        )],
+        [GPERF_LEN_TYPE=size_t],
+        [AC_COMPILE_IFELSE(
+                [AC_LANG_PROGRAM([
+                        #include <string.h>
+                        const char * in_word_set(const char *, unsigned);
+                        $GPERF_TEST]
+                )],
+                [GPERF_LEN_TYPE=unsigned],
+                [AC_MSG_ERROR([** unable to determine gperf len type])]
+        )]
+)
+
+AC_DEFINE_UNQUOTED([GPERF_LEN_TYPE], [$GPERF_LEN_TYPE], [gperf len type])
+
 # ------------------------------------------------------------------------------
 # we use python to build the man page index
 have_python=no

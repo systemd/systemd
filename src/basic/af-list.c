@@ -23,7 +23,7 @@
 #include "af-list.h"
 #include "macro.h"
 
-static const struct af_name* lookup_af(register const char *str, register unsigned int len);
+static const struct af_name* lookup_af(register const char *str, register GPERF_LEN_TYPE len);
 
 #include "af-from-name.h"
 #include "af-to-name.h"
