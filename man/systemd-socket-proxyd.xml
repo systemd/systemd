@@ -86,7 +86,7 @@
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <varlistentry>
-        <term><option>--max-connections=</option></term>
+        <term><option>--connections-max=</option></term>
         <term><option>-c</option></term>
 
         <listitem><para>Sets the maximum number of simultaneous connections, defaults to 256.
