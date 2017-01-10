@@ -34,6 +34,7 @@
 #include <net/ethernet.h>
 #include <stdlib.h>
 #include <sys/resource.h>
+#include <sys/socket.h>
 #include <sys/syscall.h>
 #include <uchar.h>
 #include <unistd.h>
@@ -49,6 +50,23 @@
 #ifdef HAVE_LINUX_BTRFS_H
 #include <linux/btrfs.h>
 #endif
+
+#ifdef HAVE_LINUX_VM_SOCKETS_H
+#include <linux/vm_sockets.h>
+#else
+#define VMADDR_CID_ANY -1U
+struct sockaddr_vm {
+        unsigned short svm_family;
+        unsigned short svm_reserved1;
+        unsigned int svm_port;
+        unsigned int svm_cid;
+        unsigned char svm_zero[sizeof(struct sockaddr) -
+                               sizeof(unsigned short) -
+                               sizeof(unsigned short) -
+                               sizeof(unsigned int) -
+                               sizeof(unsigned int)];
+};
+#endif /* !HAVE_LINUX_VM_SOCKETS_H */
 
 #include "macro.h"
 
@@ -1161,6 +1179,10 @@ struct ethtool_link_settings {
 
 #ifndef SOL_ALG
 #define SOL_ALG 279
+#endif
+
+#ifndef AF_VSOCK
+#define AF_VSOCK 40
 #endif
 
 #include "missing_syscall.h"
