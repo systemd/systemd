@@ -45,6 +45,7 @@
 
 #  Macbook2,1 (late 2006), single-button touchpad
 evdev:input:b0003v05ACp021B*
+
 # Macbook4,1
 evdev:input:b0003v05ACp0229*
  EVDEV_ABS_00=256:1471:12
@@ -81,6 +82,7 @@ evdev:input:b0003v05ACp0254*
 evdev:input:b0003v05ACp0262*
 evdev:input:b0003v05ACp0263*
 evdev:input:b0003v05ACp0264*
+
 # MacbookPro10,2 (unibody, October 2012)
 evdev:input:b0003v05ACp0259*
 evdev:input:b0003v05ACp025A*
@@ -259,7 +261,7 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrThinkPadT430*
  EVDEV_ABS_01=1309:4826:78
  EVDEV_ABS_35=1250:5631:58
  EVDEV_ABS_36=1309:4826:78
- 
+
 # Lenovo T460
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*ThinkPad*T460*
  EVDEV_ABS_00=1266:5677:44
