@@ -29,7 +29,7 @@ typedef const struct {
 } dns_type;
 
 static const struct dns_type_name *
-lookup_dns_type (register const char *str, register unsigned int len);
+lookup_dns_type (register const char *str, register GPERF_LEN_TYPE len);
 
 #include "dns_type-from-name.h"
 #include "dns_type-to-name.h"

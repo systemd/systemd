@@ -29,7 +29,7 @@
 #include "string-util.h"
 #include "udev.h"
 
-static const struct key *keyboard_lookup_key(const char *str, unsigned len);
+static const struct key *keyboard_lookup_key(const char *str, GPERF_LEN_TYPE len);
 #include "keyboard-keys-from-name.h"
 
 static int install_force_release(struct udev_device *dev, const unsigned *release, unsigned release_count) {
