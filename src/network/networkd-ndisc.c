@@ -133,6 +133,7 @@ static void ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 
         route->family = AF_INET6;
         route->table = link->network->ipv6_accept_ra_route_table;
+        route->priority = link->network->dhcp_route_metric;
         route->protocol = RTPROT_RA;
         route->pref = preference;
         route->gw.in6 = gateway;
@@ -254,6 +255,7 @@ static void ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) 
 
         route->family = AF_INET6;
         route->table = link->network->ipv6_accept_ra_route_table;
+        route->priority = link->network->dhcp_route_metric;
         route->protocol = RTPROT_RA;
         route->flags = RTM_F_PREFIX;
         route->dst_prefixlen = prefixlen;
