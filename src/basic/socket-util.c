@@ -793,7 +793,8 @@ static const char* const netlink_family_table[] = {
         [NETLINK_KOBJECT_UEVENT] = "kobject-uevent",
         [NETLINK_GENERIC] = "generic",
         [NETLINK_SCSITRANSPORT] = "scsitransport",
-        [NETLINK_ECRYPTFS] = "ecryptfs"
+        [NETLINK_ECRYPTFS] = "ecryptfs",
+        [NETLINK_RDMA] = "rdma",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(netlink_family, int, INT_MAX);
