@@ -113,6 +113,30 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                 memcpy(a->sockaddr.un.sun_path+1, s+1, l);
                 a->size = offsetof(struct sockaddr_un, sun_path) + 1 + l;
 
+        } else if (startswith(s, "vsock:")) {
+                /* AF_VSOCK socket in vsock:cid:port notation */
+                const char *cid_start = s + strlen("vsock:");
+
+                e = strchr(cid_start, ':');
+                if (!e)
+                        return -EINVAL;
+
+                r = safe_atou(e+1, &u);
+                if (r < 0)
+                        return r;
+
+                n = strndupa(cid_start, e - cid_start);
+                if (!isempty(n)) {
+                        r = safe_atou(n, &a->sockaddr.vm.svm_cid);
+                        if (r < 0)
+                                return r;
+                } else
+                        a->sockaddr.vm.svm_cid = VMADDR_CID_ANY;
+
+                a->sockaddr.vm.svm_family = AF_VSOCK;
+                a->sockaddr.vm.svm_port = u;
+                a->size = sizeof(struct sockaddr_vm);
+
         } else {
                 e = strchr(s, ':');
                 if (e) {
@@ -289,6 +313,15 @@ int socket_address_verify(const SocketAddress *a) {
 
                 return 0;
 
+        case AF_VSOCK:
+                if (a->size != sizeof(struct sockaddr_vm))
+                        return -EINVAL;
+
+                if (a->type != SOCK_STREAM && a->type != SOCK_DGRAM)
+                        return -EINVAL;
+
+                return 0;
+
         default:
                 return -EAFNOSUPPORT;
         }
@@ -394,6 +427,15 @@ bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) {
 
                 break;
 
+        case AF_VSOCK:
+                if (a->sockaddr.vm.svm_cid != b->sockaddr.vm.svm_cid)
+                        return false;
+
+                if (a->sockaddr.vm.svm_port != b->sockaddr.vm.svm_port)
+                        return false;
+
+                break;
+
         default:
                 /* Cannot compare, so we assume the addresses are different */
                 return false;
@@ -480,15 +522,27 @@ bool socket_address_matches_fd(const SocketAddress *a, int fd) {
         return socket_address_equal(a, &b);
 }
 
-int sockaddr_port(const struct sockaddr *_sa) {
+int sockaddr_port(const struct sockaddr *_sa, unsigned *port) {
         union sockaddr_union *sa = (union sockaddr_union*) _sa;
 
         assert(sa);
 
-        if (!IN_SET(sa->sa.sa_family, AF_INET, AF_INET6))
-                return -EAFNOSUPPORT;
+        switch (sa->sa.sa_family) {
+        case AF_INET:
+                *port = be16toh(sa->in.sin_port);
+                return 0;
 
-        return be16toh(sa->sa.sa_family == AF_INET6 ? sa->in6.sin6_port : sa->in.sin_port);
+        case AF_INET6:
+                *port = be16toh(sa->in6.sin6_port);
+                return 0;
+
+        case AF_VSOCK:
+                *port = sa->vm.svm_port;
+                return 0;
+
+        default:
+                return -EAFNOSUPPORT;
+        }
 }
 
 int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_ipv6, bool include_port, char **ret) {
@@ -589,6 +643,18 @@ int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_
                                 return -ENOMEM;
                 }
 
+                break;
+
+        case AF_VSOCK:
+                if (include_port)
+                        r = asprintf(&p,
+                                     "vsock:%u:%u",
+                                     sa->vm.svm_cid,
+                                     sa->vm.svm_port);
+                else
+                        r = asprintf(&p, "vsock:%u", sa->vm.svm_cid);
+                if (r < 0)
+                        return -ENOMEM;
                 break;
 
         default:
@@ -747,6 +813,9 @@ bool sockaddr_equal(const union sockaddr_union *a, const union sockaddr_union *b
 
         if (a->sa.sa_family == AF_INET6)
                 return memcmp(&a->in6.sin6_addr, &b->in6.sin6_addr, sizeof(a->in6.sin6_addr)) == 0;
+
+        if (a->sa.sa_family == AF_VSOCK)
+                return a->vm.svm_cid == b->vm.svm_cid;
 
         return false;
 }
