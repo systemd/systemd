@@ -45,7 +45,6 @@
 
 #  Macbook2,1 (late 2006), single-button touchpad
 evdev:input:b0003v05ACp021B*
-
 # Macbook4,1
 evdev:input:b0003v05ACp0229*
  EVDEV_ABS_00=256:1471:12
@@ -82,7 +81,6 @@ evdev:input:b0003v05ACp0254*
 evdev:input:b0003v05ACp0262*
 evdev:input:b0003v05ACp0263*
 evdev:input:b0003v05ACp0264*
-
 # MacbookPro10,2 (unibody, October 2012)
 evdev:input:b0003v05ACp0259*
 evdev:input:b0003v05ACp025A*
