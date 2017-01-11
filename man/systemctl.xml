@@ -760,18 +760,18 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <term><command>restart <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>
-            <para>Restart one or more units specified on the command
-            line. If the units are not running yet, they will be
-            started.</para>
+            <para>Stop and then start one or more units specified on the
+            command line. If the units are not running yet, they will
+            be started.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><command>try-restart <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>
-            <para>Restart one or more units specified on the command
-            line if the units are running. This does nothing if units are not
-            running.</para>
+            <para>Stop and then start one or more units specified on the
+            command line if the units are running. This does nothing
+            if units are not running.</para>
             <!-- Note that we don't document condrestart here, as that is just compatibility support, and we generally
                  don't document that. -->
           </listitem>
