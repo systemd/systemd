@@ -905,7 +905,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "key",       required_argument, NULL, ARG_KEY       },
                 { "cert",      required_argument, NULL, ARG_CERT      },
                 { "trust",     required_argument, NULL, ARG_TRUST     },
-                { "directory", required_argument, NULL, 'D' },
+                { "directory", required_argument, NULL, 'D'           },
                 {}
         };
 
