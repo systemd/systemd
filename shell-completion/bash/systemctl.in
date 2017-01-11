@@ -19,7 +19,7 @@
 
 __systemctl() {
         local mode=$1; shift 1
-        systemctl $mode --full --no-legend "$@"
+        systemctl $mode --full --no-legend "$@" 2>/dev/null
 }
 
 __systemd_properties() {
