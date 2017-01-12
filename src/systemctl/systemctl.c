@@ -1734,7 +1734,7 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        *deps = ret;
+        *deps = strv_uniq(ret);
         ret = NULL;
 
         return 0;
