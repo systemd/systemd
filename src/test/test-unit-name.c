@@ -192,6 +192,9 @@ static void test_unit_name_mangle(void) {
         test_unit_name_mangle_one(UNIT_NAME_GLOB, "foo", "foo.service", 1);
         test_unit_name_mangle_one(UNIT_NAME_GLOB, "foo*", "foo*", 0);
         test_unit_name_mangle_one(UNIT_NAME_GLOB, "ü*", "\\xc3\\xbc*", 1);
+        test_unit_name_mangle_one(UNIT_NAME_GLOB, "foo@/bar.service", "foo@bar.service", 1);
+        test_unit_name_mangle_one(UNIT_NAME_GLOB, "foo@/bar/baz-boo.service", "foo@bar-baz\\x2dboo.service", 1);
+        test_unit_name_mangle_one(UNIT_NAME_GLOB, "foo@bar/baz-boo.service", "foo@bar-baz-boo.service", 1);
 }
 
 static int test_unit_printf(void) {

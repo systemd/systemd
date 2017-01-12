@@ -684,6 +684,8 @@ static char *do_escape_mangle(const char *f, UnitNameMangle allow_globs, char *t
  *  If @allow_globs, globs characters are preserved. Otherwise, they are escaped.
  */
 int unit_name_mangle_with_suffix(const char *name, UnitNameMangle allow_globs, const char *suffix, char **ret) {
+        _cleanup_free_ char *instance = NULL;
+        _cleanup_free_ char *prefix = NULL;
         char *s, *t;
         int r;
 
@@ -717,6 +719,22 @@ int unit_name_mangle_with_suffix(const char *name, UnitNameMangle allow_globs, c
 
         if (path_is_absolute(name)) {
                 r = unit_name_from_path(name, ".mount", ret);
+                if (r >= 0)
+                        return 1;
+                if (r != -EINVAL)
+                        return r;
+        }
+
+        r = string_to_instance(name, &instance);
+        if (r < 0 && r != -EINVAL)
+                return r;
+
+        if (instance && path_is_absolute(instance)) {
+                r = string_to_prefix(name, &prefix);
+                if (r < 0 && r != -EINVAL)
+                        return r;
+
+                r = unit_name_from_path_instance(prefix, instance, suffix, ret);
                 if (r >= 0)
                         return 1;
                 if (r != -EINVAL)
