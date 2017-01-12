@@ -27,11 +27,13 @@
 -- installed, because other cases are covered by the *un scriptlets,
 -- so sometimes we will reload needlessly.
 
-pid = posix.fork()
-if pid == 0 then
-    assert(posix.exec("%{_bindir}/systemctl", "daemon-reload"))
-elseif pid > 0 then
-    posix.wait(pid)
+if posix.access("/run/systemd/system") then
+    pid = posix.fork()
+    if pid == 0 then
+        assert(posix.exec("%{_bindir}/systemctl", "daemon-reload"))
+    elseif pid > 0 then
+        posix.wait(pid)
+    end
 end
 
 %transfiletriggerun -p <lua> -- @systemunitdir@ /etc/systemd/system
@@ -48,10 +50,12 @@ end
 -- file in %transfiletriggerun and execute the daemon-reload in
 -- the first %filetriggerpostun.
 
-posix.mkdir("%{_localstatedir}/lib")
-posix.mkdir("%{_localstatedir}/lib/rpm-state")
-posix.mkdir("%{_localstatedir}/lib/rpm-state/systemd")
-io.open("%{_localstatedir}/lib/rpm-state/systemd/needs-reload", "w")
+if posix.access("/run/systemd/system") then
+    posix.mkdir("%{_localstatedir}/lib")
+    posix.mkdir("%{_localstatedir}/lib/rpm-state")
+    posix.mkdir("%{_localstatedir}/lib/rpm-state/systemd")
+    io.open("%{_localstatedir}/lib/rpm-state/systemd/needs-reload", "w")
+end
 
 %filetriggerpostun -P 1000100 -p <lua> -- @systemunitdir@ /etc/systemd/system
 if posix.access("%{_localstatedir}/lib/rpm-state/systemd/needs-reload") then
