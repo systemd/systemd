@@ -91,7 +91,7 @@
 
 __systemctl()
 {
-  systemctl $_sys_service_mgr --full --no-legend --no-pager "$@"
+  systemctl $_sys_service_mgr --full --no-legend --no-pager "$@" 2>/dev/null
 }
 
 

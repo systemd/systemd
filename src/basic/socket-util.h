@@ -102,7 +102,7 @@ const char* socket_address_get_path(const SocketAddress *a);
 
 bool socket_ipv6_is_supported(void);
 
-int sockaddr_port(const struct sockaddr *_sa, unsigned *port) _pure_;
+int sockaddr_port(const struct sockaddr *_sa, unsigned *port);
 
 int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_ipv6, bool include_port, char **ret);
 int getpeername_pretty(int fd, bool include_port, char **ret);
