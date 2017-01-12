@@ -135,42 +135,46 @@ bool unit_suffix_is_valid(const char *s) {
         return true;
 }
 
-int unit_name_to_prefix(const char *n, char **ret) {
+static int string_to_prefix(const char *s, char **ret) {
         const char *p;
-        char *s;
+        char *r;
 
+        assert(s);
+        assert(ret);
+
+        p = strchr(s, '@');
+        if (!p)
+                p = strrchr(s, '.');
+
+        assert_se(p);
+
+        r = strndup(s, p - s);
+        if (!r)
+                return -ENOMEM;
+
+        *ret = r;
+        return 0;
+}
+
+int unit_name_to_prefix(const char *n, char **ret) {
         assert(n);
         assert(ret);
 
         if (!unit_name_is_valid(n, UNIT_NAME_ANY))
                 return -EINVAL;
 
-        p = strchr(n, '@');
-        if (!p)
-                p = strrchr(n, '.');
-
-        assert_se(p);
-
-        s = strndup(n, p - n);
-        if (!s)
-                return -ENOMEM;
-
-        *ret = s;
-        return 0;
+        return string_to_prefix(n, ret);
 }
 
-int unit_name_to_instance(const char *n, char **instance) {
+static int string_to_instance(const char *s, char **instance) {
         const char *p, *d;
         char *i;
 
-        assert(n);
+        assert(s);
         assert(instance);
 
-        if (!unit_name_is_valid(n, UNIT_NAME_ANY))
-                return -EINVAL;
-
         /* Everything past the first @ and before the last . is the instance */
-        p = strchr(n, '@');
+        p = strchr(s, '@');
         if (!p) {
                 *instance = NULL;
                 return 0;
@@ -188,6 +192,16 @@ int unit_name_to_instance(const char *n, char **instance) {
 
         *instance = i;
         return 1;
+}
+
+int unit_name_to_instance(const char *n, char **instance) {
+        assert(n);
+        assert(instance);
+
+        if (!unit_name_is_valid(n, UNIT_NAME_ANY))
+                return -EINVAL;
+
+        return string_to_instance(n, instance);
 }
 
 int unit_name_to_prefix_and_instance(const char *n, char **ret) {
