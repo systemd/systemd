@@ -103,7 +103,7 @@ static const char *arg_directory = NULL;
 static char **arg_file = NULL;
 static bool arg_file_stdin = false;
 static int arg_priorities = 0xFF;
-static const char *arg_verify_key = NULL;
+static char *arg_verify_key = NULL;
 #ifdef HAVE_GCRYPT
 static usec_t arg_interval = DEFAULT_FSS_INTERVAL_USEC;
 static bool arg_force = false;
@@ -683,8 +683,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERIFY_KEY:
                         arg_action = ACTION_VERIFY;
-                        arg_verify_key = optarg;
+                        arg_verify_key = strdup(optarg);
+                        if (!arg_verify_key)
+                                return -ENOMEM;
                         arg_merge = false;
+                        string_erase(optarg);
                         break;
 
                 case ARG_INTERVAL:
@@ -2621,6 +2624,7 @@ finish:
         strv_free(arg_user_units);
 
         free(arg_root);
+        free(arg_verify_key);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
