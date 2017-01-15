@@ -442,6 +442,10 @@ mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4026:
 mouse:usb:v046dpc068:name:Logitech G500:
  MOUSE_DPI=*1600@500 2600@500 3600@500
 
+# Logitech TrackMan Wheel (USB)
+mouse:usb:v046dpc404:name:Logitech Trackball:
+ MOUSE_DPI=300@125
+
 # Logitech MX1000 Laser Cordless Mouse
 mouse:bluetooth:v046dpb003:name:Logitech MX1000 mouse:
  MOUSE_DPI=800@80
