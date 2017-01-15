@@ -3470,8 +3470,8 @@ static int run(int master,
 }
 
 static int load_root_hash(const char *image) {
-        _cleanup_free_ char *text = NULL;
-        char *fn, *n, *e;
+        _cleanup_free_ char *text = NULL, *fn = NULL;
+        char *n, *e;
         void *k;
         size_t l;
         int r;
