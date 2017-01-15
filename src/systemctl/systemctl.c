@@ -472,7 +472,8 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                                 id_len += incr;
                                 desc_len += MIN(extra_len - incr, max_desc_len - desc_len);
                         }
-                }
+                } else
+                        desc_len = 0;
         } else {
                 id_len = max_id_len;
                 desc_len = max_desc_len;
