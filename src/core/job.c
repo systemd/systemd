@@ -645,7 +645,7 @@ _pure_ static const char *job_get_status_message_format(Unit *u, JobType t, JobR
                 [JOB_DEPENDENCY]  = "Dependency failed for %s.",
                 [JOB_ASSERT]      = "Assertion failed for %s.",
                 [JOB_UNSUPPORTED] = "Starting of %s not supported.",
-                [JOB_COLLECTED]   = "Unecessary job for %s was removed.",
+                [JOB_COLLECTED]   = "Unnecessary job for %s was removed.",
         };
         static const char *const generic_finished_stop_job[_JOB_RESULT_MAX] = {
                 [JOB_DONE]        = "Stopped %s.",

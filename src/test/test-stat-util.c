@@ -18,12 +18,14 @@
 ***/
 
 #include <fcntl.h>
+#include <linux/magic.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "macro.h"
+#include "missing.h"
 #include "stat-util.h"
 
 static void test_files_same(void) {
@@ -60,9 +62,33 @@ static void test_is_symlink(void) {
         unlink(name_link);
 }
 
+static void test_path_is_os_tree(void) {
+        assert_se(path_is_os_tree("/") > 0);
+        assert_se(path_is_os_tree("/etc") == 0);
+        assert_se(path_is_os_tree("/idontexist") == -ENOENT);
+}
+
+static void test_path_check_fstype(void) {
+        assert_se(path_check_fstype("/run", TMPFS_MAGIC) > 0);
+        assert_se(path_check_fstype("/run", BTRFS_SUPER_MAGIC) == 0);
+        assert_se(path_check_fstype("/proc", PROC_SUPER_MAGIC) > 0);
+        assert_se(path_check_fstype("/proc", BTRFS_SUPER_MAGIC) == 0);
+        assert_se(path_check_fstype("/proc", BTRFS_SUPER_MAGIC) == 0);
+        assert_se(path_check_fstype("/i-dont-exist", BTRFS_SUPER_MAGIC) == -ENOENT);
+}
+
+static void test_path_is_temporary_fs(void) {
+        assert_se(path_is_temporary_fs("/run") > 0);
+        assert_se(path_is_temporary_fs("/proc") == 0);
+        assert_se(path_is_temporary_fs("/i-dont-exist") == -ENOENT);
+}
+
 int main(int argc, char *argv[]) {
         test_files_same();
         test_is_symlink();
+        test_path_is_os_tree();
+        test_path_check_fstype();
+        test_path_is_temporary_fs();
 
         return 0;
 }

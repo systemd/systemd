@@ -310,7 +310,7 @@ static char *disk_mount_point(const char *label) {
         if (asprintf(&device, "/dev/mapper/%s", label) < 0)
                 return NULL;
 
-        f = setmntent("/etc/fstab", "r");
+        f = setmntent("/etc/fstab", "re");
         if (!f)
                 return NULL;
 
@@ -593,17 +593,18 @@ static int help(void) {
 }
 
 int main(int argc, char *argv[]) {
-        int r = EXIT_FAILURE;
         struct crypt_device *cd = NULL;
+        int r;
 
         if (argc <= 1) {
-                help();
-                return EXIT_SUCCESS;
+                r = help();
+                goto finish;
         }
 
         if (argc < 3) {
                 log_error("This program requires at least two arguments.");
-                return EXIT_FAILURE;
+                r = -EINVAL;
+                goto finish;
         }
 
         log_set_target(LOG_TARGET_AUTO);
@@ -614,7 +615,6 @@ int main(int argc, char *argv[]) {
 
         if (streq(argv[1], "attach")) {
                 uint32_t flags = 0;
-                int k;
                 unsigned tries;
                 usec_t until;
                 crypt_status_info status;
@@ -648,11 +648,11 @@ int main(int argc, char *argv[]) {
 
                 if (arg_header) {
                         log_debug("LUKS header: %s", arg_header);
-                        k = crypt_init(&cd, arg_header);
+                        r = crypt_init(&cd, arg_header);
                 } else
-                        k = crypt_init(&cd, argv[3]);
-                if (k != 0) {
-                        log_error_errno(k, "crypt_init() failed: %m");
+                        r = crypt_init(&cd, argv[3]);
+                if (r < 0) {
+                        log_error_errno(r, "crypt_init() failed: %m");
                         goto finish;
                 }
 
@@ -661,7 +661,7 @@ int main(int argc, char *argv[]) {
                 status = crypt_status(cd, argv[2]);
                 if (status == CRYPT_ACTIVE || status == CRYPT_BUSY) {
                         log_info("Volume %s already active.", argv[2]);
-                        r = EXIT_SUCCESS;
+                        r = 0;
                         goto finish;
                 }
 
@@ -691,29 +691,30 @@ int main(int argc, char *argv[]) {
                         _cleanup_strv_free_erase_ char **passwords = NULL;
 
                         if (!key_file) {
-                                k = get_password(argv[2], argv[3], until, tries == 0 && !arg_verify, &passwords);
-                                if (k == -EAGAIN)
+                                r = get_password(argv[2], argv[3], until, tries == 0 && !arg_verify, &passwords);
+                                if (r == -EAGAIN)
                                         continue;
-                                else if (k < 0)
+                                if (r < 0)
                                         goto finish;
                         }
 
                         if (streq_ptr(arg_type, CRYPT_TCRYPT))
-                                k = attach_tcrypt(cd, argv[2], key_file, passwords, flags);
+                                r = attach_tcrypt(cd, argv[2], key_file, passwords, flags);
                         else
-                                k = attach_luks_or_plain(cd,
+                                r = attach_luks_or_plain(cd,
                                                          argv[2],
                                                          key_file,
                                                          arg_header ? argv[3] : NULL,
                                                          passwords,
                                                          flags);
-                        if (k >= 0)
+                        if (r >= 0)
                                 break;
-                        else if (k == -EAGAIN) {
+                        if (r == -EAGAIN) {
                                 key_file = NULL;
                                 continue;
-                        } else if (k != -EPERM) {
-                                log_error_errno(k, "Failed to activate: %m");
+                        }
+                        if (r != -EPERM) {
+                                log_error_errno(r, "Failed to activate: %m");
                                 goto finish;
                         }
 
@@ -722,28 +723,28 @@ int main(int argc, char *argv[]) {
 
                 if (arg_tries != 0 && tries >= arg_tries) {
                         log_error("Too many attempts; giving up.");
-                        r = EXIT_FAILURE;
+                        r = -EPERM;
                         goto finish;
                 }
 
         } else if (streq(argv[1], "detach")) {
-                int k;
 
-                k = crypt_init_by_name(&cd, argv[2]);
-                if (k == -ENODEV) {
+                r = crypt_init_by_name(&cd, argv[2]);
+                if (r == -ENODEV) {
                         log_info("Volume %s already inactive.", argv[2]);
-                        r = EXIT_SUCCESS;
+                        r = 0;
                         goto finish;
-                } else if (k) {
-                        log_error_errno(k, "crypt_init_by_name() failed: %m");
+                }
+                if (r < 0) {
+                        log_error_errno(r, "crypt_init_by_name() failed: %m");
                         goto finish;
                 }
 
                 crypt_set_log_callback(cd, log_glue, NULL);
 
-                k = crypt_deactivate(cd, argv[2]);
-                if (k < 0) {
-                        log_error_errno(k, "Failed to deactivate: %m");
+                r = crypt_deactivate(cd, argv[2]);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to deactivate: %m");
                         goto finish;
                 }
 
@@ -752,10 +753,9 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = EXIT_SUCCESS;
+        r = 0;
 
 finish:
-
         if (cd)
                 crypt_free(cd);
 
@@ -764,5 +764,5 @@ finish:
         free(arg_header);
         strv_free(arg_tcrypt_keyfiles);
 
-        return r;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

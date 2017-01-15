@@ -97,12 +97,10 @@
         <term><varname>DefaultStandardOutput=journal</varname></term>
         <term><varname>DefaultStandardError=inherit</varname></term>
 
-        <listitem><para>Configures various parameters of basic manager
-        operation. These options may be overridden by the respective
-        command line arguments. See
-        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        for details about these command line
-        arguments.</para></listitem>
+        <listitem><para>Configures various parameters of basic manager operation. These options may be overridden by
+        the respective process and kernel command line arguments. See
+        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para></listitem>
       </varlistentry>
 
       <varlistentry>

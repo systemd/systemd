@@ -102,7 +102,7 @@
       <varlistentry>
         <term><varname>systemd.mask=</varname></term>
         <term><varname>systemd.wants=</varname></term>
-        <term><varname>systemd.debug-shell</varname></term>
+        <term><varname>systemd.debug_shell</varname></term>
         <listitem>
           <para>Additional parameters understood by
           <citerefentry><refentrytitle>systemd-debug-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
@@ -121,6 +121,28 @@
           and
           <citerefentry><refentrytitle>systemd-rfkill.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
           </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.volatile=</varname></term>
+        <listitem>
+          <para>This parameter controls whether the system shall boot up in volatile mode. Takes a boolean argument, or
+          the special value <literal>state</literal>. If false (the default), normal boot mode is selected, the root
+          directory and <filename>/var</filename> are mounted as specified on the kernel command line or
+          <filename>/etc/fstab</filename>, or otherwise configured. If true, full state-less boot mode is selected. In
+          this case the root directory is mounted as volatile memory file system (<literal>tmpfs</literal>), and only
+          <filename>/usr</filename> is mounted from the file system configured as root device, in read-only mode. This
+          enables fully state-less boots were the vendor-supplied OS is used as shipped, with only default
+          configuration and no stored state in effect, as <filename>/etc</filename> and <filename>/var</filename> (as
+          well as all other resources shipped in the root file system) are reset at boot and lost on shutdown. If this
+          setting is set to <literal>state</literal> the root file system is mounted as usual, however
+          <filename>/var</filename> is mounted as a volatile memory file system (<literal>tmpfs</literal>), so that the
+          system boots up with the normal configuration applied, but all state reset at boot and lost at shutdown. For details,
+          see
+          <citerefentry><refentrytitle>systemd-volatile-root.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          and
+          <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
 
@@ -236,14 +258,14 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>udev.log-priority=</varname></term>
-        <term><varname>rd.udev.log-priority=</varname></term>
-        <term><varname>udev.children-max=</varname></term>
-        <term><varname>rd.udev.children-max=</varname></term>
-        <term><varname>udev.exec-delay=</varname></term>
-        <term><varname>rd.udev.exec-delay=</varname></term>
-        <term><varname>udev.event-timeout=</varname></term>
-        <term><varname>rd.udev.event-timeout=</varname></term>
+        <term><varname>udev.log_priority=</varname></term>
+        <term><varname>rd.udev.log_priority=</varname></term>
+        <term><varname>udev.children_max=</varname></term>
+        <term><varname>rd.udev.children_max=</varname></term>
+        <term><varname>udev.exec_delay=</varname></term>
+        <term><varname>rd.udev.exec_delay=</varname></term>
+        <term><varname>udev.event_timeout=</varname></term>
+        <term><varname>rd.udev.event_timeout=</varname></term>
         <term><varname>net.ifnames=</varname></term>
 
         <listitem>
@@ -312,6 +334,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>roothash=</varname></term>
+        <term><varname>systemd.verity=</varname></term>
+        <term><varname>rd.systemd.verity=</varname></term>
+        <term><varname>systemd.verity_root_data=</varname></term>
+        <term><varname>systemd.verity_root_hash=</varname></term>
+        <listitem>
+          <para>Configures the integrity protection root hash for the root file system, and other related
+          parameters. For details, see
+          <citerefentry><refentrytitle>systemd-veritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.gpt_auto=</varname></term>
         <term><varname>rd.systemd.gpt_auto=</varname></term>
 
@@ -332,8 +367,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>modules-load=</varname></term>
-        <term><varname>rd.modules-load=</varname></term>
+        <term><varname>modules_load=</varname></term>
+        <term><varname>rd.modules_load=</varname></term>
 
         <listitem>
           <para>Load a specific kernel module early at boot. For
@@ -353,6 +388,15 @@
           <citerefentry><refentrytitle>systemd-hibernate-resume-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.firstboot=</varname></term>
+
+        <listitem><para>Takes a boolean argument, defaults to on. If off,
+        <citerefentry><refentrytitle>systemd-firstboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        will not query the user for basic system settings, even if the system boots up for the first time and the
+        relevant settings are not initialized yet.</para></listitem>
+      </varlistentry>
     </variablelist>
 
   </refsect1>
@@ -371,12 +415,15 @@
         <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry project='die-net'><refentrytitle>plymouth</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-veritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-volatile-root.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-modules-load.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-backlight@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-rfkill.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-hibernate-resume-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <citerefentry><refentrytitle>systemd-hibernate-resume-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-firstboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       </para>
   </refsect1>
 

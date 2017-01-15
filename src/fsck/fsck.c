@@ -99,7 +99,10 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
         assert(key);
 
-        if (streq(key, "fsck.mode") && value) {
+        if (streq(key, "fsck.mode")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
 
                 if (streq(value, "auto"))
                         arg_force = arg_skip = false;
@@ -110,7 +113,10 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 else
                         log_warning("Invalid fsck.mode= parameter '%s'. Ignoring.", value);
 
-        } else if (streq(key, "fsck.repair") && value) {
+        } else if (streq(key, "fsck.repair")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
 
                 if (streq(value, "preen"))
                         arg_repair = "-a";
@@ -293,7 +299,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = parse_proc_cmdline(parse_proc_cmdline_item, NULL, true);
+        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 

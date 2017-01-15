@@ -6,6 +6,11 @@ CHANGES WITH 233 in spe
           sure your system has dbus >= 1.9.18 running before upgrading to this
           version, or override the install path with --with-dbuspolicydir= .
 
+        * The shell invoked by debug-shell.service now defaults to /bin/sh in
+          all cases. If distributions want to use a different shell for this
+          purpose (for example Fedora's /sbin/sushell) they need to specify
+          this explicitly at configure time using --with-debug-shell=.
+
         * The confirmation spawn prompt has been reworked to offer the
           following choices:
 

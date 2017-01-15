@@ -939,12 +939,15 @@
         <option>no</option> (the default), the whole OS tree is made
         available writable.</para>
 
-        <para>Note that setting this to <option>yes</option> or
-        <option>state</option> will only work correctly with
-        operating systems in the container that can boot up with only
-        <filename>/usr</filename> mounted, and are able to populate
-        <filename>/var</filename> automatically, as
-        needed.</para></listitem>
+        <para>This option provides similar functionality for containers as the <literal>systemd.volatile=</literal>
+        kernel command line switch provides for host systems. See
+        <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details.</para>
+
+        <para>Note that enabling this setting will only work correctly with operating systems in the container that can
+        boot up with only <filename>/usr</filename> mounted, and are able to automatically populate
+        <filename>/var</filename>, and also <filename>/etc</filename> in case of
+        <literal>--volatile=yes</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

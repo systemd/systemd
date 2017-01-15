@@ -981,24 +981,30 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         if (streq(key, "debug") && !value)
                 log_set_max_level(LOG_DEBUG);
 
-        else if (streq(key, "systemd.log_target") && value) {
+        else if (proc_cmdline_key_streq(key, "systemd.log_target")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
 
                 if (log_set_target_from_string(value) < 0)
                         log_warning("Failed to parse log target '%s'. Ignoring.", value);
 
-        } else if (streq(key, "systemd.log_level") && value) {
+        } else if (proc_cmdline_key_streq(key, "systemd.log_level")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
 
                 if (log_set_max_level_from_string(value) < 0)
                         log_warning("Failed to parse log level '%s'. Ignoring.", value);
 
-        } else if (streq(key, "systemd.log_color") && value) {
+        } else if (proc_cmdline_key_streq(key, "systemd.log_color")) {
 
-                if (log_show_color_from_string(value) < 0)
+                if (log_show_color_from_string(value ?: "1") < 0)
                         log_warning("Failed to parse log color setting '%s'. Ignoring.", value);
 
-        } else if (streq(key, "systemd.log_location") && value) {
+        } else if (proc_cmdline_key_streq(key, "systemd.log_location")) {
 
-                if (log_show_location_from_string(value) < 0)
+                if (log_show_location_from_string(value ?: "1") < 0)
                         log_warning("Failed to parse log location setting '%s'. Ignoring.", value);
         }
 
@@ -1009,10 +1015,9 @@ void log_parse_environment(void) {
         const char *e;
 
         if (get_ctty_devnr(0, NULL) < 0)
-                /* Only try to read the command line in daemons.
-                   We assume that anything that has a controlling
-                   tty is user stuff. */
-                (void) parse_proc_cmdline(parse_proc_cmdline_item, NULL, true);
+                /* Only try to read the command line in daemons.  We assume that anything that has a controlling tty is
+                   user stuff. */
+                (void) proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
 
         e = secure_getenv("SYSTEMD_LOG_TARGET");
         if (e && log_set_target_from_string(e) < 0)

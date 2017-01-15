@@ -37,6 +37,7 @@ static bool arg_force = false;
 static const char *arg_image_root = "/var/lib/machines";
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
 static bool arg_settings = true;
+static bool arg_roothash = true;
 
 static int interrupt_signal_handler(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         log_notice("Transfer aborted.");
@@ -204,7 +205,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate puller: %m");
 
-        r = raw_pull_start(pull, url, local, arg_force, arg_verify, arg_settings);
+        r = raw_pull_start(pull, url, local, arg_force, arg_verify, arg_settings, arg_roothash);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
 
@@ -226,6 +227,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --verify=MODE            Verify downloaded image, one of: 'no',\n"
                "                              'checksum', 'signature'\n"
                "     --settings=BOOL          Download settings file with image\n"
+               "     --roothash=BOOL          Download root hash file with image\n"
                "     --image-root=PATH        Image root directory\n\n"
                "Commands:\n"
                "  tar URL [NAME]              Download a TAR image\n"
@@ -243,6 +245,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_IMAGE_ROOT,
                 ARG_VERIFY,
                 ARG_SETTINGS,
+                ARG_ROOTHASH,
         };
 
         static const struct option options[] = {
@@ -252,6 +255,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "image-root",      required_argument, NULL, ARG_IMAGE_ROOT      },
                 { "verify",          required_argument, NULL, ARG_VERIFY          },
                 { "settings",        required_argument, NULL, ARG_SETTINGS        },
+                { "roothash",        required_argument, NULL, ARG_ROOTHASH        },
                 {}
         };
 
@@ -293,6 +297,14 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to parse --settings= parameter '%s'", optarg);
 
                         arg_settings = r;
+                        break;
+
+                case ARG_ROOTHASH:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --roothash= parameter '%s'", optarg);
+
+                        arg_roothash = r;
                         break;
 
                 case '?':

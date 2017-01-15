@@ -215,6 +215,24 @@ static void tar_pull_report_progress(TarPull *i, TarProgress p) {
         log_debug("Combined progress %u%%", percent);
 }
 
+static int tar_pull_determine_path(TarPull *i, const char *suffix, char **field) {
+        int r;
+
+        assert(i);
+        assert(field);
+
+        if (*field)
+                return 0;
+
+        assert(i->tar_job);
+
+        r = pull_make_path(i->tar_job->url, i->tar_job->etag, i->image_root, ".tar-", suffix, field);
+        if (r < 0)
+                return log_oom();
+
+        return 1;
+}
+
 static int tar_pull_make_local_copy(TarPull *i) {
         int r;
 
@@ -224,12 +242,6 @@ static int tar_pull_make_local_copy(TarPull *i) {
         if (!i->local)
                 return 0;
 
-        if (!i->final_path) {
-                r = pull_make_path(i->tar_job->url, i->tar_job->etag, i->image_root, ".tar-", NULL, &i->final_path);
-                if (r < 0)
-                        return log_oom();
-        }
-
         r = pull_make_local_copy(i->final_path, i->image_root, i->local, i->force_local);
         if (r < 0)
                 return r;
@@ -238,11 +250,9 @@ static int tar_pull_make_local_copy(TarPull *i) {
                 const char *local_settings;
                 assert(i->settings_job);
 
-                if (!i->settings_path) {
-                        r = pull_make_path(i->settings_job->url, i->settings_job->etag, i->image_root, ".settings-", NULL, &i->settings_path);
-                        if (r < 0)
-                                return log_oom();
-                }
+                r = tar_pull_determine_path(i, ".nspawn", &i->settings_path);
+                if (r < 0)
+                        return r;
 
                 local_settings = strjoina(i->image_root, "/", i->local, ".nspawn");
 
@@ -311,6 +321,10 @@ static void tar_pull_job_on_finished(PullJob *j) {
         if (i->settings_job)
                 i->settings_job->disk_fd = safe_close(i->settings_job->disk_fd);
 
+        r = tar_pull_determine_path(i, NULL, &i->final_path);
+        if (r < 0)
+                goto finish;
+
         if (i->tar_pid > 0) {
                 r = wait_for_terminate_and_warn("tar", i->tar_pid, true);
                 i->tar_pid = 0;
@@ -327,7 +341,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
                 tar_pull_report_progress(i, TAR_VERIFYING);
 
-                r = pull_verify(i->tar_job, i->settings_job, i->checksum_job, i->signature_job);
+                r = pull_verify(i->tar_job, NULL, i->settings_job, i->checksum_job, i->signature_job);
                 if (r < 0)
                         goto finish;
 
@@ -346,16 +360,18 @@ static void tar_pull_job_on_finished(PullJob *j) {
                 i->temp_path = mfree(i->temp_path);
 
                 if (i->settings_job &&
-                    i->settings_job->error == 0 &&
-                    !i->settings_job->etag_exists) {
+                    i->settings_job->error == 0) {
 
                         assert(i->settings_temp_path);
                         assert(i->settings_path);
 
-                        /* Also move the settings file into place, if
-                         * it exist. Note that we do so only if we
-                         * also moved the tar file in place, to keep
-                         * things strictly in sync. */
+                        /* Also move the settings file into place, if it exist. Note that we do so only if we also
+                         * moved the tar file in place, to keep things strictly in sync. */
+
+                        i->settings_path = mfree(i->settings_path);
+                        r = tar_pull_determine_path(i, ".nspawn", &i->settings_path);
+                        if (r < 0)
+                                goto finish;
 
                         r = import_make_read_only(i->settings_temp_path);
                         if (r < 0)
@@ -395,17 +411,13 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
 
         i = j->userdata;
         assert(i->tar_job == j);
-        assert(!i->final_path);
-        assert(!i->temp_path);
         assert(i->tar_pid <= 0);
 
-        r = pull_make_path(j->url, j->etag, i->image_root, ".tar-", NULL, &i->final_path);
-        if (r < 0)
-                return log_oom();
-
-        r = tempfn_random(i->final_path, NULL, &i->temp_path);
-        if (r < 0)
-                return log_oom();
+        if (!i->temp_path) {
+                r = tempfn_random_child(i->image_root, "tar", &i->temp_path);
+                if (r < 0)
+                        return log_oom();
+        }
 
         mkdir_parents_label(i->temp_path, 0700);
 
@@ -434,16 +446,12 @@ static int tar_pull_job_on_open_disk_settings(PullJob *j) {
 
         i = j->userdata;
         assert(i->settings_job == j);
-        assert(!i->settings_path);
-        assert(!i->settings_temp_path);
 
-        r = pull_make_path(j->url, j->etag, i->image_root, ".settings-", NULL, &i->settings_path);
-        if (r < 0)
-                return log_oom();
-
-        r = tempfn_random(i->settings_path, NULL, &i->settings_temp_path);
-        if (r < 0)
-                return log_oom();
+        if (!i->settings_temp_path) {
+                r = tempfn_random_child(i->image_root, "settings", &i->settings_temp_path);
+                if (r < 0)
+                        return log_oom();
+        }
 
         mkdir_parents_label(i->settings_temp_path, 0700);
 
@@ -513,17 +521,13 @@ int tar_pull_start(
 
         /* Set up download job for the settings file (.nspawn) */
         if (settings) {
-                r = pull_make_settings_job(&i->settings_job, url, i->glue, tar_pull_job_on_finished, i);
+                r = pull_make_auxiliary_job(&i->settings_job, url, tar_strip_suffixes, ".nspawn", i->glue, tar_pull_job_on_finished, i);
                 if (r < 0)
                         return r;
 
                 i->settings_job->on_open_disk = tar_pull_job_on_open_disk_settings;
                 i->settings_job->on_progress = tar_pull_job_on_progress;
                 i->settings_job->calc_checksum = verify != IMPORT_VERIFY_NO;
-
-                r = pull_find_old_etags(i->settings_job->url, i->image_root, DT_REG, ".settings-", NULL, &i->settings_job->old_etags);
-                if (r < 0)
-                        return r;
         }
 
         /* Set up download of checksum/signature files */

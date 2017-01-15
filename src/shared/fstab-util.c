@@ -38,7 +38,7 @@ bool fstab_is_mount_point(const char *mount) {
         _cleanup_endmntent_ FILE *f = NULL;
         struct mntent *m;
 
-        f = setmntent("/etc/fstab", "r");
+        f = setmntent("/etc/fstab", "re");
         if (!f)
                 return false;
 

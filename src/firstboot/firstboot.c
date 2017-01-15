@@ -33,6 +33,7 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "random-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -825,6 +826,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
+        bool enabled;
         int r;
 
         r = parse_argv(argc, argv);
@@ -836,6 +838,16 @@ int main(int argc, char *argv[]) {
         log_open();
 
         umask(0022);
+
+        r = proc_cmdline_get_bool("systemd.firstboot", &enabled);
+        if (r < 0) {
+                log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument, ignoring.");
+                goto finish;
+        }
+        if (r > 0 && !enabled) {
+                r = 0; /* disabled */
+                goto finish;
+        }
 
         r = process_locale();
         if (r < 0)

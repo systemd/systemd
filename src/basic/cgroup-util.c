@@ -2361,6 +2361,7 @@ int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p) {
 bool cg_is_unified_wanted(void) {
         static thread_local int wanted = -1;
         int r, unified;
+        bool b;
 
         /* If the hierarchy is already mounted, then follow whatever
          * was chosen for it. */
@@ -2374,20 +2375,11 @@ bool cg_is_unified_wanted(void) {
         if (wanted >= 0)
                 return wanted;
 
-        r = get_proc_cmdline_key("systemd.unified_cgroup_hierarchy", NULL);
-        if (r > 0)
-                return (wanted = true);
-        else {
-                _cleanup_free_ char *value = NULL;
+        r = proc_cmdline_get_bool("systemd.unified_cgroup_hierarchy", &b);
+        if (r < 0)
+                return false;
 
-                r = get_proc_cmdline_key("systemd.unified_cgroup_hierarchy=", &value);
-                if (r < 0)
-                        return false;
-                if (r == 0)
-                        return (wanted = false);
-
-                return (wanted = parse_boolean(value) > 0);
-        }
+        return (wanted = r > 0 ? b : false);
 }
 
 bool cg_is_legacy_wanted(void) {
@@ -2397,6 +2389,7 @@ bool cg_is_legacy_wanted(void) {
 bool cg_is_unified_systemd_controller_wanted(void) {
         static thread_local int wanted = -1;
         int r, unified;
+        bool b;
 
         /* If the unified hierarchy is requested in full, no need to
          * bother with this. */
@@ -2415,23 +2408,11 @@ bool cg_is_unified_systemd_controller_wanted(void) {
         if (wanted >= 0)
                 return wanted;
 
-        r = get_proc_cmdline_key("systemd.legacy_systemd_cgroup_controller", NULL);
-        if (r > 0)
-                wanted = false;
-        else {
-                _cleanup_free_ char *value = NULL;
+        r = proc_cmdline_get_bool("systemd.legacy_systemd_cgroup_controller", &b);
+        if (r < 0)
+                return false;
 
-                r = get_proc_cmdline_key("systemd.legacy_systemd_cgroup_controller=", &value);
-                if (r < 0)
-                        return false;
-
-                if (r == 0)
-                        wanted = false;
-                else
-                        wanted = parse_boolean(value) <= 0;
-        }
-
-        return wanted;
+        return (wanted = r > 0 ? b : false);
 }
 
 bool cg_is_legacy_systemd_controller_wanted(void) {

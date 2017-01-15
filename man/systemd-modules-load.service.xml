@@ -73,8 +73,8 @@
     <variablelist class='kernel-commandline-options'>
 
       <varlistentry>
-        <term><varname>modules-load=</varname></term>
-        <term><varname>rd.modules-load=</varname></term>
+        <term><varname>modules_load=</varname></term>
+        <term><varname>rd.modules_load=</varname></term>
 
         <listitem><para>Takes a comma-separated list of kernel modules
         to statically load during early boot. The option prefixed with

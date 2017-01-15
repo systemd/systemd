@@ -63,6 +63,7 @@ struct RawPull {
         char *image_root;
 
         PullJob *raw_job;
+        PullJob *roothash_job;
         PullJob *settings_job;
         PullJob *checksum_job;
         PullJob *signature_job;
@@ -74,12 +75,16 @@ struct RawPull {
         bool force_local;
         bool grow_machine_directory;
         bool settings;
+        bool roothash;
 
         char *final_path;
         char *temp_path;
 
         char *settings_path;
         char *settings_temp_path;
+
+        char *roothash_path;
+        char *roothash_temp_path;
 
         ImportVerify verify;
 };
@@ -90,6 +95,7 @@ RawPull* raw_pull_unref(RawPull *i) {
 
         pull_job_unref(i->raw_job);
         pull_job_unref(i->settings_job);
+        pull_job_unref(i->roothash_job);
         pull_job_unref(i->checksum_job);
         pull_job_unref(i->signature_job);
 
@@ -101,12 +107,18 @@ RawPull* raw_pull_unref(RawPull *i) {
                 free(i->temp_path);
         }
 
+        if (i->roothash_temp_path) {
+                (void) unlink(i->roothash_temp_path);
+                free(i->roothash_temp_path);
+        }
+
         if (i->settings_temp_path) {
                 (void) unlink(i->settings_temp_path);
                 free(i->settings_temp_path);
         }
 
         free(i->final_path);
+        free(i->roothash_path);
         free(i->settings_path);
         free(i->image_root);
         free(i->local);
@@ -173,6 +185,11 @@ static void raw_pull_report_progress(RawPull *i, RawProgress p) {
 
                 if (i->settings_job) {
                         percent += i->settings_job->progress_percent * 5 / 100;
+                        remain -= 5;
+                }
+
+                if (i->roothash_job) {
+                        percent += i->roothash_job->progress_percent * 5 / 100;
                         remain -= 5;
                 }
 
@@ -262,6 +279,55 @@ static int raw_pull_maybe_convert_qcow2(RawPull *i) {
         return 1;
 }
 
+static int raw_pull_determine_path(RawPull *i, const char *suffix, char **field) {
+        int r;
+
+        assert(i);
+        assert(field);
+
+        if (*field)
+                return 0;
+
+        assert(i->raw_job);
+
+        r = pull_make_path(i->raw_job->url, i->raw_job->etag, i->image_root, ".raw-", suffix, field);
+        if (r < 0)
+                return log_oom();
+
+        return 1;
+}
+
+static int raw_pull_copy_auxiliary_file(
+                RawPull *i,
+                const char *suffix,
+                char **path) {
+
+        const char *local;
+        int r;
+
+        assert(i);
+        assert(suffix);
+        assert(path);
+
+        r = raw_pull_determine_path(i, suffix, path);
+        if (r < 0)
+                return r;
+
+        local = strjoina(i->image_root, "/", i->local, suffix);
+
+        r = copy_file_atomic(*path, local, 0644, i->force_local, 0);
+        if (r == -EEXIST)
+                log_warning_errno(r, "File %s already exists, not replacing.", local);
+        else if (r == -ENOENT)
+                log_debug_errno(r, "Skipping creation of auxiliary file, since none was found.");
+        else if (r < 0)
+                log_warning_errno(r, "Failed to copy file %s, ignoring: %m", local);
+        else
+                log_info("Created new file %s.", local);
+
+        return 0;
+}
+
 static int raw_pull_make_local_copy(RawPull *i) {
         _cleanup_free_ char *tp = NULL;
         _cleanup_close_ int dfd = -1;
@@ -273,12 +339,6 @@ static int raw_pull_make_local_copy(RawPull *i) {
 
         if (!i->local)
                 return 0;
-
-        if (!i->final_path) {
-                r = pull_make_path(i->raw_job->url, i->raw_job->etag, i->image_root, ".raw-", ".raw", &i->final_path);
-                if (r < 0)
-                        return log_oom();
-        }
 
         if (i->raw_job->etag_exists) {
                 /* We have downloaded this one previously, reopen it */
@@ -338,27 +398,16 @@ static int raw_pull_make_local_copy(RawPull *i) {
 
         log_info("Created new local image '%s'.", i->local);
 
+        if (i->roothash) {
+                r = raw_pull_copy_auxiliary_file(i, ".roothash", &i->roothash_path);
+                if (r < 0)
+                        return r;
+        }
+
         if (i->settings) {
-                const char *local_settings;
-                assert(i->settings_job);
-
-                if (!i->settings_path) {
-                        r = pull_make_path(i->settings_job->url, i->settings_job->etag, i->image_root, ".settings-", NULL, &i->settings_path);
-                        if (r < 0)
-                                return log_oom();
-                }
-
-                local_settings = strjoina(i->image_root, "/", i->local, ".nspawn");
-
-                r = copy_file_atomic(i->settings_path, local_settings, 0644, i->force_local, 0);
-                if (r == -EEXIST)
-                        log_warning_errno(r, "Settings file %s already exists, not replacing.", local_settings);
-                else if (r == -ENOENT)
-                        log_debug_errno(r, "Skipping creation of settings file, since none was found.");
-                else if (r < 0)
-                        log_warning_errno(r, "Failed to copy settings files %s, ignoring: %m", local_settings);
-                else
-                        log_info("Created new settings file %s.", local_settings);
+                r = raw_pull_copy_auxiliary_file(i, ".nspawn", &i->settings_path);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -370,6 +419,8 @@ static bool raw_pull_is_done(RawPull *i) {
 
         if (!PULL_JOB_IS_COMPLETE(i->raw_job))
                 return false;
+        if (i->roothash_job && !PULL_JOB_IS_COMPLETE(i->roothash_job))
+                return false;
         if (i->settings_job && !PULL_JOB_IS_COMPLETE(i->settings_job))
                 return false;
         if (i->checksum_job && !PULL_JOB_IS_COMPLETE(i->checksum_job))
@@ -380,6 +431,39 @@ static bool raw_pull_is_done(RawPull *i) {
         return true;
 }
 
+static int raw_pull_rename_auxiliary_file(
+                RawPull *i,
+                const char *suffix,
+                char **temp_path,
+                char **path) {
+
+        int r;
+
+        assert(i);
+        assert(temp_path);
+        assert(suffix);
+        assert(path);
+
+        /* Regenerate final name for this auxiliary file, we might know the etag of the raw file now, and we shoud
+         * incorporate it in the file name if we can */
+        *path = mfree(*path);
+        r = raw_pull_determine_path(i, suffix, path);
+        if (r < 0)
+                return r;
+
+        r = import_make_read_only(*temp_path);
+        if (r < 0)
+                return r;
+
+        r = rename_noreplace(AT_FDCWD, *temp_path, AT_FDCWD, *path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to rename file %s to %s: %m", *temp_path, *path);
+
+        *temp_path = mfree(*temp_path);
+
+        return 1;
+}
+
 static void raw_pull_job_on_finished(PullJob *j) {
         RawPull *i;
         int r;
@@ -388,7 +472,10 @@ static void raw_pull_job_on_finished(PullJob *j) {
         assert(j->userdata);
 
         i = j->userdata;
-        if (j == i->settings_job) {
+        if (j == i->roothash_job) {
+                if (j->error != 0)
+                        log_info_errno(j->error, "Root hash file could not be retrieved, proceeding without.");
+        } else if (j == i->settings_job) {
                 if (j->error != 0)
                         log_info_errno(j->error, "Settings file could not be retrieved, proceeding without.");
         } else if (j->error != 0) {
@@ -413,8 +500,14 @@ static void raw_pull_job_on_finished(PullJob *j) {
         if (!raw_pull_is_done(i))
                 return;
 
+        if (i->roothash_job)
+                i->roothash_job->disk_fd = safe_close(i->roothash_job->disk_fd);
         if (i->settings_job)
                 i->settings_job->disk_fd = safe_close(i->settings_job->disk_fd);
+
+        r = raw_pull_determine_path(i, ".raw", &i->final_path);
+        if (r < 0)
+                goto finish;
 
         if (!i->raw_job->etag_exists) {
                 /* This is a new download, verify it, and move it into place */
@@ -422,7 +515,7 @@ static void raw_pull_job_on_finished(PullJob *j) {
 
                 raw_pull_report_progress(i, RAW_VERIFYING);
 
-                r = pull_verify(i->raw_job, i->settings_job, i->checksum_job, i->signature_job);
+                r = pull_verify(i->raw_job, i->roothash_job, i->settings_job, i->checksum_job, i->signature_job);
                 if (r < 0)
                         goto finish;
 
@@ -446,24 +539,18 @@ static void raw_pull_job_on_finished(PullJob *j) {
 
                 i->temp_path = mfree(i->temp_path);
 
-                if (i->settings_job &&
-                    i->settings_job->error == 0 &&
-                    !i->settings_job->etag_exists) {
-
-                        assert(i->settings_temp_path);
-                        assert(i->settings_path);
-
-                        r = import_make_read_only(i->settings_temp_path);
+                if (i->roothash_job &&
+                    i->roothash_job->error == 0) {
+                        r = raw_pull_rename_auxiliary_file(i, ".roothash", &i->roothash_temp_path, &i->roothash_path);
                         if (r < 0)
                                 goto finish;
+                }
 
-                        r = rename_noreplace(AT_FDCWD, i->settings_temp_path, AT_FDCWD, i->settings_path);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to rename settings file: %m");
+                if (i->settings_job &&
+                    i->settings_job->error == 0) {
+                        r = raw_pull_rename_auxiliary_file(i, ".nspawn", &i->settings_temp_path, &i->settings_path);
+                        if (r < 0)
                                 goto finish;
-                        }
-
-                        i->settings_temp_path = mfree(i->settings_temp_path);
                 }
         }
 
@@ -482,6 +569,35 @@ finish:
                 sd_event_exit(i->event, r);
 }
 
+static int raw_pull_job_on_open_disk_generic(
+                RawPull *i,
+                PullJob *j,
+                const char *extra,
+                char **temp_path) {
+
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(i);
+        assert(j);
+        assert(extra);
+        assert(temp_path);
+
+        if (!*temp_path) {
+                r = tempfn_random_child(i->image_root, extra, temp_path);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        (void) mkdir_parents_label(*temp_path, 0700);
+
+        j->disk_fd = open(*temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
+        if (j->disk_fd < 0)
+                return log_error_errno(errno, "Failed to create %s: %m", *temp_path);
+
+        return 0;
+}
+
 static int raw_pull_job_on_open_disk_raw(PullJob *j) {
         RawPull *i;
         int r;
@@ -491,57 +607,40 @@ static int raw_pull_job_on_open_disk_raw(PullJob *j) {
 
         i = j->userdata;
         assert(i->raw_job == j);
-        assert(!i->final_path);
-        assert(!i->temp_path);
 
-        r = pull_make_path(j->url, j->etag, i->image_root, ".raw-", ".raw", &i->final_path);
+        r = raw_pull_job_on_open_disk_generic(i, j, "raw", &i->temp_path);
         if (r < 0)
-                return log_oom();
-
-        r = tempfn_random(i->final_path, NULL, &i->temp_path);
-        if (r < 0)
-                return log_oom();
-
-        (void) mkdir_parents_label(i->temp_path, 0700);
-
-        j->disk_fd = open(i->temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
-        if (j->disk_fd < 0)
-                return log_error_errno(errno, "Failed to create %s: %m", i->temp_path);
+                return r;
 
         r = chattr_fd(j->disk_fd, FS_NOCOW_FL, FS_NOCOW_FL);
         if (r < 0)
-                log_warning_errno(r, "Failed to set file attributes on %s: %m", i->temp_path);
+                log_warning_errno(r, "Failed to set file attributes on %s, ignoring: %m", i->temp_path);
 
         return 0;
 }
 
+static int raw_pull_job_on_open_disk_roothash(PullJob *j) {
+        RawPull *i;
+
+        assert(j);
+        assert(j->userdata);
+
+        i = j->userdata;
+        assert(i->roothash_job == j);
+
+        return raw_pull_job_on_open_disk_generic(i, j, "roothash", &i->roothash_temp_path);
+}
+
 static int raw_pull_job_on_open_disk_settings(PullJob *j) {
         RawPull *i;
-        int r;
 
         assert(j);
         assert(j->userdata);
 
         i = j->userdata;
         assert(i->settings_job == j);
-        assert(!i->settings_path);
-        assert(!i->settings_temp_path);
 
-        r = pull_make_path(j->url, j->etag, i->image_root, ".settings-", NULL, &i->settings_path);
-        if (r < 0)
-                return log_oom();
-
-        r = tempfn_random(i->settings_path, NULL, &i->settings_temp_path);
-        if (r < 0)
-                return log_oom();
-
-        mkdir_parents_label(i->settings_temp_path, 0700);
-
-        j->disk_fd = open(i->settings_temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
-        if (j->disk_fd < 0)
-                return log_error_errno(errno, "Failed to create %s: %m", i->settings_temp_path);
-
-        return 0;
+        return raw_pull_job_on_open_disk_generic(i, j, "settings", &i->settings_temp_path);
 }
 
 static void raw_pull_job_on_progress(PullJob *j) {
@@ -561,7 +660,8 @@ int raw_pull_start(
                 const char *local,
                 bool force_local,
                 ImportVerify verify,
-                bool settings) {
+                bool settings,
+                bool roothash) {
 
         int r;
 
@@ -585,6 +685,7 @@ int raw_pull_start(
         i->force_local = force_local;
         i->verify = verify;
         i->settings = settings;
+        i->roothash = roothash;
 
         /* Queue job for the image itself */
         r = pull_job_new(&i->raw_job, url, i->glue, i);
@@ -601,18 +702,24 @@ int raw_pull_start(
         if (r < 0)
                 return r;
 
+        if (roothash) {
+                r = pull_make_auxiliary_job(&i->roothash_job, url, raw_strip_suffixes, ".roothash", i->glue, raw_pull_job_on_finished, i);
+                if (r < 0)
+                        return r;
+
+                i->roothash_job->on_open_disk = raw_pull_job_on_open_disk_roothash;
+                i->roothash_job->on_progress = raw_pull_job_on_progress;
+                i->roothash_job->calc_checksum = verify != IMPORT_VERIFY_NO;
+        }
+
         if (settings) {
-                r = pull_make_settings_job(&i->settings_job, url, i->glue, raw_pull_job_on_finished, i);
+                r = pull_make_auxiliary_job(&i->settings_job, url, raw_strip_suffixes, ".nspawn", i->glue, raw_pull_job_on_finished, i);
                 if (r < 0)
                         return r;
 
                 i->settings_job->on_open_disk = raw_pull_job_on_open_disk_settings;
                 i->settings_job->on_progress = raw_pull_job_on_progress;
                 i->settings_job->calc_checksum = verify != IMPORT_VERIFY_NO;
-
-                r = pull_find_old_etags(i->settings_job->url, i->image_root, DT_REG, ".settings-", NULL, &i->settings_job->old_etags);
-                if (r < 0)
-                        return r;
         }
 
         r = pull_make_verification_jobs(&i->checksum_job, &i->signature_job, verify, url, i->glue, raw_pull_job_on_finished, i);
@@ -622,6 +729,12 @@ int raw_pull_start(
         r = pull_job_begin(i->raw_job);
         if (r < 0)
                 return r;
+
+        if (i->roothash_job) {
+                r = pull_job_begin(i->roothash_job);
+                if (r < 0)
+                        return r;
+        }
 
         if (i->settings_job) {
                 r = pull_job_begin(i->settings_job);

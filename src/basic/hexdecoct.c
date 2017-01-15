@@ -97,6 +97,9 @@ int unhexmem(const char *p, size_t l, void **mem, size_t *len) {
         assert(len);
         assert(p);
 
+        if (l % 2 != 0)
+                return -EINVAL;
+
         z = r = malloc((l + 1) / 2 + 1);
         if (!r)
                 return -ENOMEM;
@@ -107,12 +110,10 @@ int unhexmem(const char *p, size_t l, void **mem, size_t *len) {
                 a = unhexchar(x[0]);
                 if (a < 0)
                         return a;
-                else if (x+1 < p + l) {
-                        b = unhexchar(x[1]);
-                        if (b < 0)
-                                return b;
-                } else
-                        b = 0;
+
+                b = unhexchar(x[1]);
+                if (b < 0)
+                        return b;
 
                 *(z++) = (uint8_t) a << 4 | (uint8_t) b;
         }

@@ -397,6 +397,7 @@ rootlibexec_PROGRAMS = \
 	systemd-initctl \
 	systemd-shutdown \
 	systemd-remount-fs \
+	systemd-volatile-root \
 	systemd-reply-password \
 	systemd-fsck \
 	systemd-ac-power \
@@ -538,6 +539,7 @@ nodist_systemunit_DATA = \
 	units/system-update-cleanup.service \
 	units/systemd-initctl.service \
 	units/systemd-remount-fs.service \
+	units/systemd-volatile-root.service \
 	units/systemd-ask-password-wall.service \
 	units/systemd-ask-password-console.service \
 	units/systemd-sysctl.service \
@@ -602,6 +604,7 @@ EXTRA_DIST += \
 	units/system-update-cleanup.service.in \
 	units/systemd-initctl.service.in \
 	units/systemd-remount-fs.service.in \
+	units/systemd-volatile-root.service.in \
 	units/systemd-update-utmp.service.in \
 	units/systemd-update-utmp-runlevel.service.in \
 	units/systemd-ask-password-wall.service.in \
@@ -1065,7 +1068,9 @@ libshared_la_SOURCES = \
 	src/shared/nsflags.h \
 	src/shared/nsflags.c \
 	src/shared/dissect-image.c \
-	src/shared/dissect-image.h
+	src/shared/dissect-image.h \
+	src/shared/volatile-util.c \
+	src/shared/volatile-util.h
 
 if HAVE_UTMP
 libshared_la_SOURCES += \
@@ -3066,6 +3071,13 @@ systemd_remount_fs_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
+systemd_volatile_root_SOURCES = \
+	src/volatile-root/volatile-root.c
+
+systemd_volatile_root_LDADD = \
+	libsystemd-shared.la
+
+# ------------------------------------------------------------------------------
 systemd_cgroups_agent_SOURCES = \
 	src/cgroups-agent/cgroups-agent.c
 
@@ -4821,10 +4833,12 @@ EXTRA_DIST += \
 # ------------------------------------------------------------------------------
 if HAVE_LIBCRYPTSETUP
 rootlibexec_PROGRAMS += \
-	systemd-cryptsetup
+	systemd-cryptsetup \
+	systemd-veritysetup
 
 systemgenerator_PROGRAMS += \
-	systemd-cryptsetup-generator
+	systemd-cryptsetup-generator \
+	systemd-veritysetup-generator
 
 dist_systemunit_DATA += \
 	units/cryptsetup.target \
@@ -4845,6 +4859,23 @@ systemd_cryptsetup_generator_SOURCES = \
 	src/cryptsetup/cryptsetup-generator.c
 
 systemd_cryptsetup_generator_LDADD = \
+	libsystemd-shared.la
+
+systemd_veritysetup_SOURCES = \
+	src/veritysetup/veritysetup.c
+
+systemd_veritysetup_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(LIBCRYPTSETUP_CFLAGS)
+
+systemd_veritysetup_LDADD = \
+	libsystemd-shared.la \
+	$(LIBCRYPTSETUP_LIBS)
+
+systemd_veritysetup_generator_SOURCES = \
+	src/veritysetup/veritysetup-generator.c
+
+systemd_veritysetup_generator_LDADD = \
 	libsystemd-shared.la
 
 SYSINIT_TARGET_WANTS += \

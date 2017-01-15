@@ -28,123 +28,102 @@
 
 #include "base-filesystem.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "log.h"
 #include "missing.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "switch-root.h"
 #include "user-util.h"
 #include "util.h"
 
-int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot,  unsigned long mountflags) {
+int switch_root(const char *new_root,
+                const char *old_root_after, /* path below the new root, where to place the old root after the transition */
+                bool unmount_old_root,
+                unsigned long mount_flags) {  /* MS_MOVE or MS_BIND */
 
-        /*  Don't try to unmount/move the old "/", there's no way to do it. */
-        static const char move_mounts[] =
-                "/dev\0"
-                "/proc\0"
-                "/sys\0"
-                "/run\0";
-
+        _cleanup_free_ char *resolved_old_root_after = NULL;
         _cleanup_close_ int old_root_fd = -1;
-        struct stat new_root_stat;
         bool old_root_remove;
-        const char *i, *temporary_old_root;
+        const char *i;
+        int r;
+
+        assert(new_root);
+        assert(old_root_after);
 
         if (path_equal(new_root, "/"))
                 return 0;
 
-        temporary_old_root = strjoina(new_root, oldroot);
-        mkdir_p_label(temporary_old_root, 0755);
-
+        /* Check if we shall remove the contents of the old root */
         old_root_remove = in_initrd();
+        if (old_root_remove) {
+                old_root_fd = open("/", O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY|O_DIRECTORY);
+                if (old_root_fd < 0)
+                        return log_error_errno(errno, "Failed to open root directory: %m");
+        }
 
-        if (stat(new_root, &new_root_stat) < 0)
-                return log_error_errno(errno, "Failed to stat directory %s: %m", new_root);
+        /* Determine where we shall place the old root after the transition */
+        r = chase_symlinks(old_root_after, new_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved_old_root_after);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve %s/%s: %m", new_root, old_root_after);
+        if (r == 0) /* Doesn't exist yet. Let's create it */
+                (void) mkdir_p_label(resolved_old_root_after, 0755);
 
-        /* Work-around for kernel design: the kernel refuses switching
-         * root if any file systems are mounted MS_SHARED. Hence
+        /* Work-around for kernel design: the kernel refuses MS_MOVE if any file systems are mounted MS_SHARED. Hence
          * remount them MS_PRIVATE here as a work-around.
          *
          * https://bugzilla.redhat.com/show_bug.cgi?id=847418 */
         if (mount(NULL, "/", NULL, MS_REC|MS_PRIVATE, NULL) < 0)
-                log_warning_errno(errno, "Failed to make \"/\" private mount: %m");
+                return log_error_errno(errno, "Failed to set \"/\" mount propagation to private: %m");
 
-        NULSTR_FOREACH(i, move_mounts) {
-                char new_mount[PATH_MAX];
-                struct stat sb;
-                size_t n;
+        FOREACH_STRING(i, "/sys", "/dev", "/run", "/proc") {
+                _cleanup_free_ char *chased = NULL;
 
-                n = snprintf(new_mount, sizeof new_mount, "%s%s", new_root, i);
-                if (n >= sizeof new_mount) {
-                        bool move = mountflags & MS_MOVE;
+                r = chase_symlinks(i, new_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &chased);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve %s/%s: %m", new_root, i);
+                if (r > 0) {
+                        /* Already exists. Let's see if it is a mount point already. */
+                        r = path_is_mount_point(chased, NULL, 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine whether %s is a mount point: %m", chased);
+                        if (r > 0) /* If it is already mounted, then do nothing */
+                                continue;
+                } else
+                         /* Doesn't exist yet? */
+                        (void) mkdir_p_label(chased, 0755);
 
-                        log_warning("New path is too long, %s: %s%s",
-                                    move ? "forcing unmount instead" : "ignoring",
-                                    new_root, i);
-
-                        if (move)
-                                if (umount2(i, MNT_FORCE) < 0)
-                                        log_warning_errno(errno, "Failed to unmount %s: %m", i);
-                        continue;
-                }
-
-                mkdir_p_label(new_mount, 0755);
-
-                if (stat(new_mount, &sb) < 0 ||
-                    sb.st_dev != new_root_stat.st_dev) {
-
-                        /* Mount point seems to be mounted already or
-                         * stat failed. Unmount the old mount point. */
-                        if (umount2(i, MNT_DETACH) < 0)
-                                log_warning_errno(errno, "Failed to unmount %s: %m", i);
-                        continue;
-                }
-
-                if (mount(i, new_mount, NULL, mountflags, NULL) < 0) {
-                        if (mountflags & MS_MOVE) {
-                                log_error_errno(errno, "Failed to move mount %s to %s, forcing unmount: %m", i, new_mount);
-
-                                if (umount2(i, MNT_FORCE) < 0)
-                                        log_warning_errno(errno, "Failed to unmount %s: %m", i);
-
-                        } else if (mountflags & MS_BIND)
-                                log_error_errno(errno, "Failed to bind mount %s to %s: %m", i, new_mount);
-                }
+                if (mount(i, chased, NULL, mount_flags, NULL) < 0)
+                        return log_error_errno(r, "Failed to mount %s to %s: %m", i, chased);
         }
 
-        /* Do not fail, if base_filesystem_create() fails. Not all
-         * switch roots are like base_filesystem_create() wants them
-         * to look like. They might even boot, if they are RO and
-         * don't have the FS layout. Just ignore the error and
-         * switch_root() nevertheless. */
+        /* Do not fail if base_filesystem_create() fails. Not all switch roots are like base_filesystem_create() wants
+         * them to look like. They might even boot, if they are RO and don't have the FS layout. Just ignore the error
+         * and switch_root() nevertheless. */
         (void) base_filesystem_create(new_root, UID_INVALID, GID_INVALID);
 
         if (chdir(new_root) < 0)
                 return log_error_errno(errno, "Failed to change directory to %s: %m", new_root);
 
-        if (old_root_remove) {
-                old_root_fd = open("/", O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY|O_DIRECTORY);
-                if (old_root_fd < 0)
-                        log_warning_errno(errno, "Failed to open root directory: %m");
-        }
-
-        /* We first try a pivot_root() so that we can umount the old
-         * root dir. In many cases (i.e. where rootfs is /), that's
-         * not possible however, and hence we simply overmount root */
-        if (pivot_root(new_root, temporary_old_root) >= 0) {
+        /* We first try a pivot_root() so that we can umount the old root dir. In many cases (i.e. where rootfs is /),
+         * that's not possible however, and hence we simply overmount root */
+        if (pivot_root(new_root, resolved_old_root_after) >= 0) {
 
                 /* Immediately get rid of the old root, if detach_oldroot is set.
                  * Since we are running off it we need to do this lazily. */
-                if (detach_oldroot && umount2(oldroot, MNT_DETACH) < 0)
-                        log_error_errno(errno, "Failed to lazily umount old root dir %s, %s: %m",
-                                  oldroot,
-                                  errno == ENOENT ? "ignoring" : "leaving it around");
+                if (unmount_old_root) {
+                        r = umount_recursive(old_root_after, MNT_DETACH);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to unmount old root directory tree, ignoring: %m");
+                }
 
         } else if (mount(new_root, "/", NULL, MS_MOVE, NULL) < 0)
-                return log_error_errno(errno, "Failed to mount moving %s to /: %m", new_root);
+                return log_error_errno(errno, "Failed to move %s to /: %m", new_root);
 
         if (chroot(".") < 0)
                 return log_error_errno(errno, "Failed to change root: %m");

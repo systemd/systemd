@@ -126,6 +126,9 @@
 /systemd-update-utmp
 /systemd-user-sessions
 /systemd-vconsole-setup
+/systemd-veritysetup
+/systemd-veritysetup-generator
+/systemd-volatile-root
 /tags
 /test-acd
 /test-acl-util
