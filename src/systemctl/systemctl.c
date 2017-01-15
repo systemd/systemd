@@ -450,7 +450,7 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                 unsigned basic_len;
 
                 id_len = MIN(max_id_len, 25u); /* as much as it needs, but at most 25 for now */
-                basic_len = circle_len + 5 + id_len + 5 + active_len + sub_len;
+                basic_len = circle_len + 1 + id_len + 1 + load_len + 1 + active_len + 1 + sub_len + 1;
 
                 if (job_count)
                         basic_len += job_len + 1;
