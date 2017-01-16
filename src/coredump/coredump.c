@@ -1049,7 +1049,9 @@ static int gather_pid_metadata(
                 char **comm_fallback,
                 char **comm_ret,
                 struct iovec *iovec, size_t *n_iovec) {
-        /* We need 25 empty slots in iovec! */
+        /* We need 25 empty slots in iovec!
+         * Note that if we fail on oom later on, we do not roll-back changes to the iovec
+         * structure. (It remains valid, with the first n_iovec fields initialized.) */
 
         _cleanup_free_ char *exe = NULL, *comm = NULL;
         uid_t owner_uid;
