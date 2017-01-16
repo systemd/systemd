@@ -104,7 +104,7 @@ int get_process_comm(pid_t pid, char **name) {
 int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char **line) {
         _cleanup_fclose_ FILE *f = NULL;
         bool space = false;
-        char *r = NULL, *k;
+        char *k, *ans = NULL;
         const char *p;
         int c;
 
@@ -118,7 +118,7 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
          * command line that resolves to the empty string will return the "comm" name of the process instead.
          *
          * Returns -ESRCH if the process doesn't exist, and -ENOENT if the process has no command line (and
-         * comm_fallback is false). */
+         * comm_fallback is false). Returns 0 and sets *line otherwise. */
 
         p = procfs_file_alloca(pid, "cmdline");
 
@@ -132,11 +132,11 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
         if (max_length == 1) {
 
                 /* If there's only room for one byte, return the empty string */
-                r = new0(char, 1);
-                if (!r)
+                ans = new0(char, 1);
+                if (!ans)
                         return -ENOMEM;
 
-                *line = r;
+                *line = ans;
                 return 0;
 
         } else if (max_length == 0) {
@@ -144,36 +144,36 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
 
                 while ((c = getc(f)) != EOF) {
 
-                        if (!GREEDY_REALLOC(r, allocated, len+3)) {
-                                free(r);
+                        if (!GREEDY_REALLOC(ans, allocated, len+3)) {
+                                free(ans);
                                 return -ENOMEM;
                         }
 
                         if (isprint(c)) {
                                 if (space) {
-                                        r[len++] = ' ';
+                                        ans[len++] = ' ';
                                         space = false;
                                 }
 
-                                r[len++] = c;
+                                ans[len++] = c;
                         } else if (len > 0)
                                 space = true;
                }
 
                 if (len > 0)
-                        r[len] = 0;
+                        ans[len] = '\0';
                 else
-                        r = mfree(r);
+                        ans = mfree(ans);
 
         } else {
                 bool dotdotdot = false;
                 size_t left;
 
-                r = new(char, max_length);
-                if (!r)
+                ans = new(char, max_length);
+                if (!ans)
                         return -ENOMEM;
 
-                k = r;
+                k = ans;
                 left = max_length;
                 while ((c = getc(f)) != EOF) {
 
@@ -197,20 +197,20 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
 
                                 *(k++) = (char) c;
                                 left--;
-                        } else if (k > r)
+                        } else if (k > ans)
                                 space = true;
                 }
 
                 if (dotdotdot) {
                         if (max_length <= 4) {
-                                k = r;
+                                k = ans;
                                 left = max_length;
                         } else {
-                                k = r + max_length - 4;
+                                k = ans + max_length - 4;
                                 left = 4;
 
                                 /* Eat up final spaces */
-                                while (k > r && isspace(k[-1])) {
+                                while (k > ans && isspace(k[-1])) {
                                         k--;
                                         left++;
                                 }
@@ -223,11 +223,11 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
         }
 
         /* Kernel threads have no argv[] */
-        if (isempty(r)) {
+        if (isempty(ans)) {
                 _cleanup_free_ char *t = NULL;
                 int h;
 
-                free(r);
+                free(ans);
 
                 if (!comm_fallback)
                         return -ENOENT;
@@ -237,22 +237,22 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
                         return h;
 
                 if (max_length == 0)
-                        r = strjoin("[", t, "]");
+                        ans = strjoin("[", t, "]");
                 else {
                         size_t l;
 
                         l = strlen(t);
 
                         if (l + 3 <= max_length)
-                                r = strjoin("[", t, "]");
+                                ans = strjoin("[", t, "]");
                         else if (max_length <= 6) {
 
-                                r = new(char, max_length);
-                                if (!r)
+                                ans = new(char, max_length);
+                                if (!ans)
                                         return -ENOMEM;
 
-                                memcpy(r, "[...]", max_length-1);
-                                r[max_length-1] = 0;
+                                memcpy(ans, "[...]", max_length-1);
+                                ans[max_length-1] = 0;
                         } else {
                                 char *e;
 
@@ -264,14 +264,14 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
                                         e--;
                                 *e = 0;
 
-                                r = strjoin("[", t, "...]");
+                                ans = strjoin("[", t, "...]");
                         }
                 }
-                if (!r)
+                if (!ans)
                         return -ENOMEM;
         }
 
-        *line = r;
+        *line = ans;
         return 0;
 }
 

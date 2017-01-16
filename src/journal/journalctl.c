@@ -683,11 +683,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERIFY_KEY:
                         arg_action = ACTION_VERIFY;
-                        arg_verify_key = strdup(optarg);
-                        if (!arg_verify_key)
-                                return -ENOMEM;
-                        arg_merge = false;
+                        r = free_and_strdup(&arg_verify_key, optarg);
+                        if (r < 0)
+                                return r;
                         string_erase(optarg);
+
+                        arg_merge = false;
                         break;
 
                 case ARG_INTERVAL:
@@ -888,7 +889,7 @@ static int parse_argv(int argc, char *argv[]) {
                  * to users, and automatically turn --unit= into --user-unit= if combined with --user. */
                 r = strv_extend_strv(&arg_user_units, arg_system_units, true);
                 if (r < 0)
-                        return -ENOMEM;
+                        return r;
 
                 arg_system_units = strv_free(arg_system_units);
         }

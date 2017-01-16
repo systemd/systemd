@@ -213,7 +213,7 @@ subst:
                         _s = s;
                         _l = l;
                         /* temporarily use sbuf */
-                        s = &sbuf;
+                        s = sbuf;
                         l = UTIL_PATH_SIZE;
                 }
 
