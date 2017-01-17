@@ -233,17 +233,23 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
         int i;
         int err = 0;
         bool is_gpt = false;
+        char** superblock_filter_list = NULL;
+        char** partition_filter_list = NULL;
+        int superblock_filter_list_length = 0;
+        int partition_filter_list_length = 0;
 
         static const struct option options[] = {
                 { "offset", optional_argument, NULL, 'o' },
                 { "noraid", no_argument, NULL, 'R' },
+                { "filter-superblock-type", required_argument, NULL, 's' },
+                { "filter-partition-type", required_argument, NULL, 'p' },
                 {}
         };
 
         for (;;) {
                 int option;
 
-                option = getopt_long(argc, argv, "oR", options, NULL);
+                option = getopt_long(argc, argv, "oRs:p:", options, NULL);
                 if (option == -1)
                         break;
 
@@ -253,6 +259,28 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
                         break;
                 case 'R':
                         noraid = true;
+                        break;
+                case 's':
+                        superblock_filter_list_length++;
+                        superblock_filter_list = (char**) realloc(superblock_filter_list, sizeof(char**)*(superblock_filter_list_length+1));
+                        if (superblock_filter_list) {
+                                superblock_filter_list[superblock_filter_list_length-1] = optarg;
+                                superblock_filter_list[superblock_filter_list_length] = NULL;
+                        } else {
+                                (void) log_oom();
+                                return EXIT_FAILURE;
+                        }
+                        break;
+                case 'p':
+                        partition_filter_list_length++;
+                        partition_filter_list = (char**) realloc(partition_filter_list, sizeof(char**)*(partition_filter_list_length+1));
+                        if (partition_filter_list) {
+                                partition_filter_list[partition_filter_list_length-1] = optarg;
+                                partition_filter_list[partition_filter_list_length] = NULL;
+                        } else {
+                                (void) log_oom();
+                                return EXIT_FAILURE;
+                        }
                         break;
                 }
         }
@@ -266,6 +294,14 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
                 BLKID_SUBLKS_TYPE | BLKID_SUBLKS_SECTYPE |
                 BLKID_SUBLKS_USAGE | BLKID_SUBLKS_VERSION |
                 BLKID_SUBLKS_BADCSUM);
+
+        if (superblock_filter_list)
+                if (blkid_probe_filter_superblocks_type(pr, BLKID_FLTR_NOTIN, superblock_filter_list) < 0)
+                        log_warning("Failed to filter superblock types.");
+
+        if (partition_filter_list)
+                if (blkid_probe_filter_partitions_type(pr, BLKID_FLTR_NOTIN, partition_filter_list) < 0)
+                        log_warning("Failed to filter partition types.");
 
         if (noraid)
                 blkid_probe_filter_superblocks_usage(pr, BLKID_FLTR_NOTIN, BLKID_USAGE_RAID);
