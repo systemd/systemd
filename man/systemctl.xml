@@ -900,8 +900,8 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
            └─930 /usr/lib/bluetooth/bluetoothd
 
 Jan 12 10:46:45 example.com bluetoothd[8900]: Not enough free handles to register service
-Jan 12 10:46:45 example.com.com bluetoothd[8900]: Current Time Service could not be registered
-Jan 12 10:46:45 example.com.com bluetoothd[8900]: gatt-time-server: Input/output error (5)
+Jan 12 10:46:45 example.com bluetoothd[8900]: Current Time Service could not be registered
+Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output error (5)
 </programlisting>
 
             <para>The dot ("●") uses color on supported terminals to summarize the unit state at a glance. White
