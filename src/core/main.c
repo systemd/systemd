@@ -1231,44 +1231,16 @@ oom:
 
 static int enforce_syscall_archs(Set *archs) {
 #ifdef HAVE_SECCOMP
-        scmp_filter_ctx *seccomp;
-        Iterator i;
-        void *id;
         int r;
 
         if (!is_seccomp_available())
                 return 0;
 
-        seccomp = seccomp_init(SCMP_ACT_ALLOW);
-        if (!seccomp)
-                return log_oom();
-
-        SET_FOREACH(id, arg_syscall_archs, i) {
-                r = seccomp_arch_add(seccomp, PTR_TO_UINT32(id) - 1);
-                if (r == -EEXIST)
-                        continue;
-                if (r < 0) {
-                        log_error_errno(r, "Failed to add architecture to seccomp: %m");
-                        goto finish;
-                }
-        }
-
-        r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to unset NO_NEW_PRIVS: %m");
-                goto finish;
-        }
-
-        r = seccomp_load(seccomp);
+        r = seccomp_restrict_archs(arg_syscall_archs);
         if (r < 0)
-                log_error_errno(r, "Failed to add install architecture seccomp: %m");
-
-finish:
-        seccomp_release(seccomp);
-        return r;
-#else
-        return 0;
+                return log_error_errno(r, "Failed to enforce system call architecture restrication: %m");
 #endif
+        return 0;
 }
 
 static int status_welcome(void) {

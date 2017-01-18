@@ -483,6 +483,7 @@ int main(int argc, char *argv[]) {
         };
         int r;
 
+        log_set_max_level(LOG_DEBUG);
         log_parse_environment();
         log_open();
 
