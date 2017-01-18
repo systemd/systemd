@@ -30,6 +30,11 @@ CHANGES WITH 233 in spe
           during startup. If no such message is sent, the service now fails,
           even if the main process exited with a successful exit code.
 
+        * The option MulticastDNS= of network configuration files has got
+          actual implementation. With MulticastDNS=yes a host can resolve
+          names of remote hosts and to reply to mDNS's A and AAAA requests
+          from the hosts.
+
 CHANGES WITH 232:
 
         * The new RemoveIPC= option can be used to remove IPC objects owned by
