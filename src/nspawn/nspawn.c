@@ -2363,6 +2363,12 @@ static int setup_sd_notify_child(void) {
                 return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
         }
 
+        r = userns_lchown(NSPAWN_NOTIFY_SOCKET_PATH, 0, 0);
+        if (r < 0) {
+                safe_close(fd);
+                return log_error_errno(r, "Failed to chown " NSPAWN_NOTIFY_SOCKET_PATH ": %m");
+        }
+
         r = setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
         if (r < 0) {
                 safe_close(fd);
