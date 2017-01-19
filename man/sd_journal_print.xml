@@ -133,7 +133,7 @@
     project='man-pages'><refentrytitle>readv</refentrytitle><manvolnum>3</manvolnum></citerefentry> for details)
     instead of the format string. Each structure should reference one field of the entry to submit. The second argument
     specifies the number of structures in the array.  <function>sd_journal_sendv()</function> is particularly useful to
-    submit binary objects to the journal where that is necessary. Note that this function wil not strip trailing
+    submit binary objects to the journal where that is necessary. Note that this function will not strip trailing
     whitespace of the passed fields, but passes the specified data along unmodified. This is different from both
     <function>sd_journal_print()</function> and <function>sd_journal_send()</function> described above, which are based
     on format strings, and do strip trailing whitespace.</para>

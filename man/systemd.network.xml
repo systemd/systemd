@@ -1454,7 +1454,7 @@ Name=bond1
 Kind=bond
 </programlisting>
 
-      <programlisting># /etc/systemd/network/30-bond1-dev1.nework
+      <programlisting># /etc/systemd/network/30-bond1-dev1.network
 [Match]
 MACAddress=52:54:00:e9:64:41
 
@@ -1462,7 +1462,7 @@ MACAddress=52:54:00:e9:64:41
 Bond=bond1
 </programlisting>
 
-      <programlisting># /etc/systemd/network/30-bond1-dev2.nework
+      <programlisting># /etc/systemd/network/30-bond1-dev2.network
 [Match]
 MACAddress=52:54:00:e9:64:42
 

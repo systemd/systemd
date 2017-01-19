@@ -354,7 +354,7 @@ Documentation=man:nosuchfile(1)
 Requires=different.service
 
 [Service]
-Desription=x
+Description=x
 
 $ systemd-analyze verify ./user.slice
 [./user.slice:9] Unknown lvalue 'WhatIsThis' in section 'Unit'

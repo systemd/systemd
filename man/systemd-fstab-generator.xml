@@ -193,7 +193,7 @@
 
         <para>If set to <option>state</option> the generator will leave the root
         directory mount point unaltered, however will mount a <literal>tmpfs</literal> file system to
-        <filename>/var</filename>. In this mode the normal system configuration (i.e the contents of
+        <filename>/var</filename>. In this mode the normal system configuration (i.e. the contents of
         <literal>/etc</literal>) is in effect (and may be modified during system runtime), however the system state
         (i.e. the contents of <literal>/var</literal>) is reset at boot and lost at shutdown.</para>
 

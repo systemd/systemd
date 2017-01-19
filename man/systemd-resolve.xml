@@ -271,7 +271,7 @@
         <literal>payload</literal>, the payload of the packet is exported. If the argument is
         <literal>packet</literal>, the whole packet is dumped in wire format, prefixed by
         length specified as a little-endian 64-bit number. This format allows multiple packets
-        to be dumped and unambigously parsed.</para></listitem>
+        to be dumped and unambiguously parsed.</para></listitem>
       </varlistentry>
 
       <varlistentry>
