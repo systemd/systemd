@@ -991,7 +991,7 @@
         used.</para>
 
         <para>This option is particularly useful when <varname>RootDirectory=</varname> is used. In this case the
-        source path refers to a path on the host file system, while the destination path referes to a path below the
+        source path refers to a path on the host file system, while the destination path refers to a path below the
         root directory of the unit.</para></listitem>
       </varlistentry>
 

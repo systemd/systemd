@@ -91,7 +91,7 @@
         update units. Only one service should perform an update (see the next point), and all
         the other ones should exit cleanly with a "success" return code and without doing
         anything. Update services should be ordered after <filename>sysinit.target</filename>
-        so that the update starts after after all file systems have been mounted.</para>
+        so that the update starts after all file systems have been mounted.</para>
       </listitem>
 
       <listitem>
