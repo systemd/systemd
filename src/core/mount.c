@@ -1387,128 +1387,6 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
         return 0;
 }
 
-typedef struct {
-        bool is_mounted;
-        bool just_mounted;
-        bool just_changed;
-} MountSetupFlags;
-
-static int mount_setup_new_unit(
-                Unit *u,
-                const char *what,
-                const char *where,
-                const char *options,
-                const char *fstype,
-                MountSetupFlags *flags) {
-
-        MountParameters *p;
-
-        assert(u);
-        assert(flags);
-
-        u->source_path = strdup("/proc/self/mountinfo");
-        MOUNT(u)->where = strdup(where);
-        if (!u->source_path && !MOUNT(u)->where)
-                return -ENOMEM;
-
-        /* Make sure to initialize those fields before mount_is_extrinsic(). */
-        MOUNT(u)->from_proc_self_mountinfo = true;
-        p = &MOUNT(u)->parameters_proc_self_mountinfo;
-
-        p->what = strdup(what);
-        p->options = strdup(options);
-        p->fstype = strdup(fstype);
-        if (!p->what || !p->options || !p->fstype)
-                return -ENOMEM;
-
-        if (!mount_is_extrinsic(MOUNT(u))) {
-                const char *target;
-                int r;
-
-                target = mount_is_network(p) ? SPECIAL_REMOTE_FS_TARGET : SPECIAL_LOCAL_FS_TARGET;
-                r = unit_add_dependency_by_name(u, UNIT_BEFORE, target, NULL, true);
-                if (r < 0)
-                        return r;
-
-                r = unit_add_dependency_by_name(u, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
-                if (r < 0)
-                        return r;
-        }
-
-        flags->is_mounted = true;
-        flags->just_mounted = true;
-        flags->just_changed = true;
-
-        return 0;
-}
-
-static int mount_setup_existing_unit(
-                Unit *u,
-                const char *what,
-                const char *where,
-                const char *options,
-                const char *fstype,
-                MountSetupFlags *flags) {
-
-        MountParameters *p;
-        bool load_extras = false;
-        int r1, r2, r3;
-
-        assert(u);
-        assert(flags);
-
-        if (!MOUNT(u)->where) {
-                MOUNT(u)->where = strdup(where);
-                if (!MOUNT(u)->where)
-                        return -ENOMEM;
-        }
-
-        /* Make sure to initialize those fields before mount_is_extrinsic(). */
-        p = &MOUNT(u)->parameters_proc_self_mountinfo;
-
-        r1 = free_and_strdup(&p->what, what);
-        r2 = free_and_strdup(&p->options, options);
-        r3 = free_and_strdup(&p->fstype, fstype);
-        if (r1 < 0 || r2 < 0 || r3 < 0)
-                return -ENOMEM;
-
-        flags->just_changed = r1 > 0 || r2 > 0 || r3 > 0;
-        flags->is_mounted = true;
-        flags->just_mounted = !MOUNT(u)->from_proc_self_mountinfo;
-
-        MOUNT(u)->from_proc_self_mountinfo = true;
-
-        if (!mount_is_extrinsic(MOUNT(u)) && mount_is_network(p)) {
-                /* _netdev option may have shown up late, or on a
-                 * remount. Add remote-fs dependencies, even though
-                 * local-fs ones may already be there.
-                 *
-                 * Note: due to a current limitation (we don't track
-                 * in the dependency "Set*" objects who created a
-                 * dependency), we can only add deps, never lose them,
-                 * until the next full daemon-reload. */
-                unit_add_dependency_by_name(u, UNIT_BEFORE, SPECIAL_REMOTE_FS_TARGET, NULL, true);
-                load_extras = true;
-        }
-
-        if (u->load_state == UNIT_NOT_FOUND) {
-                u->load_state = UNIT_LOADED;
-                u->load_error = 0;
-
-                /* Load in the extras later on, after we
-                 * finished initialization of the unit */
-
-                /* FIXME: since we're going to load the unit later on, why setting load_extras=true ? */
-                load_extras = true;
-                flags->just_changed = true;
-        }
-
-        if (load_extras)
-                return mount_add_extras(MOUNT(u));
-
-        return 0;
-}
-
 static int mount_setup_unit(
                 Manager *m,
                 const char *what,
@@ -1517,8 +1395,10 @@ static int mount_setup_unit(
                 const char *fstype,
                 bool set_flags) {
 
-        _cleanup_free_ char *e = NULL;
-        MountSetupFlags flags;
+        _cleanup_free_ char *e = NULL, *w = NULL, *o = NULL, *f = NULL;
+        bool load_extras = false;
+        MountParameters *p;
+        bool delete, changed = false;
         Unit *u;
         int r;
 
@@ -1546,34 +1426,114 @@ static int mount_setup_unit(
 
         u = manager_get_unit(m, e);
         if (!u) {
-                /* First time we see this mount point meaning that it's
-                 * not been initiated by a mount unit but rather by the
-                 * sysadmin having called mount(8) directly. */
+                delete = true;
+
                 r = unit_new_for_name(m, sizeof(Mount), e, &u);
                 if (r < 0)
                         goto fail;
 
-                r = mount_setup_new_unit(u, what, where, options, fstype, &flags);
-                if (r < 0)
-                        unit_free(u);
-        } else
-                r = mount_setup_existing_unit(u, what, where, options, fstype, &flags);
+                MOUNT(u)->where = strdup(where);
+                if (!MOUNT(u)->where) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
 
-        if (r < 0)
-                goto fail;
+                u->source_path = strdup("/proc/self/mountinfo");
+                if (!u->source_path) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
 
-        if (set_flags) {
-                MOUNT(u)->is_mounted = flags.is_mounted;
-                MOUNT(u)->just_mounted = flags.just_mounted;
-                MOUNT(u)->just_changed = flags.just_changed;
+                if (!mount_is_extrinsic(MOUNT(u))) {
+                        const char* target;
+
+                        target = mount_needs_network(options, fstype) ?  SPECIAL_REMOTE_FS_TARGET : SPECIAL_LOCAL_FS_TARGET;
+                        r = unit_add_dependency_by_name(u, UNIT_BEFORE, target, NULL, true);
+                        if (r < 0)
+                                goto fail;
+
+                        r = unit_add_dependency_by_name(u, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
+                        if (r < 0)
+                                goto fail;
+                }
+
+                unit_add_to_load_queue(u);
+                changed = true;
+        } else {
+                delete = false;
+
+                if (!MOUNT(u)->where) {
+                        MOUNT(u)->where = strdup(where);
+                        if (!MOUNT(u)->where) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+                }
+
+                if (!mount_is_extrinsic(MOUNT(u)) &&
+                    mount_needs_network(options, fstype)) {
+                        /* _netdev option may have shown up late, or on a
+                         * remount. Add remote-fs dependencies, even though
+                         * local-fs ones may already be there. */
+                        unit_add_dependency_by_name(u, UNIT_BEFORE, SPECIAL_REMOTE_FS_TARGET, NULL, true);
+                        load_extras = true;
+                }
+
+                if (u->load_state == UNIT_NOT_FOUND) {
+                        u->load_state = UNIT_LOADED;
+                        u->load_error = 0;
+
+                        /* Load in the extras later on, after we
+                         * finished initialization of the unit */
+                        load_extras = true;
+                        changed = true;
+                }
         }
 
-        if (flags.just_changed)
+        w = strdup(what);
+        o = strdup(options);
+        f = strdup(fstype);
+        if (!w || !o || !f) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        p = &MOUNT(u)->parameters_proc_self_mountinfo;
+
+        changed = changed ||
+                !streq_ptr(p->options, options) ||
+                !streq_ptr(p->what, what) ||
+                !streq_ptr(p->fstype, fstype);
+
+        if (set_flags) {
+                MOUNT(u)->is_mounted = true;
+                MOUNT(u)->just_mounted = !MOUNT(u)->from_proc_self_mountinfo;
+                MOUNT(u)->just_changed = changed;
+        }
+
+        MOUNT(u)->from_proc_self_mountinfo = true;
+
+        free_and_replace(p->what, w);
+        free_and_replace(p->options, o);
+        free_and_replace(p->fstype, f);
+
+        if (load_extras) {
+                r = mount_add_extras(MOUNT(u));
+                if (r < 0)
+                        goto fail;
+        }
+
+        if (changed)
                 unit_add_to_dbus_queue(u);
 
         return 0;
+
 fail:
         log_warning_errno(r, "Failed to set up mount unit: %m");
+
+        if (delete)
+                unit_free(u);
+
         return r;
 }
 
