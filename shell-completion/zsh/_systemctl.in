@@ -336,7 +336,7 @@ _unit_properties() {
     _sys_all_properties=( ${${(M)${(f)"$(__systemctl show --all;
     @rootlibexecdir@/systemd --dump-configuration-items)"}##[[:alnum:]]##=*}%%=*}
     )
-    _store_cache SYS_ALL_PROPRTIES _sys_all_properties
+    _store_cache SYS_ALL_PROPERTIES _sys_all_properties
   fi
   _values -s , "${_sys_all_properties[@]}"
 }
