@@ -30,6 +30,7 @@
 static void test_ifname_valid(void) {
         assert(ifname_valid("foo"));
         assert(ifname_valid("eth0"));
+        assert(ifname_valid("eth0:0"));
 
         assert(!ifname_valid("0"));
         assert(!ifname_valid("99"));
@@ -44,7 +45,7 @@ static void test_ifname_valid(void) {
         assert(!ifname_valid("."));
         assert(!ifname_valid(".."));
         assert(ifname_valid("foo.bar"));
-        assert(!ifname_valid("x:y"));
+        assert(ifname_valid("x:y"));
 
         assert(ifname_valid("xxxxxxxxxxxxxxx"));
         assert(!ifname_valid("xxxxxxxxxxxxxxxx"));
