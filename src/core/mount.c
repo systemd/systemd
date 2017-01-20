@@ -1435,6 +1435,7 @@ static int mount_setup_new_unit(
                         return r;
         }
 
+        unit_add_to_load_queue(u);
         flags->is_mounted = true;
         flags->just_mounted = true;
         flags->just_changed = true;
