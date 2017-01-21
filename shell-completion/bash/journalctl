@@ -82,6 +82,9 @@ _journalctl() {
                         --user-unit)
                                 comps=$(journalctl -F '_SYSTEMD_USER_UNIT' 2>/dev/null)
                         ;;
+                        --identifier|-t)
+                                comps=$(journalctl -F 'SYSLOG_IDENTIFIER' 2>/dev/null)
+                        ;;
                         *)
                                 return 0
                         ;;
