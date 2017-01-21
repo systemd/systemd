@@ -797,6 +797,10 @@ int config_parse_label(
 
         _cleanup_address_free_ Address *n = NULL;
         Network *network = userdata;
+        char ifname[IF_NAMESIZE] = "";
+        const char *q;
+        unsigned k;
+        char *p;
         int r;
 
         assert(filename);
@@ -809,8 +813,21 @@ int config_parse_label(
         if (r < 0)
                 return r;
 
-        if (!ifname_valid(rvalue)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Interface label is not valid or too long, ignoring assignment: %s", rvalue);
+        p = strchr(rvalue, ':');
+        if (p) {
+                r = safe_atou(p + 1, &k);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse label, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                strncpy(ifname, rvalue, p - rvalue);
+                q = ifname;
+        } else
+                q = rvalue;
+
+        if (!ifname_valid(q)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Interface name is not valid or too long, ignoring assignment: %s", q);
                 return 0;
         }
 
