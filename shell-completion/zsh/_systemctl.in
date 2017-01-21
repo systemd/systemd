@@ -98,11 +98,11 @@ __systemctl()
 # Fills the unit list
 _systemctl_all_units()
 {
-  if ( [[ ${+_sys_all_units} -eq 0 ]] || _cache_invalid SYS_ALL_UNITS ) &&
-    ! _retrieve_cache SYS_ALL_UNITS;
+  if ( [[ ${+_sys_all_units} -eq 0 ]] || _cache_invalid SYS_ALL_UNITS$_sys_service_mgr ) ||
+    ! _retrieve_cache SYS_ALL_UNITS$_sys_service_mgr;
   then
     _sys_all_units=( ${${(f)"$(__systemctl list-units --all)"}%% *} )
-    _store_cache SYS_ALL_UNITS _sys_all_units
+    _store_cache SYS_ALL_UNITS$_sys_service_mgr _sys_all_units
   fi
 }
 
@@ -111,14 +111,14 @@ _systemctl_really_all_units()
 {
   local -a all_unit_files;
   local -a really_all_units;
-  if ( [[ ${+_sys_really_all_units} -eq 0 ]] || _cache_invalid SYS_REALLY_ALL_UNITS ) &&
-    ! _retrieve_cache SYS_REALLY_ALL_UNITS;
+  if ( [[ ${+_sys_really_all_units} -eq 0 ]] || _cache_invalid SYS_REALLY_ALL_UNITS$_sys_service_mgr ) ||
+    ! _retrieve_cache SYS_REALLY_ALL_UNITS$_sys_service_mgr;
   then
     all_unit_files=( ${${(f)"$(__systemctl list-unit-files)"}%% *} )
     _systemctl_all_units
     really_all_units=($_sys_all_units $all_unit_files)
     _sys_really_all_units=(${(u)really_all_units})
-    _store_cache SYS_REALLY_ALL_UNITS _sys_really_all_units
+    _store_cache SYS_REALLY_ALL_UNITS$_sys_service_mgr _sys_really_all_units
   fi
 }
 
@@ -330,13 +330,13 @@ _unit_types() {
 }
 
 _unit_properties() {
-  if ( [[ ${+_sys_all_properties} -eq 0 ]] || _cache_invalid SYS_ALL_PROPERTIES ) &&
-    ! _retrieve_cache SYS_ALL_PROPERTIES;
+  if ( [[ ${+_sys_all_properties} -eq 0 ]] || _cache_invalid SYS_ALL_PROPERTIES$_sys_service_mgr ) ||
+    ! _retrieve_cache SYS_ALL_PROPERTIES$_sys_service_mgr;
   then
     _sys_all_properties=( ${${(M)${(f)"$(__systemctl show --all;
     @rootlibexecdir@/systemd --dump-configuration-items)"}##[[:alnum:]]##=*}%%=*}
     )
-    _store_cache SYS_ALL_PROPRTIES _sys_all_properties
+    _store_cache SYS_ALL_PROPERTIES$_sys_service_mgr _sys_all_properties
   fi
   _values -s , "${_sys_all_properties[@]}"
 }
