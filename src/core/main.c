@@ -1830,8 +1830,10 @@ int main(int argc, char *argv[]) {
         before_startup = now(CLOCK_MONOTONIC);
 
         r = manager_startup(m, arg_serialization, fds);
-        if (r < 0)
+        if (r < 0) {
                 log_error_errno(r, "Failed to fully start up daemon: %m");
+                goto finish;
+        }
 
         /* This will close all file descriptors that were opened, but
          * not claimed by any unit. */
