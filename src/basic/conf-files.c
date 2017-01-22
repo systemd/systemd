@@ -137,7 +137,6 @@ int conf_files_list(char ***strv, const char *suffix, const char *root, const ch
         va_list ap;
 
         assert(strv);
-        assert(suffix);
 
         va_start(ap, dir);
         dirs = strv_new_ap(dir, ap);
@@ -153,7 +152,6 @@ int conf_files_list_nulstr(char ***strv, const char *suffix, const char *root, c
         _cleanup_strv_free_ char **dirs = NULL;
 
         assert(strv);
-        assert(suffix);
 
         dirs = strv_split_nulstr(d);
         if (!dirs)
