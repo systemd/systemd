@@ -31,6 +31,8 @@
 %_binfmtdir @binfmtdir@
 %_systemdgeneratordir @systemgeneratordir@
 %_systemdusergeneratordir @usergeneratordir@
+%_systemd_system_env_generator_dir @systemenvgeneratordir@
+%_systemd_user_env_generator_dir @userenvgeneratordir@
 
 %systemd_requires \
 Requires(post): systemd \

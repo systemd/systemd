@@ -103,6 +103,7 @@ static int manager_dispatch_idle_pipe_fd(sd_event_source *source, int fd, uint32
 static int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_jobs_in_progress(sd_event_source *source, usec_t usec, void *userdata);
 static int manager_dispatch_run_queue(sd_event_source *source, void *userdata);
+static int manager_run_environment_generators(Manager *m);
 static int manager_run_generators(Manager *m);
 
 static void manager_watch_jobs_in_progress(Manager *m) {
@@ -1259,6 +1260,10 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         assert(m);
 
         r = lookup_paths_init(&m->lookup_paths, m->unit_file_scope, 0, NULL);
+        if (r < 0)
+                return r;
+
+        r = manager_run_environment_generators(m);
         if (r < 0)
                 return r;
 
@@ -2795,6 +2800,10 @@ int manager_reload(Manager *m) {
         if (q < 0 && r >= 0)
                 r = q;
 
+        q = manager_run_environment_generators(m);
+        if (q < 0 && r >= 0)
+                r = q;
+
         /* Find new unit paths */
         q = manager_run_generators(m);
         if (q < 0 && r >= 0)
@@ -2986,10 +2995,56 @@ void manager_check_finished(Manager *m) {
         manager_invalidate_startup_units(m);
 }
 
+static bool generator_path_any(const char* const* paths) {
+        char **path;
+        bool found = false;
+
+        /* Optimize by skipping the whole process by not creating output directories
+         * if no generators are found. */
+        STRV_FOREACH(path, (char**) paths)
+                if (access(*path, F_OK) == 0)
+                        found = true;
+                else if (errno != ENOENT)
+                        log_warning_errno(errno, "Failed to open generator directory %s: %m", *path);
+
+        return found;
+}
+
+static const char* system_env_generator_binary_paths[] = {
+        "/run/systemd/system-environment-generators",
+        "/etc/systemd/system-environment-generators",
+        "/usr/local/lib/systemd/system-environment-generators",
+        SYSTEM_ENV_GENERATOR_PATH,
+        NULL
+};
+
+static const char* user_env_generator_binary_paths[] = {
+        "/run/systemd/user-environment-generators",
+        "/etc/systemd/user-environment-generators",
+        "/usr/local/lib/systemd/user-environment-generators",
+        USER_ENV_GENERATOR_PATH,
+        NULL
+};
+
+static int manager_run_environment_generators(Manager *m) {
+        char **tmp = NULL; /* this is only used in the forked process, no cleanup here */
+        const char **paths;
+        void* args[] = {&tmp, &tmp, &m->environment};
+
+        if (m->test_run)
+                return 0;
+
+        paths = MANAGER_IS_SYSTEM(m) ? system_env_generator_binary_paths : user_env_generator_binary_paths;
+
+        if (!generator_path_any(paths))
+                return 0;
+
+        return execute_directories(paths, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL);
+}
+
 static int manager_run_generators(Manager *m) {
         _cleanup_strv_free_ char **paths = NULL;
         const char *argv[5];
-        char **path;
         int r;
 
         assert(m);
@@ -3001,18 +3056,9 @@ static int manager_run_generators(Manager *m) {
         if (!paths)
                 return log_oom();
 
-        /* Optimize by skipping the whole process by not creating output directories
-         * if no generators are found. */
-        STRV_FOREACH(path, paths) {
-                if (access(*path, F_OK) >= 0)
-                        goto found;
-                if (errno != ENOENT)
-                        log_warning_errno(errno, "Failed to open generator directory %s: %m", *path);
-        }
+        if (!generator_path_any((const char* const*) paths))
+                return 0;
 
-        return 0;
-
- found:
         r = lookup_paths_mkdir_generator(&m->lookup_paths);
         if (r < 0)
                 goto finish;
