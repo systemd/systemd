@@ -194,6 +194,7 @@
 /test-env-util
 /test-escape
 /test-event
+/test-exec-util
 /test-execute
 /test-extract-word
 /test-fd-util

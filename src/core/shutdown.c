@@ -32,6 +32,7 @@
 #include "alloc-util.h"
 #include "cgroup-util.h"
 #include "def.h"
+#include "exec-util.h"
 #include "fileio.h"
 #include "killall.h"
 #include "log.h"

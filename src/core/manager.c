@@ -52,6 +52,7 @@
 #include "dirent-util.h"
 #include "env-util.h"
 #include "escape.h"
+#include "exec-util.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"

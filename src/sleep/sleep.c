@@ -25,6 +25,7 @@
 #include "sd-messages.h"
 
 #include "def.h"
+#include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
