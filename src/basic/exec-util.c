@@ -22,10 +22,14 @@
 #include <sys/prctl.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <stdio.h>
 
 #include "alloc-util.h"
 #include "conf-files.h"
+#include "env-util.h"
 #include "exec-util.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "hashmap.h"
 #include "macro.h"
 #include "process-util.h"
@@ -34,12 +38,14 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "util.h"
 
 /* Put this test here for a lack of better place */
 assert_cc(EAGAIN == EWOULDBLOCK);
 
-static int do_spawn(const char *path, char *argv[], pid_t *pid) {
+static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid) {
+
         pid_t _pid;
 
         if (null_or_empty_path(path)) {
@@ -54,6 +60,15 @@ static int do_spawn(const char *path, char *argv[], pid_t *pid) {
                 char *_argv[2];
 
                 assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
+
+                if (stdout_fd >= 0) {
+                        /* If the fd happens to be in the right place, go along with that */
+                        if (stdout_fd != STDOUT_FILENO &&
+                            dup2(stdout_fd, STDOUT_FILENO) < 0)
+                                return -errno;
+
+                        fd_cloexec(STDOUT_FILENO, false);
+                }
 
                 if (!argv) {
                         _argv[0] = (char*) path;
@@ -72,14 +87,24 @@ static int do_spawn(const char *path, char *argv[], pid_t *pid) {
         return 1;
 }
 
-static int do_execute(char **directories, usec_t timeout, char *argv[]) {
+static int do_execute(
+                char **directories,
+                usec_t timeout,
+                gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
+                void* const callback_args[_STDOUT_CONSUME_MAX],
+                int output_fd,
+                char *argv[]) {
+
         _cleanup_hashmap_free_free_ Hashmap *pids = NULL;
         _cleanup_strv_free_ char **paths = NULL;
         char **path;
         int r;
 
-        /* We fork this all off from a child process so that we can
-         * somewhat cleanly make use of SIGALRM to set a time limit */
+        /* We fork this all off from a child process so that we can somewhat cleanly make
+         * use of SIGALRM to set a time limit.
+         *
+         * If callbacks is nonnull, execution is serial. Otherwise, we default to parallel.
+         */
 
         (void) reset_all_signal_handlers();
         (void) reset_signal_mask();
@@ -90,35 +115,62 @@ static int do_execute(char **directories, usec_t timeout, char *argv[]) {
         if (r < 0)
                 return r;
 
-        pids = hashmap_new(NULL);
-        if (!pids)
-                return log_oom();
+        if (!callbacks) {
+                pids = hashmap_new(NULL);
+                if (!pids)
+                        return log_oom();
+        }
+
+        /* Abort execution of this process after the timout. We simply rely on SIGALRM as
+         * default action terminating the process, and turn on alarm(). */
+
+        if (timeout != USEC_INFINITY)
+                alarm((timeout + USEC_PER_SEC - 1) / USEC_PER_SEC);
 
         STRV_FOREACH(path, paths) {
                 _cleanup_free_ char *t = NULL;
+                _cleanup_close_ int fd = -1;
                 pid_t pid;
 
                 t = strdup(*path);
                 if (!t)
                         return log_oom();
 
-                r = do_spawn(t, argv, &pid);
+                if (callbacks) {
+                        fd = open_serialization_fd(basename(*path));
+                        if (fd < 0)
+                                return log_error_errno(fd, "Failed to open serialization file: %m");
+                }
+
+                r = do_spawn(t, argv, fd, &pid);
                 if (r <= 0)
                         continue;
 
-                r = hashmap_put(pids, PID_TO_PTR(pid), t);
-                if (r < 0)
-                        return log_oom();
+                if (pids) {
+                        r = hashmap_put(pids, PID_TO_PTR(pid), t);
+                        if (r < 0)
+                                return log_oom();
+                        t = NULL;
+                } else {
+                        r = wait_for_terminate_and_warn(t, pid, true);
+                        if (r < 0)
+                                continue;
 
-                t = NULL;
+                        if (lseek(fd, 0, SEEK_SET) < 0)
+                                return log_error_errno(errno, "Failed to seek on serialization fd: %m");
+
+                        r = callbacks[STDOUT_GENERATE](fd, callback_args[STDOUT_GENERATE]);
+                        fd = -1;
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to process output from %s: %m", *path);
+                }
         }
 
-        /* Abort execution of this process after the timout. We simply
-         * rely on SIGALRM as default action terminating the process,
-         * and turn on alarm(). */
-
-        if (timeout != USEC_INFINITY)
-                alarm((timeout + USEC_PER_SEC - 1) / USEC_PER_SEC);
+        if (callbacks) {
+                r = callbacks[STDOUT_COLLECT](output_fd, callback_args[STDOUT_COLLECT]);
+                if (r < 0)
+                        return log_error_errno(r, "Callback two failed: %m");
+        }
 
         while (!hashmap_isempty(pids)) {
                 _cleanup_free_ char *t = NULL;
@@ -136,31 +188,66 @@ static int do_execute(char **directories, usec_t timeout, char *argv[]) {
         return 0;
 }
 
-void execute_directories(const char* const* directories, usec_t timeout, char *argv[]) {
+int execute_directories(
+                const char* const* directories,
+                usec_t timeout,
+                gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
+                void* const callback_args[_STDOUT_CONSUME_MAX],
+                char *argv[]) {
+
         pid_t executor_pid;
-        int r;
         char *name;
         char **dirs = (char**) directories;
+        _cleanup_close_ int fd = -1;
+        int r;
 
         assert(!strv_isempty(dirs));
 
         name = basename(dirs[0]);
         assert(!isempty(name));
 
-        /* Executes all binaries in the directories in parallel and waits
-         * for them to finish. Optionally a timeout is applied. If a file
-         * with the same name exists in more than one directory, the
-         * earliest one wins. */
+        if (callbacks) {
+                assert(callback_args);
+                assert(callbacks[STDOUT_GENERATE]);
+                assert(callbacks[STDOUT_COLLECT]);
+                assert(callbacks[STDOUT_CONSUME]);
+
+                fd = open_serialization_fd(name);
+                if (fd < 0)
+                        return log_error_errno(fd, "Failed to open serialization file: %m");
+        }
+
+        /* Executes all binaries in the directories serially or in parallel and waits for
+         * them to finish. Optionally a timeout is applied. If a file with the same name
+         * exists in more than one directory, the earliest one wins. */
 
         executor_pid = fork();
-        if (executor_pid < 0) {
-                log_error_errno(errno, "Failed to fork: %m");
-                return;
+        if (executor_pid < 0)
+                return log_error_errno(errno, "Failed to fork: %m");
 
-        } else if (executor_pid == 0) {
-                r = do_execute(dirs, timeout, argv);
+        if (executor_pid == 0) {
+                r = do_execute(dirs, timeout, callbacks, callback_args, fd, argv);
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
 
-        wait_for_terminate_and_warn(name, executor_pid, true);
+        r = wait_for_terminate_and_warn(name, executor_pid, true);
+        if (r < 0)
+                return log_error_errno(r, "Execution failed: %m");
+        if (r > 0) {
+                /* non-zero return code from child */
+                log_error("Forker process failed.");
+                return -EREMOTEIO;
+        }
+
+        if (!callbacks)
+                return 0;
+
+        if (lseek(fd, 0, SEEK_SET) < 0)
+                return log_error_errno(errno, "Failed to rewind serialization fd: %m");
+
+        r = callbacks[STDOUT_CONSUME](fd, callback_args[STDOUT_CONSUME]);
+        fd = -1;
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse returned data: %m");
+        return 0;
 }

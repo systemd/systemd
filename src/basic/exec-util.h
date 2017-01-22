@@ -17,6 +17,22 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdbool.h>
+
 #include "time-util.h"
 
-void execute_directories(const char* const* directories, usec_t timeout, char *argv[]);
+typedef int (*gather_stdout_callback_t) (int fd, void *arg);
+
+enum {
+        STDOUT_GENERATE,   /* from generators to helper process */
+        STDOUT_COLLECT,    /* from helper process to main process */
+        STDOUT_CONSUME,    /* process data in main process */
+        _STDOUT_CONSUME_MAX,
+};
+
+int execute_directories(
+                const char* const* directories,
+                usec_t timeout,
+                gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
+                void* const callback_args[_STDOUT_CONSUME_MAX],
+                char *argv[]);

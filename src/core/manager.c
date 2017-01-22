@@ -3047,7 +3047,8 @@ static int manager_run_generators(Manager *m) {
         argv[4] = NULL;
 
         RUN_WITH_UMASK(0022)
-                execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC, (char**) argv);
+                execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC,
+                                    NULL, NULL, (char**) argv);
 
 finish:
         lookup_paths_trim_generator(&m->lookup_paths);
