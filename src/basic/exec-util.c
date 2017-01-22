@@ -24,9 +24,8 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "dirent-util.h"
+#include "conf-files.h"
 #include "exec-util.h"
-#include "fd-util.h"
 #include "hashmap.h"
 #include "macro.h"
 #include "process-util.h"
@@ -75,8 +74,9 @@ static int do_spawn(const char *path, char *argv[], pid_t *pid) {
 
 static int do_execute(char **directories, usec_t timeout, char *argv[]) {
         _cleanup_hashmap_free_free_ Hashmap *pids = NULL;
-        _cleanup_set_free_free_ Set *seen = NULL;
-        char **directory;
+        _cleanup_strv_free_ char **paths = NULL;
+        char **path;
+        int r;
 
         /* We fork this all off from a child process so that we can
          * somewhat cleanly make use of SIGALRM to set a time limit */
@@ -86,56 +86,31 @@ static int do_execute(char **directories, usec_t timeout, char *argv[]) {
 
         assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
 
+        r = conf_files_list_strv(&paths, NULL, NULL, (const char* const*) directories);
+        if (r < 0)
+                return r;
+
         pids = hashmap_new(NULL);
         if (!pids)
                 return log_oom();
 
-        seen = set_new(&string_hash_ops);
-        if (!seen)
-                return log_oom();
+        STRV_FOREACH(path, paths) {
+                _cleanup_free_ char *t = NULL;
+                pid_t pid;
 
-        STRV_FOREACH(directory, directories) {
-                _cleanup_closedir_ DIR *d;
-                struct dirent *de;
+                t = strdup(*path);
+                if (!t)
+                        return log_oom();
 
-                d = opendir(*directory);
-                if (!d) {
-                        if (errno == ENOENT)
-                                continue;
+                r = do_spawn(t, argv, &pid);
+                if (r <= 0)
+                        continue;
 
-                        return log_error_errno(errno, "Failed to open directory %s: %m", *directory);
-                }
+                r = hashmap_put(pids, PID_TO_PTR(pid), t);
+                if (r < 0)
+                        return log_oom();
 
-                FOREACH_DIRENT(de, d, break) {
-                        _cleanup_free_ char *path = NULL;
-                        pid_t pid;
-                        int r;
-
-                        if (!dirent_is_file(de))
-                                continue;
-
-                        if (set_contains(seen, de->d_name)) {
-                                log_debug("%1$s/%2$s skipped (%2$s was already seen).", *directory, de->d_name);
-                                continue;
-                        }
-
-                        r = set_put_strdup(seen, de->d_name);
-                        if (r < 0)
-                                return log_oom();
-
-                        path = strjoin(*directory, "/", de->d_name);
-                        if (!path)
-                                return log_oom();
-
-                        r = do_spawn(path, argv, &pid);
-                        if (r <= 0)
-                                continue;
-
-                        r = hashmap_put(pids, PID_TO_PTR(pid), path);
-                        if (r < 0)
-                                return log_oom();
-                        path = NULL;
-                }
+                t = NULL;
         }
 
         /* Abort execution of this process after the timout. We simply
@@ -146,16 +121,16 @@ static int do_execute(char **directories, usec_t timeout, char *argv[]) {
                 alarm((timeout + USEC_PER_SEC - 1) / USEC_PER_SEC);
 
         while (!hashmap_isempty(pids)) {
-                _cleanup_free_ char *path = NULL;
+                _cleanup_free_ char *t = NULL;
                 pid_t pid;
 
                 pid = PTR_TO_PID(hashmap_first_key(pids));
                 assert(pid > 0);
 
-                path = hashmap_remove(pids, PID_TO_PTR(pid));
-                assert(path);
+                t = hashmap_remove(pids, PID_TO_PTR(pid));
+                assert(t);
 
-                wait_for_terminate_and_warn(path, pid, true);
+                wait_for_terminate_and_warn(t, pid, true);
         }
 
         return 0;
