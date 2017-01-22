@@ -40,6 +40,39 @@
 /* Put this test here for a lack of better place */
 assert_cc(EAGAIN == EWOULDBLOCK);
 
+static int do_spawn(const char *path, char *argv[], pid_t *pid) {
+        pid_t _pid;
+
+        if (null_or_empty_path(path)) {
+                log_debug("%s is empty (a mask).", path);
+                return 0;
+        }
+
+        _pid = fork();
+        if (_pid < 0)
+                return log_error_errno(errno, "Failed to fork: %m");
+        if (_pid == 0) {
+                char *_argv[2];
+
+                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
+
+                if (!argv) {
+                        _argv[0] = (char*) path;
+                        _argv[1] = NULL;
+                        argv = _argv;
+                } else
+                        argv[0] = (char*) path;
+
+                execv(path, argv);
+                log_error_errno(errno, "Failed to execute %s: %m", path);
+                _exit(EXIT_FAILURE);
+        }
+
+        log_debug("Spawned %s as " PID_FMT ".", path, _pid);
+        *pid = _pid;
+        return 1;
+}
+
 static int do_execute(char **directories, usec_t timeout, char *argv[]) {
         _cleanup_hashmap_free_free_ Hashmap *pids = NULL;
         _cleanup_set_free_free_ Set *seen = NULL;
@@ -94,32 +127,9 @@ static int do_execute(char **directories, usec_t timeout, char *argv[]) {
                         if (!path)
                                 return log_oom();
 
-                        if (null_or_empty_path(path)) {
-                                log_debug("%s is empty (a mask).", path);
+                        r = do_spawn(path, argv, &pid);
+                        if (r <= 0)
                                 continue;
-                        }
-
-                        pid = fork();
-                        if (pid < 0) {
-                                log_error_errno(errno, "Failed to fork: %m");
-                                continue;
-                        } else if (pid == 0) {
-                                char *_argv[2];
-
-                                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
-
-                                if (!argv) {
-                                        _argv[0] = path;
-                                        _argv[1] = NULL;
-                                        argv = _argv;
-                                } else
-                                        argv[0] = path;
-
-                                execv(path, argv);
-                                return log_error_errno(errno, "Failed to execute %s: %m", path);
-                        }
-
-                        log_debug("Spawned %s as " PID_FMT ".", path, pid);
 
                         r = hashmap_put(pids, PID_TO_PTR(pid), path);
                         if (r < 0)
