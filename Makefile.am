@@ -765,7 +765,9 @@ EXTRA_DIST += \
 	tools/make-man-rules.py \
 	tools/make-directive-index.py \
 	tools/xml_helper.py \
-	man/glib-event-glue.c
+	man/glib-event-glue.c \
+	man/50-xdg-data-dirs.sh \
+	man/90-rearrange-path.py
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
