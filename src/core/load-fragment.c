@@ -620,7 +620,7 @@ int config_parse_exec(
                          * If it's prefixed with - and the path doesn't exist,
                          * we ignore it instead of erroring out;
                          * if it's prefixed with @, we allow overriding of argv[0];
-                         * and if it's prefixed with !, it will be run with full privileges */
+                         * and if it's prefixed with +, it will be run with full privileges */
                         if (*f == '-' && !ignore)
                                 ignore = true;
                         else if (*f == '@' && !separate_argv0)
