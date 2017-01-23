@@ -73,6 +73,9 @@ REQUIREMENTS:
         Note that systemd-localed.service and other systemd units use
         PrivateNetwork and PrivateDevices so this is effectively required.
 
+        Required for PrivateUsers in service units:
+          CONFIG_USER_NS
+
         Optional but strongly recommended:
           CONFIG_IPV6
           CONFIG_AUTOFS4_FS
