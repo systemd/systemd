@@ -809,8 +809,8 @@ int config_parse_label(
         if (r < 0)
                 return r;
 
-        if (!ifname_valid(rvalue)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Interface label is not valid or too long, ignoring assignment: %s", rvalue);
+        if (strlen(rvalue) >= IFNAMSIZ) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Interface label is too long, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
