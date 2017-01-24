@@ -226,7 +226,7 @@ int dhcp6_lease_set_domains(sd_dhcp6_lease *lease, uint8_t *optval,
         if (r < 0)
                 return 0;
 
-        free(lease->domains);
+        strv_free(lease->domains);
         lease->domains = domains;
         lease->domains_count = r;
 
