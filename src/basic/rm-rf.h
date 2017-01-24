@@ -33,8 +33,6 @@ int rm_rf(const char *path, RemoveFlags flags);
 
 /* Useful for usage with _cleanup_(), destroys a directory and frees the pointer */
 static inline void rm_rf_physical_and_free(char *p) {
-        if (!p)
-                return;
         (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
         free(p);
 }

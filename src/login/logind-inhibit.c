@@ -26,7 +26,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "logind-inhibit.h"
 #include "mkdir.h"
 #include "parse-util.h"
@@ -294,7 +294,7 @@ int inhibitor_create_fifo(Inhibitor *i) {
                 if (r < 0)
                         return r;
 
-                i->fifo_path = strjoin("/run/systemd/inhibit/", i->id, ".ref", NULL);
+                i->fifo_path = strjoin("/run/systemd/inhibit/", i->id, ".ref");
                 if (!i->fifo_path)
                         return -ENOMEM;
 

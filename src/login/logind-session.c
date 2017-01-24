@@ -35,7 +35,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "io-util.h"
 #include "logind-session.h"
 #include "mkdir.h"
@@ -505,7 +505,7 @@ static int session_start_scope(Session *s) {
                 char *scope, *job = NULL;
                 const char *description;
 
-                scope = strjoin("session-", s->id, ".scope", NULL);
+                scope = strjoin("session-", s->id, ".scope");
                 if (!scope)
                         return log_oom();
 

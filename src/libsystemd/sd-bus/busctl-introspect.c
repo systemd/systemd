@@ -143,9 +143,7 @@ static int parse_xml_annotation(Context *context, uint64_t *flags) {
                 case STATE_NAME:
 
                         if (t == XML_ATTRIBUTE_VALUE) {
-                                free(field);
-                                field = name;
-                                name = NULL;
+                                free_and_replace(field, name);
 
                                 state = STATE_ANNOTATION;
                         } else {
@@ -158,9 +156,7 @@ static int parse_xml_annotation(Context *context, uint64_t *flags) {
                 case STATE_VALUE:
 
                         if (t == XML_ATTRIBUTE_VALUE) {
-                                free(value);
-                                value = name;
-                                name = NULL;
+                                free_and_replace(value, name);
 
                                 state = STATE_ANNOTATION;
                         } else {
@@ -194,6 +190,7 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                 STATE_SIGNAL_ARG,
                 STATE_SIGNAL_ARG_NAME,
                 STATE_SIGNAL_ARG_TYPE,
+                STATE_SIGNAL_ARG_DIRECTION,
                 STATE_PROPERTY,
                 STATE_PROPERTY_NAME,
                 STATE_PROPERTY_TYPE,
@@ -285,7 +282,7 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         if (endswith(prefix, "/"))
                                                 node_path = strappend(prefix, name);
                                         else
-                                                node_path = strjoin(prefix, "/", name, NULL);
+                                                node_path = strjoin(prefix, "/", name);
                                         if (!node_path)
                                                 return log_oom();
                                 }
@@ -350,11 +347,8 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                 case STATE_INTERFACE_NAME:
 
                         if (t == XML_ATTRIBUTE_VALUE) {
-                                if (n_depth == 0) {
-                                        free(context->interface_name);
-                                        context->interface_name = name;
-                                        name = NULL;
-                                }
+                                if (n_depth == 0)
+                                        free_and_replace(context->interface_name, name);
 
                                 state = STATE_INTERFACE;
                         } else {
@@ -409,12 +403,8 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                 case STATE_METHOD_NAME:
 
                         if (t == XML_ATTRIBUTE_VALUE) {
-
-                                if (n_depth == 0) {
-                                        free(context->member_name);
-                                        context->member_name = name;
-                                        name = NULL;
-                                }
+                                if (n_depth == 0)
+                                        free_and_replace(context->member_name, name);
 
                                 state = STATE_METHOD;
                         } else {
@@ -432,7 +422,7 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                 else if (streq_ptr(name, "type"))
                                         state = STATE_METHOD_ARG_TYPE;
                                 else if (streq_ptr(name, "direction"))
-                                         state = STATE_METHOD_ARG_DIRECTION;
+                                        state = STATE_METHOD_ARG_DIRECTION;
                                 else {
                                         log_error("Unexpected method <arg> attribute %s.", name);
                                         return -EBADMSG;
@@ -458,7 +448,8 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                                 } else if (streq(argument_direction, "out")) {
                                                         if (!strextend(&context->member_result, argument_type, NULL))
                                                                 return log_oom();
-                                                }
+                                                } else
+                                                        log_error("Unexpected method <arg> direction value '%s'.", argument_direction);
                                         }
 
                                         argument_type = mfree(argument_type);
@@ -487,9 +478,7 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                 case STATE_METHOD_ARG_TYPE:
 
                         if (t == XML_ATTRIBUTE_VALUE) {
-                                free(argument_type);
-                                argument_type = name;
-                                name = NULL;
+                                free_and_replace(argument_type, name);
 
                                 state = STATE_METHOD_ARG;
                         } else {
@@ -502,9 +491,7 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                 case STATE_METHOD_ARG_DIRECTION:
 
                         if (t == XML_ATTRIBUTE_VALUE) {
-                                free(argument_direction);
-                                argument_direction = name;
-                                name = NULL;
+                                free_and_replace(argument_direction, name);
 
                                 state = STATE_METHOD_ARG;
                         } else {
@@ -559,12 +546,8 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                 case STATE_SIGNAL_NAME:
 
                         if (t == XML_ATTRIBUTE_VALUE) {
-
-                                if (n_depth == 0) {
-                                        free(context->member_name);
-                                        context->member_name = name;
-                                        name = NULL;
-                                }
+                                if (n_depth == 0)
+                                        free_and_replace(context->member_name, name);
 
                                 state = STATE_SIGNAL;
                         } else {
@@ -582,6 +565,8 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         state = STATE_SIGNAL_ARG_NAME;
                                 else if (streq_ptr(name, "type"))
                                         state = STATE_SIGNAL_ARG_TYPE;
+                                else if (streq_ptr(name, "direction"))
+                                        state = STATE_SIGNAL_ARG_DIRECTION;
                                 else {
                                         log_error("Unexpected signal <arg> attribute %s.", name);
                                         return -EBADMSG;
@@ -599,8 +584,11 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                    (t == XML_TAG_CLOSE && streq_ptr(name, "arg"))) {
 
                                 if (argument_type) {
-                                        if (!strextend(&context->member_signature, argument_type, NULL))
-                                                return log_oom();
+                                        if (!argument_direction || streq(argument_direction, "out")) {
+                                                if (!strextend(&context->member_signature, argument_type, NULL))
+                                                        return log_oom();
+                                        } else
+                                                log_error("Unexpected signal <arg> direction value '%s'.", argument_direction);
 
                                         argument_type = mfree(argument_type);
                                 }
@@ -627,13 +615,24 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                 case STATE_SIGNAL_ARG_TYPE:
 
                         if (t == XML_ATTRIBUTE_VALUE) {
-                                free(argument_type);
-                                argument_type = name;
-                                name = NULL;
+                                free_and_replace(argument_type, name);
 
                                 state = STATE_SIGNAL_ARG;
                         } else {
                                 log_error("Unexpected token in signal <arg> (3).");
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case STATE_SIGNAL_ARG_DIRECTION:
+
+                        if (t == XML_ATTRIBUTE_VALUE) {
+                                free_and_replace(argument_direction, name);
+
+                                state = STATE_SIGNAL_ARG;
+                        } else {
+                                log_error("Unexpected token in signal <arg>. (4)");
                                 return -EINVAL;
                         }
 
@@ -688,12 +687,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                 case STATE_PROPERTY_NAME:
 
                         if (t == XML_ATTRIBUTE_VALUE) {
+                                if (n_depth == 0)
+                                        free_and_replace(context->member_name, name);
 
-                                if (n_depth == 0) {
-                                        free(context->member_name);
-                                        context->member_name = name;
-                                        name = NULL;
-                                }
                                 state = STATE_PROPERTY;
                         } else {
                                 log_error("Unexpected token in <property>. (2)");
@@ -705,12 +701,8 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                 case STATE_PROPERTY_TYPE:
 
                         if (t == XML_ATTRIBUTE_VALUE) {
-
-                                if (n_depth == 0) {
-                                        free(context->member_signature);
-                                        context->member_signature = name;
-                                        name = NULL;
-                                }
+                                if (n_depth == 0)
+                                        free_and_replace(context->member_signature, name);
 
                                 state = STATE_PROPERTY;
                         } else {

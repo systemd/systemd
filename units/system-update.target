@@ -6,11 +6,12 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=System Update
-Documentation=http://freedesktop.org/wiki/Software/systemd/SystemUpdates
+Description=Offline System Update
+Documentation=man:systemd.offline-updates(7)
 Documentation=man:systemd.special(7) man:systemd-system-update-generator(8)
 Requires=sysinit.target
 Conflicts=shutdown.target
 After=sysinit.target
 Before=shutdown.target
 AllowIsolate=yes
+Wants=system-update-cleanup.service

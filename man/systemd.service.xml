@@ -284,7 +284,9 @@
         providing multiple command lines in the same directive, or alternatively, this directive may be specified more
         than once with the same effect. If the empty string is assigned to this option, the list of commands to start
         is reset, prior assignments of this option will have no effect. If no <varname>ExecStart=</varname> is
-        specified, then the service must have <varname>RemainAfterExit=yes</varname> set.</para>
+        specified, then the service must have <varname>RemainAfterExit=yes</varname> and at least one
+        <varname>ExecStop=</varname> line set. (Services lacking both <varname>ExecStart=</varname> and
+        <varname>ExecStop=</varname> are not valid.)</para>
 
         <para>For each of the specified commands, the first argument must be an absolute path to an
         executable. Optionally, if this file name is prefixed with <literal>@</literal>, the second token will be
@@ -390,15 +392,11 @@
         variable substitution is supported (including
         <varname>$MAINPID</varname>, see above).</para>
 
-        <para>Note that it is usually not sufficient to specify a
-        command for this setting that only asks the service to
-        terminate (for example, by queuing some form of termination
-        signal for it), but does not wait for it to do so. Since the
-        remaining processes of the services are killed using
-        <constant>SIGKILL</constant> immediately after the command
-        exited, this would not result in a clean stop. The specified
-        command should hence be a synchronous operation, not an
-        asynchronous one.</para>
+        <para>Note that it is usually not sufficient to specify a command for this setting that only asks the service
+        to terminate (for example, by queuing some form of termination signal for it), but does not wait for it to do
+        so. Since the remaining processes of the services are killed according to <varname>KillMode=</varname> and
+        <varname>KillSignal=</varname> as described above immediately after the command exited, this may not result in
+        a clean stop. The specified command should hence be a synchronous operation, not an asynchronous one.</para>
 
         <para>Note that the commands specified in <varname>ExecStop=</varname> are only executed when the service
         started successfully first. They are not invoked if the service was never started at all, or in case its
@@ -663,6 +661,12 @@
         or signal is specified in
         <varname>RestartForceExitStatus=</varname> (see below).</para>
 
+        <para>Note that service restart is subject to unit start rate
+        limiting configured with <varname>StartLimitIntervalSec=</varname>
+        and <varname>StartLimitBurst=</varname>, see
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.</para>
+
         <para>Setting this to <option>on-failure</option> is the
         recommended choice for long-running services, in order to
         increase reliability by attempting automatic recovery from
@@ -792,11 +796,14 @@
         notification socket, as accessible via the
         <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         call. Takes one of <option>none</option> (the default),
-        <option>main</option> or <option>all</option>. If
-        <option>none</option>, no daemon status updates are accepted
-        from the service processes, all status update messages are
-        ignored. If <option>main</option>, only service updates sent
-        from the main process of the service are accepted. If
+        <option>main</option>, <option>exec</option> or
+        <option>all</option>. If <option>none</option>, no daemon status
+        updates are accepted from the service processes, all status
+        update messages are ignored. If <option>main</option>, only
+        service updates sent from the main process of the service are
+        accepted. If <option>exec</option>, only service updates sent
+        from any of the control processes originating from one of the
+        <varname>Exec*=</varname> commands are accepted. If
         <option>all</option>, all services updates from all members of
         the service's control group are accepted. This option should
         be set to open access to the notification socket when using
@@ -852,13 +859,13 @@
         serialized to <filename>/run</filename> and the file
         descriptors passed to the service manager, to allow restarts
         without losing state. Defaults to 0, i.e. no file descriptors
-        may be stored in the service manager by default. All file
+        may be stored in the service manager. All file
         descriptors passed to the service manager from a specific
         service are passed back to the service's main process on the
         next service restart. Any file descriptors passed to the
         service manager are automatically closed when POLLHUP or
         POLLERR is seen on them, or when the service is fully stopped
-        and no job queued or being executed for it.</para></listitem>
+        and no job is queued or being executed for it.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -909,18 +916,14 @@
     must be passed as separate words). Lone semicolons may be escaped
     as <literal>\;</literal>.</para>
 
-    <para>Each command line is split on whitespace, with the first
-    item being the command to execute, and the subsequent items being
-    the arguments. Double quotes ("...") and single quotes ('...') may
-    be used, in which case everything until the next matching quote
-    becomes part of the same argument. C-style escapes are also
-    supported. The table below contains the list of allowed escape
-    patterns. Only patterns which match the syntax in the table are
-    allowed; others will result in an error, and must be escaped by
-    doubling the backslash. Quotes themselves are removed after
-    parsing and escape sequences substituted. In addition, a trailing
-    backslash (<literal>\</literal>) may be used to merge lines.
-    </para>
+    <para>Each command line is split on whitespace, with the first item being the command to
+    execute, and the subsequent items being the arguments. Double quotes ("…") and single quotes
+    ('…') may be used, in which case everything until the next matching quote becomes part of the
+    same argument. Quotes themselves are removed. C-style escapes are also supported. The table
+    below contains the list of known escape patterns. Only escape patterns which match the syntax in
+    the table are allowed; other patterns may be added in the future and unknown patterns will
+    result in a warning. In particular, any backslashes should be doubled. Finally, a trailing
+    backslash (<literal>\</literal>) may be used to merge lines.</para>
 
     <para>This syntax is intended to be very similar to shell syntax,
     but only the meta-characters and expansions described in the

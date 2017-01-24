@@ -27,18 +27,20 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <linux/fs.h>
+
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "chattr-util.h"
 #include "copy.h"
 #include "dirent-util.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
 #include "lockfile-util.h"
 #include "log.h"
-#include "macro.h"
 #include "machine-image.h"
+#include "macro.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
@@ -97,6 +99,16 @@ static char **image_settings_path(Image *image) {
         return ret;
 }
 
+static char *image_roothash_path(Image *image) {
+        const char *fn;
+
+        assert(image);
+
+        fn = strjoina(image->name, ".roothash");
+
+        return file_in_same_dir(image->path, fn);
+}
+
 static int image_new(
                 ImageType t,
                 const char *pretty,
@@ -131,7 +143,7 @@ static int image_new(
                 return -ENOMEM;
 
         if (path)
-                i->path = strjoin(path, "/", filename, NULL);
+                i->path = strjoin(path, "/", filename);
         else
                 i->path = strdup(filename);
 
@@ -395,6 +407,7 @@ void image_hashmap_free(Hashmap *map) {
 int image_remove(Image *i) {
         _cleanup_release_lock_file_ LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
         _cleanup_strv_free_ char **settings = NULL;
+        _cleanup_free_ char *roothash = NULL;
         char **j;
         int r;
 
@@ -405,6 +418,10 @@ int image_remove(Image *i) {
 
         settings = image_settings_path(i);
         if (!settings)
+                return -ENOMEM;
+
+        roothash = image_roothash_path(i);
+        if (!roothash)
                 return -ENOMEM;
 
         /* Make sure we don't interfere with a running nspawn */
@@ -443,14 +460,17 @@ int image_remove(Image *i) {
                         log_debug_errno(errno, "Failed to unlink %s, ignoring: %m", *j);
         }
 
+        if (unlink(roothash) < 0 && errno != ENOENT)
+                log_debug_errno(errno, "Failed to unlink %s, ignoring: %m", roothash);
+
         return 0;
 }
 
-static int rename_settings_file(const char *path, const char *new_name) {
+static int rename_auxiliary_file(const char *path, const char *new_name, const char *suffix) {
         _cleanup_free_ char *rs = NULL;
         const char *fn;
 
-        fn = strjoina(new_name, ".nspawn");
+        fn = strjoina(new_name, suffix);
 
         rs = file_in_same_dir(path, fn);
         if (!rs)
@@ -461,7 +481,7 @@ static int rename_settings_file(const char *path, const char *new_name) {
 
 int image_rename(Image *i, const char *new_name) {
         _cleanup_release_lock_file_ LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT, name_lock = LOCK_FILE_INIT;
-        _cleanup_free_ char *new_path = NULL, *nn = NULL;
+        _cleanup_free_ char *new_path = NULL, *nn = NULL, *roothash = NULL;
         _cleanup_strv_free_ char **settings = NULL;
         unsigned file_attr = 0;
         char **j;
@@ -477,6 +497,10 @@ int image_rename(Image *i, const char *new_name) {
 
         settings = image_settings_path(i);
         if (!settings)
+                return -ENOMEM;
+
+        roothash = image_roothash_path(i);
+        if (!roothash)
                 return -ENOMEM;
 
         /* Make sure we don't interfere with a running nspawn */
@@ -548,19 +572,23 @@ int image_rename(Image *i, const char *new_name) {
         nn = NULL;
 
         STRV_FOREACH(j, settings) {
-                r = rename_settings_file(*j, new_name);
+                r = rename_auxiliary_file(*j, new_name, ".nspawn");
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to rename settings file %s, ignoring: %m", *j);
         }
 
+        r = rename_auxiliary_file(roothash, new_name, ".roothash");
+        if (r < 0 && r != -ENOENT)
+                log_debug_errno(r, "Failed to rename roothash file %s, ignoring: %m", roothash);
+
         return 0;
 }
 
-static int clone_settings_file(const char *path, const char *new_name) {
+static int clone_auxiliary_file(const char *path, const char *new_name, const char *suffix) {
         _cleanup_free_ char *rs = NULL;
         const char *fn;
 
-        fn = strjoina(new_name, ".nspawn");
+        fn = strjoina(new_name, suffix);
 
         rs = file_in_same_dir(path, fn);
         if (!rs)
@@ -572,6 +600,7 @@ static int clone_settings_file(const char *path, const char *new_name) {
 int image_clone(Image *i, const char *new_name, bool read_only) {
         _cleanup_release_lock_file_ LockFile name_lock = LOCK_FILE_INIT;
         _cleanup_strv_free_ char **settings = NULL;
+        _cleanup_free_ char *roothash = NULL;
         const char *new_path;
         char **j;
         int r;
@@ -583,6 +612,10 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
 
         settings = image_settings_path(i);
         if (!settings)
+                return -ENOMEM;
+
+        roothash = image_roothash_path(i);
+        if (!roothash)
                 return -ENOMEM;
 
         /* Make sure nobody takes the new name, between the time we
@@ -607,14 +640,14 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
 
                 new_path = strjoina("/var/lib/machines/", new_name);
 
-                r = btrfs_subvol_snapshot(i->path, new_path, (read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) | BTRFS_SNAPSHOT_FALLBACK_COPY | BTRFS_SNAPSHOT_RECURSIVE | BTRFS_SNAPSHOT_QUOTA);
-                if (r == -EOPNOTSUPP) {
-                        /* No btrfs snapshots supported, create a normal directory then. */
-
-                        r = copy_directory(i->path, new_path, false);
-                        if (r >= 0)
-                                (void) chattr_path(new_path, read_only ? FS_IMMUTABLE_FL : 0, FS_IMMUTABLE_FL);
-                } else if (r >= 0)
+                r = btrfs_subvol_snapshot(i->path, new_path,
+                                          (read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
+                                          BTRFS_SNAPSHOT_FALLBACK_COPY |
+                                          BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
+                                          BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE |
+                                          BTRFS_SNAPSHOT_RECURSIVE |
+                                          BTRFS_SNAPSHOT_QUOTA);
+                if (r >= 0)
                         /* Enable "subtree" quotas for the copy, if we didn't copy any quota from the source. */
                         (void) btrfs_subvol_auto_qgroup(new_path, 0, true);
 
@@ -634,10 +667,14 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
                 return r;
 
         STRV_FOREACH(j, settings) {
-                r = clone_settings_file(*j, new_name);
+                r = clone_auxiliary_file(*j, new_name, ".nspawn");
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to clone settings %s, ignoring: %m", *j);
         }
+
+        r = clone_auxiliary_file(roothash, new_name, ".roothash");
+        if (r < 0 && r != -ENOENT)
+                log_debug_errno(r, "Failed to clone root hash file %s, ignoring: %m", roothash);
 
         return 0;
 }
@@ -723,11 +760,16 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
          * uses the device/inode number. This has the benefit that we
          * can even lock a tree that is a mount point, correctly. */
 
-        if (path_equal(path, "/"))
-                return -EBUSY;
-
         if (!path_is_absolute(path))
                 return -EINVAL;
+
+        if (getenv_bool("SYSTEMD_NSPAWN_LOCK") == 0) {
+                *local = *global = (LockFile) LOCK_FILE_INIT;
+                return 0;
+        }
+
+        if (path_equal(path, "/"))
+                return -EBUSY;
 
         if (stat(path, &st) >= 0) {
                 if (asprintf(&p, "/run/systemd/nspawn/locks/inode-%lu:%lu", (unsigned long) st.st_dev, (unsigned long) st.st_ino) < 0)
@@ -746,7 +788,8 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
                         release_lock_file(&t);
                         return r;
                 }
-        }
+        } else
+                *global = (LockFile) LOCK_FILE_INIT;
 
         *local = t;
         return 0;
@@ -781,6 +824,11 @@ int image_name_lock(const char *name, int operation, LockFile *ret) {
 
         if (!image_name_is_valid(name))
                 return -EINVAL;
+
+        if (getenv_bool("SYSTEMD_NSPAWN_LOCK") == 0) {
+                *ret = (LockFile) LOCK_FILE_INIT;
+                return 0;
+        }
 
         if (streq(name, ".host"))
                 return -EBUSY;

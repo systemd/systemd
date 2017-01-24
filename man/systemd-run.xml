@@ -77,7 +77,7 @@
     other service, and thus shows up in the output of <command>systemctl list-units</command> like any other unit. It
     will run in a clean and detached execution environment, with the service manager as its parent process. In this
     mode, <command>systemd-run</command> will start the service asynchronously in the background and return after the
-    command has begun execution (unless <option>--no-block</option> or <option>--watch</option> are specified, see
+    command has begun execution (unless <option>--no-block</option> or <option>--wait</option> are specified, see
     below).</para>
 
     <para>If a command is run as transient scope unit, it will be executed by <command>systemd-run</command> itself as
@@ -221,7 +221,12 @@
 
         <listitem><para>When invoking the command, the transient service connects its standard input and output to the
         terminal <command>systemd-run</command> is invoked on, via a pseudo TTY device. This allows running binaries
-        that expect interactive user input as services, such as interactive command shells.</para></listitem>
+        that expect interactive user input as services, such as interactive command shells.</para>
+
+        <para>Note that
+        <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        <command>shell</command> command is usually a better alternative for requesting a new, interactive login
+        session on the local host or a local container.</para></listitem>
       </varlistentry>
 
       <varlistentry>

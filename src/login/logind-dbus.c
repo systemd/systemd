@@ -34,7 +34,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio-label.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "logind.h"
 #include "mkdir.h"
@@ -1286,8 +1286,7 @@ static int flush_devices(Manager *m) {
         } else {
                 struct dirent *de;
 
-                while ((de = readdir(d))) {
-
+                FOREACH_DIRENT_ALL(de, d, break) {
                         if (!dirent_is_file(de))
                                 continue;
 

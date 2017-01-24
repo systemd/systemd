@@ -339,7 +339,7 @@ int dhcp6_option_parse_ip6addrs(uint8_t *optval, uint16_t optlen,
 
 int dhcp6_option_parse_domainname(const uint8_t *optval, uint16_t optlen, char ***str_arr) {
         size_t pos = 0, idx = 0;
-        _cleanup_free_ char **names = NULL;
+        _cleanup_strv_free_ char **names = NULL;
         int r;
 
         assert_return(optlen > 1, -ENODATA);

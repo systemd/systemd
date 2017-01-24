@@ -42,3 +42,5 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
 
 int machine_send_signal(Machine *m, bool new_machine);
 int machine_send_create_reply(Machine *m, sd_bus_error *error);
+
+int bus_reply_pair_array(sd_bus_message *m, char **l);

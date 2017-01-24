@@ -15,7 +15,7 @@
 # To add local entries, create a new file
 #   /etc/udev/hwdb.d/61-evdev-local.hwdb
 # and add your rules there. To load the new rules execute (as root):
-#   udevadm hwdb --update
+#   systemd-hwdb update
 #   udevadm trigger /dev/input/eventXX
 # where /dev/input/eventXX is the device in question. If in
 # doubt, simply use /dev/input/event* to reload all input rules.
@@ -93,6 +93,14 @@ evdev:input:b0003v05ACp025B*
 #########################################
 # ASUS
 #########################################
+
+# Asus VivoBook E402SA
+evdev:name:Elan Touchpad:dmi:*svnASUSTeKCOMPUTERINC.:pnE402SA*
+ EVDEV_ABS_00=::29
+ EVDEV_ABS_01=::29
+ EVDEV_ABS_35=::29
+ EVDEV_ABS_36=::29
+
 # Asus K52JT
 evdev:name:ETPS/2 Elantech Touchpad:dmi:bvn*:bvr*:bd*:svnASUSTeKComputerInc.:pnK52JT:*
  EVDEV_ABS_00=::18
@@ -100,7 +108,8 @@ evdev:name:ETPS/2 Elantech Touchpad:dmi:bvn*:bvr*:bd*:svnASUSTeKComputerInc.:pnK
  EVDEV_ABS_35=::18
  EVDEV_ABS_36=::16
 
-evdev:name:ETPS/2 Elantech Touchpad:dmi:*:svnASUSTeKCOMPUTERINC.:pnX550CC:*
+# Asus X550CC and S550CB
+evdev:name:ETPS/2 Elantech Touchpad:dmi:*:svnASUSTeKCOMPUTERINC.:pn?550C?:*
  EVDEV_ABS_00=::31
  EVDEV_ABS_01=::30
  EVDEV_ABS_35=::31
@@ -135,6 +144,13 @@ evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLati
  EVDEV_ABS_01=131:1330:30
  EVDEV_ABS_35=76:1815:22
  EVDEV_ABS_36=131:1330:30
+
+# Dell Latitude E6320
+evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE6320*
+ EVDEV_ABS_00=79:1841:22
+ EVDEV_ABS_01=140:1325:29
+ EVDEV_ABS_35=79:1841:22
+ EVDEV_ABS_36=140:1325:29
 
 # Dell Precision 5510
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnPrecision5510*
@@ -184,9 +200,30 @@ evdev:name:SynPS/2 Synaptics TouchPad*:dmi:*svnHewlett-Packard:pnHPPaviliondm4*
  EVDEV_ABS_35=1360:5563:47
  EVDEV_ABS_36=1269:4618:61
 
+# HP Pavilion dv7
+evdev:name:SynPS/2 Synaptics TouchPad*:dmi:*svnHewlett-Packard:pnHPPaviliondv7*
+ EVDEV_ABS_00=1068:5805:44
+ EVDEV_ABS_01=1197:4890:57
+ EVDEV_ABS_35=1068:5805:44
+ EVDEV_ABS_36=1197:4890:57
+
+# HP Spectre
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:i*svnHP:pnHPSpectreNotebook*
+ EVDEV_ABS_00=1205:5691:47
+ EVDEV_ABS_01=1083:4808:65
+ EVDEV_ABS_35=1205:5691:47
+ EVDEV_ABS_36=1083:4808:65
+
 #########################################
 # Lenovo
 #########################################
+
+# Lenovo B590
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrLenovoB590*
+ EVDEV_ABS_00=1243:5759:48
+ EVDEV_ABS_01=1130:4832:65
+ EVDEV_ABS_35=1243:5759:48
+ EVDEV_ABS_36=1130:4832:65
 
 # Lenovo E530
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO:pn*ThinkPadEdgeE530*
@@ -217,6 +254,20 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrThinkPad??40?:*
  EVDEV_ABS_35=::41
  EVDEV_ABS_36=::37
 
+# Lenovo ThinkPad T430
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrThinkPadT430*
+ EVDEV_ABS_00=1250:5631:58
+ EVDEV_ABS_01=1309:4826:78
+ EVDEV_ABS_35=1250:5631:58
+ EVDEV_ABS_36=1309:4826:78
+
+# Lenovo Thinkpad Carbon X1 4th gen. and X1 Yoga 1st gen.
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrThinkPadX1Carbon4th*
+ EVDEV_ABS_00=1262:5679:44
+ EVDEV_ABS_01=1101:4824:65
+ EVDEV_ABS_35=1262:5679:44
+ EVDEV_ABS_36=1101:4824:65
+
 # Lenovo T460
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*ThinkPad*T460*
  EVDEV_ABS_00=1266:5677:44
@@ -235,6 +286,13 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*ThinkPad*T510*
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO:*pvrLenovoV360*
  EVDEV_ABS_00=1243:5927:60
  EVDEV_ABS_01=902:5330:108
+
+# Lenovo W530
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO:*pvrThinkPadW530*
+ EVDEV_ABS_00=1250:5631:59
+ EVDEV_ABS_01=1205:4834:81
+ EVDEV_ABS_35=1250:5631:59
+ EVDEV_ABS_36=1205:4834:81
 
 # Lenovo X220 series
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO:*pvrThinkPadX220*
@@ -279,3 +337,12 @@ evdev:name:ETPS/2 Elantech Touchpad:dmi:*svnSAMSUNGELECTRONICSCO.,LTD.:pn305V4A/
  EVDEV_ABS_01=0:1116:24
  EVDEV_ABS_35=0:2480:28
  EVDEV_ABS_36=0:1116:24
+
+#########################################
+# Toshiba
+#########################################
+
+# Toshiba Tecra M11
+evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:*svnTOSHIBA:pnTECRAM11*
+ EVDEV_ABS_00=90:962:11
+ EVDEV_ABS_01=51:681:14

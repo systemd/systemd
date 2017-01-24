@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/types.h>
@@ -103,7 +104,7 @@ int get_process_comm(pid_t pid, char **name) {
 int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char **line) {
         _cleanup_fclose_ FILE *f = NULL;
         bool space = false;
-        char *r = NULL, *k;
+        char *k, *ans = NULL;
         const char *p;
         int c;
 
@@ -117,7 +118,7 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
          * command line that resolves to the empty string will return the "comm" name of the process instead.
          *
          * Returns -ESRCH if the process doesn't exist, and -ENOENT if the process has no command line (and
-         * comm_fallback is false). */
+         * comm_fallback is false). Returns 0 and sets *line otherwise. */
 
         p = procfs_file_alloca(pid, "cmdline");
 
@@ -131,11 +132,11 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
         if (max_length == 1) {
 
                 /* If there's only room for one byte, return the empty string */
-                r = new0(char, 1);
-                if (!r)
+                ans = new0(char, 1);
+                if (!ans)
                         return -ENOMEM;
 
-                *line = r;
+                *line = ans;
                 return 0;
 
         } else if (max_length == 0) {
@@ -143,36 +144,36 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
 
                 while ((c = getc(f)) != EOF) {
 
-                        if (!GREEDY_REALLOC(r, allocated, len+3)) {
-                                free(r);
+                        if (!GREEDY_REALLOC(ans, allocated, len+3)) {
+                                free(ans);
                                 return -ENOMEM;
                         }
 
                         if (isprint(c)) {
                                 if (space) {
-                                        r[len++] = ' ';
+                                        ans[len++] = ' ';
                                         space = false;
                                 }
 
-                                r[len++] = c;
+                                ans[len++] = c;
                         } else if (len > 0)
                                 space = true;
                }
 
                 if (len > 0)
-                        r[len] = 0;
+                        ans[len] = '\0';
                 else
-                        r = mfree(r);
+                        ans = mfree(ans);
 
         } else {
                 bool dotdotdot = false;
                 size_t left;
 
-                r = new(char, max_length);
-                if (!r)
+                ans = new(char, max_length);
+                if (!ans)
                         return -ENOMEM;
 
-                k = r;
+                k = ans;
                 left = max_length;
                 while ((c = getc(f)) != EOF) {
 
@@ -196,20 +197,20 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
 
                                 *(k++) = (char) c;
                                 left--;
-                        } else if (k > r)
+                        } else if (k > ans)
                                 space = true;
                 }
 
                 if (dotdotdot) {
                         if (max_length <= 4) {
-                                k = r;
+                                k = ans;
                                 left = max_length;
                         } else {
-                                k = r + max_length - 4;
+                                k = ans + max_length - 4;
                                 left = 4;
 
                                 /* Eat up final spaces */
-                                while (k > r && isspace(k[-1])) {
+                                while (k > ans && isspace(k[-1])) {
                                         k--;
                                         left++;
                                 }
@@ -222,11 +223,11 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
         }
 
         /* Kernel threads have no argv[] */
-        if (isempty(r)) {
+        if (isempty(ans)) {
                 _cleanup_free_ char *t = NULL;
                 int h;
 
-                free(r);
+                free(ans);
 
                 if (!comm_fallback)
                         return -ENOENT;
@@ -236,22 +237,22 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
                         return h;
 
                 if (max_length == 0)
-                        r = strjoin("[", t, "]", NULL);
+                        ans = strjoin("[", t, "]");
                 else {
                         size_t l;
 
                         l = strlen(t);
 
                         if (l + 3 <= max_length)
-                                r = strjoin("[", t, "]", NULL);
+                                ans = strjoin("[", t, "]");
                         else if (max_length <= 6) {
 
-                                r = new(char, max_length);
-                                if (!r)
+                                ans = new(char, max_length);
+                                if (!ans)
                                         return -ENOMEM;
 
-                                memcpy(r, "[...]", max_length-1);
-                                r[max_length-1] = 0;
+                                memcpy(ans, "[...]", max_length-1);
+                                ans[max_length-1] = 0;
                         } else {
                                 char *e;
 
@@ -263,38 +264,111 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
                                         e--;
                                 *e = 0;
 
-                                r = strjoin("[", t, "...]", NULL);
+                                ans = strjoin("[", t, "...]");
                         }
                 }
-                if (!r)
+                if (!ans)
                         return -ENOMEM;
         }
 
-        *line = r;
+        *line = ans;
         return 0;
 }
 
-void rename_process(const char name[8]) {
-        assert(name);
+int rename_process(const char name[]) {
+        static size_t mm_size = 0;
+        static char *mm = NULL;
+        bool truncated = false;
+        size_t l;
 
-        /* This is a like a poor man's setproctitle(). It changes the
-         * comm field, argv[0], and also the glibc's internally used
-         * name of the process. For the first one a limit of 16 chars
-         * applies, to the second one usually one of 10 (i.e. length
-         * of "/sbin/init"), to the third one one of 7 (i.e. length of
-         * "systemd"). If you pass a longer string it will be
-         * truncated */
+        /* This is a like a poor man's setproctitle(). It changes the comm field, argv[0], and also the glibc's
+         * internally used name of the process. For the first one a limit of 16 chars applies; to the second one in
+         * many cases one of 10 (i.e. length of "/sbin/init") — however if we have CAP_SYS_RESOURCES it is unbounded;
+         * to the third one 7 (i.e. the length of "systemd". If you pass a longer string it will likely be
+         * truncated.
+         *
+         * Returns 0 if a name was set but truncated, > 0 if it was set but not truncated. */
 
+        if (isempty(name))
+                return -EINVAL; /* let's not confuse users unnecessarily with an empty name */
+
+        l = strlen(name);
+
+        /* First step, change the comm field. */
         (void) prctl(PR_SET_NAME, name);
+        if (l > 15) /* Linux process names can be 15 chars at max */
+                truncated = true;
 
-        if (program_invocation_name)
-                strncpy(program_invocation_name, name, strlen(program_invocation_name));
+        /* Second step, change glibc's ID of the process name. */
+        if (program_invocation_name) {
+                size_t k;
+
+                k = strlen(program_invocation_name);
+                strncpy(program_invocation_name, name, k);
+                if (l > k)
+                        truncated = true;
+        }
+
+        /* Third step, completely replace the argv[] array the kernel maintains for us. This requires privileges, but
+         * has the advantage that the argv[] array is exactly what we want it to be, and not filled up with zeros at
+         * the end. This is the best option for changing /proc/self/cmdline.*/
+        if (mm_size < l+1) {
+                size_t nn_size;
+                char *nn;
+
+                /* Let's not bother with this if we don't have euid == 0. Strictly speaking if people do weird stuff
+                 * with capabilities this could work even for euid != 0, but our own code generally doesn't do that,
+                 * hence let's use this as quick bypass check, to avoid calling mmap() if PR_SET_MM_ARG_START fails
+                 * with EPERM later on anyway. After all geteuid() is dead cheap to call, but mmap() is not. */
+                if (geteuid() != 0) {
+                        log_debug("Skipping PR_SET_MM_ARG_START, as we don't have privileges.");
+                        goto use_saved_argv;
+                }
+
+                nn_size = PAGE_ALIGN(l+1);
+                nn = mmap(NULL, nn_size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+                if (nn == MAP_FAILED) {
+                        log_debug_errno(errno, "mmap() failed: %m");
+                        goto use_saved_argv;
+                }
+
+                strncpy(nn, name, nn_size);
+
+                /* Now, let's tell the kernel about this new memory */
+                if (prctl(PR_SET_MM, PR_SET_MM_ARG_START, (unsigned long) nn, 0, 0) < 0) {
+                        log_debug_errno(errno, "PR_SET_MM_ARG_START failed, proceeding without: %m");
+                        (void) munmap(nn, nn_size);
+                        goto use_saved_argv;
+                }
+
+                /* And update the end pointer to the new end, too. If this fails, we don't really know what to do, it's
+                 * pretty unlikely that we can rollback, hence we'll just accept the failure, and continue. */
+                if (prctl(PR_SET_MM, PR_SET_MM_ARG_END, (unsigned long) nn + l + 1, 0, 0) < 0)
+                        log_debug_errno(errno, "PR_SET_MM_ARG_END failed, proceeding without: %m");
+
+                if (mm)
+                        (void) munmap(mm, mm_size);
+
+                mm = nn;
+                mm_size = nn_size;
+        } else
+                strncpy(mm, name, mm_size);
+
+use_saved_argv:
+        /* Fourth step: in all cases we'll also update the original argv[], so that our own code gets it right too if
+         * it still looks here */
 
         if (saved_argc > 0) {
                 int i;
 
-                if (saved_argv[0])
-                        strncpy(saved_argv[0], name, strlen(saved_argv[0]));
+                if (saved_argv[0]) {
+                        size_t k;
+
+                        k = strlen(saved_argv[0]);
+                        strncpy(saved_argv[0], name, k);
+                        if (l > k)
+                                truncated = true;
+                }
 
                 for (i = 1; i < saved_argc; i++) {
                         if (!saved_argv[i])
@@ -303,6 +377,8 @@ void rename_process(const char name[8]) {
                         memzero(saved_argv[i], strlen(saved_argv[i]));
                 }
         }
+
+        return !truncated;
 }
 
 int is_kernel_thread(pid_t pid) {
@@ -675,7 +751,7 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value) {
                 }
                 line[i] = 0;
 
-                if (memcmp(line, field, l) == 0 && line[l] == '=') {
+                if (strneq(line, field, l) && line[l] == '=') {
                         value = strdup(line + l + 1);
                         if (!value)
                                 return -ENOMEM;

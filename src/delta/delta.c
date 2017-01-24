@@ -87,14 +87,15 @@ static enum {
 
 static int equivalent(const char *a, const char *b) {
         _cleanup_free_ char *x = NULL, *y = NULL;
+        int r;
 
-        x = canonicalize_file_name(a);
-        if (!x)
-                return -errno;
+        r = chase_symlinks(a, NULL, 0, &x);
+        if (r < 0)
+                return r;
 
-        y = canonicalize_file_name(b);
-        if (!y)
-                return -errno;
+        r = chase_symlinks(b, NULL, 0, &y);
+        if (r < 0)
+                return r;
 
         return path_equal(x, y);
 }
@@ -214,7 +215,7 @@ static int enumerate_dir_d(Hashmap *top, Hashmap *bottom, Hashmap *drops, const 
 
         assert(!endswith(drop, "/"));
 
-        path = strjoin(toppath, "/", drop, NULL);
+        path = strjoin(toppath, "/", drop);
         if (!path)
                 return -ENOMEM;
 
@@ -242,7 +243,7 @@ static int enumerate_dir_d(Hashmap *top, Hashmap *bottom, Hashmap *drops, const 
                 if (!endswith(*file, ".conf"))
                         continue;
 
-                p = strjoin(path, "/", *file, NULL);
+                p = strjoin(path, "/", *file);
                 if (!p)
                         return -ENOMEM;
                 d = p + strlen(toppath) + 1;
@@ -296,6 +297,7 @@ static int enumerate_dir_d(Hashmap *top, Hashmap *bottom, Hashmap *drops, const 
 
 static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const char *path, bool dropins) {
         _cleanup_closedir_ DIR *d;
+        struct dirent *de;
 
         assert(top);
         assert(bottom);
@@ -312,15 +314,9 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
                 return log_error_errno(errno, "Failed to open %s: %m", path);
         }
 
-        for (;;) {
-                struct dirent *de;
+        FOREACH_DIRENT_ALL(de, d, return -errno) {
                 int k;
                 char *p;
-
-                errno = 0;
-                de = readdir(d);
-                if (!de)
-                        return -errno;
 
                 dirent_ensure_type(d, de);
 
@@ -330,7 +326,7 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
                 if (!dirent_is_file(de))
                         continue;
 
-                p = strjoin(path, "/", de->d_name, NULL);
+                p = strjoin(path, "/", de->d_name);
                 if (!p)
                         return -ENOMEM;
 
@@ -353,6 +349,22 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
                         return k;
                 }
         }
+        return 0;
+}
+
+static int should_skip_prefix(const char* p) {
+#ifdef HAVE_SPLIT_USR
+        int r;
+        _cleanup_free_ char *target = NULL;
+
+        r = chase_symlinks(p, NULL, 0, &target);
+        if (r < 0)
+                return r;
+
+        return !streq(p, target) && nulstr_contains(prefixes, target);
+#else
+        return 0;
+#endif
 }
 
 static int process_suffix(const char *suffix, const char *onlyprefix) {
@@ -382,8 +394,17 @@ static int process_suffix(const char *suffix, const char *onlyprefix) {
 
         NULSTR_FOREACH(p, prefixes) {
                 _cleanup_free_ char *t = NULL;
+                int skip;
 
-                t = strjoin(p, "/", suffix, NULL);
+                skip = should_skip_prefix(p);
+                if (skip < 0) {
+                        r = skip;
+                        goto finish;
+                }
+                if (skip)
+                        continue;
+
+                t = strjoin(p, "/", suffix);
                 if (!t) {
                         r = -ENOMEM;
                         goto finish;
@@ -459,6 +480,13 @@ static int process_suffix_chop(const char *arg) {
         /* Strip prefix from the suffix */
         NULSTR_FOREACH(p, prefixes) {
                 const char *suffix;
+                int skip;
+
+                skip = should_skip_prefix(p);
+                if (skip < 0)
+                        return skip;
+                if (skip)
+                        continue;
 
                 suffix = startswith(arg, p);
                 if (suffix) {

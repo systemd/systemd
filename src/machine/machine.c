@@ -30,7 +30,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "hashmap.h"
 #include "machine-dbus.h"
 #include "machine.h"
@@ -355,7 +355,7 @@ static int machine_start_scope(Machine *m, sd_bus_message *properties, sd_bus_er
                 if (!escaped)
                         return log_oom();
 
-                scope = strjoin("machine-", escaped, ".scope", NULL);
+                scope = strjoin("machine-", escaped, ".scope");
                 if (!scope)
                         return log_oom();
 

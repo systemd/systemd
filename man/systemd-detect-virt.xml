@@ -50,7 +50,8 @@
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>systemd-detect-virt <arg choice="opt" rep="repeat">OPTIONS</arg></command>
+      <command>systemd-detect-virt</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -218,6 +219,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--private-users</option></term>
+
+        <listitem><para>Detect whether invoked in a user namespace.  In this mode, no
+        output is written, but the return value indicates whether the process was invoked
+        inside of a user namespace or not. See
+        <citerefentry project='man-pages'><refentrytitle>user_namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for more information.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-q</option></term>
         <term><option>--quiet</option></term>
 
@@ -243,7 +254,8 @@
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     </para>
   </refsect1>
 

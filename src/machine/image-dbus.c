@@ -17,14 +17,23 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <sys/mount.h>
+
 #include "alloc-util.h"
 #include "bus-label.h"
 #include "bus-util.h"
+#include "copy.h"
+#include "dissect-image.h"
 #include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
 #include "image-dbus.h"
 #include "io-util.h"
+#include "loop-util.h"
 #include "machine-image.h"
+#include "mount-util.h"
 #include "process-util.h"
+#include "raw-clone.h"
 #include "strv.h"
 #include "user-util.h"
 
@@ -279,6 +288,160 @@ int bus_image_method_set_limit(
         return sd_bus_reply_method_return(message, NULL);
 }
 
+#define EXIT_NOT_FOUND 2
+
+static int directory_image_get_os_release(Image *image, char ***ret, sd_bus_error *error) {
+
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        assert(image);
+        assert(ret);
+
+        r = chase_symlinks("/etc/os-release", image->path, CHASE_PREFIX_ROOT, &path);
+        if (r == -ENOENT)
+                r = chase_symlinks("/usr/lib/os-release", image->path, CHASE_PREFIX_ROOT, &path);
+        if (r == -ENOENT)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Image does not contain OS release information");
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to resolve %s: %m", image->path);
+
+        r = load_env_file_pairs(NULL, path, NULL, ret);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to open %s: %m", path);
+
+        return 0;
+}
+
+static int raw_image_get_os_release(Image *image, char ***ret, sd_bus_error *error) {
+        _cleanup_(rmdir_and_freep) char *t = NULL;
+        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+        _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
+        _cleanup_(sigkill_waitp) pid_t child = 0;
+        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_strv_free_ char **v = NULL;
+        siginfo_t si;
+        int r;
+
+        assert(image);
+        assert(ret);
+
+        r = mkdtemp_malloc("/tmp/machined-root-XXXXXX", &t);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to create temporary directory: %m");
+
+        r = loop_device_make_by_path(image->path, O_RDONLY, &d);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to set up loop block device for %s: %m", image->path);
+
+        r = dissect_image(d->fd, NULL, 0, DISSECT_IMAGE_REQUIRE_ROOT, &m);
+        if (r == -ENOPKG)
+                return sd_bus_error_set_errnof(error, r, "Disk image %s not understood: %m", image->path);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to dissect image %s: %m", image->path);
+
+        if (pipe2(pair, O_CLOEXEC) < 0)
+                return sd_bus_error_set_errnof(error, errno, "Failed to create communication pipe: %m");
+
+        child = raw_clone(SIGCHLD|CLONE_NEWNS);
+        if (child < 0)
+                return sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
+
+        if (child == 0) {
+                int fd;
+
+                pair[0] = safe_close(pair[0]);
+
+                /* Make sure we never propagate to the host */
+                if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0)
+                        _exit(EXIT_FAILURE);
+
+                r = dissected_image_mount(m, t, DISSECT_IMAGE_READ_ONLY);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                r = mount_move_root(t);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                fd = open("/etc/os-release", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (fd < 0 && errno == ENOENT) {
+                        fd = open("/usr/lib/os-release", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                        if (fd < 0 && errno == ENOENT)
+                                _exit(EXIT_NOT_FOUND);
+                }
+                if (fd < 0)
+                        _exit(EXIT_FAILURE);
+
+                r = copy_bytes(fd, pair[1], (uint64_t) -1, false);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        pair[1] = safe_close(pair[1]);
+
+        f = fdopen(pair[0], "re");
+        if (!f)
+                return -errno;
+
+        pair[0] = -1;
+
+        r = load_env_file_pairs(f, "os-release", NULL, &v);
+        if (r < 0)
+                return r;
+
+        r = wait_for_terminate(child, &si);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
+        child = 0;
+        if (si.si_code == CLD_EXITED && si.si_status == EXIT_NOT_FOUND)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Image does not contain OS release information");
+        if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
+
+        *ret = v;
+        v = NULL;
+
+        return 0;
+}
+
+int bus_image_method_get_os_release(
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_release_lock_file_ LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
+        _cleanup_strv_free_ char **v = NULL;
+        Image *image = userdata;
+        int r;
+
+        r = image_path_lock(image->path, LOCK_SH|LOCK_NB, &tree_global_lock, &tree_local_lock);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to lock image: %m");
+
+        switch (image->type) {
+
+        case IMAGE_DIRECTORY:
+        case IMAGE_SUBVOLUME:
+                r = directory_image_get_os_release(image, &v, error);
+                break;
+
+        case IMAGE_RAW:
+                r = raw_image_get_os_release(image, &v, error);
+                break;
+
+        default:
+                assert_not_reached("Unknown image type");
+        }
+        if (r < 0)
+                return r;
+
+        return bus_reply_pair_array(message, v);
+}
+
 const sd_bus_vtable image_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Name", "s", NULL, offsetof(Image, name), 0),
@@ -296,6 +459,7 @@ const sd_bus_vtable image_vtable[] = {
         SD_BUS_METHOD("Clone", "sb", NULL, bus_image_method_clone, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("MarkReadOnly", "b", NULL, bus_image_method_mark_read_only, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetLimit", "t", NULL, bus_image_method_set_limit, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetOSRelease", NULL, "a{ss}", bus_image_method_get_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
 };
 

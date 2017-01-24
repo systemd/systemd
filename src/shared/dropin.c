@@ -17,7 +17,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dirent.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -25,6 +24,7 @@
 
 #include "alloc-util.h"
 #include "conf-files.h"
+#include "dirent-util.h"
 #include "dropin.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -61,11 +61,11 @@ int drop_in_file(const char *dir, const char *unit, unsigned level,
         if (!filename_is_valid(b))
                 return -EINVAL;
 
-        p = strjoin(dir, "/", unit, ".d", NULL);
+        p = strjoin(dir, "/", unit, ".d");
         if (!p)
                 return -ENOMEM;
 
-        q = strjoin(p, "/", prefix, "-", b, ".conf", NULL);
+        q = strjoin(p, "/", prefix, "-", b, ".conf");
         if (!q) {
                 free(p);
                 return -ENOMEM;
@@ -124,6 +124,7 @@ static int iterate_dir(
                 char ***strv) {
 
         _cleanup_closedir_ DIR *d = NULL;
+        struct dirent *de;
         int r;
 
         assert(path);
@@ -148,22 +149,10 @@ static int iterate_dir(
                 return log_error_errno(errno, "Failed to open directory %s: %m", path);
         }
 
-        for (;;) {
-                struct dirent *de;
+        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read directory %s: %m", path)) {
                 _cleanup_free_ char *f = NULL;
 
-                errno = 0;
-                de = readdir(d);
-                if (!de && errno > 0)
-                        return log_error_errno(errno, "Failed to read directory %s: %m", path);
-
-                if (!de)
-                        break;
-
-                if (hidden_or_backup_file(de->d_name))
-                        continue;
-
-                f = strjoin(path, "/", de->d_name, NULL);
+                f = strjoin(path, "/", de->d_name);
                 if (!f)
                         return log_oom();
 
@@ -192,7 +181,7 @@ int unit_file_process_dir(
         assert(name);
         assert(suffix);
 
-        path = strjoin(unit_path, "/", name, suffix, NULL);
+        path = strjoin(unit_path, "/", name, suffix);
         if (!path)
                 return log_oom();
 
@@ -207,7 +196,7 @@ int unit_file_process_dir(
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate template from unit name: %m");
 
-                p = strjoin(unit_path, "/", template, suffix, NULL);
+                p = strjoin(unit_path, "/", template, suffix);
                 if (!p)
                         return log_oom();
 

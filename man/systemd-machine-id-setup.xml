@@ -82,7 +82,7 @@
       <filename>/etc/machine-id</filename>.</para></listitem>
 
       <listitem><para>If run inside a KVM virtual machine and a UUID
-      is was configured (via the <option>-uuid</option>
+      is configured (via the <option>-uuid</option>
       option), this UUID is used to initialize the machine ID. The
       caller must ensure that the UUID passed is sufficiently unique
       and is different for every booted instance of the
@@ -154,7 +154,7 @@
       <varlistentry>
         <term><option>--print</option></term>
 
-        <listitem><para>Print the machine ID generated or commited after the operation is complete.</para></listitem>
+        <listitem><para>Print the machine ID generated or committed after the operation is complete.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

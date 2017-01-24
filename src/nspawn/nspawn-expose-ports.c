@@ -58,17 +58,17 @@ int expose_port_parse(ExposePort **l, const char *s) {
                 memcpy(v, e, split - e);
                 v[split - e] = 0;
 
-                r = safe_atou16(v, &host_port);
-                if (r < 0 || host_port <= 0)
+                r = parse_ip_port(v, &host_port);
+                if (r < 0)
                         return -EINVAL;
 
-                r = safe_atou16(split + 1, &container_port);
+                r = parse_ip_port(split + 1, &container_port);
         } else {
-                r = safe_atou16(e, &container_port);
+                r = parse_ip_port(e, &container_port);
                 host_port = container_port;
         }
 
-        if (r < 0 || container_port <= 0)
+        if (r < 0)
                 return -EINVAL;
 
         LIST_FOREACH(ports, p, *l)

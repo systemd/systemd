@@ -23,7 +23,7 @@
 
 #include "sd-netlink.h"
 
-#include "formats-util.h"
+#include "format-util.h"
 #include "missing.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"

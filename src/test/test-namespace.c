@@ -132,14 +132,14 @@ int main(int argc, char *argv[]) {
         assert_se(sd_id128_get_boot(&bid) >= 0);
         sd_id128_to_string(bid, boot_id);
 
-        x = strjoin("/tmp/systemd-private-", boot_id, "-abcd.service-", NULL);
-        y = strjoin("/var/tmp/systemd-private-", boot_id, "-abcd.service-", NULL);
+        x = strjoin("/tmp/systemd-private-", boot_id, "-abcd.service-");
+        y = strjoin("/var/tmp/systemd-private-", boot_id, "-abcd.service-");
         assert_se(x && y);
 
         test_tmpdir("abcd.service", x, y);
 
-        z = strjoin("/tmp/systemd-private-", boot_id, "-sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device-", NULL);
-        zz = strjoin("/var/tmp/systemd-private-", boot_id, "-sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device-", NULL);
+        z = strjoin("/tmp/systemd-private-", boot_id, "-sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device-");
+        zz = strjoin("/var/tmp/systemd-private-", boot_id, "-sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device-");
 
         assert_se(z && zz);
 

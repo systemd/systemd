@@ -70,7 +70,7 @@ static int user_config_dir(char **ret, const char *suffix) {
                 if (!home)
                         return -ENXIO;
 
-                j = strjoin(home, "/.config", suffix, NULL);
+                j = strjoin(home, "/.config", suffix);
         }
 
         if (!j)
@@ -102,7 +102,7 @@ static int user_data_dir(char **ret, const char *suffix) {
                         return -ENXIO;
 
 
-                j = strjoin(home, "/.local/share", suffix, NULL);
+                j = strjoin(home, "/.local/share", suffix);
         }
         if (!j)
                 return -ENOMEM;
@@ -139,7 +139,7 @@ static char** user_dirs(
         const char *e;
         _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
         _cleanup_free_ char *data_home = NULL;
-        _cleanup_free_ char **res = NULL;
+        _cleanup_strv_free_ char **res = NULL;
         char **tmp;
         int r;
 

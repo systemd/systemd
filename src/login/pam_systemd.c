@@ -36,7 +36,7 @@
 #include "def.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "hostname-util.h"
 #include "login-util.h"
 #include "macro.h"
@@ -186,7 +186,7 @@ static int export_legacy_dbus_address(
          * daemons that spawn dbus-daemon, instead of forcing
          * DBUS_SESSION_BUS_ADDRESS= here. */
 
-        s = strjoin(runtime, "/bus", NULL);
+        s = strjoin(runtime, "/bus");
         if (!s)
                 goto error;
 

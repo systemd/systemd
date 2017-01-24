@@ -19,7 +19,7 @@
 
 #include "alloc-util.h"
 #include "networkd-address-pool.h"
-#include "networkd.h"
+#include "networkd-manager.h"
 #include "set.h"
 #include "string-util.h"
 

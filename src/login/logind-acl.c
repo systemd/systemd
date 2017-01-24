@@ -25,7 +25,7 @@
 #include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "logind-acl.h"
 #include "set.h"
 #include "string-util.h"

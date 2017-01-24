@@ -21,7 +21,9 @@
 #include <linux/if.h>
 
 #include "network-internal.h"
-#include "networkd.h"
+#include "networkd-address.h"
+#include "networkd-manager.h"
+#include "networkd-link.h"
 
 static int ipv4ll_address_lost(Link *link) {
         _cleanup_address_free_ Address *address = NULL;
@@ -171,7 +173,6 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
 
         assert(link);
         assert(link->network);
-        assert(link->manager);
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return;

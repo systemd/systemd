@@ -43,23 +43,35 @@
   <refnamediv>
     <refname>systemd-vconsole-setup.service</refname>
     <refname>systemd-vconsole-setup</refname>
-    <refpurpose>Configure the virtual console at boot</refpurpose>
+    <refpurpose>Configure the virtual consoles</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <para><filename>systemd-vconsole-setup.service</filename></para>
-    <para><filename>/usr/lib/systemd/systemd-vconsole-setup</filename></para>
+    <cmdsynopsis>
+      <command>/usr/lib/systemd/systemd-vconsole-setup</command>
+      <arg choice="opt">TTY</arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-vconsole-setup.service</filename> is an
-    early boot service that configures the virtual console font and
-    console keymap. Internally it calls
-    <citerefentry project='mankier'><refentrytitle>loadkeys</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    and
-    <citerefentry project='die-net'><refentrytitle>setfont</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+    <para><filename>systemd-vconsole-setup</filename> is a helper used to prepare either all virtual consoles, or — if
+      the optional <replaceable>TTY</replaceable> parameter is provided — a specific one. When the system is booting up
+      it's called by <citerefentry><command>udev</command></citerefentry> during vtconsole subsystem initialization.
+      <productname>Systemd</productname> also calls it internally as needed via
+      <filename>systemd-vconsole-setup.service</filename>. The helper calls
+      <citerefentry project='mankier'><refentrytitle>loadkeys</refentrytitle><manvolnum>1</manvolnum></citerefentry> and
+      <citerefentry project='die-net'><refentrytitle>setfont</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      internally.
+    </para>
+
+    <para>
+      You may want to use this helper whenever you change <filename>vconsole.conf</filename> to
+      refresh the settings on your consoles — either through the <command>systemctl restart</command> /
+      <command>systemctl start</command> command or directly through the executable.
+    </para>
 
     <para>See
     <citerefentry><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>

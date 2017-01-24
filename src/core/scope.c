@@ -154,15 +154,13 @@ static int scope_load_init_scope(Unit *u) {
                 return 0;
 
         u->transient = true;
-        u->no_gc = true;
+        u->perpetual = true;
 
         /* init.scope is a bit special, as it has to stick around forever. Because of its special semantics we
          * synthesize it here, instead of relying on the unit file on disk. */
 
         u->default_dependencies = false;
         u->ignore_on_isolate = true;
-        u->refuse_manual_start = true;
-        u->refuse_manual_stop = true;
 
         SCOPE(u)->kill_context.kill_signal = SIGRTMIN+14;
 
@@ -275,7 +273,9 @@ static void scope_enter_signal(Scope *s, ScopeState state, ScopeResult f) {
         if (state == SCOPE_STOP_SIGTERM)
                 skip_signal = bus_scope_send_request_stop(s) > 0;
 
-        if (!skip_signal) {
+        if (skip_signal)
+                r = 1; /* wait */
+        else {
                 r = unit_kill_context(
                                 UNIT(s),
                                 &s->kill_context,
@@ -285,8 +285,7 @@ static void scope_enter_signal(Scope *s, ScopeState state, ScopeResult f) {
                                 -1, -1, false);
                 if (r < 0)
                         goto fail;
-        } else
-                r = 1;
+        }
 
         if (r > 0) {
                 r = scope_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_stop_usec));
@@ -565,22 +564,15 @@ static void scope_enumerate(Manager *m) {
 
         u = manager_get_unit(m, SPECIAL_INIT_SCOPE);
         if (!u) {
-                u = unit_new(m, sizeof(Scope));
-                if (!u) {
-                        log_oom();
-                        return;
-                }
-
-                r = unit_add_name(u, SPECIAL_INIT_SCOPE);
+                r = unit_new_for_name(m, sizeof(Scope), SPECIAL_INIT_SCOPE, &u);
                 if (r < 0)  {
-                        unit_free(u);
-                        log_error_errno(r, "Failed to add the " SPECIAL_INIT_SCOPE " name: %m");
+                        log_error_errno(r, "Failed to allocate the special " SPECIAL_INIT_SCOPE " unit: %m");
                         return;
                 }
         }
 
         u->transient = true;
-        u->no_gc = true;
+        u->perpetual = true;
         SCOPE(u)->deserialized_state = SCOPE_RUNNING;
 
         unit_add_to_load_queue(u);

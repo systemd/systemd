@@ -236,6 +236,9 @@ struct Unit {
         /* Is this a transient unit? */
         bool transient;
 
+        /* Is this a unit that is always running and cannot be stopped? */
+        bool perpetual;
+
         bool in_load_queue:1;
         bool in_dbus_queue:1;
         bool in_cleanup_queue:1;
@@ -243,8 +246,6 @@ struct Unit {
         bool in_cgroup_queue:1;
 
         bool sent_dbus_new_signal:1;
-
-        bool no_gc:1;
 
         bool in_audit:1;
 
@@ -372,7 +373,7 @@ struct UnitVTable {
 
         /* When the unit is not running and no job for it queued we
          * shall release its runtime resources */
-        void (*release_resources)(Unit *u);
+        void (*release_resources)(Unit *u, bool inactive);
 
         /* Invoked on every child that died */
         void (*sigchld_event)(Unit *u, pid_t pid, int code, int status);
@@ -440,6 +441,9 @@ struct UnitVTable {
 
         /* True if transient units of this type are OK */
         bool can_transient:1;
+
+        /* True if queued jobs of this type should be GC'ed if no other job needs them anymore */
+        bool gc_jobs:1;
 };
 
 extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
@@ -480,6 +484,7 @@ DEFINE_CAST(SCOPE, Scope);
 Unit *unit_new(Manager *m, size_t size);
 void unit_free(Unit *u);
 
+int unit_new_for_name(Manager *m, size_t size, const char *name, Unit **ret);
 int unit_add_name(Unit *u, const char *name);
 
 int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_reference);
@@ -524,6 +529,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix);
 
 bool unit_can_reload(Unit *u) _pure_;
 bool unit_can_start(Unit *u) _pure_;
+bool unit_can_stop(Unit *u) _pure_;
 bool unit_can_isolate(Unit *u) _pure_;
 
 int unit_start(Unit *u);
@@ -650,6 +656,8 @@ void unit_notify_user_lookup(Unit *u, uid_t uid, gid_t gid);
 
 int unit_set_invocation_id(Unit *u, sd_id128_t id);
 int unit_acquire_invocation_id(Unit *u);
+
+bool unit_shall_confirm_spawn(Unit *u);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 

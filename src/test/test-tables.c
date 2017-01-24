@@ -48,6 +48,7 @@
 #include "unit-name.h"
 #include "unit.h"
 #include "util.h"
+#include "virt.h"
 
 int main(int argc, char **argv) {
         test_table(architecture, ARCHITECTURE);
@@ -114,6 +115,7 @@ int main(int argc, char **argv) {
         test_table(unit_load_state, UNIT_LOAD_STATE);
         test_table(unit_type, UNIT_TYPE);
         test_table(locale_variable, VARIABLE_LC);
+        test_table(virtualization, VIRTUALIZATION);
 
         test_table_sparse(object_compressed, OBJECT_COMPRESSED);
 

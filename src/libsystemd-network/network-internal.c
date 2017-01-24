@@ -86,6 +86,28 @@ int net_get_unique_predictable_data(struct udev_device *device, uint64_t *result
         return 0;
 }
 
+static bool net_condition_test_strv(char * const *raw_patterns,
+                                    const char *string) {
+        if (strv_isempty(raw_patterns))
+                return true;
+
+        /* If the patterns begin with "!", edit it out and negate the test. */
+        if (raw_patterns[0][0] == '!') {
+                char **patterns;
+                unsigned i, length;
+
+                length = strv_length(raw_patterns) + 1; /* Include the NULL. */
+                patterns = newa(char*, length);
+                patterns[0] = raw_patterns[0] + 1; /* Skip the "!". */
+                for (i = 1; i < length; i++)
+                        patterns[i] = raw_patterns[i];
+
+                return !string || !strv_fnmatch(patterns, string, 0);
+        }
+
+        return string && strv_fnmatch(raw_patterns, string, 0);
+}
+
 bool net_match_config(const struct ether_addr *match_mac,
                       char * const *match_paths,
                       char * const *match_drivers,
@@ -117,20 +139,16 @@ bool net_match_config(const struct ether_addr *match_mac,
         if (match_mac && (!dev_mac || memcmp(match_mac, dev_mac, ETH_ALEN)))
                 return false;
 
-        if (!strv_isempty(match_paths) &&
-            (!dev_path || !strv_fnmatch(match_paths, dev_path, 0)))
+        if (!net_condition_test_strv(match_paths, dev_path))
                 return false;
 
-        if (!strv_isempty(match_drivers) &&
-            (!dev_driver || !strv_fnmatch(match_drivers, dev_driver, 0)))
+        if (!net_condition_test_strv(match_drivers, dev_driver))
                 return false;
 
-        if (!strv_isempty(match_types) &&
-            (!dev_type || !strv_fnmatch_or_empty(match_types, dev_type, 0)))
+        if (!net_condition_test_strv(match_types, dev_type))
                 return false;
 
-        if (!strv_isempty(match_names) &&
-            (!dev_name || !strv_fnmatch_or_empty(match_names, dev_name, 0)))
+        if (!net_condition_test_strv(match_names, dev_name))
                 return false;
 
         return true;

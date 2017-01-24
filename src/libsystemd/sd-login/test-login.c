@@ -24,7 +24,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"

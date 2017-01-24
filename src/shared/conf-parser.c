@@ -101,7 +101,7 @@ int config_item_perf_lookup(
         else {
                 char *key;
 
-                key = strjoin(section, ".", lvalue, NULL);
+                key = strjoin(section, ".", lvalue);
                 if (!key)
                         return -ENOMEM;
 
@@ -781,7 +781,7 @@ int config_parse_strv(const char *unit,
         for (;;) {
                 char *word = NULL;
 
-                r = extract_first_word(&rvalue, &word, WHITESPACE, EXTRACT_QUOTES|EXTRACT_RETAIN_ESCAPE);
+                r = extract_first_word(&rvalue, &word, NULL, EXTRACT_QUOTES|EXTRACT_RETAIN_ESCAPE);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)

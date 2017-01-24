@@ -4,7 +4,7 @@
 # scan codes to add to the AT keyboard's 'force-release' list.
 #
 # The lookup keys are composed in:
-#   60-keyboard.rules
+#   60-evdev.rules
 #
 # Note: The format of the "evdev:" prefix match key is a
 # contract between the rules file and the hardware data, it might
@@ -18,17 +18,19 @@
 #    ZZZZ is the bus-id (see /usr/include/linux/input.h BUS_*), YYYY, XXXX and
 #    WWW are the 4-digit hex uppercase vendor, product and version ID and VVVV
 #    is an arbitrary length input-modalias describing the device capabilities.
+#    The vendor, product and version ID for a device node "eventX" is listed
+#    in /sys/class/input/eventX/device/id.
 #
 #  - AT keyboard DMI data matches:
 #      evdev:atkbd:dmi:bvn*:bvr*:bd*:svn<vendor>:pn<product>:pvr*
 #    <vendor> and <product> are the firmware-provided strings
-#    exported by the kernel DMI modalias.
+#    exported by the kernel DMI modalias, see /sys/class/dmi/id/modalias
 #
 #  - Input driver device name and DMI data match:
 #      evdev:name:<input device name>:dmi:bvn*:bvr*:bd*:svn<vendor>:pn*
 #    <input device name> is the name device specified by the
 #    driver, <vendor> is the firmware-provided string exported
-#    by the kernel DMI modalias.
+#    by the kernel DMI modalias, see /sys/class/dmi/id/modalias
 #
 # Scan codes are specified as:
 #   KEYBOARD_KEY_<hex scan code>=<key code identifier>
@@ -42,11 +44,18 @@
 #
 # To debug key presses and access scan code mapping data of
 # an input device use the commonly available tool: evtest(1).
+
+# A device with a fixed keyboard layout that must not be changed by
+# the desktop environment may specify that layout as:
+#   XKB_FIXED_LAYOUT="us"
+#   XKB_FIXED_VARIANT=""
+# Examples of such devices: the Yubikey or other key-code generating
+# devices.
 #
 # To update this file, create a new file
 #   /etc/udev/hwdb.d/70-keyboard.hwdb
 # and add your rules there. To load the new rules execute (as root):
-#   udevadm hwdb --update
+#   systemd-hwdb update
 #   udevadm trigger /dev/input/eventXX
 # where /dev/input/eventXX is the keyboard in question. If in
 # doubt, simply use /dev/input/event* to reload all input rules.
@@ -275,7 +284,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnXPS12-9Q33*:pvr*
 evdev:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*
 # Dell Precision microphone mute
 evdev:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnPrecision*
- KEYBOARD_KEY_150=f20                                   # Mic mute toggle, should be micmute
+ KEYBOARD_KEY_100150=f20                                   # Mic mute toggle, should be micmute
 
 ###########################################################
 # Everex
@@ -414,6 +423,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*Pavilion*dv7*Notebook*PC:
  KEYBOARD_KEY_c2=media                                  # FIXME: quick play
  KEYBOARD_KEY_c6=break
  KEYBOARD_KEY_94=reserved
+
+# Pavilion x360 13 (Prevents random airplane mode activation)
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[pP][aA][vV][iI][lL][iI][oO][nN]*13*x360*:pvr*
+ KEYBOARD_KEY_d7=unknown
 
 # Elitebook
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*Compaq*:pvr*
@@ -858,6 +871,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pn*U-100*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pn*U100*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pn*N033:*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*VR420*:pvr*
  KEYBOARD_KEY_f7=reserved
  KEYBOARD_KEY_f8=reserved
 
@@ -1239,3 +1253,18 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDIXONSP:pnDIXON*:pvr*
  KEYBOARD_KEY_a0=!                                      # mute
  KEYBOARD_KEY_ae=!                                      # volume down
  KEYBOARD_KEY_b0=!                                      # volume up
+
+###########################################################
+# Fixed layout devices
+###########################################################
+
+# Yubico Yubico Yubikey II"
+evdev:input:b0003v1050p0010*
+# Yubico Yubikey NEO OTP+CCID
+evdev:input:b0003v1050p0111*
+# Yubico Yubikey NEO OTP+U2F+CCID
+evdev:input:b0003v1050p0116*
+# OKE Electron Company USB barcode reader
+evdev:input:b0003v05FEp1010*
+ XKB_FIXED_LAYOUT="us"
+ XKB_FIXED_VARIANT=""

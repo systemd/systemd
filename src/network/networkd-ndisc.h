@@ -37,3 +37,4 @@ static inline char* NDISC_DNSSL_DOMAIN(const NDiscDNSSL *n) {
 
 int ndisc_configure(Link *link);
 void ndisc_vacuum(Link *link);
+void ndisc_flush(Link *link);

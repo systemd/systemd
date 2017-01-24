@@ -57,12 +57,14 @@ m4_ifdef(`HAVE_SECCOMP',
 $1.SystemCallArchitectures,      config_parse_syscall_archs,         0,                             offsetof($1, exec_context.syscall_archs)
 $1.SystemCallErrorNumber,        config_parse_syscall_errno,         0,                             offsetof($1, exec_context)
 $1.MemoryDenyWriteExecute,       config_parse_bool,                  0,                             offsetof($1, exec_context.memory_deny_write_execute)
+$1.RestrictNamespaces,           config_parse_restrict_namespaces,   0,                             offsetof($1, exec_context)
 $1.RestrictRealtime,             config_parse_bool,                  0,                             offsetof($1, exec_context.restrict_realtime)
 $1.RestrictAddressFamilies,      config_parse_address_families,      0,                             offsetof($1, exec_context)',
 `$1.SystemCallFilter,            config_parse_warn_compat,           DISABLED_CONFIGURATION,        0
 $1.SystemCallArchitectures,      config_parse_warn_compat,           DISABLED_CONFIGURATION,        0
 $1.SystemCallErrorNumber,        config_parse_warn_compat,           DISABLED_CONFIGURATION,        0
 $1.MemoryDenyWriteExecute,       config_parse_warn_compat,           DISABLED_CONFIGURATION,        0
+$1.RestrictNamespaces,           config_parse_warn_compat,           DISABLED_CONFIGURATION,        0
 $1.RestrictRealtime,             config_parse_warn_compat,           DISABLED_CONFIGURATION,        0
 $1.RestrictAddressFamilies,      config_parse_warn_compat,           DISABLED_CONFIGURATION,        0')
 $1.LimitCPU,                     config_parse_limit,                 RLIMIT_CPU,                    offsetof($1, exec_context.rlimit)
@@ -87,6 +89,8 @@ $1.InaccessibleDirectories,      config_parse_namespace_path_strv,   0,         
 $1.ReadWritePaths,               config_parse_namespace_path_strv,   0,                             offsetof($1, exec_context.read_write_paths)
 $1.ReadOnlyPaths,                config_parse_namespace_path_strv,   0,                             offsetof($1, exec_context.read_only_paths)
 $1.InaccessiblePaths,            config_parse_namespace_path_strv,   0,                             offsetof($1, exec_context.inaccessible_paths)
+$1.BindPaths,                    config_parse_bind_paths,            0,                             offsetof($1, exec_context)
+$1.BindReadOnlyPaths,            config_parse_bind_paths,            0,                             offsetof($1, exec_context)
 $1.PrivateTmp,                   config_parse_bool,                  0,                             offsetof($1, exec_context.private_tmp)
 $1.PrivateDevices,               config_parse_bool,                  0,                             offsetof($1, exec_context.private_devices)
 $1.ProtectKernelTunables,        config_parse_bool,                  0,                             offsetof($1, exec_context.protect_kernel_tunables)
@@ -189,13 +193,13 @@ Unit.IgnoreOnIsolate,            config_parse_bool,                  0,         
 Unit.IgnoreOnSnapshot,           config_parse_warn_compat,           DISABLED_LEGACY,               0
 Unit.JobTimeoutSec,              config_parse_sec_fix_0,             0,                             offsetof(Unit, job_timeout)
 Unit.JobTimeoutAction,           config_parse_emergency_action,      0,                             offsetof(Unit, job_timeout_action)
-Unit.JobTimeoutRebootArgument,   config_parse_string,                0,                             offsetof(Unit, job_timeout_reboot_arg)
+Unit.JobTimeoutRebootArgument,   config_parse_unit_string_printf,    0,                             offsetof(Unit, job_timeout_reboot_arg)
 Unit.StartLimitIntervalSec,      config_parse_sec,                   0,                             offsetof(Unit, start_limit.interval)
 m4_dnl The following is a legacy alias name for compatibility
 Unit.StartLimitInterval,         config_parse_sec,                   0,                             offsetof(Unit, start_limit.interval)
 Unit.StartLimitBurst,            config_parse_unsigned,              0,                             offsetof(Unit, start_limit.burst)
 Unit.StartLimitAction,           config_parse_emergency_action,      0,                             offsetof(Unit, start_limit_action)
-Unit.RebootArgument,             config_parse_string,                0,                             offsetof(Unit, reboot_arg)
+Unit.RebootArgument,             config_parse_unit_string_printf,    0,                             offsetof(Unit, reboot_arg)
 Unit.ConditionPathExists,        config_parse_unit_condition_path,   CONDITION_PATH_EXISTS,         offsetof(Unit, conditions)
 Unit.ConditionPathExistsGlob,    config_parse_unit_condition_path,   CONDITION_PATH_EXISTS_GLOB,    offsetof(Unit, conditions)
 Unit.ConditionPathIsDirectory,   config_parse_unit_condition_path,   CONDITION_PATH_IS_DIRECTORY,   offsetof(Unit, conditions)
@@ -252,7 +256,7 @@ m4_dnl The following three only exist for compatibility, they moved into Unit, s
 Service.StartLimitInterval,      config_parse_sec,                   0,                             offsetof(Unit, start_limit.interval)
 Service.StartLimitBurst,         config_parse_unsigned,              0,                             offsetof(Unit, start_limit.burst)
 Service.StartLimitAction,        config_parse_emergency_action,      0,                             offsetof(Unit, start_limit_action)
-Service.RebootArgument,          config_parse_string,                0,                             offsetof(Unit, reboot_arg)
+Service.RebootArgument,          config_parse_unit_path_printf,      0,                             offsetof(Unit, reboot_arg)
 Service.FailureAction,           config_parse_emergency_action,      0,                             offsetof(Service, emergency_action)
 Service.Type,                    config_parse_service_type,          0,                             offsetof(Service, type)
 Service.Restart,                 config_parse_service_restart,       0,                             offsetof(Service, restart)
@@ -270,8 +274,8 @@ Service.FileDescriptorStoreMax,  config_parse_unsigned,              0,         
 Service.NotifyAccess,            config_parse_notify_access,         0,                             offsetof(Service, notify_access)
 Service.Sockets,                 config_parse_service_sockets,       0,                             0
 Service.BusPolicy,               config_parse_warn_compat,           DISABLED_LEGACY,               0
-Service.USBFunctionDescriptors,  config_parse_path,                  0,                             offsetof(Service, usb_function_descriptors)
-Service.USBFunctionStrings,      config_parse_path,                  0,                             offsetof(Service, usb_function_strings)
+Service.USBFunctionDescriptors,  config_parse_unit_path_printf,      0,                             offsetof(Service, usb_function_descriptors)
+Service.USBFunctionStrings,      config_parse_unit_path_printf,      0,                             offsetof(Service, usb_function_strings)
 EXEC_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
@@ -330,9 +334,9 @@ Socket.Service,                  config_parse_socket_service,        0,         
 Socket.TriggerLimitIntervalSec,  config_parse_sec,                   0,                             offsetof(Socket, trigger_limit.interval)
 Socket.TriggerLimitBurst,        config_parse_unsigned,              0,                             offsetof(Socket, trigger_limit.burst)
 m4_ifdef(`HAVE_SMACK',
-`Socket.SmackLabel,              config_parse_string,                0,                             offsetof(Socket, smack)
-Socket.SmackLabelIPIn,           config_parse_string,                0,                             offsetof(Socket, smack_ip_in)
-Socket.SmackLabelIPOut,          config_parse_string,                0,                             offsetof(Socket, smack_ip_out)',
+`Socket.SmackLabel,              config_parse_unit_string_printf,    0,                             offsetof(Socket, smack)
+Socket.SmackLabelIPIn,           config_parse_unit_string_printf,    0,                             offsetof(Socket, smack_ip_in)
+Socket.SmackLabelIPOut,          config_parse_unit_string_printf,    0,                             offsetof(Socket, smack_ip_out)',
 `Socket.SmackLabel,              config_parse_warn_compat,           DISABLED_CONFIGURATION,        0
 Socket.SmackLabelIPIn,           config_parse_warn_compat,           DISABLED_CONFIGURATION,        0
 Socket.SmackLabelIPOut,          config_parse_warn_compat,           DISABLED_CONFIGURATION,        0')
@@ -352,9 +356,9 @@ BusName.AllowWorld,              config_parse_bus_policy_world,      0,         
 BusName.SELinuxContext,          config_parse_exec_selinux_context,  0,                             0
 BusName.AcceptFileDescriptors,   config_parse_bool,                  0,                             offsetof(BusName, accept_fd)
 m4_dnl
-Mount.What,                      config_parse_string,                0,                             offsetof(Mount, parameters_fragment.what)
+Mount.What,                      config_parse_unit_string_printf,    0,                             offsetof(Mount, parameters_fragment.what)
 Mount.Where,                     config_parse_path,                  0,                             offsetof(Mount, where)
-Mount.Options,                   config_parse_string,                0,                             offsetof(Mount, parameters_fragment.options)
+Mount.Options,                   config_parse_unit_string_printf,    0,                             offsetof(Mount, parameters_fragment.options)
 Mount.Type,                      config_parse_string,                0,                             offsetof(Mount, parameters_fragment.fstype)
 Mount.TimeoutSec,                config_parse_sec,                   0,                             offsetof(Mount, timeout_usec)
 Mount.DirectoryMode,             config_parse_mode,                  0,                             offsetof(Mount, directory_mode)
@@ -371,7 +375,7 @@ Automount.TimeoutIdleSec,        config_parse_sec,                   0,         
 m4_dnl
 Swap.What,                       config_parse_path,                  0,                             offsetof(Swap, parameters_fragment.what)
 Swap.Priority,                   config_parse_int,                   0,                             offsetof(Swap, parameters_fragment.priority)
-Swap.Options,                    config_parse_string,                0,                             offsetof(Swap, parameters_fragment.options)
+Swap.Options,                    config_parse_unit_string_printf,    0,                             offsetof(Swap, parameters_fragment.options)
 Swap.TimeoutSec,                 config_parse_sec,                   0,                             offsetof(Swap, timeout_usec)
 EXEC_CONTEXT_CONFIG_ITEMS(Swap)m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Swap)m4_dnl

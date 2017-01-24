@@ -76,10 +76,11 @@
     specified as <parameter>callback</parameter> will be invoked
     immediately before the event loop goes to sleep to wait for
     incoming events. It is invoked with the user data pointer passed
-    when the event source was created. The callback function may be
-    used to reconfigure the precise events to wait for. If the
-    <parameter>callback</parameter> parameter is passed as NULL the
-    callback function is reset. </para>
+    when the event source was created. The event source will be disabled
+    if the callback function returns a negative error code. The callback
+    function may be used to reconfigure the precise events to wait for.
+    If the <parameter>callback</parameter> parameter is passed as NULL
+    the callback function is reset. </para>
 
     <para>Event source objects have no preparation callback associated
     when they are first created with calls such as

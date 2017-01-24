@@ -34,7 +34,8 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "formats-util.h"
+#include "format-util.h"
+#include "fs-util.h"
 #include "install.h"
 #include "log.h"
 #include "path-util.h"
@@ -1484,25 +1485,36 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
         if (r < 0)
                 return r;
 
-        if (path_equal(root, "/") || !path_is_absolute(root))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid switch root path %s", root);
+        if (isempty(root))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "New root directory may not be the empty string.");
+        if (!path_is_absolute(root))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "New root path '%s' is not absolute.", root);
+        if (path_equal(root, "/"))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "New root directory cannot be the old root directory.");
 
         /* Safety check */
         if (isempty(init)) {
-                if (!path_is_os_tree(root))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified switch root path %s does not seem to be an OS tree. os-release file is missing.", root);
+                r = path_is_os_tree(root);
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error, r, "Failed to determine whether root path '%s' contains an OS tree: %m", root);
+                if (r == 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified switch root path '%s' does not seem to be an OS tree. os-release file is missing.", root);
         } else {
-                _cleanup_free_ char *p = NULL;
+                _cleanup_free_ char *chased = NULL;
 
                 if (!path_is_absolute(init))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid init path %s", init);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path to init binary '%s' not absolute.", init);
 
-                p = strappend(root, init);
-                if (!p)
-                        return -ENOMEM;
+                r = chase_symlinks(init, root, CHASE_PREFIX_ROOT, &chased);
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error, r, "Could not resolve init executable %s: %m", init);
 
-                if (access(p, X_OK) < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified init binary %s does not exist.", p);
+                if (laccess(chased, X_OK) < 0) {
+                        if (errno == EACCES)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Init binary %s is not executable.", init);
+
+                        return sd_bus_error_set_errnof(error, r, "Could not check whether init binary %s is executable: %m", init);
+                }
         }
 
         rt = strdup(root);
@@ -2285,6 +2297,26 @@ static int method_get_unit_file_links(sd_bus_message *message, void *userdata, s
         return sd_bus_send(NULL, reply, NULL);
 }
 
+static int method_get_job_waiting(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        uint32_t id;
+        Job *j;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "u", &id);
+        if (r < 0)
+                return r;
+
+        j = manager_get_job(m, id);
+        if (!j)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_JOB, "Job %u does not exist.", (unsigned) id);
+
+        return bus_job_method_get_waiting_jobs(message, j, error);
+}
+
 const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -2390,6 +2422,8 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_METHOD("StartTransientUnit", "ssa(sv)a(sa(sv))", "o", method_start_transient_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetUnitProcesses", "s", "a(sus)", method_get_unit_processes, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetJob", "u", "o", method_get_job, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetJobAfter", "u", "a(usssoo)", method_get_job_waiting, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetJobBefore", "u", "a(usssoo)", method_get_job_waiting, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CancelJob", "u", NULL, method_cancel_job, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ClearJobs", NULL, NULL, method_clear_jobs, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ResetFailed", NULL, NULL, method_reset_failed, SD_BUS_VTABLE_UNPRIVILEGED),

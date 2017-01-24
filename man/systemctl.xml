@@ -209,6 +209,10 @@
           <varname>RequiresMountsFor=</varname>). Both explicitly
           and implicitly introduced dependencies are shown with
           <command>list-dependencies</command>.</para>
+
+          <para>When passed to the <command>list-jobs</command> command, for each printed job show which other jobs are
+          waiting for it. May be combined with <option>--before</option> to show both the jobs waiting for each job as
+          well as all jobs each job is waiting for.</para>
         </listitem>
       </varlistentry>
 
@@ -220,6 +224,10 @@
           units that are ordered after the specified unit. In other
           words, recursively list units following the
           <varname>Before=</varname> dependency.</para>
+
+          <para>When passed to the <command>list-jobs</command> command, for each printed job show which other jobs it
+          is waiting for. May be combined with <option>--after</option> to show both the jobs waiting for each job as
+          well as all jobs each job is waiting for.</para>
         </listitem>
       </varlistentry>
 
@@ -656,7 +664,7 @@
 
       <variablelist>
         <varlistentry>
-          <term><command>list-units <optional><replaceable>PATTERN</replaceable>...</optional></command></term>
+          <term><command>list-units <optional><replaceable>PATTERN</replaceable>…</optional></command></term>
 
           <listitem>
             <para>List units that <command>systemd</command> currently has in memory. This includes units that are
@@ -672,7 +680,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><command>list-sockets <optional><replaceable>PATTERN</replaceable>...</optional></command></term>
+          <term><command>list-sockets <optional><replaceable>PATTERN</replaceable>…</optional></command></term>
 
           <listitem>
             <para>List socket units currently in memory, ordered by listening address.  If one or more
@@ -681,7 +689,7 @@
             <programlisting>
 LISTEN           UNIT                        ACTIVATES
 /dev/initctl     systemd-initctl.socket      systemd-initctl.service
-...
+…
 [::]:22          sshd.socket                 sshd.service
 kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
@@ -695,7 +703,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>list-timers <optional><replaceable>PATTERN</replaceable>...</optional></command></term>
+          <term><command>list-timers <optional><replaceable>PATTERN</replaceable>…</optional></command></term>
 
           <listitem>
             <para>List timer units currently in memory, ordered by the time they elapse next. If one or more
@@ -707,7 +715,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>start <replaceable>PATTERN</replaceable>...</command></term>
+          <term><command>start <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>
             <para>Start (activate) one or more units specified on the
@@ -721,7 +729,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>stop <replaceable>PATTERN</replaceable>...</command></term>
+          <term><command>stop <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>
             <para>Stop (deactivate) one or more units specified on the
@@ -729,7 +737,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>reload <replaceable>PATTERN</replaceable>...</command></term>
+          <term><command>reload <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>
             <para>Asks all units listed on the command line to reload
@@ -749,27 +757,27 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
         </varlistentry>
         <varlistentry>
-          <term><command>restart <replaceable>PATTERN</replaceable>...</command></term>
+          <term><command>restart <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>
-            <para>Restart one or more units specified on the command
-            line. If the units are not running yet, they will be
-            started.</para>
+            <para>Stop and then start one or more units specified on the
+            command line. If the units are not running yet, they will
+            be started.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>try-restart <replaceable>PATTERN</replaceable>...</command></term>
+          <term><command>try-restart <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>
-            <para>Restart one or more units specified on the command
-            line if the units are running. This does nothing if units are not
-            running.</para>
+            <para>Stop and then start one or more units specified on the
+            command line if the units are running. This does nothing
+            if units are not running.</para>
             <!-- Note that we don't document condrestart here, as that is just compatibility support, and we generally
                  don't document that. -->
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>reload-or-restart <replaceable>PATTERN</replaceable>...</command></term>
+          <term><command>reload-or-restart <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>
             <para>Reload one or more units if they support it. If not,
@@ -778,7 +786,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>try-reload-or-restart <replaceable>PATTERN</replaceable>...</command></term>
+          <term><command>try-reload-or-restart <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>
             <para>Reload one or more units if they support it. If not,
@@ -810,7 +818,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>kill <replaceable>PATTERN</replaceable>...</command></term>
+          <term><command>kill <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>
             <para>Send a signal to one or more processes of the
@@ -820,7 +828,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>is-active <replaceable>PATTERN</replaceable>...</command></term>
+          <term><command>is-active <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>
             <para>Check whether any of the specified units are active
@@ -832,7 +840,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>is-failed <replaceable>PATTERN</replaceable>...</command></term>
+          <term><command>is-failed <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>
             <para>Check whether any of the specified units are in a
@@ -844,7 +852,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>status</command> <optional><replaceable>PATTERN</replaceable>...|<replaceable>PID</replaceable>...]</optional></term>
+          <term><command>status</command> <optional><replaceable>PATTERN</replaceable>…|<replaceable>PID</replaceable>…]</optional></term>
 
           <listitem>
             <para>Show terse runtime status information about one or
@@ -868,37 +876,95 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             a similar filter for messages and might be more
             convenient.
             </para>
+
+            <para>Systemd implicitly loads units as necessary, so just running the <command>status</command> will
+            attempt to load a file. The command is thus not useful for determining if something was already loaded or
+            not.  The units may possibly also be quickly unloaded after the operation is completed if there's no reason
+            to keep it in memory thereafter.
+            </para>
+
+            <example>
+              <title>Example output from systemctl status </title>
+
+              <programlisting>$ systemctl status bluetooth
+● bluetooth.service - Bluetooth service
+   Loaded: loaded (/lib/systemd/system/bluetooth.service; enabled; vendor preset: enabled)
+   Active: active (running) since Wed 2017-01-04 13:54:04 EST; 1 weeks 0 days ago
+     Docs: man:bluetoothd(8)
+ Main PID: 930 (bluetoothd)
+   Status: "Running"
+    Tasks: 1
+   Memory: 648.0K
+      CPU: 435ms
+   CGroup: /system.slice/bluetooth.service
+           └─930 /usr/lib/bluetooth/bluetoothd
+
+Jan 12 10:46:45 example.com bluetoothd[8900]: Not enough free handles to register service
+Jan 12 10:46:45 example.com bluetoothd[8900]: Current Time Service could not be registered
+Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output error (5)
+</programlisting>
+
+            <para>The dot ("●") uses color on supported terminals to summarize the unit state at a glance. White
+            indicates an <literal>inactive</literal> or <literal>deactivating</literal> state. Red indicates a
+            <literal>failed</literal> or <literal>error</literal> state and green indicates an
+            <literal>active</literal>, <literal>reloading</literal> or <literal>activating</literal> state.
+            </para>
+
+            <para>The "Loaded:" line in the output will show <literal>loaded</literal> if the unit has been loaded into
+            memory. Other possible values for "Loaded:" include: <literal>error</literal> if there was a problem
+            loading it, <literal>not-found</literal>, and <literal>masked</literal>. Along with showing the path to
+            the unit file, this line will also show the enablement state.  Enabled commands start at boot.  See the
+            full table of possible enablement states — including the definition of <literal>masked</literal> — in the
+            documentation for the <command>is-enabled</command> command.
+            </para>
+
+            <para>The "Active:" line shows active state.  The value is usually <literal>active</literal> or
+            <literal>inactive</literal>. Active could mean started, bound, plugged in, etc depending on the unit type.
+            The unit could also be in process of changing states, reporting a state of <literal>activating</literal> or
+            <literal>deactivating</literal>. A special <literal>failed</literal> state is entered when the service
+            failed in some way, such as a crash, exiting with an error code or timing out. If the failed state is
+            entered the cause will be logged for later reference.</para>
+            </example>
+
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>show</command> <optional><replaceable>PATTERN</replaceable>...|<replaceable>JOB</replaceable>...</optional></term>
+          <term><command>show</command> <optional><replaceable>PATTERN</replaceable>…|<replaceable>JOB</replaceable>…</optional></term>
 
           <listitem>
-            <para>Show properties of one or more units, jobs, or the
-            manager itself. If no argument is specified, properties of
-            the manager will be shown. If a unit name is specified,
-            properties of the unit is shown, and if a job ID is
-            specified, properties of the job is shown. By default, empty
-            properties are suppressed. Use <option>--all</option> to
-            show those too. To select specific properties to show, use
-            <option>--property=</option>. This command is intended to be
-            used whenever computer-parsable output is required. Use
-            <command>status</command> if you are looking for formatted
-            human-readable output.</para>
+            <para>Show properties of one or more units, jobs, or the manager itself. If no argument is specified,
+            properties of the manager will be shown. If a unit name is specified, properties of the unit are shown, and
+            if a job ID is specified, properties of the job are shown. By default, empty properties are suppressed. Use
+            <option>--all</option> to show those too. To select specific properties to show, use
+            <option>--property=</option>. This command is intended to be used whenever computer-parsable output is
+            required. Use <command>status</command> if you are looking for formatted human-readable output.</para>
+
+            <para>Many properties shown by <command>systemctl show</command> map directly to configuration settings of
+            the system and service manager and its unit files. Note that the properties shown by the command are
+            generally more low-level, normalized versions of the original configuration settings and expose runtime
+            state in addition to configuration. For example, properties shown for service units include the service's
+            current main process identifier as <literal>MainPID</literal> (which is runtime state), and time settings
+            are always exposed as properties ending in the <literal>…USec</literal> suffix even if a matching
+            configuration options end in <literal>…Sec</literal>, because microseconds is the normalized time unit used
+            by the system and service manager.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>cat <replaceable>PATTERN</replaceable>...</command></term>
+          <term><command>cat <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>
             <para>Show backing files of one or more units. Prints the
             "fragment" and "drop-ins" (source files) of units. Each
             file is preceded by a comment which includes the file
-            name.</para>
+            name. Note that this shows the contents of the backing files
+            on disk, which may not match the system manager's
+            understanding of these units if any unit files were
+            updated on disk and the <command>daemon-reload</command>
+            command wasn't issued since.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>set-property <replaceable>NAME</replaceable> <replaceable>ASSIGNMENT</replaceable>...</command></term>
+          <term><command>set-property <replaceable>NAME</replaceable> <replaceable>ASSIGNMENT</replaceable>…</command></term>
 
           <listitem>
             <para>Set the specified unit properties at runtime where
@@ -929,7 +995,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>help <replaceable>PATTERN</replaceable>...|<replaceable>PID</replaceable>...</command></term>
+          <term><command>help <replaceable>PATTERN</replaceable>…|<replaceable>PID</replaceable>…</command></term>
 
           <listitem>
             <para>Show manual pages for one or more units, if
@@ -939,7 +1005,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>reset-failed [<replaceable>PATTERN</replaceable>...]</command></term>
+          <term><command>reset-failed [<replaceable>PATTERN</replaceable>…]</command></term>
 
           <listitem>
             <para>Reset the <literal>failed</literal> state of the
@@ -987,7 +1053,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
       <variablelist>
         <varlistentry>
-          <term><command>list-unit-files <optional><replaceable>PATTERN...</replaceable></optional></command></term>
+          <term><command>list-unit-files <optional><replaceable>PATTERN…</replaceable></optional></command></term>
 
           <listitem>
             <para>List unit files installed on the system, in combination with their enablement state (as reported by
@@ -998,8 +1064,8 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>enable <replaceable>NAME</replaceable>...</command></term>
-          <term><command>enable <replaceable>PATH</replaceable>...</command></term>
+          <term><command>enable <replaceable>NAME</replaceable>…</command></term>
+          <term><command>enable <replaceable>PATH</replaceable>…</command></term>
 
           <listitem>
             <para>Enable one or more units or unit instances. This will create a set of symlinks, as encoded in the
@@ -1049,7 +1115,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>disable <replaceable>NAME</replaceable>...</command></term>
+          <term><command>disable <replaceable>NAME</replaceable>…</command></term>
 
           <listitem>
             <para>Disables one or more units. This removes all symlinks to the unit files backing the specified units
@@ -1081,7 +1147,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>reenable <replaceable>NAME</replaceable>...</command></term>
+          <term><command>reenable <replaceable>NAME</replaceable>…</command></term>
 
           <listitem>
             <para>Reenable one or more units, as specified on the command line. This is a combination of
@@ -1092,7 +1158,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>preset <replaceable>NAME</replaceable>...</command></term>
+          <term><command>preset <replaceable>NAME</replaceable>…</command></term>
 
           <listitem>
             <para>Reset the enable/disable status one or more unit files, as specified on
@@ -1130,7 +1196,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>is-enabled <replaceable>NAME</replaceable>...</command></term>
+          <term><command>is-enabled <replaceable>NAME</replaceable>…</command></term>
 
           <listitem>
             <para>Checks whether any of the specified unit files are
@@ -1217,7 +1283,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>mask <replaceable>NAME</replaceable>...</command></term>
+          <term><command>mask <replaceable>NAME</replaceable>…</command></term>
 
           <listitem>
             <para>Mask one or more units, as specified on the command line. This will link these unit files to
@@ -1231,7 +1297,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>unmask <replaceable>NAME</replaceable>...</command></term>
+          <term><command>unmask <replaceable>NAME</replaceable>…</command></term>
 
           <listitem>
             <para>Unmask one or more unit files, as specified on the command line. This will undo the effect of
@@ -1241,7 +1307,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>link <replaceable>PATH</replaceable>...</command></term>
+          <term><command>link <replaceable>PATH</replaceable>…</command></term>
 
           <listitem>
             <para>Link a unit file that is not in the unit file search paths into the unit file search path. This
@@ -1252,7 +1318,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>revert <replaceable>NAME</replaceable>...</command></term>
+          <term><command>revert <replaceable>NAME</replaceable>…</command></term>
 
           <listitem>
             <para>Revert one or more unit files to their vendor versions. This command removes drop-in configuration
@@ -1261,7 +1327,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <literal>foo.service.d/</literal> with all their contained files are removed, both below the persistent and
             runtime configuration directories (i.e. below <filename>/etc/systemd/system</filename> and
             <filename>/run/systemd/system</filename>); if the unit file has a vendor-supplied version (i.e. a unit file
-            located below <filename>/usr</filename>) any matching peristent or runtime unit file that overrides it is
+            located below <filename>/usr</filename>) any matching persistent or runtime unit file that overrides it is
             removed, too. Note that if a unit file has no vendor-supplied version (i.e. is only defined below
             <filename>/etc/systemd/system</filename> or <filename>/run/systemd/system</filename>, but not in a unit
             file stored below <filename>/usr</filename>), then it is not removed. Also, if a unit is masked, it is
@@ -1275,9 +1341,9 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
         <varlistentry>
           <term><command>add-wants <replaceable>TARGET</replaceable>
-          <replaceable>NAME</replaceable>...</command></term>
+          <replaceable>NAME</replaceable>…</command></term>
           <term><command>add-requires <replaceable>TARGET</replaceable>
-          <replaceable>NAME</replaceable>...</command></term>
+          <replaceable>NAME</replaceable>…</command></term>
 
           <listitem>
             <para>Adds <literal>Wants=</literal> or <literal>Requires=</literal>
@@ -1293,7 +1359,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>edit <replaceable>NAME</replaceable>...</command></term>
+          <term><command>edit <replaceable>NAME</replaceable>…</command></term>
 
           <listitem>
             <para>Edit a drop-in snippet or a whole replacement file if
@@ -1360,7 +1426,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
       <variablelist>
         <varlistentry>
-          <term><command>list-machines <optional><replaceable>PATTERN</replaceable>...</optional></command></term>
+          <term><command>list-machines <optional><replaceable>PATTERN</replaceable>…</optional></command></term>
 
           <listitem>
             <para>List the host and all running local containers with
@@ -1378,16 +1444,20 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
       <variablelist>
         <varlistentry>
-          <term><command>list-jobs <optional><replaceable>PATTERN...</replaceable></optional></command></term>
+          <term><command>list-jobs <optional><replaceable>PATTERN…</replaceable></optional></command></term>
 
           <listitem>
             <para>List jobs that are in progress. If one or more
             <replaceable>PATTERN</replaceable>s are specified, only
             jobs for units matching one of them are shown.</para>
+
+            <para>When combined with <option>--after</option> or <option>--before</option> the list is augmented with
+            information on which other job each job is waiting for, and which other jobs are waiting for it, see
+            above.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>cancel <replaceable>JOB</replaceable>...</command></term>
+          <term><command>cancel <replaceable>JOB</replaceable>…</command></term>
 
           <listitem>
             <para>Cancel one or more jobs specified on the command line
@@ -1414,7 +1484,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>set-environment <replaceable>VARIABLE=VALUE</replaceable>...</command></term>
+          <term><command>set-environment <replaceable>VARIABLE=VALUE</replaceable>…</command></term>
 
           <listitem>
             <para>Set one or more systemd manager environment variables,
@@ -1422,7 +1492,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>unset-environment <replaceable>VARIABLE</replaceable>...</command></term>
+          <term><command>unset-environment <replaceable>VARIABLE</replaceable>…</command></term>
 
           <listitem>
             <para>Unset one or more systemd manager environment
@@ -1435,7 +1505,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         <varlistentry>
           <term>
             <command>import-environment</command>
-            <optional><replaceable>VARIABLE...</replaceable></optional>
+            <optional><replaceable>VARIABLE…</replaceable></optional>
           </term>
 
           <listitem>
@@ -1743,7 +1813,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
       <title>Parameter Syntax</title>
 
       <para>Unit commands listed above take either a single unit name (designated as <replaceable>NAME</replaceable>),
-      or multiple unit specifications (designated as <replaceable>PATTERN</replaceable>...). In the first case, the
+      or multiple unit specifications (designated as <replaceable>PATTERN</replaceable>…). In the first case, the
       unit name with or without a suffix must be given. If the suffix is not specified (unit name is "abbreviated"),
       systemctl will append a suitable suffix, <literal>.service</literal> by default, and a type-specific suffix in
       case of commands which operate only on specific unit types. For example,

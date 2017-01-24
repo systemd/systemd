@@ -36,7 +36,7 @@
 #include "escape.h"
 #include "execute.h"
 #include "fileio-label.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "id128-util.h"
 #include "load-dropin.h"
 #include "load-fragment.h"
@@ -107,6 +107,24 @@ Unit *unit_new(Manager *m, size_t size) {
         RATELIMIT_INIT(u->auto_stop_ratelimit, 10 * USEC_PER_SEC, 16);
 
         return u;
+}
+
+int unit_new_for_name(Manager *m, size_t size, const char *name, Unit **ret) {
+        Unit *u;
+        int r;
+
+        u = unit_new(m, size);
+        if (!u)
+                return -ENOMEM;
+
+        r = unit_add_name(u, name);
+        if (r < 0) {
+                unit_free(u);
+                return r;
+        }
+
+        *ret = u;
+        return r;
 }
 
 bool unit_has_name(Unit *u, const char *name) {
@@ -302,6 +320,7 @@ int unit_set_description(Unit *u, const char *description) {
 
 bool unit_check_gc(Unit *u) {
         UnitActiveState state;
+        bool inactive;
         assert(u);
 
         if (u->job)
@@ -311,19 +330,20 @@ bool unit_check_gc(Unit *u) {
                 return true;
 
         state = unit_active_state(u);
+        inactive = state == UNIT_INACTIVE;
 
         /* If the unit is inactive and failed and no job is queued for
          * it, then release its runtime resources */
         if (UNIT_IS_INACTIVE_OR_FAILED(state) &&
             UNIT_VTABLE(u)->release_resources)
-                UNIT_VTABLE(u)->release_resources(u);
+                UNIT_VTABLE(u)->release_resources(u, inactive);
 
         /* But we keep the unit object around for longer when it is
          * referenced or configured to not be gc'ed */
-        if (state != UNIT_INACTIVE)
+        if (!inactive)
                 return true;
 
-        if (u->no_gc)
+        if (u->perpetual)
                 return true;
 
         if (u->refs)
@@ -369,10 +389,8 @@ void unit_add_to_gc_queue(Unit *u) {
         if (unit_check_gc(u))
                 return;
 
-        LIST_PREPEND(gc_queue, u->manager->gc_queue, u);
+        LIST_PREPEND(gc_queue, u->manager->gc_unit_queue, u);
         u->in_gc_queue = true;
-
-        u->manager->n_in_gc_queue++;
 }
 
 void unit_add_to_dbus_queue(Unit *u) {
@@ -498,7 +516,8 @@ void unit_free(Unit *u) {
         Iterator i;
         char *t;
 
-        assert(u);
+        if (!u)
+                return;
 
         if (u->transient_file)
                 fclose(u->transient_file);
@@ -550,10 +569,8 @@ void unit_free(Unit *u) {
         if (u->in_cleanup_queue)
                 LIST_REMOVE(cleanup_queue, u->manager->cleanup_queue, u);
 
-        if (u->in_gc_queue) {
-                LIST_REMOVE(gc_queue, u->manager->gc_queue, u);
-                u->manager->n_in_gc_queue--;
-        }
+        if (u->in_gc_queue)
+                LIST_REMOVE(gc_queue, u->manager->gc_unit_queue, u);
 
         if (u->in_cgroup_queue)
                 LIST_REMOVE(cgroup_queue, u->manager->cgroup_queue, u);
@@ -849,11 +866,15 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                 return 0;
 
         if (c->private_tmp) {
-                r = unit_require_mounts_for(u, "/tmp");
-                if (r < 0)
-                        return r;
+                const char *p;
 
-                r = unit_require_mounts_for(u, "/var/tmp");
+                FOREACH_STRING(p, "/tmp", "/var/tmp") {
+                        r = unit_require_mounts_for(u, p);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_TMPFILES_SETUP_SERVICE, NULL, true);
                 if (r < 0)
                         return r;
         }
@@ -924,6 +945,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tGC Check Good: %s\n"
                 "%s\tNeed Daemon Reload: %s\n"
                 "%s\tTransient: %s\n"
+                "%s\tPerpetual: %s\n"
                 "%s\tSlice: %s\n"
                 "%s\tCGroup: %s\n"
                 "%s\tCGroup realized: %s\n"
@@ -942,6 +964,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(unit_check_gc(u)),
                 prefix, yes_no(unit_need_daemon_reload(u)),
                 prefix, yes_no(u->transient),
+                prefix, yes_no(u->perpetual),
                 prefix, strna(unit_slice_name(u)),
                 prefix, strna(u->cgroup_path),
                 prefix, yes_no(u->cgroup_realized),
@@ -1450,7 +1473,7 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
         format = unit_get_status_message_format(u, t);
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        xsprintf(buf, format, unit_description(u));
+        snprintf(buf, sizeof buf, format, unit_description(u));
         REENABLE_WARNING;
 
         mid = t == JOB_START ? SD_MESSAGE_UNIT_STARTING :
@@ -1491,6 +1514,17 @@ int unit_start_limit_test(Unit *u) {
         u->start_limit_hit = true;
 
         return emergency_action(u->manager, u->start_limit_action, u->reboot_arg, "unit failed");
+}
+
+bool unit_shall_confirm_spawn(Unit *u) {
+
+        if (manager_is_confirm_spawn_disabled(u->manager))
+                return false;
+
+        /* For some reasons units remaining in the same process group
+         * as PID 1 fail to acquire the console even if it's not used
+         * by any process. So skip the confirmation question for them. */
+        return !unit_get_exec_context(u)->same_pgrp;
 }
 
 /* Errors:
@@ -1614,6 +1648,18 @@ int unit_stop(Unit *u) {
         unit_add_to_dbus_queue(u);
 
         return UNIT_VTABLE(u)->stop(u);
+}
+
+bool unit_can_stop(Unit *u) {
+        assert(u);
+
+        if (!unit_supported(u))
+                return false;
+
+        if (u->perpetual)
+                return false;
+
+        return !!UNIT_VTABLE(u)->stop;
 }
 
 /* Errors:
@@ -2150,13 +2196,20 @@ bool unit_job_is_applicable(Unit *u, JobType j) {
 
         case JOB_VERIFY_ACTIVE:
         case JOB_START:
-        case JOB_STOP:
         case JOB_NOP:
+                /* Note that we don't check unit_can_start() here. That's because .device units and suchlike are not
+                 * startable by us but may appear due to external events, and it thus makes sense to permit enqueing
+                 * jobs for it. */
                 return true;
+
+        case JOB_STOP:
+                /* Similar as above. However, perpetual units can never be stopped (neither explicitly nor due to
+                 * external events), hence it makes no sense to permit enqueing such a request either. */
+                return !u->perpetual;
 
         case JOB_RESTART:
         case JOB_TRY_RESTART:
-                return unit_can_start(u);
+                return unit_can_stop(u) && unit_can_start(u);
 
         case JOB_RELOAD:
         case JOB_TRY_RELOAD:
@@ -2469,7 +2522,7 @@ int unit_set_default_slice(Unit *u) {
                         return -ENOMEM;
 
                 if (MANAGER_IS_SYSTEM(u->manager))
-                        b = strjoin("system-", escaped, ".slice", NULL);
+                        b = strjoin("system-", escaped, ".slice");
                 else
                         b = strappend(escaped, ".slice");
                 if (!b)
@@ -2999,6 +3052,9 @@ int unit_add_node_link(Unit *u, const char *what, bool wants, UnitDependency dep
         if (r < 0)
                 return r;
 
+        if (dep == UNIT_REQUIRES && device_shall_be_bound_by(device, u))
+                dep = UNIT_BINDS_TO;
+
         r = unit_add_two_dependencies(u, UNIT_AFTER,
                                       MANAGER_IS_SYSTEM(u->manager) ? dep : UNIT_WANTS,
                                       device, true);
@@ -3388,14 +3444,6 @@ int unit_patch_contexts(Unit *u) {
                         ec->working_directory_missing_ok = true;
                 }
 
-                if (MANAGER_IS_USER(u->manager) &&
-                    (ec->syscall_whitelist ||
-                     !set_isempty(ec->syscall_filter) ||
-                     !set_isempty(ec->syscall_archs) ||
-                     ec->address_families_whitelist ||
-                     !set_isempty(ec->address_families)))
-                        ec->no_new_privileges = true;
-
                 if (ec->private_devices)
                         ec->capability_bounding_set &= ~((UINT64_C(1) << CAP_MKNOD) | (UINT64_C(1) << CAP_SYS_RAWIO));
 
@@ -3629,7 +3677,7 @@ int unit_make_transient(Unit *u) {
         if (!UNIT_VTABLE(u)->can_transient)
                 return -EOPNOTSUPP;
 
-        path = strjoin(u->manager->lookup_paths.transient, "/", u->id, NULL);
+        path = strjoin(u->manager->lookup_paths.transient, "/", u->id);
         if (!path)
                 return -ENOMEM;
 
@@ -3714,14 +3762,14 @@ int unit_kill_context(
                 bool main_pid_alien) {
 
         bool wait_for_exit = false, send_sighup;
-        cg_kill_log_func_t log_func;
+        cg_kill_log_func_t log_func = NULL;
         int sig, r;
 
         assert(u);
         assert(c);
 
-        /* Kill the processes belonging to this unit, in preparation for shutting the unit down. Returns > 0 if we
-         * killed something worth waiting for, 0 otherwise. */
+        /* Kill the processes belonging to this unit, in preparation for shutting the unit down.
+         * Returns > 0 if we killed something worth waiting for, 0 otherwise. */
 
         if (c->kill_mode == KILL_NONE)
                 return 0;
@@ -3733,9 +3781,8 @@ int unit_kill_context(
                 IN_SET(k, KILL_TERMINATE, KILL_TERMINATE_AND_LOG) &&
                 sig != SIGHUP;
 
-        log_func =
-                k != KILL_TERMINATE ||
-                IN_SET(sig, SIGKILL, SIGABRT) ? log_kill : NULL;
+        if (k != KILL_TERMINATE || IN_SET(sig, SIGKILL, SIGABRT))
+                log_func = log_kill;
 
         if (main_pid > 0) {
                 if (log_func)

@@ -1,0 +1,525 @@
+# Catalan translation for systemd.
+# Copyright (C) 2015 systemd's COPYRIGHT HOLDER
+# This file is distributed under the same license as the systemd package.
+# Walter Garcia-Fontes <walter.garcia@upf.edu>, 2016.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: systemd master\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2015-11-22 16:37+0100\n"
+"PO-Revision-Date: 2016-12-29 09:02+0100\n"
+"Last-Translator: Walter Garcia-Fontes <walter.garcia@upf.edu>\n"
+"Language-Team: Català <ubuntu-l10n-ca@lists.ubuntu.com>\n"
+"Language: ca\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Poedit 1.8.7.1\n"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
+msgid "Send passphrase back to system"
+msgstr "Retornar la contrasenya al sistema"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
+msgstr "Es requereix autenticació per retornar la contrasenya entrada al sistema."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
+msgid "Manage system services or other units"
+msgstr "Administrar serveis del sistema o d'altres unitats."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
+msgid "Authentication is required to manage system services or other units."
+msgstr "Es requereix autenticació per administrar els serveis de sistemes o d'altres unitats."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
+msgid "Manage system service or unit files"
+msgstr "Gestiona un servei de sistema o fitxers d'unitat"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
+msgid "Authentication is required to manage system service or unit files."
+msgstr "Cal autenticació per gestionar un servei de sistema o fitxers d'unitat."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
+msgid "Set or unset system and service manager environment variables"
+msgstr "Administrar variables de entorno del sistema y del gestor de servicios"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
+msgid ""
+"Authentication is required to set or unset system and service manager "
+"environment variables."
+msgstr "Cal autenticació per establir o cancel·lar variables d'entorn de sistema o del gestor de serveis."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:9
+msgid "Reload the systemd state"
+msgstr "Recarrega l'estat del systemd"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:10
+msgid "Authentication is required to reload the systemd state."
+msgstr "Cal autenticació per establir el nom de l'ordinador local."
+
+#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:1
+msgid "Set host name"
+msgstr "Estableix el nom de l'ordinador"
+
+#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:2
+msgid "Authentication is required to set the local host name."
+msgstr "Cal autenticació per establir el nom de l'ordinador local."
+
+#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:3
+msgid "Set static host name"
+msgstr "Estableix el nom estàtic de l'ordinador"
+
+#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:4
+msgid ""
+"Authentication is required to set the statically configured local host name, "
+"as well as the pretty host name."
+msgstr "Cal autenticació per establir el nom configurat estàticament de l'ordinador local, així com el nom de l'ordinador de nivell superior."
+
+#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:5
+msgid "Set machine information"
+msgstr "Estableix la informació de l'ordinador"
+
+#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:6
+msgid "Authentication is required to set local machine information."
+msgstr "Cal autenticació per establir la informació de l'ordinador local."
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:1
+msgid "Import a VM or container image"
+msgstr "Importa una màquina virtual o una imatge de contenidor"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:2
+msgid "Authentication is required to import a VM or container image"
+msgstr "Cal autenticació per importar una màquina virtual o una imatge de contenidor"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:3
+msgid "Export a VM or container image"
+msgstr "Exporta una màquina virtual o una imatge de contenidor"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:4
+msgid "Authentication is required to export a VM or container image"
+msgstr "Cal autenticació per exportar una màquina virtual o una imatge de contenidor"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:5
+msgid "Download a VM or container image"
+msgstr "Descarrega una màquina virtual o una imatge de contenidor"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:6
+msgid "Authentication is required to download a VM or container image"
+msgstr "Cal autenticació per descarregar una màquina virtual o una imatge de contenidor"
+
+#: ../src/locale/org.freedesktop.locale1.policy.in.h:1
+msgid "Set system locale"
+msgstr "Estableix la regió del sistema"
+
+#: ../src/locale/org.freedesktop.locale1.policy.in.h:2
+msgid "Authentication is required to set the system locale."
+msgstr "Cal autenticació per establir la regió del sistema."
+
+#: ../src/locale/org.freedesktop.locale1.policy.in.h:3
+msgid "Set system keyboard settings"
+msgstr "Estableix la configuració del teclat del sistema."
+
+#: ../src/locale/org.freedesktop.locale1.policy.in.h:4
+msgid "Authentication is required to set the system keyboard settings."
+msgstr "Cal autenticació per establir la configuració del teclat del sistema."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:1
+msgid "Allow applications to inhibit system shutdown"
+msgstr "Permet a les aplicacions inhibir l'apagada del sistema"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:2
+msgid ""
+"Authentication is required for an application to inhibit system shutdown."
+msgstr "Cal autenticació perquè una aplicació inhibeixi l'apagada del sistema."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:3
+msgid "Allow applications to delay system shutdown"
+msgstr "Permet a les aplicacions endarrerir l'apagada del sistema"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:4
+msgid "Authentication is required for an application to delay system shutdown."
+msgstr "Cal autenticació perquè una aplicació endarrereixi l'apagada del sistema."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:5
+msgid "Allow applications to inhibit system sleep"
+msgstr "Permet a les aplicacions inhibir la hibernació del sistema"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:6
+msgid "Authentication is required for an application to inhibit system sleep."
+msgstr "Cal autenticació perquè una aplicació inhibeixi la hibernació del sistema."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:7
+msgid "Allow applications to delay system sleep"
+msgstr "Permet a les aplicacions endarrerir la hibernació del sistema"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:8
+msgid "Authentication is required for an application to delay system sleep."
+msgstr "Cal autenticació perquè una aplicació endarrereixi la hibernació del sistema."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:9
+msgid "Allow applications to inhibit automatic system suspend"
+msgstr "Permet a les aplicacions inhibir la suspensió automàtica del sistema"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:10
+msgid ""
+"Authentication is required for an application to inhibit automatic system "
+"suspend."
+msgstr "Cal autenticació perquè una aplicació inhibeixi la suspensió automàtica del sistema."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:11
+msgid "Allow applications to inhibit system handling of the power key"
+msgstr "Permet a les aplicacions inhibir la gestió de la tecla d'encesa per part del sistema"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:12
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the power key."
+msgstr "Cal autenticació perquè una aplicació inhibeixi la gestió de la tecla d'encesa per part del sistema."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:13
+msgid "Allow applications to inhibit system handling of the suspend key"
+msgstr "Permet a les aplicacions inhibir la tecla de suspensió per part del sistema"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:14
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the suspend key."
+msgstr "Cal autenticació perquè una aplicació inhibeixi la gestió de la tecla de suspensió per part del sistema."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:15
+msgid "Allow applications to inhibit system handling of the hibernate key"
+msgstr "Permet a les aplicacions inhibir la gestió de la tecla d'hibernació per part del sistema"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:16
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the hibernate key."
+msgstr "Cal autenticació perquè una aplicació inhibeixi la gestió de la tecla d'hibernació per part del sistema."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:17
+msgid "Allow applications to inhibit system handling of the lid switch"
+msgstr "Permet a les aplicacions la gestió del tancament de la tapa per part del sistema"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:18
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the lid switch."
+msgstr "Cal autenticació perquè una aplicació inhibeixi la gestió del tancament de la tapa per part del sistema."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:19
+msgid "Allow non-logged-in users to run programs"
+msgstr "Permet l'execució de programes als usuaris sense inici de sessió"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:20
+msgid "Authentication is required to run programs as a non-logged-in user."
+msgstr "Cal autenticació per a la execució de programes per part d'usuaris sense inici de sessió"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:21
+msgid "Allow attaching devices to seats"
+msgstr "Permet l'annexió de dispositius als llocs de treball"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:22
+msgid "Authentication is required for attaching a device to a seat."
+msgstr "Cal autenticació per annexar un dispositiu a un lloc de treball."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:23
+msgid "Flush device to seat attachments"
+msgstr "Allibera les annexions de dispositius a llocs de treball"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:24
+msgid ""
+"Authentication is required for resetting how devices are attached to seats."
+msgstr "Cal autenticació per restablir les annexions dels dispositius als llocs de treball."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:25
+msgid "Power off the system"
+msgstr "Apaga el sistema"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:26
+msgid "Authentication is required for powering off the system."
+msgstr "Cal autenticació per apagar el sistema"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:27
+msgid "Power off the system while other users are logged in"
+msgstr "Apaga el sistema mentre que altres usuaris tenen sessió iniciada"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:28
+msgid ""
+"Authentication is required for powering off the system while other users are "
+"logged in."
+msgstr "Cal autenticació per apagar el sistema mentre que altres usuaris tenen sessió iniciada."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:29
+msgid "Power off the system while an application asked to inhibit it"
+msgstr "Apaga el sistema mentre que una aplicació ha demanat inhibir-lo"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:30
+msgid ""
+"Authentication is required for powering off the system while an application "
+"asked to inhibit it."
+msgstr "Cal autenticació per apagar el sistema mentre que una aplicació ha demanat inhibir-lo."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:31
+msgid "Reboot the system"
+msgstr "Reinicia el sistema"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:32
+msgid "Authentication is required for rebooting the system."
+msgstr "Cal autenticació per reiniciar el sistema."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:33
+msgid "Reboot the system while other users are logged in"
+msgstr "Reinicia el sistema mentre hi ha usuaris amb sessió iniciada"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:34
+msgid ""
+"Authentication is required for rebooting the system while other users are "
+"logged in."
+msgstr "Cal autenticació per reiniciar el sistema mentre hi ha usuaris amb sessió iniciada."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:35
+msgid "Reboot the system while an application asked to inhibit it"
+msgstr "Reinicia el sistema malgrat hi ha una aplicació que ho impedeix"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:36
+msgid ""
+"Authentication is required for rebooting the system while an application "
+"asked to inhibit it."
+msgstr "Cal autenticació per reiniciar el sistema malgrat hi ha una aplicació que ho impedeix."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:37
+msgid "Suspend the system"
+msgstr "Suspèn el sistema"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:38
+msgid "Authentication is required for suspending the system."
+msgstr "Cal autenticació per suspendre el sistema"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:39
+msgid "Suspend the system while other users are logged in"
+msgstr "Suspèn el sistema mentre hi ha altres usuaris amb sessió iniciada"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:40
+msgid ""
+"Authentication is required for suspending the system while other users are "
+"logged in."
+msgstr "Cal autenticació per reiniciar el sistema mentre hi ha usuaris amb sessió iniciada."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:41
+msgid "Suspend the system while an application asked to inhibit it"
+msgstr "Suspèn el sistema mentre una aplicació ha demanat d'inhibir-lo"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:42
+msgid ""
+"Authentication is required for suspending the system while an application "
+"asked to inhibit it."
+msgstr "Cal autenticació per suspendre el sistema mentre una aplicació ha demanat d'inhibir-lo."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:43
+msgid "Hibernate the system"
+msgstr "Hiberna el sistema"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:44
+msgid "Authentication is required for hibernating the system."
+msgstr "Cal autenticació per hibernar el sistema."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:45
+msgid "Hibernate the system while other users are logged in"
+msgstr "Hiberna el sistema mentre hi ha altres usuaris amb sessió iniciada"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:46
+msgid ""
+"Authentication is required for hibernating the system while other users are "
+"logged in."
+msgstr "Cal autenticació per hibernar el sistema mentre hi ha altres usuaris amb sessió iniciada."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:47
+msgid "Hibernate the system while an application asked to inhibit it"
+msgstr "Hiberna el sistema mentre una aplicació ha demanat inhibir-ho"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:48
+msgid ""
+"Authentication is required for hibernating the system while an application "
+"asked to inhibit it."
+msgstr "Cal autenticació per hibernar el sistema mentre una aplicació ha demanat inhibir-ho."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:49
+msgid "Manage active sessions, users and seats"
+msgstr "Gestiona les sessions, usuaris i llocs de treball actius"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:50
+msgid ""
+"Authentication is required for managing active sessions, users and seats."
+msgstr "Cal autenticació per administrar les sessions, usuaris i llocs de treball actius."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:51
+msgid "Lock or unlock active sessions"
+msgstr "Bloqueja o desbloqueja les sessions actives"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:52
+msgid "Authentication is required to lock or unlock active sessions."
+msgstr "Cal autenticació per bloquejar o desbloquejar les sessions actives."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:53
+msgid "Allow indication to the firmware to boot to setup interface"
+msgstr "Permet una indicació al microprogramari per iniciar a la interfície de configuració"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:54
+msgid ""
+"Authentication is required to indicate to the firmware to boot to setup "
+"interface."
+msgstr "Cal autenticació per indicar al microprogramari que iniciï a la interfície de configuració."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:55
+msgid "Set a wall message"
+msgstr "Estableix un missatge de mur"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:56
+msgid "Authentication is required to set a wall message"
+msgstr "Cal autenticació per establir un text de mur"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:1
+msgid "Log into a local container"
+msgstr "Inicia sessió a un contenidor local"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:2
+msgid "Authentication is required to log into a local container."
+msgstr "Cal autenticació per iniciar sessió a un contenidor local."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:3
+msgid "Log into the local host"
+msgstr "Inicia sessió a l'ordinador local"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:4
+msgid "Authentication is required to log into the local host."
+msgstr "Cal autenticació per iniciar sessió a l'ordinador local."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+msgid "Acquire a shell in a local container"
+msgstr "Adquireix un intèrpret d'ordres a un contenidor local"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
+msgid "Authentication is required to acquire a shell in a local container."
+msgstr "Cal autenticació per adquirir un intèrpret d'ordres a un contenidor local."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:7
+msgid "Acquire a shell on the local host"
+msgstr "Adquireix un intèrpret d'ordres a l'ordinador local"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:8
+msgid "Authentication is required to acquire a shell on the local host."
+msgstr "Cal autenticació per adquirir un intèrpret d'ordres a l'ordinador local."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:9
+msgid "Acquire a pseudo TTY in a local container"
+msgstr "Adquireix un pseudo-terminal al contenidor local"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:10
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
+msgstr "Cal autenticació per adquirir una pseudo-terminal al contenidor local."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:11
+msgid "Acquire a pseudo TTY on the local host"
+msgstr "Adquireix una pseudo-terminal a l'ordinador local"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:12
+msgid "Authentication is required to acquire a pseudo TTY on the local host."
+msgstr "Cal autenticació per adquirir una pseudo-terminal a l'ordinador local."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:13
+msgid "Manage local virtual machines and containers"
+msgstr "Gestiona les màquines virtuals i els contenidors locals "
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:14
+msgid ""
+"Authentication is required to manage local virtual machines and containers."
+msgstr "Cal autenticació per gestionar les màquines virtuals i els contenidors locals."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:15
+msgid "Manage local virtual machine and container images"
+msgstr "Gestiona les imatges locals de màquines virtuals i contenidors"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:16
+msgid ""
+"Authentication is required to manage local virtual machine and container "
+"images."
+msgstr "Cal autenticació per gestionar les imatges locals de màquines virtuals i contenidors."
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:1
+msgid "Set system time"
+msgstr "Estableix la data i l'hora del sistema"
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:2
+msgid "Authentication is required to set the system time."
+msgstr "Cal autenticació per establir la data i l'hora del sistema."
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:3
+msgid "Set system timezone"
+msgstr "Estableix la zona horària del sistema"
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:4
+msgid "Authentication is required to set the system timezone."
+msgstr "Cal autenticació per establir la zona horària del sistema."
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:5
+msgid "Set RTC to local timezone or UTC"
+msgstr "Estableix el rellotge del sistema a la zona horària local o a UTC"
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:6
+msgid ""
+"Authentication is required to control whether the RTC stores the local or "
+"UTC time."
+msgstr "Cal autenticació per controlar si el rellotge del sistema emmagatzema la data i l'hora locals o UTC."
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:7
+msgid "Turn network time synchronization on or off"
+msgstr "Activa o desactiva la sincronització de data i hora de xarxa"
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:8
+msgid ""
+"Authentication is required to control whether network time synchronization "
+"shall be enabled."
+msgstr "Cal autenticació per controlar si s'ha d'activar la sincronització de data i hora de xarxa."
+
+#: ../src/core/dbus-unit.c:428
+msgid "Authentication is required to start '$(unit)'."
+msgstr "Cal autenticació per iniciar «$(unit)»."
+
+#: ../src/core/dbus-unit.c:429
+msgid "Authentication is required to stop '$(unit)'."
+msgstr "Cal autenticació per aturar «$(unit)»."
+
+#: ../src/core/dbus-unit.c:430
+msgid "Authentication is required to reload '$(unit)'."
+msgstr "Cal autenticació per tornar a carregar «$(unit)»."
+
+#: ../src/core/dbus-unit.c:431 ../src/core/dbus-unit.c:432
+msgid "Authentication is required to restart '$(unit)'."
+msgstr "Cal autenticació per tornar a reiniciar «$(unit)»."
+
+#: ../src/core/dbus-unit.c:535
+msgid "Authentication is required to kill '$(unit)'."
+msgstr "Cal autenticació per matar a «$(unit)»."
+
+#: ../src/core/dbus-unit.c:565
+msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgstr "Cal autenticació per reiniciar l'estat «fallat» de «$(unit)»."
+
+#: ../src/core/dbus-unit.c:597
+msgid "Authentication is required to set properties on '$(unit)'."
+msgstr "Cal autenticació per establir propietats a «$(unit)»."
+
+#~ msgid "Press Ctrl+C to cancel all filesystem checks in progress"
+#~ msgstr ""
+#~ "Presione Ctrl+C para cancelar todas las comprobaciones del sistema de "
+#~ "archivos en curso"
+
+#~ msgid "Checking in progress on %d disk (%3.1f%% complete)"
+#~ msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
+#~ msgstr[0] "Comprobando progreso en %d disco (%3.1f %% completado)"
+#~ msgstr[1] "Comprobando progreso en %d discos (%3.1f %% completado)"

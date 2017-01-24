@@ -142,6 +142,7 @@ MANPAGES += \
 	man/systemd-tty-ask-password-agent.1 \
 	man/systemd-udevd.service.8 \
 	man/systemd-update-done.service.8 \
+	man/systemd-volatile-root.service.8 \
 	man/systemd.1 \
 	man/systemd.automount.5 \
 	man/systemd.device.5 \
@@ -397,11 +398,13 @@ MANPAGES_ALIAS += \
 	man/sd_id128_from_string.3 \
 	man/sd_id128_get_boot.3 \
 	man/sd_id128_get_invocation.3 \
+	man/sd_id128_get_machine_app_specific.3 \
 	man/sd_id128_is_null.3 \
 	man/sd_id128_t.3 \
 	man/sd_is_mq.3 \
 	man/sd_is_socket.3 \
 	man/sd_is_socket_inet.3 \
+	man/sd_is_socket_sockaddr.3 \
 	man/sd_is_socket_unix.3 \
 	man/sd_is_special.3 \
 	man/sd_journal.3 \
@@ -480,6 +483,7 @@ MANPAGES_ALIAS += \
 	man/systemd-udevd.8 \
 	man/systemd-update-done.8 \
 	man/systemd-user.conf.5 \
+	man/systemd-volatile-root.8 \
 	man/udev_device_get_action.3 \
 	man/udev_device_get_devlinks_list_entry.3 \
 	man/udev_device_get_devnode.3 \
@@ -750,11 +754,13 @@ man/sd_id128_equal.3: man/sd-id128.3
 man/sd_id128_from_string.3: man/sd_id128_to_string.3
 man/sd_id128_get_boot.3: man/sd_id128_get_machine.3
 man/sd_id128_get_invocation.3: man/sd_id128_get_machine.3
+man/sd_id128_get_machine_app_specific.3: man/sd_id128_get_machine.3
 man/sd_id128_is_null.3: man/sd-id128.3
 man/sd_id128_t.3: man/sd-id128.3
 man/sd_is_mq.3: man/sd_is_fifo.3
 man/sd_is_socket.3: man/sd_is_fifo.3
 man/sd_is_socket_inet.3: man/sd_is_fifo.3
+man/sd_is_socket_sockaddr.3: man/sd_is_fifo.3
 man/sd_is_socket_unix.3: man/sd_is_fifo.3
 man/sd_is_special.3: man/sd_is_fifo.3
 man/sd_journal.3: man/sd_journal_open.3
@@ -833,6 +839,7 @@ man/systemd-udevd-kernel.socket.8: man/systemd-udevd.service.8
 man/systemd-udevd.8: man/systemd-udevd.service.8
 man/systemd-update-done.8: man/systemd-update-done.service.8
 man/systemd-user.conf.5: man/systemd-system.conf.5
+man/systemd-volatile-root.8: man/systemd-volatile-root.service.8
 man/udev_device_get_action.3: man/udev_device_get_syspath.3
 man/udev_device_get_devlinks_list_entry.3: man/udev_device_has_tag.3
 man/udev_device_get_devnode.3: man/udev_device_get_syspath.3
@@ -1531,6 +1538,9 @@ man/sd_id128_get_boot.html: man/sd_id128_get_machine.html
 man/sd_id128_get_invocation.html: man/sd_id128_get_machine.html
 	$(html-alias)
 
+man/sd_id128_get_machine_app_specific.html: man/sd_id128_get_machine.html
+	$(html-alias)
+
 man/sd_id128_is_null.html: man/sd-id128.html
 	$(html-alias)
 
@@ -1544,6 +1554,9 @@ man/sd_is_socket.html: man/sd_is_fifo.html
 	$(html-alias)
 
 man/sd_is_socket_inet.html: man/sd_is_fifo.html
+	$(html-alias)
+
+man/sd_is_socket_sockaddr.html: man/sd_is_fifo.html
 	$(html-alias)
 
 man/sd_is_socket_unix.html: man/sd_is_fifo.html
@@ -1778,6 +1791,9 @@ man/systemd-update-done.html: man/systemd-update-done.service.html
 	$(html-alias)
 
 man/systemd-user.conf.html: man/systemd-system.conf.html
+	$(html-alias)
+
+man/systemd-volatile-root.html: man/systemd-volatile-root.service.html
 	$(html-alias)
 
 man/udev_device_get_action.html: man/udev_device_get_syspath.html
@@ -2260,11 +2276,18 @@ if HAVE_LIBCRYPTSETUP
 MANPAGES += \
 	man/crypttab.5 \
 	man/systemd-cryptsetup-generator.8 \
-	man/systemd-cryptsetup@.service.8
+	man/systemd-cryptsetup@.service.8 \
+	man/systemd-veritysetup-generator.8 \
+	man/systemd-veritysetup@.service.8
 MANPAGES_ALIAS += \
-	man/systemd-cryptsetup.8
+	man/systemd-cryptsetup.8 \
+	man/systemd-veritysetup.8
 man/systemd-cryptsetup.8: man/systemd-cryptsetup@.service.8
+man/systemd-veritysetup.8: man/systemd-veritysetup@.service.8
 man/systemd-cryptsetup.html: man/systemd-cryptsetup@.service.html
+	$(html-alias)
+
+man/systemd-veritysetup.html: man/systemd-veritysetup@.service.html
 	$(html-alias)
 
 endif
@@ -2794,6 +2817,9 @@ EXTRA_DIST += \
 	man/systemd-update-utmp.service.xml \
 	man/systemd-user-sessions.service.xml \
 	man/systemd-vconsole-setup.service.xml \
+	man/systemd-veritysetup-generator.xml \
+	man/systemd-veritysetup@.service.xml \
+	man/systemd-volatile-root.service.xml \
 	man/systemd.automount.xml \
 	man/systemd.device.xml \
 	man/systemd.exec.xml \

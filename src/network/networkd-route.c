@@ -21,8 +21,8 @@
 #include "conf-parser.h"
 #include "in-addr-util.h"
 #include "netlink-util.h"
+#include "networkd-manager.h"
 #include "networkd-route.h"
-#include "networkd.h"
 #include "parse-util.h"
 #include "set.h"
 #include "string-util.h"
@@ -604,6 +604,20 @@ int route_configure(
         r = sd_netlink_message_append_u32(req, RTA_OIF, link->ifindex);
         if (r < 0)
                 return log_error_errno(r, "Could not append RTA_OIF attribute: %m");
+
+        r = sd_netlink_message_open_container(req, RTA_METRICS);
+        if (r < 0)
+                return log_error_errno(r, "Could not append RTA_METRICS attribute: %m");
+
+        if (route->mtu > 0) {
+                r = sd_netlink_message_append_u32(req, RTAX_MTU, route->mtu);
+                if (r < 0)
+                        return log_error_errno(r, "Could not append RTAX_MTU attribute: %m");
+        }
+
+        r = sd_netlink_message_close_container(req);
+        if (r < 0)
+                return log_error_errno(r, "Could not append RTA_METRICS attribute: %m");
 
         r = sd_netlink_call_async(link->manager->rtnl, req, callback, link, 0, NULL);
         if (r < 0)

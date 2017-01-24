@@ -18,7 +18,7 @@
 ***/
 
 #include "alloc-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "journald-server.h"
 #include "journald-wall.h"
 #include "process-util.h"
@@ -57,7 +57,7 @@ void server_forward_wall(
 
         } else if (identifier) {
 
-                l = l_buf = strjoin(identifier, ": ", message, NULL);
+                l = l_buf = strjoin(identifier, ": ", message);
                 if (!l_buf) {
                         log_oom();
                         return;

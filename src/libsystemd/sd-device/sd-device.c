@@ -28,6 +28,7 @@
 #include "device-internal.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -164,7 +165,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
         }
 
         if (verify) {
-                r = readlink_and_canonicalize(_syspath, &syspath);
+                r = readlink_and_canonicalize(_syspath, NULL, &syspath);
                 if (r == -ENOENT)
                         /* the device does not exist (any more?) */
                         return -ENODEV;
@@ -1627,7 +1628,7 @@ static int device_sysattrs_read_all(sd_device *device) {
         if (r < 0)
                 return r;
 
-        for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
+        FOREACH_DIRENT_ALL(dent, dir, return -errno) {
                 char *path;
                 struct stat statbuf;
 

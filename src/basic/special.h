@@ -103,6 +103,7 @@
 #define SPECIAL_DBUS_SOCKET "dbus.socket"
 #define SPECIAL_JOURNALD_SOCKET "systemd-journald.socket"
 #define SPECIAL_JOURNALD_SERVICE "systemd-journald.service"
+#define SPECIAL_TMPFILES_SETUP_SERVICE "systemd-tmpfiles-setup.service"
 
 /* Magic init signals */
 #define SPECIAL_KBREQUEST_TARGET "kbrequest.target"
@@ -117,3 +118,6 @@
 
 /* The scope unit systemd itself lives in. */
 #define SPECIAL_INIT_SCOPE "init.scope"
+
+/* The root directory. */
+#define SPECIAL_ROOT_MOUNT "-.mount"

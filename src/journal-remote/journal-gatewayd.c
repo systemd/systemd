@@ -434,7 +434,7 @@ static int request_parse_arguments_iterator(
                 return MHD_YES;
         }
 
-        p = strjoin(key, "=", strempty(value), NULL);
+        p = strjoin(key, "=", strempty(value));
         if (!p) {
                 m->argument_parse_error = log_oom();
                 return MHD_NO;
@@ -905,7 +905,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "key",       required_argument, NULL, ARG_KEY       },
                 { "cert",      required_argument, NULL, ARG_CERT      },
                 { "trust",     required_argument, NULL, ARG_TRUST     },
-                { "directory", required_argument, NULL, 'D' },
+                { "directory", required_argument, NULL, 'D'           },
                 {}
         };
 

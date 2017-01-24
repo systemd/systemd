@@ -83,7 +83,7 @@ char *path_make_absolute(const char *p, const char *prefix) {
         if (path_is_absolute(p) || !prefix)
                 return strdup(p);
 
-        return strjoin(prefix, "/", p, NULL);
+        return strjoin(prefix, "/", p);
 }
 
 int path_make_absolute_cwd(const char *p, char **ret) {
@@ -104,7 +104,7 @@ int path_make_absolute_cwd(const char *p, char **ret) {
                 if (!cwd)
                         return negative_errno();
 
-                c = strjoin(cwd, "/", p, NULL);
+                c = strjoin(cwd, "/", p);
         }
         if (!c)
                 return -ENOMEM;
@@ -220,10 +220,11 @@ int path_strv_make_absolute_cwd(char **l) {
         return 0;
 }
 
-char **path_strv_resolve(char **l, const char *prefix) {
+char **path_strv_resolve(char **l, const char *root) {
         char **s;
         unsigned k = 0;
         bool enomem = false;
+        int r;
 
         if (strv_isempty(l))
                 return l;
@@ -233,17 +234,17 @@ char **path_strv_resolve(char **l, const char *prefix) {
          * changes on failure. */
 
         STRV_FOREACH(s, l) {
-                char *t, *u;
                 _cleanup_free_ char *orig = NULL;
+                char *t, *u;
 
                 if (!path_is_absolute(*s)) {
                         free(*s);
                         continue;
                 }
 
-                if (prefix) {
+                if (root) {
                         orig = *s;
-                        t = strappend(prefix, orig);
+                        t = prefix_root(root, orig);
                         if (!t) {
                                 enomem = true;
                                 continue;
@@ -251,28 +252,26 @@ char **path_strv_resolve(char **l, const char *prefix) {
                 } else
                         t = *s;
 
-                errno = 0;
-                u = canonicalize_file_name(t);
-                if (!u) {
-                        if (errno == ENOENT) {
-                                if (prefix) {
-                                        u = orig;
-                                        orig = NULL;
-                                        free(t);
-                                } else
-                                        u = t;
-                        } else {
+                r = chase_symlinks(t, root, 0, &u);
+                if (r == -ENOENT) {
+                        if (root) {
+                                u = orig;
+                                orig = NULL;
                                 free(t);
-                                if (errno == ENOMEM || errno == 0)
-                                        enomem = true;
+                        } else
+                                u = t;
+                } else if (r < 0) {
+                        free(t);
 
-                                continue;
-                        }
-                } else if (prefix) {
+                        if (r == -ENOMEM)
+                                enomem = true;
+
+                        continue;
+                } else if (root) {
                         char *x;
 
                         free(t);
-                        x = path_startswith(u, prefix);
+                        x = path_startswith(u, root);
                         if (x) {
                                 /* restore the slash if it was lost */
                                 if (!startswith(x, "/"))
@@ -304,12 +303,12 @@ char **path_strv_resolve(char **l, const char *prefix) {
         return l;
 }
 
-char **path_strv_resolve_uniq(char **l, const char *prefix) {
+char **path_strv_resolve_uniq(char **l, const char *root) {
 
         if (strv_isempty(l))
                 return l;
 
-        if (!path_strv_resolve(l, prefix))
+        if (!path_strv_resolve(l, root))
                 return NULL;
 
         return strv_uniq(l);
@@ -353,6 +352,16 @@ char *path_kill_slashes(char *path) {
 char* path_startswith(const char *path, const char *prefix) {
         assert(path);
         assert(prefix);
+
+        /* Returns a pointer to the start of the first component after the parts matched by
+         * the prefix, iff
+         * - both paths are absolute or both paths are relative,
+         * and
+         * - each component in prefix in turn matches a component in path at the same position.
+         * An empty string will be returned when the prefix and path are equivalent.
+         *
+         * Returns NULL otherwise.
+         */
 
         if ((path[0] == '/') != (prefix[0] == '/'))
                 return NULL;
@@ -444,13 +453,11 @@ char* path_join(const char *root, const char *path, const char *rest) {
                 return strjoin(root, endswith(root, "/") ? "" : "/",
                                path[0] == '/' ? path+1 : path,
                                rest ? (endswith(path, "/") ? "" : "/") : NULL,
-                               rest && rest[0] == '/' ? rest+1 : rest,
-                               NULL);
+                               rest && rest[0] == '/' ? rest+1 : rest);
         else
                 return strjoin(path,
                                rest ? (endswith(path, "/") ? "" : "/") : NULL,
-                               rest && rest[0] == '/' ? rest+1 : rest,
-                               NULL);
+                               rest && rest[0] == '/' ? rest+1 : rest);
 }
 
 int find_binary(const char *name, char **ret) {
@@ -494,7 +501,7 @@ int find_binary(const char *name, char **ret) {
                 if (!path_is_absolute(element))
                         continue;
 
-                j = strjoin(element, "/", name, NULL);
+                j = strjoin(element, "/", name);
                 if (!j)
                         return -ENOMEM;
 

@@ -104,8 +104,9 @@ struct Manager {
         /* Units to remove */
         LIST_HEAD(Unit, cleanup_queue);
 
-        /* Units to check when doing GC */
-        LIST_HEAD(Unit, gc_queue);
+        /* Units and jobs to check when doing GC */
+        LIST_HEAD(Unit, gc_unit_queue);
+        LIST_HEAD(Job, gc_job_queue);
 
         /* Units that should be realized */
         LIST_HEAD(Unit, cgroup_queue);
@@ -229,7 +230,6 @@ struct Manager {
         int pin_cgroupfs_fd;
 
         int gc_marker;
-        unsigned n_in_gc_queue;
 
         /* Flags */
         ManagerExitCode exit_code:5;
@@ -246,7 +246,7 @@ struct Manager {
         uint8_t return_value;
 
         ShowStatus show_status;
-        bool confirm_spawn;
+        char *confirm_spawn;
         bool no_console_output;
 
         ExecOutput default_std_output, default_std_error;
@@ -403,3 +403,7 @@ void manager_deserialize_gid_refs_one(Manager *m, const char *value);
 
 const char *manager_state_to_string(ManagerState m) _const_;
 ManagerState manager_state_from_string(const char *s) _pure_;
+
+const char *manager_get_confirm_spawn(Manager *m);
+bool manager_is_confirm_spawn_disabled(Manager *m);
+void manager_disable_confirm_spawn(void);

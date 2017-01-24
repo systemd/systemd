@@ -28,7 +28,8 @@
 #include "util.h"
 
 typedef struct CalendarComponent {
-        int value;
+        int start;
+        int stop;
         int repeat;
 
         struct CalendarComponent *next;
@@ -36,6 +37,7 @@ typedef struct CalendarComponent {
 
 typedef struct CalendarSpec {
         int weekdays_bits;
+        bool end_of_month;
         bool utc;
         int dst;
 

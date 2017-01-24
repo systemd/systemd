@@ -42,7 +42,7 @@
 #include "capability-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "memfd-util.h"
 #include "parse-util.h"
 #include "stdio-util.h"
@@ -848,8 +848,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
         if (k->src_id == KDBUS_SRC_ID_KERNEL)
                 bus_message_set_sender_driver(bus, m);
         else {
-                xsprintf(m->sender_buffer, ":1.%llu",
-                         (unsigned long long)k->src_id);
+                xsprintf(m->sender_buffer, ":1.%llu", k->src_id);
                 m->sender = m->creds.unique_name = m->sender_buffer;
         }
 
@@ -860,8 +859,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
         else if (k->dst_id == KDBUS_DST_ID_NAME)
                 m->destination = bus->unique_name; /* fill in unique name if the well-known name is missing */
         else {
-                xsprintf(m->destination_buffer, ":1.%llu",
-                         (unsigned long long)k->dst_id);
+                xsprintf(m->destination_buffer, ":1.%llu", k->dst_id);
                 m->destination = m->destination_buffer;
         }
 
@@ -1035,7 +1033,7 @@ int bus_kernel_take_fd(sd_bus *b) {
         b->bloom_size = (size_t) bloom->size;
         b->bloom_n_hash = (unsigned) bloom->n_hash;
 
-        if (asprintf(&b->unique_name, ":1.%llu", (unsigned long long) hello->id) < 0) {
+        if (asprintf(&b->unique_name, ":1.%llu", hello->id) < 0) {
                 r = -ENOMEM;
                 goto fail;
         }
@@ -1207,7 +1205,7 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m, bool hint_sync_call
                                         return r;
                         }
                 } else {
-                        log_debug("Ignoring message with unknown payload type %llu.", (unsigned long long) k->payload_type);
+                        log_debug("Ignoring message with unknown payload type %llu.", k->payload_type);
                         close_kdbus_msg(bus, k);
                 }
         }
@@ -1268,7 +1266,7 @@ static int translate_name_change(
         if (d->type == KDBUS_ITEM_NAME_ADD || (d->name_change.old_id.flags & (KDBUS_NAME_IN_QUEUE|KDBUS_NAME_ACTIVATOR)))
                 old_owner[0] = 0;
         else
-                sprintf(old_owner, ":1.%llu", (unsigned long long) d->name_change.old_id.id);
+                sprintf(old_owner, ":1.%llu", d->name_change.old_id.id);
 
         if (d->type == KDBUS_ITEM_NAME_REMOVE || (d->name_change.new_id.flags & (KDBUS_NAME_IN_QUEUE|KDBUS_NAME_ACTIVATOR))) {
 
@@ -1277,7 +1275,7 @@ static int translate_name_change(
 
                 new_owner[0] = 0;
         } else
-                sprintf(new_owner, ":1.%llu", (unsigned long long) d->name_change.new_id.id);
+                sprintf(new_owner, ":1.%llu", d->name_change.new_id.id);
 
         return push_name_owner_changed(bus, d->name_change.name, old_owner, new_owner, ts);
 }
@@ -1419,7 +1417,7 @@ int bus_kernel_read_message(sd_bus *bus, bool hint_priority, int64_t priority) {
                 r = bus_kernel_translate_message(bus, k);
                 close_kdbus_msg(bus, k);
         } else {
-                log_debug("Ignoring message with unknown payload type %llu.", (unsigned long long) k->payload_type);
+                log_debug("Ignoring message with unknown payload type %llu.", k->payload_type);
                 r = 0;
                 close_kdbus_msg(bus, k);
         }
@@ -1649,7 +1647,7 @@ int bus_kernel_create_bus(const char *name, bool world, char **s) {
         if (s) {
                 char *p;
 
-                p = strjoin("/sys/fs/kdbus/", n->str, "/bus", NULL);
+                p = strjoin("/sys/fs/kdbus/", n->str, "/bus");
                 if (!p) {
                         safe_close(fd);
                         return -ENOMEM;

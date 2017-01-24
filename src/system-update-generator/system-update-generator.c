@@ -22,12 +22,12 @@
 
 #include "fs-util.h"
 #include "log.h"
+#include "special.h"
 #include "string-util.h"
 #include "util.h"
 
 /*
- * Implements the logic described in
- * http://freedesktop.org/wiki/Software/systemd/SystemUpdates
+ * Implements the logic described in systemd.offline-updates(7).
  */
 
 static const char *arg_dest = "/tmp";
@@ -43,7 +43,7 @@ static int generate_symlink(void) {
                 return -EINVAL;
         }
 
-        p = strjoina(arg_dest, "/default.target");
+        p = strjoina(arg_dest, "/" SPECIAL_DEFAULT_TARGET);
         if (symlink(SYSTEM_DATA_UNIT_PATH "/system-update.target", p) < 0)
                 return log_error_errno(errno, "Failed to create symlink %s: %m", p);
 

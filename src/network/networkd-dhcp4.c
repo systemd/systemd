@@ -24,7 +24,9 @@
 #include "dhcp-lease-internal.h"
 #include "hostname-util.h"
 #include "network-internal.h"
-#include "networkd.h"
+#include "networkd-link.h"
+#include "networkd-manager.h"
+#include "networkd-network.h"
 
 static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m,
                                void *userdata) {
@@ -253,7 +255,7 @@ static int dhcp_lease_lost(Link *link) {
 
                 if (hostname) {
                         /* If a hostname was set due to the lease, then unset it now. */
-                        r = link_set_hostname(link, NULL);
+                        r = manager_set_hostname(link->manager, NULL);
                         if (r < 0)
                                 log_link_warning_errno(link, r, "Failed to reset transient hostname: %m");
                 }
@@ -437,7 +439,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                         (void) sd_dhcp_lease_get_hostname(lease, &hostname);
 
                 if (hostname) {
-                        r = link_set_hostname(link, hostname);
+                        r = manager_set_hostname(link->manager, hostname);
                         if (r < 0)
                                 log_link_error_errno(link, r, "Failed to set transient hostname to '%s': %m", hostname);
                 }
@@ -449,7 +451,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                 (void) sd_dhcp_lease_get_timezone(link->dhcp_lease, &tz);
 
                 if (tz) {
-                        r = link_set_timezone(link, tz);
+                        r = manager_set_timezone(link->manager, tz);
                         if (r < 0)
                                 log_link_error_errno(link, r, "Failed to set timezone to '%s': %m", tz);
                 }
@@ -534,6 +536,28 @@ static void dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
         return;
 }
 
+static int dhcp4_set_hostname(Link *link) {
+        _cleanup_free_ char *hostname = NULL;
+        const char *hn;
+        int r;
+
+        assert(link);
+
+        if (!link->network->dhcp_send_hostname)
+                hn = NULL;
+        else if (link->network->dhcp_hostname)
+                hn = link->network->dhcp_hostname;
+        else {
+                r = gethostname_strict(&hostname);
+                if (r < 0 && r != -ENXIO) /* ENXIO: no hostname set or hostname is "localhost" */
+                        return r;
+
+                hn = hostname;
+        }
+
+        return sd_dhcp_client_set_hostname(link->dhcp_client, hn);
+}
+
 int dhcp4_configure(Link *link) {
         int r;
 
@@ -603,29 +627,19 @@ int dhcp4_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        if (link->network->dhcp_send_hostname) {
-                _cleanup_free_ char *hostname = NULL;
-                const char *hn = NULL;
-
-                if (!link->network->dhcp_hostname) {
-                        hostname = gethostname_malloc();
-                        if (!hostname)
-                                return -ENOMEM;
-
-                        hn = hostname;
-                } else
-                        hn = link->network->dhcp_hostname;
-
-                if (!is_localhost(hn)) {
-                        r = sd_dhcp_client_set_hostname(link->dhcp_client, hn);
-                        if (r < 0)
-                                return r;
-                }
-        }
+        r = dhcp4_set_hostname(link);
+        if (r < 0)
+                return r;
 
         if (link->network->dhcp_vendor_class_identifier) {
                 r = sd_dhcp_client_set_vendor_class_identifier(link->dhcp_client,
                                                                link->network->dhcp_vendor_class_identifier);
+                if (r < 0)
+                        return r;
+        }
+
+        if (link->network->dhcp_client_port) {
+                r = sd_dhcp_client_set_client_port(link->dhcp_client, link->network->dhcp_client_port);
                 if (r < 0)
                         return r;
         }

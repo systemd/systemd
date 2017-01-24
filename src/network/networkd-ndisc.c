@@ -18,11 +18,12 @@
 ***/
 
 #include <netinet/icmp6.h>
+#include <arpa/inet.h>
 
 #include "sd-ndisc.h"
 
-#include "networkd.h"
 #include "networkd-ndisc.h"
+#include "networkd-route.h"
 
 #define NDISC_DNSSL_MAX 64U
 #define NDISC_RDNSS_MAX 64U
@@ -55,6 +56,7 @@ static void ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         struct in6_addr gateway;
         uint16_t lifetime;
         unsigned preference;
+        uint32_t mtu;
         usec_t time_now;
         int r;
         Address *address;
@@ -115,6 +117,14 @@ static void ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 return;
         }
 
+        r = sd_ndisc_router_get_mtu(rt, &mtu);
+        if (r == -ENODATA)
+                mtu = 0;
+        else if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to get default router MTU from RA: %m");
+                return;
+        }
+
         r = route_new(&route);
         if (r < 0) {
                 log_link_error_errno(link, r, "Could not allocate route: %m");
@@ -123,10 +133,12 @@ static void ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 
         route->family = AF_INET6;
         route->table = link->network->ipv6_accept_ra_route_table;
+        route->priority = link->network->dhcp_route_metric;
         route->protocol = RTPROT_RA;
         route->pref = preference;
         route->gw.in6 = gateway;
         route->lifetime = time_now + lifetime * USEC_PER_SEC;
+        route->mtu = mtu;
 
         r = route_configure(route, link, ndisc_netlink_handler);
         if (r < 0) {
@@ -243,6 +255,7 @@ static void ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) 
 
         route->family = AF_INET6;
         route->table = link->network->ipv6_accept_ra_route_table;
+        route->priority = link->network->dhcp_route_metric;
         route->protocol = RTPROT_RA;
         route->flags = RTM_F_PREFIX;
         route->dst_prefixlen = prefixlen;
@@ -574,11 +587,13 @@ static void ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
                         break;
 
                 case SD_NDISC_OPTION_RDNSS:
-                        ndisc_router_process_rdnss(link, rt);
+                        if (link->network->ipv6_accept_ra_use_dns)
+                                ndisc_router_process_rdnss(link, rt);
                         break;
 
                 case SD_NDISC_OPTION_DNSSL:
-                        ndisc_router_process_dnssl(link, rt);
+                        if (link->network->ipv6_accept_ra_use_dns)
+                                ndisc_router_process_dnssl(link, rt);
                         break;
                 }
 
@@ -680,13 +695,22 @@ void ndisc_vacuum(Link *link) {
 
         SET_FOREACH(r, link->ndisc_rdnss, i)
                 if (r->valid_until < time_now) {
-                        (void) set_remove(link->ndisc_rdnss, r);
+                        free(set_remove(link->ndisc_rdnss, r));
                         link_dirty(link);
                 }
 
         SET_FOREACH(d, link->ndisc_dnssl, i)
                 if (d->valid_until < time_now) {
-                        (void) set_remove(link->ndisc_dnssl, d);
+                        free(set_remove(link->ndisc_dnssl, d));
                         link_dirty(link);
                 }
+}
+
+void ndisc_flush(Link *link) {
+        assert(link);
+
+        /* Removes all RDNSS and DNSSL entries, without exception */
+
+        link->ndisc_rdnss = set_free_free(link->ndisc_rdnss);
+        link->ndisc_dnssl = set_free_free(link->ndisc_dnssl);
 }

@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        f = setmntent("/etc/fstab", "r");
+        f = setmntent("/etc/fstab", "re");
         if (!f) {
                 if (errno == ENOENT) {
                         r = 0;

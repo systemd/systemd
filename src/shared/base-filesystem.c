@@ -82,7 +82,7 @@ int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
                                 if (table[i].exists) {
                                         _cleanup_free_ char *p = NULL;
 
-                                        p = strjoin(s, "/", table[i].exists, NULL);
+                                        p = strjoin(s, "/", table[i].exists);
                                         if (!p)
                                                 return log_oom();
 
@@ -101,7 +101,7 @@ int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
                         if (r < 0 && errno != EEXIST)
                                 return log_error_errno(errno, "Failed to create symlink at %s/%s: %m", root, table[i].dir);
 
-                        if (uid != UID_INVALID || gid != UID_INVALID) {
+                        if (uid_is_valid(uid) || gid_is_valid(gid)) {
                                 if (fchownat(fd, table[i].dir, uid, gid, AT_SYMLINK_NOFOLLOW) < 0)
                                         return log_error_errno(errno, "Failed to chown symlink at %s/%s: %m", root, table[i].dir);
                         }

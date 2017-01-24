@@ -27,7 +27,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "logind-acl.h"
 #include "logind-seat.h"
 #include "mkdir.h"

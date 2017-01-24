@@ -190,7 +190,7 @@
     message ID 03bb1dab98ab4ecfbf6fff2738bdd964 coming from any
     service (this example lacks the necessary error checking):</para>
 
-    <programlisting>...
+    <programlisting>…
 int add_matches(sd_journal *j) {
   sd_journal_add_match(j, "_SYSTEMD_UNIT=avahi-daemon.service", 0);
   sd_journal_add_match(j, "PRIORITY=0", 0);

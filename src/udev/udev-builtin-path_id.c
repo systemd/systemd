@@ -20,7 +20,6 @@
  */
 
 #include <ctype.h>
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
@@ -31,6 +30,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "dirent-util.h"
 #include "string-util.h"
 #include "udev.h"
 
@@ -405,7 +405,7 @@ static struct udev_device *handle_scsi_default(struct udev_device *parent, char 
                 parent = NULL;
                 goto out;
         }
-        for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
+        FOREACH_DIRENT_ALL(dent, dir, break) {
                 char *rest;
                 int i;
 

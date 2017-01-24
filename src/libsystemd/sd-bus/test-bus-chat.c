@@ -30,7 +30,7 @@
 #include "bus-match.h"
 #include "bus-util.h"
 #include "fd-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "log.h"
 #include "macro.h"
 #include "util.h"

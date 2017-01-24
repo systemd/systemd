@@ -97,8 +97,10 @@ _public_ struct udev *udev_new(void) {
         _cleanup_fclose_ FILE *f = NULL;
 
         udev = new0(struct udev, 1);
-        if (udev == NULL)
+        if (!udev) {
+                errno = -ENOMEM;
                 return NULL;
+        }
         udev->refcount = 1;
 
         f = fopen("/etc/udev/udev.conf", "re");
@@ -156,7 +158,7 @@ _public_ struct udev *udev_new(void) {
 
                         /* unquote */
                         if (val[0] == '"' || val[0] == '\'') {
-                                if (val[len-1] != val[0]) {
+                                if (len == 1 || val[len-1] != val[0]) {
                                         log_debug("/etc/udev/udev.conf:%u: inconsistent quoting, skipping line.", line_nr);
                                         continue;
                                 }

@@ -33,14 +33,6 @@
 #include "user-util.h"
 #include "util.h"
 
-#ifndef NOBODY_USER_NAME
-#define NOBODY_USER_NAME "nobody"
-#endif
-
-#ifndef NOBODY_GROUP_NAME
-#define NOBODY_GROUP_NAME "nobody"
-#endif
-
 static const struct passwd root_passwd = {
         .pw_name = (char*) "root",
         .pw_passwd = (char*) "x", /* see shadow file */
@@ -131,10 +123,10 @@ enum nss_status _nss_systemd_getpwnam_r(
         assert(name);
         assert(pwd);
 
-        if (!valid_user_group_name(name)) {
-                r = -EINVAL;
-                goto fail;
-        }
+        /* If the username is not valid, then we don't know it. Ideally libc would filter these for us anyway. We don't
+         * generate EINVAL here, because it isn't really out business to complain about invalid user names. */
+        if (!valid_user_group_name(name))
+                goto not_found;
 
         /* Synthesize entries for the root and nobody users, in case they are missing in /etc/passwd */
         if (streq(name, root_passwd.pw_name)) {
@@ -235,10 +227,8 @@ enum nss_status _nss_systemd_getpwuid_r(
 
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
-        if (!uid_is_valid(uid)) {
-                r = -EINVAL;
-                goto fail;
-        }
+        if (!uid_is_valid(uid))
+                goto not_found;
 
         /* Synthesize data for the root user and for nobody in case they are missing from /etc/passwd */
         if (uid == root_passwd.pw_uid) {
@@ -337,10 +327,8 @@ enum nss_status _nss_systemd_getgrnam_r(
         assert(name);
         assert(gr);
 
-        if (!valid_user_group_name(name)) {
-                r = -EINVAL;
-                goto fail;
-        }
+        if (!valid_user_group_name(name))
+                goto not_found;
 
         /* Synthesize records for root and nobody, in case they are missing form /etc/group */
         if (streq(name, root_group.gr_name)) {
@@ -438,10 +426,8 @@ enum nss_status _nss_systemd_getgrgid_r(
 
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
-        if (!gid_is_valid(gid)) {
-                r = -EINVAL;
-                goto fail;
-        }
+        if (!gid_is_valid(gid))
+                goto not_found;
 
         /* Synthesize records for root and nobody, in case they are missing from /etc/group */
         if (gid == root_group.gr_gid) {

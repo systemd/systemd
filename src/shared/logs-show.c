@@ -33,7 +33,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
 #include "io-util.h"
@@ -223,10 +223,7 @@ static int output_timestamp_monotonic(FILE *f, sd_journal *j, const char *monoto
         if (r < 0)
                 return log_error_errno(r, "Failed to get monotonic timestamp: %m");
 
-        fprintf(f, "[%5llu.%06llu]",
-                (unsigned long long) (t / USEC_PER_SEC),
-                (unsigned long long) (t % USEC_PER_SEC));
-
+        fprintf(f, "[%5"PRI_USEC".%06"PRI_USEC"]", t / USEC_PER_SEC, t % USEC_PER_SEC);
         return 1 + 5 + 1 + 6 + 1;
 }
 
@@ -268,7 +265,7 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
                 switch (mode) {
 
                 case OUTPUT_SHORT_UNIX:
-                        xsprintf(buf, "%10llu.%06llu", (unsigned long long) t, (unsigned long long) (x % USEC_PER_SEC));
+                        xsprintf(buf, "%10"PRI_TIME".%06"PRIu64, t, x % USEC_PER_SEC);
                         break;
 
                 case OUTPUT_SHORT_ISO:
@@ -292,7 +289,7 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
                                 assert(sizeof(buf) > strlen(buf));
                                 k = sizeof(buf) - strlen(buf);
 
-                                r = snprintf(buf + strlen(buf), k, ".%06llu", (unsigned long long) (x % USEC_PER_SEC));
+                                r = snprintf(buf + strlen(buf), k, ".%06"PRIu64, x % USEC_PER_SEC);
                                 if (r <= 0 || (size_t) r >= k) { /* too long? */
                                         log_error("Failed to format precise time");
                                         return -EINVAL;
@@ -418,7 +415,7 @@ static int output_short(
 
         if (flags & OUTPUT_NO_HOSTNAME) {
                 /* Suppress display of the hostname if this is requested. */
-                hostname = NULL;
+                hostname = mfree(hostname);
                 hostname_len = 0;
         }
 

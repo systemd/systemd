@@ -29,6 +29,7 @@
 #include "string-table.h"
 #include "strxcpyx.h"
 #include "util.h"
+#include "missing.h"
 
 static const char* const duplex_table[_DUP_MAX] = {
         [DUP_FULL] = "full",
@@ -322,4 +323,212 @@ int ethtool_set_features(int *fd, const char *ifname, NetDevFeature *features) {
                 return log_warning_errno(r, "link_config: could not set ethtool features for %s", ifname);
 
         return 0;
+}
+
+static int get_glinksettings(int *fd, struct ifreq *ifr, struct ethtool_link_usettings **g) {
+        struct ecmd {
+                struct ethtool_link_settings req;
+                __u32 link_mode_data[3 * ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32];
+        } ecmd = {
+                .req.cmd = ETHTOOL_GLINKSETTINGS,
+        };
+        struct ethtool_link_usettings *u;
+        unsigned offset;
+        int r;
+
+        /* The interaction user/kernel via the new API requires a small ETHTOOL_GLINKSETTINGS
+           handshake first to agree on the length of the link mode bitmaps. If kernel doesn't
+           agree with user, it returns the bitmap length it is expecting from user as a negative
+           length (and cmd field is 0). When kernel and user agree, kernel returns valid info in
+           all fields (ie. link mode length > 0 and cmd is ETHTOOL_GLINKSETTINGS). Based on
+           https://github.com/torvalds/linux/commit/3f1ac7a700d039c61d8d8b99f28d605d489a60cf
+        */
+
+        ifr->ifr_data = (void *) &ecmd;
+
+        r = ioctl(*fd, SIOCETHTOOL, ifr);
+        if (r < 0)
+                return -errno;
+
+        if (ecmd.req.link_mode_masks_nwords >= 0 || ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
+                return -ENOTSUP;
+
+        ecmd.req.link_mode_masks_nwords = -ecmd.req.link_mode_masks_nwords;
+
+        ifr->ifr_data = (void *) &ecmd;
+
+        r = ioctl(*fd, SIOCETHTOOL, ifr);
+        if (r < 0)
+                return -errno;
+
+        if (ecmd.req.link_mode_masks_nwords <= 0 || ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
+                return -ENOTSUP;
+
+        u = new0(struct ethtool_link_usettings , 1);
+        if (!u)
+                return -ENOMEM;
+
+        memcpy(&u->base, &ecmd.req, sizeof(struct ethtool_link_settings));
+
+        offset = 0;
+        memcpy(u->link_modes.supported, &ecmd.link_mode_data[offset], 4 * ecmd.req.link_mode_masks_nwords);
+
+        offset += ecmd.req.link_mode_masks_nwords;
+        memcpy(u->link_modes.advertising, &ecmd.link_mode_data[offset], 4 * ecmd.req.link_mode_masks_nwords);
+
+        offset += ecmd.req.link_mode_masks_nwords;
+        memcpy(u->link_modes.lp_advertising, &ecmd.link_mode_data[offset], 4 * ecmd.req.link_mode_masks_nwords);
+
+        *g = u;
+
+        return 0;
+}
+
+static int get_gset(int *fd, struct ifreq *ifr, struct ethtool_link_usettings **u) {
+        struct ethtool_link_usettings *e;
+        struct ethtool_cmd ecmd = {
+                .cmd = ETHTOOL_GSET,
+        };
+        int r;
+
+        ifr->ifr_data = (void *) &ecmd;
+
+        r = ioctl(*fd, SIOCETHTOOL, ifr);
+        if (r < 0)
+                return -errno;
+
+        e = new0(struct ethtool_link_usettings, 1);
+        if (!e)
+                return -ENOMEM;
+
+        e->base.cmd = ETHTOOL_GSET;
+
+        e->base.link_mode_masks_nwords = 1;
+        e->base.speed = ethtool_cmd_speed(&ecmd);
+        e->base.duplex = ecmd.duplex;
+        e->base.port = ecmd.port;
+        e->base.phy_address = ecmd.phy_address;
+        e->base.autoneg = ecmd.autoneg;
+        e->base.mdio_support = ecmd.mdio_support;
+
+        e->link_modes.supported[0] = ecmd.supported;
+        e->link_modes.advertising[0] = ecmd.advertising;
+        e->link_modes.lp_advertising[0] = ecmd.lp_advertising;
+
+        *u = e;
+
+        return 0;
+}
+
+static int set_slinksettings(int *fd, struct ifreq *ifr, const struct ethtool_link_usettings *u) {
+        struct {
+                struct ethtool_link_settings req;
+                __u32 link_mode_data[3 * ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32];
+        } ecmd = {
+                .req.cmd = ETHTOOL_SLINKSETTINGS,
+        };
+        unsigned int offset;
+        int r;
+
+        if (u->base.cmd != ETHTOOL_GLINKSETTINGS || u->base.link_mode_masks_nwords <= 0)
+                return -EINVAL;
+
+        offset = 0;
+        memcpy(&ecmd.link_mode_data[offset], u->link_modes.supported, 4 * ecmd.req.link_mode_masks_nwords);
+
+        offset += ecmd.req.link_mode_masks_nwords;
+        memcpy(&ecmd.link_mode_data[offset], u->link_modes.advertising, 4 * ecmd.req.link_mode_masks_nwords);
+
+        offset += ecmd.req.link_mode_masks_nwords;
+        memcpy(&ecmd.link_mode_data[offset], u->link_modes.lp_advertising, 4 * ecmd.req.link_mode_masks_nwords);
+
+        ifr->ifr_data = (void *) &ecmd;
+
+        r = ioctl(*fd, SIOCETHTOOL, ifr);
+        if (r < 0)
+                return -errno;
+
+        return 0;
+}
+
+static int set_sset(int *fd, struct ifreq *ifr, const struct ethtool_link_usettings *u) {
+        struct ethtool_cmd ecmd = {
+                .cmd = ETHTOOL_SSET,
+        };
+        int r;
+
+        if (u->base.cmd != ETHTOOL_GSET || u->base.link_mode_masks_nwords <= 0)
+                return -EINVAL;
+
+        ecmd.supported = u->link_modes.supported[0];
+        ecmd.advertising = u->link_modes.advertising[0];
+        ecmd.lp_advertising = u->link_modes.lp_advertising[0];
+
+        ethtool_cmd_speed_set(&ecmd, u->base.speed);
+
+        ecmd.duplex = u->base.duplex;
+        ecmd.port = u->base.port;
+        ecmd.phy_address = u->base.phy_address;
+        ecmd.autoneg = u->base.autoneg;
+        ecmd.mdio_support = u->base.mdio_support;
+
+        ifr->ifr_data = (void *) &ecmd;
+
+        r = ioctl(*fd, SIOCETHTOOL, ifr);
+        if (r < 0)
+                return -errno;
+
+        return 0;
+}
+
+/* If autonegotiation is disabled, the speed and duplex represent the fixed link
+ * mode and are writable if the driver supports multiple link modes. If it is
+ * enabled then they are read-only. If the link  is up they represent the negotiated
+ * link mode; if the link is down, the speed is 0, %SPEED_UNKNOWN or the highest
+ * enabled speed and @duplex is %DUPLEX_UNKNOWN or the best enabled duplex mode.
+ */
+
+int ethtool_set_glinksettings(int *fd, const char *ifname, unsigned int speed, Duplex duplex, int autonegotiation) {
+        _cleanup_free_ struct ethtool_link_usettings *u = NULL;
+        struct ifreq ifr = {};
+        int r;
+
+        if (autonegotiation != 0) {
+                log_info("link_config: autonegotiation is unset or enabled, the speed and duplex are not writable.");
+                return 0;
+        }
+
+        if (*fd < 0) {
+                r = ethtool_connect(fd);
+                if (r < 0)
+                        return log_warning_errno(r, "link_config: could not connect to ethtool: %m");
+        }
+
+        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+
+        r = get_glinksettings(fd, &ifr, &u);
+        if (r < 0) {
+
+                r = get_gset(fd, &ifr, &u);
+                if (r < 0)
+                        return log_warning_errno(r, "link_config: Cannot get device settings for %s : %m", ifname);
+        }
+
+        if (speed)
+                u->base.speed = speed;
+
+        if (duplex != _DUP_INVALID)
+                u->base.duplex = duplex;
+
+        u->base.autoneg = autonegotiation;
+
+        if (u->base.cmd == ETHTOOL_GLINKSETTINGS)
+                r = set_slinksettings(fd, &ifr, u);
+        else
+                r = set_sset(fd, &ifr, u);
+
+        if (r < 0)
+                return log_warning_errno(r, "link_config: Cannot set device settings for %s : %m", ifname);
+
+        return r;
 }

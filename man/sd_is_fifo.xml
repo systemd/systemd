@@ -48,6 +48,7 @@
     <refname>sd_is_socket</refname>
     <refname>sd_is_socket_inet</refname>
     <refname>sd_is_socket_unix</refname>
+    <refname>sd_is_socket_sockaddr</refname>
     <refname>sd_is_mq</refname>
     <refname>sd_is_special</refname>
     <refpurpose>Check the type of a file descriptor</refpurpose>
@@ -78,6 +79,15 @@
         <paramdef>int <parameter>type</parameter></paramdef>
         <paramdef>int <parameter>listening</parameter></paramdef>
         <paramdef>uint16_t <parameter>port</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_is_socket_sockaddr</function></funcdef>
+        <paramdef>int <parameter>fd</parameter></paramdef>
+        <paramdef>int <parameter>type</parameter></paramdef>
+        <paramdef>const struct sockaddr *<parameter>addr</parameter></paramdef>
+        <paramdef>unsigned <parameter>addr_len</parameter></paramdef>
+        <paramdef>int <parameter>listening</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -118,10 +128,10 @@
     <parameter>family</parameter> parameter is not
     <constant>AF_UNSPEC</constant>, it is checked whether the socket
     is of the specified family (<constant>AF_UNIX</constant>,
-    <constant>AF_INET</constant>, ...). If the <parameter>type</parameter>
+    <constant>AF_INET</constant>, …). If the <parameter>type</parameter>
     parameter is not 0, it is checked whether the socket is of the
     specified type (<constant>SOCK_STREAM</constant>,
-    <constant>SOCK_DGRAM</constant>, ...). If the
+    <constant>SOCK_DGRAM</constant>, …). If the
     <parameter>listening</parameter> parameter is positive, it is
     checked whether the socket is in accepting mode, i.e.
     <function>listen()</function> has been called for it. If
@@ -138,6 +148,18 @@
     <parameter>family</parameter> must be passed as either
     <constant>AF_UNSPEC</constant>, <constant>AF_INET</constant>, or
     <constant>AF_INET6</constant>.</para>
+
+    <para><function>sd_is_socket_sockaddr()</function> is similar to
+    <function>sd_is_socket_inet()</function>, but checks if the socket is bound to the
+    address specified by <parameter>addr</parameter>. The
+    <structfield>family</structfield> specified by <parameter>addr</parameter> must be
+    either <constant>AF_INET</constant> or <constant>AF_INET6</constant> and
+    <parameter>addr_len</parameter> must be large enough for that family. If
+    <parameter>addr</parameter> specifies a non-zero port, it is also checked if the
+    socket is bound to this port. In addition, for IPv6, if <parameter>addr</parameter>
+    specifies non-zero <structfield>sin6_flowinfo</structfield> or
+    <structfield>sin6_scope_id</structfield>, it is checked if the socket has the same
+    values.</para>
 
     <para><function>sd_is_socket_unix()</function> is similar to
     <function>sd_is_socket()</function> but optionally checks the
@@ -193,7 +215,13 @@
       <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>ip</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>ipv6</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>unix</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>fifo</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>mq_overview</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
     </para>
   </refsect1>
 

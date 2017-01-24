@@ -39,9 +39,12 @@ test_setup() {
         eval $(udevadm info --export --query=env --name=${LOOPDEV}p2)
 
         setup_basic_environment
-        dracut_install busybox chmod rmdir
+        dracut_install busybox chmod rmdir unshare
 
         cp create-busybox-container $initdir/
+
+        ./create-busybox-container $initdir/nc-container
+        initdir="$initdir/nc-container" dracut_install nc
 
         # setup the testsuite service
         cat >$initdir/etc/systemd/system/testsuite.service <<EOF
@@ -78,6 +81,26 @@ if [[ -f /proc/1/ns/cgroup ]]; then
     is_cgns_supported=yes
 fi
 
+is_user_ns_supported=no
+if unshare -U sh -c :; then
+    is_user_ns_supported=yes
+fi
+
+function check_bind_tmp_path {
+    # https://github.com/systemd/systemd/issues/4789
+    local _root="/var/lib/machines/bind-tmp-path"
+    /create-busybox-container "$_root"
+    >/tmp/bind
+    systemd-nspawn --register=no -D "$_root" --bind=/tmp/bind /bin/sh -c 'test -e /tmp/bind'
+}
+
+function check_notification_socket {
+    # https://github.com/systemd/systemd/issues/4944
+    local _cmd='echo a | $(busybox which nc) -U -u -w 1 /run/systemd/nspawn/notify'
+    systemd-nspawn --register=no -D /nc-container /bin/sh -x -c "$_cmd"
+    systemd-nspawn --register=no -D /nc-container -U /bin/sh -x -c "$_cmd"
+}
+
 function run {
     if [[ "$1" = "yes" && "$is_v2_supported" = "no" ]]; then
         printf "Unified cgroup hierarchy is not supported. Skipping.\n" >&2
@@ -88,20 +111,36 @@ function run {
         return 0
     fi
 
-    local _root="/var/lib/machines/unified-$1-cgns-$2"
+    local _root="/var/lib/machines/unified-$1-cgns-$2-api-vfs-writable-$3"
     /create-busybox-container "$_root"
-    UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" systemd-nspawn --register=no -D "$_root" -b
-    UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" systemd-nspawn --register=no -D "$_root" --private-network -b
-    UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" systemd-nspawn --register=no -D "$_root" -U -b
-    UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" systemd-nspawn --register=no -D "$_root" --private-network -U -b
+    UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" -b
+    UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" --private-network -b
+
+    if UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" -U -b; then
+       [[ "$is_user_ns_supported" = "yes" && "$3" = "network" ]] && return 1
+    else
+       [[ "$is_user_ns_supported" = "no" && "$3" = "network" ]] && return 1
+    fi
+
+    if UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" --private-network -U -b; then
+       [[ "$is_user_ns_supported" = "yes" && "$3" = "yes" ]] && return 1
+    else
+       [[ "$is_user_ns_supported" = "no" && "$3" = "yes" ]] && return 1
+    fi
 
     return 0
 }
 
-run no no
-run yes no
-run no yes
-run yes yes
+check_bind_tmp_path
+
+check_notification_socket
+
+for api_vfs_writable in yes no network; do
+    run no no $api_vfs_writable
+    run yes no $api_vfs_writable
+    run no yes $api_vfs_writable
+    run yes yes $api_vfs_writable
+done
 
 touch /testok
 EOF

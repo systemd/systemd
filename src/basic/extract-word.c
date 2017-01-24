@@ -48,7 +48,7 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
 
         /* Bail early if called after last value or with no input */
         if (!*p)
-                goto finish_force_terminate;
+                goto finish;
         c = **p;
 
         if (!separators)
@@ -227,8 +227,8 @@ int extract_first_word_and_warn(
                 *p = save;
                 r = extract_first_word(p, ret, separators, flags|EXTRACT_CUNESCAPE_RELAX);
                 if (r >= 0) {
-                        /* It worked this time, hence it must have been an invalid escape sequence we could correct. */
-                        log_syntax(unit, LOG_WARNING, filename, line, EINVAL, "Invalid escape sequences in line, correcting: \"%s\"", rvalue);
+                        /* It worked this time, hence it must have been an invalid escape sequence. */
+                        log_syntax(unit, LOG_WARNING, filename, line, EINVAL, "Ignoring unknown escape sequences: \"%s\"", *ret);
                         return r;
                 }
 

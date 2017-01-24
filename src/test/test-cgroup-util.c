@@ -21,7 +21,7 @@
 #include "cgroup-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "stat-util.h"

@@ -17,13 +17,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <dirent.h>
 #include <errno.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <sys/inotify.h>
 #include <unistd.h>
 
+#include "dirent-util.h"
 #include "stdio-util.h"
 #include "udev.h"
 
@@ -57,7 +57,7 @@ void udev_watch_restore(struct udev *udev) {
                         return;
                 }
 
-                for (ent = readdir(dir); ent != NULL; ent = readdir(dir)) {
+                FOREACH_DIRENT_ALL(ent, dir, break) {
                         char device[UTIL_PATH_SIZE];
                         ssize_t len;
                         struct udev_device *dev;
@@ -89,7 +89,7 @@ unlink:
 }
 
 void udev_watch_begin(struct udev *udev, struct udev_device *dev) {
-        char filename[UTIL_PATH_SIZE];
+        char filename[sizeof("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
         int wd;
         int r;
 
@@ -116,7 +116,7 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev) {
 
 void udev_watch_end(struct udev *udev, struct udev_device *dev) {
         int wd;
-        char filename[UTIL_PATH_SIZE];
+        char filename[sizeof("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
 
         if (inotify_fd < 0)
                 return;
@@ -135,7 +135,7 @@ void udev_watch_end(struct udev *udev, struct udev_device *dev) {
 }
 
 struct udev_device *udev_watch_lookup(struct udev *udev, int wd) {
-        char filename[UTIL_PATH_SIZE];
+        char filename[sizeof("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
         char device[UTIL_NAME_SIZE];
         ssize_t len;
 

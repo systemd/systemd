@@ -21,6 +21,7 @@ _systemd_analyze_command(){
         'dot:Dump dependency graph (in dot(1) format)'
         'dump:Dump server status'
         'set-log-level:Set systemd log threshold'
+        'syscall-filter:List syscalls in seccomp filter'
         'verify:Check unit files for correctness'
     )
 

@@ -121,7 +121,7 @@
 
     <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
 
-    <para>Internally, this functions parses the
+    <para>Internally, this function parses the
     <varname>$WATCHDOG_PID</varname> and
     <varname>$WATCHDOG_USEC</varname> environment variable. The call
     will ignore these variables if <varname>$WATCHDOG_PID</varname>
@@ -148,7 +148,7 @@
 
         <listitem><para>Set by the system manager for supervised
         process for which watchdog support is enabled, and contains
-        the watchdog timeout in µs See above for
+        the watchdog timeout in µs. See above for
         details.</para></listitem>
       </varlistentry>
     </variablelist>

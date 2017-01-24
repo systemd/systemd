@@ -55,6 +55,7 @@ struct sd_dhcp_client {
         sd_event_source *timeout_resend;
         int ifindex;
         int fd;
+        uint16_t port;
         union sockaddr_union link;
         sd_event_source *receive_message;
         bool request_broadcast;
@@ -385,43 +386,32 @@ int sd_dhcp_client_set_hostname(
                 sd_dhcp_client *client,
                 const char *hostname) {
 
-        char *new_hostname = NULL;
-
         assert_return(client, -EINVAL);
 
-        if (!hostname_is_valid(hostname, false) && !dns_name_is_valid(hostname))
+        /* Refuse hostnames that neither qualify as DNS nor as Linux hosntames */
+        if (hostname &&
+            !(hostname_is_valid(hostname, false) || dns_name_is_valid(hostname) > 0))
                 return -EINVAL;
 
-        if (streq_ptr(client->hostname, hostname))
-                return 0;
-
-        if (hostname) {
-                new_hostname = strdup(hostname);
-                if (!new_hostname)
-                        return -ENOMEM;
-        }
-
-        free(client->hostname);
-        client->hostname = new_hostname;
-
-        return 0;
+        return free_and_strdup(&client->hostname, hostname);
 }
 
 int sd_dhcp_client_set_vendor_class_identifier(
                 sd_dhcp_client *client,
                 const char *vci) {
 
-        char *new_vci = NULL;
+        assert_return(client, -EINVAL);
+
+        return free_and_strdup(&client->vendor_class_identifier, vci);
+}
+
+int sd_dhcp_client_set_client_port(
+                sd_dhcp_client *client,
+                uint16_t port) {
 
         assert_return(client, -EINVAL);
 
-        new_vci = strdup(vci);
-        if (!new_vci)
-                return -ENOMEM;
-
-        free(client->vendor_class_identifier);
-
-        client->vendor_class_identifier = new_vci;
+        client->port = port;
 
         return 0;
 }
@@ -668,7 +658,7 @@ static int dhcp_client_send_raw(
                 DHCPPacket *packet,
                 size_t len) {
 
-        dhcp_packet_append_ip_headers(packet, INADDR_ANY, DHCP_PORT_CLIENT,
+        dhcp_packet_append_ip_headers(packet, INADDR_ANY, client->port,
                                       INADDR_BROADCAST, DHCP_PORT_SERVER, len);
 
         return dhcp_network_send_raw_socket(client->fd, &client->link,
@@ -1120,7 +1110,7 @@ static int client_start_delayed(sd_dhcp_client *client) {
 
         r = dhcp_network_bind_raw_socket(client->ifindex, &client->link,
                                          client->xid, client->mac_addr,
-                                         client->mac_addr_len, client->arp_type);
+                                         client->mac_addr_len, client->arp_type, client->port);
         if (r < 0) {
                 client_stop(client, r);
                 return r;
@@ -1170,7 +1160,8 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
 
         r = dhcp_network_bind_raw_socket(client->ifindex, &client->link,
                                          client->xid, client->mac_addr,
-                                         client->mac_addr_len, client->arp_type);
+                                         client->mac_addr_len, client->arp_type,
+                                         client->port);
         if (r < 0) {
                 client_stop(client, r);
                 return 0;
@@ -1555,8 +1546,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
                                 goto error;
                         }
 
-                        r = dhcp_network_bind_udp_socket(client->lease->address,
-                                                         DHCP_PORT_CLIENT);
+                        r = dhcp_network_bind_udp_socket(client->ifindex, client->lease->address, client->port);
                         if (r < 0) {
                                 log_dhcp_client(client, "could not bind UDP socket");
                                 goto error;
@@ -1766,7 +1756,7 @@ static int client_receive_message_raw(
                 }
         }
 
-        r = dhcp_packet_verify_headers(packet, len, checksum);
+        r = dhcp_packet_verify_headers(packet, len, checksum, client->port);
         if (r < 0)
                 return 0;
 
@@ -1891,6 +1881,7 @@ int sd_dhcp_client_new(sd_dhcp_client **ret) {
         client->fd = -1;
         client->attempt = 1;
         client->mtu = DHCP_DEFAULT_MIN_SIZE;
+        client->port = DHCP_PORT_CLIENT;
 
         client->req_opts_size = ELEMENTSOF(default_req_opts);
         client->req_opts = memdup(default_req_opts, client->req_opts_size);

@@ -16,6 +16,7 @@
 /rc-local.service
 /rescue.service
 /serial-getty@.service
+/system-update-cleanup.service
 /systemd-ask-password-console.service
 /systemd-ask-password-wall.service
 /systemd-backlight@.service
@@ -74,5 +75,6 @@
 /systemd-update-utmp.service
 /systemd-user-sessions.service
 /systemd-vconsole-setup.service
+/systemd-volatile-root.service
 /tmp.mount
 /user@.service

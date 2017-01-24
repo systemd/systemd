@@ -103,7 +103,7 @@ static const char *arg_directory = NULL;
 static char **arg_file = NULL;
 static bool arg_file_stdin = false;
 static int arg_priorities = 0xFF;
-static const char *arg_verify_key = NULL;
+static char *arg_verify_key = NULL;
 #ifdef HAVE_GCRYPT
 static usec_t arg_interval = DEFAULT_FSS_INTERVAL_USEC;
 static bool arg_force = false;
@@ -192,7 +192,7 @@ static int add_matches_for_device(sd_journal *j, const char *devpath) {
                         continue;
                 }
 
-                match = strjoin("_KERNEL_DEVICE=+", subsys, ":", sysname, NULL);
+                match = strjoin("_KERNEL_DEVICE=+", subsys, ":", sysname);
                 if (!match)
                         return log_oom();
 
@@ -683,7 +683,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERIFY_KEY:
                         arg_action = ACTION_VERIFY;
-                        arg_verify_key = optarg;
+                        r = free_and_strdup(&arg_verify_key, optarg);
+                        if (r < 0)
+                                return r;
+                        string_erase(optarg);
+
                         arg_merge = false;
                         break;
 
@@ -885,7 +889,7 @@ static int parse_argv(int argc, char *argv[]) {
                  * to users, and automatically turn --unit= into --user-unit= if combined with --user. */
                 r = strv_extend_strv(&arg_user_units, arg_system_units, true);
                 if (r < 0)
-                        return -ENOMEM;
+                        return r;
 
                 arg_system_units = strv_free(arg_system_units);
         }
@@ -938,21 +942,21 @@ static int add_matches(sd_journal *j, char **args) {
                         have_term = false;
 
                 } else if (path_is_absolute(*i)) {
-                        _cleanup_free_ char *p, *t = NULL, *t2 = NULL, *interpreter = NULL;
-                        const char *path;
+                        _cleanup_free_ char *p = NULL, *t = NULL, *t2 = NULL, *interpreter = NULL;
                         struct stat st;
 
-                        p = canonicalize_file_name(*i);
-                        path = p ?: *i;
+                        r = chase_symlinks(*i, NULL, 0, &p);
+                        if (r < 0)
+                                return log_error_errno(r, "Couldn't canonicalize path: %m");
 
-                        if (lstat(path, &st) < 0)
+                        if (lstat(p, &st) < 0)
                                 return log_error_errno(errno, "Couldn't stat file: %m");
 
                         if (S_ISREG(st.st_mode) && (0111 & st.st_mode)) {
-                                if (executable_is_script(path, &interpreter) > 0) {
+                                if (executable_is_script(p, &interpreter) > 0) {
                                         _cleanup_free_ char *comm;
 
-                                        comm = strndup(basename(path), 15);
+                                        comm = strndup(basename(p), 15);
                                         if (!comm)
                                                 return log_oom();
 
@@ -968,7 +972,7 @@ static int add_matches(sd_journal *j, char **args) {
                                                         return log_oom();
                                         }
                                 } else {
-                                        t = strappend("_EXE=", path);
+                                        t = strappend("_EXE=", p);
                                         if (!t)
                                                 return log_oom();
                                 }
@@ -979,7 +983,7 @@ static int add_matches(sd_journal *j, char **args) {
                                         r = sd_journal_add_match(j, t2, 0);
 
                         } else if (S_ISCHR(st.st_mode) || S_ISBLK(st.st_mode)) {
-                                r = add_matches_for_device(j, path);
+                                r = add_matches_for_device(j, p);
                                 if (r < 0)
                                         return r;
                         } else {
@@ -2318,7 +2322,7 @@ int main(int argc, char *argv[]) {
         if (arg_boot_offset != 0 &&
             sd_journal_has_runtime_files(j) > 0 &&
             sd_journal_has_persistent_files(j) == 0) {
-                log_info("Specifying boot ID has no effect, no persistent journal was found");
+                log_info("Specifying boot ID or boot offset has no effect, no persistent journal was found.");
                 r = 0;
                 goto finish;
         }
@@ -2621,6 +2625,7 @@ finish:
         strv_free(arg_user_units);
 
         free(arg_root);
+        free(arg_verify_key);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

@@ -69,6 +69,7 @@ struct link_config {
         size_t mtu;
         size_t speed;
         Duplex duplex;
+        int autonegotiation;
         WakeOnLan wol;
         NetDevFeature features[_NET_DEV_FEAT_MAX];
 
@@ -93,7 +94,7 @@ const char *mac_policy_to_string(MACPolicy p) _const_;
 MACPolicy mac_policy_from_string(const char *p) _pure_;
 
 /* gperf lookup function */
-const struct ConfigPerfItem* link_config_gperf_lookup(const char *key, unsigned length);
+const struct ConfigPerfItem* link_config_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
 int config_parse_mac_policy(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_name_policy(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);

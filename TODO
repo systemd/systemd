@@ -12,9 +12,6 @@ Bugfixes:
           Environment=ONE='one' "TWO='two two' too" THREE=
           ExecStart=/bin/python3 -c 'import sys;print(sys.argv)' $ONE $TWO $THREE
 
-* When systemctl --host is used, underlying ssh connection can remain open.
-  bus_close does not kill children?
-
 External:
 
 * Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
@@ -23,14 +20,64 @@ External:
 
 Janitorial Clean-ups:
 
-* code cleanup: retire FOREACH_WORD_QUOTED, port to extract_first_word() loops instead.
-  For example, most conf parsing callbacks should use it.
-
-* replace manual readdir() loops with FOREACH_DIRENT or FOREACH_DIRENT_ALL
-
 * Rearrange tests so that the various test-xyz.c match a specific src/basic/xyz.c again
 
 Features:
+
+* Maybe add a small tool invoked early at boot, that adds in or resizes
+  partitions automatically, to be used when the media used is actually larger
+  than the image written onto it is.
+
+* change the dependency Set* objects in Unit structures to become Hashmap*, and
+  then store a bit mask who created a specific dependency: the source unit via
+  fragment configuration, the destination unit via fragment configuration, or
+  the source unit via udev rules (in case of .device units), or any combination
+  thereof. This information can then be used to flush out old udev-created
+  dependencies when the udev properties change, and eventually to implement a
+  "systemctl refresh" operation for reloading the configuration of individual
+  units without reloading the whole set.
+
+* Add ExecMonitor= setting. May be used multiple times. Forks off a process in
+  the service cgroup, which is supposed to monitor the service, and when it
+  exits the service is considered failed by its monitor.
+
+* replace all canonicalize_file_name() invocations by chase_symlinks(), in
+  particulr those where a rootdir is relevant.
+
+* maybe introduce gpt auto discovery for /var/tmp?
+
+* set ProtectSystem=strict for all our usual services.
+
+* maybe add gpt-partition-based user management: each user gets his own
+  LUKS-encrypted GPT partition with a new GPT type. A small nss module
+  enumerates users via udev partition enumeration. UIDs are assigned in a fixed
+  way: the partition index is added as offset to some fixed base uid. User name
+  is stored in GPT partition name. A PAM module authenticates the user via the
+  LUKS partition password. Benefits: strong per-user security, compatibility
+  with stateless/read-only/verity-enabled root. (other idea: do this based on
+  loopback files in /home, without GPT involvement)
+
+* gpt-auto logic: introduce support for discovering /var matching an image. For
+  that, use a partition type UUID that is hashed from the OS name (as encoded
+  in /etc/os-release), the architecture, and 4 new bits from the gpt flags
+  field of the root partition. This way can easily support multiple OS
+  installations on the same GPT partition table, without problems with
+  unmatched /var partitions.
+
+* gpt-auto logic: related to the above, maybe support a "secondary" root
+  partition, that is mounted to / and is writable, and where the actual root's
+  /usr is mounted into.
+
+* machined: add apis to query /etc/machine-info data of a container
+
+* .mount and .swap units: add Format=yes|no option that formats the partition before mounting/enabling it, implicitly
+
+* gpt-auto logic: support encrypted swap, add kernel cmdline option to force it, and honour a gpt bit about it, plus maybe a configuration file
+
+* drop nss-myhostname in favour of nss-resolve?
+
+* drop internal dlopen() based nss-dns fallback in nss-resolve, and rely on the
+  external nsswitch.conf based one
 
 * add a percentage syntax for TimeoutStopSec=, e.g. TimeoutStopSec=150%, and
   then use that for the setting used in user@.service. It should be understood
@@ -54,13 +101,9 @@ Features:
 
 * define gpt header bits to select volatility mode
 
-* nspawn: mount loopback filesystems with "discard"
-
 * ProtectKernelLogs= (drops CAP_SYSLOG, add seccomp for syslog() syscall, and DeviceAllow to /dev/kmsg) in service files
 
 * ProtectClock= (drops CAP_SYS_TIMES, adds seecomp filters for settimeofday, adjtimex), sets DeviceAllow o /dev/rtc
-
-* ProtectKernelModules= (drops CAP_SYS_MODULE and filters the kmod syscalls)
 
 * ProtectTracing= (drops CAP_SYS_PTRACE, blocks ptrace syscall, makes /sys/kernel/tracing go away)
 
@@ -79,11 +122,7 @@ Features:
 * Add DataDirectory=, CacheDirectory= and LogDirectory= to match
   RuntimeDirectory=, and create it as necessary when starting a service, owned by the right user.
 
-* Add BindDirectory= for allowing arbitrary, private bind mounts for services
-
 * Add RootImage= for mounting a disk image or file as root directory
-
-* RestrictNamespaces= or so in services (taking away the ability to create namespaces, with setns, unshare, clone)
 
 * make sure the ratelimit object can deal with USEC_INFINITY as way to turn off things
 
@@ -118,8 +157,6 @@ Features:
 
 * journald: sigbus API via a signal-handler safe function that people may call
   from the SIGBUS handler
-
-* move specifier expansion from service_spawn() into load-fragment.c
 
 * optionally, also require WATCHDOG=1 notifications during service start-up and shutdown
 
@@ -269,7 +306,6 @@ Features:
 
 * support empty /etc boots nicely:
   - nspawn/gpt-generator: introduce new gpt partition type for /usr
-  - fstab-generator: support systemd.volatile=yes|no|state on the kernel cmdline, too, similar to nspawn's --volatile=
 
 * generator that automatically discovers btrfs subvolumes, identifies their purpose based on some xattr on them.
 
@@ -282,12 +318,9 @@ Features:
 * For timer units: add some mechanisms so that timer units that trigger immediately on boot do not have the services
   they run added to the initial transaction and thus confuse Type=idle.
 
-* Run most system services with cgroupfs read-only and procfs with a more secure mode (doesn't work, since the hidepid= option is per-pid-namespace, not per-mount)
-
 * add bus api to query unit file's X fields.
 
 * gpt-auto-generator:
-  - Support LUKS for root devices
   - Define new partition type for encrypted swap? Support probed LUKS for encrypted swap?
   - Make /home automount rather than mount?
 
@@ -344,8 +377,6 @@ Features:
   path anyway.
 
 * refuse boot if /usr/lib/os-release is missing or /etc/machine-id cannot be set up
-
-* btrfs raid assembly: some .device jobs stay stuck in the queue
 
 * man: the documentation of Restart= currently is very misleading and suggests the tools from ExecStartPre= might get restarted.
 
@@ -564,7 +595,6 @@ Features:
   - man: maybe sort directives in man pages, and take sections from --help and apply them to man too
 
 * systemctl:
-  - systemctl list-jobs - show dependencies
   - add systemctl switch to dump transaction without executing it
   - Add a verbose mode to "systemctl start" and friends that explains what is being done or not done
   - "systemctl disable" on a static unit prints no message and does
@@ -585,7 +615,6 @@ Features:
   - timer units should get the ability to trigger when:
     o CLOCK_REALTIME makes jumps (TFD_TIMER_CANCEL_ON_SET)
     o DST changes
-  - Support 2012-02~4 as syntax for specifying the fourth to last day of the month.
   - Modulate timer frequency based on battery state
 
 * add libsystemd-password or so to query passwords during boot using the password agent logic
@@ -594,15 +623,13 @@ Features:
 
 * on shutdown: move utmp, wall, audit logic all into PID 1 (or logind?), get rid of systemd-update-utmp-runlevel
 
-* make repeated alt-ctrl-del presses printing a dump, or even force a reboot without
-  waiting for the timeout
+* make repeated alt-ctrl-del presses printing a dump
 
 * hostnamed: before returning information from /etc/machine-info.conf check the modification data and reread. Similar for localed, ...
 
 * currently x-systemd.timeout is lost in the initrd, since crypttab is copied into dracut, but fstab is not
 
 * nspawn:
-  - nspawn -x should support ephemeral instances of gpt images
   - emulate /dev/kmsg using CUSE and turn off the syslog syscall
     with seccomp. That should provide us with a useful log buffer that
     systemd can log to during early boot, and disconnect container logs
@@ -624,6 +651,10 @@ Features:
     directory
   - maybe make copying of /etc/resolv.conf optional, and skip it if --read-only
     is used
+
+* dissect
+  - refuse mounting over a mount point
+  - automatically discover .roothash files in dissect, similarly to nspawn
 
 * machined:
   - add an API so that libvirt-lxc can inform us about network interfaces being
@@ -739,7 +770,6 @@ Features:
   - maybe introduce WantsMountsFor=? Usecase:
     http://lists.freedesktop.org/archives/systemd-devel/2015-January/027729.html
   - recreate systemd's D-Bus private socket file on SIGUSR2
-  - GC unreferenced jobs (such as .device jobs)
   - move PAM code into its own binary
   - when we automatically restart a service, ensure we restart its rdeps, too.
   - hide PAM options in fragment parser when compile time disabled

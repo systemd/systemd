@@ -79,7 +79,7 @@
     received, zero is returned. The first file descriptor may be found
     at file descriptor number 3
     (i.e. <constant>SD_LISTEN_FDS_START</constant>), the remaining
-    descriptors follow at 4, 5, 6, ..., if any.</para>
+    descriptors follow at 4, 5, 6, …, if any.</para>
 
     <para>If a daemon receives more than one file descriptor, they
     will be passed in the same order as configured in the systemd

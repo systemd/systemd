@@ -30,7 +30,7 @@
 #include "missing.h"
 
 int fd_is_mount_point(int fd, const char *filename, int flags);
-int path_is_mount_point(const char *path, int flags);
+int path_is_mount_point(const char *path, const char *root, int flags);
 
 int repeat_unmount(const char *path, int flags);
 
@@ -61,3 +61,6 @@ int mount_verbose(
                 unsigned long flags,
                 const char *options);
 int umount_verbose(const char *where);
+
+const char *mount_propagation_flags_to_string(unsigned long flags);
+int mount_propagation_flags_from_string(const char *name, unsigned long *ret);

@@ -50,6 +50,8 @@
 typedef enum MountMode {
         /* This is ordered by priority! */
         INACCESSIBLE,
+        BIND_MOUNT,
+        BIND_MOUNT_RECURSIVE,
         READONLY,
         PRIVATE_TMP,
         PRIVATE_VAR_TMP,
@@ -57,18 +59,16 @@ typedef enum MountMode {
         READWRITE,
 } MountMode;
 
-typedef struct BindMount {
-        const char *path; /* stack memory, doesn't need to be freed explicitly */
-        char *chased; /* malloc()ed memory, needs to be freed */
-        MountMode mode;
-        bool ignore; /* Ignore if path does not exist */
-} BindMount;
-
-typedef struct TargetMount {
-        const char *path;
-        MountMode mode;
-        bool ignore; /* Ignore if path does not exist */
-} TargetMount;
+typedef struct MountEntry {
+        const char *path_const;   /* Memory allocated on stack or static */
+        MountMode mode:5;
+        bool ignore:1;            /* Ignore if path does not exist? */
+        bool has_prefix:1;        /* Already is prefixed by the root dir? */
+        bool read_only:1;         /* Shall this mount point be read-only? */
+        char *path_malloc;        /* Use this instead of 'path' if we had to allocate memory */
+        const char *source_const; /* The source path, for bind mounts */
+        char *source_malloc;
+} MountEntry;
 
 /*
  * The following Protect tables are to protect paths and mark some of them
@@ -79,62 +79,62 @@ typedef struct TargetMount {
  */
 
 /* ProtectKernelTunables= option and the related filesystem APIs */
-static const TargetMount protect_kernel_tunables_table[] = {
-        { "/proc/sys",                  READONLY,       false },
-        { "/proc/sysrq-trigger",        READONLY,       true  },
-        { "/proc/latency_stats",        READONLY,       true  },
-        { "/proc/mtrr",                 READONLY,       true  },
-        { "/proc/apm",                  READONLY,       true  },
-        { "/proc/acpi",                 READONLY,       true  },
-        { "/proc/timer_stats",          READONLY,       true  },
-        { "/proc/asound",               READONLY,       true  },
-        { "/proc/bus",                  READONLY,       true  },
-        { "/proc/fs",                   READONLY,       true  },
-        { "/proc/irq",                  READONLY,       true  },
-        { "/sys",                       READONLY,       false },
-        { "/sys/kernel/debug",          READONLY,       true  },
-        { "/sys/kernel/tracing",        READONLY,       true  },
-        { "/sys/fs/cgroup",             READWRITE,      false }, /* READONLY is set by ProtectControlGroups= option */
+static const MountEntry protect_kernel_tunables_table[] = {
+        { "/proc/sys",           READONLY,     false },
+        { "/proc/sysrq-trigger", READONLY,     true  },
+        { "/proc/latency_stats", READONLY,     true  },
+        { "/proc/mtrr",          READONLY,     true  },
+        { "/proc/apm",           READONLY,     true  }, /* Obsolete API, there's no point in permitting access to this, ever */
+        { "/proc/acpi",          READONLY,     true  },
+        { "/proc/timer_stats",   READONLY,     true  },
+        { "/proc/asound",        READONLY,     true  },
+        { "/proc/bus",           READONLY,     true  },
+        { "/proc/fs",            READONLY,     true  },
+        { "/proc/irq",           READONLY,     true  },
+        { "/sys",                READONLY,     false },
+        { "/sys/kernel/debug",   READONLY,     true  },
+        { "/sys/kernel/tracing", READONLY,     true  },
+        { "/sys/fs/cgroup",      READWRITE,    false }, /* READONLY is set by ProtectControlGroups= option */
 };
 
 /* ProtectKernelModules= option */
-static const TargetMount protect_kernel_modules_table[] = {
+static const MountEntry protect_kernel_modules_table[] = {
 #ifdef HAVE_SPLIT_USR
-        { "/lib/modules",               INACCESSIBLE,   true  },
+        { "/lib/modules",        INACCESSIBLE, true  },
 #endif
-        { "/usr/lib/modules",           INACCESSIBLE,   true  },
+        { "/usr/lib/modules",    INACCESSIBLE, true  },
 };
 
 /*
  * ProtectHome=read-only table, protect $HOME and $XDG_RUNTIME_DIR and rest of
  * system should be protected by ProtectSystem=
  */
-static const TargetMount protect_home_read_only_table[] = {
-        { "/home",      READONLY,       true },
-        { "/run/user",  READONLY,       true },
-        { "/root",      READONLY,       true },
+static const MountEntry protect_home_read_only_table[] = {
+        { "/home",               READONLY,     true  },
+        { "/run/user",           READONLY,     true  },
+        { "/root",               READONLY,     true  },
 };
 
 /* ProtectHome=yes table */
-static const TargetMount protect_home_yes_table[] = {
-        { "/home",      INACCESSIBLE,   true },
-        { "/run/user",  INACCESSIBLE,   true },
-        { "/root",      INACCESSIBLE,   true },
+static const MountEntry protect_home_yes_table[] = {
+        { "/home",               INACCESSIBLE, true  },
+        { "/run/user",           INACCESSIBLE, true  },
+        { "/root",               INACCESSIBLE, true  },
 };
 
 /* ProtectSystem=yes table */
-static const TargetMount protect_system_yes_table[] = {
-        { "/usr",       READONLY,       false },
-        { "/boot",      READONLY,       true  },
-        { "/efi",       READONLY,       true  },
+static const MountEntry protect_system_yes_table[] = {
+        { "/usr",                READONLY,     false },
+        { "/boot",               READONLY,     true  },
+        { "/efi",                READONLY,     true  },
 };
 
 /* ProtectSystem=full includes ProtectSystem=yes */
-static const TargetMount protect_system_full_table[] = {
-        { "/usr",       READONLY,       false },
-        { "/boot",      READONLY,       true  },
-        { "/efi",       READONLY,       true  },
-        { "/etc",       READONLY,       false },
+static const MountEntry protect_system_full_table[] = {
+        { "/usr",                READONLY,     false },
+        { "/boot",               READONLY,     true  },
+        { "/efi",                READONLY,     true  },
+        { "/etc",                READONLY,     false },
 };
 
 /*
@@ -145,143 +145,156 @@ static const TargetMount protect_system_full_table[] = {
  * (And of course /home and friends are also left writable, as ProtectHome=
  * shall manage those, orthogonally).
  */
-static const TargetMount protect_system_strict_table[] = {
-        { "/",          READONLY,       false },
-        { "/proc",      READWRITE,      false },      /* ProtectKernelTunables= */
-        { "/sys",       READWRITE,      false },      /* ProtectKernelTunables= */
-        { "/dev",       READWRITE,      false },      /* PrivateDevices= */
-        { "/home",      READWRITE,      true  },      /* ProtectHome= */
-        { "/run/user",  READWRITE,      true  },      /* ProtectHome= */
-        { "/root",      READWRITE,      true  },      /* ProtectHome= */
+static const MountEntry protect_system_strict_table[] = {
+        { "/",                   READONLY,     false },
+        { "/proc",               READWRITE,    false },      /* ProtectKernelTunables= */
+        { "/sys",                READWRITE,    false },      /* ProtectKernelTunables= */
+        { "/dev",                READWRITE,    false },      /* PrivateDevices= */
+        { "/home",               READWRITE,    true  },      /* ProtectHome= */
+        { "/run/user",           READWRITE,    true  },      /* ProtectHome= */
+        { "/root",               READWRITE,    true  },      /* ProtectHome= */
 };
 
-static void set_bind_mount(BindMount **p, const char *path, MountMode mode, bool ignore) {
-        (*p)->path = path;
-        (*p)->mode = mode;
-        (*p)->ignore = ignore;
+static const char *mount_entry_path(const MountEntry *p) {
+        assert(p);
+
+        /* Returns the path of this bind mount. If the malloc()-allocated ->path_buffer field is set we return that,
+         * otherwise the stack/static ->path field is returned. */
+
+        return p->path_malloc ?: p->path_const;
 }
 
-static int append_mounts(BindMount **p, char **strv, MountMode mode) {
+static bool mount_entry_read_only(const MountEntry *p) {
+        assert(p);
+
+        return p->read_only || IN_SET(p->mode, READONLY, INACCESSIBLE);
+}
+
+static const char *mount_entry_source(const MountEntry *p) {
+        assert(p);
+
+        return p->source_malloc ?: p->source_const;
+}
+
+static int append_access_mounts(MountEntry **p, char **strv, MountMode mode) {
         char **i;
 
         assert(p);
 
-        STRV_FOREACH(i, strv) {
-                bool ignore = false;
+        /* Adds a list of user-supplied READWRITE/READONLY/INACCESSIBLE entries */
 
-                if (IN_SET(mode, INACCESSIBLE, READONLY, READWRITE) && startswith(*i, "-")) {
-                        (*i)++;
+        STRV_FOREACH(i, strv) {
+                bool ignore = false, needs_prefix = false;
+                const char *e = *i;
+
+                /* Look for any prefixes */
+                if (startswith(e, "-")) {
+                        e++;
                         ignore = true;
                 }
+                if (startswith(e, "+")) {
+                        e++;
+                        needs_prefix = true;
+                }
 
-                if (!path_is_absolute(*i))
+                if (!path_is_absolute(e))
                         return -EINVAL;
 
-                set_bind_mount(p, *i, mode, ignore);
-                (*p)++;
+                *((*p)++) = (MountEntry) {
+                        .path_const = e,
+                        .mode = mode,
+                        .ignore = ignore,
+                        .has_prefix = !needs_prefix,
+                };
         }
 
         return 0;
 }
 
-static int append_target_mounts(BindMount **p, const char *root_directory, const TargetMount *mounts, const size_t size) {
+static int append_bind_mounts(MountEntry **p, const BindMount *binds, unsigned n) {
+        unsigned i;
+
+        assert(p);
+
+        for (i = 0; i < n; i++) {
+                const BindMount *b = binds + i;
+
+                *((*p)++) = (MountEntry) {
+                        .path_const = b->destination,
+                        .mode = b->recursive ? BIND_MOUNT_RECURSIVE : BIND_MOUNT,
+                        .read_only = b->read_only,
+                        .source_const = b->source,
+                };
+        }
+
+        return 0;
+}
+
+static int append_static_mounts(MountEntry **p, const MountEntry *mounts, unsigned n, bool ignore_protect) {
         unsigned i;
 
         assert(p);
         assert(mounts);
 
-        for (i = 0; i < size; i++) {
-                /*
-                 * Here we assume that the ignore field is set during
-                 * declaration we do not support "-" at the beginning.
-                 */
-                const TargetMount *m = &mounts[i];
-                const char *path = prefix_roota(root_directory, m->path);
+        /* Adds a list of static pre-defined entries */
 
-                if (!path_is_absolute(path))
-                        return -EINVAL;
-
-                set_bind_mount(p, path, m->mode, m->ignore);
-                (*p)++;
-        }
+        for (i = 0; i < n; i++)
+                *((*p)++) = (MountEntry) {
+                        .path_const = mount_entry_path(mounts+i),
+                        .mode = mounts[i].mode,
+                        .ignore = mounts[i].ignore || ignore_protect,
+                };
 
         return 0;
 }
 
-static int append_protect_kernel_tunables(BindMount **p, const char *root_directory) {
+static int append_protect_home(MountEntry **p, ProtectHome protect_home, bool ignore_protect) {
         assert(p);
-
-        return append_target_mounts(p, root_directory, protect_kernel_tunables_table,
-                                    ELEMENTSOF(protect_kernel_tunables_table));
-}
-
-static int append_protect_kernel_modules(BindMount **p, const char *root_directory) {
-        assert(p);
-
-        return append_target_mounts(p, root_directory, protect_kernel_modules_table,
-                                    ELEMENTSOF(protect_kernel_modules_table));
-}
-
-static int append_protect_home(BindMount **p, const char *root_directory, ProtectHome protect_home) {
-        int r = 0;
-
-        assert(p);
-
-        if (protect_home == PROTECT_HOME_NO)
-                return 0;
 
         switch (protect_home) {
-        case PROTECT_HOME_READ_ONLY:
-                r = append_target_mounts(p, root_directory, protect_home_read_only_table,
-                                         ELEMENTSOF(protect_home_read_only_table));
-                break;
-        case PROTECT_HOME_YES:
-                r = append_target_mounts(p, root_directory, protect_home_yes_table,
-                                         ELEMENTSOF(protect_home_yes_table));
-                break;
-        default:
-                r = -EINVAL;
-                break;
-        }
 
-        return r;
-}
-
-static int append_protect_system(BindMount **p, const char *root_directory, ProtectSystem protect_system) {
-        int r = 0;
-
-        assert(p);
-
-        if (protect_system == PROTECT_SYSTEM_NO)
+        case PROTECT_HOME_NO:
                 return 0;
 
-        switch (protect_system) {
-        case PROTECT_SYSTEM_STRICT:
-                r = append_target_mounts(p, root_directory, protect_system_strict_table,
-                                         ELEMENTSOF(protect_system_strict_table));
-                break;
-        case PROTECT_SYSTEM_YES:
-                r = append_target_mounts(p, root_directory, protect_system_yes_table,
-                                         ELEMENTSOF(protect_system_yes_table));
-                break;
-        case PROTECT_SYSTEM_FULL:
-                r = append_target_mounts(p, root_directory, protect_system_full_table,
-                                         ELEMENTSOF(protect_system_full_table));
-                break;
-        default:
-                r = -EINVAL;
-                break;
-        }
+        case PROTECT_HOME_READ_ONLY:
+                return append_static_mounts(p, protect_home_read_only_table, ELEMENTSOF(protect_home_read_only_table), ignore_protect);
 
-        return r;
+        case PROTECT_HOME_YES:
+                return append_static_mounts(p, protect_home_yes_table, ELEMENTSOF(protect_home_yes_table), ignore_protect);
+
+        default:
+                assert_not_reached("Unexpected ProtectHome= value");
+        }
+}
+
+static int append_protect_system(MountEntry **p, ProtectSystem protect_system, bool ignore_protect) {
+        assert(p);
+
+        switch (protect_system) {
+
+        case PROTECT_SYSTEM_NO:
+                return 0;
+
+        case PROTECT_SYSTEM_STRICT:
+                return append_static_mounts(p, protect_system_strict_table, ELEMENTSOF(protect_system_strict_table), ignore_protect);
+
+        case PROTECT_SYSTEM_YES:
+                return append_static_mounts(p, protect_system_yes_table, ELEMENTSOF(protect_system_yes_table), ignore_protect);
+
+        case PROTECT_SYSTEM_FULL:
+                return append_static_mounts(p, protect_system_full_table, ELEMENTSOF(protect_system_full_table), ignore_protect);
+
+        default:
+                assert_not_reached("Unexpected ProtectSystem= value");
+        }
 }
 
 static int mount_path_compare(const void *a, const void *b) {
-        const BindMount *p = a, *q = b;
+        const MountEntry *p = a, *q = b;
         int d;
 
         /* If the paths are not equal, then order prefixes first */
-        d = path_compare(p->path, q->path);
+        d = path_compare(mount_entry_path(p), mount_entry_path(q));
         if (d != 0)
                 return d;
 
@@ -295,20 +308,50 @@ static int mount_path_compare(const void *a, const void *b) {
         return 0;
 }
 
-static void drop_duplicates(BindMount *m, unsigned *n) {
-        BindMount *f, *t, *previous;
+static int prefix_where_needed(MountEntry *m, unsigned n, const char *root_directory) {
+        unsigned i;
+
+        /* Prefixes all paths in the bind mount table with the root directory if it is specified and the entry needs
+         * that. */
+
+        if (!root_directory)
+                return 0;
+
+        for (i = 0; i < n; i++) {
+                char *s;
+
+                if (m[i].has_prefix)
+                        continue;
+
+                s = prefix_root(root_directory, mount_entry_path(m+i));
+                if (!s)
+                        return -ENOMEM;
+
+                free(m[i].path_malloc);
+                m[i].path_malloc = s;
+
+                m[i].has_prefix = true;
+        }
+
+        return 0;
+}
+
+static void drop_duplicates(MountEntry *m, unsigned *n) {
+        MountEntry *f, *t, *previous;
 
         assert(m);
         assert(n);
 
         /* Drops duplicate entries. Expects that the array is properly ordered already. */
 
-        for (f = m, t = m, previous = NULL; f < m+*n; f++) {
+        for (f = m, t = m, previous = NULL; f < m + *n; f++) {
 
                 /* The first one wins (which is the one with the more restrictive mode), see mount_path_compare()
                  * above. */
-                if (previous && path_equal(f->path, previous->path)) {
-                        log_debug("%s is duplicate.", f->path);
+                if (previous && path_equal(mount_entry_path(f), mount_entry_path(previous))) {
+                        log_debug("%s is duplicate.", mount_entry_path(f));
+                        previous->read_only = previous->read_only || mount_entry_read_only(f); /* Propagate the read-only flag to the remaining entry */
+                        f->path_malloc = mfree(f->path_malloc);
                         continue;
                 }
 
@@ -320,8 +363,8 @@ static void drop_duplicates(BindMount *m, unsigned *n) {
         *n = t - m;
 }
 
-static void drop_inaccessible(BindMount *m, unsigned *n) {
-        BindMount *f, *t;
+static void drop_inaccessible(MountEntry *m, unsigned *n) {
+        MountEntry *f, *t;
         const char *clear = NULL;
 
         assert(m);
@@ -330,16 +373,17 @@ static void drop_inaccessible(BindMount *m, unsigned *n) {
         /* Drops all entries obstructed by another entry further up the tree. Expects that the array is properly
          * ordered already. */
 
-        for (f = m, t = m; f < m+*n; f++) {
+        for (f = m, t = m; f < m + *n; f++) {
 
                 /* If we found a path set for INACCESSIBLE earlier, and this entry has it as prefix we should drop
                  * it, as inaccessible paths really should drop the entire subtree. */
-                if (clear && path_startswith(f->path, clear)) {
-                        log_debug("%s is masked by %s.", f->path, clear);
+                if (clear && path_startswith(mount_entry_path(f), clear)) {
+                        log_debug("%s is masked by %s.", mount_entry_path(f), clear);
+                        f->path_malloc = mfree(f->path_malloc);
                         continue;
                 }
 
-                clear = f->mode == INACCESSIBLE ? f->path : NULL;
+                clear = f->mode == INACCESSIBLE ? mount_entry_path(f) : NULL;
 
                 *t = *f;
                 t++;
@@ -348,8 +392,8 @@ static void drop_inaccessible(BindMount *m, unsigned *n) {
         *n = t - m;
 }
 
-static void drop_nop(BindMount *m, unsigned *n) {
-        BindMount *f, *t;
+static void drop_nop(MountEntry *m, unsigned *n) {
+        MountEntry *f, *t;
 
         assert(m);
         assert(n);
@@ -357,16 +401,16 @@ static void drop_nop(BindMount *m, unsigned *n) {
         /* Drops all entries which have an immediate parent that has the same type, as they are redundant. Assumes the
          * list is ordered by prefixes. */
 
-        for (f = m, t = m; f < m+*n; f++) {
+        for (f = m, t = m; f < m + *n; f++) {
 
                 /* Only suppress such subtrees for READONLY and READWRITE entries */
                 if (IN_SET(f->mode, READONLY, READWRITE)) {
-                        BindMount *p;
+                        MountEntry *p;
                         bool found = false;
 
                         /* Now let's find the first parent of the entry we are looking at. */
                         for (p = t-1; p >= m; p--) {
-                                if (path_startswith(f->path, p->path)) {
+                                if (path_startswith(mount_entry_path(f), mount_entry_path(p))) {
                                         found = true;
                                         break;
                                 }
@@ -374,7 +418,8 @@ static void drop_nop(BindMount *m, unsigned *n) {
 
                         /* We found it, let's see if it's the same mode, if so, we can drop this entry */
                         if (found && p->mode == f->mode) {
-                                log_debug("%s is redundant by %s", f->path, p->path);
+                                log_debug("%s is redundant by %s", mount_entry_path(f), mount_entry_path(p));
+                                f->path_malloc = mfree(f->path_malloc);
                                 continue;
                         }
                 }
@@ -386,21 +431,23 @@ static void drop_nop(BindMount *m, unsigned *n) {
         *n = t - m;
 }
 
-static void drop_outside_root(const char *root_directory, BindMount *m, unsigned *n) {
-        BindMount *f, *t;
+static void drop_outside_root(const char *root_directory, MountEntry *m, unsigned *n) {
+        MountEntry *f, *t;
 
         assert(m);
         assert(n);
 
+        /* Nothing to do */
         if (!root_directory)
                 return;
 
         /* Drops all mounts that are outside of the root directory. */
 
-        for (f = m, t = m; f < m+*n; f++) {
+        for (f = m, t = m; f < m + *n; f++) {
 
-                if (!path_startswith(f->path, root_directory)) {
-                        log_debug("%s is outside of root directory.", f->path);
+                if (!path_startswith(mount_entry_path(f), root_directory)) {
+                        log_debug("%s is outside of root directory.", mount_entry_path(f));
+                        f->path_malloc = mfree(f->path_malloc);
                         continue;
                 }
 
@@ -411,7 +458,7 @@ static void drop_outside_root(const char *root_directory, BindMount *m, unsigned
         *n = t - m;
 }
 
-static int mount_dev(BindMount *m) {
+static int mount_dev(MountEntry *m) {
         static const char devnodes[] =
                 "/dev/null\0"
                 "/dev/zero\0"
@@ -516,11 +563,11 @@ static int mount_dev(BindMount *m) {
          * missing when the service is started with RootDirectory. This is
          * consistent with mount units creating the mount points when missing.
          */
-        (void) mkdir_p_label(m->path, 0755);
+        (void) mkdir_p_label(mount_entry_path(m), 0755);
 
         /* Unmount everything in old /dev */
-        umount_recursive(m->path, 0);
-        if (mount(dev, m->path, NULL, MS_MOVE, NULL) < 0) {
+        umount_recursive(mount_entry_path(m), 0);
+        if (mount(dev, mount_entry_path(m), NULL, MS_MOVE, NULL) < 0) {
                 r = -errno;
                 goto fail;
         }
@@ -550,17 +597,54 @@ fail:
         return r;
 }
 
-static int apply_mount(
-                BindMount *m,
-                const char *tmp_dir,
-                const char *var_tmp_dir) {
+static int mount_entry_chase(
+                const char *root_directory,
+                MountEntry *m,
+                const char *path,
+                char **location) {
 
-        const char *what;
+        char *chased;
         int r;
 
         assert(m);
 
-        log_debug("Applying namespace mount on %s", m->path);
+        /* Since mount() will always follow symlinks and we need to take the different root directory into account we
+         * chase the symlinks on our own first. This is called for the destination path, as well as the source path (if
+         * that applies). The result is stored in "location". */
+
+        r = chase_symlinks(path, root_directory, 0, &chased);
+        if (r == -ENOENT && m->ignore) {
+                log_debug_errno(r, "Path %s does not exist, ignoring.", path);
+                return 0;
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to follow symlinks on %s: %m", path);
+
+        log_debug("Followed symlinks %s → %s.", path, chased);
+
+        free(*location);
+        *location = chased;
+
+        return 1;
+}
+
+static int apply_mount(
+                const char *root_directory,
+                MountEntry *m,
+                const char *tmp_dir,
+                const char *var_tmp_dir) {
+
+        const char *what;
+        bool rbind = true;
+        int r;
+
+        assert(m);
+
+        r = mount_entry_chase(root_directory, m, mount_entry_path(m), &m->path_malloc);
+        if (r <= 0)
+                return r;
+
+        log_debug("Applying namespace mount on %s", mount_entry_path(m));
 
         switch (m->mode) {
 
@@ -570,10 +654,10 @@ static int apply_mount(
                 /* First, get rid of everything that is below if there
                  * is anything... Then, overmount it with an
                  * inaccessible path. */
-                (void) umount_recursive(m->path, 0);
+                (void) umount_recursive(mount_entry_path(m), 0);
 
-                if (lstat(m->path, &target) < 0)
-                        return log_debug_errno(errno, "Failed to lstat() %s to determine what to mount over it: %m", m->path);
+                if (lstat(mount_entry_path(m), &target) < 0)
+                        return log_debug_errno(errno, "Failed to lstat() %s to determine what to mount over it: %m", mount_entry_path(m));
 
                 what = mode_to_inaccessible_node(target.st_mode);
                 if (!what) {
@@ -585,15 +669,26 @@ static int apply_mount(
 
         case READONLY:
         case READWRITE:
-
-                r = path_is_mount_point(m->path, 0);
+                r = path_is_mount_point(mount_entry_path(m), root_directory, 0);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to determine whether %s is already a mount point: %m", m->path);
+                        return log_debug_errno(r, "Failed to determine whether %s is already a mount point: %m", mount_entry_path(m));
                 if (r > 0) /* Nothing to do here, it is already a mount. We just later toggle the MS_RDONLY bit for the mount point if needed. */
                         return 0;
-
                 /* This isn't a mount point yet, let's make it one. */
-                what = m->path;
+                what = mount_entry_path(m);
+                break;
+
+        case BIND_MOUNT:
+                rbind = false;
+                /* fallthrough */
+
+        case BIND_MOUNT_RECURSIVE:
+                /* Also chase the source mount */
+                r = mount_entry_chase(root_directory, m, mount_entry_source(m), &m->source_malloc);
+                if (r <= 0)
+                        return r;
+
+                what = mount_entry_source(m);
                 break;
 
         case PRIVATE_TMP:
@@ -613,22 +708,22 @@ static int apply_mount(
 
         assert(what);
 
-        if (mount(what, m->path, NULL, MS_BIND|MS_REC, NULL) < 0)
-                return log_debug_errno(errno, "Failed to mount %s to %s: %m", what, m->path);
+        if (mount(what, mount_entry_path(m), NULL, MS_BIND|(rbind ? MS_REC : 0), NULL) < 0)
+                return log_debug_errno(errno, "Failed to mount %s to %s: %m", what, mount_entry_path(m));
 
-        log_debug("Successfully mounted %s to %s", what, m->path);
+        log_debug("Successfully mounted %s to %s", what, mount_entry_path(m));
         return 0;
 }
 
-static int make_read_only(BindMount *m, char **blacklist) {
+static int make_read_only(MountEntry *m, char **blacklist) {
         int r = 0;
 
         assert(m);
 
-        if (IN_SET(m->mode, INACCESSIBLE, READONLY))
-                r = bind_remount_recursive(m->path, true, blacklist);
+        if (mount_entry_read_only(m))
+                r = bind_remount_recursive(mount_entry_path(m), true, blacklist);
         else if (m->mode == PRIVATE_DEV) { /* Can be readonly but the submounts can't*/
-                if (mount(NULL, m->path, NULL, MS_REMOUNT|DEV_MOUNT_OPTIONS|MS_RDONLY, NULL) < 0)
+                if (mount(NULL, mount_entry_path(m), NULL, MS_REMOUNT|DEV_MOUNT_OPTIONS|MS_RDONLY, NULL) < 0)
                         r = -errno;
         } else
                 return 0;
@@ -637,41 +732,10 @@ static int make_read_only(BindMount *m, char **blacklist) {
          * already stays this way. This improves compatibility with container managers, where we won't attempt to undo
          * read-only mounts already applied. */
 
+        if (r == -ENOENT && m->ignore)
+                r = 0;
+
         return r;
-}
-
-static int chase_all_symlinks(const char *root_directory, BindMount *m, unsigned *n) {
-        BindMount *f, *t;
-        int r;
-
-        assert(m);
-        assert(n);
-
-        /* Since mount() will always follow symlinks and we need to take the different root directory into account we
-         * chase the symlinks on our own first. This call wil do so for all entries and remove all entries where we
-         * can't resolve the path, and which have been marked for such removal. */
-
-        for (f = m, t = m; f < m+*n; f++) {
-
-                r = chase_symlinks(f->path, root_directory, &f->chased);
-                if (r == -ENOENT && f->ignore) /* Doesn't exist? Then remove it! */
-                        continue;
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to chase symlinks for %s: %m", f->path);
-
-                if (path_equal(f->path, f->chased))
-                        f->chased = mfree(f->chased);
-                else {
-                        log_debug("Chased %s → %s", f->path, f->chased);
-                        f->path = f->chased;
-                }
-
-                *t = *f;
-                t++;
-        }
-
-        *n = t - m;
-        return 0;
 }
 
 static unsigned namespace_calculate_mounts(
@@ -679,6 +743,8 @@ static unsigned namespace_calculate_mounts(
                 char** read_write_paths,
                 char** read_only_paths,
                 char** inaccessible_paths,
+                const BindMount *bind_mounts,
+                unsigned n_bind_mounts,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
                 ProtectHome protect_home,
@@ -703,6 +769,7 @@ static unsigned namespace_calculate_mounts(
                 strv_length(read_write_paths) +
                 strv_length(read_only_paths) +
                 strv_length(inaccessible_paths) +
+                n_bind_mounts +
                 ns_info->private_dev +
                 (ns_info->protect_kernel_tunables ? ELEMENTSOF(protect_kernel_tunables_table) : 0) +
                 (ns_info->protect_control_groups ? 1 : 0) +
@@ -716,104 +783,114 @@ int setup_namespace(
                 char** read_write_paths,
                 char** read_only_paths,
                 char** inaccessible_paths,
+                const BindMount *bind_mounts,
+                unsigned n_bind_mounts,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
                 ProtectHome protect_home,
                 ProtectSystem protect_system,
                 unsigned long mount_flags) {
 
-        BindMount *m, *mounts = NULL;
+        MountEntry *m, *mounts = NULL;
         bool make_slave = false;
-        unsigned n;
+        unsigned n_mounts;
         int r = 0;
 
         if (mount_flags == 0)
                 mount_flags = MS_SHARED;
 
-        n = namespace_calculate_mounts(ns_info,
-                                       read_write_paths,
-                                       read_only_paths,
-                                       inaccessible_paths,
-                                       tmp_dir, var_tmp_dir,
-                                       protect_home, protect_system);
+        n_mounts = namespace_calculate_mounts(
+                        ns_info,
+                        read_write_paths,
+                        read_only_paths,
+                        inaccessible_paths,
+                        bind_mounts, n_bind_mounts,
+                        tmp_dir, var_tmp_dir,
+                        protect_home, protect_system);
 
         /* Set mount slave mode */
-        if (root_directory || n > 0)
+        if (root_directory || n_mounts > 0)
                 make_slave = true;
 
-        if (n > 0) {
-                m = mounts = (BindMount *) alloca0(n * sizeof(BindMount));
-                r = append_mounts(&m, read_write_paths, READWRITE);
-                if (r < 0)
-                        return r;
-
-                r = append_mounts(&m, read_only_paths, READONLY);
-                if (r < 0)
-                        return r;
-
-                r = append_mounts(&m, inaccessible_paths, INACCESSIBLE);
-                if (r < 0)
-                        return r;
-
-                if (tmp_dir) {
-                        m->path = prefix_roota(root_directory, "/tmp");
-                        m->mode = PRIVATE_TMP;
-                        m++;
-                }
-
-                if (var_tmp_dir) {
-                        m->path = prefix_roota(root_directory, "/var/tmp");
-                        m->mode = PRIVATE_VAR_TMP;
-                        m++;
-                }
-
-                if (ns_info->private_dev) {
-                        m->path = prefix_roota(root_directory, "/dev");
-                        m->mode = PRIVATE_DEV;
-                        m++;
-                }
-
-                if (ns_info->protect_kernel_tunables) {
-                        r = append_protect_kernel_tunables(&m, root_directory);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (ns_info->protect_kernel_modules) {
-                        r = append_protect_kernel_modules(&m, root_directory);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (ns_info->protect_control_groups) {
-                        m->path = prefix_roota(root_directory, "/sys/fs/cgroup");
-                        m->mode = READONLY;
-                        m++;
-                }
-
-                r = append_protect_home(&m, root_directory, protect_home);
-                if (r < 0)
-                        return r;
-
-                r = append_protect_system(&m, root_directory, protect_system);
-                if (r < 0)
-                        return r;
-
-                assert(mounts + n == m);
-
-                /* Resolve symlinks manually first, as mount() will always follow them relative to the host's
-                 * root. Moreover we want to suppress duplicates based on the resolved paths. This of course is a bit
-                 * racy. */
-                r = chase_all_symlinks(root_directory, mounts, &n);
+        if (n_mounts > 0) {
+                m = mounts = (MountEntry *) alloca0(n_mounts * sizeof(MountEntry));
+                r = append_access_mounts(&m, read_write_paths, READWRITE);
                 if (r < 0)
                         goto finish;
 
-                qsort(mounts, n, sizeof(BindMount), mount_path_compare);
+                r = append_access_mounts(&m, read_only_paths, READONLY);
+                if (r < 0)
+                        goto finish;
 
-                drop_duplicates(mounts, &n);
-                drop_outside_root(root_directory, mounts, &n);
-                drop_inaccessible(mounts, &n);
-                drop_nop(mounts, &n);
+                r = append_access_mounts(&m, inaccessible_paths, INACCESSIBLE);
+                if (r < 0)
+                        goto finish;
+
+                r = append_bind_mounts(&m, bind_mounts, n_bind_mounts);
+                if (r < 0)
+                        goto finish;
+
+                if (tmp_dir) {
+                        *(m++) = (MountEntry) {
+                                .path_const = "/tmp",
+                                .mode = PRIVATE_TMP,
+                        };
+                }
+
+                if (var_tmp_dir) {
+                        *(m++) = (MountEntry) {
+                                .path_const = "/var/tmp",
+                                .mode = PRIVATE_VAR_TMP,
+                        };
+                }
+
+                if (ns_info->private_dev) {
+                        *(m++) = (MountEntry) {
+                                .path_const = "/dev",
+                                .mode = PRIVATE_DEV,
+                        };
+                }
+
+                if (ns_info->protect_kernel_tunables) {
+                        r = append_static_mounts(&m, protect_kernel_tunables_table, ELEMENTSOF(protect_kernel_tunables_table), ns_info->ignore_protect_paths);
+                        if (r < 0)
+                                goto finish;
+                }
+
+                if (ns_info->protect_kernel_modules) {
+                        r = append_static_mounts(&m, protect_kernel_modules_table, ELEMENTSOF(protect_kernel_modules_table), ns_info->ignore_protect_paths);
+                        if (r < 0)
+                                goto finish;
+                }
+
+                if (ns_info->protect_control_groups) {
+                        *(m++) = (MountEntry) {
+                                .path_const = "/sys/fs/cgroup",
+                                .mode = READONLY,
+                        };
+                }
+
+                r = append_protect_home(&m, protect_home, ns_info->ignore_protect_paths);
+                if (r < 0)
+                        goto finish;
+
+                r = append_protect_system(&m, protect_system, false);
+                if (r < 0)
+                        goto finish;
+
+                assert(mounts + n_mounts == m);
+
+                /* Prepend the root directory where that's necessary */
+                r = prefix_where_needed(mounts, n_mounts, root_directory);
+                if (r < 0)
+                        goto finish;
+
+                qsort(mounts, n_mounts, sizeof(MountEntry), mount_path_compare);
+
+                drop_duplicates(mounts, &n_mounts);
+                drop_outside_root(root_directory, mounts, &n_mounts);
+                drop_inaccessible(mounts, &n_mounts);
+                drop_nop(mounts, &n_mounts);
         }
 
         if (unshare(CLONE_NEWNS) < 0) {
@@ -832,7 +909,7 @@ int setup_namespace(
 
         if (root_directory) {
                 /* Turn directory into bind mount, if it isn't one yet */
-                r = path_is_mount_point(root_directory, AT_SYMLINK_FOLLOW);
+                r = path_is_mount_point(root_directory, NULL, AT_SYMLINK_FOLLOW);
                 if (r < 0)
                         goto finish;
                 if (r == 0) {
@@ -843,25 +920,25 @@ int setup_namespace(
                 }
         }
 
-        if (n > 0) {
+        if (n_mounts > 0) {
                 char **blacklist;
                 unsigned j;
 
                 /* First round, add in all special mounts we need */
-                for (m = mounts; m < mounts + n; ++m) {
-                        r = apply_mount(m, tmp_dir, var_tmp_dir);
+                for (m = mounts; m < mounts + n_mounts; ++m) {
+                        r = apply_mount(root_directory, m, tmp_dir, var_tmp_dir);
                         if (r < 0)
                                 goto finish;
                 }
 
                 /* Create a blacklist we can pass to bind_mount_recursive() */
-                blacklist = newa(char*, n+1);
-                for (j = 0; j < n; j++)
-                        blacklist[j] = (char*) mounts[j].path;
+                blacklist = newa(char*, n_mounts+1);
+                for (j = 0; j < n_mounts; j++)
+                        blacklist[j] = (char*) mount_entry_path(mounts+j);
                 blacklist[j] = NULL;
 
                 /* Second round, flip the ro bits if necessary. */
-                for (m = mounts; m < mounts + n; ++m) {
+                for (m = mounts; m < mounts + n_mounts; ++m) {
                         r = make_read_only(m, blacklist);
                         if (r < 0)
                                 goto finish;
@@ -886,10 +963,57 @@ int setup_namespace(
         r = 0;
 
 finish:
-        for (m = mounts; m < mounts + n; m++)
-                free(m->chased);
+        for (m = mounts; m < mounts + n_mounts; m++)
+                free(m->path_malloc);
 
         return r;
+}
+
+void bind_mount_free_many(BindMount *b, unsigned n) {
+        unsigned i;
+
+        assert(b || n == 0);
+
+        for (i = 0; i < n; i++) {
+                free(b[i].source);
+                free(b[i].destination);
+        }
+
+        free(b);
+}
+
+int bind_mount_add(BindMount **b, unsigned *n, const BindMount *item) {
+        _cleanup_free_ char *s = NULL, *d = NULL;
+        BindMount *c;
+
+        assert(b);
+        assert(n);
+        assert(item);
+
+        s = strdup(item->source);
+        if (!s)
+                return -ENOMEM;
+
+        d = strdup(item->destination);
+        if (!d)
+                return -ENOMEM;
+
+        c = realloc_multiply(*b, sizeof(BindMount), *n + 1);
+        if (!c)
+                return -ENOMEM;
+
+        *b = c;
+
+        c[(*n) ++] = (BindMount) {
+                .source = s,
+                .destination = d,
+                .read_only = item->read_only,
+                .recursive = item->recursive,
+                .ignore_enoent = item->ignore_enoent,
+        };
+
+        s = d = NULL;
+        return 0;
 }
 
 static int setup_one_tmp_dir(const char *id, const char *prefix, char **path) {
@@ -909,7 +1033,7 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path) {
         if (r < 0)
                 return r;
 
-        x = strjoin(prefix, "/systemd-private-", sd_id128_to_string(boot_id, bid), "-", id, "-XXXXXX", NULL);
+        x = strjoin(prefix, "/systemd-private-", sd_id128_to_string(boot_id, bid), "-", id, "-XXXXXX");
         if (!x)
                 return -ENOMEM;
 

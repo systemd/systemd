@@ -1,0 +1,82 @@
+# This file is part of systemd.
+#
+# Copyright 2016 Daniel Rusek
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <http://www.gnu.org/licenses/>.
+
+# This is a settings file for OS image generation using mkosi (https://github.com/systemd/mkosi).
+# Simply invoke "mkosi" in the project directory to build an OS image.
+
+[Distribution]
+Distribution=debian
+Release=unstable
+
+[Output]
+Format=raw_btrfs
+Bootable=yes
+
+[Partitions]
+RootSize=2G
+
+[Packages]
+BuildPackages=
+        acl
+        autoconf
+        automake
+        diffutils
+        docbook-xml
+        docbook-xsl
+        gcc
+        git
+        gnu-efi
+        gperf
+        intltool
+        iptables-dev
+        libacl1-dev
+        libaudit-dev
+        libblkid-dev
+        libbz2-dev
+        libcap-dev
+        libcryptsetup-dev
+        libcurl4-gnutls-dev
+        libdbus-1-dev
+        libdw-dev
+        libfdisk-dev
+        libgcrypt20-dev
+        libgnutls28-dev
+        libidn11-dev
+        libkmod-dev
+        liblzma-dev
+        liblz4-dev
+        liblz4-tool
+        libmicrohttpd-dev
+        libmount-dev
+        libpam0g-dev
+        libqrencode-dev
+        libseccomp-dev
+        libsmartcols-dev
+        libtool
+        libxkbcommon-dev
+        make
+        pkg-config
+        python3
+        python3-lxml
+        tree
+        uuid-dev
+        xsltproc
+        xz-utils
+
+Packages=
+        libqrencode3
+        locales

@@ -77,7 +77,8 @@ static void* open_handle(const char* dir, const char* module, int flags) {
                 path = strjoina("libnss_", module, ".so.2");
 
         handle = dlopen(path, flags);
-        assert_se(handle);
+        if (!handle)
+                log_error("Failed to load module %s: %s", module, dlerror());
         return handle;
 }
 
@@ -379,75 +380,158 @@ static void test_byaddr(void *handle,
         puts("");
 }
 
+static int make_addresses(struct local_address **addresses) {
+        int n;
+        size_t n_alloc;
+        _cleanup_free_ struct local_address *addrs = NULL;
+
+        n = local_addresses(NULL, 0, AF_UNSPEC, &addrs);
+        if (n < 0)
+                log_info_errno(n, "Failed to query local addresses: %m");
+
+        n_alloc = n; /* we _can_ do that */
+        if (!GREEDY_REALLOC(addrs, n_alloc, n + 3))
+                return log_oom();
+
+        addrs[n++] = (struct local_address) { .family = AF_INET,
+                                              .address.in = { htobe32(0x7F000001) } };
+        addrs[n++] = (struct local_address) { .family = AF_INET,
+                                              .address.in = { htobe32(0x7F000002) } };
+        addrs[n++] = (struct local_address) { .family = AF_INET6,
+                                              .address.in6 = in6addr_loopback };
+        return 0;
+}
+
+static int test_one_module(const char* dir,
+                           const char *module,
+                           char **names,
+                           struct local_address *addresses,
+                           int n_addresses) {
+        void *handle;
+        char **name;
+        int i;
+
+
+        log_info("======== %s ========", module);
+
+        handle = open_handle(streq(module, "dns") ? NULL : dir,
+                             module,
+                             RTLD_LAZY|RTLD_NODELETE);
+        if (!handle)
+                return -EINVAL;
+
+        STRV_FOREACH(name, names)
+                test_byname(handle, module, *name);
+
+        for (i = 0; i < n_addresses; i++)
+                test_byaddr(handle, module,
+                            &addresses[i].address,
+                            FAMILY_ADDRESS_SIZE(addresses[i].family),
+                            addresses[i].family);
+
+        log_info(" ");
+        dlclose(handle);
+        return 0;
+}
+
+static int parse_argv(int argc, char **argv,
+                      char ***the_modules,
+                      char ***the_names,
+                      struct local_address **the_addresses, int *n_addresses) {
+
+        int r, n = 0;
+        _cleanup_strv_free_ char **modules = NULL, **names = NULL;
+        _cleanup_free_ struct local_address *addrs = NULL;
+        size_t n_allocated = 0;
+
+        if (argc > 1)
+                modules = strv_new(argv[1], NULL);
+        else
+                modules = strv_new(
 #ifdef HAVE_MYHOSTNAME
-#  define MODULE1 "myhostname\0"
-#else
-#  define MODULE1
+                                "myhostname",
 #endif
 #ifdef HAVE_RESOLVED
-#  define MODULE2 "resolve\0"
-#else
-#  define MODULE2
+                                "resolve",
 #endif
 #ifdef HAVE_MACHINED
-#  define MODULE3 "mymachines\0"
-#else
-#  define MODULE3
+                                "mymachines",
 #endif
-#define MODULE4 "dns\0"
+                                "dns",
+                                NULL);
+        if (!modules)
+                return -ENOMEM;
+
+        if (argc > 2) {
+                char **name;
+                int family;
+                union in_addr_union address;
+
+                STRV_FOREACH(name, argv + 2) {
+                        r = in_addr_from_string_auto(*name, &family, &address);
+                        if (r < 0) {
+                                /* assume this is a name */
+                                r = strv_extend(&names, *name);
+                                if (r < 0)
+                                        return r;
+                        } else {
+                                if (!GREEDY_REALLOC0(addrs, n_allocated, n + 1))
+                                        return -ENOMEM;
+
+                                addrs[n++] = (struct local_address) { .family = family,
+                                                                      .address = address };
+                        }
+                }
+        } else {
+                _cleanup_free_ char *hostname;
+
+                hostname = gethostname_malloc();
+                if (!hostname)
+                        return -ENOMEM;
+
+                names = strv_new("localhost", "gateway", "foo_no_such_host", hostname, NULL);
+                if (!names)
+                        return -ENOMEM;
+
+                n = make_addresses(&addrs);
+                if (n < 0)
+                        return n;
+        }
+
+        *the_modules = modules;
+        *the_names = names;
+        modules = names = NULL;
+        *the_addresses = addrs;
+        *n_addresses = n;
+        addrs = NULL;
+        return 0;
+}
 
 int main(int argc, char **argv) {
-        _cleanup_free_ char *dir = NULL, *hostname = NULL;
-        const char *module;
-
-        const uint32_t local_address_ipv4 = htobe32(0x7F000001);
-        const uint32_t local_address_ipv4_2 = htobe32(0x7F000002);
+        _cleanup_free_ char *dir = NULL;
+        _cleanup_strv_free_ char **modules = NULL, **names = NULL;
         _cleanup_free_ struct local_address *addresses = NULL;
         int n_addresses;
+        char **module;
+        int r;
 
         log_set_max_level(LOG_INFO);
         log_parse_environment();
 
-        dir = dirname_malloc(argv[0]);
-        assert_se(dir);
-
-        hostname = gethostname_malloc();
-        assert_se(hostname);
-
-        n_addresses = local_addresses(NULL, 0, AF_UNSPEC, &addresses);
-        if (n_addresses < 0) {
-                log_info_errno(n_addresses, "Failed to query local addresses: %m");
-                n_addresses = 0;
+        r = parse_argv(argc, argv, &modules, &names, &addresses, &n_addresses);
+        if (r < 0) {
+                log_error_errno(r, "Failed to parse arguments: %m");
+                return EXIT_FAILURE;
         }
 
-        NULSTR_FOREACH(module, MODULE1 MODULE2 MODULE3 MODULE4) {
-                void *handle;
-                const char *name;
-                int i;
+        dir = dirname_malloc(argv[0]);
+        if (!dir)
+                return EXIT_FAILURE;
 
-                log_info("======== %s ========", module);
-
-                handle = open_handle(streq(module, "dns") ? NULL : dir,
-                                     module,
-                                     RTLD_LAZY|RTLD_NODELETE);
-                NULSTR_FOREACH(name, "localhost\0" "gateway\0" "foo_no_such_host\0")
-                        test_byname(handle, module, name);
-
-                test_byname(handle, module, hostname);
-
-                test_byaddr(handle, module, &local_address_ipv4, sizeof local_address_ipv4, AF_INET);
-                test_byaddr(handle, module, &local_address_ipv4_2, sizeof local_address_ipv4_2, AF_INET);
-                test_byaddr(handle, module, &in6addr_loopback, sizeof in6addr_loopback, AF_INET6);
-
-                for (i = 0; i < n_addresses; i++)
-                        test_byaddr(handle, module,
-                                    &addresses[i].address,
-                                    FAMILY_ADDRESS_SIZE(addresses[i].family),
-                                    addresses[i].family);
-
-                dlclose(handle);
-
-                log_info(" ");
+        STRV_FOREACH(module, modules) {
+                r = test_one_module(dir, *module, names, addresses, n_addresses);
+                if (r < 0)
+                        return EXIT_FAILURE;
         }
 
         return EXIT_SUCCESS;

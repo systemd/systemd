@@ -138,7 +138,7 @@ static void clean_machine_info(MachineInfo *machines, size_t n_machines) {
         free(machines);
 }
 
-static int get_os_release_property(sd_bus *bus, const char *name, const char *query, ...) {
+static int call_get_os_release(sd_bus *bus, const char *method, const char *name, const char *query, ...) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *k, *v, *iter, **query_res = NULL;
         size_t count = 0, awaited_args = 0;
@@ -153,12 +153,13 @@ static int get_os_release_property(sd_bus *bus, const char *name, const char *qu
                 awaited_args++;
         query_res = newa0(const char *, awaited_args);
 
-        r = sd_bus_call_method(bus,
-                "org.freedesktop.machine1",
-                "/org/freedesktop/machine1",
-                "org.freedesktop.machine1.Manager",
-                "GetMachineOSRelease",
-                NULL, &reply, "s", name);
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.machine1",
+                        "/org/freedesktop/machine1",
+                        "org.freedesktop.machine1.Manager",
+                        method,
+                        NULL, &reply, "s", name);
         if (r < 0)
                 return r;
 
@@ -193,7 +194,7 @@ static int get_os_release_property(sd_bus *bus, const char *name, const char *qu
                         val = strdup(query_res[count]);
                         if (!val) {
                                 va_end(ap);
-                                return log_oom();
+                                return -ENOMEM;
                         }
                         *out = val;
                 }
@@ -242,23 +243,23 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                 if (name[0] == '.' && !arg_all)
                         continue;
 
-                if (!GREEDY_REALLOC(machines, n_allocated, n_machines + 1)) {
+                if (!GREEDY_REALLOC0(machines, n_allocated, n_machines + 1)) {
                         r = log_oom();
                         goto out;
                 }
 
-                machines[n_machines].os = NULL;
-                machines[n_machines].version_id = NULL;
-                r = get_os_release_property(bus, name,
-                                "ID\0" "VERSION_ID\0",
-                                &machines[n_machines].os,
-                                &machines[n_machines].version_id);
-                if (r < 0)
-                        goto out;
-
                 machines[n_machines].name = name;
                 machines[n_machines].class = class;
                 machines[n_machines].service = service;
+
+                (void) call_get_os_release(
+                                bus,
+                                "GetMachineOSRelease",
+                                name,
+                                "ID\0"
+                                "VERSION_ID\0",
+                                &machines[n_machines].os,
+                                &machines[n_machines].version_id);
 
                 l = strlen(name);
                 if (l > max_name)
@@ -326,14 +327,16 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                        (int) max_version_id, strdash_if_empty(machines[j].version_id));
 
                 r = print_addresses(bus, machines[j].name, 0, "", prefix, arg_addrs);
-                if (r == -ENOSYS)
+                if (r == -EOPNOTSUPP)
                         printf("-\n");
         }
 
-        if (arg_legend && n_machines > 0)
-                printf("\n%zu machines listed.\n", n_machines);
-        else
-                printf("No machines.\n");
+        if (arg_legend) {
+                if (n_machines > 0)
+                        printf("\n%zu machines listed.\n", n_machines);
+                else
+                        printf("No machines.\n");
+        }
 
 out:
         clean_machine_info(machines, n_machines);
@@ -463,10 +466,12 @@ static int list_images(int argc, char *argv[], void *userdata) {
                        (int) max_mtime, strna(format_timestamp(mtime_buf, sizeof(mtime_buf), images[j].mtime)));
         }
 
-        if (arg_legend && n_images > 0)
-                printf("\n%zu images listed.\n", n_images);
-        else
-                printf("No images.\n");
+        if (arg_legend) {
+                if (n_images > 0)
+                        printf("\n%zu images listed.\n", n_images);
+                else
+                        printf("No images.\n");
+        }
 
         return 0;
 }
@@ -606,7 +611,7 @@ static int print_addresses(sd_bus *bus, const char *name, int ifi, const char *p
         return 0;
 }
 
-static int print_os_release(sd_bus *bus, const char *name, const char *prefix) {
+static int print_os_release(sd_bus *bus, const char *method, const char *name, const char *prefix) {
         _cleanup_free_ char *pretty = NULL;
         int r;
 
@@ -614,7 +619,7 @@ static int print_os_release(sd_bus *bus, const char *name, const char *prefix) {
         assert(name);
         assert(prefix);
 
-        r = get_os_release_property(bus, name, "PRETTY_NAME\0", &pretty, NULL);
+        r = call_get_os_release(bus, method, name, "PRETTY_NAME\0", &pretty, NULL);
         if (r < 0)
                 return r;
 
@@ -725,7 +730,7 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
                        "\n\t          ",
                        ALL_IP_ADDRESSES);
 
-        print_os_release(bus, i->name, "\t      OS: ");
+        print_os_release(bus, "GetMachineOSRelease", i->name, "\t      OS: ");
 
         if (i->unit) {
                 printf("\t    Unit: %s\n", i->unit);
@@ -922,6 +927,8 @@ static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
 
         if (i->path)
                 printf("\t    Path: %s\n", i->path);
+
+        print_os_release(bus, "GetImageOSRelease", i->name, "\t      OS: ");
 
         printf("\t      RO: %s%s%s\n",
                i->read_only ? ansi_highlight_red() : "",
@@ -2489,10 +2496,12 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
                        (int) max_local, transfers[j].local,
                        (int) max_remote, transfers[j].remote);
 
-        if (arg_legend && n_transfers > 0)
-                printf("\n%zu transfers listed.\n", n_transfers);
-        else
-                printf("No transfers.\n");
+        if (arg_legend) {
+                if (n_transfers > 0)
+                        printf("\n%zu transfers listed.\n", n_transfers);
+                else
+                        printf("No transfers.\n");
+        }
 
         return 0;
 }
@@ -2657,9 +2666,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -o --output=STRING          Change journal output mode (short,\n"
                "                              short-monotonic, verbose, export, json,\n"
                "                              json-pretty, json-sse, cat)\n"
-               "      --verify=MODE           Verification mode for downloaded images (no,\n"
+               "     --verify=MODE            Verification mode for downloaded images (no,\n"
                "                              checksum, signature)\n"
-               "      --force                 Download image even if already exists\n\n"
+               "     --force                  Download image even if already exists\n\n"
                "Machine Commands:\n"
                "  list                        List running VMs and containers\n"
                "  status NAME...              Show VM/container details\n"
@@ -2756,7 +2765,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         for (;;) {
-                static const char option_string[] = "-hp:als:H:M:qn:o:";
+                static const char option_string[] = "-hp:als:H:M:qn:o:E:";
 
                 c = getopt_long(argc, argv, option_string + reorder, options, NULL);
                 if (c < 0)

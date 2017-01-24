@@ -104,7 +104,7 @@
   <refsect1>
     <title>Notes</title>
 
-    <para>Function <function>sd_journal_stream_fd()</function> is thread-safe and may be be called
+    <para>Function <function>sd_journal_stream_fd()</function> is thread-safe and may be called
     from multiple threads. All calls will return the same file descriptor, although temporarily
     multiple file descriptors may be open.</para>
 

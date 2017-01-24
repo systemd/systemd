@@ -30,7 +30,7 @@
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "log.h"
 #include "macro.h"
 #include "special.h"

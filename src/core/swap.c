@@ -29,7 +29,7 @@
 #include "escape.h"
 #include "exit-status.h"
 #include "fd-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "fstab-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -381,11 +381,7 @@ static int swap_setup_unit(
         if (!u) {
                 delete = true;
 
-                u = unit_new(m, sizeof(Swap));
-                if (!u)
-                        return log_oom();
-
-                r = unit_add_name(u, e);
+                r = unit_new_for_name(m, sizeof(Swap), e, &u);
                 if (r < 0)
                         goto fail;
 
@@ -424,7 +420,7 @@ static int swap_setup_unit(
 fail:
         log_unit_warning_errno(u, r, "Failed to load swap unit: %m");
 
-        if (delete && u)
+        if (delete)
                 unit_free(u);
 
         return r;
@@ -640,7 +636,7 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
                 goto fail;
 
         exec_params.environment = UNIT(s)->manager->environment;
-        exec_params.flags |= UNIT(s)->manager->confirm_spawn ? EXEC_CONFIRM_SPAWN : 0;
+        exec_params.confirm_spawn = manager_get_confirm_spawn(UNIT(s)->manager);
         exec_params.cgroup_supported = UNIT(s)->manager->cgroup_supported;
         exec_params.cgroup_path = UNIT(s)->cgroup_path;
         exec_params.cgroup_delegate = s->cgroup_context.delegate;

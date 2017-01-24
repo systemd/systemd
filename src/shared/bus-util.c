@@ -43,6 +43,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "missing.h"
+#include "nsflags.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
 #include "rlimit-util.h"
@@ -676,7 +677,7 @@ int bus_connect_user_systemd(sd_bus **_bus) {
         if (r < 0)
                 return r;
 
-        bus->address = strjoin("unix:path=", ee, "/systemd/private", NULL);
+        bus->address = strjoin("unix:path=", ee, "/systemd/private");
         if (!bus->address)
                 return -ENOMEM;
 
@@ -769,6 +770,23 @@ int bus_print_property(const char *name, sd_bus_message *property, bool value, b
                         char timespan[FORMAT_TIMESPAN_MAX];
 
                         print_property(name, "%s", format_timespan(timespan, sizeof(timespan), u, 0));
+                } else if (streq(name, "RestrictNamespaces")) {
+                        _cleanup_free_ char *s = NULL;
+                        const char *result = NULL;
+
+                        if ((u & NAMESPACE_FLAGS_ALL) == 0)
+                                result = "yes";
+                        else if ((u & NAMESPACE_FLAGS_ALL) == NAMESPACE_FLAGS_ALL)
+                                result = "no";
+                        else {
+                                r = namespace_flag_to_string_many(u, &s);
+                                if (r < 0)
+                                        return r;
+
+                                result = s;
+                        }
+
+                        print_property(name, "%s", result);
                 } else
                         print_property(name, "%"PRIu64, u);
 
@@ -1460,7 +1478,7 @@ int bus_path_encode_unique(sd_bus *b, const char *prefix, const char *sender_id,
         if (!external_label)
                 return -ENOMEM;
 
-        p = strjoin(prefix, "/", sender_label, "/", external_label, NULL);
+        p = strjoin(prefix, "/", sender_label, "/", external_label);
         if (!p)
                 return -ENOMEM;
 
@@ -1564,4 +1582,23 @@ int bus_property_get_rlimit(
         u = x == RLIM_INFINITY ? (uint64_t) -1 : (uint64_t) x;
 
         return sd_bus_message_append(reply, "t", u);
+}
+
+int bus_track_add_name_many(sd_bus_track *t, char **l) {
+        int r = 0;
+        char **i;
+
+        assert(t);
+
+        /* Continues adding after failure, and returns the first failure. */
+
+        STRV_FOREACH(i, l) {
+                int k;
+
+                k = sd_bus_track_add_name(t, *i);
+                if (k < 0 && r >= 0)
+                        r = k;
+        }
+
+        return r;
 }

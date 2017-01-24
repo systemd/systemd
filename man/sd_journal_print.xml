@@ -60,7 +60,7 @@
         <funcdef>int <function>sd_journal_print</function></funcdef>
         <paramdef>int <parameter>priority</parameter></paramdef>
         <paramdef>const char *<parameter>format</parameter></paramdef>
-        <paramdef>...</paramdef>
+        <paramdef>…</paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -73,7 +73,7 @@
       <funcprototype>
         <funcdef>int <function>sd_journal_send</function></funcdef>
         <paramdef>const char *<parameter>format</parameter></paramdef>
-        <paramdef>...</paramdef>
+        <paramdef>…</paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -133,7 +133,7 @@
     project='man-pages'><refentrytitle>readv</refentrytitle><manvolnum>3</manvolnum></citerefentry> for details)
     instead of the format string. Each structure should reference one field of the entry to submit. The second argument
     specifies the number of structures in the array.  <function>sd_journal_sendv()</function> is particularly useful to
-    submit binary objects to the journal where that is necessary. Note that this function wil not strip trailing
+    submit binary objects to the journal where that is necessary. Note that this function will not strip trailing
     whitespace of the passed fields, but passes the specified data along unmodified. This is different from both
     <function>sd_journal_print()</function> and <function>sd_journal_send()</function> described above, which are based
     on format strings, and do strip trailing whitespace.</para>
@@ -189,10 +189,9 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
   <refsect1>
     <title>Return Value</title>
 
-    <para>The four calls return 0 on success or a negative errno-style
-    error code. The
-    <citerefentry project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    variable itself is not altered.</para>
+    <para>The five calls return 0 on success or a negative errno-style error code. The <citerefentry
+    project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry> variable itself is
+    not altered.</para>
 
     <para>If
     <citerefentry><refentrytitle>systemd-journald</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -218,13 +217,11 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
   <refsect1>
     <title>Notes</title>
 
-    <para>The <function>sd_journal_print()</function>,
-    <function>sd_journal_printv()</function>,
-    <function>sd_journal_send()</function> and
-    <function>sd_journal_sendv()</function> interfaces are available
-    as a shared library, which can be compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
+    <para>The <function>sd_journal_print()</function>, <function>sd_journal_printv()</function>,
+    <function>sd_journal_send()</function>, <function>sd_journal_sendv()</function> and
+    <function>sd_journal_perror()</function> interfaces are available as a shared library, which can be compiled and
+    linked to with the <constant>libsystemd</constant> <citerefentry
+    project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry> file.</para>
   </refsect1>
 
   <refsect1>

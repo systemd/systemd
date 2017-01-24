@@ -33,7 +33,7 @@
 #include "libudev-private.h"
 #include "local-addresses.h"
 #include "netlink-util.h"
-#include "networkd.h"
+#include "networkd-manager.h"
 #include "ordered-set.h"
 #include "path-util.h"
 #include "set.h"
@@ -191,6 +191,18 @@ int manager_connect_bus(Manager *m) {
         r = sd_bus_attach_event(m->bus, m->event, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
+
+       /* Did we get a timezone or transient hostname from DHCP while D-Bus wasn't up yet? */
+        if (m->dynamic_hostname) {
+                r = manager_set_hostname(m, m->dynamic_hostname);
+                if (r < 0)
+                        return r;
+        }
+        if (m->dynamic_timezone) {
+                r = manager_set_timezone(m, m->dynamic_timezone);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -774,11 +786,48 @@ static int manager_connect_rtnl(Manager *m) {
         return 0;
 }
 
-static int ordered_set_put_in_addr(OrderedSet *s, const struct in_addr *address) {
+static int ordered_set_put_in_addr_data(OrderedSet *s, const struct in_addr_data *address) {
         char *p;
         int r;
 
         assert(s);
+        assert(address);
+
+        r = in_addr_to_string(address->family, &address->address, &p);
+        if (r < 0)
+                return r;
+
+        r = ordered_set_consume(s, p);
+        if (r == -EEXIST)
+                return 0;
+
+        return r;
+}
+
+static int ordered_set_put_in_addr_datav(OrderedSet *s, const struct in_addr_data *addresses, unsigned n) {
+        int r, c = 0;
+        unsigned i;
+
+        assert(s);
+        assert(addresses || n == 0);
+
+        for (i = 0; i < n; i++) {
+                r = ordered_set_put_in_addr_data(s, addresses+i);
+                if (r < 0)
+                        return r;
+
+                c += r;
+        }
+
+        return c;
+}
+
+static int ordered_set_put_in4_addr(OrderedSet *s, const struct in_addr *address) {
+        char *p;
+        int r;
+
+        assert(s);
+        assert(address);
 
         r = in_addr_to_string(AF_INET, (const union in_addr_union*) address, &p);
         if (r < 0)
@@ -791,14 +840,15 @@ static int ordered_set_put_in_addr(OrderedSet *s, const struct in_addr *address)
         return r;
 }
 
-static int ordered_set_put_in_addrv(OrderedSet *s, const struct in_addr *addresses, int n) {
-        int r, i, c = 0;
+static int ordered_set_put_in4_addrv(OrderedSet *s, const struct in_addr *addresses, unsigned n) {
+        int r, c = 0;
+        unsigned i;
 
         assert(s);
-        assert(n <= 0 || addresses);
+        assert(n == 0 || addresses);
 
         for (i = 0; i < n; i++) {
-                r = ordered_set_put_in_addr(s, addresses+i);
+                r = ordered_set_put_in4_addr(s, addresses+i);
                 if (r < 0)
                         return r;
 
@@ -865,7 +915,7 @@ static int manager_save(Manager *m) {
                         continue;
 
                 /* First add the static configured entries */
-                r = ordered_set_put_strdupv(dns, link->network->dns);
+                r = ordered_set_put_in_addr_datav(dns, link->network->dns, link->network->n_dns);
                 if (r < 0)
                         return r;
 
@@ -890,7 +940,7 @@ static int manager_save(Manager *m) {
 
                         r = sd_dhcp_lease_get_dns(link->dhcp_lease, &addresses);
                         if (r > 0) {
-                                r = ordered_set_put_in_addrv(dns, addresses, r);
+                                r = ordered_set_put_in4_addrv(dns, addresses, r);
                                 if (r < 0)
                                         return r;
                         } else if (r < 0 && r != -ENODATA)
@@ -902,7 +952,7 @@ static int manager_save(Manager *m) {
 
                         r = sd_dhcp_lease_get_ntp(link->dhcp_lease, &addresses);
                         if (r > 0) {
-                                r = ordered_set_put_in_addrv(ntp, addresses, r);
+                                r = ordered_set_put_in4_addrv(ntp, addresses, r);
                                 if (r < 0)
                                         return r;
                         } else if (r < 0 && r != -ENODATA)
@@ -934,7 +984,7 @@ static int manager_save(Manager *m) {
         if (r < 0)
                 return r;
 
-        fchmod(fileno(f), 0644);
+        (void) fchmod(fileno(f), 0644);
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
@@ -992,7 +1042,7 @@ static int manager_dirty_handler(sd_event_source *s, void *userdata) {
         return 1;
 }
 
-int manager_new(Manager **ret) {
+int manager_new(Manager **ret, sd_event *event) {
         _cleanup_manager_free_ Manager *m = NULL;
         int r;
 
@@ -1004,14 +1054,7 @@ int manager_new(Manager **ret) {
         if (!m->state_file)
                 return -ENOMEM;
 
-        r = sd_event_default(&m->event);
-        if (r < 0)
-                return r;
-
-        sd_event_set_watchdog(m->event, true);
-
-        sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
-        sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+        m->event = sd_event_ref(event);
 
         r = sd_event_add_post(m->event, NULL, manager_dirty_handler, m);
         if (r < 0)
@@ -1081,36 +1124,13 @@ void manager_free(Manager *m) {
         sd_bus_slot_unref(m->prepare_for_sleep_slot);
         sd_event_source_unref(m->bus_retry_event_source);
 
+        free(m->dynamic_timezone);
+        free(m->dynamic_hostname);
+
         free(m);
 }
 
-static bool manager_check_idle(void *userdata) {
-        Manager *m = userdata;
-        Link *link;
-        Iterator i;
-
-        assert(m);
-
-        /* Check whether we are idle now. The only case when we decide to be idle is when there's only a loopback
-         * device around, for which we have no configuration, and which already left the PENDING state. In all other
-         * cases we are not idle. */
-
-        HASHMAP_FOREACH(link, m->links, i) {
-                /* We are not woken on udev activity, so let's just wait for the pending udev event */
-                if (link->state == LINK_STATE_PENDING)
-                        return false;
-
-                if ((link->flags & IFF_LOOPBACK) == 0)
-                        return false;
-
-                if (link->network)
-                        return false;
-        }
-
-        return true;
-}
-
-int manager_run(Manager *m) {
+int manager_start(Manager *m) {
         Link *link;
         Iterator i;
 
@@ -1124,18 +1144,7 @@ int manager_run(Manager *m) {
         HASHMAP_FOREACH(link, m->links, i)
                 link_save(link);
 
-        if (m->bus)
-                return bus_event_loop_with_idle(
-                                m->event,
-                                m->bus,
-                                "org.freedesktop.network1",
-                                DEFAULT_EXIT_USEC,
-                                manager_check_idle,
-                                m);
-        else
-                /* failed to connect to the bus, so we lose exit-on-idle logic,
-                   this should not happen except if dbus is not around at all */
-                return sd_event_loop(m->event);
+        return 0;
 }
 
 int manager_load_config(Manager *m) {
@@ -1326,4 +1335,97 @@ void manager_dirty(Manager *manager) {
 
         /* the serialized state in /run is no longer up-to-date */
         manager->dirty = true;
+}
+
+static int set_hostname_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+        Manager *manager = userdata;
+        const sd_bus_error *e;
+
+        assert(m);
+        assert(manager);
+
+        e = sd_bus_message_get_error(m);
+        if (e)
+                log_warning_errno(sd_bus_error_get_errno(e), "Could not set hostname: %s", e->message);
+
+        return 1;
+}
+
+int manager_set_hostname(Manager *m, const char *hostname) {
+        int r;
+
+        log_debug("Setting transient hostname: '%s'", strna(hostname));
+        if (free_and_strdup(&m->dynamic_hostname, hostname) < 0)
+                return log_oom();
+
+        if (!m->bus) {
+                /* TODO: replace by assert when we can rely on kdbus */
+                log_info("Not connected to system bus, ignoring transient hostname.");
+                return 0;
+        }
+
+        r = sd_bus_call_method_async(
+                        m->bus,
+                        NULL,
+                        "org.freedesktop.hostname1",
+                        "/org/freedesktop/hostname1",
+                        "org.freedesktop.hostname1",
+                        "SetHostname",
+                        set_hostname_handler,
+                        m,
+                        "sb",
+                        hostname,
+                        false);
+
+        if (r < 0)
+                return log_error_errno(r, "Could not set transient hostname: %m");
+
+        return 0;
+}
+
+static int set_timezone_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+        Manager *manager = userdata;
+        const sd_bus_error *e;
+
+        assert(m);
+        assert(manager);
+
+        e = sd_bus_message_get_error(m);
+        if (e)
+                log_warning_errno(sd_bus_error_get_errno(e), "Could not set timezone: %s", e->message);
+
+        return 1;
+}
+
+int manager_set_timezone(Manager *m, const char *tz) {
+        int r;
+
+        assert(m);
+        assert(tz);
+
+        log_debug("Setting system timezone: '%s'", tz);
+        if (free_and_strdup(&m->dynamic_timezone, tz) < 0)
+                return log_oom();
+
+        if (!m->bus) {
+                log_info("Not connected to system bus, ignoring timezone.");
+                return 0;
+        }
+
+        r = sd_bus_call_method_async(
+                        m->bus,
+                        NULL,
+                        "org.freedesktop.timedate1",
+                        "/org/freedesktop/timedate1",
+                        "org.freedesktop.timedate1",
+                        "SetTimezone",
+                        set_timezone_handler,
+                        m,
+                        "sb",
+                        tz,
+                        false);
+        if (r < 0)
+                return log_error_errno(r, "Could not set timezone: %m");
+
+        return 0;
 }

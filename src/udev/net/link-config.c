@@ -167,8 +167,9 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
         link->mac_policy = _MACPOLICY_INVALID;
         link->wol = _WOL_INVALID;
         link->duplex = _DUP_INVALID;
+        link->autonegotiation = -1;
 
-        memset(&link->features, -1, _NET_DEV_FEAT_MAX);
+        memset(&link->features, -1, sizeof(link->features));
 
         r = config_parse(NULL, filename, file,
                          "Match\0Link\0Ethernet\0",
@@ -191,20 +192,15 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
 }
 
 static bool enable_name_policy(void) {
-        _cleanup_free_ char *value = NULL;
-        int r;
+        bool b;
 
-        r = get_proc_cmdline_key("net.ifnames=", &value);
-        if (r > 0 && streq(value, "0"))
-            return false;
-
-        return true;
+        return proc_cmdline_get_bool("net.ifnames", &b) <= 0 || b;
 }
 
 int link_config_load(link_config_ctx *ctx) {
-        int r;
         _cleanup_strv_free_ char **files;
         char **f;
+        int r;
 
         link_configs_free(ctx);
 
@@ -364,11 +360,12 @@ static int get_mac(struct udev_device *device, bool want_random,
 
 int link_config_apply(link_config_ctx *ctx, link_config *config,
                       struct udev_device *device, const char **name) {
-        const char *old_name;
-        const char *new_name = NULL;
+        bool respect_predictable = false;
         struct ether_addr generated_mac;
         struct ether_addr *mac = NULL;
-        bool respect_predictable = false;
+        const char *new_name = NULL;
+        const char *old_name;
+        unsigned speed;
         int r, ifindex;
 
         assert(ctx);
@@ -380,11 +377,19 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         if (!old_name)
                 return -EINVAL;
 
-        r = ethtool_set_speed(&ctx->ethtool_fd, old_name, config->speed / 1024, config->duplex);
-        if (r < 0)
-                log_warning_errno(r, "Could not set speed or duplex of %s to %zu Mbps (%s): %m",
-                                  old_name, config->speed / 1024,
-                                  duplex_to_string(config->duplex));
+
+        speed = DIV_ROUND_UP(config->speed, 1000000);
+
+        r = ethtool_set_glinksettings(&ctx->ethtool_fd, old_name, speed, config->duplex, config->autonegotiation);
+        if (r < 0) {
+
+                if (r == -EOPNOTSUPP)
+                        r = ethtool_set_speed(&ctx->ethtool_fd, old_name, speed, config->duplex);
+
+                if (r < 0)
+                        log_warning_errno(r, "Could not set speed or duplex of %s to %u Mbps (%s): %m",
+                                          old_name, speed, duplex_to_string(config->duplex));
+        }
 
         r = ethtool_set_wol(&ctx->ethtool_fd, old_name, config->wol);
         if (r < 0)

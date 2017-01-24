@@ -18,7 +18,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
@@ -44,10 +43,11 @@
 #include "conf-files.h"
 #include "copy.h"
 #include "def.h"
+#include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
 #include "io-util.h"
@@ -380,7 +380,7 @@ static int dir_cleanup(
         bool deleted = false;
         int r = 0;
 
-        while ((dent = readdir(d))) {
+        FOREACH_DIRENT_ALL(dent, d, break) {
                 struct stat s;
                 usec_t age;
                 _cleanup_free_ char *sub_path = NULL;
@@ -422,7 +422,7 @@ static int dir_cleanup(
                         continue;
                 }
 
-                sub_path = strjoin(p, "/", dent->d_name, NULL);
+                sub_path = strjoin(p, "/", dent->d_name);
                 if (!sub_path) {
                         r = log_oom();
                         goto finish;
@@ -649,7 +649,7 @@ static int path_set_perms(Item *i, const char *path) {
                         else {
                                 log_debug("chmod \"%s\" to mode %o", path, m);
                                 if (chmod(fn, m) < 0)
-                                        return log_error_errno(errno, "chmod(%s) failed: %m", path);
+                                        return log_error_errno(errno, "chmod() of %s via %s failed: %m", path, fn);
                         }
                 }
 
@@ -662,7 +662,7 @@ static int path_set_perms(Item *i, const char *path) {
                         if (chown(fn,
                                   i->uid_set ? i->uid : UID_INVALID,
                                   i->gid_set ? i->gid : GID_INVALID) < 0)
-                                return log_error_errno(errno, "chown(%s) failed: %m", path);
+                                return log_error_errno(errno, "chown() of %s via %s failed: %m", path, fn);
                 }
         }
 
@@ -1053,6 +1053,7 @@ typedef int (*action_t)(Item *, const char *);
 
 static int item_do_children(Item *i, const char *path, action_t action) {
         _cleanup_closedir_ DIR *d;
+        struct dirent *de;
         int r = 0;
 
         assert(i);
@@ -1065,24 +1066,16 @@ static int item_do_children(Item *i, const char *path, action_t action) {
         if (!d)
                 return errno == ENOENT || errno == ENOTDIR ? 0 : -errno;
 
-        for (;;) {
+        FOREACH_DIRENT_ALL(de, d, r = -errno) {
                 _cleanup_free_ char *p = NULL;
-                struct dirent *de;
                 int q;
 
                 errno = 0;
-                de = readdir(d);
-                if (!de) {
-                        if (errno > 0 && r == 0)
-                                r = -errno;
-
-                        break;
-                }
 
                 if (STR_IN_SET(de->d_name, ".", ".."))
                         continue;
 
-                p = strjoin(path, "/", de->d_name, NULL);
+                p = strjoin(path, "/", de->d_name);
                 if (!p)
                         return -ENOMEM;
 

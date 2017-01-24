@@ -80,7 +80,9 @@ int udev_rules_apply_static_dev_perms(struct udev_rules *rules);
 /* udev-event.c */
 struct udev_event *udev_event_new(struct udev_device *dev);
 void udev_event_unref(struct udev_event *event);
-size_t udev_event_apply_format(struct udev_event *event, const char *src, char *dest, size_t size);
+size_t udev_event_apply_format(struct udev_event *event,
+                               const char *src, char *dest, size_t size,
+                               bool replace_whitespace);
 int udev_event_apply_subsys_kernel(struct udev_event *event, const char *string,
                                    char *result, size_t maxsize, int read_value);
 int udev_event_spawn(struct udev_event *event,

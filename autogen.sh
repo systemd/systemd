@@ -19,13 +19,11 @@ set -e
 
 verb="$1"
 
-if [[ -n "$verb" ]]; then
-        if [[ "$verb" != [cgals] ]]; then
-                echo "Unexpected argument: $verb" >&2
-                exit 1
-        fi
-        shift
-fi
+case "$verb" in
+"") ;;
+[cgals]) shift ;;
+*) echo "Unexpected argument: $verb" >&2; exit 1 ;;
+esac
 
 oldpwd=$(pwd)
 topdir=$(dirname $0)

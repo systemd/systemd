@@ -73,6 +73,9 @@ REQUIREMENTS:
         Note that systemd-localed.service and other systemd units use
         PrivateNetwork and PrivateDevices so this is effectively required.
 
+        Required for PrivateUsers in service units:
+          CONFIG_USER_NS
+
         Optional but strongly recommended:
           CONFIG_IPV6
           CONFIG_AUTOFS4_FS
@@ -143,6 +146,8 @@ REQUIREMENTS:
 
         util-linux >= v2.27.1 required
         dbus >= 1.4.0 (strictly speaking optional, but recommended)
+                NOTE: If using dbus < 1.9.18, you should override the default
+                policy directory (--with-dbuspolicydir=/etc/dbus-1/system.d).
         dracut (optional)
         PolicyKit (optional)
 

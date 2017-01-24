@@ -179,7 +179,7 @@ void server_dispatch_message(Server *s, struct iovec *iovec, unsigned n, unsigne
 void server_driver_message(Server *s, sd_id128_t message_id, const char *format, ...) _printf_(3,0) _sentinel_;
 
 /* gperf lookup function */
-const struct ConfigPerfItem* journald_gperf_lookup(const char *key, unsigned length);
+const struct ConfigPerfItem* journald_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
 int config_parse_storage(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
@@ -197,7 +197,7 @@ void server_sync(Server *s);
 int server_vacuum(Server *s, bool verbose);
 void server_rotate(Server *s);
 int server_schedule_sync(Server *s, int priority);
-int server_flush_to_var(Server *s);
+int server_flush_to_var(Server *s, bool require_flag_file);
 void server_maybe_append_tags(Server *s);
 int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userdata);
 void server_space_usage_message(Server *s, JournalStorage *storage);

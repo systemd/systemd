@@ -344,15 +344,18 @@ static int delete_loopback(const char *device) {
 }
 
 static int delete_dm(dev_t devnum) {
-        _cleanup_close_ int fd = -1;
-        int r;
+
         struct dm_ioctl dm = {
-                .version = {DM_VERSION_MAJOR,
-                            DM_VERSION_MINOR,
-                            DM_VERSION_PATCHLEVEL},
+                .version = {
+                        DM_VERSION_MAJOR,
+                        DM_VERSION_MINOR,
+                        DM_VERSION_PATCHLEVEL
+                },
                 .data_size = sizeof(dm),
                 .dev = devnum,
         };
+
+        _cleanup_close_ int fd = -1;
 
         assert(major(devnum) != 0);
 
@@ -360,8 +363,10 @@ static int delete_dm(dev_t devnum) {
         if (fd < 0)
                 return -errno;
 
-        r = ioctl(fd, DM_DEV_REMOVE, &dm);
-        return r >= 0 ? 0 : -errno;
+        if (ioctl(fd, DM_DEV_REMOVE, &dm) < 0)
+                return -errno;
+
+        return 0;
 }
 
 static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_error) {

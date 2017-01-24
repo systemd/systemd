@@ -13,6 +13,7 @@ DefaultDependencies=no
 Before=sysinit.target
 ConditionPathExists=/sys/kernel/mm/hugepages
 ConditionCapability=CAP_SYS_ADMIN
+ConditionVirtualization=!private-users
 
 [Mount]
 What=hugetlbfs

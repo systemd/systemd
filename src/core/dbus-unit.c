@@ -22,6 +22,7 @@
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "cgroup-util.h"
+#include "dbus-job.h"
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "fd-util.h"
@@ -263,10 +264,7 @@ static int property_get_can_stop(
         assert(reply);
         assert(u);
 
-        /* On the lower levels we assume that every unit we can start
-         * we can also stop */
-
-        return sd_bus_message_append(reply, "b", unit_can_start(u) && !u->refuse_manual_stop);
+        return sd_bus_message_append(reply, "b", unit_can_stop(u) && !u->refuse_manual_stop);
 }
 
 static int property_get_can_reload(
@@ -484,7 +482,7 @@ int bus_unit_method_start_generic(
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Job mode %s invalid", smode);
 
         if (reload_if_possible)
-                verb = strjoin("reload-or-", job_type_to_string(job_type), NULL);
+                verb = strjoin("reload-or-", job_type_to_string(job_type));
         else
                 verb = strdup(job_type_to_string(job_type));
         if (!verb)
@@ -760,6 +758,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("Asserts", "a(sbbsi)", property_get_conditions, offsetof(Unit, asserts), 0),
         SD_BUS_PROPERTY("LoadError", "(ss)", property_get_load_error, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Transient", "b", bus_property_get_bool, offsetof(Unit, transient), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Perpetual", "b", bus_property_get_bool, offsetof(Unit, perpetual), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StartLimitBurst", "u", bus_property_get_unsigned, offsetof(Unit, start_limit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StartLimitAction", "s", property_get_emergency_action, offsetof(Unit, start_limit_action), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -986,7 +985,7 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
                 if (r == 0)
                         break;
 
-                j = strjoin(p, "/", g, NULL);
+                j = strjoin(p, "/", g);
                 if (!j)
                         return -ENOMEM;
 
@@ -1219,23 +1218,15 @@ int bus_unit_queue_job(
             (type == JOB_STOP && u->refuse_manual_stop) ||
             ((type == JOB_RESTART || type == JOB_TRY_RESTART) && (u->refuse_manual_start || u->refuse_manual_stop)) ||
             (type == JOB_RELOAD_OR_START && job_type_collapse(type, u) == JOB_START && u->refuse_manual_start))
-                return sd_bus_error_setf(error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, unit %s may be requested by dependency only.", u->id);
+                return sd_bus_error_setf(error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, unit %s may be requested by dependency only (it is configured to refuse manual start/stop).", u->id);
 
         r = manager_add_job(u->manager, type, u, mode, error, &j);
         if (r < 0)
                 return r;
 
-        if (sd_bus_message_get_bus(message) == u->manager->api_bus) {
-                if (!j->clients) {
-                        r = sd_bus_track_new(sd_bus_message_get_bus(message), &j->clients, NULL, NULL);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = sd_bus_track_add_sender(j->clients, message);
-                if (r < 0)
-                        return r;
-        }
+        r = bus_job_track_sender(j, message);
+        if (r < 0)
+                return r;
 
         path = job_dbus_path(j);
         if (!path)
@@ -1365,7 +1356,7 @@ static int bus_unit_set_transient_property(
                                 if (r < 0)
                                         return r;
 
-                                label = strjoin(name, "-", other, NULL);
+                                label = strjoin(name, "-", other);
                                 if (!label)
                                         return -ENOMEM;
 
@@ -1509,7 +1500,7 @@ int bus_unit_check_load_state(Unit *u, sd_bus_error *error) {
         return sd_bus_error_set_errnof(error, u->load_error, "Unit %s is not loaded properly: %m.", u->id);
 }
 
-static int bus_track_handler(sd_bus_track *t, void *userdata) {
+static int bus_unit_track_handler(sd_bus_track *t, void *userdata) {
         Unit *u = userdata;
 
         assert(t);
@@ -1521,7 +1512,7 @@ static int bus_track_handler(sd_bus_track *t, void *userdata) {
         return 0;
 }
 
-static int allocate_bus_track(Unit *u) {
+static int bus_unit_allocate_bus_track(Unit *u) {
         int r;
 
         assert(u);
@@ -1529,7 +1520,7 @@ static int allocate_bus_track(Unit *u) {
         if (u->bus_track)
                 return 0;
 
-        r = sd_bus_track_new(u->manager->api_bus, &u->bus_track, bus_track_handler, u);
+        r = sd_bus_track_new(u->manager->api_bus, &u->bus_track, bus_unit_track_handler, u);
         if (r < 0)
                 return r;
 
@@ -1547,7 +1538,7 @@ int bus_unit_track_add_name(Unit *u, const char *name) {
 
         assert(u);
 
-        r = allocate_bus_track(u);
+        r = bus_unit_allocate_bus_track(u);
         if (r < 0)
                 return r;
 
@@ -1559,7 +1550,7 @@ int bus_unit_track_add_sender(Unit *u, sd_bus_message *m) {
 
         assert(u);
 
-        r = allocate_bus_track(u);
+        r = bus_unit_allocate_bus_track(u);
         if (r < 0)
                 return r;
 

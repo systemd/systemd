@@ -35,10 +35,12 @@
  * Type of names:
  *   b<number>                             — BCMA bus core number
  *   c<bus_id>                             — CCW bus group name, without leading zeros [s390]
- *   o<index>[d<dev_port>]                 — on-board device index number
- *   s<slot>[f<function>][d<dev_port>]     — hotplug slot index number
+ *   o<index>[n<phys_port_name>|d<dev_port>]
+ *                                         — on-board device index number
+ *   s<slot>[f<function>][n<phys_port_name>|d<dev_port>]
+ *                                         — hotplug slot index number
  *   x<MAC>                                — MAC address
- *   [P<domain>]p<bus>s<slot>[f<function>][d<dev_port>]
+ *   [P<domain>]p<bus>s<slot>[f<function>][n<phys_port_name>|d<dev_port>]
  *                                         — PCI geographical location
  *   [P<domain>]p<bus>s<slot>[f<function>][u<port>][..][c<config>][i<interface>]
  *                                         — USB port number chain
@@ -98,6 +100,7 @@
 #include <unistd.h>
 #include <linux/pci_regs.h>
 
+#include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "stdio-util.h"
@@ -137,7 +140,7 @@ static int dev_pci_onboard(struct udev_device *dev, struct netnames *names) {
         unsigned dev_port = 0;
         size_t l;
         char *s;
-        const char *attr;
+        const char *attr, *port_name;
         int idx;
 
         /* ACPI _DSM  — device specific method for naming a PCI or PCI Express device */
@@ -164,10 +167,15 @@ static int dev_pci_onboard(struct udev_device *dev, struct netnames *names) {
         if (attr)
                 dev_port = strtol(attr, NULL, 10);
 
+        /* kernel provided front panel port name for multiple port PCI device */
+        port_name = udev_device_get_sysattr_value(dev, "phys_port_name");
+
         s = names->pci_onboard;
         l = sizeof(names->pci_onboard);
         l = strpcpyf(&s, l, "o%d", idx);
-        if (dev_port > 0)
+        if (port_name)
+                l = strpcpyf(&s, l, "n%s", port_name);
+        else if (dev_port > 0)
                 l = strpcpyf(&s, l, "d%d", dev_port);
         if (l == 0)
                 names->pci_onboard[0] = '\0';
@@ -202,9 +210,9 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         unsigned domain, bus, slot, func, dev_port = 0;
         size_t l;
         char *s;
-        const char *attr;
+        const char *attr, *port_name;
         struct udev_device *pci = NULL;
-        char slots[256], str[256];
+        char slots[PATH_MAX];
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *dent;
         int hotplug_slot = 0, err = 0;
@@ -217,6 +225,9 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         if (attr)
                 dev_port = strtol(attr, NULL, 10);
 
+        /* kernel provided front panel port name for multiple port PCI device */
+        port_name = udev_device_get_sysattr_value(dev, "phys_port_name");
+
         /* compose a name based on the raw kernel's PCI bus, slot numbers */
         s = names->pci_path;
         l = sizeof(names->pci_path);
@@ -225,7 +236,9 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         l = strpcpyf(&s, l, "p%us%u", bus, slot);
         if (func > 0 || is_pci_multifunction(names->pcidev))
                 l = strpcpyf(&s, l, "f%u", func);
-        if (dev_port > 0)
+        if (port_name)
+                l = strpcpyf(&s, l, "n%s", port_name);
+        else if (dev_port > 0)
                 l = strpcpyf(&s, l, "d%u", dev_port);
         if (l == 0)
                 names->pci_path[0] = '\0';
@@ -236,17 +249,17 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                 err = -ENOENT;
                 goto out;
         }
-        xsprintf(slots, "%s/slots", udev_device_get_syspath(pci));
+
+        snprintf(slots, sizeof slots, "%s/slots", udev_device_get_syspath(pci));
         dir = opendir(slots);
         if (!dir) {
                 err = -errno;
                 goto out;
         }
 
-        for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
+        FOREACH_DIRENT_ALL(dent, dir, break) {
                 int i;
-                char *rest;
-                char *address;
+                char *rest, *address, str[PATH_MAX];
 
                 if (dent->d_name[0] == '.')
                         continue;
@@ -255,7 +268,8 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                         continue;
                 if (i < 1)
                         continue;
-                xsprintf(str, "%s/%s/address", slots, dent->d_name);
+
+                snprintf(str, sizeof str, "%s/%s/address", slots, dent->d_name);
                 if (read_one_line_file(str, &address) >= 0) {
                         /* match slot address with device by stripping the function */
                         if (strneq(address, udev_device_get_sysname(names->pcidev), strlen(address)))
@@ -275,7 +289,9 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                 l = strpcpyf(&s, l, "s%d", hotplug_slot);
                 if (func > 0 || is_pci_multifunction(names->pcidev))
                         l = strpcpyf(&s, l, "f%d", func);
-                if (dev_port > 0)
+                if (port_name)
+                        l = strpcpyf(&s, l, "n%s", port_name);
+                else if (dev_port > 0)
                         l = strpcpyf(&s, l, "d%d", dev_port);
                 if (l == 0)
                         names->pci_slot[0] = '\0';

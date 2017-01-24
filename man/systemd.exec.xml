@@ -93,10 +93,10 @@
     the specified paths. This is equivalent to having them listed
     explicitly in <varname>RequiresMountsFor=</varname>.</para>
 
-    <para>Similar, units with <varname>PrivateTmp=</varname> enabled
-    automatically get mount unit dependencies for all mounts
-    required to access <filename>/tmp</filename> and
-    <filename>/var/tmp</filename>.</para>
+    <para>Similar, units with <varname>PrivateTmp=</varname> enabled automatically get mount unit dependencies for all
+    mounts required to access <filename>/tmp</filename> and <filename>/var/tmp</filename>. They will also gain an
+    automatic <varname>After=</varname> dependency on
+    <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
     <para>Units whose standard output or error output is connected to <option>journal</option>, <option>syslog</option>
     or <option>kmsg</option> (or their combinations with console output, see below) automatically acquire dependencies
@@ -859,14 +859,17 @@
 
       <varlistentry>
         <term><varname>PAMName=</varname></term>
-        <listitem><para>Sets the PAM service name to set up a session
-        as. If set, the executed process will be registered as a PAM
-        session under the specified service name. This is only useful
-        in conjunction with the <varname>User=</varname> setting. If
-        not set, no PAM session will be opened for the executed
-        processes. See
-        <citerefentry project='man-pages'><refentrytitle>pam</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        for details.</para></listitem>
+        <listitem><para>Sets the PAM service name to set up a session as. If set, the executed process will be
+        registered as a PAM session under the specified service name. This is only useful in conjunction with the
+        <varname>User=</varname> setting, and is otherwise ignored. If not set, no PAM session will be opened for the
+        executed processes. See <citerefentry
+        project='man-pages'><refentrytitle>pam</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+        details.</para>
+
+        <para>Note that for each unit making use of this option a PAM session handler process will be maintained as
+        part of the unit and stays around as long as the unit is active, to ensure that appropriate actions can be
+        taken when the unit and hence the PAM session terminates. This process is named <literal>(sd-pam)</literal> and
+        is an immediate child process of the unit's main process.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -952,13 +955,44 @@
         assigned to this option, the specific list is reset, and all prior assignments have no effect.</para>
 
         <para>Paths in <varname>ReadWritePaths=</varname>, <varname>ReadOnlyPaths=</varname> and
-        <varname>InaccessiblePaths=</varname> may be prefixed with <literal>-</literal>, in which case they will be ignored
-        when they do not exist. Note that using this setting will disconnect propagation of mounts from the service to
-        the host (propagation in the opposite direction continues to work). This means that this setting may not be used
-        for services which shall be able to install mount points in the main mount namespace. Note that the effect of
-        these settings may be undone by privileged processes. In order to set up an effective sandboxed environment for
-        a unit it is thus recommended to combine these settings with either
-        <varname>CapabilityBoundingSet=~CAP_SYS_ADMIN</varname> or <varname>SystemCallFilter=~@mount</varname>.</para></listitem>
+        <varname>InaccessiblePaths=</varname> may be prefixed with <literal>-</literal>, in which case they will be
+        ignored when they do not exist. If prefixed with <literal>+</literal> the paths are taken relative to the root
+        directory of the unit, as configured with <varname>RootDirectory=</varname>, instead of relative to the root
+        directory of the host (see above). When combining <literal>-</literal> and <literal>+</literal> on the same
+        path make sure to specify <literal>-</literal> first, and <literal>+</literal> second.</para>
+
+        <para>Note that using this setting will disconnect propagation of mounts from the service to the host
+        (propagation in the opposite direction continues to work). This means that this setting may not be used for
+        services which shall be able to install mount points in the main mount namespace. Note that the effect of these
+        settings may be undone by privileged processes. In order to set up an effective sandboxed environment for a
+        unit it is thus recommended to combine these settings with either
+        <varname>CapabilityBoundingSet=~CAP_SYS_ADMIN</varname> or
+        <varname>SystemCallFilter=~@mount</varname>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>BindPaths=</varname></term>
+        <term><varname>BindReadOnlyPaths=</varname></term>
+
+        <listitem><para>Configures unit-specific bind mounts. A bind mount makes a particular file or directory
+        available at an additional place in the unit's view of the file system. Any bind mounts created with this
+        option are specific to the unit, and are not visible in the host's mount table. This option expects a
+        whitespace separated list of bind mount definitions. Each definition consists of a colon-separated triple of
+        source path, destination path and option string, where the latter two are optional. If only a source path is
+        specified the source and destination is taken to be the same. The option string may be either
+        <literal>rbind</literal> or <literal>norbind</literal> for configuring a recursive or non-recursive bind
+        mount. If the destination parth is omitted, the option string must be omitted too.</para>
+
+        <para><varname>BindPaths=</varname> creates regular writable bind mounts (unless the source file system mount
+        is already marked read-only), while <varname>BindReadOnlyPaths=</varname> creates read-only bind mounts. These
+        settings may be used more than once, each usage appends to the unit's list of bind mounts. If the empty string
+        is assigned to either of these two options the entire list of bind mounts defined prior to this is reset. Note
+        that in this case both read-only and regular bind mounts are reset, regardless which of the two settings is
+        used.</para>
+
+        <para>This option is particularly useful when <varname>RootDirectory=</varname> is used. In this case the
+        source path refers to a path on the host file system, while the destination path refers to a path below the
+        root directory of the unit.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -975,8 +1009,11 @@
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
         details. This setting is implied if <varname>DynamicUser=</varname> is set. For this setting the same
         restrictions regarding mount propagation and privileges apply as for <varname>ReadOnlyPaths=</varname> and
-        related calls, see above.</para></listitem>
-
+        related calls, see above. Enabling this setting has the side effect of adding <varname>Requires=</varname> and
+        <varname>After=</varname> dependencies on all mount units necessary to access <filename>/tmp</filename> and
+        <filename>/var/tmp</filename>. Moreover an implicitly <varname>After=</varname> ordering on
+        <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        is added.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -999,7 +1036,11 @@
         using <citerefentry><refentrytitle>mmap</refentrytitle><manvolnum>2</manvolnum></citerefentry> of
         <filename>/dev/zero</filename> instead of using <constant>MAP_ANON</constant>. This setting is implied if
         <varname>DynamicUser=</varname> is set. For this setting the same restrictions regarding mount propagation and
-        privileges apply as for <varname>ReadOnlyPaths=</varname> and related calls, see above.</para></listitem>
+        privileges apply as for <varname>ReadOnlyPaths=</varname> and related calls, see above.
+        If turned on and if running in user mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant>
+        capability (e.g. setting <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname>
+        is implied.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1090,9 +1131,35 @@
         mechanism. Almost no services need to write to these at runtime; it is hence recommended to turn this on for
         most services. For this setting the same restrictions regarding mount propagation and privileges apply as for
         <varname>ReadOnlyPaths=</varname> and related calls, see above. Defaults to off.
-        Note that this option does not prevent kernel tuning through IPC interfaces and exeternal programs. However
-        <varname>InaccessiblePaths=</varname> can be used to make some IPC file system objects
-        inaccessible.</para></listitem>
+        If turned on and if running in user mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant>
+        capability (e.g. setting <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname>
+        is implied. Note that this option does not prevent kernel tuning through IPC interfaces
+        and external programs. However <varname>InaccessiblePaths=</varname> can be used to
+        make some IPC file system objects inaccessible.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ProtectKernelModules=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, explicit module loading will
+        be denied. This allows to turn off module load and unload operations on modular
+        kernels. It is recommended to turn this on for most services that do not need special
+        file systems or extra kernel modules to work. Default to off. Enabling this option
+        removes <constant>CAP_SYS_MODULE</constant> from the capability bounding set for
+        the unit, and installs a system call filter to block module system calls,
+        also <filename>/usr/lib/modules</filename> is made inaccessible. For this
+        setting the same restrictions regarding mount propagation and privileges
+        apply as for <varname>ReadOnlyPaths=</varname> and related calls, see above.
+        Note that limited automatic module loading due to user configuration or kernel
+        mapping tables might still happen as side effect of requested user operations,
+        both privileged and unprivileged. To disable module auto-load feature please see
+        <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        <constant>kernel.modules_disabled</constant> mechanism and
+        <filename>/proc/sys/kernel/modules_disabled</filename> documentation.
+        If turned on and if running in user mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant>
+        capability (e.g. setting <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname>
+        is implied.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1112,12 +1179,16 @@
 
         <listitem><para>Takes a mount propagation flag: <option>shared</option>, <option>slave</option> or
         <option>private</option>, which control whether mounts in the file system namespace set up for this unit's
-        processes will receive or propagate mounts or unmounts. See <citerefentry
+        processes will receive or propagate mounts and unmounts. See <citerefentry
         project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details. Defaults to <option>shared</option>. Use <option>shared</option> to ensure that mounts and unmounts
-        are propagated from the host to the container and vice versa. Use <option>slave</option> to run processes so
-        that none of their mounts and unmounts will propagate to the host. Use <option>private</option> to also ensure
-        that no mounts and unmounts from the host will propagate into the unit processes' namespace. Note that
+        are propagated from systemd's namespace to the service's namespace and vice versa. Use <option>slave</option>
+        to run processes so that none of their mounts and unmounts will propagate to the host. Use <option>private</option>
+        to also ensure that no mounts and unmounts from the host will propagate into the unit processes' namespace.
+        If this is set to <option>slave</option> or <option>private</option>, any mounts created by spawned processes
+        will be unmounted after the completion of the current command line of <varname>ExecStartPre=</varname>,
+        <varname>ExecStartPost=</varname>, <varname>ExecStart=</varname>,
+        and <varname>ExecStopPost=</varname>. Note that
         <option>slave</option> means that file systems mounted on the host might stay mounted continuously in the
         unit's namespace, and thus keep the device busy. Note that the file system namespace related options
         (<varname>PrivateTmp=</varname>, <varname>PrivateDevices=</varname>, <varname>ProtectSystem=</varname>,
@@ -1234,42 +1305,43 @@
       <varlistentry>
         <term><varname>NoNewPrivileges=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, ensures
-        that the service process and all its children can never gain
-        new privileges. This option is more powerful than the
-        respective secure bits flags (see above), as it also prohibits
-        UID changes of any kind. This is the simplest, most effective
-        way to ensure that a process and its children can never
-        elevate privileges again.</para></listitem>
+        <listitem><para>Takes a boolean argument. If true, ensures that the service process and all its children can
+        never gain new privileges through <function>execve()</function> (e.g. via setuid or setgid bits, or filesystem
+        capabilities). This is the simplest and most effective way to ensure that a process and its children can never
+        elevate privileges again. Defaults to false, but certain settings force
+        <varname>NoNewPrivileges=yes</varname>, ignoring the value of this setting.  This is the case when
+        <varname>SystemCallFilter=</varname>, <varname>SystemCallArchitectures=</varname>,
+        <varname>RestrictAddressFamilies=</varname>, <varname>RestrictNamespaces=</varname>,
+        <varname>PrivateDevices=</varname>, <varname>ProtectKernelTunables=</varname>,
+        <varname>ProtectKernelModules=</varname>, <varname>MemoryDenyWriteExecute=</varname>, or
+        <varname>RestrictRealtime=</varname> are specified.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>SystemCallFilter=</varname></term>
 
-        <listitem><para>Takes a space-separated list of system call
-        names. If this setting is used, all system calls executed by
-        the unit processes except for the listed ones will result in
-        immediate process termination with the
-        <constant>SIGSYS</constant> signal (whitelisting). If the
-        first character of the list is <literal>~</literal>, the
-        effect is inverted: only the listed system calls will result
-        in immediate process termination (blacklisting). If running in
-        user mode, or in system mode, but without the
-        <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
-        <varname>User=nobody</varname>),
-        <varname>NoNewPrivileges=yes</varname> is implied. This
-        feature makes use of the Secure Computing Mode 2 interfaces of
-        the kernel ('seccomp filtering') and is useful for enforcing a
-        minimal sandboxing environment. Note that the
-        <function>execve</function>,
-        <function>rt_sigreturn</function>,
-        <function>sigreturn</function>,
-        <function>exit_group</function>, <function>exit</function>
-        system calls are implicitly whitelisted and do not need to be
-        listed explicitly. This option may be specified more than once,
-        in which case the filter masks are merged. If the empty string
-        is assigned, the filter is reset, all prior assignments will
-        have no effect. This does not affect commands prefixed with <literal>+</literal>.</para>
+        <listitem><para>Takes a space-separated list of system call names. If this setting is used, all system calls
+        executed by the unit processes except for the listed ones will result in immediate process termination with the
+        <constant>SIGSYS</constant> signal (whitelisting). If the first character of the list is <literal>~</literal>,
+        the effect is inverted: only the listed system calls will result in immediate process termination
+        (blacklisting). If running in user mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant>
+        capability (e.g. setting <varname>User=nobody</varname>), <varname>NoNewPrivileges=yes</varname> is
+        implied. This feature makes use of the Secure Computing Mode 2 interfaces of the kernel ('seccomp filtering')
+        and is useful for enforcing a minimal sandboxing environment. Note that the <function>execve</function>,
+        <function>exit</function>, <function>exit_group</function>, <function>getrlimit</function>,
+        <function>rt_sigreturn</function>, <function>sigreturn</function> system calls and the system calls for
+        querying time and sleeping are implicitly whitelisted and do not need to be listed explicitly. This option may
+        be specified more than once, in which case the filter masks are merged. If the empty string is assigned, the
+        filter is reset, all prior assignments will have no effect. This does not affect commands prefixed with
+        <literal>+</literal>.</para>
+
+        <para>Note that strict system call filters may impact execution and error handling code paths of the service
+        invocation. Specifically, access to the <function>execve</function> system call is required for the execution
+        of the service binary — if it is blocked service invocation will necessarily fail. Also, if execution of the
+        service binary fails for some reason (for example: missing service executable), the error handling logic might
+        require access to an additional set of system calls in order to process and log this failure correctly. It
+        might be necessary to temporarily disable system call filters in order to simplify debugging of such
+        failures.</para>
 
         <para>If you specify both types of this option (i.e.
         whitelisting and blacklisting), the first encountered will
@@ -1303,6 +1375,10 @@
             </thead>
             <tbody>
               <row>
+                <entry>@basic-io</entry>
+                <entry>System calls for basic I/O: reading, writing, seeking, file descriptor duplication and closing (<citerefentry project='man-pages'><refentrytitle>read</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>write</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and related calls)</entry>
+              </row>
+              <row>
                 <entry>@clock</entry>
                 <entry>System calls for changing the system clock (<citerefentry project='man-pages'><refentrytitle>adjtimex</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>settimeofday</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and related calls)</entry>
               </row>
@@ -1315,12 +1391,16 @@
                 <entry>Debugging, performance monitoring and tracing functionality (<citerefentry project='man-pages'><refentrytitle>ptrace</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>perf_event_open</refentrytitle><manvolnum>2</manvolnum></citerefentry> and related calls)</entry>
               </row>
               <row>
+                <entry>@file-system</entry>
+                <entry>File system operations: opening, creating files and directories for read and write, renaming and removing them, reading file properties, or creating hard and symbolic links.</entry>
+              </row>
+              <row>
                 <entry>@io-event</entry>
                 <entry>Event loop system calls (<citerefentry project='man-pages'><refentrytitle>poll</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>select</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>epoll</refentrytitle><manvolnum>7</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>eventfd</refentrytitle><manvolnum>2</manvolnum></citerefentry> and related calls)</entry>
               </row>
               <row>
                 <entry>@ipc</entry>
-                <entry>SysV IPC, POSIX Message Queues or other IPC (<citerefentry project='man-pages'><refentrytitle>mq_overview</refentrytitle><manvolnum>7</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>svipc</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
+                <entry>Pipes, SysV IPC, POSIX Message Queues and other IPC (<citerefentry project='man-pages'><refentrytitle>mq_overview</refentrytitle><manvolnum>7</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>svipc</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
               </row>
               <row>
                 <entry>@keyring</entry>
@@ -1328,11 +1408,11 @@
               </row>
               <row>
                 <entry>@module</entry>
-                <entry>Kernel module control (<citerefentry project='man-pages'><refentrytitle>init_module</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>delete_module</refentrytitle><manvolnum>2</manvolnum></citerefentry> and related calls)</entry>
+                <entry>Loading and unloading of kernel modules (<citerefentry project='man-pages'><refentrytitle>init_module</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>delete_module</refentrytitle><manvolnum>2</manvolnum></citerefentry> and related calls)</entry>
               </row>
               <row>
                 <entry>@mount</entry>
-                <entry>File system mounting and unmounting (<citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and related calls)</entry>
+                <entry>Mounting and unmounting of file systems (<citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and related calls)</entry>
               </row>
               <row>
                 <entry>@network-io</entry>
@@ -1348,18 +1428,35 @@
               </row>
               <row>
                 <entry>@process</entry>
-                <entry>Process control, execution, namespaces (<citerefentry project='man-pages'><refentrytitle>execve</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>, …</entry>
+                <entry>Process control, execution, namespaceing operations (<citerefentry project='man-pages'><refentrytitle>clone</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>, …</entry>
               </row>
               <row>
                 <entry>@raw-io</entry>
-                <entry>Raw I/O port access (<citerefentry project='man-pages'><refentrytitle>ioperm</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>iopl</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <function>pciconfig_read()</function>, …</entry>
+                <entry>Raw I/O port access (<citerefentry project='man-pages'><refentrytitle>ioperm</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>iopl</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <function>pciconfig_read()</function>, …)</entry>
+              </row>
+              <row>
+                <entry>@reboot</entry>
+                <entry>System calls for rebooting and reboot preparation (<citerefentry project='man-pages'><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <function>kexec()</function>, …)</entry>
+              </row>
+              <row>
+                <entry>@resources</entry>
+                <entry>System calls for changing resource limits, memory and scheduling parameters (<citerefentry project='man-pages'><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>setpriority</refentrytitle><manvolnum>2</manvolnum></citerefentry>, …)</entry>
+              </row>
+              <row>
+                <entry>@swap</entry>
+                <entry>System calls for enabling/disabling swap devices (<citerefentry project='man-pages'><refentrytitle>swapon</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>swapoff</refentrytitle><manvolnum>2</manvolnum></citerefentry>)</entry>
               </row>
             </tbody>
           </tgroup>
         </table>
 
-        Note, that as new system calls are added to the kernel, additional system calls might be added to the groups
-        above, so the contents of the sets may change between systemd versions.</para>
+        Note, that as new system calls are added to the kernel, additional system calls might be
+        added to the groups above. Contents of the sets may also change between systemd
+        versions. In addition, the list of system calls depends on the kernel version and
+        architecture for which systemd was compiled. Use
+        <command>systemd-analyze syscall-filter</command> to list the actual list of system calls in
+        each filter.
+      </para>
 
         <para>It is recommended to combine the file system namespacing related options with
         <varname>SystemCallFilter=~@mount</varname>, in order to prohibit the unit's processes to undo the
@@ -1387,28 +1484,25 @@
       <varlistentry>
         <term><varname>SystemCallArchitectures=</varname></term>
 
-        <listitem><para>Takes a space-separated list of architecture
-        identifiers to include in the system call filter. The known
-        architecture identifiers are <constant>x86</constant>,
-        <constant>x86-64</constant>, <constant>x32</constant>,
-        <constant>arm</constant>, <constant>s390</constant>,
-        <constant>s390x</constant> as well as the special identifier
-        <constant>native</constant>. Only system calls of the
-        specified architectures will be permitted to processes of this
-        unit. This is an effective way to disable compatibility with
-        non-native architectures for processes, for example to
-        prohibit execution of 32-bit x86 binaries on 64-bit x86-64
-        systems. The special <constant>native</constant> identifier
-        implicitly maps to the native architecture of the system (or
-        more strictly: to the architecture the system manager is
-        compiled for). If running in user mode, or in system mode,
-        but without the <constant>CAP_SYS_ADMIN</constant>
-        capability (e.g. setting <varname>User=nobody</varname>),
-        <varname>NoNewPrivileges=yes</varname> is implied. Note
-        that setting this option to a non-empty list implies that
-        <constant>native</constant> is included too. By default, this
-        option is set to the empty list, i.e. no architecture system
-        call filtering is applied.</para></listitem>
+        <listitem><para>Takes a space-separated list of architecture identifiers to
+        include in the system call filter. The known architecture identifiers are the same
+        as for <varname>ConditionArchitecture=</varname> described in
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        as well as <constant>x32</constant>, <constant>mips64-n32</constant>,
+        <constant>mips64-le-n32</constant>, and the special identifier
+        <constant>native</constant>. Only system calls of the specified architectures will
+        be permitted to processes of this unit. This is an effective way to disable
+        compatibility with non-native architectures for processes, for example to prohibit
+        execution of 32-bit x86 binaries on 64-bit x86-64 systems. The special
+        <constant>native</constant> identifier implicitly maps to the native architecture
+        of the system (or more strictly: to the architecture the system manager is
+        compiled for). If running in user mode, or in system mode, but without the
+        <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
+        <varname>User=nobody</varname>), <varname>NoNewPrivileges=yes</varname> is
+        implied. Note that setting this option to a non-empty list implies that
+        <constant>native</constant> is included too. By default, this option is set to the
+        empty list, i.e. no architecture system call filtering is applied.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1451,23 +1545,31 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>ProtectKernelModules=</varname></term>
+        <term><varname>RestrictNamespaces=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, explicit module loading will
-        be denied. This allows to turn off module load and unload operations on modular
-        kernels. It is recomended to turn this on for most services that do not need special
-        file systems or extra kernel modules to work. Default to off. Enabling this option
-        removes <constant>CAP_SYS_MODULE</constant> from the capability bounding set for
-        the unit, and installs a system call filter to block module system calls,
-        also <filename>/usr/lib/modules</filename> is made inaccessible. For this
-        setting the same restrictions regarding mount propagation and privileges
-        apply as for <varname>ReadOnlyPaths=</varname> and related calls, see above.
-        Note that limited automatic module loading due to user configuration or kernel
-        mapping tables might still happen as side effect of requested user operations,
-        both privileged and unprivileged. To disable module auto-load feature please see
-        <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        <constant>kernel.modules_disabled</constant> mechanism and
-        <filename>/proc/sys/kernel/modules_disabled</filename> documentation.</para></listitem>
+        <listitem><para>Restricts access to Linux namespace functionality for the processes of this unit. For details
+        about Linux namespaces, see
+        <citerefentry><refentrytitle>namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>. Either takes a
+        boolean argument, or a space-separated list of namespace type identifiers. If false (the default), no
+        restrictions on namespace creation and switching are made. If true, access to any kind of namespacing is
+        prohibited. Otherwise, a space-separated list of namespace type identifiers must be specified, consisting of
+        any combination of: <constant>cgroup</constant>, <constant>ipc</constant>, <constant>net</constant>,
+        <constant>mnt</constant>, <constant>pid</constant>, <constant>user</constant> and <constant>uts</constant>. Any
+        namespace type listed is made accessible to the unit's processes, access to namespace types not listed is
+        prohibited (whitelisting). By prepending the list with a single tilda character (<literal>~</literal>) the
+        effect may be inverted: only the listed namespace types will be made inaccessible, all unlisted ones are
+        permitted (blacklisting). If the empty string is assigned, the default namespace restrictions are applied,
+        which is equivalent to false. Internally, this setting limits access to the
+        <citerefentry><refentrytitle>unshare</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>clone</refentrytitle><manvolnum>2</manvolnum></citerefentry> and
+        <citerefentry><refentrytitle>setns</refentrytitle><manvolnum>2</manvolnum></citerefentry> system calls, taking
+        the specified flags parameters into account. Note that — if this option is used — in addition to restricting
+        creation and switching of the specified types of namespaces (or all of them, if true) access to the
+        <function>setns()</function> system call with a zero flags parameter is prohibited.
+        If running in user mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant>
+        capability (e.g. setting <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname>
+        is implied.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1516,15 +1618,21 @@
         <term><varname>MemoryDenyWriteExecute=</varname></term>
 
         <listitem><para>Takes a boolean argument. If set, attempts to create memory mappings that are writable and
-        executable at the same time, or to change existing memory mappings to become executable are prohibited.
+        executable at the same time, or to change existing memory mappings to become executable, or mapping shared memory
+        segments as executable are prohibited.
         Specifically, a system call filter is added that rejects
         <citerefentry><refentrytitle>mmap</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        system calls with both <constant>PROT_EXEC</constant> and <constant>PROT_WRITE</constant> set
-        and <citerefentry><refentrytitle>mprotect</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        system calls with <constant>PROT_EXEC</constant> set. Note that this option is incompatible with programs
+        system calls with both <constant>PROT_EXEC</constant> and <constant>PROT_WRITE</constant> set,
+        <citerefentry><refentrytitle>mprotect</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        system calls with <constant>PROT_EXEC</constant> set and
+        <citerefentry><refentrytitle>shmat</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        system calls with <constant>SHM_EXEC</constant> set. Note that this option is incompatible with programs
         that generate program code dynamically at runtime, such as JIT execution engines, or programs compiled making
         use of the code "trampoline" feature of various C compilers. This option improves service security, as it makes
         harder for software exploits to change running code dynamically.
+        If running in user mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant>
+        capability (e.g. setting <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname>
+        is implied.
         </para></listitem>
       </varlistentry>
 
@@ -1535,7 +1643,10 @@
         the unit are refused. This restricts access to realtime task scheduling policies such as
         <constant>SCHED_FIFO</constant>, <constant>SCHED_RR</constant> or <constant>SCHED_DEADLINE</constant>. See
         <citerefentry project='man-pages'><refentrytitle>sched</refentrytitle><manvolnum>7</manvolnum></citerefentry> for details about
-        these scheduling policies. Realtime scheduling policies may be used to monopolize CPU time for longer periods
+        these scheduling policies. If running in user mode, or in system mode, but
+        without the <constant>CAP_SYS_ADMIN</constant> capability
+        (e.g. setting <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname>
+        is implied. Realtime scheduling policies may be used to monopolize CPU time for longer periods
         of time, and may hence be used to lock up or otherwise trigger Denial-of-Service situations on the system. It
         is hence recommended to restrict access to realtime scheduling to the few programs that actually require
         them. Defaults to off.</para></listitem>
@@ -1703,14 +1814,15 @@
 
         <listitem><para>Only defined for the service unit type, this environment variable is passed to all
         <varname>ExecStop=</varname> and <varname>ExecStopPost=</varname> processes, and encodes the service
-        "result". Currently, the following values are defined: <literal>timeout</literal> (in case of an operation
-        timeout), <literal>exit-code</literal> (if a service process exited with a non-zero exit code; see
-        <varname>$EXIT_CODE</varname> below for the actual exit code returned), <literal>signal</literal> (if a
-        service process was terminated abnormally by a signal; see <varname>$EXIT_CODE</varname> below for the actual
-        signal used for the termination), <literal>core-dump</literal> (if a service process terminated abnormally and
-        dumped core), <literal>watchdog</literal> (if the watchdog keep-alive ping was enabled for the service but it
-        missed the deadline), or <literal>resources</literal> (a catch-all condition in case a system operation
-        failed).</para>
+        "result". Currently, the following values are defined: <literal>protocol</literal> (in case of a protocol
+        violation; if a service did not take the steps required by its unit configuration), <literal>timeout</literal>
+        (in case of an operation timeout), <literal>exit-code</literal> (if a service process exited with a non-zero
+        exit code; see <varname>$EXIT_CODE</varname> below for the actual exit code returned), <literal>signal</literal>
+        (if a service process was terminated abnormally by a signal; see <varname>$EXIT_CODE</varname> below for the
+        actual signal used for the termination), <literal>core-dump</literal> (if a service process terminated
+        abnormally and dumped core), <literal>watchdog</literal> (if the watchdog keep-alive ping was enabled for the
+        service but it missed the deadline), or <literal>resources</literal> (a catch-all condition in case a system
+        operation failed).</para>
 
         <para>This environment variable is useful to monitor failure or successful termination of a service. Even
         though this variable is available in both <varname>ExecStop=</varname> and <varname>ExecStopPost=</varname>, it
@@ -1737,23 +1849,32 @@
           <title>Summary of possible service result variable values</title>
           <tgroup cols='3'>
             <colspec colname='result' />
-            <colspec colname='status' />
             <colspec colname='code' />
+            <colspec colname='status' />
             <thead>
               <row>
                 <entry><varname>$SERVICE_RESULT</varname></entry>
-                <entry><varname>$EXIT_STATUS</varname></entry>
                 <entry><varname>$EXIT_CODE</varname></entry>
+                <entry><varname>$EXIT_STATUS</varname></entry>
               </row>
             </thead>
 
             <tbody>
               <row>
+                <entry morerows="1" valign="top"><literal>protocol</literal></entry>
+                <entry valign="top">not set</entry>
+                <entry>not set</entry>
+              </row>
+              <row>
+                <entry><literal>exited</literal></entry>
+                <entry><literal>0</literal></entry>
+              </row>
+
+              <row>
                 <entry morerows="1" valign="top"><literal>timeout</literal></entry>
                 <entry valign="top"><literal>killed</literal></entry>
                 <entry><literal>TERM</literal>, <literal>KILL</literal></entry>
               </row>
-
               <row>
                 <entry valign="top"><literal>exited</literal></entry>
                 <entry><literal>0</literal>, <literal>1</literal>, <literal>2</literal>, <literal
@@ -1829,6 +1950,7 @@
       <para>
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,

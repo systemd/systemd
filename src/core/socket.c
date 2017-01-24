@@ -36,7 +36,7 @@
 #include "def.h"
 #include "exit-status.h"
 #include "fd-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "io-util.h"
 #include "label.h"
 #include "log.h"
@@ -54,7 +54,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
-#include "unit-printf.h"
 #include "unit.h"
 #include "user-util.h"
 #include "in-addr-util.h"
@@ -64,6 +63,7 @@ struct SocketPeer {
 
         Socket *socket;
         union sockaddr_union peer;
+        socklen_t peer_salen;
 };
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
@@ -424,8 +424,7 @@ static const char *socket_find_symlink_target(Socket *s) {
                         break;
 
                 case SOCKET_SOCKET:
-                        if (p->address.sockaddr.un.sun_path[0] != 0)
-                                f = p->address.sockaddr.un.sun_path;
+                        f = socket_address_get_path(&p->address);
                         break;
 
                 default:
@@ -450,7 +449,7 @@ static int socket_verify(Socket *s) {
                 return 0;
 
         if (!s->ports) {
-                log_unit_error(UNIT(s), "Unit lacks Listen setting. Refusing.");
+                log_unit_error(UNIT(s), "Unit has no Listen setting (ListenStream=, ListenDatagram=, ListenFIFO=, ...). Refusing.");
                 return -EINVAL;
         }
 
@@ -486,12 +485,15 @@ static void peer_address_hash_func(const void *p, struct siphash *state) {
         const SocketPeer *s = p;
 
         assert(s);
-        assert(IN_SET(s->peer.sa.sa_family, AF_INET, AF_INET6));
 
         if (s->peer.sa.sa_family == AF_INET)
                 siphash24_compress(&s->peer.in.sin_addr, sizeof(s->peer.in.sin_addr), state);
-        else
+        else if (s->peer.sa.sa_family == AF_INET6)
                 siphash24_compress(&s->peer.in6.sin6_addr, sizeof(s->peer.in6.sin6_addr), state);
+        else if (s->peer.sa.sa_family == AF_VSOCK)
+                siphash24_compress(&s->peer.vm.svm_cid, sizeof(s->peer.vm.svm_cid), state);
+        else
+                assert_not_reached("Unknown address family.");
 }
 
 static int peer_address_compare_func(const void *a, const void *b) {
@@ -507,6 +509,12 @@ static int peer_address_compare_func(const void *a, const void *b) {
                 return memcmp(&x->peer.in.sin_addr, &y->peer.in.sin_addr, sizeof(x->peer.in.sin_addr));
         case AF_INET6:
                 return memcmp(&x->peer.in6.sin6_addr, &y->peer.in6.sin6_addr, sizeof(x->peer.in6.sin6_addr));
+        case AF_VSOCK:
+                if (x->peer.vm.svm_cid < y->peer.vm.svm_cid)
+                        return -1;
+                if (x->peer.vm.svm_cid > y->peer.vm.svm_cid)
+                        return 1;
+                return 0;
         }
         assert_not_reached("Black sheep in the family!");
 }
@@ -593,7 +601,7 @@ int socket_acquire_peer(Socket *s, int fd, SocketPeer **p) {
         if (r < 0)
                 return log_error_errno(errno, "getpeername failed: %m");
 
-        if (!IN_SET(sa.peer.sa.sa_family, AF_INET, AF_INET6)) {
+        if (!IN_SET(sa.peer.sa.sa_family, AF_INET, AF_INET6, AF_VSOCK)) {
                 *p = NULL;
                 return 0;
         }
@@ -609,6 +617,7 @@ int socket_acquire_peer(Socket *s, int fd, SocketPeer **p) {
                 return log_oom();
 
         remote->peer = sa.peer;
+        remote->peer_salen = salen;
 
         r = set_put(s->peers_by_address, remote);
         if (r < 0)
@@ -938,6 +947,16 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
 
                 break;
         }
+
+        case AF_VSOCK:
+                if (asprintf(&r,
+                             "%u-%u:%u-%u:%u",
+                             nr,
+                             local.vm.svm_cid, local.vm.svm_port,
+                             remote.vm.svm_cid, remote.vm.svm_port) < 0)
+                        return -ENOMEM;
+
+                break;
 
         default:
                 assert_not_reached("Unhandled socket type.");
@@ -1740,7 +1759,6 @@ static int socket_coldplug(Unit *u) {
 }
 
 static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
-        _cleanup_free_ char **argv = NULL;
         pid_t pid;
         int r;
         ExecParameters exec_params = {
@@ -1772,13 +1790,9 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 return r;
 
-        r = unit_full_printf_strv(UNIT(s), c->argv, &argv);
-        if (r < 0)
-                return r;
-
-        exec_params.argv = argv;
+        exec_params.argv = c->argv;
         exec_params.environment = UNIT(s)->manager->environment;
-        exec_params.flags |= UNIT(s)->manager->confirm_spawn ? EXEC_CONFIRM_SPAWN : 0;
+        exec_params.confirm_spawn = manager_get_confirm_spawn(UNIT(s)->manager);
         exec_params.cgroup_supported = UNIT(s)->manager->cgroup_supported;
         exec_params.cgroup_path = UNIT(s)->cgroup_path;
         exec_params.cgroup_delegate = s->cgroup_context.delegate;
@@ -2196,7 +2210,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                         } else if (r > 0 && p->n_ref > s->max_connections_per_source) {
                                 _cleanup_free_ char *t = NULL;
 
-                                sockaddr_pretty(&p->peer.sa, FAMILY_ADDRESS_SIZE(p->peer.sa.sa_family), true, false, &t);
+                                (void) sockaddr_pretty(&p->peer.sa, p->peer_salen, true, false, &t);
 
                                 log_unit_warning(UNIT(s),
                                                  "Too many incoming connections (%u) from source %s, dropping connection.",

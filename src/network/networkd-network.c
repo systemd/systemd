@@ -27,8 +27,8 @@
 #include "fd-util.h"
 #include "hostname-util.h"
 #include "network-internal.h"
+#include "networkd-manager.h"
 #include "networkd-network.h"
-#include "networkd.h"
 #include "parse-util.h"
 #include "set.h"
 #include "stat-util.h"
@@ -244,7 +244,7 @@ void network_free(Network *network) {
         free(network->mac);
 
         strv_free(network->ntp);
-        strv_free(network->dns);
+        free(network->dns);
         strv_free(network->search_domains);
         strv_free(network->route_domains);
         strv_free(network->bind_carrier);
@@ -368,10 +368,9 @@ int network_get(Manager *manager, struct udev_device *device,
         return -ENOENT;
 }
 
-int network_apply(Manager *manager, Network *network, Link *link) {
+int network_apply(Network *network, Link *link) {
         int r;
 
-        assert(manager);
         assert(network);
         assert(link);
 
@@ -397,7 +396,7 @@ int network_apply(Manager *manager, Network *network, Link *link) {
                 route->protocol = RTPROT_STATIC;
         }
 
-        if (!strv_isempty(network->dns) ||
+        if (network->n_dns > 0 ||
             !strv_isempty(network->ntp) ||
             !strv_isempty(network->search_domains) ||
             !strv_isempty(network->route_domains))
@@ -910,13 +909,14 @@ int config_parse_dhcp_server_dns(
                 struct in_addr a, *m;
 
                 r = extract_first_word(&p, &w, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract word, ignoring: %s", rvalue);
                         return 0;
                 }
-
                 if (r == 0)
-                        return 0;
+                        break;
 
                 if (inet_pton(AF_INET, w, &a) <= 0) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse DNS server address, ignoring: %s", w);
@@ -930,6 +930,8 @@ int config_parse_dhcp_server_dns(
                 m[n->n_dhcp_server_dns++] = a;
                 n->dhcp_server_dns = m;
         }
+
+        return 0;
 }
 
 int config_parse_dhcp_server_ntp(
@@ -957,11 +959,12 @@ int config_parse_dhcp_server_ntp(
                 struct in_addr a, *m;
 
                 r = extract_first_word(&p, &w, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract word, ignoring: %s", rvalue);
                         return 0;
                 }
-
                 if (r == 0)
                         return 0;
 
@@ -977,6 +980,62 @@ int config_parse_dhcp_server_ntp(
                 m[n->n_dhcp_server_ntp++] = a;
                 n->dhcp_server_ntp = m;
         }
+}
+
+int config_parse_dns(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *n = userdata;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        for (;;) {
+                _cleanup_free_ char *w = NULL;
+                union in_addr_union a;
+                struct in_addr_data *m;
+                int family;
+
+                r = extract_first_word(&rvalue, &w, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        break;
+                }
+                if (r == 0)
+                        break;
+
+                r = in_addr_from_string_auto(w, &family, &a);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse dns server address, ignoring: %s", w);
+                        continue;
+                }
+
+                m = realloc(n->dns, (n->n_dns + 1) * sizeof(struct in_addr_data));
+                if (!m)
+                        return log_oom();
+
+                m[n->n_dns++] = (struct in_addr_data) {
+                        .family = family,
+                        .address = a,
+                };
+
+                n->dns = m;
+        }
+
+        return 0;
 }
 
 int config_parse_dnssec_negative_trust_anchors(
@@ -1030,6 +1089,59 @@ int config_parse_dnssec_negative_trust_anchors(
                         return log_oom();
                 if (r > 0)
                         w = NULL;
+        }
+
+        return 0;
+}
+
+int config_parse_ntp(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char ***l = data;
+        int r;
+
+        assert(l);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *l = strv_free(*l);
+                return 0;
+        }
+
+        for (;;) {
+                _cleanup_free_ char *w = NULL;
+
+                r = extract_first_word(&rvalue, &w, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract NTP server name, ignoring: %s", rvalue);
+                        break;
+                }
+                if (r == 0)
+                        break;
+
+                r = dns_name_is_valid_or_address(w);
+                if (r <= 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "%s is not a valid domain name or IP address, ignoring.", w);
+                        continue;
+                }
+
+                r = strv_push(l, w);
+                if (r < 0)
+                        return log_oom();
+
+                w = NULL;
         }
 
         return 0;

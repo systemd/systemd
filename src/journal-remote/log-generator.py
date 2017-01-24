@@ -1,5 +1,4 @@
-#!/usr/bin/python
-from __future__ import print_function
+#!/usr/bin/python3
 import sys
 import argparse
 
@@ -30,7 +29,7 @@ _SOURCE_REALTIME_TIMESTAMP={source_realtime_ts}
 DATA={data}
 """
 
-m  = 0x198603b12d7
+m = 0x198603b12d7
 realtime_ts = 1404101101501873
 monotonic_ts = 1753961140951
 source_realtime_ts = 1404101101483516
@@ -72,5 +71,5 @@ for i in range(OPTIONS.n):
         print('.', file=sys.stderr, end='', flush=True)
 
 if OPTIONS.dots:
-        print(file=sys.stderr)
+    print(file=sys.stderr)
 print('Wrote {} bytes'.format(bytes), file=sys.stderr)

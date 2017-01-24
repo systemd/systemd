@@ -97,7 +97,7 @@
 
         <listitem><para>Inserts the escaped strings in a unit name
         template. Takes a unit name template such as
-        <filename>foobar@.service</filename> May not be used in
+        <filename>foobar@.service</filename>. May not be used in
         conjunction with <option>--suffix=</option>,
         <option>--unescape</option> or
         <option>--mangle</option>.</para></listitem>
@@ -108,9 +108,10 @@
         <term><option>-p</option></term>
 
         <listitem><para>When escaping or unescaping a string, assume
-        it refers to a file system path. This enables special
-        processing of the initial <literal>/</literal> of the
-        path.</para></listitem>
+        it refers to a file system path. This eliminates leading,
+        trailing or duplicate <literal>/</literal> characters
+        and rejects <literal>.</literal> and <literal>..</literal>
+        path components.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -143,7 +144,7 @@
   <refsect1>
     <title>Examples</title>
 
-    <para>Escape a single string:</para>
+    <para>To escape a single string:</para>
     <programlisting>$ systemd-escape 'Hallöchen, Meister'
 Hall\xc3\xb6chen\x2c\x20Meister</programlisting>
 
@@ -155,7 +156,7 @@ Hallöchen, Meister</programlisting>
     <programlisting>$ systemd-escape -p --suffix=mount "/tmp//waldi/foobar/"
 tmp-waldi-foobar.mount</programlisting>
 
-    <para>To generate instance names of three strings</para>
+    <para>To generate instance names of three strings:</para>
     <programlisting>$ systemd-escape --template=systemd-nspawn@.service 'My Container 1' 'containerb' 'container/III'
 systemd-nspawn@My\x20Container\x201.service systemd-nspawn@containerb.service systemd-nspawn@container-III.service</programlisting>
   </refsect1>

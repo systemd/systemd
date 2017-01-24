@@ -30,7 +30,7 @@
 #include "bus-message.h"
 #include "bus-socket.h"
 #include "fd-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "hexdecoct.h"
 #include "macro.h"
 #include "missing.h"

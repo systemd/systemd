@@ -239,7 +239,7 @@ static int device_update_description(Unit *u, struct udev_device *dev, const cha
                 if (label) {
                         _cleanup_free_ char *j;
 
-                        j = strjoin(model, " ", label, NULL);
+                        j = strjoin(model, " ", label);
                         if (j)
                                 r = unit_set_description(u, j);
                         else
@@ -256,38 +256,63 @@ static int device_update_description(Unit *u, struct udev_device *dev, const cha
 }
 
 static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
-        const char *wants;
-        const char *word, *state;
-        size_t l;
+        const char *wants, *property, *p;
         int r;
-        const char *property;
 
         assert(u);
         assert(dev);
 
         property = MANAGER_IS_USER(u->manager) ? "SYSTEMD_USER_WANTS" : "SYSTEMD_WANTS";
         wants = udev_device_get_property_value(dev, property);
-        if (!wants)
-                return 0;
+        for (p = wants;;) {
+                _cleanup_free_ char *word = NULL, *k = NULL;
 
-        FOREACH_WORD_QUOTED(word, l, wants, state) {
-                _cleanup_free_ char *n = NULL;
-                char e[l+1];
-
-                memcpy(e, word, l);
-                e[l] = 0;
-
-                r = unit_name_mangle(e, UNIT_NAME_NOGLOB, &n);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                if (r == 0)
+                        return 0;
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0)
-                        return log_unit_error_errno(u, r, "Failed to mangle unit name: %m");
+                        return log_unit_error_errno(u, r, "Failed to add parse %s: %m", property);
 
-                r = unit_add_dependency_by_name(u, UNIT_WANTS, n, NULL, true);
+                r = unit_name_mangle(word, UNIT_NAME_NOGLOB, &k);
+                if (r < 0)
+                        return log_unit_error_errno(u, r, "Failed to mangle unit name \"%s\": %m", word);
+
+                r = unit_add_dependency_by_name(u, UNIT_WANTS, k, NULL, true);
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Failed to add wants dependency: %m");
         }
-        if (!isempty(state))
-                log_unit_warning(u, "Property %s on %s has trailing garbage, ignoring.", property, strna(udev_device_get_syspath(dev)));
+}
 
+static bool device_is_bound_by_mounts(Unit *d, struct udev_device *dev) {
+        const char *bound_by;
+        int r = false;
+
+        assert(d);
+        assert(dev);
+
+        bound_by = udev_device_get_property_value(dev, "SYSTEMD_MOUNT_DEVICE_BOUND");
+        if (bound_by)
+                r = parse_boolean(bound_by) > 0;
+
+        DEVICE(d)->bind_mounts = r;
+        return r;
+}
+
+static int device_upgrade_mount_deps(Unit *u) {
+        Unit *other;
+        Iterator i;
+        int r;
+
+        SET_FOREACH(other, u->dependencies[UNIT_REQUIRED_BY], i) {
+                if (other->type != UNIT_MOUNT)
+                        continue;
+
+                r = unit_add_dependency(other, UNIT_BINDS_TO, u, true);
+                if (r < 0)
+                        return r;
+        }
         return 0;
 }
 
@@ -331,11 +356,7 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
         if (!u) {
                 delete = true;
 
-                u = unit_new(m, sizeof(Device));
-                if (!u)
-                        return log_oom();
-
-                r = unit_add_name(u, e);
+                r = unit_new_for_name(m, sizeof(Device), e, &u);
                 if (r < 0)
                         goto fail;
 
@@ -359,6 +380,13 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
                         (void) device_add_udev_wants(u, dev);
         }
 
+        /* So the user wants the mount units to be bound to the device but a
+         * mount unit might has been seen by systemd before the device appears
+         * on its radar. In this case the device unit is partially initialized
+         * and includes the deps on the mount unit but at that time the "bind
+         * mounts" flag wasn't not present. Fix this up now. */
+        if (dev && device_is_bound_by_mounts(u, dev))
+                device_upgrade_mount_deps(u);
 
         /* Note that this won't dispatch the load queue, the caller
          * has to do that if needed and appropriate */
@@ -427,26 +455,22 @@ static int device_process_new(Manager *m, struct udev_device *dev) {
         /* Add additional units for all explicitly configured
          * aliases */
         alias = udev_device_get_property_value(dev, "SYSTEMD_ALIAS");
-        if (alias) {
-                const char *word, *state;
-                size_t l;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
 
-                FOREACH_WORD_QUOTED(word, l, alias, state) {
-                        char e[l+1];
+                r = extract_first_word(&alias, &word, NULL, EXTRACT_QUOTES);
+                if (r == 0)
+                        return 0;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to add parse SYSTEMD_ALIAS for %s: %m", sysfs);
 
-                        memcpy(e, word, l);
-                        e[l] = 0;
-
-                        if (path_is_absolute(e))
-                                (void) device_setup_unit(m, dev, e, false);
-                        else
-                                log_warning("SYSTEMD_ALIAS for %s is not an absolute path, ignoring: %s", sysfs, e);
-                }
-                if (!isempty(state))
-                        log_warning("SYSTEMD_ALIAS for %s has trailing garbage, ignoring.", sysfs);
+                if (path_is_absolute(word))
+                        (void) device_setup_unit(m, dev, word, false);
+                else
+                        log_warning("SYSTEMD_ALIAS for %s is not an absolute path, ignoring: %s", sysfs, word);
         }
-
-        return 0;
 }
 
 static void device_update_found_one(Device *d, bool add, DeviceFound found, bool now) {
@@ -838,12 +862,22 @@ int device_found_node(Manager *m, const char *node, bool add, DeviceFound found,
         return device_update_found_by_name(m, node, add, found, now);
 }
 
+bool device_shall_be_bound_by(Unit *device, Unit *u) {
+
+        if (u->type != UNIT_MOUNT)
+                return false;
+
+        return DEVICE(device)->bind_mounts;
+}
+
 const UnitVTable device_vtable = {
         .object_size = sizeof(Device),
         .sections =
                 "Unit\0"
                 "Device\0"
                 "Install\0",
+
+        .gc_jobs = true,
 
         .init = device_init,
         .done = device_done,

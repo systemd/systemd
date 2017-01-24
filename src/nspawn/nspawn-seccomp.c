@@ -26,20 +26,21 @@
 #include <seccomp.h>
 #endif
 
+#include "alloc-util.h"
 #include "log.h"
-
+#include "nspawn-seccomp.h"
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
-
-#include "nspawn-seccomp.h"
+#include "string-util.h"
 
 #ifdef HAVE_SECCOMP
 
-static int seccomp_add_default_syscall_filter(scmp_filter_ctx ctx,
-                                              uint64_t cap_list_retain) {
-        unsigned i;
-        int r;
+static int seccomp_add_default_syscall_filter(
+                scmp_filter_ctx ctx,
+                uint32_t arch,
+                uint64_t cap_list_retain) {
+
         static const struct {
                 uint64_t capability;
                 int syscall_num;
@@ -111,23 +112,29 @@ static int seccomp_add_default_syscall_filter(scmp_filter_ctx ctx,
                 { CAP_SYS_TIME,   SCMP_SYS(settimeofday)        },
                 { CAP_SYS_TIME,   SCMP_SYS(stime)               },
         };
+        unsigned i;
+        int r, c = 0;
 
         for (i = 0; i < ELEMENTSOF(blacklist); i++) {
                 if (blacklist[i].capability != 0 && (cap_list_retain & (1ULL << blacklist[i].capability)))
                         continue;
 
-                r = seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), blacklist[i].syscall_num, 0);
-                if (r == -EFAULT)
-                        continue; /* unknown syscall */
-                if (r < 0)
-                        return log_error_errno(r, "Failed to block syscall: %m");
+                r = seccomp_rule_add_exact(ctx, SCMP_ACT_ERRNO(EPERM), blacklist[i].syscall_num, 0);
+                if (r < 0) {
+                        /* If the system call is not known on this architecture, then that's fine, let's ignore it */
+                        _cleanup_free_ char *n = NULL;
+
+                        n = seccomp_syscall_resolve_num_arch(arch, blacklist[i].syscall_num);
+                        log_debug_errno(r, "Failed to add rule for system call %s, ignoring: %m", strna(n));
+                } else
+                        c++;
         }
 
-        return 0;
+        return c;
 }
 
 int setup_seccomp(uint64_t cap_list_retain) {
-        scmp_filter_ctx seccomp;
+        uint32_t arch;
         int r;
 
         if (!is_seccomp_available()) {
@@ -135,45 +142,51 @@ int setup_seccomp(uint64_t cap_list_retain) {
                 return 0;
         }
 
-        r = seccomp_init_conservative(&seccomp, SCMP_ACT_ALLOW);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate seccomp object: %m");
+        SECCOMP_FOREACH_LOCAL_ARCH(arch) {
+                _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
+                int n;
 
-        r = seccomp_add_default_syscall_filter(seccomp, cap_list_retain);
-        if (r < 0)
-                goto finish;
+                log_debug("Operating on architecture: %s", seccomp_arch_to_string(arch));
 
-        /*
-           Audit is broken in containers, much of the userspace audit
-           hookup will fail if running inside a container. We don't
-           care and just turn off creation of audit sockets.
+                r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ALLOW);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate seccomp object: %m");
 
-           This will make socket(AF_NETLINK, *, NETLINK_AUDIT) fail
-           with EAFNOSUPPORT which audit userspace uses as indication
-           that audit is disabled in the kernel.
-         */
+                n = seccomp_add_default_syscall_filter(seccomp, arch, cap_list_retain);
+                if (n < 0)
+                        return n;
 
-        r = seccomp_rule_add(
-                        seccomp,
-                        SCMP_ACT_ERRNO(EAFNOSUPPORT),
-                        SCMP_SYS(socket),
-                        2,
-                        SCMP_A0(SCMP_CMP_EQ, AF_NETLINK),
-                        SCMP_A2(SCMP_CMP_EQ, NETLINK_AUDIT));
-        if (r < 0) {
-                log_error_errno(r, "Failed to add audit seccomp rule: %m");
-                goto finish;
+                /*
+                  Audit is broken in containers, much of the userspace audit hookup will fail if running inside a
+                  container. We don't care and just turn off creation of audit sockets.
+
+                  This will make socket(AF_NETLINK, *, NETLINK_AUDIT) fail with EAFNOSUPPORT which audit userspace uses
+                  as indication that audit is disabled in the kernel.
+                */
+
+                r = seccomp_rule_add_exact(
+                                seccomp,
+                                SCMP_ACT_ERRNO(EAFNOSUPPORT),
+                                SCMP_SYS(socket),
+                                2,
+                                SCMP_A0(SCMP_CMP_EQ, AF_NETLINK),
+                                SCMP_A2(SCMP_CMP_EQ, NETLINK_AUDIT));
+                if (r < 0)
+                        log_debug_errno(r, "Failed to add audit seccomp rule, ignoring: %m");
+                else
+                        n++;
+
+                if (n <= 0) /* no rule added? then skip this architecture */
+                        continue;
+
+                r = seccomp_load(seccomp);
+                if (IN_SET(r, -EPERM, -EACCES))
+                        return log_error_errno(r, "Failed to install seccomp audit filter: %m");
+                if (r < 0)
+                        log_debug_errno(r, "Failed to install filter set for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
         }
 
-        r = seccomp_load(seccomp);
-        if (r < 0) {
-                log_error_errno(r, "Failed to install seccomp audit filter: %m");
-                goto finish;
-        }
-
-finish:
-        seccomp_release(seccomp);
-        return r;
+        return 0;
 }
 
 #else

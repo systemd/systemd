@@ -519,7 +519,7 @@ int find_converted_keymap(const char *x11_layout, const char *x11_variant, char 
         _cleanup_free_ char *n;
 
         if (x11_variant)
-                n = strjoin(x11_layout, "-", x11_variant, NULL);
+                n = strjoin(x11_layout, "-", x11_variant);
         else
                 n = strdup(x11_layout);
         if (!n)
@@ -529,8 +529,8 @@ int find_converted_keymap(const char *x11_layout, const char *x11_variant, char 
                 _cleanup_free_ char *p = NULL, *pz = NULL;
                 bool uncompressed;
 
-                p = strjoin(dir, "xkb/", n, ".map", NULL);
-                pz = strjoin(dir, "xkb/", n, ".map.gz", NULL);
+                p = strjoin(dir, "xkb/", n, ".map");
+                pz = strjoin(dir, "xkb/", n, ".map.gz");
                 if (!p || !pz)
                         return -ENOMEM;
 

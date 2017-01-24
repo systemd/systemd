@@ -1076,7 +1076,7 @@ int dns_service_split(const char *joined, char **_name, char **_type, char **_do
                                 if (!name)
                                         return -ENOMEM;
 
-                                type = strjoin(b, ".", c, NULL);
+                                type = strjoin(b, ".", c);
                                 if (!type)
                                         return -ENOMEM;
 
@@ -1090,7 +1090,7 @@ int dns_service_split(const char *joined, char **_name, char **_type, char **_do
 
                         name = NULL;
 
-                        type = strjoin(a, ".", b, NULL);
+                        type = strjoin(a, ".", b);
                         if (!type)
                                 return -ENOMEM;
 
@@ -1323,4 +1323,16 @@ int dns_name_apply_idna(const char *name, char **ret) {
         buf = NULL;
 
         return (int) n;
+}
+
+int dns_name_is_valid_or_address(const char *name) {
+        /* Returns > 0 if the specified name is either a valid IP address formatted as string or a valid DNS name */
+
+        if (isempty(name))
+                return 0;
+
+        if (in_addr_from_string_auto(name, NULL, NULL) >= 0)
+                return 1;
+
+        return dns_name_is_valid(name);
 }

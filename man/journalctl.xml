@@ -319,7 +319,9 @@
                 text-based) stream suitable for backups and network
                 transfer (see
                 <ulink url="http://www.freedesktop.org/wiki/Software/systemd/export">Journal Export Format</ulink>
-                for more information).</para>
+                for more information). To import the binary stream back
+                into native journald format use
+                <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
               </listitem>
             </varlistentry>
 
@@ -412,7 +414,7 @@
         <term><option>--quiet</option></term>
 
         <listitem><para>Suppresses all info messages
-        (i.e. "-- Logs begin at ...", "-- Reboot --"),
+        (i.e. "-- Logs begin at …", "-- Reboot --"),
         any warning messages regarding
         inaccessible system journals when run as a normal
         user.</para></listitem>
@@ -573,7 +575,7 @@
 
         <listitem><para>The cursor is shown after the last entry after
         two dashes:</para>
-        <programlisting>-- cursor: s=0639...</programlisting>
+        <programlisting>-- cursor: s=0639…</programlisting>
         <para>The format of the cursor is private
         and subject to change.</para></listitem>
       </varlistentry>
@@ -731,7 +733,7 @@
 
       <varlistentry>
         <term><option>--list-catalog
-        <optional><replaceable>128-bit-ID...</replaceable></optional>
+        <optional><replaceable>128-bit-ID…</replaceable></optional>
         </option></term>
 
         <listitem><para>List the contents of the message catalog as a
@@ -745,7 +747,7 @@
 
       <varlistentry>
         <term><option>--dump-catalog
-        <optional><replaceable>128-bit-ID...</replaceable></optional>
+        <optional><replaceable>128-bit-ID…</replaceable></optional>
         </option></term>
 
         <listitem><para>Show the contents of the message catalog, with
@@ -923,7 +925,9 @@
       <citerefentry><refentrytitle>coredumpctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-journal-upload</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 </refentry>

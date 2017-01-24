@@ -216,6 +216,14 @@
         <varname>BindIPv6Only=</varname> setting (see below).
         </para>
 
+        <para>If the address string is a string in the format
+        <literal>vsock:x:y</literal>, it is read as CID <literal>x</literal> on
+        a port <literal>y</literal> address in the
+        <constant>AF_VSOCK</constant> family.  The CID is a unique 32-bit
+        integer identifier in <constant>AF_VSOCK</constant> analogous to an IP
+        address.  Specifying the CID is optional, and may be set to the empty
+        string.</para>
+
         <para>Note that <constant>SOCK_SEQPACKET</constant> (i.e.
         <varname>ListenSequentialPacket=</varname>) is only available
         for <constant>AF_UNIX</constant> sockets.

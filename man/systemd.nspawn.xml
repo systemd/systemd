@@ -335,6 +335,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>Overlay=</varname></term>
+        <term><varname>OverlayReadOnly=</varname></term>
+
+        <listitem><para>Adds an overlay mount point. Takes a colon-separated list of paths.  This option may be used
+        multiple times to configure multiple overlay mounts. This option is equivalent to the command line switches
+        <option>--overlay=</option> and <option>--overlay-ro=</option>, see
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for details
+        about the specific options supported. This setting is privileged (see above).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>PrivateUsersChown=</varname></term>
 
         <listitem><para>Configures whether the ownership of the files and directories in the container tree shall be

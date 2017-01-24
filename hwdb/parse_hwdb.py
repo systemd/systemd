@@ -26,7 +26,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import functools
 import glob
 import string
 import sys
@@ -35,9 +34,9 @@ import os
 try:
     from pyparsing import (Word, White, Literal, ParserElement, Regex,
                            LineStart, LineEnd,
-                           ZeroOrMore, OneOrMore, Combine, Or, Optional, Suppress, Group,
+                           OneOrMore, Combine, Or, Optional, Suppress, Group,
                            nums, alphanums, printables,
-                           stringEnd, pythonStyleComment,
+                           stringEnd, pythonStyleComment, QuotedString,
                            ParseBaseException)
 except ImportError:
     print('pyparsing is not available')
@@ -49,20 +48,29 @@ except ImportError:
     ecodes = None
     print('WARNING: evdev is not available')
 
+try:
+    from functools import lru_cache
+except ImportError:
+    # don't do caching on old python
+    lru_cache = lambda: (lambda f: f)
+
 EOL = LineEnd().suppress()
-EMPTYLINE = LineStart() + LineEnd()
+EMPTYLINE = LineEnd()
 COMMENTLINE = pythonStyleComment + EOL
 INTEGER = Word(nums)
+STRING =  QuotedString('"')
 REAL = Combine((INTEGER + Optional('.' + Optional(INTEGER))) ^ ('.' + INTEGER))
+SIGNED_REAL = Combine(Optional(Word('-+')) + REAL)
 UDEV_TAG = Word(string.ascii_uppercase, alphanums + '_')
 
 TYPES = {'mouse':    ('usb', 'bluetooth', 'ps2', '*'),
          'evdev':    ('name', 'atkbd', 'input'),
          'touchpad': ('i8042', 'rmi', 'bluetooth', 'usb'),
          'keyboard': ('name', ),
-         }
+         'sensor':   ('modalias', ),
+        }
 
-@functools.lru_cache()
+@lru_cache()
 def hwdb_grammar():
     ParserElement.setDefaultWhitespaceChars('')
 
@@ -70,46 +78,54 @@ def hwdb_grammar():
                 for category, conn in TYPES.items())
     matchline = Combine(prefix + Word(printables + ' ' + '®')) + EOL
     propertyline = (White(' ', exact=1).suppress() +
-                    Combine(UDEV_TAG - '=' - Word(alphanums + '_=:@*.! ') - Optional(pythonStyleComment)) +
+                    Combine(UDEV_TAG - '=' - Word(alphanums + '_=:@*.!-;, "') - Optional(pythonStyleComment)) +
                     EOL)
     propertycomment = White(' ', exact=1) + pythonStyleComment + EOL
 
     group = (OneOrMore(matchline('MATCHES*') ^ COMMENTLINE.suppress()) -
              OneOrMore(propertyline('PROPERTIES*') ^ propertycomment.suppress()) -
-             (EMPTYLINE ^ stringEnd()).suppress() )
+             (EMPTYLINE ^ stringEnd()).suppress())
     commentgroup = OneOrMore(COMMENTLINE).suppress() - EMPTYLINE.suppress()
 
     grammar = OneOrMore(group('GROUPS*') ^ commentgroup) + stringEnd()
 
     return grammar
 
-@functools.lru_cache()
+@lru_cache()
 def property_grammar():
     ParserElement.setDefaultWhitespaceChars(' ')
 
-    setting = Optional('*')('DEFAULT') + INTEGER('DPI') + Suppress('@') + INTEGER('HZ')
-    props = (('MOUSE_DPI', Group(OneOrMore(setting('SETTINGS*')))),
+    dpi_setting = (Optional('*')('DEFAULT') + INTEGER('DPI') + Suppress('@') + INTEGER('HZ'))('SETTINGS*')
+    mount_matrix_row = SIGNED_REAL + ',' + SIGNED_REAL + ',' + SIGNED_REAL
+    mount_matrix = (mount_matrix_row + ';' + mount_matrix_row + ';' + mount_matrix_row)('MOUNT_MATRIX')
+
+    props = (('MOUSE_DPI', Group(OneOrMore(dpi_setting))),
              ('MOUSE_WHEEL_CLICK_ANGLE', INTEGER),
              ('MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL', INTEGER),
              ('MOUSE_WHEEL_CLICK_COUNT', INTEGER),
              ('MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL', INTEGER),
              ('ID_INPUT_TRACKBALL', Literal('1')),
+             ('MOUSE_WHEEL_TILT_HORIZONTAL', Literal('1')),
+             ('MOUSE_WHEEL_TILT_VERTICAL', Literal('1')),
              ('POINTINGSTICK_SENSITIVITY', INTEGER),
              ('POINTINGSTICK_CONST_ACCEL', REAL),
              ('ID_INPUT_TOUCHPAD_INTEGRATION', Or(('internal', 'external'))),
-    )
+             ('XKB_FIXED_LAYOUT', STRING),
+             ('XKB_FIXED_VARIANT', STRING),
+             ('ACCEL_MOUNT_MATRIX', mount_matrix),
+            )
     fixed_props = [Literal(name)('NAME') - Suppress('=') - val('VALUE')
                    for name, val in props]
     kbd_props = [Regex(r'KEYBOARD_KEY_[0-9a-f]+')('NAME')
                  - Suppress('=') -
                  ('!' ^ (Optional('!') - Word(alphanums + '_')))('VALUE')
-                 ]
+                ]
     abs_props = [Regex(r'EVDEV_ABS_[0-9a-f]{2}')('NAME')
                  - Suppress('=') -
                  Word(nums + ':')('VALUE')
-                 ]
+                ]
 
-    grammar = Or(fixed_props + kbd_props + abs_props)
+    grammar = Or(fixed_props + kbd_props + abs_props) + EOL
 
     return grammar
 
@@ -127,7 +143,8 @@ def convert_properties(group):
 def parse(fname):
     grammar = hwdb_grammar()
     try:
-        parsed = grammar.parseFile(fname)
+        with open(fname, 'r', encoding='UTF-8') as f:
+            parsed = grammar.parseFile(f)
     except ParseBaseException as e:
         error('Cannot parse {}: {}', fname, e)
         return []
@@ -179,8 +196,7 @@ def print_summary(fname, groups):
           .format(fname,
                   len(groups),
                   sum(len(matches) for matches, props in groups),
-                  sum(len(props) for matches, props in groups),
-          ))
+                  sum(len(props) for matches, props in groups)))
 
 if __name__ == '__main__':
     args = sys.argv[1:] or glob.glob(os.path.dirname(sys.argv[0]) + '/[67]0-*.hwdb')

@@ -908,7 +908,8 @@
         <varname>systemd-nspawn</varname>,
         <varname>docker</varname>,
         <varname>rkt</varname> to test
-        against a specific implementation. See
+        against a specific implementation, or
+        <varname>private-users</varname> to check whether we are running in a user namespace. See
         <citerefentry><refentrytitle>systemd-detect-virt</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         for a full list of known virtualization technologies and their
         identifiers. If multiple virtualization technologies are
@@ -1245,21 +1246,6 @@
       <entry>This is either the unescaped instance name (if applicable) with <filename>/</filename> prepended (if applicable), or the unescaped prefix name prepended with <filename>/</filename>.</entry>
           </row>
           <row>
-      <entry><literal>%c</literal></entry>
-      <entry>Control group path of the unit</entry>
-      <entry>This path does not include the <filename>/sys/fs/cgroup/systemd/</filename> prefix.</entry>
-          </row>
-          <row>
-      <entry><literal>%r</literal></entry>
-      <entry>Control group path of the slice the unit is placed in</entry>
-      <entry>This usually maps to the parent control group path of <literal>%c</literal>.</entry>
-          </row>
-          <row>
-      <entry><literal>%R</literal></entry>
-      <entry>Root control group path below which slices and units are placed</entry>
-      <entry>For system instances, this resolves to <filename>/</filename>, except in containers, where this maps to the container's root control group path.</entry>
-          </row>
-          <row>
       <entry><literal>%t</literal></entry>
       <entry>Runtime directory</entry>
       <entry>This is either <filename>/run</filename> (for the system manager) or the path <literal>$XDG_RUNTIME_DIR</literal> resolves to (for user managers).</entry>
@@ -1313,13 +1299,6 @@
       </tgroup>
     </table>
 
-    <para>Please note that specifiers <literal>%U</literal>,
-    <literal>%h</literal>, <literal>%s</literal> are mostly useless
-    when systemd is running in system mode. PID 1 cannot query the
-    user account database for information, so the specifiers only work
-    as shortcuts for things which are already specified in a different
-    way in the unit file. They are fully functional when systemd is
-    running in <option>--user</option> mode.</para>
   </refsect1>
 
   <refsect1>

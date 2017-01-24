@@ -22,7 +22,7 @@
 
 #include "alloc-util.h"
 #include "extract-word.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "macro.h"
 #include "missing.h"
 #include "rlimit-util.h"

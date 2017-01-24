@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # systemd-sysv-generator integration test
 #
@@ -308,7 +308,7 @@ class SysvGeneratorTest(unittest.TestCase):
         err, results = self.run_generator()
         self.assertEqual(list(results), ['foo.service'])
         self.assertEqual(os.readlink(os.path.join(self.out_dir, 'foo\\x2b.service')),
-                'foo.service')
+                         'foo.service')
         self.assertNotIn('Overwriting', err)
 
     def test_same_provides_in_multiple_scripts(self):

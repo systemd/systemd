@@ -85,6 +85,13 @@
     <variablelist>
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
+      <varlistentry>
+        <term><option>--connections-max=</option></term>
+        <term><option>-c</option></term>
+
+        <listitem><para>Sets the maximum number of simultaneous connections, defaults to 256.
+        If the limit of concurrent connections is reached further connections will be refused.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
   <refsect1>
@@ -120,10 +127,10 @@ PrivateNetwork=yes]]></programlisting>
       <example>
         <title>nginx.conf</title>
         <programlisting>
-<![CDATA[[...]
+<![CDATA[[…]
 server {
     listen       unix:/tmp/nginx.sock;
-    [...]]]>
+    […]]]>
 </programlisting>
       </example>
       <example>
@@ -162,10 +169,10 @@ PrivateNetwork=yes]]></programlisting>
       </example>
       <example>
         <title>nginx.conf</title>
-        <programlisting><![CDATA[[...]
+        <programlisting><![CDATA[[…]
 server {
     listen       8080;
-    [...]]]></programlisting>
+    […]]]></programlisting>
       </example>
       <example>
         <title>Enabling the proxy</title>

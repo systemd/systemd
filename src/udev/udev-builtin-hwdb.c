@@ -43,7 +43,7 @@ int udev_builtin_hwdb_lookup(struct udev_device *dev,
                 return -ENOENT;
 
         if (prefix) {
-                lookup = strjoin(prefix, modalias, NULL);
+                lookup = strjoin(prefix, modalias);
                 if (!lookup)
                         return -ENOMEM;
                 modalias = lookup;

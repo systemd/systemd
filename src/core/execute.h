@@ -35,6 +35,7 @@ typedef struct ExecParameters ExecParameters;
 #include "list.h"
 #include "missing.h"
 #include "namespace.h"
+#include "nsflags.h"
 
 typedef enum ExecUtmpMode {
         EXEC_UTMP_INIT,
@@ -160,6 +161,8 @@ struct ExecContext {
 
         char **read_write_paths, **read_only_paths, **inaccessible_paths;
         unsigned long mount_flags;
+        BindMount *bind_mounts;
+        unsigned n_bind_mounts;
 
         uint64_t capability_bounding_set;
         uint64_t capability_ambient_set;
@@ -195,6 +198,8 @@ struct ExecContext {
 
         unsigned long personality;
 
+        unsigned long restrict_namespaces; /* The CLONE_NEWxyz flags permitted to the unit's processes */
+
         Set *syscall_filter;
         Set *syscall_archs;
         int syscall_errno;
@@ -213,14 +218,19 @@ struct ExecContext {
         bool nice_set:1;
         bool ioprio_set:1;
         bool cpu_sched_set:1;
-        bool no_new_privileges_set:1;
 };
 
+static inline bool exec_context_restrict_namespaces_set(const ExecContext *c) {
+        assert(c);
+
+        return (c->restrict_namespaces & NAMESPACE_FLAGS_ALL) != NAMESPACE_FLAGS_ALL;
+}
+
 typedef enum ExecFlags {
-        EXEC_CONFIRM_SPAWN     = 1U << 0,
-        EXEC_APPLY_PERMISSIONS = 1U << 1,
-        EXEC_APPLY_CHROOT      = 1U << 2,
-        EXEC_APPLY_TTY_STDIN   = 1U << 3,
+        EXEC_APPLY_PERMISSIONS = 1U << 0,
+        EXEC_APPLY_CHROOT      = 1U << 1,
+        EXEC_APPLY_TTY_STDIN   = 1U << 2,
+        EXEC_NEW_KEYRING       = 1U << 3,
 
         /* The following are not used by execute.c, but by consumers internally */
         EXEC_PASS_FDS          = 1U << 4,
@@ -245,6 +255,8 @@ struct ExecParameters {
         const char *cgroup_path;
 
         const char *runtime_prefix;
+
+        const char *confirm_spawn;
 
         usec_t watchdog_usec;
 

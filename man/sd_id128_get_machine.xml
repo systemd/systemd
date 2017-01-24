@@ -44,6 +44,7 @@
 
   <refnamediv>
     <refname>sd_id128_get_machine</refname>
+    <refname>sd_id128_get_machine_app_specific</refname>
     <refname>sd_id128_get_boot</refname>
     <refname>sd_id128_get_invocation</refname>
     <refpurpose>Retrieve 128-bit IDs</refpurpose>
@@ -55,6 +56,12 @@
 
       <funcprototype>
         <funcdef>int <function>sd_id128_get_machine</function></funcdef>
+        <paramdef>sd_id128_t *<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_id128_get_machine_app_specific</function></funcdef>
+        <paramdef>sd_id128_t <parameter>app_id</parameter></paramdef>
         <paramdef>sd_id128_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
@@ -74,11 +81,22 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_id128_get_machine()</function> returns the
-    machine ID of the executing host. This reads and parses the
-    <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    file. This function caches the machine ID internally to make
-    retrieving the machine ID a cheap operation.</para>
+    <para><function>sd_id128_get_machine()</function> returns the machine ID of the executing host. This reads and
+    parses the <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    file. This function caches the machine ID internally to make retrieving the machine ID a cheap operation. This ID
+    may be used wherever a unique identifier for the local system is needed. However, it is recommended to use this ID
+    as-is only in trusted environments. In untrusted environments it is recommended to derive an application specific
+    ID from this machine ID, in an irreversable (cryptographically secure) way. To make this easy
+    <function>sd_id128_get_machine_app_specific()</function> is provided, see below.</para>
+
+    <para><function>sd_id128_get_machine_app_specific()</function> is similar to
+    <function>sd_id128_get_machine()</function>, but retrieves a machine ID that is specific to the application that is
+    identified by the indicated application ID. It is recommended to use this function instead of
+    <function>sd_id128_get_machine()</function> when passing an ID to untrusted environments, in order to make sure
+    that the original machine ID may not be determined externally. The application-specific ID should be generated via
+    a tool like <command>journalctl --new-id128</command>, and may be compiled into the application. This function will
+    return the same application-specific ID for each combination of machine ID and application ID. Internally, this
+    function calculates HMAC-SHA256 of the application ID, keyed by the machine ID.</para>
 
     <para><function>sd_id128_get_boot()</function> returns the boot ID
     of the executing kernel. This reads and parses the
@@ -95,10 +113,10 @@
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details. The
     ID is cached internally. In future a different mechanism to determine the invocation ID may be added.</para>
 
-    <para>Note that <function>sd_id128_get_boot()</function> and <function>sd_id128_get_invocation()</function> always
-    return UUID v4 compatible IDs.  <function>sd_id128_get_machine()</function> will also return a UUID v4-compatible
-    ID on new installations but might not on older.  It is possible to convert the machine ID into a UUID v4-compatible
-    one. For more information, see
+    <para>Note that <function>sd_id128_get_machine_app_specific()</function>, <function>sd_id128_get_boot()</function>
+    and <function>sd_id128_get_invocation()</function> always return UUID v4 compatible IDs.
+    <function>sd_id128_get_machine()</function> will also return a UUID v4-compatible ID on new installations but might
+    not on older.  It is possible to convert the machine ID into a UUID v4-compatible one. For more information, see
     <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
     <para>For more information about the <literal>sd_id128_t</literal>
@@ -117,10 +135,33 @@
   <refsect1>
     <title>Notes</title>
 
-    <para>The <function>sd_id128_get_machine()</function>, <function>sd_id128_get_boot()</function> and
-    <function>sd_id128_get_invocation()</function> interfaces are available as a shared library, which can be compiled
-    and linked to with the <literal>libsystemd</literal> <citerefentry
+    <para>The <function>sd_id128_get_machine()</function>, <function>sd_id128_get_machine_app_specific()</function>
+    <function>sd_id128_get_boot()</function> and <function>sd_id128_get_invocation()</function> interfaces are
+    available as a shared library, which can be compiled and linked to with the
+    <literal>libsystemd</literal> <citerefentry
     project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry> file.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Application-specific machine ID</title>
+
+      <para>Here's a simple example for an application specific machine ID:</para>
+
+      <programlisting>#include &lt;systemd/sd-id128.h&gt;
+#include &lt;stdio.h&gt;
+
+#define OUR_APPLICATION_ID SD_ID128_MAKE(c2,73,27,73,23,db,45,4e,a6,3b,b9,6e,79,b5,3e,97)
+
+int main(int argc, char *argv[]) {
+        sd_id128_t id;
+        sd_id128_get_machine_app_specific(OUR_APPLICATION_ID, &amp;id);
+        printf("Our application ID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(id));
+        return 0;
+}</programlisting>
+    </example>
   </refsect1>
 
   <refsect1>

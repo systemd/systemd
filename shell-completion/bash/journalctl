@@ -42,10 +42,10 @@ _journalctl() {
                               --version --list-catalog --update-catalog --list-boots
                               --show-cursor --dmesg -k --pager-end -e -r --reverse
                               --utc -x --catalog --no-full --force --dump-catalog
-                              --flush --rotate --sync'
+                              --flush --rotate --sync --no-hostname'
                        [ARG]='-b --boot --this-boot -D --directory --file -F --field
                               -M --machine -o --output -u --unit --user-unit -p --priority
-                              --vacuum-size --vacuum-time'
+                              --vacuum-size --vacuum-time --vacuum-files'
                 [ARGUNKNOWN]='-c --cursor --interval -n --lines -S --since -U --until
                               --after-cursor --verify-key -t --identifier
                               --root'
@@ -81,6 +81,9 @@ _journalctl() {
                         ;;
                         --user-unit)
                                 comps=$(journalctl -F '_SYSTEMD_USER_UNIT' 2>/dev/null)
+                        ;;
+                        --identifier|-t)
+                                comps=$(journalctl -F 'SYSLOG_IDENTIFIER' 2>/dev/null)
                         ;;
                         *)
                                 return 0

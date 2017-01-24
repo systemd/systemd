@@ -264,7 +264,7 @@ static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
                 if ((flags & KDBUS_LIST_UNIQUE) && name->id != previous_id && !(name->flags & KDBUS_HELLO_ACTIVATOR)) {
                         char *n;
 
-                        if (asprintf(&n, ":1.%llu", (unsigned long long) name->id) < 0) {
+                        if (asprintf(&n, ":1.%llu", name->id) < 0) {
                                 r = -ENOMEM;
                                 goto fail;
                         }
@@ -711,7 +711,7 @@ int bus_get_name_creds_kdbus(
         }
 
         if (mask & SD_BUS_CREDS_UNIQUE_NAME) {
-                if (asprintf(&c->unique_name, ":1.%llu", (unsigned long long) conn_info->id) < 0) {
+                if (asprintf(&c->unique_name, ":1.%llu", conn_info->id) < 0) {
                         r = -ENOMEM;
                         goto fail;
                 }

@@ -41,7 +41,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "formats-util.h"
+#include "format-util.h"
 #include "macro.h"
 #include "missing.h"
 #include "time-util.h"

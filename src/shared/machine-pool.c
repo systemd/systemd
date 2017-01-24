@@ -225,7 +225,7 @@ int setup_machine_directory(uint64_t size, sd_bus_error *error) {
                 return 1;
         }
 
-        if (path_is_mount_point("/var/lib/machines", AT_SYMLINK_FOLLOW) > 0) {
+        if (path_is_mount_point("/var/lib/machines", NULL, AT_SYMLINK_FOLLOW) > 0) {
                 log_debug("/var/lib/machines is already a mount point, not creating loopback file for it.");
                 return 0;
         }

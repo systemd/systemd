@@ -50,7 +50,7 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
 #include "hostname-util.h"
@@ -142,6 +142,7 @@ static const char *arg_kill_who = NULL;
 static int arg_signal = SIGTERM;
 static char *arg_root = NULL;
 static usec_t arg_when = 0;
+static char *argv_cmdline = NULL;
 static enum action {
         _ACTION_INVALID,
         ACTION_SYSTEMCTL,
@@ -173,6 +174,8 @@ static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_plain = false;
 static bool arg_firmware_setup = false;
 static bool arg_now = false;
+static bool arg_jobs_before = false;
+static bool arg_jobs_after = false;
 
 static int daemon_reload(int argc, char *argv[], void* userdata);
 static int trivial_method(int argc, char *argv[], void *userdata);
@@ -202,6 +205,9 @@ static int acquire_bus(BusFocus focus, sd_bus **ret) {
 
         /* We only go directly to the manager, if we are using a local transport */
         if (arg_transport != BUS_TRANSPORT_LOCAL)
+                focus = BUS_FULL;
+
+        if (getenv_bool("SYSTEMCTL_FORCE_BUS") > 0)
                 focus = BUS_FULL;
 
         if (!busses[focus]) {
@@ -410,23 +416,24 @@ static bool output_show_unit(const UnitInfo *u, char **patterns) {
 }
 
 static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
-        unsigned circle_len = 0, id_len, max_id_len, load_len, active_len, sub_len, job_len;
+        unsigned circle_len = 0, id_len, max_id_len, load_len, active_len, sub_len, job_len, desc_len, max_desc_len;
         const UnitInfo *u;
         unsigned n_shown = 0;
-        int job_count = 0, desc_len;
+        int job_count = 0;
 
         max_id_len = strlen("UNIT");
         load_len = strlen("LOAD");
         active_len = strlen("ACTIVE");
         sub_len = strlen("SUB");
         job_len = strlen("JOB");
-        desc_len = 0;
+        max_desc_len = strlen("DESCRIPTION");
 
         for (u = unit_infos; u < unit_infos + c; u++) {
                 max_id_len = MAX(max_id_len, strlen(u->id) + (u->machine ? strlen(u->machine)+1 : 0));
                 load_len = MAX(load_len, strlen(u->load_state));
                 active_len = MAX(active_len, strlen(u->active_state));
                 sub_len = MAX(sub_len, strlen(u->sub_state));
+                max_desc_len = MAX(max_desc_len, strlen(u->description));
 
                 if (u->job_id != 0) {
                         job_len = MAX(job_len, strlen(u->job_type));
@@ -442,8 +449,8 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
         if (!arg_full && original_stdout_is_tty) {
                 unsigned basic_len;
 
-                id_len = MIN(max_id_len, 25u);
-                basic_len = circle_len + 5 + id_len + 5 + active_len + sub_len;
+                id_len = MIN(max_id_len, 25u); /* as much as it needs, but at most 25 for now */
+                basic_len = circle_len + 1 + id_len + 1 + load_len + 1 + active_len + 1 + sub_len + 1;
 
                 if (job_count)
                         basic_len += job_len + 1;
@@ -455,19 +462,22 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                         /* Either UNIT already got 25, or is fully satisfied.
                          * Grant up to 25 to DESC now. */
                         incr = MIN(extra_len, 25u);
-                        desc_len += incr;
+                        desc_len = incr;
                         extra_len -= incr;
 
-                        /* split the remaining space between UNIT and DESC,
-                         * but do not give UNIT more than it needs. */
+                        /* Of the remainder give as much as the ID needs to the ID, and give the rest to the
+                         * description but not more than it needs. */
                         if (extra_len > 0) {
-                                incr = MIN(extra_len / 2, max_id_len - id_len);
+                                incr = MIN(max_id_len - id_len, extra_len);
                                 id_len += incr;
-                                desc_len += extra_len - incr;
+                                desc_len += MIN(extra_len - incr, max_desc_len - desc_len);
                         }
-                }
-        } else
+                } else
+                        desc_len = 0;
+        } else {
                 id_len = max_id_len;
+                desc_len = max_desc_len;
+        }
 
         for (u = unit_infos; u < unit_infos + c; u++) {
                 _cleanup_free_ char *e = NULL, *j = NULL;
@@ -493,8 +503,9 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                         if (job_count)
                                 printf("%-*s ", job_len, "JOB");
 
-                        printf("%.*s%s\n",
-                               !arg_full && arg_no_pager ? desc_len : -1,
+                        printf("%-*.*s%s\n",
+                               desc_len,
+                               !arg_full && arg_no_pager ? (int) desc_len : -1,
                                "DESCRIPTION",
                                ansi_normal());
                 }
@@ -513,17 +524,17 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                         off_circle = ansi_normal();
                         circle = true;
                         on_loaded = underline ? ansi_highlight_red_underline() : ansi_highlight_red();
-                        off_loaded = on_underline;
+                        off_loaded = underline ? on_underline : ansi_normal();
                 } else if (streq(u->active_state, "failed") && !arg_plain) {
                         on_circle = ansi_highlight_red();
                         off_circle = ansi_normal();
                         circle = true;
                         on_active = underline ? ansi_highlight_red_underline() : ansi_highlight_red();
-                        off_active = on_underline;
+                        off_active = underline ? on_underline : ansi_normal();
                 }
 
                 if (u->machine) {
-                        j = strjoin(u->machine, ":", u->id, NULL);
+                        j = strjoin(u->machine, ":", u->id);
                         if (!j)
                                 return log_oom();
 
@@ -550,8 +561,9 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                        sub_len, u->sub_state, off_active,
                        job_count ? job_len + 1 : 0, u->job_id ? u->job_type : "");
 
-                printf("%.*s%s\n",
-                       desc_len > 0 ? desc_len : -1,
+                printf("%-*.*s%s\n",
+                       desc_len,
+                       !arg_full && arg_no_pager ? (int) desc_len : -1,
                        u->description,
                        off_underline);
         }
@@ -934,7 +946,7 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
                         char **a;
 
                         if (s->machine) {
-                                j = strjoin(s->machine, ":", s->path, NULL);
+                                j = strjoin(s->machine, ":", s->path);
                                 if (!j)
                                         return log_oom();
                                 path = j;
@@ -1218,7 +1230,7 @@ static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
                         format_timestamp_relative(trel2, sizeof(trel2), t->last_trigger);
 
                         if (t->machine) {
-                                j = strjoin(t->machine, ":", t->id, NULL);
+                                j = strjoin(t->machine, ":", t->id);
                                 if (!j)
                                         return log_oom();
                                 unit = j;
@@ -1723,7 +1735,7 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        *deps = ret;
+        *deps = strv_uniq(ret);
         ret = NULL;
 
         return 0;
@@ -2187,12 +2199,49 @@ finish:
         return r;
 }
 
+static int output_waiting_jobs(sd_bus *bus, uint32_t id, const char *method, const char *prefix) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        const char *name, *type, *state, *job_path, *unit_path;
+        uint32_t other_id;
+        int r;
+
+        assert(bus);
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        method,
+                        &error,
+                        &reply,
+                        "u", id);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get waiting jobs for job %" PRIu32, id);
+
+        r = sd_bus_message_enter_container(reply, 'a', "(usssoo)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        while ((r = sd_bus_message_read(reply, "(usssoo)", &other_id, &name, &type, &state, &job_path, &unit_path)) > 0)
+                printf("%s %u (%s/%s)\n", prefix, other_id, name, type);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return 0;
+}
+
 struct job_info {
         uint32_t id;
         const char *name, *type, *state;
 };
 
-static void output_jobs_list(const struct job_info* jobs, unsigned n, bool skipped) {
+static void output_jobs_list(sd_bus *bus, const struct job_info* jobs, unsigned n, bool skipped) {
         unsigned id_len, unit_len, type_len, state_len;
         const struct job_info *j;
         const char *on, *off;
@@ -2254,6 +2303,11 @@ static void output_jobs_list(const struct job_info* jobs, unsigned n, bool skipp
                        on, unit_len, e ? e : j->name, off,
                        type_len, j->type,
                        on, state_len, j->state, off);
+
+                if (arg_jobs_after)
+                        output_waiting_jobs(bus, j->id, "GetJobAfter", "\twaiting for job");
+                if (arg_jobs_before)
+                        output_waiting_jobs(bus, j->id, "GetJobBefore", "\tblocking job");
         }
 
         if (!arg_no_legend) {
@@ -2322,7 +2376,7 @@ static int list_jobs(int argc, char *argv[], void *userdata) {
 
         pager_open(arg_no_pager, false);
 
-        output_jobs_list(jobs, c, skipped);
+        output_jobs_list(bus, jobs, c, skipped);
         return 0;
 }
 
@@ -2427,17 +2481,24 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **un
         assert(unit_path);
 
         STRV_FOREACH(p, lp->search_path) {
-                _cleanup_free_ char *path;
+                _cleanup_free_ char *path = NULL, *lpath = NULL;
+                int r;
 
                 path = path_join(arg_root, *p, unit_name);
                 if (!path)
                         return log_oom();
 
-                if (access(path, F_OK) == 0) {
-                        *unit_path = path;
-                        path = NULL;
-                        return 1;
-                }
+                r = chase_symlinks(path, arg_root, 0, &lpath);
+                if (r == -ENOENT)
+                        continue;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to access path '%s': %m", path);
+
+                *unit_path = lpath;
+                lpath = NULL;
+                return 1;
         }
 
         return 0;
@@ -2499,22 +2560,17 @@ static int unit_find_paths(
                 }
         } else {
                 _cleanup_set_free_ Set *names;
+                _cleanup_free_ char *template = NULL;
 
                 names = set_new(NULL);
                 if (!names)
                         return log_oom();
-
-                r = set_put(names, unit_name);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add unit name: %m");
 
                 r = unit_file_find_path(lp, unit_name, &path);
                 if (r < 0)
                         return r;
 
                 if (r == 0) {
-                        _cleanup_free_ char *template = NULL;
-
                         r = unit_name_template(unit_name, &template);
                         if (r < 0 && r != -EINVAL)
                                 return log_error_errno(r, "Failed to determine template name: %m");
@@ -2524,6 +2580,25 @@ static int unit_find_paths(
                                         return r;
                         }
                 }
+
+                if (path)
+                        /* We found the unit file. If we followed symlinks, this name might be
+                         * different then the unit_name with started with. Look for dropins matching
+                         * that "final" name. */
+                        r = set_put(names, basename(path));
+                else if (!template)
+                        /* No unit file, let's look for dropins matching the original name.
+                         * systemd has fairly complicated rules (based on unit type and provenience),
+                         * which units are allowed not to have the main unit file. We err on the
+                         * side of including too many files, and always try to load dropins. */
+                        r = set_put(names, unit_name);
+                else
+                        /* The cases where we allow a unit to exist without the main file are
+                         * never valid for templates. Don't try to load dropins in this case. */
+                        goto not_found;
+
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add unit name: %m");
 
                 if (dropin_paths) {
                         r = unit_file_find_dropin_paths(lp->search_path, NULL, names, &dropins);
@@ -2545,7 +2620,7 @@ static int unit_find_paths(
                 dropins = NULL;
                 r = 1;
         }
-
+ not_found:
         if (r == 0 && !arg_force)
                 log_error("No files found for %s.", unit_name);
 
@@ -2721,7 +2796,7 @@ typedef struct {
 static void wait_context_free(WaitContext *c) {
         c->match = sd_bus_slot_unref(c->match);
         c->event = sd_event_unref(c->event);
-        c->unit_paths = set_free(c->unit_paths);
+        c->unit_paths = set_free_free(c->unit_paths);
 }
 
 static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
@@ -2738,31 +2813,37 @@ static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error
         r = sd_bus_message_skip(m, "s");
         if (r < 0)
                 return bus_log_parse_error(r);
+
         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "{sv}");
         if (r < 0)
                 return bus_log_parse_error(r);
 
         while ((r = sd_bus_message_enter_container(m, SD_BUS_TYPE_DICT_ENTRY, "sv")) > 0) {
                 const char *s;
-                bool is_failed;
 
                 r = sd_bus_message_read(m, "s", &s);
                 if (r < 0)
                         return bus_log_parse_error(r);
+
                 if (streq(s, "ActiveState")) {
+                        bool is_failed;
+
                         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_VARIANT, "s");
                         if (r < 0)
                                 return bus_log_parse_error(r);
+
                         r = sd_bus_message_read(m, "s", &s);
                         if (r < 0)
                                 return bus_log_parse_error(r);
+
                         is_failed = streq(s, "failed");
                         if (streq(s, "inactive") || is_failed) {
                                 log_debug("%s became %s, dropping from --wait tracking", path, s);
-                                set_remove(c->unit_paths, path);
-                                c->any_failed |= is_failed;
+                                free(set_remove(c->unit_paths, path));
+                                c->any_failed = c->any_failed || is_failed;
                         } else
                                 log_debug("ActiveState on %s changed to %s", path, s);
+
                         break; /* no need to dissect the rest of the message */
                 } else {
                         /* other property */
@@ -5266,6 +5347,20 @@ static int cat(int argc, char *argv[], void *userdata) {
                 else
                         puts("");
 
+                if (need_daemon_reload(bus, *name) > 0) /* ignore errors (<0), this is informational output */
+                        fprintf(stderr,
+                                "%s# Warning: %s changed on disk, the version systemd has loaded is outdated.\n"
+                                "%s# This output shows the current version of the unit's original fragment and drop-in files.\n"
+                                "%s# If fragments or drop-ins were added or removed, they are not properly reflected in this output.\n"
+                                "%s# Run 'systemctl%s daemon-reload' to reload units.%s\n",
+                                ansi_highlight_red(),
+                                *name,
+                                ansi_highlight_red(),
+                                ansi_highlight_red(),
+                                ansi_highlight_red(),
+                                arg_scope == UNIT_FILE_SYSTEM ? "" : " --user",
+                                ansi_normal());
+
                 if (fragment_path) {
                         r = cat_file(fragment_path, false);
                         if (r < 0)
@@ -5558,6 +5653,13 @@ static int switch_root(int argc, char *argv[], void *userdata) {
                 if (files_same(root_init_path, root_systemd_path) > 0)
                         init = NULL;
         }
+
+        /* Instruct PID1 to exclude us from its killing spree applied during
+         * the transition from the initrd to the main system otherwise we would
+         * exit with a failure status even though the switch to the new root
+         * has succeed. */
+        if (in_initrd())
+                argv_cmdline[0] = '@';
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -6351,7 +6453,7 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
 
                         r = unit_file_get_state(arg_scope, arg_root, *name, &state);
                         if (r < 0)
-                                return log_error_errno(state, "Failed to get unit file state for %s: %m", *name);
+                                return log_error_errno(r, "Failed to get unit file state for %s: %m", *name);
 
                         if (IN_SET(state,
                                    UNIT_FILE_ENABLED,
@@ -6494,12 +6596,12 @@ static int get_file_to_edit(
         assert(name);
         assert(ret_path);
 
-        path = strjoin(paths->persistent_config, "/", name, NULL);
+        path = strjoin(paths->persistent_config, "/", name);
         if (!path)
                 return log_oom();
 
         if (arg_runtime) {
-                run = strjoin(paths->runtime_config, "/", name, NULL);
+                run = strjoin(paths->runtime_config, "/", name);
                 if (!run)
                         return log_oom();
         }
@@ -6710,9 +6812,9 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
 
                 if (path) {
                         if (arg_full)
-                                r = unit_file_create_copy(&lp, *name, path, &new_path, &tmp_path);
+                                r = unit_file_create_copy(&lp, basename(path), path, &new_path, &tmp_path);
                         else
-                                r = unit_file_create_new(&lp, *name, ".d/override.conf", &new_path, &tmp_path);
+                                r = unit_file_create_new(&lp, basename(path), ".d/override.conf", &new_path, &tmp_path);
                 } else
                         r = unit_file_create_new(&lp, *name, NULL, &new_path, &tmp_path);
                 if (r < 0)
@@ -7189,14 +7291,12 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 return -EINVAL;
                         }
 
-                        p = optarg;
-                        for (;;) {
+                        for (p = optarg;;) {
                                 _cleanup_free_ char *type = NULL;
 
                                 r = extract_first_word(&p, &type, ",", 0);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse type: %s", optarg);
-
                                 if (r == 0)
                                         break;
 
@@ -7238,15 +7338,13 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 arg_properties = new0(char*, 1);
                                 if (!arg_properties)
                                         return log_oom();
-                        } else {
-                                p = optarg;
-                                for (;;) {
+                        } else
+                                for (p = optarg;;) {
                                         _cleanup_free_ char *prop = NULL;
 
                                         r = extract_first_word(&p, &prop, ",", 0);
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to parse property: %s", optarg);
-
                                         if (r == 0)
                                                 break;
 
@@ -7255,7 +7353,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                                         prop = NULL;
                                 }
-                        }
 
                         /* If the user asked for a particular
                          * property, show it to him, even if it is
@@ -7275,10 +7372,12 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_AFTER:
                         arg_dependency = DEPENDENCY_AFTER;
+                        arg_jobs_after = true;
                         break;
 
                 case ARG_BEFORE:
                         arg_dependency = DEPENDENCY_BEFORE;
+                        arg_jobs_before = true;
                         break;
 
                 case ARG_SHOW_TYPES:
@@ -7432,14 +7531,12 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 return -EINVAL;
                         }
 
-                        p = optarg;
-                        for (;;) {
+                        for (p = optarg;;) {
                                 _cleanup_free_ char *s = NULL;
 
                                 r = extract_first_word(&p, &s, ",", 0);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse signal: %s", optarg);
-
                                 if (r == 0)
                                         break;
 
@@ -8298,6 +8395,8 @@ static int logind_cancel_shutdown(void) {
 
 int main(int argc, char*argv[]) {
         int r;
+
+        argv_cmdline = argv[0];
 
         setlocale(LC_ALL, "");
         log_parse_environment();

@@ -58,7 +58,7 @@
       <funcsynopsisinfo>typedef struct {
         const char *name;
         int code;
-        ...
+        …
 } sd_bus_error_map;</funcsynopsisinfo>
 
     </funcsynopsis>

@@ -36,7 +36,7 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "log.h"
 #include "macro.h"
 #include "string-util.h"

@@ -511,3 +511,9 @@ global:
         sd_bus_get_exit_on_disconnect;
         sd_id128_get_invocation;
 } LIBSYSTEMD_231;
+
+LIBSYSTEMD_233 {
+global:
+        sd_id128_get_machine_app_specific;
+        sd_is_socket_sockaddr;
+} LIBSYSTEMD_232;

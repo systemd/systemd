@@ -89,12 +89,13 @@
 
         <listitem><para>Takes a boolean argument. Defaults to
         <literal>yes</literal>. If <literal>no</literal>, causes the
-        generator to ignore any mounts or swaps configured in
+        generator to ignore any mounts or swap devices configured in
         <filename>/etc/fstab</filename>. <varname>rd.fstab=</varname>
-        is honored only by initial RAM disk (initrd) while
+        is honored only by the initial RAM disk (initrd) while
         <varname>fstab=</varname> is honored by both the main system
         and the initrd.</para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><varname>root=</varname></term>
 
@@ -102,6 +103,7 @@
         initrd. <varname>root=</varname> is honored by the
         initrd.</para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><varname>rootfstype=</varname></term>
 
@@ -109,6 +111,7 @@
         passed to the mount command. <varname>rootfstype=</varname> is
         honored by the initrd.</para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><varname>rootflags=</varname></term>
 
@@ -116,6 +119,7 @@
         use. <varname>rootflags=</varname> is honored by the
         initrd.</para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><varname>mount.usr=</varname></term>
 
@@ -133,6 +137,7 @@
         <para><varname>mount.usr=</varname> is honored by the initrd.
         </para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><varname>mount.usrfstype=</varname></term>
 
@@ -150,6 +155,7 @@
         <para><varname>mount.usrfstype=</varname> is honored by the
         initrd.</para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><varname>mount.usrflags=</varname></term>
 
@@ -166,6 +172,39 @@
         <para><varname>mount.usrflags=</varname> is honored by the
         initrd.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.volatile=</varname></term>
+
+        <listitem><para>Controls whether the system shall boot up in volatile mode. Takes a boolean argument or the
+        special value <option>state</option>.</para>
+
+        <para>If false (the default), this generator makes no changes to the mount tree and the system is booted up in
+        normal mode.</para>
+
+        <para>If true the generator ensures
+        <citerefentry><refentrytitle>systemd-volatile-root.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        is run as part of the initial RAM disk ("initrd"). This service changes the mount table before transitioning to
+        the host system, so that a volatile memory file system (<literal>tmpfs</literal>) is used as root directory,
+        with only <filename>/usr</filename> mounted into it from the configured root file system, in read-only
+        mode. This way the system operates in fully stateless mode, with all configuration and state reset at boot and
+        lost at shutdown, as <filename>/etc</filename> and <filename>/var</filename> will be served from the (initially
+        unpopulated) volatile memory file system.</para>
+
+        <para>If set to <option>state</option> the generator will leave the root
+        directory mount point unaltered, however will mount a <literal>tmpfs</literal> file system to
+        <filename>/var</filename>. In this mode the normal system configuration (i.e. the contents of
+        <literal>/etc</literal>) is in effect (and may be modified during system runtime), however the system state
+        (i.e. the contents of <literal>/var</literal>) is reset at boot and lost at shutdown.</para>
+
+        <para>Note that in none of these modes the root directory, <filename>/etc</filename>, <filename>/var</filename>
+        or any other resources stored in the root file system are physically removed. It's thus safe to boot a system
+        that is normally operated in non-volatile mode temporarily into volatile mode, without losing data.</para>
+
+        <para>Note that enabling this setting will only work correctly on operating systems that can boot up with only
+        <filename>/usr</filename> mounted, and are able to automatically populate <filename>/etc</filename>, and also
+        <filename>/var</filename> in case of <literal>systemd.volatile=yes</literal>.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -176,7 +215,8 @@
       <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     </para>
   </refsect1>
 

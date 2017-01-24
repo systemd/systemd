@@ -500,6 +500,28 @@ static const NLTypeSystem rtnl_address_type_system = {
         .types = rtnl_address_types,
 };
 
+/* RTM_METRICS --- array of struct rtattr with types of RTAX_* */
+
+static const NLType rtnl_route_metrics_types[] = {
+        [RTAX_MTU]               = { .type = NETLINK_TYPE_U32 },
+        [RTAX_WINDOW]            = { .type = NETLINK_TYPE_U32 },
+        [RTAX_RTT]               = { .type = NETLINK_TYPE_U32 },
+        [RTAX_RTTVAR]            = { .type = NETLINK_TYPE_U32 },
+        [RTAX_SSTHRESH]          = { .type = NETLINK_TYPE_U32 },
+        [RTAX_CWND]              = { .type = NETLINK_TYPE_U32 },
+        [RTAX_ADVMSS]            = { .type = NETLINK_TYPE_U32 },
+        [RTAX_REORDERING]        = { .type = NETLINK_TYPE_U32 },
+        [RTAX_HOPLIMIT]          = { .type = NETLINK_TYPE_U32 },
+        [RTAX_INITCWND]          = { .type = NETLINK_TYPE_U32 },
+        [RTAX_FEATURES]          = { .type = NETLINK_TYPE_U32 },
+        [RTAX_RTO_MIN]           = { .type = NETLINK_TYPE_U32 },
+};
+
+static const NLTypeSystem rtnl_route_metrics_type_system = {
+        .count = ELEMENTSOF(rtnl_route_metrics_types),
+        .types = rtnl_route_metrics_types,
+};
+
 static const NLType rtnl_route_types[] = {
         [RTA_DST]               = { .type = NETLINK_TYPE_IN_ADDR }, /* 6? */
         [RTA_SRC]               = { .type = NETLINK_TYPE_IN_ADDR }, /* 6? */
@@ -508,9 +530,8 @@ static const NLType rtnl_route_types[] = {
         [RTA_GATEWAY]           = { .type = NETLINK_TYPE_IN_ADDR },
         [RTA_PRIORITY]          = { .type = NETLINK_TYPE_U32 },
         [RTA_PREFSRC]           = { .type = NETLINK_TYPE_IN_ADDR }, /* 6? */
-/*
-        [RTA_METRICS]           = { .type = NETLINK_TYPE_NESTED },
-        [RTA_MULTIPATH]         = { .len = sizeof(struct rtnexthop) },
+        [RTA_METRICS]           = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_route_metrics_type_system},
+/*      [RTA_MULTIPATH]         = { .len = sizeof(struct rtnexthop) },
 */
         [RTA_FLOW]              = { .type = NETLINK_TYPE_U32 }, /* 6? */
 /*

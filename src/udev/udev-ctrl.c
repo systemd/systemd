@@ -20,7 +20,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "socket-util.h"
 #include "udev.h"
 

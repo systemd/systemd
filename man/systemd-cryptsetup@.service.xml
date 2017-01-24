@@ -66,9 +66,8 @@
     password using the right mechanism at boot and during
     runtime.</para>
 
-    <para>At early boot and when the system manager configuration is
-    reloaded this <filename>/etc/crypttab</filename> is translated
-    into <filename>systemd-cryptsetup@.service</filename> units by
+    <para>At early boot and when the system manager configuration is reloaded, <filename>/etc/crypttab</filename> is
+    translated into <filename>systemd-cryptsetup@.service</filename> units by
     <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
   </refsect1>
 

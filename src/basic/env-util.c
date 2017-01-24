@@ -384,6 +384,29 @@ char **strv_env_unset_many(char **l, ...) {
         return l;
 }
 
+int strv_env_replace(char ***l, char *p) {
+        char **f;
+
+        assert(p);
+
+        /* Replace first occurrence of the env var or add a new one in the
+         * string list. Drop other occurences. Edits in-place. Does not copy p.
+         */
+
+        for (f = *l; f && *f; f++)
+                if (env_match(*f, p)) {
+                        free(*f);
+                        *f = p;
+                        strv_env_unset(f + 1, p);
+                        return 0;
+                }
+
+        /* We didn't find a match, we need to append p or create a new strv */
+        if (strv_push(l, p) < 0)
+                return -ENOMEM;
+        return 1;
+}
+
 char **strv_env_set(char **x, const char *p) {
 
         char **k, **r;

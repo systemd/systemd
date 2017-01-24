@@ -34,7 +34,7 @@
 #include "bus-util.h"
 #include "dbus-automount.h"
 #include "fd-util.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "io-util.h"
 #include "label.h"
 #include "mkdir.h"
@@ -783,7 +783,7 @@ static int automount_start(Unit *u) {
         assert(a);
         assert(a->state == AUTOMOUNT_DEAD || a->state == AUTOMOUNT_FAILED);
 
-        if (path_is_mount_point(a->where, 0) > 0) {
+        if (path_is_mount_point(a->where, NULL, 0) > 0) {
                 log_unit_error(u, "Path %s is already a mount point, refusing start.", a->where);
                 return -EEXIST;
         }

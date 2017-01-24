@@ -429,3 +429,8 @@
   and Linux/GNU-specific APIs, we generally prefer the POSIX APIs. If there
   aren't, we are happy to use GNU or Linux APIs, and expect non-GNU
   implementations of libc to catch up with glibc.
+
+- Whenever installing a signal handler, make sure to set SA_RESTART for it, so
+  that interrupted system calls are automatically restarted, and we minimize
+  hassles with handling EINTR (in particular as EINTR handling is pretty broken
+  on Linux).

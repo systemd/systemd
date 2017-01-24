@@ -881,8 +881,8 @@ static int resolve_tlsa(sd_bus *bus, const char *address) {
 
         port = strrchr(address, ':');
         if (port) {
-                r = safe_atou16(port + 1, &port_num);
-                if (r < 0 || port_num == 0)
+                r = parse_ip_port(port + 1, &port_num);
+                if (r < 0)
                         return log_error_errno(r, "Invalid port \"%s\".", port + 1);
 
                 address = strndupa(address, port - address);

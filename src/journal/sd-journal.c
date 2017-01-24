@@ -35,7 +35,7 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
@@ -405,7 +405,7 @@ static char *match_make_string(Match *m) {
                         return mfree(p);
 
                 if (p) {
-                        k = strjoin(p, m->type == MATCH_OR_TERM ? " OR " : " AND ", t, NULL);
+                        k = strjoin(p, m->type == MATCH_OR_TERM ? " OR " : " AND ", t);
                         free(p);
                         free(t);
 
@@ -420,7 +420,7 @@ static char *match_make_string(Match *m) {
         }
 
         if (enclose) {
-                r = strjoin("(", p, ")", NULL);
+                r = strjoin("(", p, ")");
                 free(p);
                 return r;
         }
@@ -1416,7 +1416,7 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
          * and reenumerates directory contents */
 
         if (dirname)
-                path = strjoin(prefix, "/", dirname, NULL);
+                path = strjoin(prefix, "/", dirname);
         else
                 path = strdup(prefix);
         if (!path) {
@@ -1660,6 +1660,9 @@ static int add_search_paths(sd_journal *j) {
 
         NULSTR_FOREACH(p, search_paths)
                 (void) add_root_directory(j, p, true);
+
+        if (!(j->flags & SD_JOURNAL_LOCAL_ONLY))
+                (void) add_root_directory(j, "/var/log/journal/remote", true);
 
         return 0;
 }

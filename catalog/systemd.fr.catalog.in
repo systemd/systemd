@@ -1,7 +1,7 @@
 #  This file is part of systemd.
 #
 #  Copyright 2012 Lennart Poettering
-#  Copyright 2013-2015 Sylvain Plantefève
+#  Copyright 2013-2016 Sylvain Plantefève
 #
 #  systemd is free software; you can redistribute it and/or modify it
 #  under the terms of the GNU Lesser General Public License as published by
@@ -148,16 +148,27 @@ Subject: Le démarrage du système est terminé
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-Tous les services nécessaires au démarrage du système ont été lancés avec
-succès. Notez que cela ne signifie pas que le système est maintenant au
-repos, car des services peuvent encore être en train de terminer leur
-démarrage.
+Tous les services nécessaires au démarrage du système ont été lancés.
+Notez que cela ne signifie pas que le système est maintenant au repos,
+car des services peuvent encore être en train de terminer leur démarrage.
 
 Le chargement du noyau a nécessité @KERNEL_USEC@ microsecondes.
 
 Le chargement du « RAM disk » initial a nécessité @INITRD_USEC@ microsecondes.
 
 Le chargement de l'espace utilisateur a nécessité @USERSPACE_USEC@ microsecondes.
+
+-- eed00a68ffd84e31882105fd973abdd1
+Subject: Le démarrage du gestionnaire utilisateur est terminé
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+L'instance du gestionnaire d'utilisateurs pour l'utilisateur @_UID@ a été démarrée.
+Tous les services en file d'attente pour démarrer ont été lancés.
+Notez que des services peuvent être encore en train de démarrer,
+ou d'autres être lancés à tout moment ultérieur.
+
+Le démarrage du gestionnaire a nécéssité @USERSPACE_USEC@ microsecondes.
 
 -- 6bbd95ee977941e497c48be27c254128
 Subject: Le système entre dans l'état de repos (sleep state) @SLEEP@

@@ -18,7 +18,6 @@
 ***/
 
 #include <alloca.h>
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <sched.h>
@@ -41,7 +40,7 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "formats-util.h"
+#include "format-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
 #include "log.h"
@@ -131,7 +130,7 @@ static int do_execute(char **directories, usec_t timeout, char *argv[]) {
                         if (r < 0)
                                 return log_oom();
 
-                        path = strjoin(*directory, "/", de->d_name, NULL);
+                        path = strjoin(*directory, "/", de->d_name);
                         if (!path)
                                 return log_oom();
 
@@ -493,7 +492,7 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
         u = nmemb;
         while (l < u) {
                 idx = (l + u) / 2;
-                p = (void *)(((const char *) base) + (idx * size));
+                p = (const char *) base + idx * size;
                 comparison = compar(key, p, arg);
                 if (comparison < 0)
                         u = idx;
@@ -508,27 +507,16 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
 int on_ac_power(void) {
         bool found_offline = false, found_online = false;
         _cleanup_closedir_ DIR *d = NULL;
+        struct dirent *de;
 
         d = opendir("/sys/class/power_supply");
         if (!d)
                 return errno == ENOENT ? true : -errno;
 
-        for (;;) {
-                struct dirent *de;
+        FOREACH_DIRENT(de, d, return -errno) {
                 _cleanup_close_ int fd = -1, device = -1;
                 char contents[6];
                 ssize_t n;
-
-                errno = 0;
-                de = readdir(d);
-                if (!de && errno > 0)
-                        return -errno;
-
-                if (!de)
-                        break;
-
-                if (hidden_or_backup_file(de->d_name))
-                        continue;
 
                 device = openat(dirfd(d), de->d_name, O_DIRECTORY|O_RDONLY|O_CLOEXEC|O_NOCTTY);
                 if (device < 0) {

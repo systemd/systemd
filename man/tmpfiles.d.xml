@@ -117,8 +117,8 @@
     type, path, mode, ownership, age, and argument fields:</para>
 
     <programlisting>#Type Path        Mode UID  GID  Age Argument
-    d    /run/user   0755 root root 10d -
-    L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
+d     /run/user   0755 root root 10d -
+L     /tmp/foobar -    -    -    -   /dev/null</programlisting>
 
     <para>Fields may be enclosed within quotes and contain C-style escapes.</para>
 
@@ -159,7 +159,7 @@
           <term><varname>d</varname></term>
           <listitem><para>Create a directory. The mode and ownership will be adjusted if
           specified and the directory already exists. Contents of this directory are subject
-          to time based cleanup if the time argument is specified.</para></listitem>
+          to time based cleanup if the age argument is specified.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -171,9 +171,13 @@
 
         <varlistentry>
           <term><varname>e</varname></term>
-          <listitem><para>Similar to <varname>d</varname>, but the directory will not be
-          created if it does not exist. Lines of this type accept shell-style globs in
-          place of normal path names.</para></listitem>
+          <listitem><para>Similar to <varname>d</varname>, but the directory will not be created if
+          it does not exist. Lines of this type accept shell-style globs in place of normal path
+          names. For this entry to be useful, at least one of the mode, uid, gid, or age arguments
+          must be specified, since otherwise this entry has no effect. If the age argument is
+          <literal>0</literal>, contents of the directory will be unconditionally deleted every time
+          <command>systemd-tmpfiles --clean</command> is run. This can be useful when combined with
+          <varname>!</varname>, see the examples.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -644,7 +648,7 @@ d /run/uscreens 0755 root screen 10d12h
 t /run/cups - - - - security.SMACK64=printing user.attr-with-spaces="foo bar"
       </programlisting>
 
-      <para>The direcory will be owned by root and have default mode. It's contents are
+      <para>The directory will be owned by root and have default mode. Its contents are
       not subject to time based cleanup, but will be obliterated when
       <command>systemd-tmpfiles --remove</command> runs.</para>
     </example>
@@ -679,6 +683,18 @@ e  /var/chache/dnf/ - - - 30d
      <para>The lock files will be removed during boot. Any files and directories in
      <filename>/var/chache/dnf/</filename> will be removed after they have not been
      accessed in 30 days.</para>
+    </example>
+
+    <example>
+      <title>Empty the contents of a cache directory on boot</title>
+
+      <programlisting># /usr/lib/tmpfiles.d/krb5rcache.conf
+e! /var/cache/krb5rcache - - - 0
+</programlisting>
+
+      <para>Any files and subdirectories in <filename>/var/cache/krb5rcache/</filename>
+      will be removed on boot. The directory will not be created.
+      </para>
     </example>
   </refsect1>
 

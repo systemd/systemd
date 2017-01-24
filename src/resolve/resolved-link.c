@@ -997,6 +997,7 @@ int link_load_user(Link *l) {
                 *ntas = NULL;
 
         ResolveSupport s;
+        const char *p;
         int r;
 
         assert(l);
@@ -1037,48 +1038,40 @@ int link_load_user(Link *l) {
         /* If we can't recognize the DNSSEC setting, then set it to invalid, so that the daemon default is used. */
         l->dnssec_mode = dnssec_mode_from_string(dnssec);
 
-        if (servers) {
-                const char *p = servers;
+        for (p = servers;;) {
+                _cleanup_free_ char *word = NULL;
 
-                for (;;) {
-                        _cleanup_free_ char *word = NULL;
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r < 0)
+                        goto fail;
+                if (r == 0)
+                        break;
 
-                        r = extract_first_word(&p, &word, NULL, 0);
-                        if (r < 0)
-                                goto fail;
-                        if (r == 0)
-                                break;
-
-                        r = link_update_dns_server_one(l, word);
-                        if (r < 0) {
-                                log_debug_errno(r, "Failed to load DNS server '%s', ignoring: %m", word);
-                                continue;
-                        }
+                r = link_update_dns_server_one(l, word);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to load DNS server '%s', ignoring: %m", word);
+                        continue;
                 }
         }
 
-        if (domains) {
-                const char *p = domains;
+        for (p = domains;;) {
+                _cleanup_free_ char *word = NULL;
+                const char *n;
+                bool is_route;
 
-                for (;;) {
-                        _cleanup_free_ char *word = NULL;
-                        const char *n;
-                        bool is_route;
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r < 0)
+                        goto fail;
+                if (r == 0)
+                        break;
 
-                        r = extract_first_word(&p, &word, NULL, 0);
-                        if (r < 0)
-                                goto fail;
-                        if (r == 0)
-                                break;
+                is_route = word[0] == '~';
+                n = is_route ? word + 1 : word;
 
-                        is_route = word[0] == '~';
-                        n = is_route ? word + 1 : word;
-
-                        r = link_update_search_domain_one(l, n, is_route);
-                        if (r < 0) {
-                                log_debug_errno(r, "Failed to load search domain '%s', ignoring: %m", word);
-                                continue;
-                        }
+                r = link_update_search_domain_one(l, n, is_route);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to load search domain '%s', ignoring: %m", word);
+                        continue;
                 }
         }
 

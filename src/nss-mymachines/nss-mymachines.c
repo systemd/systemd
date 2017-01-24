@@ -512,10 +512,8 @@ enum nss_status _nss_mymachines_getpwuid_r(
 
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
-        if (!uid_is_valid(uid)) {
-                r = -EINVAL;
-                goto fail;
-        }
+        if (!uid_is_valid(uid))
+                goto not_found;
 
         /* We consider all uids < 65536 host uids */
         if (uid < HOST_UID_LIMIT)
@@ -686,10 +684,8 @@ enum nss_status _nss_mymachines_getgrgid_r(
 
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
-        if (!gid_is_valid(gid)) {
-                r = -EINVAL;
-                goto fail;
-        }
+        if (!gid_is_valid(gid))
+                goto not_found;
 
         /* We consider all gids < 65536 host gids */
         if (gid < HOST_GID_LIMIT)

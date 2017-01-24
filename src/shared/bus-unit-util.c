@@ -27,6 +27,8 @@
 #include "hashmap.h"
 #include "list.h"
 #include "locale-util.h"
+#include "mount-util.h"
+#include "nsflags.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -61,6 +63,7 @@ int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u) {
 
 int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignment) {
         const char *eq, *field;
+        UnitDependency dep;
         int r, rl;
 
         assert(m);
@@ -263,7 +266,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                               "StandardInput", "StandardOutput", "StandardError",
                               "Description", "Slice", "Type", "WorkingDirectory",
                               "RootDirectory", "SyslogIdentifier", "ProtectSystem",
-                              "ProtectHome", "SELinuxContext"))
+                              "ProtectHome", "SELinuxContext", "Restart"))
                 r = sd_bus_message_append(m, "v", "s", eq);
 
         else if (streq(field, "SyslogLevel")) {
@@ -397,9 +400,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                p = eq;
-
-                for (;;) {
+                for (p = eq;;) {
                         _cleanup_free_ char *word = NULL;
 
                         r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE);
@@ -481,9 +482,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                p = eq;
-
-                for (;;) {
+                for (p = eq;;) {
                         _cleanup_free_ char *word = NULL;
                         int offset;
 
@@ -530,9 +529,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                p = eq;
-
-                for (;;) {
+                for (p = eq;;) {
                         _cleanup_free_ char *word = NULL;
 
                         r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
@@ -553,6 +550,110 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 r = sd_bus_message_close_container(m);
 
+        } else if (streq(field, "RestrictNamespaces")) {
+                bool invert = false;
+                uint64_t flags = 0;
+
+                if (eq[0] == '~') {
+                        invert = true;
+                        eq++;
+                }
+
+                r = parse_boolean(eq);
+                if (r > 0)
+                        flags = 0;
+                else if (r == 0)
+                        flags = NAMESPACE_FLAGS_ALL;
+                else {
+                        r = namespace_flag_from_string_many(eq, &flags);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse %s value %s.", field, eq);
+                }
+
+                if (invert)
+                        flags = (~flags) & NAMESPACE_FLAGS_ALL;
+
+                r = sd_bus_message_append(m, "v", "t", flags);
+        } else if ((dep = unit_dependency_from_string(field)) >= 0)
+                r = sd_bus_message_append(m, "v", "as", 1, eq);
+        else if (streq(field, "MountFlags")) {
+                unsigned long f;
+
+                r = mount_propagation_flags_from_string(eq, &f);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse mount propagation flags: %s", eq);
+
+                r = sd_bus_message_append(m, "v", "t", f);
+        } else if (STR_IN_SET(field, "BindPaths", "BindReadOnlyPaths")) {
+                const char *p = eq;
+
+                r = sd_bus_message_open_container(m, 'v', "a(ssbt)");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_open_container(m, 'a', "(ssbt)");
+                if (r < 0)
+                        return r;
+
+                for (;;) {
+                        _cleanup_free_ char *source = NULL, *destination = NULL;
+                        char *s = NULL, *d = NULL;
+                        bool ignore_enoent = false;
+                        uint64_t flags = MS_REC;
+
+                        r = extract_first_word(&p, &source, ":" WHITESPACE, EXTRACT_QUOTES|EXTRACT_DONT_COALESCE_SEPARATORS);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse argument: %m");
+                        if (r == 0)
+                                break;
+
+                        s = source;
+                        if (s[0] == '-') {
+                                ignore_enoent = true;
+                                s++;
+                        }
+
+                        if (p && p[-1] == ':') {
+                                r = extract_first_word(&p, &destination, ":" WHITESPACE, EXTRACT_QUOTES|EXTRACT_DONT_COALESCE_SEPARATORS);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse argument: %m");
+                                if (r == 0) {
+                                        log_error("Missing argument after ':': %s", eq);
+                                        return -EINVAL;
+                                }
+
+                                d = destination;
+
+                                if (p && p[-1] == ':') {
+                                        _cleanup_free_ char *options = NULL;
+
+                                        r = extract_first_word(&p, &options, NULL, EXTRACT_QUOTES);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to parse argument: %m");
+
+                                        if (isempty(options) || streq(options, "rbind"))
+                                                flags = MS_REC;
+                                        else if (streq(options, "norbind"))
+                                                flags = 0;
+                                        else {
+                                                log_error("Unknown options: %s", eq);
+                                                return -EINVAL;
+                                        }
+                                }
+                        } else
+                                d = s;
+
+
+                        r = sd_bus_message_append(m, "(ssbt)", s, d, ignore_enoent, flags);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_close_container(m);
         } else {
                 log_error("Unknown assignment %s.", assignment);
                 return -EINVAL;
@@ -742,6 +843,7 @@ static const struct {
         const char *result, *explanation;
 } explanations [] = {
         { "resources",   "of unavailable resources or another system error" },
+        { "protocol",    "the service did not take the steps required by its unit configuration" },
         { "timeout",     "a timeout was exceeded" },
         { "exit-code",   "the control process exited with error code" },
         { "signal",      "a fatal signal was delivered to the control process" },
@@ -819,6 +921,8 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet, const char* const*
                         log_error("Assertion failed on job for %s.", strna(d->name));
                 else if (streq(d->result, "unsupported"))
                         log_error("Operation on or unit type of %s not supported on this system.", strna(d->name));
+                else if (streq(d->result, "collected"))
+                        log_error("Queued job for %s was garbage collected.", strna(d->name));
                 else if (!streq(d->result, "done") && !streq(d->result, "skipped")) {
                         if (d->name) {
                                 int q;
@@ -834,7 +938,7 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet, const char* const*
                 }
         }
 
-        if (streq(d->result, "canceled"))
+        if (STR_IN_SET(d->result, "canceled", "collected"))
                 r = -ECANCELED;
         else if (streq(d->result, "timeout"))
                 r = -ETIME;
