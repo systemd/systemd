@@ -137,7 +137,7 @@ Support: %SUPPORT_URL%
 -- 6bbd95ee977941e497c48be27c254128
 Subject: 系统已进入 @SLEEP@ 睡眠状态
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-deve
+Support: %SUPPORT_URL%
 
 系统现已进入 @SLEEP@ 睡眠状态。
 
