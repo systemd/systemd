@@ -175,7 +175,7 @@ static int signal_activation_request(sd_bus_message *message, void *userdata, sd
                 goto failed;
 
         if (u->refuse_manual_start) {
-                r = sd_bus_error_setf(&error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, %s may be requested by dependency only.", u->id);
+                r = sd_bus_error_setf(&error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, %s may be requested by dependency only (it is configured to refuse manual start/stop).", u->id);
                 goto failed;
         }
 
