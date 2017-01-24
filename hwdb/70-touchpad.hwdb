@@ -47,3 +47,9 @@ touchpad:usb:*
 ###########################################################
 touchpad:usb:v05ac*
  ID_INPUT_TOUCHPAD_INTEGRATION=internal
+
+###########################################################
+# Wacom
+###########################################################
+touchpad:usb:v056a*
+ ID_INPUT_TOUCHPAD_INTEGRATION=external
