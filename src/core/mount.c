@@ -1408,7 +1408,7 @@ static int mount_setup_new_unit(
 
         u->source_path = strdup("/proc/self/mountinfo");
         MOUNT(u)->where = strdup(where);
-        if (!u->source_path && !MOUNT(u)->where)
+        if (!u->source_path || !MOUNT(u)->where)
                 return -ENOMEM;
 
         /* Make sure to initialize those fields before mount_is_extrinsic(). */
@@ -1435,6 +1435,7 @@ static int mount_setup_new_unit(
                         return r;
         }
 
+        unit_add_to_load_queue(u);
         flags->is_mounted = true;
         flags->just_mounted = true;
         flags->just_changed = true;
