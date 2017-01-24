@@ -25,6 +25,7 @@
 #include "in-addr-util.h"
 
 typedef struct Address Address;
+typedef struct IPv6ProxyNDPAddress IPv6ProxyNDPAddress;
 
 #include "networkd-link.h"
 #include "networkd-network.h"
@@ -60,6 +61,12 @@ struct Address {
         bool autojoin;
 
         LIST_FIELDS(Address, addresses);
+};
+
+typedef struct IPv6ProxyNDPAddress {
+        struct in6_addr in_addr;
+
+        LIST_FIELDS(IPv6ProxyNDPAddress, addresses);
 };
 
 int address_new_static(Network *network, unsigned section, Address **ret);

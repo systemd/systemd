@@ -623,6 +623,14 @@
         </para></listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>IPv6ProxyNDPAddress=</varname></term>
+          <listitem><para>An IPV6 address. Proxy the address from the interface
+          by generating Neighbour Advertisement messages. See ProxyNDP for details.
+          This option may be specified more than once.
+          Defaults to unset.
+        </para></listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Bridge=</varname></term>
           <listitem>
             <para>The name of the bridge to add the link to. See
