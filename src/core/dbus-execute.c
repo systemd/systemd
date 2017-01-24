@@ -1382,7 +1382,7 @@ int bus_exec_context_set_transient_property(
 
                 _cleanup_free_ char *joined = NULL;
                 _cleanup_fclose_ FILE *f = NULL;
-                _cleanup_free_ char **l = NULL;
+                _cleanup_strv_free_ char **l = NULL;
                 size_t size = 0;
                 char **i;
 
