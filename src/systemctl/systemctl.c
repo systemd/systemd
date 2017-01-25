@@ -5029,13 +5029,10 @@ static int show_one(
         r = 0;
         if (show_properties) {
                 char **pp;
-                int not_found_level = streq(verb, "show") ? LOG_DEBUG : LOG_WARNING;
 
                 STRV_FOREACH(pp, arg_properties)
-                        if (!set_contains(found_properties, *pp)) {
-                                log_full(not_found_level, "Property %s does not exist.", *pp);
-                                r = -ENXIO;
-                        }
+                        if (!set_contains(found_properties, *pp))
+                                log_debug("Property %s does not exist.", *pp);
 
         } else if (streq(verb, "help"))
                 show_unit_help(&info);
