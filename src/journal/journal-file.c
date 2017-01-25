@@ -42,6 +42,7 @@
 #include "sd-event.h"
 #include "set.h"
 #include "string-util.h"
+#include "strv.h"
 #include "xattr-util.h"
 
 #define DEFAULT_DATA_HASH_TABLE_SIZE (2047ULL*sizeof(HashItem))
@@ -517,12 +518,27 @@ static bool warn_wrong_flags(const JournalFile *f, bool compatible) {
 
         if (flags & ~supported) {
                 if (flags & ~any)
-                        log_debug("Journal file %s has unknown %s flags %"PRIx32,
+                        log_debug("Journal file %s has unknown %s flags 0x%"PRIx32,
                                   f->path, type, flags & ~any);
                 flags = (flags & any) & ~supported;
-                if (flags)
-                        log_debug("Journal file %s uses %s flags %"PRIx32" disabled at compilation time.",
-                                  f->path, type, flags);
+                if (flags) {
+                        const char* strv[3];
+                        unsigned n = 0;
+                        _cleanup_free_ char *t = NULL;
+
+                        if (compatible && (flags & HEADER_COMPATIBLE_SEALED))
+                                strv[n++] = "sealed";
+                        if (!compatible && (flags & HEADER_INCOMPATIBLE_COMPRESSED_XZ))
+                                strv[n++] = "xz-compressed";
+                        if (!compatible && (flags & HEADER_INCOMPATIBLE_COMPRESSED_LZ4))
+                                strv[n++] = "lz4-compressed";
+                        strv[n] = NULL;
+                        assert(n < ELEMENTSOF(strv));
+
+                        t = strv_join((char**) strv, ", ");
+                        log_debug("Journal file %s uses %s %s %s disabled at compilation time.",
+                                  f->path, type, n > 1 ? "flags" : "flag", strnull(t));
+                }
                 return true;
         }
 

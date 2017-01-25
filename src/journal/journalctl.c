@@ -1910,7 +1910,9 @@ static int access_check(sd_journal *j) {
                         break;
 
                 case EPROTONOSUPPORT:
-                        log_warning_errno(err, "Journal file %s uses an unsupported feature, ignoring file.", path);
+                        log_warning_errno(err, "Journal file %1$s uses an unsupported feature, ignoring file.\n"
+                                               "Use SYSTEMD_LOG_LEVEL=debug journalctl --file=%1$s to see the details.",
+                                               path);
                         break;
 
                 case EBADMSG:
