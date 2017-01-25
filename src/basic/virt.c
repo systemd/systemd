@@ -49,7 +49,7 @@ static int detect_vm_cpuid(void) {
                 { "KVMKVMKVM",    VIRTUALIZATION_KVM       },
                 /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
                 { "VMwareVMware", VIRTUALIZATION_VMWARE    },
-                /* http://msdn.microsoft.com/en-us/library/ff542428.aspx */
+                /* https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/reference/tlfs */
                 { "Microsoft Hv", VIRTUALIZATION_MICROSOFT },
                 /* https://wiki.freebsd.org/bhyve */
                 { "bhyve bhyve ", VIRTUALIZATION_BHYVE     },
