@@ -531,6 +531,10 @@ mouse:bluetooth:v056ep0061:name:Laser  BTmouse:
 mouse:usb:v1532p0042:name:Razer Razer Abyssus:
  MOUSE_DPI=3500@1000
 
+# Razer DeathAdder Black Edition
+mouse:usb:v1532p0029:name:Razer Razer DeathAdder:
+ MOUSE_DPI=3500@1000
+
 ##########################################
 # Roccat
 ##########################################
