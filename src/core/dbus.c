@@ -477,7 +477,7 @@ static int bus_kill_context_find(sd_bus *bus, const char *path, const char *inte
 }
 
 static int bus_job_enumerate(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
-        _cleanup_free_ char **l = NULL;
+        _cleanup_strv_free_ char **l = NULL;
         Manager *m = userdata;
         unsigned k = 0;
         Iterator i;
@@ -504,7 +504,7 @@ static int bus_job_enumerate(sd_bus *bus, const char *path, void *userdata, char
 }
 
 static int bus_unit_enumerate(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
-        _cleanup_free_ char **l = NULL;
+        _cleanup_strv_free_ char **l = NULL;
         Manager *m = userdata;
         unsigned k = 0;
         Iterator i;

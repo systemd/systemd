@@ -1896,8 +1896,8 @@ static int compile_read_write_paths(
         _cleanup_strv_free_ char **l = NULL;
         char **rt;
 
-        /* Compile the list of writable paths. This is the combination of the explicitly configured paths, plus all
-         * runtime directories. */
+        /* Compile the list of writable paths. This is the combination of
+         * the explicitly configured paths, plus all runtime directories. */
 
         if (strv_isempty(context->read_write_paths) &&
             strv_isempty(context->runtime_directory)) {
@@ -1930,7 +1930,7 @@ static int apply_mount_namespace(Unit *u, const ExecContext *context,
                                  const ExecParameters *params,
                                  ExecRuntime *runtime) {
         int r;
-        _cleanup_free_ char **rw = NULL;
+        _cleanup_strv_free_ char **rw = NULL;
         char *tmp = NULL, *var = NULL;
         const char *root_dir = NULL;
         NameSpaceInfo ns_info = {
