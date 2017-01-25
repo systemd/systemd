@@ -124,7 +124,7 @@ _systemctl () {
 
         local -A OPTS=(
                [STANDALONE]='--all -a --reverse --after --before --defaults --force -f --full -l --global
-                             --help -h --no-ask-password --no-block --no-legend --no-pager --no-reload --no-wall
+                             --help -h --no-ask-password --no-block --no-legend --no-pager --no-reload --no-wall --now
                              --quiet -q --privileged -P --system --user --version --runtime --recursive -r --firmware-setup
                              --show-types -i --ignore-inhibitors --plain'
                       [ARG]='--host -H --kill-who --property -p --signal -s --type -t --state --job-mode --root
