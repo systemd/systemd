@@ -462,7 +462,7 @@ int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_e
 
 int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_set_free_free_ Set *ns = NULL;
-        _cleanup_free_ char **ntas = NULL;
+        _cleanup_strv_free_ char **ntas = NULL;
         Link *l = userdata;
         int r;
         char **i;
