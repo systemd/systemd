@@ -76,10 +76,10 @@ static int create_device(void) {
 
         r = unit_name_from_path(u, ".device", &d);
         if (r < 0)
-                return log_error_errno(r, "Failed to to generate unit name: %m");
+                return log_error_errno(r, "Failed to generate unit name: %m");
         r = unit_name_from_path(v, ".device", &e);
         if (r < 0)
-                return log_error_errno(r, "Failed to to generate unit name: %m");
+                return log_error_errno(r, "Failed to generate unit name: %m");
 
         f = fopen(p, "wxe");
         if (!f)

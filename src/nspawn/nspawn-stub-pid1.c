@@ -87,7 +87,7 @@ int stub_pid1(sd_id128_t uuid) {
 
         /* Flush out /proc/self/environ, so that we don't leak the environment from the host into the container. Also,
          * set $container= and $container_uuid= so that clients in the container that query it from /proc/1/environ
-         * find them set set. */
+         * find them set. */
         sd_id128_to_string(uuid, new_environment + sizeof(new_environment) - SD_ID128_STRING_MAX);
         reset_environ(new_environment, sizeof(new_environment));
 

@@ -148,7 +148,7 @@ int proc_cmdline_get_key(const char *key, unsigned flags, char **value) {
          * a) The "value" parameter is used. In this case a parameter beginning with the "key" string followed by "="
          *    is searched, and the value following this is returned in "value".
          *
-         * b) as above, but the PROC_CMDLINE_VALUE_OPTIONAL flag is set. In this case if the the key is found as a
+         * b) as above, but the PROC_CMDLINE_VALUE_OPTIONAL flag is set. In this case if the key is found as a
          *    separate word (i.e. not followed by "=" but instead by whitespace or the end of the command line), then
          *    this is also accepted, and "value" is returned as NULL.
          *
