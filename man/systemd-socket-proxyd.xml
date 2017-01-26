@@ -135,8 +135,7 @@ server {
       </example>
       <example>
         <title>Enabling the proxy</title>
-        <programlisting><![CDATA[# systemctl enable proxy-to-nginx.socket
-# systemctl start proxy-to-nginx.socket
+        <programlisting><![CDATA[# systemctl enable --now proxy-to-nginx.socket
 $ curl http://localhost:80/]]></programlisting>
       </example>
     </refsect2>
@@ -176,8 +175,7 @@ server {
       </example>
       <example>
         <title>Enabling the proxy</title>
-        <programlisting><![CDATA[# systemctl enable proxy-to-nginx.socket
-# systemctl start proxy-to-nginx.socket
+        <programlisting><![CDATA[# systemctl enable --now proxy-to-nginx.socket
 $ curl http://localhost:80/]]></programlisting>
       </example>
     </refsect2>
