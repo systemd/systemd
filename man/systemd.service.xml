@@ -1088,6 +1088,279 @@ ExecStart=/bin/echo $ONE $TWO $THREE</programlisting>
   </refsect1>
 
   <refsect1>
+    <title>Service exit codes</title>
+
+    <para>The following are the basic service exit codes defined by the
+      <ulink
+        url="https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html">LSB specification
+      </ulink>.
+    </para>
+
+    <table>
+      <title>LSB service exit codes</title>
+      <tgroup cols='3'>
+        <thead>
+          <row>
+            <entry>Exit Code</entry>
+            <entry>Symbolic Name</entry>
+            <entry>Description</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry>0</entry>
+            <entry>EXIT_SUCCESS</entry>
+            <entry>Generic success code. Defined by the C library implementation.</entry>
+          </row>
+          <row>
+            <entry>1</entry>
+            <entry>EXIT_FAILURE</entry>
+            <entry>Generic failure or unspecified error. Defined by the C library implementation.</entry>
+          </row>
+          <row>
+            <entry>2</entry>
+            <entry>EXIT_INVALIDARGUMENT</entry>
+            <entry>Invalid or excess arguments.</entry>
+          </row>
+          <row>
+            <entry>3</entry>
+            <entry>EXIT_NOTIMPLEMENTED</entry>
+            <entry>Unimplemented feature.</entry>
+          </row>
+          <row>
+            <entry>4</entry>
+            <entry>EXIT_NOPERMISSION</entry>
+            <entry>The user has insufficient privileges.</entry>
+          </row>
+          <row>
+            <entry>5</entry>
+            <entry>EXIT_NOTINSTALLED</entry>
+            <entry>The program is not installed.</entry>
+          </row>
+          <row>
+            <entry>6</entry>
+            <entry>EXIT_NOTCONFIGURED</entry>
+            <entry>The program is not configured.</entry>
+          </row>
+          <row>
+            <entry>7</entry>
+            <entry>EXIT_NOTRUNNING</entry>
+            <entry>The program is not running.</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+
+    <para>
+      The LSB suggests that error codes over 200 (included) are reserved. These are the return codes specified by systemd.
+    </para>
+    <table>
+      <title>systemd-specific exit codes</title>
+      <tgroup cols='3'>
+        <thead>
+          <row>
+            <entry>Exit Code</entry>
+            <entry>Symbolic Name</entry>
+            <entry>Description</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry>200</entry>
+            <entry>EXIT_CHDIR</entry>
+            <entry>The chdir(2) call failed.</entry>
+          </row>
+          <row>
+            <entry>201</entry>
+            <entry>EXIT_NICE</entry>
+            <entry>Failed to set the scheduling priority of a process.</entry>
+          </row>
+          <row>
+            <entry>202</entry>
+            <entry>EXIT_FDS</entry>
+            <entry>Closing up of file descriptors (TODO: Which ones??) failed.</entry>
+          </row>
+          <row>
+            <entry>203</entry>
+            <entry>EXIT_EXEC</entry>
+            <entry>The execve(2) call failed.</entry>
+          </row>
+          <row>
+            <entry>204</entry>
+            <entry>EXIT_MEMORY</entry>
+            <entry>Failed to perform an action due to memory shortage.</entry>
+          </row>
+          <row>
+            <entry>205</entry>
+            <entry>EXIT_LIMITS</entry>
+            <entry>Failed to set resoure limits.</entry>
+          </row>
+          <row>
+            <entry>206</entry>
+            <entry>EXIT_OOM_ADJUST</entry>
+            <entry>Failed to adjust the OOM score.</entry>
+          </row>
+          <row>
+            <entry>207</entry>
+            <entry>EXIT_SIGNAL_MASK</entry>
+            <entry>Failed to reset a program's signal mask.</entry>
+          </row>
+          <row>
+            <entry>208</entry>
+            <entry>EXIT_STDIN</entry>
+            <entry>Failed to set up a program's standard input.</entry>
+          </row>
+          <row>
+            <entry>209</entry>
+            <entry>EXIT_STDOUT</entry>
+            <entry>Failed to set up a program's standard output.</entry>
+          </row>
+          <row>
+            <entry>210</entry>
+            <entry>EXIT_CHROOT</entry>
+            <entry>The chroot(2) call failed.</entry>
+          </row>
+          <row>
+            <entry>211</entry>
+            <entry>EXIT_IOPRIO</entry>
+            <entry>Failed to set up a program's IO scheduler priority.</entry>
+          </row>
+          <row>
+            <entry>212</entry>
+            <entry>EXIT_TIMERSLACK</entry>
+            <entry>Failed to set up a program's timer slack.</entry>
+          </row>
+          <row>
+            <entry>213</entry>
+            <entry>EXIT_SECUREBITS</entry>
+            <entry>Failed to set up a program's secure bits.</entry>
+          </row>
+          <row>
+            <entry>214</entry>
+            <entry>EXIT_SETSCHEDULER</entry>
+            <entry>The sched_setscheduler(2) system call failed.</entry>
+          </row>
+          <row>
+            <entry>215</entry>
+            <entry>EXIT_CPUAFFINITY</entry>
+            <entry>The sched_setaffinity(2) system call failed.</entry>
+          </row>
+          <row>
+            <entry>216</entry>
+            <entry>EXIT_GROUP</entry>
+            <entry>Failed to determine group credentials or supplementary groups.</entry>
+          </row>
+          <row>
+            <entry>217</entry>
+            <entry>EXIT_USER</entry>
+            <entry>Setting up the user namespace failed.</entry>
+          </row>
+          <row>
+            <entry>218</entry>
+            <entry>EXIT_CAPABILITIES</entry>
+            <entry>Failed to apply ambient capabilities.</entry>
+          </row>
+          <row>
+            <entry>219</entry>
+            <entry>EXIT_CGROUP</entry>
+            <entry>Setting up the service cgroup failed.</entry>
+          </row>
+          <row>
+            <entry>220</entry>
+            <entry>EXIT_SETSID</entry>
+            <entry>Running the program in a new session failed.</entry>
+          </row>
+          <row>
+            <entry>221</entry>
+            <entry>EXIT_CONFIRM</entry>
+            <entry>Execution of a program has not been confirmed.</entry>
+          </row>
+          <row>
+            <entry>222</entry>
+            <entry>EXIT_STDERR</entry>
+            <entry>Failed to set up a program's standard error output.</entry>
+          </row>
+          <row>
+            <entry>233</entry>
+            <entry>_EXIT_RESERVED</entry>
+            <entry>This used to be connected with tcpwrap. It's not to be reused anymore.</entry>
+          </row>
+          <row>
+            <entry>224</entry>
+            <entry>EXIT_PAM</entry>
+            <entry>Setting up PAM failed.</entry>
+          </row>
+          <row>
+            <entry>225</entry>
+            <entry>EXIT_NETWORK</entry>
+            <entry>Setting up a networking namespace failed.</entry>
+          </row>
+          <row>
+            <entry>226</entry>
+            <entry>EXIT_NAMESPACE</entry>
+            <entry>Setting up mount namespace failed.</entry>
+          </row>
+          <row>
+            <entry>227</entry>
+            <entry>EXIT_NO_NEW_PRIVILEGES</entry>
+            <entry>Failed to restrict new priviliges.</entry>
+          </row>
+          <row>
+            <entry>228</entry>
+            <entry>EXIT_SECCOMP</entry>
+            <entry>Generic seccomp library error.</entry>
+          </row>
+          <row>
+            <entry>229</entry>
+            <entry>EXIT_SELINUX_CONTEXT</entry>
+            <entry>Fetching of a SELinux context failed.</entry>
+          </row>
+          <row>
+            <entry>230</entry>
+            <entry>EXIT_PERSONALITY</entry>
+            <entry>Failed to set up a program's execution domain (personality).</entry>
+          </row>
+          <row>
+            <entry>231</entry>
+            <entry>EXIT_APPARMOR_PROFILE</entry>
+            <entry>Failed to prepare a change for AppArmor profile.</entry>
+          </row>
+          <row>
+            <entry>232</entry>
+            <entry>EXIT_ADDRESS_FAMILIES</entry>
+            <entry>Failed to restrict address families.</entry>
+          </row>
+          <row>
+            <entry>233</entry>
+            <entry>EXIT_RUNTIME_DIRECTORY</entry>
+            <entry>Setting up a runtime directory failed.</entry>
+          </row>
+          <row>
+            <entry>234</entry>
+            <entry>EXIT_MAKE_STARTER</entry>
+            <entry>TODO: no idea</entry>
+          </row>
+          <row>
+            <entry>235</entry>
+            <entry>EXIT_CHOWN</entry>
+            <entry>The chown(2) call failed.</entry>
+          </row>
+          <row>
+            <entry>236</entry>
+            <entry>EXIT_SMACK_PROCESS_LABEL</entry>
+            <entry>Failed to set up SMACK label.</entry>
+          </row>
+          <row>
+            <entry>237</entry>
+            <entry>EXIT_KEYRING</entry>
+            <entry>Failed to set up a program's in-kernel keyring.</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+  </refsect1>
+
+  <refsect1>
     <title>Examples</title>
 
     <example>
