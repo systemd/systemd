@@ -2198,6 +2198,316 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
   </refsect1>
 
   <refsect1>
+    <title>Process exit codes</title>
+
+    <para>When invoking a unit process the service manager possibly fails to apply the execution parameters configured
+    with the settings above. In that case the already created service process will exit with a non-zero exit code
+    before the configured command line is executed. (Or in other words, the child process possibly exits with these
+    error codes, after having been created by the <citerefentry
+    project='man-pages'><refentrytitle>fork</refentrytitle><manvolnum>2</manvolnum></citerefentry> system call, but
+    before the matching <citerefentry
+    project='man-pages'><refentrytitle>execve</refentrytitle><manvolnum>2</manvolnum></citerefentry> system call is
+    called.) Specifically, exit codes defined by the C library, by the LSB specification and by the systemd service
+    manager itself are used.</para>
+
+    <para>The following basic service exit codes are defined by the C library.</para>
+
+    <table>
+      <title>Basic C library exit codes</title>
+      <tgroup cols='3'>
+        <thead>
+          <row>
+            <entry>Exit Code</entry>
+            <entry>Symbolic Name</entry>
+            <entry>Description</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry>0</entry>
+            <entry><constant>EXIT_SUCCESS</constant></entry>
+            <entry>Generic success code.</entry>
+          </row>
+          <row>
+            <entry>1</entry>
+            <entry><constant>EXIT_FAILURE</constant></entry>
+            <entry>Generic failure or unspecified error.</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+
+    <para>The following service exit codes are defined by the <ulink
+    url="https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html">LSB specification
+    </ulink>.
+    </para>
+
+    <table>
+      <title>LSB service exit codes</title>
+      <tgroup cols='3'>
+        <thead>
+          <row>
+            <entry>Exit Code</entry>
+            <entry>Symbolic Name</entry>
+            <entry>Description</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry>2</entry>
+            <entry><constant>EXIT_INVALIDARGUMENT</constant></entry>
+            <entry>Invalid or excess arguments.</entry>
+          </row>
+          <row>
+            <entry>3</entry>
+            <entry><constant>EXIT_NOTIMPLEMENTED</constant></entry>
+            <entry>Unimplemented feature.</entry>
+          </row>
+          <row>
+            <entry>4</entry>
+            <entry><constant>EXIT_NOPERMISSION</constant></entry>
+            <entry>The user has insufficient privileges.</entry>
+          </row>
+          <row>
+            <entry>5</entry>
+            <entry><constant>EXIT_NOTINSTALLED</constant></entry>
+            <entry>The program is not installed.</entry>
+          </row>
+          <row>
+            <entry>6</entry>
+            <entry><constant>EXIT_NOTCONFIGURED</constant></entry>
+            <entry>The program is not configured.</entry>
+          </row>
+          <row>
+            <entry>7</entry>
+            <entry><constant>EXIT_NOTRUNNING</constant></entry>
+            <entry>The program is not running.</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+
+    <para>
+      The LSB specification suggests that error codes 200 and above are reserved for implementations. Some of them are
+      used by the service manager to indicate problems during process invocation:
+    </para>
+    <table>
+      <title>systemd-specific exit codes</title>
+      <tgroup cols='3'>
+        <thead>
+          <row>
+            <entry>Exit Code</entry>
+            <entry>Symbolic Name</entry>
+            <entry>Description</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry>200</entry>
+            <entry><constant>EXIT_CHDIR</constant></entry>
+            <entry>Changing to the requested working directory failed. See <varname>WorkingDirectory=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>201</entry>
+            <entry><constant>EXIT_NICE</constant></entry>
+            <entry>Failed to set up process scheduling priority (nice level). See <varname>Nice=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>202</entry>
+            <entry><constant>EXIT_FDS</constant></entry>
+            <entry>Failed to close unwanted file descriptors, or to adjust passed file descriptors.</entry>
+          </row>
+          <row>
+            <entry>203</entry>
+            <entry><constant>EXIT_EXEC</constant></entry>
+            <entry>The actual process execution failed (specifically, the <citerefentry project='man-pages'><refentrytitle>execve</refentrytitle><manvolnum>2</manvolnum></citerefentry> system call). Most likely this is caused by a missing or non-accessible executable file.</entry>
+          </row>
+          <row>
+            <entry>204</entry>
+            <entry><constant>EXIT_MEMORY</constant></entry>
+            <entry>Failed to perform an action due to memory shortage.</entry>
+          </row>
+          <row>
+            <entry>205</entry>
+            <entry><constant>EXIT_LIMITS</constant></entry>
+            <entry>Failed to adjust resoure limits. See <varname>LimitCPU=</varname> and related settings above.</entry>
+          </row>
+          <row>
+            <entry>206</entry>
+            <entry><constant>EXIT_OOM_ADJUST</constant></entry>
+            <entry>Failed to adjust the OOM setting. See <varname>OOMScoreAdjust=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>207</entry>
+            <entry><constant>EXIT_SIGNAL_MASK</constant></entry>
+            <entry>Failed to set process signal mask.</entry>
+          </row>
+          <row>
+            <entry>208</entry>
+            <entry><constant>EXIT_STDIN</constant></entry>
+            <entry>Failed to set up standard input. See <varname>StandardInput=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>209</entry>
+            <entry><constant>EXIT_STDOUT</constant></entry>
+            <entry>Failed to set up standard output. See <varname>StandardOutput=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>210</entry>
+            <entry><constant>EXIT_CHROOT</constant></entry>
+            <entry>Failed to change root directory (<citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>). See <varname>RootDirectory=</varname>/<varname>RootImage=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>211</entry>
+            <entry><constant>EXIT_IOPRIO</constant></entry>
+            <entry>Failed to set up IO scheduling priority. See <varname>IOSchedulingClass=</varname>/<varname>IOSchedulingPriority=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>212</entry>
+            <entry><constant>EXIT_TIMERSLACK</constant></entry>
+            <entry>Failed to set up timer slack. See <varname>TimerSlackNSec=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>213</entry>
+            <entry><constant>EXIT_SECUREBITS</constant></entry>
+            <entry>Failed to set process secure bits. See <varname>SecureBits=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>214</entry>
+            <entry><constant>EXIT_SETSCHEDULER</constant></entry>
+            <entry>Failed to set up CPU scheduling. See <varname>CPUSchedulingPolicy=</varname>/<varname>CPUSchedulingPriority=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>215</entry>
+            <entry><constant>EXIT_CPUAFFINITY</constant></entry>
+            <entry>Failed to set up CPU affinity. See <varname>CPUAffinity=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>216</entry>
+            <entry><constant>EXIT_GROUP</constant></entry>
+            <entry>Failed to determine or change group credentials. See <varname>Group=</varname>/<varname>SupplementaryGroups=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>217</entry>
+            <entry><constant>EXIT_USER</constant></entry>
+            <entry>Failed to determine or change user credentials, or to set up user namespacing. See <varname>User=</varname>/<varname>PrivateUsers=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>218</entry>
+            <entry><constant>EXIT_CAPABILITIES</constant></entry>
+            <entry>Failed to drop capabilities, or apply ambient capabilities. See <varname>CapabilityBoundingSet=</varname>/<varname>AmbientCapabilities=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>219</entry>
+            <entry><constant>EXIT_CGROUP</constant></entry>
+            <entry>Setting up the service control group failed.</entry>
+          </row>
+          <row>
+            <entry>220</entry>
+            <entry><constant>EXIT_SETSID</constant></entry>
+            <entry>Failed to create new process session.</entry>
+          </row>
+          <row>
+            <entry>221</entry>
+            <entry><constant>EXIT_CONFIRM</constant></entry>
+            <entry>Execution has been cancelled by the user. See the <varname>systemd.confirm_spawn=</varname> kernel command line setting on <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry> for details.</entry>
+          </row>
+          <row>
+            <entry>222</entry>
+            <entry><constant>EXIT_STDERR</constant></entry>
+            <entry>Failed to set up standard error output. See <varname>StandardError=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>224</entry>
+            <entry><constant>EXIT_PAM</constant></entry>
+            <entry>Failed to set up PAM session. See <varname>PAMName=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>225</entry>
+            <entry><constant>EXIT_NETWORK</constant></entry>
+            <entry>Failed to set up network namespacing. See <varname>PrivateNetwork=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>226</entry>
+            <entry><constant>EXIT_NAMESPACE</constant></entry>
+            <entry>Failed to set up mount namespacing. See <varname>ReadOnlyPaths=</varname> and related settings above.</entry>
+          </row>
+          <row>
+            <entry>227</entry>
+            <entry><constant>EXIT_NO_NEW_PRIVILEGES</constant></entry>
+            <entry>Failed to disable new priviliges. See <varname>NoNewPrivileges=yes</varname> above.</entry>
+          </row>
+          <row>
+            <entry>228</entry>
+            <entry><constant>EXIT_SECCOMP</constant></entry>
+            <entry>Failed to apply system call filters. See <varname>SystemCallFilter=</varname> and related settings above.</entry>
+          </row>
+          <row>
+            <entry>229</entry>
+            <entry><constant>EXIT_SELINUX_CONTEXT</constant></entry>
+            <entry>Determining or changing SELinux context failed. See <varname>SELinuxContext=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>230</entry>
+            <entry><constant>EXIT_PERSONALITY</constant></entry>
+            <entry>Failed to set up a execution domain (personality). See <varname>Personality=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>231</entry>
+            <entry><constant>EXIT_APPARMOR_PROFILE</constant></entry>
+            <entry>Failed to prepare changing AppArmor profile. See <varname>AppArmorProfile=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>232</entry>
+            <entry><constant>EXIT_ADDRESS_FAMILIES</constant></entry>
+            <entry>Failed to restrict address families. See <varname>RestrictAddressFamilies=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>233</entry>
+            <entry><constant>EXIT_RUNTIME_DIRECTORY</constant></entry>
+            <entry>Setting up runtime directory failed. See <varname>RuntimeDirectory=</varname> and related settings above.</entry>
+          </row>
+          <row>
+            <entry>235</entry>
+            <entry><constant>EXIT_CHOWN</constant></entry>
+            <entry>Failed to adjust socket ownership. Used for socket units only.</entry>
+          </row>
+          <row>
+            <entry>236</entry>
+            <entry><constant>EXIT_SMACK_PROCESS_LABEL</constant></entry>
+            <entry>Failed to set SMACK label. See <varname>SmackProcessLabel=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>237</entry>
+            <entry><constant>EXIT_KEYRING</constant></entry>
+            <entry>Failed to set up kernel keyring.</entry>
+          </row>
+          <row>
+            <entry>238</entry>
+            <entry><constant>EXIT_STATE_DIRECTORY</constant></entry>
+            <entry>Failed to set up a the unit's state directory. See <varname>StateDirectory=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>239</entry>
+            <entry><constant>EXIT_CACHE_DIRECTORY</constant></entry>
+            <entry>Failed to set up a the unit's cache directory. See <varname>CacheDirectory=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>240</entry>
+            <entry><constant>EXIT_LOGS_DIRECTORY</constant></entry>
+            <entry>Failed to set up a the unit's logging directory. See <varname>LogsDirectory=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>241</entry>
+            <entry><constant>EXIT_CONFIGURATION_DIRECTORY</constant></entry>
+            <entry>Failed to set up a the unit's configuration directory. See <varname>ConfigurationDirectory=</varname> above.</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+  </refsect1>
+
+  <refsect1>
       <title>See Also</title>
       <para>
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
