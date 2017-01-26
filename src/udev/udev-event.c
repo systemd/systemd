@@ -95,8 +95,8 @@ enum subst_type {
 
 static size_t subst_format_var(struct udev_event *event, struct udev_device *dev,
                                enum subst_type type, char *attr,
-                               char **dest, size_t l) {
-        char *s = *dest;
+                               char *dest, size_t l) {
+        char *s = dest;
 
         switch (type) {
         case SUBST_DEVPATH:
@@ -279,9 +279,7 @@ static size_t subst_format_var(struct udev_event *event, struct udev_device *dev
                 break;
         }
 
-        *dest = s;
-
-        return l;
+        return s - dest;
 }
 
 size_t udev_event_apply_format(struct udev_event *event,
@@ -324,10 +322,9 @@ size_t udev_event_apply_format(struct udev_event *event,
 
         for (;;) {
                 enum subst_type type = SUBST_UNKNOWN;
-                char attrbuf[UTIL_PATH_SIZE], sbuf[UTIL_PATH_SIZE];
-                char *attr = NULL, *_s;
-                size_t _l;
-                bool replws = replace_whitespace;
+                char attrbuf[UTIL_PATH_SIZE];
+                char *attr = NULL;
+                size_t subst_len;
 
                 while (from[0] != '\0') {
                         if (from[0] == '$') {
@@ -396,34 +393,17 @@ subst:
                         attr = NULL;
                 }
 
-                /* result subst handles space as field separator */
-                if (type == SUBST_RESULT)
-                        replws = false;
+                subst_len = subst_format_var(event, dev, type, attr, s, l);
 
-                if (replws) {
-                        /* store dest string ptr and remaining len */
-                        _s = s;
-                        _l = l;
-                        /* temporarily use sbuf */
-                        s = sbuf;
-                        l = UTIL_PATH_SIZE;
-                }
+                /* SUBST_RESULT handles spaces itself */
+                if (replace_whitespace && type != SUBST_RESULT)
+                        /* util_replace_whitespace can replace in-place,
+                         * and does nothing if subst_len == 0
+                         */
+                        subst_len = util_replace_whitespace(s, s, subst_len);
 
-                l = subst_format_var(event, dev, type, attr, &s, l);
-
-                /* replace whitespace in sbuf and copy to dest */
-                if (replws) {
-                        size_t tmplen = UTIL_PATH_SIZE - l;
-
-                        /* restore s and l to dest string values */
-                        s = _s;
-                        l = _l;
-
-                        /* copy ws-replaced value to s */
-                        tmplen = util_replace_whitespace(sbuf, s, MIN(tmplen, l));
-                        l -= tmplen;
-                        s += tmplen;
-                }
+                s += subst_len;
+                l -= subst_len;
         }
 
 out:

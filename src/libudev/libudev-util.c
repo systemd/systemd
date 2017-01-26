@@ -161,6 +161,20 @@ void util_remove_trailing_chars(char *path, char c)
                 path[--len] = '\0';
 }
 
+/*
+ * Copy from 'str' to 'to', while removing all leading and trailing whitespace,
+ * and replacing each run of consecutive whitespace with a single underscore.
+ * The chars from 'str' are copied up to the \0 at the end of the string, or
+ * at most 'len' chars.  This appends \0 to 'to', at the end of the copied
+ * characters.
+ *
+ * If 'len' chars are copied into 'to', the final \0 is placed at len+1
+ * (i.e. 'to[len] = \0'), so the 'to' buffer must have at least len+1
+ * chars available.
+ *
+ * Note this may be called with 'str' == 'to', i.e. to replace whitespace
+ * in-place in a buffer.  This function can handle that situation.
+ */
 int util_replace_whitespace(const char *str, char *to, size_t len)
 {
         size_t i, j;
