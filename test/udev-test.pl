@@ -741,6 +741,86 @@ KERNEL=="ttyACM[0-9]*", SYMLINK="  one     two        "
 EOF
         },
         {
+                desc            => "symlink with spaces in substituted variable",
+                devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
+                exp_name        => "name-one_two_three-end",
+                not_exp_name    => " ",
+                rules           => <<EOF
+ENV{WITH_WS}="one two three"
+SYMLINK="name-\$env{WITH_WS}-end"
+EOF
+        },
+        {
+                desc            => "symlink with leading space in substituted variable",
+                devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
+                exp_name        => "name-one_two_three-end",
+                not_exp_name    => " ",
+                rules           => <<EOF
+ENV{WITH_WS}="   one two three"
+SYMLINK="name-\$env{WITH_WS}-end"
+EOF
+        },
+        {
+                desc            => "symlink with trailing space in substituted variable",
+                devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
+                exp_name        => "name-one_two_three-end",
+                not_exp_name    => " ",
+                rules           => <<EOF
+ENV{WITH_WS}="one two three   "
+SYMLINK="name-\$env{WITH_WS}-end"
+EOF
+        },
+        {
+                desc            => "symlink with lots of space in substituted variable",
+                devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
+                exp_name        => "name-one_two_three-end",
+                not_exp_name    => " ",
+                rules           => <<EOF
+ENV{WITH_WS}="   one two three   "
+SYMLINK="name-\$env{WITH_WS}-end"
+EOF
+        },
+        {
+                desc            => "symlink with multiple spaces in substituted variable",
+                devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
+                exp_name        => "name-one_two_three-end",
+                not_exp_name    => " ",
+                rules           => <<EOF
+ENV{WITH_WS}="   one  two  three   "
+SYMLINK="name-\$env{WITH_WS}-end"
+EOF
+        },
+        {
+                desc            => "symlink with space and var with space, part 1",
+                devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
+                exp_name        => "first",
+                not_exp_name    => " ",
+                rules           => <<EOF
+ENV{WITH_WS}="   one  two  three   "
+SYMLINK="  first  name-\$env{WITH_WS}-end another_symlink a b c "
+EOF
+        },
+        {
+                desc            => "symlink with space and var with space, part 2",
+                devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
+                exp_name        => "name-one_two_three-end",
+                not_exp_name    => " ",
+                rules           => <<EOF
+ENV{WITH_WS}="   one  two  three   "
+SYMLINK="  first  name-\$env{WITH_WS}-end another_symlink a b c "
+EOF
+        },
+        {
+                desc            => "symlink with space and var with space, part 3",
+                devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
+                exp_name        => "another_symlink",
+                not_exp_name    => " ",
+                rules           => <<EOF
+ENV{WITH_WS}="   one  two  three   "
+SYMLINK="  first  name-\$env{WITH_WS}-end another_symlink a b c "
+EOF
+        },
+        {
                 desc            => "symlink creation (same directory)",
                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
                 exp_name        => "modem0",
