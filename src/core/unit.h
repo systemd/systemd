@@ -167,6 +167,9 @@ struct Unit {
          * process SIGCHLD for */
         Set *pids;
 
+        Set *deferred_dropin_dependencies;
+        Set *deferred_dropin_units;
+
         /* Used in sigchld event invocation to avoid repeat events being invoked */
         uint64_t sigchldgen;
 

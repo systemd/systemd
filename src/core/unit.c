@@ -582,6 +582,9 @@ void unit_free(Unit *u) {
         (void) manager_update_failed_units(u->manager, u, false);
         set_remove(u->manager->startup_units, u);
 
+        set_free_free(u->deferred_dropin_dependencies);
+        set_free(u->deferred_dropin_units);
+
         free(u->description);
         strv_free(u->documentation);
         free(u->fragment_path);
@@ -1305,6 +1308,9 @@ int unit_load(Unit *u) {
                 goto fail;
         }
 
+        /* This can't fail. */
+        unit_load_deferred_dropin_dependencies(u);
+
         if (u->load_state == UNIT_LOADED) {
 
                 r = unit_add_target_dependencies(u);
@@ -1330,6 +1336,12 @@ int unit_load(Unit *u) {
                 }
 
                 unit_update_cgroup_members_masks(u);
+
+                /* This must be kept after adding all dependencies
+                 * so our reservations will be preserved. */
+                r = unit_load_reserve_deferred_dropin_dependencies(u);
+                if (r < 0)
+                        goto fail;
         }
 
         assert((u->load_state != UNIT_MERGED) == !u->merged_into);
@@ -1342,6 +1354,7 @@ int unit_load(Unit *u) {
 fail:
         u->load_state = u->load_state == UNIT_STUB ? UNIT_NOT_FOUND : UNIT_ERROR;
         u->load_error = r;
+        unit_load_deferred_dropin_dependencies(u);
         unit_add_to_dbus_queue(u);
         unit_add_to_gc_queue(u);
 
