@@ -1917,7 +1917,7 @@ static int wait_for_container(pid_t pid, ContainerStatus *container) {
                         return 0;
                 }
 
-                /* CLD_KILLED fallthrough */
+                /* fall through */
 
         case CLD_DUMPED:
                 log_error("Container %s terminated by signal %s.", arg_machine, signal_to_string(status.si_status));

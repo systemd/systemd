@@ -560,7 +560,7 @@ int device_read_uevent_file(sd_device *device) {
                         value = &uevent[i];
                         state = VALUE;
 
-                        /* fall through to handle empty property */
+                        /* fall through */ /* to handle empty property */
                 case VALUE:
                         if (strchr(NEWLINE, uevent[i])) {
                                 uevent[i] = '\0';
