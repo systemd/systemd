@@ -676,9 +676,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 r = free_and_strdup(&arg_machine, optarg);
                                 if (r < 0)
                                         return log_oom();
-
-                                break;
                         }
+                        break;
 
                 case 'Z':
                         arg_selinux_context = optarg;
