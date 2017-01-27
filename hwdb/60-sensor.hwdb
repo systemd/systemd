@@ -25,6 +25,9 @@
 # include your new rules, a description of the device, and the output of
 #   udevadm info --export-db
 #
+# For hwdb format and systemd behavior:
+#   https://www.freedesktop.org/software/systemd/man/hwdb.html#
+#
 # Allowed properties are:
 #    ACCEL_MOUNT_MATRIX=<matrix>
 #
