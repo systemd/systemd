@@ -642,7 +642,11 @@ static int get_process_container_parent_cmdline(pid_t pid, char** cmdline) {
         if (r < 0)
                 return r;
 
-        return get_process_cmdline(container_pid, 0, false, cmdline);
+        r = get_process_cmdline(container_pid, 0, false, cmdline);
+        if (r < 0)
+                return r;
+
+        return 1;
 }
 
 static int change_uid_gid(const char *context[]) {
