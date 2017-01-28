@@ -283,7 +283,7 @@ static int context_update_kernel_hostname(Context *c) {
 
         /* ... and the ultimate fallback */
         else
-                hn = "localhost";
+                hn = FALLBACK_HOSTNAME;
 
         if (sethostname_idempotent(hn) < 0)
                 return -errno;
@@ -419,7 +419,7 @@ static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *
                 name = c->data[PROP_STATIC_HOSTNAME];
 
         if (isempty(name))
-                name = "localhost";
+                name = FALLBACK_HOSTNAME;
 
         if (!hostname_is_valid(name, false))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname '%s'", name);
