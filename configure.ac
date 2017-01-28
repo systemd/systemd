@@ -1715,12 +1715,12 @@ AC_MSG_RESULT([
         Wheel group:                       ${have_wheel_group}
         Debug shell:                       ${SUSHELL} @ ${DEBUGTTY}
         TTY GID:                           ${TTY_GID}
-        Maximum System UID:                ${SYSTEM_UID_MAX}
-        Maximum System GID:                ${SYSTEM_GID_MAX}
+        Maximum system UID:                ${SYSTEM_UID_MAX}
+        Maximum system GID:                ${SYSTEM_GID_MAX}
         Certificate root:                  ${CERTIFICATEROOT}
         Support URL:                       ${SUPPORT_URL}
-        Nobody User Name:                  ${NOBODY_USER_NAME}
-        Nobody Group Name:                 ${NOBODY_GROUP_NAME}
+        nobody user name:                  ${NOBODY_USER_NAME}
+        nobody group name:                 ${NOBODY_GROUP_NAME}
 
         CFLAGS:   ${OUR_CFLAGS} ${CFLAGS}
         CPPFLAGS: ${OUR_CPPFLAGS} ${CPPFLAGS}
