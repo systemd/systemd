@@ -25,6 +25,9 @@
 # include your new rules, a description of the device, and the output of
 #   udevadm info --export-db
 #
+# For hwdb format and systemd behavior:
+#   https://www.freedesktop.org/software/systemd/man/hwdb.html
+#
 # Allowed properties are:
 #    ACCEL_MOUNT_MATRIX=<matrix>
 #
@@ -34,7 +37,7 @@
 # eg. the identity matrix.
 #
 # [1]: https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=dfc57732ad38f93ae6232a3b4e64fd077383a0f1
-
+#
 #
 # Sort by brand, model
 
