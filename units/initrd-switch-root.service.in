@@ -16,4 +16,3 @@ AllowIsolate=yes
 [Service]
 Type=oneshot
 ExecStart=@rootbindir@/systemctl --no-block switch-root /sysroot
-KillMode=none
