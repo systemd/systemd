@@ -5655,11 +5655,9 @@ static int switch_root(int argc, char *argv[], void *userdata) {
         }
 
         /* Instruct PID1 to exclude us from its killing spree applied during
-         * the transition from the initrd to the main system otherwise we would
-         * exit with a failure status even though the switch to the new root
-         * has succeed. */
-        if (in_initrd())
-                argv_cmdline[0] = '@';
+         * the transition. Otherwise we would exit with a failure status even
+         * though the switch to the new root has succeed. */
+        argv_cmdline[0] = '@';
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
