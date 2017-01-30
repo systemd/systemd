@@ -723,6 +723,8 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                         return -errno;
 
                 if (S_ISLNK(st.st_mode)) {
+                        char *joined;
+
                         _cleanup_free_ char *destination = NULL;
 
                         /* This is a symlink, in this case read the destination. But let's make sure we don't follow
@@ -746,9 +748,6 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                                 if (fd < 0)
                                         return -errno;
 
-                                free_and_replace(buffer, destination);
-
-                                todo = buffer;
                                 free(done);
 
                                 /* Note that we do not revalidate the root, we take it as is. */
@@ -760,19 +759,17 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                                                 return -ENOMEM;
                                 }
 
-                        } else {
-                                char *joined;
-
-                                /* A relative destination. If so, this is what we'll prefix what's left to do with what
-                                 * we just read, and start the loop again, but remain in the current directory. */
-
-                                joined = strjoin("/", destination, todo);
-                                if (!joined)
-                                        return -ENOMEM;
-
-                                free(buffer);
-                                todo = buffer = joined;
                         }
+
+                        /* Prefix what's left to do with what we just read, and start the loop again,
+                         * but remain in the current directory. */
+
+                        joined = strjoin("/", destination, todo);
+                        if (!joined)
+                                return -ENOMEM;
+
+                        free(buffer);
+                        todo = buffer = joined;
 
                         continue;
                 }
