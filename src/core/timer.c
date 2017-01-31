@@ -232,7 +232,7 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                 if (v->base == TIMER_CALENDAR) {
                         _cleanup_free_ char *p = NULL;
 
-                        calendar_spec_to_string(v->calendar_spec, &p);
+                        (void) calendar_spec_to_string(v->calendar_spec, &p);
 
                         fprintf(f,
                                 "%s%s: %s\n",
