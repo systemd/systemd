@@ -5655,15 +5655,21 @@ static int switch_root(int argc, char *argv[], void *userdata) {
         }
 
         /* Instruct PID1 to exclude us from its killing spree applied during
-         * the transition from the initrd to the main system otherwise we would
-         * exit with a failure status even though the switch to the new root
-         * has succeed. */
-        if (in_initrd())
-                argv_cmdline[0] = '@';
+         * the transition. Otherwise we would exit with a failure status even
+         * though the switch to the new root has succeed. */
+        argv_cmdline[0] = '@';
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
+
+        /* If we are slow to exit after the root switch, the new systemd instance
+         * will send us a signal to terminate. Just ignore it and exit normally.
+         * This way the unit does not end up as failed.
+         */
+        r = ignore_signals(SIGTERM, -1);
+        if (r < 0)
+                log_warning_errno(r, "Failed to change disposition of SIGTERM to ignore: %m");
 
         log_debug("Switching root - root: %s; init: %s", root, strna(init));
 
@@ -5676,8 +5682,11 @@ static int switch_root(int argc, char *argv[], void *userdata) {
                         &error,
                         NULL,
                         "ss", root, init);
-        if (r < 0)
+        if (r < 0) {
+                (void) default_signals(SIGTERM, -1);
+
                 return log_error_errno(r, "Failed to switch root: %s", bus_error_message(&error, r));
+        }
 
         return 0;
 }
