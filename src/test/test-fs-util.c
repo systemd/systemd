@@ -186,6 +186,13 @@ static void test_chase_symlinks(void) {
         r = chase_symlinks(p, NULL, CHASE_NONEXISTENT, &result);
         assert_se(r == -ENOENT);
 
+        p = strjoina(temp, "/target");
+        q = strjoina(temp, "/top");
+        assert_se(symlink(q, p) >= 0);
+        p = strjoina(temp, "/target/idontexist");
+        r = chase_symlinks(p, NULL, 0, &result);
+        assert_se(r == -ENOENT);
+
         assert_se(rm_rf(temp, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
 
