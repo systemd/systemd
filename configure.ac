@@ -601,6 +601,15 @@ AC_ARG_WITH([nobody-group],
 AC_SUBST(NOBODY_GROUP_NAME)
 AC_DEFINE_UNQUOTED(NOBODY_GROUP_NAME, ["$NOBODY_GROUP_NAME"], [The name of the nobody group (the one with GID 65534)])
 
+AC_ARG_WITH([fallback-hostname],
+        AS_HELP_STRING([--with-fallback-hostname=NAME],
+                [specify the hostname used if none configured]),
+        [FALLBACK_HOSTNAME="$withval"],
+        [FALLBACK_HOSTNAME=localhost])
+
+AC_SUBST(FALLBACK_HOSTNAME)
+AC_DEFINE_UNQUOTED(FALLBACK_HOSTNAME, ["$FALLBACK_HOSTNAME"], [The hostname used if none configured])
+
 # ------------------------------------------------------------------------------
 have_xz=no
 AC_ARG_ENABLE(xz, AS_HELP_STRING([--disable-xz], [disable optional XZ support]))
@@ -1715,12 +1724,13 @@ AC_MSG_RESULT([
         Wheel group:                       ${have_wheel_group}
         Debug shell:                       ${SUSHELL} @ ${DEBUGTTY}
         TTY GID:                           ${TTY_GID}
-        Maximum System UID:                ${SYSTEM_UID_MAX}
-        Maximum System GID:                ${SYSTEM_GID_MAX}
+        Maximum system UID:                ${SYSTEM_UID_MAX}
+        Maximum system GID:                ${SYSTEM_GID_MAX}
         Certificate root:                  ${CERTIFICATEROOT}
         Support URL:                       ${SUPPORT_URL}
-        Nobody User Name:                  ${NOBODY_USER_NAME}
-        Nobody Group Name:                 ${NOBODY_GROUP_NAME}
+        nobody user name:                  ${NOBODY_USER_NAME}
+        nobody group name:                 ${NOBODY_GROUP_NAME}
+        Fallback hostname:                 ${FALLBACK_HOSTNAME}
 
         CFLAGS:   ${OUR_CFLAGS} ${CFLAGS}
         CPPFLAGS: ${OUR_CPPFLAGS} ${CPPFLAGS}
