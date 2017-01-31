@@ -1685,25 +1685,31 @@ static int setup_private_users(uid_t uid, gid_t gid) {
          * child then writes the UID mapping, under full privileges. The parent waits for the child to finish and
          * continues execution normally. */
 
-        if (uid != 0 && uid_is_valid(uid))
-                asprintf(&uid_map,
-                         "0 0 1\n"                      /* Map root → root */
-                         UID_FMT " " UID_FMT " 1\n",    /* Map $UID → $UID */
-                         uid, uid);
-        else
+        if (uid != 0 && uid_is_valid(uid)) {
+                r = asprintf(&uid_map,
+                             "0 0 1\n"                      /* Map root → root */
+                             UID_FMT " " UID_FMT " 1\n",    /* Map $UID → $UID */
+                             uid, uid);
+                if (r < 0)
+                        return -ENOMEM;
+        } else {
                 uid_map = strdup("0 0 1\n");            /* The case where the above is the same */
-        if (!uid_map)
-                return -ENOMEM;
+                if (!uid_map)
+                        return -ENOMEM;
+        }
 
-        if (gid != 0 && gid_is_valid(gid))
-                asprintf(&gid_map,
-                         "0 0 1\n"                      /* Map root → root */
-                         GID_FMT " " GID_FMT " 1\n",    /* Map $GID → $GID */
-                         gid, gid);
-        else
+        if (gid != 0 && gid_is_valid(gid)) {
+                r = asprintf(&gid_map,
+                             "0 0 1\n"                      /* Map root → root */
+                             GID_FMT " " GID_FMT " 1\n",    /* Map $GID → $GID */
+                             gid, gid);
+                if (r < 0)
+                        return -ENOMEM;
+        } else {
                 gid_map = strdup("0 0 1\n");            /* The case where the above is the same */
-        if (!gid_map)
-                return -ENOMEM;
+                if (!gid_map)
+                        return -ENOMEM;
+        }
 
         /* Create a communication channel so that the parent can tell the child when it finished creating the user
          * namespace. */
