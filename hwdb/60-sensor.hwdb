@@ -15,7 +15,7 @@
 #   /etc/udev/hwdb.d/61-sensor-local.hwdb
 # and add your rules there. To load the new rules execute (as root):
 #   systemd-hwdb update
-#   udevadm trigger `dirname $(udevadm info -n "/dev/iio:deviceXXX" -q path)`
+#   udevadm trigger -y `dirname $(udevadm info -n "/dev/iio:deviceXXX" -q path)`
 # where /dev/iio:deviceXXX is the device in question.
 #
 # If your changes are generally applicable, preferably send them as a pull
@@ -24,6 +24,9 @@
 # or create a bug report on https://github.com/systemd/systemd/issues and
 # include your new rules, a description of the device, and the output of
 #   udevadm info --export-db
+#
+# For hwdb format and systemd behavior:
+#   https://www.freedesktop.org/software/systemd/man/hwdb.html#
 #
 # Allowed properties are:
 #    ACCEL_MOUNT_MATRIX=<matrix>
@@ -34,10 +37,16 @@
 # eg. the identity matrix.
 #
 # [1]: https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=dfc57732ad38f93ae6232a3b4e64fd077383a0f1
-
+#
 #
 # Sort by brand, model
-
+#
+#########################################
+# AsusTek
+#########################################
+sensor:modalias:acpi:SMO8500*:dmi:*svn*ASUSTeK*:*pn*TP500LB*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 0
+ 
 #########################################
 # Winbook
 #########################################
