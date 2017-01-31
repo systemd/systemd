@@ -143,7 +143,7 @@ int khash_dup(khash *h, khash **ret) {
 
         copy->fd = -1;
         copy->algorithm = strdup(h->algorithm);
-        if (!copy)
+        if (!copy->algorithm)
                 return -ENOMEM;
 
         copy->fd = accept4(h->fd, NULL, 0, SOCK_CLOEXEC);
