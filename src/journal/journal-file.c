@@ -285,7 +285,7 @@ static int journal_file_set_online(JournalFile *f) {
                                 continue;
                         /* Canceled restart from offlining, must wait for offlining to complete however. */
 
-                        /* fall through to wait */
+                        /* fall through */
                 default: {
                         int r;
 

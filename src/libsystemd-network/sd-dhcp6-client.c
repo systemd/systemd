@@ -999,7 +999,7 @@ static int client_receive_message(
                         break;
                 }
 
-                /* fall through for Soliciation Rapid Commit option check */
+                /* fall through */ /* for Soliciation Rapid Commit option check */
         case DHCP6_STATE_REQUEST:
         case DHCP6_STATE_RENEW:
         case DHCP6_STATE_REBIND:

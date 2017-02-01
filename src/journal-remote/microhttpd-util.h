@@ -24,13 +24,25 @@
 
 #include "macro.h"
 
+/* Those defines are added when options are renamed, hence the check for the *old* name. */
+
 /* Compatiblity with libmicrohttpd < 0.9.38 */
 #ifndef MHD_HTTP_NOT_ACCEPTABLE
-#define MHD_HTTP_NOT_ACCEPTABLE MHD_HTTP_METHOD_NOT_ACCEPTABLE
+#  define MHD_HTTP_NOT_ACCEPTABLE MHD_HTTP_METHOD_NOT_ACCEPTABLE
+#endif
+
+/* Renamed in µhttpd 0.9.52 */
+#ifndef MHD_USE_EPOLL_LINUX_ONLY
+#  define MHD_USE_EPOLL MHD_USE_EPOLL_LINUX_ONLY
+#endif
+
+/* Renamed in µhttpd 0.9.51 */
+#ifndef MHD_USE_PIPE_FOR_SHUTDOWN
+#  define MHD_USE_ITC MHD_USE_PIPE_FOR_SHUTDOWN
 #endif
 
 #if MHD_VERSION < 0x00094203
-#define MHD_create_response_from_fd_at_offset64 MHD_create_response_from_fd_at_offset
+#  define MHD_create_response_from_fd_at_offset64 MHD_create_response_from_fd_at_offset
 #endif
 
 void microhttpd_logger(void *arg, const char *fmt, va_list ap) _printf_(2, 0);
