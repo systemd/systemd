@@ -580,12 +580,12 @@ static int journal_file_verify_header(JournalFile *f) {
 
                 state = f->header->state;
 
-                if (state == STATE_ONLINE) {
+                if (state == STATE_ARCHIVED)
+                        return -ESHUTDOWN; /* Already archived */
+                else if (state == STATE_ONLINE) {
                         log_debug("Journal file %s is already online. Assuming unclean closing.", f->path);
                         return -EBUSY;
-                } else if (state == STATE_ARCHIVED)
-                        return -ESHUTDOWN;
-                else if (state != STATE_OFFLINE) {
+                } else if (state != STATE_OFFLINE) {
                         log_debug("Journal file %s has unknown state %i.", f->path, state);
                         return -EBUSY;
                 }
@@ -3330,12 +3330,12 @@ int journal_file_open_reliably(
 
         r = journal_file_open(-1, fname, flags, mode, compress, seal, metrics, mmap_cache, deferred_closes, template, ret);
         if (!IN_SET(r,
-                    -EBADMSG,           /* corrupted */
-                    -ENODATA,           /* truncated */
-                    -EHOSTDOWN,         /* other machine */
-                    -EPROTONOSUPPORT,   /* incompatible feature */
-                    -EBUSY,             /* unclean shutdown */
-                    -ESHUTDOWN,         /* already archived */
+                    -EBADMSG,           /* Corrupted */
+                    -ENODATA,           /* Truncated */
+                    -EHOSTDOWN,         /* Other machine */
+                    -EPROTONOSUPPORT,   /* Incompatible feature */
+                    -EBUSY,             /* Unclean shutdown */
+                    -ESHUTDOWN,         /* Already archived */
                     -EIO,               /* IO error, including SIGBUS on mmap */
                     -EIDRM,             /* File has been deleted */
                     -ETXTBSY))          /* File is from the future */
