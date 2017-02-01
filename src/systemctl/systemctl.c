@@ -6937,6 +6937,7 @@ static void systemctl_help(void) {
                "  -a --all            Show all properties/all units currently in memory,\n"
                "                      including dead/empty ones. To list all units installed on\n"
                "                      the system, use the 'list-unit-files' command instead.\n"
+               "     --failed         Same as --state=failed\n"
                "  -l --full           Don't ellipsize unit names on output\n"
                "  -r --recursive      Show unit list of host and local containers\n"
                "     --reverse        Show reverse dependencies with 'list-dependencies'\n"

@@ -386,4 +386,5 @@ _arguments -s \
     {-o+,--output=}'[Change journal output mode]:modes:_sd_outputmodes' \
     '--firmware-setup[Tell the firmware to show the setup menu on next boot]' \
     '--plain[When used with list-dependencies, print output as a list]' \
+    '--failed[Show failed units]' \
     '*::systemctl command:_systemctl_command'
