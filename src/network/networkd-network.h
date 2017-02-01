@@ -31,6 +31,7 @@
 #include "networkd-brvlan.h"
 #include "networkd-fdb.h"
 #include "networkd-lldp-tx.h"
+#include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-route.h"
 #include "networkd-util.h"
 #include "netdev/netdev.h"
@@ -188,10 +189,12 @@ struct Network {
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);
         LIST_HEAD(FdbEntry, static_fdb_entries);
+        LIST_HEAD(IPv6ProxyNDPAddress, ipv6_proxy_ndp_addresses);
 
         unsigned n_static_addresses;
         unsigned n_static_routes;
         unsigned n_static_fdb_entries;
+        unsigned n_ipv6_proxy_ndp_addresses;
 
         Hashmap *addresses_by_section;
         Hashmap *routes_by_section;
