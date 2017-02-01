@@ -477,35 +477,17 @@ static int list_images(int argc, char *argv[], void *userdata) {
 }
 
 static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
+        _cleanup_free_ char *cgroup = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_free_ char *path = NULL;
-        const char *cgroup;
         int r;
         unsigned c;
 
         assert(bus);
         assert(unit);
 
-        path = unit_dbus_path_from_name(unit);
-        if (!path)
-                return log_oom();
-
-        r = sd_bus_get_property(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        path,
-                        unit_dbus_interface_from_name(unit),
-                        "ControlGroup",
-                        &error,
-                        &reply,
-                        "s");
+        r = show_cgroup_get_unit_path_and_warn(bus, unit, &cgroup);
         if (r < 0)
-                return log_error_errno(r, "Failed to query ControlGroup: %s", bus_error_message(&error, r));
-
-        r = sd_bus_message_read(reply, "s", &cgroup);
-        if (r < 0)
-                return bus_log_parse_error(r);
+                return r;
 
         if (isempty(cgroup))
                 return 0;
