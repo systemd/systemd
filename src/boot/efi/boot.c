@@ -1647,7 +1647,7 @@ static EFI_STATUS image_start(EFI_HANDLE parent_image, const Config *config, con
                 loaded_image->LoadOptionsSize = (StrLen(loaded_image->LoadOptions)+1) * sizeof(CHAR16);
 
 #ifdef SD_BOOT_LOG_TPM
-                /* Try to log any options to the TPM, especially to catch manually edited options */
+                /* Try to log any options to the TPM, escpecially to catch manually edited options */
                 err = tpm_log_event(SD_TPM_PCR,
                                     (EFI_PHYSICAL_ADDRESS) loaded_image->LoadOptions,
                                     loaded_image->LoadOptionsSize, loaded_image->LoadOptions);

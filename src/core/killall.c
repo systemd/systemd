@@ -66,26 +66,29 @@ static bool ignore_proc(pid_t pid, bool warn_rootfs) {
         if (count <= 0)
                 return true;
 
-        /* Processes with argv[0][0] = '@' we ignore from the killing spree.
+        /* Processes with argv[0][0] = '@' we ignore from the killing
+         * spree.
          *
          * http://www.freedesktop.org/wiki/Software/systemd/RootStorageDaemons */
-        if (c != '@')
-                return false;
-
-        if (warn_rootfs &&
-            pid_from_same_root_fs(pid) == 0) {
-
+        if (c == '@' && warn_rootfs) {
                 _cleanup_free_ char *comm = NULL;
+
+                r = pid_from_same_root_fs(pid);
+                if (r < 0)
+                        return true;
 
                 get_process_comm(pid, &comm);
 
-                log_notice("Process " PID_FMT " (%s) has been marked to be excluded from killing. It is "
-                           "running from the root file system, and thus likely to block re-mounting of the "
-                           "root file system to read-only. Please consider moving it into an initrd file "
-                           "system instead.", pid, strna(comm));
-        }
+                if (r)
+                        log_notice("Process " PID_FMT " (%s) has been marked to be excluded from killing. It is "
+                                   "running from the root file system, and thus likely to block re-mounting of the "
+                                   "root file system to read-only. Please consider moving it into an initrd file "
+                                   "system instead.", pid, strna(comm));
+                return true;
+        } else if (c == '@')
+                return true;
 
-        return true;
+        return false;
 }
 
 static void wait_for_children(Set *pids, sigset_t *mask) {

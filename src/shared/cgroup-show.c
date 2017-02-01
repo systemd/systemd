@@ -73,7 +73,7 @@ static void show_pid_array(
         for (i = 0; i < n_pids; i++) {
                 _cleanup_free_ char *t = NULL;
 
-                (void) get_process_cmdline(pids[i], n_columns, true, &t);
+                get_process_cmdline(pids[i], n_columns, true, &t);
 
                 if (extra)
                         printf("%s%s ", prefix, special_glyph(TRIANGULAR_BULLET));

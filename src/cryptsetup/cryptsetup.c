@@ -594,7 +594,7 @@ static int help(void) {
 
 int main(int argc, char *argv[]) {
         struct crypt_device *cd = NULL;
-        int r = -EINVAL;
+        int r;
 
         if (argc <= 1) {
                 r = help();
@@ -603,6 +603,7 @@ int main(int argc, char *argv[]) {
 
         if (argc < 3) {
                 log_error("This program requires at least two arguments.");
+                r = -EINVAL;
                 goto finish;
         }
 
@@ -749,6 +750,7 @@ int main(int argc, char *argv[]) {
 
         } else {
                 log_error("Unknown verb %s.", argv[1]);
+                r = -EINVAL;
                 goto finish;
         }
 

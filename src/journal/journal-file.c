@@ -3087,18 +3087,13 @@ int journal_file_open(
                 }
         }
 
-        if (fname) {
+        if (fname)
                 f->path = strdup(fname);
-                if (!f->path) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-        } else {
-                /* If we don't know the path, fill in something explanatory and vaguely useful */
-                if (asprintf(&f->path, "/proc/self/%i", fd) < 0) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
+        else /* If we don't know the path, fill in something explanatory and vaguely useful */
+                asprintf(&f->path, "/proc/self/%i", fd);
+        if (!f->path) {
+                r = -ENOMEM;
+                goto fail;
         }
 
         f->chain_cache = ordered_hashmap_new(&uint64_hash_ops);

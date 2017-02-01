@@ -1685,31 +1685,25 @@ static int setup_private_users(uid_t uid, gid_t gid) {
          * child then writes the UID mapping, under full privileges. The parent waits for the child to finish and
          * continues execution normally. */
 
-        if (uid != 0 && uid_is_valid(uid)) {
-                r = asprintf(&uid_map,
-                             "0 0 1\n"                      /* Map root → root */
-                             UID_FMT " " UID_FMT " 1\n",    /* Map $UID → $UID */
-                             uid, uid);
-                if (r < 0)
-                        return -ENOMEM;
-        } else {
+        if (uid != 0 && uid_is_valid(uid))
+                asprintf(&uid_map,
+                         "0 0 1\n"                      /* Map root → root */
+                         UID_FMT " " UID_FMT " 1\n",    /* Map $UID → $UID */
+                         uid, uid);
+        else
                 uid_map = strdup("0 0 1\n");            /* The case where the above is the same */
-                if (!uid_map)
-                        return -ENOMEM;
-        }
+        if (!uid_map)
+                return -ENOMEM;
 
-        if (gid != 0 && gid_is_valid(gid)) {
-                r = asprintf(&gid_map,
-                             "0 0 1\n"                      /* Map root → root */
-                             GID_FMT " " GID_FMT " 1\n",    /* Map $GID → $GID */
-                             gid, gid);
-                if (r < 0)
-                        return -ENOMEM;
-        } else {
+        if (gid != 0 && gid_is_valid(gid))
+                asprintf(&gid_map,
+                         "0 0 1\n"                      /* Map root → root */
+                         GID_FMT " " GID_FMT " 1\n",    /* Map $GID → $GID */
+                         gid, gid);
+        else
                 gid_map = strdup("0 0 1\n");            /* The case where the above is the same */
-                if (!gid_map)
-                        return -ENOMEM;
-        }
+        if (!gid_map)
+                return -ENOMEM;
 
         /* Create a communication channel so that the parent can tell the child when it finished creating the user
          * namespace. */
@@ -3102,7 +3096,7 @@ const char* exec_context_fdname(const ExecContext *c, int fd_index) {
 
 int exec_context_named_iofds(Unit *unit, const ExecContext *c, const ExecParameters *p, int named_iofds[3]) {
         unsigned i, targets;
-        const char* stdio_fdname[3];
+        const char *stdio_fdname[3];
 
         assert(c);
         assert(p);
@@ -3115,32 +3109,18 @@ int exec_context_named_iofds(Unit *unit, const ExecContext *c, const ExecParamet
                 stdio_fdname[i] = exec_context_fdname(c, i);
 
         for (i = 0; i < p->n_fds && targets > 0; i++)
-                if (named_iofds[STDIN_FILENO] < 0 &&
-                    c->std_input == EXEC_INPUT_NAMED_FD &&
-                    stdio_fdname[STDIN_FILENO] &&
-                    streq(p->fd_names[i], stdio_fdname[STDIN_FILENO])) {
-
+                if (named_iofds[STDIN_FILENO] < 0 && c->std_input == EXEC_INPUT_NAMED_FD && stdio_fdname[STDIN_FILENO] && streq(p->fd_names[i], stdio_fdname[STDIN_FILENO])) {
                         named_iofds[STDIN_FILENO] = p->fds[i];
                         targets--;
-
-                } else if (named_iofds[STDOUT_FILENO] < 0 &&
-                           c->std_output == EXEC_OUTPUT_NAMED_FD &&
-                           stdio_fdname[STDOUT_FILENO] &&
-                           streq(p->fd_names[i], stdio_fdname[STDOUT_FILENO])) {
-
+                } else if (named_iofds[STDOUT_FILENO] < 0 && c->std_output == EXEC_OUTPUT_NAMED_FD && stdio_fdname[STDOUT_FILENO] && streq(p->fd_names[i], stdio_fdname[STDOUT_FILENO])) {
                         named_iofds[STDOUT_FILENO] = p->fds[i];
                         targets--;
-
-                } else if (named_iofds[STDERR_FILENO] < 0 &&
-                           c->std_error == EXEC_OUTPUT_NAMED_FD &&
-                           stdio_fdname[STDERR_FILENO] &&
-                           streq(p->fd_names[i], stdio_fdname[STDERR_FILENO])) {
-
+                } else if (named_iofds[STDERR_FILENO] < 0 && c->std_error == EXEC_OUTPUT_NAMED_FD && stdio_fdname[STDERR_FILENO] && streq(p->fd_names[i], stdio_fdname[STDERR_FILENO])) {
                         named_iofds[STDERR_FILENO] = p->fds[i];
                         targets--;
                 }
 
-        return targets == 0 ? 0 : -ENOENT;
+        return (targets == 0 ? 0 : -ENOENT);
 }
 
 int exec_context_load_environment(Unit *unit, const ExecContext *c, char ***l) {
