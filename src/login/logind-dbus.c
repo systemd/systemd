@@ -2396,13 +2396,9 @@ static int method_set_wall_message(
         if (r == 0)
                 return 1; /* Will call us back */
 
-        if (isempty(wall_message))
-                m->wall_message = mfree(m->wall_message);
-        else {
-                r = free_and_strdup(&m->wall_message, wall_message);
-                if (r < 0)
-                        return log_oom();
-        }
+        r = free_and_strdup(&m->wall_message, empty_to_null(wall_message));
+        if (r < 0)
+                return log_oom();
 
         m->enable_wall_messages = enable_wall_messages;
 
