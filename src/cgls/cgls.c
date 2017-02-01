@@ -120,50 +120,6 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int get_cgroup_root(char **ret) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_free_ char *unit = NULL, *path = NULL;
-        const char *m;
-        int r;
-
-        if (!arg_machine) {
-                r = cg_get_root_path(ret);
-                if (r == -ENOMEDIUM)
-                        return log_error_errno(r, "Failed to get root control group path: No cgroup filesystem mounted on /sys/fs/cgroup");
-                else if (r < 0)
-                        return log_error_errno(r, "Failed to get root control group path: %m");
-
-                return 0;
-        }
-
-        m = strjoina("/run/systemd/machines/", arg_machine);
-        r = parse_env_file(m, NEWLINE, "SCOPE", &unit, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to load machine data: %m");
-
-        path = unit_dbus_path_from_name(unit);
-        if (!path)
-                return log_oom();
-
-        r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, false, &bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create bus connection: %m");
-
-        r = sd_bus_get_property_string(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        path,
-                        unit_dbus_interface_from_name(unit),
-                        "ControlGroup",
-                        &error,
-                        ret);
-        if (r < 0)
-                return log_error_errno(r, "Failed to query unit control group path: %s", bus_error_message(&error, r));
-
-        return 0;
-}
-
 static void show_cg_info(const char *controller, const char *path) {
 
         if (cg_all_unified() <= 0 && controller && !streq(controller, SYSTEMD_CGROUP_CONTROLLER))
@@ -198,7 +154,7 @@ int main(int argc, char *argv[]) {
                 _cleanup_free_ char *root = NULL;
                 int i;
 
-                r = get_cgroup_root(&root);
+                r = show_cgroup_get_root_and_warn(arg_machine, &root);
                 if (r < 0)
                         goto finish;
 
@@ -267,7 +223,7 @@ int main(int argc, char *argv[]) {
                 if (!done) {
                         _cleanup_free_ char *root = NULL;
 
-                        r = get_cgroup_root(&root);
+                        r = show_cgroup_get_root_and_warn(arg_machine, &root);
                         if (r < 0)
                                 goto finish;
 
