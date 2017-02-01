@@ -877,7 +877,7 @@ bool ifname_valid(const char *p) {
         if (strlen(p) >= IFNAMSIZ)
                 return false;
 
-        if (STR_IN_SET(p, ".", ".."))
+        if (dot_or_dot_dot(p))
                 return false;
 
         while (*p) {

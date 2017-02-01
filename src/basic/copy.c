@@ -331,7 +331,7 @@ static int fd_copy_directory(
                 struct stat buf;
                 int q;
 
-                if (STR_IN_SET(de->d_name, ".", ".."))
+                if (dot_or_dot_dot(de->d_name))
                         continue;
 
                 if (fstatat(dirfd(d), de->d_name, &buf, AT_SYMLINK_NOFOLLOW) < 0) {

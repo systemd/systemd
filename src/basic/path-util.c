@@ -699,10 +699,7 @@ bool filename_is_valid(const char *p) {
         if (isempty(p))
                 return false;
 
-        if (streq(p, "."))
-                return false;
-
-        if (streq(p, ".."))
+        if (dot_or_dot_dot(p))
                 return false;
 
         e = strchrnul(p, '/');
@@ -720,14 +717,17 @@ bool path_is_safe(const char *p) {
         if (isempty(p))
                 return false;
 
-        if (streq(p, "..") || startswith(p, "../") || endswith(p, "/..") || strstr(p, "/../"))
+        if (dot_or_dot_dot(p))
+                return false;
+
+        if (startswith(p, "../") || endswith(p, "/..") || strstr(p, "/../"))
                 return false;
 
         if (strlen(p)+1 > PATH_MAX)
                 return false;
 
         /* The following two checks are not really dangerous, but hey, they still are confusing */
-        if (streq(p, ".") || startswith(p, "./") || endswith(p, "/.") || strstr(p, "/./"))
+        if (startswith(p, "./") || endswith(p, "/.") || strstr(p, "/./"))
                 return false;
 
         if (strstr(p, "//"))
@@ -891,4 +891,17 @@ int systemd_installation_has_version(const char *root, unsigned minimal_version)
         }
 
         return false;
+}
+
+bool dot_or_dot_dot(const char *path) {
+        if (!path)
+                return false;
+        if (path[0] != '.')
+                return false;
+        if (path[1] == 0)
+                return true;
+        if (path[1] != '.')
+                return false;
+
+        return path[2] == 0;
 }

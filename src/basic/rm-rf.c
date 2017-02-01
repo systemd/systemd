@@ -83,7 +83,7 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
                 bool is_dir;
                 struct stat st;
 
-                if (streq(de->d_name, ".") || streq(de->d_name, ".."))
+                if (dot_or_dot_dot(de->d_name))
                         continue;
 
                 if (de->d_type == DT_UNKNOWN ||

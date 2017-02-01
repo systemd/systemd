@@ -1349,7 +1349,7 @@ void manager_cleanup_saved_user(Manager *m) {
                 if (!IN_SET(de->d_type, DT_UNKNOWN, DT_REG))
                         continue;
 
-                if (STR_IN_SET(de->d_name, ".", ".."))
+                if (dot_or_dot_dot(de->d_name))
                         continue;
 
                 r = parse_ifindex(de->d_name, &ifindex);

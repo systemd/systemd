@@ -375,7 +375,7 @@ static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift
                 FOREACH_DIRENT_ALL(de, d, r = -errno; goto finish) {
                         struct stat fst;
 
-                        if (STR_IN_SET(de->d_name, ".", ".."))
+                        if (dot_or_dot_dot(de->d_name))
                                 continue;
 
                         if (fstatat(dirfd(d), de->d_name, &fst, AT_SYMLINK_NOFOLLOW) < 0) {

@@ -182,8 +182,7 @@ int cg_read_subgroup(DIR *d, char **fn) {
                 if (de->d_type != DT_DIR)
                         continue;
 
-                if (streq(de->d_name, ".") ||
-                    streq(de->d_name, ".."))
+                if (dot_or_dot_dot(de->d_name))
                         continue;
 
                 b = strdup(de->d_name);
