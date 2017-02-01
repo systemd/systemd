@@ -40,6 +40,7 @@
 static bool arg_no_pager = false;
 static bool arg_kernel_threads = false;
 static bool arg_all = false;
+static bool arg_unit = false;
 static int arg_full = -1;
 static char* arg_machine = NULL;
 
@@ -50,6 +51,7 @@ static void help(void) {
                "     --version        Show package version\n"
                "     --no-pager       Do not pipe output into a pager\n"
                "  -a --all            Show all groups, including empty\n"
+               "  -u --unit           Show the subtrees of specifified units\n"
                "  -l --full           Do not ellipsize output\n"
                "  -k                  Include kernel threads in output\n"
                "  -M --machine=       Show container\n"
@@ -70,6 +72,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "all",       no_argument,       NULL, 'a'          },
                 { "full",      no_argument,       NULL, 'l'          },
                 { "machine",   required_argument, NULL, 'M'          },
+                { "unit",      no_argument,       NULL, 'u'          },
                 {}
         };
 
@@ -78,7 +81,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hkalM:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hkalM:u", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -95,6 +98,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'a':
                         arg_all = true;
+                        break;
+
+                case 'u':
+                        arg_unit = true;
                         break;
 
                 case 'l':
@@ -115,6 +122,11 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
+
+        if (arg_machine && arg_unit) {
+                log_error("Cannot combine --unit with --machine.");
+                return -EINVAL;
+        }
 
         return 1;
 }
@@ -150,17 +162,42 @@ int main(int argc, char *argv[]) {
                 arg_kernel_threads * OUTPUT_KERNEL_THREADS;
 
         if (optind < argc) {
+                _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
                 _cleanup_free_ char *root = NULL;
                 int i;
-
-                r = show_cgroup_get_path_and_warn(arg_machine, NULL, &root);
-                if (r < 0)
-                        goto finish;
 
                 for (i = optind; i < argc; i++) {
                         int q;
 
-                        if (path_startswith(argv[i], "/sys/fs/cgroup")) {
+                        if (arg_unit) {
+                                /* Command line arguments are unit names */
+                                _cleanup_free_ char *cgroup = NULL;
+
+                                if (!bus) {
+                                        /* Connect to the bus only if necessary */
+                                        r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, false, &bus);
+                                        if (r < 0) {
+                                                log_error_errno(r, "Failed to create bus connection: %m");
+                                                goto finish;
+                                        }
+                                }
+
+                                q = show_cgroup_get_unit_path_and_warn(bus, argv[i], &cgroup);
+                                if (q < 0)
+                                        goto failed;
+
+                                if (isempty(cgroup)) {
+                                        log_warning("Unit %s not found.", argv[i]);
+                                        q = -ENOENT;
+                                        goto failed;
+                                }
+
+                                printf("Unit %s (%s):\n", argv[i], cgroup);
+                                fflush(stdout);
+
+                                q = show_cgroup_by_path(cgroup, NULL, 0, output_flags);
+
+                        } else if (path_startswith(argv[i], "/sys/fs/cgroup")) {
 
                                 printf("Directory %s:\n", argv[i]);
                                 fflush(stdout);
@@ -170,10 +207,17 @@ int main(int argc, char *argv[]) {
                                 _cleanup_free_ char *c = NULL, *p = NULL, *j = NULL;
                                 const char *controller, *path;
 
+                                if (!root) {
+                                        /* Query root only if needed, treat error as fatal */
+                                        r = show_cgroup_get_path_and_warn(arg_machine, NULL, &root);
+                                        if (r < 0)
+                                                goto finish;
+                                }
+
                                 r = cg_split_spec(argv[i], &c, &p);
                                 if (r < 0) {
                                         log_error_errno(r, "Failed to split argument %s: %m", argv[i]);
-                                        goto finish;
+                                        goto failed;
                                 }
 
                                 controller = c ?: SYSTEMD_CGROUP_CONTROLLER;
@@ -194,7 +238,8 @@ int main(int argc, char *argv[]) {
                                 q = show_cgroup(controller, path, NULL, 0, output_flags);
                         }
 
-                        if (q < 0)
+                failed:
+                        if (q < 0 && r >= 0)
                                 r = q;
                 }
 
