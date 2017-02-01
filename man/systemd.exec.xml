@@ -981,7 +981,7 @@
         source path, destination path and option string, where the latter two are optional. If only a source path is
         specified the source and destination is taken to be the same. The option string may be either
         <literal>rbind</literal> or <literal>norbind</literal> for configuring a recursive or non-recursive bind
-        mount. If the destination parth is omitted, the option string must be omitted too.</para>
+        mount. If the destination path is omitted, the option string must be omitted too.</para>
 
         <para><varname>BindPaths=</varname> creates regular writable bind mounts (unless the source file system mount
         is already marked read-only), while <varname>BindReadOnlyPaths=</varname> creates read-only bind mounts. These
