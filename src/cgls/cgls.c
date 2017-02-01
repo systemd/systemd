@@ -40,7 +40,13 @@
 static bool arg_no_pager = false;
 static bool arg_kernel_threads = false;
 static bool arg_all = false;
-static bool arg_unit = false;
+
+static enum {
+        SHOW_UNIT_NONE,
+        SHOW_UNIT_SYSTEM,
+        SHOW_UNIT_USER,
+} arg_show_unit = SHOW_UNIT_NONE;
+
 static int arg_full = -1;
 static char* arg_machine = NULL;
 
@@ -51,7 +57,8 @@ static void help(void) {
                "     --version        Show package version\n"
                "     --no-pager       Do not pipe output into a pager\n"
                "  -a --all            Show all groups, including empty\n"
-               "  -u --unit           Show the subtrees of specifified units\n"
+               "  -u --unit           Show the subtrees of specifified system units\n"
+               "     --user-unit      Show the subtrees of specifified user units\n"
                "  -l --full           Do not ellipsize output\n"
                "  -k                  Include kernel threads in output\n"
                "  -M --machine=       Show container\n"
@@ -63,16 +70,18 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_NO_PAGER = 0x100,
                 ARG_VERSION,
+                ARG_USER_UNIT,
         };
 
         static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'          },
-                { "version",   no_argument,       NULL, ARG_VERSION  },
-                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER },
-                { "all",       no_argument,       NULL, 'a'          },
-                { "full",      no_argument,       NULL, 'l'          },
-                { "machine",   required_argument, NULL, 'M'          },
-                { "unit",      no_argument,       NULL, 'u'          },
+                { "help",      no_argument,       NULL, 'h'           },
+                { "version",   no_argument,       NULL, ARG_VERSION   },
+                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
+                { "all",       no_argument,       NULL, 'a'           },
+                { "full",      no_argument,       NULL, 'l'           },
+                { "machine",   required_argument, NULL, 'M'           },
+                { "unit",      no_argument,       NULL, 'u'           },
+                { "user-unit", no_argument,       NULL, ARG_USER_UNIT },
                 {}
         };
 
@@ -101,7 +110,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'u':
-                        arg_unit = true;
+                        arg_show_unit = SHOW_UNIT_SYSTEM;
+                        break;
+
+                case ARG_USER_UNIT:
+                        arg_show_unit = SHOW_UNIT_USER;
                         break;
 
                 case 'l':
@@ -123,8 +136,8 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (arg_machine && arg_unit) {
-                log_error("Cannot combine --unit with --machine.");
+        if (arg_machine && arg_show_unit != SHOW_UNIT_NONE) {
+                log_error("Cannot combine --unit or --user-unit with --machine.");
                 return -EINVAL;
         }
 
@@ -169,13 +182,15 @@ int main(int argc, char *argv[]) {
                 for (i = optind; i < argc; i++) {
                         int q;
 
-                        if (arg_unit) {
+                        if (arg_show_unit != SHOW_UNIT_NONE) {
                                 /* Command line arguments are unit names */
                                 _cleanup_free_ char *cgroup = NULL;
 
                                 if (!bus) {
                                         /* Connect to the bus only if necessary */
-                                        r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, false, &bus);
+                                        r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL,
+                                                                          arg_show_unit == SHOW_UNIT_USER,
+                                                                          &bus);
                                         if (r < 0) {
                                                 log_error_errno(r, "Failed to create bus connection: %m");
                                                 goto finish;
