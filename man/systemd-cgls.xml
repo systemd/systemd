@@ -54,6 +54,12 @@
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="opt" rep="repeat">CGROUP</arg>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-cgls</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain"><option>--unit</option>|<option>--user-unit</option></arg>
+      <arg choice="opt" rep="repeat">UNIT</arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
@@ -92,6 +98,21 @@
         <term><option>--full</option></term>
 
         <listitem><para>Do not ellipsize process tree members.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-u</option></term>
+        <term><option>--unit</option></term>
+
+        <listitem><para>Show cgroup subtrees for the specified units.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--user-unit</option></term>
+
+        <listitem><para>Show cgroup subtrees for the specified user units.</para>
         </listitem>
       </varlistentry>
 

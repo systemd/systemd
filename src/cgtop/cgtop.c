@@ -31,6 +31,7 @@
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -862,13 +863,9 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (optind == argc-1) {
-                if (arg_machine) {
-                        log_error("Specifying a control group path together with the -M option is not allowed");
-                        return -EINVAL;
-                }
+        if (optind == argc - 1)
                 arg_root = argv[optind];
-        } else if (optind < argc) {
+        else if (optind < argc) {
                 log_error("Too many arguments.");
                 return -EINVAL;
         }
@@ -888,59 +885,6 @@ static const char* counting_what(void) {
                 return "all processes (incl. kernel)";
         else
                 return "userspace processes (excl. kernel)";
-}
-
-static int get_cgroup_root(char **ret) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_free_ char *unit = NULL, *path = NULL;
-        const char *m;
-        int r;
-
-        if (arg_root) {
-                char *aux;
-
-                aux = strdup(arg_root);
-                if (!aux)
-                        return log_oom();
-
-                *ret = aux;
-                return 0;
-        }
-
-        if (!arg_machine) {
-                r = cg_get_root_path(ret);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get root control group path: %m");
-
-                return 0;
-        }
-
-        m = strjoina("/run/systemd/machines/", arg_machine);
-        r = parse_env_file(m, NEWLINE, "SCOPE", &unit, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to load machine data: %m");
-
-        path = unit_dbus_path_from_name(unit);
-        if (!path)
-                return log_oom();
-
-        r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, false, &bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create bus connection: %m");
-
-        r = sd_bus_get_property_string(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        path,
-                        unit_dbus_interface_from_name(unit),
-                        "ControlGroup",
-                        &error,
-                        ret);
-        if (r < 0)
-                return log_error_errno(r, "Failed to query unit control group path: %s", bus_error_message(&error, r));
-
-        return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -967,11 +911,12 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        r = get_cgroup_root(&root);
+        r = show_cgroup_get_path_and_warn(arg_machine, arg_root, &root);
         if (r < 0) {
                 log_error_errno(r, "Failed to get root control group path: %m");
                 goto finish;
-        }
+        } else
+                log_debug("Cgroup path: %s", root);
 
         a = hashmap_new(&string_hash_ops);
         b = hashmap_new(&string_hash_ops);
