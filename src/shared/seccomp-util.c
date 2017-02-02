@@ -171,11 +171,11 @@ int seccomp_init_for_arch(scmp_filter_ctx *ret, uint32_t arch, uint32_t default_
         if (arch != SCMP_ARCH_NATIVE &&
             arch != seccomp_arch_native()) {
 
-                r = seccomp_arch_add(seccomp, arch);
+                r = seccomp_arch_remove(seccomp, seccomp_arch_native());
                 if (r < 0)
                         goto finish;
 
-                r = seccomp_arch_remove(seccomp, seccomp_arch_native());
+                r = seccomp_arch_add(seccomp, arch);
                 if (r < 0)
                         goto finish;
 
