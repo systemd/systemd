@@ -31,6 +31,7 @@ int show_cgroup(const char *controller, const char *path, const char *prefix, un
 int show_cgroup_and_extra_by_spec(const char *spec, const char *prefix, unsigned n_columns, const pid_t extra_pids[], unsigned n_extra_pids, OutputFlags flags);
 int show_cgroup_and_extra(const char *controller, const char *path, const char *prefix, unsigned n_columns, const pid_t extra_pids[], unsigned n_extra_pids, OutputFlags flags);
 
-int show_cgroup_get_root_and_warn(
+int show_cgroup_get_path_and_warn(
                 const char *machine,
+                const char *prefix,
                 char **ret);

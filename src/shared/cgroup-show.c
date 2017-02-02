@@ -317,51 +317,65 @@ int show_cgroup_and_extra_by_spec(
         return show_cgroup_and_extra(controller, path, prefix, n_columns, extra_pids, n_extra_pids, flags);
 }
 
-int show_cgroup_get_root_and_warn(
+int show_cgroup_get_path_and_warn(
                 const char *machine,
+                const char *prefix,
                 char **ret) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_free_ char *unit = NULL, *path = NULL;
-        const char *m;
         int r;
+        _cleanup_free_ char *root = NULL;
 
-        if (!machine) {
-                r = cg_get_root_path(ret);
+        if (machine) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+                _cleanup_free_ char *unit = NULL, *path = NULL;
+                const char *m;
+
+                m = strjoina("/run/systemd/machines/", machine);
+                r = parse_env_file(m, NEWLINE, "SCOPE", &unit, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load machine data: %m");
+
+                path = unit_dbus_path_from_name(unit);
+                if (!path)
+                        return log_oom();
+
+                r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, false, &bus);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create bus connection: %m");
+
+                r = sd_bus_get_property_string(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                path,
+                                unit_dbus_interface_from_name(unit),
+                                "ControlGroup",
+                                &error,
+                                &root);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query unit control group path: %s",
+                                               bus_error_message(&error, r));
+        } else {
+                r = cg_get_root_path(&root);
                 if (r == -ENOMEDIUM)
                         return log_error_errno(r, "Failed to get root control group path.\n"
                                                   "No cgroup filesystem mounted on /sys/fs/cgroup");
                 else if (r < 0)
                         return log_error_errno(r, "Failed to get root control group path: %m");
-
-                return 0;
         }
 
-        m = strjoina("/run/systemd/machines/", machine);
-        r = parse_env_file(m, NEWLINE, "SCOPE", &unit, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to load machine data: %m");
+        if (prefix) {
+                char *t;
 
-        path = unit_dbus_path_from_name(unit);
-        if (!path)
-                return log_oom();
+                t = strjoin(root, prefix);
+                if (!t)
+                        return log_oom();
 
-        r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, false, &bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create bus connection: %m");
-
-        r = sd_bus_get_property_string(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        path,
-                        unit_dbus_interface_from_name(unit),
-                        "ControlGroup",
-                        &error,
-                        ret);
-        if (r < 0)
-                return log_error_errno(r, "Failed to query unit control group path: %s",
-                                       bus_error_message(&error, r));
+                *ret = t;
+        } else {
+                *ret = root;
+                root = NULL;
+        }
 
         return 0;
 }

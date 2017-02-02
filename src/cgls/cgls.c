@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
                 _cleanup_free_ char *root = NULL;
                 int i;
 
-                r = show_cgroup_get_root_and_warn(arg_machine, &root);
+                r = show_cgroup_get_path_and_warn(arg_machine, NULL, &root);
                 if (r < 0)
                         goto finish;
 
@@ -223,7 +223,7 @@ int main(int argc, char *argv[]) {
                 if (!done) {
                         _cleanup_free_ char *root = NULL;
 
-                        r = show_cgroup_get_root_and_warn(arg_machine, &root);
+                        r = show_cgroup_get_path_and_warn(arg_machine, NULL, &root);
                         if (r < 0)
                                 goto finish;
 
