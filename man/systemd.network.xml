@@ -997,6 +997,13 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>RequestUserClass=</varname></term>
+          <listitem>
+            <para>Specifies the user class option the client is to request from the server.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>RouteMetric=</varname></term>
           <listitem>
             <para>Set the routing metric for routes specified by the

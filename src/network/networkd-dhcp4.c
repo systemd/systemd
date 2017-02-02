@@ -618,6 +618,13 @@ int dhcp4_configure(Link *link) {
                         return r;
         }
 
+        if (link->network->dhcp_user_class) {
+                r = sd_dhcp_client_set_request_option(link->dhcp_client,
+                                                      link->network->dhcp_user_class);
+                if (r < 0)
+                        return r;
+        }
+
         /* Always acquire the timezone and NTP */
         r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_NTP_SERVER);
         if (r < 0)
