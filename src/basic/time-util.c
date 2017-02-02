@@ -554,12 +554,12 @@ void dual_timestamp_serialize(FILE *f, const char *name, dual_timestamp *t) {
 }
 
 int dual_timestamp_deserialize(const char *value, dual_timestamp *t) {
-        unsigned long long a, b;
+        uint64_t a, b;
 
         assert(value);
         assert(t);
 
-        if (sscanf(value, "%llu %llu", &a, &b) != 2) {
+        if (sscanf(value, "%" PRIu64 "%" PRIu64, &a, &b) != 2) {
                 log_debug("Failed to parse dual timestamp value \"%s\": %m", value);
                 return -EINVAL;
         }
