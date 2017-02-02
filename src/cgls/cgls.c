@@ -34,6 +34,7 @@
 #include "output-mode.h"
 #include "pager.h"
 #include "path-util.h"
+#include "strv.h"
 #include "unit-name.h"
 #include "util.h"
 
@@ -46,6 +47,7 @@ static enum {
         SHOW_UNIT_SYSTEM,
         SHOW_UNIT_USER,
 } arg_show_unit = SHOW_UNIT_NONE;
+static char **arg_names = NULL;
 
 static int arg_full = -1;
 static char* arg_machine = NULL;
@@ -80,8 +82,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "all",       no_argument,       NULL, 'a'           },
                 { "full",      no_argument,       NULL, 'l'           },
                 { "machine",   required_argument, NULL, 'M'           },
-                { "unit",      no_argument,       NULL, 'u'           },
-                { "user-unit", no_argument,       NULL, ARG_USER_UNIT },
+                { "unit",      optional_argument, NULL, 'u'           },
+                { "user-unit", optional_argument, NULL, ARG_USER_UNIT },
                 {}
         };
 
@@ -90,7 +92,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hkalM:u", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "-hkalM:u::", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -111,10 +113,20 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'u':
                         arg_show_unit = SHOW_UNIT_SYSTEM;
+                        if (strv_push(&arg_names, optarg) < 0) /* push optarg if not empty */
+                                return log_oom();
                         break;
 
                 case ARG_USER_UNIT:
                         arg_show_unit = SHOW_UNIT_USER;
+                        if (strv_push(&arg_names, optarg) < 0) /* push optarg if not empty */
+                                return log_oom();
+                        break;
+
+                case 1:
+                        /* positional argument */
+                        if (strv_push(&arg_names, optarg) < 0)
+                                return log_oom();
                         break;
 
                 case 'l':
@@ -174,12 +186,12 @@ int main(int argc, char *argv[]) {
                 (arg_full > 0) * OUTPUT_FULL_WIDTH |
                 arg_kernel_threads * OUTPUT_KERNEL_THREADS;
 
-        if (optind < argc) {
+        if (arg_names) {
                 _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
                 _cleanup_free_ char *root = NULL;
-                int i;
+                char **name;
 
-                for (i = optind; i < argc; i++) {
+                STRV_FOREACH(name, arg_names) {
                         int q;
 
                         if (arg_show_unit != SHOW_UNIT_NONE) {
@@ -197,27 +209,27 @@ int main(int argc, char *argv[]) {
                                         }
                                 }
 
-                                q = show_cgroup_get_unit_path_and_warn(bus, argv[i], &cgroup);
+                                q = show_cgroup_get_unit_path_and_warn(bus, *name, &cgroup);
                                 if (q < 0)
                                         goto failed;
 
                                 if (isempty(cgroup)) {
-                                        log_warning("Unit %s not found.", argv[i]);
+                                        log_warning("Unit %s not found.", *name);
                                         q = -ENOENT;
                                         goto failed;
                                 }
 
-                                printf("Unit %s (%s):\n", argv[i], cgroup);
+                                printf("Unit %s (%s):\n", *name, cgroup);
                                 fflush(stdout);
 
                                 q = show_cgroup_by_path(cgroup, NULL, 0, output_flags);
 
-                        } else if (path_startswith(argv[i], "/sys/fs/cgroup")) {
+                        } else if (path_startswith(*name, "/sys/fs/cgroup")) {
 
-                                printf("Directory %s:\n", argv[i]);
+                                printf("Directory %s:\n", *name);
                                 fflush(stdout);
 
-                                q = show_cgroup_by_path(argv[i], NULL, 0, output_flags);
+                                q = show_cgroup_by_path(*name, NULL, 0, output_flags);
                         } else {
                                 _cleanup_free_ char *c = NULL, *p = NULL, *j = NULL;
                                 const char *controller, *path;
@@ -229,9 +241,9 @@ int main(int argc, char *argv[]) {
                                                 goto finish;
                                 }
 
-                                r = cg_split_spec(argv[i], &c, &p);
+                                r = cg_split_spec(*name, &c, &p);
                                 if (r < 0) {
-                                        log_error_errno(r, "Failed to split argument %s: %m", argv[i]);
+                                        log_error_errno(r, "Failed to split argument %s: %m", *name);
                                         goto failed;
                                 }
 
@@ -298,6 +310,7 @@ int main(int argc, char *argv[]) {
 
 finish:
         pager_close();
+        free(arg_names); /* don't free the strings */
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
