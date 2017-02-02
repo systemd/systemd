@@ -185,7 +185,7 @@ usec_t triple_timestamp_by_clock(triple_timestamp *ts, clockid_t clock) {
 usec_t timespec_load(const struct timespec *ts) {
         assert(ts);
 
-        if (ts->tv_sec == (time_t) -1 && ts->tv_nsec == (long) -1)
+        if (ts->tv_sec < 0 || ts->tv_nsec < 0)
                 return USEC_INFINITY;
 
         if ((usec_t) ts->tv_sec > (UINT64_MAX - (ts->tv_nsec / NSEC_PER_USEC)) / USEC_PER_SEC)
@@ -199,7 +199,7 @@ usec_t timespec_load(const struct timespec *ts) {
 nsec_t timespec_load_nsec(const struct timespec *ts) {
         assert(ts);
 
-        if (ts->tv_sec == (time_t) -1 && ts->tv_nsec == (long) -1)
+        if (ts->tv_sec < 0 || ts->tv_nsec < 0)
                 return NSEC_INFINITY;
 
         if ((nsec_t) ts->tv_sec >= (UINT64_MAX - ts->tv_nsec) / NSEC_PER_SEC)
@@ -226,8 +226,7 @@ struct timespec *timespec_store(struct timespec *ts, usec_t u)  {
 usec_t timeval_load(const struct timeval *tv) {
         assert(tv);
 
-        if (tv->tv_sec == (time_t) -1 &&
-            tv->tv_usec == (suseconds_t) -1)
+        if (tv->tv_sec < 0 || tv->tv_usec < 0)
                 return USEC_INFINITY;
 
         if ((usec_t) tv->tv_sec > (UINT64_MAX - tv->tv_usec) / USEC_PER_SEC)
@@ -830,7 +829,7 @@ parse_usec:
 
 from_tm:
         x = mktime_or_timegm(&tm, utc);
-        if (x == (time_t) -1)
+        if (x < 0)
                 return -EINVAL;
 
         if (weekday >= 0 && tm.tm_wday != weekday)
