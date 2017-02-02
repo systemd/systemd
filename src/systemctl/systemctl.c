@@ -2484,7 +2484,7 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **un
                 _cleanup_free_ char *path = NULL, *lpath = NULL;
                 int r;
 
-                path = path_join(arg_root, *p, unit_name);
+                path = path_join(NULL, *p, unit_name);
                 if (!path)
                         return log_oom();
 
