@@ -385,7 +385,7 @@ static int dir_cleanup(
                 usec_t age;
                 _cleanup_free_ char *sub_path = NULL;
 
-                if (STR_IN_SET(dent->d_name, ".", ".."))
+                if (dot_or_dot_dot(dent->d_name))
                         continue;
 
                 if (fstatat(dirfd(d), dent->d_name, &s, AT_SYMLINK_NOFOLLOW) < 0) {
@@ -1070,9 +1070,7 @@ static int item_do_children(Item *i, const char *path, action_t action) {
                 _cleanup_free_ char *p = NULL;
                 int q;
 
-                errno = 0;
-
-                if (STR_IN_SET(de->d_name, ".", ".."))
+                if (dot_or_dot_dot(de->d_name))
                         continue;
 
                 p = strjoin(path, "/", de->d_name);

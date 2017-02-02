@@ -141,3 +141,5 @@ bool is_device_path(const char *path);
 bool is_deviceallow_pattern(const char *path);
 
 int systemd_installation_has_version(const char *root, unsigned minimal_version);
+
+bool dot_or_dot_dot(const char *path);

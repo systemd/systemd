@@ -658,7 +658,7 @@ static int get_block_device_harder(const char *path, dev_t *dev) {
 
         FOREACH_DIRENT_ALL(de, d, return -errno) {
 
-                if (STR_IN_SET(de->d_name, ".", ".."))
+                if (dot_or_dot_dot(de->d_name))
                         continue;
 
                 if (!IN_SET(de->d_type, DT_LNK, DT_UNKNOWN))

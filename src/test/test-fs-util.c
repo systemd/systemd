@@ -305,12 +305,23 @@ static void test_var_tmp(void) {
         }
 }
 
+static void test_dot_or_dot_dot(void) {
+        assert_se(!dot_or_dot_dot(NULL));
+        assert_se(!dot_or_dot_dot(""));
+        assert_se(!dot_or_dot_dot("xxx"));
+        assert_se(dot_or_dot_dot("."));
+        assert_se(dot_or_dot_dot(".."));
+        assert_se(!dot_or_dot_dot(".foo"));
+        assert_se(!dot_or_dot_dot("..foo"));
+}
+
 int main(int argc, char *argv[]) {
         test_unlink_noerrno();
         test_readlink_and_make_absolute();
         test_get_files_in_directory();
         test_var_tmp();
         test_chase_symlinks();
+        test_dot_or_dot_dot();
 
         return 0;
 }

@@ -24,6 +24,13 @@ Janitorial Clean-ups:
 
 Features:
 
+* journald: when we recv a log datagram via the native or syslog transports,
+  search for the PID in the active stream connections, and let's make sure to
+  always process the datagrams before the streams. Then, cache client metadata
+  per stream in the stream object. This way we can somewhat fix the race with
+  quickly exiting processes which log as long as they had their own stream
+  connection...
+
 * Maybe add a small tool invoked early at boot, that adds in or resizes
   partitions automatically, to be used when the media used is actually larger
   than the image written onto it is.

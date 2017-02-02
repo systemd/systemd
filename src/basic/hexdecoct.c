@@ -72,10 +72,10 @@ int unhexchar(char c) {
 }
 
 char *hexmem(const void *p, size_t l) {
-        char *r, *z;
         const uint8_t *x;
+        char *r, *z;
 
-        z = r = malloc(l * 2 + 1);
+        z = r = new(char, l * 2 + 1);
         if (!r)
                 return NULL;
 
