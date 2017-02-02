@@ -42,6 +42,7 @@
 #include "sd-event.h"
 #include "set.h"
 #include "string-util.h"
+#include "strv.h"
 #include "xattr-util.h"
 
 #define DEFAULT_DATA_HASH_TABLE_SIZE (2047ULL*sizeof(HashItem))
@@ -507,42 +508,58 @@ static int journal_file_refresh_header(JournalFile *f) {
         return r;
 }
 
-static int journal_file_verify_header(JournalFile *f) {
+static bool warn_wrong_flags(const JournalFile *f, bool compatible) {
+        const uint32_t any = compatible ? HEADER_COMPATIBLE_ANY : HEADER_INCOMPATIBLE_ANY,
+                supported = compatible ? HEADER_COMPATIBLE_SUPPORTED : HEADER_INCOMPATIBLE_SUPPORTED;
+        const char *type = compatible ? "compatible" : "incompatible";
         uint32_t flags;
 
+        flags = le32toh(compatible ? f->header->compatible_flags : f->header->incompatible_flags);
+
+        if (flags & ~supported) {
+                if (flags & ~any)
+                        log_debug("Journal file %s has unknown %s flags 0x%"PRIx32,
+                                  f->path, type, flags & ~any);
+                flags = (flags & any) & ~supported;
+                if (flags) {
+                        const char* strv[3];
+                        unsigned n = 0;
+                        _cleanup_free_ char *t = NULL;
+
+                        if (compatible && (flags & HEADER_COMPATIBLE_SEALED))
+                                strv[n++] = "sealed";
+                        if (!compatible && (flags & HEADER_INCOMPATIBLE_COMPRESSED_XZ))
+                                strv[n++] = "xz-compressed";
+                        if (!compatible && (flags & HEADER_INCOMPATIBLE_COMPRESSED_LZ4))
+                                strv[n++] = "lz4-compressed";
+                        strv[n] = NULL;
+                        assert(n < ELEMENTSOF(strv));
+
+                        t = strv_join((char**) strv, ", ");
+                        log_debug("Journal file %s uses %s %s %s disabled at compilation time.",
+                                  f->path, type, n > 1 ? "flags" : "flag", strnull(t));
+                }
+                return true;
+        }
+
+        return false;
+}
+
+static int journal_file_verify_header(JournalFile *f) {
         assert(f);
         assert(f->header);
 
         if (memcmp(f->header->signature, HEADER_SIGNATURE, 8))
                 return -EBADMSG;
 
-        /* In both read and write mode we refuse to open files with
-         * incompatible flags we don't know */
-        flags = le32toh(f->header->incompatible_flags);
-        if (flags & ~HEADER_INCOMPATIBLE_SUPPORTED) {
-                if (flags & ~HEADER_INCOMPATIBLE_ANY)
-                        log_debug("Journal file %s has unknown incompatible flags %"PRIx32,
-                                  f->path, flags & ~HEADER_INCOMPATIBLE_ANY);
-                flags = (flags & HEADER_INCOMPATIBLE_ANY) & ~HEADER_INCOMPATIBLE_SUPPORTED;
-                if (flags)
-                        log_debug("Journal file %s uses incompatible flags %"PRIx32
-                                  " disabled at compilation time.", f->path, flags);
+        /* In both read and write mode we refuse to open files with incompatible
+         * flags we don't know. */
+        if (warn_wrong_flags(f, false))
                 return -EPROTONOSUPPORT;
-        }
 
-        /* When open for writing we refuse to open files with
-         * compatible flags, too */
-        flags = le32toh(f->header->compatible_flags);
-        if (f->writable && (flags & ~HEADER_COMPATIBLE_SUPPORTED)) {
-                if (flags & ~HEADER_COMPATIBLE_ANY)
-                        log_debug("Journal file %s has unknown compatible flags %"PRIx32,
-                                  f->path, flags & ~HEADER_COMPATIBLE_ANY);
-                flags = (flags & HEADER_COMPATIBLE_ANY) & ~HEADER_COMPATIBLE_SUPPORTED;
-                if (flags)
-                        log_debug("Journal file %s uses compatible flags %"PRIx32
-                                  " disabled at compilation time.", f->path, flags);
+        /* When open for writing we refuse to open files with compatible flags, too. */
+        if (f->writable && warn_wrong_flags(f, true))
                 return -EPROTONOSUPPORT;
-        }
 
         if (f->header->state >= _STATE_MAX)
                 return -EBADMSG;
