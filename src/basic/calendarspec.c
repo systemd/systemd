@@ -1228,6 +1228,9 @@ int calendar_spec_next_usec(const CalendarSpec *spec, usec_t usec, usec_t *next)
         assert(spec);
         assert(next);
 
+        if (usec > USEC_TIMESTAMP_FORMATTABLE_MAX)
+                return -EINVAL;
+
         usec++;
         t = (time_t) (usec / USEC_PER_SEC);
         assert_se(localtime_or_gmtime_r(&t, &tm, spec->utc));

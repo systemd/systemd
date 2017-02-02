@@ -287,9 +287,11 @@ static char *format_timestamp_internal(
         if (t <= 0 || t == USEC_INFINITY)
                 return NULL; /* Timestamp is unset */
 
+        /* Let's not format times with years > 9999 */
+        if (t > USEC_TIMESTAMP_FORMATTABLE_MAX)
+                return NULL;
+
         sec = (time_t) (t / USEC_PER_SEC); /* Round down */
-        if ((usec_t) sec != (t / USEC_PER_SEC))
-                return NULL; /* overflow? */
 
         if (!localtime_or_gmtime_r(&sec, &tm, utc))
                 return NULL;
@@ -836,9 +838,14 @@ from_tm:
                 return -EINVAL;
 
         ret = (usec_t) x * USEC_PER_SEC + x_usec;
+        if (ret > USEC_TIMESTAMP_FORMATTABLE_MAX)
+                return -EINVAL;
 
 finish:
         ret += plus;
+        if (ret > USEC_TIMESTAMP_FORMATTABLE_MAX)
+                return -EINVAL;
+
         if (ret > minus)
                 ret -= minus;
         else

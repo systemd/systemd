@@ -246,6 +246,11 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
         if (r < 0)
                 return log_error_errno(r, "Failed to get realtime timestamp: %m");
 
+        if (x > USEC_TIMESTAMP_FORMATTABLE_MAX) {
+                log_error("Timestamp cannot be printed");
+                return -EINVAL;
+        }
+
         if (mode == OUTPUT_SHORT_FULL) {
                 const char *k;
 
