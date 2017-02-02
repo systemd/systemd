@@ -211,7 +211,8 @@ nsec_t timespec_load_nsec(const struct timespec *ts) {
 struct timespec *timespec_store(struct timespec *ts, usec_t u)  {
         assert(ts);
 
-        if (u == USEC_INFINITY) {
+        if (u == USEC_INFINITY ||
+            u / USEC_INFINITY >= TIME_T_MAX) {
                 ts->tv_sec = (time_t) -1;
                 ts->tv_nsec = (long) -1;
                 return ts;
@@ -240,7 +241,8 @@ usec_t timeval_load(const struct timeval *tv) {
 struct timeval *timeval_store(struct timeval *tv, usec_t u) {
         assert(tv);
 
-        if (u == USEC_INFINITY) {
+        if (u == USEC_INFINITY||
+            u / USEC_PER_SEC > TIME_T_MAX) {
                 tv->tv_sec = (time_t) -1;
                 tv->tv_usec = (suseconds_t) -1;
         } else {
