@@ -57,9 +57,11 @@ int unit_load_dropin(Unit *u) {
                 char **p;
 
                 STRV_FOREACH(p, u->manager->lookup_paths.search_path) {
-                        unit_file_process_dir(u->manager->unit_path_cache, *p, t, ".wants", UNIT_WANTS,
+                        unit_file_process_dir(NULL, u->manager->unit_path_cache, *p, t,
+                                              ".wants", UNIT_WANTS,
                                               add_dependency_consumer, u, NULL);
-                        unit_file_process_dir(u->manager->unit_path_cache, *p, t, ".requires", UNIT_REQUIRES,
+                        unit_file_process_dir(NULL, u->manager->unit_path_cache, *p, t,
+                                              ".requires", UNIT_REQUIRES,
                                               add_dependency_consumer, u, NULL);
                 }
         }

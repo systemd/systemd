@@ -1241,7 +1241,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                 if (f == MOUNT_SUCCESS || m->from_proc_self_mountinfo)
                         /* If /bin/mount returned success, or if we see the mount point in /proc/self/mountinfo we are
-                         * happy. If we see the first condition first, we should see the the second condition
+                         * happy. If we see the first condition first, we should see the second condition
                          * immediately after – or /bin/mount lies to us and is broken. */
                         mount_enter_mounted(m, f);
                 else

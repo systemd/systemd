@@ -45,6 +45,7 @@ typedef int (*dependency_consumer_t)(UnitDependency dependency,
                                      void *arg);
 
 int unit_file_process_dir(
+                const char *original_root,
                 Set * unit_path_cache,
                 const char *unit_path,
                 const char *name,
@@ -55,6 +56,7 @@ int unit_file_process_dir(
                 char ***strv);
 
 int unit_file_find_dropin_paths(
+                const char *original_root,
                 char **lookup_path,
                 Set *unit_path_cache,
                 Set *names,

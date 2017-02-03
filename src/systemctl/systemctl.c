@@ -2484,7 +2484,7 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **un
                 _cleanup_free_ char *path = NULL, *lpath = NULL;
                 int r;
 
-                path = path_join(arg_root, *p, unit_name);
+                path = path_join(NULL, *p, unit_name);
                 if (!path)
                         return log_oom();
 
@@ -2601,7 +2601,7 @@ static int unit_find_paths(
                         return log_error_errno(r, "Failed to add unit name: %m");
 
                 if (dropin_paths) {
-                        r = unit_file_find_dropin_paths(lp->search_path, NULL, names, &dropins);
+                        r = unit_file_find_dropin_paths(arg_root, lp->search_path, NULL, names, &dropins);
                         if (r < 0)
                                 return r;
                 }

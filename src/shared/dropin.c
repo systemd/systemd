@@ -29,6 +29,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio-label.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "log.h"
 #include "macro.h"
@@ -118,38 +119,46 @@ int write_drop_in_format(const char *dir, const char *unit, unsigned level,
 
 static int iterate_dir(
                 const char *path,
+                const char *original_root,
                 UnitDependency dependency,
                 dependency_consumer_t consumer,
                 void *arg,
                 char ***strv) {
 
+        _cleanup_free_ char *chased = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r;
 
         assert(path);
 
+        r = chase_symlinks(path, original_root, 0, &chased);
+        if (r < 0)
+                return log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING,
+                                      r, "Failed to canonicalize path %s: %m", path);
+
         /* The config directories are special, since the order of the
          * drop-ins matters */
         if (dependency < 0)  {
-                r = strv_extend(strv, path);
+                r = strv_push(strv, chased);
                 if (r < 0)
                         return log_oom();
 
+                chased = NULL;
                 return 0;
         }
 
         assert(consumer);
 
-        d = opendir(path);
+        d = opendir(chased);
         if (!d) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_error_errno(errno, "Failed to open directory %s: %m", path);
+                return log_warning_errno(errno, "Failed to open directory %s: %m", path);
         }
 
-        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read directory %s: %m", path)) {
+        FOREACH_DIRENT(de, d, return log_warning_errno(errno, "Failed to read directory %s: %m", path)) {
                 _cleanup_free_ char *f = NULL;
 
                 f = strjoin(path, "/", de->d_name);
@@ -165,6 +174,7 @@ static int iterate_dir(
 }
 
 int unit_file_process_dir(
+                const char *original_root,
                 Set *unit_path_cache,
                 const char *unit_path,
                 const char *name,
@@ -186,7 +196,7 @@ int unit_file_process_dir(
                 return log_oom();
 
         if (!unit_path_cache || set_get(unit_path_cache, path))
-                (void) iterate_dir(path, dependency, consumer, arg, strv);
+                (void) iterate_dir(path, original_root, dependency, consumer, arg, strv);
 
         if (unit_name_is_valid(name, UNIT_NAME_INSTANCE)) {
                 _cleanup_free_ char *template = NULL, *p = NULL;
@@ -201,13 +211,14 @@ int unit_file_process_dir(
                         return log_oom();
 
                 if (!unit_path_cache || set_get(unit_path_cache, p))
-                        (void) iterate_dir(p, dependency, consumer, arg, strv);
+                        (void) iterate_dir(p, original_root, dependency, consumer, arg, strv);
         }
 
         return 0;
 }
 
 int unit_file_find_dropin_paths(
+                const char *original_root,
                 char **lookup_path,
                 Set *unit_path_cache,
                 Set *names,
@@ -224,7 +235,8 @@ int unit_file_find_dropin_paths(
                 char **p;
 
                 STRV_FOREACH(p, lookup_path)
-                        unit_file_process_dir(unit_path_cache, *p, t, ".d", _UNIT_DEPENDENCY_INVALID, NULL, NULL, &strv);
+                        unit_file_process_dir(original_root, unit_path_cache, *p, t, ".d",
+                                              _UNIT_DEPENDENCY_INVALID, NULL, NULL, &strv);
         }
 
         if (strv_isempty(strv))
