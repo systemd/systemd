@@ -283,8 +283,14 @@ static void test_restrict_address_families(void) {
                 assert_se(fd >= 0);
                 safe_close(fd);
 
+#if SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN
+                fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+                assert_se(fd >= 0);
+                safe_close(fd);
+#else
                 assert_se(socket(AF_UNIX, SOCK_DGRAM, 0) < 0);
                 assert_se(errno == EAFNOSUPPORT);
+#endif
 
                 fd = socket(AF_NETLINK, SOCK_DGRAM, 0);
                 assert_se(fd >= 0);
@@ -300,11 +306,21 @@ static void test_restrict_address_families(void) {
                 assert_se(fd >= 0);
                 safe_close(fd);
 
+#if SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN
+                fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+                assert_se(fd >= 0);
+                safe_close(fd);
+
+                fd = socket(AF_NETLINK, SOCK_DGRAM, 0);
+                assert_se(fd >= 0);
+                safe_close(fd);
+#else
                 assert_se(socket(AF_UNIX, SOCK_DGRAM, 0) < 0);
                 assert_se(errno == EAFNOSUPPORT);
 
                 assert_se(socket(AF_NETLINK, SOCK_DGRAM, 0) < 0);
                 assert_se(errno == EAFNOSUPPORT);
+#endif
 
                 _exit(EXIT_SUCCESS);
         }
