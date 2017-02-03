@@ -1020,7 +1020,7 @@ static int find_end_of_month(struct tm *tm, bool utc, int day) {
         t.tm_mon++;
         t.tm_mday = 1 - day;
 
-        if (mktime_or_timegm(&t, utc) == (time_t) -1 ||
+        if (mktime_or_timegm(&t, utc) < 0 ||
             t.tm_mon != tm->tm_mon)
                 return -1;
 
@@ -1086,7 +1086,7 @@ static bool tm_out_of_bounds(const struct tm *tm, bool utc) {
 
         t = *tm;
 
-        if (mktime_or_timegm(&t, utc) == (time_t) -1)
+        if (mktime_or_timegm(&t, utc) < 0)
                 return true;
 
         /*
@@ -1115,7 +1115,7 @@ static bool matches_weekday(int weekdays_bits, const struct tm *tm, bool utc) {
                 return true;
 
         t = *tm;
-        if (mktime_or_timegm(&t, utc) == (time_t) -1)
+        if (mktime_or_timegm(&t, utc) < 0)
                 return false;
 
         k = t.tm_wday == 0 ? 6 : t.tm_wday - 1;
@@ -1228,6 +1228,9 @@ int calendar_spec_next_usec(const CalendarSpec *spec, usec_t usec, usec_t *next)
         assert(spec);
         assert(next);
 
+        if (usec > USEC_TIMESTAMP_FORMATTABLE_MAX)
+                return -EINVAL;
+
         usec++;
         t = (time_t) (usec / USEC_PER_SEC);
         assert_se(localtime_or_gmtime_r(&t, &tm, spec->utc));
@@ -1238,7 +1241,7 @@ int calendar_spec_next_usec(const CalendarSpec *spec, usec_t usec, usec_t *next)
                 return r;
 
         t = mktime_or_timegm(&tm, spec->utc);
-        if (t == (time_t) -1)
+        if (t < 0)
                 return -EINVAL;
 
         *next = (usec_t) t * USEC_PER_SEC + tm_usec;

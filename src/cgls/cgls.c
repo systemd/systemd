@@ -149,7 +149,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (arg_machine && arg_show_unit != SHOW_UNIT_NONE) {
-                log_error("Cannot combine --unit or --user-unit with --machine.");
+                log_error("Cannot combine --unit or --user-unit with --machine=.");
                 return -EINVAL;
         }
 

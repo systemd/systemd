@@ -185,7 +185,7 @@ usec_t triple_timestamp_by_clock(triple_timestamp *ts, clockid_t clock) {
 usec_t timespec_load(const struct timespec *ts) {
         assert(ts);
 
-        if (ts->tv_sec == (time_t) -1 && ts->tv_nsec == (long) -1)
+        if (ts->tv_sec < 0 || ts->tv_nsec < 0)
                 return USEC_INFINITY;
 
         if ((usec_t) ts->tv_sec > (UINT64_MAX - (ts->tv_nsec / NSEC_PER_USEC)) / USEC_PER_SEC)
@@ -199,7 +199,7 @@ usec_t timespec_load(const struct timespec *ts) {
 nsec_t timespec_load_nsec(const struct timespec *ts) {
         assert(ts);
 
-        if (ts->tv_sec == (time_t) -1 && ts->tv_nsec == (long) -1)
+        if (ts->tv_sec < 0 || ts->tv_nsec < 0)
                 return NSEC_INFINITY;
 
         if ((nsec_t) ts->tv_sec >= (UINT64_MAX - ts->tv_nsec) / NSEC_PER_SEC)
@@ -211,7 +211,8 @@ nsec_t timespec_load_nsec(const struct timespec *ts) {
 struct timespec *timespec_store(struct timespec *ts, usec_t u)  {
         assert(ts);
 
-        if (u == USEC_INFINITY) {
+        if (u == USEC_INFINITY ||
+            u / USEC_INFINITY >= TIME_T_MAX) {
                 ts->tv_sec = (time_t) -1;
                 ts->tv_nsec = (long) -1;
                 return ts;
@@ -226,8 +227,7 @@ struct timespec *timespec_store(struct timespec *ts, usec_t u)  {
 usec_t timeval_load(const struct timeval *tv) {
         assert(tv);
 
-        if (tv->tv_sec == (time_t) -1 &&
-            tv->tv_usec == (suseconds_t) -1)
+        if (tv->tv_sec < 0 || tv->tv_usec < 0)
                 return USEC_INFINITY;
 
         if ((usec_t) tv->tv_sec > (UINT64_MAX - tv->tv_usec) / USEC_PER_SEC)
@@ -241,7 +241,8 @@ usec_t timeval_load(const struct timeval *tv) {
 struct timeval *timeval_store(struct timeval *tv, usec_t u) {
         assert(tv);
 
-        if (u == USEC_INFINITY) {
+        if (u == USEC_INFINITY||
+            u / USEC_PER_SEC > TIME_T_MAX) {
                 tv->tv_sec = (time_t) -1;
                 tv->tv_usec = (suseconds_t) -1;
         } else {
@@ -288,9 +289,11 @@ static char *format_timestamp_internal(
         if (t <= 0 || t == USEC_INFINITY)
                 return NULL; /* Timestamp is unset */
 
+        /* Let's not format times with years > 9999 */
+        if (t > USEC_TIMESTAMP_FORMATTABLE_MAX)
+                return NULL;
+
         sec = (time_t) (t / USEC_PER_SEC); /* Round down */
-        if ((usec_t) sec != (t / USEC_PER_SEC))
-                return NULL; /* overflow? */
 
         if (!localtime_or_gmtime_r(&sec, &tm, utc))
                 return NULL;
@@ -551,12 +554,12 @@ void dual_timestamp_serialize(FILE *f, const char *name, dual_timestamp *t) {
 }
 
 int dual_timestamp_deserialize(const char *value, dual_timestamp *t) {
-        unsigned long long a, b;
+        uint64_t a, b;
 
         assert(value);
         assert(t);
 
-        if (sscanf(value, "%llu %llu", &a, &b) != 2) {
+        if (sscanf(value, "%" PRIu64 "%" PRIu64, &a, &b) != 2) {
                 log_debug("Failed to parse dual timestamp value \"%s\": %m", value);
                 return -EINVAL;
         }
@@ -830,16 +833,23 @@ parse_usec:
 
 from_tm:
         x = mktime_or_timegm(&tm, utc);
-        if (x == (time_t) -1)
+        if (x < 0)
                 return -EINVAL;
 
         if (weekday >= 0 && tm.tm_wday != weekday)
                 return -EINVAL;
 
         ret = (usec_t) x * USEC_PER_SEC + x_usec;
+        if (ret > USEC_TIMESTAMP_FORMATTABLE_MAX)
+                return -EINVAL;
 
 finish:
+        if (ret + plus < ret) /* overflow? */
+                return -EINVAL;
         ret += plus;
+        if (ret > USEC_TIMESTAMP_FORMATTABLE_MAX)
+                return -EINVAL;
+
         if (ret > minus)
                 ret -= minus;
         else

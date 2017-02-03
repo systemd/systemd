@@ -17,9 +17,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "random-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "random-util.h"
 
 static void test_parse_sec(void) {
         usec_t u;
@@ -248,6 +249,30 @@ static void test_format_timestamp(void) {
         }
 }
 
+static void test_format_timestamp_utc_one(usec_t t, const char *result) {
+        char buf[FORMAT_TIMESTAMP_MAX];
+
+        assert_se(!format_timestamp_utc(buf, sizeof(buf), t) == !result);
+
+        if (result)
+                assert_se(streq(result, buf));
+}
+
+static void test_format_timestamp_utc(void) {
+        test_format_timestamp_utc_one(0, NULL);
+        test_format_timestamp_utc_one(1, "Thu 1970-01-01 00:00:00 UTC");
+        test_format_timestamp_utc_one(USEC_PER_SEC, "Thu 1970-01-01 00:00:01 UTC");
+
+#if SIZEOF_TIME_T == 8
+        test_format_timestamp_utc_one(USEC_TIMESTAMP_FORMATTABLE_MAX, "Thu 9999-12-30 23:59:59 UTC");
+#elif SIZEOF_TIME_T == 4
+        test_format_timestamp_utc_one(USEC_TIMESTAMP_FORMATTABLE_MAX, "Tue 2038-01-19 03:14:07 UTC");
+#endif
+
+        test_format_timestamp_utc_one(USEC_TIMESTAMP_FORMATTABLE_MAX+1, NULL);
+        test_format_timestamp_utc_one(USEC_INFINITY, NULL);
+}
+
 int main(int argc, char *argv[]) {
         uintmax_t x;
 
@@ -262,6 +287,7 @@ int main(int argc, char *argv[]) {
         test_usec_add();
         test_usec_sub();
         test_format_timestamp();
+        test_format_timestamp_utc();
 
         /* Ensure time_t is signed */
         assert_cc((time_t) -1 < (time_t) 1);

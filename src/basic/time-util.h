@@ -181,3 +181,14 @@ static inline usec_t usec_sub(usec_t timestamp, int64_t delta) {
 
         return timestamp - delta;
 }
+
+#if SIZEOF_TIME_T == 8
+/* The last second we can format is 31. Dec 9999, 1s before midnight, because otherwise we'd enter 5 digit year
+ * territory. However, since we want to stay away from this in all timezones we take one day off. */
+#define USEC_TIMESTAMP_FORMATTABLE_MAX ((usec_t) 253402214399000000)
+#elif SIZEOF_TIME_T == 4
+/* With a 32bit time_t we can't go beyond 2038... */
+#define USEC_TIMESTAMP_FORMATTABLE_MAX ((usec_t) 2147483647000000)
+#else
+#error "Yuck, time_t is neither 4 not 8 bytes wide?"
+#endif

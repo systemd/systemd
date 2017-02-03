@@ -2317,14 +2317,16 @@ static int inner_child(
                 memcpy_safe(a + 1, arg_parameters, m * sizeof(char*));
                 a[1 + m] = NULL;
 
-                exec_target = a[0] = (char*) "/usr/lib/systemd/systemd";
+                a[0] = (char*) "/usr/lib/systemd/systemd";
                 execve(a[0], a, env_use);
 
-                exec_target = a[0] = (char*) "/lib/systemd/systemd";
+                a[0] = (char*) "/lib/systemd/systemd";
                 execve(a[0], a, env_use);
 
-                exec_target = a[0] = (char*) "/sbin/init";
+                a[0] = (char*) "/sbin/init";
                 execve(a[0], a, env_use);
+
+                exec_target = "/usr/lib/systemd/systemd, /lib/systemd/systemd, /sbin/init";
         } else if (!strv_isempty(arg_parameters)) {
                 exec_target = arg_parameters[0];
                 execvpe(arg_parameters[0], arg_parameters, env_use);
@@ -2333,11 +2335,10 @@ static int inner_child(
                         /* If we cannot change the directory, we'll end up in /, that is expected. */
                         (void) chdir(home ?: "/root");
 
-                exec_target = "/bin/bash";
                 execle("/bin/bash", "-bash", NULL, env_use);
-
-                exec_target = "/bin/sh";
                 execle("/bin/sh", "-sh", NULL, env_use);
+
+                exec_target = "/bin/bash, /bin/sh";
         }
 
         r = -errno;
