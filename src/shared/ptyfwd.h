@@ -51,4 +51,6 @@ bool pty_forward_is_done(PTYForward *f);
 
 void pty_forward_set_handler(PTYForward *f, PTYForwardHandler handler, void *userdata);
 
+bool pty_forward_drain(PTYForward *f);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(PTYForward*, pty_forward_free);

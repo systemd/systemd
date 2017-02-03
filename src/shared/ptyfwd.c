@@ -69,6 +69,7 @@ struct PTYForward {
         bool read_from_master:1;
 
         bool done:1;
+        bool drain:1;
 
         bool last_char_set:1;
         char last_char;
@@ -302,6 +303,11 @@ static int shovel(PTYForward *f) {
                         return pty_forward_done(f, 0);
         }
 
+        /* If we were asked to drain, and there's nothing more to handle from the master, then call the callback
+         * too. */
+        if (f->drain && f->out_buffer_full == 0 && !f->master_readable)
+                return pty_forward_done(f, 0);
+
         return 0;
 }
 
@@ -438,6 +444,9 @@ int pty_forward_new(
                 r = sd_event_add_io(f->event, &f->stdin_event_source, STDIN_FILENO, EPOLLIN|EPOLLET, on_stdin_event, f);
                 if (r < 0 && r != -EPERM)
                         return r;
+
+                if (r >= 0)
+                        (void) sd_event_source_set_description(f->stdin_event_source, "ptyfwd-stdin");
         }
 
         r = sd_event_add_io(f->event, &f->stdout_event_source, STDOUT_FILENO, EPOLLOUT|EPOLLET, on_stdout_event, f);
@@ -446,14 +455,20 @@ int pty_forward_new(
                 f->stdout_writable = true;
         else if (r < 0)
                 return r;
+        else
+                (void) sd_event_source_set_description(f->stdout_event_source, "ptyfwd-stdout");
 
         r = sd_event_add_io(f->event, &f->master_event_source, master, EPOLLIN|EPOLLOUT|EPOLLET, on_master_event, f);
         if (r < 0)
                 return r;
 
+        (void) sd_event_source_set_description(f->master_event_source, "ptyfwd-master");
+
         r = sd_event_add_signal(f->event, &f->sigwinch_event_source, SIGWINCH, on_sigwinch_event, f);
         if (r < 0)
                 return r;
+
+        (void) sd_event_source_set_description(f->sigwinch_event_source, "ptyfwd-sigwinch");
 
         *ret = f;
         f = NULL;
@@ -518,4 +533,19 @@ void pty_forward_set_handler(PTYForward *f, PTYForwardHandler cb, void *userdata
 
         f->handler = cb;
         f->userdata = userdata;
+}
+
+bool pty_forward_drain(PTYForward *f) {
+        assert(f);
+
+        /* Starts draining the forwarder. Specifically:
+         *
+         * - Returns true if there are no unprocessed bytes from the pty, false otherwise
+         *
+         * - Makes sure the handler function is called the next time the number of unprocessed bytes hits zero
+         */
+
+        f->drain = true;
+
+        return f->out_buffer_full == 0 && !f->master_readable;
 }

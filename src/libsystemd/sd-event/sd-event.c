@@ -2226,10 +2226,15 @@ static int process_signal(sd_event *e, struct signal_data *d, uint32_t events) {
 }
 
 static int source_dispatch(sd_event_source *s) {
+        EventSourceType saved_type;
         int r = 0;
 
         assert(s);
         assert(s->pending || s->type == SOURCE_EXIT);
+
+        /* Save the event source type, here, so that we still know it after the event callback which might invalidate
+         * the event. */
+        saved_type = s->type;
 
         if (s->type != SOURCE_DEFER && s->type != SOURCE_EXIT) {
                 r = source_set_pending(s, false);
@@ -2318,7 +2323,7 @@ static int source_dispatch(sd_event_source *s) {
 
         if (r < 0)
                 log_debug_errno(r, "Event source %s (type %s) returned error, disabling: %m",
-                                strna(s->description), event_source_type_to_string(s->type));
+                                strna(s->description), event_source_type_to_string(saved_type));
 
         if (s->n_ref == 0)
                 source_free(s);

@@ -403,6 +403,11 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
+        if (arg_pty && arg_no_block) {
+                log_error("--pty is not compatible with --no-block.");
+                return -EINVAL;
+        }
+
         if (arg_scope && with_timer()) {
                 log_error("Timer options are not supported in --scope mode.");
                 return -EINVAL;
@@ -784,21 +789,23 @@ static void run_context_free(RunContext *c) {
 }
 
 static void run_context_check_done(RunContext *c) {
-        bool done = true;
+        bool done;
 
         assert(c);
 
         if (c->match)
-                done = done && (c->active_state && STR_IN_SET(c->active_state, "inactive", "failed"));
+                done = STRPTR_IN_SET(c->active_state, "inactive", "failed");
+        else
+                done = true;
 
-        if (c->forward)
-                done = done && pty_forward_is_done(c->forward);
+        if (c->forward && done) /* If the service is gone, it's time to drain the output */
+                done = pty_forward_drain(c->forward);
 
         if (done)
                 sd_event_exit(c->event, EXIT_SUCCESS);
 }
 
-static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int run_context_update(RunContext *c, const char *path) {
 
         static const struct bus_properties_map map[] = {
                 { "ActiveState",                      "s", NULL, offsetof(RunContext, active_state)        },
@@ -811,12 +818,11 @@ static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error
                 {}
         };
 
-        RunContext *c = userdata;
         int r;
 
         r = bus_map_all_properties(c->bus,
                                    "org.freedesktop.systemd1",
-                                   sd_bus_message_get_path(m),
+                                   path,
                                    map,
                                    c);
         if (r < 0) {
@@ -826,6 +832,15 @@ static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error
 
         run_context_check_done(c);
         return 0;
+}
+
+static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        RunContext *c = userdata;
+
+        assert(m);
+        assert(c);
+
+        return run_context_update(c, sd_bus_message_get_path(m));
 }
 
 static int pty_forward_handler(PTYForward *f, int rcode, void *userdata) {
@@ -985,6 +1000,8 @@ static int start_transient_service(
 
         if (arg_wait || master >= 0) {
                 _cleanup_(run_context_free) RunContext c = {};
+                _cleanup_free_ char *path = NULL;
+                const char *mt;
 
                 c.bus = sd_bus_ref(bus);
 
@@ -1007,27 +1024,27 @@ static int start_transient_service(
                         pty_forward_set_handler(c.forward, pty_forward_handler, &c);
                 }
 
-                if (arg_wait) {
-                        _cleanup_free_ char *path = NULL;
-                        const char *mt;
 
-                        path = unit_dbus_path_from_name(service);
-                        if (!path)
-                                return log_oom();
+                path = unit_dbus_path_from_name(service);
+                if (!path)
+                        return log_oom();
 
-                        mt = strjoina("type='signal',"
-                                      "sender='org.freedesktop.systemd1',"
-                                      "path='", path, "',"
-                                      "interface='org.freedesktop.DBus.Properties',"
-                                      "member='PropertiesChanged'");
-                        r = sd_bus_add_match(bus, &c.match, mt, on_properties_changed, &c);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add properties changed signal.");
+                mt = strjoina("type='signal',"
+                              "sender='org.freedesktop.systemd1',"
+                              "path='", path, "',"
+                              "interface='org.freedesktop.DBus.Properties',"
+                              "member='PropertiesChanged'");
+                r = sd_bus_add_match(bus, &c.match, mt, on_properties_changed, &c);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add properties changed signal.");
 
-                        r = sd_bus_attach_event(bus, c.event, 0);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to attach bus to event loop.");
-                }
+                r = sd_bus_attach_event(bus, c.event, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to attach bus to event loop.");
+
+                r = run_context_update(&c, path);
+                if (r < 0)
+                        return r;
 
                 r = sd_event_loop(c.event);
                 if (r < 0)
@@ -1041,7 +1058,13 @@ static int start_transient_service(
                                 fputc('\n', stdout);
                 }
 
-                if (!arg_quiet) {
+                if (arg_wait && !arg_quiet) {
+
+                        /* Explicitly destroy the PTY forwarder, so that the PTY device is usable again, in its
+                         * original settings (i.e. proper line breaks), so that we can show the summary in a pretty
+                         * way. */
+                        c.forward = pty_forward_free(c.forward);
+
                         if (!isempty(c.result))
                                 log_info("Finished with result: %s", strna(c.result));
 
@@ -1416,7 +1439,7 @@ int main(int argc, char* argv[]) {
 
         /* If --wait is used connect via the bus, unconditionally, as ref/unref is not supported via the limited direct
          * connection */
-        if (arg_wait)
+        if (arg_wait || arg_pty)
                 r = bus_connect_transport(arg_transport, arg_host, arg_user, &bus);
         else
                 r = bus_connect_transport_systemd(arg_transport, arg_host, arg_user, &bus);
