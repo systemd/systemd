@@ -586,12 +586,10 @@ int session_start(Session *s) {
 
         /* Send signals */
         session_send_signal(s, true);
-        user_send_changed(s->user, "Sessions", "Display", NULL);
+        user_send_changed(s->user, "Display", NULL);
         if (s->seat) {
                 if (s->seat->active == s)
-                        seat_send_changed(s->seat, "Sessions", "ActiveSession", NULL);
-                else
-                        seat_send_changed(s->seat, "Sessions", NULL);
+                        seat_send_changed(s->seat, "ActiveSession", NULL);
         }
 
         return 0;
@@ -698,11 +696,10 @@ int session_finalize(Session *s) {
                         seat_set_active(s->seat, NULL);
 
                 seat_save(s->seat);
-                seat_send_changed(s->seat, "Sessions", NULL);
         }
 
         user_save(s->user);
-        user_send_changed(s->user, "Sessions", "Display", NULL);
+        user_send_changed(s->user, "Display", NULL);
 
         return 0;
 }
