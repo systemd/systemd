@@ -100,7 +100,7 @@ static void help(void) {
                "                                  Set automount unit property\n"
                "     --bind-device                Bind automount unit to device\n"
                "     --list                       List mountable block devices\n"
-               "  -u --umount | --unmount         Unmount a transient mount point\n"
+               "  -u --umount                     Unmount a transient mount point\n"
                , program_invocation_short_name);
 }
 
@@ -155,6 +155,9 @@ static int parse_argv(int argc, char *argv[]) {
 
         assert(argc >= 0);
         assert(argv);
+
+        if (strstr(program_invocation_short_name, "systemd-umount"))
+                        arg_action = ACTION_UMOUNT;
 
         while ((c = getopt_long(argc, argv, "hqH:M:t:o:p:A:u", options, NULL)) >= 0)
 
@@ -277,10 +280,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-
-        if (strstr(program_invocation_short_name, "systemd-umount")) {
-                        arg_action = ACTION_UMOUNT;
-        }
 
         if (arg_user && arg_transport != BUS_TRANSPORT_LOCAL) {
                 log_error("Execution in user context is not supported on non-local systems.");
@@ -619,9 +618,10 @@ static int start_transient_automount(
         return 0;
 }
 
-static int stop_transient_mount(
+static int stop_mount(
                 sd_bus *bus,
-                char **argv) {
+                char **argv,
+                const char *suffix) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -635,7 +635,7 @@ static int stop_transient_mount(
                         return log_error_errno(r, "Could not watch jobs: %m");
         }
 
-        r = unit_name_from_path(arg_mount_where, ".mount", &mount_unit);
+        r = unit_name_from_path(arg_mount_where, suffix, &mount_unit);
         if (r < 0)
                 return log_error_errno(r, "Failed to make mount unit name: %m");
 
@@ -662,7 +662,7 @@ static int stop_transient_mount(
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0)
-                return log_error_errno(r, "Failed to stop transient mount unit: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to stop mount unit: %s", bus_error_message(&error, r));
 
         if (w) {
                 const char *object;
@@ -684,82 +684,17 @@ static int stop_transient_mount(
         return 0;
 }
 
-static int stop_transient_automount(
-                sd_bus *bus,
-                char **argv) {
-
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
-        _cleanup_free_ char *automount_unit = NULL;
-        int r;
-
-        if (!arg_no_block) {
-                r = bus_wait_for_jobs_new(bus, &w);
-                if (r < 0)
-                        return log_error_errno(r, "Could not watch jobs: %m");
-        }
-
-        r = unit_name_from_path(arg_mount_where, ".automount", &automount_unit);
-        if (r < 0)
-                return log_error_errno(r, "Failed to make automount unit name: %m");
-
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StopUnit");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        /* Name and mode */
-        r = sd_bus_message_append(m, "ss", automount_unit, "fail");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        polkit_agent_open_if_enabled();
-
-        r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0)
-                return log_error_errno(r, "Failed to stop transient automount unit: %s", bus_error_message(&error, r));
-
-        if (w) {
-                const char *object;
-
-                r = sd_bus_message_read(reply, "o", &object);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = bus_wait_for_jobs_one(w, object, arg_quiet);
-                if (r < 0)
-                        return r;
-        }
-
-        if (!arg_quiet)
-                log_info("Stopped unit %s%s%s for automount point: %s%s%s",
-                         ansi_highlight(), automount_unit, ansi_normal(),
-                         ansi_highlight(), arg_mount_where, ansi_normal());
-
-        return 0;
-}
-
-static int stop_transient_mounts(
+static int stop_mounts(
                 sd_bus *bus,
                 char **argv) {
 
         int r;
 
-        r = stop_transient_mount(bus, argv + optind);
+        r = stop_mount(bus, argv + optind, ".mount");
         if (r < 0)
                 return r;
 
-        r = stop_transient_automount(bus, argv + optind);
+        r = stop_mount(bus, argv + optind, ".automount");
         if (r < 0)
                 return r;
 
@@ -1253,7 +1188,7 @@ int main(int argc, char* argv[]) {
                 break;
 
         case ACTION_UMOUNT:
-                r = stop_transient_mounts(bus, argv + optind);
+                r = stop_mounts(bus, argv + optind);
                 break;
 
         default:
