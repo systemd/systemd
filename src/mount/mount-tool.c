@@ -123,7 +123,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_AUTOMOUNT_PROPERTY,
                 ARG_BIND_DEVICE,
                 ARG_LIST,
-                ARG_UMOUNT,
         };
 
         static const struct option options[] = {
@@ -147,8 +146,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "automount-property", required_argument, NULL, ARG_AUTOMOUNT_PROPERTY },
                 { "bind-device",        no_argument,       NULL, ARG_BIND_DEVICE        },
                 { "list",               no_argument,       NULL, ARG_LIST               },
-                { "umount",             no_argument,       NULL, ARG_UMOUNT             },
-                { "unmount",            no_argument,       NULL, ARG_UMOUNT             },
+                { "umount",             no_argument,       NULL, 'u'                    },
+                { "unmount",            no_argument,       NULL, 'u'                    },
                 {},
         };
 
@@ -157,7 +156,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hqH:M:t:o:p:A", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hqH:M:t:o:p:A:u", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -268,7 +267,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = ACTION_LIST;
                         break;
 
-                case ARG_UMOUNT:
+                case 'u':
                         arg_action = ACTION_UMOUNT;
                         break;
 
