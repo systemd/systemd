@@ -815,13 +815,10 @@ static int get_fixed_user(const ExecContext *c, const char **user,
 
         assert(c);
 
-        if (!c->user)
-                return 0;
-
         /* Note that we don't set $HOME or $SHELL if they are not particularly enlightening anyway
          * (i.e. are "/" or "/bin/nologin"). */
 
-        name = c->user;
+        name = c->user ?: "root";
         r = get_user_creds_clean(&name, uid, gid, home, shell);
         if (r < 0)
                 return r;

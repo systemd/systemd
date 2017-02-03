@@ -1694,9 +1694,7 @@
         <term><varname>$SHELL</varname></term>
 
         <listitem><para>User name (twice), home directory, and the
-        login shell. The variables are set for the units that have
-        <varname>User=</varname> set, which includes user
-        <command>systemd</command> instances. See
+        login shell. See
         <citerefentry project='die-net'><refentrytitle>passwd</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
