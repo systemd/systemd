@@ -167,6 +167,9 @@ struct Unit {
          * process SIGCHLD for */
         Set *pids;
 
+        Set *deferred_dropin_dependencies;
+        Set *deferred_dropin_units;
+
         /* Used in sigchld event invocation to avoid repeat events being invoked */
         uint64_t sigchldgen;
 
@@ -486,6 +489,8 @@ void unit_free(Unit *u);
 
 int unit_new_for_name(Manager *m, size_t size, const char *name, Unit **ret);
 int unit_add_name(Unit *u, const char *name);
+
+int unit_reserve_dependency(Unit *u, UnitDependency d, Unit *other, bool add_reference);
 
 int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_reference);
 int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit *other, bool add_reference);

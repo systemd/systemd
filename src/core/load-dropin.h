@@ -32,3 +32,5 @@ static inline int unit_find_dropin_paths(Unit *u, char ***paths) {
 }
 
 int unit_load_dropin(Unit *u);
+void unit_load_deferred_dropin_dependencies(Unit *u);
+int unit_load_reserve_deferred_dropin_dependencies(Unit *u);
