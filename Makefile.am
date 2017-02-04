@@ -673,6 +673,15 @@ EXTRA_DIST += \
 
 @INTLTOOL_POLICY_RULE@
 
+systemd-mount-install-hook:
+	-$(LN_S) systemd-mount $(DESTDIR)$(bindir)/systemd-umount
+
+systemd-mount-uninstall-hook:
+	-rm $(DESTDIR)$(bindir)/systemd-umount
+
+INSTALL_EXEC_HOOKS += systemd-mount-install-hook
+UNINSTALL_EXEC_HOOKS += systemd-mount-uninstall-hook
+
 # ------------------------------------------------------------------------------
 
 MANPAGES =

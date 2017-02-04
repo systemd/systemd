@@ -100,7 +100,7 @@ static void help(void) {
                "                                  Set automount unit property\n"
                "     --bind-device                Bind automount unit to device\n"
                "     --list                       List mountable block devices\n"
-               "  -u --umount                     Unmount a mount point\n"
+               "  -u --umount                     Unmount mount points\n"
                , program_invocation_short_name);
 }
 
