@@ -100,7 +100,7 @@ static void help(void) {
                "                                  Set automount unit property\n"
                "     --bind-device                Bind automount unit to device\n"
                "     --list                       List mountable block devices\n"
-               "  -u --umount                     Unmount a transient mount point\n"
+               "  -u --umount                     Unmount a mount point\n"
                , program_invocation_short_name);
 }
 
@@ -159,7 +159,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (strstr(program_invocation_short_name, "systemd-umount"))
                         arg_action = ACTION_UMOUNT;
 
-        while ((c = getopt_long(argc, argv, "hqH:M:t:o:p:A:u", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hqH:M:t:o:p:Au", options, NULL)) >= 0)
 
                 switch (c) {
 
