@@ -815,13 +815,10 @@ static int get_fixed_user(const ExecContext *c, const char **user,
 
         assert(c);
 
-        if (!c->user)
-                return 0;
-
         /* Note that we don't set $HOME or $SHELL if they are not particularly enlightening anyway
          * (i.e. are "/" or "/bin/nologin"). */
 
-        name = c->user;
+        name = c->user ?: "root";
         r = get_user_creds_clean(&name, uid, gid, home, shell);
         if (r < 0)
                 return r;
@@ -2439,11 +2436,12 @@ static int exec_child(
                 }
 
         if (context->utmp_id)
-                utmp_put_init_process(context->utmp_id, getpid(), getsid(0), context->tty_path,
+                utmp_put_init_process(context->utmp_id, getpid(), getsid(0),
+                                      context->tty_path,
                                       context->utmp_mode == EXEC_UTMP_INIT  ? INIT_PROCESS :
                                       context->utmp_mode == EXEC_UTMP_LOGIN ? LOGIN_PROCESS :
                                       USER_PROCESS,
-                                      username ? "root" : context->user);
+                                      username);
 
         if (context->user) {
                 r = chown_terminal(STDIN_FILENO, uid);
