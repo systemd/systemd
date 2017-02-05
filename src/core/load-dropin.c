@@ -47,6 +47,13 @@ static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suff
 
                 entry = basename(*p);
 
+                if (null_or_empty_path(*p) > 0) {
+                        /* an error usually means an invalid symlink, which is not a mask */
+                        log_unit_debug(u, "%s dependency on %s is masked by %s, ignoring.",
+                                       unit_dependency_to_string(dependency), entry, *p);
+                        continue;
+                }
+
                 r = is_symlink(*p);
                 if (r < 0) {
                         log_unit_warning_errno(u, r, "%s dropin %s unreadable, ignoring: %m",
