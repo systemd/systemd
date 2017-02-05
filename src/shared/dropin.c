@@ -173,7 +173,7 @@ static int iterate_dir(
         return 0;
 }
 
-int unit_file_process_dir(
+static int unit_file_process_dir(
                 const char *original_root,
                 Set *unit_path_cache,
                 const char *unit_path,
@@ -221,6 +221,8 @@ int unit_file_find_dropin_paths(
                 const char *original_root,
                 char **lookup_path,
                 Set *unit_path_cache,
+                const char *dir_suffix,
+                const char *file_suffix,
                 Set *names,
                 char ***paths) {
 
@@ -235,16 +237,17 @@ int unit_file_find_dropin_paths(
                 char **p;
 
                 STRV_FOREACH(p, lookup_path)
-                        unit_file_process_dir(original_root, unit_path_cache, *p, t, ".d",
+                        unit_file_process_dir(original_root, unit_path_cache,
+                                              *p, t, dir_suffix,
                                               _UNIT_DEPENDENCY_INVALID, NULL, NULL, &strv);
         }
 
         if (strv_isempty(strv))
                 return 0;
 
-        r = conf_files_list_strv(&ans, ".conf", NULL, (const char**) strv);
+        r = conf_files_list_strv(&ans, file_suffix, NULL, (const char**) strv);
         if (r < 0)
-                return log_warning_errno(r, "Failed to get list of configuration files: %m");
+                return log_warning_errno(r, "Failed to sort the list of configuration files: %m");
 
         *paths = ans;
         ans = NULL;

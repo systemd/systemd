@@ -44,20 +44,24 @@ typedef int (*dependency_consumer_t)(UnitDependency dependency,
                                      const char* filepath,
                                      void *arg);
 
-int unit_file_process_dir(
-                const char *original_root,
-                Set * unit_path_cache,
-                const char *unit_path,
-                const char *name,
-                const char *suffix,
-                UnitDependency dependency,
-                dependency_consumer_t consumer,
-                void *arg,
-                char ***strv);
-
 int unit_file_find_dropin_paths(
                 const char *original_root,
                 char **lookup_path,
                 Set *unit_path_cache,
+                const char *dir_suffix,
+                const char *file_suffix,
                 Set *names,
                 char ***paths);
+
+static inline int unit_file_find_dropin_conf_paths(
+                const char *original_root,
+                char **lookup_path,
+                Set *unit_path_cache,
+                Set *names,
+                char ***paths) {
+        return unit_file_find_dropin_paths(original_root,
+                                           lookup_path,
+                                           unit_path_cache,
+                                           ".d", ".conf",
+                                           names, paths);
+}

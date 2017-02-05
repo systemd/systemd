@@ -22,50 +22,71 @@
 #include "load-dropin.h"
 #include "load-fragment.h"
 #include "log.h"
+#include "stat-util.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "unit.h"
 
-static int add_dependency_consumer(
-                UnitDependency dependency,
-                const char *entry,
-                const char* filepath,
-                void *arg) {
-        Unit *u = arg;
+static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suffix) {
+        _cleanup_strv_free_ char **paths = NULL;
+        char **p;
         int r;
 
-        assert(u);
-
-        r = unit_add_dependency_by_name(u, dependency, entry, filepath, true);
+        r = unit_file_find_dropin_paths(NULL,
+                                        u->manager->lookup_paths.search_path,
+                                        u->manager->unit_path_cache,
+                                        dir_suffix,
+                                        NULL,
+                                        u->names,
+                                        &paths);
         if (r < 0)
-                log_error_errno(r, "Cannot add dependency %s to %s, ignoring: %m", entry, u->id);
+                return r;
+
+        STRV_FOREACH(p, paths) {
+                const char *entry;
+
+                entry = basename(*p);
+
+                r = is_symlink(*p);
+                if (r < 0) {
+                        log_unit_warning_errno(u, r, "%s dropin %s unreadable, ignoring: %m",
+                                               unit_dependency_to_string(dependency), *p);
+                        continue;
+                }
+                if (r == 0) {
+                        log_unit_warning(u, "%s dependency dropin %s is not a symlink, ignoring.",
+                                         unit_dependency_to_string(dependency), *p);
+                        continue;
+                }
+
+                /* TODO: add more checks on the symlink name and target here */
+
+                r = unit_add_dependency_by_name(u, dependency, entry, *p, true);
+                if (r < 0)
+                        log_unit_error_errno(u, r, "cannot add %s dependency on %s, ignoring: %m",
+                                             unit_dependency_to_string(dependency), entry);
+        }
 
         return 0;
 }
 
 int unit_load_dropin(Unit *u) {
         _cleanup_strv_free_ char **l = NULL;
-        Iterator i;
-        char *t, **f;
+        char **f;
         int r;
 
         assert(u);
 
-        /* Load dependencies from supplementary drop-in directories */
+        /* Load dependencies from .wants and .requires directories */
+        r = process_deps(u, UNIT_WANTS, ".wants");
+        if (r < 0)
+                return r;
 
-        SET_FOREACH(t, u->names, i) {
-                char **p;
+        r = process_deps(u, UNIT_REQUIRES, ".requires");
+        if (r < 0)
+                return r;
 
-                STRV_FOREACH(p, u->manager->lookup_paths.search_path) {
-                        unit_file_process_dir(NULL, u->manager->unit_path_cache, *p, t,
-                                              ".wants", UNIT_WANTS,
-                                              add_dependency_consumer, u, NULL);
-                        unit_file_process_dir(NULL, u->manager->unit_path_cache, *p, t,
-                                              ".requires", UNIT_REQUIRES,
-                                              add_dependency_consumer, u, NULL);
-                }
-        }
-
+        /* Load .conf dropins */
         r = unit_find_dropin_paths(u, &l);
         if (r <= 0)
                 return 0;
