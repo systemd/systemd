@@ -296,6 +296,31 @@ static int parse_argv(int argc, char *argv[]) {
                         log_error("Listing devices only supported locally.");
                         return -EOPNOTSUPP;
                 }
+        } else if (arg_action == ACTION_UMOUNT) {
+                if (optind >= argc) {
+                        log_error("At least one argument required.");
+                        return -EINVAL;
+                }
+
+                if (argc > optind+1) {
+                        log_error("At most one argument required.");
+                        return -EINVAL;
+                }
+
+                if (is_device_path(argv[optind])) {
+                        arg_mount_what = fstab_node_to_udev_node(argv[optind]);
+                        arg_discover = true;
+                } else {
+                        r = path_make_absolute_cwd(argv[optind], &arg_mount_where);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to make path absolute: %m");
+                }
+
+                if (arg_discover && arg_transport != BUS_TRANSPORT_LOCAL) {
+                        log_error("Automatic mount location discovery is only supported locally.");
+                        return -EOPNOTSUPP;
+                }
+
         } else {
                 if (optind >= argc) {
                         log_error("At least one argument required.");
@@ -1157,8 +1182,10 @@ int main(int argc, char* argv[]) {
         if (streq_ptr(arg_mount_options, "defaults"))
                 arg_mount_options = mfree(arg_mount_options);
 
-        if (!is_device_path(arg_mount_what))
-                arg_fsck = false;
+        if(arg_mount_what != NULL) {
+                if (!is_device_path(arg_mount_what))
+                        arg_fsck = false;
+        }
 
         if (arg_fsck && arg_mount_type && arg_transport == BUS_TRANSPORT_LOCAL) {
                 r = fsck_exists(arg_mount_type);
