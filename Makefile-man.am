@@ -481,6 +481,7 @@ MANPAGES_ALIAS += \
 	man/systemd-udevd-control.socket.8 \
 	man/systemd-udevd-kernel.socket.8 \
 	man/systemd-udevd.8 \
+	man/systemd-umount.1 \
 	man/systemd-update-done.8 \
 	man/systemd-user.conf.5 \
 	man/systemd-volatile-root.8 \
@@ -837,6 +838,7 @@ man/systemd-tmpfiles-setup.service.8: man/systemd-tmpfiles.8
 man/systemd-udevd-control.socket.8: man/systemd-udevd.service.8
 man/systemd-udevd-kernel.socket.8: man/systemd-udevd.service.8
 man/systemd-udevd.8: man/systemd-udevd.service.8
+man/systemd-umount.1: man/systemd-mount.1
 man/systemd-update-done.8: man/systemd-update-done.service.8
 man/systemd-user.conf.5: man/systemd-system.conf.5
 man/systemd-volatile-root.8: man/systemd-volatile-root.service.8
@@ -1785,6 +1787,9 @@ man/systemd-udevd-kernel.socket.html: man/systemd-udevd.service.html
 	$(html-alias)
 
 man/systemd-udevd.html: man/systemd-udevd.service.html
+	$(html-alias)
+
+man/systemd-umount.html: man/systemd-mount.html
 	$(html-alias)
 
 man/systemd-update-done.html: man/systemd-update-done.service.html

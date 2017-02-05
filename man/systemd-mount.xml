@@ -45,7 +45,8 @@
 
   <refnamediv>
     <refname>systemd-mount</refname>
-    <refpurpose>Establish a mount or auto-mount point transiently</refpurpose>
+    <refname>systemd-umount</refname>
+    <refpurpose>Establish and destroy transient mount or auto-mount points</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -59,6 +60,11 @@
       <command>systemd-mount</command>
       <arg choice="opt" rep="repeat"><replaceable>OPTIONS</replaceable></arg>
       <arg choice="plain"><option>--list</option></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-umount</command>
+      <arg choice="opt" rep="repeat"><replaceable>OPTIONS</replaceable></arg>
+      <arg choice="plain" rep="repeat"><replaceable>WHERE</replaceable></arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -91,6 +97,9 @@
 
     <para>Use the <option>--list</option> command to show a terse table of all local, known block devices with file
     systems that may be mounted with this command.</para>
+
+    <para><command>systemd-umount</command> can be used to unmount a mount or automount point. It is the same
+    as <command>systemd-mount</command> <option>--unmount</option>.</para>
   </refsect1>
 
   <refsect1>
@@ -237,6 +246,15 @@
         <listitem><para>Instead of establishing a mount or automount point, print a terse list of block devices
         containing file systems that may be mounted with <literal>systemd-mount</literal>, along with useful metadata
         such as labels, etc.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-u</option></term>
+        <term><option>--unmount</option></term>
+
+        <listitem><para>Stop the mount and automount units corresponding to the specified mount points
+        <replaceable>WHERE</replaceable>.</para>
+        </listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="user" />
