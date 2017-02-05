@@ -328,7 +328,7 @@ static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p) {
                 goto fail;
         }
 
-        log_info("Processing query...");
+        log_debug("Processing query...");
         return;
 
 fail:
