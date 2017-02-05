@@ -19,13 +19,36 @@
 
 
 #include "conf-parser.h"
+#include "fs-util.h"
 #include "load-dropin.h"
 #include "load-fragment.h"
 #include "log.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "unit.h"
+
+static bool unit_name_compatible(const char *a, const char *b) {
+        _cleanup_free_ char *prefix = NULL;
+        int r;
+
+        /* the straightforward case: the symlink name matches the target */
+        if (streq(a, b))
+                return true;
+
+        r = unit_name_template(a, &prefix);
+        if (r < 0) {
+                log_oom();
+                return true;
+        }
+
+        /* an instance name points to a target that is just the template name */
+        if (streq(prefix, b))
+                return true;
+
+        return false;
+}
 
 static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suffix) {
         _cleanup_strv_free_ char **paths = NULL;
@@ -44,6 +67,7 @@ static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suff
 
         STRV_FOREACH(p, paths) {
                 const char *entry;
+                _cleanup_free_ char *target = NULL;
 
                 entry = basename(*p);
 
@@ -66,7 +90,23 @@ static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suff
                         continue;
                 }
 
-                /* TODO: add more checks on the symlink name and target here */
+                if (!unit_name_is_valid(entry, UNIT_NAME_ANY)) {
+                        log_unit_warning(u, "%s dependency dropin %s is not a valid unit name, ignoring.",
+                                         unit_dependency_to_string(dependency), *p);
+                        continue;
+                }
+
+                r = readlink_malloc(*p, &target);
+                if (r < 0) {
+                        log_unit_warning_errno(u, r, "readlink(\"%s\") failed, ignoring: %m", *p);
+                        continue;
+                }
+
+                /* We don't treat this as an error, especially because we didn't check this for a
+                 * long time. Nevertheless, we warn, because such mismatch can be mighty confusing. */
+                if (!unit_name_compatible(entry, basename(target)))
+                        log_unit_warning(u, "%s dependency dropin %s target %s has different name",
+                                         unit_dependency_to_string(dependency), *p, target);
 
                 r = unit_add_dependency_by_name(u, dependency, entry, *p, true);
                 if (r < 0)
