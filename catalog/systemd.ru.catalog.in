@@ -1,7 +1,7 @@
 #  This file is part of systemd.
 #
 #  Copyright 2012 Lennart Poettering
-#  Copyright 2013-2016 Sergey Ptashnick
+#  Copyright 2013-2017 Sergey Ptashnick
 #
 #  systemd is free software; you can redistribute it and/or modify it
 #  under the terms of the GNU Lesser General Public License as published by
@@ -102,6 +102,18 @@ Documentation: man:core(5)
 Вероятно, это произошло из-за ошибки, допущенной в коде программы.
 Рекомендуется сообщить её разработчикам о возникшей проблеме.
 
+# Subject: Core file was truncated to @SIZE_LIMIT@ bytes
+-- 5aadd8e954dc4b1a8c954d63fd9e1137
+Subject: Файл с дампом памяти был урезан до @SIZE_LIMIT@ байт
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:coredump.conf(5)
+
+Объем памяти процесса превысил ограничения на размер дампа, установленные
+для systemd-coredump(8). Записаны только первые @SIZE_LIMIT@ байт. Не исключено,
+что этот дамп еще пригоден для анализа, хотя инструменты для анализа
+дампов (например, gdb(1)) могут выдать предупреждение, что файл был урезан.
+
 # Subject: A new session @SESSION_ID@ has been created for user @USER_ID@
 -- 8d45620c1a4348dbb17410da57c60c66
 Subject: Для пользователя @USER_ID@ создан новый сеанс @SESSION_ID@
@@ -174,6 +186,19 @@ Support: %SUPPORT_URL%
 Процессы начального RAM-диска (initrd) отработали за @INITRD_USEC@ микросекунд.
 
 Запуск системных служб занял @USERSPACE_USEC@ микросекунд.
+
+# Subject: User manager start-up is now complete
+-- eed00a68ffd84e31882105fd973abdd1
+Subject: Завершен запуск менеджера пользовательского сеанса
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Менеджер пользовательского сеанса для пользователя с идентификатором @_UID@
+был запущен. Все службы, стоявшие в очереди на запуск, также были запущены. Тем 
+не менее, прочие службы могут все еще находиться в процессе запуска, либо могут
+быть запущены позднее.
+
+Запуск менеджера занял @USERSPACE_USEC@ микросекунд.
 
 # Subject: System sleep state @SLEEP@ entered
 -- 6bbd95ee977941e497c48be27c254128
