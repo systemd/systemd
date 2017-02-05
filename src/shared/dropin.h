@@ -33,17 +33,6 @@ int write_drop_in(const char *dir, const char *unit, unsigned level,
 int write_drop_in_format(const char *dir, const char *unit, unsigned level,
                          const char *name, const char *format, ...) _printf_(5, 6);
 
-/**
- * This callback will be called for each directory entry @entry,
- * with @filepath being the full path to the entry.
- *
- * If return value is negative, loop will be aborted.
- */
-typedef int (*dependency_consumer_t)(UnitDependency dependency,
-                                     const char *entry,
-                                     const char* filepath,
-                                     void *arg);
-
 int unit_file_find_dropin_paths(
                 const char *original_root,
                 char **lookup_path,
