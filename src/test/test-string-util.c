@@ -29,31 +29,20 @@ static void test_string_erase(void) {
         assert_se(streq(string_erase(x), ""));
 
         x = strdupa("1");
-        assert_se(streq(string_erase(x), "x"));
-
-        x = strdupa("12");
-        assert_se(streq(string_erase(x), "xx"));
-
-        x = strdupa("123");
-        assert_se(streq(string_erase(x), "xxx"));
-
-        x = strdupa("1234");
-        assert_se(streq(string_erase(x), "xxxx"));
-
-        x = strdupa("12345");
-        assert_se(streq(string_erase(x), "xxxxx"));
-
-        x = strdupa("123456");
-        assert_se(streq(string_erase(x), "xxxxxx"));
-
-        x = strdupa("1234567");
-        assert_se(streq(string_erase(x), "xxxxxxx"));
-
-        x = strdupa("12345678");
-        assert_se(streq(string_erase(x), "xxxxxxxx"));
+        assert_se(streq(string_erase(x), ""));
 
         x = strdupa("123456789");
-        assert_se(streq(string_erase(x), "xxxxxxxxx"));
+        assert_se(streq(string_erase(x), ""));
+
+        assert_se(x[1] == '\0');
+        assert_se(x[2] == '\0');
+        assert_se(x[3] == '\0');
+        assert_se(x[4] == '\0');
+        assert_se(x[5] == '\0');
+        assert_se(x[6] == '\0');
+        assert_se(x[7] == '\0');
+        assert_se(x[8] == '\0');
+        assert_se(x[9] == '\0');
 }
 
 static void test_ascii_strcasecmp_n(void) {

@@ -821,6 +821,7 @@ int free_and_strdup(char **p, const char *s) {
         return 1;
 }
 
+#if !HAVE_DECL_EXPLICIT_BZERO
 /*
  * Pointer to memset is volatile so that compiler must de-reference
  * the pointer and can't assume that it points to any function in
@@ -831,19 +832,19 @@ typedef void *(*memset_t)(void *,int,size_t);
 
 static volatile memset_t memset_func = memset;
 
-void* memory_erase(void *p, size_t l) {
-        return memset_func(p, 'x', l);
+void explicit_bzero(void *p, size_t l) {
+        memset_func(p, '\0', l);
 }
+#endif
 
 char* string_erase(char *x) {
-
         if (!x)
                 return NULL;
 
         /* A delicious drop of snake-oil! To be called on memory where
          * we stored passphrases or so, after we used them. */
-
-        return memory_erase(x, strlen(x));
+        explicit_bzero(x, strlen(x));
+        return x;
 }
 
 char *string_free_erase(char *s) {

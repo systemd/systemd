@@ -331,13 +331,15 @@ AC_CHECK_DECLS([
         kcmp,
         keyctl,
         LO_FLAGS_PARTSCAN,
-        copy_file_range],
+        copy_file_range,
+        explicit_bzero],
         [], [], [[
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/mount.h>
 #include <fcntl.h>
 #include <sched.h>
+#include <string.h>
 #include <linux/loop.h>
 #include <linux/random.h>
 ]])

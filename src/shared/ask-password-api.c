@@ -95,7 +95,7 @@ static int retrieve_key(key_serial_t serial, char ***ret) {
                 if (n < m)
                         break;
 
-                memory_erase(p, n);
+                explicit_bzero(p, n);
                 free(p);
                 m *= 2;
         }
@@ -104,7 +104,7 @@ static int retrieve_key(key_serial_t serial, char ***ret) {
         if (!l)
                 return -ENOMEM;
 
-        memory_erase(p, n);
+        explicit_bzero(p, n);
 
         *ret = l;
         return 0;
@@ -140,7 +140,7 @@ static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **pa
                 return r;
 
         serial = add_key("user", keyname, p, n, KEY_SPEC_USER_KEYRING);
-        memory_erase(p, n);
+        explicit_bzero(p, n);
         if (serial == -1)
                 return -errno;
 
@@ -390,7 +390,7 @@ int ask_password_tty(
         }
 
         x = strndup(passphrase, p);
-        memory_erase(passphrase, p);
+        explicit_bzero(passphrase, p);
         if (!x) {
                 r = -ENOMEM;
                 goto finish;
@@ -647,7 +647,7 @@ int ask_password_agent(
                                 l = strv_new("", NULL);
                         else
                                 l = strv_parse_nulstr(passphrase+1, n-1);
-                        memory_erase(passphrase, n);
+                        explicit_bzero(passphrase, n);
                         if (!l) {
                                 r = -ENOMEM;
                                 goto finish;
