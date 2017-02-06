@@ -53,6 +53,15 @@ Features:
   the service cgroup, which is supposed to monitor the service, and when it
   exits the service is considered failed by its monitor.
 
+* track the per-service PAM process properly (i.e. as an additional control
+  process), so that it may be queried on the bus and everything.
+
+* add a new "debug" job mode, that is propagated to unit_start() and for
+  services results in two things: we raise SIGSTOP right before invoking
+  execve() and turn off watchdog support. Then, use that to implement
+  "systemd-gdb" for attaching to the start-up of any system service in its
+  natural habitat.
+
 * replace all canonicalize_file_name() invocations by chase_symlinks(), in
   particulr those where a rootdir is relevant.
 
