@@ -268,6 +268,15 @@
     <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for details.</para>
 
+    <para>Note that <function>sd_notify()</function> notifications may be attributed to units correctly only if either
+    the sending process is still around at the time PID 1 processes the message, or if the sending process is
+    explicitly runtime-tracked by the service manager. The latter is the case if the service manager originally forked
+    off the process, i.e. on all processes that match <varname>NotifyAccess=</varname><option>main</option> or
+    <varname>NotifyAccess=</varname><option>exec</option>. Conversely, if an auxiliary process of the unit sends an
+    <function>sd_notify()</function> message and immediately exits, the service manager might not be able to properly
+    attribute the message to the unit, and thus will ignore it, even if
+    <varname>NotifyAccess=</varname><option>all</option> is set for it.</para>
+
     <para><function>sd_notifyf()</function> is similar to
     <function>sd_notify()</function> but takes a
     <function>printf()</function>-like format string plus
