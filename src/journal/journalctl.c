@@ -686,7 +686,9 @@ static int parse_argv(int argc, char *argv[]) {
                         r = free_and_strdup(&arg_verify_key, optarg);
                         if (r < 0)
                                 return r;
-                        string_erase(optarg);
+                        /* Use memset not string_erase so this doesn't look confusing
+                         * in ps or htop output. */
+                        memset(optarg, 'x', strlen(optarg));
 
                         arg_merge = false;
                         break;
