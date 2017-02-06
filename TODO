@@ -35,6 +35,11 @@ Features:
   partitions automatically, to be used when the media used is actually larger
   than the image written onto it is.
 
+* Maybe add PrivatePIDs= as new unit setting, and do minimal PID namespacing
+  after all. Be strict however, only support the equivalent of nspawn's
+  --as-pid2 switch, and sanely proxy sd_notify() messages dropping stuff such
+  as MAINPID.
+
 * change the dependency Set* objects in Unit structures to become Hashmap*, and
   then store a bit mask who created a specific dependency: the source unit via
   fragment configuration, the destination unit via fragment configuration, or
