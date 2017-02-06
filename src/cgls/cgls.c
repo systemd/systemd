@@ -241,9 +241,9 @@ int main(int argc, char *argv[]) {
                                                 goto finish;
                                 }
 
-                                r = cg_split_spec(*name, &c, &p);
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to split argument %s: %m", *name);
+                                q = cg_split_spec(*name, &c, &p);
+                                if (q < 0) {
+                                        log_error_errno(q, "Failed to split argument %s: %m", *name);
                                         goto failed;
                                 }
 
