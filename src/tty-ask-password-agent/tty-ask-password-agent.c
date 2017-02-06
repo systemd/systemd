@@ -243,7 +243,7 @@ static int ask_password_plymouth(
         r = 0;
 
 finish:
-        memory_erase(buffer, sizeof(buffer));
+        explicit_bzero(buffer, sizeof(buffer));
         return r;
 }
 
@@ -283,7 +283,7 @@ static int send_passwords(const char *socket_name, char **passwords) {
                 r = log_debug_errno(errno, "sendto(): %m");
 
 finish:
-        memory_erase(packet, packet_length);
+        explicit_bzero(packet, packet_length);
         return r;
 }
 

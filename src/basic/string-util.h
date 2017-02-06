@@ -189,7 +189,10 @@ static inline void *memmem_safe(const void *haystack, size_t haystacklen, const 
         return memmem(haystack, haystacklen, needle, needlelen);
 }
 
-void* memory_erase(void *p, size_t l);
+#if !HAVE_DECL_EXPLICIT_BZERO
+void explicit_bzero(void *p, size_t l);
+#endif
+
 char *string_erase(char *x);
 
 char *string_free_erase(char *s);

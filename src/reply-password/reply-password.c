@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
         r = send_on_socket(fd, argv[2], packet, length);
 
 finish:
-        memory_erase(packet, sizeof(packet));
+        explicit_bzero(packet, sizeof(packet));
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
