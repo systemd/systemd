@@ -57,7 +57,8 @@ typedef enum SettingsMask {
         SETTING_WORKING_DIRECTORY = 1 << 12,
         SETTING_USERNS            = 1 << 13,
         SETTING_NOTIFY_READY      = 1 << 14,
-        _SETTINGS_MASK_ALL        = (1 << 15) -1
+        SETTING_PIVOT_ROOT        = 1 << 15,
+        _SETTINGS_MASK_ALL        = (1 << 16) -1
 } SettingsMask;
 
 typedef struct Settings {
@@ -72,6 +73,8 @@ typedef struct Settings {
         unsigned long personality;
         sd_id128_t machine_id;
         char *working_directory;
+        char *pivot_root_new;
+        char *pivot_root_old;
         UserNamespaceMode userns_mode;
         uid_t uid_shift, uid_range;
         bool notify_ready;
@@ -109,6 +112,7 @@ int config_parse_capability(const char *unit, const char *filename, unsigned lin
 int config_parse_id128(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_expose_port(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_volatile_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_pivot_root(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_bind(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_tmpfs(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_overlay(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);

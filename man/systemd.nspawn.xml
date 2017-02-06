@@ -202,6 +202,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>PivotRoot=</varname></term>
+
+        <listitem><para>Selects a directory to pivot to <filename>/</filename> inside the container when starting up.
+        Takes a single path, or a pair of two paths separated by a colon. Both paths must be absolute, and are resolved
+        in the container's file system namespace. This corresponds to the <option>--pivot-root=</option> command line
+        switch.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Capability=</varname></term>
         <term><varname>DropCapability=</varname></term>
 
