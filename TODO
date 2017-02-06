@@ -24,6 +24,11 @@ Janitorial Clean-ups:
 
 Features:
 
+* maybe add call sd_journal_set_block_timeout() or so to set SO_SNDTIMEO for
+  the sd-journal logging socket, and, if the timeout is set to 0, sets
+  O_NONBLOCK on it. That way people can control if and when to block for
+  logging.
+
 * journald: when we recv a log datagram via the native or syslog transports,
   search for the PID in the active stream connections, and let's make sure to
   always process the datagrams before the streams. Then, cache client metadata
