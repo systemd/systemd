@@ -1,0 +1,2 @@
+DRIVER=thermal
+MODALIAS=acpi:LNXTHERM:

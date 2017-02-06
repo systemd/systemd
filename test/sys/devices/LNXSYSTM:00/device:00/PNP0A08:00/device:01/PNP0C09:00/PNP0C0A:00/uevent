@@ -1,0 +1,2 @@
+DRIVER=battery
+MODALIAS=acpi:PNP0C0A:
