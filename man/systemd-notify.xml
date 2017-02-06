@@ -83,6 +83,13 @@
     <function>sd_notify()</function> message and immediately exits, the service manager might not be able to properly
     attribute the message to the unit, and thus will ignore it, even if
     <varname>NotifyAccess=</varname><option>all</option> is set for it.</para>
+
+    <para><command>systemd-notify</command> will first attempt to invoke <function>sd_notify()</function> pretending to
+    have the PID of the invoking process. This will only succeed when invoked with sufficient privileges. On failure,
+    it will then fall back to invoking it under its own PID. This behaviour is useful in order that when the tool is
+    invoked from a shell script the shell process — and not the <command>systemd-notify</command> process — appears as
+    sender of the message, which in turn is helpful if the shell process is the main process of a service, due to the
+    limitations of <varname>NotifyAccess=</varname><option>all</option> described above.</para>
   </refsect1>
 
   <refsect1>
