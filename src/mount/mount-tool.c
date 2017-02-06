@@ -139,6 +139,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "discover",           no_argument,       NULL, ARG_DISCOVER           },
                 { "type",               required_argument, NULL, 't'                    },
                 { "options",            required_argument, NULL, 'o'                    },
+                { "fsck",               required_argument, NULL, ARG_FSCK               },
                 { "description",        required_argument, NULL, ARG_DESCRIPTION        },
                 { "property",           required_argument, NULL, 'p'                    },
                 { "automount",          required_argument, NULL, ARG_AUTOMOUNT          },
