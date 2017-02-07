@@ -76,6 +76,14 @@ int seccomp_restrict_address_families(Set *address_families, bool whitelist);
 int seccomp_restrict_realtime(void);
 int seccomp_memory_deny_write_execute(void);
 
+#if defined(__i386__) || defined(__s390x__) || defined(__s390__) || defined(__powerpc64__) || defined(__powerpc__) || defined (__mips__)
+/* On these archs, socket() is implemented via the socketcall() syscall multiplexer, and we can't restrict it hence via
+ * seccomp */
+#define SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN 1
+#else
+#define SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN 0
+#endif
+
 extern const uint32_t seccomp_local_archs[];
 
 #define SECCOMP_FOREACH_LOCAL_ARCH(arch) \

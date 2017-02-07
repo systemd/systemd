@@ -873,6 +873,8 @@ int seccomp_protect_sysctl(void) {
 }
 
 int seccomp_restrict_address_families(Set *address_families, bool whitelist) {
+
+#if !SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN
         uint32_t arch;
         int r;
 
@@ -1001,6 +1003,7 @@ int seccomp_restrict_address_families(Set *address_families, bool whitelist) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to install socket family rules for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
         }
+#endif
 
         return 0;
 }
