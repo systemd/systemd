@@ -19,6 +19,7 @@
 
 #include <errno.h>
 #include <sys/prctl.h>
+#include <sys/statvfs.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -38,6 +39,7 @@
 #include "fs-util.h"
 #include "install.h"
 #include "log.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "selinux-access.h"
 #include "stat-util.h"
@@ -47,6 +49,10 @@
 #include "user-util.h"
 #include "virt.h"
 #include "watchdog.h"
+
+/* Require 16MiB free in /run/systemd for reloading/reexecing. After all we need to serialize our state there, and if
+ * we can't we'll fail badly. */
+#define RELOAD_DISK_SPACE_MIN (UINT64_C(16) * UINT64_C(1024) * UINT64_C(1024))
 
 static UnitFileFlags unit_file_bools_to_flags(bool runtime, bool force) {
         return (runtime ? UNIT_FILE_RUNTIME : 0) |
@@ -1312,12 +1318,50 @@ static int method_refuse_snapshot(sd_bus_message *message, void *userdata, sd_bu
         return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Support for snapshots has been removed.");
 }
 
+static int verify_run_space(const char *message, sd_bus_error *error) {
+        struct statvfs svfs;
+        uint64_t available;
+
+        if (statvfs("/run/systemd", &svfs) < 0)
+                return sd_bus_error_set_errnof(error, errno, "Failed to statvfs(/run/systemd): %m");
+
+        available = (uint64_t) svfs.f_bfree * (uint64_t) svfs.f_bsize;
+
+        if (available < RELOAD_DISK_SPACE_MIN) {
+                char fb_available[FORMAT_BYTES_MAX], fb_need[FORMAT_BYTES_MAX];
+                return sd_bus_error_setf(error,
+                                         BUS_ERROR_DISK_FULL,
+                                         "%s, not enough space available on /run/systemd. "
+                                         "Currently, %s are free, but a safety buffer of %s is enforced.",
+                                         message,
+                                         format_bytes(fb_available, sizeof(fb_available), available),
+                                         format_bytes(fb_need, sizeof(fb_need), RELOAD_DISK_SPACE_MIN));
+        }
+
+        return 0;
+}
+
+int verify_run_space_and_log(const char *message) {
+        sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        r = verify_run_space(message, &error);
+        if (r < 0)
+                log_error_errno(r, "%s", bus_error_message(&error, r));
+
+        return r;
+}
+
 static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         int r;
 
         assert(message);
         assert(m);
+
+        r = verify_run_space("Refusing to reload", error);
+        if (r < 0)
+                return r;
 
         r = mac_selinux_access_check(message, "reload", error);
         if (r < 0)
@@ -1350,6 +1394,10 @@ static int method_reexecute(sd_bus_message *message, void *userdata, sd_bus_erro
 
         assert(message);
         assert(m);
+
+        r = verify_run_space("Refusing to reexecute", error);
+        if (r < 0)
+                return r;
 
         r = mac_selinux_access_check(message, "reload", error);
         if (r < 0)
@@ -1469,10 +1517,25 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
         char *ri = NULL, *rt = NULL;
         const char *root, *init;
         Manager *m = userdata;
+        struct statvfs svfs;
+        uint64_t available;
         int r;
 
         assert(message);
         assert(m);
+
+        if (statvfs("/run/systemd", &svfs) < 0)
+                return sd_bus_error_set_errnof(error, errno, "Failed to statvfs(/run/systemd): %m");
+
+        available = (uint64_t) svfs.f_bfree * (uint64_t) svfs.f_bsize;
+
+        if (available < RELOAD_DISK_SPACE_MIN) {
+                char fb_available[FORMAT_BYTES_MAX], fb_need[FORMAT_BYTES_MAX];
+                log_warning("Dangerously low amount of free space on /run/systemd, root switching operation might not complete successfuly. "
+                            "Currently, %s are free, but %s are suggested. Proceeding anyway.",
+                            format_bytes(fb_available, sizeof(fb_available), available),
+                            format_bytes(fb_need, sizeof(fb_need), RELOAD_DISK_SPACE_MIN));
+        }
 
         r = mac_selinux_access_check(message, "reboot", error);
         if (r < 0)
