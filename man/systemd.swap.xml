@@ -195,12 +195,11 @@
       <varlistentry>
         <term><varname>Options=</varname></term>
 
-        <listitem><para>May contain an option string for the swap
-        device. This may be used for controlling discard options among
-        other functionality, if the swap backing device supports the
-        discard or trim operation. (See
+        <listitem><para>May contain an option string for the swap device. This may be used for controlling discard
+        options among other functionality, if the swap backing device supports the discard or trim operation. (See
         <citerefentry project='man-pages'><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        for more information.) </para></listitem>
+        for more information.) Note that the usual specifier expansion is applied to this setting, literal percent
+        characters should hence be written as <literal>%%</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

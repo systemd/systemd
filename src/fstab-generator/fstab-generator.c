@@ -57,6 +57,23 @@ static char *arg_usr_fstype = NULL;
 static char *arg_usr_options = NULL;
 static VolatileMode arg_volatile_mode = _VOLATILE_MODE_INVALID;
 
+static int write_options(FILE *f, const char *options) {
+        _cleanup_free_ char *o = NULL;
+
+        if (isempty(options))
+                return 0;
+
+        if (streq(options, "defaults"))
+                return 0;
+
+        o = strreplace(options, "%", "%%");
+        if (!o)
+                return log_oom();
+
+        fprintf(f, "Options=%s\n", o);
+        return 1;
+}
+
 static int add_swap(
                 const char *what,
                 struct mntent *me,
@@ -105,8 +122,9 @@ static int add_swap(
                 "What=%s\n",
                 what);
 
-        if (!isempty(me->mnt_opts) && !streq(me->mnt_opts, "defaults"))
-                fprintf(f, "Options=%s\n", me->mnt_opts);
+        r = write_options(f, me->mnt_opts);
+        if (r < 0)
+                return r;
 
         r = fflush_and_check(f);
         if (r < 0)
@@ -347,8 +365,9 @@ static int add_mount(
         if (r < 0)
                 return r;
 
-        if (!isempty(filtered) && !streq(filtered, "defaults"))
-                fprintf(f, "Options=%s\n", filtered);
+        r = write_options(f, filtered);
+        if (r < 0)
+                return r;
 
         r = fflush_and_check(f);
         if (r < 0)
