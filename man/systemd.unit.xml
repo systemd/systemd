@@ -203,7 +203,8 @@
     <filename>/run/systemd/system</filename> directories. Drop-in files in <filename>/etc</filename>
     take precedence over those in <filename>/run</filename> which in turn take precedence over those
     in <filename>/usr/lib</filename>. Drop-in files under any of these directories take precedence
-    over unit files wherever located.</para>
+    over unit files wherever located. Multiple drop-in files with different names are applied in
+    lexicographic order, regardless of which of the directories they reside in.</para>
 
     <!-- Note that we do not document .include here, as we consider it mostly obsolete, and want
          people to use .d/ drop-ins instead. -->
@@ -1343,7 +1344,7 @@ ExecStart=/usr/sbin/foo-daemon
       file <filename><replaceable>name</replaceable>.conf</filename>
       there that only changes the specific settings one is interested
       in. Note that multiple such drop-in files are read if
-      present.</para>
+      present, processed in lexicographic order of their filename.</para>
 
       <para>The advantage of the first method is that one easily
       overrides the complete unit, the vendor unit is not parsed at
