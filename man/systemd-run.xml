@@ -250,7 +250,7 @@
         command. See <varname>OnActiveSec=</varname>, <varname>OnBootSec=</varname>, <varname>OnStartupSec=</varname>,
         <varname>OnUnitActiveSec=</varname> and <varname>OnUnitInactiveSec=</varname> in
         <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-        details. These options may not be combined with <option>--scope</option>.</para>
+        details. These options may not be combined with <option>--scope</option> or <option>--pty</option>.</para>
         </listitem>
       </varlistentry>
 
@@ -259,7 +259,7 @@
 
         <listitem><para>Defines a calendar timer for starting the specified command. See <varname>OnCalendar=</varname>
         in <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
-        option may not be combined with <option>--scope</option>.</para>
+        option may not be combined with <option>--scope</option> or <option>--pty</option>.</para>
         </listitem>
       </varlistentry>
 
