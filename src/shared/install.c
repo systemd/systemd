@@ -1354,7 +1354,8 @@ static int install_info_follow(
                 InstallContext *c,
                 UnitFileInstallInfo *i,
                 const char *root_dir,
-                SearchFlags flags) {
+                SearchFlags flags,
+                bool ignore_different_name) {
 
         assert(c);
         assert(i);
@@ -1367,7 +1368,7 @@ static int install_info_follow(
         /* If the basename doesn't match, the caller should add a
          * complete new entry for this. */
 
-        if (!streq(basename(i->symlink_target), i->name))
+        if (!ignore_different_name && !streq(basename(i->symlink_target), i->name))
                 return -EXDEV;
 
         free_and_replace(i->path, i->symlink_target);
@@ -1415,7 +1416,7 @@ static int install_info_traverse(
                                 return -ELOOP;
                 }
 
-                r = install_info_follow(c, i, paths->root_dir, flags);
+                r = install_info_follow(c, i, paths->root_dir, flags, false);
                 if (r == -EXDEV) {
                         _cleanup_free_ char *buffer = NULL;
                         const char *bn;
@@ -1438,6 +1439,18 @@ static int install_info_traverse(
                                 r = unit_name_replace_instance(bn, instance, &buffer);
                                 if (r < 0)
                                         return r;
+
+                                if (streq(buffer, i->name)) {
+
+                                        /* We filled in the instance, and the target stayed the same? If so, then let's
+                                         * honour the link as it is. */
+
+                                        r = install_info_follow(c, i, paths->root_dir, flags, true);
+                                        if (r < 0)
+                                                return r;
+
+                                        continue;
+                                }
 
                                 bn = buffer;
                         }
