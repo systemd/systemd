@@ -9,24 +9,24 @@ msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2016-04-23 14:24+0200\n"
-"PO-Revision-Date: 2016-11-30 16:00+0100\n"
+"PO-Revision-Date: 2017-02-07 18:38+0100\n"
 "Last-Translator: Daniel Rusek <mail@asciiwolf.com>\n"
 "Language: cs\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 "
-"|| n%100>=20) ? 1 : 2);\n"
+"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n"
+"%100>=20) ? 1 : 2);\n"
+"Language-Team: \n"
+"X-Generator: Poedit 1.8.7.1\n"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
 msgid "Send passphrase back to system"
 msgstr "Odeslat heslo zpět do systému"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
-msgid ""
-"Authentication is required to send the entered passphrase back to the system."
-msgstr ""
-"Autentizace je vyžadována pro odeslání zadaného hesla do systému."
+msgid "Authentication is required to send the entered passphrase back to the system."
+msgstr "Autentizace je vyžadována pro odeslání zadaného hesla do systému."
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
 msgid "Manage system services or other units"
@@ -35,8 +35,7 @@ msgstr "Správa systémových služeb nebo dalších jednotek"
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
 msgid "Authentication is required to manage system services or other units."
 msgstr ""
-"Autentizace je vyžadována pro správu systémových služeb nebo dalších "
-"jednotek."
+"Autentizace je vyžadována pro správu systémových služeb nebo dalších jednotek."
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
 msgid "Manage system service or unit files"
@@ -48,17 +47,15 @@ msgstr "Autentizace je vyžadována pro správu systémové služby nebo soubor�
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
 msgid "Set or unset system and service manager environment variables"
-msgstr ""
-"Nastavení nebo rušení proměnných správce systému a služeb"
-
+msgstr "Nastavení nebo rušení proměnných správce systému a služeb"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
 msgid ""
-"Authentication is required to set or unset system and service manager "
-"environment variables."
+"Authentication is required to set or unset system and service manager environment "
+"variables."
 msgstr ""
-"Autentizace je vyžadována pro nastavení nebo rušení proměnných správce "
-"systému a služeb."
+"Autentizace je vyžadována pro nastavení nebo rušení proměnných správce systému a "
+"služeb."
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:9
 msgid "Reload the systemd state"
@@ -82,11 +79,11 @@ msgstr "Nastavení statického názvu stoje"
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:4
 msgid ""
-"Authentication is required to set the statically configured local host name, "
-"as well as the pretty host name."
+"Authentication is required to set the statically configured local host name, as "
+"well as the pretty host name."
 msgstr ""
-"Autentizace je vyžadována pro nastavení staticky konfigurovaného názvu "
-"lokálního stroje, stejně tak pro změnu uživatelsky přívětivého jména."
+"Autentizace je vyžadována pro nastavení staticky konfigurovaného názvu lokálního "
+"stroje, stejně tak pro změnu uživatelsky přívětivého jména."
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:5
 msgid "Set machine information"
@@ -137,18 +134,15 @@ msgstr "Nastavení systémové konfigurace klávesnice"
 
 #: ../src/locale/org.freedesktop.locale1.policy.in.h:4
 msgid "Authentication is required to set the system keyboard settings."
-msgstr ""
-"Autentizace je vyžadována pro nastavení systémové konfigurace klávesnice."
+msgstr "Autentizace je vyžadována pro nastavení systémové konfigurace klávesnice."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:1
 msgid "Allow applications to inhibit system shutdown"
 msgstr "Povolit aplikacím zakázat vypnutí systému"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:2
-msgid ""
-"Authentication is required for an application to inhibit system shutdown."
-msgstr ""
-"Autentizace je vyžadována pro povolení aplikacím zakázat vypnutí systému."
+msgid "Authentication is required for an application to inhibit system shutdown."
+msgstr "Autentizace je vyžadována pro povolení aplikacím zakázat vypnutí systému."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:3
 msgid "Allow applications to delay system shutdown"
@@ -156,8 +150,7 @@ msgstr "Povolit aplikacím odložit vypnutí systému"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:4
 msgid "Authentication is required for an application to delay system shutdown."
-msgstr ""
-"Autentizace je vyžadována pro povolení aplikacím odložit vypnutí systému."
+msgstr "Autentizace je vyžadována pro povolení aplikacím odložit vypnutí systému."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:5
 msgid "Allow applications to inhibit system sleep"
@@ -165,8 +158,7 @@ msgstr "Povolit aplikacím zakázat uspání systému"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:6
 msgid "Authentication is required for an application to inhibit system sleep."
-msgstr ""
-"Autentizace je vyžadována pro povolení aplikacím zakázat uspání systému."
+msgstr "Autentizace je vyžadována pro povolení aplikacím zakázat uspání systému."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:7
 msgid "Allow applications to delay system sleep"
@@ -174,8 +166,7 @@ msgstr "Povolit aplikacím odložit uspání systému"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:8
 msgid "Authentication is required for an application to delay system sleep."
-msgstr ""
-"Autentizace je vyžadována pro povolení aplikacím odložit uspání systému."
+msgstr "Autentizace je vyžadována pro povolení aplikacím odložit uspání systému."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:9
 msgid "Allow applications to inhibit automatic system suspend"
@@ -183,47 +174,43 @@ msgstr "Povolit aplikacím zakázat automatické vypnutí systému"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:10
 msgid ""
-"Authentication is required for an application to inhibit automatic system "
-"suspend."
+"Authentication is required for an application to inhibit automatic system suspend."
 msgstr ""
-"Autentizace je vyžadována pro povolení aplikacím zakázat automatické "
-"vypnutí systému."
+"Autentizace je vyžadována pro povolení aplikacím zakázat automatické vypnutí "
+"systému."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:11
 msgid "Allow applications to inhibit system handling of the power key"
-msgstr ""
-"Povolit aplikacím zakázat chovaní systému na stisknutí vypínacího tlačítka"
+msgstr "Povolit aplikacím zakázat chovaní systému na stisknutí vypínacího tlačítka"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:12
 msgid ""
-"Authentication is required for an application to inhibit system handling of "
-"the power key."
+"Authentication is required for an application to inhibit system handling of the "
+"power key."
 msgstr ""
 "Autentizace je vyžadována pro povolení aplikacím zakázat chovaní systému na "
 "stisknutí vypínacího tlačítka."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:13
 msgid "Allow applications to inhibit system handling of the suspend key"
-msgstr ""
-"Povolit aplikacím zakázat chovaní systému na stisknutí uspávacího tlačítka"
+msgstr "Povolit aplikacím zakázat chovaní systému na stisknutí uspávacího tlačítka"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:14
 msgid ""
-"Authentication is required for an application to inhibit system handling of "
-"the suspend key."
+"Authentication is required for an application to inhibit system handling of the "
+"suspend key."
 msgstr ""
 "Autentizace je vyžadována pro povolení aplikacím zakázat chovaní systému na "
 "stisknutí uspávacího tlačítka."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:15
 msgid "Allow applications to inhibit system handling of the hibernate key"
-msgstr ""
-"Povolit aplikacím zakázat chovaní systému na stisknutí tlačítka hibernace"
+msgstr "Povolit aplikacím zakázat chovaní systému na stisknutí tlačítka hibernace"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:16
 msgid ""
-"Authentication is required for an application to inhibit system handling of "
-"the hibernate key."
+"Authentication is required for an application to inhibit system handling of the "
+"hibernate key."
 msgstr ""
 "Autentizace je vyžadována pro povolení aplikacím zakázat chovaní systému na "
 "stisknutí tlačítka hibernace."
@@ -234,8 +221,8 @@ msgstr "Povolit aplikacím zakázat chovaní systému na zavření víka"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:18
 msgid ""
-"Authentication is required for an application to inhibit system handling of "
-"the lid switch."
+"Authentication is required for an application to inhibit system handling of the "
+"lid switch."
 msgstr ""
 "Autentizace je vyžadována pro povolení aplikacím zakázat chovaní systému na "
 "zavření víka."
@@ -255,8 +242,7 @@ msgstr "Povolit nepřihlášeným uživatelům spouštět programy"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:22
 msgid "Authentication is required to run programs as a non-logged-in user."
-msgstr ""
-"Autentizace je vyžadována ke spuštění programů jako nepřihlášený uživatel."
+msgstr "Autentizace je vyžadována ke spuštění programů jako nepřihlášený uživatel."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:23
 msgid "Allow attaching devices to seats"
@@ -271,8 +257,7 @@ msgid "Flush device to seat attachments"
 msgstr "Odstranění přiřazení zařízení ke stanovištím"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:26
-msgid ""
-"Authentication is required for resetting how devices are attached to seats."
+msgid "Authentication is required for resetting how devices are attached to seats."
 msgstr ""
 "Autentizace je vyžadována pro reset způsobu jak jsou zařízení přiřazována ke "
 "stanovištím."
@@ -294,8 +279,8 @@ msgid ""
 "Authentication is required for powering off the system while other users are "
 "logged in."
 msgstr ""
-"Autentizace je vyžadována pro vypnutí systému, když jsou přihlášeni "
-"další uživatelé."
+"Autentizace je vyžadována pro vypnutí systému, když jsou přihlášeni další "
+"uživatelé."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:31
 msgid "Power off the system while an application asked to inhibit it"
@@ -303,11 +288,11 @@ msgstr "Vypnout systém, i když aplikace požádala o zákaz vypnutí"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:32
 msgid ""
-"Authentication is required for powering off the system while an application "
-"asked to inhibit it."
+"Authentication is required for powering off the system while an application asked "
+"to inhibit it."
 msgstr ""
-"Autentizace je vyžadována pro vypnutí systému, když aplikace požádala o "
-"zákaz vypnutí."
+"Autentizace je vyžadována pro vypnutí systému, když aplikace požádala o zákaz "
+"vypnutí."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:33
 msgid "Reboot the system"
@@ -323,11 +308,11 @@ msgstr "Restartovat systém, i když jsou přihlášeni další uživatelé"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:36
 msgid ""
-"Authentication is required for rebooting the system while other users are "
-"logged in."
+"Authentication is required for rebooting the system while other users are logged "
+"in."
 msgstr ""
-"Autentizace je vyžadována pro restart systému, když jsou přihlášeni "
-"další uživatelé."
+"Autentizace je vyžadována pro restart systému, když jsou přihlášeni další "
+"uživatelé."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:37
 msgid "Reboot the system while an application asked to inhibit it"
@@ -335,11 +320,11 @@ msgstr "Restartovat systém, i když aplikace požádala o zákaz restartu"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:38
 msgid ""
-"Authentication is required for rebooting the system while an application "
-"asked to inhibit it."
+"Authentication is required for rebooting the system while an application asked to "
+"inhibit it."
 msgstr ""
-"Autentizace je vyžadována pro restart systému, když aplikace požádala o "
-"zákaz restartu."
+"Autentizace je vyžadována pro restart systému, když aplikace požádala o zákaz "
+"restartu."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:39
 msgid "Suspend the system"
@@ -355,11 +340,10 @@ msgstr "Uspat systém, i když jsou přihlášeni další uživatelé"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:42
 msgid ""
-"Authentication is required for suspending the system while other users are "
-"logged in."
+"Authentication is required for suspending the system while other users are logged "
+"in."
 msgstr ""
-"Autentizace je vyžadována pro uspání systému, když jsou přihlášeni "
-"další uživatelé."
+"Autentizace je vyžadována pro uspání systému, když jsou přihlášeni další uživatelé."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:43
 msgid "Suspend the system while an application asked to inhibit it"
@@ -367,11 +351,11 @@ msgstr "Uspat systém, i když aplikace požádala o zákaz uspání"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:44
 msgid ""
-"Authentication is required for suspending the system while an application "
-"asked to inhibit it."
+"Authentication is required for suspending the system while an application asked to "
+"inhibit it."
 msgstr ""
-"Autentizace je vyžadována pro uspání systému, když aplikace požádala o "
-"zákaz uspání."
+"Autentizace je vyžadována pro uspání systému, když aplikace požádala o zákaz "
+"uspání."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:45
 msgid "Hibernate the system"
@@ -387,11 +371,11 @@ msgstr "Hibernovat systém, i když jsou přihlášeni další uživatelé"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:48
 msgid ""
-"Authentication is required for hibernating the system while other users are "
-"logged in."
+"Authentication is required for hibernating the system while other users are logged "
+"in."
 msgstr ""
-"Autentizace je vyžadována pro hibernaci systému, když jsou přihlášeni "
-"další uživatelé."
+"Autentizace je vyžadována pro hibernaci systému, když jsou přihlášeni další "
+"uživatelé."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:49
 msgid "Hibernate the system while an application asked to inhibit it"
@@ -399,19 +383,18 @@ msgstr "Hibernace systému, i když aplikace požádala o zákaz hibernace"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:50
 msgid ""
-"Authentication is required for hibernating the system while an application "
-"asked to inhibit it."
+"Authentication is required for hibernating the system while an application asked "
+"to inhibit it."
 msgstr ""
-"Autentizace je vyžadována pro hibernaci systému, když aplikace požádala o "
-"zákaz hibernace."
+"Autentizace je vyžadována pro hibernaci systému, když aplikace požádala o zákaz "
+"hibernace."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:51
 msgid "Manage active sessions, users and seats"
 msgstr "Správa aktivních sezení, uživatelů a stanovišť"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:52
-msgid ""
-"Authentication is required for managing active sessions, users and seats."
+msgid "Authentication is required for managing active sessions, users and seats."
 msgstr ""
 "Autentizace je vyžadována pro správu aktivních sezení, uživatelů a stanovišť."
 
@@ -429,8 +412,7 @@ msgstr "Povolit indikaci firmwaru bootovat instalační prostředí"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:56
 msgid ""
-"Authentication is required to indicate to the firmware to boot to setup "
-"interface."
+"Authentication is required to indicate to the firmware to boot to setup interface."
 msgstr ""
 "Autentizace je vyžadována k povolení indikace firmwaru bootovat instalační "
 "prostředí."
@@ -480,8 +462,7 @@ msgid "Acquire a pseudo TTY in a local container"
 msgstr "Získání Pseudo TTY v lokálním kontejneru"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:10
-msgid ""
-"Authentication is required to acquire a pseudo TTY in a local container."
+msgid "Authentication is required to acquire a pseudo TTY in a local container."
 msgstr "Autentizace je vyžadována pro získání pseudo TTY v lokálním kontejneru."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:11
@@ -497,8 +478,7 @@ msgid "Manage local virtual machines and containers"
 msgstr "Spravovat lokální virtuální stroje a kontejnery"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:14
-msgid ""
-"Authentication is required to manage local virtual machines and containers."
+msgid "Authentication is required to manage local virtual machines and containers."
 msgstr ""
 "Autentizace je vyžadována pro správu lokálních virtuálních strojů a kontejnerů."
 
@@ -508,10 +488,8 @@ msgstr "Spravovat lokální obrazy virtuálních strojů a kontejnerů"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:16
 msgid ""
-"Authentication is required to manage local virtual machine and container "
-"images."
-msgstr ""
-"Autentizace je vyžadována ke správě obrazů virtuálních strojů a kontejnerů."
+"Authentication is required to manage local virtual machine and container images."
+msgstr "Autentizace je vyžadována ke správě obrazů virtuálních strojů a kontejnerů."
 
 #: ../src/timedate/org.freedesktop.timedate1.policy.in.h:1
 msgid "Set system time"
@@ -535,11 +513,10 @@ msgstr "Nastavit RTC na lokální časovou zónu nebo UTC"
 
 #: ../src/timedate/org.freedesktop.timedate1.policy.in.h:6
 msgid ""
-"Authentication is required to control whether the RTC stores the local or "
-"UTC time."
+"Authentication is required to control whether the RTC stores the local or UTC time."
 msgstr ""
-"Autentizace je vyžadována pro kontrolu jestli RTC ukládá lokální časovou "
-"zónu nebo UTC čas."
+"Autentizace je vyžadována pro kontrolu jestli RTC ukládá lokální časovou zónu nebo "
+"UTC čas."
 
 #: ../src/timedate/org.freedesktop.timedate1.policy.in.h:7
 msgid "Turn network time synchronization on or off"
@@ -547,8 +524,8 @@ msgstr "Zapnout nebo vypnout synchronizaci s časem ze sítě"
 
 #: ../src/timedate/org.freedesktop.timedate1.policy.in.h:8
 msgid ""
-"Authentication is required to control whether network time synchronization "
-"shall be enabled."
+"Authentication is required to control whether network time synchronization shall "
+"be enabled."
 msgstr "Autentizace je vyžadována pro kontrolu synchronizace času ze sítě."
 
 #: ../src/core/dbus-unit.c:459
@@ -573,9 +550,7 @@ msgstr "Autentizace je vyžadována pro ukončení „$(unit)”."
 
 #: ../src/core/dbus-unit.c:601
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
-msgstr ""
-"Autentizace je vyžadována pro resetování chybného stavu "
-"„$(unit)”."
+msgstr "Autentizace je vyžadována pro resetování chybného stavu „$(unit)”."
 
 #: ../src/core/dbus-unit.c:634
 msgid "Authentication is required to set properties on '$(unit)'."
