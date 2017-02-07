@@ -97,7 +97,11 @@ static struct udev_device *skip_subsystem(struct udev_device *dev, const char *s
 static struct udev_device *handle_scsi_fibre_channel(struct udev_device *parent, char **path) {
         struct udev *udev  = udev_device_get_udev(parent);
         struct udev_device *targetdev;
+        struct udev_device *rportdev;
+        struct udev_device *hostdev;
+        struct udev_device *vportdev;
         struct udev_device *fcdev = NULL;
+        struct udev_device *fc_vportdev = NULL;
         const char *port;
         char *lun = NULL;
 
@@ -120,6 +124,32 @@ static struct udev_device *handle_scsi_fibre_channel(struct udev_device *parent,
         format_lun_number(parent, &lun);
         path_prepend(path, "fc-%s-%s", port, lun);
         free(lun);
+
+        /* NPIV */
+        rportdev = udev_device_get_parent(targetdev);
+        if (rportdev == NULL)
+                goto out;
+
+        hostdev = udev_device_get_parent(rportdev);
+        if (hostdev == NULL)
+                goto out;
+
+        vportdev = udev_device_get_parent(hostdev);
+        if (vportdev == NULL)
+                goto out;
+
+        fc_vportdev = udev_device_new_from_subsystem_sysname(udev, "fc_vports", udev_device_get_sysname(vportdev));
+        if (fc_vportdev == NULL)
+                goto out;
+
+        port = udev_device_get_sysattr_value(fc_vportdev, "port_name");
+        if (port == NULL)
+                goto out_npiv;
+
+        path_prepend(path, "vport-%s", port);
+
+out_npiv:
+        udev_device_unref(fc_vportdev);
 out:
         udev_device_unref(fcdev);
         return parent;
