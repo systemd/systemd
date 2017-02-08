@@ -585,7 +585,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse mount propagation flags: %s", eq);
 
-                r = sd_bus_message_append(m, "v", "t", f);
+                r = sd_bus_message_append(m, "v", "t", (uint64_t) f);
         } else if (STR_IN_SET(field, "BindPaths", "BindReadOnlyPaths")) {
                 const char *p = eq;
 
