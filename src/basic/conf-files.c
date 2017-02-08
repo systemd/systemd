@@ -43,7 +43,6 @@ static int files_add(Hashmap *h, const char *root, const char *path, const char 
         int r;
 
         assert(path);
-        assert(suffix);
 
         dirpath = prefix_roota(root, path);
 
@@ -94,7 +93,6 @@ static int conf_files_list_strv_internal(char ***strv, const char *suffix, const
         int r;
 
         assert(strv);
-        assert(suffix);
 
         /* This alters the dirs string array */
         if (!path_strv_resolve_uniq(dirs, root))
@@ -126,7 +124,6 @@ int conf_files_list_strv(char ***strv, const char *suffix, const char *root, con
         _cleanup_strv_free_ char **copy = NULL;
 
         assert(strv);
-        assert(suffix);
 
         copy = strv_copy((char**) dirs);
         if (!copy)
