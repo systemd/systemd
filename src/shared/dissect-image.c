@@ -347,9 +347,6 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                         sd_id128_t type_id, id;
                         bool rw = true;
 
-                        if (pflags & GPT_FLAG_NO_AUTO)
-                                continue;
-
                         sid = blkid_partition_get_uuid(pp);
                         if (!sid)
                                 continue;
@@ -363,17 +360,36 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                                 continue;
 
                         if (sd_id128_equal(type_id, GPT_HOME)) {
+
+                                if (pflags & GPT_FLAG_NO_AUTO)
+                                        continue;
+
                                 designator = PARTITION_HOME;
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
                         } else if (sd_id128_equal(type_id, GPT_SRV)) {
+
+                                if (pflags & GPT_FLAG_NO_AUTO)
+                                        continue;
+
                                 designator = PARTITION_SRV;
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
                         } else if (sd_id128_equal(type_id, GPT_ESP)) {
+
+                                /* Note that we don't check the GPT_FLAG_NO_AUTO flag for the ESP, as it is not defined
+                                 * there. We instead check the GPT_FLAG_NO_BLOCK_IO_PROTOCOL, as recommended by the
+                                 * UEFI spec (See "12.3.3 Number and Location of System Partitions"). */
+
+                                if (pflags & GPT_FLAG_NO_BLOCK_IO_PROTOCOL)
+                                        continue;
+
                                 designator = PARTITION_ESP;
                                 fstype = "vfat";
                         }
 #ifdef GPT_ROOT_NATIVE
                         else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE)) {
+
+                                if (pflags & GPT_FLAG_NO_AUTO)
+                                        continue;
 
                                 /* If a root ID is specified, ignore everything but the root id */
                                 if (!sd_id128_is_null(root_uuid) && !sd_id128_equal(root_uuid, id))
@@ -383,6 +399,9 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                                 architecture = native_architecture();
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
                         } else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE_VERITY)) {
+
+                                if (pflags & GPT_FLAG_NO_AUTO)
+                                        continue;
 
                                 m->can_verity = true;
 
@@ -399,6 +418,9 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
 #ifdef GPT_ROOT_SECONDARY
                         else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY)) {
 
+                                if (pflags & GPT_FLAG_NO_AUTO)
+                                        continue;
+
                                 /* If a root ID is specified, ignore everything but the root id */
                                 if (!sd_id128_is_null(root_uuid) && !sd_id128_equal(root_uuid, id))
                                         continue;
@@ -407,6 +429,10 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                                 architecture = SECONDARY_ARCHITECTURE;
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
                         } else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY_VERITY)) {
+
+                                if (pflags & GPT_FLAG_NO_AUTO)
+                                        continue;
+
                                 m->can_verity = true;
 
                                 /* Ignore verity unless root has is specified */
@@ -420,9 +446,16 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                         }
 #endif
                         else if (sd_id128_equal(type_id, GPT_SWAP)) {
+
+                                if (pflags & GPT_FLAG_NO_AUTO)
+                                        continue;
+
                                 designator = PARTITION_SWAP;
                                 fstype = "swap";
                         } else if (sd_id128_equal(type_id, GPT_LINUX_GENERIC)) {
+
+                                if (pflags & GPT_FLAG_NO_AUTO)
+                                        continue;
 
                                 if (generic_node)
                                         multiple_generic = true;

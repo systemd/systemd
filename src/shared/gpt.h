@@ -71,6 +71,8 @@
 #  define GPT_ROOT_NATIVE_VERITY GPT_ROOT_ARM_VERITY
 #endif
 
+#define GPT_FLAG_NO_BLOCK_IO_PROTOCOL (1ULL << 1)
+
 /* Flags we recognize on the root, swap, home and srv partitions when
  * doing auto-discovery. These happen to be identical to what
  * Microsoft defines for its own Basic Data Partitions, but that's
