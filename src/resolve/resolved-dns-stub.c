@@ -214,7 +214,7 @@ static void dns_stub_query_complete(DnsQuery *q) {
                                 q->answer_rcode,
                                 !!q->request_dns_packet->opt,
                                 DNS_PACKET_DO(q->request_dns_packet),
-                                DNS_PACKET_DO(q->request_dns_packet) && q->answer_authenticated);
+                                DNS_PACKET_DO(q->request_dns_packet) && dns_query_fully_authenticated(q));
                 if (r < 0) {
                         log_debug_errno(r, "Failed to finish reply packet: %m");
                         break;

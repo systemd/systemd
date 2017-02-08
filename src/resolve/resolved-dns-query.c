@@ -1029,6 +1029,9 @@ int dns_query_process_cname(DnsQuery *q) {
         if (q->flags & SD_RESOLVED_NO_CNAME)
                 return -ELOOP;
 
+        if (!q->answer_authenticated)
+                q->previous_redirect_unauthenticated = true;
+
         /* OK, let's actually follow the CNAME */
         r = dns_query_cname_redirect(q, cname);
         if (r < 0)
@@ -1115,4 +1118,10 @@ const char *dns_query_string(DnsQuery *q) {
                 return name;
 
         return dns_question_first_name(q->question_idna);
+}
+
+bool dns_query_fully_authenticated(DnsQuery *q) {
+        assert(q);
+
+        return q->answer_authenticated && !q->previous_redirect_unauthenticated;
 }
