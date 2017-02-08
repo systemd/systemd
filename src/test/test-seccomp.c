@@ -384,11 +384,21 @@ static void test_memory_deny_write_execute(void) {
                 assert_se(p != MAP_FAILED);
                 assert_se(munmap(p, page_size()) >= 0);
 
-                seccomp_memory_deny_write_execute();
+                p = mmap(NULL, page_size(), PROT_WRITE|PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1,0);
+                assert_se(p != MAP_FAILED);
+                assert_se(munmap(p, page_size()) >= 0);
 
+                assert_se(seccomp_memory_deny_write_execute() >= 0);
+
+#if SECCOMP_MEMORY_DENY_WRITE_EXECUTE_BROKEN
+                p = mmap(NULL, page_size(), PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1,0);
+                assert_se(p != MAP_FAILED);
+                assert_se(munmap(p, page_size()) >= 0);
+#else
                 p = mmap(NULL, page_size(), PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1,0);
                 assert_se(p == MAP_FAILED);
                 assert_se(errno == EPERM);
+#endif
 
                 p = mmap(NULL, page_size(), PROT_WRITE|PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1,0);
                 assert_se(p != MAP_FAILED);
