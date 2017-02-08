@@ -750,9 +750,34 @@ int seccomp_restrict_namespaces(unsigned long retain) {
 
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
+                int clone_reversed_order = -1;
                 unsigned i;
 
                 log_debug("Operating on architecture: %s", seccomp_arch_to_string(arch));
+
+                switch (arch) {
+
+                case SCMP_ARCH_X86_64:
+                case SCMP_ARCH_X86:
+                case SCMP_ARCH_X32:
+                        clone_reversed_order = 0;
+                        break;
+
+                case SCMP_ARCH_S390:
+                case SCMP_ARCH_S390X:
+                        /* On s390/s390x the first two parameters to clone are switched */
+                        clone_reversed_order = 1;
+                        break;
+
+                /* Please add more definitions here, if you port systemd to other architectures! */
+
+#if !defined(__i386__) && !defined(__x86_64__) && !defined(__s390__) && !defined(__s390x__)
+#warning "Consider adding the right clone() syscall definitions here!"
+#endif
+                }
+
+                if (clone_reversed_order < 0) /* we don't know the right order, let's ignore this arch... */
+                        continue;
 
                 r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ALLOW);
                 if (r < 0)
@@ -802,12 +827,20 @@ int seccomp_restrict_namespaces(unsigned long retain) {
                                 break;
                         }
 
-                        r = seccomp_rule_add_exact(
-                                        seccomp,
-                                        SCMP_ACT_ERRNO(EPERM),
-                                        SCMP_SYS(clone),
-                                        1,
-                                        SCMP_A0(SCMP_CMP_MASKED_EQ, f, f));
+                        if (clone_reversed_order == 0)
+                                r = seccomp_rule_add_exact(
+                                                seccomp,
+                                                SCMP_ACT_ERRNO(EPERM),
+                                                SCMP_SYS(clone),
+                                                1,
+                                                SCMP_A0(SCMP_CMP_MASKED_EQ, f, f));
+                        else
+                                r = seccomp_rule_add_exact(
+                                                seccomp,
+                                                SCMP_ACT_ERRNO(EPERM),
+                                                SCMP_SYS(clone),
+                                                1,
+                                                SCMP_A1(SCMP_CMP_MASKED_EQ, f, f));
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to add clone() rule for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
                                 break;
