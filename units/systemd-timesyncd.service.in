@@ -34,6 +34,7 @@ MemoryDenyWriteExecute=yes
 RestrictRealtime=yes
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 SystemCallFilter=~@cpu-emulation @debug @keyring @module @mount @obsolete @raw-io
+SystemCallArchitectures=native
 
 [Install]
 WantedBy=sysinit.target

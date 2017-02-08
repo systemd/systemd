@@ -25,6 +25,7 @@ ProtectKernelTunables=yes
 MemoryDenyWriteExecute=yes
 RestrictRealtime=yes
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
 
 # If there are many split upjournal files we need a lot of fds to
 # access them all and combine

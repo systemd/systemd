@@ -25,6 +25,7 @@ ProtectKernelTunables=yes
 MemoryDenyWriteExecute=yes
 RestrictRealtime=yes
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
 
 [Install]
 Also=systemd-journal-remote.socket
