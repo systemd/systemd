@@ -19,53 +19,121 @@
 
 
 #include "conf-parser.h"
+#include "fs-util.h"
 #include "load-dropin.h"
 #include "load-fragment.h"
 #include "log.h"
+#include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "unit.h"
 
-static int add_dependency_consumer(
-                UnitDependency dependency,
-                const char *entry,
-                const char* filepath,
-                void *arg) {
-        Unit *u = arg;
+static bool unit_name_compatible(const char *a, const char *b) {
+        _cleanup_free_ char *prefix = NULL;
         int r;
 
-        assert(u);
+        /* the straightforward case: the symlink name matches the target */
+        if (streq(a, b))
+                return true;
 
-        r = unit_add_dependency_by_name(u, dependency, entry, filepath, true);
+        r = unit_name_template(a, &prefix);
+        if (r < 0) {
+                log_oom();
+                return true;
+        }
+
+        /* an instance name points to a target that is just the template name */
+        if (streq(prefix, b))
+                return true;
+
+        return false;
+}
+
+static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suffix) {
+        _cleanup_strv_free_ char **paths = NULL;
+        char **p;
+        int r;
+
+        r = unit_file_find_dropin_paths(NULL,
+                                        u->manager->lookup_paths.search_path,
+                                        u->manager->unit_path_cache,
+                                        dir_suffix,
+                                        NULL,
+                                        u->names,
+                                        &paths);
         if (r < 0)
-                log_error_errno(r, "Cannot add dependency %s to %s, ignoring: %m", entry, u->id);
+                return r;
+
+        STRV_FOREACH(p, paths) {
+                const char *entry;
+                _cleanup_free_ char *target = NULL;
+
+                entry = basename(*p);
+
+                if (null_or_empty_path(*p) > 0) {
+                        /* an error usually means an invalid symlink, which is not a mask */
+                        log_unit_debug(u, "%s dependency on %s is masked by %s, ignoring.",
+                                       unit_dependency_to_string(dependency), entry, *p);
+                        continue;
+                }
+
+                r = is_symlink(*p);
+                if (r < 0) {
+                        log_unit_warning_errno(u, r, "%s dropin %s unreadable, ignoring: %m",
+                                               unit_dependency_to_string(dependency), *p);
+                        continue;
+                }
+                if (r == 0) {
+                        log_unit_warning(u, "%s dependency dropin %s is not a symlink, ignoring.",
+                                         unit_dependency_to_string(dependency), *p);
+                        continue;
+                }
+
+                if (!unit_name_is_valid(entry, UNIT_NAME_ANY)) {
+                        log_unit_warning(u, "%s dependency dropin %s is not a valid unit name, ignoring.",
+                                         unit_dependency_to_string(dependency), *p);
+                        continue;
+                }
+
+                r = readlink_malloc(*p, &target);
+                if (r < 0) {
+                        log_unit_warning_errno(u, r, "readlink(\"%s\") failed, ignoring: %m", *p);
+                        continue;
+                }
+
+                /* We don't treat this as an error, especially because we didn't check this for a
+                 * long time. Nevertheless, we warn, because such mismatch can be mighty confusing. */
+                if (!unit_name_compatible(entry, basename(target)))
+                        log_unit_warning(u, "%s dependency dropin %s target %s has different name",
+                                         unit_dependency_to_string(dependency), *p, target);
+
+                r = unit_add_dependency_by_name(u, dependency, entry, *p, true);
+                if (r < 0)
+                        log_unit_error_errno(u, r, "cannot add %s dependency on %s, ignoring: %m",
+                                             unit_dependency_to_string(dependency), entry);
+        }
 
         return 0;
 }
 
 int unit_load_dropin(Unit *u) {
         _cleanup_strv_free_ char **l = NULL;
-        Iterator i;
-        char *t, **f;
+        char **f;
         int r;
 
         assert(u);
 
-        /* Load dependencies from supplementary drop-in directories */
+        /* Load dependencies from .wants and .requires directories */
+        r = process_deps(u, UNIT_WANTS, ".wants");
+        if (r < 0)
+                return r;
 
-        SET_FOREACH(t, u->names, i) {
-                char **p;
+        r = process_deps(u, UNIT_REQUIRES, ".requires");
+        if (r < 0)
+                return r;
 
-                STRV_FOREACH(p, u->manager->lookup_paths.search_path) {
-                        unit_file_process_dir(NULL, u->manager->unit_path_cache, *p, t,
-                                              ".wants", UNIT_WANTS,
-                                              add_dependency_consumer, u, NULL);
-                        unit_file_process_dir(NULL, u->manager->unit_path_cache, *p, t,
-                                              ".requires", UNIT_REQUIRES,
-                                              add_dependency_consumer, u, NULL);
-                }
-        }
-
+        /* Load .conf dropins */
         r = unit_find_dropin_paths(u, &l);
         if (r <= 0)
                 return 0;

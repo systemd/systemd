@@ -2601,7 +2601,8 @@ static int unit_find_paths(
                         return log_error_errno(r, "Failed to add unit name: %m");
 
                 if (dropin_paths) {
-                        r = unit_file_find_dropin_paths(arg_root, lp->search_path, NULL, names, &dropins);
+                        r = unit_file_find_dropin_conf_paths(arg_root, lp->search_path,
+                                                             NULL, names, &dropins);
                         if (r < 0)
                                 return r;
                 }
