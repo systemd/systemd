@@ -6218,21 +6218,25 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                             "4) In case of template units, the unit is meant to be enabled with some\n"
                             "   instance name specified.");
 
-        if (arg_now && n_changes > 0 && STR_IN_SET(argv[0], "enable", "disable", "mask")) {
-                char *new_args[n_changes + 2];
+        if (arg_now && STR_IN_SET(argv[0], "enable", "disable", "mask")) {
                 sd_bus *bus;
-                unsigned i;
+                unsigned len, i;
 
                 r = acquire_bus(BUS_MANAGER, &bus);
                 if (r < 0)
                         goto finish;
 
-                new_args[0] = (char*) (streq(argv[0], "enable") ? "start" : "stop");
-                for (i = 0; i < n_changes; i++)
-                        new_args[i + 1] = basename(changes[i].path);
-                new_args[i + 1] = NULL;
+                len = strv_length(names);
+                {
+                        char *new_args[len + 2];
 
-                r = start_unit(strv_length(new_args), new_args, userdata);
+                        new_args[0] = (char*) (streq(argv[0], "enable") ? "start" : "stop");
+                        for (i = 0; i < len; i++)
+                                new_args[i + 1] = basename(names[i]);
+                        new_args[i + 1] = NULL;
+
+                        r = start_unit(len + 1, new_args, userdata);
+                }
         }
 
 finish:
