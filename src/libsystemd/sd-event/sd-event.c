@@ -730,7 +730,6 @@ static void event_unmask_signal_data(sd_event *e, struct signal_data *d, int sig
 
                 /* If all the mask is all-zero we can get rid of the structure */
                 hashmap_remove(e->signal_data, &d->priority);
-                assert(!d->current);
                 safe_close(d->fd);
                 free(d);
                 return;
