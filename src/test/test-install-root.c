@@ -736,28 +736,6 @@ static void test_preset_order(const char *root) {
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "prefix-2.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 }
 
-static void test_static_instance(const char *root) {
-        UnitFileState state;
-        const char *p;
-
-        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "static-instance@.service", &state) == -ENOENT);
-        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "static-instance@foo.service", &state) == -ENOENT);
-
-        p = strjoina(root, "/usr/lib/systemd/system/static-instance@.service");
-        assert_se(write_string_file(p,
-                                    "[Install]\n"
-                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
-
-        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "static-instance@.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "static-instance@foo.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-
-        p = strjoina(root, "/usr/lib/systemd/system/static-instance@foo.service");
-        assert_se(symlink("static-instance@.service", p) >= 0);
-
-        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "static-instance@.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "static-instance@foo.service", &state) >= 0 && state == UNIT_FILE_STATIC);
-}
-
 int main(int argc, char *argv[]) {
         char root[] = "/tmp/rootXXXXXX";
         const char *p;
@@ -788,7 +766,6 @@ int main(int argc, char *argv[]) {
         test_preset_and_list(root);
         test_preset_order(root);
         test_revert(root);
-        test_static_instance(root);
 
         assert_se(rm_rf(root, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 
