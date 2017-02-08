@@ -116,8 +116,7 @@ static void normalize_chain(CalendarComponent **c) {
 
         /* Drop non-unique entries */
         for (k = n-1; k > 0; k--) {
-                if (b[k-1]->start == next->start &&
-                    b[k-1]->repeat == next->repeat) {
+                if (component_compare(&b[k-1], &next) == 0) {
                         free(b[k-1]);
                         continue;
                 }
