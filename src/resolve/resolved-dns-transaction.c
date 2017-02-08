@@ -924,7 +924,16 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
 
                         dns_transaction_retry(t, false /* use the same server */);
                         return;
-                } else if (DNS_PACKET_TC(p))
+                }
+
+                if (DNS_PACKET_RCODE(p) == DNS_RCODE_REFUSED) {
+                        /* This server refused our request? If so, try again, use a different server */
+                        log_debug("Server returned REFUSED, switching servers, and retrying.");
+                        dns_transaction_retry(t, true /* pick a new server */);
+                        return;
+                }
+
+                if (DNS_PACKET_TC(p))
                         dns_server_packet_truncated(t->server, t->current_feature_level);
 
                 break;
