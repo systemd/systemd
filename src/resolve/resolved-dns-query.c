@@ -403,6 +403,7 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         sd_bus_track_unref(q->bus_track);
 
         dns_packet_unref(q->request_dns_packet);
+        dns_packet_unref(q->reply_dns_packet);
 
         if (q->request_dns_stream) {
                 /* Detach the stream from our query, in case something else keeps a reference to it. */

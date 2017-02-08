@@ -71,7 +71,6 @@ struct DnsQuery {
          * family */
         bool suppress_unroutable_family;
 
-
         /* If true, the RR TTLs of the answer will be clamped by their current left validity in the cache */
         bool clamp_ttl;
 
@@ -102,6 +101,7 @@ struct DnsQuery {
         /* DNS stub information */
         DnsPacket *request_dns_packet;
         DnsStream *request_dns_stream;
+        DnsPacket *reply_dns_packet;
 
         /* Completion callback */
         void (*complete)(DnsQuery* q);

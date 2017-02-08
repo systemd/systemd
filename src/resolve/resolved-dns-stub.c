@@ -29,49 +29,33 @@ static int manager_dns_stub_udp_fd(Manager *m);
 static int manager_dns_stub_tcp_fd(Manager *m);
 
 static int dns_stub_make_reply_packet(
-                uint16_t id,
-                int rcode,
+                DnsPacket **p,
                 DnsQuestion *q,
-                DnsAnswer *answer,
-                bool add_opt,   /* add an OPT RR to this packet */
-                bool edns0_do,  /* set the EDNS0 DNSSEC OK bit */
-                bool ad,        /* set the DNSSEC authenticated data bit */
-                DnsPacket **ret) {
+                DnsAnswer *answer) {
 
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         DnsResourceRecord *rr;
         unsigned c = 0;
         int r;
 
+        assert(p);
+
         /* Note that we don't bother with any additional RRs, as this is stub is for local lookups only, and hence
          * roundtrips aren't expensive. */
 
-        r = dns_packet_new(&p, DNS_PROTOCOL_DNS, 0);
-        if (r < 0)
-                return r;
+        if (!*p) {
+                r = dns_packet_new(p, DNS_PROTOCOL_DNS, 0);
+                if (r < 0)
+                        return r;
 
-        /* If the client didn't do EDNS, clamp the rcode to 4 bit */
-        if (!add_opt && rcode > 0xF)
-                rcode = DNS_RCODE_SERVFAIL;
+                r = dns_packet_append_question(*p, q);
+                if (r < 0)
+                        return r;
 
-        DNS_PACKET_HEADER(p)->id = id;
-        DNS_PACKET_HEADER(p)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(
-                                                              1 /* qr */,
-                                                              0 /* opcode */,
-                                                              0 /* aa */,
-                                                              0 /* tc */,
-                                                              1 /* rd */,
-                                                              1 /* ra */,
-                                                              ad /* ad */,
-                                                              0 /* cd */,
-                                                              rcode));
-
-        r = dns_packet_append_question(p, q);
-        if (r < 0)
-                return r;
-        DNS_PACKET_HEADER(p)->qdcount = htobe16(dns_question_size(q));
+                DNS_PACKET_HEADER(*p)->qdcount = htobe16(dns_question_size(q));
+        }
 
         DNS_ANSWER_FOREACH(rr, answer) {
+
                 r = dns_question_matches_rr(q, rr, NULL);
                 if (r < 0)
                         return r;
@@ -86,22 +70,52 @@ static int dns_stub_make_reply_packet(
 
                 continue;
         add:
-                r = dns_packet_append_rr(p, rr, NULL, NULL);
+                r = dns_packet_append_rr(*p, rr, NULL, NULL);
                 if (r < 0)
                         return r;
 
                 c++;
         }
-        DNS_PACKET_HEADER(p)->ancount = htobe16(c);
+
+        DNS_PACKET_HEADER(*p)->ancount = htobe16(be16toh(DNS_PACKET_HEADER(*p)->ancount) + c);
+
+        return 0;
+}
+
+static int dns_stub_finish_reply_packet(
+                DnsPacket *p,
+                uint16_t id,
+                int rcode,
+                bool add_opt,   /* add an OPT RR to this packet? */
+                bool edns0_do,  /* set the EDNS0 DNSSEC OK bit? */
+                bool ad) {      /* set the DNSSEC authenticated data bit? */
+
+        int r;
+
+        assert(p);
+
+        /* If the client didn't do EDNS, clamp the rcode to 4 bit */
+        if (!add_opt && rcode > 0xF)
+                rcode = DNS_RCODE_SERVFAIL;
+
+        DNS_PACKET_HEADER(p)->id = id;
+
+        DNS_PACKET_HEADER(p)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(
+                                                              1 /* qr */,
+                                                              0 /* opcode */,
+                                                              0 /* aa */,
+                                                              0 /* tc */,
+                                                              1 /* rd */,
+                                                              1 /* ra */,
+                                                              ad /* ad */,
+                                                              0 /* cd */,
+                                                              rcode));
 
         if (add_opt) {
                 r = dns_packet_append_opt(p, ADVERTISE_DATAGRAM_SIZE_MAX, edns0_do, rcode, NULL);
                 if (r < 0)
                         return r;
         }
-
-        *ret = p;
-        p = NULL;
 
         return 0;
 }
@@ -155,7 +169,11 @@ static int dns_stub_send_failure(Manager *m, DnsStream *s, DnsPacket *p, int rco
         assert(m);
         assert(p);
 
-        r = dns_stub_make_reply_packet(DNS_PACKET_ID(p), rcode, p->question, NULL, !!p->opt, DNS_PACKET_DO(p), false, &reply);
+        r = dns_stub_make_reply_packet(&reply, p->question, NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to make failure packet: %m");
+
+        r = dns_stub_finish_reply_packet(reply, DNS_PACKET_ID(p), rcode, !!p->opt, DNS_PACKET_DO(p), false);
         if (r < 0)
                 return log_debug_errno(r, "Failed to build failure packet: %m");
 
@@ -170,26 +188,40 @@ static void dns_stub_query_complete(DnsQuery *q) {
 
         switch (q->state) {
 
-        case DNS_TRANSACTION_SUCCESS: {
-                _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
+        case DNS_TRANSACTION_SUCCESS:
 
-                r = dns_stub_make_reply_packet(
-                                DNS_PACKET_ID(q->request_dns_packet),
-                                q->answer_rcode,
-                                q->question_idna,
-                                q->answer,
-                                !!q->request_dns_packet->opt,
-                                DNS_PACKET_DO(q->request_dns_packet),
-                                DNS_PACKET_DO(q->request_dns_packet) && q->answer_authenticated,
-                                &reply);
+                r = dns_stub_make_reply_packet(&q->reply_dns_packet, q->question_idna, q->answer);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to build reply packet: %m");
                         break;
                 }
 
-                (void) dns_stub_send(q->manager, q->request_dns_stream, q->request_dns_packet, reply);
+                r = dns_query_process_cname(q);
+                if (r == -ELOOP) {
+                        (void) dns_stub_send_failure(q->manager, q->request_dns_stream, q->request_dns_packet, DNS_RCODE_SERVFAIL);
+                        break;
+                }
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to process CNAME: %m");
+                        break;
+                }
+                if (r == DNS_QUERY_RESTARTED)
+                        return;
+
+                r = dns_stub_finish_reply_packet(
+                                q->reply_dns_packet,
+                                DNS_PACKET_ID(q->request_dns_packet),
+                                q->answer_rcode,
+                                !!q->request_dns_packet->opt,
+                                DNS_PACKET_DO(q->request_dns_packet),
+                                DNS_PACKET_DO(q->request_dns_packet) && q->answer_authenticated);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to finish reply packet: %m");
+                        break;
+                }
+
+                (void) dns_stub_send(q->manager, q->request_dns_stream, q->request_dns_packet, q->reply_dns_packet);
                 break;
-        }
 
         case DNS_TRANSACTION_RCODE_FAILURE:
                 (void) dns_stub_send_failure(q->manager, q->request_dns_stream, q->request_dns_packet, q->answer_rcode);
@@ -301,7 +333,7 @@ static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p) {
                 goto fail;
         }
 
-        r = dns_query_new(m, &q, p->question, p->question, 0, SD_RESOLVED_PROTOCOLS_ALL|SD_RESOLVED_NO_SEARCH|SD_RESOLVED_NO_CNAME);
+        r = dns_query_new(m, &q, p->question, p->question, 0, SD_RESOLVED_PROTOCOLS_ALL|SD_RESOLVED_NO_SEARCH);
         if (r < 0) {
                 log_error_errno(r, "Failed to generate query object: %m");
                 dns_stub_send_failure(m, s, p, DNS_RCODE_SERVFAIL);
