@@ -461,6 +461,7 @@ static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
                                    "org.freedesktop.hostname1",
                                    "/org/freedesktop/hostname1",
                                    hostname_map,
+                                   &error,
                                    host);
         if (r < 0)
                 log_debug_errno(r, "Failed to get host information from systemd-hostnamed: %s", bus_error_message(&error, r));
@@ -469,6 +470,7 @@ static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
                                    "org.freedesktop.systemd1",
                                    "/org/freedesktop/systemd1",
                                    manager_map,
+                                   &error,
                                    host);
         if (r < 0)
                 return log_error_errno(r, "Failed to get host information from systemd: %s", bus_error_message(&error, r));

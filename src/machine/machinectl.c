@@ -772,6 +772,7 @@ static int show_machine_info(const char *verb, sd_bus *bus, const char *path, bo
                 {}
         };
 
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(machine_status_info_clear) MachineStatusInfo info = {};
         int r;
 
@@ -784,9 +785,10 @@ static int show_machine_info(const char *verb, sd_bus *bus, const char *path, bo
                                    "org.freedesktop.machine1",
                                    path,
                                    map,
+                                   &error,
                                    &info);
         if (r < 0)
-                return log_error_errno(r, "Could not get properties: %m");
+                return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
 
         if (*new_line)
                 printf("\n");
@@ -962,6 +964,7 @@ static int show_image_info(sd_bus *bus, const char *path, bool *new_line) {
                 {}
         };
 
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(image_status_info_clear) ImageStatusInfo info = {};
         int r;
 
@@ -973,9 +976,10 @@ static int show_image_info(sd_bus *bus, const char *path, bool *new_line) {
                                    "org.freedesktop.machine1",
                                    path,
                                    map,
+                                   &error,
                                    &info);
         if (r < 0)
-                return log_error_errno(r, "Could not get properties: %m");
+                return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
 
         if (*new_line)
                 printf("\n");
@@ -1029,6 +1033,8 @@ static int show_pool_info(sd_bus *bus) {
                 .usage = (uint64_t) -1,
                 .limit = (uint64_t) -1,
         };
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
@@ -1037,9 +1043,10 @@ static int show_pool_info(sd_bus *bus) {
                                    "org.freedesktop.machine1",
                                    "/org/freedesktop/machine1",
                                    map,
+                                   &error,
                                    &info);
         if (r < 0)
-                return log_error_errno(r, "Could not get properties: %m");
+                return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
 
         print_pool_status_info(bus, &info);
 

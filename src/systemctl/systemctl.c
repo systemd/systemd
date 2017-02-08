@@ -1922,7 +1922,7 @@ static int get_machine_properties(sd_bus *bus, struct machine_info *mi) {
                 bus = container;
         }
 
-        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", machine_info_property_map, mi);
+        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", machine_info_property_map, NULL, mi);
         if (r < 0)
                 return r;
 
@@ -1957,7 +1957,7 @@ static int get_machine_list(
                 machine_infos[c].name = hn;
                 hn = NULL;
 
-                get_machine_properties(bus, &machine_infos[c]);
+                (void) get_machine_properties(bus, &machine_infos[c]);
                 c++;
         }
 
@@ -1987,7 +1987,7 @@ static int get_machine_list(
                         return log_oom();
                 }
 
-                get_machine_properties(NULL, &machine_infos[c]);
+                (void) get_machine_properties(NULL, &machine_infos[c]);
                 c++;
         }
 
@@ -4953,7 +4953,7 @@ static int show_one(
                 return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
 
         if (unit) {
-                r = bus_message_map_all_properties(reply, property_map, &info);
+                r = bus_message_map_all_properties(reply, property_map, &error, &info);
                 if (r < 0)
                         return log_error_errno(r, "Failed to map properties: %s", bus_error_message(&error, r));
 
@@ -5125,8 +5125,9 @@ static int show_all(
 
 static int show_system_status(sd_bus *bus) {
         char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], since2[FORMAT_TIMESTAMP_MAX];
-        _cleanup_free_ char *hn = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(machine_info_clear) struct machine_info mi = {};
+        _cleanup_free_ char *hn = NULL;
         const char *on, *off;
         int r;
 
@@ -5134,9 +5135,9 @@ static int show_system_status(sd_bus *bus) {
         if (!hn)
                 return log_oom();
 
-        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", machine_info_property_map, &mi);
+        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", machine_info_property_map, &error, &mi);
         if (r < 0)
-                return log_error_errno(r, "Failed to read server status: %m");
+                return log_error_errno(r, "Failed to read server status: %s", bus_error_message(&error, r));
 
         if (streq_ptr(mi.state, "degraded")) {
                 on = ansi_highlight_red();
@@ -6028,7 +6029,7 @@ static int unit_exists(const char *unit) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
 
-        r = bus_message_map_all_properties(reply, property_map, &info);
+        r = bus_message_map_all_properties(reply, property_map, &error, &info);
         if (r < 0)
                 return log_error_errno(r, "Failed to map properties: %s", bus_error_message(&error, r));
 
