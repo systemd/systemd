@@ -906,16 +906,41 @@ int seccomp_protect_sysctl(void) {
 }
 
 int seccomp_restrict_address_families(Set *address_families, bool whitelist) {
-
-#if !SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN
         uint32_t arch;
         int r;
 
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
+                bool supported;
                 Iterator i;
 
                 log_debug("Operating on architecture: %s", seccomp_arch_to_string(arch));
+
+                switch (arch) {
+
+                case SCMP_ARCH_X86_64:
+                case SCMP_ARCH_X32:
+                case SCMP_ARCH_ARM:
+                case SCMP_ARCH_AARCH64:
+                        /* These we know we support (i.e. are the ones that do not use socketcall()) */
+                        supported = true;
+                        break;
+
+                case SCMP_ARCH_X86:
+                case SCMP_ARCH_S390:
+                case SCMP_ARCH_S390X:
+                case SCMP_ARCH_PPC:
+                case SCMP_ARCH_PPC64:
+                case SCMP_ARCH_PPC64LE:
+                default:
+                        /* These we either know we don't support (i.e. are the ones that do use socketcall()), or we
+                         * don't know */
+                        supported = false;
+                        break;
+                }
+
+                if (!supported)
+                        continue;
 
                 r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ALLOW);
                 if (r < 0)
@@ -1036,7 +1061,6 @@ int seccomp_restrict_address_families(Set *address_families, bool whitelist) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to install socket family rules for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
         }
-#endif
 
         return 0;
 }
