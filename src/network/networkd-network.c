@@ -70,6 +70,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         LIST_HEAD_INIT(network->static_addresses);
         LIST_HEAD_INIT(network->static_routes);
         LIST_HEAD_INIT(network->static_fdb_entries);
+        LIST_HEAD_INIT(network->ipv6_proxy_ndp_addresses);
 
         network->stacked_netdevs = hashmap_new(&string_hash_ops);
         if (!network->stacked_netdevs)
@@ -136,6 +137,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->ipv6_hop_limit = -1;
         network->duid.type = _DUID_TYPE_INVALID;
         network->proxy_arp = -1;
+        network->ipv6_proxy_ndp = -1;
         network->arp = -1;
         network->ipv6_accept_ra_use_dns = true;
         network->ipv6_accept_ra_route_table = RT_TABLE_MAIN;
@@ -267,6 +269,9 @@ void network_free(Network *network) {
 
         while ((fdb_entry = network->static_fdb_entries))
                 fdb_entry_free(fdb_entry);
+
+        while ((address = network->ipv6_proxy_ndp_addresses))
+                address_free(address);
 
         hashmap_free(network->addresses_by_section);
         hashmap_free(network->routes_by_section);
@@ -657,6 +662,21 @@ int config_parse_ipv4ll(
          * applies only to IPv4 */
 
         SET_FLAG(*link_local, ADDRESS_FAMILY_IPV4, parse_boolean(rvalue));
+
+        return 0;
+}
+
+int config_parse_ipv6_proxy_ndp_address(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         return 0;
 }

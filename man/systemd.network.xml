@@ -612,6 +612,25 @@
         </para></listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>IPv6ProxyNDP=</varname></term>
+          <listitem><para>A boolean. Configures proxy NDP. Proxy NDP is a
+          technique for IPv6 to allow routing of addresses to a different
+          destination, when peers expect them to be present on a certain
+          physical link. In this case a router, answers Neighbour
+          Advertisement messages intended for another machine by offering
+          its own MAC address as destination.
+          Defaults to unset.
+        </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>IPv6ProxyNDPAddress=</varname></term>
+          <listitem><para>An IPV6 address. Proxy the address from the interface
+          by generating Neighbour Advertisement messages. See ProxyNDP for details.
+          This option may be specified more than once.
+          Defaults to unset.
+        </para></listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Bridge=</varname></term>
           <listitem>
             <para>The name of the bridge to add the link to. See
