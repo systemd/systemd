@@ -44,7 +44,7 @@
 
   <refnamediv>
     <refname>pam_systemd</refname>
-    <refpurpose>Register user sessions in the systemd login manager</refpurpose>
+    <refpurpose>Register user sessions in the systemd login manager (sd-pam)</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -58,6 +58,10 @@
     the systemd login manager
     <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
     and hence the systemd control group hierarchy.</para>
+
+    <para>While a user session is active, <command>pam_systemd</command>
+    runs a process named "<command>(sd-pam)</command>" in the backgrond to
+    ensure that the appropriate actions can be taken on termination.</para>
 
     <para>On login, this module ensures the following:</para>
 
