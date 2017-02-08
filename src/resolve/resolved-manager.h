@@ -109,6 +109,7 @@ struct Manager {
         sd_event_source *bus_retry_event_source;
 
         /* The hostname we publish on LLMNR and mDNS */
+        char *full_hostname;
         char *llmnr_hostname;
         char *mdns_hostname;
         DnsResourceKey *llmnr_host_ipv4_key;
