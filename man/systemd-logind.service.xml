@@ -60,6 +60,14 @@
     manages user logins. It is responsible for:</para>
 
     <itemizedlist>
+      <listitem><para>Creating a new systemd scope unit for the
+      session. If this is the first concurrent session of the user, an
+      implicit slice below <filename>user.slice</filename> is
+      automatically created and the scope is placed into it. Also an instance
+      of the system service <filename>user@.service</filename>, which
+      runs the systemd user manager instance is started.
+      </para></listitem>
+
       <listitem><para>Keeping track of users and sessions, their
       processes and their idle state</para></listitem>
 
@@ -82,6 +90,14 @@
       <listitem><para>Automatic spawning of text logins (gettys) on
       virtual console activation and user runtime directory
       management</para></listitem>
+
+      <listitem><para>Generating session IDs. If auditing is available
+      and <command>pam_loginuid.so</command> was run before
+      <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      module (which is highly recommended), the session ID is
+      initialized from the auditing session ID
+      (<filename>/proc/self/sessionid</filename>). Otherwise, an
+      independent session counter is used.</para></listitem>
     </itemizedlist>
 
     <para>User sessions are registered with logind via the

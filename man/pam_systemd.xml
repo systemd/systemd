@@ -62,41 +62,28 @@
     <para>On login, this module ensures the following:</para>
 
     <orderedlist>
-      <listitem><para>If it does not exist yet, the user runtime
-      directory <filename>/run/user/$USER</filename> is created and
+      <listitem><para>The user runtime directory
+      <filename>/run/user/$USERID</filename> is created and
       its ownership changed to the user that is logging
       in.</para></listitem>
 
       <listitem><para>The <varname>$XDG_SESSION_ID</varname>
-      environment variable is initialized. If auditing is available
-      and <command>pam_loginuid.so</command> was run before this
-      module (which is highly recommended), the variable is
-      initialized from the auditing session id
-      (<filename>/proc/self/sessionid</filename>). Otherwise, an
-      independent session counter is used.</para></listitem>
+      environment variable is initialized with the session ID
+      retrieved from <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+      </para></listitem>
 
       <listitem><para>A new systemd scope unit is created for the
-      session. If this is the first concurrent session of the user, an
-      implicit slice below <filename>user.slice</filename> is
-      automatically created and the scope placed into it. An instance
-      of the system service <filename>user@.service</filename>, which
-      runs the systemd user manager instance, is started.
-      </para></listitem>
+      session.</para></listitem>
     </orderedlist>
 
     <para>On logout, this module ensures the following:</para>
 
     <orderedlist>
-      <listitem><para>If enabled in
-      <citerefentry><refentrytitle>logind.conf</refentrytitle>
-      <manvolnum>5</manvolnum></citerefentry>, all processes of the
-      session are terminated. If the last concurrent session of a user
-      ends, the user's systemd instance will be terminated too, and so
-      will the user's slice unit.</para></listitem>
+      <listitem><para>The <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      session is released if the last concurrent session of a user ends.</para></listitem>
 
-      <listitem><para>If the last concurrent session of a user ends,
-      the <varname>$XDG_RUNTIME_DIR</varname> directory and all its
-      contents are removed, too.</para></listitem>
+      <listitem><para>The <varname>$XDG_RUNTIME_DIR</varname> directory
+      and all its contents are removed.</para></listitem>
     </orderedlist>
 
     <para>If the system was not booted up with systemd as init system,
