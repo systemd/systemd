@@ -106,7 +106,7 @@ struct ExecContext {
         char **pass_environment;
 
         struct rlimit *rlimit[_RLIMIT_MAX];
-        char *working_directory, *root_directory;
+        char *working_directory, *root_directory, *root_image;
         bool working_directory_missing_ok;
         bool working_directory_home;
 
@@ -183,6 +183,7 @@ struct ExecContext {
         bool protect_kernel_tunables;
         bool protect_kernel_modules;
         bool protect_control_groups;
+        bool mount_apivfs;
 
         bool no_new_privileges;
 

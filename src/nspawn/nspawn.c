@@ -3507,53 +3507,6 @@ static int run(int master,
         return 1; /* loop again */
 }
 
-static int load_root_hash(const char *image) {
-        _cleanup_free_ char *text = NULL, *fn = NULL;
-        char *n, *e;
-        void *k;
-        size_t l;
-        int r;
-
-        assert_se(image);
-
-        /* Try to load the root hash from a file next to the image file if it exists. */
-
-        if (arg_root_hash)
-                return 0;
-
-        fn = new(char, strlen(image) + strlen(".roothash") + 1);
-        if (!fn)
-                return log_oom();
-
-        n = stpcpy(fn, image);
-        e = endswith(fn, ".raw");
-        if (e)
-                n = e;
-
-        strcpy(n, ".roothash");
-
-        r = read_one_line_file(fn, &text);
-        if (r == -ENOENT)
-                return 0;
-        if (r < 0) {
-                log_warning_errno(r, "Failed to read %s, ignoring: %m", fn);
-                return 0;
-        }
-
-        r = unhexmem(text, strlen(text), &k, &l);
-        if (r < 0)
-                return log_error_errno(r, "Invalid root hash: %s", text);
-        if (l < sizeof(sd_id128_t)) {
-                free(k);
-                return log_error_errno(r, "Root hash too short: %s", text);
-        }
-
-        arg_root_hash = k;
-        arg_root_hash_size = l;
-
-        return 0;
-}
-
 int main(int argc, char *argv[]) {
 
         _cleanup_free_ char *console = NULL;
@@ -3769,9 +3722,13 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        r = load_root_hash(arg_image);
-                        if (r < 0)
-                                goto finish;
+                        if (!arg_root_hash) {
+                                r = root_hash_load(arg_image, &arg_root_hash, &arg_root_hash_size);
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to load root hash file for %s: %m", arg_image);
+                                        goto finish;
+                                }
+                        }
                 }
 
                 if (!mkdtemp(tmprootdir)) {

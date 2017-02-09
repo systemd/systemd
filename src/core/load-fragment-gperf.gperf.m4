@@ -19,6 +19,7 @@ m4_dnl Define the context options only once
 m4_define(`EXEC_CONTEXT_CONFIG_ITEMS',
 `$1.WorkingDirectory,            config_parse_working_directory,     0,                             offsetof($1, exec_context)
 $1.RootDirectory,                config_parse_unit_path_printf,      0,                             offsetof($1, exec_context.root_directory)
+$1.RootImage,                    config_parse_unit_path_printf,      0,                             offsetof($1, exec_context.root_image)
 $1.User,                         config_parse_user_group,            0,                             offsetof($1, exec_context.user)
 $1.Group,                        config_parse_user_group,            0,                             offsetof($1, exec_context.group)
 $1.SupplementaryGroups,          config_parse_user_group_strv,       0,                             offsetof($1, exec_context.supplementary_groups)
@@ -101,6 +102,7 @@ $1.PrivateUsers,                 config_parse_bool,                  0,         
 $1.ProtectSystem,                config_parse_protect_system,        0,                             offsetof($1, exec_context)
 $1.ProtectHome,                  config_parse_protect_home,          0,                             offsetof($1, exec_context)
 $1.MountFlags,                   config_parse_exec_mount_flags,      0,                             offsetof($1, exec_context)
+$1.MountAPIVFS,                  config_parse_bool,                  0,                             offsetof($1, exec_context.mount_apivfs)
 $1.Personality,                  config_parse_personality,           0,                             offsetof($1, exec_context.personality)
 $1.RuntimeDirectoryMode,         config_parse_mode,                  0,                             offsetof($1, exec_context.runtime_directory_mode)
 $1.RuntimeDirectory,             config_parse_runtime_directory,     0,                             offsetof($1, exec_context.runtime_directory)

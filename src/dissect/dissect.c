@@ -191,6 +191,14 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        if (!arg_root_hash) {
+                r = root_hash_load(arg_image, &arg_root_hash, &arg_root_hash_size);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to read root hash file for %s: %m", arg_image);
+                        goto finish;
+                }
+        }
+
         r = dissect_image(d->fd, arg_root_hash, arg_root_hash_size, arg_flags, &m);
         if (r == -ENOPKG) {
                 log_error_errno(r, "Couldn't identify a suitable partition table or file system in %s.", arg_image);
