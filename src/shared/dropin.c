@@ -43,10 +43,9 @@
 int drop_in_file(const char *dir, const char *unit, unsigned level,
                  const char *name, char **_p, char **_q) {
 
+        char prefix[DECIMAL_STR_MAX(unsigned)];
         _cleanup_free_ char *b = NULL;
         char *p, *q;
-
-        char prefix[DECIMAL_STR_MAX(unsigned)];
 
         assert(unit);
         assert(name);
@@ -128,9 +127,10 @@ static int unit_file_find_dir(
         assert(path);
 
         r = chase_symlinks(path, original_root, 0, &chased);
+        if (r == -ENOENT) /* Ignore -ENOENT, after all most units won't have a drop-in dir */
+                return 0;
         if (r < 0)
-                return log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING,
-                                      r, "Failed to canonicalize path %s: %m", path);
+                return log_full_errno(LOG_WARNING, r, "Failed to canonicalize path %s: %m", path);
 
         r = strv_push(dirs, chased);
         if (r < 0)
