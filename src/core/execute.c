@@ -2017,14 +2017,18 @@ static int apply_working_directory(
                 const char *home,
                 const bool needs_mount_ns) {
 
-        const char *d;
-        const char *wd;
+        const char *d, *wd;
 
         assert(context);
 
-        if (context->working_directory_home)
+        if (context->working_directory_home) {
+
+                if (!home)
+                        return -ENXIO;
+
                 wd = home;
-        else if (context->working_directory)
+
+        } else if (context->working_directory)
                 wd = context->working_directory;
         else
                 wd = "/";
@@ -2181,6 +2185,35 @@ static int send_user_lookup(
         return 0;
 }
 
+static int acquire_home(const ExecContext *c, uid_t uid, const char** home, char **buf) {
+        int r;
+
+        assert(c);
+        assert(home);
+        assert(buf);
+
+        /* If WorkingDirectory=~ is set, try to acquire a usable home directory. */
+
+        if (*home)
+                return 0;
+
+        if (!c->working_directory_home)
+                return 0;
+
+        if (uid == 0) {
+                /* Hardcode /root as home directory for UID 0 */
+                *home = "/root";
+                return 1;
+        }
+
+        r = get_home_dir(buf);
+        if (r < 0)
+                return r;
+
+        *home = *buf;
+        return 1;
+}
+
 static int exec_child(
                 Unit *unit,
                 ExecCommand *command,
@@ -2198,7 +2231,7 @@ static int exec_child(
                 char **error_message) {
 
         _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **accum_env = NULL, **final_argv = NULL;
-        _cleanup_free_ char *mac_selinux_context_net = NULL;
+        _cleanup_free_ char *mac_selinux_context_net = NULL, *home_buffer = NULL;
         _cleanup_free_ gid_t *supplementary_gids = NULL;
         const char *username = NULL, *groupname = NULL;
         const char *home = NULL, *shell = NULL;
@@ -2350,6 +2383,13 @@ static int exec_child(
         }
 
         user_lookup_fd = safe_close(user_lookup_fd);
+
+        r = acquire_home(context, uid, &home, &home_buffer);
+        if (r < 0) {
+                *exit_status = EXIT_CHDIR;
+                *error_message = strdup("Failed to determine $HOME for user");
+                return r;
+        }
 
         /* If a socket is connected to STDIN/STDOUT/STDERR, we
          * must sure to drop O_NONBLOCK */
