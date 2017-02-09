@@ -6244,6 +6244,7 @@ substitutions = \
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(SED) $(subst '|,-e 's|@,$(subst =,\@|,$(subst |',|g',$(substitutions)))) \
+                -e '/^\#\# /d' \
 		< $< > $@
 
 units/%: units/%.in
