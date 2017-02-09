@@ -571,6 +571,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--until-cursor=</option></term>
+
+        <listitem><para>Stop showing entries when the specified cursor is
+        reached.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--show-cursor</option></term>
 
         <listitem><para>The cursor is shown after the last entry after
