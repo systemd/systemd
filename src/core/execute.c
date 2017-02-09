@@ -2040,7 +2040,7 @@ static int apply_working_directory(
 
                 d = wd;
         } else
-                d = strjoina(strempty(context->root_directory), "/", strempty(wd));
+                d = prefix_roota(context->root_directory, wd);
 
         if (chdir(d) < 0 && !context->working_directory_missing_ok)
                 return -errno;
