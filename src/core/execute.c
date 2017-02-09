@@ -815,10 +815,13 @@ static int get_fixed_user(const ExecContext *c, const char **user,
 
         assert(c);
 
+        if (!c->user)
+                return 0;
+
         /* Note that we don't set $HOME or $SHELL if they are not particularly enlightening anyway
          * (i.e. are "/" or "/bin/nologin"). */
 
-        name = c->user ?: "root";
+        name = c->user;
         r = get_user_creds_clean(&name, uid, gid, home, shell);
         if (r < 0)
                 return r;
@@ -2012,31 +2015,43 @@ static int apply_working_directory(
                 const ExecContext *context,
                 const ExecParameters *params,
                 const char *home,
-                const bool needs_mount_ns) {
+                const bool needs_mount_ns,
+                int *exit_status) {
 
-        const char *d;
-        const char *wd;
+        const char *d, *wd;
 
         assert(context);
+        assert(exit_status);
 
-        if (context->working_directory_home)
+        if (context->working_directory_home) {
+
+                if (!home) {
+                        *exit_status = EXIT_CHDIR;
+                        return -ENXIO;
+                }
+
                 wd = home;
-        else if (context->working_directory)
+
+        } else if (context->working_directory)
                 wd = context->working_directory;
         else
                 wd = "/";
 
         if (params->flags & EXEC_APPLY_CHROOT) {
                 if (!needs_mount_ns && context->root_directory)
-                        if (chroot(context->root_directory) < 0)
+                        if (chroot(context->root_directory) < 0) {
+                                *exit_status = EXIT_CHROOT;
                                 return -errno;
+                        }
 
                 d = wd;
         } else
-                d = strjoina(strempty(context->root_directory), "/", strempty(wd));
+                d = prefix_roota(context->root_directory, wd);
 
-        if (chdir(d) < 0 && !context->working_directory_missing_ok)
+        if (chdir(d) < 0 && !context->working_directory_missing_ok) {
+                *exit_status = EXIT_CHDIR;
                 return -errno;
+        }
 
         return 0;
 }
@@ -2178,6 +2193,35 @@ static int send_user_lookup(
         return 0;
 }
 
+static int acquire_home(const ExecContext *c, uid_t uid, const char** home, char **buf) {
+        int r;
+
+        assert(c);
+        assert(home);
+        assert(buf);
+
+        /* If WorkingDirectory=~ is set, try to acquire a usable home directory. */
+
+        if (*home)
+                return 0;
+
+        if (!c->working_directory_home)
+                return 0;
+
+        if (uid == 0) {
+                /* Hardcode /root as home directory for UID 0 */
+                *home = "/root";
+                return 1;
+        }
+
+        r = get_home_dir(buf);
+        if (r < 0)
+                return r;
+
+        *home = *buf;
+        return 1;
+}
+
 static int exec_child(
                 Unit *unit,
                 ExecCommand *command,
@@ -2195,7 +2239,7 @@ static int exec_child(
                 char **error_message) {
 
         _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **accum_env = NULL, **final_argv = NULL;
-        _cleanup_free_ char *mac_selinux_context_net = NULL;
+        _cleanup_free_ char *mac_selinux_context_net = NULL, *home_buffer = NULL;
         _cleanup_free_ gid_t *supplementary_gids = NULL;
         const char *username = NULL, *groupname = NULL;
         const char *home = NULL, *shell = NULL;
@@ -2347,6 +2391,13 @@ static int exec_child(
         }
 
         user_lookup_fd = safe_close(user_lookup_fd);
+
+        r = acquire_home(context, uid, &home, &home_buffer);
+        if (r < 0) {
+                *exit_status = EXIT_CHDIR;
+                *error_message = strdup("Failed to determine $HOME for user");
+                return r;
+        }
 
         /* If a socket is connected to STDIN/STDOUT/STDERR, we
          * must sure to drop O_NONBLOCK */
@@ -2563,11 +2614,9 @@ static int exec_child(
         }
 
         /* Apply just after mount namespace setup */
-        r = apply_working_directory(context, params, home, needs_mount_namespace);
-        if (r < 0) {
-                *exit_status = EXIT_CHROOT;
+        r = apply_working_directory(context, params, home, needs_mount_namespace, exit_status);
+        if (r < 0)
                 return r;
-        }
 
         /* Drop groups as early as possbile */
         if ((params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged) {
