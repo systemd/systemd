@@ -346,8 +346,9 @@
         in the container's file system namespace.</para>
 
         <para>This is for containers which have several bootable directories in them; for example, several
-        <ulink url="https://ostree.readthedocs.io/en/latest/">OSTree</ulink> deployments. It emulates the behavior of the boot
-        loader and initial RAM disk which normally select which directory to mount as root and start the container's PID 1 in.</para></listitem>
+        <ulink url="https://ostree.readthedocs.io/en/latest/">OSTree</ulink> deployments. It emulates the behavior of
+        the boot loader and initial RAM disk which normally select which directory to mount as the root and start the
+        container's PID 1 in.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1041,8 +1042,9 @@
     <example>
       <title>Download a Fedora image and start a shell in it</title>
 
-      <programlisting># machinectl pull-raw --verify=no http://ftp.halifax.rwth-aachen.de/fedora/linux/releases/24/CloudImages/x86_64/images/Fedora-Cloud-Base-24-1.2.x86_64.raw.xz
-# systemd-nspawn -M Fedora-Cloud-Base-24-1.2.x86_64.raw</programlisting>
+      <programlisting># machinectl pull-raw --verify=no \
+      https://download.fedoraproject.org/pub/fedora/linux/releases/25/CloudImages/x86_64/images/Fedora-Cloud-Base-25-1.3.x86_64.raw.xz
+# systemd-nspawn -M Fedora-Cloud-Base-25-1.3.x86_64.raw</programlisting>
 
       <para>This downloads an image using
       <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -1052,7 +1054,9 @@
     <example>
       <title>Build and boot a minimal Fedora distribution in a container</title>
 
-      <programlisting># dnf -y --releasever=23 --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora --enablerepo=updates install systemd passwd dnf fedora-release vim-minimal
+      <programlisting># dnf -y --releasever=25 --installroot=/srv/mycontainer \
+      --disablerepo='*' --enablerepo=fedora --enablerepo=updates install \
+      systemd passwd dnf fedora-release vim-minimal
 # systemd-nspawn -bD /srv/mycontainer</programlisting>
 
       <para>This installs a minimal Fedora distribution into the
@@ -1095,13 +1099,16 @@
       <title>Run a container with SELinux sandbox security contexts</title>
 
       <programlisting># chcon system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -R /srv/container
-# systemd-nspawn -L system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -Z system_u:system_r:svirt_lxc_net_t:s0:c0,c1 -D /srv/container /bin/sh</programlisting>
+# systemd-nspawn -L system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 \
+      -Z system_u:system_r:svirt_lxc_net_t:s0:c0,c1 -D /srv/container /bin/sh</programlisting>
     </example>
 
     <example>
       <title>Run a container with an OSTree deployment</title>
 
-      <programlisting># systemd-nspawn -b -i ~/image.raw --pivot-root=/ostree/deploy/$OS/deploy/$CHECKSUM:/sysroot --bind=+/sysroot/ostree/deploy/$OS/var:/var</programlisting>
+      <programlisting># systemd-nspawn -b -i ~/image.raw \
+      --pivot-root=/ostree/deploy/$OS/deploy/$CHECKSUM:/sysroot \
+      --bind=+/sysroot/ostree/deploy/$OS/var:/var</programlisting>
     </example>
   </refsect1>
 
