@@ -631,11 +631,9 @@
         all mount units required to access the specified path.</para>
 
         <para>Mount points marked with <option>noauto</option> are not
-        mounted automatically and will be ignored for the purposes of
-        this option. If such a mount should be a requirement for this
-        unit, direct dependencies on the mount units may be added
-        (<varname>Requires=</varname> and <varname>After=</varname> or
-        some other combination). </para></listitem>
+        mounted automatically through <filename>local-fs.target</filename>,
+        but are still honored for the purposes of this option, i.e. they
+        will be pulled in by this unit.</para></listitem>
       </varlistentry>
 
       <varlistentry>
