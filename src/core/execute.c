@@ -2015,16 +2015,20 @@ static int apply_working_directory(
                 const ExecContext *context,
                 const ExecParameters *params,
                 const char *home,
-                const bool needs_mount_ns) {
+                const bool needs_mount_ns,
+                int *exit_status) {
 
         const char *d, *wd;
 
         assert(context);
+        assert(exit_status);
 
         if (context->working_directory_home) {
 
-                if (!home)
+                if (!home) {
+                        *exit_status = EXIT_CHDIR;
                         return -ENXIO;
+                }
 
                 wd = home;
 
@@ -2035,15 +2039,19 @@ static int apply_working_directory(
 
         if (params->flags & EXEC_APPLY_CHROOT) {
                 if (!needs_mount_ns && context->root_directory)
-                        if (chroot(context->root_directory) < 0)
+                        if (chroot(context->root_directory) < 0) {
+                                *exit_status = EXIT_CHROOT;
                                 return -errno;
+                        }
 
                 d = wd;
         } else
                 d = prefix_roota(context->root_directory, wd);
 
-        if (chdir(d) < 0 && !context->working_directory_missing_ok)
+        if (chdir(d) < 0 && !context->working_directory_missing_ok) {
+                *exit_status = EXIT_CHDIR;
                 return -errno;
+        }
 
         return 0;
 }
@@ -2606,11 +2614,9 @@ static int exec_child(
         }
 
         /* Apply just after mount namespace setup */
-        r = apply_working_directory(context, params, home, needs_mount_namespace);
-        if (r < 0) {
-                *exit_status = EXIT_CHROOT;
+        r = apply_working_directory(context, params, home, needs_mount_namespace, exit_status);
+        if (r < 0)
                 return r;
-        }
 
         /* Drop groups as early as possbile */
         if ((params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged) {
