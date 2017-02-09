@@ -148,16 +148,14 @@ static int unit_file_find_dirs(
                 const char *suffix,
                 char ***dirs) {
 
-        _cleanup_free_ char *path = NULL;
+        char *path;
         int r;
 
         assert(unit_path);
         assert(name);
         assert(suffix);
 
-        path = strjoin(unit_path, "/", name, suffix);
-        if (!path)
-                return log_oom();
+        path = strjoina(unit_path, "/", name, suffix);
 
         if (!unit_path_cache || set_get(unit_path_cache, path)) {
                 r = unit_file_find_dir(original_root, path, dirs);
