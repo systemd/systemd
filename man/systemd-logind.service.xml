@@ -60,8 +60,14 @@
     manages user logins. It is responsible for:</para>
 
     <itemizedlist>
-      <listitem><para>Keeping track of users and sessions, their
-      processes and their idle state</para></listitem>
+      <listitem><para>Keeping track of users and sessions, their processes and their idle state. This is implemented by
+      allocating a systemd slice unit for each user below <filename>user.slice</filename>, and a scope unit below it
+      for each concurrent session of a user. Also, a per-user service manager is started as system service instance of
+      <filename>user@.service</filename> for each user logged in.</para></listitem>
+
+      <listitem><para>Generating and managing session IDs. If auditing is available and an audit session ID is set for
+      a session already, the session ID is initialized from it. Otherwise, an independent session counter is
+      used.</para></listitem>
 
       <listitem><para>Providing PolicyKit-based access for users to
       operations such as system shutdown or sleep</para></listitem>
