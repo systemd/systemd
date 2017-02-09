@@ -24,3 +24,4 @@ ProtectSystem=strict
 RuntimeMaxSec=5min
 SystemCallArchitectures=native
 ReadWritePaths=/var/lib/systemd/coredump
+ProtectKernelModules=yes

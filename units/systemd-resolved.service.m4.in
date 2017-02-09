@@ -31,6 +31,7 @@ ProtectSystem=strict
 ProtectHome=yes
 ProtectControlGroups=yes
 ProtectKernelTunables=yes
+ProtectKernelModules=yes
 MemoryDenyWriteExecute=yes
 RestrictRealtime=yes
 RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
