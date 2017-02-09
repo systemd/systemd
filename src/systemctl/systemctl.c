@@ -181,6 +181,7 @@ static int daemon_reload(int argc, char *argv[], void* userdata);
 static int trivial_method(int argc, char *argv[], void *userdata);
 static int halt_now(enum action a);
 static int get_state_one_unit(sd_bus *bus, const char *name, UnitActiveState *active_state);
+static int enable_sysv_units(const char *verb, char **args, bool *sysv_status);
 
 static bool original_stdout_is_tty;
 
@@ -5038,6 +5039,20 @@ static int show_one(
         } else if (streq(verb, "help"))
                 show_unit_help(&info);
         else if (streq(verb, "status")) {
+                const char *p = info.source_path ?: info.fragment_path;
+
+                if (streq(info.unit_file_state, "generated") && startswith(p, "/etc/rc.d/")) {
+                        _cleanup_strv_free_ char **u = NULL;
+                        bool s;
+
+                        u = strv_new(info.id, NULL);
+                        if (!u)
+                                return log_oom();
+
+                        if (enable_sysv_units("is-enabled", u, &s) >= 0)
+                                info.unit_file_state = strjoina(info.unit_file_state, s ? "; enabled" : "");
+                }
+
                 print_status_info(bus, &info, ellipsized);
 
                 if (info.active_state && !STR_IN_SET(info.active_state, "active", "reloading"))
@@ -5795,7 +5810,7 @@ static int import_environment(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int enable_sysv_units(const char *verb, char **args) {
+static int enable_sysv_units(const char *verb, char **args, bool *sysv_status) {
         int r = 0;
 
 #if defined(HAVE_SYSV_COMPAT)
@@ -5907,12 +5922,16 @@ static int enable_sysv_units(const char *verb, char **args) {
                 if (status.si_code == CLD_EXITED) {
                         if (streq(verb, "is-enabled")) {
                                 if (status.si_status == 0) {
-                                        if (!arg_quiet)
+                                        if (sysv_status == NULL && !arg_quiet)
                                                 puts("enabled");
+                                        else if (sysv_status != NULL)
+                                                *sysv_status = true;
                                         r = 1;
                                 } else {
-                                        if (!arg_quiet)
+                                        if (sysv_status == NULL && !arg_quiet)
                                                 puts("disabled");
+                                        else if (sysv_status != NULL)
+                                                *sysv_status = false;
                                 }
 
                         } else if (status.si_status != 0)
@@ -6051,7 +6070,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = enable_sysv_units(verb, names);
+        r = enable_sysv_units(verb, names, NULL);
         if (r < 0)
                 return r;
 
@@ -6452,7 +6471,7 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = enable_sysv_units(argv[0], names);
+        r = enable_sysv_units(argv[0], names, NULL);
         if (r < 0)
                 return r;
 
