@@ -97,8 +97,11 @@ static struct udev_device *skip_subsystem(struct udev_device *dev, const char *s
 static struct udev_device *handle_scsi_fibre_channel(struct udev_device *parent, char **path) {
         struct udev *udev  = udev_device_get_udev(parent);
         struct udev_device *targetdev;
+        struct udev_device *hostdev;
         struct udev_device *fcdev = NULL;
+        struct udev_device *fchostdev = NULL;
         const char *port;
+        const char *hostport;
         char *lun = NULL;
 
         assert(parent);
@@ -117,11 +120,25 @@ static struct udev_device *handle_scsi_fibre_channel(struct udev_device *parent,
                 goto out;
         }
 
+        hostdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_host");
+        if (hostdev == NULL)
+                return NULL;
+
+        fchostdev = udev_device_new_from_subsystem_sysname(udev, "fc_host", udev_device_get_sysname(hostdev));
+        if (fchostdev == NULL)
+                return NULL;
+        hostport = udev_device_get_sysattr_value(fchostdev, "port_name");
+        if (hostport == NULL) {
+                parent = NULL;
+                goto out;
+        }
+
         format_lun_number(parent, &lun);
-        path_prepend(path, "fc-%s-%s", port, lun);
+        path_prepend(path, "fc-%s-fc-%s-%s", hostport, port, lun);
         free(lun);
 out:
         udev_device_unref(fcdev);
+        udev_device_unref(fchostdev);
         return parent;
 }
 
