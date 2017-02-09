@@ -164,22 +164,15 @@ static int unit_file_find_dirs(
         }
 
         if (unit_name_is_valid(name, UNIT_NAME_INSTANCE)) {
-                _cleanup_free_ char *template = NULL, *p = NULL;
                 /* Also try the template dir */
+
+                _cleanup_free_ char *template = NULL;
 
                 r = unit_name_template(name, &template);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate template from unit name: %m");
 
-                p = strjoin(unit_path, "/", template, suffix);
-                if (!p)
-                        return log_oom();
-
-                if (!unit_path_cache || set_get(unit_path_cache, p)) {
-                        r = unit_file_find_dir(original_root, p, dirs);
-                        if (r < 0)
-                                return r;
-                }
+                return unit_file_find_dirs(original_root, unit_path_cache, unit_path, template, suffix, dirs);
         }
 
         return 0;
