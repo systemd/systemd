@@ -24,6 +24,8 @@ Janitorial Clean-ups:
 
 Features:
 
+* set SystemCallArchitectures=native on all our services
+
 * maybe add call sd_journal_set_block_timeout() or so to set SO_SNDTIMEO for
   the sd-journal logging socket, and, if the timeout is set to 0, sets
   O_NONBLOCK on it. That way people can control if and when to block for

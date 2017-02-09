@@ -47,8 +47,8 @@
 static inline int raw_clone(unsigned long flags) {
         assert((flags & (CLONE_VM|CLONE_PARENT_SETTID|CLONE_CHILD_SETTID|
                          CLONE_CHILD_CLEARTID|CLONE_SETTLS)) == 0);
-#if defined(__s390__) || defined(__CRIS__)
-        /* On s390 and cris the order of the first and second arguments
+#if defined(__s390x__) || defined(__s390__) || defined(__CRIS__)
+        /* On s390/s390x and cris the order of the first and second arguments
          * of the raw clone() system call is reversed. */
         return (int) syscall(__NR_clone, NULL, flags);
 #elif defined(__sparc__) && defined(__arch64__)

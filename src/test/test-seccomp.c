@@ -158,6 +158,8 @@ static void test_restrict_namespace(void) {
         assert_se(streq(s, "cgroup ipc net mnt pid user uts"));
         assert_se(namespace_flag_from_string_many(s, &ul) == 0 && ul == NAMESPACE_FLAGS_ALL);
 
+#if SECCOMP_RESTRICT_NAMESPACES_BROKEN == 0
+
         if (!is_seccomp_available())
                 return;
         if (geteuid() != 0)
@@ -216,6 +218,7 @@ static void test_restrict_namespace(void) {
         }
 
         assert_se(wait_for_terminate_and_warn("nsseccomp", pid, true) == EXIT_SUCCESS);
+#endif
 }
 
 static void test_protect_sysctl(void) {
