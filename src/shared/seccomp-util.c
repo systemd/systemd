@@ -344,6 +344,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "mknodat\0"
                 "mmap2\0"
                 "mmap\0"
+                "munmap\0"
                 "newfstatat\0"
                 "open\0"
                 "openat\0"
