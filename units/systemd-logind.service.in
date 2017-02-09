@@ -29,7 +29,7 @@ MemoryDenyWriteExecute=yes
 RestrictRealtime=yes
 RestrictNamespaces=yes
 RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
-SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @obsolete @raw-io
+SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @obsolete @raw-io @reboot @swap
 SystemCallArchitectures=native
 
 # Increase the default a bit in order to allow many simultaneous
