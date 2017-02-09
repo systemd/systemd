@@ -185,27 +185,30 @@ int unit_file_find_dropin_paths(
                 const char *dir_suffix,
                 const char *file_suffix,
                 Set *names,
-                char ***paths) {
+                char ***ret) {
 
         _cleanup_strv_free_ char **dirs = NULL, **ans = NULL;
         Iterator i;
         char *t, **p;
         int r;
 
-        assert(paths);
+        assert(ret);
 
         SET_FOREACH(t, names, i)
                 STRV_FOREACH(p, lookup_path)
                         unit_file_find_dirs(original_root, unit_path_cache, *p, t, dir_suffix, &dirs);
 
-        if (strv_isempty(dirs))
+        if (strv_isempty(dirs)) {
+                *ret = NULL;
                 return 0;
+        }
 
         r = conf_files_list_strv(&ans, file_suffix, NULL, (const char**) dirs);
         if (r < 0)
                 return log_warning_errno(r, "Failed to sort the list of configuration files: %m");
 
-        *paths = ans;
+        *ret = ans;
         ans = NULL;
+
         return 1;
 }
