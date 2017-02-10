@@ -33,6 +33,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
 
 static int user_runtime_dir(char **ret, const char *suffix) {
@@ -57,6 +58,7 @@ static int user_runtime_dir(char **ret, const char *suffix) {
 static int user_config_dir(char **ret, const char *suffix) {
         const char *e;
         char *j;
+        int r;
 
         assert(ret);
 
@@ -64,11 +66,11 @@ static int user_config_dir(char **ret, const char *suffix) {
         if (e)
                 j = strappend(e, suffix);
         else {
-                const char *home;
+                _cleanup_free_ char *home = NULL;
 
-                home = getenv("HOME");
-                if (!home)
-                        return -ENXIO;
+                r = get_home_dir(&home);
+                if (r < 0)
+                        return r;
 
                 j = strjoin(home, "/.config", suffix);
         }
@@ -83,6 +85,7 @@ static int user_config_dir(char **ret, const char *suffix) {
 static int user_data_dir(char **ret, const char *suffix) {
         const char *e;
         char *j;
+        int r;
 
         assert(ret);
         assert(suffix);
@@ -95,12 +98,11 @@ static int user_data_dir(char **ret, const char *suffix) {
         if (e)
                 j = strappend(e, suffix);
         else {
-                const char *home;
+                _cleanup_free_ char *home = NULL;
 
-                home = getenv("HOME");
-                if (!home)
-                        return -ENXIO;
-
+                r = get_home_dir(&home);
+                if (r < 0)
+                        return r;
 
                 j = strjoin(home, "/.local/share", suffix);
         }
