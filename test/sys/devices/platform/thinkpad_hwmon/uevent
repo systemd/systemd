@@ -1,0 +1,2 @@
+DRIVER=thinkpad_hwmon
+MODALIAS=platform:thinkpad_hwmon

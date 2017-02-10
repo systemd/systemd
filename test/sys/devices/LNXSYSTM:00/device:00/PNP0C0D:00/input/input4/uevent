@@ -1,0 +1,6 @@
+PRODUCT=19/0/5/0
+NAME="Lid Switch"
+PHYS="PNP0C0D/button/input0"
+EV==21
+SW==1
+MODALIAS=input:b0019v0000p0005e0000-e0,5,kramlsfw0,
