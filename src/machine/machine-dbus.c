@@ -1276,6 +1276,32 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
         return sd_bus_reply_method_return(message, "h", fd);
 }
 
+int bus_machine_method_get_uid_shift(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Machine *m = userdata;
+        uid_t shift = 0;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        /* You wonder why this is a method and not a property? Well, properties are not supposed to return errors, but
+         * we kinda have to for this. */
+
+        if (m->class == MACHINE_HOST)
+                return sd_bus_reply_method_return(message, "u", UINT32_C(0));
+
+        if (m->class != MACHINE_CONTAINER)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "UID/GID shift may only be determined for container machines.");
+
+        r = machine_get_uid_shift(m, &shift);
+        if (r == -ENXIO)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Machine %s uses a complex UID/GID mapping, cannot determine shift", m->name);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, "u", (uint32_t) shift);
+}
+
 const sd_bus_vtable machine_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Name", "s", NULL, offsetof(Machine, name), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1293,6 +1319,7 @@ const sd_bus_vtable machine_vtable[] = {
         SD_BUS_METHOD("Kill", "si", NULL, bus_machine_method_kill, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetAddresses", NULL, "a(iay)", bus_machine_method_get_addresses, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetOSRelease", NULL, "a{ss}", bus_machine_method_get_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetUIDShift", NULL, "u", bus_machine_method_get_uid_shift, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("OpenPTY", NULL, "hs", bus_machine_method_open_pty, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("OpenLogin", NULL, "hs", bus_machine_method_open_login, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("OpenShell", "ssasas", "hs", bus_machine_method_open_shell, SD_BUS_VTABLE_UNPRIVILEGED),

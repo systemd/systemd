@@ -611,6 +611,37 @@ static int print_os_release(sd_bus *bus, const char *method, const char *name, c
         return 0;
 }
 
+static int print_uid_shift(sd_bus *bus, const char *name) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        uint32_t shift;
+        int r;
+
+        assert(bus);
+        assert(name);
+
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.machine1",
+                               "/org/freedesktop/machine1",
+                               "org.freedesktop.machine1.Manager",
+                               "GetMachineUIDShift",
+                               &error,
+                               &reply,
+                               "s", name);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to query UID/GID shift: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "u", &shift);
+        if (r < 0)
+                return r;
+
+        if (shift == 0) /* Don't show trivial mappings */
+                return 0;
+
+        printf("       UID Shift: %" PRIu32 "\n", shift);
+        return 0;
+}
+
 typedef struct MachineStatusInfo {
         char *name;
         sd_id128_t id;
@@ -713,6 +744,8 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
                        ALL_IP_ADDRESSES);
 
         print_os_release(bus, "GetMachineOSRelease", i->name, "\t      OS: ");
+
+        print_uid_shift(bus, i->name);
 
         if (i->unit) {
                 printf("\t    Unit: %s\n", i->unit);
