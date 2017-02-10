@@ -1360,6 +1360,11 @@
         filter is reset, all prior assignments will have no effect. This does not affect commands prefixed with
         <literal>+</literal>.</para>
 
+        <para>Note that on systems supporting multiple ABIs (such as x86/x86-64) it is recommended to turn off
+        alternative ABIs for services, so that they cannot be used to circumvent the restrictions of this
+        option. Specifically, it is recommended to combine this option with
+        <varname>SystemCallArchitectures=native</varname> or similar.</para>
+
         <para>Note that strict system call filters may impact execution and error handling code paths of the service
         invocation. Specifically, access to the <function>execve</function> system call is required for the execution
         of the service binary — if it is blocked service invocation will necessarily fail. Also, if execution of the
@@ -1509,25 +1514,31 @@
       <varlistentry>
         <term><varname>SystemCallArchitectures=</varname></term>
 
-        <listitem><para>Takes a space-separated list of architecture identifiers to
-        include in the system call filter. The known architecture identifiers are the same
-        as for <varname>ConditionArchitecture=</varname> described in
-        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        as well as <constant>x32</constant>, <constant>mips64-n32</constant>,
-        <constant>mips64-le-n32</constant>, and the special identifier
-        <constant>native</constant>. Only system calls of the specified architectures will
-        be permitted to processes of this unit. This is an effective way to disable
-        compatibility with non-native architectures for processes, for example to prohibit
-        execution of 32-bit x86 binaries on 64-bit x86-64 systems. The special
-        <constant>native</constant> identifier implicitly maps to the native architecture
-        of the system (or more strictly: to the architecture the system manager is
-        compiled for). If running in user mode, or in system mode, but without the
-        <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
-        <varname>User=nobody</varname>), <varname>NoNewPrivileges=yes</varname> is
-        implied. Note that setting this option to a non-empty list implies that
-        <constant>native</constant> is included too. By default, this option is set to the
-        empty list, i.e. no architecture system call filtering is applied.
-        </para></listitem>
+        <listitem><para>Takes a space-separated list of architecture identifiers to include in the system call
+        filter. The known architecture identifiers are the same as for <varname>ConditionArchitecture=</varname>
+        described in <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        as well as <constant>x32</constant>, <constant>mips64-n32</constant>, <constant>mips64-le-n32</constant>, and
+        the special identifier <constant>native</constant>. Only system calls of the specified architectures will be
+        permitted to processes of this unit. This is an effective way to disable compatibility with non-native
+        architectures for processes, for example to prohibit execution of 32-bit x86 binaries on 64-bit x86-64
+        systems. The special <constant>native</constant> identifier implicitly maps to the native architecture of the
+        system (or more strictly: to the architecture the system manager is compiled for). If running in user mode, or
+        in system mode, but without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
+        <varname>User=nobody</varname>), <varname>NoNewPrivileges=yes</varname> is implied. Note that setting this
+        option to a non-empty list implies that <constant>native</constant> is included too. By default, this option is
+        set to the empty list, i.e. no system call architecture filtering is applied.</para>
+
+        <para>Note that system call filtering is not equally effective on all architectures. For example, on x86
+        filtering of network socket-related calls is not possible, due to ABI limitations — a limitation that x86-64
+        does not have, however. On systems supporting multiple ABIs at the same time — such as x86/x86-64 — it is hence
+        recommended to limit the set of permitted system call architectures so that secondary ABIs may not be used to
+        circumvent the restrictions applied to the native ABI of the system. In particular, setting
+        <varname>SystemCallFilter=native</varname> is a good choice for disabling non-native ABIs.</para>
+
+        <para>System call architectures may also be restricted system-wide via the
+        <varname>SystemCallArchitectures=</varname> option in the global configuration. See
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1543,7 +1554,10 @@
         units, see <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
         are unaffected. Also, sockets created with <function>socketpair()</function> (which creates connected AF_UNIX
         sockets only) are unaffected. Note that this option has no effect on 32-bit x86, s390, s390x, mips, mips-le,
-        ppc, ppc-le, pcc64, ppc64-le and is ignored (but works correctly on other architectures, including x86-64). If
+        ppc, ppc-le, pcc64, ppc64-le and is ignored (but works correctly on other ABIs, including x86-64). Note that on
+        systems supporting multiple ABIs (such as x86/x86-64) it is recommended to turn off alternative ABIs for
+        services, so that they cannot be used to circumvent the restrictions of this option. Specifically, it is
+        recommended to combine this option with <varname>SystemCallArchitectures=native</varname> or similar. If
         running in user mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant> capability
         (e.g. setting <varname>User=nobody</varname>), <varname>NoNewPrivileges=yes</varname> is implied. By default,
         no restrictions apply, all address families are accessible to processes. If assigned the empty string, any
@@ -1642,9 +1656,12 @@
         code dynamically at runtime, such as JIT execution engines, or programs compiled making use of the code
         "trampoline" feature of various C compilers. This option improves service security, as it makes harder for
         software exploits to change running code dynamically. Note that this feature is fully available on x86-64, and
-        partially on x86. Specifically, the <function>shmat()</function> protection is not available on x86. If running
-        in user mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
-        <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname> is implied.  </para></listitem>
+        partially on x86. Specifically, the <function>shmat()</function> protection is not available on x86. Note that
+        on systems supporting multiple ABIs (such as x86/x86-64) it is recommended to turn off alternative ABIs for
+        services, so that they cannot be used to circumvent the restrictions of this option. Specifically, it is
+        recommended to combine this option with <varname>SystemCallArchitectures=native</varname> or similar. If
+        running in user mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant> capability
+        (e.g. setting <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname> is implied.  </para></listitem>
       </varlistentry>
 
       <varlistentry>
