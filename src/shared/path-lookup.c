@@ -138,10 +138,10 @@ static char** user_dirs(
                 NULL
         };
 
-        const char *e;
         _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
         _cleanup_free_ char *data_home = NULL;
         _cleanup_strv_free_ char **res = NULL;
+        const char *e;
         char **tmp;
         int r;
 
@@ -188,9 +188,8 @@ static char** user_dirs(
         if (strv_extend(&res, generator_early) < 0)
                 return NULL;
 
-        if (!strv_isempty(config_dirs))
-                if (strv_extend_strv_concat(&res, config_dirs, "/systemd/user") < 0)
-                        return NULL;
+        if (strv_extend_strv_concat(&res, config_dirs, "/systemd/user") < 0)
+                return NULL;
 
         if (strv_extend(&res, persistent_config) < 0)
                 return NULL;
@@ -207,9 +206,8 @@ static char** user_dirs(
         if (strv_extend(&res, data_home) < 0)
                 return NULL;
 
-        if (!strv_isempty(data_dirs))
-                if (strv_extend_strv_concat(&res, data_dirs, "/systemd/user") < 0)
-                        return NULL;
+        if (strv_extend_strv_concat(&res, data_dirs, "/systemd/user") < 0)
+                return NULL;
 
         if (strv_extend_strv(&res, (char**) data_unit_paths, false) < 0)
                 return NULL;
@@ -222,6 +220,7 @@ static char** user_dirs(
 
         tmp = res;
         res = NULL;
+
         return tmp;
 }
 
