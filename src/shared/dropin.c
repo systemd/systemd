@@ -43,10 +43,9 @@
 int drop_in_file(const char *dir, const char *unit, unsigned level,
                  const char *name, char **_p, char **_q) {
 
+        char prefix[DECIMAL_STR_MAX(unsigned)];
         _cleanup_free_ char *b = NULL;
         char *p, *q;
-
-        char prefix[DECIMAL_STR_MAX(unsigned)];
 
         assert(unit);
         assert(name);
@@ -128,9 +127,10 @@ static int unit_file_find_dir(
         assert(path);
 
         r = chase_symlinks(path, original_root, 0, &chased);
+        if (r == -ENOENT) /* Ignore -ENOENT, after all most units won't have a drop-in dir */
+                return 0;
         if (r < 0)
-                return log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING,
-                                      r, "Failed to canonicalize path %s: %m", path);
+                return log_full_errno(LOG_WARNING, r, "Failed to canonicalize path %s: %m", path);
 
         r = strv_push(dirs, chased);
         if (r < 0)
@@ -148,16 +148,14 @@ static int unit_file_find_dirs(
                 const char *suffix,
                 char ***dirs) {
 
-        _cleanup_free_ char *path = NULL;
+        char *path;
         int r;
 
         assert(unit_path);
         assert(name);
         assert(suffix);
 
-        path = strjoin(unit_path, "/", name, suffix);
-        if (!path)
-                return log_oom();
+        path = strjoina(unit_path, "/", name, suffix);
 
         if (!unit_path_cache || set_get(unit_path_cache, path)) {
                 r = unit_file_find_dir(original_root, path, dirs);
@@ -166,22 +164,15 @@ static int unit_file_find_dirs(
         }
 
         if (unit_name_is_valid(name, UNIT_NAME_INSTANCE)) {
-                _cleanup_free_ char *template = NULL, *p = NULL;
                 /* Also try the template dir */
+
+                _cleanup_free_ char *template = NULL;
 
                 r = unit_name_template(name, &template);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate template from unit name: %m");
 
-                p = strjoin(unit_path, "/", template, suffix);
-                if (!p)
-                        return log_oom();
-
-                if (!unit_path_cache || set_get(unit_path_cache, p)) {
-                        r = unit_file_find_dir(original_root, p, dirs);
-                        if (r < 0)
-                                return r;
-                }
+                return unit_file_find_dirs(original_root, unit_path_cache, unit_path, template, suffix, dirs);
         }
 
         return 0;
@@ -194,27 +185,30 @@ int unit_file_find_dropin_paths(
                 const char *dir_suffix,
                 const char *file_suffix,
                 Set *names,
-                char ***paths) {
+                char ***ret) {
 
         _cleanup_strv_free_ char **dirs = NULL, **ans = NULL;
         Iterator i;
         char *t, **p;
         int r;
 
-        assert(paths);
+        assert(ret);
 
         SET_FOREACH(t, names, i)
                 STRV_FOREACH(p, lookup_path)
                         unit_file_find_dirs(original_root, unit_path_cache, *p, t, dir_suffix, &dirs);
 
-        if (strv_isempty(dirs))
+        if (strv_isempty(dirs)) {
+                *ret = NULL;
                 return 0;
+        }
 
         r = conf_files_list_strv(&ans, file_suffix, NULL, (const char**) dirs);
         if (r < 0)
                 return log_warning_errno(r, "Failed to sort the list of configuration files: %m");
 
-        *paths = ans;
+        *ret = ans;
         ans = NULL;
+
         return 1;
 }
