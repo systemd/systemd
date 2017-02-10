@@ -36,31 +36,72 @@
 
 const uint32_t seccomp_local_archs[] = {
 
-#if defined(__i386__) || defined(__x86_64__)
+        /* Note: always list the native arch we are compiled as last, so that users can blacklist seccomp(), but our own calls to it still succeed */
+
+#if defined(__x86_64__) && defined(__ILP32__)
                 SCMP_ARCH_X86,
                 SCMP_ARCH_X86_64,
+                SCMP_ARCH_X32,         /* native */
+#elif defined(__x86_64__) && !defined(__ILP32__)
+                SCMP_ARCH_X86,
                 SCMP_ARCH_X32,
-
-#elif defined(__arm__) || defined(__aarch64__)
+                SCMP_ARCH_X86_64,      /* native */
+#elif defined(__i386__)
+                SCMP_ARCH_X86,
+#elif defined(__aarch64__)
                 SCMP_ARCH_ARM,
-                SCMP_ARCH_AARCH64,
-
-#elif defined(__mips__) || defined(__mips64__)
-                SCMP_ARCH_MIPS,
-                SCMP_ARCH_MIPS64,
-                SCMP_ARCH_MIPS64N32,
+                SCMP_ARCH_AARCH64,     /* native */
+#elif defined(__arm__)
+                SCMP_ARCH_ARM,
+#elif defined(__mips__) && __BYTE_ORDER == __BIG_ENDIAN && _MIPS_SIM == _MIPS_SIM_ABI32
                 SCMP_ARCH_MIPSEL,
-                SCMP_ARCH_MIPSEL64,
+                SCMP_ARCH_MIPS,        /* native */
+#elif defined(__mips__) && __BYTE_ORDER == __LITTLE_ENDIAN && _MIPS_SIM == _MIPS_SIM_ABI32
+                SCMP_ARCH_MIPS,
+                SCMP_ARCH_MIPSEL,      /* native */
+#elif defined(__mips__) && __BYTE_ORDER == __BIG_ENDIAN && _MIPS_SIM == _MIPS_SIM_ABI64
+                SCMP_ARCH_MIPSEL,
+                SCMP_ARCH_MIPS,
                 SCMP_ARCH_MIPSEL64N32,
-
-#elif defined(__powerpc__) || defined(__powerpc64__)
+                SCMP_ARCH_MIPS64N32,
+                SCMP_ARCH_MIPSEL64,
+                SCMP_ARCH_MIPS64,      /* native */
+#elif defined(__mips__) && __BYTE_ORDER == __LITTLE_ENDIAN && _MIPS_SIM == _MIPS_SIM_ABI64
+                SCMP_ARCH_MIPS,
+                SCMP_ARCH_MIPSEL,
+                SCMP_ARCH_MIPS64N32,
+                SCMP_ARCH_MIPSEL64N32,
+                SCMP_ARCH_MIPS64,
+                SCMP_ARCH_MIPSEL64,    /* native */
+#elif defined(__mips__) && __BYTE_ORDER == __BIG_ENDIAN && _MIPS_SIM == _MIPS_SIM_NABI32
+                SCMP_ARCH_MIPSEL,
+                SCMP_ARCH_MIPS,
+                SCMP_ARCH_MIPSEL64,
+                SCMP_ARCH_MIPS64,
+                SCMP_ARCH_MIPSEL64N32,
+                SCMP_ARCH_MIPS64N32,   /* native */
+#elif defined(__mips__) && __BYTE_ORDER == __LITTLE_ENDIAN && _MIPS_SIM == _MIPS_SIM_NABI32
+                SCMP_ARCH_MIPS,
+                SCMP_ARCH_MIPSEL,
+                SCMP_ARCH_MIPS64,
+                SCMP_ARCH_MIPSEL64,
+                SCMP_ARCH_MIPS64N32,
+                SCMP_ARCH_MIPSEL64N32, /* native */
+#elif defined(__powerpc64__) && __BYTE_ORDER == __BIG_ENDIAN
+                SCMP_ARCH_PPC,
+                SCMP_ARCH_PPC64LE,
+                SCMP_ARCH_PPC64,       /* native */
+#elif defined(__powerpc64__) && __BYTE_ORDER == __LITTLE_ENDIAN
                 SCMP_ARCH_PPC,
                 SCMP_ARCH_PPC64,
-                SCMP_ARCH_PPC64LE,
-
-#elif defined(__s390__) || defined(__s390x__)
+                SCMP_ARCH_PPC64LE,     /* native */
+#elif defined(__powerpc__)
+                SCMP_ARCH_PPC,
+#elif defined(__s390x__)
                 SCMP_ARCH_S390,
-                SCMP_ARCH_S390X,
+                SCMP_ARCH_S390X,      /* native */
+#elif defined(__s390__)
+                SCMP_ARCH_S390,
 #endif
                 (uint32_t) -1
         };
