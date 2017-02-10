@@ -5756,6 +5756,8 @@ libnetworkd_core_la_SOURCES = \
 	src/network/networkd-link.c \
 	src/network/networkd-link-bus.c \
 	src/network/networkd-ipv4ll.c \
+	src/network/networkd-ipv6-proxy-ndp.h \
+	src/network/networkd-ipv6-proxy-ndp.c \
 	src/network/networkd-dhcp4.c \
 	src/network/networkd-dhcp6.c \
 	src/network/networkd-ndisc.h \

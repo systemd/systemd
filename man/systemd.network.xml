@@ -612,6 +612,25 @@
         </para></listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>IPv6ProxyNDPAddress=</varname></term>
+          <listitem><para>An IPv6 address, for which Neighbour Advertisement
+          messages will be proxied.
+          Proxy NDP (Neighbor Discovery Protocol) is a technique for IPv6 to
+          allow routing of addresses to a different destination when peers expect them
+          to be present on a certain physical link.
+          In this case a router answers Neighbour Advertisement messages intended for
+          another machine by offering its own MAC address as destination.
+          Unlike proxy ARP for IPv4, is not enabled globally, but will only send Neighbour
+          Advertisement messages for addresses in the IPv6 neighbor proxy table,
+          which can also be shown by <command>ip -6 neighbour show proxy</command>
+          This option may be specified more than once. systemd-networkd will control the
+          per-interface `proxy_ndp` switch for each configured interface, depending on whether
+          there are <option>IPv6ProxyNDPAddress=</option> entries configured and add these to
+          the kernels IPv6 neighbor proxy table.
+          Defaults to unset.
+        </para></listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Bridge=</varname></term>
           <listitem>
             <para>The name of the bridge to add the link to. See
