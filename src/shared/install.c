@@ -389,6 +389,12 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                                         verb, changes[i].path);
                         logged = true;
                         break;
+
+                case -ENOENT:
+                        log_error_errno(changes[i].type, "Failed to %s unit, unit %s does not exist.", verb, changes[i].path);
+                        logged = true;
+                        break;
+
                 default:
                         assert(changes[i].type < 0);
                         log_error_errno(changes[i].type, "Failed to %s unit, file %s: %m.",
@@ -1807,7 +1813,9 @@ static int install_context_mark_for_removal(
                 InstallContext *c,
                 const LookupPaths *paths,
                 Set **remove_symlinks_to,
-                const char *config_path) {
+                const char *config_path,
+                UnitFileChange **changes,
+                unsigned *n_changes) {
 
         UnitFileInstallInfo *i;
         int r;
@@ -1833,19 +1841,26 @@ static int install_context_mark_for_removal(
 
                 r = install_info_traverse(scope, c, paths, i, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, NULL);
                 if (r == -ENOLINK) {
-                        log_debug_errno(r, "Name %s leads to a dangling symlink, ignoring.", i->name);
-                        continue;
-                } else if (r == -ENOENT && i->auxiliary) {
-                        /* some unit specified in Also= or similar is missing */
-                        log_debug_errno(r, "Auxiliary unit %s not found, ignoring.", i->name);
-                        continue;
-                } else if (r < 0)
-                        return log_debug_errno(r, "Failed to find unit %s: %m", i->name);
+                        log_debug_errno(r, "Name %s leads to a dangling symlink, removing name.", i->name);
+                        unit_file_changes_add(changes, n_changes, UNIT_FILE_IS_DANGLING, i->path ?: i->name, NULL);
+                } else if (r == -ENOENT) {
 
-                if (i->type != UNIT_FILE_TYPE_REGULAR) {
-                        log_debug("Unit %s has type %s, ignoring.",
-                                  i->name,
-                                  unit_file_type_to_string(i->type) ?: "invalid");
+                        if (i->auxiliary)  /* some unit specified in Also= or similar is missing */
+                                log_debug_errno(r, "Auxiliary unit of %s not found, removing name.", i->name);
+                        else {
+                                log_debug_errno(r, "Unit %s not found, removing name.", i->name);
+                                unit_file_changes_add(changes, n_changes, r, i->path ?: i->name, NULL);
+                        }
+
+                } else if (r < 0) {
+                        log_debug_errno(r, "Failed to find unit %s, removing name: %m", i->name);
+                        unit_file_changes_add(changes, n_changes, r, i->path ?: i->name, NULL);
+                } else if (i->type == UNIT_FILE_TYPE_MASKED) {
+                        log_debug("Unit file %s is masked, ignoring.", i->name);
+                        unit_file_changes_add(changes, n_changes, UNIT_FILE_IS_MASKED, i->path ?: i->name, NULL);
+                        continue;
+                } else if (i->type != UNIT_FILE_TYPE_REGULAR) {
+                        log_debug("Unit %s has type %s, ignoring.", i->name, unit_file_type_to_string(i->type) ?: "invalid");
                         continue;
                 }
 
@@ -2401,7 +2416,7 @@ int unit_file_disable(
                         return r;
         }
 
-        r = install_context_mark_for_removal(scope, &c, &paths, &remove_symlinks_to, config_path);
+        r = install_context_mark_for_removal(scope, &c, &paths, &remove_symlinks_to, config_path, changes, n_changes);
         if (r < 0)
                 return r;
 
@@ -2790,7 +2805,7 @@ static int execute_preset(
         if (mode != UNIT_FILE_PRESET_ENABLE_ONLY) {
                 _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
 
-                r = install_context_mark_for_removal(scope, minus, paths, &remove_symlinks_to, config_path);
+                r = install_context_mark_for_removal(scope, minus, paths, &remove_symlinks_to, config_path, changes, n_changes);
                 if (r < 0)
                         return r;
 
