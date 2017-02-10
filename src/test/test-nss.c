@@ -511,7 +511,7 @@ int main(int argc, char **argv) {
         _cleanup_free_ char *dir = NULL;
         _cleanup_strv_free_ char **modules = NULL, **names = NULL;
         _cleanup_free_ struct local_address *addresses = NULL;
-        int n_addresses;
+        int n_addresses = 0;
         char **module;
         int r;
 

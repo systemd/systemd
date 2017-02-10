@@ -1349,3 +1349,116 @@ fail:
         (void) rmdir(template);
         return r;
 }
+
+/* Expects *pivot_root_new and *pivot_root_old to be initialised to allocated memory or NULL. */
+int pivot_root_parse(char **pivot_root_new, char **pivot_root_old, const char *s) {
+        _cleanup_free_ char *root_new = NULL, *root_old = NULL;
+        const char *p = s;
+        int r;
+
+        assert(pivot_root_new);
+        assert(pivot_root_old);
+
+        r = extract_first_word(&p, &root_new, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
+
+        if (isempty(p))
+                root_old = NULL;
+        else {
+                root_old = strdup(p);
+                if (!root_old)
+                        return -ENOMEM;
+        }
+
+        if (!path_is_absolute(root_new))
+                return -EINVAL;
+        if (root_old && !path_is_absolute(root_old))
+                return -EINVAL;
+
+        free_and_replace(*pivot_root_new, root_new);
+        free_and_replace(*pivot_root_old, root_old);
+
+        return 0;
+}
+
+int setup_pivot_root(const char *directory, const char *pivot_root_new, const char *pivot_root_old) {
+        _cleanup_free_ char *directory_pivot_root_new = NULL;
+        _cleanup_free_ char *pivot_tmp_pivot_root_old = NULL;
+        char pivot_tmp[] = "/tmp/nspawn-pivot-XXXXXX";
+        bool remove_pivot_tmp = false;
+        int r;
+
+        assert(directory);
+
+        if (!pivot_root_new)
+                return 0;
+
+        /* Pivot pivot_root_new to / and the existing / to pivot_root_old.
+         * If pivot_root_old is NULL, the existing / disappears.
+         * This requires a temporary directory, pivot_tmp, which is
+         * not a child of either.
+         *
+         * This is typically used for OSTree-style containers, where
+         * the root partition contains several sysroots which could be
+         * run. Normally, one would be chosen by the bootloader and
+         * pivoted to / by initramfs.
+         *
+         * For example, for an OSTree deployment, pivot_root_new
+         * would be: /ostree/deploy/$os/deploy/$checksum. Note that this
+         * code doesn’t do the /var mount which OSTree expects: use
+         * --bind +/sysroot/ostree/deploy/$os/var:/var for that.
+         *
+         * So in the OSTree case, we’ll end up with something like:
+         *  - directory = /tmp/nspawn-root-123456
+         *  - pivot_root_new = /ostree/deploy/os/deploy/123abc
+         *  - pivot_root_old = /sysroot
+         *  - directory_pivot_root_new =
+         *       /tmp/nspawn-root-123456/ostree/deploy/os/deploy/123abc
+         *  - pivot_tmp = /tmp/nspawn-pivot-123456
+         *  - pivot_tmp_pivot_root_old = /tmp/nspawn-pivot-123456/sysroot
+         *
+         * Requires all file systems at directory and below to be mounted
+         * MS_PRIVATE or MS_SLAVE so they can be moved.
+         */
+        directory_pivot_root_new = prefix_root(directory, pivot_root_new);
+
+        /* Remount directory_pivot_root_new to make it movable. */
+        r = mount_verbose(LOG_ERR, directory_pivot_root_new, directory_pivot_root_new, NULL, MS_BIND, NULL);
+        if (r < 0)
+                goto done;
+
+        if (pivot_root_old) {
+                if (!mkdtemp(pivot_tmp)) {
+                        r = log_error_errno(errno, "Failed to create temporary directory: %m");
+                        goto done;
+                }
+
+                remove_pivot_tmp = true;
+                pivot_tmp_pivot_root_old = prefix_root(pivot_tmp, pivot_root_old);
+
+                r = mount_verbose(LOG_ERR, directory_pivot_root_new, pivot_tmp, NULL, MS_MOVE, NULL);
+                if (r < 0)
+                        goto done;
+
+                r = mount_verbose(LOG_ERR, directory, pivot_tmp_pivot_root_old, NULL, MS_MOVE, NULL);
+                if (r < 0)
+                        goto done;
+
+                r = mount_verbose(LOG_ERR, pivot_tmp, directory, NULL, MS_MOVE, NULL);
+                if (r < 0)
+                        goto done;
+        } else {
+                r = mount_verbose(LOG_ERR, directory_pivot_root_new, directory, NULL, MS_MOVE, NULL);
+                if (r < 0)
+                        goto done;
+        }
+
+done:
+        if (remove_pivot_tmp)
+                (void) rmdir(pivot_tmp);
+
+        return r;
+}

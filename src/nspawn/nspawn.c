@@ -132,6 +132,8 @@ typedef enum LinkJournal {
 static char *arg_directory = NULL;
 static char *arg_template = NULL;
 static char *arg_chdir = NULL;
+static char *arg_pivot_root_new = NULL;
+static char *arg_pivot_root_old = NULL;
 static char *arg_user = NULL;
 static sd_id128_t arg_uuid = {};
 static char *arg_machine = NULL;
@@ -221,6 +223,8 @@ static void help(void) {
                "  -a --as-pid2              Maintain a stub init as PID1, invoke binary as PID2\n"
                "  -b --boot                 Boot up full system (i.e. invoke init)\n"
                "     --chdir=PATH           Set working directory in the container\n"
+               "     --pivot-root=PATH[:PATH]\n"
+               "                            Pivot root to given directory in the container\n"
                "  -u --user=USER            Run the command under specified user or uid\n"
                "  -M --machine=NAME         Set the machine name for the container\n"
                "     --uuid=UUID            Set a specific machine UUID for the container\n"
@@ -427,6 +431,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_KILL_SIGNAL,
                 ARG_SETTINGS,
                 ARG_CHDIR,
+                ARG_PIVOT_ROOT,
                 ARG_PRIVATE_USERS_CHOWN,
                 ARG_NOTIFY_READY,
                 ARG_ROOT_HASH,
@@ -478,6 +483,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "kill-signal",           required_argument, NULL, ARG_KILL_SIGNAL         },
                 { "settings",              required_argument, NULL, ARG_SETTINGS            },
                 { "chdir",                 required_argument, NULL, ARG_CHDIR               },
+                { "pivot-root",            required_argument, NULL, ARG_PIVOT_ROOT          },
                 { "notify-ready",          required_argument, NULL, ARG_NOTIFY_READY        },
                 { "root-hash",             required_argument, NULL, ARG_ROOT_HASH           },
                 {}
@@ -1010,6 +1016,14 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
 
                         arg_settings_mask |= SETTING_WORKING_DIRECTORY;
+                        break;
+
+                case ARG_PIVOT_ROOT:
+                        r = pivot_root_parse(&arg_pivot_root_new, &arg_pivot_root_old, optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --pivot-root= argument %s: %m", optarg);
+
+                        arg_settings_mask |= SETTING_PIVOT_ROOT;
                         break;
 
                 case ARG_NOTIFY_READY:
@@ -2493,6 +2507,13 @@ static int outer_child(
         if (r < 0)
                 return r;
 
+        r = setup_pivot_root(
+                        directory,
+                        arg_pivot_root_new,
+                        arg_pivot_root_old);
+        if (r < 0)
+                return r;
+
         r = setup_volatile(
                         directory,
                         arg_volatile_mode,
@@ -2913,6 +2934,12 @@ static int load_settings(void) {
                 strv_free(arg_parameters);
                 arg_parameters = settings->parameters;
                 settings->parameters = NULL;
+        }
+
+        if ((arg_settings_mask & SETTING_PIVOT_ROOT) == 0 &&
+            settings->pivot_root_new) {
+                free_and_replace(arg_pivot_root_new, settings->pivot_root_new);
+                free_and_replace(arg_pivot_root_old, settings->pivot_root_old);
         }
 
         if ((arg_settings_mask & SETTING_WORKING_DIRECTORY) == 0 &&
@@ -3480,53 +3507,6 @@ static int run(int master,
         return 1; /* loop again */
 }
 
-static int load_root_hash(const char *image) {
-        _cleanup_free_ char *text = NULL, *fn = NULL;
-        char *n, *e;
-        void *k;
-        size_t l;
-        int r;
-
-        assert_se(image);
-
-        /* Try to load the root hash from a file next to the image file if it exists. */
-
-        if (arg_root_hash)
-                return 0;
-
-        fn = new(char, strlen(image) + strlen(".roothash") + 1);
-        if (!fn)
-                return log_oom();
-
-        n = stpcpy(fn, image);
-        e = endswith(fn, ".raw");
-        if (e)
-                n = e;
-
-        strcpy(n, ".roothash");
-
-        r = read_one_line_file(fn, &text);
-        if (r == -ENOENT)
-                return 0;
-        if (r < 0) {
-                log_warning_errno(r, "Failed to read %s, ignoring: %m", fn);
-                return 0;
-        }
-
-        r = unhexmem(text, strlen(text), &k, &l);
-        if (r < 0)
-                return log_error_errno(r, "Invalid root hash: %s", text);
-        if (l < sizeof(sd_id128_t)) {
-                free(k);
-                return log_error_errno(r, "Root hash too short: %s", text);
-        }
-
-        arg_root_hash = k;
-        arg_root_hash_size = l;
-
-        return 0;
-}
-
 int main(int argc, char *argv[]) {
 
         _cleanup_free_ char *console = NULL;
@@ -3742,9 +3722,13 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        r = load_root_hash(arg_image);
-                        if (r < 0)
-                                goto finish;
+                        if (!arg_root_hash) {
+                                r = root_hash_load(arg_image, &arg_root_hash, &arg_root_hash_size);
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to load root hash file for %s: %m", arg_image);
+                                        goto finish;
+                                }
+                        }
                 }
 
                 if (!mkdtemp(tmprootdir)) {
@@ -3915,6 +3899,8 @@ finish:
         free(arg_image);
         free(arg_machine);
         free(arg_user);
+        free(arg_pivot_root_new);
+        free(arg_pivot_root_old);
         free(arg_chdir);
         strv_free(arg_setenv);
         free(arg_network_bridge);

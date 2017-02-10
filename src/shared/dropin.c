@@ -43,10 +43,9 @@
 int drop_in_file(const char *dir, const char *unit, unsigned level,
                  const char *name, char **_p, char **_q) {
 
+        char prefix[DECIMAL_STR_MAX(unsigned)];
         _cleanup_free_ char *b = NULL;
         char *p, *q;
-
-        char prefix[DECIMAL_STR_MAX(unsigned)];
 
         assert(unit);
         assert(name);
@@ -117,101 +116,63 @@ int write_drop_in_format(const char *dir, const char *unit, unsigned level,
         return write_drop_in(dir, unit, level, name, p);
 }
 
-static int iterate_dir(
-                const char *path,
+static int unit_file_find_dir(
                 const char *original_root,
-                UnitDependency dependency,
-                dependency_consumer_t consumer,
-                void *arg,
-                char ***strv) {
+                const char *path,
+                char ***dirs) {
 
         _cleanup_free_ char *chased = NULL;
-        _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         int r;
 
         assert(path);
 
         r = chase_symlinks(path, original_root, 0, &chased);
-        if (r < 0)
-                return log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING,
-                                      r, "Failed to canonicalize path %s: %m", path);
-
-        /* The config directories are special, since the order of the
-         * drop-ins matters */
-        if (dependency < 0)  {
-                r = strv_push(strv, chased);
-                if (r < 0)
-                        return log_oom();
-
-                chased = NULL;
+        if (r == -ENOENT) /* Ignore -ENOENT, after all most units won't have a drop-in dir */
                 return 0;
-        }
+        if (r < 0)
+                return log_full_errno(LOG_WARNING, r, "Failed to canonicalize path %s: %m", path);
 
-        assert(consumer);
+        r = strv_push(dirs, chased);
+        if (r < 0)
+                return log_oom();
 
-        d = opendir(chased);
-        if (!d) {
-                if (errno == ENOENT)
-                        return 0;
-
-                return log_warning_errno(errno, "Failed to open directory %s: %m", path);
-        }
-
-        FOREACH_DIRENT(de, d, return log_warning_errno(errno, "Failed to read directory %s: %m", path)) {
-                _cleanup_free_ char *f = NULL;
-
-                f = strjoin(path, "/", de->d_name);
-                if (!f)
-                        return log_oom();
-
-                r = consumer(dependency, de->d_name, f, arg);
-                if (r < 0)
-                        return r;
-        }
-
+        chased = NULL;
         return 0;
 }
 
-int unit_file_process_dir(
+static int unit_file_find_dirs(
                 const char *original_root,
                 Set *unit_path_cache,
                 const char *unit_path,
                 const char *name,
                 const char *suffix,
-                UnitDependency dependency,
-                dependency_consumer_t consumer,
-                void *arg,
-                char ***strv) {
+                char ***dirs) {
 
-        _cleanup_free_ char *path = NULL;
+        char *path;
         int r;
 
         assert(unit_path);
         assert(name);
         assert(suffix);
 
-        path = strjoin(unit_path, "/", name, suffix);
-        if (!path)
-                return log_oom();
+        path = strjoina(unit_path, "/", name, suffix);
 
-        if (!unit_path_cache || set_get(unit_path_cache, path))
-                (void) iterate_dir(path, original_root, dependency, consumer, arg, strv);
+        if (!unit_path_cache || set_get(unit_path_cache, path)) {
+                r = unit_file_find_dir(original_root, path, dirs);
+                if (r < 0)
+                        return r;
+        }
 
         if (unit_name_is_valid(name, UNIT_NAME_INSTANCE)) {
-                _cleanup_free_ char *template = NULL, *p = NULL;
                 /* Also try the template dir */
+
+                _cleanup_free_ char *template = NULL;
 
                 r = unit_name_template(name, &template);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate template from unit name: %m");
 
-                p = strjoin(unit_path, "/", template, suffix);
-                if (!p)
-                        return log_oom();
-
-                if (!unit_path_cache || set_get(unit_path_cache, p))
-                        (void) iterate_dir(p, original_root, dependency, consumer, arg, strv);
+                return unit_file_find_dirs(original_root, unit_path_cache, unit_path, template, suffix, dirs);
         }
 
         return 0;
@@ -221,32 +182,33 @@ int unit_file_find_dropin_paths(
                 const char *original_root,
                 char **lookup_path,
                 Set *unit_path_cache,
+                const char *dir_suffix,
+                const char *file_suffix,
                 Set *names,
-                char ***paths) {
+                char ***ret) {
 
-        _cleanup_strv_free_ char **strv = NULL, **ans = NULL;
+        _cleanup_strv_free_ char **dirs = NULL, **ans = NULL;
         Iterator i;
-        char *t;
+        char *t, **p;
         int r;
 
-        assert(paths);
+        assert(ret);
 
-        SET_FOREACH(t, names, i) {
-                char **p;
-
+        SET_FOREACH(t, names, i)
                 STRV_FOREACH(p, lookup_path)
-                        unit_file_process_dir(original_root, unit_path_cache, *p, t, ".d",
-                                              _UNIT_DEPENDENCY_INVALID, NULL, NULL, &strv);
+                        unit_file_find_dirs(original_root, unit_path_cache, *p, t, dir_suffix, &dirs);
+
+        if (strv_isempty(dirs)) {
+                *ret = NULL;
+                return 0;
         }
 
-        if (strv_isempty(strv))
-                return 0;
-
-        r = conf_files_list_strv(&ans, ".conf", NULL, (const char**) strv);
+        r = conf_files_list_strv(&ans, file_suffix, NULL, (const char**) dirs);
         if (r < 0)
-                return log_warning_errno(r, "Failed to get list of configuration files: %m");
+                return log_warning_errno(r, "Failed to sort the list of configuration files: %m");
 
-        *paths = ans;
+        *ret = ans;
         ans = NULL;
+
         return 1;
 }

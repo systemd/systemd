@@ -158,6 +158,8 @@ static void test_restrict_namespace(void) {
         assert_se(streq(s, "cgroup ipc net mnt pid user uts"));
         assert_se(namespace_flag_from_string_many(s, &ul) == 0 && ul == NAMESPACE_FLAGS_ALL);
 
+#if SECCOMP_RESTRICT_NAMESPACES_BROKEN == 0
+
         if (!is_seccomp_available())
                 return;
         if (geteuid() != 0)
@@ -216,6 +218,7 @@ static void test_restrict_namespace(void) {
         }
 
         assert_se(wait_for_terminate_and_warn("nsseccomp", pid, true) == EXIT_SUCCESS);
+#endif
 }
 
 static void test_protect_sysctl(void) {
@@ -384,11 +387,21 @@ static void test_memory_deny_write_execute(void) {
                 assert_se(p != MAP_FAILED);
                 assert_se(munmap(p, page_size()) >= 0);
 
-                seccomp_memory_deny_write_execute();
+                p = mmap(NULL, page_size(), PROT_WRITE|PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1,0);
+                assert_se(p != MAP_FAILED);
+                assert_se(munmap(p, page_size()) >= 0);
 
+                assert_se(seccomp_memory_deny_write_execute() >= 0);
+
+#if SECCOMP_MEMORY_DENY_WRITE_EXECUTE_BROKEN
+                p = mmap(NULL, page_size(), PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1,0);
+                assert_se(p != MAP_FAILED);
+                assert_se(munmap(p, page_size()) >= 0);
+#else
                 p = mmap(NULL, page_size(), PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1,0);
                 assert_se(p == MAP_FAILED);
                 assert_se(errno == EPERM);
+#endif
 
                 p = mmap(NULL, page_size(), PROT_WRITE|PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1,0);
                 assert_se(p != MAP_FAILED);

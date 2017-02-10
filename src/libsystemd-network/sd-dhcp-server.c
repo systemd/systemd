@@ -857,7 +857,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
 
                         if (!existing_lease) {
                                 lease = new0(DHCPLease, 1);
-                                lease->address = req->requested_ip;
+                                lease->address = address;
                                 lease->client_id.data = memdup(req->client_id.data,
                                                                req->client_id.length);
                                 if (!lease->client_id.data) {

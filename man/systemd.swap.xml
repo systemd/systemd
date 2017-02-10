@@ -94,10 +94,10 @@
     dependencies on the device units or the mount units of the files
     they are activated from.</para>
 
-    <para>Swap units with <varname>DefaultDependencies=</varname> in the <literal>[Unit]</literal> section enabled
-    implicitly acquire a <varname>Conflicts=</varname> and an <varname>After=</varname> dependency on
-    <filename>umount.target</filename> so that they are deactivated at shutdown, unless
-    <varname>DefaultDependencies=no</varname> is specified.</para>
+    <para>Swap units with <varname>DefaultDependencies=</varname> set to its default <option>yes</option> value in the
+    <literal>[Unit]</literal> section enabled implicitly acquire a <varname>Conflicts=</varname> and a
+    <varname>Before=</varname> dependency on <filename>umount.target</filename> so that they are deactivated at
+    shutdown as well as a <varname>Before=swap.target</varname> dependency.</para>
 
     <para>Additional implicit dependencies may be added as result of
     execution and resource control parameters as documented in
@@ -170,17 +170,15 @@
 
       <varlistentry>
         <term><varname>What=</varname></term>
-        <listitem><para>Takes an absolute path of a device node or
-        file to use for paging. See
-        <citerefentry project='man-pages'><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        for details. If this refers to a device node, a dependency on
-        the respective device unit is automatically created. (See
-        <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for more information.) If this refers to a file, a dependency
-        on the respective mount unit is automatically created. (See
-        <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for more information.) This option is
-        mandatory.</para></listitem>
+        <listitem><para>Takes an absolute path of a device node or file to use for paging. See <citerefentry
+        project='man-pages'><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+        details. If this refers to a device node, a dependency on the respective device unit is automatically
+        created. (See
+        <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more
+        information.) If this refers to a file, a dependency on the respective mount unit is automatically
+        created. (See <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for more information.) This option is mandatory. Note that the usual specifier expansion is applied to this
+        setting, literal percent characters should hence be written as <literal>%%</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -195,12 +193,11 @@
       <varlistentry>
         <term><varname>Options=</varname></term>
 
-        <listitem><para>May contain an option string for the swap
-        device. This may be used for controlling discard options among
-        other functionality, if the swap backing device supports the
-        discard or trim operation. (See
+        <listitem><para>May contain an option string for the swap device. This may be used for controlling discard
+        options among other functionality, if the swap backing device supports the discard or trim operation. (See
         <citerefentry project='man-pages'><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        for more information.) </para></listitem>
+        for more information.) Note that the usual specifier expansion is applied to this setting, literal percent
+        characters should hence be written as <literal>%%</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -208,7 +208,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                               "PrivateTmp", "PrivateDevices", "PrivateNetwork", "PrivateUsers", "NoNewPrivileges",
                               "SyslogLevelPrefix", "Delegate", "RemainAfterElapse", "MemoryDenyWriteExecute",
                               "RestrictRealtime", "DynamicUser", "RemoveIPC", "ProtectKernelTunables",
-                              "ProtectKernelModules", "ProtectControlGroups")) {
+                              "ProtectKernelModules", "ProtectControlGroups", "MountAPIVFS")) {
 
                 r = parse_boolean(eq);
                 if (r < 0)
@@ -266,7 +266,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                               "StandardInput", "StandardOutput", "StandardError",
                               "Description", "Slice", "Type", "WorkingDirectory",
                               "RootDirectory", "SyslogIdentifier", "ProtectSystem",
-                              "ProtectHome", "SELinuxContext", "Restart"))
+                              "ProtectHome", "SELinuxContext", "Restart", "RootImage"))
                 r = sd_bus_message_append(m, "v", "s", eq);
 
         else if (streq(field, "SyslogLevel")) {
@@ -484,7 +484,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 for (p = eq;;) {
                         _cleanup_free_ char *word = NULL;
-                        int offset;
+                        size_t offset;
 
                         r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
                         if (r < 0) {
@@ -500,6 +500,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         }
 
                         offset = word[0] == '-';
+                        offset += word[offset] == '+';
+
                         if (!path_is_absolute(word + offset)) {
                                 log_error("Failed to parse %s value %s", field, eq);
                                 return -EINVAL;

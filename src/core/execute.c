@@ -815,10 +815,13 @@ static int get_fixed_user(const ExecContext *c, const char **user,
 
         assert(c);
 
+        if (!c->user)
+                return 0;
+
         /* Note that we don't set $HOME or $SHELL if they are not particularly enlightening anyway
          * (i.e. are "/" or "/bin/nologin"). */
 
-        name = c->user ?: "root";
+        name = c->user;
         r = get_user_creds_clean(&name, uid, gid, home, shell);
         if (r < 0)
                 return r;
@@ -1640,6 +1643,9 @@ static bool exec_needs_mount_namespace(
         assert(context);
         assert(params);
 
+        if (context->root_image)
+                return true;
+
         if (!strv_isempty(context->read_write_paths) ||
             !strv_isempty(context->read_only_paths) ||
             !strv_isempty(context->inaccessible_paths))
@@ -1660,6 +1666,9 @@ static bool exec_needs_mount_namespace(
             context->protect_kernel_tunables ||
             context->protect_kernel_modules ||
             context->protect_control_groups)
+                return true;
+
+        if (context->mount_apivfs)
                 return true;
 
         return false;
@@ -1935,13 +1944,14 @@ static int apply_mount_namespace(Unit *u, const ExecContext *context,
         int r;
         _cleanup_strv_free_ char **rw = NULL;
         char *tmp = NULL, *var = NULL;
-        const char *root_dir = NULL;
+        const char *root_dir = NULL, *root_image = NULL;
         NameSpaceInfo ns_info = {
                 .ignore_protect_paths = false,
                 .private_dev = context->private_devices,
                 .protect_control_groups = context->protect_control_groups,
                 .protect_kernel_tunables = context->protect_kernel_tunables,
                 .protect_kernel_modules = context->protect_kernel_modules,
+                .mount_apivfs = context->mount_apivfs,
         };
 
         assert(context);
@@ -1961,8 +1971,12 @@ static int apply_mount_namespace(Unit *u, const ExecContext *context,
         if (r < 0)
                 return r;
 
-        if (params->flags & EXEC_APPLY_CHROOT)
-                root_dir = context->root_directory;
+        if (params->flags & EXEC_APPLY_CHROOT) {
+                root_image = context->root_image;
+
+                if (!root_image)
+                        root_dir = context->root_directory;
+        }
 
         /*
          * If DynamicUser=no and RootDirectory= is set then lets pass a relaxed
@@ -1972,7 +1986,8 @@ static int apply_mount_namespace(Unit *u, const ExecContext *context,
         if (!context->dynamic_user && root_dir)
                 ns_info.ignore_protect_paths = true;
 
-        r = setup_namespace(root_dir, &ns_info, rw,
+        r = setup_namespace(root_dir, root_image,
+                            &ns_info, rw,
                             context->read_only_paths,
                             context->inaccessible_paths,
                             context->bind_mounts,
@@ -1981,7 +1996,8 @@ static int apply_mount_namespace(Unit *u, const ExecContext *context,
                             var,
                             context->protect_home,
                             context->protect_system,
-                            context->mount_flags);
+                            context->mount_flags,
+                            DISSECT_IMAGE_DISCARD_ON_LOOP);
 
         /* If we couldn't set up the namespace this is probably due to a
          * missing capability. In this case, silently proceeed. */
@@ -1995,33 +2011,47 @@ static int apply_mount_namespace(Unit *u, const ExecContext *context,
         return r;
 }
 
-static int apply_working_directory(const ExecContext *context,
-                                   const ExecParameters *params,
-                                   const char *home,
-                                   const bool needs_mount_ns) {
-        const char *d;
-        const char *wd;
+static int apply_working_directory(
+                const ExecContext *context,
+                const ExecParameters *params,
+                const char *home,
+                const bool needs_mount_ns,
+                int *exit_status) {
+
+        const char *d, *wd;
 
         assert(context);
+        assert(exit_status);
 
-        if (context->working_directory_home)
+        if (context->working_directory_home) {
+
+                if (!home) {
+                        *exit_status = EXIT_CHDIR;
+                        return -ENXIO;
+                }
+
                 wd = home;
-        else if (context->working_directory)
+
+        } else if (context->working_directory)
                 wd = context->working_directory;
         else
                 wd = "/";
 
         if (params->flags & EXEC_APPLY_CHROOT) {
                 if (!needs_mount_ns && context->root_directory)
-                        if (chroot(context->root_directory) < 0)
+                        if (chroot(context->root_directory) < 0) {
+                                *exit_status = EXIT_CHROOT;
                                 return -errno;
+                        }
 
                 d = wd;
         } else
-                d = strjoina(strempty(context->root_directory), "/", strempty(wd));
+                d = prefix_roota(context->root_directory, wd);
 
-        if (chdir(d) < 0 && !context->working_directory_missing_ok)
+        if (chdir(d) < 0 && !context->working_directory_missing_ok) {
+                *exit_status = EXIT_CHDIR;
                 return -errno;
+        }
 
         return 0;
 }
@@ -2163,6 +2193,35 @@ static int send_user_lookup(
         return 0;
 }
 
+static int acquire_home(const ExecContext *c, uid_t uid, const char** home, char **buf) {
+        int r;
+
+        assert(c);
+        assert(home);
+        assert(buf);
+
+        /* If WorkingDirectory=~ is set, try to acquire a usable home directory. */
+
+        if (*home)
+                return 0;
+
+        if (!c->working_directory_home)
+                return 0;
+
+        if (uid == 0) {
+                /* Hardcode /root as home directory for UID 0 */
+                *home = "/root";
+                return 1;
+        }
+
+        r = get_home_dir(buf);
+        if (r < 0)
+                return r;
+
+        *home = *buf;
+        return 1;
+}
+
 static int exec_child(
                 Unit *unit,
                 ExecCommand *command,
@@ -2180,7 +2239,7 @@ static int exec_child(
                 char **error_message) {
 
         _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **accum_env = NULL, **final_argv = NULL;
-        _cleanup_free_ char *mac_selinux_context_net = NULL;
+        _cleanup_free_ char *mac_selinux_context_net = NULL, *home_buffer = NULL;
         _cleanup_free_ gid_t *supplementary_gids = NULL;
         const char *username = NULL, *groupname = NULL;
         const char *home = NULL, *shell = NULL;
@@ -2332,6 +2391,13 @@ static int exec_child(
         }
 
         user_lookup_fd = safe_close(user_lookup_fd);
+
+        r = acquire_home(context, uid, &home, &home_buffer);
+        if (r < 0) {
+                *exit_status = EXIT_CHDIR;
+                *error_message = strdup("Failed to determine $HOME for user");
+                return r;
+        }
 
         /* If a socket is connected to STDIN/STDOUT/STDERR, we
          * must sure to drop O_NONBLOCK */
@@ -2548,11 +2614,9 @@ static int exec_child(
         }
 
         /* Apply just after mount namespace setup */
-        r = apply_working_directory(context, params, home, needs_mount_namespace);
-        if (r < 0) {
-                *exit_status = EXIT_CHROOT;
+        r = apply_working_directory(context, params, home, needs_mount_namespace, exit_status);
+        if (r < 0)
                 return r;
-        }
 
         /* Drop groups as early as possbile */
         if ((params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged) {
@@ -2979,6 +3043,7 @@ void exec_context_done(ExecContext *c) {
 
         c->working_directory = mfree(c->working_directory);
         c->root_directory = mfree(c->root_directory);
+        c->root_image = mfree(c->root_image);
         c->tty_path = mfree(c->tty_path);
         c->syslog_identifier = mfree(c->syslog_identifier);
         c->user = mfree(c->user);
@@ -3294,6 +3359,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sPrivateUsers: %s\n"
                 "%sProtectHome: %s\n"
                 "%sProtectSystem: %s\n"
+                "%sMountAPIVFS: %s\n"
                 "%sIgnoreSIGPIPE: %s\n"
                 "%sMemoryDenyWriteExecute: %s\n"
                 "%sRestrictRealtime: %s\n",
@@ -3310,9 +3376,13 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->private_users),
                 prefix, protect_home_to_string(c->protect_home),
                 prefix, protect_system_to_string(c->protect_system),
+                prefix, yes_no(c->mount_apivfs),
                 prefix, yes_no(c->ignore_sigpipe),
                 prefix, yes_no(c->memory_deny_write_execute),
                 prefix, yes_no(c->restrict_realtime));
+
+        if (c->root_image)
+                fprintf(f, "%sRootImage: %s\n", prefix, c->root_image);
 
         STRV_FOREACH(e, c->environment)
                 fprintf(f, "%sEnvironment: %s\n", prefix, *e);

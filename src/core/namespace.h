@@ -25,6 +25,7 @@ typedef struct BindMount BindMount;
 
 #include <stdbool.h>
 
+#include "dissect-image.h"
 #include "macro.h"
 
 typedef enum ProtectHome {
@@ -50,6 +51,7 @@ struct NameSpaceInfo {
         bool protect_control_groups:1;
         bool protect_kernel_tunables:1;
         bool protect_kernel_modules:1;
+        bool mount_apivfs:1;
 };
 
 struct BindMount {
@@ -62,6 +64,7 @@ struct BindMount {
 
 int setup_namespace(
                 const char *root_directory,
+                const char *root_image,
                 const NameSpaceInfo *ns_info,
                 char **read_write_paths,
                 char **read_only_paths,
@@ -72,7 +75,8 @@ int setup_namespace(
                 const char *var_tmp_dir,
                 ProtectHome protect_home,
                 ProtectSystem protect_system,
-                unsigned long mount_flags);
+                unsigned long mount_flags,
+                DissectImageFlags dissected_image_flags);
 
 int setup_tmp_dirs(
                 const char *id,

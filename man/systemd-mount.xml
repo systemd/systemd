@@ -250,7 +250,7 @@
 
       <varlistentry>
         <term><option>-u</option></term>
-        <term><option>--unmount</option></term>
+        <term><option>--umount</option></term>
 
         <listitem><para>Stop the mount and automount units corresponding to the specified mount points
         <replaceable>WHERE</replaceable>.</para>

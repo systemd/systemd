@@ -201,7 +201,11 @@ class ClientTestBase(NetworkdTestingUtilities):
 
     def do_test(self, coldplug=True, ipv6=False, extra_opts='',
                 online_timeout=10, dhcp_mode='yes'):
-        subprocess.check_call(['systemctl', 'start', 'systemd-resolved'])
+        try:
+            subprocess.check_call(['systemctl', 'start', 'systemd-resolved'])
+        except subprocess.CalledProcessError:
+            self.show_journal('systemd-resolved.service')
+            raise
         self.write_network(self.config, '''\
 [Match]
 Name=%s

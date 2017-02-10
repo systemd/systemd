@@ -30,6 +30,7 @@
 #include "dev-setup.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "loop-util.h"
 #include "loopback-setup.h"
 #include "missing.h"
 #include "mkdir.h"
@@ -52,10 +53,13 @@ typedef enum MountMode {
         INACCESSIBLE,
         BIND_MOUNT,
         BIND_MOUNT_RECURSIVE,
-        READONLY,
         PRIVATE_TMP,
         PRIVATE_VAR_TMP,
         PRIVATE_DEV,
+        BIND_DEV,
+        SYSFS,
+        PROCFS,
+        READONLY,
         READWRITE,
 } MountMode;
 
@@ -70,13 +74,13 @@ typedef struct MountEntry {
         char *source_malloc;
 } MountEntry;
 
-/*
- * The following Protect tables are to protect paths and mark some of them
- * READONLY, in case a path is covered by an option from another table, then
- * it is marked READWRITE in the current one, and the more restrictive mode is
- * applied from that other table. This way all options can be combined in a
- * safe and comprehensible way for users.
- */
+/* If MountAPIVFS= is used, let's mount /sys and /proc into the it, but only as a fallback if the user hasn't mounted
+ * something there already. These mounts are hence overriden by any other explicitly configured mounts. */
+static const MountEntry apivfs_table[] = {
+        { "/proc",               PROCFS,       false },
+        { "/dev",                BIND_DEV,     false },
+        { "/sys",                SYSFS,        false },
+};
 
 /* ProtectKernelTunables= option and the related filesystem APIs */
 static const MountEntry protect_kernel_tunables_table[] = {
@@ -174,6 +178,13 @@ static const char *mount_entry_source(const MountEntry *p) {
         assert(p);
 
         return p->source_malloc ?: p->source_const;
+}
+
+static void mount_entry_done(MountEntry *p) {
+        assert(p);
+
+        p->path_malloc = mfree(p->path_malloc);
+        p->source_malloc = mfree(p->source_malloc);
 }
 
 static int append_access_mounts(MountEntry **p, char **strv, MountMode mode) {
@@ -351,7 +362,7 @@ static void drop_duplicates(MountEntry *m, unsigned *n) {
                 if (previous && path_equal(mount_entry_path(f), mount_entry_path(previous))) {
                         log_debug("%s is duplicate.", mount_entry_path(f));
                         previous->read_only = previous->read_only || mount_entry_read_only(f); /* Propagate the read-only flag to the remaining entry */
-                        f->path_malloc = mfree(f->path_malloc);
+                        mount_entry_done(f);
                         continue;
                 }
 
@@ -379,7 +390,7 @@ static void drop_inaccessible(MountEntry *m, unsigned *n) {
                  * it, as inaccessible paths really should drop the entire subtree. */
                 if (clear && path_startswith(mount_entry_path(f), clear)) {
                         log_debug("%s is masked by %s.", mount_entry_path(f), clear);
-                        f->path_malloc = mfree(f->path_malloc);
+                        mount_entry_done(f);
                         continue;
                 }
 
@@ -419,7 +430,7 @@ static void drop_nop(MountEntry *m, unsigned *n) {
                         /* We found it, let's see if it's the same mode, if so, we can drop this entry */
                         if (found && p->mode == f->mode) {
                                 log_debug("%s is redundant by %s", mount_entry_path(f), mount_entry_path(p));
-                                f->path_malloc = mfree(f->path_malloc);
+                                mount_entry_done(f);
                                 continue;
                         }
                 }
@@ -447,7 +458,7 @@ static void drop_outside_root(const char *root_directory, MountEntry *m, unsigne
 
                 if (!path_startswith(mount_entry_path(f), root_directory)) {
                         log_debug("%s is outside of root directory.", mount_entry_path(f));
-                        f->path_malloc = mfree(f->path_malloc);
+                        mount_entry_done(f);
                         continue;
                 }
 
@@ -458,7 +469,7 @@ static void drop_outside_root(const char *root_directory, MountEntry *m, unsigne
         *n = t - m;
 }
 
-static int mount_dev(MountEntry *m) {
+static int mount_private_dev(MountEntry *m) {
         static const char devnodes[] =
                 "/dev/null\0"
                 "/dev/zero\0"
@@ -597,6 +608,62 @@ fail:
         return r;
 }
 
+static int mount_bind_dev(MountEntry *m) {
+        int r;
+
+        assert(m);
+
+        /* Implements the little brother of mount_private_dev(): simply bind mounts the host's /dev into the service's
+         * /dev. This is only used when RootDirectory= is set. */
+
+        r = path_is_mount_point(mount_entry_path(m), NULL, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to determine whether /dev is already mounted: %m");
+        if (r > 0) /* make this a NOP if /dev is already a mount point */
+                return 0;
+
+        if (mount("/dev", mount_entry_path(m), NULL, MS_BIND|MS_REC, NULL) < 0)
+                return log_debug_errno(errno, "Failed to bind mount %s: %m", mount_entry_path(m));
+
+        return 1;
+}
+
+static int mount_sysfs(MountEntry *m) {
+        int r;
+
+        assert(m);
+
+        r = path_is_mount_point(mount_entry_path(m), NULL, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to determine whether /sys is already mounted: %m");
+        if (r > 0) /* make this a NOP if /sys is already a mount point */
+                return 0;
+
+        /* Bind mount the host's version so that we get all child mounts of it, too. */
+        if (mount("/sys", mount_entry_path(m), NULL, MS_BIND|MS_REC, NULL) < 0)
+                return log_debug_errno(errno, "Failed to mount %s: %m", mount_entry_path(m));
+
+        return 1;
+}
+
+static int mount_procfs(MountEntry *m) {
+        int r;
+
+        assert(m);
+
+        r = path_is_mount_point(mount_entry_path(m), NULL, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to determine whether /proc is already mounted: %m");
+        if (r > 0) /* make this a NOP if /proc is already a mount point */
+                return 0;
+
+        /* Mount a new instance, so that we get the one that matches our user namespace, if we are running in one */
+        if (mount("proc", mount_entry_path(m), "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL) < 0)
+                return log_debug_errno(errno, "Failed to mount %s: %m", mount_entry_path(m));
+
+        return 1;
+}
+
 static int mount_entry_chase(
                 const char *root_directory,
                 MountEntry *m,
@@ -684,6 +751,7 @@ static int apply_mount(
 
         case BIND_MOUNT_RECURSIVE:
                 /* Also chase the source mount */
+
                 r = mount_entry_chase(root_directory, m, mount_entry_source(m), &m->source_malloc);
                 if (r <= 0)
                         return r;
@@ -700,7 +768,16 @@ static int apply_mount(
                 break;
 
         case PRIVATE_DEV:
-                return mount_dev(m);
+                return mount_private_dev(m);
+
+        case BIND_DEV:
+                return mount_bind_dev(m);
+
+        case SYSFS:
+                return mount_sysfs(m);
+
+        case PROCFS:
+                return mount_procfs(m);
 
         default:
                 assert_not_reached("Unknown mode");
@@ -722,7 +799,7 @@ static int make_read_only(MountEntry *m, char **blacklist) {
 
         if (mount_entry_read_only(m))
                 r = bind_remount_recursive(mount_entry_path(m), true, blacklist);
-        else if (m->mode == PRIVATE_DEV) { /* Can be readonly but the submounts can't*/
+        else if (m->mode == PRIVATE_DEV) { /* Superblock can be readonly but the submounts can't*/
                 if (mount(NULL, mount_entry_path(m), NULL, MS_REMOUNT|DEV_MOUNT_OPTIONS|MS_RDONLY, NULL) < 0)
                         r = -errno;
         } else
@@ -736,6 +813,17 @@ static int make_read_only(MountEntry *m, char **blacklist) {
                 r = 0;
 
         return r;
+}
+
+static bool namespace_info_mount_apivfs(const NameSpaceInfo *ns_info) {
+        assert(ns_info);
+
+        /* ProtectControlGroups= and ProtectKernelTunables= imply MountAPIVFS=, since to protect the API VFS mounts,
+         * they need to be around in the first place... */
+
+        return ns_info->mount_apivfs ||
+                ns_info->protect_control_groups ||
+                ns_info->protect_kernel_tunables;
 }
 
 static unsigned namespace_calculate_mounts(
@@ -774,11 +862,13 @@ static unsigned namespace_calculate_mounts(
                 (ns_info->protect_kernel_tunables ? ELEMENTSOF(protect_kernel_tunables_table) : 0) +
                 (ns_info->protect_control_groups ? 1 : 0) +
                 (ns_info->protect_kernel_modules ? ELEMENTSOF(protect_kernel_modules_table) : 0) +
-                protect_home_cnt + protect_system_cnt;
+                protect_home_cnt + protect_system_cnt +
+                (namespace_info_mount_apivfs(ns_info) ? ELEMENTSOF(apivfs_table) : 0);
 }
 
 int setup_namespace(
                 const char* root_directory,
+                const char* root_image,
                 const NameSpaceInfo *ns_info,
                 char** read_write_paths,
                 char** read_only_paths,
@@ -789,15 +879,56 @@ int setup_namespace(
                 const char* var_tmp_dir,
                 ProtectHome protect_home,
                 ProtectSystem protect_system,
-                unsigned long mount_flags) {
+                unsigned long mount_flags,
+                DissectImageFlags dissect_image_flags) {
 
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
+        _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
+        _cleanup_free_ void *root_hash = NULL;
         MountEntry *m, *mounts = NULL;
+        size_t root_hash_size = 0;
         bool make_slave = false;
         unsigned n_mounts;
         int r = 0;
 
+        assert(ns_info);
+
         if (mount_flags == 0)
                 mount_flags = MS_SHARED;
+
+        if (root_image) {
+                dissect_image_flags |= DISSECT_IMAGE_REQUIRE_ROOT;
+
+                if (protect_system == PROTECT_SYSTEM_STRICT && strv_isempty(read_write_paths))
+                        dissect_image_flags |= DISSECT_IMAGE_READ_ONLY;
+
+                r = loop_device_make_by_path(root_image,
+                                             dissect_image_flags & DISSECT_IMAGE_READ_ONLY ? O_RDONLY : O_RDWR,
+                                             &loop_device);
+                if (r < 0)
+                        return r;
+
+                r = root_hash_load(root_image, &root_hash, &root_hash_size);
+                if (r < 0)
+                        return r;
+
+                r = dissect_image(loop_device->fd, root_hash, root_hash_size, dissect_image_flags, &dissected_image);
+                if (r < 0)
+                        return r;
+
+                r = dissected_image_decrypt(dissected_image, NULL, root_hash, root_hash_size, dissect_image_flags, &decrypted_image);
+                if (r < 0)
+                        return r;
+
+                if (!root_directory) {
+                        /* Create a mount point for the image, if it's still missing. We use the same mount point for
+                         * all images, which is safe, since they all live in their own namespaces after all, and hence
+                         * won't see each other. */
+                        root_directory = "/run/systemd/unit-root";
+                        (void) mkdir(root_directory, 0700);
+                }
+        }
 
         n_mounts = namespace_calculate_mounts(
                         ns_info,
@@ -878,6 +1009,12 @@ int setup_namespace(
                 if (r < 0)
                         goto finish;
 
+                if (namespace_info_mount_apivfs(ns_info)) {
+                        r = append_static_mounts(&m, apivfs_table, ELEMENTSOF(apivfs_table), ns_info->ignore_protect_paths);
+                        if (r < 0)
+                                goto finish;
+                }
+
                 assert(mounts + n_mounts == m);
 
                 /* Prepend the root directory where that's necessary */
@@ -907,7 +1044,19 @@ int setup_namespace(
                 }
         }
 
-        if (root_directory) {
+        if (root_image) {
+                r = dissected_image_mount(dissected_image, root_directory, dissect_image_flags);
+                if (r < 0)
+                        goto finish;
+
+                r = decrypted_image_relinquish(decrypted_image);
+                if (r < 0)
+                        goto finish;
+
+                loop_device_relinquish(loop_device);
+
+        } else if (root_directory) {
+
                 /* Turn directory into bind mount, if it isn't one yet */
                 r = path_is_mount_point(root_directory, NULL, AT_SYMLINK_FOLLOW);
                 if (r < 0)
@@ -964,7 +1113,7 @@ int setup_namespace(
 
 finish:
         for (m = mounts; m < mounts + n_mounts; m++)
-                free(m->path_malloc);
+                mount_entry_done(m);
 
         return r;
 }

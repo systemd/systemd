@@ -256,10 +256,14 @@
 
         <listitem><para>Takes a data integrity (dm-verity) root hash specified in hexadecimal. This option enables data
         integrity checks using dm-verity, if the used image contains the appropriate integrity data (see above). The
-        specified hash must match the root hash of integrity data, and is usually at least 256bits (and hence 64
-        hexadecimal characters) long (in case of SHA256 for example). If this option is not specified, but a file with
-        the <filename>.roothash</filename> suffix is found next to the image file, bearing otherwise the same name the
-        root hash is read from it and automatically used.</para></listitem>
+        specified hash must match the root hash of integrity data, and is usually at least 256 bits (and hence 64
+        formatted hexadecimal characters) long (in case of SHA256 for example). If this option is not specified, but
+        the image file carries the <literal>user.verity.roothash</literal> extended file attribute (see <citerefentry
+        project='man-pages'><refentrytitle>xattr</refentrytitle><manvolnum>7</manvolnum></citerefentry>), then the root
+        hash is read from it, also as formatted hexadecimal characters. If the extended file attribute is not found (or
+        is not supported by the underlying file system), but a file with the <filename>.roothash</filename> suffix is
+        found next to the image file, bearing otherwise the same name, the root hash is read from it and automatically
+        used, also as formatted hexadecimal characters.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -333,6 +337,22 @@
 
         <listitem><para>Change to the specified working directory before invoking the process in the container. Expects
         an absolute path in the container's file system namespace.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--pivot-root=</option></term>
+
+        <listitem><para>Pivot the specified directory to <filename>/</filename> inside the container, and either unmount the
+        container's old root, or pivot it to another specified directory. Takes one of: a path argument — in which case the
+        specified path will be pivoted to <filename>/</filename> and the old root will be unmounted; or a colon-separated pair
+        of new root path and pivot destination for the old root. The new root path will be pivoted to <filename>/</filename>,
+        and the old <filename>/</filename> will be pivoted to the other directory. Both paths must be absolute, and are resolved
+        in the container's file system namespace.</para>
+
+        <para>This is for containers which have several bootable directories in them; for example, several
+        <ulink url="https://ostree.readthedocs.io/en/latest/">OSTree</ulink> deployments. It emulates the behavior of
+        the boot loader and initial RAM disk which normally select which directory to mount as the root and start the
+        container's PID 1 in.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1026,8 +1046,9 @@
     <example>
       <title>Download a Fedora image and start a shell in it</title>
 
-      <programlisting># machinectl pull-raw --verify=no http://ftp.halifax.rwth-aachen.de/fedora/linux/releases/24/CloudImages/x86_64/images/Fedora-Cloud-Base-24-1.2.x86_64.raw.xz
-# systemd-nspawn -M Fedora-Cloud-Base-24-1.2.x86_64.raw</programlisting>
+      <programlisting># machinectl pull-raw --verify=no \
+      https://download.fedoraproject.org/pub/fedora/linux/releases/25/CloudImages/x86_64/images/Fedora-Cloud-Base-25-1.3.x86_64.raw.xz
+# systemd-nspawn -M Fedora-Cloud-Base-25-1.3.x86_64.raw</programlisting>
 
       <para>This downloads an image using
       <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -1037,7 +1058,9 @@
     <example>
       <title>Build and boot a minimal Fedora distribution in a container</title>
 
-      <programlisting># dnf -y --releasever=23 --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora --enablerepo=updates install systemd passwd dnf fedora-release vim-minimal
+      <programlisting># dnf -y --releasever=25 --installroot=/srv/mycontainer \
+      --disablerepo='*' --enablerepo=fedora --enablerepo=updates install \
+      systemd passwd dnf fedora-release vim-minimal
 # systemd-nspawn -bD /srv/mycontainer</programlisting>
 
       <para>This installs a minimal Fedora distribution into the
@@ -1080,7 +1103,16 @@
       <title>Run a container with SELinux sandbox security contexts</title>
 
       <programlisting># chcon system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -R /srv/container
-# systemd-nspawn -L system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -Z system_u:system_r:svirt_lxc_net_t:s0:c0,c1 -D /srv/container /bin/sh</programlisting>
+# systemd-nspawn -L system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 \
+      -Z system_u:system_r:svirt_lxc_net_t:s0:c0,c1 -D /srv/container /bin/sh</programlisting>
+    </example>
+
+    <example>
+      <title>Run a container with an OSTree deployment</title>
+
+      <programlisting># systemd-nspawn -b -i ~/image.raw \
+      --pivot-root=/ostree/deploy/$OS/deploy/$CHECKSUM:/sysroot \
+      --bind=+/sysroot/ostree/deploy/$OS/var:/var</programlisting>
     </example>
   </refsect1>
 

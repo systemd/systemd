@@ -28,14 +28,19 @@
 #include "blkid-util.h"
 #include "dissect-image.h"
 #include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
 #include "gpt.h"
+#include "hexdecoct.h"
 #include "mount-util.h"
 #include "path-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "udev-util.h"
+#include "xattr-util.h"
 
 static int probe_filesystem(const char *node, char **ret_fstype) {
 #ifdef HAVE_BLKID
@@ -347,9 +352,6 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                         sd_id128_t type_id, id;
                         bool rw = true;
 
-                        if (pflags & GPT_FLAG_NO_AUTO)
-                                continue;
-
                         sid = blkid_partition_get_uuid(pp);
                         if (!sid)
                                 continue;
@@ -363,17 +365,36 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                                 continue;
 
                         if (sd_id128_equal(type_id, GPT_HOME)) {
+
+                                if (pflags & GPT_FLAG_NO_AUTO)
+                                        continue;
+
                                 designator = PARTITION_HOME;
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
                         } else if (sd_id128_equal(type_id, GPT_SRV)) {
+
+                                if (pflags & GPT_FLAG_NO_AUTO)
+                                        continue;
+
                                 designator = PARTITION_SRV;
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
                         } else if (sd_id128_equal(type_id, GPT_ESP)) {
+
+                                /* Note that we don't check the GPT_FLAG_NO_AUTO flag for the ESP, as it is not defined
+                                 * there. We instead check the GPT_FLAG_NO_BLOCK_IO_PROTOCOL, as recommended by the
+                                 * UEFI spec (See "12.3.3 Number and Location of System Partitions"). */
+
+                                if (pflags & GPT_FLAG_NO_BLOCK_IO_PROTOCOL)
+                                        continue;
+
                                 designator = PARTITION_ESP;
                                 fstype = "vfat";
                         }
 #ifdef GPT_ROOT_NATIVE
                         else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE)) {
+
+                                if (pflags & GPT_FLAG_NO_AUTO)
+                                        continue;
 
                                 /* If a root ID is specified, ignore everything but the root id */
                                 if (!sd_id128_is_null(root_uuid) && !sd_id128_equal(root_uuid, id))
@@ -383,6 +404,9 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                                 architecture = native_architecture();
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
                         } else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE_VERITY)) {
+
+                                if (pflags & GPT_FLAG_NO_AUTO)
+                                        continue;
 
                                 m->can_verity = true;
 
@@ -399,6 +423,9 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
 #ifdef GPT_ROOT_SECONDARY
                         else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY)) {
 
+                                if (pflags & GPT_FLAG_NO_AUTO)
+                                        continue;
+
                                 /* If a root ID is specified, ignore everything but the root id */
                                 if (!sd_id128_is_null(root_uuid) && !sd_id128_equal(root_uuid, id))
                                         continue;
@@ -407,6 +434,10 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                                 architecture = SECONDARY_ARCHITECTURE;
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
                         } else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY_VERITY)) {
+
+                                if (pflags & GPT_FLAG_NO_AUTO)
+                                        continue;
+
                                 m->can_verity = true;
 
                                 /* Ignore verity unless root has is specified */
@@ -420,9 +451,16 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                         }
 #endif
                         else if (sd_id128_equal(type_id, GPT_SWAP)) {
+
+                                if (pflags & GPT_FLAG_NO_AUTO)
+                                        continue;
+
                                 designator = PARTITION_SWAP;
                                 fstype = "swap";
                         } else if (sd_id128_equal(type_id, GPT_LINUX_GENERIC)) {
+
+                                if (pflags & GPT_FLAG_NO_AUTO)
+                                        continue;
 
                                 if (generic_node)
                                         multiple_generic = true;
@@ -624,7 +662,9 @@ static int mount_partition(
                 DissectImageFlags flags) {
 
         const char *p, *options = NULL, *node, *fstype;
+        _cleanup_free_ char *chased = NULL;
         bool rw;
+        int r;
 
         assert(m);
         assert(where);
@@ -641,9 +681,13 @@ static int mount_partition(
 
         rw = m->rw && !(flags & DISSECT_IMAGE_READ_ONLY);
 
-        if (directory)
-                p = strjoina(where, directory);
-        else
+        if (directory) {
+                r = chase_symlinks(directory, where, CHASE_PREFIX_ROOT, &chased);
+                if (r < 0)
+                        return r;
+
+                p = chased;
+        } else
                 p = where;
 
         /* If requested, turn on discard support. */
@@ -677,22 +721,23 @@ int dissected_image_mount(DissectedImage *m, const char *where, DissectImageFlag
                 return r;
 
         if (m->partitions[PARTITION_ESP].found) {
-                const char *mp, *x;
+                const char *mp;
 
                 /* Mount the ESP to /efi if it exists and is empty. If it doesn't exist, use /boot instead. */
 
-                mp = "/efi";
-                x = strjoina(where, mp);
-                r = dir_is_empty(x);
-                if (r == -ENOENT) {
-                        mp = "/boot";
-                        x = strjoina(where, mp);
-                        r = dir_is_empty(x);
-                }
-                if (r > 0) {
-                        r = mount_partition(m->partitions + PARTITION_ESP, where, mp, flags);
+                FOREACH_STRING(mp, "/efi", "/boot") {
+                        _cleanup_free_ char *p = NULL;
+
+                        r = chase_symlinks(mp, where, CHASE_PREFIX_ROOT, &p);
                         if (r < 0)
-                                return r;
+                                continue;
+
+                        r = dir_is_empty(p);
+                        if (r > 0) {
+                                r = mount_partition(m->partitions + PARTITION_ESP, where, mp, flags);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
         }
 
@@ -1076,6 +1121,62 @@ int decrypted_image_relinquish(DecryptedImage *d) {
 #endif
 
         return 0;
+}
+
+int root_hash_load(const char *image, void **ret, size_t *ret_size) {
+        _cleanup_free_ char *text = NULL;
+        _cleanup_free_ void *k = NULL;
+        size_t l;
+        int r;
+
+        assert(image);
+        assert(ret);
+        assert(ret_size);
+
+        if (is_device_path(image)) {
+                /* If we are asked to load the root hash for a device node, exit early */
+                *ret = NULL;
+                *ret_size = 0;
+                return 0;
+        }
+
+        r = getxattr_malloc(image, "user.verity.roothash", &text, true);
+        if (r < 0) {
+                char *fn, *e, *n;
+
+                if (!IN_SET(r, -ENODATA, -EOPNOTSUPP, -ENOENT))
+                        return r;
+
+                fn = newa(char, strlen(image) + strlen(".roothash") + 1);
+                n = stpcpy(fn, image);
+                e = endswith(fn, ".raw");
+                if (e)
+                        n = e;
+
+                strcpy(n, ".roothash");
+
+                r = read_one_line_file(fn, &text);
+                if (r == -ENOENT) {
+                        *ret = NULL;
+                        *ret_size = 0;
+                        return 0;
+                }
+                if (r < 0)
+                        return r;
+        }
+
+        r = unhexmem(text, strlen(text), &k, &l);
+        if (r < 0)
+                return r;
+        if (l < sizeof(sd_id128_t))
+                return -EINVAL;
+
+        *ret = k;
+        *ret_size = l;
+
+        k = NULL;
+
+        return 1;
 }
 
 static const char *const partition_designator_table[] = {

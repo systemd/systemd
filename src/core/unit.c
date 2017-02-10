@@ -862,6 +862,12 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                         return r;
         }
 
+        if (c->root_image) {
+                r = unit_require_mounts_for(u, c->root_image);
+                if (r < 0)
+                        return r;
+        }
+
         if (!MANAGER_IS_SYSTEM(u->manager))
                 return 0;
 
@@ -2644,7 +2650,7 @@ void unit_unwatch_bus_name(Unit *u, const char *name) {
         assert(u);
         assert(name);
 
-        hashmap_remove_value(u->manager->watch_bus, name, u);
+        (void) hashmap_remove_value(u->manager->watch_bus, name, u);
         u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
 }
 
