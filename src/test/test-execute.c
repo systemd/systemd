@@ -422,6 +422,10 @@ static void test_exec_spec_interpolation(Manager *m) {
         test(m, "exec-spec-interpolation.service", 0, CLD_EXITED);
 }
 
+static void test_exec_read_only_path_suceed(Manager *m) {
+        test(m, "exec-read-only-path-succeed.service", 0, CLD_EXITED);
+}
+
 static int run_tests(UnitFileScope scope, const test_function_t *tests) {
         const test_function_t *test = NULL;
         Manager *m = NULL;
@@ -475,6 +479,7 @@ int main(int argc, char *argv[]) {
                 test_exec_oomscoreadjust,
                 test_exec_ioschedulingclass,
                 test_exec_spec_interpolation,
+                test_exec_read_only_path_suceed,
                 NULL,
         };
         static const test_function_t system_tests[] = {
