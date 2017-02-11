@@ -426,6 +426,9 @@ systemgenerator_PROGRAMS = \
 	systemd-system-update-generator \
 	systemd-debug-generator
 
+userenvgenerator_PROGRAMS = \
+	30-systemd-environment-d-generator
+
 dist_bashcompletion_data = \
 	shell-completion/bash/busctl \
 	shell-completion/bash/journalctl \
@@ -2815,6 +2818,13 @@ systemd_system_update_generator_SOURCES = \
 	src/system-update-generator/system-update-generator.c
 
 systemd_system_update_generator_LDADD = \
+	libsystemd-shared.la
+
+# ------------------------------------------------------------------------------
+30_systemd_environment_d_generator_SOURCES = \
+	src/environment-d-generator/environment-d-generator.c
+
+30_systemd_environment_d_generator_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------

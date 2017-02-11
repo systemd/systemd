@@ -19,6 +19,7 @@
 /*.tar.bz2
 /*.tar.gz
 /*.tar.xz
+/30-systemd-environment-d-generator
 /GPATH
 /GRTAGS
 /GSYMS
