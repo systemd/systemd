@@ -2459,7 +2459,6 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
         Iterator i;
         Unit *u;
         const char *t;
-        char **e;
         int r;
 
         assert(m);
@@ -2489,17 +2488,8 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
                 dual_timestamp_serialize(f, "units-load-finish-timestamp", &m->units_load_finish_timestamp);
         }
 
-        if (!switching_root) {
-                STRV_FOREACH(e, m->environment) {
-                        _cleanup_free_ char *ce;
-
-                        ce = cescape(*e);
-                        if (!ce)
-                                return -ENOMEM;
-
-                        fprintf(f, "env=%s\n", *e);
-                }
-        }
+        if (!switching_root)
+                (void) serialize_environment(f, m->environment);
 
         if (m->notify_fd >= 0) {
                 int copy;
@@ -2662,21 +2652,9 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 else if ((val = startswith(l, "units-load-finish-timestamp=")))
                         dual_timestamp_deserialize(val, &m->units_load_finish_timestamp);
                 else if (startswith(l, "env=")) {
-                        _cleanup_free_ char *uce = NULL;
-                        char **e;
-
-                        r = cunescape(l + 4, UNESCAPE_RELAX, &uce);
+                        r = deserialize_environment(&m->environment, l);
                         if (r < 0)
-                                goto finish;
-
-                        e = strv_env_set(m->environment, uce);
-                        if (!e) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
-
-                        strv_free(m->environment);
-                        m->environment = e;
+                                return r;
 
                 } else if ((val = startswith(l, "notify-fd="))) {
                         int fd;

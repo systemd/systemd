@@ -26,6 +26,7 @@
 
 #include "alloc-util.h"
 #include "env-util.h"
+#include "escape.h"
 #include "extract-word.h"
 #include "macro.h"
 #include "parse-util.h"
@@ -643,4 +644,37 @@ int getenv_bool(const char *p) {
                 return -ENXIO;
 
         return parse_boolean(e);
+}
+
+int serialize_environment(FILE *f, char **environment) {
+        char **e;
+
+        STRV_FOREACH(e, environment) {
+                _cleanup_free_ char *ce;
+
+                ce = cescape(*e);
+                if (!ce)
+                        return -ENOMEM;
+
+                fprintf(f, "env=%s\n", *e);
+        }
+
+        /* caller should call ferror() */
+
+        return 0;
+}
+
+int deserialize_environment(char ***environment, const char *line) {
+        char *uce = NULL;
+        int r;
+
+        assert(line);
+        assert(environment);
+
+        assert(startswith(line, "env="));
+        r = cunescape(line + 4, UNESCAPE_RELAX, &uce);
+        if (r < 0)
+                return r;
+
+        return strv_env_replace(environment, uce);
 }
