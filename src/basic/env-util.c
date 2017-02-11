@@ -527,7 +527,8 @@ char *replace_env(const char *format, char **env, unsigned flags) {
         } state = WORD;
 
         const char *e, *word = format;
-        char *r = NULL, *k;
+        char *k;
+        _cleanup_free_ char *r = NULL;
 
         assert(format);
 
@@ -544,7 +545,7 @@ char *replace_env(const char *format, char **env, unsigned flags) {
                         if (*e == '{') {
                                 k = strnappend(r, word, e-word-1);
                                 if (!k)
-                                        goto fail;
+                                        return NULL;
 
                                 free(r);
                                 r = k;
@@ -555,7 +556,7 @@ char *replace_env(const char *format, char **env, unsigned flags) {
                         } else if (*e == '$') {
                                 k = strnappend(r, word, e-word);
                                 if (!k)
-                                        goto fail;
+                                        return NULL;
 
                                 free(r);
                                 r = k;
@@ -574,7 +575,7 @@ char *replace_env(const char *format, char **env, unsigned flags) {
 
                                 k = strappend(r, t);
                                 if (!k)
-                                        goto fail;
+                                        return NULL;
 
                                 free(r);
                                 r = k;
@@ -586,15 +587,7 @@ char *replace_env(const char *format, char **env, unsigned flags) {
                 }
         }
 
-        k = strnappend(r, word, e-word);
-        if (!k)
-                goto fail;
-
-        free(r);
-        return k;
-
-fail:
-        return mfree(r);
+        return strnappend(r, word, e-word);
 }
 
 char **replace_env_argv(char **argv, char **env) {
