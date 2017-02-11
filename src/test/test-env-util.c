@@ -142,7 +142,32 @@ static void test_env_strv_get_n(void) {
                         getenv("PATH")));
 }
 
-static void test_replace_env_arg(void) {
+static void test_replace_env(bool braceless) {
+        const char *env[] = {
+                "FOO=BAR BAR",
+                "BAR=waldo",
+                NULL
+        };
+        _cleanup_free_ char *t = NULL, *s = NULL, *q = NULL, *r = NULL, *p = NULL;
+        unsigned flags = REPLACE_ENV_ALLOW_BRACELESS*braceless;
+
+        t = replace_env("FOO=$FOO=${FOO}", (char**) env, flags);
+        assert_se(streq(t, braceless ? "FOO=BAR BAR=BAR BAR" : "FOO=$FOO=BAR BAR"));
+
+        s = replace_env("BAR=$BAR=${BAR}", (char**) env, flags);
+        assert_se(streq(s, braceless ? "BAR=waldo=waldo" : "BAR=$BAR=waldo"));
+
+        q = replace_env("BARBAR=$BARBAR=${BARBAR}", (char**) env, flags);
+        assert_se(streq(q, braceless ? "BARBAR==" : "BARBAR=$BARBAR="));
+
+        q = replace_env("BAR=$BAR$BAR${BAR}${BAR}", (char**) env, flags);
+        assert_se(streq(q, braceless ? "BAR=waldowaldowaldowaldo" : "BAR=$BAR$BARwaldowaldo"));
+
+        p = replace_env("${BAR}$BAR$BAR", (char**) env, flags);
+        assert_se(streq(p, braceless ? "waldowaldowaldo" : "waldo$BAR$BAR"));
+}
+
+static void test_replace_env_argv(void) {
         const char *env[] = {
                 "FOO=BAR BAR",
                 "BAR=waldo",
@@ -256,7 +281,9 @@ int main(int argc, char *argv[]) {
         test_strv_env_set();
         test_strv_env_merge();
         test_env_strv_get_n();
-        test_replace_env_arg();
+        test_replace_env(false);
+        test_replace_env(true);
+        test_replace_env_argv();
         test_env_clean();
         test_env_name_is_valid();
         test_env_value_is_valid();

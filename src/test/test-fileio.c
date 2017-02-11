@@ -226,7 +226,10 @@ static void test_merge_env_file(void) {
                                 "twelve=${one}2\n"
                                 "twentyone=2${one}\n"
                                 "one=2\n"
-                                "twentytwo=2${one}\n", false);
+                                "twentytwo=2${one}\n"
+                                "xxx_minus_three=$xxx - 3\n"
+                                "xxx=0x$one$one$one\n"
+                                , false);
         assert(r >= 0);
 
         r = merge_env_file(&a, NULL, t);
@@ -240,8 +243,9 @@ static void test_merge_env_file(void) {
         assert_se(streq(a[1], "twelve=12"));
         assert_se(streq(a[2], "twentyone=21"));
         assert_se(streq(a[3], "twentytwo=22"));
-        assert_se(a[4] == NULL);
-
+        assert_se(streq(a[4], "xxx=0x222"));
+        assert_se(streq(a[5], "xxx_minus_three= - 3"));
+        assert_se(a[6] == NULL);
 
         r = merge_env_file(&a, NULL, t);
         assert_se(r >= 0);
@@ -254,7 +258,9 @@ static void test_merge_env_file(void) {
         assert_se(streq(a[1], "twelve=12"));
         assert_se(streq(a[2], "twentyone=21"));
         assert_se(streq(a[3], "twentytwo=22"));
-        assert_se(a[4] == NULL);
+        assert_se(streq(a[4], "xxx=0x222"));
+        assert_se(streq(a[5], "xxx_minus_three=0x222 - 3"));
+        assert_se(a[6] == NULL);
 }
 
 static void test_executable_is_script(void) {

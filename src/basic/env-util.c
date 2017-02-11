@@ -523,7 +523,8 @@ char *replace_env(const char *format, char **env, unsigned flags) {
         enum {
                 WORD,
                 CURLY,
-                VARIABLE
+                VARIABLE,
+                VARIABLE_RAW,
         } state = WORD;
 
         const char *e, *word = format;
@@ -563,6 +564,18 @@ char *replace_env(const char *format, char **env, unsigned flags) {
 
                                 word = e+1;
                                 state = WORD;
+
+                        } else if (flags & REPLACE_ENV_ALLOW_BRACELESS && strchr(VALID_CHARS_ENV_NAME, *e)) {
+                                k = strnappend(r, word, e-word-1);
+                                if (!k)
+                                        return NULL;
+
+                                free(r);
+                                r = k;
+
+                                word = e-1;
+                                state = VARIABLE_RAW;
+
                         } else
                                 state = WORD;
                         break;
@@ -584,10 +597,38 @@ char *replace_env(const char *format, char **env, unsigned flags) {
                                 state = WORD;
                         }
                         break;
+
+                case VARIABLE_RAW:
+                        assert(flags & REPLACE_ENV_ALLOW_BRACELESS);
+
+                        if (!strchr(VALID_CHARS_ENV_NAME, *e)) {
+                                const char *t;
+
+                                t = strv_env_get_n(env, word+1, e-word-1, flags);
+
+                                k = strappend(r, t);
+                                if (!k)
+                                        return NULL;
+
+                                free(r);
+                                r = k;
+
+                                word = e--;
+                                state = WORD;
+                        }
+                        break;
                 }
         }
 
-        return strnappend(r, word, e-word);
+        if (state == VARIABLE_RAW) {
+                const char *t;
+
+                assert(flags & REPLACE_ENV_ALLOW_BRACELESS);
+
+                t = strv_env_get_n(env, word+1, e-word-1, flags);
+                return strappend(r, t);
+        } else
+                return strnappend(r, word, e-word);
 }
 
 char **replace_env_argv(char **argv, char **env) {
