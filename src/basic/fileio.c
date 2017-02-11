@@ -586,14 +586,9 @@ fail:
         return r;
 }
 
-static int parse_env_file_push(
+static int check_utf8ness_and_warn(
                 const char *filename, unsigned line,
-                const char *key, char *value,
-                void *userdata,
-                int *n_pushed) {
-
-        const char *k;
-        va_list aq, *ap = userdata;
+                const char *key, char *value) {
 
         if (!utf8_is_valid(key)) {
                 _cleanup_free_ char *p = NULL;
@@ -610,6 +605,23 @@ static int parse_env_file_push(
                 log_error("%s:%u: invalid UTF-8 value for key %s: '%s', ignoring.", strna(filename), line, key, p);
                 return -EINVAL;
         }
+
+        return 0;
+}
+
+static int parse_env_file_push(
+                const char *filename, unsigned line,
+                const char *key, char *value,
+                void *userdata,
+                int *n_pushed) {
+
+        const char *k;
+        va_list aq, *ap = userdata;
+        int r;
+
+        r = check_utf8ness_and_warn(filename, line, key, value);
+        if (r < 0)
+                return r;
 
         va_copy(aq, *ap);
 
@@ -662,19 +674,9 @@ static int load_env_file_push(
         char *p;
         int r;
 
-        if (!utf8_is_valid(key)) {
-                _cleanup_free_ char *t = utf8_escape_invalid(key);
-
-                log_error("%s:%u: invalid UTF-8 for key '%s', ignoring.", strna(filename), line, t);
-                return -EINVAL;
-        }
-
-        if (value && !utf8_is_valid(value)) {
-                _cleanup_free_ char *t = utf8_escape_invalid(value);
-
-                log_error("%s:%u: invalid UTF-8 value for key %s: '%s', ignoring.", strna(filename), line, key, t);
-                return -EINVAL;
-        }
+        r = check_utf8ness_and_warn(filename, line, key, value);
+        if (r < 0)
+                return r;
 
         p = strjoin(key, "=", strempty(value));
         if (!p)
@@ -716,19 +718,9 @@ static int load_env_file_push_pairs(
         char ***m = userdata;
         int r;
 
-        if (!utf8_is_valid(key)) {
-                _cleanup_free_ char *t = utf8_escape_invalid(key);
-
-                log_error("%s:%u: invalid UTF-8 for key '%s', ignoring.", strna(filename), line, t);
-                return -EINVAL;
-        }
-
-        if (value && !utf8_is_valid(value)) {
-                _cleanup_free_ char *t = utf8_escape_invalid(value);
-
-                log_error("%s:%u: invalid UTF-8 value for key %s: '%s', ignoring.", strna(filename), line, key, t);
-                return -EINVAL;
-        }
+        r = check_utf8ness_and_warn(filename, line, key, value);
+        if (r < 0)
+                return r;
 
         r = strv_extend(m, key);
         if (r < 0)
