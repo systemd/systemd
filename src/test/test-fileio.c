@@ -71,6 +71,8 @@ static void test_parse_env_file(void) {
               "seven=\"sevenval\" #nocomment\n"
               "eight=eightval #nocomment\n"
               "export nine=nineval\n"
+              "ten=ignored\n"
+              "ten=ignored\n"
               "ten=", f);
 
         fflush(f);

@@ -274,6 +274,19 @@ _pure_ static bool env_match(const char *t, const char *pattern) {
         return false;
 }
 
+static bool env_entry_has_name(const char *entry, const char *name) {
+        const char *t;
+
+        assert(entry);
+        assert(name);
+
+        t = startswith(entry, name);
+        if (!t)
+                return false;
+
+        return *t == '=';
+}
+
 char **strv_env_delete(char **x, unsigned n_lists, ...) {
         size_t n, i = 0;
         char **k, **r;
@@ -387,18 +400,24 @@ char **strv_env_unset_many(char **l, ...) {
 
 int strv_env_replace(char ***l, char *p) {
         char **f;
+        const char *t, *name;
 
         assert(p);
 
         /* Replace first occurrence of the env var or add a new one in the
          * string list. Drop other occurences. Edits in-place. Does not copy p.
+         * p must be a valid key=value assignment.
          */
 
+        t = strchr(p, '=');
+        assert(t);
+
+        name = strndupa(p, t - p);
+
         for (f = *l; f && *f; f++)
-                if (env_match(*f, p)) {
-                        free(*f);
-                        *f = p;
-                        strv_env_unset(f + 1, p);
+                if (env_entry_has_name(*f, name)) {
+                        free_and_replace(*f, p);
+                        strv_env_unset(f + 1, *f);
                         return 0;
                 }
 
@@ -675,6 +694,9 @@ int deserialize_environment(char ***environment, const char *line) {
         r = cunescape(line + 4, UNESCAPE_RELAX, &uce);
         if (r < 0)
                 return r;
+
+        if (!env_assignment_is_valid(uce))
+                return -EINVAL;
 
         return strv_env_replace(environment, uce);
 }

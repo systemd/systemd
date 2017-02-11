@@ -30,6 +30,7 @@
 
 #include "alloc-util.h"
 #include "ctype.h"
+#include "env-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -678,13 +679,15 @@ static int load_env_file_push(
         if (r < 0)
                 return r;
 
-        p = strjoin(key, "=", strempty(value));
+        p = strjoin(key, "=", value);
         if (!p)
                 return -ENOMEM;
 
-        r = strv_consume(m, p);
-        if (r < 0)
+        r = strv_env_replace(m, p);
+        if (r < 0) {
+                free(p);
                 return r;
+        }
 
         if (n_pushed)
                 (*n_pushed)++;
