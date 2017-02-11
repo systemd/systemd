@@ -94,10 +94,20 @@ static void test_same_fd(void) {
         assert_se(same_fd(b, a) == 0);
 }
 
+static void test_open_serialization_fd(void) {
+        _cleanup_close_ int fd = -1;
+
+        fd = open_serialization_fd("test");
+        assert_se(fd >= 0);
+
+        write(fd, "test\n", 5);
+}
+
 int main(int argc, char *argv[]) {
         test_close_many();
         test_close_nointr();
         test_same_fd();
+        test_open_serialization_fd();
 
         return 0;
 }

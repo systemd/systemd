@@ -2437,22 +2437,14 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
 }
 
 int manager_open_serialization(Manager *m, FILE **_f) {
-        int fd = -1;
+        int fd;
         FILE *f;
 
         assert(_f);
 
-        fd = memfd_create("systemd-serialization", MFD_CLOEXEC);
-        if (fd < 0) {
-                const char *path;
-
-                path = MANAGER_IS_SYSTEM(m) ? "/run/systemd" : "/tmp";
-                fd = open_tmpfile_unlinkable(path, O_RDWR|O_CLOEXEC);
-                if (fd < 0)
-                        return -errno;
-                log_debug("Serializing state to %s.", path);
-        } else
-                log_debug("Serializing state to memfd.");
+        fd = open_serialization_fd("systemd-state");
+        if (fd < 0)
+                return fd;
 
         f = fdopen(fd, "w+");
         if (!f) {
@@ -2461,7 +2453,6 @@ int manager_open_serialization(Manager *m, FILE **_f) {
         }
 
         *_f = f;
-
         return 0;
 }
 

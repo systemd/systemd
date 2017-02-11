@@ -84,6 +84,7 @@ int fputs_with_space(FILE *f, const char *s, const char *separator, bool *space)
 
 int open_tmpfile_unlinkable(const char *directory, int flags);
 int open_tmpfile_linkable(const char *target, int flags, char **ret_path);
+int open_serialization_fd(const char *ident);
 
 int link_tmpfile(int fd, const char *path, const char *target);
 

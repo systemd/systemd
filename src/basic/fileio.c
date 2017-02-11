@@ -1342,6 +1342,25 @@ int open_tmpfile_linkable(const char *target, int flags, char **ret_path) {
         return fd;
 }
 
+int open_serialization_fd(const char *ident) {
+        int fd = -1;
+
+        fd = memfd_create(ident, MFD_CLOEXEC);
+        if (fd < 0) {
+                const char *path;
+
+                path = getpid() == 1 ? "/run/systemd" : "/tmp";
+                fd = open_tmpfile_unlinkable(path, O_RDWR|O_CLOEXEC);
+                if (fd < 0)
+                        return fd;
+
+                log_debug("Serializing %s to %s.", ident, path);
+        } else
+                log_debug("Serializing %s to memfd.", ident);
+
+        return fd;
+}
+
 int link_tmpfile(int fd, const char *path, const char *target) {
 
         assert(fd >= 0);
