@@ -4011,19 +4011,19 @@ check_DATA += \
 	test/sys
 endif
 
-# packed sysfs test tree
-test/sys: test/sys.tar.xz
-	-rm -rf test/sys
+# sysfs test tree
+test/sys: test/sys-script.py
+	-rm -rf $@
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)tar -C test/ -xJf $(top_srcdir)/test/sys.tar.xz
-	-touch test/sys
+	$(AM_V_GEN)$(top_srcdir)/test/sys-script.py $(dir $@)
+	-touch $@
 
 test-sys-distclean:
 	-rm -rf test/sys
 DISTCLEAN_LOCAL_HOOKS += test-sys-distclean
 
 EXTRA_DIST += \
-	test/sys.tar.xz \
+	test/sys-script.py \
 	test/udev-test.pl \
 	test/hwdb-test.sh \
 	test/rule-syntax-check.py \
