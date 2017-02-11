@@ -251,3 +251,105 @@ int execute_directories(
                 return log_error_errno(r, "Failed to parse returned data: %m");
         return 0;
 }
+
+static int gather_environment_generate(int fd, void *arg) {
+        char ***env = arg, **x, **y;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_strv_free_ char **new;
+        int r;
+
+        /* Read a series of VAR=value assignments from fd, use them to update the list of
+         * variables in env. Also update the exported environment.
+         *
+         * fd is always consumed, even on error.
+         */
+
+        assert(env);
+
+        f = fdopen(fd, "r");
+        if (!f) {
+                safe_close(fd);
+                return -errno;
+        }
+
+        r = load_env_file_pairs(f, NULL, NULL, &new);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH_PAIR(x, y, new) {
+                char *p;
+
+                p = strjoin(*x, "=", *y);
+                if (!p)
+                        return -ENOMEM;
+
+                r = strv_env_replace(env, p);
+                if (r < 0)
+                        return r;
+
+                if (setenv(*x, *y, true) < 0)
+                        return -errno;
+        }
+
+        return r;
+}
+
+static int gather_environment_collect(int fd, void *arg) {
+        char ***env = arg;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        /* Write out a series of env=cescape(VAR=value) assignments to fd. */
+
+        assert(env);
+
+        f = fdopen(fd, "w");
+        if (!f) {
+                safe_close(fd);
+                return -errno;
+        }
+
+        r = serialize_environment(f, *env);
+        if (r < 0)
+                return r;
+
+        if (ferror(f))
+                return errno > 0 ? -errno : -EIO;
+
+        return 0;
+}
+
+static int gather_environment_consume(int fd, void *arg) {
+        char ***env = arg;
+        _cleanup_fclose_ FILE *f = NULL;
+        char line[LINE_MAX];
+        int r = 0, k;
+
+        /* Read a series of env=cescape(VAR=value) assignments from fd into env. */
+
+        assert(env);
+
+        f = fdopen(fd, "r");
+        if (!f) {
+                safe_close(fd);
+                return -errno;
+        }
+
+        FOREACH_LINE(line, f, return -EIO) {
+                truncate_nl(line);
+
+                k = deserialize_environment(env, line);
+                if (k < 0)
+                        log_error_errno(k, "Invalid line \"%s\": %m", line);
+                if (k < 0 && r == 0)
+                        r = k;
+        }
+
+        return r;
+}
+
+const gather_stdout_callback_t gather_environment[] = {
+        gather_environment_generate,
+        gather_environment_collect,
+        gather_environment_consume,
+};

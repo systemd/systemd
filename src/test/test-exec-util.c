@@ -27,6 +27,7 @@
 #include "alloc-util.h"
 #include "copy.h"
 #include "def.h"
+#include "env-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -271,6 +272,59 @@ static void test_stdout_gathering(void) {
         assert_se(streq(output, "a\nb\nc\nd\n"));
 }
 
+static void test_environment_gathering(void) {
+        char template[] = "/tmp/test-exec-util.XXXXXXX", **p;
+        const char *dirs[] = {template, NULL};
+        const char *name, *name2, *name3;
+        int r;
+
+        char **tmp = NULL; /* this is only used in the forked process, no cleanup here */
+        _cleanup_strv_free_ char **env = NULL;
+
+        void* const args[] = { &tmp, &tmp, &env };
+
+        assert_se(mkdtemp(template));
+
+        log_info("/* %s */", __func__);
+
+        /* write files */
+        name = strjoina(template, "/10-foo");
+        name2 = strjoina(template, "/20-bar");
+        name3 = strjoina(template, "/30-last");
+
+        assert_se(write_string_file(name,
+                                    "#!/bin/sh\n"
+                                    "echo A=23\n",
+                                    WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(name2,
+                                    "#!/bin/sh\n"
+                                    "echo A=22:$A\n\n\n",            /* substitution from previous generator */
+                                    WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(name3,
+                                    "#!/bin/sh\n"
+                                    "echo A=$A:24\n"
+                                    "echo B=12\n"
+                                    "echo C=000\n"
+                                    "echo C=001\n"                   /* variable overwriting */
+                                    "echo PATH=$PATH:/no/such/file", /* variable from manager */
+                                    WRITE_STRING_FILE_CREATE) == 0);
+
+        assert_se(chmod(name, 0755) == 0);
+        assert_se(chmod(name2, 0755) == 0);
+        assert_se(chmod(name3, 0755) == 0);
+
+        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL);
+        assert_se(r >= 0);
+
+        STRV_FOREACH(p, env)
+                log_info("got env: \"%s\"", *p);
+
+        assert_se(streq(strv_env_get(env, "A"), "22:23:24"));
+        assert_se(streq(strv_env_get(env, "B"), "12"));
+        assert_se(streq(strv_env_get(env, "C"), "001"));
+        assert_se(endswith(strv_env_get(env, "PATH"), ":/no/such/file"));
+}
+
 int main(int argc, char *argv[]) {
         log_set_max_level(LOG_DEBUG);
         log_parse_environment();
@@ -280,6 +334,7 @@ int main(int argc, char *argv[]) {
         test_execute_directory(false);
         test_execution_order();
         test_stdout_gathering();
+        test_environment_gathering();
 
         return 0;
 }

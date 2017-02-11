@@ -36,3 +36,5 @@ int execute_directories(
                 gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
                 void* const callback_args[_STDOUT_CONSUME_MAX],
                 char *argv[]);
+
+extern const gather_stdout_callback_t gather_environment[_STDOUT_CONSUME_MAX];
