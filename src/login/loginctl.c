@@ -482,14 +482,15 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
                 {}
         };
 
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
         char since2[FORMAT_TIMESTAMP_MAX], *s2;
         _cleanup_(session_status_info_clear) SessionStatusInfo i = {};
         int r;
 
-        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, &i);
+        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, &error, &i);
         if (r < 0)
-                return log_error_errno(r, "Could not get properties: %m");
+                return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
 
         if (*new_line)
                 printf("\n");
@@ -611,14 +612,15 @@ static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line)
                 {}
         };
 
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
         char since2[FORMAT_TIMESTAMP_MAX], *s2;
         _cleanup_(user_status_info_clear) UserStatusInfo i = {};
         int r;
 
-        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, &i);
+        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, &error, &i);
         if (r < 0)
-                return log_error_errno(r, "Could not get properties: %m");
+                return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
 
         if (*new_line)
                 printf("\n");
@@ -685,12 +687,13 @@ static int print_seat_status_info(sd_bus *bus, const char *path, bool *new_line)
                 {}
         };
 
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(seat_status_info_clear) SeatStatusInfo i = {};
         int r;
 
-        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, &i);
+        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, &error, &i);
         if (r < 0)
-                return log_error_errno(r, "Could not get properties: %m");
+                return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
 
         if (*new_line)
                 printf("\n");

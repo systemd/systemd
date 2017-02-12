@@ -55,7 +55,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         _cleanup_free_ struct local_address *addresses = NULL;
         _cleanup_free_ char *hn = NULL;
         const char *canonical = NULL;
-        int n_addresses = 0, lo_ifi;
+        int n_addresses = 0;
         uint32_t local_address_ipv4;
         struct local_address *a;
         size_t l, idx, ms;
@@ -111,9 +111,6 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                 local_address_ipv4 = LOCALADDRESS_IPV4;
         }
 
-        /* If this call fails we fill in 0 as scope. Which is fine */
-        lo_ifi = n_addresses <= 0 ? LOOPBACK_IFINDEX : 0;
-
         l = strlen(canonical);
         ms = ALIGN(l+1) + ALIGN(sizeof(struct gaih_addrtuple)) * (n_addresses > 0 ? n_addresses : 2);
         if (buflen < ms) {
@@ -135,7 +132,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                 r_tuple->name = r_name;
                 r_tuple->family = AF_INET6;
                 memcpy(r_tuple->addr, LOCALADDRESS_IPV6, 16);
-                r_tuple->scopeid = (uint32_t) lo_ifi;
+                r_tuple->scopeid = 0;
 
                 idx += ALIGN(sizeof(struct gaih_addrtuple));
                 r_tuple_prev = r_tuple;
@@ -146,7 +143,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                 r_tuple->name = r_name;
                 r_tuple->family = AF_INET;
                 *(uint32_t*) r_tuple->addr = local_address_ipv4;
-                r_tuple->scopeid = (uint32_t) lo_ifi;
+                r_tuple->scopeid = 0;
 
                 idx += ALIGN(sizeof(struct gaih_addrtuple));
                 r_tuple_prev = r_tuple;
@@ -158,7 +155,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                 r_tuple->next = r_tuple_prev;
                 r_tuple->name = r_name;
                 r_tuple->family = a->family;
-                r_tuple->scopeid = a->ifindex;
+                r_tuple->scopeid = a->family == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&a->address.in6) ? a->ifindex : 0;
                 memcpy(r_tuple->addr, &a->address, 16);
 
                 idx += ALIGN(sizeof(struct gaih_addrtuple));

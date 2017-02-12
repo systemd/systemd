@@ -322,12 +322,13 @@ static int manager_network_monitor_listen(Manager *m) {
         return 0;
 }
 
-static int determine_hostname(char **llmnr_hostname, char **mdns_hostname) {
+static int determine_hostname(char **full_hostname, char **llmnr_hostname, char **mdns_hostname) {
         _cleanup_free_ char *h = NULL, *n = NULL;
         char label[DNS_LABEL_MAX];
         const char *p;
         int r, k;
 
+        assert(full_hostname);
         assert(llmnr_hostname);
         assert(mdns_hostname);
 
@@ -374,32 +375,33 @@ static int determine_hostname(char **llmnr_hostname, char **mdns_hostname) {
         *llmnr_hostname = n;
         n = NULL;
 
+        *full_hostname = h;
+        h = NULL;
+
         return 0;
 }
 
 static int on_hostname_change(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
-        _cleanup_free_ char *llmnr_hostname = NULL, *mdns_hostname = NULL;
+        _cleanup_free_ char *full_hostname = NULL, *llmnr_hostname = NULL, *mdns_hostname = NULL;
         Manager *m = userdata;
         int r;
 
         assert(m);
 
-        r = determine_hostname(&llmnr_hostname, &mdns_hostname);
+        r = determine_hostname(&full_hostname, &llmnr_hostname, &mdns_hostname);
         if (r < 0)
                 return 0; /* ignore invalid hostnames */
 
-        if (streq(llmnr_hostname, m->llmnr_hostname) && streq(mdns_hostname, m->mdns_hostname))
+        if (streq(full_hostname, m->full_hostname) &&
+            streq(llmnr_hostname, m->llmnr_hostname) &&
+            streq(mdns_hostname, m->mdns_hostname))
                 return 0;
 
-        log_info("System hostname changed to '%s'.", llmnr_hostname);
+        log_info("System hostname changed to '%s'.", full_hostname);
 
-        free(m->llmnr_hostname);
-        free(m->mdns_hostname);
-
-        m->llmnr_hostname = llmnr_hostname;
-        m->mdns_hostname = mdns_hostname;
-
-        llmnr_hostname = mdns_hostname = NULL;
+        free_and_replace(m->full_hostname, full_hostname);
+        free_and_replace(m->llmnr_hostname, llmnr_hostname);
+        free_and_replace(m->mdns_hostname, mdns_hostname);
 
         manager_refresh_rrs(m);
 
@@ -428,9 +430,14 @@ static int manager_watch_hostname(Manager *m) {
 
         (void) sd_event_source_set_description(m->hostname_event_source, "hostname");
 
-        r = determine_hostname(&m->llmnr_hostname, &m->mdns_hostname);
+        r = determine_hostname(&m->full_hostname, &m->llmnr_hostname, &m->mdns_hostname);
         if (r < 0) {
                 log_info("Defaulting to hostname 'linux'.");
+
+                m->full_hostname = strdup("linux");
+                if (!m->full_hostname)
+                        return log_oom();
+
                 m->llmnr_hostname = strdup("linux");
                 if (!m->llmnr_hostname)
                         return log_oom();
@@ -439,7 +446,7 @@ static int manager_watch_hostname(Manager *m) {
                 if (!m->mdns_hostname)
                         return log_oom();
         } else
-                log_info("Using system hostname '%s'.", m->llmnr_hostname);
+                log_info("Using system hostname '%s'.", m->full_hostname);
 
         return 0;
 }
@@ -624,6 +631,8 @@ Manager *manager_free(Manager *m) {
 
         sd_event_source_unref(m->hostname_event_source);
         safe_close(m->hostname_fd);
+
+        free(m->full_hostname);
         free(m->llmnr_hostname);
         free(m->mdns_hostname);
 
@@ -1146,8 +1155,14 @@ int manager_is_own_hostname(Manager *m, const char *name) {
                         return r;
         }
 
-        if (m->mdns_hostname)
-                return dns_name_equal(name, m->mdns_hostname);
+        if (m->mdns_hostname) {
+                r = dns_name_equal(name, m->mdns_hostname);
+                if (r != 0)
+                        return r;
+        }
+
+        if (m->full_hostname)
+                return dns_name_equal(name, m->full_hostname);
 
         return 0;
 }

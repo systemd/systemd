@@ -1186,6 +1186,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, bool *empt
                 {}
         };
 
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *ifi = NULL, *p = NULL;
         char ifname[IF_NAMESIZE] = "";
         char **i;
@@ -1213,9 +1214,10 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, bool *empt
                                    "org.freedesktop.resolve1",
                                    p,
                                    property_map,
+                                   &error,
                                    &link_info);
         if (r < 0) {
-                log_error_errno(r, "Failed to get link data for %i: %m", ifindex);
+                log_error_errno(r, "Failed to get link data for %i: %s", ifindex, bus_error_message(&error, r));
                 goto finish;
         }
 
@@ -1405,6 +1407,7 @@ static int status_global(sd_bus *bus, bool *empty_line) {
                 {}
         };
 
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char **i;
         int r;
 
@@ -1415,9 +1418,10 @@ static int status_global(sd_bus *bus, bool *empty_line) {
                                    "org.freedesktop.resolve1",
                                    "/org/freedesktop/resolve1",
                                    property_map,
+                                   &error,
                                    &global_info);
         if (r < 0) {
-                log_error_errno(r, "Failed to get global data: %m");
+                log_error_errno(r, "Failed to get global data: %s", bus_error_message(&error, r));
                 goto finish;
         }
 

@@ -211,7 +211,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         r = sd_bus_message_append(
                         reply, "st",
                         normalized,
-                        SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, q->answer_authenticated));
+                        SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, dns_query_fully_authenticated(q)));
         if (r < 0)
                 goto finish;
 
@@ -439,7 +439,7 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
         if (r < 0)
                 goto finish;
 
-        r = sd_bus_message_append(reply, "t", SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, q->answer_authenticated));
+        r = sd_bus_message_append(reply, "t", SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, dns_query_fully_authenticated(q)));
         if (r < 0)
                 goto finish;
 
@@ -605,7 +605,7 @@ static void bus_method_resolve_record_complete(DnsQuery *q) {
         if (r < 0)
                 goto finish;
 
-        r = sd_bus_message_append(reply, "t", SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, q->answer_authenticated));
+        r = sd_bus_message_append(reply, "t", SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, dns_query_fully_authenticated(q)));
         if (r < 0)
                 goto finish;
 
@@ -979,7 +979,7 @@ static void resolve_service_all_complete(DnsQuery *q) {
                         reply,
                         "ssst",
                         name, type, domain,
-                        SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, q->answer_authenticated));
+                        SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, dns_query_fully_authenticated(q)));
         if (r < 0)
                 goto finish;
 

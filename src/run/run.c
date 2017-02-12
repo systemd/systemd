@@ -818,16 +818,18 @@ static int run_context_update(RunContext *c, const char *path) {
                 {}
         };
 
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         r = bus_map_all_properties(c->bus,
                                    "org.freedesktop.systemd1",
                                    path,
                                    map,
+                                   &error,
                                    c);
         if (r < 0) {
                 sd_event_exit(c->event, EXIT_FAILURE);
-                return log_error_errno(r, "Failed to query unit state: %m");
+                return log_error_errno(r, "Failed to query unit state: %s", bus_error_message(&error, r));
         }
 
         run_context_check_done(c);

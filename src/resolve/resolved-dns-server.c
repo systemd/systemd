@@ -451,18 +451,22 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                         s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
 
                 } else if (s->n_failed_udp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
-                            s->possible_feature_level >= DNS_SERVER_FEATURE_LEVEL_UDP) {
+                           s->possible_feature_level >= (dns_server_get_dnssec_mode(s) == DNSSEC_YES ? DNS_SERVER_FEATURE_LEVEL_LARGE : DNS_SERVER_FEATURE_LEVEL_UDP)) {
 
                         /* We lost too many UDP packets in a row, and are on a feature level of UDP or higher. If the
                          * packets are lost, maybe the server cannot parse them, hence downgrading sounds like a good
-                         * idea. We might downgrade all the way down to TCP this way. */
+                         * idea. We might downgrade all the way down to TCP this way.
+                         *
+                         * If strict DNSSEC mode is used we won't downgrade below DO level however, as packet loss
+                         * might have many reasons, a broken DNSSEC implementation being only one reason. And if the
+                         * user is strict on DNSSEC, then let's assume that DNSSEC is not the fault here. */
 
                         log_debug("Lost too many UDP packets, downgrading feature level...");
                         s->possible_feature_level--;
 
                 } else if (s->n_failed_tcp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
                            s->packet_truncated &&
-                           s->possible_feature_level > DNS_SERVER_FEATURE_LEVEL_UDP) {
+                           s->possible_feature_level > (dns_server_get_dnssec_mode(s) == DNSSEC_YES ? DNS_SERVER_FEATURE_LEVEL_LARGE : DNS_SERVER_FEATURE_LEVEL_UDP)) {
 
                          /* We got too many TCP connection failures in a row, we had at least one truncated packet, and
                           * are on a feature level above UDP. By downgrading things and getting rid of DNSSEC or EDNS0
@@ -777,6 +781,15 @@ bool dns_server_address_valid(int family, const union in_addr_union *sa) {
                 return false;
 
         return true;
+}
+
+DnssecMode dns_server_get_dnssec_mode(DnsServer *s) {
+        assert(s);
+
+        if (s->link)
+                return link_get_dnssec_mode(s->link);
+
+        return manager_get_dnssec_mode(s->manager);
 }
 
 static const char* const dns_server_type_table[_DNS_SERVER_TYPE_MAX] = {

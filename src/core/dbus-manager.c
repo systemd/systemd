@@ -1338,7 +1338,7 @@ static int verify_run_space(const char *message, sd_bus_error *error) {
 }
 
 int verify_run_space_and_log(const char *message) {
-        sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         r = verify_run_space(message, &error);
