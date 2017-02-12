@@ -802,6 +802,8 @@ int seccomp_restrict_namespaces(unsigned long retain) {
                 case SCMP_ARCH_X86_64:
                 case SCMP_ARCH_X86:
                 case SCMP_ARCH_X32:
+                case SCMP_ARCH_PPC64:
+                case SCMP_ARCH_PPC64LE:
                         clone_reversed_order = 0;
                         break;
 
@@ -813,8 +815,8 @@ int seccomp_restrict_namespaces(unsigned long retain) {
 
                 /* Please add more definitions here, if you port systemd to other architectures! */
 
-#if !defined(__i386__) && !defined(__x86_64__) && !defined(__s390__) && !defined(__s390x__)
-#warning "Consider adding the right clone() syscall definitions here!"
+#if SECCOMP_RESTRICT_NAMESPACES_BROKEN
+#  warning "Consider adding the right clone() syscall definitions here!"
 #endif
                 }
 
