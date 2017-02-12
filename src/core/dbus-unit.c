@@ -1006,6 +1006,10 @@ int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bu
 
         assert(message);
 
+        r = mac_selinux_unit_access_check(u, message, "status", error);
+        if (r < 0)
+                return r;
+
         pids = set_new(NULL);
         if (!pids)
                 return -ENOMEM;
