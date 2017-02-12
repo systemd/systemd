@@ -32,6 +32,15 @@
 #    driver, <vendor> is the firmware-provided string exported
 #    by the kernel DMI modalias, see /sys/class/dmi/id/modalias
 #
+#  - Extended input driver device name, properties and DMI data match:
+#      evdev:name:<input device name>:phys:<phys>:ev:<ev>:dmi:bvn*:bvr*:bd*:svn<vendor>:pn*
+#    <input device name> is the name device specified by the
+#    driver, <phys> is the physical-device-path, "cat
+#    /sys/class/input/input?/phys", <ev> is the event bitmask, "cat
+#    /sys/class/input/input?/capabilities/ev" and <vendor> is the
+#    firmware-provided string exported by the kernel DMI modalias,
+#    see /sys/class/dmi/id/modalias
+#
 # Scan codes are specified as:
 #   KEYBOARD_KEY_<hex scan code>=<key code identifier>
 # The scan code should be expressed in hex lowercase. The key codes
