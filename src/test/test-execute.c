@@ -158,12 +158,22 @@ static void test_exec_privatedevices(Manager *m) {
 }
 
 static void test_exec_privatedevices_capabilities(Manager *m) {
+        int r;
+
         if (detect_container() > 0) {
                 log_notice("testing in container, skipping private device tests");
                 return;
         }
         if (!is_inaccessible_available()) {
                 log_notice("testing without inaccessible, skipping private device tests");
+                return;
+        }
+
+        /* We use capsh to test if the capabilities are
+         * properly set, so be sure that it exists */
+        r = find_binary("capsh", NULL);
+        if (r < 0) {
+                log_error_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
                 return;
         }
 
@@ -174,6 +184,8 @@ static void test_exec_privatedevices_capabilities(Manager *m) {
 }
 
 static void test_exec_protectkernelmodules(Manager *m) {
+        int r;
+
         if (detect_container() > 0) {
                 log_notice("testing in container, skipping protectkernelmodules tests");
                 return;
@@ -182,6 +194,13 @@ static void test_exec_protectkernelmodules(Manager *m) {
                 log_notice("testing without inaccessible, skipping protectkernelmodules tests");
                 return;
         }
+
+        r = find_binary("capsh", NULL);
+        if (r < 0) {
+                log_error_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
+                return;
+        }
+
 
         test(m, "exec-protectkernelmodules-no-capabilities.service", 0, CLD_EXITED);
         test(m, "exec-protectkernelmodules-yes-capabilities.service", 0, CLD_EXITED);
@@ -359,11 +378,9 @@ static void test_exec_runtimedirectory(Manager *m) {
 static void test_exec_capabilityboundingset(Manager *m) {
         int r;
 
-        /* We use capsh to test if the capabilities are
-         * properly set, so be sure that it exists */
         r = find_binary("capsh", NULL);
         if (r < 0) {
-                log_error_errno(r, "Skipping test_exec_capabilityboundingset, could not find capsh binary: %m");
+                log_error_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
                 return;
         }
 
