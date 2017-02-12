@@ -150,6 +150,7 @@ endif
 AM_TESTS_ENVIRONMENT = \
 	export SYSTEMD_KBD_MODEL_MAP=$(abs_top_srcdir)/src/locale/kbd-model-map; \
 	export SYSTEMD_LANGUAGE_FALLBACK_MAP=$(abs_top_srcdir)/src/locale/language-fallback-map; \
+	export TEST_DIR=$(abs_top_srcdir)/test; \
 	export PATH=$(abs_top_builddir):$$PATH;
 
 if ENABLE_BASH_COMPLETION
@@ -218,7 +219,6 @@ AM_CPPFLAGS = \
 	-DLIBDIR=\"$(libdir)\" \
 	-DROOTLIBDIR=\"$(rootlibdir)\" \
 	-DROOTLIBEXECDIR=\"$(rootlibexecdir)\" \
-	-DTEST_DIR=\"$(abs_top_srcdir)/test\" \
 	-I $(top_srcdir)/src \
 	-I $(top_builddir)/src/basic \
 	-I $(top_srcdir)/src/basic \
@@ -5637,7 +5637,8 @@ test_dns_packet_SOURCES = \
 	$(basic_dns_sources)
 
 test_dns_packet_CPPFLAGS = \
-	$(AM_CPPFLAGS)
+	$(AM_CPPFLAGS) \
+	-I $(top_srcdir)/src/test
 
 test_dns_packet_CFLAGS = \
 	$(AM_CFLAGS) \

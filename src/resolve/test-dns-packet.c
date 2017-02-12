@@ -31,6 +31,8 @@
 #include "strv.h"
 #include "unaligned.h"
 
+#include "test-helper.h"
+
 #define HASH_KEY SD_ID128_MAKE(d3,1e,48,90,4b,fa,4c,fe,af,9d,d5,a1,d7,2e,8a,b1)
 
 static void verify_rr_copy(DnsResourceRecord *rr) {
@@ -115,7 +117,7 @@ int main(int argc, char **argv) {
                 N = argc - 1;
                 fnames = argv + 1;
         } else {
-                assert_se(glob(TEST_DIR "/test-resolve/*.pkts", GLOB_NOSORT, NULL, &g) == 0);
+                assert_se(glob(TEST_DATA_DIR("/test-resolve/*.pkts"), GLOB_NOSORT, NULL, &g) == 0);
                 N = g.gl_pathc;
                 fnames = g.gl_pathv;
         }
