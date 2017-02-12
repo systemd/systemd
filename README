@@ -180,6 +180,7 @@ REQUIREMENTS:
         - python3-pyparsing
         - python3-evdev      (used by hwdb parsing tests)
         - strace             (used by test/test-functions)
+        - capsh              (optional, used by test-execute)
 
 USERS AND GROUPS:
         Default udev rules use the following standard system group
