@@ -25,21 +25,19 @@ HOWTO:
 
 NTP POOL:
 
-        By default, timesyncd uses the Google NTP servers
-        time[1-4].google.com. They serve time that is not standards
-        compliant, and can be up to .5s off. Google does not
-        officially support these servers for the broader
-        audience. Distributions and vendors really should not ship
-        OSes or devices with these NTP servers configured. Instead,
-        please register your own vendor pool at ntp.org and make it
-        the built-in default by passing --with-ntp-servers= to
-        configure. Registering vendor pools is free:
+        By default, timesyncd uses the Google Public NTP servers
+        time[1-4].google.com. They serve time that uses a leap second
+        smear, and can be up to .5s off from servers that use stepped
+        leap seconds.
+
+        https://developers.google.com/time/smear
+
+        If you prefer to use leap second steps, please register your own
+        vendor pool at ntp.org and make it the built-in default by
+        passing --with-ntp-servers= to configure. Registering vendor
+        pools is free:
 
         http://www.pool.ntp.org/en/vendors.html
-
-        Again, if you ship your software or device with the default
-        NTP servers, then you will get served wrong time, and will
-        rely on services that might not be supported for long.
 
 PAM:
         The default PAM config shipped by systemd is really bare bones.
