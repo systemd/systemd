@@ -1398,7 +1398,7 @@ tr_abort:
 }
 
 int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, sd_bus_error *e, Job **ret) {
-        Unit *unit;
+        Unit *unit = NULL;  /* just to appease gcc, initialization is not really necessary */
         int r;
 
         assert(m);
@@ -1409,6 +1409,7 @@ int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode 
         r = manager_load_unit(m, name, NULL, NULL, &unit);
         if (r < 0)
                 return r;
+        assert(unit);
 
         return manager_add_job(m, type, unit, mode, e, ret);
 }
