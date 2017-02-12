@@ -363,6 +363,8 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
         SET_FOREACH_MOVE(z, t->notify_zone_items_done, t->notify_zone_items)
                 dns_zone_item_notify(z);
         SWAP_TWO(t->notify_zone_items, t->notify_zone_items_done);
+        if (t->probing)
+                dns_scope_announce(t->scope, false);
 
         SET_FOREACH_MOVE(d, t->notify_transactions_done, t->notify_transactions)
                 dns_transaction_notify(d, t);
@@ -1012,15 +1014,20 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         if (r > 0) /* Transaction got restarted... */
                 return;
 
-        if (IN_SET(t->scope->protocol, DNS_PROTOCOL_DNS, DNS_PROTOCOL_LLMNR)) {
+        if (IN_SET(t->scope->protocol, DNS_PROTOCOL_DNS, DNS_PROTOCOL_LLMNR, DNS_PROTOCOL_MDNS)) {
 
-                /* Only consider responses with equivalent query section to the request */
-                r = dns_packet_is_reply_for(p, t->key);
-                if (r < 0)
-                        goto fail;
-                if (r == 0) {
-                        dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
-                        return;
+                /* When dealing with protocols other than mDNS only consider responses with
+                 * equivalent query section to the request. For mDNS this check doesn't make
+                 * sense, because the section 6 of RFC6762 states that "Multicast DNS responses MUST NOT
+                 * contain any questions in the Question Section". */
+                if (t->scope->protocol != DNS_PROTOCOL_MDNS) {
+                        r = dns_packet_is_reply_for(p, t->key);
+                        if (r < 0)
+                                goto fail;
+                        if (r == 0) {
+                                dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
+                                return;
+                        }
                 }
 
                 /* Install the answer as answer to the transaction */
@@ -1213,7 +1220,10 @@ static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
 
         case DNS_PROTOCOL_MDNS:
                 assert(t->n_attempts > 0);
-                return (1 << (t->n_attempts - 1)) * USEC_PER_SEC;
+                if (t->probing)
+                        return MDNS_PROBING_INTERVAL_USEC;
+                else
+                        return (1 << (t->n_attempts - 1)) * USEC_PER_SEC;
 
         case DNS_PROTOCOL_LLMNR:
                 return t->scope->resend_timeout;
@@ -1367,7 +1377,7 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
         if (r < 0)
                 return r;
 
-        r = dns_packet_append_key(p, t->key, NULL);
+        r = dns_packet_append_key(p, t->key, 0, NULL);
         if (r < 0)
                 return r;
 
@@ -1399,7 +1409,7 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
                 if (qdcount >= UINT16_MAX)
                         break;
 
-                r = dns_packet_append_key(p, other->key, NULL);
+                r = dns_packet_append_key(p, other->key, 0, NULL);
 
                 /*
                  * If we can't stuff more questions into the packet, just give up.
@@ -1426,7 +1436,7 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
                 if (r < 0)
                         return r;
 
-                (void) sd_event_source_set_description(t->timeout_event_source, "dns-transaction-timeout");
+                (void) sd_event_source_set_description(other->timeout_event_source, "dns-transaction-timeout");
 
                 other->state = DNS_TRANSACTION_PENDING;
                 other->next_attempt_after = ts;
@@ -1468,7 +1478,7 @@ static int dns_transaction_make_packet(DnsTransaction *t) {
         if (r < 0)
                 return r;
 
-        r = dns_packet_append_key(p, t->key, NULL);
+        r = dns_packet_append_key(p, t->key, 0, NULL);
         if (r < 0)
                 return r;
 

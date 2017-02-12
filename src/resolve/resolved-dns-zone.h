@@ -37,6 +37,9 @@ typedef enum DnsZoneItemState DnsZoneItemState;
 /* RFC 4795 Section 2.8. suggests a TTL of 30s by default */
 #define LLMNR_DEFAULT_TTL (30)
 
+/* RFC 6762 Section 10. suggests a TTL of 120s by default */
+#define MDNS_DEFAULT_TTL (120)
+
 enum DnsZoneItemState {
         DNS_ZONE_ITEM_PROBING,
         DNS_ZONE_ITEM_ESTABLISHED,

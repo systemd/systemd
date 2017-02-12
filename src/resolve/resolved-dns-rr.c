@@ -1262,7 +1262,7 @@ int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical) {
         if (rr->wire_format && rr->wire_format_canonical == canonical)
                 return 0;
 
-        r = dns_packet_append_rr(&packet, rr, &start, &rds);
+        r = dns_packet_append_rr(&packet, rr, 0, &start, &rds);
         if (r < 0)
                 return r;
 

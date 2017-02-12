@@ -505,7 +505,7 @@ int manager_new(Manager **ret) {
         m->hostname_fd = -1;
 
         m->llmnr_support = RESOLVE_SUPPORT_YES;
-        m->mdns_support = RESOLVE_SUPPORT_NO;
+        m->mdns_support = RESOLVE_SUPPORT_YES;
         m->dnssec_mode = DEFAULT_DNSSEC_MODE;
         m->enable_cache = true;
         m->dns_stub_listener_mode = DNS_STUB_LISTENER_UDP;
@@ -628,6 +628,8 @@ Manager *manager_free(Manager *m) {
 
         dns_resource_key_unref(m->llmnr_host_ipv4_key);
         dns_resource_key_unref(m->llmnr_host_ipv6_key);
+        dns_resource_key_unref(m->mdns_host_ipv4_key);
+        dns_resource_key_unref(m->mdns_host_ipv6_key);
 
         sd_event_source_unref(m->hostname_event_source);
         safe_close(m->hostname_fd);
@@ -1016,6 +1018,8 @@ void manager_refresh_rrs(Manager *m) {
 
         m->llmnr_host_ipv4_key = dns_resource_key_unref(m->llmnr_host_ipv4_key);
         m->llmnr_host_ipv6_key = dns_resource_key_unref(m->llmnr_host_ipv6_key);
+        m->mdns_host_ipv4_key = dns_resource_key_unref(m->mdns_host_ipv4_key);
+        m->mdns_host_ipv6_key = dns_resource_key_unref(m->mdns_host_ipv6_key);
 
         HASHMAP_FOREACH(l, m->links, i) {
                 link_add_rrs(l, true);

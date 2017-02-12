@@ -47,6 +47,8 @@ struct LinkAddress {
 
         DnsResourceRecord *llmnr_address_rr;
         DnsResourceRecord *llmnr_ptr_rr;
+        DnsResourceRecord *mdns_address_rr;
+        DnsResourceRecord *mdns_ptr_rr;
 
         LIST_FIELDS(LinkAddress, addresses);
 };

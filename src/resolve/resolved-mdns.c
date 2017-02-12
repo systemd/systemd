@@ -67,6 +67,52 @@ eaddrinuse:
         return 0;
 }
 
+static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
+        DnsResourceKey *key = NULL;
+        bool tentative = false;
+        int r;
+
+        assert(s);
+        assert(p);
+
+        r = dns_packet_extract(p);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to extract resource records from incoming packet: %m");
+                return r;
+        }
+
+        /* TODO: there might be more than one question in mDNS queries. */
+        assert_return((dns_question_size(p->question) > 0), -EINVAL);
+        key = p->question->keys[0];
+
+        r = dns_zone_lookup(&s->zone, key, 0, &answer, &soa, &tentative);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to lookup key: %m");
+                return r;
+        }
+        if (r == 0)
+                return 0;
+
+        r = dns_scope_make_reply_packet(s, DNS_PACKET_ID(p), DNS_RCODE_SUCCESS, NULL, answer, NULL, false, &reply);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to build reply packet: %m");
+                return r;
+        }
+
+        if (!ratelimit_test(&s->ratelimit))
+                return 0;
+
+        r = dns_scope_emit_udp(s, -1, reply);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to send reply packet: %m");
+                return r;
+        }
+
+        return 0;
+}
+
 static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         Manager *m = userdata;
@@ -76,6 +122,9 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
         r = manager_recv(m, fd, DNS_PROTOCOL_MDNS, &p);
         if (r <= 0)
                 return r;
+
+        if (manager_our_packet(m, p))
+                return 0;
 
         scope = manager_find_scope(m, p);
         if (!scope) {
@@ -115,6 +164,12 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                               dns_name_endswith(name, "local") > 0))
                                 return 0;
 
+                        if (rr->ttl == 0) {
+                                log_debug("Got a goodbye packet");
+                                /* See the section 10.1 of RFC6762 */
+                                rr->ttl = 1;
+                        }
+
                         t = dns_scope_find_transaction(scope, rr->key, false);
                         if (t)
                                 dns_transaction_process_reply(t, p);
@@ -125,7 +180,11 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
         } else if (dns_packet_validate_query(p) > 0)  {
                 log_debug("Got mDNS query packet for id %u", DNS_PACKET_ID(p));
 
-                dns_scope_process_query(scope, NULL, p);
+                r = mdns_scope_process_query(scope, p);
+                if (r < 0) {
+                        log_debug("mDNS query processing failed.");
+                        return 0;
+                }
         } else
                 log_debug("Invalid mDNS UDP packet.");
 
