@@ -145,11 +145,11 @@ static void test_exec_privatetmp(Manager *m) {
 
 static void test_exec_privatedevices(Manager *m) {
         if (detect_container() > 0) {
-                log_notice("testing in container, skipping private device tests");
+                log_notice("testing in container, skipping %s", __func__);
                 return;
         }
         if (!is_inaccessible_available()) {
-                log_notice("testing without inaccessible, skipping private device tests");
+                log_notice("testing without inaccessible, skipping %s", __func__);
                 return;
         }
 
@@ -161,11 +161,11 @@ static void test_exec_privatedevices_capabilities(Manager *m) {
         int r;
 
         if (detect_container() > 0) {
-                log_notice("testing in container, skipping private device tests");
+                log_notice("testing in container, skipping %s", __func__);
                 return;
         }
         if (!is_inaccessible_available()) {
-                log_notice("testing without inaccessible, skipping private device tests");
+                log_notice("testing without inaccessible, skipping %s", __func__);
                 return;
         }
 
@@ -187,11 +187,11 @@ static void test_exec_protectkernelmodules(Manager *m) {
         int r;
 
         if (detect_container() > 0) {
-                log_notice("testing in container, skipping protectkernelmodules tests");
+                log_notice("testing in container, skipping %s", __func__);
                 return;
         }
         if (!is_inaccessible_available()) {
-                log_notice("testing without inaccessible, skipping protectkernelmodules tests");
+                log_notice("testing without inaccessible, skipping %s", __func__);
                 return;
         }
 
@@ -272,7 +272,7 @@ static void test_exec_systemcall_system_mode_with_user(Manager *m) {
         else if (getpwnam("nfsnobody"))
                 test(m, "exec-systemcallfilter-system-user-nfsnobody.service", 0, CLD_EXITED);
         else
-                log_error_errno(errno, "Skipping test_exec_systemcall_system_mode_with_user, could not find nobody/nfsnobody user: %m");
+                log_error_errno(errno, "Skipping %s, could not find nobody/nfsnobody user: %m", __func__);
 #endif
 }
 
@@ -282,7 +282,7 @@ static void test_exec_user(Manager *m) {
         else if (getpwnam("nfsnobody"))
                 test(m, "exec-user-nfsnobody.service", 0, CLD_EXITED);
         else
-                log_error_errno(errno, "Skipping test_exec_user, could not find nobody/nfsnobody user: %m");
+                log_error_errno(errno, "Skipping %s, could not find nobody/nfsnobody user: %m", __func__);
 }
 
 static void test_exec_group(Manager *m) {
@@ -291,7 +291,7 @@ static void test_exec_group(Manager *m) {
         else if (getgrnam("nfsnobody"))
                 test(m, "exec-group-nfsnobody.service", 0, CLD_EXITED);
         else
-                log_error_errno(errno, "Skipping test_exec_group, could not find nobody/nfsnobody group: %m");
+                log_error_errno(errno, "Skipping %s, could not find nobody/nfsnobody group: %m", __func__);
 }
 
 static void test_exec_supplementary_groups(Manager *m) {
@@ -372,7 +372,7 @@ static void test_exec_runtimedirectory(Manager *m) {
         else if (getgrnam("nfsnobody"))
                 test(m, "exec-runtimedirectory-owner-nfsnobody.service", 0, CLD_EXITED);
         else
-                log_error_errno(errno, "Skipping test_exec_runtimedirectory-owner, could not find nobody/nfsnobody group: %m");
+                log_error_errno(errno, "Skipping %s, could not find nobody/nfsnobody group: %m", __func__);
 }
 
 static void test_exec_capabilityboundingset(Manager *m) {
@@ -406,9 +406,9 @@ static void test_exec_capabilityambientset(Manager *m) {
                         test(m, "exec-capabilityambientset-nfsnobody.service", 0, CLD_EXITED);
                         test(m, "exec-capabilityambientset-merge-nfsnobody.service", 0, CLD_EXITED);
                 } else
-                        log_error_errno(errno, "Skipping test_exec_capabilityambientset, could not find nobody/nfsnobody user: %m");
+                        log_error_errno(errno, "Skipping %s, could not find nobody/nfsnobody user: %m", __func__);
         } else
-                log_error_errno(errno, "Skipping test_exec_capabilityambientset, the kernel does not support ambient capabilities: %m");
+                log_error_errno(errno, "Skipping %s, the kernel does not support ambient capabilities: %m", __func__);
 }
 
 static void test_exec_privatenetwork(Manager *m) {
@@ -416,7 +416,7 @@ static void test_exec_privatenetwork(Manager *m) {
 
         r = find_binary("ip", NULL);
         if (r < 0) {
-                log_error_errno(r, "Skipping test_exec_privatenetwork, could not find ip binary: %m");
+                log_error_errno(r, "Skipping %s, could not find ip binary: %m", __func__);
                 return;
         }
 
