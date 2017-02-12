@@ -1730,6 +1730,7 @@ EXTRA_DIST += \
 	test/test-execute/exec-restrict-namespaces-yes.service \
 	test/test-execute/exec-restrict-namespaces-mnt.service \
 	test/test-execute/exec-restrict-namespaces-mnt-blacklist.service \
+	test/test-execute/exec-read-only-path-succeed.service \
 	test/bus-policy/hello.conf \
 	test/bus-policy/methods.conf \
 	test/bus-policy/ownerships.conf \
