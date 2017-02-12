@@ -93,6 +93,7 @@ kernelinstalldir = $(prefix)/lib/kernel/install.d
 factory_etcdir = $(datadir)/factory/etc
 factory_pamdir = $(datadir)/factory/etc/pam.d
 bootlibdir = $(prefix)/lib/systemd/boot/efi
+testsdir = $(prefix)/lib/systemd/tests
 
 # And these are the special ones for /
 rootprefix=@rootprefix@
@@ -133,6 +134,7 @@ check_DATA =
 dist_rootlibexec_DATA =
 tests=
 manual_tests =
+TEST_DATA_FILES =
 TEST_EXTENSIONS = .py
 PY_LOG_COMPILER = $(PYTHON)
 DISABLE_HARD_ERRORS = yes
@@ -1606,7 +1608,7 @@ tests += \
 	test-seccomp
 endif
 
-EXTRA_DIST += \
+TEST_DATA_FILES += \
 	test/a.service \
 	test/basic.target \
 	test/b.service \
@@ -5649,7 +5651,7 @@ test_dns_packet_LDADD = \
 	$(GCRYPT_LIBS) \
 	-lm
 
-EXTRA_DIST += \
+TEST_DATA_FILES += \
 	test/test-resolve/_openpgpkey.fedoraproject.org.pkts \
 	test/test-resolve/fedoraproject.org.pkts \
 	test/test-resolve/gandi.net.pkts \
@@ -5661,6 +5663,8 @@ EXTRA_DIST += \
 	test/test-resolve/_443._tcp.fedoraproject.org.pkts \
 	test/test-resolve/kyhwana.org.pkts \
 	test/test-resolve/fake-caa.pkts
+
+EXTRA_DIST += $(TEST_DATA_FILES)
 
 test_dnssec_SOURCES = \
 	src/resolve/test-dnssec.c \
@@ -6693,6 +6697,20 @@ CLEANFILES += \
 tests += \
 	test-libsystemd-sym \
 	test-libudev-sym
+
+.PHONY: install-tests
+install-tests: $(tests) $(TEST_DATA_FILES)
+	for f in $(tests); do \
+	    if [ -x .libs/$$f ]; then \
+		install -D -m 755 .libs/$$f $(DESTDIR)/$(testsdir)/$$f; \
+	    else \
+		install -D -m 755 $$f $(DESTDIR)/$(testsdir)/$$f; \
+	    fi; \
+	done
+	for f in $(TEST_DATA_FILES); do \
+	    install -D -m 644 $$f $(DESTDIR)/$(testsdir)/testdata/$${f#test/}; \
+	done
+
 
 .PHONY: cppcheck
 cppcheck:
