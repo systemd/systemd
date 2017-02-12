@@ -1481,6 +1481,7 @@ int manager_load_unit_prepare(
 
         assert(m);
         assert(name || path);
+        assert(_ret);
 
         /* This will prepare the unit for loading, but not actually
          * load anything from disk. */
@@ -1528,8 +1529,7 @@ int manager_load_unit_prepare(
         unit_add_to_dbus_queue(ret);
         unit_add_to_gc_queue(ret);
 
-        if (_ret)
-                *_ret = ret;
+        *_ret = ret;
 
         return 0;
 }
@@ -1544,6 +1544,7 @@ int manager_load_unit(
         int r;
 
         assert(m);
+        assert(_ret);
 
         /* This will load the service information files, but not actually
          * start any services or anything. */
@@ -1554,8 +1555,7 @@ int manager_load_unit(
 
         manager_dispatch_load_queue(m);
 
-        if (_ret)
-                *_ret = unit_follow_merge(*_ret);
+        *_ret = unit_follow_merge(*_ret);
 
         return 0;
 }
