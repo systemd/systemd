@@ -554,7 +554,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
         } else if (streq(field, "RestrictNamespaces")) {
                 bool invert = false;
-                uint64_t flags = 0;
+                unsigned long flags = 0;
 
                 if (eq[0] == '~') {
                         invert = true;
@@ -575,7 +575,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 if (invert)
                         flags = (~flags) & NAMESPACE_FLAGS_ALL;
 
-                r = sd_bus_message_append(m, "v", "t", flags);
+                r = sd_bus_message_append(m, "v", "t", (uint64_t) flags);
         } else if ((dep = unit_dependency_from_string(field)) >= 0)
                 r = sd_bus_message_append(m, "v", "as", 1, eq);
         else if (streq(field, "MountFlags")) {
