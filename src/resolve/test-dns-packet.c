@@ -115,7 +115,7 @@ int main(int argc, char **argv) {
                 N = argc - 1;
                 fnames = argv + 1;
         } else {
-                assert_se(glob(RESOLVE_TEST_DIR "/*.pkts", GLOB_NOSORT, NULL, &g) == 0);
+                assert_se(glob(TEST_DIR "/test-resolve/*.pkts", GLOB_NOSORT, NULL, &g) == 0);
                 N = g.gl_pathc;
                 fnames = g.gl_pathv;
         }

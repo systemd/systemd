@@ -5637,8 +5637,7 @@ test_dns_packet_SOURCES = \
 	$(basic_dns_sources)
 
 test_dns_packet_CPPFLAGS = \
-	$(AM_CPPFLAGS) \
-	-DRESOLVE_TEST_DIR=\"$(abs_top_srcdir)/src/resolve/test-data\"
+	$(AM_CPPFLAGS)
 
 test_dns_packet_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -5650,17 +5649,17 @@ test_dns_packet_LDADD = \
 	-lm
 
 EXTRA_DIST += \
-	src/resolve/test-data/_openpgpkey.fedoraproject.org.pkts \
-	src/resolve/test-data/fedoraproject.org.pkts \
-	src/resolve/test-data/gandi.net.pkts \
-	src/resolve/test-data/google.com.pkts \
-	src/resolve/test-data/root.pkts \
-	src/resolve/test-data/sw1a1aa-sw1a2aa-sw1a2ab-sw1a2ac.find.me.uk.pkts \
-	src/resolve/test-data/teamits.com.pkts \
-	src/resolve/test-data/zbyszek@fedoraproject.org.pkts \
-	src/resolve/test-data/_443._tcp.fedoraproject.org.pkts \
-	src/resolve/test-data/kyhwana.org.pkts \
-	src/resolve/test-data/fake-caa.pkts
+	test/test-resolve/_openpgpkey.fedoraproject.org.pkts \
+	test/test-resolve/fedoraproject.org.pkts \
+	test/test-resolve/gandi.net.pkts \
+	test/test-resolve/google.com.pkts \
+	test/test-resolve/root.pkts \
+	test/test-resolve/sw1a1aa-sw1a2aa-sw1a2ab-sw1a2ac.find.me.uk.pkts \
+	test/test-resolve/teamits.com.pkts \
+	test/test-resolve/zbyszek@fedoraproject.org.pkts \
+	test/test-resolve/_443._tcp.fedoraproject.org.pkts \
+	test/test-resolve/kyhwana.org.pkts \
+	test/test-resolve/fake-caa.pkts
 
 test_dnssec_SOURCES = \
 	src/resolve/test-dnssec.c \
