@@ -298,7 +298,7 @@ static int bus_job_find(sd_bus *bus, const char *path, const char *interface, vo
 }
 
 static int find_unit(Manager *m, sd_bus *bus, const char *path, Unit **unit, sd_bus_error *error) {
-        Unit *u;
+        Unit *u = NULL;  /* just to appease gcc, initialization is not really necessary */
         int r;
 
         assert(m);
@@ -323,14 +323,14 @@ static int find_unit(Manager *m, sd_bus *bus, const char *path, Unit **unit, sd_
                         return r;
 
                 u = manager_get_unit_by_pid(m, pid);
+                if (!u)
+                        return 0;
         } else {
                 r = manager_load_unit_from_dbus_path(m, path, error, &u);
                 if (r < 0)
                         return 0;
+                assert(u);
         }
-
-        if (!u)
-                return 0;
 
         *unit = u;
         return 1;
