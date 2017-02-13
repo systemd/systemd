@@ -669,6 +669,7 @@ int link_address_new(Link *l, LinkAddress **ret, int family, const union in_addr
 
         a->link = l;
         LIST_PREPEND(addresses, l->addresses, a);
+        l->n_addresses++;
 
         if (ret)
                 *ret = a;
@@ -682,6 +683,9 @@ LinkAddress *link_address_free(LinkAddress *a) {
 
         if (a->link) {
                 LIST_REMOVE(addresses, a->link->addresses, a);
+
+                assert(a->link->n_addresses > 0);
+                a->link->n_addresses--;
 
                 if (a->llmnr_address_rr) {
                         if (a->family == AF_INET && a->link->llmnr_ipv4_scope)
