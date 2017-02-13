@@ -59,6 +59,7 @@ static bool arg_no_pager = false;
 static int arg_no_legend = false;
 static int arg_one = false;
 static FILE* arg_output = NULL;
+static bool arg_reverse = false;
 
 static Set *new_matches(void) {
         Set *set;
@@ -133,8 +134,9 @@ static void help(void) {
                "     --no-pager      Do not pipe output into a pager\n"
                "     --no-legend     Do not print the column headers.\n"
                "  -1                 Show information about most recent entry only\n"
+               "  -r --reverse       Show the newest entries first\n"
                "  -F --field=FIELD   List all values a certain field takes\n"
-               "  -o --output=FILE   Write output to FILE\n\n"
+               "  -o --output=FILE   Write output to FILE\n"
                "  -D --directory=DIR Use journal files from directory\n\n"
 
                "Commands:\n"
@@ -162,13 +164,14 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
                 { "output",       required_argument, NULL, 'o'           },
                 { "field",        required_argument, NULL, 'F'           },
                 { "directory",    required_argument, NULL, 'D'           },
+                { "reverse",      no_argument,       NULL, 'r'           },
                 {}
         };
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "ho:F:1D:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "ho:F:1D:r", options, NULL)) >= 0)
                 switch(c) {
 
                 case 'h':
@@ -214,6 +217,10 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
 
                 case 'D':
                         arg_directory = optarg;
+                        break;
+
+                case 'r':
+                        arg_reverse = true;
                         break;
 
                 case '?':
@@ -602,10 +609,18 @@ static int dump_list(sd_journal *j) {
 
                 return print_entry(j, 0);
         } else {
-                SD_JOURNAL_FOREACH(j) {
-                        r = print_entry(j, n_found++);
-                        if (r < 0)
-                                return r;
+                if (!arg_reverse) {
+                        SD_JOURNAL_FOREACH(j) {
+                                r = print_entry(j, n_found++);
+                                if (r < 0)
+                                        return r;
+                        }
+                } else {
+                        SD_JOURNAL_FOREACH_BACKWARDS(j) {
+                                r = print_entry(j, n_found++);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
 
                 if (!arg_field && n_found <= 0) {
