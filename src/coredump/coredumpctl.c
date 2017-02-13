@@ -134,7 +134,7 @@ static void help(void) {
                "     --no-legend     Do not print the column headers.\n"
                "  -1                 Show information about most recent entry only\n"
                "  -F --field=FIELD   List all values a certain field takes\n"
-               "  -o --output=FILE   Write output to FILE\n\n"
+               "  -o --output=FILE   Write output to FILE\n"
                "  -D --directory=DIR Use journal files from directory\n\n"
 
                "Commands:\n"
