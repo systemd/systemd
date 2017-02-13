@@ -1121,6 +1121,8 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                                 on_announcement_timeout, scope);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to schedule second announcement: %m");
+
+                (void) sd_event_source_set_description(scope->announce_event_source, "mdns-announce");
         }
 
         return 0;
