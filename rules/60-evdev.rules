@@ -12,6 +12,10 @@ ENV{ID_INPUT_KEY}=="?*", DRIVERS=="atkbd", \
   IMPORT{builtin}="hwdb 'evdev:atkbd:$attr{[dmi/id]modalias}'", \
   RUN{builtin}+="keyboard", GOTO="evdev_end"
 
+# device matching the input device name + properties + the machine's DMI data
+KERNELS=="input*", IMPORT{builtin}="hwdb 'evdev:name:$attr{name}:phys:$attr{phys}:ev:$attr{capabilities/ev}:$attr{[dmi/id]modalias}'", \
+  RUN{builtin}+="keyboard", GOTO="evdev_end"
+
 # device matching the input device name and the machine's DMI data
 KERNELS=="input*", IMPORT{builtin}="hwdb 'evdev:name:$attr{name}:$attr{[dmi/id]modalias}'", \
   RUN{builtin}+="keyboard", GOTO="evdev_end"
