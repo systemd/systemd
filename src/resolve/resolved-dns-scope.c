@@ -793,15 +793,8 @@ DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsResourceKey *key,
         /* Try to find an ongoing transaction that is a equal to the
          * specified question */
         t = hashmap_get(scope->transactions_by_key, key);
-        if (!t) {
-                DnsResourceKey *key_any;
-
-                key_any = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_ANY, dns_resource_key_name(key));
-                t = hashmap_get(scope->transactions_by_key, key_any);
-                key_any = dns_resource_key_unref(key_any);
-                if (!t)
-                        return NULL;
-        }
+        if (!t)
+                return NULL;
 
         /* Refuse reusing transactions that completed based on cached
          * data instead of a real packet, if that's requested. */
