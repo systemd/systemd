@@ -1077,7 +1077,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
         if (scope->protocol != DNS_PROTOCOL_MDNS)
                 return 0;
 
-        answer = dns_answer_new(4);
+        answer = dns_answer_new(scope->link->n_addresses * 2);
         if (!answer)
                 return log_oom();
 
