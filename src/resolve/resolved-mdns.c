@@ -78,10 +78,8 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         assert(p);
 
         r = dns_packet_extract(p);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to extract resource records from incoming packet: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to extract resource records from incoming packet: %m");
 
         /* TODO: there might be more than one question in mDNS queries. */
         assert_return((dns_question_size(p->question) > 0), -EINVAL);
@@ -182,7 +180,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
 
                 r = mdns_scope_process_query(scope, p);
                 if (r < 0) {
-                        log_debug("mDNS query processing failed.");
+                        log_debug_errno(r, "mDNS query processing failed: %m");
                         return 0;
                 }
         } else
