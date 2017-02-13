@@ -33,8 +33,8 @@ typedef enum CopyFlags {
 int copy_file_fd(const char *from, int to, CopyFlags copy_flags);
 int copy_file(const char *from, const char *to, int open_flags, mode_t mode, unsigned chattr_flags, CopyFlags copy_flags);
 int copy_file_atomic(const char *from, const char *to, mode_t mode, unsigned chattr_flags, CopyFlags copy_flags);
-int copy_tree(const char *from, const char *to, CopyFlags copy_flags);
-int copy_tree_at(int fdf, const char *from, int fdt, const char *to, CopyFlags copy_flags);
+int copy_tree(const char *from, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags);
+int copy_tree_at(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags);
 int copy_directory_fd(int dirfd, const char *to, CopyFlags copy_flags);
 int copy_directory(const char *from, const char *to, CopyFlags copy_flags);
 int copy_bytes(int fdf, int fdt, uint64_t max_bytes, CopyFlags copy_flags);

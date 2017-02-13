@@ -1055,10 +1055,12 @@ finish:
 int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *src, *dest, *host_path, *container_path, *host_basename, *host_dirname, *container_basename, *container_dirname;
         _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
+        CopyFlags copy_flags = COPY_REFLINK|COPY_MERGE;
         _cleanup_close_ int hostfd = -1;
         Machine *m = userdata;
         bool copy_from;
         pid_t child;
+        uid_t uid_shift;
         char *t;
         int r;
 
@@ -1096,6 +1098,10 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
                 return r;
         if (r == 0)
                 return 1; /* Will call us back */
+
+        r = machine_get_uid_shift(m, &uid_shift);
+        if (r < 0)
+                return r;
 
         copy_from = strstr(sd_bus_message_get_member(message), "CopyFrom");
 
@@ -1151,10 +1157,13 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
                         goto child_fail;
                 }
 
+                /* Run the actual copy operation. Note that when an UID shift is set we'll either clamp the UID/GID to
+                 * 0 or to the actual UID shift depending on the direction we copy. If no UID shift is set we'll copy
+                 * the UID/GIDs as they are. */
                 if (copy_from)
-                        r = copy_tree_at(containerfd, container_basename, hostfd, host_basename, COPY_REFLINK|COPY_MERGE);
+                        r = copy_tree_at(containerfd, container_basename, hostfd, host_basename, uid_shift == 0 ? UID_INVALID : 0, uid_shift == 0 ? GID_INVALID : 0, copy_flags);
                 else
-                        r = copy_tree_at(hostfd, host_basename, containerfd, container_basename, COPY_REFLINK|COPY_MERGE);
+                        r = copy_tree_at(hostfd, host_basename, containerfd, container_basename, uid_shift == 0 ? UID_INVALID : uid_shift, uid_shift == 0 ? GID_INVALID : uid_shift, copy_flags);
 
                 hostfd = safe_close(hostfd);
                 containerfd = safe_close(containerfd);

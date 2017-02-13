@@ -1170,7 +1170,7 @@ static int create_item(Item *i) {
                         return log_error_errno(r, "Failed to substitute specifiers in copy source %s: %m", i->argument);
 
                 log_debug("Copying tree \"%s\" to \"%s\".", resolved, i->path);
-                r = copy_tree(resolved, i->path, COPY_REFLINK);
+                r = copy_tree(resolved, i->path, i->uid_set ? i->uid : UID_INVALID, i->gid_set ? i->gid : GID_INVALID, COPY_REFLINK);
 
                 if (r == -EROFS && stat(i->path, &st) == 0)
                         r = -EEXIST;

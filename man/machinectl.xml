@@ -540,9 +540,12 @@
         system into a running container. Takes a container name,
         followed by the source path on the host and the destination
         path in the container. If the destination path is omitted, the
-        same as the source path is used.</para></listitem>
-      </varlistentry>
+        same as the source path is used.</para>
 
+        <para>If host and container share the same user and group namespace, file ownership by numeric user ID and
+        group ID is preserved for the copy, otherwise all files and directories in the copy will be owned by the root
+        user and group (UID/GID 0).</para></listitem>
+      </varlistentry>
 
       <varlistentry>
         <term><command>copy-from</command> <replaceable>NAME</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>]</term>
@@ -551,7 +554,11 @@
         into the host system. Takes a container name, followed by the
         source path in the container the destination path on the host.
         If the destination path is omitted, the same as the source path
-        is used.</para></listitem>
+        is used.</para>
+
+        <para>If host and container share the same user and group namespace, file ownership by numeric user ID and
+        group ID is preserved for the copy, otherwise all files and directories in the copy will be owned by the root
+        user and group (UID/GID 0).</para></listitem>
       </varlistentry>
     </variablelist></refsect2>
 

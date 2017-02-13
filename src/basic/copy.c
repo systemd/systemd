@@ -45,6 +45,7 @@
 #include "strv.h"
 #include "time-util.h"
 #include "umask-util.h"
+#include "user-util.h"
 #include "xattr-util.h"
 
 #define COPY_BUFFER_SIZE (16*1024u)
@@ -176,7 +177,16 @@ int copy_bytes(int fdf, int fdt, uint64_t max_bytes, CopyFlags copy_flags) {
         return 0; /* return 0 if we hit EOF earlier than the size limit */
 }
 
-static int fd_copy_symlink(int df, const char *from, const struct stat *st, int dt, const char *to) {
+static int fd_copy_symlink(
+                int df,
+                const char *from,
+                const struct stat *st,
+                int dt,
+                const char *to,
+                uid_t override_uid,
+                gid_t override_gid,
+                CopyFlags copy_flags) {
+
         _cleanup_free_ char *target = NULL;
         int r;
 
@@ -191,13 +201,25 @@ static int fd_copy_symlink(int df, const char *from, const struct stat *st, int 
         if (symlinkat(target, dt, to) < 0)
                 return -errno;
 
-        if (fchownat(dt, to, st->st_uid, st->st_gid, AT_SYMLINK_NOFOLLOW) < 0)
+        if (fchownat(dt, to,
+                     uid_is_valid(override_uid) ? override_uid : st->st_uid,
+                     gid_is_valid(override_gid) ? override_gid : st->st_gid,
+                     AT_SYMLINK_NOFOLLOW) < 0)
                 return -errno;
 
         return 0;
 }
 
-static int fd_copy_regular(int df, const char *from, const struct stat *st, int dt, const char *to, CopyFlags copy_flags) {
+static int fd_copy_regular(
+                int df,
+                const char *from,
+                const struct stat *st,
+                int dt,
+                const char *to,
+                uid_t override_uid,
+                gid_t override_gid,
+                CopyFlags copy_flags) {
+
         _cleanup_close_ int fdf = -1, fdt = -1;
         struct timespec ts[2];
         int r, q;
@@ -220,7 +242,9 @@ static int fd_copy_regular(int df, const char *from, const struct stat *st, int 
                 return r;
         }
 
-        if (fchown(fdt, st->st_uid, st->st_gid) < 0)
+        if (fchown(fdt,
+                   uid_is_valid(override_uid) ? override_uid : st->st_uid,
+                   gid_is_valid(override_gid) ? override_gid : st->st_gid) < 0)
                 r = -errno;
 
         if (fchmod(fdt, st->st_mode & 07777) < 0)
@@ -229,7 +253,6 @@ static int fd_copy_regular(int df, const char *from, const struct stat *st, int 
         ts[0] = st->st_atim;
         ts[1] = st->st_mtim;
         (void) futimens(fdt, ts);
-
         (void) copy_xattr(fdf, fdt);
 
         q = close(fdt);
@@ -243,7 +266,15 @@ static int fd_copy_regular(int df, const char *from, const struct stat *st, int 
         return r;
 }
 
-static int fd_copy_fifo(int df, const char *from, const struct stat *st, int dt, const char *to) {
+static int fd_copy_fifo(
+                int df,
+                const char *from,
+                const struct stat *st,
+                int dt,
+                const char *to,
+                uid_t override_uid,
+                gid_t override_gid,
+                CopyFlags copy_flags) {
         int r;
 
         assert(from);
@@ -254,7 +285,10 @@ static int fd_copy_fifo(int df, const char *from, const struct stat *st, int dt,
         if (r < 0)
                 return -errno;
 
-        if (fchownat(dt, to, st->st_uid, st->st_gid, AT_SYMLINK_NOFOLLOW) < 0)
+        if (fchownat(dt, to,
+                     uid_is_valid(override_uid) ? override_uid : st->st_uid,
+                     gid_is_valid(override_gid) ? override_gid : st->st_gid,
+                     AT_SYMLINK_NOFOLLOW) < 0)
                 r = -errno;
 
         if (fchmodat(dt, to, st->st_mode & 07777, 0) < 0)
@@ -263,7 +297,15 @@ static int fd_copy_fifo(int df, const char *from, const struct stat *st, int dt,
         return r;
 }
 
-static int fd_copy_node(int df, const char *from, const struct stat *st, int dt, const char *to) {
+static int fd_copy_node(
+                int df,
+                const char *from,
+                const struct stat *st,
+                int dt,
+                const char *to,
+                uid_t override_uid,
+                gid_t override_gid,
+                CopyFlags copy_flags) {
         int r;
 
         assert(from);
@@ -274,7 +316,10 @@ static int fd_copy_node(int df, const char *from, const struct stat *st, int dt,
         if (r < 0)
                 return -errno;
 
-        if (fchownat(dt, to, st->st_uid, st->st_gid, AT_SYMLINK_NOFOLLOW) < 0)
+        if (fchownat(dt, to,
+                     uid_is_valid(override_uid) ? override_uid : st->st_uid,
+                     gid_is_valid(override_gid) ? override_gid : st->st_gid,
+                     AT_SYMLINK_NOFOLLOW) < 0)
                 r = -errno;
 
         if (fchmodat(dt, to, st->st_mode & 07777, 0) < 0)
@@ -290,6 +335,8 @@ static int fd_copy_directory(
                 int dt,
                 const char *to,
                 dev_t original_device,
+                uid_t override_uid,
+                gid_t override_gid,
                 CopyFlags copy_flags) {
 
         _cleanup_close_ int fdf = -1, fdt = -1;
@@ -343,15 +390,15 @@ static int fd_copy_directory(
                         continue;
 
                 if (S_ISREG(buf.st_mode))
-                        q = fd_copy_regular(dirfd(d), de->d_name, &buf, fdt, de->d_name, copy_flags);
+                        q = fd_copy_regular(dirfd(d), de->d_name, &buf, fdt, de->d_name, override_uid, override_gid, copy_flags);
                 else if (S_ISDIR(buf.st_mode))
-                        q = fd_copy_directory(dirfd(d), de->d_name, &buf, fdt, de->d_name, original_device, copy_flags);
+                        q = fd_copy_directory(dirfd(d), de->d_name, &buf, fdt, de->d_name, original_device, override_uid, override_gid, copy_flags);
                 else if (S_ISLNK(buf.st_mode))
-                        q = fd_copy_symlink(dirfd(d), de->d_name, &buf, fdt, de->d_name);
+                        q = fd_copy_symlink(dirfd(d), de->d_name, &buf, fdt, de->d_name, override_uid, override_gid, copy_flags);
                 else if (S_ISFIFO(buf.st_mode))
-                        q = fd_copy_fifo(dirfd(d), de->d_name, &buf, fdt, de->d_name);
+                        q = fd_copy_fifo(dirfd(d), de->d_name, &buf, fdt, de->d_name, override_uid, override_gid, copy_flags);
                 else if (S_ISBLK(buf.st_mode) || S_ISCHR(buf.st_mode) || S_ISSOCK(buf.st_mode))
-                        q = fd_copy_node(dirfd(d), de->d_name, &buf, fdt, de->d_name);
+                        q = fd_copy_node(dirfd(d), de->d_name, &buf, fdt, de->d_name, override_uid, override_gid, copy_flags);
                 else
                         q = -EOPNOTSUPP;
 
@@ -368,7 +415,9 @@ static int fd_copy_directory(
                         st->st_mtim
                 };
 
-                if (fchown(fdt, st->st_uid, st->st_gid) < 0)
+                if (fchown(fdt,
+                           uid_is_valid(override_uid) ? override_uid : st->st_uid,
+                           gid_is_valid(override_gid) ? override_gid : st->st_gid) < 0)
                         r = -errno;
 
                 if (fchmod(fdt, st->st_mode & 07777) < 0)
@@ -381,7 +430,7 @@ static int fd_copy_directory(
         return r;
 }
 
-int copy_tree_at(int fdf, const char *from, int fdt, const char *to, CopyFlags copy_flags) {
+int copy_tree_at(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags) {
         struct stat st;
 
         assert(from);
@@ -391,21 +440,21 @@ int copy_tree_at(int fdf, const char *from, int fdt, const char *to, CopyFlags c
                 return -errno;
 
         if (S_ISREG(st.st_mode))
-                return fd_copy_regular(fdf, from, &st, fdt, to, copy_flags);
+                return fd_copy_regular(fdf, from, &st, fdt, to, override_uid, override_gid, copy_flags);
         else if (S_ISDIR(st.st_mode))
-                return fd_copy_directory(fdf, from, &st, fdt, to, st.st_dev, copy_flags);
+                return fd_copy_directory(fdf, from, &st, fdt, to, st.st_dev, override_uid, override_gid, copy_flags);
         else if (S_ISLNK(st.st_mode))
-                return fd_copy_symlink(fdf, from, &st, fdt, to);
+                return fd_copy_symlink(fdf, from, &st, fdt, to, override_uid, override_gid, copy_flags);
         else if (S_ISFIFO(st.st_mode))
-                return fd_copy_fifo(fdf, from, &st, fdt, to);
+                return fd_copy_fifo(fdf, from, &st, fdt, to, override_uid, override_gid, copy_flags);
         else if (S_ISBLK(st.st_mode) || S_ISCHR(st.st_mode) || S_ISSOCK(st.st_mode))
-                return fd_copy_node(fdf, from, &st, fdt, to);
+                return fd_copy_node(fdf, from, &st, fdt, to, override_uid, override_gid, copy_flags);
         else
                 return -EOPNOTSUPP;
 }
 
-int copy_tree(const char *from, const char *to, CopyFlags copy_flags) {
-        return copy_tree_at(AT_FDCWD, from, AT_FDCWD, to, copy_flags);
+int copy_tree(const char *from, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags) {
+        return copy_tree_at(AT_FDCWD, from, AT_FDCWD, to, override_uid, override_gid, copy_flags);
 }
 
 int copy_directory_fd(int dirfd, const char *to, CopyFlags copy_flags) {
@@ -420,7 +469,7 @@ int copy_directory_fd(int dirfd, const char *to, CopyFlags copy_flags) {
         if (!S_ISDIR(st.st_mode))
                 return -ENOTDIR;
 
-        return fd_copy_directory(dirfd, NULL, &st, AT_FDCWD, to, st.st_dev, copy_flags);
+        return fd_copy_directory(dirfd, NULL, &st, AT_FDCWD, to, st.st_dev, UID_INVALID, GID_INVALID, copy_flags);
 }
 
 int copy_directory(const char *from, const char *to, CopyFlags copy_flags) {
@@ -435,7 +484,7 @@ int copy_directory(const char *from, const char *to, CopyFlags copy_flags) {
         if (!S_ISDIR(st.st_mode))
                 return -ENOTDIR;
 
-        return fd_copy_directory(AT_FDCWD, from, &st, AT_FDCWD, to, st.st_dev, copy_flags);
+        return fd_copy_directory(AT_FDCWD, from, &st, AT_FDCWD, to, st.st_dev, UID_INVALID, GID_INVALID, copy_flags);
 }
 
 int copy_file_fd(const char *from, int fdt, CopyFlags copy_flags) {
