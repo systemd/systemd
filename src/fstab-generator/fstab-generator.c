@@ -245,6 +245,42 @@ static int write_requires_after(FILE *f, const char *opts) {
         return 0;
 }
 
+static int write_requires_before(FILE *f, const char *opts) {
+        _cleanup_strv_free_ char **names = NULL, **units = NULL;
+        _cleanup_free_ char *res = NULL;
+        char **s;
+        int r;
+
+        assert(f);
+        assert(opts);
+
+        r = fstab_extract_values(opts, "x-systemd.before", &names);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to parse options: %m");
+        if (r == 0)
+                return 0;
+
+        STRV_FOREACH(s, names) {
+                char *x;
+
+                r = unit_name_mangle_with_suffix(*s, UNIT_NAME_NOGLOB, ".mount", &x);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate unit name: %m");
+                r = strv_consume(&units, x);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        if (units) {
+                res = strv_join(units, " ");
+                if (!res)
+                        return log_oom();
+                fprintf(f, "Before=%1$s\n", res);
+        }
+
+        return 0;
+}
+
 static int write_requires_mounts_for(FILE *f, const char *opts) {
         _cleanup_strv_free_ char **paths = NULL;
         _cleanup_free_ char *res = NULL;
@@ -347,6 +383,9 @@ static int add_mount(
                  r = write_requires_after(f, opts);
                  if (r < 0)
                          return r;
+                 r = write_requires_before(f, opts);
+                 if (r < 0)
+                         return r;
                  r = write_requires_mounts_for(f, opts);
                  if (r < 0)
                          return r;
@@ -422,6 +461,9 @@ static int add_mount(
 
                 if (opts) {
                         r = write_requires_after(f, opts);
+                        if (r < 0)
+                                return r;
+                        r = write_requires_before(f, opts);
                         if (r < 0)
                                 return r;
                         r = write_requires_mounts_for(f, opts);
