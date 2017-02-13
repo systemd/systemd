@@ -374,7 +374,7 @@ static int raw_image_get_os_release(Image *image, char ***ret, sd_bus_error *err
                 if (fd < 0)
                         _exit(EXIT_FAILURE);
 
-                r = copy_bytes(fd, pair[1], (uint64_t) -1, false);
+                r = copy_bytes(fd, pair[1], (uint64_t) -1, 0);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 

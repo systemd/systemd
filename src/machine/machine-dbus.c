@@ -411,7 +411,7 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
                         if (fd < 0)
                                 _exit(EXIT_FAILURE);
 
-                        r = copy_bytes(fd, pair[1], (uint64_t) -1, false);
+                        r = copy_bytes(fd, pair[1], (uint64_t) -1, 0);
                         if (r < 0)
                                 _exit(EXIT_FAILURE);
 
@@ -1152,9 +1152,9 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
                 }
 
                 if (copy_from)
-                        r = copy_tree_at(containerfd, container_basename, hostfd, host_basename, true);
+                        r = copy_tree_at(containerfd, container_basename, hostfd, host_basename, COPY_REFLINK|COPY_MERGE);
                 else
-                        r = copy_tree_at(hostfd, host_basename, containerfd, container_basename, true);
+                        r = copy_tree_at(hostfd, host_basename, containerfd, container_basename, COPY_REFLINK|COPY_MERGE);
 
                 hostfd = safe_close(hostfd);
                 containerfd = safe_close(containerfd);
