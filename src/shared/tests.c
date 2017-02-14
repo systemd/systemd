@@ -42,5 +42,9 @@ const char* get_exe_relative_testdata_dir(void) {
 
         assert_se(readlink_and_make_absolute("/proc/self/exe", &exedir) >= 0);
         assert_se(snprintf(testdir, sizeof(testdir), "%s/testdata", dirname(exedir)) > 0);
+        if (access(testdir, F_OK) < 0) {
+                fprintf(stderr,  "Test data directory '%s' does not exist, set $TEST_DIR\n", testdir);
+                exit(1);
+        }
         return testdir;
 }
