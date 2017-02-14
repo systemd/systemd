@@ -6714,14 +6714,14 @@ tests += \
 .PHONY: install-tests
 install-tests: $(tests) $(TEST_DATA_FILES)
 	for f in $(tests); do \
-	    if [ -x .libs/$$f ]; then \
-		install -D -m 755 .libs/$$f $(DESTDIR)/$(testsdir)/$$f; \
+	    if [ -x $(top_builddir)/.libs/$$f ]; then \
+		install -D -m 755 $(top_builddir)/.libs/$$f $(DESTDIR)/$(testsdir)/$$f; \
 	    else \
-		install -D -m 755 $$f $(DESTDIR)/$(testsdir)/$$f; \
+		install -D -m 755 $(top_builddir)/$$f $(DESTDIR)/$(testsdir)/$$f; \
 	    fi; \
 	done
 	for f in $(TEST_DATA_FILES); do \
-	    install -D -m 644 $$f $(DESTDIR)/$(testsdir)/testdata/$${f#test/}; \
+	    install -D -m 644 $(top_srcdir)/$$f $(DESTDIR)/$(testsdir)/testdata/$${f#test/}; \
 	done
 
 
