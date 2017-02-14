@@ -722,7 +722,7 @@ int raw_pull_start(
                 i->settings_job->calc_checksum = verify != IMPORT_VERIFY_NO;
         }
 
-        r = pull_make_verification_jobs(&i->checksum_job, &i->signature_job, verify, url, i->glue, raw_pull_job_on_finished, i);
+        r = pull_make_verification_jobs(&i->checksum_job, &i->signature_job, verify, url, i->glue, raw_pull_job_on_finished, i, VERIFICATION_PER_FILE);
         if (r < 0)
                 return r;
 

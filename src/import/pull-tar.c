@@ -531,7 +531,7 @@ int tar_pull_start(
         }
 
         /* Set up download of checksum/signature files */
-        r = pull_make_verification_jobs(&i->checksum_job, &i->signature_job, verify, url, i->glue, tar_pull_job_on_finished, i);
+        r = pull_make_verification_jobs(&i->checksum_job, &i->signature_job, verify, url, i->glue, tar_pull_job_on_finished, i, VERIFICATION_PER_FILE);
         if (r < 0)
                 return r;
 
