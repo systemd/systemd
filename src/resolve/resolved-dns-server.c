@@ -415,6 +415,8 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                          dns_server_feature_level_to_string(s->possible_feature_level),
                          dns_server_string(s));
 
+                dns_server_flush_cache(s);
+
         } else if (s->possible_feature_level <= s->verified_feature_level)
                 s->possible_feature_level = s->verified_feature_level;
         else {
@@ -790,6 +792,25 @@ DnssecMode dns_server_get_dnssec_mode(DnsServer *s) {
                 return link_get_dnssec_mode(s->link);
 
         return manager_get_dnssec_mode(s->manager);
+}
+
+void dns_server_flush_cache(DnsServer *s) {
+        DnsServer *current;
+        DnsScope *scope;
+
+        assert(s);
+
+        /* Flush the cache of the scope this server belongs to */
+
+        current = s->link ? s->link->current_dns_server : s->manager->current_dns_server;
+        if (current != s)
+                return;
+
+        scope = s->link ? s->link->unicast_scope : s->manager->unicast_scope;
+        if (!scope)
+                return;
+
+        dns_cache_flush(&scope->cache);
 }
 
 static const char* const dns_server_type_table[_DNS_SERVER_TYPE_MAX] = {
