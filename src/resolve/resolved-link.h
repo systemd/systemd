@@ -60,6 +60,7 @@ struct Link {
         unsigned flags;
 
         LIST_HEAD(LinkAddress, addresses);
+        unsigned n_addresses;
 
         LIST_HEAD(DnsServer, dns_servers);
         DnsServer *current_dns_server;

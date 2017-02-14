@@ -793,15 +793,8 @@ DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsResourceKey *key,
         /* Try to find an ongoing transaction that is a equal to the
          * specified question */
         t = hashmap_get(scope->transactions_by_key, key);
-        if (!t) {
-                DnsResourceKey *key_any;
-
-                key_any = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_ANY, dns_resource_key_name(key));
-                t = hashmap_get(scope->transactions_by_key, key_any);
-                key_any = dns_resource_key_unref(key_any);
-                if (!t)
-                        return NULL;
-        }
+        if (!t)
+                return NULL;
 
         /* Refuse reusing transactions that completed based on cached
          * data instead of a real packet, if that's requested. */
@@ -1068,49 +1061,46 @@ static int on_announcement_timeout(sd_event_source *s, usec_t usec, void *userda
 
         scope->announce_event_source = sd_event_source_unref(scope->announce_event_source);
 
-        dns_scope_announce(scope, false);
+        (void) dns_scope_announce(scope, false);
         return 0;
 }
 
-void dns_scope_announce(DnsScope *scope, bool goodbye) {
+int dns_scope_announce(DnsScope *scope, bool goodbye) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         LinkAddress *a;
         int r;
 
         if (!scope)
-                return;
+                return 0;
 
         if (scope->protocol != DNS_PROTOCOL_MDNS)
-                return;
+                return 0;
 
-        answer = dns_answer_new(4);
+        answer = dns_answer_new(scope->link->n_addresses * 2);
+        if (!answer)
+                return log_oom();
+
         LIST_FOREACH(addresses, a, scope->link->addresses) {
                 r = dns_answer_add(answer, a->mdns_address_rr, 0, goodbye ? DNS_ANSWER_GOODBYE : DNS_ANSWER_CACHE_FLUSH);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to add address RR to answer: %m");
-                        return;
-                }
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to add address RR to answer: %m");
+
                 r = dns_answer_add(answer, a->mdns_ptr_rr, 0, goodbye ? DNS_ANSWER_GOODBYE : DNS_ANSWER_CACHE_FLUSH);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to add PTR RR to answer: %m");
-                        return;
-                }
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to add PTR RR to answer: %m");
         }
 
         if (dns_answer_isempty(answer))
-                return;
+                return 0;
 
         r = dns_scope_make_reply_packet(scope, 0, DNS_RCODE_SUCCESS, NULL, answer, NULL, false, &p);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to build reply packet: %m");
-                return;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to build reply packet: %m");
+
         r = dns_scope_emit_udp(scope, -1, p);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to send reply packet: %m");
-                return;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to send reply packet: %m");
 
         /* In section 8.3 of RFC6762: "The Multicast DNS responder MUST send at least two unsolicited
          * responses, one second apart." */
@@ -1130,6 +1120,10 @@ void dns_scope_announce(DnsScope *scope, bool goodbye) {
                                 MDNS_JITTER_RANGE_USEC,
                                 on_announcement_timeout, scope);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to schedule second announcement: %m");
+                        return log_debug_errno(r, "Failed to schedule second announcement: %m");
+
+                (void) sd_event_source_set_description(scope->announce_event_source, "mdns-announce");
         }
+
+        return 0;
 }

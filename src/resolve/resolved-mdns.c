@@ -78,10 +78,8 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         assert(p);
 
         r = dns_packet_extract(p);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to extract resource records from incoming packet: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to extract resource records from incoming packet: %m");
 
         /* TODO: there might be more than one question in mDNS queries. */
         assert_return((dns_question_size(p->question) > 0), -EINVAL);
@@ -173,6 +171,19 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                         t = dns_scope_find_transaction(scope, rr->key, false);
                         if (t)
                                 dns_transaction_process_reply(t, p);
+
+                        /* Also look for the various types of ANY transactions */
+                        t = dns_scope_find_transaction(scope, &DNS_RESOURCE_KEY_CONST(rr->key->class, DNS_TYPE_ANY, dns_resource_key_name(rr->key)), false);
+                        if (t)
+                                dns_transaction_process_reply(t, p);
+
+                        t = dns_scope_find_transaction(scope, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_ANY, rr->key->type, dns_resource_key_name(rr->key)), false);
+                        if (t)
+                                dns_transaction_process_reply(t, p);
+
+                        t = dns_scope_find_transaction(scope, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_ANY, DNS_TYPE_ANY, dns_resource_key_name(rr->key)), false);
+                        if (t)
+                                dns_transaction_process_reply(t, p);
                 }
 
                 dns_cache_put(&scope->cache, NULL, DNS_PACKET_RCODE(p), p->answer, false, (uint32_t) -1, 0, p->family, &p->sender);
@@ -182,7 +193,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
 
                 r = mdns_scope_process_query(scope, p);
                 if (r < 0) {
-                        log_debug("mDNS query processing failed.");
+                        log_debug_errno(r, "mDNS query processing failed: %m");
                         return 0;
                 }
         } else
