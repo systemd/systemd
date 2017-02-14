@@ -94,9 +94,18 @@ static int dns_stub_finish_reply_packet(
 
         assert(p);
 
-        /* If the client didn't do EDNS, clamp the rcode to 4 bit */
-        if (!add_opt && rcode > 0xF)
-                rcode = DNS_RCODE_SERVFAIL;
+        if (!add_opt) {
+                /* If the client can't to EDNS0, don't do DO either */
+                edns0_do = false;
+
+                /* If the client didn't do EDNS, clamp the rcode to 4 bit */
+                if (rcode > 0xF)
+                        rcode = DNS_RCODE_SERVFAIL;
+        }
+
+        /* Don't set the AD bit unless DO is on, too */
+        if (!edns0_do)
+                ad = false;
 
         DNS_PACKET_HEADER(p)->id = id;
 
@@ -214,7 +223,7 @@ static void dns_stub_query_complete(DnsQuery *q) {
                                 q->answer_rcode,
                                 !!q->request_dns_packet->opt,
                                 DNS_PACKET_DO(q->request_dns_packet),
-                                DNS_PACKET_DO(q->request_dns_packet) && dns_query_fully_authenticated(q));
+                                dns_query_fully_authenticated(q));
                 if (r < 0) {
                         log_debug_errno(r, "Failed to finish reply packet: %m");
                         break;
