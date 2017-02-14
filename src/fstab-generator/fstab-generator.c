@@ -240,7 +240,10 @@ static int write_dependency(FILE *f, const char *opts,
                 res = strv_join(units, " ");
                 if (!res)
                         return log_oom();
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
                 fprintf(f, format, res);
+#pragma GCC diagnostic pop
         }
 
         return 0;
