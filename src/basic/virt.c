@@ -316,25 +316,31 @@ static int detect_vm_zvm(void) {
 /* Returns a short identifier for the various VM implementations */
 int detect_vm(void) {
         static thread_local int cached_found = _VIRTUALIZATION_INVALID;
-        int r;
+        int r, cpuid;
 
         if (cached_found >= 0)
                 return cached_found;
 
         /* We have to use the correct order here:
-         * Some virtualization technologies do use KVM hypervisor but are
-         * expected to be detected as something else. So detect DMI first.
          *
-         * An example is Virtualbox since version 5.0, which uses KVM backend.
-         * Detection via DMI works corretly, the CPU ID would find KVM
-         * only. */
+         * -> First try to detect qemu/kvm and return 'kvm'.
+         * -> Some virtualization technologies do use KVM hypervisor but are
+         *    expected to be detected as something else. Virtualbox since
+         *    version 5.0 is an example. So detect DMI next.
+         * -> Get infos from CPUID third. */
+
+        cpuid = detect_vm_cpuid();
         r = detect_vm_dmi();
+
+        if (r == VIRTUALIZATION_QEMU && cpuid == VIRTUALIZATION_KVM)
+                return cpuid;
+
         if (r < 0)
                 return r;
         if (r != VIRTUALIZATION_NONE)
                 goto finish;
 
-        r = detect_vm_cpuid();
+        r = cpuid;
         if (r < 0)
                 return r;
         if (r != VIRTUALIZATION_NONE)
