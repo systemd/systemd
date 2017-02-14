@@ -27,6 +27,7 @@
 #include "unit.h"
 
 static int test_cgroup_mask(void) {
+        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         Manager *m = NULL;
         Unit *son, *daughter, *parent, *root, *grandchild, *parent_deep;
         FILE *serial = NULL;
@@ -35,6 +36,7 @@ static int test_cgroup_mask(void) {
 
         /* Prepare the manager. */
         assert_se(set_unit_path(TEST_DATA_DIR("")) >= 0);
+        assert_se(runtime_dir = setup_fake_runtime_dir());
         r = manager_new(UNIT_FILE_USER, true, &m);
         if (r == -EPERM || r == -EACCES) {
                 puts("manager_new: Permission denied. Skipping test.");
@@ -110,10 +112,8 @@ static int test_cgroup_mask(void) {
 }
 
 int main(int argc, char* argv[]) {
-        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         int rc = 0;
 
-        assert_se(runtime_dir = setup_fake_runtime_dir());
         TEST_REQ_RUNNING_SYSTEMD(rc = test_cgroup_mask());
 
         return rc;

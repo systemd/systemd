@@ -262,8 +262,8 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        assert_se(runtime_dir = setup_fake_runtime_dir());
         assert_se(set_unit_path(TEST_DATA_DIR("/test-path/")) >= 0);
+        assert_se(runtime_dir = setup_fake_runtime_dir());
 
         for (test = tests; test && *test; test++) {
                 int r;
