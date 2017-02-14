@@ -719,6 +719,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--syscall-whitelist</option></term>
+
+        <listitem><para><command>systemd-nspawn</command> sets up a syscall filter
+        with seccomp blocking system calls to isolate the container.
+        List one or more syscalls to exclude from the filter.
+        Takes a comma-separated list of syscalls.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--kill-signal=</option></term>
 
         <listitem><para>Specify the process signal to send to the

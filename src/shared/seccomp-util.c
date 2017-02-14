@@ -31,6 +31,7 @@
 #include "nsflags.h"
 #include "seccomp-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "util.h"
 #include "errno-list.h"
 
@@ -659,7 +660,7 @@ const SyscallFilterSet *syscall_filter_set_find(const char *name) {
         return NULL;
 }
 
-static int seccomp_add_syscall_filter_set(
+int seccomp_add_syscall_filter_set(
                 scmp_filter_ctx seccomp,
                 uint32_t default_action,
                 const SyscallFilterSet *set,
@@ -693,6 +694,50 @@ static int seccomp_add_syscall_filter_set(
                         if (r < 0)
                                 /* If the system call is not known on this architecture, then that's fine, let's ignore it */
                                 log_debug_errno(r, "Failed to add rule for system call %s, ignoring: %m", sys);
+                }
+        }
+
+        return 0;
+}
+
+int seccomp_add_syscall_filter_set_whitelist(
+                scmp_filter_ctx seccomp,
+                uint32_t default_action,
+                const SyscallFilterSet *set,
+                char **syscall_whitelist,
+                uint32_t action) {
+
+        const char *sys;
+        int r;
+
+        assert(seccomp);
+        assert(set);
+
+        NULSTR_FOREACH(sys, set->value) {
+                int id;
+
+                /* We can also whitelist entire filter sets */
+                if (sys[0] == '@' && !strv_contains(syscall_whitelist, sys)) {
+                        const SyscallFilterSet *other;
+
+                        other = syscall_filter_set_find(sys);
+                        if (!other)
+                                return -EINVAL;
+
+                        r = seccomp_add_syscall_filter_set_whitelist(seccomp, default_action, other, syscall_whitelist, action);
+                        if (r < 0)
+                                return r;
+                } else {
+                        if (!strv_contains(syscall_whitelist, sys)) {
+                                id = seccomp_syscall_resolve_name(sys);
+                                if (id == __NR_SCMP_ERROR)
+                                        return -EINVAL; /* Not known at all? Then that's a real error */
+
+                                r = seccomp_rule_add_exact(seccomp, action, id, 0);
+                                if (r < 0)
+                                        /* If the system call is not known on this architecture, then that's fine, let's ignore it */
+                                        log_debug_errno(r, "Failed to add rule for system call %s, ignoring: %m", sys);
+                        }
                 }
         }
 
