@@ -516,7 +516,7 @@ int main(int argc, char *argv[]) {
         }
 
         assert_se(setenv("XDG_RUNTIME_DIR", "/tmp/", 1) == 0);
-        assert_se(set_unit_path(TEST_DIR "/test-execute/") >= 0);
+        assert_se(set_unit_path(TEST_DATA_DIR("/test-execute/")) >= 0);
 
         /* Unset VAR1, VAR2 and VAR3 which are used in the PassEnvironment test
          * cases, otherwise (and if they are present in the environment),

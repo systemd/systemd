@@ -17,6 +17,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <alloc-util.h>
+#include <fs-util.h>
+#include <libgen.h>
 #include <stdlib.h>
 #include <util.h>
 
@@ -30,4 +33,14 @@ char* setup_fake_runtime_dir(void) {
         assert_se(p = strdup(t));
 
         return p;
+}
+
+const char* get_exe_relative_testdata_dir(void) {
+        _cleanup_free_ char *exedir = NULL;
+        /* convenience: caller does not need to free result */
+        static char testdir[PATH_MAX];
+
+        assert_se(readlink_and_make_absolute("/proc/self/exe", &exedir) >= 0);
+        assert_se(snprintf(testdir, sizeof(testdir), "%s/testdata", dirname(exedir)) > 0);
+        return testdir;
 }
