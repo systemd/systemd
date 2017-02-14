@@ -7,6 +7,10 @@ ENV{ID_FS_TYPE}!="btrfs", GOTO="btrfs_end"
 # let the kernel know about this btrfs filesystem, and check if it is complete
 IMPORT{builtin}="btrfs ready $devnode"
 
+# Once the device mapper symlink is created, tell btrfs about it
+# so we get the friendly name in /proc/mounts (and tools that read it)
+ENV{DM_NAME}=="?*", RUN{builtin}+="btrfs ready /dev/mapper/$env{DM_NAME}"
+
 # mark the device as not ready to be used by the system
 ENV{ID_BTRFS_READY}=="0", ENV{SYSTEMD_READY}="0"
 
