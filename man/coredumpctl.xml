@@ -92,6 +92,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-r</option></term>
+        <term><option>--reverse</option></term>
+
+        <listitem><para>Reverse output so that the newest entries are displayed first.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-F</option> <replaceable>FIELD</replaceable></term>
         <term><option>--field=</option><replaceable>FIELD</replaceable></term>
 
