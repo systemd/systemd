@@ -252,6 +252,8 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/libsystemd/sd-device \
 	-I $(top_srcdir)/src/libsystemd/sd-id128 \
 	-I $(top_srcdir)/src/libsystemd-network \
+	-DABS_SRC_DIR=\"$(abs_top_srcdir)\" \
+	-DABS_BUILD_DIR=\"$(abs_top_builddir)\" \
 	$(OUR_CPPFLAGS)
 
 AM_CFLAGS = $(OUR_CFLAGS)
