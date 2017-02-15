@@ -627,6 +627,8 @@ int job_run_and_invalidate(Job *j) {
                         r = job_finish_and_invalidate(j, JOB_ASSERT, true, false);
                 else if (r == -EOPNOTSUPP)
                         r = job_finish_and_invalidate(j, JOB_UNSUPPORTED, true, false);
+                else if (r == -ENOLINK)
+                        r = job_finish_and_invalidate(j, JOB_DEPENDENCY, true, false);
                 else if (r == -EAGAIN)
                         job_set_state(j, JOB_WAITING);
                 else if (r < 0)

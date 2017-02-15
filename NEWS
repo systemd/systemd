@@ -35,6 +35,10 @@ CHANGES WITH 233 in spe
           names of remote hosts and to reply to mDNS's A and AAAA requests
           from the hosts.
 
+        * When units are about to be started an additional check is now done to
+          ensure that all dependencies of type BindsTo= (when used in
+          combination with After=) have been started.
+
 CHANGES WITH 232:
 
         * The new RemoveIPC= option can be used to remove IPC objects owned by
