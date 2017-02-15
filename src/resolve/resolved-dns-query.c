@@ -28,7 +28,7 @@
 #include "string-util.h"
 
 /* How long to wait for the query in total */
-#define QUERY_TIMEOUT_USEC (30 * USEC_PER_SEC)
+#define QUERY_TIMEOUT_USEC (60 * USEC_PER_SEC)
 
 #define CNAME_MAX 8
 #define QUERIES_MAX 2048

@@ -28,7 +28,7 @@
 #include "string-util.h"
 
 /* After how much time to repeat classic DNS requests */
-#define DNS_TIMEOUT_MIN_USEC (500 * USEC_PER_MSEC)
+#define DNS_TIMEOUT_MIN_USEC (750 * USEC_PER_MSEC)
 #define DNS_TIMEOUT_MAX_USEC (5 * USEC_PER_SEC)
 
 /* The amount of time to wait before retrying with a full feature set */
