@@ -833,7 +833,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
          * should hence not attempt to access the query or transaction
          * after calling this function. */
 
-        log_debug("Processing incoming packet on transaction %" PRIu16".", t->id);
+        log_debug("Processing incoming packet on transaction %" PRIu16". (rcode=%s)", t->id, dns_rcode_to_string(DNS_PACKET_RCODE(p)));
 
         switch (t->scope->protocol) {
 
