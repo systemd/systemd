@@ -865,6 +865,8 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, bool clamp_ttl, int *rcod
 
                 *ret = NULL;
                 *rcode = DNS_RCODE_SUCCESS;
+                *authenticated = false;
+
                 return 0;
         }
 
@@ -879,6 +881,8 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, bool clamp_ttl, int *rcod
 
                 *ret = NULL;
                 *rcode = DNS_RCODE_SUCCESS;
+                *authenticated = false;
+
                 return 0;
         }
 
