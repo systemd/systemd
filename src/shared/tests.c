@@ -36,10 +36,21 @@ char* setup_fake_runtime_dir(void) {
         return p;
 }
 
-const char* get_exe_relative_testdata_dir(void) {
+const char* get_testdata_dir(void) {
+        const char *env;
         _cleanup_free_ char *exedir = NULL;
         /* convenience: caller does not need to free result */
         static char testdir[PATH_MAX];
+
+        /* if the env var is set, use that */
+        env = getenv("SYSTEMD_TEST_DATA");
+        if (env) {
+                if (access(env, F_OK) >= 0)
+                        return env;
+
+                fputs("ERROR: $SYSTEMD_TEST_DATA directory does not exist\n", stderr);
+                exit(1);
+        }
 
         assert_se(readlink_and_make_absolute("/proc/self/exe", &exedir) >= 0);
 

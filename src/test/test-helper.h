@@ -42,5 +42,5 @@
                -ENOMEDIUM /* cannot determine cgroup */         \
                )
 
-#define TEST_DATA_DIR(subdir)                                     \
-        strjoina(getenv("SYSTEMD_TEST_DATA") ?: get_exe_relative_testdata_dir(), subdir)
+#define TEST_DATA_DIR(subdir)                                   \
+        strjoina(get_testdata_dir(), subdir)
