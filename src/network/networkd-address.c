@@ -53,15 +53,20 @@ int address_new(Address **ret) {
         return 0;
 }
 
-int address_new_static(Network *network, unsigned section, Address **ret) {
+int address_new_static(Network *network, const char *filename, unsigned section_line, Address **ret) {
+        _cleanup_network_config_section_free_ NetworkConfigSection *n = NULL;
         _cleanup_address_free_ Address *address = NULL;
         int r;
 
         assert(network);
         assert(ret);
 
-        if (section) {
-                address = hashmap_get(network->addresses_by_section, UINT_TO_PTR(section));
+        if (section_line > 0) {
+                r = network_config_section_new(filename, section_line, &n);
+                if (r < 0)
+                        return r;
+
+                address = hashmap_get(network->addresses_by_section, n);
                 if (address) {
                         *ret = address;
                         address = NULL;
@@ -77,9 +82,9 @@ int address_new_static(Network *network, unsigned section, Address **ret) {
         if (r < 0)
                 return r;
 
-        if (section) {
-                address->section = section;
-                hashmap_put(network->addresses_by_section, UINT_TO_PTR(address->section), address);
+        if (section_line > 0) {
+                address->section = n;
+                hashmap_put(network->addresses_by_section, n, address);
         }
 
         address->network = network;
@@ -88,6 +93,7 @@ int address_new_static(Network *network, unsigned section, Address **ret) {
 
         *ret = address;
         address = NULL;
+        n = NULL;
 
         return 0;
 }
@@ -101,8 +107,10 @@ void address_free(Address *address) {
                 assert(address->network->n_static_addresses > 0);
                 address->network->n_static_addresses--;
 
-                if (address->section)
-                        hashmap_remove(address->network->addresses_by_section, UINT_TO_PTR(address->section));
+                if (address->section) {
+                        hashmap_remove(address->network->addresses_by_section, address->section);
+                        network_config_section_free(address->section);
+                }
         }
 
         if (address->link) {
@@ -676,7 +684,7 @@ int config_parse_broadcast(
         assert(rvalue);
         assert(data);
 
-        r = address_new_static(network, section_line, &n);
+        r = address_new_static(network, filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -723,10 +731,10 @@ int config_parse_address(const char *unit,
         if (streq(section, "Network")) {
                 /* we are not in an Address section, so treat
                  * this as the special '0' section */
-                section_line = 0;
-        }
+                r = address_new_static(network, NULL, 0, &n);
+        } else
+                r = address_new_static(network, filename, section_line, &n);
 
-        r = address_new_static(network, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -805,7 +813,7 @@ int config_parse_label(
         assert(rvalue);
         assert(data);
 
-        r = address_new_static(network, section_line, &n);
+        r = address_new_static(network, filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -844,7 +852,7 @@ int config_parse_lifetime(const char *unit,
         assert(rvalue);
         assert(data);
 
-        r = address_new_static(network, section_line, &n);
+        r = address_new_static(network, filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -891,7 +899,7 @@ int config_parse_address_flags(const char *unit,
         assert(rvalue);
         assert(data);
 
-        r = address_new_static(network, section_line, &n);
+        r = address_new_static(network, filename, section_line, &n);
         if (r < 0)
                 return r;
 
