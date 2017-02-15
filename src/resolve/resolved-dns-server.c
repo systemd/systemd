@@ -399,12 +399,24 @@ static bool dns_server_grace_period_expired(DnsServer *s) {
 }
 
 DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
+        DnsServerFeatureLevel best;
+
         assert(s);
 
-        if (s->possible_feature_level != DNS_SERVER_FEATURE_LEVEL_BEST &&
-            dns_server_grace_period_expired(s)) {
+        /* Determine the best feature level we care about. If DNSSEC mode is off there's no point in using anything
+         * better than EDNS0, hence don't even try. */
+        best = dns_server_get_dnssec_mode(s) == DNSSEC_NO ?
+                DNS_SERVER_FEATURE_LEVEL_EDNS0 :
+                DNS_SERVER_FEATURE_LEVEL_BEST;
 
-                s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_BEST;
+        /* Clamp the feature level the highest level we care about. The DNSSEC mode might have changed since the last
+         * time, hence let's downgrade if we are still at a higher level. */
+        if (s->possible_feature_level > best)
+                s->possible_feature_level = best;
+
+        if (s->possible_feature_level < best && dns_server_grace_period_expired(s)) {
+
+                s->possible_feature_level = best;
 
                 dns_server_reset_counters(s);
 
