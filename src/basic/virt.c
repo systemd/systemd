@@ -316,31 +316,29 @@ static int detect_vm_zvm(void) {
 /* Returns a short identifier for the various VM implementations */
 int detect_vm(void) {
         static thread_local int cached_found = _VIRTUALIZATION_INVALID;
-        int r, cpuid;
+        int r, dmi;
 
         if (cached_found >= 0)
                 return cached_found;
 
         /* We have to use the correct order here:
          *
-         * -> First try to detect qemu/kvm and return 'kvm'.
-         * -> Some virtualization technologies do use KVM hypervisor but are
-         *    expected to be detected as something else. Virtualbox since
-         *    version 5.0 is an example. So detect DMI next.
-         * -> Get infos from CPUID third. */
+         * -> First try to detect Oracle Virtualbox, even if it uses KVM.
+         * -> Second try to detect from cpuid, this will report KVM for
+         *    whatever software is used even if info in dmi is overwritten.
+         * -> Third try to detect from dmi. */
 
-        cpuid = detect_vm_cpuid();
-        r = detect_vm_dmi();
+        dmi = detect_vm_dmi();
+        if (dmi == VIRTUALIZATION_ORACLE)
+                return dmi;
 
-        if (r == VIRTUALIZATION_QEMU && cpuid == VIRTUALIZATION_KVM)
-                return cpuid;
-
+        r = detect_vm_cpuid();
         if (r < 0)
                 return r;
         if (r != VIRTUALIZATION_NONE)
                 goto finish;
 
-        r = cpuid;
+        r = dmi;
         if (r < 0)
                 return r;
         if (r != VIRTUALIZATION_NONE)

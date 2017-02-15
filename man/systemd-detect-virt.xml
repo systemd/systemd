@@ -96,7 +96,8 @@
 
           <row>
             <entry><varname>kvm</varname></entry>
-            <entry>Linux KVM kernel virtual machine, from within QEMU</entry>
+            <entry>Linux KVM kernel virtual machine, with whatever software, except
+            Oracle Virtualbox</entry>
           </row>
 
           <row>
@@ -116,7 +117,8 @@
 
           <row>
             <entry><varname>oracle</varname></entry>
-            <entry>Oracle VM VirtualBox (historically marketed by innotek and Sun Microsystems)</entry>
+            <entry>Oracle VM VirtualBox (historically marketed by innotek and Sun Microsystems),
+            for legacy and KVM hypervisor</entry>
           </row>
 
           <row>
