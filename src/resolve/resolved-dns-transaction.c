@@ -31,6 +31,7 @@
 #include "string-table.h"
 
 #define TRANSACTIONS_MAX 4096
+#define TRANSACTION_TCP_TIMEOUT_USEC (10U*USEC_PER_SEC)
 
 static void dns_transaction_reset_answer(DnsTransaction *t) {
         assert(t);
@@ -1212,9 +1213,17 @@ static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
         assert(t);
         assert(t->scope);
 
+
         switch (t->scope->protocol) {
 
         case DNS_PROTOCOL_DNS:
+
+                /* When we do TCP, grant a much longer timeout, as in this case there's no need for us to quickly
+                 * resend, as the kernel does that anyway for us, and we really don't want to interrupt it in that
+                 * needlessly. */
+                if (t->stream)
+                        return TRANSACTION_TCP_TIMEOUT_USEC;
+
                 assert(t->server);
                 return t->server->resend_timeout;
 
@@ -1579,7 +1588,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 r = dns_transaction_emit_udp(t);
                 if (r == -EMSGSIZE)
                         log_debug("Sending query via TCP since it is too large.");
-                if (r == -EAGAIN)
+                else if (r == -EAGAIN)
                         log_debug("Sending query via TCP since server doesn't support UDP.");
                 if (r == -EMSGSIZE || r == -EAGAIN)
                         r = dns_transaction_open_tcp(t);
