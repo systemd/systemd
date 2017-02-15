@@ -24,7 +24,7 @@
 #include "log.h"
 #include "journal-importer.h"
 #include "string-util.h"
-#include "test-helper.h"
+#include "tests.h"
 
 static void assert_iovec_entry(const struct iovec *iovec, const char* content) {
         assert_se(strlen(content) == iovec->iov_len);
@@ -39,7 +39,7 @@ static void test_basic_parsing(void) {
         _cleanup_(journal_importer_cleanup) JournalImporter imp = {};
         int r;
 
-        imp.fd = open(TEST_DATA_DIR("/journal-data/journal-1.txt"), O_RDONLY|O_CLOEXEC);
+        imp.fd = open(get_testdata_dir("/journal-data/journal-1.txt"), O_RDONLY|O_CLOEXEC);
         assert_se(imp.fd >= 0);
 
         do
@@ -68,7 +68,7 @@ static void test_bad_input(void) {
         _cleanup_(journal_importer_cleanup) JournalImporter imp = {};
         int r;
 
-        imp.fd = open(TEST_DATA_DIR("/journal-data/journal-2.txt"), O_RDONLY|O_CLOEXEC);
+        imp.fd = open(get_testdata_dir("/journal-data/journal-2.txt"), O_RDONLY|O_CLOEXEC);
         assert_se(imp.fd >= 0);
 
         do

@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
         int r;
 
         /* prepare the test */
-        assert_se(set_unit_path(TEST_DATA_DIR("")) >= 0);
+        assert_se(set_unit_path(get_testdata_dir("")) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
         r = manager_new(UNIT_FILE_USER, true, &m);
         if (MANAGER_SKIP_TEST(r)) {

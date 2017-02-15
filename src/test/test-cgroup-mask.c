@@ -35,7 +35,7 @@ static int test_cgroup_mask(void) {
         int r;
 
         /* Prepare the manager. */
-        assert_se(set_unit_path(TEST_DATA_DIR("")) >= 0);
+        assert_se(set_unit_path(get_testdata_dir("")) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
         r = manager_new(UNIT_FILE_USER, true, &m);
         if (r == -EPERM || r == -EACCES) {
