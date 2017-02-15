@@ -171,7 +171,7 @@ static int dns_stub_send(Manager *m, DnsStream *s, DnsPacket *p, DnsPacket *repl
         return 0;
 }
 
-static int dns_stub_send_failure(Manager *m, DnsStream *s, DnsPacket *p, int rcode) {
+static int dns_stub_send_failure(Manager *m, DnsStream *s, DnsPacket *p, int rcode, bool authenticated) {
         _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
         int r;
 
@@ -182,7 +182,7 @@ static int dns_stub_send_failure(Manager *m, DnsStream *s, DnsPacket *p, int rco
         if (r < 0)
                 return log_debug_errno(r, "Failed to make failure packet: %m");
 
-        r = dns_stub_finish_reply_packet(reply, DNS_PACKET_ID(p), rcode, !!p->opt, DNS_PACKET_DO(p), false);
+        r = dns_stub_finish_reply_packet(reply, DNS_PACKET_ID(p), rcode, !!p->opt, DNS_PACKET_DO(p), authenticated);
         if (r < 0)
                 return log_debug_errno(r, "Failed to build failure packet: %m");
 
@@ -207,7 +207,7 @@ static void dns_stub_query_complete(DnsQuery *q) {
 
                 r = dns_query_process_cname(q);
                 if (r == -ELOOP) {
-                        (void) dns_stub_send_failure(q->manager, q->request_dns_stream, q->request_dns_packet, DNS_RCODE_SERVFAIL);
+                        (void) dns_stub_send_failure(q->manager, q->request_dns_stream, q->request_dns_packet, DNS_RCODE_SERVFAIL, false);
                         break;
                 }
                 if (r < 0) {
@@ -233,11 +233,11 @@ static void dns_stub_query_complete(DnsQuery *q) {
                 break;
 
         case DNS_TRANSACTION_RCODE_FAILURE:
-                (void) dns_stub_send_failure(q->manager, q->request_dns_stream, q->request_dns_packet, q->answer_rcode);
+                (void) dns_stub_send_failure(q->manager, q->request_dns_stream, q->request_dns_packet, q->answer_rcode, dns_query_fully_authenticated(q));
                 break;
 
         case DNS_TRANSACTION_NOT_FOUND:
-                (void) dns_stub_send_failure(q->manager, q->request_dns_stream, q->request_dns_packet, DNS_RCODE_NXDOMAIN);
+                (void) dns_stub_send_failure(q->manager, q->request_dns_stream, q->request_dns_packet, DNS_RCODE_NXDOMAIN, dns_query_fully_authenticated(q));
                 break;
 
         case DNS_TRANSACTION_TIMEOUT:
@@ -253,7 +253,7 @@ static void dns_stub_query_complete(DnsQuery *q) {
         case DNS_TRANSACTION_NO_TRUST_ANCHOR:
         case DNS_TRANSACTION_RR_TYPE_UNSUPPORTED:
         case DNS_TRANSACTION_NETWORK_DOWN:
-                (void) dns_stub_send_failure(q->manager, q->request_dns_stream, q->request_dns_packet, DNS_RCODE_SERVFAIL);
+                (void) dns_stub_send_failure(q->manager, q->request_dns_stream, q->request_dns_packet, DNS_RCODE_SERVFAIL, false);
                 break;
 
         case DNS_TRANSACTION_NULL:
@@ -300,52 +300,52 @@ static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p) {
         if (in_addr_is_localhost(p->family, &p->sender) <= 0 ||
             in_addr_is_localhost(p->family, &p->destination) <= 0) {
                 log_error("Got packet on unexpected IP range, refusing.");
-                dns_stub_send_failure(m, s, p, DNS_RCODE_SERVFAIL);
+                dns_stub_send_failure(m, s, p, DNS_RCODE_SERVFAIL, false);
                 goto fail;
         }
 
         r = dns_packet_extract(p);
         if (r < 0) {
                 log_debug_errno(r, "Failed to extract resources from incoming packet, ignoring packet: %m");
-                dns_stub_send_failure(m, s, p, DNS_RCODE_FORMERR);
+                dns_stub_send_failure(m, s, p, DNS_RCODE_FORMERR, false);
                 goto fail;
         }
 
         if (!DNS_PACKET_VERSION_SUPPORTED(p)) {
                 log_debug("Got EDNS OPT field with unsupported version number.");
-                dns_stub_send_failure(m, s, p, DNS_RCODE_BADVERS);
+                dns_stub_send_failure(m, s, p, DNS_RCODE_BADVERS, false);
                 goto fail;
         }
 
         if (dns_type_is_obsolete(p->question->keys[0]->type)) {
                 log_debug("Got message with obsolete key type, refusing.");
-                dns_stub_send_failure(m, s, p, DNS_RCODE_NOTIMP);
+                dns_stub_send_failure(m, s, p, DNS_RCODE_NOTIMP, false);
                 goto fail;
         }
 
         if (dns_type_is_zone_transer(p->question->keys[0]->type)) {
                 log_debug("Got request for zone transfer, refusing.");
-                dns_stub_send_failure(m, s, p, DNS_RCODE_NOTIMP);
+                dns_stub_send_failure(m, s, p, DNS_RCODE_NOTIMP, false);
                 goto fail;
         }
 
         if (!DNS_PACKET_RD(p))  {
                 /* If the "rd" bit is off (i.e. recursion was not requested), then refuse operation */
                 log_debug("Got request with recursion disabled, refusing.");
-                dns_stub_send_failure(m, s, p, DNS_RCODE_REFUSED);
+                dns_stub_send_failure(m, s, p, DNS_RCODE_REFUSED, false);
                 goto fail;
         }
 
         if (DNS_PACKET_DO(p) && DNS_PACKET_CD(p)) {
                 log_debug("Got request with DNSSEC CD bit set, refusing.");
-                dns_stub_send_failure(m, s, p, DNS_RCODE_NOTIMP);
+                dns_stub_send_failure(m, s, p, DNS_RCODE_NOTIMP, false);
                 goto fail;
         }
 
         r = dns_query_new(m, &q, p->question, p->question, 0, SD_RESOLVED_PROTOCOLS_ALL|SD_RESOLVED_NO_SEARCH);
         if (r < 0) {
                 log_error_errno(r, "Failed to generate query object: %m");
-                dns_stub_send_failure(m, s, p, DNS_RCODE_SERVFAIL);
+                dns_stub_send_failure(m, s, p, DNS_RCODE_SERVFAIL, false);
                 goto fail;
         }
 
@@ -365,7 +365,7 @@ static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p) {
         r = dns_query_go(q);
         if (r < 0) {
                 log_error_errno(r, "Failed to start query: %m");
-                dns_stub_send_failure(m, s, p, DNS_RCODE_SERVFAIL);
+                dns_stub_send_failure(m, s, p, DNS_RCODE_SERVFAIL, false);
                 goto fail;
         }
 
