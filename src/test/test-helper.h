@@ -43,4 +43,4 @@
                )
 
 #define TEST_DATA_DIR(subdir)                                     \
-        strjoina(getenv("TEST_DIR") ?: get_exe_relative_testdata_dir(), subdir)
+        strjoina(getenv("SYSTEMD_TEST_DATA") ?: get_exe_relative_testdata_dir(), subdir)

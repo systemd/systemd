@@ -152,7 +152,7 @@ endif
 AM_TESTS_ENVIRONMENT = \
 	export SYSTEMD_KBD_MODEL_MAP=$(abs_top_srcdir)/src/locale/kbd-model-map; \
 	export SYSTEMD_LANGUAGE_FALLBACK_MAP=$(abs_top_srcdir)/src/locale/language-fallback-map; \
-	export TEST_DIR=$(abs_top_srcdir)/test; \
+	export SYSTEMD_TEST_DATA=$(abs_top_srcdir)/test; \
 	export PATH=$(abs_top_builddir):$$PATH;
 
 if ENABLE_BASH_COMPLETION
