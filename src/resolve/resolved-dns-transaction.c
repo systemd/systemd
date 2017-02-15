@@ -911,9 +911,13 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
 
                         /* Request failed, immediately try again with reduced features */
 
-                        if (t->current_feature_level <= DNS_SERVER_FEATURE_LEVEL_WORST) {
-                                /* This was already at the lowest possible feature level? If so, we can't downgrade
-                                 * this transaction anymore, hence let's process the response, and accept the rcode. */
+                        if (t->current_feature_level <= DNS_SERVER_FEATURE_LEVEL_UDP) {
+                                /* This was already at UDP feature level? If so, it doesn't make sense to downgrade
+                                 * this transaction anymore, hence let's process the response, and accept the
+                                 * rcode. Note that we don't retry on TCP, since that's a suitable way to mitigate
+                                 * packet loss, but is not going to give us better rcodes should we actually have
+                                 * managed to get them already at UDP level. */
+
                                 log_debug("Server returned error: %s", dns_rcode_to_string(DNS_PACKET_RCODE(p)));
                                 break;
                         }
@@ -1136,7 +1140,7 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
                         return r;
 
                 if (t->current_feature_level < DNS_SERVER_FEATURE_LEVEL_UDP)
-                        return -EAGAIN;
+                        return -EAGAIN; /* Sorry, can't do UDP, try TCP! */
 
                 if (!dns_server_dnssec_supported(t->server) && dns_type_is_dnssec(t->key->type))
                         return -EOPNOTSUPP;
