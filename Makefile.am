@@ -1736,6 +1736,8 @@ TEST_DATA_FILES += \
 	test/test-execute/exec-restrict-namespaces-mnt.service \
 	test/test-execute/exec-restrict-namespaces-mnt-blacklist.service \
 	test/test-execute/exec-read-only-path-succeed.service \
+	test/test-execute/exec-privatedevices-yes-capability-sys-rawio.service \
+	test/test-execute/exec-privatedevices-no-capability-sys-rawio.service \
 	test/bus-policy/hello.conf \
 	test/bus-policy/methods.conf \
 	test/bus-policy/ownerships.conf \
