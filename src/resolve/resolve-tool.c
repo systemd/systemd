@@ -143,7 +143,9 @@ static int resolve_host(sd_bus *bus, const char *name) {
         if (arg_ifindex > 0 && !if_indextoname(arg_ifindex, ifname))
                 return log_error_errno(errno, "Failed to resolve interface name for index %i: %m", arg_ifindex);
 
-        log_debug("Resolving %s (family %s, interface %s).", name, af_to_name(arg_family) ?: "*", isempty(ifname) ? "*" : ifname);
+        log_debug("Resolving %s (family %s, interface %s)%s%s.",
+                  name, af_to_name(arg_family) ?: "*", isempty(ifname) ? "*" : ifname,
+                  arg_ifindex > 0 ? " on interface " : "", ifname);
 
         r = sd_bus_message_new_method_call(
                         bus,
