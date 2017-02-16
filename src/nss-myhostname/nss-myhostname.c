@@ -114,8 +114,8 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         l = strlen(canonical);
         ms = ALIGN(l+1) + ALIGN(sizeof(struct gaih_addrtuple)) * (n_addresses > 0 ? n_addresses : 2);
         if (buflen < ms) {
-                *errnop = ENOMEM;
-                *h_errnop = NO_RECOVERY;
+                *errnop = ERANGE;
+                *h_errnop = NETDB_INTERNAL;
                 return NSS_STATUS_TRYAGAIN;
         }
 
@@ -220,8 +220,8 @@ static enum nss_status fill_in_hostent(
                 (c > 0 ? c+1 : 2) * sizeof(char*);
 
         if (buflen < ms) {
-                *errnop = ENOMEM;
-                *h_errnop = NO_RECOVERY;
+                *errnop = ERANGE;
+                *h_errnop = NETDB_INTERNAL;
                 return NSS_STATUS_TRYAGAIN;
         }
 
