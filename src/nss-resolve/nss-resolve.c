@@ -118,7 +118,7 @@ static uint32_t ifindex_to_scopeid(int family, const void *a, int ifindex) {
 
         /* Some apps can't deal with the scope ID attached to non-link-local addresses. Hence, let's suppress that. */
 
-        assert(sizeof(in6) == FAMILY_ADDRESS_SIZE(AF_INET));
+        assert(sizeof(in6) == FAMILY_ADDRESS_SIZE(AF_INET6));
         memcpy(&in6, a, sizeof(struct in6_addr));
 
         return IN6_IS_ADDR_LINKLOCAL(&in6) ? ifindex : 0;
