@@ -107,11 +107,11 @@ static int append_address(sd_bus_message *reply, DnsResourceRecord *rr, int ifin
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(reply, "i", ifindex);
-        if (r < 0)
-                return r;
-
         if (rr->key->type == DNS_TYPE_A) {
+                r = sd_bus_message_append(reply, "i", 0); /* no ifindex for IPv4 addresses */
+                if (r < 0)
+                        return r;
+
                 r = sd_bus_message_append(reply, "i", AF_INET);
                 if (r < 0)
                         return r;
@@ -119,6 +119,10 @@ static int append_address(sd_bus_message *reply, DnsResourceRecord *rr, int ifin
                 r = sd_bus_message_append_array(reply, 'y', &rr->a.in_addr, sizeof(struct in_addr));
 
         } else if (rr->key->type == DNS_TYPE_AAAA) {
+                r = sd_bus_message_append(reply, "i", ifindex);
+                if (r < 0)
+                        return r;
+
                 r = sd_bus_message_append(reply, "i", AF_INET6);
                 if (r < 0)
                         return r;
