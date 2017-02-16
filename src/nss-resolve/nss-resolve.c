@@ -206,8 +206,8 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         l = strlen(canonical);
         ms = ALIGN(l+1) + ALIGN(sizeof(struct gaih_addrtuple)) * c;
         if (buflen < ms) {
-                *errnop = ENOMEM;
-                *h_errnop = TRY_AGAIN;
+                *errnop = ERANGE;
+                *h_errnop = NETDB_INTERNAL;
                 return NSS_STATUS_TRYAGAIN;
         }
 
@@ -394,8 +394,8 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         ms = ALIGN(l+1) + c * ALIGN(alen) + (c+2) * sizeof(char*);
 
         if (buflen < ms) {
-                *errnop = ENOMEM;
-                *h_errnop = TRY_AGAIN;
+                *errnop = ERANGE;
+                *h_errnop = NETDB_INTERNAL;
                 return NSS_STATUS_TRYAGAIN;
         }
 
@@ -615,8 +615,8 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
               c * sizeof(char*);        /* pointers to aliases, plus trailing NULL */
 
         if (buflen < ms) {
-                *errnop = ENOMEM;
-                *h_errnop = TRY_AGAIN;
+                *errnop = ERANGE;
+                *h_errnop = NETDB_INTERNAL;
                 return NSS_STATUS_TRYAGAIN;
         }
 
