@@ -841,6 +841,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         int read_only, make_directory;
         pid_t child;
         siginfo_t si;
+        uid_t uid;
         int r;
 
         assert(message);
@@ -874,6 +875,12 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
                 return r;
         if (r == 0)
                 return 1; /* Will call us back */
+
+        r = machine_get_uid_shift(m, &uid);
+        if (r < 0)
+                return r;
+        if (uid != 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Can't bind mount on container with user namespacing applied.");
 
         /* One day, when bind mounting /proc/self/fd/n works across
          * namespace boundaries we should rework this logic to make
