@@ -20,8 +20,6 @@
 ***/
 
 #include "sd-daemon.h"
-#include "string-util.h"
-#include "tests.h"
 
 #include "macro.h"
 
@@ -41,6 +39,3 @@
                -ENOENT,                                         \
                -ENOMEDIUM /* cannot determine cgroup */         \
                )
-
-#define TEST_DATA_DIR(subdir)                                     \
-        strjoina(getenv("TEST_DIR") ?: get_exe_relative_testdata_dir(), subdir)

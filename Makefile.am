@@ -93,7 +93,6 @@ kernelinstalldir = $(prefix)/lib/kernel/install.d
 factory_etcdir = $(datadir)/factory/etc
 factory_pamdir = $(datadir)/factory/etc/pam.d
 bootlibdir = $(prefix)/lib/systemd/boot/efi
-testsdir = $(prefix)/lib/systemd/tests
 
 # And these are the special ones for /
 rootprefix=@rootprefix@
@@ -134,7 +133,6 @@ check_DATA =
 dist_rootlibexec_DATA =
 tests=
 manual_tests =
-TEST_DATA_FILES =
 TEST_EXTENSIONS = .py
 PY_LOG_COMPILER = $(PYTHON)
 DISABLE_HARD_ERRORS = yes
@@ -152,7 +150,6 @@ endif
 AM_TESTS_ENVIRONMENT = \
 	export SYSTEMD_KBD_MODEL_MAP=$(abs_top_srcdir)/src/locale/kbd-model-map; \
 	export SYSTEMD_LANGUAGE_FALLBACK_MAP=$(abs_top_srcdir)/src/locale/language-fallback-map; \
-	export TEST_DIR=$(abs_top_srcdir)/test; \
 	export PATH=$(abs_top_builddir):$$PATH;
 
 if ENABLE_BASH_COMPLETION
@@ -221,6 +218,7 @@ AM_CPPFLAGS = \
 	-DLIBDIR=\"$(libdir)\" \
 	-DROOTLIBDIR=\"$(rootlibdir)\" \
 	-DROOTLIBEXECDIR=\"$(rootlibexecdir)\" \
+	-DTEST_DIR=\"$(abs_top_srcdir)/test\" \
 	-I $(top_srcdir)/src \
 	-I $(top_builddir)/src/basic \
 	-I $(top_srcdir)/src/basic \
@@ -1611,7 +1609,7 @@ tests += \
 	test-seccomp
 endif
 
-TEST_DATA_FILES += \
+EXTRA_DIST += \
 	test/a.service \
 	test/basic.target \
 	test/b.service \
@@ -5653,7 +5651,7 @@ test_dns_packet_SOURCES = \
 
 test_dns_packet_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
-	-I $(top_srcdir)/src/test
+	-DRESOLVE_TEST_DIR=\"$(abs_top_srcdir)/src/resolve/test-data\"
 
 test_dns_packet_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -5664,20 +5662,18 @@ test_dns_packet_LDADD = \
 	$(GCRYPT_LIBS) \
 	-lm
 
-TEST_DATA_FILES += \
-	test/test-resolve/_openpgpkey.fedoraproject.org.pkts \
-	test/test-resolve/fedoraproject.org.pkts \
-	test/test-resolve/gandi.net.pkts \
-	test/test-resolve/google.com.pkts \
-	test/test-resolve/root.pkts \
-	test/test-resolve/sw1a1aa-sw1a2aa-sw1a2ab-sw1a2ac.find.me.uk.pkts \
-	test/test-resolve/teamits.com.pkts \
-	test/test-resolve/zbyszek@fedoraproject.org.pkts \
-	test/test-resolve/_443._tcp.fedoraproject.org.pkts \
-	test/test-resolve/kyhwana.org.pkts \
-	test/test-resolve/fake-caa.pkts
-
-EXTRA_DIST += $(TEST_DATA_FILES)
+EXTRA_DIST += \
+	src/resolve/test-data/_openpgpkey.fedoraproject.org.pkts \
+	src/resolve/test-data/fedoraproject.org.pkts \
+	src/resolve/test-data/gandi.net.pkts \
+	src/resolve/test-data/google.com.pkts \
+	src/resolve/test-data/root.pkts \
+	src/resolve/test-data/sw1a1aa-sw1a2aa-sw1a2ab-sw1a2ac.find.me.uk.pkts \
+	src/resolve/test-data/teamits.com.pkts \
+	src/resolve/test-data/zbyszek@fedoraproject.org.pkts \
+	src/resolve/test-data/_443._tcp.fedoraproject.org.pkts \
+	src/resolve/test-data/kyhwana.org.pkts \
+	src/resolve/test-data/fake-caa.pkts
 
 test_dnssec_SOURCES = \
 	src/resolve/test-dnssec.c \
@@ -6710,20 +6706,6 @@ CLEANFILES += \
 tests += \
 	test-libsystemd-sym \
 	test-libudev-sym
-
-.PHONY: install-tests
-install-tests: $(tests) $(TEST_DATA_FILES)
-	for f in $(tests); do \
-	    if [ -x .libs/$$f ]; then \
-		install -D -m 755 .libs/$$f $(DESTDIR)/$(testsdir)/$$f; \
-	    else \
-		install -D -m 755 $$f $(DESTDIR)/$(testsdir)/$$f; \
-	    fi; \
-	done
-	for f in $(TEST_DATA_FILES); do \
-	    install -D -m 644 $$f $(DESTDIR)/$(testsdir)/testdata/$${f#test/}; \
-	done
-
 
 .PHONY: cppcheck
 cppcheck:
