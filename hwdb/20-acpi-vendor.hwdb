@@ -6,6 +6,9 @@
 #
 # With various additions from other sources
 
+acpi:3GVR*:
+ ID_VENDOR_FROM_DATABASE=VR Technology Holdings Limited
+
 acpi:3NOD*:
  ID_VENDOR_FROM_DATABASE=Shenzhen three Connaught Information Technology Co., Ltd. (3nod Group)
 
@@ -1947,6 +1950,9 @@ acpi:DPL*:
 acpi:DPM*:
  ID_VENDOR_FROM_DATABASE=ADPM Synthesis sas
 
+acpi:DPN*:
+ ID_VENDOR_FROM_DATABASE=Shanghai Lexiang Technology Limited
+
 acpi:DPS*:
  ID_VENDOR_FROM_DATABASE=Digital Processing Systems
 
@@ -1982,6 +1988,9 @@ acpi:DSD*:
 
 acpi:DSI*:
  ID_VENDOR_FROM_DATABASE=Digitan Systems Inc
+
+acpi:DSJ*:
+ ID_VENDOR_FROM_DATABASE=VR Technology Holdings Limited
 
 acpi:DSM*:
  ID_VENDOR_FROM_DATABASE=DSM Digital Services GmbH
@@ -3488,6 +3497,9 @@ acpi:IVI*:
 
 acpi:IVM*:
  ID_VENDOR_FROM_DATABASE=Iiyama North America
+
+acpi:IVR*:
+ ID_VENDOR_FROM_DATABASE=Inlife-Handnet Co., Ltd.
 
 acpi:IVS*:
  ID_VENDOR_FROM_DATABASE=Intevac Photonics Inc.
@@ -5367,6 +5379,9 @@ acpi:PVN*:
 acpi:PVP*:
  ID_VENDOR_FROM_DATABASE=Klos Technologies, Inc.
 
+acpi:PVR*:
+ ID_VENDOR_FROM_DATABASE=Pimax Tech. CO., LTD
+
 acpi:PXC*:
  ID_VENDOR_FROM_DATABASE=Phoenix Contact
 
@@ -6779,6 +6794,9 @@ acpi:TVD*:
 
 acpi:TVI*:
  ID_VENDOR_FROM_DATABASE=Truevision
+
+acpi:TVL*:
+ ID_VENDOR_FROM_DATABASE=Total Vision LTD
 
 acpi:TVM*:
  ID_VENDOR_FROM_DATABASE=Taiwan Video & Monitor Corporation
