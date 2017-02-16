@@ -594,7 +594,7 @@ static int dns_trust_anchor_remove_revoked(DnsTrustAnchor *d, DnsResourceRecord 
 
         /* We found the key! Warn the user */
         log_struct(LOG_WARNING,
-                   LOG_MESSAGE_ID(SD_MESSAGE_DNSSEC_TRUST_ANCHOR_REVOKED),
+                   "MESSAGE_ID=" SD_MESSAGE_DNSSEC_TRUST_ANCHOR_REVOKED_STR,
                    LOG_MESSAGE("DNSSEC Trust anchor %s has been revoked. Please update the trust anchor, or upgrade your operating system."), strna(dns_resource_record_to_string(rr)),
                    "TRUST_ANCHOR=%s", dns_resource_record_to_string(rr),
                    NULL);

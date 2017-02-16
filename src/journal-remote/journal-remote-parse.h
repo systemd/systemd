@@ -21,34 +21,11 @@
 
 #include "sd-event.h"
 
+#include "journal-importer.h"
 #include "journal-remote-write.h"
 
-typedef enum {
-        STATE_LINE = 0,    /* waiting to read, or reading line */
-        STATE_DATA_START,  /* reading binary data header */
-        STATE_DATA,        /* reading binary data */
-        STATE_DATA_FINISH, /* expecting newline */
-        STATE_EOF,         /* done */
-} source_state;
-
 typedef struct RemoteSource {
-        char *name;
-        int fd;
-        bool passive_fd;
-
-        char *buf;
-        size_t size;       /* total size of the buffer */
-        size_t offset;     /* offset to the beginning of live data in the buffer */
-        size_t scanned;    /* number of bytes since the beginning of data without a newline */
-        size_t filled;     /* total number of bytes in the buffer */
-
-        size_t field_len;  /* used for binary fields: the field name length */
-        size_t data_size;  /* and the size of the binary data chunk being processed */
-
-        struct iovec_wrapper iovw;
-
-        source_state state;
-        dual_timestamp ts;
+        JournalImporter importer;
 
         Writer *writer;
 
@@ -57,13 +34,5 @@ typedef struct RemoteSource {
 } RemoteSource;
 
 RemoteSource* source_new(int fd, bool passive_fd, char *name, Writer *writer);
-
-static inline size_t source_non_empty(RemoteSource *source) {
-        assert(source);
-
-        return source->filled;
-}
-
 void source_free(RemoteSource *source);
-int push_data(RemoteSource *source, const char *data, size_t size);
 int process_source(RemoteSource *source, bool compress, bool seal);

@@ -416,7 +416,7 @@ int seat_start(Seat *s) {
                 return 0;
 
         log_struct(LOG_INFO,
-                   LOG_MESSAGE_ID(SD_MESSAGE_SEAT_START),
+                   "MESSAGE_ID=" SD_MESSAGE_SEAT_START_STR,
                    "SEAT_ID=%s", s->id,
                    LOG_MESSAGE("New seat %s.", s->id),
                    NULL);
@@ -444,7 +444,7 @@ int seat_stop(Seat *s, bool force) {
 
         if (s->started)
                 log_struct(LOG_INFO,
-                           LOG_MESSAGE_ID(SD_MESSAGE_SEAT_STOP),
+                           "MESSAGE_ID=" SD_MESSAGE_SEAT_STOP_STR,
                            "SEAT_ID=%s", s->id,
                            LOG_MESSAGE("Removed seat %s.", s->id),
                            NULL);

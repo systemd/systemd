@@ -220,6 +220,7 @@
 /test-journal
 /test-journal-enum
 /test-journal-flush
+/test-journal-importer
 /test-journal-init
 /test-journal-interleaving
 /test-journal-match

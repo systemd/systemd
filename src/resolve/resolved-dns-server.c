@@ -570,7 +570,7 @@ void dns_server_warn_downgrade(DnsServer *server) {
                 return;
 
         log_struct(LOG_NOTICE,
-                   LOG_MESSAGE_ID(SD_MESSAGE_DNSSEC_DOWNGRADE),
+                   "MESSAGE_ID=" SD_MESSAGE_DNSSEC_DOWNGRADE_STR,
                    LOG_MESSAGE("Server %s does not support DNSSEC, downgrading to non-DNSSEC mode.", dns_server_string(server)),
                    "DNS_SERVER=%s", dns_server_string(server),
                    "DNS_SERVER_FEATURE_LEVEL=%s", dns_server_feature_level_to_string(server->possible_feature_level),

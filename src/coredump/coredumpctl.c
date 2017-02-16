@@ -25,6 +25,7 @@
 #include <unistd.h>
 
 #include "sd-journal.h"
+#include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "compress.h"
@@ -38,10 +39,10 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "set.h"
 #include "sigbus.h"
 #include "signal-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "user-util.h"
 #include "util.h"
@@ -60,36 +61,9 @@ static int arg_no_legend = false;
 static int arg_one = false;
 static FILE* arg_output = NULL;
 static bool arg_reverse = false;
+static char** arg_matches = NULL;
 
-static Set *new_matches(void) {
-        Set *set;
-        char *tmp;
-        int r;
-
-        set = set_new(NULL);
-        if (!set) {
-                log_oom();
-                return NULL;
-        }
-
-        tmp = strdup("MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1");
-        if (!tmp) {
-                log_oom();
-                set_free(set);
-                return NULL;
-        }
-
-        r = set_consume(set, tmp);
-        if (r < 0) {
-                log_error_errno(r, "failed to add to set: %m");
-                set_free(set);
-                return NULL;
-        }
-
-        return set;
-}
-
-static int add_match(Set *set, const char *match) {
+static int add_match(sd_journal *j, const char *match) {
         _cleanup_free_ char *p = NULL;
         char *pattern = NULL;
         const char* prefix;
@@ -101,7 +75,8 @@ static int add_match(Set *set, const char *match) {
         else if (strchr(match, '/')) {
                 r = path_make_absolute_cwd(match, &p);
                 if (r < 0)
-                        goto fail;
+                        return log_error_errno(r, "path_make_absolute_cwd(\"%s\"): %m", match);
+
                 match = p;
                 prefix = "COREDUMP_EXE=";
         } else if (parse_pid(match, &pid) >= 0)
@@ -110,19 +85,35 @@ static int add_match(Set *set, const char *match) {
                 prefix = "COREDUMP_COMM=";
 
         pattern = strjoin(prefix, match);
-        if (!pattern) {
-                r = -ENOMEM;
-                goto fail;
+        if (!pattern)
+                return log_oom();
+
+        log_debug("Adding match: %s", pattern);
+        r = sd_journal_add_match(j, pattern, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match \"%s\": %m", match);
+        return 0;
+}
+
+static int add_matches(sd_journal *j) {
+        char **match;
+        int r;
+
+        r = sd_journal_add_match(j, "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match \"%s\": %m", "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR);
+
+        r = sd_journal_add_match(j, "MESSAGE_ID=" SD_MESSAGE_BACKTRACE_STR, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match \"%s\": %m", "MESSAGE_ID=" SD_MESSAGE_BACKTRACE_STR);
+
+        STRV_FOREACH(match, arg_matches) {
+                r = add_match(j, *match);
+                if (r < 0)
+                        return r;
         }
 
-        log_debug("Adding pattern: %s", pattern);
-        r = set_consume(set, pattern);
-        if (r < 0)
-                goto fail;
-
         return 0;
-fail:
-        return log_error_errno(r, "Failed to add match: %m");
 }
 
 static void help(void) {
@@ -147,14 +138,14 @@ static void help(void) {
                , program_invocation_short_name);
 }
 
-static int parse_argv(int argc, char *argv[], Set *matches) {
+static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
         };
 
-        int r, c;
+        int c;
 
         static const struct option options[] = {
                 { "help",         no_argument,       NULL, 'h'           },
@@ -251,12 +242,8 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
                 return -EINVAL;
         }
 
-        while (optind < argc) {
-                r = add_match(matches, argv[optind]);
-                if (r != 0)
-                        return r;
-                optind++;
-        }
+        if (optind < argc)
+                arg_matches = argv + optind;
 
         return 0;
 }
@@ -329,7 +316,7 @@ static int print_field(FILE* file, sd_journal *j) {
 
 static int print_list(FILE* file, sd_journal *j, int had_legend) {
         _cleanup_free_ char
-                *pid = NULL, *uid = NULL, *gid = NULL,
+                *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
                 *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
                 *filename = NULL, *coredump = NULL;
         const void *d;
@@ -338,11 +325,13 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
         char buf[FORMAT_TIMESTAMP_MAX];
         int r;
         const char *present;
+        bool normal_coredump;
 
         assert(file);
         assert(j);
 
         SD_JOURNAL_FOREACH_DATA(j, d, l) {
+                RETRIEVE(d, l, "MESSAGE_ID", mid);
                 RETRIEVE(d, l, "COREDUMP_PID", pid);
                 RETRIEVE(d, l, "COREDUMP_UID", uid);
                 RETRIEVE(d, l, "COREDUMP_GID", gid);
@@ -375,6 +364,8 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
                         8, "COREFILE",
                            "EXE");
 
+        normal_coredump = streq_ptr(mid, SD_MESSAGE_COREDUMP_STR);
+
         if (filename)
                 if (access(filename, R_OK) == 0)
                         present = "present";
@@ -384,15 +375,17 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
                         present = "error";
         else if (coredump)
                 present = "journal";
-        else
+        else if (normal_coredump)
                 present = "none";
+        else
+                present = "-";
 
         fprintf(file, "%-*s %*s %*s %*s %*s %-*s %s\n",
                 FORMAT_TIMESTAMP_WIDTH, buf,
                 6, strna(pid),
                 5, strna(uid),
                 5, strna(gid),
-                3, strna(sgnl),
+                3, normal_coredump ? strna(sgnl) : "-",
                 8, present,
                 strna(exe ?: (comm ?: cmdline)));
 
@@ -401,7 +394,7 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
 
 static int print_info(FILE *file, sd_journal *j, bool need_space) {
         _cleanup_free_ char
-                *pid = NULL, *uid = NULL, *gid = NULL,
+                *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
                 *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
                 *unit = NULL, *user_unit = NULL, *session = NULL,
                 *boot_id = NULL, *machine_id = NULL, *hostname = NULL,
@@ -410,12 +403,14 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 *coredump = NULL;
         const void *d;
         size_t l;
+        bool normal_coredump;
         int r;
 
         assert(file);
         assert(j);
 
         SD_JOURNAL_FOREACH_DATA(j, d, l) {
+                RETRIEVE(d, l, "MESSAGE_ID", mid);
                 RETRIEVE(d, l, "COREDUMP_PID", pid);
                 RETRIEVE(d, l, "COREDUMP_UID", uid);
                 RETRIEVE(d, l, "COREDUMP_GID", gid);
@@ -440,6 +435,8 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
 
         if (need_space)
                 fputs("\n", file);
+
+        normal_coredump = streq_ptr(mid, SD_MESSAGE_COREDUMP_STR);
 
         if (comm)
                 fprintf(file,
@@ -486,11 +483,12 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
 
         if (sgnl) {
                 int sig;
+                const char *name = normal_coredump ? "Signal" : "Reason";
 
-                if (safe_atoi(sgnl, &sig) >= 0)
-                        fprintf(file, "        Signal: %s (%s)\n", sgnl, signal_to_string(sig));
+                if (normal_coredump && safe_atoi(sgnl, &sig) >= 0)
+                        fprintf(file, "        %s: %s (%s)\n", name, sgnl, signal_to_string(sig));
                 else
-                        fprintf(file, "        Signal: %s\n", sgnl);
+                        fprintf(file, "        %s: %s\n", name, sgnl);
         }
 
         if (timestamp) {
@@ -875,22 +873,13 @@ finish:
 
 int main(int argc, char *argv[]) {
         _cleanup_(sd_journal_closep) sd_journal*j = NULL;
-        const char* match;
-        Iterator it;
         int r = 0;
-        _cleanup_set_free_free_ Set *matches = NULL;
 
         setlocale(LC_ALL, "");
         log_parse_environment();
         log_open();
 
-        matches = new_matches();
-        if (!matches) {
-                r = -ENOMEM;
-                goto end;
-        }
-
-        r = parse_argv(argc, argv, matches);
+        r = parse_argv(argc, argv);
         if (r < 0)
                 goto end;
 
@@ -913,14 +902,9 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        SET_FOREACH(match, matches, it) {
-                r = sd_journal_add_match(j, match, strlen(match));
-                if (r != 0) {
-                        log_error_errno(r, "Failed to add match '%s': %m",
-                                        match);
-                        goto end;
-                }
-        }
+        r = add_matches(j);
+        if (r < 0)
+                goto end;
 
         if (_unlikely_(log_get_max_level() >= LOG_DEBUG)) {
                 _cleanup_free_ char *filter;

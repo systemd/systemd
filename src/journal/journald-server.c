@@ -214,7 +214,7 @@ void server_space_usage_message(Server *s, JournalStorage *storage) {
         format_bytes(fb5, sizeof(fb5), storage->space.limit);
         format_bytes(fb6, sizeof(fb6), storage->space.available);
 
-        server_driver_message(s, SD_MESSAGE_JOURNAL_USAGE,
+        server_driver_message(s, "MESSAGE_ID=" SD_MESSAGE_JOURNAL_USAGE_STR,
                               LOG_MESSAGE("%s (%s) is %s, max %s, %s free.",
                                           storage->name, storage->path, fb1, fb5, fb6),
                               "JOURNAL_NAME=%s", storage->name,
@@ -1061,8 +1061,7 @@ static void dispatch_message_real(
         write_to_journal(s, journal_uid, iovec, n, priority);
 }
 
-void server_driver_message(Server *s, sd_id128_t message_id, const char *format, ...) {
-        char mid[11 + 32 + 1];
+void server_driver_message(Server *s, const char *message_id, const char *format, ...) {
         struct iovec iovec[N_IOVEC_META_FIELDS + 5 + N_IOVEC_PAYLOAD_FIELDS];
         unsigned n = 0, m;
         int r;
@@ -1080,11 +1079,8 @@ void server_driver_message(Server *s, sd_id128_t message_id, const char *format,
         assert_cc(6 == LOG_INFO);
         IOVEC_SET_STRING(iovec[n++], "PRIORITY=6");
 
-        if (!sd_id128_is_null(message_id)) {
-                snprintf(mid, sizeof(mid), LOG_MESSAGE_ID(message_id));
-                IOVEC_SET_STRING(iovec[n++], mid);
-        }
-
+        if (message_id)
+                IOVEC_SET_STRING(iovec[n++], message_id);
         m = n;
 
         va_start(ap, format);
@@ -1174,7 +1170,7 @@ void server_dispatch_message(
 
         /* Write a suppression message if we suppressed something */
         if (rl > 1)
-                server_driver_message(s, SD_MESSAGE_JOURNAL_DROPPED,
+                server_driver_message(s, "MESSAGE_ID=" SD_MESSAGE_JOURNAL_DROPPED_STR,
                                       LOG_MESSAGE("Suppressed %u messages from %s", rl - 1, path),
                                       NULL);
 
@@ -1273,7 +1269,7 @@ finish:
 
         sd_journal_close(j);
 
-        server_driver_message(s, SD_ID128_NULL,
+        server_driver_message(s, NULL,
                               LOG_MESSAGE("Time spent on flushing to /var is %s for %u entries.",
                                           format_timespan(ts, sizeof(ts), now(CLOCK_MONOTONIC) - start, 0),
                                           n),

@@ -2171,7 +2171,7 @@ static int manager_dispatch_time_change_fd(sd_event_source *source, int fd, uint
         assert(m->time_change_fd == fd);
 
         log_struct(LOG_DEBUG,
-                   LOG_MESSAGE_ID(SD_MESSAGE_TIME_CHANGE),
+                   "MESSAGE_ID=" SD_MESSAGE_TIME_CHANGE_STR,
                    LOG_MESSAGE("Time has been changed"),
                    NULL);
 
@@ -2930,7 +2930,7 @@ static void manager_notify_finished(Manager *m) {
                         initrd_usec = m->userspace_timestamp.monotonic - m->initrd_timestamp.monotonic;
 
                         log_struct(LOG_INFO,
-                                   LOG_MESSAGE_ID(SD_MESSAGE_STARTUP_FINISHED),
+                                   "MESSAGE_ID=" SD_MESSAGE_STARTUP_FINISHED_STR,
                                    "KERNEL_USEC="USEC_FMT, kernel_usec,
                                    "INITRD_USEC="USEC_FMT, initrd_usec,
                                    "USERSPACE_USEC="USEC_FMT, userspace_usec,
@@ -2945,7 +2945,7 @@ static void manager_notify_finished(Manager *m) {
                         initrd_usec = 0;
 
                         log_struct(LOG_INFO,
-                                   LOG_MESSAGE_ID(SD_MESSAGE_STARTUP_FINISHED),
+                                   "MESSAGE_ID=" SD_MESSAGE_STARTUP_FINISHED_STR,
                                    "KERNEL_USEC="USEC_FMT, kernel_usec,
                                    "USERSPACE_USEC="USEC_FMT, userspace_usec,
                                    LOG_MESSAGE("Startup finished in %s (kernel) + %s (userspace) = %s.",
@@ -2959,7 +2959,7 @@ static void manager_notify_finished(Manager *m) {
                 total_usec = userspace_usec = m->finish_timestamp.monotonic - m->userspace_timestamp.monotonic;
 
                 log_struct(LOG_INFO,
-                           LOG_MESSAGE_ID(SD_MESSAGE_USER_STARTUP_FINISHED),
+                           "MESSAGE_ID=" SD_MESSAGE_USER_STARTUP_FINISHED_STR,
                            "USERSPACE_USEC="USEC_FMT, userspace_usec,
                            LOG_MESSAGE("Startup finished in %s.",
                                        format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC)),

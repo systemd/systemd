@@ -240,6 +240,7 @@ MANPAGES_ALIAS += \
 	man/SD_ID128_FORMAT_STR.3 \
 	man/SD_ID128_FORMAT_VAL.3 \
 	man/SD_ID128_MAKE.3 \
+	man/SD_ID128_MAKE_STR.3 \
 	man/SD_ID128_NULL.3 \
 	man/SD_INFO.3 \
 	man/SD_JOURNAL_APPEND.3 \
@@ -597,6 +598,7 @@ man/SD_ID128_CONST_STR.3: man/sd-id128.3
 man/SD_ID128_FORMAT_STR.3: man/sd-id128.3
 man/SD_ID128_FORMAT_VAL.3: man/sd-id128.3
 man/SD_ID128_MAKE.3: man/sd-id128.3
+man/SD_ID128_MAKE_STR.3: man/sd-id128.3
 man/SD_ID128_NULL.3: man/sd-id128.3
 man/SD_INFO.3: man/sd-daemon.3
 man/SD_JOURNAL_APPEND.3: man/sd_journal_get_fd.3
@@ -1064,6 +1066,9 @@ man/SD_ID128_FORMAT_VAL.html: man/sd-id128.html
 	$(html-alias)
 
 man/SD_ID128_MAKE.html: man/sd-id128.html
+	$(html-alias)
+
+man/SD_ID128_MAKE_STR.html: man/sd-id128.html
 	$(html-alias)
 
 man/SD_ID128_NULL.html: man/sd-id128.html

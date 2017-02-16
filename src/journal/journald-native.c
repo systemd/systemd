@@ -27,6 +27,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "io-util.h"
+#include "journal-importer.h"
 #include "journald-console.h"
 #include "journald-kmsg.h"
 #include "journald-native.h"

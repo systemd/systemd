@@ -1164,7 +1164,7 @@ int log_syntax_internal(
         return log_struct_internal(
                         level, error,
                         file, line, func,
-                        LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION),
+                        "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
                         "CONFIG_FILE=%s", config_file,
                         "CONFIG_LINE=%u", config_line,
                         LOG_MESSAGE("%s:%u: %s", config_file, config_line, buffer),
