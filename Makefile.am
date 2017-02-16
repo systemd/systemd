@@ -2469,7 +2469,7 @@ test_journal_importer_SOURCES = \
 test_journal_importer_LDADD = \
 	libsystemd-shared.la
 
-EXTRA_DIST += \
+TEST_DATA_FILES += \
 	test/journal-data/journal-1.txt \
 	test/journal-data/journal-2.txt
 
