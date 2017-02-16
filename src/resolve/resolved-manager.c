@@ -332,19 +332,18 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
         assert(llmnr_hostname);
         assert(mdns_hostname);
 
-        /* Extract and normalize the first label of the locally
-         * configured hostname, and check it's not "localhost". */
+        /* Extract and normalize the first label of the locally configured hostname, and check it's not "localhost". */
 
-        h = gethostname_malloc();
-        if (!h)
-                return log_oom();
+        r = gethostname_strict(&h);
+        if (r < 0)
+                return log_debug_errno(r, "Can't determine system hostname: %m");
 
         p = h;
         r = dns_label_unescape(&p, label, sizeof(label));
         if (r < 0)
                 return log_error_errno(r, "Failed to unescape host name: %m");
         if (r == 0) {
-                log_error("Couldn't find a single label in hosntame.");
+                log_error("Couldn't find a single label in hostname.");
                 return -EINVAL;
         }
 
@@ -377,6 +376,57 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
 
         *full_hostname = h;
         h = NULL;
+
+        return 0;
+}
+
+static const char *fallback_hostname(void) {
+
+        /* Determine the fall back hostname. For exposing this system to the outside world, we cannot have it to be
+         * "localhost" even if that's the compiled in hostname. In this case, let's revert to "linux" instead. */
+
+        if (is_localhost(FALLBACK_HOSTNAME))
+                return "linux";
+
+        return FALLBACK_HOSTNAME;
+}
+
+static int make_fallback_hostnames(char **full_hostname, char **llmnr_hostname, char **mdns_hostname) {
+        _cleanup_free_ char *n = NULL, *m = NULL;
+        char label[DNS_LABEL_MAX], *h;
+        const char *p;
+        int r;
+
+        assert(full_hostname);
+        assert(llmnr_hostname);
+        assert(mdns_hostname);
+
+        p = fallback_hostname();
+        r = dns_label_unescape(&p, label, sizeof(label));
+        if (r < 0)
+                return log_error_errno(r, "Failed to unescape fallback host name: %m");
+
+        assert(r > 0); /* The fallback hostname must have at least one label */
+
+        r = dns_label_escape_new(label, r, &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to escape fallback hostname: %m");
+
+        r = dns_name_concat(n, "local", &m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to concatenate mDNS hostname: %m");
+
+        h = strdup(fallback_hostname());
+        if (!h)
+                return log_oom();
+
+        *llmnr_hostname = n;
+        n = NULL;
+
+        *mdns_hostname = m;
+        m = NULL;
+
+        *full_hostname = h;
 
         return 0;
 }
@@ -432,19 +482,11 @@ static int manager_watch_hostname(Manager *m) {
 
         r = determine_hostname(&m->full_hostname, &m->llmnr_hostname, &m->mdns_hostname);
         if (r < 0) {
-                log_info("Defaulting to hostname 'linux'.");
+                log_info("Defaulting to hostname '%s'.", fallback_hostname());
 
-                m->full_hostname = strdup("linux");
-                if (!m->full_hostname)
-                        return log_oom();
-
-                m->llmnr_hostname = strdup("linux");
-                if (!m->llmnr_hostname)
-                        return log_oom();
-
-                m->mdns_hostname = strdup("linux.local");
-                if (!m->mdns_hostname)
-                        return log_oom();
+                r = make_fallback_hostnames(&m->full_hostname, &m->llmnr_hostname, &m->mdns_hostname);
+                if (r < 0)
+                        return r;
         } else
                 log_info("Using system hostname '%s'.", m->full_hostname);
 
