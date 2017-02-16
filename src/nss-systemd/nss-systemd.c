@@ -185,7 +185,7 @@ enum nss_status _nss_systemd_getpwnam_r(
 
         l = strlen(name);
         if (buflen < l+1) {
-                *errnop = ENOMEM;
+                *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
 
@@ -286,7 +286,7 @@ enum nss_status _nss_systemd_getpwuid_r(
 
         l = strlen(translated) + 1;
         if (buflen < l) {
-                *errnop = ENOMEM;
+                *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
 
@@ -386,7 +386,7 @@ enum nss_status _nss_systemd_getgrnam_r(
 
         l = sizeof(char*) + strlen(name) + 1;
         if (buflen < l) {
-                *errnop = ENOMEM;
+                *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
 
@@ -484,7 +484,7 @@ enum nss_status _nss_systemd_getgrgid_r(
 
         l = sizeof(char*) + strlen(translated) + 1;
         if (buflen < l) {
-                *errnop = ENOMEM;
+                *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
 
