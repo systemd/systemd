@@ -194,6 +194,8 @@ static inline pid_t raw_getpid(void) {
 #      define __NR_renameat2 316
 #    elif defined __arm__
 #      define __NR_renameat2 382
+#    elif defined __aarch64__
+#      define __NR_renameat2 276
 #    elif defined _MIPS_SIM
 #      if _MIPS_SIM == _MIPS_SIM_ABI32
 #        define __NR_renameat2 4351
