@@ -82,6 +82,17 @@ typedef struct DUID {
         uint8_t raw_data[MAX_DUID_LEN];
 } DUID;
 
+typedef struct NetworkConfigSection {
+        unsigned line;
+        char filename[];
+} NetworkConfigSection;
+
+int network_config_section_new(const char *filename, unsigned line, NetworkConfigSection **s);
+void network_config_section_free(NetworkConfigSection *network);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(NetworkConfigSection*, network_config_section_free);
+#define _cleanup_network_config_section_free_ _cleanup_(network_config_section_freep)
+
 typedef struct Manager Manager;
 
 struct Network {

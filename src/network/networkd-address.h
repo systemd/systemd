@@ -33,10 +33,11 @@ typedef struct Address Address;
 
 typedef struct Network Network;
 typedef struct Link Link;
+typedef struct NetworkConfigSection NetworkConfigSection;
 
 struct Address {
         Network *network;
-        unsigned section;
+        NetworkConfigSection *section;
 
         Link *link;
 
@@ -62,7 +63,7 @@ struct Address {
         LIST_FIELDS(Address, addresses);
 };
 
-int address_new_static(Network *network, unsigned section, Address **ret);
+int address_new_static(Network *network, const char *filename, unsigned section, Address **ret);
 int address_new(Address **ret);
 void address_free(Address *address);
 int address_add_foreign(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret);

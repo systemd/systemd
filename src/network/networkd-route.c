@@ -77,15 +77,21 @@ int route_new(Route **ret) {
         return 0;
 }
 
-int route_new_static(Network *network, unsigned section, Route **ret) {
+int route_new_static(Network *network, const char *filename, unsigned section_line, Route **ret) {
+        _cleanup_network_config_section_free_ NetworkConfigSection *n = NULL;
         _cleanup_route_free_ Route *route = NULL;
         int r;
 
         assert(network);
         assert(ret);
+        assert(!!filename == (section_line > 0));
 
-        if (section) {
-                route = hashmap_get(network->routes_by_section, UINT_TO_PTR(section));
+        if (filename) {
+                r = network_config_section_new(filename, section_line, &n);
+                if (r < 0)
+                        return r;
+
+                route = hashmap_get(network->routes_by_section, n);
                 if (route) {
                         *ret = route;
                         route = NULL;
@@ -103,10 +109,11 @@ int route_new_static(Network *network, unsigned section, Route **ret) {
 
         route->protocol = RTPROT_STATIC;
 
-        if (section) {
-                route->section = section;
+        if (filename) {
+                route->section = n;
+                n = NULL;
 
-                r = hashmap_put(network->routes_by_section, UINT_TO_PTR(route->section), route);
+                r = hashmap_put(network->routes_by_section, n, route);
                 if (r < 0)
                         return r;
         }
@@ -132,8 +139,10 @@ void route_free(Route *route) {
                 route->network->n_static_routes--;
 
                 if (route->section)
-                        hashmap_remove(route->network->routes_by_section, UINT_TO_PTR(route->section));
+                        hashmap_remove(route->network->routes_by_section, route->section);
         }
+
+        network_config_section_free(route->section);
 
         if (route->link) {
                 set_remove(route->link->routes, route);
@@ -673,10 +682,10 @@ int config_parse_gateway(const char *unit,
         if (streq(section, "Network")) {
                 /* we are not in an Route section, so treat
                  * this as the special '0' section */
-                section_line = 0;
-        }
+                r = route_new_static(network, NULL, 0, &n);
+        } else
+                r = route_new_static(network, filename, section_line, &n);
 
-        r = route_new_static(network, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -715,7 +724,7 @@ int config_parse_preferred_src(const char *unit,
         assert(rvalue);
         assert(data);
 
-        r = route_new_static(network, section_line, &n);
+        r = route_new_static(network, filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -757,7 +766,7 @@ int config_parse_destination(const char *unit,
         assert(rvalue);
         assert(data);
 
-        r = route_new_static(network, section_line, &n);
+        r = route_new_static(network, filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -835,7 +844,7 @@ int config_parse_route_priority(const char *unit,
         assert(rvalue);
         assert(data);
 
-        r = route_new_static(network, section_line, &n);
+        r = route_new_static(network, filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -872,7 +881,7 @@ int config_parse_route_scope(const char *unit,
         assert(rvalue);
         assert(data);
 
-        r = route_new_static(network, section_line, &n);
+        r = route_new_static(network, filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -913,7 +922,7 @@ int config_parse_route_table(const char *unit,
         assert(rvalue);
         assert(data);
 
-        r = route_new_static(network, section_line, &n);
+        r = route_new_static(network, filename, section_line, &n);
         if (r < 0)
                 return r;
 
