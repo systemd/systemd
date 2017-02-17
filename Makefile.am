@@ -152,7 +152,6 @@ endif
 AM_TESTS_ENVIRONMENT = \
 	export SYSTEMD_KBD_MODEL_MAP=$(abs_top_srcdir)/src/locale/kbd-model-map; \
 	export SYSTEMD_LANGUAGE_FALLBACK_MAP=$(abs_top_srcdir)/src/locale/language-fallback-map; \
-	export TEST_DIR=$(abs_top_srcdir)/test; \
 	export PATH=$(abs_top_builddir):$$PATH;
 
 if ENABLE_BASH_COMPLETION
@@ -252,6 +251,8 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/libsystemd/sd-device \
 	-I $(top_srcdir)/src/libsystemd/sd-id128 \
 	-I $(top_srcdir)/src/libsystemd-network \
+	-DABS_SRC_DIR=\"$(abs_top_srcdir)\" \
+	-DABS_BUILD_DIR=\"$(abs_top_builddir)\" \
 	$(OUR_CPPFLAGS)
 
 AM_CFLAGS = $(OUR_CFLAGS)
@@ -6615,7 +6616,7 @@ valgrind-tests: $(TESTS)
 		if $(LIBTOOL) --mode=execute file $$f | grep -q shell; then \
 		echo -e "$${x}Skipping non-binary $$f"; else \
 		echo -e "$${x}Running $$f"; \
-		$(LIBTOOL) --mode=execute valgrind -q --leak-check=full --max-stackframe=5242880 --error-exitcode=55 $(builddir)/$$f ; fi; \
+		$(AM_TESTS_ENVIRONMENT) $(LIBTOOL) --mode=execute valgrind -q --leak-check=full --max-stackframe=5242880 --error-exitcode=55 $(builddir)/$$f ; fi; \
 		x="\n\n"; \
 	done
 
@@ -6716,14 +6717,14 @@ tests += \
 .PHONY: install-tests
 install-tests: $(tests) $(TEST_DATA_FILES)
 	for f in $(tests); do \
-	    if [ -x .libs/$$f ]; then \
-		install -D -m 755 .libs/$$f $(DESTDIR)/$(testsdir)/$$f; \
+	    if [ -x $(top_builddir)/.libs/$$f ]; then \
+		install -D -m 755 $(top_builddir)/.libs/$$f $(DESTDIR)/$(testsdir)/$$f; \
 	    else \
-		install -D -m 755 $$f $(DESTDIR)/$(testsdir)/$$f; \
+		install -D -m 755 $(top_builddir)/$$f $(DESTDIR)/$(testsdir)/$$f; \
 	    fi; \
 	done
 	for f in $(TEST_DATA_FILES); do \
-	    install -D -m 644 $$f $(DESTDIR)/$(testsdir)/testdata/$${f#test/}; \
+	    install -D -m 644 $(top_srcdir)/$$f $(DESTDIR)/$(testsdir)/testdata/$${f#test/}; \
 	done
 
 

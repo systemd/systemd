@@ -59,3 +59,8 @@ systemd-logind:
 * `$SYSTEMD_BYPASS_HIBERNATION_MEMORY_CHECK=1` — if set, report that
   hibernation is available even if the swap devices do not provide enough room
   for it.
+
+installed systemd tests:
+
+* `$SYSTEMD_TEST_DATA` — override the location of test data. This is useful if
+  a test executable is moved to an arbitrary location.
