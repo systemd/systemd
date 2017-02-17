@@ -47,16 +47,14 @@
     <refpurpose>Special systemd units</refpurpose>
   </refnamediv>
 
-  <refsynopsisdiv>
-    <para><filename>basic.target</filename>,
+  <refsynopsisdiv><para>
+    <!-- sort alphabetically, targets first -->
+    <filename>basic.target</filename>,
     <filename>bluetooth.target</filename>,
-    <filename>ctrl-alt-del.target</filename>,
-    <filename>cryptsetup.target</filename>,
     <filename>cryptsetup-pre.target</filename>,
-    <filename>dbus.service</filename>,
-    <filename>dbus.socket</filename>,
+    <filename>cryptsetup.target</filename>,
+    <filename>ctrl-alt-del.target</filename>,
     <filename>default.target</filename>,
-    <filename>display-manager.service</filename>,
     <filename>emergency.target</filename>,
     <filename>exit.target</filename>,
     <filename>final.target</filename>,
@@ -66,25 +64,26 @@
     <filename>hibernate.target</filename>,
     <filename>hybrid-sleep.target</filename>,
     <filename>initrd-fs.target</filename>,
+    <filename>initrd-root-device.target</filename>,
+    <filename>initrd-root-fs.target</filename>,
     <filename>kbrequest.target</filename>,
     <filename>kexec.target</filename>,
-    <filename>local-fs.target</filename>,
     <filename>local-fs-pre.target</filename>,
+    <filename>local-fs.target</filename>,
+    <filename>machines.target</filename>
     <filename>multi-user.target</filename>,
-    <filename>network.target</filename>,
     <filename>network-online.target</filename>,
     <filename>network-pre.target</filename>,
+    <filename>network.target</filename>,
     <filename>nss-lookup.target</filename>,
     <filename>nss-user-lookup.target</filename>,
     <filename>paths.target</filename>,
     <filename>poweroff.target</filename>,
     <filename>printer.target</filename>,
     <filename>reboot.target</filename>,
-    <filename>remote-fs.target</filename>,
     <filename>remote-fs-pre.target</filename>,
+    <filename>remote-fs.target</filename>,
     <filename>rescue.target</filename>,
-    <filename>initrd-root-device.target</filename>,
-    <filename>initrd-root-fs.target</filename>,
     <filename>rpcbind.target</filename>,
     <filename>runlevel2.target</filename>,
     <filename>runlevel3.target</filename>,
@@ -102,21 +101,27 @@
     <filename>sysinit.target</filename>,
     <filename>syslog.socket</filename>,
     <filename>system-update.target</filename>,
-    <filename>system-update-cleanup.service</filename>,
     <filename>time-sync.target</filename>,
     <filename>timers.target</filename>,
     <filename>umount.target</filename>,
+    <!-- slices -->
     <filename>-.slice</filename>,
     <filename>system.slice</filename>,
     <filename>user.slice</filename>,
-    <filename>machine.slice</filename></para>
-  </refsynopsisdiv>
+    <filename>machine.slice</filename>,
+    <!-- the rest -->
+    <filename>dbus.service</filename>,
+    <filename>dbus.socket</filename>,
+    <filename>display-manager.service</filename>,
+    <filename>system-update-cleanup.service</filename>
+  </para></refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para>A few units are treated specially by systemd. They have
-    special internal semantics and cannot be renamed.</para>
+    <para>A few units are treated specially by systemd. Many of them have
+    special internal semantics and cannot be renamed, while others simply
+    have a standard meaning and should be present on all systems.</para>
   </refsect1>
 
   <refsect1>
@@ -346,6 +351,14 @@
           target unit for those mounts listed in
           <filename>/etc/fstab</filename> that have the
           <option>auto</option> mount option set.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><filename>machines.target</filename></term>
+        <listitem>
+          <para>A standard target unit for starting all the containers
+          and other virtual machines. See <filename>systemd-nspawn@.service</filename>
+          for an example.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
