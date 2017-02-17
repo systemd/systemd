@@ -84,8 +84,9 @@ int route_new_static(Network *network, const char *filename, unsigned section_li
 
         assert(network);
         assert(ret);
+        assert(!!filename == (section_line > 0));
 
-        if (section_line > 0) {
+        if (filename) {
                 r = network_config_section_new(filename, section_line, &n);
                 if (r < 0)
                         return r;
@@ -108,7 +109,7 @@ int route_new_static(Network *network, const char *filename, unsigned section_li
 
         route->protocol = RTPROT_STATIC;
 
-        if (section_line > 0) {
+        if (filename) {
                 route->section = n;
                 n = NULL;
 

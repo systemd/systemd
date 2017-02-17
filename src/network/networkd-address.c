@@ -60,8 +60,9 @@ int address_new_static(Network *network, const char *filename, unsigned section_
 
         assert(network);
         assert(ret);
+        assert(!!filename == (section_line > 0));
 
-        if (section_line > 0) {
+        if (filename) {
                 r = network_config_section_new(filename, section_line, &n);
                 if (r < 0)
                         return r;
@@ -82,7 +83,7 @@ int address_new_static(Network *network, const char *filename, unsigned section_
         if (r < 0)
                 return r;
 
-        if (section_line > 0) {
+        if (filename) {
                 address->section = n;
                 hashmap_put(network->addresses_by_section, n, address);
         }
