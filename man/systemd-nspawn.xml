@@ -474,7 +474,12 @@
 
         <para>Note that the picked UID/GID range is not written to <filename>/etc/passwd</filename> or
         <filename>/etc/group</filename>. In fact, the allocation of the range is not stored persistently anywhere,
-        except in the file ownership of the files and directories of the container.</para></listitem>
+        except in the file ownership of the files and directories of the container.</para>
+
+        <para>Note that when user namespacing is used file ownership on disk reflects this, and all of the container's
+        files and directories are owned by the container's effective user and group IDs. This means that copying files
+        from and to the container image requires correction of the numeric UID/GID values, according to the UID/GID
+        shift applied.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -108,3 +108,5 @@ KillWho kill_who_from_string(const char *s) _pure_;
 
 int machine_openpt(Machine *m, int flags);
 int machine_open_terminal(Machine *m, const char *path, int mode);
+
+int machine_get_uid_shift(Machine *m, uid_t *ret);

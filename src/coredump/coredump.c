@@ -352,7 +352,7 @@ static int save_external_coredump(
         if (fd < 0)
                 return log_error_errno(fd, "Failed to create temporary file for coredump %s: %m", fn);
 
-        r = copy_bytes(input_fd, fd, max_size, false);
+        r = copy_bytes(input_fd, fd, max_size, 0);
         if (r < 0) {
                 log_error_errno(r, "Cannot store coredump of %s (%s): %m", context[CONTEXT_PID], context[CONTEXT_COMM]);
                 goto fail;

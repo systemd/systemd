@@ -315,7 +315,7 @@ static int raw_pull_copy_auxiliary_file(
 
         local = strjoina(i->image_root, "/", i->local, suffix);
 
-        r = copy_file_atomic(*path, local, 0644, i->force_local, 0);
+        r = copy_file_atomic(*path, local, 0644, 0, COPY_REFLINK | (i->force_local ? COPY_REPLACE : 0));
         if (r == -EEXIST)
                 log_warning_errno(r, "File %s already exists, not replacing.", local);
         else if (r == -ENOENT)
@@ -378,7 +378,7 @@ static int raw_pull_make_local_copy(RawPull *i) {
         if (r < 0)
                 log_warning_errno(r, "Failed to set file attributes on %s: %m", tp);
 
-        r = copy_bytes(i->raw_job->disk_fd, dfd, (uint64_t) -1, true);
+        r = copy_bytes(i->raw_job->disk_fd, dfd, (uint64_t) -1, COPY_REFLINK);
         if (r < 0) {
                 unlink(tp);
                 return log_error_errno(r, "Failed to make writable copy of image: %m");

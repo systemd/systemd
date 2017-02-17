@@ -5300,7 +5300,7 @@ static int cat_file(const char *filename, bool newline) {
                ansi_normal());
         fflush(stdout);
 
-        return copy_bytes(fd, STDOUT_FILENO, (uint64_t) -1, false);
+        return copy_bytes(fd, STDOUT_FILENO, (uint64_t) -1, 0);
 }
 
 static int cat(int argc, char *argv[], void *userdata) {
@@ -6582,7 +6582,7 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
         if (r < 0)
                 return log_error_errno(r, "Failed to create directories for \"%s\": %m", new_path);
 
-        r = copy_file(original_path, t, 0, 0644, 0);
+        r = copy_file(original_path, t, 0, 0644, 0, COPY_REFLINK);
         if (r == -ENOENT) {
 
                 r = touch(t);

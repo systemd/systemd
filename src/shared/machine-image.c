@@ -594,7 +594,7 @@ static int clone_auxiliary_file(const char *path, const char *new_name, const ch
         if (!rs)
                 return -ENOMEM;
 
-        return copy_file_atomic(path, rs, 0664, false, 0);
+        return copy_file_atomic(path, rs, 0664, 0, COPY_REFLINK);
 }
 
 int image_clone(Image *i, const char *new_name, bool read_only) {
@@ -656,7 +656,7 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
         case IMAGE_RAW:
                 new_path = strjoina("/var/lib/machines/", new_name, ".raw");
 
-                r = copy_file_atomic(i->path, new_path, read_only ? 0444 : 0644, false, FS_NOCOW_FL);
+                r = copy_file_atomic(i->path, new_path, read_only ? 0444 : 0644, FS_NOCOW_FL, COPY_REFLINK);
                 break;
 
         default:

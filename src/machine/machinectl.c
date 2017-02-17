@@ -327,8 +327,10 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                        (int) max_version_id, strdash_if_empty(machines[j].version_id));
 
                 r = print_addresses(bus, machines[j].name, 0, "", prefix, arg_addrs);
-                if (r == -EOPNOTSUPP)
-                        printf("-\n");
+                if (r <= 0) /* error or no addresses defined? */
+                        fputs("-\n", stdout);
+                else
+                        fputc('\n', stdout);
         }
 
         if (arg_legend) {
@@ -520,6 +522,7 @@ static int print_addresses(sd_bus *bus, const char *name, int ifi, const char *p
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *addresses = NULL;
         bool truncate = false;
+        unsigned n = 0;
         int r;
 
         assert(bus);
@@ -567,7 +570,7 @@ static int print_addresses(sd_bus *bus, const char *name, int ifi, const char *p
                         else
                                 strcpy(buf_ifi, "");
 
-                        if(!strextend(&addresses, prefix, inet_ntop(family, a, buffer, sizeof(buffer)), buf_ifi, NULL))
+                        if (!strextend(&addresses, prefix, inet_ntop(family, a, buffer, sizeof(buffer)), buf_ifi, NULL))
                                 return log_oom();
                 } else
                         truncate = true;
@@ -581,6 +584,8 @@ static int print_addresses(sd_bus *bus, const char *name, int ifi, const char *p
 
                 if (n_addr > 0)
                         n_addr -= 1;
+
+                n++;
         }
         if (r < 0)
                 return bus_log_parse_error(r);
@@ -589,8 +594,10 @@ static int print_addresses(sd_bus *bus, const char *name, int ifi, const char *p
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        fprintf(stdout, "%s%s\n", addresses, truncate ? "..." : "");
-        return 0;
+        if (n > 0)
+                fprintf(stdout, "%s%s", addresses, truncate ? "..." : "");
+
+        return (int) n;
 }
 
 static int print_os_release(sd_bus *bus, const char *method, const char *name, const char *prefix) {
@@ -608,6 +615,37 @@ static int print_os_release(sd_bus *bus, const char *method, const char *name, c
         if (pretty)
                 printf("%s%s\n", prefix, pretty);
 
+        return 0;
+}
+
+static int print_uid_shift(sd_bus *bus, const char *name) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        uint32_t shift;
+        int r;
+
+        assert(bus);
+        assert(name);
+
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.machine1",
+                               "/org/freedesktop/machine1",
+                               "org.freedesktop.machine1.Manager",
+                               "GetMachineUIDShift",
+                               &error,
+                               &reply,
+                               "s", name);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to query UID/GID shift: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "u", &shift);
+        if (r < 0)
+                return r;
+
+        if (shift == 0) /* Don't show trivial mappings */
+                return 0;
+
+        printf("       UID Shift: %" PRIu32 "\n", shift);
         return 0;
 }
 
@@ -707,12 +745,15 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
                 fputc('\n', stdout);
         }
 
-        print_addresses(bus, i->name, ifi,
-                       "\t Address: ",
-                       "\n\t          ",
-                       ALL_IP_ADDRESSES);
+        if (print_addresses(bus, i->name, ifi,
+                            "\t Address: ",
+                            "\n\t          ",
+                            ALL_IP_ADDRESSES) > 0)
+                fputc('\n', stdout);
 
         print_os_release(bus, "GetMachineOSRelease", i->name, "\t      OS: ");
+
+        print_uid_shift(bus, i->name);
 
         if (i->unit) {
                 printf("\t    Unit: %s\n", i->unit);
