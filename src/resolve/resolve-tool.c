@@ -38,7 +38,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 
-#define DNS_CALL_TIMEOUT_USEC (45*USEC_PER_SEC)
+#define DNS_CALL_TIMEOUT_USEC (90*USEC_PER_SEC)
 
 static int arg_family = AF_UNSPEC;
 static int arg_ifindex = 0;

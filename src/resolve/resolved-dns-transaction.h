@@ -178,7 +178,7 @@ DnsTransactionSource dns_transaction_source_from_string(const char *s) _pure_;
 #define MDNS_PROBING_INTERVAL_USEC (250 * USEC_PER_MSEC)
 
 /* Maximum attempts to send DNS requests, across all DNS servers */
-#define DNS_TRANSACTION_ATTEMPTS_MAX 16
+#define DNS_TRANSACTION_ATTEMPTS_MAX 24
 
 /* Maximum attempts to send LLMNR requests, see RFC 4795 Section 2.7 */
 #define LLMNR_TRANSACTION_ATTEMPTS_MAX 3

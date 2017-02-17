@@ -31,6 +31,7 @@
 #include "string-table.h"
 
 #define TRANSACTIONS_MAX 4096
+#define TRANSACTION_TCP_TIMEOUT_USEC (10U*USEC_PER_SEC)
 
 static void dns_transaction_reset_answer(DnsTransaction *t) {
         assert(t);
@@ -832,7 +833,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
          * should hence not attempt to access the query or transaction
          * after calling this function. */
 
-        log_debug("Processing incoming packet on transaction %" PRIu16".", t->id);
+        log_debug("Processing incoming packet on transaction %" PRIu16". (rcode=%s)", t->id, dns_rcode_to_string(DNS_PACKET_RCODE(p)));
 
         switch (t->scope->protocol) {
 
@@ -910,9 +911,13 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
 
                         /* Request failed, immediately try again with reduced features */
 
-                        if (t->current_feature_level <= DNS_SERVER_FEATURE_LEVEL_WORST) {
-                                /* This was already at the lowest possible feature level? If so, we can't downgrade
-                                 * this transaction anymore, hence let's process the response, and accept the rcode. */
+                        if (t->current_feature_level <= DNS_SERVER_FEATURE_LEVEL_UDP) {
+                                /* This was already at UDP feature level? If so, it doesn't make sense to downgrade
+                                 * this transaction anymore, hence let's process the response, and accept the
+                                 * rcode. Note that we don't retry on TCP, since that's a suitable way to mitigate
+                                 * packet loss, but is not going to give us better rcodes should we actually have
+                                 * managed to get them already at UDP level. */
+
                                 log_debug("Server returned error: %s", dns_rcode_to_string(DNS_PACKET_RCODE(p)));
                                 break;
                         }
@@ -1135,7 +1140,7 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
                         return r;
 
                 if (t->current_feature_level < DNS_SERVER_FEATURE_LEVEL_UDP)
-                        return -EAGAIN;
+                        return -EAGAIN; /* Sorry, can't do UDP, try TCP! */
 
                 if (!dns_server_dnssec_supported(t->server) && dns_type_is_dnssec(t->key->type))
                         return -EOPNOTSUPP;
@@ -1212,9 +1217,17 @@ static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
         assert(t);
         assert(t->scope);
 
+
         switch (t->scope->protocol) {
 
         case DNS_PROTOCOL_DNS:
+
+                /* When we do TCP, grant a much longer timeout, as in this case there's no need for us to quickly
+                 * resend, as the kernel does that anyway for us, and we really don't want to interrupt it in that
+                 * needlessly. */
+                if (t->stream)
+                        return TRANSACTION_TCP_TIMEOUT_USEC;
+
                 assert(t->server);
                 return t->server->resend_timeout;
 
@@ -1579,7 +1592,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 r = dns_transaction_emit_udp(t);
                 if (r == -EMSGSIZE)
                         log_debug("Sending query via TCP since it is too large.");
-                if (r == -EAGAIN)
+                else if (r == -EAGAIN)
                         log_debug("Sending query via TCP since server doesn't support UDP.");
                 if (r == -EMSGSIZE || r == -EAGAIN)
                         r = dns_transaction_open_tcp(t);
@@ -1996,8 +2009,18 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         r = dns_resource_key_match_rr(t->key, rr, NULL);
                         if (r < 0)
                                 return r;
-                        if (r == 0)
-                                continue;
+                        if (r == 0) {
+                                /* Hmm, so this SOA RR doesn't match our original question. In this case, maybe this is
+                                 * a negative reply, and we need the a SOA RR's TTL in order to cache a negative entry?
+                                 * If so, we need to validate it, too. */
+
+                                r = dns_answer_match_key(t->answer, t->key, NULL);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0) /* positive reply, we won't need the SOA and hence don't need to validate
+                                            * it. */
+                                        continue;
+                        }
 
                         r = dnssec_has_rrsig(t->answer, rr->key);
                         if (r < 0)

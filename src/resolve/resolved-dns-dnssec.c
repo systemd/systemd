@@ -1710,7 +1710,8 @@ static int dnssec_nsec_covers(DnsResourceRecord *rr, const char *name) {
 }
 
 static int dnssec_nsec_covers_wildcard(DnsResourceRecord *rr, const char *name) {
-        const char *common_suffix, *wc;
+        _cleanup_free_ char *wc = NULL;
+        const char *common_suffix;
         int r;
 
         assert(rr);
@@ -1734,7 +1735,10 @@ static int dnssec_nsec_covers_wildcard(DnsResourceRecord *rr, const char *name) 
         if (r <= 0)
                 return r;
 
-        wc = strjoina("*.", common_suffix);
+        r = dns_name_concat("*", common_suffix, &wc);
+        if (r < 0)
+                return r;
+
         return dns_name_between(dns_resource_key_name(rr->key), wc, rr->nsec.next_domain_name);
 }
 

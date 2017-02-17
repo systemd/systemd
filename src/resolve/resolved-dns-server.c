@@ -28,7 +28,7 @@
 #include "string-util.h"
 
 /* After how much time to repeat classic DNS requests */
-#define DNS_TIMEOUT_MIN_USEC (500 * USEC_PER_MSEC)
+#define DNS_TIMEOUT_MIN_USEC (750 * USEC_PER_MSEC)
 #define DNS_TIMEOUT_MAX_USEC (5 * USEC_PER_SEC)
 
 /* The amount of time to wait before retrying with a full feature set */
@@ -399,12 +399,24 @@ static bool dns_server_grace_period_expired(DnsServer *s) {
 }
 
 DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
+        DnsServerFeatureLevel best;
+
         assert(s);
 
-        if (s->possible_feature_level != DNS_SERVER_FEATURE_LEVEL_BEST &&
-            dns_server_grace_period_expired(s)) {
+        /* Determine the best feature level we care about. If DNSSEC mode is off there's no point in using anything
+         * better than EDNS0, hence don't even try. */
+        best = dns_server_get_dnssec_mode(s) == DNSSEC_NO ?
+                DNS_SERVER_FEATURE_LEVEL_EDNS0 :
+                DNS_SERVER_FEATURE_LEVEL_BEST;
 
-                s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_BEST;
+        /* Clamp the feature level the highest level we care about. The DNSSEC mode might have changed since the last
+         * time, hence let's downgrade if we are still at a higher level. */
+        if (s->possible_feature_level > best)
+                s->possible_feature_level = best;
+
+        if (s->possible_feature_level < best && dns_server_grace_period_expired(s)) {
+
+                s->possible_feature_level = best;
 
                 dns_server_reset_counters(s);
 
@@ -414,6 +426,8 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                 log_info("Grace period over, resuming full feature set (%s) for DNS server %s.",
                          dns_server_feature_level_to_string(s->possible_feature_level),
                          dns_server_string(s));
+
+                dns_server_flush_cache(s);
 
         } else if (s->possible_feature_level <= s->verified_feature_level)
                 s->possible_feature_level = s->verified_feature_level;
@@ -790,6 +804,25 @@ DnssecMode dns_server_get_dnssec_mode(DnsServer *s) {
                 return link_get_dnssec_mode(s->link);
 
         return manager_get_dnssec_mode(s->manager);
+}
+
+void dns_server_flush_cache(DnsServer *s) {
+        DnsServer *current;
+        DnsScope *scope;
+
+        assert(s);
+
+        /* Flush the cache of the scope this server belongs to */
+
+        current = s->link ? s->link->current_dns_server : s->manager->current_dns_server;
+        if (current != s)
+                return;
+
+        scope = s->link ? s->link->unicast_scope : s->manager->unicast_scope;
+        if (!scope)
+                return;
+
+        dns_cache_flush(&scope->cache);
 }
 
 static const char* const dns_server_type_table[_DNS_SERVER_TYPE_MAX] = {
