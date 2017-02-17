@@ -821,7 +821,7 @@ static void map_context_fields(const struct iovec *iovec, const char *context[])
 static int process_socket(int fd) {
         _cleanup_close_ int coredump_fd = -1;
         struct iovec *iovec = NULL;
-        size_t n_iovec = 0, n_allocated = 0, i;
+        size_t n_iovec = 0, n_allocated = 0, i, k;
         const char *context[_CONTEXT_MAX] = {};
         int r;
 
@@ -924,6 +924,13 @@ static int process_socket(int fd) {
         assert(context[CONTEXT_RLIMIT]);
         assert(context[CONTEXT_COMM]);
         assert(coredump_fd >= 0);
+
+        /* Small quirk: the journal fields contain the timestamp padded with six zeroes, so that the kernel-supplied 1s
+         * granularity timestamps becomes 1µs granularity, i.e. the granularity systemd usually operates in. Since we
+         * are reconstructing the original kernel context, we chop this off again, here. */
+        k = strlen(context[CONTEXT_TIMESTAMP]);
+        if (k > 6)
+                context[CONTEXT_TIMESTAMP] = strndupa(context[CONTEXT_TIMESTAMP], k - 6);
 
         r = submit_coredump(context, iovec, n_allocated, n_iovec, coredump_fd);
 
