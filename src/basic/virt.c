@@ -329,8 +329,10 @@ int detect_vm(void) {
          * -> Third try to detect from dmi. */
 
         dmi = detect_vm_dmi();
-        if (dmi == VIRTUALIZATION_ORACLE)
-                return dmi;
+        if (dmi == VIRTUALIZATION_ORACLE) {
+                r = dmi;
+                goto finish;
+        }
 
         r = detect_vm_cpuid();
         if (r < 0)
