@@ -1044,7 +1044,7 @@ static char* set_iovec_field_free(struct iovec iovec[27], size_t *n_iovec, const
         return x;
 }
 
-static int gather_pid_metadata(
+static int gather_pid_metadata_and_process_special_crash(
                 const char *context[_CONTEXT_MAX],
                 char **comm_fallback,
                 char **comm_ret,
@@ -1088,7 +1088,11 @@ static int gather_pid_metadata(
                  * are unlikely to work then. */
                 if (STR_IN_SET(t, SPECIAL_JOURNALD_SERVICE, SPECIAL_INIT_SCOPE)) {
                         free(t);
-                        return process_special_crash(context, STDIN_FILENO);
+                        r = process_special_crash(context, STDIN_FILENO);
+                        if (r < 0)
+                                return r;
+
+                        return 1; /* > 0 means: we have already processed it, because it's a special crash */
                 }
 
                 set_iovec_field_free(iovec, n_iovec, "COREDUMP_UNIT=", t);
@@ -1193,7 +1197,7 @@ static int gather_pid_metadata(
                 comm = NULL;
         }
 
-        return 0;
+        return 0; /* == 0 means: we successfully acquired all metadata */
 }
 
 static int process_kernel(int argc, char* argv[]) {
@@ -1217,9 +1221,15 @@ static int process_kernel(int argc, char* argv[]) {
         context[CONTEXT_TIMESTAMP] = argv[CONTEXT_TIMESTAMP + 1];
         context[CONTEXT_RLIMIT]    = argv[CONTEXT_RLIMIT + 1];
 
-        r = gather_pid_metadata(context, argv + CONTEXT_COMM + 1, NULL, iovec, &n_to_free);
+        r = gather_pid_metadata_and_process_special_crash(context, argv + CONTEXT_COMM + 1, NULL, iovec, &n_to_free);
         if (r < 0)
                 goto finish;
+        if (r > 0) {
+                /* This was a special crash, and has already been processed. */
+                r = 0;
+                goto finish;
+        }
+
         n_iovec = n_to_free;
 
         IOVEC_SET_STRING(iovec[n_iovec++], "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR);
@@ -1267,12 +1277,17 @@ static int process_backtrace(int argc, char *argv[]) {
         if (!iovec)
                 return log_oom();
 
-        r = gather_pid_metadata(context, argv + CONTEXT_COMM + 2, &comm, iovec, &n_to_free);
+        r = gather_pid_metadata_and_process_special_crash(context, argv + CONTEXT_COMM + 2, &comm, iovec, &n_to_free);
         if (r < 0)
                 goto finish;
+        if (r > 0) {
+                /* This was a special crash, and has already been processed. */
+                r = 0;
+                goto finish;
+        }
         n_iovec = n_to_free;
 
-        while (true) {
+        for (;;) {
                 r = journal_importer_process_data(&importer);
                 if (r < 0) {
                         log_error_errno(r, "Failed to parse journal entry on stdin: %m");
