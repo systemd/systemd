@@ -26,6 +26,7 @@
 #include "fileio.h"
 #include "macro.h"
 #include "missing.h"
+#include "mount-util.h"
 #include "stat-util.h"
 
 static void test_files_same(void) {
@@ -69,8 +70,11 @@ static void test_path_is_os_tree(void) {
 }
 
 static void test_path_check_fstype(void) {
-        assert_se(path_check_fstype("/run", TMPFS_MAGIC) > 0);
-        assert_se(path_check_fstype("/run", BTRFS_SUPER_MAGIC) == 0);
+        /* run might not be a mount point in build chroots */
+        if (path_is_mount_point("/run", NULL, AT_SYMLINK_FOLLOW) > 0) {
+                assert_se(path_check_fstype("/run", TMPFS_MAGIC) > 0);
+                assert_se(path_check_fstype("/run", BTRFS_SUPER_MAGIC) == 0);
+        }
         assert_se(path_check_fstype("/proc", PROC_SUPER_MAGIC) > 0);
         assert_se(path_check_fstype("/proc", BTRFS_SUPER_MAGIC) == 0);
         assert_se(path_check_fstype("/proc", BTRFS_SUPER_MAGIC) == 0);
