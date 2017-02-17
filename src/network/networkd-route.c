@@ -110,6 +110,7 @@ int route_new_static(Network *network, const char *filename, unsigned section_li
 
         if (section_line > 0) {
                 route->section = n;
+                n = NULL;
 
                 r = hashmap_put(network->routes_by_section, n, route);
                 if (r < 0)
@@ -122,7 +123,6 @@ int route_new_static(Network *network, const char *filename, unsigned section_li
 
         *ret = route;
         route = NULL;
-        n = NULL;
 
         return 0;
 }
@@ -137,11 +137,11 @@ void route_free(Route *route) {
                 assert(route->network->n_static_routes > 0);
                 route->network->n_static_routes--;
 
-                if (route->section) {
+                if (route->section)
                         hashmap_remove(route->network->routes_by_section, route->section);
-                        network_config_section_free(route->section);
-                }
         }
+
+        network_config_section_free(route->section);
 
         if (route->link) {
                 set_remove(route->link->routes, route);
