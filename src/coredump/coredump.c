@@ -54,6 +54,7 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "signal-util.h"
 #include "socket-util.h"
 #include "special.h"
 #include "stacktrace.h"
@@ -1049,16 +1050,18 @@ static int gather_pid_metadata_and_process_special_crash(
                 char **comm_fallback,
                 char **comm_ret,
                 struct iovec *iovec, size_t *n_iovec) {
-        /* We need 25 empty slots in iovec!
-         * Note that if we fail on oom later on, we do not roll-back changes to the iovec
-         * structure. (It remains valid, with the first n_iovec fields initialized.) */
+
+        /* We need 26 empty slots in iovec!
+         *
+         * Note that if we fail on oom later on, we do not roll-back changes to the iovec structure. (It remains valid,
+         * with the first n_iovec fields initialized.) */
 
         _cleanup_free_ char *exe = NULL, *comm = NULL;
         uid_t owner_uid;
         pid_t pid;
         char *t;
         const char *p;
-        int r;
+        int r, signo;
 
         r = parse_pid(context[CONTEXT_PID], &pid);
         if (r < 0)
@@ -1192,6 +1195,9 @@ static int gather_pid_metadata_and_process_special_crash(
         if (t)
                 IOVEC_SET_STRING(iovec[(*n_iovec)++], t);
 
+        if (safe_atoi(context[CONTEXT_SIGNAL], &signo) >= 0 && SIGNAL_VALID(signo))
+                set_iovec_field(iovec, n_iovec, "COREDUMP_SIGNAL_NAME=SIG", signal_to_string(signo));
+
         if (comm_ret) {
                 *comm_ret = comm;
                 comm = NULL;
@@ -1203,7 +1209,7 @@ static int gather_pid_metadata_and_process_special_crash(
 static int process_kernel(int argc, char* argv[]) {
 
         const char *context[_CONTEXT_MAX];
-        struct iovec iovec[27];
+        struct iovec iovec[28];
         size_t i, n_iovec, n_to_free = 0;
         int r;
 
@@ -1272,7 +1278,7 @@ static int process_backtrace(int argc, char *argv[]) {
         context[CONTEXT_TIMESTAMP] = argv[CONTEXT_TIMESTAMP + 2];
         context[CONTEXT_RLIMIT]    = argv[CONTEXT_RLIMIT + 2];
 
-        n_allocated = 32; /* 25 metadata, 2 static, +unknown input, rounded up */
+        n_allocated = 33; /* 25 metadata, 2 static, +unknown input, rounded up */
         iovec = new(struct iovec, n_allocated);
         if (!iovec)
                 return log_oom();
