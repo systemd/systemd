@@ -54,6 +54,7 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "signal-util.h"
 #include "socket-util.h"
 #include "special.h"
 #include "stacktrace.h"
@@ -186,6 +187,7 @@ static int fix_xattr(int fd, const char *context[_CONTEXT_MAX]) {
                 [CONTEXT_GID] = "user.coredump.gid",
                 [CONTEXT_SIGNAL] = "user.coredump.signal",
                 [CONTEXT_TIMESTAMP] = "user.coredump.timestamp",
+                [CONTEXT_RLIMIT] = "user.coredump.rlimit",
                 [CONTEXT_COMM] = "user.coredump.comm",
                 [CONTEXT_EXE] = "user.coredump.exe",
         };
@@ -820,7 +822,7 @@ static void map_context_fields(const struct iovec *iovec, const char *context[])
 static int process_socket(int fd) {
         _cleanup_close_ int coredump_fd = -1;
         struct iovec *iovec = NULL;
-        size_t n_iovec = 0, n_allocated = 0, i;
+        size_t n_iovec = 0, n_allocated = 0, i, k;
         const char *context[_CONTEXT_MAX] = {};
         int r;
 
@@ -923,6 +925,13 @@ static int process_socket(int fd) {
         assert(context[CONTEXT_RLIMIT]);
         assert(context[CONTEXT_COMM]);
         assert(coredump_fd >= 0);
+
+        /* Small quirk: the journal fields contain the timestamp padded with six zeroes, so that the kernel-supplied 1s
+         * granularity timestamps becomes 1µs granularity, i.e. the granularity systemd usually operates in. Since we
+         * are reconstructing the original kernel context, we chop this off again, here. */
+        k = strlen(context[CONTEXT_TIMESTAMP]);
+        if (k > 6)
+                context[CONTEXT_TIMESTAMP] = strndupa(context[CONTEXT_TIMESTAMP], k - 6);
 
         r = submit_coredump(context, iovec, n_allocated, n_iovec, coredump_fd);
 
@@ -1044,21 +1053,23 @@ static char* set_iovec_field_free(struct iovec iovec[27], size_t *n_iovec, const
         return x;
 }
 
-static int gather_pid_metadata(
+static int gather_pid_metadata_and_process_special_crash(
                 const char *context[_CONTEXT_MAX],
                 char **comm_fallback,
                 char **comm_ret,
                 struct iovec *iovec, size_t *n_iovec) {
-        /* We need 25 empty slots in iovec!
-         * Note that if we fail on oom later on, we do not roll-back changes to the iovec
-         * structure. (It remains valid, with the first n_iovec fields initialized.) */
+
+        /* We need 26 empty slots in iovec!
+         *
+         * Note that if we fail on oom later on, we do not roll-back changes to the iovec structure. (It remains valid,
+         * with the first n_iovec fields initialized.) */
 
         _cleanup_free_ char *exe = NULL, *comm = NULL;
         uid_t owner_uid;
         pid_t pid;
         char *t;
         const char *p;
-        int r;
+        int r, signo;
 
         r = parse_pid(context[CONTEXT_PID], &pid);
         if (r < 0)
@@ -1088,7 +1099,11 @@ static int gather_pid_metadata(
                  * are unlikely to work then. */
                 if (STR_IN_SET(t, SPECIAL_JOURNALD_SERVICE, SPECIAL_INIT_SCOPE)) {
                         free(t);
-                        return process_special_crash(context, STDIN_FILENO);
+                        r = process_special_crash(context, STDIN_FILENO);
+                        if (r < 0)
+                                return r;
+
+                        return 1; /* > 0 means: we have already processed it, because it's a special crash */
                 }
 
                 set_iovec_field_free(iovec, n_iovec, "COREDUMP_UNIT=", t);
@@ -1188,18 +1203,21 @@ static int gather_pid_metadata(
         if (t)
                 IOVEC_SET_STRING(iovec[(*n_iovec)++], t);
 
+        if (safe_atoi(context[CONTEXT_SIGNAL], &signo) >= 0 && SIGNAL_VALID(signo))
+                set_iovec_field(iovec, n_iovec, "COREDUMP_SIGNAL_NAME=SIG", signal_to_string(signo));
+
         if (comm_ret) {
                 *comm_ret = comm;
                 comm = NULL;
         }
 
-        return 0;
+        return 0; /* == 0 means: we successfully acquired all metadata */
 }
 
 static int process_kernel(int argc, char* argv[]) {
 
         const char *context[_CONTEXT_MAX];
-        struct iovec iovec[27];
+        struct iovec iovec[28];
         size_t i, n_iovec, n_to_free = 0;
         int r;
 
@@ -1217,9 +1235,15 @@ static int process_kernel(int argc, char* argv[]) {
         context[CONTEXT_TIMESTAMP] = argv[CONTEXT_TIMESTAMP + 1];
         context[CONTEXT_RLIMIT]    = argv[CONTEXT_RLIMIT + 1];
 
-        r = gather_pid_metadata(context, argv + CONTEXT_COMM + 1, NULL, iovec, &n_to_free);
+        r = gather_pid_metadata_and_process_special_crash(context, argv + CONTEXT_COMM + 1, NULL, iovec, &n_to_free);
         if (r < 0)
                 goto finish;
+        if (r > 0) {
+                /* This was a special crash, and has already been processed. */
+                r = 0;
+                goto finish;
+        }
+
         n_iovec = n_to_free;
 
         IOVEC_SET_STRING(iovec[n_iovec++], "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR);
@@ -1262,17 +1286,22 @@ static int process_backtrace(int argc, char *argv[]) {
         context[CONTEXT_TIMESTAMP] = argv[CONTEXT_TIMESTAMP + 2];
         context[CONTEXT_RLIMIT]    = argv[CONTEXT_RLIMIT + 2];
 
-        n_allocated = 32; /* 25 metadata, 2 static, +unknown input, rounded up */
+        n_allocated = 33; /* 25 metadata, 2 static, +unknown input, rounded up */
         iovec = new(struct iovec, n_allocated);
         if (!iovec)
                 return log_oom();
 
-        r = gather_pid_metadata(context, argv + CONTEXT_COMM + 2, &comm, iovec, &n_to_free);
+        r = gather_pid_metadata_and_process_special_crash(context, argv + CONTEXT_COMM + 2, &comm, iovec, &n_to_free);
         if (r < 0)
                 goto finish;
+        if (r > 0) {
+                /* This was a special crash, and has already been processed. */
+                r = 0;
+                goto finish;
+        }
         n_iovec = n_to_free;
 
-        while (true) {
+        for (;;) {
                 r = journal_importer_process_data(&importer);
                 if (r < 0) {
                         log_error_errno(r, "Failed to parse journal entry on stdin: %m");

@@ -1210,7 +1210,7 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
                         else
                                 log_warning("worker ["PID_FMT"] exited with return code %i", pid, WEXITSTATUS(status));
                 } else if (WIFSIGNALED(status)) {
-                        log_warning("worker ["PID_FMT"] terminated by signal %i (%s)", pid, WTERMSIG(status), strsignal(WTERMSIG(status)));
+                        log_warning("worker ["PID_FMT"] terminated by signal %i (%s)", pid, WTERMSIG(status), signal_to_string(WTERMSIG(status)));
                 } else if (WIFSTOPPED(status)) {
                         log_info("worker ["PID_FMT"] stopped", pid);
                         continue;
