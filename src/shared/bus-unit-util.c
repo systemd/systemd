@@ -862,7 +862,7 @@ static void log_job_error_with_service_result(const char* service, const char *r
 
         service_shell_quoted = shell_maybe_quote(service);
 
-        if (extra_args && extra_args[1]) {
+        if (extra_args) {
                 _cleanup_free_ char *t;
 
                 t = strv_join((char**) extra_args, " ");
