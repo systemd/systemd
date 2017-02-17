@@ -187,6 +187,7 @@ static int fix_xattr(int fd, const char *context[_CONTEXT_MAX]) {
                 [CONTEXT_GID] = "user.coredump.gid",
                 [CONTEXT_SIGNAL] = "user.coredump.signal",
                 [CONTEXT_TIMESTAMP] = "user.coredump.timestamp",
+                [CONTEXT_RLIMIT] = "user.coredump.rlimit",
                 [CONTEXT_COMM] = "user.coredump.comm",
                 [CONTEXT_EXE] = "user.coredump.exe",
         };
