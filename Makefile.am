@@ -345,12 +345,14 @@ install-touch-usr-hook:
 INSTALL_EXEC_HOOKS += \
 	install-target-wants-hook \
 	install-directories-hook \
-	install-environment-conf-hook \
 	install-aliases-hook \
-	install-touch-usr-hook
-
-INSTALL_EXEC_HOOKS += \
+	install-touch-usr-hook \
 	install-busnames-target-wants-hook
+
+if ENABLE_ENVIRONMENT_D
+INSTALL_EXEC_HOOKS += \
+	install-environment-conf-hook
+endif
 
 # ------------------------------------------------------------------------------
 AM_V_M4 = $(AM_V_M4_$(V))
@@ -432,8 +434,10 @@ systemgenerator_PROGRAMS = \
 	systemd-system-update-generator \
 	systemd-debug-generator
 
+if ENABLE_ENVIRONMENT_D
 userenvgenerator_PROGRAMS = \
 	30-systemd-environment-d-generator
+endif
 
 dist_bashcompletion_data = \
 	shell-completion/bash/busctl \
