@@ -167,7 +167,7 @@ int main(int argc, char **argv) {
 
     <para>Note that new, randomized IDs may be generated with
     <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
-    <option>--new-id</option> option.</para>
+    <option>--new-id128</option> option.</para>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
