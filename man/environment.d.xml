@@ -81,6 +81,9 @@
     and <literal>$OTHER_KEY</literal> format. No other elements of shell syntax are supported.
     </para>
 
+    <para>Each<replaceable>KEY</replaceable> must be a valid variable name. Empty lines
+    and lines beginning with the comment character <literal>#</literal> are ignored.</para>
+
     <refsect2>
       <title>Example</title>
       <example>

@@ -773,6 +773,16 @@ static int merge_env_file_push(
 
         assert(env);
 
+        if (!value) {
+                log_error("%s:%u: invalid syntax (around \"%s\"), ignoring.", strna(filename), line, key);
+                return 0;
+        }
+
+        if (!env_name_is_valid(key)) {
+                log_error("%s:%u: invalid variable name \"%s\", ignoring.", strna(filename), line, key);
+                return 0;
+        }
+
         expanded_value = replace_env(value, *env,
                                      REPLACE_ENV_USE_ENVIRONMENT|REPLACE_ENV_ALLOW_BRACELESS);
         if (!expanded_value)

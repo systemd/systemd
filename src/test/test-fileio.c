@@ -263,6 +263,45 @@ static void test_merge_env_file(void) {
         assert_se(a[6] == NULL);
 }
 
+static void test_merge_env_file_invalid(void) {
+        char t[] = "/tmp/test-fileio-XXXXXX";
+        int fd, r;
+        FILE *f;
+        _cleanup_strv_free_ char **a = NULL;
+        char **i;
+
+        fd = mkostemp_safe(t);
+        assert_se(fd >= 0);
+
+        log_info("/* %s (%s) */", __func__, t);
+
+        f = fdopen(fd, "w");
+        assert_se(f);
+
+        r = write_string_stream(f,
+                                "unset one   \n"
+                                "unset one=   \n"
+                                "unset one=1   \n"
+                                "one   \n"
+                                "one =  \n"
+                                "one two =\n"
+                                "\x20two=\n"
+                                "#comment=comment\n"
+                                ";comment2=comment2\n"
+                                "#\n"
+                                "\n\n"                  /* empty line */
+                                , false);
+        assert(r >= 0);
+
+        r = merge_env_file(&a, NULL, t);
+        assert_se(r >= 0);
+
+        STRV_FOREACH(i, a)
+                log_info("Got: <%s>", *i);
+
+        assert_se(strv_isempty(a));
+}
+
 static void test_executable_is_script(void) {
         char t[] = "/tmp/test-executable-XXXXXX";
         int fd, r;
@@ -620,6 +659,7 @@ int main(int argc, char *argv[]) {
         test_parse_env_file();
         test_parse_multiline_env_file();
         test_merge_env_file();
+        test_merge_env_file_invalid();
         test_executable_is_script();
         test_status_field();
         test_capeff();

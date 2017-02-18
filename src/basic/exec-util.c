@@ -279,6 +279,11 @@ static int gather_environment_generate(int fd, void *arg) {
         STRV_FOREACH_PAIR(x, y, new) {
                 char *p;
 
+                if (!env_name_is_valid(*x)) {
+                        log_warning("Invalid variable assignment \"%s=...\", ignoring.", *x);
+                        continue;
+                }
+
                 p = strjoin(*x, "=", *y);
                 if (!p)
                         return -ENOMEM;

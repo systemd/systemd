@@ -305,8 +305,16 @@ static void test_environment_gathering(void) {
                                     "echo A=$A:24\n"
                                     "echo B=12\n"
                                     "echo C=000\n"
-                                    "echo C=001\n"                   /* variable overwriting */
-                                    "echo PATH=$PATH:/no/such/file", /* variable from manager */
+                                    "echo C=001\n"                    /* variable overwriting */
+                                     /* various invalid entries */
+                                    "echo unset A\n"
+                                    "echo unset A=\n"
+                                    "echo unset A=B\n"
+                                    "echo unset \n"
+                                    "echo A B=C\n"
+                                    "echo A\n"
+                                    /* test variable assignment without newline */
+                                    "echo PATH=$PATH:/no/such/file",   /* no newline */
                                     WRITE_STRING_FILE_CREATE) == 0);
 
         assert_se(chmod(name, 0755) == 0);
