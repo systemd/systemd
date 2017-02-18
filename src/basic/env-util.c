@@ -248,7 +248,7 @@ fail:
         return NULL;
 }
 
-_pure_ static bool env_match(const char *t, const char *pattern) {
+static bool env_match(const char *t, const char *pattern) {
         assert(t);
         assert(pattern);
 
