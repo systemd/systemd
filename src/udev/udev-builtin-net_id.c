@@ -426,11 +426,10 @@ static int names_bcma(struct udev_device *dev, struct netnames *names) {
 
 static int names_ccw(struct  udev_device *dev, struct netnames *names) {
         struct udev_device *cdev;
-        const char *bus_id;
+        const char *bus_id, *subsys;
         size_t bus_id_len;
         size_t bus_id_start;
         int rc;
-        char *subsys;
 
         assert(dev);
         assert(names);
