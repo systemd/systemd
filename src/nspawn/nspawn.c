@@ -41,6 +41,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-id128.h"
 
@@ -49,6 +50,7 @@
 #include "base-filesystem.h"
 #include "blkid-util.h"
 #include "btrfs-util.h"
+#include "bus-util.h"
 #include "cap-list.h"
 #include "capability-util.h"
 #include "cgroup-util.h"
@@ -1323,6 +1325,19 @@ static int setup_timezone(const char *dest) {
         return 0;
 }
 
+static int resolved_running(void) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        /* Check if resolved is running */
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return r;
+
+        return bus_name_has_owner(bus, "org.freedesktop.resolve1", NULL);
+}
+
 static int setup_resolv_conf(const char *dest) {
         _cleanup_free_ char *resolved = NULL, *etc = NULL;
         const char *where;
@@ -1346,8 +1361,8 @@ static int setup_resolv_conf(const char *dest) {
                 return 0;
         }
 
-        if (access("/run/systemd/resolve/resolv.conf", F_OK) >= 0 &&
-            access("/usr/lib/systemd/resolv.conf", F_OK) >= 0) {
+        if (access("/usr/lib/systemd/resolv.conf", F_OK) >= 0 &&
+            resolved_running() > 0) {
 
                 /* resolved is enabled on the host. In this, case bind mount its static resolv.conf file into the
                  * container, so that the container can use the host's resolver. Given that network namespacing is

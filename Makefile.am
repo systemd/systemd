@@ -5565,14 +5565,12 @@ dist_dbuspolicy_DATA += \
 dist_dbussystemservice_DATA += \
 	src/resolve/org.freedesktop.resolve1.service
 
-SYSTEM_UNIT_ALIASES += \
-	systemd-resolved.service dbus-org.freedesktop.resolve1.service
-
 BUSNAMES_TARGET_WANTS += \
 	org.freedesktop.resolve1.busname
 
 GENERAL_ALIASES += \
-	$(systemunitdir)/systemd-resolved.service $(pkgsysconfdir)/system/multi-user.target.wants/systemd-resolved.service
+	$(systemunitdir)/systemd-resolved.service $(pkgsysconfdir)/system/multi-user.target.wants/systemd-resolved.service \
+	$(systemunitdir)/systemd-resolved.service $(pkgsysconfdir)/system/dbus-org.freedesktop.resolve1.service
 
 nodist_pkgsysconf_DATA += \
 	src/resolve/resolved.conf

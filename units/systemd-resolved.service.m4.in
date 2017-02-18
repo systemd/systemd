@@ -38,3 +38,4 @@ SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @mount @obsolete
 
 [Install]
 WantedBy=multi-user.target
+Alias=dbus-org.freedesktop.resolve1.service

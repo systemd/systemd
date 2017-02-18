@@ -10,7 +10,7 @@ Description=Container %i
 Documentation=man:systemd-nspawn(1)
 PartOf=machines.target
 Before=machines.target
-After=network.target
+After=network.target systemd-resolved.service
 
 [Service]
 ExecStart=@bindir@/systemd-nspawn --quiet --keep-unit --boot --link-journal=try-guest --network-veth -U --settings=override --machine=%i
