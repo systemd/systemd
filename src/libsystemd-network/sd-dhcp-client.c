@@ -825,6 +825,15 @@ static int client_send_request(sd_dhcp_client *client) {
                         return r;
         }
 
+        if (client->vendor_class_identifier) {
+                r = dhcp_option_append(&request->dhcp, optlen, &optoffset, 0,
+                                       SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER,
+                                       strlen(client->vendor_class_identifier),
+                                       client->vendor_class_identifier);
+                if (r < 0)
+                        return r;
+        }
+
         r = dhcp_option_append(&request->dhcp, optlen, &optoffset, 0,
                                SD_DHCP_OPTION_END, 0, NULL);
         if (r < 0)
