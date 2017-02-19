@@ -2429,7 +2429,14 @@ bool cg_is_unified_wanted(void) {
 }
 
 bool cg_is_legacy_wanted(void) {
-        return !cg_is_unified_wanted();
+        /* Check if we have cgroups2 already mounted. */
+        if (cg_unified_flush() >= 0 &&
+            unified_cache == CGROUP_UNIFIED_ALL)
+                return false;
+
+        /* Otherwise, assume that at least partial legacy is wanted,
+         * since cgroups2 should already be mounted at this point. */
+        return true;
 }
 
 bool cg_is_hybrid_wanted(void) {
@@ -2437,11 +2444,6 @@ bool cg_is_hybrid_wanted(void) {
         int r;
         bool b;
         const bool is_default = DEFAULT_HIERARCHY == CGROUP_UNIFIED_SYSTEMD;
-
-        /* If the unified hierarchy is requested in full, no need to
-         * bother with this. */
-        if (cg_is_unified_wanted())
-                return 0;
 
         /* If the hierarchy is already mounted, then follow whatever
          * was chosen for it. */
