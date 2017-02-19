@@ -6806,7 +6806,8 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                 return r;
 
         STRV_FOREACH(name, names) {
-                _cleanup_free_ char *path = NULL, *new_path = NULL, *tmp_path = NULL;
+                _cleanup_free_ char *path = NULL, *new_path = NULL, *tmp_path = NULL, *tmp_name = NULL;
+                const char *unit_name;
 
                 r = unit_find_paths(bus, *name, &lp, &path, NULL);
                 if (r < 0)
@@ -6822,11 +6823,28 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                         }
                 }
 
+                unit_name = basename(path);
+                /* We follow unit aliases, but we need to propagate the instance */
+                if (unit_name_is_valid(*name, UNIT_NAME_INSTANCE) &&
+                    unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
+                        _cleanup_free_ char *instance = NULL;
+
+                        r = unit_name_to_instance(*name, &instance);
+                        if (r < 0)
+                                return r;
+
+                        r = unit_name_replace_instance(unit_name, instance, &tmp_name);
+                        if (r < 0)
+                                return r;
+
+                        unit_name = tmp_name;
+                }
+
                 if (path) {
                         if (arg_full)
-                                r = unit_file_create_copy(&lp, basename(path), path, &new_path, &tmp_path);
+                                r = unit_file_create_copy(&lp, unit_name, path, &new_path, &tmp_path);
                         else
-                                r = unit_file_create_new(&lp, basename(path), ".d/override.conf", &new_path, &tmp_path);
+                                r = unit_file_create_new(&lp, unit_name, ".d/override.conf", &new_path, &tmp_path);
                 } else
                         r = unit_file_create_new(&lp, *name, NULL, &new_path, &tmp_path);
                 if (r < 0)
