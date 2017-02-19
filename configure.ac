@@ -613,6 +613,21 @@ AC_SUBST(FALLBACK_HOSTNAME)
 AC_DEFINE_UNQUOTED(FALLBACK_HOSTNAME, ["$FALLBACK_HOSTNAME"], [The hostname used if none configured])
 
 # ------------------------------------------------------------------------------
+
+AC_ARG_WITH(default-hierarchy,
+        AS_HELP_STRING([--with-default-hierarchy=MODE],
+                [default cgroup hierarchy, defaults to "legacy"]),
+        [DEFAULT_HIERARCHY="$withval"],
+        [DEFAULT_HIERARCHY="legacy"])
+
+AS_CASE("$DEFAULT_HIERARCHY",
+        [legacy], [mode=CGROUP_UNIFIED_NONE],
+        [hybrid], [mode=CGROUP_UNIFIED_SYSTEMD],
+        [unified], [mode=CGROUP_UNIFIED_ALL],
+        AC_MSG_ERROR(Bad default hierarchy mode ${DEFAULT_HIERARCHY}))
+AC_DEFINE_UNQUOTED(DEFAULT_HIERARCHY, [$mode], [Default cgroup hierarchy])
+
+# ------------------------------------------------------------------------------
 have_xz=no
 AC_ARG_ENABLE(xz, AS_HELP_STRING([--disable-xz], [disable optional XZ support]))
 AS_IF([test "x$enable_xz" != "xno"], [
@@ -1658,19 +1673,20 @@ AC_MSG_RESULT([
         backlight:                         ${have_backlight}
         rfkill:                            ${have_rfkill}
         logind:                            ${have_logind}
-        Default KillUserProcesses setting: ${KILL_USER_PROCESSES}
+        default cgroup hierarchy:          ${DEFAULT_HIERARCHY}
+        default KillUserProcesses setting: ${KILL_USER_PROCESSES}
         machined:                          ${have_machined}
         importd:                           ${have_importd}
         hostnamed:                         ${have_hostnamed}
         timedated:                         ${have_timedated}
         timesyncd:                         ${have_timesyncd}
-        Default NTP servers:               ${NTP_SERVERS}
+        default NTP servers:               ${NTP_SERVERS}
         time epoch:                        ${TIME_EPOCH}
         localed:                           ${have_localed}
         networkd:                          ${have_networkd}
         resolved:                          ${have_resolved}
-        Default DNS servers:               ${DNS_SERVERS}
-        Default DNSSEC mode:               ${DEFAULT_DNSSEC_MODE}
+        default DNS servers:               ${DNS_SERVERS}
+        default DNSSEC mode:               ${DEFAULT_DNSSEC_MODE}
         coredump:                          ${have_coredump}
         polkit:                            ${have_polkit}
         efi:                               ${have_efi}
@@ -1709,27 +1725,27 @@ AC_MSG_RESULT([
         rootlib dir:                       ${with_rootlibdir}
         SysV init scripts:                 ${SYSTEM_SYSVINIT_PATH}
         SysV rc?.d directories:            ${SYSTEM_SYSVRCND_PATH}
-        Build Python:                      ${PYTHON}
+        build Python:                      ${PYTHON}
         PAM modules dir:                   ${with_pamlibdir}
         PAM configuration dir:             ${with_pamconfdir}
         D-Bus policy dir:                  ${with_dbuspolicydir}
         D-Bus session dir:                 ${with_dbussessionservicedir}
         D-Bus system dir:                  ${with_dbussystemservicedir}
-        Bash completions dir:              ${with_bashcompletiondir}
-        Zsh completions dir:               ${with_zshcompletiondir}
-        Extra start script:                ${RC_LOCAL_SCRIPT_PATH_START}
-        Extra stop script:                 ${RC_LOCAL_SCRIPT_PATH_STOP}
-        Adm group:                         ${have_adm_group}
-        Wheel group:                       ${have_wheel_group}
-        Debug shell:                       ${SUSHELL} @ ${DEBUGTTY}
+        bash completions dir:              ${with_bashcompletiondir}
+        zsh completions dir:               ${with_zshcompletiondir}
+        extra start script:                ${RC_LOCAL_SCRIPT_PATH_START}
+        extra stop script:                 ${RC_LOCAL_SCRIPT_PATH_STOP}
+        adm group:                         ${have_adm_group}
+        wheel group:                       ${have_wheel_group}
+        debug shell:                       ${SUSHELL} @ ${DEBUGTTY}
         TTY GID:                           ${TTY_GID}
-        Maximum system UID:                ${SYSTEM_UID_MAX}
-        Maximum system GID:                ${SYSTEM_GID_MAX}
-        Certificate root:                  ${CERTIFICATEROOT}
-        Support URL:                       ${SUPPORT_URL}
+        maximum system UID:                ${SYSTEM_UID_MAX}
+        maximum system GID:                ${SYSTEM_GID_MAX}
+        certificate root:                  ${CERTIFICATEROOT}
+        support URL:                       ${SUPPORT_URL}
         nobody user name:                  ${NOBODY_USER_NAME}
         nobody group name:                 ${NOBODY_GROUP_NAME}
-        Fallback hostname:                 ${FALLBACK_HOSTNAME}
+        fallback hostname:                 ${FALLBACK_HOSTNAME}
 
         CFLAGS:   ${OUR_CFLAGS} ${CFLAGS}
         CPPFLAGS: ${OUR_CPPFLAGS} ${CPPFLAGS}

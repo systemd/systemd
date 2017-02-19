@@ -2408,23 +2408,24 @@ bool cg_is_unified_wanted(void) {
         static thread_local int wanted = -1;
         int r;
         bool b;
+        const bool is_default = DEFAULT_HIERARCHY == CGROUP_UNIFIED_ALL;
 
         /* If the hierarchy is already mounted, then follow whatever
          * was chosen for it. */
         if (cg_unified_flush() >= 0)
                 return cg_all_unified();
 
-        /* Otherwise, let's see what the kernel command line has to
-         * say. Since checking that is expensive, let's cache the
-         * result. */
+        /* If we have a cached value, return that. */
         if (wanted >= 0)
                 return wanted;
 
+        /* Otherwise, let's see what the kernel command line has to say.
+         * Since checking is expensive, cache a non-error result. */
         r = proc_cmdline_get_bool("systemd.unified_cgroup_hierarchy", &b);
         if (r < 0)
-                return false;
+                return is_default;
 
-        return (wanted = r > 0 ? b : false);
+        return (wanted = r > 0 ? b : is_default);
 }
 
 bool cg_is_legacy_wanted(void) {
@@ -2435,6 +2436,7 @@ bool cg_is_unified_systemd_controller_wanted(void) {
         static thread_local int wanted = -1;
         int r;
         bool b;
+        const bool is_default = DEFAULT_HIERARCHY == CGROUP_UNIFIED_SYSTEMD;
 
         /* If the unified hierarchy is requested in full, no need to
          * bother with this. */
@@ -2446,19 +2448,19 @@ bool cg_is_unified_systemd_controller_wanted(void) {
         if (cg_unified_flush() >= 0)
                 return cg_unified(SYSTEMD_CGROUP_CONTROLLER);
 
-        /* Otherwise, let's see what the kernel command line has to
-         * say. Since checking that is expensive, let's cache the
-         * result. */
+        /* If we have a cached value, return that. */
         if (wanted >= 0)
                 return wanted;
 
+        /* Otherwise, let's see what the kernel command line has to say.
+         * Since checking is expensive, cache a non-error result. */
         r = proc_cmdline_get_bool("systemd.legacy_systemd_cgroup_controller", &b);
         if (r < 0)
-                return false;
+                return is_default;
 
         /* The meaning of the kernel option is reversed wrt. to the return value
          * of this function, hence the negation. */
-        return (wanted = r > 0 ? !b : false);
+        return (wanted = r > 0 ? !b : is_default);
 }
 
 int cg_weight_parse(const char *s, uint64_t *ret) {
