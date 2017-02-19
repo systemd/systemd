@@ -1144,11 +1144,13 @@ static int setup_pam(
 
                 /* Tell the parent that our setup is done. This is especially
                  * important regarding dropping privileges. Otherwise, unit
-                 * setup might race against our setresuid(2) call. */
-                barrier_place(&barrier);
+                 * setup might race against our setresuid(2) call.
+                 *
+                 * If the parent aborted, we'll detect this below, hence ignore
+                 * return failure here. */
+                (void) barrier_place(&barrier);
 
-                /* Check if our parent process might already have
-                 * died? */
+                /* Check if our parent process might already have died? */
                 if (getppid() == parent_pid) {
                         sigset_t ss;
 
