@@ -379,7 +379,8 @@ int seat_read_active_vt(Seat *s) {
         if (!seat_has_vts(s))
                 return 0;
 
-        lseek(s->manager->console_active_fd, SEEK_SET, 0);
+        if (lseek(s->manager->console_active_fd, SEEK_SET, 0) < 0)
+                return log_error_errno(errno, "lseek on console_active_fd failed: %m");
 
         k = read(s->manager->console_active_fd, t, sizeof(t)-1);
         if (k <= 0) {
@@ -396,10 +397,8 @@ int seat_read_active_vt(Seat *s) {
         }
 
         r = safe_atou(t+3, &vtnr);
-        if (r < 0) {
-                log_error("Failed to parse VT number %s", t+3);
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse VT number \"%s\": %m", t+3);
 
         if (!vtnr) {
                 log_error("VT number invalid: %s", t+3);
