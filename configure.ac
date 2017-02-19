@@ -616,9 +616,9 @@ AC_DEFINE_UNQUOTED(FALLBACK_HOSTNAME, ["$FALLBACK_HOSTNAME"], [The hostname used
 
 AC_ARG_WITH(default-hierarchy,
         AS_HELP_STRING([--with-default-hierarchy=MODE],
-                [default cgroup hierarchy, defaults to "legacy"]),
+                [default cgroup hierarchy, defaults to "hybrid"]),
         [DEFAULT_HIERARCHY="$withval"],
-        [DEFAULT_HIERARCHY="legacy"])
+        [DEFAULT_HIERARCHY="hybrid"])
 
 AS_CASE("$DEFAULT_HIERARCHY",
         [legacy], [mode=CGROUP_UNIFIED_NONE],
