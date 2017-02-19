@@ -7540,7 +7540,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_STATE: {
                         if (isempty(optarg)) {
-                                log_error("--signal requires arguments.");
+                                log_error("--state requires arguments.");
                                 return -EINVAL;
                         }
 
@@ -7549,7 +7549,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                                 r = extract_first_word(&p, &s, ",", 0);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse signal: %s", optarg);
+                                        return log_error_errno(r, "Failed to parse state: %s", optarg);
                                 if (r == 0)
                                         break;
 
