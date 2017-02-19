@@ -626,6 +626,8 @@ AS_CASE("$DEFAULT_HIERARCHY",
         [unified], [mode=CGROUP_UNIFIED_ALL],
         AC_MSG_ERROR(Bad default hierarchy mode ${DEFAULT_HIERARCHY}))
 AC_DEFINE_UNQUOTED(DEFAULT_HIERARCHY, [$mode], [Default cgroup hierarchy])
+AC_DEFINE_UNQUOTED(DEFAULT_HIERARCHY_NAME, ["$DEFAULT_HIERARCHY"],
+                                           [Default cgroup hierarchy as string])
 
 # ------------------------------------------------------------------------------
 have_xz=no
