@@ -82,7 +82,9 @@ static void test_path_check_fstype(void) {
 }
 
 static void test_path_is_temporary_fs(void) {
-        assert_se(path_is_temporary_fs("/run") > 0);
+        /* run might not be a mount point in build chroots */
+        if (path_is_mount_point("/run", NULL, AT_SYMLINK_FOLLOW) > 0)
+                assert_se(path_is_temporary_fs("/run") > 0);
         assert_se(path_is_temporary_fs("/proc") == 0);
         assert_se(path_is_temporary_fs("/i-dont-exist") == -ENOENT);
 }
