@@ -2432,7 +2432,7 @@ bool cg_is_legacy_wanted(void) {
         return !cg_is_unified_wanted();
 }
 
-bool cg_is_unified_systemd_controller_wanted(void) {
+bool cg_is_hybrid_wanted(void) {
         static thread_local int wanted = -1;
         int r;
         bool b;
