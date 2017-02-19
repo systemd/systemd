@@ -6812,41 +6812,45 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                 r = unit_find_paths(bus, *name, &lp, &path, NULL);
                 if (r < 0)
                         return r;
-                else if (!arg_force) {
-                        if (r == 0) {
+
+                if (r == 0) {
+                        assert(!path);
+
+                        if (!arg_force) {
                                 log_error("Run 'systemctl edit --force %s' to create a new unit.", *name);
                                 return -ENOENT;
-                        } else if (!path) {
-                                // FIXME: support units with path==NULL (no FragmentPath)
-                                log_error("No fragment exists for %s.", *name);
-                                return -ENOENT;
                         }
-                }
 
-                unit_name = basename(path);
-                /* We follow unit aliases, but we need to propagate the instance */
-                if (unit_name_is_valid(*name, UNIT_NAME_INSTANCE) &&
-                    unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
-                        _cleanup_free_ char *instance = NULL;
+                        /* Create a new unit from scratch */
+                        unit_name = *name;
+                        r = unit_file_create_new(&lp, unit_name,
+                                                 arg_full ? NULL : ".d/override.conf",
+                                                 &new_path, &tmp_path);
+                } else {
+                        assert(path);
 
-                        r = unit_name_to_instance(*name, &instance);
-                        if (r < 0)
-                                return r;
+                        unit_name = basename(path);
+                        /* We follow unit aliases, but we need to propagate the instance */
+                        if (unit_name_is_valid(*name, UNIT_NAME_INSTANCE) &&
+                            unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
+                                _cleanup_free_ char *instance = NULL;
 
-                        r = unit_name_replace_instance(unit_name, instance, &tmp_name);
-                        if (r < 0)
-                                return r;
+                                r = unit_name_to_instance(*name, &instance);
+                                if (r < 0)
+                                        return r;
 
-                        unit_name = tmp_name;
-                }
+                                r = unit_name_replace_instance(unit_name, instance, &tmp_name);
+                                if (r < 0)
+                                        return r;
 
-                if (path) {
+                                unit_name = tmp_name;
+                        }
+
                         if (arg_full)
                                 r = unit_file_create_copy(&lp, unit_name, path, &new_path, &tmp_path);
                         else
                                 r = unit_file_create_new(&lp, unit_name, ".d/override.conf", &new_path, &tmp_path);
-                } else
-                        r = unit_file_create_new(&lp, *name, NULL, &new_path, &tmp_path);
+                }
                 if (r < 0)
                         return r;
 
