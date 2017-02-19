@@ -3482,6 +3482,8 @@ static int set_exit_code(uint8_t code) {
 static int start_special(int argc, char *argv[], void *userdata) {
         enum action a;
         int r;
+        bool termination_action; /* an action that terminates the manager,
+                                  * can be performed also by signal. */
 
         assert(argv);
 
@@ -3521,40 +3523,43 @@ static int start_special(int argc, char *argv[], void *userdata) {
                         return r;
         }
 
-        if (arg_force >= 2 &&
-            IN_SET(a,
-                   ACTION_HALT,
-                   ACTION_POWEROFF,
-                   ACTION_REBOOT))
+        termination_action = IN_SET(a,
+                                    ACTION_HALT,
+                                    ACTION_POWEROFF,
+                                    ACTION_REBOOT);
+        if (termination_action && arg_force >= 2)
                 return halt_now(a);
 
         if (arg_force >= 1 &&
-            IN_SET(a,
-                   ACTION_HALT,
-                   ACTION_POWEROFF,
-                   ACTION_REBOOT,
-                   ACTION_KEXEC,
-                   ACTION_EXIT))
-                return trivial_method(argc, argv, userdata);
+            (termination_action || IN_SET(ACTION_KEXEC, ACTION_EXIT)))
+                r = trivial_method(argc, argv, userdata);
+        else {
+                /* First try logind, to allow authentication with polkit */
+                if (IN_SET(a,
+                           ACTION_POWEROFF,
+                           ACTION_REBOOT,
+                           ACTION_SUSPEND,
+                           ACTION_HIBERNATE,
+                           ACTION_HYBRID_SLEEP)) {
 
-        /* First try logind, to allow authentication with polkit */
-        if (IN_SET(a,
-                   ACTION_POWEROFF,
-                   ACTION_REBOOT,
-                   ACTION_SUSPEND,
-                   ACTION_HIBERNATE,
-                   ACTION_HYBRID_SLEEP)) {
-                r = logind_reboot(a);
-                if (r >= 0)
-                        return r;
-                if (IN_SET(r, -EOPNOTSUPP, -EINPROGRESS))
-                        /* requested operation is not supported or already in progress */
-                        return r;
+                        r = logind_reboot(a);
+                        if (r >= 0)
+                                return r;
+                        if (IN_SET(r, -EOPNOTSUPP, -EINPROGRESS))
+                                /* requested operation is not supported or already in progress */
+                                return r;
 
-                /* On all other errors, try low-level operation */
+                        /* On all other errors, try low-level operation */
+                }
+
+                r = start_unit(argc, argv, userdata);
         }
 
-        return start_unit(argc, argv, userdata);
+        if (termination_action && arg_force < 2 &&
+            IN_SET(r, -ENOENT, -ETIMEDOUT))
+                log_notice("It is possible to perform action directly, see discussion of --force --force in systemctl(1).");
+
+        return r;
 }
 
 static int start_system_special(int argc, char *argv[], void *userdata) {
