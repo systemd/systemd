@@ -76,8 +76,11 @@ static int entry_fill_basics(
         }
 
         if (out_interface) {
+                size_t l = strlen(out_interface);
+                assert(l < sizeof entry->ip.outiface && l < sizeof entry->ip.outiface_mask);
+
                 strcpy(entry->ip.outiface, out_interface);
-                memset(entry->ip.outiface_mask, 0xFF, strlen(out_interface)+1);
+                memset(entry->ip.outiface_mask, 0xFF, l + 1);
         }
         if (destination) {
                 entry->ip.dst = destination->in;
