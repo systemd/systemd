@@ -2378,7 +2378,9 @@ bool cg_is_unified_systemd_controller_wanted(void) {
         if (r < 0)
                 return false;
 
-        return (wanted = r > 0 ? b : false);
+        /* The meaning of the kernel option is reversed wrt. to the return value
+         * of this function, hence the negation. */
+        return (wanted = r > 0 ? !b : false);
 }
 
 bool cg_is_legacy_systemd_controller_wanted(void) {
