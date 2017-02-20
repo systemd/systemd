@@ -3531,7 +3531,7 @@ static int start_special(int argc, char *argv[], void *userdata) {
                 return halt_now(a);
 
         if (arg_force >= 1 &&
-            (termination_action || IN_SET(ACTION_KEXEC, ACTION_EXIT)))
+            (termination_action || IN_SET(a, ACTION_KEXEC, ACTION_EXIT)))
                 r = trivial_method(argc, argv, userdata);
         else {
                 /* First try logind, to allow authentication with polkit */
