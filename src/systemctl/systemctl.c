@@ -3482,6 +3482,8 @@ static int set_exit_code(uint8_t code) {
 static int start_special(int argc, char *argv[], void *userdata) {
         enum action a;
         int r;
+        bool termination_action; /* an action that terminates the manager,
+                                  * can be performed also by signal. */
 
         assert(argv);
 
@@ -3521,40 +3523,43 @@ static int start_special(int argc, char *argv[], void *userdata) {
                         return r;
         }
 
-        if (arg_force >= 2 &&
-            IN_SET(a,
-                   ACTION_HALT,
-                   ACTION_POWEROFF,
-                   ACTION_REBOOT))
+        termination_action = IN_SET(a,
+                                    ACTION_HALT,
+                                    ACTION_POWEROFF,
+                                    ACTION_REBOOT);
+        if (termination_action && arg_force >= 2)
                 return halt_now(a);
 
         if (arg_force >= 1 &&
-            IN_SET(a,
-                   ACTION_HALT,
-                   ACTION_POWEROFF,
-                   ACTION_REBOOT,
-                   ACTION_KEXEC,
-                   ACTION_EXIT))
-                return trivial_method(argc, argv, userdata);
+            (termination_action || IN_SET(ACTION_KEXEC, ACTION_EXIT)))
+                r = trivial_method(argc, argv, userdata);
+        else {
+                /* First try logind, to allow authentication with polkit */
+                if (IN_SET(a,
+                           ACTION_POWEROFF,
+                           ACTION_REBOOT,
+                           ACTION_SUSPEND,
+                           ACTION_HIBERNATE,
+                           ACTION_HYBRID_SLEEP)) {
 
-        /* First try logind, to allow authentication with polkit */
-        if (IN_SET(a,
-                   ACTION_POWEROFF,
-                   ACTION_REBOOT,
-                   ACTION_SUSPEND,
-                   ACTION_HIBERNATE,
-                   ACTION_HYBRID_SLEEP)) {
-                r = logind_reboot(a);
-                if (r >= 0)
-                        return r;
-                if (IN_SET(r, -EOPNOTSUPP, -EINPROGRESS))
-                        /* requested operation is not supported or already in progress */
-                        return r;
+                        r = logind_reboot(a);
+                        if (r >= 0)
+                                return r;
+                        if (IN_SET(r, -EOPNOTSUPP, -EINPROGRESS))
+                                /* requested operation is not supported or already in progress */
+                                return r;
 
-                /* On all other errors, try low-level operation */
+                        /* On all other errors, try low-level operation */
+                }
+
+                r = start_unit(argc, argv, userdata);
         }
 
-        return start_unit(argc, argv, userdata);
+        if (termination_action && arg_force < 2 &&
+            IN_SET(r, -ENOENT, -ETIMEDOUT))
+                log_notice("It is possible to perform action directly, see discussion of --force --force in systemctl(1).");
+
+        return r;
 }
 
 static int start_system_special(int argc, char *argv[], void *userdata) {
@@ -6806,29 +6811,54 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                 return r;
 
         STRV_FOREACH(name, names) {
-                _cleanup_free_ char *path = NULL, *new_path = NULL, *tmp_path = NULL;
+                _cleanup_free_ char *path = NULL, *new_path = NULL, *tmp_path = NULL, *tmp_name = NULL;
+                const char *unit_name;
 
                 r = unit_find_paths(bus, *name, &lp, &path, NULL);
                 if (r < 0)
                         return r;
-                else if (!arg_force) {
-                        if (r == 0) {
-                                log_error("Run 'systemctl edit --force %s' to create a new unit.", *name);
-                                return -ENOENT;
-                        } else if (!path) {
-                                // FIXME: support units with path==NULL (no FragmentPath)
-                                log_error("No fragment exists for %s.", *name);
+
+                if (r == 0) {
+                        assert(!path);
+
+                        if (!arg_force) {
+                                log_error("Run 'systemctl edit%s --force %s' to create a new unit.",
+                                          arg_scope == UNIT_FILE_GLOBAL ? " --global" :
+                                          arg_scope == UNIT_FILE_USER ? " --user" : "",
+                                          *name);
                                 return -ENOENT;
                         }
-                }
 
-                if (path) {
+                        /* Create a new unit from scratch */
+                        unit_name = *name;
+                        r = unit_file_create_new(&lp, unit_name,
+                                                 arg_full ? NULL : ".d/override.conf",
+                                                 &new_path, &tmp_path);
+                } else {
+                        assert(path);
+
+                        unit_name = basename(path);
+                        /* We follow unit aliases, but we need to propagate the instance */
+                        if (unit_name_is_valid(*name, UNIT_NAME_INSTANCE) &&
+                            unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
+                                _cleanup_free_ char *instance = NULL;
+
+                                r = unit_name_to_instance(*name, &instance);
+                                if (r < 0)
+                                        return r;
+
+                                r = unit_name_replace_instance(unit_name, instance, &tmp_name);
+                                if (r < 0)
+                                        return r;
+
+                                unit_name = tmp_name;
+                        }
+
                         if (arg_full)
-                                r = unit_file_create_copy(&lp, basename(path), path, &new_path, &tmp_path);
+                                r = unit_file_create_copy(&lp, unit_name, path, &new_path, &tmp_path);
                         else
-                                r = unit_file_create_new(&lp, basename(path), ".d/override.conf", &new_path, &tmp_path);
-                } else
-                        r = unit_file_create_new(&lp, *name, NULL, &new_path, &tmp_path);
+                                r = unit_file_create_new(&lp, unit_name, ".d/override.conf", &new_path, &tmp_path);
+                }
                 if (r < 0)
                         return r;
 
