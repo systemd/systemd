@@ -1362,7 +1362,7 @@ static void help(void) {
                "  blame                    Print list of running units ordered by time to init\n"
                "  critical-chain           Print a tree of the time critical chain of units\n"
                "  plot                     Output SVG graphic showing service initialization\n"
-               "  dot                      Output dependency graph in dot(1) format\n"
+               "  dot                      Output dependency graph in man:dot(1) format\n"
                "  set-log-level LEVEL      Set logging threshold for manager\n"
                "  set-log-target TARGET    Set logging target for manager\n"
                "  dump                     Output state serialization of service manager\n"

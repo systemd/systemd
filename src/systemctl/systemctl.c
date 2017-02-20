@@ -3557,7 +3557,7 @@ static int start_special(int argc, char *argv[], void *userdata) {
 
         if (termination_action && arg_force < 2 &&
             IN_SET(r, -ENOENT, -ETIMEDOUT))
-                log_notice("It is possible to perform action directly, see discussion of --force --force in systemctl(1).");
+                log_notice("It is possible to perform action directly, see discussion of --force --force in man:systemctl(1).");
 
         return r;
 }

@@ -912,7 +912,7 @@ static int generate_new_id128(void) {
                SD_ID128_FORMAT_STR "\n\n"
                "As UUID:\n"
                "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n\n"
-               "As sd-id128(3) macro:\n"
+               "As man:sd-id128(3) macro:\n"
                "#define MESSAGE_XYZ SD_ID128_MAKE(",
                SD_ID128_FORMAT_VAL(id),
                SD_ID128_FORMAT_VAL(id));
