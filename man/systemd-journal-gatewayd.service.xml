@@ -197,7 +197,7 @@
         one per line
         (like <command>journalctl --output json</command>).
         See <ulink
-        url="http://www.freedesktop.org/wiki/Software/systemd/json">Journal
+        url="https://www.freedesktop.org/wiki/Software/systemd/json">Journal
         JSON Format</ulink> for more information.</para>
         </listitem>
       </varlistentry>
@@ -222,7 +222,7 @@
         transfer
         (like <command>journalctl --output export</command>).
         See <ulink
-        url="http://www.freedesktop.org/wiki/Software/systemd/export">Journal
+        url="https://www.freedesktop.org/wiki/Software/systemd/export">Journal
         Export Format</ulink> for more information.</para>
         </listitem>
       </varlistentry>
@@ -289,7 +289,7 @@
     <title>Examples</title>
     <para>Retrieve events from this boot from local journal
     in <ulink
-    url="http://www.freedesktop.org/wiki/Software/systemd/export">Journal
+    url="https://www.freedesktop.org/wiki/Software/systemd/export">Journal
     Export Format</ulink>:
     <programlisting>curl --silent -H'Accept: application/vnd.fdo.journal' \
        'http://localhost:19531/entries?boot'</programlisting>

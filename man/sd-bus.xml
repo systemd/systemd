@@ -62,7 +62,7 @@
     <title>Description</title>
 
     <para><filename>sd-bus.h</filename> provides an implementation of a D-Bus IPC client. See
-    <ulink url="http://www.freedesktop.org/software/dbus/" />
+    <ulink url="https://www.freedesktop.org/software/dbus/" />
     for more information about D-Bus IPC.
     </para>
 

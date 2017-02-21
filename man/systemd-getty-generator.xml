@@ -64,7 +64,7 @@
     <filename>container-getty@.service</filename> instances for
     additional container pseudo TTYs as requested by the container
     manager (see <ulink
-    url="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface/"><filename>Container
+    url="https://www.freedesktop.org/wiki/Software/systemd/ContainerInterface/"><filename>Container
     Interface</filename></ulink>). This should ensure that the user is
     shown a login prompt at the right place, regardless of which
     environment the system is started in. For example, it is

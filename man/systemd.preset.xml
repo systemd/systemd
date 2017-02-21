@@ -72,7 +72,7 @@
 
     <para>For more information on the preset logic please have a look
     at the <ulink
-    url="http://freedesktop.org/wiki/Software/systemd/Preset">Presets</ulink>
+    url="https://www.freedesktop.org/wiki/Software/systemd/Preset">Presets</ulink>
     document.</para>
 
     <para>It is not recommended to ship preset files within the

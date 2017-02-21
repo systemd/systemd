@@ -64,7 +64,7 @@
     <command>import-tar</command>, <command>export-raw</command>, and <command>export-tar</command> commands.</para>
 
     <para>See the
-    <ulink url="http://www.freedesktop.org/wiki/Software/systemd/importd">
+    <ulink url="https://www.freedesktop.org/wiki/Software/systemd/importd">
     importd D-Bus API Documentation</ulink> for information about the
     APIs <filename>systemd-importd</filename> provides.</para>
   </refsect1>

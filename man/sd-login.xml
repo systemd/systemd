@@ -67,7 +67,7 @@
     local system. </para>
 
     <para>See <ulink
-    url="http://www.freedesktop.org/wiki/Software/systemd/multiseat">Multi-Seat
+    url="https://www.freedesktop.org/wiki/Software/systemd/multiseat">Multi-Seat
     on Linux</ulink> for an introduction into multi-seat support on
     Linux, the background for this set of APIs.</para>
 

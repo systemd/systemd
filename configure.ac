@@ -21,9 +21,9 @@ AC_PREREQ([2.64])
 
 AC_INIT([systemd],
         [233],
-        [http://github.com/systemd/systemd/issues],
+        [https://github.com/systemd/systemd/issues],
         [systemd],
-        [http://www.freedesktop.org/wiki/Software/systemd])
+        [https://www.freedesktop.org/wiki/Software/systemd])
 
 AC_CONFIG_SRCDIR([src/core/main.c])
 AC_CONFIG_MACRO_DIR([m4])
@@ -581,7 +581,7 @@ AC_ARG_WITH([support-url],
         AS_HELP_STRING([--with-support-url=URL],
                 [specify the support URL to show in catalog entries included in systemd]),
         [SUPPORT_URL="$withval"],
-        [SUPPORT_URL=http://lists.freedesktop.org/mailman/listinfo/systemd-devel])
+        [SUPPORT_URL=https://lists.freedesktop.org/mailman/listinfo/systemd-devel])
 
 AC_SUBST(SUPPORT_URL)
 

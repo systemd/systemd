@@ -2204,7 +2204,7 @@ CHANGES WITH 220:
           gudev from the Gnome project instead. gudev is still included
           in systemd, for now. It will be removed soon, though. Please
           also see the announcement-thread on systemd-devel:
-          http://lists.freedesktop.org/archives/systemd-devel/2015-May/032070.html
+          https://lists.freedesktop.org/archives/systemd-devel/2015-May/032070.html
 
         * systemd now exposes a CPUUsageNSec= property for each
           service unit on the bus, that contains the overall consumed
@@ -4107,7 +4107,7 @@ CHANGES WITH 211:
           also supports LUKS-encrypted partitions now. With this in
           place, automatic discovery of partitions to mount following
           the Discoverable Partitions Specification
-          (http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec)
+          (https://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec)
           is now a lot more complete. This allows booting without
           /etc/fstab and without root= on the kernel command line on
           systems prepared appropriately.
@@ -5459,7 +5459,7 @@ CHANGES WITH 199:
         * A new libsystemd-bus module has been added that implements a
           pretty complete D-Bus client library. For details see:
 
-          http://lists.freedesktop.org/archives/systemd-devel/2013-March/009797.html
+          https://lists.freedesktop.org/archives/systemd-devel/2013-March/009797.html
 
         * journald will now explicitly flush the journal files to disk
           at the latest 5min after each write. The file will then also
@@ -5609,7 +5609,7 @@ CHANGES WITH 198:
           only in conjunction with Gummiboot, but could be supported
           by other boot loaders too. For details see:
 
-          http://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface
+          https://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface
 
         * A new generator has been added that automatically mounts the
           EFI System Partition (ESP) to /boot, if that directory
@@ -5685,7 +5685,7 @@ CHANGES WITH 198:
         * A new tool kernel-install has been added that can install
           kernel images according to the Boot Loader Specification:
 
-          http://www.freedesktop.org/wiki/Specifications/BootLoaderSpec
+          https://www.freedesktop.org/wiki/Specifications/BootLoaderSpec
 
         * Boot time console output has been improved to provide
           animated boot time output for hanging jobs.
@@ -5775,7 +5775,7 @@ CHANGES WITH 197:
           of these policies is now the default. Please see this wiki
           document for details:
 
-          http://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceNames
+          https://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceNames
 
         * Auke Kok's bootchart implementation has been added to the
           systemd tree. It is an optional component that can graph the
@@ -5923,7 +5923,7 @@ CHANGES WITH 196:
           indexed database to link up additional information with
           journal entries. For further details please check:
 
-          http://www.freedesktop.org/wiki/Software/systemd/catalog
+          https://www.freedesktop.org/wiki/Software/systemd/catalog
 
           The indexed message catalog database also needs to be
           rebuilt after installation of message catalog files. Use
@@ -6775,7 +6775,7 @@ CHANGES WITH 183:
 
         * A framework for implementing offline system updates is now
           integrated, for details see:
-          http://freedesktop.org/wiki/Software/systemd/SystemUpdates
+          https://freedesktop.org/wiki/Software/systemd/SystemUpdates
 
         * A new service type Type=idle is available now which helps us
           avoiding ugly interleaving of getty output and boot status
@@ -7056,7 +7056,7 @@ CHANGES WITH 39:
 
         * New unit file option ControlGroupPersistent= to make cgroups
           persistent, following the mechanisms outlined in
-          http://www.freedesktop.org/wiki/Software/systemd/PaxControlGroups
+          https://www.freedesktop.org/wiki/Software/systemd/PaxControlGroups
 
         * Support multiple local RTCs in a sane way
 
@@ -7143,7 +7143,7 @@ CHANGES WITH 38:
         * Processes with '@' in argv[0][0] are now excluded from the
           final shut-down killing spree, following the logic explained
           in:
-          http://www.freedesktop.org/wiki/Software/systemd/RootStorageDaemons
+          https://www.freedesktop.org/wiki/Software/systemd/RootStorageDaemons
 
         * All processes remaining in a service cgroup when we enter
           the START or START_PRE states are now killed with
