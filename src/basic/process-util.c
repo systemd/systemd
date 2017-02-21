@@ -703,7 +703,7 @@ int kill_and_sigcont(pid_t pid, int sig) {
 
         /* If this worked, also send SIGCONT, unless we already just sent a SIGCONT, or SIGKILL was sent which isn't
          * affected by a process being suspended anyway. */
-        if (r >= 0 && !IN_SET(SIGCONT, SIGKILL))
+        if (r >= 0 && !IN_SET(sig, SIGCONT, SIGKILL))
                 (void) kill(pid, SIGCONT);
 
         return r;
