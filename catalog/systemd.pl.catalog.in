@@ -20,7 +20,7 @@
 # Polish translation
 
 # The catalog format is documented on
-# http://www.freedesktop.org/wiki/Software/systemd/catalog
+# https://www.freedesktop.org/wiki/Software/systemd/catalog
 
 # For an explanation why we do all this, see https://xkcd.com/1024/
 
@@ -106,7 +106,7 @@ gdb(1) będą ostrzegały o skróceniu pliku.
 Subject: Utworzono nową sesję @SESSION_ID@ dla użytkownika @USER_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Nowa sesja o identyfikatorze @SESSION_ID@ została utworzona dla użytkownika
 @USER_ID@.
@@ -117,7 +117,7 @@ Proces prowadzący sesji: @LEADER@.
 Subject: Zakończono sesję @SESSION_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Sesja o identyfikatorze @SESSION_ID@ została zakończona.
 
@@ -125,7 +125,7 @@ Sesja o identyfikatorze @SESSION_ID@ została zakończona.
 Subject: Dostępne jest nowe stanowisko @SEAT_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Nowe stanowisko @SEAT_ID@ zostało skonfigurowane i jest teraz dostępne.
 
@@ -133,7 +133,7 @@ Nowe stanowisko @SEAT_ID@ zostało skonfigurowane i jest teraz dostępne.
 Subject: Usunięto stanowisko @SEAT_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Stanowisko @SEAT_ID@ zostało usunięte i nie jest już dostępne.
 

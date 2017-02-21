@@ -20,7 +20,7 @@
 # French translation
 
 # Le format du catalogue de messages est décrit (en anglais) içi :
-# http://www.freedesktop.org/wiki/Software/systemd/catalog
+# https://www.freedesktop.org/wiki/Software/systemd/catalog
 
 -- f77379a8490b408bbe5f6940505a777b
 Subject: Le journal a été démarré
@@ -96,7 +96,7 @@ incriminé, et cela devrait être notifié à son concepteur comme un défaut (b
 Subject: Une nouvelle session @SESSION_ID@ a été créée pour l'utilisateur @USER_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Une nouvelle session a été créée pour l'utilisateur @USER_ID@ avec
 l'identifiant (ID) @SESSION_ID@.
@@ -107,7 +107,7 @@ Le processus maître de la session est @LEADER@.
 Subject: La session @SESSION_ID@ s'est terminée
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 La session d'identifiant (ID) @SESSION_ID@ s'est terminée.
 
@@ -115,7 +115,7 @@ La session d'identifiant (ID) @SESSION_ID@ s'est terminée.
 Subject: Un nouveau poste (seat) @SEAT_ID@ est disponible
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Un nouveau poste (seat) @SEAT_ID@ a été configuré et est maintenant
 disponible.
@@ -124,7 +124,7 @@ disponible.
 Subject: Le poste (seat) @SEAT_ID@ a été retiré
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Le poste (seat) @SEAT_ID@ a été retiré et n'est plus disponible.
 

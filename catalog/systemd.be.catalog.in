@@ -20,7 +20,7 @@
 # Belarusian translation
 
 # Фармат каталога апісаны на старонцы
-# http://www.freedesktop.org/wiki/Software/systemd/catalog
+# https://www.freedesktop.org/wiki/Software/systemd/catalog
 
 # For an explanation why we do all this, see https://xkcd.com/1024/
 
@@ -94,7 +94,7 @@ Documentation: man:core(5)
 Subject: Новая сесія № @SESSION_ID@ створана для карыстальніка @USER_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Новая сесія з № @SESSION_ID@ створана для карыстальніка @USER_ID@.
 
@@ -104,7 +104,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: Сесія № @SESSION_ID@ спынена
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Сесія № @SESSION_ID@ спынена.
 
@@ -112,7 +112,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: Даступна новае працоўнае месца № @SEAT_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Новае працоўнае месца № @SEAT_ID@ наладжана і даступна для выкарыстання.
 
@@ -120,7 +120,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: Працоўнае месца № @SEAT_ID@ выдалена
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Працоўнае месца № @SEAT_ID@ выдалена і больш не даступна.
 
