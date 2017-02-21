@@ -399,7 +399,7 @@
           is part of the boot of most systems, while
           <filename>network-online.target</filename> is not, except
           when at least one unit requires it. Also see <ulink
-          url="http://www.freedesktop.org/wiki/Software/systemd/NetworkTarget">Running
+          url="https://www.freedesktop.org/wiki/Software/systemd/NetworkTarget">Running
           Services After the Network is up</ulink> for more
           information.</para>
 
@@ -616,7 +616,7 @@
           on. All userspace log messages will be made available on
           this socket. For more information about syslog integration,
           please consult the <ulink
-          url="http://www.freedesktop.org/wiki/Software/systemd/syslog">Syslog
+          url="https://www.freedesktop.org/wiki/Software/systemd/syslog">Syslog
           Interface</ulink> document.</para>
         </listitem>
       </varlistentry>
@@ -785,7 +785,7 @@
           is shut down. It is hence useful when writing service files
           that require network access on shutdown, which should order
           themselves after this target, but not pull it in. Also see
-          <ulink url="http://www.freedesktop.org/wiki/Software/systemd/NetworkTarget">Running
+          <ulink url="https://www.freedesktop.org/wiki/Software/systemd/NetworkTarget">Running
           Services After the Network is up</ulink> for more
           information. Also see
           <filename>network-online.target</filename> described

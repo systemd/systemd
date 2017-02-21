@@ -84,7 +84,7 @@
     This is useful for compatibility with SysV. Note that this
     compatibility is quite comprehensive but not 100%. For details
     about the incompatibilities, see the <ulink
-    url="http://www.freedesktop.org/wiki/Software/systemd/Incompatibilities">Incompatibilities
+    url="https://www.freedesktop.org/wiki/Software/systemd/Incompatibilities">Incompatibilities
     with SysV</ulink> document.</para>
   </refsect1>
 

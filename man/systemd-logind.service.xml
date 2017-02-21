@@ -99,17 +99,17 @@
     for information about the configuration of this service.</para>
 
     <para>See <ulink
-    url="http://www.freedesktop.org/wiki/Software/systemd/multiseat">Multi-Seat
+    url="https://www.freedesktop.org/wiki/Software/systemd/multiseat">Multi-Seat
     on Linux</ulink> for an introduction into basic concepts of logind
     such as users, sessions and seats.</para>
 
     <para>See the <ulink
-    url="http://www.freedesktop.org/wiki/Software/systemd/logind">
+    url="https://www.freedesktop.org/wiki/Software/systemd/logind">
     logind D-Bus API Documentation</ulink> for information about the
     APIs <filename>systemd-logind</filename> provides.</para>
 
     <para>For more information on the inhibition logic see the <ulink
-    url="http://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor
+    url="https://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor
     Lock Developer Documentation</ulink>.</para>
   </refsect1>
 

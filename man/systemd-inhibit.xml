@@ -72,7 +72,7 @@
     should not be interrupted.</para>
 
     <para>For more information see the <ulink
-    url="http://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor
+    url="https://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor
     Lock Developer Documentation</ulink>.</para>
   </refsect1>
 

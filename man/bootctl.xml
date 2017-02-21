@@ -118,8 +118,8 @@
   <refsect1>
     <title>See Also</title>
     <para>
-      <ulink url="http://www.freedesktop.org/wiki/Specifications/BootLoaderSpec">Boot loader specification</ulink>
-      <ulink url="http://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface">Systemd boot loader interface</ulink>
+      <ulink url="https://www.freedesktop.org/wiki/Specifications/BootLoaderSpec">Boot loader specification</ulink>
+      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface">Systemd boot loader interface</ulink>
     </para>
   </refsect1>
 </refentry>

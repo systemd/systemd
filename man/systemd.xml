@@ -449,7 +449,7 @@
 
     <para>Note that some but not all interfaces provided
     by systemd are covered by the
-    <ulink url="http://www.freedesktop.org/wiki/Software/systemd/InterfaceStabilityPromise">Interface
+    <ulink url="https://www.freedesktop.org/wiki/Software/systemd/InterfaceStabilityPromise">Interface
     Stability Promise</ulink>.</para>
 
     <para>Units may be generated dynamically at boot and system
@@ -459,8 +459,8 @@
 
     <para>Systems which invoke systemd in a container or initrd
     environment should implement the
-    <ulink url="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container Interface</ulink> or
-    <ulink url="http://www.freedesktop.org/wiki/Software/systemd/InitrdInterface">initrd Interface</ulink>
+    <ulink url="https://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container Interface</ulink> or
+    <ulink url="https://www.freedesktop.org/wiki/Software/systemd/InitrdInterface">initrd Interface</ulink>
     specifications, respectively.</para>
   </refsect1>
 
@@ -1145,7 +1145,7 @@
   <refsect1>
     <title>See Also</title>
     <para>
-      The <ulink url="http://www.freedesktop.org/wiki/Software/systemd/">systemd Homepage</ulink>,
+      The <ulink url="https://www.freedesktop.org/wiki/Software/systemd/">systemd Homepage</ulink>,
       <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,

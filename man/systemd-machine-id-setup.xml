@@ -92,7 +92,7 @@
       environment and a UUID is configured for the container, this is
       used to initialize the machine ID. For details, see the
       documentation of the <ulink
-      url="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container
+      url="https://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container
       Interface</ulink>.</para></listitem>
 
       <listitem><para>Otherwise, a new ID is randomly

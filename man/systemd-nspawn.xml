@@ -135,7 +135,7 @@
     container.</para>
 
     <para><command>systemd-nspawn</command> implements the <ulink
-    url="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container Interface</ulink>
+    url="https://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container Interface</ulink>
     specification.</para>
 
     <para>While running, containers invoked with <command>systemd-nspawn</command> are registered with the
@@ -233,7 +233,7 @@
           a server data partition which are mounted to the appropriate
           places in the container. All these partitions must be
           identified by the partition types defined by the <ulink
-          url="http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable
+          url="https://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable
           Partitions Specification</ulink>.</para></listitem>
 
           <listitem><para>No partition table, and a single file system spanning the whole image.</para></listitem>

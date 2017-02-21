@@ -71,7 +71,7 @@
     names.</para>
 
     <para>See the
-    <ulink url="http://www.freedesktop.org/wiki/Software/systemd/machined">
+    <ulink url="https://www.freedesktop.org/wiki/Software/systemd/machined">
     machined D-Bus API Documentation</ulink> for information about the
     APIs <filename>systemd-machined</filename> provides.</para>
   </refsect1>
