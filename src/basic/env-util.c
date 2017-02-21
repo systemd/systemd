@@ -637,7 +637,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
                                 break;
 
                         nest--;
-                        if (nest == 0) { // || !strchr(e+1, '}')) {
+                        if (nest == 0) {
                                 const char *t;
                                 _cleanup_free_ char *v = NULL;
 
