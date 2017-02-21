@@ -2,6 +2,8 @@ systemd System and Service Manager
 
 CHANGES WITH 233 in spe
 
+        [ LIST FAR FROM COMPLETE YET ]
+
         * DBus policy files are now installed into /usr rather than /etc. Make
           sure your system has dbus >= 1.9.18 running before upgrading to this
           version, or override the install path with --with-dbuspolicydir= .
@@ -26,18 +28,329 @@ CHANGES WITH 233 in spe
           The 'n' choice for the confirmation spawn prompt has been removed,
           because its meaning was confusing.
 
+          The prompt may now also be redirected to an alternative console by
+          specifying the console as parameter to systemd.confirm_spawn=.
+
         * Services of Type=notify require a READY=1 notification to be sent
           during startup. If no such message is sent, the service now fails,
           even if the main process exited with a successful exit code.
 
-        * The option MulticastDNS= of network configuration files has got
-          actual implementation. With MulticastDNS=yes a host can resolve
-          names of remote hosts and to reply to mDNS's A and AAAA requests
-          from the hosts.
+        * The option MulticastDNS= of network configuration files has acquire
+          and actual implementation. With MulticastDNS=yes a host can resolve
+          names of remote hosts and to reply to mDNS's A and AAAA requests from
+          the hosts.
 
         * When units are about to be started an additional check is now done to
           ensure that all dependencies of type BindsTo= (when used in
           combination with After=) have been started.
+
+        * systemd-analyze gained a new verb "syscall-filter" which shows which
+          system call groups are defined for the SystemCallFilter= unit file
+          setting, and which system calls they precisely contain.
+
+        * A new system call filter group "@filesystem" has been added,
+          consisting of various file system related system calls. A group
+          "@reboot" has been added, covering reboot, kexec and shutdown related
+          calls. Finally, a group "@swap" has been added covering swap
+          configuration related calls.
+
+        * A new unit file option RestrictNamespaces= has been added that may be
+          used to restrict access to the various process namespace types the
+          Linux kernel provides. Specifically, it may be used to take away the
+          right for specific service units to create additional file system,
+          networking, user, and other namespaces. This sandboxing option is
+          particularly relevant due to the high amount of recently discovered
+          namespacing related vulnerabilities in the kernel.
+
+        * .link gained support for a new AutoNegotiation= setting for
+          configuring Ethernet auto-negotiation.
+
+        * systemd-networkd's .network files gained support for a new
+          ListenPort= setting in the [DHCP] section to explicitly configure the
+          UDP client port the DHCP client shall listen on.
+
+        * New systemd-specific mount options are now understood in /etc/fstab:
+
+          x-systemd.mount-timeout= may be used to configure the maximum
+          permitted runtime of the mount command.
+
+          x-systemd.device-bound may be set to bind a mount point to its
+          backing device unit, in order to automatically remove a mount point
+          if its backing device is unplugged. This option may also be
+          configured through the new SYSTEMD_MOUNT_DEVICE_BOUND udev property
+          on the block device, which is now automatically set for all CDROM
+          drives, so that mounted CDs are automatically unmounted when they are
+          removed from the drive.
+
+          x-systemd.after= and x-systemd.before= may be use to explicitly order
+          a mount after or before another unit or mount point.
+
+        * Enqueued start jobs for device units are now automatically garbage
+          collected if there are no jobs waiting for them anymore.
+
+        * systemctl list-jobs gained two new switches: --after and
+          --before. When specified for all queued jobs it is shown which other
+          queued jobs are waiting for it, or the job is waiting for.
+
+        * systemd-nspawn gained support for ephemeral boots from disk images
+          (or in other words: --ephemeral and --image= may now be
+          combined). Moreover, ephemeral boots are now supported for normal
+          directories, even if the backing file system is not btrfs. Of course,
+          if the used file system does not support file system snapshots or
+          reflinks the initial copy operation will be relatively expensive, but
+          this should still be suitable for many usecases.
+
+        * Calendar time specifications in .timer units now support
+          specifications relative to the end of a month by using "~" instead of
+          "-" as separator between month and day. For example, "*-02~03" means
+          "The third last day in February". In addition a new syntax for
+          repeated events has been added using the "/" character. For example,
+          "9..17/2:00" means "every two hours from 9am to 5pm".
+
+        * systemd-socket-proxyd gained a new parameter --connections-max= for
+          configuring the maximum number of concurrent connections.
+
+        * All python scripts shipped with systemd (specifically: the various
+          tests written in Python) now require Python 3.
+
+        * sd-id128 gained a new API for generating unique IDs for the host,
+          that do not leak the machine ID. Specifically,
+          sd_id128_get_machine_app_specific() derives an ID based on the
+          machine ID in well-defined, non-reversible, stable way. This is
+          useful whenever an identifier for the host is needed but where the
+          identifier shall not be useful to identify the system beyond the
+          scope of the application itself. (Internally this uses HMAC-SHA256 as
+          keyed hash function using the machine ID as input.)
+
+        * NotifyAccess= gained a new supported value "exec". When set
+          notifications are accepted from all processes systemd itself invoked,
+          including all control processes.
+
+        * .nspawn files gained support for defining overlay mounts using the
+          Overlay= and OverlayReadOnly= options. Previously this functionality
+          was only available on the systemd-nspawn command line.
+
+        * systemd-nspawn's --bind= and --overlay= options gained support for
+          bind/overlay mounts whose source lies within the container tree by
+          prefixing the source path with "+".
+
+        * systemd-nspawn's --bind= and --overlay= options gained support for
+          automatically allocating a temporary source directory in /var/tmp
+          that is removed when the container dies. Specifically, if the source
+          directory is specified as empty string this mechanism is selected. An
+          example usage is --overlay=+/var::/var, which creates an overlay
+          mount based on the original /var contained in the image, overlayed
+          with a temporary directory in the host's /var/tmp. This way changes
+          to /var are automatically flushed when the container shuts down.
+
+        * .network files gained a new Unmanaged= boolean setting for explicitly
+          excluding one or more interfaces from management by systemd-networkd.
+
+        * systemd-nspawn's disk image dissection code has been updated. Among
+          other things it's not permitted to pass raw file system block devices
+          to the --image= option (in addition to images containing partition
+          tables, as before).
+
+        * The disk image dissection logic in systemd-nspawn gained support for
+          automatically setting up LUKS encrypted as well as Verity protected
+          partitions. When a container is booted from an encrypted image the
+          passphrase is queried at start-up time. When a container with Verity
+          data is started, the root hash is search in a ".roothash" file
+          accompanying the disk image (alternatively, pass the root hash via
+          the new --root-hash= command line option).
+
+        * A new tool /usr/lib/systemd/systemd-dissect has been added that may
+          be used to dissect disk images the same way as systemd-nspawn does
+          it, following the Bootable Partition Specification. It may even be
+          used to mount disk images with complex partition setups (including
+          LUKS and Verity partitions) to a local host directory, in order to
+          inspect them. This tool is not considered public API (yet), and is
+          thus not installed into /usr/bin. Please do not rely on its
+          existance, since it might go away or be changed in later systemd
+          versions.
+
+        * A new generator "systemd-verity-generator" has been added, similar in
+          style to "systemd-cryptsetup-generator" permitting automatic setup of
+          Verity root partitions when systemd boots up. In order to make use of
+          this your partition setup should follow the Discoverable Partitions
+          Specification, and the GPT partition ID of the root file system
+          partition should be identical to the upper 128bit of the Verity root
+          hash. The GPT partition ID of the Verity partition protecting it
+          should be the lower 128bit of the Verity root hash. If the partition
+          image follows this model it is sufficient to specify a single
+          "roothash=" kernel command line argument to both configure which root
+          image and verity partition to use as well as the root hash for
+          it. Note that systemd-nspawn's Verity support follows the same
+          semantics, meaning that disk images with proper Verity data in place
+          may be booted in containers with systemd-nspawn as well as on
+          physical systems via the verity generator. Also note that the "mkosi"
+          tool available at https://github.com/systemd/mkosi has been updated
+          to generate Verity protected disk images following this scheme. In
+          fact, it has been updated to generate disk images that optionally
+          implement a complete UEFI SecureBoot trust chain, involving a signed
+          kernel and initrd image that incorporates such a root hash as well as
+          a Verity-enabled root partition.
+
+        * Support for the %c, %r, %R specifiers in unit files has been
+          removed. Specifiers are not supposed to be dependent on configuration
+          of unit files themselves (so that they resolve to the same regardless
+          where used in the unit files), but these options were due to the
+          existence of the Slice= option.
+
+        * The various options in the [Match] section of .network files gained
+          support for negative matching.
+
+        * The hardware database (hwdb) udev supports has been updated to carry
+          accelerometer quirks.
+
+        * All system services are now run with a fresh kernel keyring set up
+          for them. The invocation ID is stored by default in it, thus
+          providing a safe, non-overridable way to determine the invocation
+          ID of each service.
+
+        * Service unit files gained new BindPaths= and BindReadOnlyPaths=
+          options for bind mounting arbitrary paths in a service-specific
+          way. When these options are used, arbitrary host or service files and
+          directories may be mounted to arbitrary locations in the service's
+          view.
+
+        * Documentation has been added that lists all of systemd's low-level
+          environment variables:
+
+          https://github.com/systemd/systemd/blob/master/ENVIRONMENT.md
+
+        * sd-daemon gained a new API sd_is_socket_sockaddr() for determining
+          whether a specific socket file descriptor matches a specified socket
+          address.
+
+        * systemd-firstboot has been updated to check for the
+          systemd.firstboot= kernel command line option. It accepts a boolean
+          and when set to false the first boot questions are skipped.
+
+        * The systemd-networkd ProxyARP= option has been renamed to
+          IPV4ProxyARP=.  Similar, VXLAN-specific option ARPProxy= has been
+          renamed to ReduceARPProxy=. The old names continue to be available
+          for compatibility.
+
+        * systemd-networkd's bonding device support gained support for two new
+          configuration options ActiveSlave= and PrimarySlave=.
+
+        * systemd-fstab-generator has been updated to check for the
+          systemd.volatile= kernel command line option, which either takes a
+          boolean parameter or the special value "state". If used the system
+          may be booted in a "volatile" boot mode. Specifically,
+          systemd.volatile=yes is used, the root directory will be mounted as
+          tmpfs, and only /usr is mounted from the actual root file system. If
+          systemd.volatile=state is used, the root directory will be mounted as
+          usual, but /var is mounted as tmpfs. This concept provides similar
+          functionality as systemd-nspawn's --volatile= option, but provides it
+          on physical boots. Use this option for implementing stateless
+          systems, or testing systems with all state and/or configuration reset
+          to the defaults. (Note though that many distributions are not
+          prepared to boot up without a populated /etc or /var, though)
+
+        * systemd-gpt-auto-generator gained support for LUKS encrypted root
+          partitions. Previously it only supported LUKS encrypted partitions
+          for all other uses, except for the root partition itself.
+
+        * Socket units gained support for listening on AF_VSOCK sockets for
+          communication in virtualized QEMU environments.
+
+        * The "configure" script gained a new option --with-fallback-hostname=
+          for specifying the fallback hostname to use if none is configured in
+          /etc/hostname. For example, by specifying
+          --with-fallback-hostname=fedora it is possible to default to a
+          hostname of "fedora" when the user didn't specify anything
+          explicitly.
+
+        * systemd-cgls gained support for a new --unit= switch for listing only
+          the control groups of a specific unit. Similar --user-unit= has been
+          added for listing only the control groups of a specific user unit.
+
+        * systemd-mount gained a new --umount switch for unmounting a mount or
+          automount point (and all mount/automount points below it).
+
+        * systemd will now refuse full configuration reloads (via systemctl
+          daemon-reload and related calls) unless at least 16MiB of free space
+          are available in /run. This is a safety precaution in order to ensure
+          that generators can safely operate after the reload completed.
+
+        * A new unit file option RootImage= has been added, which has a similar
+          effect as RootDirectory= but mounts the service's root directory from
+          a disk image instead of plain directory. This logic reuses the same
+          image dissection and mount logic that systemd-nspawn already uses,
+          and hence supports any disk images systemd-nspawn supports, including
+          those following the Discoverable Partition Specification, as well as
+          Verity enabled images. This option enables systemd to run system
+          services directly off disk images acting as resource bundles,
+          possibly even including full integrity data.
+
+        * A new MountAPIVFS= unit file option has been added, taking a boolean
+          argument. If enabled /proc, /sys and /proc (collectively called the
+          "API VFS") will be mounted for the service. This is only relevant if
+          RootDirectory= or RootImage= is used for the service, as these mounts
+          are of course in place in the host mount namespace anyway.
+
+        * systemd-nspawn gained support for a new --pivot-root= switch. If
+          specified the root directory within the container image is pivoted to
+          the specified mount point, while the original root disk is moved to a
+          different place. This option enables booting of ostree images
+          directly with systemd-nspawn.
+
+        * systemd-networkd gained support for configuring IPv6 Proxy NDP
+          addresses via the new IPv6ProxyNDPAddress= .network file setting.
+
+        * The systemd build scripts will no longer complain if the NTP server
+          addresses are not changed from the defaults. Google is now supporting
+          these NTP servers officially. We still recommend downstreams to
+          properly register an NTP pool with the NTP pool project though.
+
+        * coredumpctl gained new new "--reverse" option for printing the list
+          of coredumps in reverse order.
+
+        * The systemd-coredump logic has been improved so that it may be reused
+          for collecting backtraces in non-compiled languages, for example in
+          scripting languages such as Python.
+
+        * machinectl will now show the UID shift of local containers, if user
+          namespacing is enabled for them.
+
+        * systemd will not optionally run "environment generator" binaries at
+          configuration load time. They may be used to add environment
+          variables to the environment block passed to services invoked. One
+          user environment generator is shipped by default, that sets up
+          environment variables based on files dropped into
+          ~/.config/environment.d/.
+
+        Contributions from: Adrián López, Alexander Galanin, Alexander
+        Kochetkov, Alexandros Frantzis, Andrey Ulanov, Antoine Eiche, Baruch
+        Siach, Bastien Nocera, Benjamin Robin, Björn, Brandon Philips, Cédric
+        Schieli, Charles (Chas) Williams, Christian Hesse, Daniele Medri,
+        Daniel Drake, Daniel Rusek, Daniel Wagner, Dan Streetman, Dave Reisner,
+        David Glasser, David Herrmann, David Michael, Djalal Harouni, Dmitry
+        Khlebnikov, Dmitry Rozhkov, Dongsu Park, Douglas Christman, Earnestly,
+        Emil Soleyman, Eric Cook, Evgeny Vereshchagin, Felipe Sateler, Fionn
+        Cleary, Florian Klink, Francesco Brozzu, Franck Bui, Gabriel Rauter,
+        Gianluca Boiano, Graeme Lawes, Hans de Goede, Harald Hoyer, Ian
+        Kelling, Ivan Shapovalov, Jakub Wilk, Janne Heß, Jan Synacek, Jason
+        Reeder, Jonathan Boulle, Jörg Thalheim, Jouke Witteveen, Karl Kraus,
+        Kees Cook, Keith Busch, Kieran Colford, kilian-k, Lennart Poettering,
+        Lubomir Rintel, Lucas Werkmeister, Lukas Rusak, Maarten de Vries, Maks
+        Naumov, Mantas Mikulėnas, Marc-Andre Lureau, Marcin Bachry, Mark
+        Stosberg, Martin Ejdestig, Martin Pitt, micah, Michael Biebl, Michael
+        Shields, Michal Schmidt, Michal Sekletar, Michel Kraus, Mike Gilbert,
+        Mirza Krak, Namhyung Kim, nikolaof, peoronoob, Peter Hutterer, Peter
+        Körner, Philip Withnall, Piotr Drąg, Ray Strode, Reverend Homer,
+        Rike-Benjamin Schuppner, Robert Kreuzer, Ronny Chevalier, Ruslan
+        Bilovol, sammynx, Sergey Ptashnick, Sergiusz Urbaniak, Stefan Berger,
+        Stefan Hajnoczi, Stefan Schweter, Susant Sahani, Sylvain Plantefève,
+        Taylor Smock, Thomas Blume, Thomas H. P. Andersen, Tobias Stoeckmann,
+        Tom Gundersen, Torstein Husebø, Viktar Vaŭčkievič, Viktor Mihajlovski,
+        Waldemar Brodkorb, Walter Garcia-Fontes, Wim de With, Yassine
+        Imounachen, Yi EungJun, Yu Watanabe, Zbigniew Jędrzejewski-Szmek,
+        Александр Тихонов
+
+        — Santa Fe, 2017-02-XX
 
 CHANGES WITH 232:
 
