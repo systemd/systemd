@@ -1,0 +1,50 @@
+# This file is part of systemd.
+#
+# Database for joystick device information that cannot be queried directly.
+#
+# The lookup keys are composed in:
+#   70-joystick.rules
+#
+# Note: The format of the "joystick:" prefix match key is a
+# contract between the rules file and the hardware data, it might
+# change in later revisions to support more or better matches, it
+# is not necessarily expected to be a stable ABI.
+#
+# Match string format:
+# joystick:<bustype>:v<vid>p<pid>:name:<name>:
+#
+# vid/pid as 4-digit hex lowercase vendor/product
+#
+# To add local entries, create a new file
+#   /etc/udev/hwdb.d/71-joystick-local.hwdb
+# and add your rules there. To load the new rules execute (as root):
+#   systemd-hwdb update
+#   udevadm trigger /dev/input/eventXX
+# where /dev/input/eventXX is the joystick in question. If in
+# doubt, simply use /dev/input/event* to reload all input rules.
+#
+# If your changes are generally applicable, preferably send them as a pull
+# request to
+#   https://github.com/systemd/systemd
+# or create a bug report on https://github.com/systemd/systemd/issues and
+# include your new rules, a description of the device, and the output of
+#   udevadm info /dev/input/eventXX.
+#
+# Permitted keys:
+#   Specify if a joystick is a built-in one or external:
+#   ID_INPUT_JOYSTICK_INTEGRATION=internal|external
+#
+#   If the property is missing, user-space can assume:
+#   ID_INPUT_JOYSTICK_INTEGRATION=external
+
+joystick:bluetooth:*
+ ID_INPUT_JOYSTICK_INTEGRATION=external
+
+###########################################################
+# GPD
+###########################################################
+
+# GPD Win, Classic and XBox 360 compat modes
+joystick:usb:v11c5p5507*
+joystick:usb:v045ep028e*
+ ID_INPUT_JOYSTICK_INTEGRATION=internal

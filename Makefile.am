@@ -3828,6 +3828,7 @@ dist_udevrules_DATA += \
 	rules/60-sensor.rules \
 	rules/60-serial.rules \
 	rules/64-btrfs.rules \
+	rules/70-joystick.rules \
 	rules/70-mouse.rules \
 	rules/70-touchpad.rules \
 	rules/75-net-description.rules \
