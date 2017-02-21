@@ -3914,7 +3914,8 @@ gperf_gperf_sources += \
 libudev_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(BLKID_CFLAGS) \
-	$(KMOD_CFLAGS)
+	$(KMOD_CFLAGS) \
+	-D UDEV_PROPAGATE_LOG
 
 libudev_core_la_LIBADD = \
 	libsystemd-network.la \
@@ -4089,6 +4090,10 @@ EXTRA_DIST += \
 ata_id_SOURCES = \
 	src/udev/ata_id/ata_id.c
 
+ata_id_CFLAGS = \
+	$(AM_CFLAGS)
+	-D UDEV_PROPAGATE_LOG
+
 ata_id_LDADD = \
 	libshared.la
 
@@ -4098,6 +4103,10 @@ udevlibexec_PROGRAMS += \
 # ------------------------------------------------------------------------------
 cdrom_id_SOURCES = \
 	src/udev/cdrom_id/cdrom_id.c
+
+cdrom_id_CFLAGS = \
+	$(AM_CFLAGS)
+	-D UDEV_PROPAGATE_LOG
 
 cdrom_id_LDADD = \
 	libshared.la
@@ -4112,6 +4121,10 @@ dist_udevrules_DATA += \
 collect_SOURCES = \
 	src/udev/collect/collect.c
 
+collect_CFLAGS = \
+	$(AM_CFLAGS)
+	-D UDEV_PROPAGATE_LOG
+
 collect_LDADD = \
 	libshared.la
 
@@ -4124,6 +4137,10 @@ scsi_id_SOURCES =\
 	src/udev/scsi_id/scsi_serial.c \
 	src/udev/scsi_id/scsi.h \
 	src/udev/scsi_id/scsi_id.h
+
+scsi_id_CFLAGS = \
+	$(AM_CFLAGS)
+	-D UDEV_PROPAGATE_LOG
 
 scsi_id_LDADD = \
 	libshared.la
@@ -4152,6 +4169,10 @@ mtd_probe_SOURCES =  \
 	src/udev/mtd_probe/mtd_probe.c \
 	src/udev/mtd_probe/mtd_probe.h \
 	src/udev/mtd_probe/probe_smartmedia.c
+
+mtd_probe_CFLAGS = \
+	$(AM_CFLAGS)
+	-D UDEV_PROPAGATE_LOG
 
 dist_udevrules_DATA += \
 	rules/75-probe_mtd.rules
