@@ -160,8 +160,8 @@ static void test_replace_env(bool braceless) {
         q = replace_env("BARBAR=$BARBAR=${BARBAR}", (char**) env, flags);
         assert_se(streq(q, braceless ? "BARBAR==" : "BARBAR=$BARBAR="));
 
-        q = replace_env("BAR=$BAR$BAR${BAR}${BAR}", (char**) env, flags);
-        assert_se(streq(q, braceless ? "BAR=waldowaldowaldowaldo" : "BAR=$BAR$BARwaldowaldo"));
+        r = replace_env("BAR=$BAR$BAR${BAR}${BAR}", (char**) env, flags);
+        assert_se(streq(r, braceless ? "BAR=waldowaldowaldowaldo" : "BAR=$BAR$BARwaldowaldo"));
 
         p = replace_env("${BAR}$BAR$BAR", (char**) env, flags);
         assert_se(streq(p, braceless ? "waldowaldowaldo" : "waldo$BAR$BAR"));
