@@ -24,10 +24,13 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-journal.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "bus-error.h"
+#include "bus-util.h"
 #include "compress.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -871,9 +874,65 @@ finish:
         return r;
 }
 
+static int check_units_active(void) {
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        int c = 0, r;
+        const char *state;
+
+        r = sd_bus_default_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire bus: %m");
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &m,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "ListUnitsByPatterns");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_strv(m, NULL);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_strv(m, STRV_MAKE("systemd-coredump@*.service"));
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, 0, &error, &reply);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if any systemd-coredump@.service units are running: %s",
+                                       bus_error_message(&error, r));
+
+        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssssouso)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        while ((r = sd_bus_message_read(
+                                reply, "(ssssssouso)",
+                                NULL,  NULL,  NULL,  &state,  NULL,
+                                NULL,  NULL,  NULL,  NULL,  NULL) > 0))
+                if (!STR_IN_SET(state, "dead", "failed"))
+                        c++;
+
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return c;
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_(sd_journal_closep) sd_journal*j = NULL;
-        int r = 0;
+        int r = 0, units_active;
 
         setlocale(LC_ALL, "");
         log_parse_environment();
@@ -913,6 +972,8 @@ int main(int argc, char *argv[]) {
                 log_debug("Journal filter: %s", filter);
         }
 
+        units_active = check_units_active(); /* error is treated the same as 0 */
+
         switch(arg_action) {
 
         case ACTION_LIST:
@@ -933,6 +994,11 @@ int main(int argc, char *argv[]) {
                 assert_not_reached("Shouldn't be here");
         }
 
+        if (units_active > 0)
+                printf("%s-- Notice: %d systemd-coredump@.service %s, output may be incomplete.%s\n",
+                       ansi_highlight_red(),
+                       units_active, units_active == 1 ? "unit is running" : "units are running",
+                       ansi_normal());
 end:
         pager_close();
 
