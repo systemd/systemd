@@ -123,12 +123,8 @@ static int verify_esp(
 
         errno = 0;
         b = blkid_new_probe_from_filename(t);
-        if (!b) {
-                if (errno == 0)
-                        return log_oom();
-
-                return log_error_errno(errno, "Failed to open file system \"%s\": %m", p);
-        }
+        if (!b)
+                return log_error_errno(errno ?: ENOMEM, "Failed to open file system \"%s\": %m", p);
 
         blkid_probe_enable_superblocks(b, 1);
         blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
@@ -143,17 +139,13 @@ static int verify_esp(
         } else if (r == 1) {
                 log_error("File system \"%s\" does not contain a label.", p);
                 return -ENODEV;
-        } else if (r != 0) {
-                r = errno ? -errno : -EIO;
-                return log_error_errno(r, "Failed to probe file system \"%s\": %m", p);
-        }
+        } else if (r != 0)
+                return log_error_errno(errno ?: EIO, "Failed to probe file system \"%s\": %m", p);
 
         errno = 0;
         r = blkid_probe_lookup_value(b, "TYPE", &v, NULL);
-        if (r != 0) {
-                r = errno ? -errno : -EIO;
-                return log_error_errno(r, "Failed to probe file system type \"%s\": %m", p);
-        }
+        if (r != 0)
+                return log_error_errno(errno ?: EIO, "Failed to probe file system type \"%s\": %m", p);
         if (!streq(v, "vfat")) {
                 log_error("File system \"%s\" is not FAT.", p);
                 return -ENODEV;
@@ -161,10 +153,8 @@ static int verify_esp(
 
         errno = 0;
         r = blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &v, NULL);
-        if (r != 0) {
-                r = errno ? -errno : -EIO;
-                return log_error_errno(r, "Failed to probe partition scheme \"%s\": %m", p);
-        }
+        if (r != 0)
+                return log_error_errno(errno ?: EIO, "Failed to probe partition scheme \"%s\": %m", p);
         if (!streq(v, "gpt")) {
                 log_error("File system \"%s\" is not on a GPT partition table.", p);
                 return -ENODEV;
@@ -172,10 +162,8 @@ static int verify_esp(
 
         errno = 0;
         r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
-        if (r != 0) {
-                r = errno ? -errno : -EIO;
-                return log_error_errno(r, "Failed to probe partition type UUID \"%s\": %m", p);
-        }
+        if (r != 0)
+                return log_error_errno(errno ?: EIO, "Failed to probe partition type UUID \"%s\": %m", p);
         if (!streq(v, "c12a7328-f81f-11d2-ba4b-00a0c93ec93b")) {
                 log_error("File system \"%s\" has wrong type for an EFI System Partition (ESP).", p);
                 return -ENODEV;
@@ -183,10 +171,8 @@ static int verify_esp(
 
         errno = 0;
         r = blkid_probe_lookup_value(b, "PART_ENTRY_UUID", &v, NULL);
-        if (r != 0) {
-                r = errno ? -errno : -EIO;
-                return log_error_errno(r, "Failed to probe partition entry UUID \"%s\": %m", p);
-        }
+        if (r != 0)
+                return log_error_errno(errno ?: EIO, "Failed to probe partition entry UUID \"%s\": %m", p);
         r = sd_id128_from_string(v, &uuid);
         if (r < 0) {
                 log_error("Partition \"%s\" has invalid UUID \"%s\".", p, v);
@@ -195,30 +181,24 @@ static int verify_esp(
 
         errno = 0;
         r = blkid_probe_lookup_value(b, "PART_ENTRY_NUMBER", &v, NULL);
-        if (r != 0) {
-                r = errno ? -errno : -EIO;
-                return log_error_errno(r, "Failed to probe partition number \"%s\": m", p);
-        }
+        if (r != 0)
+                return log_error_errno(errno ?: EIO, "Failed to probe partition number \"%s\": m", p);
         r = safe_atou32(v, &part);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse PART_ENTRY_NUMBER field.");
 
         errno = 0;
         r = blkid_probe_lookup_value(b, "PART_ENTRY_OFFSET", &v, NULL);
-        if (r != 0) {
-                r = errno ? -errno : -EIO;
-                return log_error_errno(r, "Failed to probe partition offset \"%s\": %m", p);
-        }
+        if (r != 0)
+                return log_error_errno(errno ?: EIO, "Failed to probe partition offset \"%s\": %m", p);
         r = safe_atou64(v, &pstart);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse PART_ENTRY_OFFSET field.");
 
         errno = 0;
         r = blkid_probe_lookup_value(b, "PART_ENTRY_SIZE", &v, NULL);
-        if (r != 0) {
-                r = errno ? -errno : -EIO;
-                return log_error_errno(r, "Failed to probe partition size \"%s\": %m", p);
-        }
+        if (r != 0)
+                return log_error_errno(errno ?: EIO, "Failed to probe partition size \"%s\": %m", p);
         r = safe_atou64(v, &psize);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse PART_ENTRY_SIZE field.");
