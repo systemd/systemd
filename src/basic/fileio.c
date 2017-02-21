@@ -554,13 +554,14 @@ static int parse_env_file_internal(
                 }
         }
 
-        if (state == PRE_VALUE ||
-            state == VALUE ||
-            state == VALUE_ESCAPE ||
-            state == SINGLE_QUOTE_VALUE ||
-            state == SINGLE_QUOTE_VALUE_ESCAPE ||
-            state == DOUBLE_QUOTE_VALUE ||
-            state == DOUBLE_QUOTE_VALUE_ESCAPE) {
+        if (IN_SET(state,
+                   PRE_VALUE,
+                   VALUE,
+                   VALUE_ESCAPE,
+                   SINGLE_QUOTE_VALUE,
+                   SINGLE_QUOTE_VALUE_ESCAPE,
+                   DOUBLE_QUOTE_VALUE,
+                   DOUBLE_QUOTE_VALUE_ESCAPE)) {
 
                 key[n_key] = 0;
 
