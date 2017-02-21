@@ -780,6 +780,7 @@ static int merge_env_file_push(
 
         if (!env_name_is_valid(key)) {
                 log_error("%s:%u: invalid variable name \"%s\", ignoring.", strna(filename), line, key);
+                free(value);
                 return 0;
         }
 
