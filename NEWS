@@ -6775,7 +6775,7 @@ CHANGES WITH 183:
 
         * A framework for implementing offline system updates is now
           integrated, for details see:
-          https://freedesktop.org/wiki/Software/systemd/SystemUpdates
+          https://www.freedesktop.org/wiki/Software/systemd/SystemUpdates
 
         * A new service type Type=idle is available now which helps us
           avoiding ugly interleaving of getty output and boot status

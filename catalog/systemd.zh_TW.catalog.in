@@ -20,7 +20,7 @@
 # Traditional Chinese translation
 
 # Catalog 的格式記錄於
-# http://www.freedesktop.org/wiki/Software/systemd/catalog
+# https://www.freedesktop.org/wiki/Software/systemd/catalog
 
 # For an explanation why we do all this, see https://xkcd.com/1024/
 
@@ -79,7 +79,7 @@ Documentation: man:core(5)
 Subject: 新的工作階段 @SESSION_ID@ 已為使用者 @USER_ID@ 建立
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 一個新的工作階段，ID @SESSION_ID@ 已為使用者 @USER_ID@ 建立。
 
@@ -89,7 +89,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: 工作階段 @SESSION_ID@ 已結束
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 一個工作階段，ID @SESSION_ID@ 已結束。
 
@@ -97,7 +97,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: 新的座位 @SEAT_ID@ 可用
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 一個新的座位 @SEAT_ID@ 已被設定且現在可用。
 
@@ -105,7 +105,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: 座位 @SEAT_ID@ 已被移除
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 座位 @SEAT_ID@ 已被移除且不再可用。
 

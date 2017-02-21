@@ -19,7 +19,7 @@
 # Serbian translation
 
 # Формат каталога је документован на
-# http://www.freedesktop.org/wiki/Software/systemd/catalog
+# https://www.freedesktop.org/wiki/Software/systemd/catalog
 
 # Да бисте видели зашто ово радимо, погледајте https://xkcd.com/1024/
 
@@ -78,7 +78,7 @@ Documentation: man:core(5)
 Subject: Нова сесија @SESSION_ID@ је направљена за корисника @USER_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Нова сесија са ИБ-ом @SESSION_ID@ је направљена за корисника @USER_ID@.
 
@@ -88,7 +88,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: Сесија @SESSION_ID@ је окончана
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Сесија са ИБ-ом @SESSION_ID@ је окончана.
 
@@ -96,7 +96,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: Ново седиште @SEAT_ID@ је сада доступно
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Ново седиште @SEAT_ID@ је исподешавано и сада је доступно.
 
@@ -104,7 +104,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: Седиште @SEAT_ID@ је сада уклоњено
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Седиште @SEAT_ID@ је сада уклоњено и више није доступно.
 

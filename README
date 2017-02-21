@@ -269,7 +269,7 @@ WARNINGS:
         requires that /var/run is a symlink to /run.
 
         For more information on this issue consult
-        https://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken
+        https://www.freedesktop.org/wiki/Software/systemd/separate-usr-is-broken
 
         To run systemd under valgrind, compile with VALGRIND defined
         (e.g. ./configure CPPFLAGS='... -DVALGRIND=1'). Otherwise,

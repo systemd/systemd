@@ -19,7 +19,7 @@
 # Message catalog for systemd's own messages
 
 # The catalog format is documented on
-# http://www.freedesktop.org/wiki/Software/systemd/catalog
+# https://www.freedesktop.org/wiki/Software/systemd/catalog
 
 # For an explanation why we do all this, see https://xkcd.com/1024/
 
@@ -95,7 +95,7 @@ Documentation: man:core(5)
 Subject: Създадена е нова сесия № @SESSION_ID@ за потребителя „@USER_ID@“
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 За потребителя „@USER_ID@“ е създадена нова сесия № @SESSION_ID@.
 
@@ -105,7 +105,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: Сесия № @SESSION_ID@ приключи
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Сесия № @SESSION_ID@ приключи работа.
 
@@ -113,7 +113,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: Налично е ново работно място № @SEAT_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Новото работно място № @SEAT_ID@ е настроено и готово за работа.
 
@@ -121,7 +121,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: Работното място № @SEAT_ID@ е премахнато
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Работното място № @SEAT_ID@ вече не е налично.
 

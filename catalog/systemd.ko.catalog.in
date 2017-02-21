@@ -19,7 +19,7 @@
 # Korean translation
 
 # The catalog format is documented on
-# http://www.freedesktop.org/wiki/Software/systemd/catalog
+# https://www.freedesktop.org/wiki/Software/systemd/catalog
 
 # For an explanation why we do all this, see https://xkcd.com/1024/
 #
@@ -101,7 +101,7 @@ Documentation: man:core(5)
 Subject: @USER_ID@ 사용자의 새 @SESSION_ID@ 세션 만듦
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 @USER_ID@ 사용자의 새 @SESSION_ID@ 세션을 만들었습니다.
 
@@ -111,7 +111,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: @SESSION_ID@ 세션 마침
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 @SESSION_ID@ 세션을 끝냈습니다.
 
@@ -119,7 +119,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: 새 @SEAT_ID@ 시트 사용할 수 있음
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 새 @SEAT_ID@ 시트를 설정했고 사용할 수 있습니다.
 
@@ -127,7 +127,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: @SEAT_ID@ 시트 제거함
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 @SEAT_ID@ 시트를 제거했으며 더이상 사용할 수 없습니다.
 
