@@ -167,6 +167,34 @@ static void test_replace_env(bool braceless) {
         assert_se(streq(p, braceless ? "waldowaldowaldo" : "waldo$BAR$BAR"));
 }
 
+static void test_replace_env2(bool extended) {
+        const char *env[] = {
+                "FOO=foo",
+                "BAR=bar",
+                NULL
+        };
+        _cleanup_free_ char *t = NULL, *s = NULL, *q = NULL, *r = NULL, *p = NULL, *x = NULL;
+        unsigned flags = REPLACE_ENV_ALLOW_EXTENDED*extended;
+
+        t = replace_env("FOO=${FOO:-${BAR}}", (char**) env, flags);
+        assert_se(streq(t, extended ? "FOO=foo" : "FOO=${FOO:-bar}"));
+
+        s = replace_env("BAR=${XXX:-${BAR}}", (char**) env, flags);
+        assert_se(streq(s, extended ? "BAR=bar" : "BAR=${XXX:-bar}"));
+
+        q = replace_env("XXX=${XXX:+${BAR}}", (char**) env, flags);
+        assert_se(streq(q, extended ? "XXX=" : "XXX=${XXX:+bar}"));
+
+        r = replace_env("FOO=${FOO:+${BAR}}", (char**) env, flags);
+        assert_se(streq(r, extended ? "FOO=bar" : "FOO=${FOO:+bar}"));
+
+        p = replace_env("FOO=${FOO:-${BAR}post}", (char**) env, flags);
+        assert_se(streq(p, extended ? "FOO=foo" : "FOO=${FOO:-barpost}"));
+
+        x = replace_env("XXX=${XXX:+${BAR}post}", (char**) env, flags);
+        assert_se(streq(x, extended ? "XXX=" : "XXX=${XXX:+barpost}"));
+}
+
 static void test_replace_env_argv(void) {
         const char *env[] = {
                 "FOO=BAR BAR",
@@ -295,6 +323,8 @@ int main(int argc, char *argv[]) {
         test_env_strv_get_n();
         test_replace_env(false);
         test_replace_env(true);
+        test_replace_env2(false);
+        test_replace_env2(true);
         test_replace_env_argv();
         test_env_clean();
         test_env_name_is_valid();
