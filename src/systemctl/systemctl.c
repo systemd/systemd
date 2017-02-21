@@ -7330,7 +7330,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case 't': {
                         if (isempty(optarg)) {
-                                log_error("--type requires arguments.");
+                                log_error("--type= requires arguments.");
                                 return -EINVAL;
                         }
 
@@ -7570,7 +7570,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_STATE: {
                         if (isempty(optarg)) {
-                                log_error("--state requires arguments.");
+                                log_error("--state= requires arguments.");
                                 return -EINVAL;
                         }
 
