@@ -1859,8 +1859,7 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
         _cleanup_free_ char *value = NULL;
         const char *syspath;
         char *path;
-        struct stat statbuf;
-        size_t value_len = 0;
+        size_t len = 0;
         ssize_t size;
         int r;
 
@@ -1878,8 +1877,14 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
                 return r;
 
         path = strjoina(syspath, "/", sysattr);
-        r = lstat(path, &statbuf);
-        if (r < 0) {
+
+        fd = open(path, O_WRONLY | O_CLOEXEC | O_NOFOLLOW);
+        if (fd < 0) {
+                if (errno == ELOOP)
+                        return -EINVAL;
+                if (errno == EISDIR)
+                        return -EISDIR;
+
                 value = strdup("");
                 if (!value)
                         return -ENOMEM;
@@ -1891,46 +1896,30 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
                 return -ENXIO;
         }
 
-        if (S_ISLNK(statbuf.st_mode))
-                return -EINVAL;
-
-        /* skip directories */
-        if (S_ISDIR(statbuf.st_mode))
-                return -EISDIR;
-
-        /* skip non-readable files */
-        if ((statbuf.st_mode & S_IRUSR) == 0)
-                return -EACCES;
-
-        value_len = strlen(_value);
+        len = strlen(_value);
 
         /* drop trailing newlines */
-        while (value_len > 0 && _value[value_len - 1] == '\n')
-                _value[--value_len] = '\0';
+        while (len > 0 && _value[len - 1] == '\n')
+                len --;
 
         /* value length is limited to 4k */
-        if (value_len > 4096)
+        if (len > 4096)
                 return -EINVAL;
 
-        fd = open(path, O_WRONLY | O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
-
-        value = strdup(_value);
+        value = strndup(_value, len);
         if (!value)
                 return -ENOMEM;
 
-        size = write(fd, value, value_len);
+        size = write(fd, value, len);
         if (size < 0)
                 return -errno;
 
-        if ((size_t)size != value_len)
+        if ((size_t)size != len)
                 return -EIO;
 
         r = device_add_sysattr_value(device, sysattr, value);
         if (r < 0)
                 return r;
-
         value = NULL;
 
         return 0;
