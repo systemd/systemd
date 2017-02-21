@@ -916,7 +916,7 @@ static int check_units_active(void) {
         while ((r = sd_bus_message_read(
                                 reply, "(ssssssouso)",
                                 NULL,  NULL,  NULL,  &state,  NULL,
-                                NULL,  NULL,  NULL,  NULL,  NULL) > 0))
+                                NULL,  NULL,  NULL,  NULL,  NULL)) > 0)
                 if (!STR_IN_SET(state, "dead", "failed"))
                         c++;
 
