@@ -35,8 +35,8 @@ CHANGES WITH 233 in spe
           during startup. If no such message is sent, the service now fails,
           even if the main process exited with a successful exit code.
 
-        * The option MulticastDNS= of network configuration files has acquire
-          and actual implementation. With MulticastDNS=yes a host can resolve
+        * The option MulticastDNS= of network configuration files has acquired
+          an actual implementation. With MulticastDNS=yes a host can resolve
           names of remote hosts and to reply to mDNS's A and AAAA requests from
           the hosts.
 
@@ -88,17 +88,17 @@ CHANGES WITH 233 in spe
         * Enqueued start jobs for device units are now automatically garbage
           collected if there are no jobs waiting for them anymore.
 
-        * systemctl list-jobs gained two new switches: --after and
-          --before. When specified for all queued jobs it is shown which other
-          queued jobs are waiting for it, or the job is waiting for.
+        * systemctl list-jobs gained two new switches: With --after, every
+          queued job shows which other queued job is waiting for it; with
+          --before it shows which other jobs every job is waiting for.
 
         * systemd-nspawn gained support for ephemeral boots from disk images
           (or in other words: --ephemeral and --image= may now be
           combined). Moreover, ephemeral boots are now supported for normal
           directories, even if the backing file system is not btrfs. Of course,
-          if the used file system does not support file system snapshots or
-          reflinks the initial copy operation will be relatively expensive, but
-          this should still be suitable for many usecases.
+          if the file system does not support file system snapshots or
+          reflinks, the initial copy operation will be relatively expensive, but
+          this should still be suitable for many use cases.
 
         * Calendar time specifications in .timer units now support
           specifications relative to the end of a month by using "~" instead of
@@ -113,10 +113,10 @@ CHANGES WITH 233 in spe
         * All python scripts shipped with systemd (specifically: the various
           tests written in Python) now require Python 3.
 
-        * sd-id128 gained a new API for generating unique IDs for the host,
-          that do not leak the machine ID. Specifically,
+        * sd-id128 gained a new API for generating unique IDs for the host
+          that does not leak the machine ID. Specifically,
           sd_id128_get_machine_app_specific() derives an ID based on the
-          machine ID in well-defined, non-reversible, stable way. This is
+          machine ID a in well-defined, non-reversible, stable way. This is
           useful whenever an identifier for the host is needed but where the
           identifier shall not be useful to identify the system beyond the
           scope of the application itself. (Internally this uses HMAC-SHA256 as
@@ -146,10 +146,9 @@ CHANGES WITH 233 in spe
         * .network files gained a new Unmanaged= boolean setting for explicitly
           excluding one or more interfaces from management by systemd-networkd.
 
-        * systemd-nspawn's disk image dissection code has been updated. Among
-          other things it's not permitted to pass raw file system block devices
-          to the --image= option (in addition to images containing partition
-          tables, as before).
+        * systemd-nspawn --image= option does now permit raw file system block
+          devices (in addition to images containing partition tables, as
+          before).
 
         * The disk image dissection logic in systemd-nspawn gained support for
           automatically setting up LUKS encrypted as well as Verity protected
@@ -170,7 +169,7 @@ CHANGES WITH 233 in spe
           versions.
 
         * A new generator "systemd-verity-generator" has been added, similar in
-          style to "systemd-cryptsetup-generator" permitting automatic setup of
+          style to "systemd-cryptsetup-generator", permitting automatic setup of
           Verity root partitions when systemd boots up. In order to make use of
           this your partition setup should follow the Discoverable Partitions
           Specification, and the GPT partition ID of the root file system
@@ -286,7 +285,7 @@ CHANGES WITH 233 in spe
           possibly even including full integrity data.
 
         * A new MountAPIVFS= unit file option has been added, taking a boolean
-          argument. If enabled /proc, /sys and /proc (collectively called the
+          argument. If enabled /proc, /sys and /dev (collectively called the
           "API VFS") will be mounted for the service. This is only relevant if
           RootDirectory= or RootImage= is used for the service, as these mounts
           are of course in place in the host mount namespace anyway.
@@ -315,10 +314,10 @@ CHANGES WITH 233 in spe
         * machinectl will now show the UID shift of local containers, if user
           namespacing is enabled for them.
 
-        * systemd will not optionally run "environment generator" binaries at
+        * systemd will now optionally run "environment generator" binaries at
           configuration load time. They may be used to add environment
           variables to the environment block passed to services invoked. One
-          user environment generator is shipped by default, that sets up
+          user environment generator is shipped by default that sets up
           environment variables based on files dropped into
           ~/.config/environment.d/.
 
@@ -350,7 +349,7 @@ CHANGES WITH 233 in spe
         Imounachen, Yi EungJun, Yu Watanabe, Zbigniew Jędrzejewski-Szmek,
         Александр Тихонов
 
-        — Santa Fe, 2017-02-XX
+        — Berlin, 2017-02-XX
 
 CHANGES WITH 232:
 
