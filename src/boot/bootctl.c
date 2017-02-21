@@ -38,20 +38,22 @@
 
 #include "alloc-util.h"
 #include "blkid-util.h"
+#include "copy.h"
 #include "dirent-util.h"
 #include "efivars.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "locale-util.h"
 #include "parse-util.h"
 #include "rm-rf.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "umask-util.h"
 #include "util.h"
 #include "verbs.h"
 #include "virt.h"
-#include "stat-util.h"
 
 static char *arg_path = NULL;
 static bool arg_touch_variables = true;
@@ -476,16 +478,16 @@ static int compare_version(const char *a, const char *b) {
         return strverscmp(a, b);
 }
 
-static int version_check(int fd, const char *from, const char *to) {
+static int version_check(int fd_from, const char *from, int fd_to, const char *to) {
         _cleanup_free_ char *a = NULL, *b = NULL;
-        _cleanup_close_ int fd2 = -1;
         int r;
 
-        assert(fd >= 0);
+        assert(fd_from >= 0);
         assert(from);
+        assert(fd_to >= 0);
         assert(to);
 
-        r = get_file_version(fd, &a);
+        r = get_file_version(fd_from, &a);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -493,15 +495,7 @@ static int version_check(int fd, const char *from, const char *to) {
                 return -EINVAL;
         }
 
-        fd2 = open(to, O_RDONLY|O_CLOEXEC);
-        if (fd2 < 0) {
-                if (errno == ENOENT)
-                        return 0;
-
-                return log_error_errno(errno, "Failed to open \"%s\" for reading: %m", to);
-        }
-
-        r = get_file_version(fd2, &b);
+        r = get_file_version(fd_to, &b);
         if (r < 0)
                 return r;
         if (r == 0 || compare_product(a, b) != 0) {
@@ -517,90 +511,59 @@ static int version_check(int fd, const char *from, const char *to) {
         return 0;
 }
 
-static int copy_file(const char *from, const char *to, bool force) {
-        _cleanup_fclose_ FILE *f = NULL, *g = NULL;
-        char *p;
+static int copy_file_with_version_check(const char *from, const char *to, bool force) {
+        _cleanup_close_ int fd_from = -1, fd_to = -1;
+        _cleanup_free_ char *t = NULL;
         int r;
-        struct timespec t[2];
-        struct stat st;
 
-        assert(from);
-        assert(to);
-
-        f = fopen(from, "re");
-        if (!f)
+        fd_from = open(from, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        if (fd_from < 0)
                 return log_error_errno(errno, "Failed to open \"%s\" for reading: %m", from);
 
         if (!force) {
-                /* If this is an update, then let's compare versions first */
-                r = version_check(fileno(f), from, to);
-                if (r < 0)
-                        return r;
-        }
+                fd_to = open(to, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (fd_to < 0) {
+                        if (errno != -ENOENT)
+                                return log_error_errno(errno, "Failed to open \"%s\" for reading: %m", to);
+                } else {
+                        r = version_check(fd_from, from, fd_to, to);
+                        if (r < 0)
+                                return r;
 
-        p = strjoina(to, "~");
-        g = fopen(p, "wxe");
-        if (!g) {
-                /* Directory doesn't exist yet? Then let's skip this... */
-                if (!force && errno == ENOENT)
-                        return 0;
+                        if (lseek(fd_from, 0, SEEK_SET) == (off_t) -1)
+                                return log_error_errno(errno, "Failed to seek in \%s\": %m", from);
 
-                return log_error_errno(errno, "Failed to open \"%s\" for writing: %m", to);
-        }
-
-        rewind(f);
-        do {
-                size_t k;
-                uint8_t buf[32*1024];
-
-                k = fread(buf, 1, sizeof(buf), f);
-                if (ferror(f)) {
-                        r = log_error_errno(EIO, "Failed to read \"%s\": %m", from);
-                        goto error;
+                        fd_to = safe_close(fd_to);
                 }
-
-                if (k == 0)
-                        break;
-
-                fwrite(buf, 1, k, g);
-                if (ferror(g)) {
-                        r = log_error_errno(EIO, "Failed to write \"%s\": %m", to);
-                        goto error;
-                }
-        } while (!feof(f));
-
-        r = fflush_and_check(g);
-        if (r < 0) {
-                log_error_errno(r, "Failed to write \"%s\": %m", to);
-                goto error;
         }
 
-        r = fstat(fileno(f), &st);
-        if (r < 0) {
-                r = log_error_errno(errno, "Failed to get file timestamps of \"%s\": %m", from);
-                goto error;
+        r = tempfn_random(to, NULL, &t);
+        if (r < 0)
+                return log_oom();
+
+        RUN_WITH_UMASK(0000) {
+                fd_to = open(t, O_WRONLY|O_CREAT|O_CLOEXEC|O_EXCL|O_NOFOLLOW, 0644);
+                if (fd_to < 0)
+                        return log_error_errno(errno, "Failed to open \"%s\" for writing: %m", t);
         }
 
-        t[0] = st.st_atim;
-        t[1] = st.st_mtim;
-
-        r = futimens(fileno(g), t);
+        r = copy_bytes(fd_from, fd_to, (uint64_t) -1, COPY_REFLINK);
         if (r < 0) {
-                r = log_error_errno(errno, "Failed to set file timestamps on \"%s\": %m", p);
-                goto error;
+                unlink(t);
+                return log_error_errno(errno, "Failed to copy data from \"%s\" to \"%s\": %m", from, t);
         }
 
-        if (rename(p, to) < 0) {
-                r = log_error_errno(errno, "Failed to rename \"%s\" to \"%s\": %m", p, to);
-                goto error;
+        (void) copy_times(fd_from, fd_to);
+
+        r = renameat(AT_FDCWD, t, AT_FDCWD, to);
+        if (r < 0) {
+                (void) unlink_noerrno(t);
+                return log_error_errno(errno, "Failed to rename \"%s\" to \"%s\": %m", t, to);
         }
 
         log_info("Copied \"%s\" to \"%s\".", from, to);
-        return 0;
 
-error:
-        (void) unlink(p);
-        return r;
+        return 0;
 }
 
 static int mkdir_one(const char *prefix, const char *suffix) {
@@ -644,7 +607,7 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
 
         p = strjoina(BOOTLIBDIR "/", name);
         q = strjoina(esp_path, "/EFI/systemd/", name);
-        r = copy_file(p, q, force);
+        r = copy_file_with_version_check(p, q, force);
 
         if (startswith(name, "systemd-boot")) {
                 int k;
@@ -654,7 +617,7 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
                 v = strjoina(esp_path, "/EFI/BOOT/BOOT", name + strlen("systemd-boot"));
                 ascii_strupper(strrchr(v, '/') + 1);
 
-                k = copy_file(p, v, force);
+                k = copy_file_with_version_check(p, v, force);
                 if (k < 0 && r == 0)
                         r = k;
         }
@@ -950,20 +913,31 @@ static int remove_variables(sd_id128_t uuid, const char *path, bool in_order) {
 
 static int install_loader_config(const char *esp_path) {
 
-        _cleanup_fclose_ FILE *f = NULL;
         char machine_string[SD_ID128_STRING_MAX];
+        _cleanup_(unlink_and_freep) char *t = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         sd_id128_t machine_id;
         const char *p;
-        int r;
+        int r, fd;
 
         r = sd_id128_get_machine(&machine_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to get machine did: %m");
 
         p = strjoina(esp_path, "/loader/loader.conf");
-        f = fopen(p, "wxe");
-        if (!f)
-                return log_error_errno(errno, "Failed to open loader.conf for writing: %m");
+
+        if (access(p, F_OK) >= 0) /* Silently skip creation if the file already exists (early check) */
+                return 0;
+
+        fd = open_tmpfile_linkable(p, O_WRONLY|O_CLOEXEC, &t);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open \"%s\" for writing: %m", p);
+
+        f = fdopen(fd, "we");
+        if (!f) {
+                safe_close(fd);
+                return log_oom();
+        }
 
         fprintf(f, "#timeout 3\n");
         fprintf(f, "default %s-*\n", sd_id128_to_string(machine_id, machine_string));
@@ -972,7 +946,15 @@ static int install_loader_config(const char *esp_path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write \"%s\": %m", p);
 
-        return 0;
+        r = link_tmpfile(fd, t, p);
+        if (r == -EEXIST)
+                return 0; /* Silently skip creation if the file exists now (recheck) */
+        if (r < 0)
+                return log_error_errno(r, "Failed to move \"%s\" into place: %m", p);
+
+        t = mfree(t);
+
+        return 1;
 }
 
 static int help(int argc, char *argv[], void *userdata) {

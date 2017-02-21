@@ -220,6 +220,7 @@ LogTarget log_target_from_string(const char *s) _pure_;
 void log_received_signal(int level, const struct signalfd_siginfo *si);
 
 void log_set_upgrade_syslog_to_journal(bool b);
+void log_set_always_reopen_console(bool b);
 
 int log_syntax_internal(
                 const char *unit,

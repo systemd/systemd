@@ -558,7 +558,7 @@ int copy_file_atomic(const char *from, const char *to, mode_t mode, unsigned cha
         } else
                 r = rename_noreplace(AT_FDCWD, t, AT_FDCWD, to);
         if (r < 0) {
-                (void) unlink_noerrno(t);
+                (void) unlink(t);
                 return r;
         }
 

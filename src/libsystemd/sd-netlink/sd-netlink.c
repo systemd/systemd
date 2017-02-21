@@ -276,6 +276,10 @@ static int dispatch_rqueue(sd_netlink *rtnl, sd_netlink_message **message) {
         if (rtnl->rqueue_size <= 0) {
                 /* Try to read a new message */
                 r = socket_read_message(rtnl);
+                if (r == -ENOBUFS) { /* FIXME: ignore buffer overruns for now */
+                        log_debug_errno(r, "Got ENOBUFS from netlink socket, ignoring.");
+                        return 1;
+                }
                 if (r <= 0)
                         return r;
         }
