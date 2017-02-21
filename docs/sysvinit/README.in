@@ -24,4 +24,4 @@ Further reading:
         man:systemctl(1)
         man:systemd(1)
         http://0pointer.de/blog/projects/systemd-for-admins-3.html
-        http://www.freedesktop.org/wiki/Software/systemd/Incompatibilities
+        https://www.freedesktop.org/wiki/Software/systemd/Incompatibilities
