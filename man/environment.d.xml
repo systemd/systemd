@@ -1,0 +1,104 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!--
+  This file is part of systemd.
+
+  Copyright 2016 Red Hat, Inc.
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+<refentry id="environment.d" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>environment.d</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Ray</firstname>
+        <surname>Strode</surname>
+        <email>rstrode@redhat.com</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>environment.d</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>environment.d</refname>
+    <refpurpose>Definition of user session environment</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>~/.config/environment.d/*.conf</filename></para>
+    <para><filename>/etc/environment.d/*.conf</filename></para>
+    <para><filename>/run/environment.d/*.conf</filename></para>
+    <para><filename>/usr/lib/environment.d/*.conf</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>At first login, <command>systemd --user</command> uses the files from
+    <filename>environment.d</filename> directory to initialize the
+    environment of the user's session.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Configuration Format</title>
+
+    <para>The configuration files contain a list of
+    <literal>KEY=VALUE</literal> environment variable assignments, separated
+    by newlines. The right hand side of these assignments may reference
+    previously defined environment variables, using the
+    <literal>${OTHER_KEY}</literal> format.  The format
+    <literal>${OTHER_KEY:-DEFAULT_VALUE}</literal> may be used to expand in
+    the same way as <literal>${OTHER_KEY}</literal> unless the expansion would
+    be empty, in which case it expands to <literal>DEFAULT_VALUE</literal>.
+    The format <literal>${FOO:+ALTERNATE_VALUE}</literal> will expand to
+    <literal>ALTERNATE_VALUE</literal> as long as <literal>${FOO}</literal>
+    would have expanded to a non-empty value, otherwise it expands to the
+    empty string.</para>
+
+    <xi:include href="standard-conf.xml" xpointer="confd" />
+
+    <refsect2>
+      <title>Example</title>
+      <example>
+        <title>Setup environment for program installed in /opt/foo</title>
+        <para><filename>/etc/environment.d/60-foo.conf</filename>:
+        </para>
+        <programlisting>
+        FOO_DEBUG=force-software-gl,log-verbose
+        PATH=/opt/foo/bin${PATH:+:${PATH}}
+        LD_LIBRARY_PATH=/opt/foo/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+        XDG_DATA_DIRS=/opt/foo/share:${XDG_DATA_DIRS:-/usr/local/share/:/usr/share}
+        </programlisting>
+      </example>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+    </para>
+  </refsect1>
+
+</refentry>

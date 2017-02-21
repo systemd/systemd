@@ -204,6 +204,102 @@ static void test_parse_multiline_env_file(void) {
         unlink(p);
 }
 
+static void test_merge_env_file(void) {
+        char    t[] = "/tmp/test-fileio-in-XXXXXX",
+                p[] = "/tmp/test-fileio-out-XXXXXX";
+        int fd, r;
+        FILE *f;
+        _cleanup_strv_free_ char **a = NULL, **b = NULL;
+        char **i;
+
+        fd = mkostemp_safe(p, O_RDWR|O_CLOEXEC);
+        assert_se(fd >= 0);
+        close(fd);
+
+        fd = mkostemp_safe(t, O_RDWR|O_CLOEXEC);
+        assert_se(fd >= 0);
+
+        f = fdopen(fd, "w");
+        assert_se(f);
+
+        fputs("one=1   \n"
+              "twelve=${one}2\n"
+              "twentyone=2${one}\n"
+              "one=2\n"
+              "twentytwo=2${one}\n", f);
+
+        fflush(f);
+        fclose(f);
+
+        r = merge_env_file(NULL, t, NULL, NULL, MERGE_ENV_FILE_EXPAND, &a);
+        assert_se(r >= 0);
+
+        STRV_FOREACH(i, a)
+                log_info("Got: <%s>", *i);
+
+        assert_se(streq_ptr(a[0], "twelve=12"));
+        assert_se(streq_ptr(a[1], "twentyone=21"));
+        assert_se(streq_ptr(a[2], "one=2"));
+        assert_se(streq_ptr(a[3], "twentytwo=22"));
+        assert_se(a[4] == NULL);
+
+        a = strv_free(a);
+
+        r = merge_env_file(NULL, t, NULL, NULL, 0, &a);
+        assert_se(r >= 0);
+
+        STRV_FOREACH(i, a)
+                log_info("Got2: <%s>", *i);
+
+        assert_se(streq_ptr(a[0], "twelve=${one}2"));
+        assert_se(streq_ptr(a[1], "twentyone=2${one}"));
+        assert_se(streq_ptr(a[2], "one=2"));
+        assert_se(streq_ptr(a[3], "twentytwo=2${one}"));
+        assert_se(a[4] == NULL);
+
+        a = strv_free(a);
+        b = strv_new("one=4", NULL);
+
+        r = merge_env_file(NULL, t, NULL, (const char **) b, MERGE_ENV_FILE_OVERWRITE, &a);
+        assert_se(r >= 0);
+
+        STRV_FOREACH(i, a)
+                log_info("Got3: <%s>", *i);
+
+        assert_se(streq_ptr(a[0], "twelve=${one}2"));
+        assert_se(streq_ptr(a[1], "twentyone=2${one}"));
+        assert_se(streq_ptr(a[2], "one=2"));
+        assert_se(streq_ptr(a[3], "twentytwo=2${one}"));
+        assert_se(a[4] == NULL);
+
+        a = strv_free(a);
+
+        r = merge_env_file(NULL, t, NULL, (const char **) b, MERGE_ENV_FILE_EXPAND, &a);
+        assert_se(r >= 0);
+
+        STRV_FOREACH(i, a)
+                log_info("Got4: <%s>", *i);
+
+        assert_se(streq_ptr(a[0], "one=4"));
+        assert_se(streq_ptr(a[1], "twelve=42"));
+        assert_se(streq_ptr(a[2], "twentyone=24"));
+        assert_se(streq_ptr(a[3], "twentytwo=24"));
+        assert_se(a[4] == NULL);
+
+        a = strv_free(a);
+
+        r = merge_env_file(NULL, t, NULL, (const char **) b, 0, &a);
+        assert_se(r >= 0);
+
+        STRV_FOREACH(i, a)
+                log_info("Got5: <%s>", *i);
+
+        assert_se(streq_ptr(a[0], "one=4"));
+        assert_se(streq_ptr(a[1], "twelve=${one}2"));
+        assert_se(streq_ptr(a[2], "twentyone=2${one}"));
+        assert_se(streq_ptr(a[3], "twentytwo=2${one}"));
+        assert_se(a[4] == NULL);
+}
 
 static void test_executable_is_script(void) {
         char t[] = "/tmp/test-executable-XXXXXX";
@@ -560,6 +656,7 @@ int main(int argc, char *argv[]) {
 
         test_parse_env_file();
         test_parse_multiline_env_file();
+        test_merge_env_file();
         test_executable_is_script();
         test_status_field();
         test_capeff();

@@ -45,6 +45,17 @@ static void test_strv_env_delete(void) {
         assert_se(strv_length(d) == 2);
 }
 
+static void test_strv_env_get(void) {
+        _cleanup_strv_free_ char **l = NULL;
+
+        l = strv_new("ONE_OR_TWO=1", "THREE=3", "ONE_OR_TWO=2", "FOUR=4", NULL);
+        assert_se(l);
+
+        assert_se(streq(strv_env_get(l, "ONE_OR_TWO"), "2"));
+        assert_se(streq(strv_env_get(l, "THREE"), "3"));
+        assert_se(streq(strv_env_get(l, "FOUR"), "4"));
+}
+
 static void test_strv_env_unset(void) {
         _cleanup_strv_free_ char **l = NULL;
 
@@ -120,6 +131,12 @@ static void test_replace_env_arg(void) {
                 "${FOO",
                 "FOO$$${FOO}",
                 "$$FOO${FOO}",
+                "${FOO:-${BAR}}",
+                "${QUUX:-${FOO}}",
+                "${FOO:+${BAR}}",
+                "${QUUX:+${BAR}}",
+                "${FOO:+|${BAR}|}}",
+                "${FOO:+|${BAR}{|}",
                 NULL
         };
         _cleanup_strv_free_ char **r = NULL;
@@ -137,7 +154,13 @@ static void test_replace_env_arg(void) {
         assert_se(streq(r[8], "${FOO"));
         assert_se(streq(r[9], "FOO$BAR BAR"));
         assert_se(streq(r[10], "$FOOBAR BAR"));
-        assert_se(strv_length(r) == 11);
+        assert_se(streq(r[11], "BAR BAR"));
+        assert_se(streq(r[12], "BAR BAR"));
+        assert_se(streq(r[13], "waldo"));
+        assert_se(streq(r[14], ""));
+        assert_se(streq(r[15], "|waldo|}"));
+        assert_se(streq(r[16], "|waldo{|"));
+        assert_se(strv_length(r) == 17);
 }
 
 static void test_env_clean(void) {
@@ -211,6 +234,7 @@ static void test_env_assignment_is_valid(void) {
 
 int main(int argc, char *argv[]) {
         test_strv_env_delete();
+        test_strv_env_get();
         test_strv_env_unset();
         test_strv_env_set();
         test_strv_env_merge();

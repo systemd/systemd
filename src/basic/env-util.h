@@ -29,6 +29,7 @@ bool env_value_is_valid(const char *e);
 bool env_assignment_is_valid(const char *e);
 
 char *replace_env(const char *format, char **env);
+char *replace_env_n(const char *format, size_t n, char **env);
 char **replace_env_argv(char **argv, char **env);
 
 bool strv_env_is_valid(char **e);

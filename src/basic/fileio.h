@@ -48,6 +48,12 @@ int parse_env_file(const char *fname, const char *separator, ...) _sentinel_;
 int load_env_file(FILE *f, const char *fname, const char *separator, char ***l);
 int load_env_file_pairs(FILE *f, const char *fname, const char *separator, char ***l);
 
+typedef enum {
+        MERGE_ENV_FILE_OVERWRITE = 1,
+        MERGE_ENV_FILE_EXPAND = 2,
+} MergeEnvFileFlags;
+int merge_env_file(FILE *f, const char *fname, const char *separator, const char * const *env, MergeEnvFileFlags flags, char ***l);
+
 int write_env_file(const char *fname, char **l);
 
 int executable_is_script(const char *path, char **interpreter);

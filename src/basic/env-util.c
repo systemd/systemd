@@ -436,6 +436,7 @@ fail:
 
 char *strv_env_get_n(char **l, const char *name, size_t k) {
         char **i;
+        char *c = NULL;
 
         assert(name);
 
@@ -445,9 +446,9 @@ char *strv_env_get_n(char **l, const char *name, size_t k) {
         STRV_FOREACH(i, l)
                 if (strneq(*i, name, k) &&
                     (*i)[k] == '=')
-                        return *i + k + 1;
+                        c = *i + k + 1;
 
-        return NULL;
+        return c;
 }
 
 char *strv_env_get(char **l, const char *name) {
@@ -492,19 +493,24 @@ char **strv_env_clean_with_callback(char **e, void (*invalid_callback)(const cha
         return e;
 }
 
-char *replace_env(const char *format, char **env) {
+char *replace_env_n(const char *format, size_t n, char **env) {
         enum {
                 WORD,
                 CURLY,
-                VARIABLE
+                VARIABLE,
+                TEST,
+                DEFAULT_VALUE,
+                ALTERNATE_VALUE
         } state = WORD;
 
-        const char *e, *word = format;
+        const char *e, *test_value, *word = format;
         char *r = NULL, *k;
+        size_t i, len;
+        int nest = 0;
 
         assert(format);
 
-        for (e = format; *e; e ++) {
+        for (e = format, i = 0; *e && i < n; e ++, i ++) {
 
                 switch (state) {
 
@@ -524,7 +530,7 @@ char *replace_env(const char *format, char **env) {
 
                                 word = e-1;
                                 state = VARIABLE;
-
+                                nest++;
                         } else if (*e == '$') {
                                 k = strnappend(r, word, e-word);
                                 if (!k)
@@ -543,7 +549,55 @@ char *replace_env(const char *format, char **env) {
                         if (*e == '}') {
                                 const char *t;
 
-                                t = strempty(strv_env_get_n(env, word+2, e-word-2));
+                                t = strv_env_get_n(env, word+2, e-word-2);
+
+                                k = strappend(r, t);
+                                if (!k)
+                                        goto fail;
+
+                                free(r);
+                                r = k;
+
+                                word = e+1;
+                                state = WORD;
+                        } else if (*e == ':') {
+                                len = e-word-2;
+                                state = TEST;
+                        }
+                        break;
+
+                case TEST:
+                        if (*e == '-')
+                                state = DEFAULT_VALUE;
+                        else if (*e == '+')
+                                state = ALTERNATE_VALUE;
+                        else
+                                goto fail;
+
+                        test_value = e+1;
+                        break;
+
+                case DEFAULT_VALUE:
+                case ALTERNATE_VALUE:
+                        if (*e == '{') {
+                                nest++;
+                                break;
+                        }
+
+                        if (*e != '}')
+                                break;
+
+                        nest--;
+                        if (nest == 0 || !memchr(e+1, '}', n-i)) {
+                                const char *t;
+                                _cleanup_free_ char *v = NULL;
+
+                                t = strv_env_get_n(env, word+2, len);
+
+                                if (t && state == ALTERNATE_VALUE)
+                                        t = v = replace_env_n(test_value, e-test_value, env);
+                                else if (!t && state == DEFAULT_VALUE)
+                                        t = v = replace_env_n(test_value, e-test_value, env);
 
                                 k = strappend(r, t);
                                 if (!k)
@@ -568,6 +622,10 @@ char *replace_env(const char *format, char **env) {
 
 fail:
         return mfree(r);
+}
+
+char *replace_env(const char *format, char **env) {
+        return replace_env_n(format, strlen(format), env);
 }
 
 char **replace_env_argv(char **argv, char **env) {
