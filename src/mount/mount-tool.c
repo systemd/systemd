@@ -1025,7 +1025,7 @@ static int list_devices(void) {
                 j = items + n++;
 
                 for (c = 0; c < _COLUMN_MAX; c++) {
-                        const char *x;
+                        const char *x = NULL;
                         size_t k;
 
                         switch (c) {
