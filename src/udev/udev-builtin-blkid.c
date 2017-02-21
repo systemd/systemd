@@ -193,7 +193,7 @@ static int probe_superblocks(blkid_probe pr) {
         int rc;
 
         if (fstat(blkid_probe_get_fd(pr), &st))
-                return -1;
+                return -errno;
 
         blkid_probe_enable_partitions(pr, 1);
 
