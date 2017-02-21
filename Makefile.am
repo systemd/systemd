@@ -68,6 +68,7 @@ catalogstatedir=$(systemdstatedir)/catalog
 xinitrcdir=$(sysconfdir)/X11/xinit/xinitrc.d
 
 # Our own, non-special dirs
+environmentdir=$(prefix)/lib/environment.d
 pkgsysconfdir=$(sysconfdir)/systemd
 userunitdir=$(prefix)/lib/systemd/user
 userpresetdir=$(prefix)/lib/systemd/user-preset
@@ -80,6 +81,8 @@ networkdir=$(rootprefix)/lib/systemd/network
 pkgincludedir=$(includedir)/systemd
 systemgeneratordir=$(rootlibexecdir)/system-generators
 usergeneratordir=$(prefix)/lib/systemd/user-generators
+systemenvgeneratordir=$(prefix)/lib/systemd/system-environment-generators
+userenvgeneratordir=$(prefix)/lib/systemd/user-environment-generators
 systemshutdowndir=$(rootlibexecdir)/system-shutdown
 systemsleepdir=$(rootlibexecdir)/system-sleep
 systemunitdir=$(rootprefix)/lib/systemd/system
@@ -207,6 +210,8 @@ AM_CPPFLAGS = \
 	-DSYSTEMD_CRYPTSETUP_PATH=\"$(rootlibexecdir)/systemd-cryptsetup\" \
 	-DSYSTEM_GENERATOR_PATH=\"$(systemgeneratordir)\" \
 	-DUSER_GENERATOR_PATH=\"$(usergeneratordir)\" \
+	-DSYSTEM_ENV_GENERATOR_PATH=\"$(systemenvgeneratordir)\" \
+	-DUSER_ENV_GENERATOR_PATH=\"$(userenvgeneratordir)\" \
 	-DSYSTEM_SHUTDOWN_PATH=\"$(systemshutdowndir)\" \
 	-DSYSTEM_SLEEP_PATH=\"$(systemsleepdir)\" \
 	-DSYSTEMD_KBD_MODEL_MAP=\"$(pkgdatadir)/kbd-model-map\" \
@@ -307,6 +312,10 @@ endef
 install-directories-hook:
 	$(MKDIR_P) $(addprefix $(DESTDIR),$(INSTALL_DIRS))
 
+install-environment-conf-hook: install-directories-hook
+	$(AM_V_LN)$(LN_S) --relative -f $(DESTDIR)$(sysconfdir)/environment \
+		$(DESTDIR)$(environmentdir)/99-environment.conf
+
 install-aliases-hook:
 	set -- $(SYSTEM_UNIT_ALIASES) && \
 		dir=$(systemunitdir) && $(install-aliases)
@@ -340,10 +349,13 @@ INSTALL_EXEC_HOOKS += \
 	install-target-wants-hook \
 	install-directories-hook \
 	install-aliases-hook \
-	install-touch-usr-hook
-
-INSTALL_EXEC_HOOKS += \
+	install-touch-usr-hook \
 	install-busnames-target-wants-hook
+
+if ENABLE_ENVIRONMENT_D
+INSTALL_EXEC_HOOKS += \
+	install-environment-conf-hook
+endif
 
 # ------------------------------------------------------------------------------
 AM_V_M4 = $(AM_V_M4_$(V))
@@ -424,6 +436,11 @@ systemgenerator_PROGRAMS = \
 	systemd-fstab-generator \
 	systemd-system-update-generator \
 	systemd-debug-generator
+
+if ENABLE_ENVIRONMENT_D
+userenvgenerator_PROGRAMS = \
+	30-systemd-environment-d-generator
+endif
 
 dist_bashcompletion_data = \
 	shell-completion/bash/busctl \
@@ -764,7 +781,9 @@ EXTRA_DIST += \
 	tools/make-man-rules.py \
 	tools/make-directive-index.py \
 	tools/xml_helper.py \
-	man/glib-event-glue.c
+	man/glib-event-glue.c \
+	man/50-xdg-data-dirs.sh \
+	man/90-rearrange-path.py
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
@@ -876,6 +895,8 @@ libbasic_la_SOURCES = \
 	src/basic/bus-label.h \
 	src/basic/ratelimit.h \
 	src/basic/ratelimit.c \
+	src/basic/exec-util.c \
+	src/basic/exec-util.h \
 	src/basic/exit-status.c \
 	src/basic/exit-status.h \
 	src/basic/virt.c \
@@ -1533,6 +1554,7 @@ tests += \
 	test-ellipsize \
 	test-util \
 	test-mount-util \
+	test-exec-util \
 	test-cpu-set-util \
 	test-hexdecoct \
 	test-escape \
@@ -1919,6 +1941,12 @@ test_mount_util_SOURCES = \
 	src/test/test-mount-util.c
 
 test_mount_util_LDADD = \
+	libsystemd-shared.la
+
+test_exec_util_SOURCES = \
+	src/test/test-exec-util.c
+
+test_exec_util_LDADD = \
 	libsystemd-shared.la
 
 test_hexdecoct_SOURCES = \
@@ -2819,6 +2847,13 @@ systemd_system_update_generator_SOURCES = \
 	src/system-update-generator/system-update-generator.c
 
 systemd_system_update_generator_LDADD = \
+	libsystemd-shared.la
+
+# ------------------------------------------------------------------------------
+30_systemd_environment_d_generator_SOURCES = \
+	src/environment-d-generator/environment-d-generator.c
+
+30_systemd_environment_d_generator_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
@@ -6222,6 +6257,8 @@ substitutions = \
        '|sysctldir=$(sysctldir)|' \
        '|systemgeneratordir=$(systemgeneratordir)|' \
        '|usergeneratordir=$(usergeneratordir)|' \
+       '|systemenvgeneratordir=$(systemenvgeneratordir)|' \
+       '|userenvgeneratordir=$(userenvgeneratordir)|' \
        '|CERTIFICATEROOT=$(CERTIFICATEROOT)|' \
        '|PACKAGE_VERSION=$(PACKAGE_VERSION)|' \
        '|PACKAGE_NAME=$(PACKAGE_NAME)|' \
@@ -6485,6 +6522,7 @@ INSTALL_DIRS += \
 endif
 
 INSTALL_DIRS += \
+	$(environmentdir) \
 	$(prefix)/lib/modules-load.d \
 	$(sysconfdir)/modules-load.d \
 	$(prefix)/lib/systemd/network \

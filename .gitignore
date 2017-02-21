@@ -19,6 +19,7 @@
 /*.tar.bz2
 /*.tar.gz
 /*.tar.xz
+/30-systemd-environment-d-generator
 /GPATH
 /GRTAGS
 /GSYMS
@@ -194,6 +195,7 @@
 /test-env-util
 /test-escape
 /test-event
+/test-exec-util
 /test-execute
 /test-extract-word
 /test-fd-util

@@ -520,8 +520,7 @@ int lookup_paths_init(
                         append = true;
                 }
 
-                /* FIXME: empty components in other places should be
-                 * rejected. */
+                /* FIXME: empty components in other places should be rejected. */
 
                 r = path_split_and_make_absolute(e, &paths);
                 if (r < 0)

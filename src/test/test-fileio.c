@@ -71,6 +71,8 @@ static void test_parse_env_file(void) {
               "seven=\"sevenval\" #nocomment\n"
               "eight=eightval #nocomment\n"
               "export nine=nineval\n"
+              "ten=ignored\n"
+              "ten=ignored\n"
               "ten=", f);
 
         fflush(f);
@@ -204,6 +206,113 @@ static void test_parse_multiline_env_file(void) {
         unlink(p);
 }
 
+static void test_merge_env_file(void) {
+        char t[] = "/tmp/test-fileio-XXXXXX";
+        int fd, r;
+        FILE *f;
+        _cleanup_strv_free_ char **a = NULL;
+        char **i;
+
+        fd = mkostemp_safe(t);
+        assert_se(fd >= 0);
+
+        log_info("/* %s (%s) */", __func__, t);
+
+        f = fdopen(fd, "w");
+        assert_se(f);
+
+        r = write_string_stream(f,
+                                "one=1   \n"
+                                "twelve=${one}2\n"
+                                "twentyone=2${one}\n"
+                                "one=2\n"
+                                "twentytwo=2${one}\n"
+                                "xxx_minus_three=$xxx - 3\n"
+                                "xxx=0x$one$one$one\n"
+                                "yyy=${one:-fallback}\n"
+                                "zzz=${one:+replacement}\n"
+                                "zzzz=${foobar:-${nothing}}\n"
+                                "zzzzz=${nothing:+${nothing}}\n"
+                                , false);
+        assert(r >= 0);
+
+        r = merge_env_file(&a, NULL, t);
+        assert_se(r >= 0);
+        strv_sort(a);
+
+        STRV_FOREACH(i, a)
+                log_info("Got: <%s>", *i);
+
+        assert_se(streq(a[0], "one=2"));
+        assert_se(streq(a[1], "twelve=12"));
+        assert_se(streq(a[2], "twentyone=21"));
+        assert_se(streq(a[3], "twentytwo=22"));
+        assert_se(streq(a[4], "xxx=0x222"));
+        assert_se(streq(a[5], "xxx_minus_three= - 3"));
+        assert_se(streq(a[6], "yyy=2"));
+        assert_se(streq(a[7], "zzz=replacement"));
+        assert_se(streq(a[8], "zzzz="));
+        assert_se(streq(a[9], "zzzzz="));
+        assert_se(a[10] == NULL);
+
+        r = merge_env_file(&a, NULL, t);
+        assert_se(r >= 0);
+        strv_sort(a);
+
+        STRV_FOREACH(i, a)
+                log_info("Got2: <%s>", *i);
+
+        assert_se(streq(a[0], "one=2"));
+        assert_se(streq(a[1], "twelve=12"));
+        assert_se(streq(a[2], "twentyone=21"));
+        assert_se(streq(a[3], "twentytwo=22"));
+        assert_se(streq(a[4], "xxx=0x222"));
+        assert_se(streq(a[5], "xxx_minus_three=0x222 - 3"));
+        assert_se(streq(a[6], "yyy=2"));
+        assert_se(streq(a[7], "zzz=replacement"));
+        assert_se(streq(a[8], "zzzz="));
+        assert_se(streq(a[9], "zzzzz="));
+        assert_se(a[10] == NULL);
+}
+
+static void test_merge_env_file_invalid(void) {
+        char t[] = "/tmp/test-fileio-XXXXXX";
+        int fd, r;
+        FILE *f;
+        _cleanup_strv_free_ char **a = NULL;
+        char **i;
+
+        fd = mkostemp_safe(t);
+        assert_se(fd >= 0);
+
+        log_info("/* %s (%s) */", __func__, t);
+
+        f = fdopen(fd, "w");
+        assert_se(f);
+
+        r = write_string_stream(f,
+                                "unset one   \n"
+                                "unset one=   \n"
+                                "unset one=1   \n"
+                                "one   \n"
+                                "one =  \n"
+                                "one two =\n"
+                                "\x20two=\n"
+                                "#comment=comment\n"
+                                ";comment2=comment2\n"
+                                "#\n"
+                                "\n\n"                  /* empty line */
+                                , false);
+        assert(r >= 0);
+
+        r = merge_env_file(&a, NULL, t);
+        assert_se(r >= 0);
+
+        STRV_FOREACH(i, a)
+                log_info("Got: <%s>", *i);
+
+        assert_se(strv_isempty(a));
+}
 
 static void test_executable_is_script(void) {
         char t[] = "/tmp/test-executable-XXXXXX";
@@ -555,11 +664,14 @@ static void test_tempfn(void) {
 }
 
 int main(int argc, char *argv[]) {
+        log_set_max_level(LOG_DEBUG);
         log_parse_environment();
         log_open();
 
         test_parse_env_file();
         test_parse_multiline_env_file();
+        test_merge_env_file();
+        test_merge_env_file_invalid();
         test_executable_is_script();
         test_status_field();
         test_capeff();

@@ -11,6 +11,7 @@ MANPAGES += \
 	man/bootup.7 \
 	man/busctl.1 \
 	man/daemon.7 \
+	man/environment.d.5 \
 	man/file-hierarchy.7 \
 	man/halt.8 \
 	man/hostname.5 \
@@ -110,6 +111,7 @@ MANPAGES += \
 	man/systemd-debug-generator.8 \
 	man/systemd-delta.1 \
 	man/systemd-detect-virt.1 \
+	man/systemd-environment-d-generator.8 \
 	man/systemd-escape.1 \
 	man/systemd-fsck@.service.8 \
 	man/systemd-fstab-generator.8 \
@@ -146,6 +148,7 @@ MANPAGES += \
 	man/systemd.1 \
 	man/systemd.automount.5 \
 	man/systemd.device.5 \
+	man/systemd.environment-generator.7 \
 	man/systemd.exec.5 \
 	man/systemd.generator.7 \
 	man/systemd.journal-fields.7 \
@@ -184,6 +187,7 @@ MANPAGES += \
 	man/udev_new.3 \
 	man/udevadm.8
 MANPAGES_ALIAS += \
+	man/30-systemd-environment-d-generator.8 \
 	man/SD_ALERT.3 \
 	man/SD_BUS_ERROR_ACCESS_DENIED.3 \
 	man/SD_BUS_ERROR_ADDRESS_IN_USE.3 \
@@ -542,6 +546,7 @@ MANPAGES_ALIAS += \
 	man/udev_ref.3 \
 	man/udev_unref.3 \
 	man/user.conf.d.5
+man/30-systemd-environment-d-generator.8: man/systemd-environment-d-generator.8
 man/SD_ALERT.3: man/sd-daemon.3
 man/SD_BUS_ERROR_ACCESS_DENIED.3: man/sd-bus-errors.3
 man/SD_BUS_ERROR_ADDRESS_IN_USE.3: man/sd-bus-errors.3
@@ -900,6 +905,9 @@ man/udev_monitor_unref.3: man/udev_monitor_new_from_netlink.3
 man/udev_ref.3: man/udev_new.3
 man/udev_unref.3: man/udev_new.3
 man/user.conf.d.5: man/systemd-system.conf.5
+man/30-systemd-environment-d-generator.html: man/systemd-environment-d-generator.html
+	$(html-alias)
+
 man/SD_ALERT.html: man/sd-daemon.html
 	$(html-alias)
 
@@ -2640,6 +2648,7 @@ EXTRA_DIST += \
 	man/crypttab.xml \
 	man/daemon.xml \
 	man/dnssec-trust-anchors.d.xml \
+	man/environment.d.xml \
 	man/file-hierarchy.xml \
 	man/halt.xml \
 	man/hostname.xml \
@@ -2772,6 +2781,7 @@ EXTRA_DIST += \
 	man/systemd-debug-generator.xml \
 	man/systemd-delta.xml \
 	man/systemd-detect-virt.xml \
+	man/systemd-environment-d-generator.xml \
 	man/systemd-escape.xml \
 	man/systemd-firstboot.xml \
 	man/systemd-fsck@.service.xml \
@@ -2832,6 +2842,7 @@ EXTRA_DIST += \
 	man/systemd-volatile-root.service.xml \
 	man/systemd.automount.xml \
 	man/systemd.device.xml \
+	man/systemd.environment-generator.xml \
 	man/systemd.exec.xml \
 	man/systemd.generator.xml \
 	man/systemd.journal-fields.xml \

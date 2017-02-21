@@ -1041,6 +1041,14 @@ fi
 AM_CONDITIONAL(ENABLE_TMPFILES, [test "$have_tmpfiles" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_environment_d=no
+AC_ARG_ENABLE(environment-d, AS_HELP_STRING([--disable-environment-d], [disable environment.d support]))
+if test "x$enable_environment_d" != "xno"; then
+        have_environment_d=yes
+fi
+AM_CONDITIONAL(ENABLE_ENVIRONMENT_D, [test "$have_environment_d" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_sysusers=no
 AC_ARG_ENABLE(sysusers, AS_HELP_STRING([--disable-sysusers], [disable sysusers support]))
 if test "x$enable_sysusers" != "xno"; then
@@ -1652,6 +1660,7 @@ AC_MSG_RESULT([
         vconsole:                          ${have_vconsole}
         quotacheck:                        ${have_quotacheck}
         tmpfiles:                          ${have_tmpfiles}
+        environment.d:                     ${have_environment_d}
         sysusers:                          ${have_sysusers}
         firstboot:                         ${have_firstboot}
         randomseed:                        ${have_randomseed}

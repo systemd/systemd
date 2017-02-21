@@ -21,6 +21,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdio.h>
 
 #include "macro.h"
 
@@ -28,8 +29,18 @@ bool env_name_is_valid(const char *e);
 bool env_value_is_valid(const char *e);
 bool env_assignment_is_valid(const char *e);
 
-char *replace_env(const char *format, char **env);
+enum {
+        REPLACE_ENV_USE_ENVIRONMENT = 1u,
+        REPLACE_ENV_ALLOW_BRACELESS = 2u,
+        REPLACE_ENV_ALLOW_EXTENDED  = 4u,
+};
+
+char *replace_env_n(const char *format, size_t n, char **env, unsigned flags);
 char **replace_env_argv(char **argv, char **env);
+
+static inline char *replace_env(const char *format, char **env, unsigned flags) {
+        return replace_env_n(format, strlen(format), env, flags);
+}
 
 bool strv_env_is_valid(char **e);
 #define strv_env_clean(l) strv_env_clean_with_callback(l, NULL, NULL)
@@ -46,7 +57,10 @@ char **strv_env_unset(char **l, const char *p); /* In place ... */
 char **strv_env_unset_many(char **l, ...) _sentinel_;
 int strv_env_replace(char ***l, char *p); /* In place ... */
 
-char *strv_env_get_n(char **l, const char *name, size_t k) _pure_;
+char *strv_env_get_n(char **l, const char *name, size_t k, unsigned flags) _pure_;
 char *strv_env_get(char **x, const char *n) _pure_;
 
 int getenv_bool(const char *p);
+
+int serialize_environment(FILE *f, char **environment);
+int deserialize_environment(char ***environment, const char *line);
