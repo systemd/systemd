@@ -4,7 +4,7 @@ DETAILS:
         http://0pointer.de/blog/projects/systemd.html
 
 WEB SITE:
-        http://www.freedesktop.org/wiki/Software/systemd
+        https://www.freedesktop.org/wiki/Software/systemd
 
 GIT:
         git@github.com:systemd/systemd.git
@@ -14,7 +14,7 @@ GITWEB:
         https://github.com/systemd/systemd
 
 MAILING LIST:
-        http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+        https://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 IRC:
         #systemd on irc.freenode.org
@@ -269,7 +269,7 @@ WARNINGS:
         requires that /var/run is a symlink to /run.
 
         For more information on this issue consult
-        http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken
+        https://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken
 
         To run systemd under valgrind, compile with VALGRIND defined
         (e.g. ./configure CPPFLAGS='... -DVALGRIND=1'). Otherwise,
