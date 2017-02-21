@@ -913,20 +913,31 @@ static int remove_variables(sd_id128_t uuid, const char *path, bool in_order) {
 
 static int install_loader_config(const char *esp_path) {
 
-        _cleanup_fclose_ FILE *f = NULL;
         char machine_string[SD_ID128_STRING_MAX];
+        _cleanup_(unlink_and_freep) char *t = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         sd_id128_t machine_id;
         const char *p;
-        int r;
+        int r, fd;
 
         r = sd_id128_get_machine(&machine_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to get machine did: %m");
 
         p = strjoina(esp_path, "/loader/loader.conf");
-        f = fopen(p, "wxe");
-        if (!f)
-                return log_error_errno(errno, "Failed to open loader.conf for writing: %m");
+
+        if (access(p, F_OK) >= 0) /* Silently skip creation if the file already exists (early check) */
+                return 0;
+
+        fd = open_tmpfile_linkable(p, O_WRONLY|O_CLOEXEC, &t);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open \"%s\" for writing: %m", p);
+
+        f = fdopen(fd, "we");
+        if (!f) {
+                safe_close(fd);
+                return log_oom();
+        }
 
         fprintf(f, "#timeout 3\n");
         fprintf(f, "default %s-*\n", sd_id128_to_string(machine_id, machine_string));
@@ -935,7 +946,15 @@ static int install_loader_config(const char *esp_path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write \"%s\": %m", p);
 
-        return 0;
+        r = link_tmpfile(fd, t, p);
+        if (r == -EEXIST)
+                return 0; /* Silently skip creation if the file exists now (recheck) */
+        if (r < 0)
+                return log_error_errno(r, "Failed to move \"%s\" into place: %m", p);
+
+        t = mfree(t);
+
+        return 1;
 }
 
 static int help(int argc, char *argv[], void *userdata) {
