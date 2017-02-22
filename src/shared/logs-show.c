@@ -326,6 +326,14 @@ static int output_short(
         size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0, realtime_len = 0, monotonic_len = 0, priority_len = 0;
         int p = LOG_INFO;
         bool ellipsized = false;
+        const char *color_timestamp = "", *color_hostname = "", *color_identifier = "", *color_off = "";
+
+        if (flags & OUTPUT_COLOR) {
+                color_timestamp = ANSI_GREEN;
+                color_hostname = ANSI_MAGENTA;
+                color_identifier = ANSI_YELLOW;
+                color_off = ANSI_NORMAL;
+        }
 
         assert(f);
         assert(j);
@@ -410,6 +418,8 @@ static int output_short(
         if (priority_len == 1 && *priority >= '0' && *priority <= '7')
                 p = *priority - '0';
 
+        fputs(color_timestamp, f);
+
         if (mode == OUTPUT_SHORT_MONOTONIC)
                 r = output_timestamp_monotonic(f, j, monotonic);
         else
@@ -418,6 +428,8 @@ static int output_short(
                 return r;
         n += r;
 
+        fputs(color_off, f);
+
         if (flags & OUTPUT_NO_HOSTNAME) {
                 /* Suppress display of the hostname if this is requested. */
                 hostname = mfree(hostname);
@@ -425,24 +437,24 @@ static int output_short(
         }
 
         if (hostname && shall_print(hostname, hostname_len, flags)) {
-                fprintf(f, " %.*s", (int) hostname_len, hostname);
+                fprintf(f, " %s%.*s%s", color_hostname, (int) hostname_len, hostname, color_off);
                 n += hostname_len + 1;
         }
 
         if (identifier && shall_print(identifier, identifier_len, flags)) {
-                fprintf(f, " %.*s", (int) identifier_len, identifier);
+                fprintf(f, " %s%.*s%s", color_identifier, (int) identifier_len, identifier, color_off);
                 n += identifier_len + 1;
         } else if (comm && shall_print(comm, comm_len, flags)) {
-                fprintf(f, " %.*s", (int) comm_len, comm);
+                fprintf(f, " %s%.*s%s", color_identifier, (int) comm_len, comm, color_off);
                 n += comm_len + 1;
         } else
-                fputs(" unknown", f);
+                fprintf(f, " %sunknown%s", color_identifier, color_off);
 
         if (pid && shall_print(pid, pid_len, flags)) {
-                fprintf(f, "[%.*s]", (int) pid_len, pid);
+                fprintf(f, "%s[%.*s]%s", color_identifier, (int) pid_len, pid, color_off);
                 n += pid_len + 2;
         } else if (fake_pid && shall_print(fake_pid, fake_pid_len, flags)) {
-                fprintf(f, "[%.*s]", (int) fake_pid_len, fake_pid);
+                fprintf(f, "%s[%.*s]%s", color_identifier, (int) fake_pid_len, fake_pid, color_off);
                 n += fake_pid_len + 2;
         }
 
