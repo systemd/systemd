@@ -2410,33 +2410,37 @@ bool cg_is_unified_wanted(void) {
         bool b;
         const bool is_default = DEFAULT_HIERARCHY == CGROUP_UNIFIED_ALL;
 
-        /* If the hierarchy is already mounted, then follow whatever
-         * was chosen for it. */
-        if (cg_unified_flush() >= 0)
-                return cg_all_unified();
-
         /* If we have a cached value, return that. */
         if (wanted >= 0)
                 return wanted;
 
+        /* If the hierarchy is already mounted, then follow whatever
+         * was chosen for it. */
+        if (cg_unified_flush() >= 0)
+                return (wanted = cg_all_unified());
+
         /* Otherwise, let's see what the kernel command line has to say.
          * Since checking is expensive, cache a non-error result. */
         r = proc_cmdline_get_bool("systemd.unified_cgroup_hierarchy", &b);
-        if (r < 0)
-                return is_default;
 
         return (wanted = r > 0 ? b : is_default);
 }
 
 bool cg_is_legacy_wanted(void) {
+        static thread_local int wanted = -1;
+
+        /* If we have a cached value, return that. */
+        if (wanted >= 0)
+                return wanted;
+
         /* Check if we have cgroups2 already mounted. */
         if (cg_unified_flush() >= 0 &&
             unified_cache == CGROUP_UNIFIED_ALL)
-                return false;
+                return (wanted = false);
 
         /* Otherwise, assume that at least partial legacy is wanted,
          * since cgroups2 should already be mounted at this point. */
-        return true;
+        return (wanted = true);
 }
 
 bool cg_is_hybrid_wanted(void) {
@@ -2445,20 +2449,19 @@ bool cg_is_hybrid_wanted(void) {
         bool b;
         const bool is_default = DEFAULT_HIERARCHY == CGROUP_UNIFIED_SYSTEMD;
 
-        /* If the hierarchy is already mounted, then follow whatever
-         * was chosen for it. */
-        if (cg_unified_flush() >= 0)
-                return cg_unified(SYSTEMD_CGROUP_CONTROLLER);
-
         /* If we have a cached value, return that. */
         if (wanted >= 0)
                 return wanted;
 
+        /* If the hierarchy is already mounted, then follow whatever
+         * was chosen for it. */
+        if (cg_unified_flush() >= 0 &&
+            unified_cache == CGROUP_UNIFIED_ALL)
+                return (wanted = false);
+
         /* Otherwise, let's see what the kernel command line has to say.
          * Since checking is expensive, cache a non-error result. */
         r = proc_cmdline_get_bool("systemd.legacy_systemd_cgroup_controller", &b);
-        if (r < 0)
-                return is_default;
 
         /* The meaning of the kernel option is reversed wrt. to the return value
          * of this function, hence the negation. */
