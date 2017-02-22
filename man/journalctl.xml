@@ -677,7 +677,7 @@
         a new 128-bit ID suitable for identifying messages. This is
         intended for usage by developers who need a new identifier for
         a new message they introduce and want to make
-        recognizable. This will print the new ID in three different
+        recognizable. This will print the new ID in four different
         formats which can be copied into source code or similar.
         </para></listitem>
       </varlistentry>
