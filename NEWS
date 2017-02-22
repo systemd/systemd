@@ -357,6 +357,13 @@ CHANGES WITH 233 in spe
 
 CHANGES WITH 232:
 
+        * udev now runs with MemoryDenyWriteExecute=, RestrictRealtime= and
+          RestrictAddressFamilies= enabled. These sandboxing options should
+          generally be compatible with the various external udev call-out
+          binaries we are aware of, however there may be exceptions, in
+          particular when exotic languages for these call-outs are used. In
+          this case, consider turning off these settings locally.
+
         * The new RemoveIPC= option can be used to remove IPC objects owned by
           the user or group of a service when that service exits.
 
