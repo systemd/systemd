@@ -85,7 +85,11 @@ int address_new_static(Network *network, const char *filename, unsigned section_
 
         if (filename) {
                 address->section = n;
-                hashmap_put(network->addresses_by_section, n, address);
+                n = NULL;
+
+                r = hashmap_put(network->addresses_by_section, address->section, address);
+                if (r < 0)
+                        return r;
         }
 
         address->network = network;
@@ -94,7 +98,6 @@ int address_new_static(Network *network, const char *filename, unsigned section_
 
         *ret = address;
         address = NULL;
-        n = NULL;
 
         return 0;
 }
