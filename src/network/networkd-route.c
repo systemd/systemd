@@ -113,7 +113,7 @@ int route_new_static(Network *network, const char *filename, unsigned section_li
                 route->section = n;
                 n = NULL;
 
-                r = hashmap_put(network->routes_by_section, n, route);
+                r = hashmap_put(network->routes_by_section, route->section, route);
                 if (r < 0)
                         return r;
         }
