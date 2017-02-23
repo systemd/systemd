@@ -213,7 +213,7 @@ static char *unquote(const char *s, const char* quotes) {
          * trailing quotes if there is one. Doesn't care about
          * escaping or anything.
          *
-         * DON'T USE THIS FOR NEW CODE ANYMORE!*/
+         * DON'T USE THIS FOR NEW CODE ANYMORE! */
 
         l = strlen(s);
         if (l < 2)

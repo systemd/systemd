@@ -3895,7 +3895,7 @@ int unit_kill_context(
                          * should not exist in non-delegated units. On
                          * the unified hierarchy that's different,
                          * there we get proper events. Hence rely on
-                         * them.*/
+                         * them. */
 
                         if (cg_unified(SYSTEMD_CGROUP_CONTROLLER) ||
                             (detect_container() == 0 && !unit_cgroup_delegate(u)))

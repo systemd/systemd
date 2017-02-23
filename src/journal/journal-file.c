@@ -3283,7 +3283,7 @@ int journal_file_rotate(JournalFile **f, bool compress, bool seal, Set *deferred
                 return -EINVAL;
 
         /* Is this a journal file that was passed to us as fd? If so, we synthesized a path name for it, and we refuse
-         * rotation, since we don't know the actual path, and couldn't rename the file hence.*/
+         * rotation, since we don't know the actual path, and couldn't rename the file hence. */
         if (path_startswith(old_file->path, "/proc/self/fd"))
                 return -EINVAL;
 

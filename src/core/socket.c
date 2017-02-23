@@ -1260,7 +1260,7 @@ static int usbffs_address_create(const char *path) {
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        /* Check whether this is a regular file (ffs endpoint)*/
+        /* Check whether this is a regular file (ffs endpoint) */
         if (!S_ISREG(st.st_mode))
                 return -EEXIST;
 

@@ -2458,7 +2458,7 @@ static int dns_transaction_requires_nsec(DnsTransaction *t) {
         if (r > 0) {
                 /* The lookup is from a TLD that is proven not to
                  * exist, and we are in downgrade mode, hence ignore
-                 * that fact that we didn't get any NSEC RRs.*/
+                 * that fact that we didn't get any NSEC RRs. */
 
                 log_info("Detected a negative query %s in a private DNS zone, permitting unsigned response.",
                          dns_resource_key_to_string(t->key, key_str, sizeof key_str));
@@ -2763,7 +2763,7 @@ static int dnssec_validate_records(
                         const char *source;
 
                         /* This RRset validated, but as a wildcard. This means we need
-                         * to prove via NSEC/NSEC3 that no matching non-wildcard RR exists.*/
+                         * to prove via NSEC/NSEC3 that no matching non-wildcard RR exists. */
 
                         /* First step, determine the source of synthesis */
                         r = dns_resource_record_source(rrsig, &source);
@@ -2798,7 +2798,7 @@ static int dnssec_validate_records(
                                 return r;
                         if (r == 0) {
                                 /* Data does not require signing. In that case, just copy it over,
-                                 * but remember that this is by no means authenticated.*/
+                                 * but remember that this is by no means authenticated. */
                                 r = dns_answer_move_by_key(validated, &t->answer, rr->key, 0);
                                 if (r < 0)
                                         return r;

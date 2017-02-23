@@ -154,7 +154,7 @@ int proc_cmdline_get_key(const char *key, unsigned flags, char **value) {
          *
          * c) The "value" parameter is NULL. In this case a search for the exact "key" parameter is performed.
          *
-         * In all three cases, > 0 is returned if the key is found, 0 if not.*/
+         * In all three cases, > 0 is returned if the key is found, 0 if not. */
 
         if (isempty(key))
                 return -EINVAL;

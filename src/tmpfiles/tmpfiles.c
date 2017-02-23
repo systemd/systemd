@@ -872,7 +872,7 @@ static int parse_attribute_from_arg(Item *item) {
                 { 's', FS_SECRM_FL },        /* Secure deletion */
                 { 'u', FS_UNRM_FL },         /* Undelete */
                 { 't', FS_NOTAIL_FL },       /* file tail should not be merged */
-                { 'T', FS_TOPDIR_FL },       /* Top of directory hierarchies*/
+                { 'T', FS_TOPDIR_FL },       /* Top of directory hierarchies */
                 { 'C', FS_NOCOW_FL },        /* Do not cow file */
         };
 

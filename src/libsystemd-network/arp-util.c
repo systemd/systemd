@@ -58,7 +58,7 @@ int arp_network_bind_raw_socket(int ifindex, be32_t address, const struct ether_
                 BPF_STMT(BPF_ALU + BPF_XOR + BPF_X, 0),                                        /* A xor X */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0, 0, 1),                                  /* A == 0 ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                                  /* ignore */
-                /* Sender Protocol Address or Target Protocol Address must be equal to the one we care about*/
+                /* Sender Protocol Address or Target Protocol Address must be equal to the one we care about */
                 BPF_STMT(BPF_LD + BPF_IMM, htobe32(address)),                                  /* A <- clients IP */
                 BPF_STMT(BPF_MISC + BPF_TAX, 0),                                               /* X <- A */
                 BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(struct ether_arp, arp_spa)),       /* A <- SPA */

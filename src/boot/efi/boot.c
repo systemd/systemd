@@ -1787,7 +1787,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         config_title_generate(&config);
 
-        /* select entry by configured pattern or EFI LoaderDefaultEntry= variable*/
+        /* select entry by configured pattern or EFI LoaderDefaultEntry= variable */
         config_default_entry_select(&config);
 
         /* if no configured entry to select from was found, enable the menu */
