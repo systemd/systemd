@@ -1663,6 +1663,7 @@ int main(int argc, char *argv[]) {
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
+        udev_parse_config();
         log_parse_environment();
         log_open();
 

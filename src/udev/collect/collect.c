@@ -29,6 +29,7 @@
 #include "macro.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "udev-util.h"
 
 #define BUFSIZE 16
 #define UDEV_ALARM_TIMEOUT 180
@@ -360,6 +361,11 @@ int main(int argc, char **argv)
         int ret = EXIT_SUCCESS;
         int prune = 0;
         char tmpdir[UTIL_PATH_SIZE];
+
+        log_set_target(LOG_TARGET_AUTO);
+        udev_parse_config();
+        log_parse_environment();
+        log_open();
 
         udev = udev_new();
         if (udev == NULL) {

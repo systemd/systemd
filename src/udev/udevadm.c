@@ -23,6 +23,7 @@
 #include "selinux-util.h"
 #include "string-util.h"
 #include "udev.h"
+#include "udev-util.h"
 
 static int adm_version(struct udev *udev, int argc, char *argv[]) {
         printf("%s\n", PACKAGE_VERSION);
@@ -87,13 +88,15 @@ int main(int argc, char *argv[]) {
         unsigned int i;
         int rc = 1, c;
 
+        udev_parse_config();
+        log_parse_environment();
+        log_open();
+
+        mac_selinux_init();
+
         udev = udev_new();
         if (udev == NULL)
                 goto out;
-
-        log_parse_environment();
-        log_open();
-        mac_selinux_init();
 
         while ((c = getopt_long(argc, argv, "+dhV", options, NULL)) >= 0)
                 switch (c) {

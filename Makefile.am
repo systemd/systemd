@@ -1023,6 +1023,7 @@ libshared_la_SOURCES = \
 	src/shared/output-mode.c \
 	src/shared/gpt.h \
 	src/shared/udev-util.h \
+	src/shared/udev-util.c \
 	src/shared/linux/auto_dev-ioctl.h \
 	src/shared/linux-3.13/dm-ioctl.h \
 	src/shared/initreq.h \
