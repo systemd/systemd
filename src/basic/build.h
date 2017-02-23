@@ -133,6 +133,8 @@
 #define _IDN_FEATURE_ "-IDN"
 #endif
 
+#define _CGROUP_HIEARCHY_ "default-hierarchy=" DEFAULT_HIERARCHY_NAME
+
 #define SYSTEMD_FEATURES                                                \
         _PAM_FEATURE_ " "                                               \
         _AUDIT_FEATURE_ " "                                             \
@@ -152,4 +154,5 @@
         _BLKID_FEATURE_ " "                                             \
         _ELFUTILS_FEATURE_ " "                                          \
         _KMOD_FEATURE_ " "                                              \
-        _IDN_FEATURE_
+        _IDN_FEATURE_ " "                                               \
+        _CGROUP_HIEARCHY_

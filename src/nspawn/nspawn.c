@@ -316,7 +316,7 @@ static int custom_mount_check_all(void) {
 
 static int detect_unified_cgroup_hierarchy(const char *directory) {
         const char *e;
-        int r, all_unified, systemd_unified;
+        int r;
 
         /* Allow the user to control whether the unified hierarchy is used */
         e = getenv("UNIFIED_CGROUP_HIERARCHY");
@@ -332,15 +332,8 @@ static int detect_unified_cgroup_hierarchy(const char *directory) {
                 return 0;
         }
 
-        all_unified = cg_all_unified();
-        systemd_unified = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
-
-        if (all_unified < 0 || systemd_unified < 0)
-                return log_error_errno(all_unified < 0 ? all_unified : systemd_unified,
-                                       "Failed to determine whether the unified cgroups hierarchy is used: %m");
-
         /* Otherwise inherit the default from the host system */
-        if (all_unified > 0) {
+        if (cg_all_unified()) {
                 /* Unified cgroup hierarchy support was added in 230. Unfortunately the detection
                  * routine only detects 231, so we'll have a false negative here for 230. */
                 r = systemd_installation_has_version(directory, 230);
@@ -350,9 +343,9 @@ static int detect_unified_cgroup_hierarchy(const char *directory) {
                         arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_ALL;
                 else
                         arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
-        } else if (systemd_unified > 0) {
-                /* Mixed cgroup hierarchy support was added in 232 */
-                r = systemd_installation_has_version(directory, 232);
+        } else if (cg_unified(SYSTEMD_CGROUP_CONTROLLER)) {
+                /* Mixed cgroup hierarchy support was added in 233 */
+                r = systemd_installation_has_version(directory, 233);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine systemd version in container: %m");
                 if (r > 0)
@@ -2168,8 +2161,6 @@ static int inner_child(
         assert(directory);
         assert(kmsg_socket >= 0);
 
-        cg_unified_flush();
-
         if (arg_userns_mode != USER_NAMESPACE_NO) {
                 /* Tell the parent, that it now can write the UID map. */
                 (void) barrier_place(barrier); /* #1 */
@@ -2440,8 +2431,6 @@ static int outer_child(
         assert(notify_socket >= 0);
         assert(kmsg_socket >= 0);
 
-        cg_unified_flush();
-
         if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0)
                 return log_error_errno(errno, "PR_SET_PDEATHSIG failed: %m");
 
@@ -2483,10 +2472,6 @@ static int outer_child(
         }
 
         r = determine_uid_shift(directory);
-        if (r < 0)
-                return r;
-
-        r = detect_unified_cgroup_hierarchy(directory);
         if (r < 0)
                 return r;
 
@@ -3542,6 +3527,10 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        r = cg_unified_flush();
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether the unified cgroups hierarchy is used: %m");
+
         /* Make sure rename_process() in the stub init process can work */
         saved_argv = argv;
         saved_argc = argc;
@@ -3807,6 +3796,10 @@ int main(int argc, char *argv[]) {
         }
 
         r = custom_mount_prepare_all(arg_directory, arg_custom_mounts, arg_n_custom_mounts);
+        if (r < 0)
+                goto finish;
+
+        r = detect_unified_cgroup_hierarchy(arg_directory);
         if (r < 0)
                 goto finish;
 
