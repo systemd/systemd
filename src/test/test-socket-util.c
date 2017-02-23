@@ -456,6 +456,23 @@ static void test_sockaddr_un_len(void) {
         assert_se(SOCKADDR_UN_LEN(abstract) == offsetof(struct sockaddr_un, sun_path) + 1 + strlen(abstract.sun_path + 1));
 }
 
+static void test_in_addr_is_multicast(void) {
+        union in_addr_union a, b;
+        int f;
+
+        assert_se(in_addr_from_string_auto("192.168.3.11", &f, &a) >= 0);
+        assert_se(in_addr_is_multicast(f, &a) == 0);
+
+        assert_se(in_addr_from_string_auto("224.0.0.1", &f, &a) >= 0);
+        assert_se(in_addr_is_multicast(f, &a) == 1);
+
+        assert_se(in_addr_from_string_auto("FF01:0:0:0:0:0:0:1", &f, &b) >= 0);
+        assert_se(in_addr_is_multicast(f, &b) == 1);
+
+        assert_se(in_addr_from_string_auto("2001:db8::c:69b:aeff:fe53:743e", &f, &b) >= 0);
+        assert_se(in_addr_is_multicast(f, &b) == 0);
+}
+
 int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
@@ -481,6 +498,8 @@ int main(int argc, char *argv[]) {
         test_sockaddr_equal();
 
         test_sockaddr_un_len();
+
+        test_in_addr_is_multicast();
 
         return 0;
 }
