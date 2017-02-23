@@ -103,8 +103,6 @@ _public_ struct udev *udev_new(void) {
         }
         udev->refcount = 1;
 
-#ifdef UDEV_PROPAGATE_LOG
-
         f = fopen("/etc/udev/udev.conf", "re");
         if (f != NULL) {
                 char line[UTIL_LINE_SIZE];
@@ -180,7 +178,6 @@ _public_ struct udev *udev_new(void) {
                         }
                 }
         }
-#endif
 
         return udev;
 }
