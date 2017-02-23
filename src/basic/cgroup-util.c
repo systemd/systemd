@@ -2447,7 +2447,10 @@ bool cg_is_hybrid_wanted(void) {
         static thread_local int wanted = -1;
         int r;
         bool b;
-        const bool is_default = DEFAULT_HIERARCHY == CGROUP_UNIFIED_SYSTEMD;
+        const bool is_default = DEFAULT_HIERARCHY >= CGROUP_UNIFIED_SYSTEMD;
+        /* We default to true if the default is "hybrid", obviously,
+         * but also when the default is "unified", because if we get
+         * called, it means that unified hierarchy was not mounted. */
 
         /* If we have a cached value, return that. */
         if (wanted >= 0)
