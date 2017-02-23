@@ -4091,7 +4091,7 @@ ata_id_SOURCES = \
 	src/udev/ata_id/ata_id.c
 
 ata_id_CFLAGS = \
-	$(AM_CFLAGS) \
+	$(AM_CFLAGS)
 	-D UDEV_PROPAGATE_LOG
 
 ata_id_LDADD = \
@@ -4105,7 +4105,7 @@ cdrom_id_SOURCES = \
 	src/udev/cdrom_id/cdrom_id.c
 
 cdrom_id_CFLAGS = \
-	$(AM_CFLAGS) \
+	$(AM_CFLAGS)
 	-D UDEV_PROPAGATE_LOG
 
 cdrom_id_LDADD = \
@@ -4122,7 +4122,7 @@ collect_SOURCES = \
 	src/udev/collect/collect.c
 
 collect_CFLAGS = \
-	$(AM_CFLAGS) \
+	$(AM_CFLAGS)
 	-D UDEV_PROPAGATE_LOG
 
 collect_LDADD = \
@@ -4139,7 +4139,7 @@ scsi_id_SOURCES =\
 	src/udev/scsi_id/scsi_id.h
 
 scsi_id_CFLAGS = \
-	$(AM_CFLAGS) \
+	$(AM_CFLAGS)
 	-D UDEV_PROPAGATE_LOG
 
 scsi_id_LDADD = \
@@ -4171,7 +4171,7 @@ mtd_probe_SOURCES =  \
 	src/udev/mtd_probe/probe_smartmedia.c
 
 mtd_probe_CFLAGS = \
-	$(AM_CFLAGS) \
+	$(AM_CFLAGS)
 	-D UDEV_PROPAGATE_LOG
 
 dist_udevrules_DATA += \
