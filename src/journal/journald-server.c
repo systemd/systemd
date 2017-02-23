@@ -760,7 +760,8 @@ static void dispatch_message_real(
                 const char *label, size_t label_len,
                 const char *unit_id,
                 int priority,
-                pid_t object_pid) {
+                pid_t object_pid,
+                char *cgroup) {
 
         char    pid[sizeof("_PID=") + DECIMAL_STR_MAX(pid_t)],
                 uid[sizeof("_UID=") + DECIMAL_STR_MAX(uid_t)],
@@ -846,7 +847,12 @@ static void dispatch_message_real(
                 }
 #endif
 
-                r = cg_pid_get_path_shifted(ucred->pid, s->cgroup_root, &c);
+                r = 0;
+                if (cgroup)
+                        c = cgroup;
+                else
+                        r = cg_pid_get_path_shifted(ucred->pid, s->cgroup_root, &c);
+
                 if (r >= 0) {
                         _cleanup_free_ char *raw_unit = NULL, *raw_slice = NULL;
                         char *session = NULL;
@@ -904,7 +910,8 @@ static void dispatch_message_real(
                                 }
                         }
 
-                        free(c);
+                        if (!cgroup)
+                                free(c);
                 } else if (unit_id) {
                         x = strjoina("_SYSTEMD_UNIT=", unit_id);
                         IOVEC_SET_STRING(iovec[n++], x);
@@ -1093,7 +1100,7 @@ void server_driver_message(Server *s, const char *message_id, const char *format
         ucred.gid = getgid();
 
         if (r >= 0)
-                dispatch_message_real(s, iovec, n, ELEMENTSOF(iovec), &ucred, NULL, NULL, 0, NULL, LOG_INFO, 0);
+                dispatch_message_real(s, iovec, n, ELEMENTSOF(iovec), &ucred, NULL, NULL, 0, NULL, LOG_INFO, 0, NULL);
 
         while (m < n)
                 free(iovec[m++].iov_base);
@@ -1107,7 +1114,7 @@ void server_driver_message(Server *s, const char *message_id, const char *format
                 n = 3;
                 IOVEC_SET_STRING(iovec[n++], "PRIORITY=4");
                 IOVEC_SET_STRING(iovec[n++], buf);
-                dispatch_message_real(s, iovec, n, ELEMENTSOF(iovec), &ucred, NULL, NULL, 0, NULL, LOG_INFO, 0);
+                dispatch_message_real(s, iovec, n, ELEMENTSOF(iovec), &ucred, NULL, NULL, 0, NULL, LOG_INFO, 0, NULL);
         }
 }
 
@@ -1124,7 +1131,7 @@ void server_dispatch_message(
         int rl, r;
         _cleanup_free_ char *path = NULL;
         uint64_t available = 0;
-        char *c;
+        char *c = NULL;
 
         assert(s);
         assert(iovec || n == 0);
@@ -1175,7 +1182,10 @@ void server_dispatch_message(
                                       NULL);
 
 finish:
-        dispatch_message_real(s, iovec, n, m, ucred, tv, label, label_len, unit_id, priority, object_pid);
+        /* restore cgroup path for logging */
+        if (c)
+                *c = '/';
+        dispatch_message_real(s, iovec, n, m, ucred, tv, label, label_len, unit_id, priority, object_pid, path);
 }
 
 int server_flush_to_var(Server *s, bool require_flag_file) {
