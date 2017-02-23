@@ -344,9 +344,7 @@ static void everybody(void)
         }
 }
 
-int main(int argc, char **argv)
-{
-        struct udev *udev;
+int main(int argc, char **argv) {
         static const struct option options[] = {
                 { "add", no_argument, NULL, 'a' },
                 { "remove", no_argument, NULL, 'r' },
@@ -367,12 +365,6 @@ int main(int argc, char **argv)
         log_parse_environment();
         log_open();
 
-        udev = udev_new();
-        if (udev == NULL) {
-                ret = EXIT_FAILURE;
-                goto exit;
-        }
-
         for (;;) {
                 int option;
 
@@ -392,26 +384,23 @@ int main(int argc, char **argv)
                         break;
                 case 'h':
                         usage();
-                        goto exit;
+                        return 0;
                 default:
-                        ret = 1;
-                        goto exit;
+                        return 1;
                 }
         }
 
         argi = optind;
         if (argi + 2 > argc) {
                 printf("Missing parameter(s)\n");
-                ret = 1;
-                goto exit;
+                return 1;
         }
         checkpoint = argv[argi++];
         us = argv[argi++];
 
         if (signal(SIGALRM, sig_alrm) == SIG_ERR) {
                 fprintf(stderr, "Cannot set SIGALRM: %m\n");
-                ret = 2;
-                goto exit;
+                return 2;
         }
 
         udev_list_node_init(&bunch);
@@ -491,7 +480,5 @@ out:
                 everybody();
         if (ret >= 0)
                 printf("COLLECT_%s=%d\n", checkpoint, ret);
-exit:
-        udev_unref(udev);
         return ret;
 }
