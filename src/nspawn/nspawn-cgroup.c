@@ -80,7 +80,7 @@ int sync_cgroup(pid_t pid, CGroupUnified unified_requested, uid_t arg_uid_shift)
         const char *fn;
         int r, unified_controller;
 
-        unified_controller = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
+        unified_controller = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
         if (unified_controller < 0)
                 return log_error_errno(unified_controller, "Failed to determine whether the systemd hierarchy is unified: %m");
         if ((unified_controller > 0) == (unified_requested >= CGROUP_UNIFIED_SYSTEMD))
@@ -153,7 +153,7 @@ int create_subcgroup(pid_t pid, CGroupUnified unified_requested) {
         if (unified_requested == CGROUP_UNIFIED_NONE)
                 return 0;
 
-        r = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
+        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether the systemd controller is unified: %m");
         if (r == 0)

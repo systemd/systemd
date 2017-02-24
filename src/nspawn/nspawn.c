@@ -346,7 +346,7 @@ static int detect_unified_cgroup_hierarchy(const char *directory) {
                         arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_ALL;
                 else
                         arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
-        } else if (cg_unified(SYSTEMD_CGROUP_CONTROLLER) > 0) {
+        } else if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0) {
                 /* Mixed cgroup hierarchy support was added in 233 */
                 r = systemd_installation_has_version(directory, 233);
                 if (r < 0)

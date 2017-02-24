@@ -776,7 +776,7 @@ static int manager_setup_cgroups_agent(Manager *m) {
         if (!MANAGER_IS_SYSTEM(m))
                 return 0;
 
-        r = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
+        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether unified cgroups hierarchy is used: %m");
         if (r > 0) /* We don't need this anymore on the unified hierarchy */

@@ -1259,7 +1259,7 @@ int unit_watch_cgroup(Unit *u) {
                 return 0;
 
         /* Only applies to the unified hierarchy */
-        r = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
+        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether the name=systemd hierarchy is unified: %m");
         if (r == 0)
@@ -1684,7 +1684,7 @@ int unit_watch_all_pids(Unit *u) {
         if (!u->cgroup_path)
                 return -ENOENT;
 
-        r = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
+        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
         if (r < 0)
                 return r;
         if (r > 0) /* On unified we can use proper notifications */
@@ -1807,7 +1807,7 @@ int manager_setup_cgroup(Manager *m) {
         if (r > 0)
                 log_debug("Unified cgroup hierarchy is located at %s.", path);
         else {
-                r = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
+                r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine whether systemd's own controller is in unified mode: %m");
                 if (r > 0)
@@ -1820,7 +1820,7 @@ int manager_setup_cgroup(Manager *m) {
                 const char *scope_path;
 
                 /* 3. Install agent */
-                if (cg_unified(SYSTEMD_CGROUP_CONTROLLER) > 0) {
+                if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0) {
 
                         /* In the unified hierarchy we can get
                          * cgroup empty notifications via inotify. */

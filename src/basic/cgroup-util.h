@@ -242,7 +242,7 @@ bool cg_ns_supported(void);
 
 int cg_all_unified(void);
 int cg_hybrid_unified(void);
-int cg_unified(const char *controller);
+int cg_unified_controller(const char *controller);
 int cg_unified_flush(void);
 
 bool cg_is_unified_wanted(void);
