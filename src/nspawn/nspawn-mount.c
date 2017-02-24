@@ -991,7 +991,10 @@ static int mount_legacy_cgns_supported(
                         return r;
         }
 
-        if (cg_all_unified())
+        r = cg_all_unified();
+        if (r < 0)
+                return r;
+        if (r > 0)
                 goto skip_controllers;
 
         controllers = set_new(&string_hash_ops);
@@ -1094,7 +1097,10 @@ static int mount_legacy_cgns_unsupported(
                         return r;
         }
 
-        if (cg_all_unified())
+        r = cg_all_unified();
+        if (r < 0)
+                return r;
+        if (r > 0)
                 goto skip_controllers;
 
         controllers = set_new(&string_hash_ops);
