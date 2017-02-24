@@ -2338,7 +2338,9 @@ static int cg_update_unified(void) {
 
 bool cg_unified(const char *controller) {
 
-        assert(cg_update_unified() >= 0);
+        if (cg_update_unified() < 0)
+                /* most probably a chroot where /sys/fs/cgroup/ is not mounted */
+                return false;
 
         if (streq_ptr(controller, SYSTEMD_CGROUP_CONTROLLER))
                 return unified_cache >= CGROUP_UNIFIED_SYSTEMD;
@@ -2353,7 +2355,9 @@ bool cg_all_unified(void) {
 
 bool cg_hybrid_unified(void) {
 
-        assert(cg_update_unified() >= 0);
+        if (cg_update_unified() < 0)
+                /* most probably a chroot where /sys/fs/cgroup/ is not mounted */
+                return false;
 
         return unified_cache == CGROUP_UNIFIED_SYSTEMD && !unified_systemd_v232;
 }
