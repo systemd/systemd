@@ -245,7 +245,7 @@ static int network_link_get_ifindexes(int ifindex, const char *key, int **ret) {
         }
 
         if (ifis)
-                ifis[c] = 0; /* Let's add a 0 ifindex to the end, to be nice*/
+                ifis[c] = 0; /* Let's add a 0 ifindex to the end, to be nice */
 
         *ret = ifis;
         ifis = NULL;

@@ -433,7 +433,7 @@ static int dns_cache_put_positive(
                 return 0;
         }
 
-        /* Entry exists already? Update TTL, timestamp and owner*/
+        /* Entry exists already? Update TTL, timestamp and owner */
         existing = dns_cache_get(c, rr);
         if (existing) {
                 dns_cache_item_update_positive(

@@ -148,7 +148,7 @@ int dns_answer_add(DnsAnswer *a, DnsResourceRecord *rr, int ifindex, DnsAnswerFl
                          * match. We don't really care if they match
                          * precisely, but we do care whether one is 0
                          * and the other is not. See RFC 2181, Section
-                         * 5.2.*/
+                         * 5.2. */
 
                         if ((rr->ttl == 0) != (a->items[i].rr->ttl == 0))
                                 return -EINVAL;

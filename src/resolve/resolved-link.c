@@ -543,7 +543,7 @@ bool link_relevant(Link *l, int family, bool local_multicast) {
          * beat, can do multicast and has at least one link-local (or better) IP address.
          *
          * A link is relevant for non-multicast traffic if it isn't a loopback device, has a link beat, and has at
-         * least one routable address.*/
+         * least one routable address. */
 
         if (l->flags & (IFF_LOOPBACK|IFF_DORMANT))
                 return false;

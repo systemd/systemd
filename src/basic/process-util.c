@@ -311,7 +311,7 @@ int rename_process(const char name[]) {
 
         /* Third step, completely replace the argv[] array the kernel maintains for us. This requires privileges, but
          * has the advantage that the argv[] array is exactly what we want it to be, and not filled up with zeros at
-         * the end. This is the best option for changing /proc/self/cmdline.*/
+         * the end. This is the best option for changing /proc/self/cmdline. */
         if (mm_size < l+1) {
                 size_t nn_size;
                 char *nn;

@@ -400,7 +400,7 @@ int curl_header_strdup(const void *contents, size_t sz, const char *field, char 
                 sz--;
         }
 
-        /* Truncate trailing whitespace*/
+        /* Truncate trailing whitespace */
         while (sz > 0 && strchr(WHITESPACE, p[sz-1]))
                 sz--;
 

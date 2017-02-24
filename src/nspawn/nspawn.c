@@ -2539,7 +2539,7 @@ static int outer_child(
          * inside the containter that create a new mount namespace.
          * See https://github.com/systemd/systemd/issues/3860
          * Further submounts (such as /dev) done after this will inherit the
-         * shared propagation mode.*/
+         * shared propagation mode. */
         r = mount_verbose(LOG_ERR, NULL, directory, NULL, MS_SHARED|MS_REC, NULL);
         if (r < 0)
                 return r;
