@@ -74,4 +74,6 @@ KERNEL=="tun", MODE="0666", OPTIONS+="static_node=net/tun"
 
 KERNEL=="fuse", MODE="0666", OPTIONS+="static_node=fuse"
 
+SUBSYSTEM=="ptp", ATTR{clock_name}=="KVM virtual PTP", SYMLINK += "ptp_kvm"
+
 LABEL="default_end"
