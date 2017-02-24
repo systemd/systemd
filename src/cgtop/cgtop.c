@@ -134,6 +134,7 @@ static int process(
 
         Group *g;
         int r;
+        int unified;
 
         assert(controller);
         assert(path);
@@ -167,7 +168,10 @@ static int process(
                 }
         }
 
-        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER) && IN_SET(arg_count, COUNT_ALL_PROCESSES, COUNT_USERSPACE_PROCESSES)) {
+        unified = cg_all_unified(); /* true, false, or error */
+
+        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER) &&
+            IN_SET(arg_count, COUNT_ALL_PROCESSES, COUNT_USERSPACE_PROCESSES)) {
                 _cleanup_fclose_ FILE *f = NULL;
                 pid_t pid;
 
@@ -214,7 +218,7 @@ static int process(
                 uint64_t new_usage;
                 nsec_t timestamp;
 
-                if (cg_all_unified()) {
+                if (unified > 0) {
                         const char *keys[] = { "usage_usec", NULL };
                         _cleanup_free_ char *val = NULL;
 
@@ -274,7 +278,7 @@ static int process(
         } else if (streq(controller, "memory")) {
                 _cleanup_free_ char *p = NULL, *v = NULL;
 
-                if (!cg_all_unified())
+                if (unified <= 0)
                         r = cg_get_path(controller, path, "memory.usage_in_bytes", &p);
                 else
                         r = cg_get_path(controller, path, "memory.current", &p);
@@ -294,14 +298,15 @@ static int process(
                 if (g->memory > 0)
                         g->memory_valid = true;
 
-        } else if ((streq(controller, "io") && cg_all_unified()) ||
-                   (streq(controller, "blkio") && !cg_all_unified())) {
+        } else if ((streq(controller, "io") && unified > 0) ||
+                   (streq(controller, "blkio") && unified <= 0)) {
                 _cleanup_fclose_ FILE *f = NULL;
                 _cleanup_free_ char *p = NULL;
                 uint64_t wr = 0, rd = 0;
                 nsec_t timestamp;
 
-                r = cg_get_path(controller, path, cg_all_unified() ? "io.stat" : "blkio.io_service_bytes", &p);
+                r = cg_get_path(controller, path,
+                                unified ? "io.stat" : "blkio.io_service_bytes", &p);
                 if (r < 0)
                         return r;
 
@@ -324,7 +329,7 @@ static int process(
                         l += strcspn(l, WHITESPACE);
                         l += strspn(l, WHITESPACE);
 
-                        if (cg_all_unified()) {
+                        if (unified) {
                                 while (!isempty(l)) {
                                         if (sscanf(l, "rbytes=%" SCNu64, &k))
                                                 rd += k;

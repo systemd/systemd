@@ -316,7 +316,7 @@ static int custom_mount_check_all(void) {
 
 static int detect_unified_cgroup_hierarchy(const char *directory) {
         const char *e;
-        int r;
+        int r, all_unified, systemd_unified;
 
         /* Allow the user to control whether the unified hierarchy is used */
         e = getenv("UNIFIED_CGROUP_HIERARCHY");
@@ -332,8 +332,15 @@ static int detect_unified_cgroup_hierarchy(const char *directory) {
                 return 0;
         }
 
+        all_unified = cg_all_unified();
+        systemd_unified = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
+
+        if (all_unified < 0 || systemd_unified < 0)
+                return log_error_errno(all_unified < 0 ? all_unified : systemd_unified,
+                                       "Failed to determine whether the unified cgroups hierarchy is used: %m");
+
         /* Otherwise inherit the default from the host system */
-        if (cg_all_unified()) {
+        if (all_unified > 0) {
                 /* Unified cgroup hierarchy support was added in 230. Unfortunately the detection
                  * routine only detects 231, so we'll have a false negative here for 230. */
                 r = systemd_installation_has_version(directory, 230);
@@ -343,7 +350,7 @@ static int detect_unified_cgroup_hierarchy(const char *directory) {
                         arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_ALL;
                 else
                         arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
-        } else if (cg_unified(SYSTEMD_CGROUP_CONTROLLER)) {
+        } else if (systemd_unified > 0) {
                 /* Mixed cgroup hierarchy support was added in 233 */
                 r = systemd_installation_has_version(directory, 233);
                 if (r < 0)
@@ -3526,10 +3533,7 @@ int main(int argc, char *argv[]) {
 
         log_parse_environment();
         log_open();
-
-        r = cg_unified_flush();
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine whether the unified cgroups hierarchy is used: %m");
+        cg_unified_flush();
 
         /* Make sure rename_process() in the stub init process can work */
         saved_argv = argv;

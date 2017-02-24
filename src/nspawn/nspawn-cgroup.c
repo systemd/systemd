@@ -78,9 +78,13 @@ int sync_cgroup(pid_t pid, CGroupUnified unified_requested, uid_t arg_uid_shift)
         char tree[] = "/tmp/unifiedXXXXXX", pid_string[DECIMAL_STR_MAX(pid) + 1];
         bool undo_mount = false;
         const char *fn;
-        int r;
+        int unified, r;
 
-        if (cg_unified(SYSTEMD_CGROUP_CONTROLLER) == (unified_requested >= CGROUP_UNIFIED_SYSTEMD))
+        unified = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
+        if (unified < 0)
+                return log_error_errno(unified, "Failed to determine whether the unified hierarchy is used: %m");
+
+        if ((unified > 0) == (unified_requested >= CGROUP_UNIFIED_SYSTEMD))
                 return 0;
 
         /* When the host uses the legacy cgroup setup, but the
@@ -96,7 +100,7 @@ int sync_cgroup(pid_t pid, CGroupUnified unified_requested, uid_t arg_uid_shift)
         if (!mkdtemp(tree))
                 return log_error_errno(errno, "Failed to generate temporary mount point for unified hierarchy: %m");
 
-        if (cg_unified(SYSTEMD_CGROUP_CONTROLLER))
+        if (unified)
                 r = mount_verbose(LOG_ERR, "cgroup", tree, "cgroup",
                                   MS_NOSUID|MS_NOEXEC|MS_NODEV, "none,name=systemd,xattr");
         else
@@ -138,7 +142,7 @@ finish:
 int create_subcgroup(pid_t pid, CGroupUnified unified_requested) {
         _cleanup_free_ char *cgroup = NULL;
         const char *child;
-        int r;
+        int unified, r;
         CGroupMask supported;
 
         /* In the unified hierarchy inner nodes may only contain
@@ -150,7 +154,10 @@ int create_subcgroup(pid_t pid, CGroupUnified unified_requested) {
         if (unified_requested == CGROUP_UNIFIED_NONE)
                 return 0;
 
-        if (!cg_unified(SYSTEMD_CGROUP_CONTROLLER))
+        unified = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
+        if (unified < 0)
+                return log_error_errno(unified, "Failed to determine whether the unified hierarchy is used: %m");
+        if (unified == 0)
                 return 0;
 
         r = cg_mask_supported(&supported);
