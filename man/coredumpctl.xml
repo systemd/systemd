@@ -92,6 +92,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-S</option></term>
+        <term><option>--since</option></term>
+
+        <listitem><para>Only print entries which are since the specified date.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-U</option></term>
+        <term><option>--until</option></term>
+
+        <listitem><para>Only print entries which are until the specified date.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-r</option></term>
         <term><option>--reverse</option></term>
 
