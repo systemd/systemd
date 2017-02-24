@@ -187,6 +187,7 @@ static const char* fallback_chassis(void) {
         case 0x9: /* Laptop */
         case 0xA: /* Notebook */
         case 0xE: /* Sub Notebook */
+        case 0x1F: /* Convertible */
                 return "laptop";
 
         case 0xB: /* Hand Held */
