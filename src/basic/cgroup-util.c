@@ -2340,10 +2340,13 @@ bool cg_unified(const char *controller) {
 
         assert(cg_update_unified() >= 0);
 
-        if (streq_ptr(controller, SYSTEMD_CGROUP_CONTROLLER))
-                return unified_cache >= CGROUP_UNIFIED_SYSTEMD;
-        else
-                return unified_cache >= CGROUP_UNIFIED_ALL;
+        if (unified_cache == CGROUP_UNIFIED_NONE)
+                return false;
+
+        if (unified_cache >= CGROUP_UNIFIED_ALL)
+                return true;
+
+        return streq_ptr(controller, SYSTEMD_CGROUP_CONTROLLER);
 }
 
 bool cg_all_unified(void) {
