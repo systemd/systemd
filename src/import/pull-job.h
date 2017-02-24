@@ -42,6 +42,12 @@ typedef enum PullJobState {
         _PULL_JOB_STATE_INVALID = -1,
 } PullJobState;
 
+typedef enum VerificationStyle {
+        VERIFICATION_STYLE_UNSET,
+        VERIFICATION_PER_FILE,        /* SuSE-style ".sha256" files with inline signature */
+        VERIFICATION_PER_DIRECTORY,   /* Ubuntu-style SHA256SUM files with detach SHA256SUM.gpg signatures */
+} VerificationStyle;
+
 #define PULL_JOB_IS_COMPLETE(j) (IN_SET((j)->state, PULL_JOB_DONE, PULL_JOB_FAILED))
 
 struct PullJob {
@@ -94,6 +100,8 @@ struct PullJob {
 
         bool grow_machine_directory;
         uint64_t written_since_last_grow;
+
+        VerificationStyle style;
 };
 
 int pull_job_new(PullJob **job, const char *url, CurlGlue *glue, void *userdata);

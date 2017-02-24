@@ -713,19 +713,22 @@
         is automatically derived from the last component of the URL,
         with its suffix removed.</para>
 
-        <para>The image is verified before it is made available,
-        unless <option>--verify=no</option> is specified. Verification
-        is done via SHA256SUMS and SHA256SUMS.gpg files that need to
-        be made available on the same web server, under the same URL
-        as the <filename>.tar</filename> file, but with the last
-        component (the filename) of the URL replaced. With
-        <option>--verify=checksum</option>, only the SHA256 checksum
-        for the file is verified, based on the
-        <filename>SHA256SUMS</filename> file. With
-        <option>--verify=signature</option>, the SHA256SUMS file is
-        first verified with detached GPG signature file
-        <filename>SHA256SUMS.gpg</filename>. The public key for this
-        verification step needs to be available in
+        <para>The image is verified before it is made available, unless
+        <option>--verify=no</option> is specified.
+        Verification is done either via an inline signed file with the name
+        of the image and the suffix <filename>.sha256</filename> or via
+        separate <filename>SHA256SUMS</filename> and
+        <filename>SHA256SUMS.gpg</filename> files.
+        The signature files need to be made available on the same web
+        server, under the same URL as the <filename>.tar</filename> file.
+        With <option>--verify=checksum</option>, only the SHA256 checksum
+        for the file is verified, based on the <filename>.sha256</filename>
+        suffixed file or the<filename>SHA256SUMS</filename> file.
+        With <option>--verify=signature</option>, the sha checksum file is
+        first verified with the inline signature in the
+        <filename>.sha256</filename> file or the detached GPG signature file
+        <filename>SHA256SUMS.gpg</filename>.
+        The public key for this verification step needs to be available in
         <filename>/usr/lib/systemd/import-pubring.gpg</filename> or
         <filename>/etc/systemd/import-pubring.gpg</filename>.</para>
 
