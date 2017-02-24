@@ -2353,7 +2353,7 @@ static thread_local CGroupUnified unified_cache = CGROUP_UNIFIED_UNKNOWN;
  */
 static thread_local bool unified_systemd_v232;
 
-static int cg_update_unified(void) {
+static int cg_unified_update(void) {
 
         struct statfs fs;
 
@@ -2395,7 +2395,7 @@ static int cg_update_unified(void) {
 int cg_unified_controller(const char *controller) {
         int r;
 
-        r = cg_update_unified();
+        r = cg_unified_update();
         if (r < 0)
                 return r;
 
@@ -2415,7 +2415,7 @@ int cg_all_unified(void) {
 int cg_hybrid_unified(void) {
         int r;
 
-        r = cg_update_unified();
+        r = cg_unified_update();
         if (r < 0)
                 return r;
 
@@ -2425,7 +2425,7 @@ int cg_hybrid_unified(void) {
 int cg_unified_flush(void) {
         unified_cache = CGROUP_UNIFIED_UNKNOWN;
 
-        return cg_update_unified();
+        return cg_unified_update();
 }
 
 int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p) {
