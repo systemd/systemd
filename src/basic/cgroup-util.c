@@ -2409,7 +2409,13 @@ int cg_unified_controller(const char *controller) {
 }
 
 int cg_all_unified(void) {
-        return cg_unified_controller(NULL);
+        int r;
+
+        r = cg_unified_update();
+        if (r < 0)
+                return r;
+
+        return unified_cache >= CGROUP_UNIFIED_ALL;
 }
 
 int cg_hybrid_unified(void) {
