@@ -333,7 +333,10 @@ static int detect_unified_cgroup_hierarchy(const char *directory) {
         }
 
         /* Otherwise inherit the default from the host system */
-        if (cg_all_unified()) {
+        r = cg_all_unified();
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether we are in all unified mode.");
+        if (r > 0) {
                 /* Unified cgroup hierarchy support was added in 230. Unfortunately the detection
                  * routine only detects 231, so we'll have a false negative here for 230. */
                 r = systemd_installation_has_version(directory, 230);
@@ -343,7 +346,7 @@ static int detect_unified_cgroup_hierarchy(const char *directory) {
                         arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_ALL;
                 else
                         arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
-        } else if (cg_unified(SYSTEMD_CGROUP_CONTROLLER)) {
+        } else if (cg_unified(SYSTEMD_CGROUP_CONTROLLER) > 0) {
                 /* Mixed cgroup hierarchy support was added in 233 */
                 r = systemd_installation_has_version(directory, 233);
                 if (r < 0)

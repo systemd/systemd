@@ -240,9 +240,9 @@ int cg_kernel_controllers(Set *controllers);
 
 bool cg_ns_supported(void);
 
-bool cg_all_unified(void);
-bool cg_hybrid_unified(void);
-bool cg_unified(const char *controller);
+int cg_all_unified(void);
+int cg_hybrid_unified(void);
+int cg_unified(const char *controller);
 int cg_unified_flush(void);
 
 bool cg_is_unified_wanted(void);

@@ -678,7 +678,7 @@ static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
                 bool has_weight = cgroup_context_has_cpu_weight(c);
                 bool has_shares = cgroup_context_has_cpu_shares(c);
 
-                if (cg_all_unified()) {
+                if (cg_all_unified() > 0) {
                         uint64_t weight;
 
                         if (has_weight)
@@ -858,9 +858,8 @@ static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
         }
 
         if ((mask & CGROUP_MASK_MEMORY) && !is_root) {
-                if (cg_all_unified()) {
-                        uint64_t max;
-                        uint64_t swap_max = CGROUP_LIMIT_MAX;
+                if (cg_all_unified() > 0) {
+                        uint64_t max, swap_max = CGROUP_LIMIT_MAX;
 
                         if (cgroup_context_has_unified_memory_config(c)) {
                                 max = c->memory_max;
@@ -1033,7 +1032,7 @@ CGroupMask unit_get_own_mask(Unit *u) {
                 e = unit_get_exec_context(u);
                 if (!e ||
                     exec_context_maintains_privileges(e) ||
-                    cg_all_unified())
+                    cg_all_unified() > 0)
                         return _CGROUP_MASK_ALL;
         }
 
@@ -1260,7 +1259,10 @@ int unit_watch_cgroup(Unit *u) {
                 return 0;
 
         /* Only applies to the unified hierarchy */
-        if (!cg_unified(SYSTEMD_CGROUP_CONTROLLER))
+        r = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether the name=systemd hierarchy is unified: %m");
+        if (r == 0)
                 return 0;
 
         /* Don't watch the root slice, it's pointless. */
@@ -1670,6 +1672,8 @@ static int unit_watch_pids_in_path(Unit *u, const char *path) {
 }
 
 int unit_watch_all_pids(Unit *u) {
+        int r;
+
         assert(u);
 
         /* Adds all PIDs from our cgroup to the set of PIDs we
@@ -1680,7 +1684,10 @@ int unit_watch_all_pids(Unit *u) {
         if (!u->cgroup_path)
                 return -ENOENT;
 
-        if (cg_unified(SYSTEMD_CGROUP_CONTROLLER)) /* On unified we can use proper notifications */
+        r = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
+        if (r < 0)
+                return r;
+        if (r > 0) /* On unified we can use proper notifications */
                 return 0;
 
         return unit_watch_pids_in_path(u, u->cgroup_path);
@@ -1753,7 +1760,7 @@ static int on_cgroup_inotify_event(sd_event_source *s, int fd, uint32_t revents,
 int manager_setup_cgroup(Manager *m) {
         _cleanup_free_ char *path = NULL;
         CGroupController c;
-        int r;
+        int r, all_unified;
         char *e;
 
         assert(m);
@@ -1794,18 +1801,26 @@ int manager_setup_cgroup(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Couldn't determine if we are running in the unified hierarchy: %m");
 
-        if (cg_all_unified())
+        all_unified = cg_all_unified();
+        if (r < 0)
+                return log_error_errno(r, "Couldn't determine whether we are in all unified mode: %m");
+        if (r > 0)
                 log_debug("Unified cgroup hierarchy is located at %s.", path);
-        else if (cg_unified(SYSTEMD_CGROUP_CONTROLLER))
-                log_debug("Unified cgroup hierarchy is located at %s. Controllers are on legacy hierarchies.", path);
-        else
-                log_debug("Using cgroup controller " SYSTEMD_CGROUP_CONTROLLER_LEGACY ". File system hierarchy is at %s.", path);
+        else {
+                r = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine whether systemd's own controller is in unified mode: %m");
+                if (r > 0)
+                        log_debug("Unified cgroup hierarchy is located at %s. Controllers are on legacy hierarchies.", path);
+                else
+                        log_debug("Using cgroup controller " SYSTEMD_CGROUP_CONTROLLER_LEGACY ". File system hierarchy is at %s.", path);
+        }
 
         if (!m->test_run) {
                 const char *scope_path;
 
                 /* 3. Install agent */
-                if (cg_unified(SYSTEMD_CGROUP_CONTROLLER)) {
+                if (cg_unified(SYSTEMD_CGROUP_CONTROLLER) > 0) {
 
                         /* In the unified hierarchy we can get
                          * cgroup empty notifications via inotify. */
@@ -1865,7 +1880,7 @@ int manager_setup_cgroup(Manager *m) {
                         return log_error_errno(errno, "Failed to open pin file: %m");
 
                 /* 6.  Always enable hierarchical support if it exists... */
-                if (!cg_all_unified())
+                if (!all_unified)
                         (void) cg_set_attribute("memory", "/", "memory.use_hierarchy", "1");
         }
 
@@ -1991,10 +2006,13 @@ int unit_get_memory_current(Unit *u, uint64_t *ret) {
         if ((u->cgroup_realized_mask & CGROUP_MASK_MEMORY) == 0)
                 return -ENODATA;
 
-        if (!cg_all_unified())
-                r = cg_get_attribute("memory", u->cgroup_path, "memory.usage_in_bytes", &v);
-        else
+        r = cg_all_unified();
+        if (r < 0)
+                return r;
+        if (r > 0)
                 r = cg_get_attribute("memory", u->cgroup_path, "memory.current", &v);
+        else
+                r = cg_get_attribute("memory", u->cgroup_path, "memory.usage_in_bytes", &v);
         if (r == -ENOENT)
                 return -ENODATA;
         if (r < 0)
@@ -2036,7 +2054,10 @@ static int unit_get_cpu_usage_raw(Unit *u, nsec_t *ret) {
         if (!u->cgroup_path)
                 return -ENODATA;
 
-        if (cg_all_unified()) {
+        r = cg_all_unified();
+        if (r < 0)
+                return r;
+        if (r > 0) {
                 const char *keys[] = { "usage_usec", NULL };
                 _cleanup_free_ char *val = NULL;
                 uint64_t us;
