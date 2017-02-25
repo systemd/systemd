@@ -343,7 +343,7 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
         _cleanup_free_ char
                 *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
                 *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
-                *filename = NULL, *coredump = NULL;
+                *filename = NULL, *truncated = NULL, *coredump = NULL;
         const void *d;
         size_t l;
         usec_t t;
@@ -365,6 +365,7 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
                 RETRIEVE(d, l, "COREDUMP_COMM", comm);
                 RETRIEVE(d, l, "COREDUMP_CMDLINE", cmdline);
                 RETRIEVE(d, l, "COREDUMP_FILENAME", filename);
+                RETRIEVE(d, l, "COREDUMP_TRUNCATED", truncated);
                 RETRIEVE(d, l, "COREDUMP", coredump);
         }
 
@@ -380,13 +381,13 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
         format_timestamp(buf, sizeof(buf), t);
 
         if (!had_legend && !arg_no_legend)
-                fprintf(file, "%-*s %*s %*s %*s %*s %*s %s\n",
+                fprintf(file, "%-*s %*s %*s %*s %*s %-*s %s\n",
                         FORMAT_TIMESTAMP_WIDTH, "TIME",
                         6, "PID",
                         5, "UID",
                         5, "GID",
                         3, "SIG",
-                        8, "COREFILE",
+                        9, "COREFILE",
                            "EXE");
 
         normal_coredump = streq_ptr(mid, SD_MESSAGE_COREDUMP_STR);
@@ -405,13 +406,16 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
         else
                 present = "-";
 
+        if (STR_IN_SET(present, "present", "journal") && streq_ptr(truncated, "yes"))
+                present = "truncated";
+
         fprintf(file, "%-*s %*s %*s %*s %*s %-*s %s\n",
                 FORMAT_TIMESTAMP_WIDTH, buf,
                 6, strna(pid),
                 5, strna(uid),
                 5, strna(gid),
                 3, normal_coredump ? strna(sgnl) : "-",
-                8, present,
+                9, present,
                 strna(exe ?: (comm ?: cmdline)));
 
         return 0;
@@ -425,7 +429,7 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 *boot_id = NULL, *machine_id = NULL, *hostname = NULL,
                 *slice = NULL, *cgroup = NULL, *owner_uid = NULL,
                 *message = NULL, *timestamp = NULL, *filename = NULL,
-                *coredump = NULL;
+                *truncated = NULL, *coredump = NULL;
         const void *d;
         size_t l;
         bool normal_coredump;
@@ -451,6 +455,7 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 RETRIEVE(d, l, "COREDUMP_CGROUP", cgroup);
                 RETRIEVE(d, l, "COREDUMP_TIMESTAMP", timestamp);
                 RETRIEVE(d, l, "COREDUMP_FILENAME", filename);
+                RETRIEVE(d, l, "COREDUMP_TRUNCATED", truncated);
                 RETRIEVE(d, l, "COREDUMP", coredump);
                 RETRIEVE(d, l, "_BOOT_ID", boot_id);
                 RETRIEVE(d, l, "_MACHINE_ID", machine_id);
@@ -569,9 +574,22 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
         if (hostname)
                 fprintf(file, "      Hostname: %s\n", hostname);
 
-        if (filename)
-                fprintf(file, "       Storage: %s%s\n", filename,
-                        access(filename, R_OK) < 0 ? " (inaccessible)" : "");
+        if (filename) {
+                bool inacc = access(filename, R_OK) < 0;
+                bool trunc = streq_ptr(truncated, "yes");
+
+                if (inacc || trunc)
+                        fprintf(file, "       Storage: %s%s (%s%s%s)%s\n",
+                                ansi_highlight_red(),
+                                filename,
+                                inacc ? "inaccessible" : "",
+                                inacc && trunc ? ", " : "",
+                                trunc ? "truncated" : "",
+                                ansi_normal());
+                else
+                        fprintf(file, "       Storage: %s\n", filename);
+        }
+
         else if (coredump)
                 fprintf(file, "       Storage: journal\n");
         else

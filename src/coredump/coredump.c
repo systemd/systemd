@@ -325,7 +325,7 @@ static int save_external_coredump(
                 int *ret_node_fd,
                 int *ret_data_fd,
                 uint64_t *ret_size,
-                bool *truncated) {
+                bool *ret_truncated) {
 
         _cleanup_free_ char *fn = NULL, *tmp = NULL;
         _cleanup_close_ int fd = -1;
@@ -374,8 +374,8 @@ static int save_external_coredump(
                 log_error_errno(r, "Cannot store coredump of %s (%s): %m", context[CONTEXT_PID], context[CONTEXT_COMM]);
                 goto fail;
         }
-        *truncated = r == 1;
-        if (*truncated)
+        *ret_truncated = r == 1;
+        if (*ret_truncated)
                 log_struct(LOG_INFO,
                            LOG_MESSAGE("Core file was truncated to %zu bytes.", max_size),
                            "SIZE_LIMIT=%zu", max_size,
