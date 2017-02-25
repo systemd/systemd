@@ -324,7 +324,8 @@ static int save_external_coredump(
                 char **ret_filename,
                 int *ret_node_fd,
                 int *ret_data_fd,
-                uint64_t *ret_size) {
+                uint64_t *ret_size,
+                bool *truncated) {
 
         _cleanup_free_ char *fn = NULL, *tmp = NULL;
         _cleanup_close_ int fd = -1;
@@ -372,7 +373,9 @@ static int save_external_coredump(
         if (r < 0) {
                 log_error_errno(r, "Cannot store coredump of %s (%s): %m", context[CONTEXT_PID], context[CONTEXT_COMM]);
                 goto fail;
-        } else if (r == 1)
+        }
+        *truncated = r == 1;
+        if (*truncated)
                 log_struct(LOG_INFO,
                            LOG_MESSAGE("Core file was truncated to %zu bytes.", max_size),
                            "SIZE_LIMIT=%zu", max_size,
@@ -691,6 +694,8 @@ static int change_uid_gid(const char *context[]) {
         return drop_privileges(uid, gid, 0);
 }
 
+#define SUBMIT_COREDUMP_FIELDS 4
+
 static int submit_coredump(
                 const char *context[_CONTEXT_MAX],
                 struct iovec *iovec,
@@ -701,18 +706,20 @@ static int submit_coredump(
         _cleanup_close_ int coredump_fd = -1, coredump_node_fd = -1;
         _cleanup_free_ char *core_message = NULL, *filename = NULL, *coredump_data = NULL;
         uint64_t coredump_size = UINT64_MAX;
+        bool truncated = false;
         int r;
 
         assert(context);
         assert(iovec);
-        assert(n_iovec_allocated >= n_iovec + 3);
+        assert(n_iovec_allocated >= n_iovec + SUBMIT_COREDUMP_FIELDS);
         assert(input_fd >= 0);
 
         /* Vacuum before we write anything again */
         (void) coredump_vacuum(-1, arg_keep_free, arg_max_use);
 
         /* Always stream the coredump to disk, if that's possible */
-        r = save_external_coredump(context, input_fd, &filename, &coredump_node_fd, &coredump_fd, &coredump_size);
+        r = save_external_coredump(context, input_fd,
+                                   &filename, &coredump_node_fd, &coredump_fd, &coredump_size, &truncated);
         if (r < 0)
                 /* Skip whole core dumping part */
                 goto log;
@@ -769,6 +776,9 @@ log:
                                context[CONTEXT_UID], " dumped core.");
         if (core_message)
                 IOVEC_SET_STRING(iovec[n_iovec++], core_message);
+
+        if (truncated)
+                IOVEC_SET_STRING(iovec[n_iovec++], "COREDUMP_TRUNCATED=yes");
 
         /* Optionally store the entire coredump in the journal */
         if (arg_storage == COREDUMP_STORAGE_JOURNAL) {
@@ -861,7 +871,7 @@ static int process_socket(int fd) {
                 ssize_t n;
                 ssize_t l;
 
-                if (!GREEDY_REALLOC(iovec, n_allocated, n_iovec + 3)) {
+                if (!GREEDY_REALLOC(iovec, n_allocated, n_iovec + SUBMIT_COREDUMP_FIELDS)) {
                         r = log_oom();
                         goto finish;
                 }
@@ -925,7 +935,7 @@ static int process_socket(int fd) {
                 n_iovec++;
         }
 
-        if (!GREEDY_REALLOC(iovec, n_allocated, n_iovec + 3)) {
+        if (!GREEDY_REALLOC(iovec, n_allocated, n_iovec + SUBMIT_COREDUMP_FIELDS)) {
                 r = log_oom();
                 goto finish;
         }
@@ -1027,6 +1037,7 @@ static int process_special_crash(const char *context[], int input_fd) {
         _cleanup_close_ int coredump_fd = -1, coredump_node_fd = -1;
         _cleanup_free_ char *filename = NULL;
         uint64_t coredump_size;
+        bool truncated;
         int r;
 
         assert(context);
@@ -1037,7 +1048,8 @@ static int process_special_crash(const char *context[], int input_fd) {
         if (arg_storage != COREDUMP_STORAGE_NONE)
                 arg_storage = COREDUMP_STORAGE_EXTERNAL;
 
-        r = save_external_coredump(context, input_fd, &filename, &coredump_node_fd, &coredump_fd, &coredump_size);
+        r = save_external_coredump(context, input_fd,
+                                   &filename, &coredump_node_fd, &coredump_fd, &coredump_size, &truncated);
         if (r < 0)
                 return r;
 
