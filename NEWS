@@ -169,7 +169,7 @@ CHANGES WITH 233 in spe
           LUKS and Verity partitions) to a local host directory, in order to
           inspect them. This tool is not considered public API (yet), and is
           thus not installed into /usr/bin. Please do not rely on its
-          existance, since it might go away or be changed in later systemd
+          existence, since it might go away or be changed in later systemd
           versions.
 
         * A new generator "systemd-verity-generator" has been added, similar in
