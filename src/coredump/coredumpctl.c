@@ -50,6 +50,8 @@
 #include "user-util.h"
 #include "util.h"
 
+static usec_t arg_since = USEC_INFINITY, arg_until = USEC_INFINITY;
+
 static enum {
         ACTION_NONE,
         ACTION_INFO,
@@ -128,11 +130,12 @@ static void help(void) {
                "     --no-pager      Do not pipe output into a pager\n"
                "     --no-legend     Do not print the column headers.\n"
                "  -1                 Show information about most recent entry only\n"
+               "  -S --since=DATE    Only print coredumps since the date\n"
+               "  -U --until=DATE    Only print coredumps until the date\n"
                "  -r --reverse       Show the newest entries first\n"
                "  -F --field=FIELD   List all values a certain field takes\n"
                "  -o --output=FILE   Write output to FILE\n"
                "  -D --directory=DIR Use journal files from directory\n\n"
-
                "Commands:\n"
                "  list [MATCHES...]  List available coredumps (default)\n"
                "  info [MATCHES...]  Show detailed information about one or more coredumps\n"
@@ -148,7 +151,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_LEGEND,
         };
 
-        int c;
+        int c, r;
 
         static const struct option options[] = {
                 { "help",         no_argument,       NULL, 'h'           },
@@ -159,15 +162,16 @@ static int parse_argv(int argc, char *argv[]) {
                 { "field",        required_argument, NULL, 'F'           },
                 { "directory",    required_argument, NULL, 'D'           },
                 { "reverse",      no_argument,       NULL, 'r'           },
+                { "since",        required_argument, NULL, 'S'           },
+                { "until",        required_argument, NULL, 'U'           },
                 {}
         };
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "ho:F:1D:r", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "ho:F:1D:S:U:r", options, NULL)) >= 0)
                 switch(c) {
-
                 case 'h':
                         arg_action = ACTION_NONE;
                         help();
@@ -197,6 +201,18 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case 'S':
+                        r = parse_timestamp(optarg, &arg_since);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse timestamp: %s", optarg);
+                        break;
+
+                case 'U':
+                        r = parse_timestamp(optarg, &arg_until);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse timestamp: %s", optarg);
+                        break;
+
                 case 'F':
                         if (arg_field) {
                                 log_error("cannot use --field/-F more than once");
@@ -223,6 +239,12 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
+
+        if (arg_since != USEC_INFINITY && arg_until != USEC_INFINITY &&
+            arg_since > arg_until) {
+                log_error("--since= must be before --until=.");
+                return -EINVAL;
+        }
 
         if (optind < argc) {
                 const char *cmd = argv[optind++];
@@ -610,18 +632,52 @@ static int dump_list(sd_journal *j) {
 
                 return print_entry(j, 0);
         } else {
-                if (!arg_reverse) {
-                        SD_JOURNAL_FOREACH(j) {
-                                r = print_entry(j, n_found++);
+                if (arg_since != USEC_INFINITY && !arg_reverse)
+                        r = sd_journal_seek_realtime_usec(j, arg_since);
+                else if (arg_until != USEC_INFINITY && arg_reverse)
+                        r = sd_journal_seek_realtime_usec(j, arg_until);
+                else if (arg_reverse)
+                        r = sd_journal_seek_tail(j);
+                else
+                        r = sd_journal_seek_head(j);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to seek to date: %m");
+
+                for (;;) {
+                        if (!arg_reverse)
+                                r = sd_journal_next(j);
+                        else
+                                r = sd_journal_previous(j);
+
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to iterate through journal: %m");
+
+                        if (r == 0)
+                                break;
+
+                        if (arg_until != USEC_INFINITY && !arg_reverse) {
+                                usec_t usec;
+
+                                r = sd_journal_get_realtime_usec(j, &usec);
                                 if (r < 0)
-                                        return r;
+                                        return log_error_errno(r, "Failed to determine timestamp: %m");
+                                if (usec > arg_until)
+                                        continue;
                         }
-                } else {
-                        SD_JOURNAL_FOREACH_BACKWARDS(j) {
-                                r = print_entry(j, n_found++);
+
+                        if (arg_since != USEC_INFINITY && arg_reverse) {
+                                usec_t usec;
+
+                                r = sd_journal_get_realtime_usec(j, &usec);
                                 if (r < 0)
-                                        return r;
+                                        return log_error_errno(r, "Failed to determine timestamp: %m");
+                                if (usec < arg_since)
+                                        continue;
                         }
+
+                        r = print_entry(j, n_found++);
+                        if (r < 0)
+                                return r;
                 }
 
                 if (!arg_field && n_found <= 0) {
