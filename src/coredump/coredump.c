@@ -1236,13 +1236,9 @@ static int process_kernel(int argc, char* argv[]) {
         context[CONTEXT_RLIMIT]    = argv[CONTEXT_RLIMIT + 1];
 
         r = gather_pid_metadata_and_process_special_crash(context, argv + CONTEXT_COMM + 1, NULL, iovec, &n_to_free);
-        if (r < 0)
+        if (r != 0)
+                /* Error, or a a special crash, which has already been processed. */
                 goto finish;
-        if (r > 0) {
-                /* This was a special crash, and has already been processed. */
-                r = 0;
-                goto finish;
-        }
 
         n_iovec = n_to_free;
 
