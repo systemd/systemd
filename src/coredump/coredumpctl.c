@@ -936,7 +936,7 @@ static int check_units_active(void) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int c = 0, r;
-        const char *state;
+        const char *id, *state, *substate;
 
         r = sd_bus_default_system(&bus);
         if (r < 0)
@@ -971,11 +971,12 @@ static int check_units_active(void) {
 
         while ((r = sd_bus_message_read(
                                 reply, "(ssssssouso)",
-                                NULL,  NULL,  NULL,  &state,  NULL,
-                                NULL,  NULL,  NULL,  NULL,  NULL)) > 0)
-                if (!STR_IN_SET(state, "dead", "failed"))
-                        c++;
-
+                                &id,  NULL,  NULL,  &state,  &substate,
+                                NULL,  NULL,  NULL,  NULL,  NULL)) > 0) {
+                bool found = !STR_IN_SET(state, "dead", "failed");
+                log_debug("Unit %s is %s/%s, %scounting it.", id, state, substate, found ? "" : "not ");
+                c += found;
+        }
         if (r < 0)
                 return bus_log_parse_error(r);
 
