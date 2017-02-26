@@ -978,7 +978,7 @@ static int check_units_active(void) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, 3 * USEC_PER_SEC, &error, &reply);
         if (r < 0)
                 return log_error_errno(r, "Failed to check if any systemd-coredump@.service units are running: %s",
                                        bus_error_message(&error, r));
