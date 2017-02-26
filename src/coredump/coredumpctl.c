@@ -36,6 +36,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "journal-internal.h"
+#include "journal-util.h"
 #include "log.h"
 #include "macro.h"
 #include "pager.h"
@@ -67,6 +68,7 @@ static int arg_one = false;
 static FILE* arg_output = NULL;
 static bool arg_reverse = false;
 static char** arg_matches = NULL;
+static bool arg_quiet = false;
 
 static int add_match(sd_journal *j, const char *match) {
         _cleanup_free_ char *p = NULL;
@@ -136,6 +138,7 @@ static void help(void) {
                "  -F --field=FIELD   List all values a certain field takes\n"
                "  -o --output=FILE   Write output to FILE\n"
                "  -D --directory=DIR Use journal files from directory\n\n"
+               "  -q --quiet         Do not show info messages and privilege warning\n"
                "Commands:\n"
                "  list [MATCHES...]  List available coredumps (default)\n"
                "  info [MATCHES...]  Show detailed information about one or more coredumps\n"
@@ -164,13 +167,14 @@ static int parse_argv(int argc, char *argv[]) {
                 { "reverse",      no_argument,       NULL, 'r'           },
                 { "since",        required_argument, NULL, 'S'           },
                 { "until",        required_argument, NULL, 'U'           },
+                { "quiet",        no_argument,       NULL, 'q'           },
                 {}
         };
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "ho:F:1D:S:U:r", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "ho:F:1D:rS:U:q", options, NULL)) >= 0)
                 switch(c) {
                 case 'h':
                         arg_action = ACTION_NONE;
@@ -231,6 +235,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'r':
                         arg_reverse = true;
+                        break;
+
+                case 'q':
+                        arg_quiet = true;
                         break;
 
                 case '?':
@@ -699,7 +707,8 @@ static int dump_list(sd_journal *j) {
                 }
 
                 if (!arg_field && n_found <= 0) {
-                        log_notice("No coredumps found.");
+                        if (!arg_quiet)
+                                log_notice("No coredumps found.");
                         return -ESRCH;
                 }
         }
@@ -861,8 +870,8 @@ static int dump_core(sd_journal* j) {
                 return r;
 
         r = sd_journal_previous(j);
-        if (r > 0)
-                log_warning("More than one entry matches, ignoring rest.");
+        if (r > 0 && !arg_quiet)
+                log_notice("More than one entry matches, ignoring rest.");
 
         return 0;
 }
@@ -956,6 +965,9 @@ static int check_units_active(void) {
         int c = 0, r;
         const char *id, *state, *substate;
 
+        if (arg_quiet)
+                return false;
+
         r = sd_bus_default_system(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire bus: %m");
@@ -1035,6 +1047,10 @@ int main(int argc, char *argv[]) {
                         goto end;
                 }
         }
+
+        r = journal_access_check_and_warn(j, arg_quiet);
+        if (r < 0)
+                goto end;
 
         r = add_matches(j);
         if (r < 0)

@@ -138,6 +138,14 @@
         </para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>Suppresses info messages about lack
+        of access to journal files and possible in-flight coredumps.
+        </para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
