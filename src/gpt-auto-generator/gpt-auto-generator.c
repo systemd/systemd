@@ -475,7 +475,7 @@ static int add_esp(DissectedPartition *p) {
                              120 * USEC_PER_SEC);
 }
 #else
-static int add_esp(const char *what) {
+static int add_esp(DissectedPartition *p) {
         return 0;
 }
 #endif
