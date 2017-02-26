@@ -167,6 +167,7 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -Werror=implicit-function-declaration \
         -Werror=missing-declarations \
         -Werror=return-type \
+        -Werror=incompatible-pointer-types \
         -Werror=format=2 \
         -Wstrict-prototypes \
         -Wredundant-decls \
