@@ -1037,6 +1037,8 @@ libshared_la_SOURCES = \
 	src/shared/apparmor-util.h \
 	src/shared/ima-util.c \
 	src/shared/ima-util.h \
+	src/shared/journal-util.c \
+	src/shared/journal-util.h \
 	src/shared/ptyfwd.c \
 	src/shared/ptyfwd.h \
 	src/shared/base-filesystem.c \
