@@ -133,6 +133,9 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*8930:*
  KEYBOARD_KEY_89=fastforward
  KEYBOARD_KEY_9e=back
 
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*7750G:pvr*
+ KEYBOARD_KEY_e0=!pageup
+
 # Travelmate C300
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*C3[01]0*:pvr*
  KEYBOARD_KEY_67=f24                                    # FIXME: rotate screen
