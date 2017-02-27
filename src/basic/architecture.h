@@ -124,13 +124,21 @@ int uname_architecture(void);
 #elif defined(__sparc__)
 #  define native_architecture() ARCHITECTURE_SPARC
 #  define LIB_ARCH_TUPLE "sparc-linux-gnu"
+#elif defined(__mips64__) && defined(__LP64__)
+#  if __BYTE_ORDER == __BIG_ENDIAN
+#    define native_architecture() ARCHITECTURE_MIPS64
+#    define LIB_ARCH_TUPLE "mips64-linux-gnuabi64"
+#  else
+#    define native_architecture() ARCHITECTURE_MIPS64_LE
+#    define LIB_ARCH_TUPLE "mips64el-linux-gnuabi64"
+#  endif
 #elif defined(__mips64__)
 #  if __BYTE_ORDER == __BIG_ENDIAN
 #    define native_architecture() ARCHITECTURE_MIPS64
-#    error "Missing LIB_ARCH_TUPLE for MIPS64"
+#    define LIB_ARCH_TUPLE "mips64-linux-gnuabin32"
 #  else
 #    define native_architecture() ARCHITECTURE_MIPS64_LE
-#    error "Missing LIB_ARCH_TUPLE for MIPS64_LE"
+#    define LIB_ARCH_TUPLE "mips64el-linux-gnuabin32"
 #  endif
 #elif defined(__mips__)
 #  if __BYTE_ORDER == __BIG_ENDIAN
