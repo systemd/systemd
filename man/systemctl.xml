@@ -712,7 +712,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <listitem>
             <para>List timer units currently in memory, ordered by the time they elapse next. If one or more
             <replaceable>PATTERN</replaceable>s are specified, only units matching one of them are shown.
-            Produces output similiar to
+            Produces output similar to
             <programlisting>
 NEXT                         LEFT          LAST                         PASSED     UNIT                         ACTIVATES
 n/a                          n/a           Thu 2017-02-23 13:40:29 EST  3 days ago ureadahead-stop.timer        ureadahead-stop.service
