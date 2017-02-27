@@ -187,7 +187,7 @@ int uname_architecture(void);
 #  define LIB_ARCH_TUPLE "m68k-linux-gnu"
 #elif defined(__tilegx__)
 #  define native_architecture() ARCHITECTURE_TILEGX
-#  error "Missing LIB_ARCH_TUPLE for TILEGX"
+#  define LIB_ARCH_TUPLE "tilegx-linux-gnu"
 #elif defined(__cris__)
 #  define native_architecture() ARCHITECTURE_CRIS
 #  error "Missing LIB_ARCH_TUPLE for CRIS"
