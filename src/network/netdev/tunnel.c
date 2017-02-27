@@ -410,10 +410,10 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
                 return -EINVAL;
         }
 
-        if (netdev->kind == NETDEV_KIND_VTI6 &&
+        if (IN_SET(netdev->kind, NETDEV_KIND_VTI6, NETDEV_KIND_IP6TNL, NETDEV_KIND_IP6GRE) &&
             (t->family != AF_INET6 || in_addr_is_null(t->family, &t->local))) {
                 log_netdev_error(netdev,
-                                 "vti6 tunnel without a local IPv4 address configured in %s. Ignoring", filename);
+                                 "vti6/ip6tnl/ip6gre tunnel without a local IPv6 address configured in %s. Ignoring", filename);
                 return -EINVAL;
         }
 
