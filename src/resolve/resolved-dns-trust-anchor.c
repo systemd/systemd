@@ -35,10 +35,15 @@
 
 static const char trust_anchor_dirs[] = CONF_PATHS_NULSTR("dnssec-trust-anchors.d");
 
-/* The DS RR from https://data.iana.org/root-anchors/root-anchors.xml, retrieved December 2015 */
-static const uint8_t root_digest[] =
+/* The first DS RR from https://data.iana.org/root-anchors/root-anchors.xml, retrieved December 2015 */
+static const uint8_t root_digest1[] =
         { 0x49, 0xAA, 0xC1, 0x1D, 0x7B, 0x6F, 0x64, 0x46, 0x70, 0x2E, 0x54, 0xA1, 0x60, 0x73, 0x71, 0x60,
           0x7A, 0x1A, 0x41, 0x85, 0x52, 0x00, 0xFD, 0x2C, 0xE1, 0xCD, 0xDE, 0x32, 0xF2, 0x4E, 0x8F, 0xB5 };
+
+/* The second DS RR from https://data.iana.org/root-anchors/root-anchors.xml, retrieved February 2017 */
+static const uint8_t root_digest2[] =
+        { 0xE0, 0x6D, 0x44, 0xB8, 0x0B, 0x8F, 0x1D, 0x39, 0xA9, 0x5C, 0x0B, 0x0D, 0x7C, 0x65, 0xD0, 0x84,
+          0x58, 0xE8, 0x80, 0x40, 0x9B, 0xBC, 0x68, 0x34, 0x57, 0x10, 0x42, 0x37, 0xC7, 0xF8, 0xEC, 0x8D };
 
 static bool dns_trust_anchor_knows_domain_positive(DnsTrustAnchor *d, const char *name) {
         assert(d);
@@ -51,9 +56,40 @@ static bool dns_trust_anchor_knows_domain_positive(DnsTrustAnchor *d, const char
                 hashmap_contains(d->positive_by_key, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_DS, name));
 }
 
-static int dns_trust_anchor_add_builtin_positive(DnsTrustAnchor *d) {
+static int add_root_ksk(
+                DnsAnswer *answer,
+                DnsResourceKey *key,
+                uint16_t key_tag,
+                uint8_t algorithm,
+                uint8_t digest_type,
+                const void *digest,
+                size_t digest_size) {
+
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        int r;
+
+        rr = dns_resource_record_new(key);
+        if (!rr)
+                return -ENOMEM;
+
+        rr->ds.key_tag = key_tag;
+        rr->ds.algorithm = algorithm;
+        rr->ds.digest_type = digest_type;
+        rr->ds.digest_size = digest_size;
+        rr->ds.digest = memdup(digest, rr->ds.digest_size);
+        if (!rr->ds.digest)
+                return  -ENOMEM;
+
+        r = dns_answer_add(answer, rr, 0, DNS_ANSWER_AUTHENTICATED);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int dns_trust_anchor_add_builtin_positive(DnsTrustAnchor *d) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
         int r;
 
         assert(d);
@@ -62,35 +98,29 @@ static int dns_trust_anchor_add_builtin_positive(DnsTrustAnchor *d) {
         if (r < 0)
                 return r;
 
-        /* Only add the built-in trust anchor if there's neither a DS
-         * nor a DNSKEY defined for the root domain. That way users
-         * have an easy way to override the root domain DS/DNSKEY
-         * data. */
+        /* Only add the built-in trust anchor if there's neither a DS nor a DNSKEY defined for the root domain. That
+         * way users have an easy way to override the root domain DS/DNSKEY data. */
         if (dns_trust_anchor_knows_domain_positive(d, "."))
                 return 0;
 
-        /* Add the RR from https://data.iana.org/root-anchors/root-anchors.xml */
-        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DS, "");
-        if (!rr)
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_DS, "");
+        if (!key)
                 return -ENOMEM;
 
-        rr->ds.key_tag = 19036;
-        rr->ds.algorithm = DNSSEC_ALGORITHM_RSASHA256;
-        rr->ds.digest_type = DNSSEC_DIGEST_SHA256;
-        rr->ds.digest_size = sizeof(root_digest);
-        rr->ds.digest = memdup(root_digest, rr->ds.digest_size);
-        if (!rr->ds.digest)
-                return  -ENOMEM;
-
-        answer = dns_answer_new(1);
+        answer = dns_answer_new(2);
         if (!answer)
                 return -ENOMEM;
 
-        r = dns_answer_add(answer, rr, 0, DNS_ANSWER_AUTHENTICATED);
+        /* Add the two RRs from https://data.iana.org/root-anchors/root-anchors.xml */
+        r = add_root_ksk(answer, key, 19036, DNSSEC_ALGORITHM_RSASHA256, DNSSEC_DIGEST_SHA256, root_digest1, sizeof(root_digest1));
         if (r < 0)
                 return r;
 
-        r = hashmap_put(d->positive_by_key, rr->key, answer);
+        r = add_root_ksk(answer, key, 20326, DNSSEC_ALGORITHM_RSASHA256, DNSSEC_DIGEST_SHA256, root_digest2, sizeof(root_digest2));
+        if (r < 0)
+                return r;
+
+        r = hashmap_put(d->positive_by_key, key, answer);
         if (r < 0)
                 return r;
 
