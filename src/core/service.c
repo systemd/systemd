@@ -849,11 +849,8 @@ static int service_load_pid_file(Service *s, bool may_warn) {
                 return r;
 
         r = unit_watch_pid(UNIT(s), pid);
-        if (r < 0) {
-                /* FIXME: we need to do something here */
-                log_unit_warning_errno(UNIT(s), r, "Failed to watch PID "PID_FMT" for service: %m", pid);
-                return r;
-        }
+        if (r < 0) /* FIXME: we need to do something here */
+                return log_unit_warning_errno(UNIT(s), r, "Failed to watch PID "PID_FMT" for service: %m", pid);
 
         return 0;
 }
@@ -1374,8 +1371,7 @@ static int service_spawn(
                 return r;
 
         r = unit_watch_pid(UNIT(s), pid);
-        if (r < 0)
-                /* FIXME: we need to do something here */
+        if (r < 0) /* FIXME: we need to do something here */
                 return r;
 
         *_pid = pid;
