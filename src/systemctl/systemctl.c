@@ -5964,6 +5964,7 @@ static int mangle_names(char **original_names, char ***mangled_names) {
                 } else {
                         r = unit_name_mangle(*name, UNIT_NAME_NOGLOB, i);
                         if (r < 0) {
+                                *i = NULL;
                                 strv_free(l);
                                 return log_error_errno(r, "Failed to mangle unit name: %m");
                         }
