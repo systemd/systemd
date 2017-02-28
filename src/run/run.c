@@ -497,7 +497,7 @@ static int transient_service_set_properties(sd_bus_message *m, char **argv, cons
         if (r < 0)
                 return r;
 
-        if (arg_wait) {
+        if (arg_wait || arg_pty) {
                 r = sd_bus_message_append(m, "(sv)", "AddRef", "b", 1);
                 if (r < 0)
                         return r;
@@ -1025,7 +1025,6 @@ static int start_transient_service(
 
                         pty_forward_set_handler(c.forward, pty_forward_handler, &c);
                 }
-
 
                 path = unit_dbus_path_from_name(service);
                 if (!path)
