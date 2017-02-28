@@ -38,6 +38,10 @@ Features:
   quickly exiting processes which log as long as they had their own stream
   connection...
 
+* hostnamed: populate form factor data from a new hwdb database, so that old
+  yogas can be recognized as "convertible" too, even if they predate the DMI
+  "convertible" form factor
+
 * Maybe add a small tool invoked early at boot, that adds in or resizes
   partitions automatically, to be used when the media used is actually larger
   than the image written onto it is.
