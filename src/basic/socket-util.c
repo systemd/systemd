@@ -900,6 +900,26 @@ bool ifname_valid(const char *p) {
         return true;
 }
 
+bool address_label_valid(const char *p) {
+
+        if (isempty(p))
+                return false;
+
+        if (strlen(p) >= IFNAMSIZ)
+                return false;
+
+        while (*p) {
+                if ((uint8_t) *p >= 127U)
+                        return false;
+
+                if ((uint8_t) *p <= 31U)
+                        return false;
+                p++;
+        }
+
+        return true;
+}
+
 int getpeercred(int fd, struct ucred *ucred) {
         socklen_t n = sizeof(struct ucred);
         struct ucred u;
