@@ -133,6 +133,7 @@ static bool valid_chassis(const char *chassis) {
                         "container\0"
                         "desktop\0"
                         "laptop\0"
+                        "convertible\0"
                         "server\0"
                         "tablet\0"
                         "handset\0"
