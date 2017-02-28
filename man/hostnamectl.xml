@@ -173,6 +173,7 @@
         defined:
         <literal>desktop</literal>,
         <literal>laptop</literal>,
+        <literal>convertible</literal>,
         <literal>server</literal>,
         <literal>tablet</literal>,
         <literal>handset</literal>,
