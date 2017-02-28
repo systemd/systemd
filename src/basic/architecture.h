@@ -132,7 +132,7 @@ int uname_architecture(void);
 #    define native_architecture() ARCHITECTURE_MIPS64_LE
 #    define LIB_ARCH_TUPLE "mips64el-linux-gnuabi64"
 #  endif
-#elif defined(__mips64__)
+#elif defined(__mips64)
 #  if __BYTE_ORDER == __BIG_ENDIAN
 #    define native_architecture() ARCHITECTURE_MIPS64
 #    define LIB_ARCH_TUPLE "mips64-linux-gnuabin32"
