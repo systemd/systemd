@@ -3286,7 +3286,7 @@ static void service_bus_name_owner_change(
                 if (r >= 0)
                         r = sd_bus_creds_get_pid(creds, &pid);
                 if (r >= 0) {
-                        log_unit_debug(u, "D-Bus name %s is now owned by process %u", name, (unsigned) pid);
+                        log_unit_debug(u, "D-Bus name %s is now owned by process " PID_FMT, name, pid);
 
                         service_set_main_pid(s, pid);
                         unit_watch_pid(UNIT(s), pid);
