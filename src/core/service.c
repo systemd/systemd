@@ -3093,6 +3093,8 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
                         log_unit_warning(u, "Failed to parse MAINPID= field in notification message: %s", e);
                 else if (pid == s->control_pid)
                         log_unit_warning(u, "A control process cannot also be the main process");
+                else if (pid == getpid() || pid == 1)
+                        log_unit_warning(u, "Service manager can't be main process, ignoring sd_notify() MAINPID= field");
                 else {
                         service_set_main_pid(s, pid);
                         unit_watch_pid(UNIT(s), pid);
