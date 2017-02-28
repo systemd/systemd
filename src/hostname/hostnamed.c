@@ -202,6 +202,7 @@ static const char* fallback_chassis(void) {
                 return "tablet";
 
         case 0x1F: /* Convertible */
+        case 0x20: /* Detachable */
                 return "convertible";
         }
 
