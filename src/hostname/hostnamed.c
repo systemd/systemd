@@ -200,6 +200,9 @@ static const char* fallback_chassis(void) {
 
         case 0x1E: /* Tablet */
                 return "tablet";
+
+        case 0x1F: /* Convertible */
+                return "convertible";
         }
 
 try_acpi:
