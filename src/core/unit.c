@@ -3153,6 +3153,11 @@ static bool fragment_mtime_newer(const char *path, usec_t mtime, bool path_maske
         if (!path)
                 return false;
 
+        /* If the source is some virtual kernel file system, then we assume we watch it anyway, and hence pretend we
+         * are never out-of-date. */
+        if (PATH_STARTSWITH_SET(path, "/proc", "/sys"))
+                return false;
+
         if (stat(path, &st) < 0)
                 /* What, cannot access this anymore? */
                 return true;
