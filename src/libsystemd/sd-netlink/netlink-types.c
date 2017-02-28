@@ -149,7 +149,7 @@ static const NLType rtnl_link_info_data_vxlan_types[] = {
         [IFLA_VXLAN_ID]                = { .type = NETLINK_TYPE_U32 },
         [IFLA_VXLAN_GROUP]             = { .type = NETLINK_TYPE_IN_ADDR },
         [IFLA_VXLAN_LINK]              = { .type = NETLINK_TYPE_U32 },
-        [IFLA_VXLAN_LOCAL]             = { .type = NETLINK_TYPE_U32},
+        [IFLA_VXLAN_LOCAL]             = { .type = NETLINK_TYPE_IN_ADDR },
         [IFLA_VXLAN_TTL]               = { .type = NETLINK_TYPE_U8 },
         [IFLA_VXLAN_TOS]               = { .type = NETLINK_TYPE_U8 },
         [IFLA_VXLAN_LEARNING]          = { .type = NETLINK_TYPE_U8 },

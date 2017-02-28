@@ -24,6 +24,8 @@
 #include "conf-parser.h"
 #include "alloc-util.h"
 #include "extract-word.h"
+#include "string-util.h"
+#include "strv.h"
 #include "parse-util.h"
 #include "missing.h"
 
@@ -48,9 +50,29 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_ID attribute: %m");
         }
 
-        r = sd_netlink_message_append_in_addr(m, IFLA_VXLAN_GROUP, &v->group.in);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_GROUP attribute: %m");
+        if (!in_addr_is_null(v->remote_family, &v->remote)) {
+
+                if (v->remote_family == AF_INET)
+                        r = sd_netlink_message_append_in_addr(m, IFLA_VXLAN_GROUP, &v->remote.in);
+                else
+                        r = sd_netlink_message_append_in6_addr(m, IFLA_VXLAN_GROUP6, &v->remote.in6);
+
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_GROUP attribute: %m");
+
+        }
+
+        if (!in_addr_is_null(v->local_family, &v->local)) {
+
+                if (v->local_family == AF_INET)
+                        r = sd_netlink_message_append_in_addr(m, IFLA_VXLAN_LOCAL, &v->local.in);
+                else
+                        r = sd_netlink_message_append_in6_addr(m, IFLA_VXLAN_LOCAL6, &v->local.in6);
+
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_LOCAL attribute: %m");
+
+        }
 
         r = sd_netlink_message_append_u32(m, IFLA_VXLAN_LINK, link->ifindex);
         if (r < 0)
@@ -144,16 +166,16 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
         return r;
 }
 
-int config_parse_vxlan_group_address(const char *unit,
-                                     const char *filename,
-                                     unsigned line,
-                                     const char *section,
-                                     unsigned section_line,
-                                     const char *lvalue,
-                                     int ltype,
-                                     const char *rvalue,
-                                     void *data,
-                                     void *userdata) {
+int config_parse_vxlan_address(const char *unit,
+                               const char *filename,
+                               unsigned line,
+                               const char *section,
+                               unsigned section_line,
+                               const char *lvalue,
+                               int ltype,
+                               const char *rvalue,
+                               void *data,
+                               void *userdata) {
         VxLan *v = userdata;
         union in_addr_union *addr = data, buffer;
         int r, f;
@@ -165,16 +187,28 @@ int config_parse_vxlan_group_address(const char *unit,
 
         r = in_addr_from_string_auto(rvalue, &f, &buffer);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "vxlan multicast group address is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "vxlan '%s' address is invalid, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
 
-        if (v->family != AF_UNSPEC && v->family != f) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "vxlan multicast group incompatible, ignoring assignment: %s", rvalue);
-                return 0;
+        r = in_addr_is_multicast(f, &buffer);
+
+        if (STR_IN_SET(lvalue, "Group", "Remote")) {
+                if (r <= 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "vxlan invalid multicast '%s' address, ignoring assignment: %s", lvalue, rvalue);
+                        return 0;
+                }
+
+                v->remote_family = f;
+        } else {
+                if (r > 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "vxlan %s can not be multicast address, ignoring assignment: %s", lvalue, rvalue);
+                        return 0;
+                }
+
+                v->local_family = f;
         }
 
-        v->family = f;
         *addr = buffer;
 
         return 0;

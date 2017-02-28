@@ -469,12 +469,18 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>Group=</varname></term>
+        <term><varname>Remote=</varname></term>
         <listitem>
-          <para>An assigned multicast group IP address.</para>
+          <para>Configures destination multicast group IP address.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>Local=</varname></term>
+        <listitem>
+          <para>Configures local IP address.</para>
+        </listitem>
+      </varlistentry>
+        <varlistentry>
         <term><varname>TOS=</varname></term>
         <listitem>
           <para>The Type Of Service byte value for a vxlan interface.</para>

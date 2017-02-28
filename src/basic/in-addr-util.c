@@ -66,6 +66,18 @@ int in_addr_is_link_local(int family, const union in_addr_union *u) {
         return -EAFNOSUPPORT;
 }
 
+int in_addr_is_multicast(int family, const union in_addr_union *u) {
+        assert(u);
+
+        if (family == AF_INET)
+                return IN_MULTICAST(be32toh(u->in.s_addr));
+
+        if (family == AF_INET6)
+                return IN6_IS_ADDR_MULTICAST(&u->in6);
+
+        return -EAFNOSUPPORT;
+}
+
 bool in4_addr_is_localhost(const struct in_addr *a) {
         assert(a);
 
