@@ -51,6 +51,8 @@
 #include "user-util.h"
 #include "util.h"
 
+#define SHORT_BUS_CALL_TIMEOUT_USEC (3 * USEC_PER_SEC)
+
 static usec_t arg_since = USEC_INFINITY, arg_until = USEC_INFINITY;
 
 static enum {
@@ -414,7 +416,7 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
         else
                 present = "-";
 
-        if (STR_IN_SET(present, "present", "journal") && streq_ptr(truncated, "yes"))
+        if (STR_IN_SET(present, "present", "journal") && truncated && parse_boolean(truncated) > 0)
                 present = "truncated";
 
         fprintf(file, "%-*s %*s %*s %*s %*s %-*s %s\n",
@@ -583,8 +585,10 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 fprintf(file, "      Hostname: %s\n", hostname);
 
         if (filename) {
-                bool inacc = access(filename, R_OK) < 0;
-                bool trunc = streq_ptr(truncated, "yes");
+                bool inacc, trunc;
+
+                inacc = access(filename, R_OK) < 0;
+                trunc = truncated && parse_boolean(truncated) > 0;
 
                 if (inacc || trunc)
                         fprintf(file, "       Storage: %s%s (%s%s%s)%s\n",
@@ -990,7 +994,7 @@ static int check_units_active(void) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 3 * USEC_PER_SEC, &error, &reply);
+        r = sd_bus_call(bus, m, SHORT_BUS_CALL_TIMEOUT_USEC, &error, &reply);
         if (r < 0)
                 return log_error_errno(r, "Failed to check if any systemd-coredump@.service units are running: %s",
                                        bus_error_message(&error, r));
