@@ -761,7 +761,7 @@
         <term><constant>SIGRTMIN+27</constant></term>
         <term><constant>SIGRTMIN+28</constant></term>
 
-        <listitem><para>Sets the log level to
+        <listitem><para>Sets the log target to
         <literal>journal-or-kmsg</literal> (or
         <literal>console</literal> on
         <constant>SIGRTMIN+27</constant>, <literal>kmsg</literal> on
