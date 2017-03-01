@@ -1003,7 +1003,7 @@ static int check_units_active(void) {
                                 reply, "(ssssssouso)",
                                 &id,  NULL,  NULL,  &state,  &substate,
                                 NULL,  NULL,  NULL,  NULL,  NULL)) > 0) {
-                bool found = !STR_IN_SET(state, "dead", "failed");
+                bool found = !STR_IN_SET(state, "inactive", "dead", "failed");
                 log_debug("Unit %s is %s/%s, %scounting it.", id, state, substate, found ? "" : "not ");
                 c += found;
         }
