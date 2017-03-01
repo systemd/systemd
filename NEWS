@@ -45,7 +45,7 @@ CHANGES WITH 233:
         * All python scripts shipped with systemd (specifically: the various
           tests written in Python) now require Python 3.
 
-        * Systemd unit tests can now run standalone (without the source or
+        * systemd unit tests can now run standalone (without the source or
           build directories), and can be installed into /usr/lib/systemd/tests/
           with 'make install-tests'.
 
