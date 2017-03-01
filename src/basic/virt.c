@@ -28,7 +28,6 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
 #include "macro.h"
 #include "process-util.h"
 #include "stat-util.h"
@@ -570,30 +569,16 @@ int running_in_userns(void) {
 }
 
 int running_in_chroot(void) {
-        _cleanup_free_ char *self_mnt = NULL, *pid1_mnt = NULL;
-        int r;
-
-        /* Try to detect whether we are running in a chroot() environment. Specifically, check whether we have a
-         * different root directory than PID 1, even though we live in the same mount namespace as it. */
+        int ret;
 
         if (getenv_bool("SYSTEMD_IGNORE_CHROOT") > 0)
                 return 0;
 
-        r = files_same("/proc/1/root", "/");
-        if (r < 0)
-                return r;
-        if (r > 0)
-                return 0;
+        ret = files_same("/proc/1/root", "/");
+        if (ret < 0)
+                return ret;
 
-        r = readlink_malloc("/proc/self/ns/mnt", &self_mnt);
-        if (r < 0)
-                return r;
-
-        r = readlink_malloc("/proc/1/ns/mnt", &pid1_mnt);
-        if (r < 0)
-                return r;
-
-        return streq(self_mnt, pid1_mnt); /* Only if we live in the same namespace! */
+        return ret == 0;
 }
 
 static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
