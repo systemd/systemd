@@ -27,8 +27,10 @@ WatchdogSec=3min
 CapabilityBoundingSet=CAP_SYS_ADMIN CAP_MAC_ADMIN CAP_AUDIT_CONTROL CAP_CHOWN CAP_KILL CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_FOWNER CAP_SYS_TTY_CONFIG
 MemoryDenyWriteExecute=yes
 RestrictRealtime=yes
+RestrictNamespaces=yes
 RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
-SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @obsolete @raw-io
+SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @obsolete @raw-io @reboot @swap
+SystemCallArchitectures=native
 
 # Increase the default a bit in order to allow many simultaneous
 # logins since we keep one fd open per session.
