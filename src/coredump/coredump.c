@@ -795,7 +795,7 @@ log:
                 IOVEC_SET_STRING(iovec[n_iovec++], core_message);
 
         if (truncated)
-                IOVEC_SET_STRING(iovec[n_iovec++], "COREDUMP_TRUNCATED=yes");
+                IOVEC_SET_STRING(iovec[n_iovec++], "COREDUMP_TRUNCATED=1");
 
         /* Optionally store the entire coredump in the journal */
         if (arg_storage == COREDUMP_STORAGE_JOURNAL) {
