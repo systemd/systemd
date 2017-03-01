@@ -51,6 +51,8 @@
 #include "user-util.h"
 #include "util.h"
 
+#define SHORT_BUS_CALL_TIMEOUT_USEC (3 * USEC_PER_SEC)
+
 static usec_t arg_since = USEC_INFINITY, arg_until = USEC_INFINITY;
 
 static enum {
@@ -992,7 +994,7 @@ static int check_units_active(void) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 3 * USEC_PER_SEC, &error, &reply);
+        r = sd_bus_call(bus, m, SHORT_BUS_CALL_TIMEOUT_USEC, &error, &reply);
         if (r < 0)
                 return log_error_errno(r, "Failed to check if any systemd-coredump@.service units are running: %s",
                                        bus_error_message(&error, r));
