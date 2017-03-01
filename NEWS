@@ -2,9 +2,58 @@ systemd System and Service Manager
 
 CHANGES WITH 233:
 
+        * The "hybrid" control group mode has been modified to improve
+          compatibility with "legacy" cgroups-v1 setups. Specifically, the
+          "hybrid" setup of /sys/fs/cgroup is now pretty much identical to
+          "legacy" (including /sys/fs/cgroup/systemd as "name=systemd" named
+          cgroups-v1 hierarchy), the only externally visible change being that
+          the cgroups-v2 hierarchy is also mounted, to
+          /sys/fs/cgroup/unified. This should provide a large degree of
+          compatibility with "legacy" cgroups-v1, while taking benefit of the
+          better management capabilities of cgroups-v2.
+
+        * The default control group setup mode may be selected both a boot-time
+          via a set of kernel command line parameters (specifically:
+          systemd.unified_cgroup_hierarchy= and
+          systemd.legacy_systemd_cgroup_controller=), as well as a compile-time
+          default selected on the configure command line
+          (--with-default-hierarchy=). The upstream default is "hybrid"
+          (i.e. the cgroups-v1 + cgroups-v2 mixture discussed above) now, but
+          this will change in a future systemd version to be "unified" (pure
+          cgroups-v2 mode). The third option for the compile time option is
+          "legacy", to enter pure cgroups-v1 mode. We recommend downstream
+          distributions to default to "hybrid" mode for release distributions,
+          starting with v233. We recommend "unified" for development
+          distributions (specifically: distributions such as Fedora's rawhide)
+          as that's where things are headed in the long run. Use "legacy" for
+          greatest stability and compatibility only.
+
+        * Note one current limitation of "unified" and "hybrid" control group
+          setup modes: the kernel currently does not permit the systemd --user
+          instance (i.e. unprivileged code) to migrate processes between two
+          disconnected cgroup subtrees, even if both are managed and owned by
+          the user. This effectively means "systemd-run --user --scope" doesn't
+          work when invoked from outside of any "systemd --user" service or
+          scope. Specifically, it is not supported from session scopes. We are
+          working on fixing this in a future systemd version. (See #3388 for
+          further details about this.)
+
         * DBus policy files are now installed into /usr rather than /etc. Make
           sure your system has dbus >= 1.9.18 running before upgrading to this
           version, or override the install path with --with-dbuspolicydir= .
+
+        * All python scripts shipped with systemd (specifically: the various
+          tests written in Python) now require Python 3.
+
+        * Note that from this version on, CONFIG_CRYPTO_USER_API_HASH,
+          CONFIG_CRYPTO_HMAC and CONFIG_CRYPTO_SHA256 need to be enabled in the
+          kernel.
+
+        * Support for the %c, %r, %R specifiers in unit files has been
+          removed. Specifiers are not supposed to be dependent on configuration
+          in the unit file itself (so that they resolve the same regardless
+          where used in the unit files), but these specifiers were influenced
+          by the Slice= option.
 
         * The shell invoked by debug-shell.service now defaults to /bin/sh in
           all cases. If distributions want to use a different shell for this
@@ -39,8 +88,7 @@ CHANGES WITH 233:
 
         * The option MulticastDNS= of network configuration files has acquired
           an actual implementation. With MulticastDNS=yes a host can resolve
-          names of remote hosts and to reply to mDNS's A and AAAA requests from
-          the hosts.
+          names of remote hosts and reply to mDNS A and AAAA requests.
 
         * When units are about to be started an additional check is now done to
           ensure that all dependencies of type BindsTo= (when used in
@@ -48,28 +96,45 @@ CHANGES WITH 233:
 
         * systemd-analyze gained a new verb "syscall-filter" which shows which
           system call groups are defined for the SystemCallFilter= unit file
-          setting, and which system calls they precisely contain.
+          setting, and which system calls they contain.
 
         * A new system call filter group "@filesystem" has been added,
-          consisting of various file system related system calls. A group
+          consisting of various file system related system calls. Group
           "@reboot" has been added, covering reboot, kexec and shutdown related
-          calls. Finally, a group "@swap" has been added covering swap
+          calls. Finally, group "@swap" has been added covering swap
           configuration related calls.
 
         * A new unit file option RestrictNamespaces= has been added that may be
           used to restrict access to the various process namespace types the
           Linux kernel provides. Specifically, it may be used to take away the
-          right for specific service units to create additional file system,
-          networking, user, and other namespaces. This sandboxing option is
-          particularly relevant due to the high amount of recently discovered
-          namespacing related vulnerabilities in the kernel.
+          right for a service unit to create additional file system, network,
+          user, and other namespaces. This sandboxing option is particularly
+          relevant due to the high amount of recently discovered namespacing
+          related vulnerabilities in the kernel.
 
-        * .link gained support for a new AutoNegotiation= setting for
-          configuring Ethernet auto-negotiation.
+        * systemd-udev's .link files gained support for a new AutoNegotiation=
+          setting for configuring Ethernet auto-negotiation.
 
         * systemd-networkd's .network files gained support for a new
           ListenPort= setting in the [DHCP] section to explicitly configure the
           UDP client port the DHCP client shall listen on.
+
+        * .network files gained a new Unmanaged= boolean setting for explicitly
+          excluding one or more interfaces from management by systemd-networkd.
+
+        * The systemd-networkd ProxyARP= option has been renamed to
+          IPV4ProxyARP=. Similarly, VXLAN-specific option ARPProxy= has been
+          renamed to ReduceARPProxy=. The old names continue to be available
+          for compatibility.
+
+        * systemd-networkd gained support for configuring IPv6 Proxy NDP
+          addresses via the new IPv6ProxyNDPAddress= .network file setting.
+
+        * systemd-networkd's bonding device support gained support for two new
+          configuration options ActiveSlave= and PrimarySlave=.
+
+        * The various options in the [Match] section of .network files gained
+          support for negative matching.
 
         * New systemd-specific mount options are now understood in /etc/fstab:
 
@@ -84,15 +149,15 @@ CHANGES WITH 233:
           drives, so that mounted CDs are automatically unmounted when they are
           removed from the drive.
 
-          x-systemd.after= and x-systemd.before= may be use to explicitly order
-          a mount after or before another unit or mount point.
+          x-systemd.after= and x-systemd.before= may be used to explicitly
+          order a mount after or before another unit or mount point.
 
         * Enqueued start jobs for device units are now automatically garbage
           collected if there are no jobs waiting for them anymore.
 
-        * systemctl list-jobs gained two new switches: With --after, every
-          queued job shows which other queued job is waiting for it; with
-          --before it shows which other jobs every job is waiting for.
+        * systemctl list-jobs gained two new switches: with --after, for every
+          queued job the jobs it's waiting for are shown; with --before the
+          jobs which it's blocking are shown.
 
         * systemd-nspawn gained support for ephemeral boots from disk images
           (or in other words: --ephemeral and --image= may now be
@@ -105,18 +170,15 @@ CHANGES WITH 233:
         * Calendar time specifications in .timer units now support
           specifications relative to the end of a month by using "~" instead of
           "-" as separator between month and day. For example, "*-02~03" means
-          "The third last day in February". In addition a new syntax for
+          "the third last day in February". In addition a new syntax for
           repeated events has been added using the "/" character. For example,
           "9..17/2:00" means "every two hours from 9am to 5pm".
 
         * systemd-socket-proxyd gained a new parameter --connections-max= for
           configuring the maximum number of concurrent connections.
 
-        * All python scripts shipped with systemd (specifically: the various
-          tests written in Python) now require Python 3.
-
-        * sd-id128 gained a new API for generating unique IDs for the host
-          that does not leak the machine ID. Specifically,
+        * sd-id128 gained a new API for generating unique IDs for the host in a
+          way that does not leak the machine ID. Specifically,
           sd_id128_get_machine_app_specific() derives an ID based on the
           machine ID a in well-defined, non-reversible, stable way. This is
           useful whenever an identifier for the host is needed but where the
@@ -144,9 +206,6 @@ CHANGES WITH 233:
           mount based on the original /var contained in the image, overlayed
           with a temporary directory in the host's /var/tmp. This way changes
           to /var are automatically flushed when the container shuts down.
-
-        * .network files gained a new Unmanaged= boolean setting for explicitly
-          excluding one or more interfaces from management by systemd-networkd.
 
         * systemd-nspawn --image= option does now permit raw file system block
           devices (in addition to images containing partition tables, as
@@ -192,15 +251,6 @@ CHANGES WITH 233:
           kernel and initrd image that incorporates such a root hash as well as
           a Verity-enabled root partition.
 
-        * Support for the %c, %r, %R specifiers in unit files has been
-          removed. Specifiers are not supposed to be dependent on configuration
-          of unit files themselves (so that they resolve to the same regardless
-          where used in the unit files), but these options were due to the
-          existence of the Slice= option.
-
-        * The various options in the [Match] section of .network files gained
-          support for negative matching.
-
         * The hardware database (hwdb) udev supports has been updated to carry
           accelerometer quirks.
 
@@ -228,27 +278,19 @@ CHANGES WITH 233:
           systemd.firstboot= kernel command line option. It accepts a boolean
           and when set to false the first boot questions are skipped.
 
-        * The systemd-networkd ProxyARP= option has been renamed to
-          IPV4ProxyARP=.  Similar, VXLAN-specific option ARPProxy= has been
-          renamed to ReduceARPProxy=. The old names continue to be available
-          for compatibility.
-
-        * systemd-networkd's bonding device support gained support for two new
-          configuration options ActiveSlave= and PrimarySlave=.
-
         * systemd-fstab-generator has been updated to check for the
-          systemd.volatile= kernel command line option, which either takes a
-          boolean parameter or the special value "state". If used the system
-          may be booted in a "volatile" boot mode. Specifically,
-          systemd.volatile=yes is used, the root directory will be mounted as
+          systemd.volatile= kernel command line option, which either takes an
+          optional boolean parameter or the special value "state". If used the
+          system may be booted in a "volatile" boot mode. Specifically,
+          "systemd.volatile" is used, the root directory will be mounted as
           tmpfs, and only /usr is mounted from the actual root file system. If
-          systemd.volatile=state is used, the root directory will be mounted as
-          usual, but /var is mounted as tmpfs. This concept provides similar
+          "systemd.volatile=state" is used, the root directory will be mounted
+          as usual, but /var is mounted as tmpfs. This concept provides similar
           functionality as systemd-nspawn's --volatile= option, but provides it
           on physical boots. Use this option for implementing stateless
           systems, or testing systems with all state and/or configuration reset
           to the defaults. (Note though that many distributions are not
-          prepared to boot up without a populated /etc or /var, though)
+          prepared to boot up without a populated /etc or /var, though.)
 
         * systemd-gpt-auto-generator gained support for LUKS encrypted root
           partitions. Previously it only supported LUKS encrypted partitions
@@ -261,8 +303,7 @@ CHANGES WITH 233:
           for specifying the fallback hostname to use if none is configured in
           /etc/hostname. For example, by specifying
           --with-fallback-hostname=fedora it is possible to default to a
-          hostname of "fedora" when the user didn't specify anything
-          explicitly.
+          hostname of "fedora" on pristine installations.
 
         * systemd-cgls gained support for a new --unit= switch for listing only
           the control groups of a specific unit. Similar --user-unit= has been
@@ -298,33 +339,13 @@ CHANGES WITH 233:
           different place. This option enables booting of ostree images
           directly with systemd-nspawn.
 
-        * systemd-networkd gained support for configuring IPv6 Proxy NDP
-          addresses via the new IPv6ProxyNDPAddress= .network file setting.
-
         * The systemd build scripts will no longer complain if the NTP server
-          addresses are not changed from the defaults. Google is now supporting
+          addresses are not changed from the defaults. Google now supports
           these NTP servers officially. We still recommend downstreams to
           properly register an NTP pool with the NTP pool project though.
 
         * coredumpctl gained new new "--reverse" option for printing the list
           of coredumps in reverse order.
-
-        * The systemd-coredump logic has been improved so that it may be reused
-          for collecting backtraces in non-compiled languages, for example in
-          scripting languages such as Python.
-
-        * machinectl will now show the UID shift of local containers, if user
-          namespacing is enabled for them.
-
-        * systemd will now optionally run "environment generator" binaries at
-          configuration load time. They may be used to add environment
-          variables to the environment block passed to services invoked. One
-          user environment generator is shipped by default that sets up
-          environment variables based on files dropped into
-          ~/.config/environment.d/.
-
-        * systemd-resolved now includes the new, recently published 2017 DNSSEC
-          root key (KSK).
 
         * coredumpctl will now show additional information about truncated and
           inaccessible coredumps, as well as coredumps that are still being
@@ -335,49 +356,26 @@ CHANGES WITH 233:
           older than specific timestamps, using the new --since= and --until=
           options, reminiscent of journalctl's options by the same name.
 
+        * The systemd-coredump logic has been improved so that it may be reused
+          to collect backtraces in non-compiled languages, for example in
+          scripting languages such as Python.
+
+        * machinectl will now show the UID shift of local containers, if user
+          namespacing is enabled for them.
+
+        * systemd will now optionally run "environment generator" binaries at
+          configuration load time. They may be used to add environment
+          variables to the environment block passed to services invoked. One
+          user environment generator is shipped by default that sets up
+          environment variables based on files dropped into /etc/environment.d
+          and ~/.config/environment.d/.
+
+        * systemd-resolved now includes the new, recently published 2017 DNSSEC
+          root key (KSK).
+
         * hostnamed has been updated to report a new chassis type of
           "convertible" to cover "foldable" laptops that can both act as a
           tablet and as a laptop, such as various Lenovo Yoga devices.
-
-        * Note that from this version on, CONFIG_CRYPTO_USER_API_HASH,
-          CONFIG_CRYPTO_HMAC and CONFIG_CRYPTO_SHA256 need to be enabled in the
-          kernel.
-
-        * The "hybrid" control group mode has been modified to improve
-          compatibility with "legacy" cgroupsv1 setups. Specifically, the
-          "hybrid" setup of /sys/fs/cgroup is now pretty much identical to
-          "legacy" (including /sys/fs/cgroup/systemd as "name=systemd" named
-          cgroupsv1 hierarchy), the only externally visible change being that
-          the cgroupsv2 hierarchy is also mounted, to
-          /sys/fs/cgroup/unified. This should provide a large degree of
-          compatibility with "legacy" cgroupsv1, while taking benefit of the
-          better management capabilities of cgroupsv2.
-
-        * The default control group setup mode may be selected both a boot-time
-          via a set of kernel command line parameters (specifically:
-          systemd.unified_cgroup_hierarchy= and
-          systemd.legacy_systemd_cgroup_controller=), as well as a compile-time
-          default selected on the configure command line
-          (--with-default-hierarchy=). The upstream default is "hybrid"
-          (i.e. the cgroupsv1 + cgroupsv2 mixture discussed above) now, but
-          this will change in a future systemd version to be "unified" (pure
-          cgroupsv2 mode). The third option for the compile time option is
-          "legacy", to enter pure cgroupsv1 mode. We recommend downstream
-          distributions to default to "hybrid" mode for release distributions,
-          starting with v233. We recommend "unified" for development
-          distributions (specifically: distributions such as Fedora's rawhide)
-          as that's where things are headed in the long run. Use "legacy" for
-          greatest stability and compatibility only.
-
-        * Note one current limitation of "unified" and "hybrid" control group
-          setup modes: the kernel currently does not permit the systemd --user
-          instance (i.e. unprivileged code) to migrate processes between two
-          disconnected cgroup subtrees, even if both are managed and owned by
-          the user. This effectively means "systemd-run --user --scope" doesn't
-          work when invoked from outside of any "systemd --user" service or
-          scope. Specifically, it is not supported from session scopes. We are
-          working on fixing this in a future systemd version. (See #3388 for
-          further details about this.)
 
         Contributions from: Adrián López, Alexander Galanin, Alexander
         Kochetkov, Alexandros Frantzis, Andrey Ulanov, Antoine Eiche, Baruch
