@@ -78,8 +78,22 @@
 assert_cc(JOURNAL_SIZE_MAX <= DATA_SIZE_MAX);
 
 enum {
-        /* We use this as array indexes for a couple of special fields we use for naming coredumping files, and
-         * attaching xattrs */
+        /* We use this as array indexes for a couple of special fields we use for
+         * naming coredump files, and attaching xattrs, and for indexing argv[].
+
+         * Our pattern for man:systectl(1) kernel.core_pattern is such that the
+         * kernel passes fields until CONTEXT_RLIMIT as arguments in argv[]. After
+         * that it gets complicated: the kernel passes "comm" as one or more fields
+         * starting at index CONTEXT_COMM (in other words, full "comm" is under index
+         * CONTEXT_COMM when it does not contain spaces, which is the common
+         * case). This mapping is not reversible, so we prefer to retrieve "comm"
+         * from /proc. We only fall back to argv[CONTEXT_COMM...] when that fails.
+         *
+         * In the internal context[] array, fields before CONTEXT_COMM are the
+         * strings from argv[], so they should not be freed. The strings at indices
+         * CONTEXT_COMM and higher are allocated by us and should be freed at the
+         * end.
+         */
         CONTEXT_PID,
         CONTEXT_UID,
         CONTEXT_GID,
@@ -88,6 +102,7 @@ enum {
         CONTEXT_RLIMIT,
         CONTEXT_COMM,
         CONTEXT_EXE,
+        CONTEXT_UNIT,
         _CONTEXT_MAX
 };
 
@@ -310,7 +325,8 @@ static int save_external_coredump(
                 char **ret_filename,
                 int *ret_node_fd,
                 int *ret_data_fd,
-                uint64_t *ret_size) {
+                uint64_t *ret_size,
+                bool *ret_truncated) {
 
         _cleanup_free_ char *fn = NULL, *tmp = NULL;
         _cleanup_close_ int fd = -1;
@@ -358,7 +374,9 @@ static int save_external_coredump(
         if (r < 0) {
                 log_error_errno(r, "Cannot store coredump of %s (%s): %m", context[CONTEXT_PID], context[CONTEXT_COMM]);
                 goto fail;
-        } else if (r == 1)
+        }
+        *ret_truncated = r == 1;
+        if (*ret_truncated)
                 log_struct(LOG_INFO,
                            LOG_MESSAGE("Core file was truncated to %zu bytes.", max_size),
                            "SIZE_LIMIT=%zu", max_size,
@@ -677,6 +695,8 @@ static int change_uid_gid(const char *context[]) {
         return drop_privileges(uid, gid, 0);
 }
 
+#define SUBMIT_COREDUMP_FIELDS 4
+
 static int submit_coredump(
                 const char *context[_CONTEXT_MAX],
                 struct iovec *iovec,
@@ -687,18 +707,22 @@ static int submit_coredump(
         _cleanup_close_ int coredump_fd = -1, coredump_node_fd = -1;
         _cleanup_free_ char *core_message = NULL, *filename = NULL, *coredump_data = NULL;
         uint64_t coredump_size = UINT64_MAX;
+        bool truncated = false, journald_crash;
         int r;
 
         assert(context);
         assert(iovec);
-        assert(n_iovec_allocated >= n_iovec + 3);
+        assert(n_iovec_allocated >= n_iovec + SUBMIT_COREDUMP_FIELDS);
         assert(input_fd >= 0);
+
+        journald_crash = streq_ptr(context[CONTEXT_UNIT], SPECIAL_JOURNALD_SERVICE);
 
         /* Vacuum before we write anything again */
         (void) coredump_vacuum(-1, arg_keep_free, arg_max_use);
 
         /* Always stream the coredump to disk, if that's possible */
-        r = save_external_coredump(context, input_fd, &filename, &coredump_node_fd, &coredump_fd, &coredump_size);
+        r = save_external_coredump(context, input_fd,
+                                   &filename, &coredump_node_fd, &coredump_fd, &coredump_size, &truncated);
         if (r < 0)
                 /* Skip whole core dumping part */
                 goto log;
@@ -737,8 +761,10 @@ static int submit_coredump(
                 if (r >= 0)
                         core_message = strjoin("MESSAGE=Process ", context[CONTEXT_PID],
                                                " (", context[CONTEXT_COMM], ") of user ",
-                                               context[CONTEXT_UID], " dumped core.\n\n",
-                                               stacktrace);
+                                               context[CONTEXT_UID], " dumped core.",
+                                               journald_crash ? "\nCoredump diverted to " : "",
+                                               journald_crash ? filename : "",
+                                               "\n\n", stacktrace);
                 else if (r == -EINVAL)
                         log_warning("Failed to generate stack trace: %s", dwfl_errmsg(dwfl_errno()));
                 else
@@ -750,11 +776,26 @@ static int submit_coredump(
         if (!core_message)
 #endif
 log:
-        core_message = strjoin("MESSAGE=Process ", context[CONTEXT_PID], " (",
-                               context[CONTEXT_COMM], ") of user ",
-                               context[CONTEXT_UID], " dumped core.");
+        core_message = strjoin("MESSAGE=Process ", context[CONTEXT_PID],
+                               " (", context[CONTEXT_COMM], ") of user ",
+                               context[CONTEXT_UID], " dumped core.",
+                               journald_crash ? "\nCoredump diverted to " : NULL,
+                               journald_crash ? filename : NULL);
+        if (!core_message)
+                return log_oom();
+
+        if (journald_crash) {
+                /* We cannot log to the journal, so just print the MESSAGE.
+                 * The target was set previously to something safe. */
+                log_struct(LOG_ERR, core_message, NULL);
+                return 0;
+        }
+
         if (core_message)
                 IOVEC_SET_STRING(iovec[n_iovec++], core_message);
+
+        if (truncated)
+                IOVEC_SET_STRING(iovec[n_iovec++], "COREDUMP_TRUNCATED=yes");
 
         /* Optionally store the entire coredump in the journal */
         if (arg_storage == COREDUMP_STORAGE_JOURNAL) {
@@ -784,17 +825,17 @@ log:
         return 0;
 }
 
-static void map_context_fields(const struct iovec *iovec, const char *context[]) {
+static void map_context_fields(const struct iovec *iovec, const char* context[]) {
 
-        static const char * const context_field_names[_CONTEXT_MAX] = {
+        static const char * const context_field_names[] = {
                 [CONTEXT_PID] = "COREDUMP_PID=",
                 [CONTEXT_UID] = "COREDUMP_UID=",
                 [CONTEXT_GID] = "COREDUMP_GID=",
                 [CONTEXT_SIGNAL] = "COREDUMP_SIGNAL=",
                 [CONTEXT_TIMESTAMP] = "COREDUMP_TIMESTAMP=",
+                [CONTEXT_RLIMIT] = "COREDUMP_RLIMIT=",
                 [CONTEXT_COMM] = "COREDUMP_COMM=",
                 [CONTEXT_EXE] = "COREDUMP_EXE=",
-                [CONTEXT_RLIMIT] = "COREDUMP_RLIMIT=",
         };
 
         unsigned i;
@@ -802,8 +843,11 @@ static void map_context_fields(const struct iovec *iovec, const char *context[])
         assert(iovec);
         assert(context);
 
-        for (i = 0; i < _CONTEXT_MAX; i++) {
+        for (i = 0; i < ELEMENTSOF(context_field_names); i++) {
                 size_t l;
+
+                if (!context_field_names[i])
+                        continue;
 
                 l = strlen(context_field_names[i]);
                 if (iovec->iov_len < l)
@@ -847,7 +891,7 @@ static int process_socket(int fd) {
                 ssize_t n;
                 ssize_t l;
 
-                if (!GREEDY_REALLOC(iovec, n_allocated, n_iovec + 3)) {
+                if (!GREEDY_REALLOC(iovec, n_allocated, n_iovec + SUBMIT_COREDUMP_FIELDS)) {
                         r = log_oom();
                         goto finish;
                 }
@@ -911,7 +955,7 @@ static int process_socket(int fd) {
                 n_iovec++;
         }
 
-        if (!GREEDY_REALLOC(iovec, n_allocated, n_iovec + 3)) {
+        if (!GREEDY_REALLOC(iovec, n_allocated, n_iovec + SUBMIT_COREDUMP_FIELDS)) {
                 r = log_oom();
                 goto finish;
         }
@@ -1009,33 +1053,6 @@ static int send_iovec(const struct iovec iovec[], size_t n_iovec, int input_fd) 
         return 0;
 }
 
-static int process_special_crash(const char *context[], int input_fd) {
-        _cleanup_close_ int coredump_fd = -1, coredump_node_fd = -1;
-        _cleanup_free_ char *filename = NULL;
-        uint64_t coredump_size;
-        int r;
-
-        assert(context);
-        assert(input_fd >= 0);
-
-        /* If we are pid1 or journald, we cut things short, don't write to the journal, but still create a coredump. */
-
-        if (arg_storage != COREDUMP_STORAGE_NONE)
-                arg_storage = COREDUMP_STORAGE_EXTERNAL;
-
-        r = save_external_coredump(context, input_fd, &filename, &coredump_node_fd, &coredump_fd, &coredump_size);
-        if (r < 0)
-                return r;
-
-        r = maybe_remove_external_coredump(filename, coredump_size);
-        if (r < 0)
-                return r;
-
-        log_notice("Detected coredump of the journal daemon or PID 1, diverted to %s.", filename);
-
-        return 0;
-}
-
 static char* set_iovec_field(struct iovec iovec[27], size_t *n_iovec, const char *field, const char *value) {
         char *x;
 
@@ -1053,10 +1070,9 @@ static char* set_iovec_field_free(struct iovec iovec[27], size_t *n_iovec, const
         return x;
 }
 
-static int gather_pid_metadata_and_process_special_crash(
-                const char *context[_CONTEXT_MAX],
+static int gather_pid_metadata(
+                char* context[_CONTEXT_MAX],
                 char **comm_fallback,
-                char **comm_ret,
                 struct iovec *iovec, size_t *n_iovec) {
 
         /* We need 26 empty slots in iovec!
@@ -1064,7 +1080,6 @@ static int gather_pid_metadata_and_process_special_crash(
          * Note that if we fail on oom later on, we do not roll-back changes to the iovec structure. (It remains valid,
          * with the first n_iovec fields initialized.) */
 
-        _cleanup_free_ char *exe = NULL, *comm = NULL;
         uid_t owner_uid;
         pid_t pid;
         char *t;
@@ -1075,43 +1090,33 @@ static int gather_pid_metadata_and_process_special_crash(
         if (r < 0)
                 return log_error_errno(r, "Failed to parse PID \"%s\": %m", context[CONTEXT_PID]);
 
-        r = get_process_comm(pid, &comm);
+        r = get_process_comm(pid, &context[CONTEXT_COMM]);
         if (r < 0) {
                 log_warning_errno(r, "Failed to get COMM, falling back to the command line: %m");
-                comm = strv_join(comm_fallback, " ");
-                if (!comm)
+                context[CONTEXT_COMM] = strv_join(comm_fallback, " ");
+                if (!context[CONTEXT_COMM])
                         return log_oom();
         }
 
-        r = get_process_exe(pid, &exe);
+        r = get_process_exe(pid, &context[CONTEXT_EXE]);
         if (r < 0)
                 log_warning_errno(r, "Failed to get EXE, ignoring: %m");
 
-        if (cg_pid_get_unit(pid, &t) >= 0) {
+        if (cg_pid_get_unit(pid, &context[CONTEXT_UNIT]) >= 0) {
+                if (!streq(context[CONTEXT_UNIT], SPECIAL_JOURNALD_SERVICE)) {
+                        /* OK, now we know it's not the journal, hence we can make use of it now. */
+                        log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
+                        log_open();
+                }
 
                 /* If this is PID 1 disable coredump collection, we'll unlikely be able to process it later on. */
-                if (streq(t, SPECIAL_INIT_SCOPE)) {
+                if (streq(context[CONTEXT_UNIT], SPECIAL_INIT_SCOPE)) {
                         log_notice("Due to PID 1 having crashed coredump collection will now be turned off.");
                         (void) write_string_file("/proc/sys/kernel/core_pattern", "|/bin/false", 0);
                 }
 
-                /* Let's avoid dead-locks when processing journald and init crashes, as socket activation and logging
-                 * are unlikely to work then. */
-                if (STR_IN_SET(t, SPECIAL_JOURNALD_SERVICE, SPECIAL_INIT_SCOPE)) {
-                        free(t);
-                        r = process_special_crash(context, STDIN_FILENO);
-                        if (r < 0)
-                                return r;
-
-                        return 1; /* > 0 means: we have already processed it, because it's a special crash */
-                }
-
-                set_iovec_field_free(iovec, n_iovec, "COREDUMP_UNIT=", t);
+                set_iovec_field(iovec, n_iovec, "COREDUMP_UNIT=", context[CONTEXT_UNIT]);
         }
-
-        /* OK, now we know it's not the journal, hence we can make use of it now. */
-        log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
-        log_open();
 
         if (cg_pid_get_user_unit(pid, &t) >= 0)
                 set_iovec_field_free(iovec, n_iovec, "COREDUMP_USER_UNIT=", t);
@@ -1132,11 +1137,11 @@ static int gather_pid_metadata_and_process_special_crash(
         if (!set_iovec_field(iovec, n_iovec, "COREDUMP_RLIMIT=", context[CONTEXT_RLIMIT]))
                 return log_oom();
 
-        if (!set_iovec_field(iovec, n_iovec, "COREDUMP_COMM=", comm))
+        if (!set_iovec_field(iovec, n_iovec, "COREDUMP_COMM=", context[CONTEXT_COMM]))
                 return log_oom();
 
-        if (exe &&
-            !set_iovec_field(iovec, n_iovec, "COREDUMP_EXE=", exe))
+        if (context[CONTEXT_EXE] &&
+            !set_iovec_field(iovec, n_iovec, "COREDUMP_EXE=", context[CONTEXT_EXE]))
                 return log_oom();
 
         if (sd_pid_get_session(pid, &t) >= 0)
@@ -1206,18 +1211,13 @@ static int gather_pid_metadata_and_process_special_crash(
         if (safe_atoi(context[CONTEXT_SIGNAL], &signo) >= 0 && SIGNAL_VALID(signo))
                 set_iovec_field(iovec, n_iovec, "COREDUMP_SIGNAL_NAME=SIG", signal_to_string(signo));
 
-        if (comm_ret) {
-                *comm_ret = comm;
-                comm = NULL;
-        }
-
-        return 0; /* == 0 means: we successfully acquired all metadata */
+        return 0; /* we successfully acquired all metadata */
 }
 
 static int process_kernel(int argc, char* argv[]) {
 
-        const char *context[_CONTEXT_MAX];
-        struct iovec iovec[28];
+        char* context[_CONTEXT_MAX] = {};
+        struct iovec iovec[28 + SUBMIT_COREDUMP_FIELDS];
         size_t i, n_iovec, n_to_free = 0;
         int r;
 
@@ -1228,21 +1228,16 @@ static int process_kernel(int argc, char* argv[]) {
                 return -EINVAL;
         }
 
-        context[CONTEXT_PID]       = argv[CONTEXT_PID + 1];
-        context[CONTEXT_UID]       = argv[CONTEXT_UID + 1];
-        context[CONTEXT_GID]       = argv[CONTEXT_GID + 1];
-        context[CONTEXT_SIGNAL]    = argv[CONTEXT_SIGNAL + 1];
-        context[CONTEXT_TIMESTAMP] = argv[CONTEXT_TIMESTAMP + 1];
-        context[CONTEXT_RLIMIT]    = argv[CONTEXT_RLIMIT + 1];
+        context[CONTEXT_PID]       = argv[1 + CONTEXT_PID];
+        context[CONTEXT_UID]       = argv[1 + CONTEXT_UID];
+        context[CONTEXT_GID]       = argv[1 + CONTEXT_GID];
+        context[CONTEXT_SIGNAL]    = argv[1 + CONTEXT_SIGNAL];
+        context[CONTEXT_TIMESTAMP] = argv[1 + CONTEXT_TIMESTAMP];
+        context[CONTEXT_RLIMIT]    = argv[1 + CONTEXT_RLIMIT];
 
-        r = gather_pid_metadata_and_process_special_crash(context, argv + CONTEXT_COMM + 1, NULL, iovec, &n_to_free);
+        r = gather_pid_metadata(context, argv + 1 + CONTEXT_COMM, iovec, &n_to_free);
         if (r < 0)
                 goto finish;
-        if (r > 0) {
-                /* This was a special crash, and has already been processed. */
-                r = 0;
-                goto finish;
-        }
 
         n_iovec = n_to_free;
 
@@ -1253,18 +1248,30 @@ static int process_kernel(int argc, char* argv[]) {
 
         assert(n_iovec <= ELEMENTSOF(iovec));
 
-        r = send_iovec(iovec, n_iovec, STDIN_FILENO);
+        if (STRPTR_IN_SET(context[CONTEXT_UNIT],
+                          SPECIAL_JOURNALD_SERVICE,
+                          SPECIAL_INIT_SCOPE))
+                r = submit_coredump((const char**) context,
+                                    iovec, ELEMENTSOF(iovec), n_iovec,
+                                    STDIN_FILENO);
+        else
+                r = send_iovec(iovec, n_iovec, STDIN_FILENO);
 
  finish:
         for (i = 0; i < n_to_free; i++)
                 free(iovec[i].iov_base);
 
+        /* Those fields are allocated by gather_pid_metadata */
+        free(context[CONTEXT_COMM]);
+        free(context[CONTEXT_EXE]);
+        free(context[CONTEXT_UNIT]);
+
         return r;
 }
 
 static int process_backtrace(int argc, char *argv[]) {
-        const char *context[_CONTEXT_MAX];
-        _cleanup_free_ char *comm = NULL, *message = NULL;
+        char *context[_CONTEXT_MAX] = {};
+        _cleanup_free_ char *message = NULL;
         _cleanup_free_ struct iovec *iovec = NULL;
         size_t n_iovec, n_allocated, n_to_free = 0, i;
         int r;
@@ -1279,19 +1286,20 @@ static int process_backtrace(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        context[CONTEXT_PID]       = argv[CONTEXT_PID + 2];
-        context[CONTEXT_UID]       = argv[CONTEXT_UID + 2];
-        context[CONTEXT_GID]       = argv[CONTEXT_GID + 2];
-        context[CONTEXT_SIGNAL]    = argv[CONTEXT_SIGNAL + 2];
-        context[CONTEXT_TIMESTAMP] = argv[CONTEXT_TIMESTAMP + 2];
-        context[CONTEXT_RLIMIT]    = argv[CONTEXT_RLIMIT + 2];
+        context[CONTEXT_PID]       = argv[2 + CONTEXT_PID];
+        context[CONTEXT_UID]       = argv[2 + CONTEXT_UID];
+        context[CONTEXT_GID]       = argv[2 + CONTEXT_GID];
+        context[CONTEXT_SIGNAL]    = argv[2 + CONTEXT_SIGNAL];
+        context[CONTEXT_TIMESTAMP] = argv[2 + CONTEXT_TIMESTAMP];
+        context[CONTEXT_RLIMIT]    = argv[2 + CONTEXT_RLIMIT];
 
-        n_allocated = 33; /* 25 metadata, 2 static, +unknown input, rounded up */
+        n_allocated = 33 + COREDUMP_STORAGE_EXTERNAL;
+        /* 25 metadata, 2 static, +unknown input, 4 storage, rounded up */
         iovec = new(struct iovec, n_allocated);
         if (!iovec)
                 return log_oom();
 
-        r = gather_pid_metadata_and_process_special_crash(context, argv + CONTEXT_COMM + 2, &comm, iovec, &n_to_free);
+        r = gather_pid_metadata(context, argv + 2 + CONTEXT_COMM, iovec, &n_to_free);
         if (r < 0)
                 goto finish;
         if (r > 0) {
@@ -1317,7 +1325,8 @@ static int process_backtrace(int argc, char *argv[]) {
         if (journal_importer_eof(&importer)) {
                 log_warning("Did not receive a full journal entry on stdin, ignoring message sent by reporter");
 
-                message = strjoin("MESSAGE=Process ", context[CONTEXT_PID], " (", comm, ")"
+                message = strjoin("MESSAGE=Process ", context[CONTEXT_PID],
+                                  " (", context[CONTEXT_COMM], ")"
                                   " of user ", context[CONTEXT_UID],
                                   " failed with ", context[CONTEXT_SIGNAL]);
                 if (!message) {
@@ -1343,6 +1352,11 @@ static int process_backtrace(int argc, char *argv[]) {
  finish:
         for (i = 0; i < n_to_free; i++)
                 free(iovec[i].iov_base);
+
+        /* Those fields are allocated by gather_pid_metadata */
+        free(context[CONTEXT_COMM]);
+        free(context[CONTEXT_EXE]);
+        free(context[CONTEXT_UNIT]);
 
         return r;
 }
