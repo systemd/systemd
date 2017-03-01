@@ -112,9 +112,10 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
 
         r = name_to_handle_at(fd, filename, &h.handle, &mount_id, flags);
         if (r < 0) {
-                if (errno == ENOSYS)
-                        /* This kernel does not support name_to_handle_at()
-                         * fall back to simpler logic. */
+                if (IN_SET(errno, ENOSYS, EACCES, EPERM))
+                        /* This kernel does not support name_to_handle_at() at all, or the syscall was blocked (maybe
+                         * through seccomp, because we are running inside of a container?): fall back to simpler
+                         * logic. */
                         goto fallback_fdinfo;
                 else if (errno == EOPNOTSUPP)
                         /* This kernel or file system does not support
@@ -163,7 +164,7 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
 
 fallback_fdinfo:
         r = fd_fdinfo_mnt_id(fd, filename, flags, &mount_id);
-        if (IN_SET(r, -EOPNOTSUPP, -EACCES))
+        if (IN_SET(r, -EOPNOTSUPP, -EACCES, -EPERM))
                 goto fallback_fstat;
         if (r < 0)
                 return r;
