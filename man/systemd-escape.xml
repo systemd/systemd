@@ -86,8 +86,8 @@
 
         <listitem><para>Appends the specified unit type suffix to the
         escaped string. Takes one of the unit types supported by
-        systemd, such as <literal>.service</literal> or
-        <literal>.mount</literal>. May not be used in conjunction with
+        systemd, such as <literal>service</literal> or
+        <literal>mount</literal>. May not be used in conjunction with
         <option>--template=</option>, <option>--unescape</option> or
         <option>--mangle</option>.</para></listitem>
       </varlistentry>
