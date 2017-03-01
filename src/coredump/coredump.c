@@ -695,6 +695,19 @@ static int change_uid_gid(const char *context[]) {
         return drop_privileges(uid, gid, 0);
 }
 
+static bool is_journald_crash(const char *context[_CONTEXT_MAX]) {
+        assert(context);
+
+        return streq_ptr(context[CONTEXT_UNIT], SPECIAL_JOURNALD_SERVICE);
+}
+
+static bool is_pid1_crash(const char *context[_CONTEXT_MAX]) {
+        assert(context);
+
+        return streq_ptr(context[CONTEXT_UNIT], SPECIAL_INIT_SCOPE) ||
+                streq_ptr(context[CONTEXT_PID], "1");
+}
+
 #define SUBMIT_COREDUMP_FIELDS 4
 
 static int submit_coredump(
@@ -715,7 +728,7 @@ static int submit_coredump(
         assert(n_iovec_allocated >= n_iovec + SUBMIT_COREDUMP_FIELDS);
         assert(input_fd >= 0);
 
-        journald_crash = streq_ptr(context[CONTEXT_UNIT], SPECIAL_JOURNALD_SERVICE);
+        journald_crash = is_journald_crash(context);
 
         /* Vacuum before we write anything again */
         (void) coredump_vacuum(-1, arg_keep_free, arg_max_use);
@@ -1103,14 +1116,14 @@ static int gather_pid_metadata(
                 log_warning_errno(r, "Failed to get EXE, ignoring: %m");
 
         if (cg_pid_get_unit(pid, &context[CONTEXT_UNIT]) >= 0) {
-                if (!streq(context[CONTEXT_UNIT], SPECIAL_JOURNALD_SERVICE)) {
+                if (!is_journald_crash((const char**) context)) {
                         /* OK, now we know it's not the journal, hence we can make use of it now. */
                         log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
                         log_open();
                 }
 
                 /* If this is PID 1 disable coredump collection, we'll unlikely be able to process it later on. */
-                if (streq(context[CONTEXT_UNIT], SPECIAL_INIT_SCOPE)) {
+                if (is_pid1_crash((const char**) context)) {
                         log_notice("Due to PID 1 having crashed coredump collection will now be turned off.");
                         (void) write_string_file("/proc/sys/kernel/core_pattern", "|/bin/false", 0);
                 }
@@ -1248,9 +1261,7 @@ static int process_kernel(int argc, char* argv[]) {
 
         assert(n_iovec <= ELEMENTSOF(iovec));
 
-        if (STRPTR_IN_SET(context[CONTEXT_UNIT],
-                          SPECIAL_JOURNALD_SERVICE,
-                          SPECIAL_INIT_SCOPE))
+        if (is_journald_crash((const char**) context) || is_pid1_crash((const char**) context))
                 r = submit_coredump((const char**) context,
                                     iovec, ELEMENTSOF(iovec), n_iovec,
                                     STDIN_FILENO);
