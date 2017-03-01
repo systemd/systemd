@@ -348,7 +348,7 @@ CHANGES WITH 233:
           these NTP servers officially. We still recommend downstreams to
           properly register an NTP pool with the NTP pool project though.
 
-        * coredumpctl gained new new "--reverse" option for printing the list
+        * coredumpctl gained a new "--reverse" option for printing the list
           of coredumps in reverse order.
 
         * coredumpctl will now show additional information about truncated and
