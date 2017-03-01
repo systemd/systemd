@@ -1,8 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 233 in spe
-
-        [ LIST FAR FROM COMPLETE YET ]
+CHANGES WITH 233:
 
         * DBus policy files are now installed into /usr rather than /etc. Make
           sure your system has dbus >= 1.9.18 running before upgrading to this
@@ -325,6 +323,62 @@ CHANGES WITH 233 in spe
           environment variables based on files dropped into
           ~/.config/environment.d/.
 
+        * systemd-resolved now includes the new, recently published 2017 DNSSEC
+          root key (KSK).
+
+        * coredumpctl will now show additional information about truncated and
+          inaccessible coredumps, as well as coredumps that are still being
+          processed. It also gained a new --quiet switch for suppressing
+          additional informational message in its output.
+
+        * coredumpctl gained support for only showing coredumps newer and/or
+          older than specific timestamps, using the new --since= and --until=
+          options, reminiscent of journalctl's options by the same name.
+
+        * hostnamed has been updated to report a new chassis type of
+          "convertible" to cover "foldable" laptops that can both act as a
+          tablet and as a laptop, such as various Lenovo Yoga devices.
+
+        * Note that from this version on, CONFIG_CRYPTO_USER_API_HASH,
+          CONFIG_CRYPTO_HMAC and CONFIG_CRYPTO_SHA256 need to be enabled in the
+          kernel.
+
+        * The "hybrid" control group mode has been modified to improve
+          compatibility with "legacy" cgroupsv1 setups. Specifically, the
+          "hybrid" setup of /sys/fs/cgroup is now pretty much identical to
+          "legacy" (including /sys/fs/cgroup/systemd as "name=systemd" named
+          cgroupsv1 hierarchy), the only externally visible change being that
+          the cgroupsv2 hierarchy is also mounted, to
+          /sys/fs/cgroup/unified. This should provide a large degree of
+          compatibility with "legacy" cgroupsv1, while taking benefit of the
+          better management capabilities of cgroupsv2.
+
+        * The default control group setup mode may be selected both a boot-time
+          via a set of kernel command line parameters (specifically:
+          systemd.unified_cgroup_hierarchy= and
+          systemd.legacy_systemd_cgroup_controller=), as well as a compile-time
+          default selected on the configure command line
+          (--with-default-hierarchy=). The upstream default is "hybrid"
+          (i.e. the cgroupsv1 + cgroupsv2 mixture discussed above) now, but
+          this will change in a future systemd version to be "unified" (pure
+          cgroupsv2 mode). The third option for the compile time option is
+          "legacy", to enter pure cgroupsv1 mode. We recommend downstream
+          distributions to default to "hybrid" mode for release distributions,
+          starting with v233. We recommend "unified" for development
+          distributions (specifically: distributions such as Fedora's rawhide)
+          as that's where things are headed in the long run. Use "legacy" for
+          greatest stability and compatibility only.
+
+        * Note one current limitation of "unified" and "hybrid" control group
+          setup modes: the kernel currently does not permit the systemd --user
+          instance (i.e. unprivileged code) to migrate processes between two
+          disconnected cgroup subtrees, even if both are managed and owned by
+          the user. This effectively means "systemd-run --user --scope" doesn't
+          work when invoked from outside of any "systemd --user" service or
+          scope. Specifically, it is not supported from session scopes. We are
+          working on fixing this in a future systemd version. (See #3388 for
+          further details about this.)
+
         Contributions from: Adrián López, Alexander Galanin, Alexander
         Kochetkov, Alexandros Frantzis, Andrey Ulanov, Antoine Eiche, Baruch
         Siach, Bastien Nocera, Benjamin Robin, Björn, Brandon Philips, Cédric
@@ -334,26 +388,28 @@ CHANGES WITH 233 in spe
         Khlebnikov, Dmitry Rozhkov, Dongsu Park, Douglas Christman, Earnestly,
         Emil Soleyman, Eric Cook, Evgeny Vereshchagin, Felipe Sateler, Fionn
         Cleary, Florian Klink, Francesco Brozzu, Franck Bui, Gabriel Rauter,
-        Gianluca Boiano, Graeme Lawes, Hans de Goede, Harald Hoyer, Ian
-        Kelling, Ivan Shapovalov, Jakub Wilk, Janne Heß, Jan Synacek, Jason
-        Reeder, Jonathan Boulle, Jörg Thalheim, Jouke Witteveen, Karl Kraus,
-        Kees Cook, Keith Busch, Kieran Colford, kilian-k, Lennart Poettering,
-        Lubomir Rintel, Lucas Werkmeister, Lukas Rusak, Maarten de Vries, Maks
-        Naumov, Mantas Mikulėnas, Marc-Andre Lureau, Marcin Bachry, Mark
-        Stosberg, Martin Ejdestig, Martin Pitt, micah, Michael Biebl, Michael
-        Shields, Michal Schmidt, Michal Sekletar, Michel Kraus, Mike Gilbert,
-        Mirza Krak, Namhyung Kim, nikolaof, peoronoob, Peter Hutterer, Peter
-        Körner, Philip Withnall, Piotr Drąg, Ray Strode, Reverend Homer,
-        Rike-Benjamin Schuppner, Robert Kreuzer, Ronny Chevalier, Ruslan
-        Bilovol, sammynx, Sergey Ptashnick, Sergiusz Urbaniak, Stefan Berger,
-        Stefan Hajnoczi, Stefan Schweter, Susant Sahani, Sylvain Plantefève,
-        Taylor Smock, Thomas Blume, Thomas H. P. Andersen, Tobias Stoeckmann,
-        Tom Gundersen, Torstein Husebø, Viktar Vaŭčkievič, Viktor Mihajlovski,
-        Waldemar Brodkorb, Walter Garcia-Fontes, Wim de With, Yassine
-        Imounachen, Yi EungJun, Yu Watanabe, Zbigniew Jędrzejewski-Szmek,
-        Александр Тихонов
+        Gianluca Boiano, Giedrius Statkevičius, Graeme Lawes, Hans de Goede,
+        Harald Hoyer, Ian Kelling, Ivan Shapovalov, Jakub Wilk, Janne Heß, Jan
+        Synacek, Jason Reeder, Jonathan Boulle, Jörg Thalheim, Jouke Witteveen,
+        Karl Kraus, Kees Cook, Keith Busch, Kieran Colford, kilian-k, Lennart
+        Poettering, Lubomir Rintel, Lucas Werkmeister, Lukas Rusak, Maarten de
+        Vries, Maks Naumov, Mantas Mikulėnas, Marc-Andre Lureau, Marcin Bachry,
+        Mark Stosberg, Martin Ejdestig, Martin Pitt, Mauricio Faria de
+        Oliveira, micah, Michael Biebl, Michael Shields, Michal Schmidt, Michal
+        Sekletar, Michel Kraus, Mike Gilbert, Mikko Ylinen, Mirza Krak,
+        Namhyung Kim, nikolaof, peoronoob, Peter Hutterer, Peter Körner, Philip
+        Withnall, Piotr Drąg, Ray Strode, Reverend Homer, Rike-Benjamin
+        Schuppner, Robert Kreuzer, Ronny Chevalier, Ruslan Bilovol, sammynx,
+        Sergey Ptashnick, Sergiusz Urbaniak, Stefan Berger, Stefan Hajnoczi,
+        Stefan Schweter, Stuart McLaren, Susant Sahani, Sylvain Plantefève,
+        Taylor Smock, Tejun Heo, Thomas Blume, Thomas H. P. Andersen, Tibor
+        Nagy, Tobias Stoeckmann, Tom Gundersen, Torstein Husebø, Viktar
+        Vaŭčkievič, Viktor Mihajlovski, Vitaly Sulimov, Waldemar Brodkorb,
+        Walter Garcia-Fontes, Wim de With, Yassine Imounachen, Yi EungJun,
+        YunQiang Su, Yu Watanabe, Zbigniew Jędrzejewski-Szmek, Александр
+        Тихонов
 
-        — Berlin, 2017-02-XX
+        — Berlin, 2017-03-01
 
 CHANGES WITH 232:
 
