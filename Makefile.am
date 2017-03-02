@@ -6637,7 +6637,7 @@ git-tar:
 www_target = www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd
 
 .PHONY: doc-sync
-doc-sync: all
+doc-sync: man
 	rsync -rlv --delete-excluded --include="*.html" --exclude="*" --omit-dir-times man/ $(www_target)/man/
 
 .PHONY: install-tree
