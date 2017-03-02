@@ -197,7 +197,23 @@ int uname_architecture(void);
 #  error "Missing LIB_ARCH_TUPLE for SH64"
 #elif defined(__sh__)
 #  define native_architecture() ARCHITECTURE_SH
-#  define LIB_ARCH_TUPLE "sh4-linux-gnu"
+#  if defined(__SH1__)
+#    define LIB_ARCH_TUPLE "sh1-linux-gnu"
+#  elif defined(__SH2__)
+#    define LIB_ARCH_TUPLE "sh2-linux-gnu"
+#  elif defined(__SH2A__)
+#    define LIB_ARCH_TUPLE "sh2a-linux-gnu"
+#  elif defined(__SH2E__)
+#    define LIB_ARCH_TUPLE "sh2e-linux-gnu"
+#  elif defined(__SH3__)
+#    define LIB_ARCH_TUPLE "sh3-linux-gnu"
+#  elif defined(__SH3E__)
+#    define LIB_ARCH_TUPLE "sh3e-linux-gnu"
+#  elif defined(__SH4__) && !defined(__SH4A__)
+#    define LIB_ARCH_TUPLE "sh4-linux-gnu"
+#  elif defined(__SH4A__)
+#    define LIB_ARCH_TUPLE "sh4a-linux-gnu"
+#  endif
 #elif defined(__m68k__)
 #  define native_architecture() ARCHITECTURE_M68K
 #  define LIB_ARCH_TUPLE "m68k-linux-gnu"
