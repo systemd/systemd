@@ -19,7 +19,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/dm-ioctl.h>
 #include <linux/loop.h>
 #include <string.h>
 #include <sys/mount.h>
@@ -31,6 +30,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fstab-util.h"
+#include "linux-3.13/dm-ioctl.h"
 #include "list.h"
 #include "mount-setup.h"
 #include "path-util.h"

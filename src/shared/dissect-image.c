@@ -20,7 +20,6 @@
 #ifdef HAVE_LIBCRYPTSETUP
 #include <libcryptsetup.h>
 #endif
-#include <linux/dm-ioctl.h>
 #include <sys/mount.h>
 
 #include "architecture.h"
@@ -32,6 +31,7 @@
 #include "fs-util.h"
 #include "gpt.h"
 #include "hexdecoct.h"
+#include "linux-3.13/dm-ioctl.h"
 #include "mount-util.h"
 #include "path-util.h"
 #include "stat-util.h"

@@ -1018,6 +1018,7 @@ libshared_la_SOURCES = \
 	src/shared/gpt.h \
 	src/shared/udev-util.h \
 	src/shared/linux/auto_dev-ioctl.h \
+	src/shared/linux-3.13/dm-ioctl.h \
 	src/shared/initreq.h \
 	src/shared/dns-domain.c \
 	src/shared/dns-domain.h \
