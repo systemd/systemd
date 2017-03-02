@@ -101,7 +101,11 @@ int uname_architecture(void);
 #elif defined(__powerpc__)
 #  if __BYTE_ORDER == __BIG_ENDIAN
 #    define native_architecture() ARCHITECTURE_PPC
-#    define LIB_ARCH_TUPLE "powerpc-linux-gnu"
+#    if defined(__NO_FPRS__)
+#      define LIB_ARCH_TUPLE "powerpc-linux-gnuspe"
+#    else
+#      define LIB_ARCH_TUPLE "powerpc-linux-gnu"
+#    endif
 #  else
 #    define native_architecture() ARCHITECTURE_PPC_LE
 #    error "Missing LIB_ARCH_TUPLE for PPCLE"
