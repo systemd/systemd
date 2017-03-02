@@ -79,7 +79,11 @@ int uname_architecture(void);
 
 #if defined(__x86_64__)
 #  define native_architecture() ARCHITECTURE_X86_64
-#  define LIB_ARCH_TUPLE "x86_64-linux-gnu"
+#  if defined(__ILP32__)
+#    define LIB_ARCH_TUPLE "x86_64-linux-gnux32"
+#  else
+#    define LIB_ARCH_TUPLE "x86_64-linux-gnu"
+#  endif
 #  define SECONDARY_ARCHITECTURE ARCHITECTURE_X86
 #elif defined(__i386__)
 #  define native_architecture() ARCHITECTURE_X86
