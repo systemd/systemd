@@ -79,7 +79,11 @@ int uname_architecture(void);
 
 #if defined(__x86_64__)
 #  define native_architecture() ARCHITECTURE_X86_64
-#  define LIB_ARCH_TUPLE "x86_64-linux-gnu"
+#  if defined(__ILP32__)
+#    define LIB_ARCH_TUPLE "x86_64-linux-gnux32"
+#  else
+#    define LIB_ARCH_TUPLE "x86_64-linux-gnu"
+#  endif
 #  define SECONDARY_ARCHITECTURE ARCHITECTURE_X86
 #elif defined(__i386__)
 #  define native_architecture() ARCHITECTURE_X86
@@ -97,7 +101,11 @@ int uname_architecture(void);
 #elif defined(__powerpc__)
 #  if __BYTE_ORDER == __BIG_ENDIAN
 #    define native_architecture() ARCHITECTURE_PPC
-#    define LIB_ARCH_TUPLE "powerpc-linux-gnu"
+#    if defined(__NO_FPRS__)
+#      define LIB_ARCH_TUPLE "powerpc-linux-gnuspe"
+#    else
+#      define LIB_ARCH_TUPLE "powerpc-linux-gnu"
+#    endif
 #  else
 #    define native_architecture() ARCHITECTURE_PPC_LE
 #    error "Missing LIB_ARCH_TUPLE for PPCLE"
@@ -189,7 +197,23 @@ int uname_architecture(void);
 #  error "Missing LIB_ARCH_TUPLE for SH64"
 #elif defined(__sh__)
 #  define native_architecture() ARCHITECTURE_SH
-#  define LIB_ARCH_TUPLE "sh4-linux-gnu"
+#  if defined(__SH1__)
+#    define LIB_ARCH_TUPLE "sh1-linux-gnu"
+#  elif defined(__SH2__)
+#    define LIB_ARCH_TUPLE "sh2-linux-gnu"
+#  elif defined(__SH2A__)
+#    define LIB_ARCH_TUPLE "sh2a-linux-gnu"
+#  elif defined(__SH2E__)
+#    define LIB_ARCH_TUPLE "sh2e-linux-gnu"
+#  elif defined(__SH3__)
+#    define LIB_ARCH_TUPLE "sh3-linux-gnu"
+#  elif defined(__SH3E__)
+#    define LIB_ARCH_TUPLE "sh3e-linux-gnu"
+#  elif defined(__SH4__) && !defined(__SH4A__)
+#    define LIB_ARCH_TUPLE "sh4-linux-gnu"
+#  elif defined(__SH4A__)
+#    define LIB_ARCH_TUPLE "sh4a-linux-gnu"
+#  endif
 #elif defined(__m68k__)
 #  define native_architecture() ARCHITECTURE_M68K
 #  define LIB_ARCH_TUPLE "m68k-linux-gnu"
