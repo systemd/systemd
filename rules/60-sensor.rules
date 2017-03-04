@@ -11,4 +11,8 @@ SUBSYSTEM=="input", ENV{ID_INPUT_ACCELEROMETER}=="1", SUBSYSTEMS=="acpi", \
   IMPORT{builtin}="hwdb 'sensor:modalias:acpi:$attr{hid}:$attr{[dmi/id]modalias}'", \
   GOTO="sensor_end"
 
+SUBSYSTEM=="input", ENV{ID_INPUT_ACCELEROMETER}=="1", SUBSYSTEMS=="platform", \
+  IMPORT{builtin}="hwdb 'sensor:modalias:platform:$id:$attr{[dmi/id]modalias}'", \
+  GOTO="sensor_end"
+
 LABEL="sensor_end"
