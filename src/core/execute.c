@@ -1670,7 +1670,7 @@ static bool exec_needs_mount_namespace(
             context->protect_control_groups)
                 return true;
 
-        if (context->mount_apivfs)
+        if (context->mount_apivfs && (context->root_image || context->root_directory))
                 return true;
 
         return false;

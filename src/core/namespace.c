@@ -816,18 +816,24 @@ static int make_read_only(MountEntry *m, char **blacklist) {
         return r;
 }
 
-static bool namespace_info_mount_apivfs(const NameSpaceInfo *ns_info) {
+static bool namespace_info_mount_apivfs(const char *root_directory, const NameSpaceInfo *ns_info) {
         assert(ns_info);
 
-        /* ProtectControlGroups= and ProtectKernelTunables= imply MountAPIVFS=, since to protect the API VFS mounts,
-         * they need to be around in the first place... */
+        /*
+         * ProtectControlGroups= and ProtectKernelTunables= imply MountAPIVFS=,
+         * since to protect the API VFS mounts, they need to be around in the
+         * first place... and RootDirectory= or RootImage= need to be set.
+         */
 
-        return ns_info->mount_apivfs ||
-                ns_info->protect_control_groups ||
-                ns_info->protect_kernel_tunables;
+        /* root_directory should point to a mount point */
+        return root_directory &&
+                (ns_info->mount_apivfs ||
+                 ns_info->protect_control_groups ||
+                 ns_info->protect_kernel_tunables);
 }
 
 static unsigned namespace_calculate_mounts(
+                const char* root_directory,
                 const NameSpaceInfo *ns_info,
                 char** read_write_paths,
                 char** read_only_paths,
@@ -864,7 +870,7 @@ static unsigned namespace_calculate_mounts(
                 (ns_info->protect_control_groups ? 1 : 0) +
                 (ns_info->protect_kernel_modules ? ELEMENTSOF(protect_kernel_modules_table) : 0) +
                 protect_home_cnt + protect_system_cnt +
-                (namespace_info_mount_apivfs(ns_info) ? ELEMENTSOF(apivfs_table) : 0);
+                (namespace_info_mount_apivfs(root_directory, ns_info) ? ELEMENTSOF(apivfs_table) : 0);
 }
 
 int setup_namespace(
@@ -932,6 +938,7 @@ int setup_namespace(
         }
 
         n_mounts = namespace_calculate_mounts(
+                        root_directory,
                         ns_info,
                         read_write_paths,
                         read_only_paths,
@@ -1010,7 +1017,7 @@ int setup_namespace(
                 if (r < 0)
                         goto finish;
 
-                if (namespace_info_mount_apivfs(ns_info)) {
+                if (namespace_info_mount_apivfs(root_directory, ns_info)) {
                         r = append_static_mounts(&m, apivfs_table, ELEMENTSOF(apivfs_table), ns_info->ignore_protect_paths);
                         if (r < 0)
                                 goto finish;
