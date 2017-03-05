@@ -1326,7 +1326,8 @@ static int process_backtrace(int argc, char *argv[]) {
                         log_error_errno(r, "Failed to parse journal entry on stdin: %m");
                         goto finish;
                 }
-                if (r == 1)
+                if (r == 1 ||                        /* complete entry */
+                    journal_importer_eof(&importer)) /* end of data */
                         break;
         }
 
