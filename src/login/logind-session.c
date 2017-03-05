@@ -582,6 +582,7 @@ static int session_start_scope(Session *s) {
                                 description,
                                 "systemd-logind.service",
                                 "systemd-user-sessions.service",
+                                s->user->service,
                                 (uint64_t) -1, /* disable TasksMax= for the scope, rely on the slice setting for it */
                                 &error,
                                 &job);
