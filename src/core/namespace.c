@@ -27,6 +27,7 @@
 #include <linux/fs.h>
 
 #include "alloc-util.h"
+#include "base-filesystem.h"
 #include "dev-setup.h"
 #include "fd-util.h"
 #include "fs-util.h"
@@ -1043,6 +1044,10 @@ int setup_namespace(
                         goto finish;
                 }
         }
+
+        /* Try to set up the new root directory before mounting anything there */
+        if (root_directory)
+                (void) base_filesystem_create(root_directory, UID_INVALID, GID_INVALID);
 
         if (root_image) {
                 r = dissected_image_mount(dissected_image, root_directory, dissect_image_flags);

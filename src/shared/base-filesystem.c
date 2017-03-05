@@ -51,6 +51,9 @@ static const BaseFilesystem table[] = {
         { "usr",   0755, NULL,                         NULL },
         { "var",   0755, NULL,                         NULL },
         { "etc",   0755, NULL,                         NULL },
+        { "proc",  0755, NULL,                         NULL, true },
+        { "sys",   0755, NULL,                         NULL, true },
+        { "dev",   0755, NULL,                         NULL, true },
 #if defined(__i386__) || defined(__x86_64__)
         { "lib64",    0, "usr/lib/x86_64-linux-gnu\0"
                          "usr/lib64\0",                "ld-linux-x86-64.so.2" },
