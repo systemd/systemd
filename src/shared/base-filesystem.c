@@ -117,6 +117,8 @@ int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
 
                         if (!table[i].ignore_failure)
                                 return -errno;
+
+                        continue;
                 }
 
                 if (uid != UID_INVALID || gid != UID_INVALID) {
