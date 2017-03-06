@@ -314,7 +314,7 @@ int journal_importer_process_data(JournalImporter *imp) {
                         return r;
                 if (r == 0) {
                         imp->state = IMPORTER_STATE_EOF;
-                        return r;
+                        return 0;
                 }
                 assert(n > 0);
                 assert(line[n-1] == '\n');
