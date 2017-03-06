@@ -3,6 +3,8 @@
 ACTION=="remove", GOTO="persistent_input_end"
 SUBSYSTEM!="input", GOTO="persistent_input_end"
 SUBSYSTEMS=="bluetooth", ENV{ID_BUS}="bluetooth", GOTO="persistent_input_end"
+# Bluetooth devices don't always have the bluetooth subsystem
+ATTRS{id/bustype}=="0005", ENV{ID_BUS}="bluetooth", GOTO="persistent_input_end"
 SUBSYSTEMS=="rmi4", ENV{ID_BUS}="rmi", GOTO="persistent_input_end"
 SUBSYSTEMS=="serio", ENV{ID_BUS}="i8042", GOTO="persistent_input_end"
 
