@@ -358,7 +358,7 @@ static int add_mount(
                 "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n",
                 source);
 
-        if (!noauto && !nofail && !automount)
+        if (!nofail && !automount)
                 fprintf(f, "Before=%s\n", post);
 
         if (!automount && opts) {
