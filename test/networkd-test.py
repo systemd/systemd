@@ -96,9 +96,19 @@ class NetworkdTestingUtilities:
         dropin_path = os.path.join(dropin_dir, "%s.conf" % dropin_name)
 
         os.makedirs(dropin_dir, exist_ok=True)
+        self.addCleanup(os.rmdir, dropin_dir)
         with open(dropin_path, 'w') as dropin:
             dropin.write(contents)
         self.addCleanup(os.remove, dropin_path)
+
+    def read_attr(self, link, attribute):
+        """Read a link attributed from the sysfs."""
+        # Note we we don't want to check if interface `link' is managed, we
+        # want to evaluate link variable and pass the value of the link to
+        # assert_link_states e.g. eth0=managed.
+        self.assert_link_states(**{link:'managed'})
+        with open(os.path.join('/sys/class/net', link, attribute)) as f:
+            return f.readline().strip()
 
     def assert_link_states(self, **kwargs):
         """Match networkctl link states to the given ones.
@@ -139,6 +149,74 @@ class NetworkdTestingUtilities:
         if interfaces:
             self.fail("Missing links in status output: %s" % interfaces)
 
+
+class BridgeTest(NetworkdTestingUtilities, unittest.TestCase):
+    """Provide common methods for testing networkd against servers."""
+
+    def setUp(self):
+        self.write_network('port1.netdev', '''\
+[NetDev]
+Name=port1
+Kind=dummy
+MACAddress=12:34:56:78:9a:bc''')
+        self.write_network('port2.netdev', '''\
+[NetDev]
+Name=port2
+Kind=dummy
+MACAddress=12:34:56:78:9a:bd''')
+        self.write_network('mybridge.netdev', '''\
+[NetDev]
+Name=mybridge
+Kind=bridge''')
+        self.write_network('port1.network', '''\
+[Match]
+Name=port1
+[Network]
+Bridge=mybridge''')
+        self.write_network('port2.network', '''\
+[Match]
+Name=port2
+[Network]
+Bridge=mybridge''')
+        self.write_network('mybridge.network', '''\
+[Match]
+Name=mybridge
+[Network]
+DNS=192.168.250.1
+Address=192.168.250.33/24
+Gateway=192.168.250.1''')
+        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+
+    def tearDown(self):
+        subprocess.check_call(['systemctl', 'stop', 'systemd-networkd'])
+        subprocess.check_call(['ip', 'link', 'del', 'mybridge'])
+        subprocess.check_call(['ip', 'link', 'del', 'port1'])
+        subprocess.check_call(['ip', 'link', 'del', 'port2'])
+
+    def test_bridge_init(self):
+        self.assert_link_states(
+            port1='managed',
+            port2='managed',
+            mybridge='managed')
+
+    def test_bridge_port_priority(self):
+        self.assertEqual(self.read_attr('port1', 'brport/priority'), '32')
+        self.write_network_dropin('port1.network', 'priority', '''\
+[Bridge]
+Priority=28
+''')
+        subprocess.check_call(['systemctl', 'restart', 'systemd-networkd'])
+        self.assertEqual(self.read_attr('port1', 'brport/priority'), '28')
+
+    def test_bridge_port_priority_set_zero(self):
+        """It should be possible to set the bridge port priority to 0"""
+        self.assertEqual(self.read_attr('port2', 'brport/priority'), '32')
+        self.write_network_dropin('port2.network', 'priority', '''\
+[Bridge]
+Priority=0
+''')
+        subprocess.check_call(['systemctl', 'restart', 'systemd-networkd'])
+        self.assertEqual(self.read_attr('port2', 'brport/priority'), '0')
 
 class ClientTestBase(NetworkdTestingUtilities):
     """Provide common methods for testing networkd against servers."""

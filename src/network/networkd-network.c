@@ -165,6 +165,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->use_bpdu = true;
         network->allow_port_to_be_root = true;
         network->unicast_flood = true;
+        network->priority = LINK_BRIDGE_PORT_PRIORITY_INVALID;
 
         network->lldp_mode = LLDP_MODE_ROUTERS_ONLY;
 

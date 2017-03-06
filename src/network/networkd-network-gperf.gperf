@@ -119,12 +119,13 @@ DHCPServer.EmitTimezone,                config_parse_bool,                      
 DHCPServer.Timezone,                    config_parse_timezone,                          0,                             offsetof(Network, dhcp_server_timezone)
 DHCPServer.PoolOffset,                  config_parse_uint32,                            0,                             offsetof(Network, dhcp_server_pool_offset)
 DHCPServer.PoolSize,                    config_parse_uint32,                            0,                             offsetof(Network, dhcp_server_pool_size)
-Bridge.Cost,                            config_parse_unsigned,                          0,                             offsetof(Network, cost)
+Bridge.Cost,                            config_parse_uint32,                            0,                             offsetof(Network, cost)
 Bridge.UseBPDU,                         config_parse_bool,                              0,                             offsetof(Network, use_bpdu)
 Bridge.HairPin,                         config_parse_bool,                              0,                             offsetof(Network, hairpin)
 Bridge.FastLeave,                       config_parse_bool,                              0,                             offsetof(Network, fast_leave)
 Bridge.AllowPortToBeRoot,               config_parse_bool,                              0,                             offsetof(Network, allow_port_to_be_root)
 Bridge.UnicastFlood,                    config_parse_bool,                              0,                             offsetof(Network, unicast_flood)
+Bridge.Priority,                        config_parse_uint16,                            0,                             offsetof(Network, priority)
 BridgeFDB.MACAddress,                   config_parse_fdb_hwaddr,                        0,                             0
 BridgeFDB.VLANId,                       config_parse_fdb_vlan_id,                       0,                             0
 BridgeVLAN.PVID,                        config_parse_brvlan_pvid,                       0,                             0
