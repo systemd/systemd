@@ -692,13 +692,14 @@ bool user_check_gc(User *u, bool drop_not_started) {
         if (u->sessions)
                 return true;
 
-        if (user_check_linger_file(u) > 0)
-                return true;
-
         if (u->slice_job && manager_job_is_active(u->manager, u->slice_job))
                 return true;
 
         if (u->service_job && manager_job_is_active(u->manager, u->service_job))
+                return true;
+
+        /* GC lingering users when explcitly stopped or when their manager goes down */
+        if (user_check_linger_file(u) > 0 && !u->stopping && u->service && manager_unit_is_active(u->manager, u->service))
                 return true;
 
         return false;
@@ -741,7 +742,7 @@ UserState user_get_state(User *u) {
                 return all_closing ? USER_CLOSING : USER_ONLINE;
         }
 
-        if (user_check_linger_file(u) > 0)
+        if (user_check_linger_file(u) > 0 && u->service && manager_unit_is_active(u->manager, u->service))
                 return USER_LINGERING;
 
         return USER_CLOSING;
