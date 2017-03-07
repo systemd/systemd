@@ -11,6 +11,10 @@ We welcome contributions from everyone. However, please follow the following gui
 
 Following these guidelines makes it easier for us to process your issue, and ensures we won't close your issue right-away for being misfiled.
 
+## Security vulnerability reports
+
+If you discover a security vulnerability, we'd appreciate a non-public disclosure. The issue tracker and mailing list listed above are fully public. If you need to reach systemd developers in a non-public way, report the issue in one of the "big" distributions using systemd: [Fedora](https://bugzilla.redhat.com/enter_bug.cgi?product=Fedora&component=systemd) (be sure to check "Security Sensitive Bug" under "Show Advanced Fields"), [Ubuntu](https://launchpad.net/ubuntu/+source/systemd/+filebug) (be sure to change "This bug contains information that is" from "Public" to "Private Security"), or [Debian](mailto:security@debian.org). Various systemd developers are active distribution maintainers and will propagate the information about the bug to other parties.
+
 ## Posting Pull Requests
 
 * Make sure to post PRs only relative to a very recent git master.
