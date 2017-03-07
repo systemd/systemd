@@ -73,10 +73,9 @@ the reply_cookie/reply_serial additional header field has been
 increased from 32bit to 64bit, too!
 
 The header field identifiers have been extended from 8bit to
-64bit. This has been done to simplify things (as kdbus otherwise uses
-exclusively 64bit types, unless there is a strong reason not to), and
-has no effect on the serialization size, as due to alignment for each
-8bit header field identifier 56 bits of padding had to be added.
+64bit. This has been done to simplify things, and has no effect
+on the serialization size, as due to alignment for each 8bit
+header field identifier 56 bits of padding had to be added.
 
 Note that the header size changed, due to these changes. However,
 consider that on dbus1 the beginning of the fields array contains the
@@ -94,16 +93,12 @@ array, the size of the header on dbus1 and dbus2 stays identical, at
 
 And that's already it.
 
-Note: to simplify parsing, valid kdbus/dbus2 messages must include the
-entire fixed header and additional header fields in a single non-memfd
-message part. Also, the signature string of the body variant all the
-way to the end of the message must be in a single non-memfd part
-too. The parts for this extended header and footer can be the same
-one, and can also continue any amount of additional body bytes.
-
-Note: on kdbus only native endian messages marshalled in gvariant may
-      be sent. If a client receives a message in non-native endianness
-      or in dbus1 marshalling it shall ignore the message.
+Note: To simplify parsing, valid dbus2 messages must include the entire
+      fixed header and additional header fields in a single non-memfd
+      message part. Also, the signature string of the body variant all the
+      way to the end of the message must be in a single non-memfd part
+      too. The parts for this extended header and footer can be the same
+      one, and can also continue any amount of additional body bytes.
 
 Note: The GVariant "MAYBE" type is not supported, so that messages can
       be fully converted forth and back between dbus1 and gvariant

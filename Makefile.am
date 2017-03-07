@@ -677,8 +677,6 @@ dist_doc_DATA = \
 	LICENSE.LGPL2.1 \
 	LICENSE.GPL2 \
 	DISTRO_PORTING \
-	src/libsystemd/sd-bus/PORTING-DBUS1 \
-	src/libsystemd/sd-bus/DIFFERENCES \
 	src/libsystemd/sd-bus/GVARIANT-SERIALIZATION
 
 EXTRA_DIST += \
@@ -3411,7 +3409,6 @@ noinst_LTLIBRARIES += \
 
 EXTRA_DIST += \
 	src/libsystemd/libsystemd.pc.in \
-	src/libsystemd/sd-bus/DIFFERENCES \
 	src/libsystemd/sd-bus/GVARIANT-SERIALIZATION
 
 libsystemd_la_SOURCES =
