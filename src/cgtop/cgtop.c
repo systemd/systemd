@@ -118,7 +118,7 @@ static const char *maybe_format_bytes(char *buf, size_t l, bool is_valid, uint64
         if (!is_valid)
                 return "-";
         if (arg_raw) {
-                snprintf(buf, l, "%jd", t);
+                snprintf(buf, l, "%" PRIu64, t);
                 return buf;
         }
         return format_bytes(buf, l, t);
