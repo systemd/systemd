@@ -6369,7 +6369,9 @@ nodist_polkitpolicy_DATA = \
 	$(polkitpolicy_files) \
 	$(polkitpolicy_in_in_files:.policy.in.in=.policy)
 polkitrules_DATA = $(polkitrules_files)
+if ENABLE_POLKIT_PKLA
 polkitpkla_DATA = $(polkitpkla_files)
+endif
 endif
 
 EXTRA_DIST += \
