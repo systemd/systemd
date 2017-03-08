@@ -604,6 +604,14 @@
           ports, and allows overriding via configuration.</para>
         </listitem>
       </varlistentry>
+    <varlistentry>
+      <term><varname>FlowLabel=</varname></term>
+        <listitem>
+          <para>Specifies the flow label to use in outgoing packets.
+          The valid range is 0-1048575.
+          </para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
   <refsect1>

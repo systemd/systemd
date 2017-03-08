@@ -25,6 +25,7 @@ typedef struct VxLan VxLan;
 #include "netdev/netdev.h"
 
 #define VXLAN_VID_MAX (1u << 24) - 1
+#define VXLAN_FLOW_LABEL_MAX_MASK 0xFFFFFU
 
 struct VxLan {
         NetDev meta;
@@ -40,6 +41,7 @@ struct VxLan {
         unsigned tos;
         unsigned ttl;
         unsigned max_fdb;
+        unsigned flow_label;
 
         uint16_t dest_port;
 
@@ -94,3 +96,14 @@ int config_parse_destination_port(const char *unit,
                                   const char *rvalue,
                                   void *data,
                                   void *userdata);
+
+int config_parse_flow_label(const char *unit,
+                            const char *filename,
+                            unsigned line,
+                            const char *section,
+                            unsigned section_line,
+                            const char *lvalue,
+                            int ltype,
+                            const char *rvalue,
+                            void *data,
+                            void *userdata);

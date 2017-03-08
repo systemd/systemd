@@ -157,6 +157,10 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_PORT_RANGE attribute: %m");
         }
 
+        r = sd_netlink_message_append_u32(m, IFLA_VXLAN_LABEL, htobe32(v->flow_label));
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_LABEL attribute: %m");
+
         if (v->group_policy) {
                 r = sd_netlink_message_append_flag(m, IFLA_VXLAN_GBP);
                 if (r < 0)
@@ -293,6 +297,42 @@ int config_parse_destination_port(const char *unit,
         }
 
         v->dest_port = port;
+
+        return 0;
+}
+
+int config_parse_flow_label(const char *unit,
+                            const char *filename,
+                            unsigned line,
+                            const char *section,
+                            unsigned section_line,
+                            const char *lvalue,
+                            int ltype,
+                            const char *rvalue,
+                            void *data,
+                            void *userdata) {
+        VxLan *v = userdata;
+        unsigned f;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = safe_atou(rvalue, &f);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse VXLAN flow label '%s'.", rvalue);
+                return 0;
+        }
+
+        if (f & ~VXLAN_FLOW_LABEL_MAX_MASK) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "VXLAN flow label '%s' not valid. Flow label range should be [0-1048575].", rvalue);
+                return 0;
+        }
+
+        v->flow_label = f;
 
         return 0;
 }
