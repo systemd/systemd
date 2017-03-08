@@ -726,7 +726,7 @@ struct btrfs_ioctl_quota_ctl_args {
 #define IFLA_VLAN_MAX   (__IFLA_VLAN_MAX - 1)
 #endif
 
-#if !HAVE_DECL_IFLA_VXLAN_REMCSUM_NOPARTIAL
+#if !HAVE_DECL_IFLA_VXLAN_GPE
 #define IFLA_VXLAN_UNSPEC 0
 #define IFLA_VXLAN_ID 1
 #define IFLA_VXLAN_GROUP 2
@@ -752,7 +752,11 @@ struct btrfs_ioctl_quota_ctl_args {
 #define IFLA_VXLAN_REMCSUM_RX 22
 #define IFLA_VXLAN_GBP 23
 #define IFLA_VXLAN_REMCSUM_NOPARTIAL 24
-#define __IFLA_VXLAN_MAX 25
+#define IFLA_VXLAN_COLLECT_METADATA 25
+#define IFLA_VXLAN_LABEL 26
+#define IFLA_VXLAN_GPE 27
+
+#define __IFLA_VXLAN_MAX 28
 
 #define IFLA_VXLAN_MAX  (__IFLA_VXLAN_MAX - 1)
 #endif
