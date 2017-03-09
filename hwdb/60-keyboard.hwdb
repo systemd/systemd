@@ -1304,3 +1304,16 @@ evdev:input:b0003v1050p0116*
 evdev:input:b0003v05FEp1010*
  XKB_FIXED_LAYOUT="us"
  XKB_FIXED_VARIANT=""
+
+######################### LACK OF MODIFIER LEDS ############################
+# This section lists keyboard which do not have their own LEDs for some
+# modifiers. Only Caps-Lock (KEYBOARD_LED_CAPSLOCK) and Num-Lock
+# (KEYBOARD_LED_CAPSLOCK) are currently handled and need their values set
+# to "0" to indicate the absence of LED.
+#
+# Presence of a LED is implicit when the property is absent.
+
+# Logitech K750
+evdev:input:b0003v046Dp4002*
+ KEYBOARD_LED_NUMLOCK=0
+ KEYBOARD_LED_CAPSLOCK=0

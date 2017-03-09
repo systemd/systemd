@@ -112,6 +112,8 @@ def property_grammar():
              ('ID_INPUT_TOUCHPAD_INTEGRATION', Or(('internal', 'external'))),
              ('XKB_FIXED_LAYOUT', STRING),
              ('XKB_FIXED_VARIANT', STRING),
+             ('KEYBOARD_LED_NUMLOCK', Literal('0')),
+             ('KEYBOARD_LED_CAPSLOCK', Literal('0')),
              ('ACCEL_MOUNT_MATRIX', mount_matrix),
             )
     fixed_props = [Literal(name)('NAME') - Suppress('=') - val('VALUE')
