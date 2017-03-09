@@ -527,7 +527,8 @@
           <varname>Before=</varname> dependencies to this unit for
           their service unit, which is implicitly done when
           <varname>DefaultDependencies=yes</varname> is set (the
-          default).</para>
+          default) along with <varname>Before=</varname> dependency.
+          </para>
         </listitem>
       </varlistentry>
       <varlistentry>
