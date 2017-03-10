@@ -1577,6 +1577,12 @@ AC_ARG_WITH([pamconfdir],
 AM_CONDITIONAL(ENABLE_PAM_CONFIG, [test "$with_pamconfdir" != "no"])
 AX_NORMALIZE_PATH([with_pamconfdir])
 
+AC_ARG_WITH([rpmmacrosdir],
+        AS_HELP_STRING([--with-rpmmacrosdir=DIR], [directory to store macros for RPM]),
+        [], [with_rpmmacrosdir=\${prefix}/lib/rpm/macros.d])
+AM_CONDITIONAL(ENABLE_RPM_MACROS, [test "$with_rpmmacrosdir" != "no"])
+AX_NORMALIZE_PATH([with_rpmmacrosdir])
+
 AC_ARG_ENABLE([split-usr],
         AS_HELP_STRING([--enable-split-usr], [assume that /bin, /sbin aren't symlinks into /usr]),
         [],
@@ -1647,6 +1653,7 @@ AC_SUBST([bashcompletiondir], [$with_bashcompletiondir])
 AC_SUBST([zshcompletiondir], [$with_zshcompletiondir])
 AC_SUBST([pamlibdir], [$with_pamlibdir])
 AC_SUBST([pamconfdir], [$with_pamconfdir])
+AC_SUBST([rpmmacrosdir], [$with_rpmmacrosdir])
 AC_SUBST([rootprefix], [$with_rootprefix])
 AC_SUBST([rootlibdir], [$with_rootlibdir])
 
@@ -1746,6 +1753,7 @@ AC_MSG_RESULT([
         build Python:                      ${PYTHON}
         PAM modules dir:                   ${with_pamlibdir}
         PAM configuration dir:             ${with_pamconfdir}
+        RPM macros dir:                    ${with_rpmmacrosdir}
         D-Bus policy dir:                  ${with_dbuspolicydir}
         D-Bus session dir:                 ${with_dbussessionservicedir}
         D-Bus system dir:                  ${with_dbussystemservicedir}
