@@ -6634,6 +6634,9 @@ git-tag:
 git-tar:
 	git archive -o systemd-$(VERSION).tar.gz --prefix=systemd-$(VERSION)/ HEAD
 
+%.asc: %
+	gpg2 --detach-sign -a -o $@ $<
+
 www_target = www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd
 
 .PHONY: doc-sync
