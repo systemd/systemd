@@ -6632,7 +6632,10 @@ git-tag:
 
 .PHONY: git-tar
 git-tar:
-	git archive --format=tar --prefix=systemd-$(VERSION)/ HEAD | gzip > systemd-$(VERSION).tar.gz
+	git archive -o systemd-$(VERSION).tar.gz --prefix=systemd-$(VERSION)/ HEAD
+
+%.asc: %
+	gpg2 --detach-sign -a -o $@ $<
 
 www_target = www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd
 
@@ -6774,14 +6777,17 @@ cppcheck:
 print-%:
 	@echo $($*)
 
+.PHONY: git-contrib
 git-contrib:
 	@git shortlog -s `git describe --abbrev=0`.. | cut -c8- | sed 's/ / /g' | awk '{ print $$0 "," }' | sort -u
 
 EXTRA_DIST += \
         tools/gdb-sd_dump_hashmaps.py
 
+.PHONY: list-keys
 list-keys:
 	gpg --verbose --no-options --no-default-keyring --no-auto-key-locate --batch --trust-model=always --keyring=$(srcdir)/src/import/import-pubring.gpg --list-keys
 
+.PHONY: add-key
 add-key:
 	gpg --verbose --no-options --no-default-keyring --no-auto-key-locate --batch --trust-model=always --keyring=$(srcdir)/src/import/import-pubring.gpg --import -
