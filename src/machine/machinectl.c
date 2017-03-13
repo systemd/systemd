@@ -340,6 +340,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                         printf("No machines.\n");
         }
 
+        r = 0;
 out:
         clean_machine_info(machines, n_machines);
         return r;
