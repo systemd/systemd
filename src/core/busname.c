@@ -801,6 +801,7 @@ static int busname_peek_message(BusName *n) {
 
         p = mmap(NULL, sz, PROT_READ, MAP_SHARED, n->starter_fd, start);
         if (p == MAP_FAILED) {
+                p = NULL;
                 r = log_unit_error_errno(UNIT(n), errno, "Failed to map activation message: %m");
                 goto finish;
         }
