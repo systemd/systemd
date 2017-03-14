@@ -764,7 +764,7 @@ static int busname_peek_message(BusName *n) {
         struct kdbus_item *d;
         struct kdbus_msg *k;
         size_t start, ps, sz, delta;
-        void *p = NULL;
+        void *p = MAP_FAILED;
         pid_t pid = 0;
         int r;
 
@@ -825,7 +825,7 @@ static int busname_peek_message(BusName *n) {
         r = 0;
 
 finish:
-        if (p)
+        if (p != MAP_FAILED)
                 (void) munmap(p, sz);
 
         cmd_free.offset = cmd_recv.msg.offset;
