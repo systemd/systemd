@@ -59,7 +59,7 @@ polkitrulesdir=$(datadir)/polkit-1/rules.d
 polkitpkladir=$(localstatedir)/lib/polkit-1/localauthority/10-vendor.d
 bashcompletiondir=@bashcompletiondir@
 zshcompletiondir=@zshcompletiondir@
-rpmmacrosdir=$(prefix)/lib/rpm/macros.d
+rpmmacrosdir=@rpmmacrosdir@
 sysvinitdir=$(SYSTEM_SYSVINIT_PATH)
 sysvrcnddir=$(SYSTEM_SYSVRCND_PATH)
 varlogdir=$(localstatedir)/log
@@ -178,6 +178,7 @@ CLEANFILES = $(BUILT_SOURCES) \
 	$(pkgconfiglib_DATA) \
 	$(nodist_bashcompletion_data) \
 	$(nodist_zshcompletion_data) \
+	$(nodist_rpmmacros_DATA) \
 	$(in_files:.in=) $(in_in_files:.in.in=) \
 	$(m4_files:.m4=)
 
@@ -1497,8 +1498,10 @@ polkitpolicy_in_in_files += \
 pkgconfigdata_DATA += \
 	src/core/systemd.pc
 
+if ENABLE_RPM_MACROS
 nodist_rpmmacros_DATA = \
 	src/core/macros.systemd
+endif
 
 BUILT_SOURCES += \
 	src/core/triggers.systemd
@@ -6567,6 +6570,7 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--with-zshcompletiondir=$$dc_install_base/$(zshcompletiondir) \
 	--with-pamlibdir=$$dc_install_base/$(pamlibdir) \
 	--with-pamconfdir=$$dc_install_base/$(pamconfdir) \
+	--with-rpmmacrosdir=$$dc_install_base/$(rpmmacrosdir) \
 	--with-rootprefix=$$dc_install_base \
 	--enable-compat-libs
 
