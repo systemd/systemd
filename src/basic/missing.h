@@ -550,6 +550,8 @@ struct btrfs_ioctl_quota_ctl_args {
 #ifndef HAVE_SECURE_GETENV
 #  ifdef HAVE___SECURE_GETENV
 #    define secure_getenv __secure_getenv
+#  elif defined HAVE_ISSETUGID
+#    define secure_getenv(...) (issetugid() ? NULL : getenv(__VA_ARGS__))
 #  else
 #    error "neither secure_getenv nor __secure_getenv are available"
 #  endif
