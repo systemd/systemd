@@ -127,6 +127,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MulticastDNS=</varname></term>
+        <listitem><para>Takes a boolean argument or
+        <literal>resolve</literal>. Controls Multicast DNS support (<ulink
+        url="https://tools.ietf.org/html/rfc6762">RFC 6762</ulink>) on
+        the local host. If true, enables full Multicast DNS responder and
+        resolver support. If false, disables both. If set to
+        <literal>resolve</literal>, only resolution support is enabled,
+        but responding is disabled. Note that
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        also maintains per-link Multicast DNS settings. Multicast DNS will be
+        enabled on a link only if the per-link and the
+        global setting is on.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DNSSEC=</varname></term>
         <listitem><para>Takes a boolean argument or
         <literal>allow-downgrade</literal>. If true all DNS lookups are
