@@ -612,14 +612,6 @@ int manager_start(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = manager_llmnr_start(m);
-        if (r < 0)
-                return r;
-
-        r = manager_mdns_start(m);
-        if (r < 0)
-                return r;
-
         return 0;
 }
 

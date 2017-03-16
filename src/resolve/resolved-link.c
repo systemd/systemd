@@ -28,6 +28,8 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "resolved-link.h"
+#include "resolved-llmnr.h"
+#include "resolved-mdns.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -523,10 +525,25 @@ static void link_read_settings(Link *l) {
 }
 
 int link_update(Link *l) {
+        int r;
+
         assert(l);
 
         link_read_settings(l);
         link_load_user(l);
+
+        if (l->llmnr_support != RESOLVE_SUPPORT_NO) {
+                r = manager_llmnr_start(l->manager);
+                if (r < 0)
+                        return r;
+        }
+
+        if (l->mdns_support != RESOLVE_SUPPORT_NO) {
+                r = manager_mdns_start(l->manager);
+                if (r < 0)
+                        return r;
+        }
+
         link_allocate_scopes(l);
         link_add_rrs(l, false);
 
