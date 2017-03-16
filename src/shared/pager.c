@@ -161,8 +161,8 @@ void pager_close(void) {
                 return;
 
         /* Inform pager that we are done */
-        stdout = safe_fclose(stdout);
-        stderr = safe_fclose(stderr);
+        safe_fclose(stdout);
+        safe_fclose(stderr);
 
         (void) kill(pager_pid, SIGCONT);
         (void) wait_for_terminate(pager_pid, NULL);
