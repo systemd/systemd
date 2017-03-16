@@ -409,10 +409,71 @@ static int manager_enumerate_users(Manager *m) {
         return r;
 }
 
+static int manager_attach_fds(Manager *m) {
+        _cleanup_strv_free_ char **fdnames = NULL;
+        int n, i, fd;
+
+        /* Upon restart, PID1 will send us back all fds of session devices
+         * that we previously opened. Each file descriptor is associated
+         * with a given session. The session ids are passed through FDNAMES. */
+
+        n = sd_listen_fds_with_names(true, &fdnames);
+        if (n <= 0)
+                return n;
+
+        for (i = 0; i < n; i++) {
+                struct stat st;
+                SessionDevice *sd;
+                Session *s;
+                char *id;
+
+                fd = SD_LISTEN_FDS_START + i;
+
+                id = startswith(fdnames[i], "session-");
+                if (!id)
+                        continue;
+
+                s = hashmap_get(m->sessions, id);
+                if (!s) {
+                        /* If the session doesn't exist anymore, the associated session
+                         * device attached to this fd doesn't either. Let's simply close
+                         * this fd. */
+                        log_debug("Failed to attach fd for unknown session: %s", id);
+                        close_nointr(fd);
+                        continue;
+                }
+
+                if (fstat(fd, &st) < 0) {
+                        /* The device is allowed to go away at a random point, in which
+                         * case fstat failing is expected. */
+                        log_debug_errno(errno, "Failed to stat device fd for session %s: %m", id);
+                        close_nointr(fd);
+                        continue;
+                }
+
+                sd = hashmap_get(s->devices, &st.st_rdev);
+                if (!sd) {
+                        /* Weird we got an fd for a session device which wasn't
+                        * recorded in the session state file... */
+                        log_warning("Got fd for missing session device [%u:%u] in session %s",
+                                    major(st.st_rdev), minor(st.st_rdev), s->id);
+                        close_nointr(fd);
+                        continue;
+                }
+
+                log_debug("Attaching fd to session device [%u:%u] for session %s",
+                          major(st.st_rdev), minor(st.st_rdev), s->id);
+
+                session_device_attach_fd(sd, fd, s->was_active);
+        }
+
+        return 0;
+}
+
 static int manager_enumerate_sessions(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
-        int r = 0;
+        int r = 0, k;
 
         assert(m);
 
@@ -427,7 +488,6 @@ static int manager_enumerate_sessions(Manager *m) {
 
         FOREACH_DIRENT(de, d, return -errno) {
                 struct Session *s;
-                int k;
 
                 if (!dirent_is_file(de))
                         continue;
@@ -441,7 +501,6 @@ static int manager_enumerate_sessions(Manager *m) {
                 k = manager_add_session(m, de->d_name, &s);
                 if (k < 0) {
                         log_error_errno(k, "Failed to add session by file name %s: %m", de->d_name);
-
                         r = k;
                         continue;
                 }
@@ -452,6 +511,12 @@ static int manager_enumerate_sessions(Manager *m) {
                 if (k < 0)
                         r = k;
         }
+
+        /* We might be restarted and PID1 could have sent us back the
+         * session device fds we previously saved. */
+        k = manager_attach_fds(m);
+        if (k < 0)
+                log_warning_errno(k, "Failed to reattach session device fds: %m");
 
         return r;
 }
