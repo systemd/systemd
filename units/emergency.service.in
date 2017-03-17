@@ -17,7 +17,7 @@ Before=shutdown.target
 [Service]
 Environment=HOME=/root
 WorkingDirectory=-/root
-ExecStartPre=-/bin/plymouth --wait quit
+ExecStartPre=-/bin/sh -c "[ -x /bin/plymouth ] && /bin/plymouth --wait quit"
 ExecStartPre=-/bin/echo -e 'You are in emergency mode. After logging in, type "journalctl -xb" to view\\nsystem logs, "systemctl reboot" to reboot, "systemctl default" or ^D to\\ntry again to boot into default mode.'
 ExecStart=-/bin/sh -c "@SULOGIN@; @SYSTEMCTL@ --job-mode=fail --no-block default"
 Type=idle
