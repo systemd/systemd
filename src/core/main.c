@@ -112,6 +112,7 @@ static char *arg_confirm_spawn = NULL;
 static ShowStatus arg_show_status = _SHOW_STATUS_UNSET;
 static bool arg_switched_root = false;
 static bool arg_no_pager = false;
+static bool arg_service_watchdogs = true;
 static char ***arg_join_controllers = NULL;
 static ExecOutput arg_default_std_output = EXEC_OUTPUT_JOURNAL;
 static ExecOutput arg_default_std_error = EXEC_OUTPUT_INHERIT;
@@ -395,6 +396,14 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         free(arg_confirm_spawn);
                         arg_confirm_spawn = s;
                 }
+
+        } else if (proc_cmdline_key_streq(key, "systemd.service_watchdogs")) {
+
+                r = value ? parse_boolean(value) : true;
+                if (r < 0)
+                        log_warning("Failed to parse service watchdog switch %s. Ignoring.", value);
+                else
+                        arg_service_watchdogs = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.show_status")) {
 
@@ -855,6 +864,7 @@ static void set_manager_settings(Manager *m) {
         assert(m);
 
         m->confirm_spawn = arg_confirm_spawn;
+        m->service_watchdogs = arg_service_watchdogs;
         m->runtime_watchdog = arg_runtime_watchdog;
         m->shutdown_watchdog = arg_shutdown_watchdog;
         m->cad_burst_action = arg_cad_burst_action;
@@ -886,7 +896,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SWITCHED_ROOT,
                 ARG_DEFAULT_STD_OUTPUT,
                 ARG_DEFAULT_STD_ERROR,
-                ARG_MACHINE_ID
+                ARG_MACHINE_ID,
+                ARG_SERVICE_WATCHDOGS,
         };
 
         static const struct option options[] = {
@@ -913,6 +924,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "default-standard-output",  required_argument, NULL, ARG_DEFAULT_STD_OUTPUT,      },
                 { "default-standard-error",   required_argument, NULL, ARG_DEFAULT_STD_ERROR,       },
                 { "machine-id",               required_argument, NULL, ARG_MACHINE_ID               },
+                { "service-watchdogs",        required_argument, NULL, ARG_SERVICE_WATCHDOGS        },
                 {}
         };
 
@@ -1065,6 +1077,13 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_confirm_spawn(optarg, &arg_confirm_spawn);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse confirm spawn option: %m");
+                        break;
+
+                case ARG_SERVICE_WATCHDOGS:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse service watchdogs boolean: %s", optarg);
+                        arg_service_watchdogs = r;
                         break;
 
                 case ARG_SHOW_STATUS:

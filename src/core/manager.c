@@ -2659,6 +2659,7 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
         fprintf(f, "taint-usr=%s\n", yes_no(m->taint_usr));
         fprintf(f, "ready-sent=%s\n", yes_no(m->ready_sent));
         fprintf(f, "taint-logged=%s\n", yes_no(m->taint_logged));
+        fprintf(f, "service-watchdogs=%s\n", yes_no(m->service_watchdogs));
 
         for (q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
                 /* The userspace and finish timestamps only apply to the host system, hence only serialize them there */
@@ -2829,6 +2830,15 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 log_notice("Failed to parse taint-logged flag %s", val);
                         else
                                 m->taint_logged = m->taint_logged || b;
+
+                } else if ((val = startswith(l, "service-watchdogs="))) {
+                        int b;
+
+                        b = parse_boolean(val);
+                        if (b < 0)
+                                log_notice("Failed to parse service-watchdogs flag %s", val);
+                        else
+                                m->service_watchdogs = b;
 
                 } else if (startswith(l, "env=")) {
                         r = deserialize_environment(&m->environment, l);

@@ -3419,10 +3419,14 @@ static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void 
 
         watchdog_usec = service_get_watchdog_usec(s);
 
-        log_unit_error(UNIT(s), "Watchdog timeout (limit %s)!",
-                       format_timespan(t, sizeof(t), watchdog_usec, 1));
+        if (UNIT(s)->manager->service_watchdogs) {
+                log_unit_error(UNIT(s), "Watchdog timeout (limit %s)!",
+                               format_timespan(t, sizeof(t), watchdog_usec, 1));
 
-        service_enter_signal(s, SERVICE_STOP_SIGABRT, SERVICE_FAILURE_WATCHDOG);
+                service_enter_signal(s, SERVICE_STOP_SIGABRT, SERVICE_FAILURE_WATCHDOG);
+        } else
+                log_unit_warning(UNIT(s), "Watchdog disabled! Ignoring watchdog timeout (limit %s)!",
+                                 format_timespan(t, sizeof(t), watchdog_usec, 1));
 
         return 0;
 }
