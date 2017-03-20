@@ -1513,7 +1513,7 @@ VRF=vrf1
       <title>MacVTap</title>
       <para>This brings up a network interface <literal>macvtap-test</literal>
       and attaches it to <literal>enp0s25</literal>.</para>
-      <programlisting># /lib/systemd/network/25-macvtap.network
+      <programlisting># /usr/lib/systemd/network/25-macvtap.network
 [Match]
 Name=enp0s25
 

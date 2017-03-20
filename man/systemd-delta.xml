@@ -63,7 +63,7 @@
     compare configuration files that override other configuration
     files. Files in <filename>/etc</filename> have highest priority,
     files in <filename>/run</filename> have the second highest
-    priority, …, files in <filename>/lib</filename> have lowest
+    priority, …, files in <filename>/usr/lib</filename> have lowest
     priority. Files in a directory with higher priority override files
     with the same name in directories of lower priority. In addition,
     certain configuration files can have <literal>.d</literal>
