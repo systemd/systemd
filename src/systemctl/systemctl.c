@@ -1780,6 +1780,7 @@ static int list_dependencies_one(
         STRV_FOREACH(c, deps) {
                 if (strv_contains(*units, *c)) {
                         if (!arg_plain) {
+                                printf("  ");
                                 r = list_dependencies_print("...", level + 1, (branches << 1) | (c[1] == NULL ? 0 : 1), 1);
                                 if (r < 0)
                                         return r;
