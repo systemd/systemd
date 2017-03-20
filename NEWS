@@ -642,6 +642,8 @@ CHANGES WITH 232:
           process using sd-bus automatically exit if the bus connection is
           severed.
 
+        * The sd-bus API is no longer considered unstable.
+
         * Bus clients of the service manager may now "pin" loaded units into
           memory, by taking an explicit reference on them. This is useful to
           ensure the client can retrieve runtime data about the service even
