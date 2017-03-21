@@ -6391,6 +6391,10 @@ man/custom-entities.ent: configure.ac
 CLEANFILES += \
 	man/custom-entities.ent
 
+XSLTPROC_HTML_DEPS = man/custom-html.xsl man/cross-refs-html.xsl man/permalink-id-scheme-html.xsl
+
+XSLT_DEBUG_CROSS_REFS ?= 0
+
 XSLTPROC_FLAGS = \
 	--nonet \
 	--xinclude \
@@ -6399,6 +6403,7 @@ XSLTPROC_FLAGS = \
 	--stringparam man.authors.section.enabled 0 \
 	--stringparam man.copyright.section.enabled 0 \
 	--stringparam systemd.version $(VERSION) \
+	--stringparam cross.refs.debug "$(XSLT_DEBUG_CROSS_REFS)" \
 	--path '$(builddir)/man:$(srcdir)/man'
 
 XSLT = $(if $(XSLTPROC), $(XSLTPROC), xsltproc)
@@ -6423,7 +6428,7 @@ man/%.7: man/%.xml man/custom-man.xsl man/custom-entities.ent
 man/%.8: man/%.xml man/custom-man.xsl man/custom-entities.ent
 	$(XSLTPROC_PROCESS_MAN)
 
-man/%.html: man/%.xml man/custom-html.xsl man/custom-entities.ent
+man/%.html: man/%.xml $(XSLTPROC_HTML_DEPS) man/custom-entities.ent
 	$(XSLTPROC_PROCESS_HTML)
 
 define html-alias
@@ -6431,7 +6436,7 @@ define html-alias
 endef
 
 EXTRA_DIST += \
-	man/custom-html.xsl \
+	$(XSLTPROC_HTML_DEPS) \
 	man/custom-man.xsl
 
 # ------------------------------------------------------------------------------
