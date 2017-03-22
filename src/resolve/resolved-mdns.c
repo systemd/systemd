@@ -60,7 +60,7 @@ int manager_mdns_start(Manager *m) {
         return 0;
 
 eaddrinuse:
-        log_warning("There appears to be another mDNS responder running. Turning off mDNS support.");
+        log_warning("Another mDNS responder prohibits binding the socket to the same port. Turning off mDNS support.");
         m->mdns_support = RESOLVE_SUPPORT_NO;
         manager_mdns_stop(m);
 
@@ -217,55 +217,75 @@ int manager_mdns_ipv4_fd(Manager *m) {
 
         m->mdns_ipv4_fd = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (m->mdns_ipv4_fd < 0)
-                return -errno;
+                return log_error_errno(errno, "mDNS-IPv4: Failed to create socket: %m");
 
         r = setsockopt(m->mdns_ipv4_fd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl));
         if (r < 0) {
-                r = -errno;
+                r = log_error_errno(errno, "mDNS-IPv4: Failed to set IP_TTL: %m");
                 goto fail;
         }
 
         r = setsockopt(m->mdns_ipv4_fd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl));
         if (r < 0) {
-                r = -errno;
+                r = log_error_errno(errno, "mDNS-IPv4: Failed to set IP_MULTICAST_TTL: %m");
                 goto fail;
         }
 
         r = setsockopt(m->mdns_ipv4_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &one, sizeof(one));
         if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = setsockopt(m->mdns_ipv4_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
+                r = log_error_errno(errno, "mDNS-IPv4: Failed to set IP_MULTICAST_LOOP: %m");
                 goto fail;
         }
 
         r = setsockopt(m->mdns_ipv4_fd, IPPROTO_IP, IP_PKTINFO, &one, sizeof(one));
         if (r < 0) {
-                r = -errno;
+                r = log_error_errno(errno, "mDNS-IPv4: Failed to set IP_PKTINFO: %m");
                 goto fail;
         }
 
         r = setsockopt(m->mdns_ipv4_fd, IPPROTO_IP, IP_RECVTTL, &one, sizeof(one));
         if (r < 0) {
-                r = -errno;
+                r = log_error_errno(errno, "mDNS-IPv4: Failed to set IP_RECVTTL: %m");
                 goto fail;
         }
 
         /* Disable Don't-Fragment bit in the IP header */
         r = setsockopt(m->mdns_ipv4_fd, IPPROTO_IP, IP_MTU_DISCOVER, &pmtu, sizeof(pmtu));
         if (r < 0) {
-                r = -errno;
+                r = log_error_errno(errno, "mDNS-IPv4: Failed to set IP_MTU_DISCOVER: %m");
                 goto fail;
         }
 
+        /* See the section 15.1 of RFC6762 */
+        /* first try to bind without SO_REUSEADDR to detect another mDNS responder */
         r = bind(m->mdns_ipv4_fd, &sa.sa, sizeof(sa.in));
         if (r < 0) {
-                r = -errno;
-                goto fail;
+                if (errno != EADDRINUSE) {
+                        r = log_error_errno(errno, "mDNS-IPv4: Failed to bind socket: %m");
+                        goto fail;
+                }
+
+                log_warning("mDNS-IPv4: There appears to be another mDNS responder running, or previously systemd-resolved crashed with some outstanding transfers.");
+
+                /* try again with SO_REUSEADDR */
+                r = setsockopt(m->mdns_ipv4_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+                if (r < 0) {
+                        r = log_error_errno(errno, "mDNS-IPv4: Failed to set SO_REUSEADDR: %m");
+                        goto fail;
+                }
+
+                r = bind(m->mdns_ipv4_fd, &sa.sa, sizeof(sa.in));
+                if (r < 0) {
+                        r = log_error_errno(errno, "mDNS-IPv4: Failed to bind socket: %m");
+                        goto fail;
+                }
+        } else {
+                /* enable SO_REUSEADDR for the case that the user really wants multiple mDNS responders */
+                r = setsockopt(m->mdns_ipv4_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+                if (r < 0) {
+                        r = log_error_errno(errno, "mDNS-IPv4: Failed to set SO_REUSEADDR: %m");
+                        goto fail;
+                }
         }
 
         r = sd_event_add_io(m->event, &m->mdns_ipv4_event_source, m->mdns_ipv4_fd, EPOLLIN, on_mdns_packet, m);
@@ -294,55 +314,75 @@ int manager_mdns_ipv6_fd(Manager *m) {
 
         m->mdns_ipv6_fd = socket(AF_INET6, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (m->mdns_ipv6_fd < 0)
-                return -errno;
+                return log_error_errno(errno, "mDNS-IPv6: Failed to create socket: %m");
 
         r = setsockopt(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &ttl, sizeof(ttl));
         if (r < 0) {
-                r = -errno;
+                r = log_error_errno(errno, "mDNS-IPv6: Failed to set IPV6_UNICAST_HOPS: %m");
                 goto fail;
         }
 
         /* RFC 4795, section 2.5 recommends setting the TTL of UDP packets to 255. */
         r = setsockopt(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &ttl, sizeof(ttl));
         if (r < 0) {
-                r = -errno;
+                r = log_error_errno(errno, "mDNS-IPv6: Failed to set IPV6_MULTICAST_HOPS: %m");
                 goto fail;
         }
 
         r = setsockopt(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &one, sizeof(one));
         if (r < 0) {
-                r = -errno;
+                r = log_error_errno(errno, "mDNS-IPv6: Failed to set IPV6_MULTICAST_LOOP: %m");
                 goto fail;
         }
 
         r = setsockopt(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_V6ONLY, &one, sizeof(one));
         if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = setsockopt(m->mdns_ipv6_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
+                r = log_error_errno(errno, "mDNS-IPv6: Failed to set IPV6_V6ONLY: %m");
                 goto fail;
         }
 
         r = setsockopt(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &one, sizeof(one));
         if (r < 0) {
-                r = -errno;
+                r = log_error_errno(errno, "mDNS-IPv6: Failed to set IPV6_RECVPKTINFO: %m");
                 goto fail;
         }
 
         r = setsockopt(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &one, sizeof(one));
         if (r < 0) {
-                r = -errno;
+                r = log_error_errno(errno, "mDNS-IPv6: Failed to set IPV6_RECVHOPLIMIT: %m");
                 goto fail;
         }
 
+        /* See the section 15.1 of RFC6762 */
+        /* first try to bind without SO_REUSEADDR to detect another mDNS responder */
         r = bind(m->mdns_ipv6_fd, &sa.sa, sizeof(sa.in6));
         if (r < 0) {
-                r = -errno;
-                goto fail;
+                if (errno != EADDRINUSE) {
+                        r = log_error_errno(errno, "mDNS-IPv6: Failed to bind socket: %m");
+                        goto fail;
+                }
+
+                log_warning("mDNS-IPv6: There appears to be another mDNS responder running, or previously systemd-resolved crashed with some outstanding transfers.");
+
+                /* try again with SO_REUSEADDR */
+                r = setsockopt(m->mdns_ipv6_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+                if (r < 0) {
+                        r = log_error_errno(errno, "mDNS-IPv6: Failed to set SO_REUSEADDR: %m");
+                        goto fail;
+                }
+
+                r = bind(m->mdns_ipv6_fd, &sa.sa, sizeof(sa.in6));
+                if (r < 0) {
+                        r = log_error_errno(errno, "mDNS-IPv6: Failed to bind socket: %m");
+                        goto fail;
+                }
+        } else {
+                /* enable SO_REUSEADDR for the case that the user really wants multiple mDNS responders */
+                r = setsockopt(m->mdns_ipv6_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+                if (r < 0) {
+                        r = log_error_errno(errno, "mDNS-IPv6: Failed to set SO_REUSEADDR: %m");
+                        goto fail;
+                }
         }
 
         r = sd_event_add_io(m->event, &m->mdns_ipv6_event_source, m->mdns_ipv6_fd, EPOLLIN, on_mdns_packet, m);
