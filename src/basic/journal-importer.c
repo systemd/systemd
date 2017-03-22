@@ -24,6 +24,7 @@
 #include "fd-util.h"
 #include "parse-util.h"
 #include "string-util.h"
+#include "unaligned.h"
 
 enum {
         IMPORTER_STATE_LINE = 0,    /* waiting to read, or reading line */
@@ -203,7 +204,7 @@ static int get_data_size(JournalImporter *imp) {
         if (r <= 0)
                 return r;
 
-        imp->data_size = le64toh( *(uint64_t *) data );
+        imp->data_size = unaligned_read_le64(data);
         if (imp->data_size > DATA_SIZE_MAX) {
                 log_error("Stream declares field with size %zu > DATA_SIZE_MAX = %u",
                           imp->data_size, DATA_SIZE_MAX);
