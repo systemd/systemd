@@ -577,6 +577,14 @@ struct btrfs_ioctl_quota_ctl_args {
 #define PR_SET_MM_ARG_END 9
 #endif
 
+#ifndef PR_SET_MM_ENV_START
+#define PR_SET_MM_ENV_START 10
+#endif
+
+#ifndef PR_SET_MM_ENV_END
+#define PR_SET_MM_ENV_END 11
+#endif
+
 #ifndef MAX_HANDLE_SZ
 #define MAX_HANDLE_SZ 128
 #endif
