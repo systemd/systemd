@@ -589,6 +589,10 @@ struct btrfs_ioctl_quota_ctl_args {
 #define EFIVARFS_MAGIC 0xde5e81e4
 #endif
 
+#ifndef SMACK_MAGIC
+#define SMACK_MAGIC 0x43415d53
+#endif
+
 #ifndef MAX_HANDLE_SZ
 #define MAX_HANDLE_SZ 128
 #endif
