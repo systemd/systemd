@@ -569,6 +569,22 @@ struct btrfs_ioctl_quota_ctl_args {
 #define PR_SET_CHILD_SUBREAPER 36
 #endif
 
+#ifndef PR_SET_MM_ARG_START
+#define PR_SET_MM_ARG_START 8
+#endif
+
+#ifndef PR_SET_MM_ARG_END
+#define PR_SET_MM_ARG_END 9
+#endif
+
+#ifndef PR_SET_MM_ENV_START
+#define PR_SET_MM_ENV_START 10
+#endif
+
+#ifndef PR_SET_MM_ENV_END
+#define PR_SET_MM_ENV_END 11
+#endif
+
 #if ! HAVE_SECURE_GETENV
 #  if HAVE___SECURE_GETENV
 #    define secure_getenv __secure_getenv
