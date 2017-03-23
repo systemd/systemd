@@ -22,6 +22,7 @@
 #endif
 #include <sys/mount.h>
 
+#include "missing.h"
 #include "architecture.h"
 #include "ask-password-api.h"
 #include "blkid-util.h"

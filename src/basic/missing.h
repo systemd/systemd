@@ -593,6 +593,10 @@ struct btrfs_ioctl_quota_ctl_args {
 #define SMACK_MAGIC 0x43415d53
 #endif
 
+#ifndef DM_DEFERRED_REMOVE
+#define DM_DEFERRED_REMOVE (1 << 17)
+#endif
+
 #ifndef MAX_HANDLE_SZ
 #define MAX_HANDLE_SZ 128
 #endif
