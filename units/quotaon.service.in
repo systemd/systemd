@@ -10,7 +10,7 @@ Description=Enable File System Quotas
 Documentation=man:quotaon(8)
 DefaultDependencies=no
 After=systemd-quotacheck.service
-Before=local-fs.target shutdown.target
+Before=remote-fs.target shutdown.target
 ConditionPathExists=@QUOTAON@
 
 [Service]
