@@ -75,6 +75,7 @@ userpresetdir=$(prefix)/lib/systemd/user-preset
 tmpfilesdir=$(prefix)/lib/tmpfiles.d
 sysusersdir=$(prefix)/lib/sysusers.d
 sysctldir=$(prefix)/lib/sysctl.d
+modprobedir=$(prefix)/lib/modprobe.d
 binfmtdir=$(prefix)/lib/binfmt.d
 modulesloaddir=$(prefix)/lib/modules-load.d
 networkdir=$(rootprefix)/lib/systemd/network
@@ -490,6 +491,9 @@ EXTRA_DIST += \
 
 dist_sysctl_DATA = \
 	sysctl.d/50-default.conf
+
+dist_modprobe_DATA = \
+	modprobe.d/50-default.conf
 
 dist_systemunit_DATA = \
 	units/graphical.target \
@@ -6264,6 +6268,7 @@ substitutions = \
        '|tmpfilesdir=$(tmpfilesdir)|' \
        '|sysusersdir=$(sysusersdir)|' \
        '|sysctldir=$(sysctldir)|' \
+       '|modprobedir=$(modprobedir)|' \
        '|systemgeneratordir=$(systemgeneratordir)|' \
        '|usergeneratordir=$(usergeneratordir)|' \
        '|systemenvgeneratordir=$(systemenvgeneratordir)|' \
@@ -6543,6 +6548,7 @@ INSTALL_DIRS += \
 	$(prefix)/lib/systemd/network \
 	$(sysconfdir)/systemd/network \
 	$(prefix)/lib/sysctl.d \
+	$(prefix)/lib/modprobe.d \
 	$(sysconfdir)/sysctl.d \
 	$(prefix)/lib/kernel/install.d \
 	$(sysconfdir)/kernel/install.d \
