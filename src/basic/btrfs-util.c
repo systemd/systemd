@@ -36,6 +36,7 @@
 #include <linux/btrfs.h>
 #endif
 
+#include "missing.h"
 #include "alloc-util.h"
 #include "btrfs-ctree.h"
 #include "btrfs-util.h"
@@ -45,7 +46,6 @@
 #include "fileio.h"
 #include "io-util.h"
 #include "macro.h"
-#include "missing.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "selinux-util.h"
