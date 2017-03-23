@@ -206,6 +206,32 @@ struct sockaddr_vm {
 #endif
 
 #ifndef HAVE_LINUX_BTRFS_H
+#define BTRFS_IOC_QGROUP_ASSIGN _IOW(BTRFS_IOCTL_MAGIC, 41, \
+                               struct btrfs_ioctl_qgroup_assign_args)
+#define BTRFS_IOC_QGROUP_CREATE _IOW(BTRFS_IOCTL_MAGIC, 42, \
+                               struct btrfs_ioctl_qgroup_create_args)
+#define BTRFS_IOC_QUOTA_RESCAN _IOW(BTRFS_IOCTL_MAGIC, 44, \
+                               struct btrfs_ioctl_quota_rescan_args)
+#define BTRFS_IOC_QUOTA_RESCAN_STATUS _IOR(BTRFS_IOCTL_MAGIC, 45, \
+                               struct btrfs_ioctl_quota_rescan_args)
+
+struct btrfs_ioctl_quota_rescan_args {
+        __u64   flags;
+        __u64   progress;
+        __u64   reserved[6];
+};
+
+struct btrfs_ioctl_qgroup_assign_args {
+        __u64 assign;
+        __u64 src;
+        __u64 dst;
+};
+
+struct btrfs_ioctl_qgroup_create_args {
+        __u64 create;
+        __u64 qgroupid;
+};
+
 struct btrfs_ioctl_vol_args {
         int64_t fd;
         char name[BTRFS_PATH_NAME_MAX + 1];
