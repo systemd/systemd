@@ -569,6 +569,14 @@ struct btrfs_ioctl_quota_ctl_args {
 #define PR_SET_CHILD_SUBREAPER 36
 #endif
 
+#ifndef PR_SET_MM_ARG_START
+#define PR_SET_MM_ARG_START 8
+#endif
+
+#ifndef PR_SET_MM_ARG_END
+#define PR_SET_MM_ARG_END 9
+#endif
+
 #ifndef MAX_HANDLE_SZ
 #define MAX_HANDLE_SZ 128
 #endif
