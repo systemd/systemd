@@ -1,0 +1,14 @@
+#!/bin/sh
+
+if [ -x /bin/plymouth ]; then
+    /bin/plymouth --wait quit
+fi
+
+cat <<EOF
+You are in $1 mode. After logging in, type "journalctl -xb" to view
+system logs, "systemctl reboot" to reboot, "systemctl default" or ^D to
+boot into default mode.
+EOF
+
+@SULOGIN@
+@SYSTEMCTL@ --job-mode=fail --no-block default

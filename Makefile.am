@@ -443,6 +443,12 @@ userenvgenerator_PROGRAMS = \
 	30-systemd-environment-d-generator
 endif
 
+rootlibexec_SCRIPTS = \
+	src/sulogin-shell/systemd-sulogin-shell
+
+EXTRA_DIST += \
+	src/sulogin-shell/systemd-sulogin-shell.in
+
 dist_bashcompletion_data = \
 	shell-completion/bash/busctl \
 	shell-completion/bash/journalctl \
@@ -6328,6 +6334,10 @@ src/core/%.systemd: src/core/%.systemd.in
 
 src/%.policy.in: src/%.policy.in.in
 	$(SED_PROCESS)
+
+src/sulogin-shell/%: src/sulogin-shell/%.in
+	$(SED_PROCESS)
+	$(AM_V_GEN)chmod +x $@
 
 shell-completion/%: shell-completion/%.in
 	$(SED_PROCESS)
