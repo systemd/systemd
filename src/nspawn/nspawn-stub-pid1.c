@@ -22,6 +22,7 @@
 #include <sys/wait.h>
 #include <sys/prctl.h>
 
+#include "missing.h"
 #include "fd-util.h"
 #include "log.h"
 #include "nspawn-stub-pid1.h"
