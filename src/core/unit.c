@@ -2704,6 +2704,25 @@ bool unit_can_serialize(Unit *u) {
         return UNIT_VTABLE(u)->serialize && UNIT_VTABLE(u)->deserialize_item;
 }
 
+static int unit_serialize_cgroup_mask(FILE *f, const char *key, CGroupMask mask) {
+        _cleanup_free_ char *s = NULL;
+        int r = 0;
+
+        assert(f);
+        assert(key);
+
+        if (mask != 0) {
+                r = cg_mask_to_string(mask, &s);
+                if (r >= 0) {
+                        fputs(key, f);
+                        fputc('=', f);
+                        fputs(s, f);
+                        fputc('\n', f);
+                }
+        }
+        return r;
+}
+
 int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         int r;
 
@@ -2751,6 +2770,8 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         if (u->cgroup_path)
                 unit_serialize_item(u, f, "cgroup", u->cgroup_path);
         unit_serialize_item(u, f, "cgroup-realized", yes_no(u->cgroup_realized));
+        (void) unit_serialize_cgroup_mask(f, "cgroup-realized-mask", u->cgroup_realized_mask);
+        (void) unit_serialize_cgroup_mask(f, "cgroup-enabled-mask", u->cgroup_enabled_mask);
 
         if (uid_is_valid(u->ref_uid))
                 unit_serialize_item_format(u, f, "ref-uid", UID_FMT, u->ref_uid);
@@ -3006,6 +3027,20 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         else
                                 u->cgroup_realized = b;
 
+                        continue;
+
+                } else if (streq(l, "cgroup-realized-mask")) {
+
+                        r = cg_mask_from_string(v, &u->cgroup_realized_mask);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to parse cgroup-realized-mask %s, ignoring.", v);
+                        continue;
+
+                } else if (streq(l, "cgroup-enabled-mask")) {
+
+                        r = cg_mask_from_string(v, &u->cgroup_enabled_mask);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to parse cgroup-enabled-mask %s, ignoring.", v);
                         continue;
 
                 } else if (streq(l, "ref-uid")) {
