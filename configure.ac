@@ -1206,6 +1206,16 @@ AC_DEFINE_UNQUOTED(SYSTEM_GID_MAX, [$SYSTEM_GID_MAX], [Maximum System GID])
 AC_SUBST(SYSTEM_GID_MAX)
 
 # ------------------------------------------------------------------------------
+
+AC_ARG_WITH(dev-kvm-mode,
+        AS_HELP_STRING([--with-dev-kvm-mode=MODE],
+                [/dev/kvm access mode, defaults to "0660"]),
+        [DEV_KVM_MODE="$withval"],
+        [DEV_KVM_MODE="0660"])
+
+AC_SUBST(DEV_KVM_MODE, [$DEV_KVM_MODE], [/dev/kvm access mode])
+
+# ------------------------------------------------------------------------------
 have_localed=no
 AC_ARG_ENABLE(localed, AS_HELP_STRING([--disable-localed], [disable locale daemon]))
 if test "x$enable_localed" != "xno"; then
@@ -1767,6 +1777,7 @@ AC_MSG_RESULT([
         TTY GID:                           ${TTY_GID}
         maximum system UID:                ${SYSTEM_UID_MAX}
         maximum system GID:                ${SYSTEM_GID_MAX}
+        /dev/kvm access mode:              ${DEV_KVM_MODE}
         certificate root:                  ${CERTIFICATEROOT}
         support URL:                       ${SUPPORT_URL}
         nobody user name:                  ${NOBODY_USER_NAME}

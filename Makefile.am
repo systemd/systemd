@@ -3825,7 +3825,6 @@ dist_network_DATA = \
 	network/80-container-vz.network
 
 dist_udevrules_DATA += \
-	rules/50-udev-default.rules \
 	rules/60-block.rules \
 	rules/60-drm.rules \
 	rules/60-evdev.rules \
@@ -3843,6 +3842,7 @@ dist_udevrules_DATA += \
 	rules/80-net-setup-link.rules
 
 nodist_udevrules_DATA += \
+	rules/50-udev-default.rules \
 	rules/99-systemd.rules
 
 udevconfdir = $(sysconfdir)/udev
@@ -3853,6 +3853,7 @@ pkgconfigdata_DATA += \
 	src/udev/udev.pc
 
 EXTRA_DIST += \
+	rules/50-udev-default.rules.in \
 	rules/99-systemd.rules.in \
 	src/udev/udev.pc.in
 
@@ -6301,6 +6302,7 @@ substitutions = \
        '|KILL_USER_PROCESSES=$(KILL_USER_PROCESSES)|' \
        '|systemuidmax=$(SYSTEM_UID_MAX)|' \
        '|systemgidmax=$(SYSTEM_GID_MAX)|' \
+       '|DEV_KVM_MODE=$(DEV_KVM_MODE)|' \
        '|TTY_GID=$(TTY_GID)|' \
        '|systemsleepdir=$(systemsleepdir)|' \
        '|systemshutdowndir=$(systemshutdowndir)|' \
