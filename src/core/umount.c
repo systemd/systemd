@@ -418,6 +418,7 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_e
                     || path_equal(m->path, "/usr")
 #endif
                     || path_startswith(m->path, "/run/initramfs")
+                    || path_startswith(m->path, "/lib/live/mount/persistence")
                 )
                         continue;
 
