@@ -187,6 +187,13 @@ int rm_rf(const char *path, RemoveFlags flags) {
                 return -EPERM;
         }
 
+        /* Another safe-check. Removing "/path/.." could easily remove entire root as well.
+         * It's especially easy to do using globs in tmpfiles, like "/path/.*", which the glob()
+         * function expands to both "/path/." and "/path/..".
+         * Return -EINVAL to be consistent with rmdir("/path/."). */
+        if (endswith(path, "/..") || endswith(path, "/../"))
+                return -EINVAL;
+
         if ((flags & (REMOVE_SUBVOLUME|REMOVE_ROOT|REMOVE_PHYSICAL)) == (REMOVE_SUBVOLUME|REMOVE_ROOT|REMOVE_PHYSICAL)) {
                 /* Try to remove as subvolume first */
                 r = btrfs_subvol_remove(path, BTRFS_REMOVE_RECURSIVE|BTRFS_REMOVE_QUOTA);
