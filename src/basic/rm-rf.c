@@ -191,7 +191,7 @@ int rm_rf(const char *path, RemoveFlags flags) {
          * It's especially easy to do using globs in tmpfiles, like "/path/.*", which the glob()
          * function expands to both "/path/." and "/path/..".
          * Return -EINVAL to be consistent with rmdir("/path/."). */
-        if (endswith(path, "/..") || endswith(path, "/../"))
+        if (!path_is_safe(path))
                 return -EINVAL;
 
         if ((flags & (REMOVE_SUBVOLUME|REMOVE_ROOT|REMOVE_PHYSICAL)) == (REMOVE_SUBVOLUME|REMOVE_ROOT|REMOVE_PHYSICAL)) {
