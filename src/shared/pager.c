@@ -53,6 +53,11 @@ noreturn static void pager_fallback(void) {
         _exit(EXIT_SUCCESS);
 }
 
+static int stored_stdout = -1;
+static int stored_stderr = -1;
+static bool stdout_redirected = false;
+static bool stderr_redirected = false;
+
 int pager_open(bool no_pager, bool jump_to_end) {
         _cleanup_close_pair_ int fd[2] = { -1, -1 };
         const char *pager;
@@ -147,10 +152,19 @@ int pager_open(bool no_pager, bool jump_to_end) {
         }
 
         /* Return in the parent */
-        if (dup2(fd[1], STDOUT_FILENO) < 0)
+        stored_stdout = fcntl(STDOUT_FILENO, F_DUPFD_CLOEXEC, 3);
+        if (dup2(fd[1], STDOUT_FILENO) < 0) {
+                stored_stdout = safe_close(stored_stdout);
                 return log_error_errno(errno, "Failed to duplicate pager pipe: %m");
-        if (dup2(fd[1], STDERR_FILENO) < 0)
+        }
+        stdout_redirected = true;
+
+        stored_stderr = fcntl(STDERR_FILENO, F_DUPFD_CLOEXEC, 3);
+        if (dup2(fd[1], STDERR_FILENO) < 0) {
+                stored_stderr = safe_close(stored_stderr);
                 return log_error_errno(errno, "Failed to duplicate pager pipe: %m");
+        }
+        stderr_redirected = true;
 
         return 1;
 }
@@ -161,8 +175,15 @@ void pager_close(void) {
                 return;
 
         /* Inform pager that we are done */
-        safe_fclose(stdout);
-        safe_fclose(stderr);
+        (void) fflush(stdout);
+        if (stdout_redirected && (stored_stdout < 0 || dup2(stored_stdout, STDOUT_FILENO)) < 0)
+                (void) close(STDOUT_FILENO);
+        stored_stdout = safe_close(stored_stdout);
+        (void) fflush(stderr);
+        if (stderr_redirected && (stored_stderr < 0 || dup2(stored_stderr, STDERR_FILENO)) < 0)
+                (void) close(STDERR_FILENO);
+        stored_stderr = safe_close(stored_stderr);
+        stdout_redirected = stderr_redirected = false;
 
         (void) kill(pager_pid, SIGCONT);
         (void) wait_for_terminate(pager_pid, NULL);
