@@ -115,6 +115,18 @@ static int disk_scsi_inquiry_command(int      fd,
         return 0;
 }
 
+static int ck_cond_sense_check(uint8_t *sense) {
+        /*
+         * Check that there is no deferred error, sense key is RECOVERED ERROR, additional sense
+         * code is ATA PASS-THROUGH INFORMATION AVAILABLE. Allow fixed format sense data. Check
+         * that VALID bit is one and SDAT_OVFL bit is zero.
+         */
+        if (!(sense[0] == 0x72 && (sense[1] & 0x0f) == 1 && sense[2] == 0x00 && sense[3] == 0x1d) &&
+            !(sense[0] == 0xf0 && (sense[2] & 0x1f) == 1 && sense[12] == 0x00 && sense[13] == 0x1d))
+                return -1;
+        return 0;
+}
+
 static int disk_identify_command(int          fd,
                                  void         *buf,
                                  size_t          buf_len)
@@ -139,7 +151,6 @@ static int disk_identify_command(int          fd,
                 [9] = 0xEC,     /* Command: ATA IDENTIFY DEVICE */
         };
         uint8_t sense[32] = {};
-        uint8_t *desc = sense + 8;
         struct sg_io_v4 io_v4 = {
                 .guard = 'Q',
                 .protocol = BSG_PROTOCOL_SCSI,
@@ -177,9 +188,10 @@ static int disk_identify_command(int          fd,
                         return ret;
         }
 
-        if (!(sense[0] == 0x72 && desc[0] == 0x9 && desc[1] == 0x0c)) {
+        ret = ck_cond_sense_check(sense);
+        if (ret != 0) {
                 errno = EIO;
-                return -1;
+                return ret;
         }
 
         return 0;
@@ -215,7 +227,6 @@ static int disk_identify_packet_device_command(int          fd,
                 [15] = 0,     /* CONTROL */
         };
         uint8_t sense[32] = {};
-        uint8_t *desc = sense + 8;
         struct sg_io_v4 io_v4 = {
                 .guard = 'Q',
                 .protocol = BSG_PROTOCOL_SCSI,
@@ -253,9 +264,10 @@ static int disk_identify_packet_device_command(int          fd,
                         return ret;
         }
 
-        if (!(sense[0] == 0x72 && desc[0] == 0x9 && desc[1] == 0x0c)) {
+        ret = ck_cond_sense_check(sense);
+        if (ret != 0) {
                 errno = EIO;
-                return -1;
+                return ret;
         }
 
         return 0;
@@ -473,15 +485,11 @@ int main(int argc, char *argv[])
                 disk_identify_fixup_string(identify.byte,  10, 20); /* serial */
                 disk_identify_fixup_string(identify.byte,  23,  8); /* fwrev */
                 disk_identify_fixup_string(identify.byte,  27, 40); /* model */
-                disk_identify_fixup_uint16(identify.byte,  0);      /* configuration */
-                disk_identify_fixup_uint16(identify.byte,  75);     /* queue depth */
                 disk_identify_fixup_uint16(identify.byte,  76);     /* SATA capabilities */
                 disk_identify_fixup_uint16(identify.byte,  82);     /* command set supported */
                 disk_identify_fixup_uint16(identify.byte,  83);     /* command set supported */
-                disk_identify_fixup_uint16(identify.byte,  84);     /* command set supported */
-                disk_identify_fixup_uint16(identify.byte,  85);     /* command set supported */
-                disk_identify_fixup_uint16(identify.byte,  86);     /* command set supported */
-                disk_identify_fixup_uint16(identify.byte,  87);     /* command set supported */
+                disk_identify_fixup_uint16(identify.byte,  85);     /* command set/feature enabled/supported */
+                disk_identify_fixup_uint16(identify.byte,  86);     /* command set/feature enabled/supported */
                 disk_identify_fixup_uint16(identify.byte,  89);     /* time required for SECURITY ERASE UNIT */
                 disk_identify_fixup_uint16(identify.byte,  90);     /* time required for enhanced SECURITY ERASE UNIT */
                 disk_identify_fixup_uint16(identify.byte,  91);     /* current APM values */
@@ -552,18 +560,9 @@ int main(int argc, char *argv[])
                         printf("ID_ATA_WRITE_CACHE=1\n");
                         printf("ID_ATA_WRITE_CACHE_ENABLED=%d\n", (id.cfs_enable_1 & (1<<5)) ? 1 : 0);
                 }
-                if (id.command_set_1 & (1<<10)) {
-                        printf("ID_ATA_FEATURE_SET_HPA=1\n");
-                        printf("ID_ATA_FEATURE_SET_HPA_ENABLED=%d\n", (id.cfs_enable_1 & (1<<10)) ? 1 : 0);
-
-                        /*
-                         * TODO: use the READ NATIVE MAX ADDRESS command to get the native max address
-                         * so it is easy to check whether the protected area is in use.
-                         */
-                }
-                if (id.command_set_1 & (1<<3)) {
-                        printf("ID_ATA_FEATURE_SET_PM=1\n");
-                        printf("ID_ATA_FEATURE_SET_PM_ENABLED=%d\n", (id.cfs_enable_1 & (1<<3)) ? 1 : 0);
+                if (id.command_set_1 & (1<<6)) {
+                        printf("ID_ATA_READ_LOOKAHEAD=1\n");
+                        printf("ID_ATA_READ_LOOKAHEAD_ENABLED=%d\n", (id.cfs_enable_1 & (1<<6)) ? 1 : 0);
                 }
                 if (id.command_set_1 & (1<<1)) {
                         printf("ID_ATA_FEATURE_SET_SECURITY=1\n");
@@ -594,18 +593,12 @@ int main(int argc, char *argv[])
                         printf("ID_ATA_FEATURE_SET_AAM_VENDOR_RECOMMENDED_VALUE=%d\n", id.acoustic >> 8);
                         printf("ID_ATA_FEATURE_SET_AAM_CURRENT_VALUE=%d\n", id.acoustic & 0xff);
                 }
-                if (id.command_set_2 & (1<<5)) {
-                        printf("ID_ATA_FEATURE_SET_PUIS=1\n");
-                        printf("ID_ATA_FEATURE_SET_PUIS_ENABLED=%d\n", (id.cfs_enable_2 & (1<<5)) ? 1 : 0);
-                }
                 if (id.command_set_2 & (1<<3)) {
                         printf("ID_ATA_FEATURE_SET_APM=1\n");
                         printf("ID_ATA_FEATURE_SET_APM_ENABLED=%d\n", (id.cfs_enable_2 & (1<<3)) ? 1 : 0);
                         if ((id.cfs_enable_2 & (1<<3)))
                                 printf("ID_ATA_FEATURE_SET_APM_CURRENT_VALUE=%d\n", id.CurAPMvalues & 0xff);
                 }
-                if (id.command_set_2 & (1<<0))
-                        printf("ID_ATA_DOWNLOAD_MICROCODE=1\n");
 
                 /*
                  * Word 76 indicates the capabilities of a SATA device. A PATA device shall set
@@ -618,12 +611,17 @@ int main(int argc, char *argv[])
                 if (word != 0x0000 && word != 0xffff) {
                         printf("ID_ATA_SATA=1\n");
                         /*
+                         * If bit 3 of word 76 is set to one, then the device supports the Gen3
+                         * signaling rate of 6.0 Gb/s (see SATA 3.0).
+                         *
                          * If bit 2 of word 76 is set to one, then the device supports the Gen2
-                         * signaling rate of 3.0 Gb/s (see SATA 2.6).
+                         * signaling rate of 3.0 Gb/s (see SATA 3.0).
                          *
                          * If bit 1 of word 76 is set to one, then the device supports the Gen1
-                         * signaling rate of 1.5 Gb/s (see SATA 2.6).
+                         * signaling rate of 1.5 Gb/s (see SATA 3.0).
                          */
+                        if (word & (1<<3))
+                                printf("ID_ATA_SATA_SIGNAL_RATE_GEN3=1\n");
                         if (word & (1<<2))
                                 printf("ID_ATA_SATA_SIGNAL_RATE_GEN2=1\n");
                         if (word & (1<<1))
@@ -657,12 +655,6 @@ int main(int argc, char *argv[])
                                "ID_WWN_WITH_EXTENSION=0x%1$" PRIx64 "\n",
                                wwwn);
                 }
-
-                /* from Linux's include/linux/ata.h */
-                if (identify.wyde[0] == 0x848a ||
-                    identify.wyde[0] == 0x844a ||
-                    (identify.wyde[83] & 0xc004) == 0x4004)
-                        printf("ID_ATA_CFA=1\n");
         } else {
                 if (serial[0] != '\0')
                         printf("%s_%s\n", model, serial);
