@@ -108,7 +108,7 @@ static void test_unit_name_from_path(void) {
         test_unit_name_from_path_one("/", ".mount", "-.mount", 0);
         test_unit_name_from_path_one("///", ".mount", "-.mount", 0);
         test_unit_name_from_path_one("/foo/../bar", ".mount", NULL, -EINVAL);
-        test_unit_name_from_path_one("/foo/./bar", ".mount", NULL, -EINVAL);
+        test_unit_name_from_path_one("/foo/./bar", ".mount", "foo-.-bar.mount", 0);
 }
 
 static void test_unit_name_from_path_instance_one(const char *pattern, const char *path, const char *suffix, const char *expected, int ret) {
@@ -455,9 +455,9 @@ static void test_unit_name_path_unescape(void) {
         test_unit_name_path_unescape_one("-", "/", 0);
         test_unit_name_path_unescape_one("--", NULL, -EINVAL);
         test_unit_name_path_unescape_one("-foo-bar", NULL, -EINVAL);
-        test_unit_name_path_unescape_one("foo--bar", NULL, -EINVAL);
+        test_unit_name_path_unescape_one("foo--bar", "/foo//bar", 0);
         test_unit_name_path_unescape_one("foo-bar-", NULL, -EINVAL);
-        test_unit_name_path_unescape_one(".-bar", NULL, -EINVAL);
+        test_unit_name_path_unescape_one(".-bar", "/./bar", 0);
         test_unit_name_path_unescape_one("foo-..", NULL, -EINVAL);
         test_unit_name_path_unescape_one("", NULL, -EINVAL);
 }
