@@ -2,6 +2,9 @@ systemd System and Service Manager
 
 CHANGES WITH 233:
 
+        * This version requires at least gperf 3.1 for building, 3.0 is not
+          sufficient.
+
         * The "hybrid" control group mode has been modified to improve
           compatibility with "legacy" cgroups-v1 setups. Specifically, the
           "hybrid" setup of /sys/fs/cgroup is now pretty much identical to

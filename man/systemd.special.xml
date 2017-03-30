@@ -901,64 +901,58 @@
   <refsect1>
     <title>Special Passive User Units</title>
 
-    <refsect2>
-      <title>graphical-session.target</title>
+    <variablelist>
+      <varlistentry>
+        <term><filename>graphical-session.target</filename></term>
+        <listitem>
+          <para>This target is active whenever any graphical session is running. It is used to stop user services which
+          only apply to a graphical (X, Wayland, etc.) session when the session is terminated. Such services should
+          have <literal>PartOf=graphical-session.target</literal> in their <literal>[Unit]</literal> section. A target
+          for a particular session (e. g.  <filename>gnome-session.target</filename>) starts and stops
+          <literal>graphical-session.target</literal> with <literal>BindsTo=graphical-session.target</literal>.</para>
 
-      <para>This target is active whenever any graphical session is running. It
-      is used to stop user services which only apply to a graphical (X,
-      Wayland, etc.) session when the session is terminated. Such services
-      should have <literal>PartOf=graphical-session.target</literal> in their
-      <literal>[Unit]</literal> section. A target for a particular session
-      (e. g.  <filename>gnome-session.target</filename>) starts and stops
-      <literal>graphical-session.target</literal> with
-      <literal>BindsTo=graphical-session.target</literal>.</para>
+          <para>Which services are started by a session target is determined by the <literal>Wants=</literal> and
+          <literal>Requires=</literal> dependencies.  For services that can be enabled independently, symlinks in
+          <literal>.wants/</literal> and <literal>.requires/</literal> should be used, see
+          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.  Those
+          symlinks should either be shipped in packages, or should be added dynamically after installation, for example
+          using <literal>systemctl add-wants</literal>, see
+          <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+          </para>
 
-      <para>Which services are started by a session target is determined by the
-      <literal>Wants=</literal> and <literal>Requires=</literal> dependencies.
-      For services that can be enabled independently, symlinks in
-      <literal>.wants/</literal> and <literal>.requires/</literal> should be
-      used, see
-      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-      Those symlinks should either be shipped in packages, or should be added
-      dynamically after installation, for example using <literal>systemctl add-wants</literal>, see
-      <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-      </para>
+          <example>
+            <title>Nautilus as part of a GNOME session</title>
 
-      <example>
-        <title>Nautilus as part of a GNOME session</title>
+            <para><literal>gnome-session.target</literal> pulls in Nautilus as top-level service:</para>
 
-        <para><literal>gnome-session.target</literal> pulls in Nautilus as
-        top-level service:</para>
-
-        <programlisting>[Unit]
+            <programlisting>[Unit]
 Description=User systemd services for GNOME graphical session
 Wants=nautilus.service
-BindsTo=graphical-session.target
-        </programlisting>
+BindsTo=graphical-session.target</programlisting>
 
-        <para><literal>nautilus.service</literal> gets stopped when the session stops:</para>
+            <para><literal>nautilus.service</literal> gets stopped when the session stops:</para>
 
-        <programlisting>[Unit]
+            <programlisting>[Unit]
 Description=Render the desktop icons with Nautilus
 PartOf=graphical-session.target
 
 [Service]
-…
-        </programlisting>
-      </example>
-    </refsect2>
+…</programlisting>
+          </example>
+        </listitem>
+      </varlistentry>
 
-    <refsect2>
-      <title>graphical-session-pre.target</title>
-
-      <para>This target contains services which set up the environment or
-      global configuration of a graphical session, such as SSH/GPG agents
-      (which need to export an environment variable into all desktop processes)
-      or migration of obsolete d-conf keys after an OS upgrade (which needs to
-      happen before starting any process that might use them). This target must
-      be started before starting a graphical session
-      like <filename>gnome-session.target</filename>.</para>
-    </refsect2>
+      <varlistentry>
+        <term><filename>graphical-session-pre.target</filename></term>
+        <listitem>
+          <para>This target contains services which set up the environment or global configuration of a graphical
+          session, such as SSH/GPG agents (which need to export an environment variable into all desktop processes) or
+          migration of obsolete d-conf keys after an OS upgrade (which needs to happen before starting any process that
+          might use them). This target must be started before starting a graphical session like
+          <filename>gnome-session.target</filename>.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
 
   </refsect1>
 
