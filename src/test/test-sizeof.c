@@ -40,6 +40,8 @@ int main(void) {
         info(unsigned);
         info(long unsigned);
         info(long long unsigned);
+        info(__syscall_ulong_t);
+        info(__syscall_slong_t);
 
         info(float);
         info(double);
@@ -49,6 +51,7 @@ int main(void) {
         info(ssize_t);
         info(time_t);
         info(usec_t);
+        info(__time_t);
 
         return 0;
 }
