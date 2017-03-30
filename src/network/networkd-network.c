@@ -428,7 +428,7 @@ int network_apply(Network *network, Link *link) {
         if (network->ipv4ll_route) {
                 Route *route;
 
-                r = route_new_static(network, "Network", 0, &route);
+                r = route_new_static(network, NULL, 0, &route);
                 if (r < 0)
                         return r;
 
