@@ -165,7 +165,7 @@ REQUIREMENTS:
         autoconf
         libtool
         intltool
-        gperf
+        gperf >= 3.1
         python (optional)
         python-lxml (optional, but required to build the indices)
 
