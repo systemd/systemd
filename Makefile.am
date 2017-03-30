@@ -2182,9 +2182,6 @@ test_selinux_LDADD = \
 test_sizeof_SOURCES = \
 	src/test/test-sizeof.c
 
-test_sizeof_LDADD = \
-	libsystemd-shared.la
-
 BUILT_SOURCES += \
 	src/test/test-hashmap-ordered.c
 

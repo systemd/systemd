@@ -17,7 +17,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "log.h"
+#include <stdio.h>
+
 #include "time-util.h"
 
 /* Print information about various types. Useful when diagnosing
@@ -26,10 +27,10 @@
 #pragma GCC diagnostic ignored "-Wtype-limits"
 
 #define info(t)                                                 \
-        log_info("%s → %zu bits%s", STRINGIFY(t),               \
-                 sizeof(t)*CHAR_BIT,                            \
-                 strstr(STRINGIFY(t), "signed") ? "" :          \
-                 ((t)-1 < (t)0 ? ", signed" : ", unsigned"));
+        printf("%s → %zu bits%s\n", STRINGIFY(t),               \
+               sizeof(t)*CHAR_BIT,                              \
+               strstr(STRINGIFY(t), "signed") ? "" :            \
+               ((t)-1 < (t)0 ? ", signed" : ", unsigned"));
 
 int main(void) {
         info(char);
