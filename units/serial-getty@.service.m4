@@ -21,6 +21,12 @@ After=rc-local.service
 Before=getty.target
 IgnoreOnIsolate=yes
 
+# IgnoreOnIsolate causes issues with sulogin, if someone isolates
+# rescue.target or starts rescue.service from multi-user.target or
+# graphical.target.
+Conflicts=rescue.service
+Before=rescue.service
+
 [Service]
 ExecStart=-/sbin/agetty --keep-baud 115200,38400,9600 %I $TERM
 Type=idle
