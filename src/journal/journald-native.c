@@ -279,7 +279,7 @@ void server_process_native_message(
 
         if (message) {
                 if (s->forward_to_syslog)
-                        server_forward_syslog(s, priority, identifier, message, ucred, tv);
+                        server_forward_syslog(s, syslog_fixup_facility(priority), identifier, message, ucred, tv);
 
                 if (s->forward_to_kmsg)
                         server_forward_kmsg(s, priority, identifier, message, ucred);
