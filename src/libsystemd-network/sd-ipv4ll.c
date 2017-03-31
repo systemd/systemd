@@ -248,6 +248,12 @@ static int ipv4ll_pick_address(sd_ipv4ll *ll) {
         return sd_ipv4ll_set_address(ll, &(struct in_addr) { addr });
 }
 
+int sd_ipv4ll_restart(sd_ipv4ll *ll) {
+        ll->address = 0;
+
+        return sd_ipv4ll_start(ll);
+}
+
 #define MAC_HASH_KEY SD_ID128_MAKE(df,04,22,98,3f,ad,14,52,f9,87,2e,d1,9c,70,e2,f2)
 
 int sd_ipv4ll_start(sd_ipv4ll *ll) {
