@@ -45,6 +45,7 @@
  *                                         — PCI geographical location
  *   [P<domain>]p<bus>s<slot>[f<function>][u<port>][..][c<config>][i<interface>]
  *                                         — USB port number chain
+ *   v<slot>                               - VIO slot number (IBM PowerVM)
  *
  * All multi-function PCI devices will carry the [f<function>] number in the
  * device name, including the function 0 device.
@@ -122,6 +123,7 @@ enum netname_type{
         NET_BCMA,
         NET_VIRTIO,
         NET_CCW,
+        NET_VIO,
 };
 
 struct netnames {
@@ -139,6 +141,7 @@ struct netnames {
         char usb_ports[IFNAMSIZ];
         char bcma_core[IFNAMSIZ];
         char ccw_busid[IFNAMSIZ];
+        char vio_slot[IFNAMSIZ];
 };
 
 /* skip intermediate virtio devices */
@@ -317,6 +320,33 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
 out:
         udev_device_unref(pci);
         return err;
+}
+
+static int names_vio(struct udev_device *dev, struct netnames *names) {
+        struct udev_device *parent;
+        unsigned busid, slotid, ethid;
+        const char *syspath;
+
+        /* check if our direct parent is a VIO device with no other bus in-between */
+        parent = udev_device_get_parent(dev);
+        if (!parent)
+                return -ENOENT;
+
+        if (!streq_ptr("vio", udev_device_get_subsystem(parent)))
+                 return -ENOENT;
+
+        /* The devices' $DEVPATH number is tied to (virtual) hardware (slot id
+         * selected in the HMC), thus this provides a reliable naming (e.g.
+         * "/devices/vio/30000002/net/eth1"); we ignore the bus number, as
+         * there should only ever be one bus, and then remove leading zeros. */
+        syspath = udev_device_get_syspath(dev);
+
+        if (sscanf(syspath, "/sys/devices/vio/%4x%4x/net/eth%u", &busid, &slotid, &ethid) != 3)
+                return -EINVAL;
+
+        xsprintf(names->vio_slot, "v%u", slotid);
+        names->type = NET_VIO;
+        return 0;
 }
 
 static int names_pci(struct udev_device *dev, struct netnames *names) {
@@ -588,6 +618,16 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
 
                 if (snprintf(str, sizeof(str), "%s%s", prefix, names.ccw_busid) < (int)sizeof(str))
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
+                goto out;
+        }
+
+        /* get ibmveth/ibmvnic slot-based names. */
+        err = names_vio(dev, &names);
+        if (err >= 0 && names.type == NET_VIO) {
+                char str[IFNAMSIZ];
+
+                if (snprintf(str, sizeof(str), "%s%s", prefix, names.vio_slot) < (int)sizeof(str))
+                        udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
                 goto out;
         }
 
