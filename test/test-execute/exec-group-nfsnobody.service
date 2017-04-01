@@ -1,7 +1,0 @@
-[Unit]
-Description=Test for Group
-
-[Service]
-ExecStart=/bin/sh -x -c 'test "$$(id -n -g)" = "nfsnobody"'
-Type=oneshot
-Group=nfsnobody

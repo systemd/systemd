@@ -1,7 +1,0 @@
-[Unit]
-Description=Test for PrivateDev=no
-
-[Service]
-ExecStart=/bin/sh -x -c 'test -c /dev/kmsg'
-Type=oneshot
-PrivateDevices=no
