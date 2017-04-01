@@ -1,7 +1,0 @@
-[Unit]
-Description=Test for ReadOnlyPaths=
-
-[Service]
-ReadOnlyPaths=/etc -/i-dont-exist /usr
-ExecStart=/bin/sh -x -c 'test ! -w /etc && test ! -w /usr && test ! -e /i-dont-exist && test -w /var'
-Type=oneshot

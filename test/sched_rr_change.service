@@ -1,9 +1,0 @@
-[Unit]
-Description=Change prio
-
-[Service]
-ExecStart=/bin/true
-CPUSchedulingPolicy=rr
-CPUSchedulingPriority=1
-CPUSchedulingPriority=2
-CPUSchedulingPriority=99
