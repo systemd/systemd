@@ -42,6 +42,7 @@
 
 typedef struct MountPoint {
         char *path;
+        char *fstype;
         char *options;
         dev_t devnum;
         LIST_FIELDS(struct MountPoint, mount_point);
@@ -76,7 +77,7 @@ static int mount_points_list_get(MountPoint **head) {
                 return -errno;
 
         for (i = 1;; i++) {
-                _cleanup_free_ char *path = NULL, *options = NULL;
+                _cleanup_free_ char *path = NULL, *fstype = NULL, *options = NULL;
                 char *p = NULL;
                 MountPoint *m;
                 int k;
@@ -90,12 +91,12 @@ static int mount_points_list_get(MountPoint **head) {
                            "%*s"        /* (6) mount flags */
                            "%*[^-]"     /* (7) optional fields */
                            "- "         /* (8) separator */
-                           "%*s "       /* (9) file system type */
+                           "%ms "       /* (9) file system type */
                            "%*s"        /* (10) mount source */
                            "%ms"        /* (11) mount options */
                            "%*[^\n]",   /* some rubbish at the end */
-                           &path, &options);
-                if (k != 2) {
+                           &path, &fstype, &options);
+                if (k != 3) {
                         if (k == EOF)
                                 break;
 
@@ -130,6 +131,7 @@ static int mount_points_list_get(MountPoint **head) {
                 }
 
                 m->path = p;
+                m->fstype = fstype;
                 m->options = options;
                 options = NULL;
 
@@ -376,6 +378,12 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_e
         assert(head);
 
         LIST_FOREACH_SAFE(mount_point, m, n, *head) {
+
+                /* Don't attempt to unmount NFS mount points because it
+                   could result in system hang during mount() and umount()
+                   when the NFS server doesn't respond. */
+                if (!strncmp(m->fstype, "nfs", 4))
+                        continue;
 
                 /* If we are in a container, don't attempt to
                    read-only mount anything as that brings no real
