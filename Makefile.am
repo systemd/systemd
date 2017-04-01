@@ -3610,9 +3610,9 @@ test_resolve_LDADD = \
 	libsystemd-shared.la
 
 busctl_SOURCES = \
-	src/libsystemd/sd-bus/busctl.c \
-	src/libsystemd/sd-bus/busctl-introspect.c \
-	src/libsystemd/sd-bus/busctl-introspect.h
+	src/busctl/busctl.c \
+	src/busctl/busctl-introspect.c \
+	src/busctl/busctl-introspect.h
 
 busctl_LDADD = \
 	libsystemd-shared.la
