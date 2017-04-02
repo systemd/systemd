@@ -114,7 +114,7 @@
 
     <para>Function <function>sd_journal_get_catalog()</function> is thread-agnostic and only a
     single thread may operate on a given <structname>sd_journal</structname> object. Function
-    <function>sd_journal_get_catalog_for_message_id() is thread-safe.</function></para>
+    <function>sd_journal_get_catalog_for_message_id()</function> is thread-safe.</para>
 
     <para>The <function>sd_journal_get_catalog()</function> and
     <function>sd_journal_get_catalog_for_message_id()</function>
