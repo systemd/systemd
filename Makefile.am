@@ -5024,10 +5024,6 @@ systemd_localed_LDADD = \
 	libsystemd-shared.la \
 	-ldl
 
-systemd_localed_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(XKBCOMMON_CFLAGS)
-
 nodist_systemunit_DATA += \
 	units/systemd-localed.service
 
