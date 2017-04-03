@@ -5080,8 +5080,6 @@ dist_zshcompletion_data += \
 	shell-completion/zsh/_localectl
 endif
 
-.PHONY: update-kbd-model-map
-
 polkitpolicy_in_files += \
 	src/locale/org.freedesktop.locale1.policy.in
 
