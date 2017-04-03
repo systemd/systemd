@@ -1674,7 +1674,7 @@ AC_CONFIG_FILES([
 
 AC_OUTPUT
 AC_MSG_RESULT([
-        $PACKAGE_NAME $VERSION
+        $PACKAGE_NAME $PACKAGE_VERSION
 
         libcryptsetup:                     ${have_libcryptsetup}
         PAM:                               ${have_pam}

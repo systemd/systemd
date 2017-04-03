@@ -392,7 +392,7 @@ int main(int argc, char *argv[]) {
                         return EXIT_SUCCESS;
 
                 case 'V':
-                        printf("%s\n", VERSION);
+                        printf("%s\n", PACKAGE_VERSION);
                         return EXIT_SUCCESS;
 
                 case 'm':

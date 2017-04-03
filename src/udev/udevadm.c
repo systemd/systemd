@@ -25,7 +25,7 @@
 #include "udev.h"
 
 static int adm_version(struct udev *udev, int argc, char *argv[]) {
-        printf("%s\n", VERSION);
+        printf("%s\n", PACKAGE_VERSION);
         return 0;
 }
 

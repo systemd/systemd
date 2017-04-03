@@ -6269,7 +6269,6 @@ substitutions = \
        '|exec_prefix=$(exec_prefix)|' \
        '|libdir=$(libdir)|' \
        '|includedir=$(includedir)|' \
-       '|VERSION=$(VERSION)|' \
        '|rootprefix=$(rootprefix)|' \
        '|udevlibexecdir=$(udevlibexecdir)|' \
        '|SUSHELL=$(SUSHELL)|' \
@@ -6400,7 +6399,7 @@ XSLTPROC_FLAGS = \
 	--stringparam funcsynopsis.style ansi \
 	--stringparam man.authors.section.enabled 0 \
 	--stringparam man.copyright.section.enabled 0 \
-	--stringparam systemd.version $(VERSION) \
+	--stringparam systemd.version $(PACKAGE_VERSION) \
 	--path '$(builddir)/man:$(srcdir)/man'
 
 XSLT = $(if $(XSLTPROC), $(XSLTPROC), xsltproc)
@@ -6634,11 +6633,11 @@ built-sources: $(BUILT_SOURCES)
 
 .PHONY: git-tag
 git-tag:
-	git tag -s "v$(VERSION)" -m "systemd $(VERSION)"
+	git tag -s "v$(PACKAGE_VERSION)" -m "systemd $(PACKAGE_VERSION)"
 
 .PHONY: git-tar
 git-tar:
-	git archive -o systemd-$(VERSION).tar.gz --prefix=systemd-$(VERSION)/ HEAD
+	git archive -o systemd-$(PACKAGE_VERSION).tar.gz --prefix=systemd-$(PACKAGE_VERSION)/ HEAD
 
 %.asc: %
 	gpg2 --detach-sign -a -o $@ $<
