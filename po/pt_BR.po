@@ -465,7 +465,7 @@ msgstr "Conectar a um contêiner local"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:2
 msgid "Authentication is required to log into a local container."
-msgstr "É necessária autenticação para se conectar a uma contêiner local."
+msgstr "É necessária autenticação para se conectar a um contêiner local."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:3
 msgid "Log into the local host"
