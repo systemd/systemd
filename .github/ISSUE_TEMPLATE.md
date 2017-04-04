@@ -15,14 +15,14 @@
 
 > …
 
+### In case of bug report: Steps to reproduce the problem
+
+> …
+
 ### In case of bug report: Expected behaviour you didn't see
 
 > …
 
 ### In case of bug report: Unexpected behaviour you saw
-
-> …
-
-### In case of bug report: Steps to reproduce the problem
 
 > …
