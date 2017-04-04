@@ -157,6 +157,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*C3[01]0*:pvr*
  KEYBOARD_KEY_6b=fn
  KEYBOARD_KEY_6c=screenlock                             # FIXME: lock tablet device/buttons
 
+# Travelmate P648-G2-MG
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*P648-G2-MG*:pvr*
+ KEYBOARD_KEY_8a=f20                                    # Microphone mute button; should be micmute
+
 # on some models this isn't brightnessup
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pn*5210*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pn*5220*:pvr*
