@@ -753,13 +753,13 @@ int manager_sync_bus_names(Manager *m, sd_bus *bus) {
                         /* If it is, determine its current owner */
                         r = sd_bus_get_name_creds(bus, name, SD_BUS_CREDS_UNIQUE_NAME, &creds);
                         if (r < 0) {
-                                log_error_errno(r, "Failed to get bus name owner %s: %m", name);
+                                log_full_errno(r == -ENXIO ? LOG_DEBUG : LOG_ERR, r, "Failed to get bus name owner %s: %m", name);
                                 continue;
                         }
 
                         r = sd_bus_creds_get_unique_name(creds, &unique);
                         if (r < 0) {
-                                log_error_errno(r, "Failed to get unique name for %s: %m", name);
+                                log_full_errno(r == -ENXIO ? LOG_DEBUG : LOG_ERR, r, "Failed to get unique name for %s: %m", name);
                                 continue;
                         }
 
