@@ -23,7 +23,7 @@
 #include "measure.h"
 
 /* magic string to find in the binary image */
-static const char __attribute__((used)) magic[] = "#### LoaderInfo: systemd-stub " VERSION " ####";
+static const char __attribute__((used)) magic[] = "#### LoaderInfo: systemd-stub " PACKAGE_VERSION " ####";
 
 static const EFI_GUID global_guid = EFI_GLOBAL_VARIABLE;
 

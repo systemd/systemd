@@ -42,8 +42,8 @@
 #include "udev-util.h"
 #include "xattr-util.h"
 
-static int probe_filesystem(const char *node, char **ret_fstype) {
 #ifdef HAVE_BLKID
+static int probe_filesystem(const char *node, char **ret_fstype) {
         _cleanup_blkid_free_probe_ blkid_probe b = NULL;
         const char *fstype;
         int r;
@@ -80,10 +80,8 @@ static int probe_filesystem(const char *node, char **ret_fstype) {
 not_found:
         *ret_fstype = NULL;
         return 0;
-#else
-        return -EOPNOTSUPP;
-#endif
 }
+#endif
 
 int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectImageFlags flags, DissectedImage **ret) {
 

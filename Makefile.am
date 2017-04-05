@@ -2816,9 +2816,6 @@ systemd_detect_virt_SOURCES = \
 systemd_detect_virt_LDADD = \
 	libsystemd-shared.la
 
-INSTALL_EXEC_HOOKS += \
-	systemd-detect-virt-install-hook
-
 # ------------------------------------------------------------------------------
 systemd_delta_SOURCES = \
 	src/delta/delta.c
@@ -3610,9 +3607,9 @@ test_resolve_LDADD = \
 	libsystemd-shared.la
 
 busctl_SOURCES = \
-	src/libsystemd/sd-bus/busctl.c \
-	src/libsystemd/sd-bus/busctl-introspect.c \
-	src/libsystemd/sd-bus/busctl-introspect.h
+	src/busctl/busctl.c \
+	src/busctl/busctl-introspect.c \
+	src/busctl/busctl-introspect.h
 
 busctl_LDADD = \
 	libsystemd-shared.la
@@ -3881,7 +3878,7 @@ src/udev/keyboard-keys-list.txt:
 	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include linux/input.h - < /dev/null | $(AWK) '/^#define[ \t]+KEY_[^ ]+[ \t]+[0-9K]/ { if ($$2 != "KEY_MAX") { print $$2 } }' > $@
 
 src/udev/keyboard-keys-from-name.gperf: src/udev/keyboard-keys-list.txt
-	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct key { const char* name; unsigned short id; };"; print "%null-strings"; print "%%";} { print tolower(substr($$1 ,5)) ", " $$1 }' < $< > $@
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct key_name { const char* name; unsigned short id; };"; print "%null-strings"; print "%%";} { print tolower(substr($$1 ,5)) ", " $$1 }' < $< > $@
 
 src/udev/keyboard-keys-from-name.h: src/udev/keyboard-keys-from-name.gperf
 	$(AM_V_GPERF)$(GPERF) -L ANSI-C -t -N keyboard_lookup_key -H hash_key_name -p -C < $< > $@
@@ -5024,10 +5021,6 @@ systemd_localed_LDADD = \
 	libsystemd-shared.la \
 	-ldl
 
-systemd_localed_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(XKBCOMMON_CFLAGS)
-
 nodist_systemunit_DATA += \
 	units/systemd-localed.service
 
@@ -5083,8 +5076,6 @@ dist_bashcompletion_data += \
 dist_zshcompletion_data += \
 	shell-completion/zsh/_localectl
 endif
-
-.PHONY: update-kbd-model-map
 
 polkitpolicy_in_files += \
 	src/locale/org.freedesktop.locale1.policy.in
@@ -6275,7 +6266,6 @@ substitutions = \
        '|exec_prefix=$(exec_prefix)|' \
        '|libdir=$(libdir)|' \
        '|includedir=$(includedir)|' \
-       '|VERSION=$(VERSION)|' \
        '|rootprefix=$(rootprefix)|' \
        '|udevlibexecdir=$(udevlibexecdir)|' \
        '|SUSHELL=$(SUSHELL)|' \
@@ -6406,7 +6396,7 @@ XSLTPROC_FLAGS = \
 	--stringparam funcsynopsis.style ansi \
 	--stringparam man.authors.section.enabled 0 \
 	--stringparam man.copyright.section.enabled 0 \
-	--stringparam systemd.version $(VERSION) \
+	--stringparam systemd.version $(PACKAGE_VERSION) \
 	--path '$(builddir)/man:$(srcdir)/man'
 
 XSLT = $(if $(XSLTPROC), $(XSLTPROC), xsltproc)
@@ -6640,11 +6630,11 @@ built-sources: $(BUILT_SOURCES)
 
 .PHONY: git-tag
 git-tag:
-	git tag -s "v$(VERSION)" -m "systemd $(VERSION)"
+	git tag -s "v$(PACKAGE_VERSION)" -m "systemd $(PACKAGE_VERSION)"
 
 .PHONY: git-tar
 git-tar:
-	git archive -o systemd-$(VERSION).tar.gz --prefix=systemd-$(VERSION)/ HEAD
+	git archive -o systemd-$(PACKAGE_VERSION).tar.gz --prefix=systemd-$(PACKAGE_VERSION)/ HEAD
 
 %.asc: %
 	gpg2 --detach-sign -a -o $@ $<

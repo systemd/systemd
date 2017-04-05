@@ -1113,7 +1113,7 @@ if test "x$enable_logind" != "xno"; then
         have_logind=yes
 fi
 AM_CONDITIONAL(ENABLE_LOGIND, [test "$have_logind" = "yes"])
-AS_IF([test "$have_logind" = "yes"], [ AC_DEFINE(HAVE_LOGIND, [1], [Logind support available]) ])
+AS_IF([test "$have_logind" = "yes"], [ AC_DEFINE(ENABLE_LOGIND, [1], [Logind support available]) ])
 
 AC_ARG_WITH([kill-user-processes],
         [AS_HELP_STRING([--without-kill-user-processes], [set logind's KillUserProcesses=no by default])])
@@ -1674,7 +1674,7 @@ AC_CONFIG_FILES([
 
 AC_OUTPUT
 AC_MSG_RESULT([
-        $PACKAGE_NAME $VERSION
+        $PACKAGE_NAME $PACKAGE_VERSION
 
         libcryptsetup:                     ${have_libcryptsetup}
         PAM:                               ${have_pam}
