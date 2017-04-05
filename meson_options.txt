@@ -1,0 +1,191 @@
+# -*- mode: meson -*-
+
+option('split-usr', type : 'boolean', value : false,
+       description : '''assume that /bin, /sbin aren't symlinks into /usr''')
+option('rootlibdir', type : 'string',
+       description : '''[/usr]/lib/x86_64-linux-gnu or such''')
+
+option('sysvinit-path', type : 'string', value : '/etc/init.d',
+       description : 'the directory where the SysV init scripts are located')
+option('sysvrcnd-path', type : 'string', value : '/etc/rc.d',
+       description : 'the base directory for SysV rcN.d directories')
+option('telinit-path', type : 'string', description : 'path to telinit')
+
+option('quotaon-path', type : 'string', description : 'path to quotaon')
+option('quotacheck-path', type : 'string', description : 'path to quotacheck')
+option('kill-path', type : 'string', description : 'path to kill')
+option('kmod-path', type : 'string', description : 'path to kmod')
+option('kexec-path', type : 'string', description : 'path to kexec')
+option('sulogin-path', type : 'string', description : 'path to sulogin')
+option('mount-path', type : 'string', description : 'path to mount')
+option('umount-path', type : 'string', description : 'path to umount')
+option('loadkeys-path', type : 'string', description : 'path to loadkeys')
+option('setfont-path', type : 'string', description : 'path to setfont')
+
+option('utmp', type : 'boolean',
+       description : 'support for utmp/wtmp log handling')
+option('hibernate', type : 'boolean',
+       description : 'support for hibernation')
+option('ldconfig', type : 'boolean',
+       description : 'support for dynamic linker cache creation')
+option('resolve', type : 'boolean',
+       description : 'systemd-resolved stack')
+option('efi', type : 'boolean',
+       description : 'support for EFI')
+option('environment-d', type : 'boolean',
+       description : 'support for environment.d')
+option('binfmt', type : 'boolean',
+       description : 'support for custom binary formats')
+option('coredump', type : 'boolean',
+       description : 'install the coredump handler')
+option('logind', type : 'boolean',
+       description : 'install the systemd-logind stack')
+option('hostnamed', type : 'boolean',
+       description : 'install the systemd-hostnamed stack')
+option('localed', type : 'boolean',
+       description : 'install the systemd-localed stack')
+option('machined', type : 'boolean',
+       description : 'install the systemd-machined stack')
+option('networkd', type : 'boolean',
+       description : 'install the systemd-networkd stack')
+option('timedated', type : 'boolean',
+       description : 'install the systemd-timedated daemon')
+option('timesyncd', type : 'boolean',
+       description : 'install the systemd-timesyncd daemon')
+option('remote', type : 'boolean',
+       description : 'support for "journal over the network"')
+option('myhostname', type : 'boolean',
+       description : 'nss-myhostname support')
+option('firstboot', type : 'boolean',
+       description : 'support for firstboot mechanism')
+option('randomseed', type : 'boolean',
+       description : 'support for restoring random seed')
+option('backlight', type : 'boolean',
+       description : 'support for restoring backlight state')
+option('vconsole', type : 'boolean',
+       description : 'support for vconsole configuration')
+option('quotacheck', type : 'boolean',
+       description : 'support for the quotacheck tools')
+option('sysusers', type : 'boolean',
+       description : 'support for the sysusers configuration')
+option('tmpfiles', type : 'boolean',
+       description : 'support for tmpfiles.d')
+option('importd', type : 'boolean',
+       description : 'install the systemd-importd daemon')
+option('hwdb', type : 'boolean',
+       description : 'support for the hardware database')
+option('rfkill', type : 'boolean',
+       description : 'support for the rfkill tools')
+
+option('certificate-root', type : 'string', value : '/etc/ssl',
+       description : 'the prefix for TLS certificates')
+option('dbuspolicydir', type : 'string',
+       description : 'D-Bus policy directory')
+option('dbussessionservicedir', type : 'string',
+       description : 'D-Bus session service directory')
+option('dbussystemservicedir', type : 'string',
+       description : 'D-Bus system service directory')
+option('pkgconfigdatadir', type : 'string', value : 'share/pkgconfig',
+       description : 'directory for ')
+option('pkgconfiglibdir', type : 'string', value : '',
+       description : 'directory for ')
+option('rpmmacrosdir', type : 'string', value : 'lib/rpm/macros.d',
+       description : 'directory for rpm macros ["no" disables]')
+option('pamlibdir', type : 'string',
+       description : 'directory for PAM modules')
+option('pamconfdir', type : 'string',
+       description : 'directory for PAM configuration ["no" disables]')
+
+option('fallback-hostname', type : 'string', value : 'localhost',
+       description : 'the hostname used if none configured')
+option('default-hierarchy', type : 'combo',
+       choices : ['legacy', 'hybrid', 'unified'], value : 'hybrid',
+       description : 'default cgroup hierarchy')
+option('time-epoch', type : 'string',
+       description : 'time epoch for time clients')
+option('system-uid-max', type : 'string',
+       description : 'maximum system UID')
+option('system-gid-max', type : 'string',
+       description : 'maximum system GID')
+option('tty-gid', type : 'string',
+       description : 'the numeric GID of the "tty" group',
+       value : '5')
+option('adm-group', type : 'boolean',
+       description : 'the ACL for adm group should be added')
+option('wheel-group', type : 'boolean',
+       description : 'the ACL for wheel group should be added')
+option('nobody-user', type : 'string',
+       description : 'The name of the nobody user (the one with UID 65534)',
+       value : 'nobody')
+option('nobody-group', type : 'string',
+       description : 'The name of the nobody group (the one with GID 65534)',
+       value : 'nobody')
+option('dev-kvm-mode', type : 'string', value : '0660',
+       description : '/dev/kvm access mode')
+option('default-kill-user-processes', type : 'boolean',
+       description : 'the default value for KillUserProcesses= setting')
+
+option('default-dnssec', type : 'combo',
+       description : 'default DNSSEC mode',
+       choices : ['yes', 'allow-downgrade', 'no'],
+       value : 'allow-downgrade')
+option('dns-servers', type : 'string',
+       description : 'space-separated list of default DNS servers',
+       value : '8.8.8.8 8.8.4.4 2001:4860:4860::8888 2001:4860:4860::8844')
+option('ntp-servers', type : 'string',
+       description : 'space-separated list of default NTP servers',
+       value : 'time1.google.com time2.google.com time3.google.com time4.google.com')
+option('support-url', type : 'string',
+       description : 'the support URL to show in catalog entries included in systemd',
+       value : 'https://lists.freedesktop.org/mailman/listinfo/systemd-devel')
+
+option('seccomp', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'SECCOMP support')
+option('selinux', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'SELinux support')
+option('apparmor', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'AppArmor support')
+option('smack', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'SMACK support')
+option('smack-run-label', type : 'string',
+       description : 'run systemd --system itself with a specific SMACK label')
+
+option('audit', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'libaudit support')
+option('blkid', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'libblkid support')
+option('kmod', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'support for loadable modules')
+option('pam', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'PAM support')
+option('microhttpd', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'libµhttpd support')
+option('libcryptsetup', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'libcryptsetup support')
+option('libcurl', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'libcurl support')
+option('libidn', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'libidn support')
+option('libiptc', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'libiptc support')
+option('qrencode', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'libqrencode support')
+option('libgcrypt', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'libgcrypt support')
+option('gnutls', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'gnutls support')
+option('elfutils', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'elfutils support')
+option('zlib', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'zlib compression support')
+option('bzip2', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'bzip2 compression support')
+option('xz', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'xz compression support')
+option('lz4', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'lz4 compression support')
+
+option('bashcompletiondir', type : 'string',
+       description : 'directory for bash completion scripts ["no" disables]')
+option('zshcompletiondir', type : 'string',
+       description : 'directory for zsh completion scripts ["no" disables]')
