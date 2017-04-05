@@ -22,7 +22,7 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
-#include <systemd/sd-bus.h>
+#include "sd-bus.h"
 
 #include "logs-show.h"
 #include "output-mode.h"
