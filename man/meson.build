@@ -20,7 +20,11 @@ xsltproc_flags = [
 
 custom_man_xsl = files('custom-man.xsl')
 custom_html_xsl = files('custom-man.xsl')
-custom_entities_ent = files('custom-entities.ent')
+
+custom_entities_ent = configure_file(
+    input : 'custom-entities.ent.in',
+    output : 'custom-entities.ent',
+    configuration : conf)
 
 foreach tuple : manpages
   stem = tuple[0]
@@ -48,6 +52,7 @@ foreach tuple : manpages
       input : xml,
       output : [man] + manaliases,
       command : [xsltproc, '-o', '@OUTPUT0@'] + xsltproc_flags + [custom_man_xsl, '@INPUT@'],
+      depend_files : custom_entities_ent,
       install : install,
       install_dir : mandirn)
 
@@ -55,7 +60,8 @@ foreach tuple : manpages
       html,
       input : xml,
       output : [html] + htmlaliases,
-      command : [xsltproc, '-o', '@OUTPUT0@'] + xsltproc_flags + [custom_html_xsl, '@INPUT@'])
+      command : [xsltproc, '-o', '@OUTPUT0@'] + xsltproc_flags + [custom_html_xsl, '@INPUT@'],
+      depend_files : custom_entities_ent)
 
   if not install
     message('Skipping @0@.@1@ because @2@ is @3@'.format(stem, section, condition, install))
