@@ -23,7 +23,7 @@ After=org.freedesktop.network1.busname
 
 [Service]
 Type=notify
-Restart=on-failure
+Restart=always
 RestartSec=0
 ExecStart=@rootlibexecdir@/systemd-networkd
 WatchdogSec=3min
