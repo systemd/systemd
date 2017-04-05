@@ -2816,9 +2816,6 @@ systemd_detect_virt_SOURCES = \
 systemd_detect_virt_LDADD = \
 	libsystemd-shared.la
 
-INSTALL_EXEC_HOOKS += \
-	systemd-detect-virt-install-hook
-
 # ------------------------------------------------------------------------------
 systemd_delta_SOURCES = \
 	src/delta/delta.c
