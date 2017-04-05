@@ -380,7 +380,7 @@ endforeach
 sed = find_program('sed')
 grep = find_program('grep')
 awk = find_program('awk')
-m4 = find_program('m4')
+m4 = find_program('/usr/bin/m4')
 stat = find_program('stat')
 
 # if -Dxxx-path option is found, use that. Otherwise, check in $PATH,
