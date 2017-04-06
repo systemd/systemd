@@ -19,7 +19,7 @@
 ***/
 
 #include <assert.h>
-#include <blkid/blkid.h>
+#include <blkid.h>
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>

@@ -18,7 +18,7 @@
 ***/
 
 #ifdef HAVE_BLKID
-#include <blkid/blkid.h>
+#include <blkid.h>
 #endif
 #include <errno.h>
 #include <getopt.h>

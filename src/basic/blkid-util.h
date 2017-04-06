@@ -20,7 +20,7 @@
 ***/
 
 #ifdef HAVE_BLKID
-#include <blkid/blkid.h>
+#include <blkid.h>
 #endif
 
 #include "util.h"
