@@ -382,6 +382,8 @@ grep = find_program('grep')
 awk = find_program('awk')
 m4 = find_program('/usr/bin/m4')
 stat = find_program('stat')
+git = find_program('git', required : false)
+etags = find_program('etags', required : false)
 
 # if -Dxxx-path option is found, use that. Otherwise, check in $PATH,
 # /usr/sbin, /sbin, and fall back to the default from middle column.
@@ -1855,3 +1857,20 @@ install_data('README',
              'LICENSE.LGPL2.1',
              'src/libsystemd/sd-bus/GVARIANT-SERIALIZATION',
              install_dir : docdir)
+
+############################################################
+
+if git.found() and etags.found()
+  all_files = run_command(
+      git,
+      ['--git-dir=@0@/.git'.format(meson.source_root()),
+       'ls-files',
+       ':/*.[ch]'])
+  all_files = files(all_files.stdout().split())
+
+  custom_target(
+    'TAGS',
+    output : 'TAGS',
+    input : all_files,
+    command : [etags, '-o', '@OUTPUT@'] + all_files)
+endif
