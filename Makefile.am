@@ -2978,7 +2978,12 @@ if ARCH_AARCH64
 efi_ldflags += --defsym=EFI_SUBSYSTEM=0xa
 EFI_FORMAT = -O binary
 else
+if ARCH_ARM
+efi_ldflags += --defsym=EFI_SUBSYSTEM=0xa
+EFI_FORMAT = -O binary
+else
 EFI_FORMAT = --target=efi-app-$(EFI_ARCH)
+endif
 endif
 endif
 endif
