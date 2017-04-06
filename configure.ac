@@ -1306,7 +1306,13 @@ AC_SUBST([EFI_MACHINE_TYPE_NAME])
 have_gnuefi=no
 AC_ARG_ENABLE(gnuefi, AS_HELP_STRING([--enable-gnuefi], [enable optional gnuefi support]))
 AS_IF([test "x$enable_gnuefi" != "xno"], [
-        AC_CHECK_HEADERS(efi/${EFI_ARCH}/efibind.h,
+        AC_ARG_WITH(efi-includedir,
+                AS_HELP_STRING([--with-efi-includedir=PATH], [path to EFI include directory]),
+                [EFI_INC_DIR="$withval"], [EFI_INC_DIR="/usr/include"]
+        )
+        AC_SUBST([EFI_INC_DIR])
+
+        AC_CHECK_HEADERS(${EFI_INC_DIR}/efi/${EFI_ARCH}/efibind.h,
                 [AC_DEFINE(HAVE_GNUEFI, 1, [Define if gnuefi is available])
                  have_gnuefi=yes],
                 [AS_IF([test "x$enable_gnuefi" = xyes],
@@ -1335,12 +1341,6 @@ AS_IF([test "x$enable_gnuefi" != "xno"], [
               [AS_IF([test "x$enable_gnuefi" = xyes],
                      [AC_MSG_ERROR([*** gnuefi support requested but files not found])],
                      [have_gnuefi=no])])
-
-        AC_ARG_WITH(efi-includedir,
-                AS_HELP_STRING([--with-efi-includedir=PATH], [path to EFI include directory]),
-                [EFI_INC_DIR="$withval"], [EFI_INC_DIR="/usr/include"]
-        )
-        AC_SUBST([EFI_INC_DIR])
 ])
 AM_CONDITIONAL(HAVE_GNUEFI, [test "x$have_gnuefi" = xyes])
 
