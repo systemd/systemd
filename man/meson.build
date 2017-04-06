@@ -6,7 +6,13 @@ subdir('rules')
 # TODO: add regeneration rule:
 # python3 tools/make-man-rules.py --meson man/*xml > man/rules/meson.build
 
-xsltproc = find_program('xsltproc')
+want_man = get_option('man')
+want_html = get_option('html')
+xsltproc = find_program('xsltproc',
+                        required : want_man == 'yes' or want_html == 'yes')
+want_man = want_man != 'no' and xsltproc.found()
+want_html = want_html != 'no' and xsltproc.found()
+
 xsltproc_flags = [
   '--nonet',
   '--xinclude',
@@ -19,13 +25,16 @@ xsltproc_flags = [
   '@0@:@1@'.format(meson.current_build_dir(), meson.current_source_dir())]
 
 custom_man_xsl = files('custom-man.xsl')
-custom_html_xsl = files('custom-man.xsl')
+custom_html_xsl = files('custom-html.xsl')
 
 custom_entities_ent = configure_file(
     input : 'custom-entities.ent.in',
     output : 'custom-entities.ent',
     configuration : conf)
 
+man_pages = []
+html_pages = []
+source_xml_files = []
 foreach tuple : manpages
   stem = tuple[0]
   section = tuple[1]
@@ -45,35 +54,36 @@ foreach tuple : manpages
 
   mandirn = get_option('mandir') + '/man' + section
 
-  install = condition == '' or conf.get(condition, 0) == 1
+  have = condition == '' or conf.get(condition, 0) == 1
 
-  custom_target(
-      man,
-      input : xml,
-      output : [man] + manaliases,
-      command : [xsltproc, '-o', '@OUTPUT0@'] + xsltproc_flags + [custom_man_xsl, '@INPUT@'],
-      depend_files : custom_entities_ent,
-      install : install,
-      install_dir : mandirn)
+  if have
+    p1 = custom_target(
+        man,
+        input : xml,
+        output : [man] + manaliases,
+        command : [xsltproc, '-o', '@OUTPUT0@'] + xsltproc_flags + [custom_man_xsl, '@INPUT@'],
+        depend_files : custom_entities_ent,
+        install : want_man,
+        install_dir : mandirn)
+    man_pages += [p1]
 
-  custom_target(
-      html,
-      input : xml,
-      output : [html] + htmlaliases,
-      command : [xsltproc, '-o', '@OUTPUT0@'] + xsltproc_flags + [custom_html_xsl, '@INPUT@'],
-      depend_files : custom_entities_ent)
+    p2 = custom_target(
+        html,
+        input : xml,
+        output : [html] + htmlaliases,
+        command : [xsltproc, '-o', '@OUTPUT0@'] + xsltproc_flags + [custom_html_xsl, '@INPUT@'],
+        depend_files : custom_entities_ent,
+        install : want_html,
+        install_dir : docdir + '/html')
+    html_pages += [p2]
 
-  if not install
-    message('Skipping @0@.@1@ because @2@ is @3@'.format(stem, section, condition, install))
+    source_xml_files += files(tuple[0] + '.xml')
+  else
+    message('Skipping @0@.@1@ because @2@ is @3@'.format(stem, section, condition, have))
   endif
 endforeach
 
 ############################################################
-
-source_xml_files = files()
-foreach tuple : manpages
-  source_xml_files += files(tuple[0] + '.xml')
-endforeach
 
 systemd_directives_xml = custom_target(
     'systemd.directives.xml',
@@ -99,17 +109,31 @@ foreach tuple : [['systemd.directives', '7', systemd_directives_xml],
 
   mandirn = get_option('mandir') + '/man' + section
 
-  custom_target(
+  p1 = custom_target(
       man,
       input : xml,
       output : man,
       command : [xsltproc, '-o', '@OUTPUT0@'] + xsltproc_flags + [custom_man_xsl, '@INPUT@'],
-      install : install,
+      install : want_man,
       install_dir : mandirn)
+  man_pages += [p1]
 
-  custom_target(
+  p2 = custom_target(
       html,
       input : xml,
       output : html,
-      command : [xsltproc, '-o', '@OUTPUT0@'] + xsltproc_flags + [custom_html_xsl, '@INPUT@'])
+      command : [xsltproc, '-o', '@OUTPUT0@'] + xsltproc_flags + [custom_html_xsl, '@INPUT@'],
+      install : want_html,
+      install_dir : docdir + '/html')
+  html_pages += [p2]
 endforeach
+
+custom_target('man',
+              depends : man_pages,
+              output : ['man'],
+              command : ['echo'])
+
+custom_target('html',
+              depends : html_pages,
+              output : ['html'],
+              command : ['echo'])

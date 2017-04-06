@@ -76,6 +76,11 @@ option('hwdb', type : 'boolean',
        description : 'support for the hardware database')
 option('rfkill', type : 'boolean',
        description : 'support for the rfkill tools')
+option('man', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'build and install man pages')
+option('html', type : 'combo', choices : ['auto', 'yes', 'no'],
+       value : 'no',
+       description : 'build and install html pages')
 
 option('certificate-root', type : 'string', value : '/etc/ssl',
        description : 'the prefix for TLS certificates')
