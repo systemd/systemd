@@ -399,6 +399,16 @@ AS_IF([test "x$enable_dbus" != "xno"], [
 AM_CONDITIONAL(HAVE_DBUS, [test "$have_dbus" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_glib=no
+AC_ARG_ENABLE(glib, AS_HELP_STRING([--disable-glib], [disable usage of glib,gobject,gio in tests]))
+AS_IF([test "x$enable_glib" != "xno"], [
+        PKG_CHECK_MODULES(GLIB, [glib-2.0 >= 2.22.0 gobject-2.0 >= 2.22.0 gio-2.0],
+                [AC_DEFINE(HAVE_GLIB, 1, [Define if glib,gobject,gio are available]) have_glib=yes],
+                [have_glib=no])
+        AS_IF([test "x$have_glib" = "xno" -a "x$enable_glib" = "xyes"],
+                [AC_MSG_ERROR([*** glib support requested but libraries not found])])])
+
+# ------------------------------------------------------------------------------
 have_utmp=yes
 AC_ARG_ENABLE([utmp], AS_HELP_STRING([--disable-utmp], [disable utmp/wtmp log handling]),
         AS_CASE("x${enableval}",
@@ -1741,6 +1751,7 @@ AC_MSG_RESULT([
         blkid:                             ${have_blkid}
         libmount:                          ${have_libmount}
         dbus:                              ${have_dbus}
+        glib:                              ${have_glib}
         nss-myhostname:                    ${have_myhostname}
         hwdb:                              ${enable_hwdb}
         tpm:                               ${have_tpm}
