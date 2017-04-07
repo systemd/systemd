@@ -28,7 +28,7 @@
 /TAGS
 /ata_id
 /bootctl
-/build-aux
+/build*
 /busctl
 /cdrom_id
 /collect
