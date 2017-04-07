@@ -31,3 +31,12 @@ nspawn_gperf_c = custom_target(
     command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 systemd_nspawn_sources += [nspawn_gperf_c]
+
+tests += [
+  [['src/nspawn/test-patch-uid.c',
+    'src/nspawn/nspawn-patch-uid.c',
+    'src/nspawn/nspawn-patch-uid.h'],
+    [libshared],
+    [libacl],
+    '', 'manual'],
+  ]

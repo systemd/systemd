@@ -189,8 +189,15 @@ option('xz', type : 'combo', choices : ['auto', 'yes', 'no'],
        description : 'xz compression support')
 option('lz4', type : 'combo', choices : ['auto', 'yes', 'no'],
        description : 'lz4 compression support')
+option('glib', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'libglib support (for tests only)')
+option('dbus', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'libdbus support (for tests only)')
 
 option('bashcompletiondir', type : 'string',
        description : 'directory for bash completion scripts ["no" disables]')
 option('zshcompletiondir', type : 'string',
        description : 'directory for zsh completion scripts ["no" disables]')
+
+option('tests', type : 'combo', choices : ['yes', 'unsafe'],
+       description : 'enable extra tests with =unsafe')

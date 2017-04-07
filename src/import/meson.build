@@ -68,3 +68,12 @@ if conf.get('ENABLE_IMPORTD', 0) == 1
                install_dir : rootlibexecdir)
   # TODO: shouldn't this be in pkgdatadir?
 endif
+
+tests += [
+  [['src/import/test-qcow2.c',
+    'src/import/qcow2-util.c',
+    'src/import/qcow2-util.h'],
+   [libshared],
+   [libz],
+   'HAVE_ZLIB', 'manual'],
+  ]

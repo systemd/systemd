@@ -37,3 +37,11 @@ if conf.get('ENABLE_MACHINED', 0) == 1
     install : true,
     install_dir : polkitpolicydir)
 endif
+
+tests += [
+  [['src/machine/test-machine-tables.c'],
+   [libmachine_core,
+    libshared],
+   [],
+   'ENABLE_MACHINED'],
+  ]

@@ -73,6 +73,8 @@ systemd_networkd_wait_online_sources = files('''
 
 networkctl_sources = files('networkctl.c')
 
+network_include_dir = include_directories('.')
+
 if conf.get('ENABLE_NETWORKD', 0) == 1
   networkd_gperf_c = custom_target(
       'networkd-gperf.c',
@@ -109,3 +111,29 @@ if conf.get('ENABLE_NETWORKD', 0) == 1
   install_data('systemd-networkd.rules',
                install_dir : polkitrulesdir)
 endif
+
+tests += [
+  [['src/network/test-networkd-conf.c'],
+   [libnetworkd_core,
+    libsystemd_network],
+   []],
+
+  [['src/network/test-network.c'],
+   [libnetworkd_core,
+    libudev_internal,
+    libsystemd_network,
+    libfirewall],
+   [libiptc]],
+
+  [['src/network/test-network-tables.c',
+    'src/network/test-network-tables.c',
+    test_tables_h],
+   [libnetworkd_core,
+    libudev_internal,
+    libudev_core,
+    libsystemd_network,
+    libfirewall],
+   [],
+   '', '', [],
+   [network_include_dir] + libudev_core_includes],
+  ]

@@ -89,7 +89,6 @@ shared_sources = '''
   sysctl-util.h
   tests.c
   tests.h
-  test-tables.h
   udev-util.h
   uid-range.c
   uid-range.h
@@ -101,6 +100,9 @@ shared_sources = '''
   watchdog.c
   watchdog.h
 '''.split()
+
+test_tables_h = files('test-tables.h')
+shared_sources += [test_tables_h]
 
 if conf.get('HAVE_ACL', 0) == 1
   shared_sources += ['acl-util.c']

@@ -92,12 +92,13 @@ link_config_gperf_c = custom_target(
 
 ############################################################
 
+libudev_core_includes = [includes, include_directories('net')]
 libudev_core = static_library(
     'udev-core',
     libudev_core_sources,
     link_config_gperf_c,
     keyboard_keys_from_name_h,
-    include_directories : [includes, include_directories('net')],
+    include_directories : libudev_core_includes,
     link_with : [libshared])
 
 executable('ata_id',

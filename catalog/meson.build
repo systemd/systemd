@@ -16,6 +16,7 @@ in_files = '''
 
 support_url = get_option('support-url')
 support_sed = 's~%SUPPORT_URL%~@0@~'.format(support_url)
+build_catalog_dir = meson.current_build_dir()
 
 foreach file : in_files
   custom_target(

@@ -143,3 +143,37 @@ endif
 
 install_data('resolv.conf',
              install_dir : rootlibexecdir)
+
+tests += [
+  [['src/resolve/test-resolve-tables.c',
+    basic_dns_sources,
+    dns_type_headers,
+    'src/shared/test-tables.h'],
+   [libshared],
+   [libgcrypt,
+    libm],
+   'ENABLE_RESOLVED'],
+
+  [['src/resolve/test-dns-packet.c',
+    basic_dns_sources,
+    dns_type_headers],
+   [libshared],
+   [libgcrypt,
+    libm],
+   'ENABLE_RESOLVED'],
+
+  [['src/resolve/test-dnssec.c',
+    basic_dns_sources,
+    dns_type_headers],
+   [libshared],
+   [libgcrypt,
+    libm],
+   'ENABLE_RESOLVED'],
+
+  [['src/resolve/test-dnssec-complex.c',
+    'src/resolve/dns-type.c',
+    dns_type_headers],
+   [libshared],
+   [],
+   'ENABLE_RESOLVED', 'manual'],
+  ]

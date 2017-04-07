@@ -789,6 +789,37 @@ if libacl.found()
   m4_defines += ['-DHAVE_ACL']
 endif
 
+want_glib = get_option('glib')
+if want_glib != 'no'
+  libglib =    dependency('glib-2.0',
+                          version : '>= 2.22.0',
+                          required : want_glib == 'yes')
+  libgobject = dependency('gobject-2.0',
+                          version : '>= 2.22.0',
+                          required : want_glib == 'yes')
+  libgio =     dependency('gio-2.0',
+                          required : want_glib == 'yes')
+  if libglib.found() and libgobject.found() and libgio.found()
+    conf.set('HAVE_GLIB', 1)
+  endif
+else
+  libglib = []
+  libgobject = []
+  libgio = []
+endif
+
+want_dbus = get_option('dbus')
+if want_dbus != 'no'
+  libdbus = dependency('dbus-1',
+                       version : '>= 1.3.2',
+                       required : want_dbus == 'yes')
+  if libdbus.found()
+    conf.set('HAVE_DBUS', 1)
+  endif
+else
+  libdbus = []
+endif
+
 want_libgcrypt = get_option('libgcrypt')
 if want_libgcrypt != 'no'
   libgcrypt = cc.find_library('gcrypt', required : want_libgcrypt == 'yes')
@@ -860,6 +891,9 @@ foreach pair : [['utmp',          'HAVE_UTMP'],
   endif
 endforeach
 
+want_tests = get_option('tests')
+tests = []
+
 #####################################################################
 
 if get_option('efi')
@@ -914,21 +948,8 @@ subdir('src/systemd')
 subdir('src/basic')
 subdir('src/libsystemd')
 subdir('src/libsystemd-network')
-subdir('src/analyze')
-subdir('src/coredump')
-subdir('src/hostname')
-subdir('src/import')
 subdir('src/journal')
-subdir('src/journal-remote')
-subdir('src/kernel-install')
-subdir('src/locale')
 subdir('src/login')
-subdir('src/machine')
-subdir('src/nspawn')
-subdir('src/resolve')
-subdir('src/timedate')
-subdir('src/timesync')
-subdir('src/vconsole')
 
 libjournal_core = static_library(
     'journal-core',
@@ -992,6 +1013,22 @@ subdir('src/shared')
 subdir('src/core')
 subdir('src/udev')
 subdir('src/network')
+
+subdir('src/analyze')
+subdir('src/journal-remote')
+subdir('src/coredump')
+subdir('src/hostname')
+subdir('src/import')
+subdir('src/kernel-install')
+subdir('src/locale')
+subdir('src/machine')
+subdir('src/nspawn')
+subdir('src/resolve')
+subdir('src/timedate')
+subdir('src/timesync')
+subdir('src/vconsole')
+
+subdir('src/test')
 
 executable('systemd',
            systemd_sources,
@@ -1819,8 +1856,40 @@ executable('networkctl',
            install : true,
            install_dir : rootbindir)
 
-executable('test-sizeof', 'src/test/test-sizeof.c',
-           include_directories : includes)
+############################################################
+
+foreach tuple : tests
+  sources = tuple[0]
+  link_with = tuple[1].length() > 0 ? tuple[1] : [libshared]
+  dependencies = tuple[2]
+  condition = tuple.length() >= 4 ? tuple[3] : ''
+  type = tuple.length() >= 5 ? tuple[4] : ''
+  defs = tuple.length() >= 6 ? tuple[5] : []
+  incs = tuple.length() >= 7 ? tuple[6] : includes
+
+  name = sources[0].split('/')[-1].split('.')[0]
+
+  if condition == '' or conf.get(condition, 0) == 1
+    exe = executable(
+        name,
+        sources,
+        include_directories : incs,
+        link_with : link_with,
+        dependencies : dependencies,
+        c_args : defs)
+    if type == 'manual'
+      message('@0@ is a manual test'.format(name))
+    elif type == 'unsafe' and want_tests != 'unsafe'
+      message('@0@ is an unsafe test'.format(name))
+    else
+      test(name, exe, env : test_env)
+    endif
+  else
+    message('Not compiling @0@ because @1@ is not true'.format(name, condition))
+  endif
+endforeach
+
+############################################################
 
 make_directive_index_py = find_program('tools/make-directive-index.py')
 make_man_index_py = find_program('tools/make-man-index.py')

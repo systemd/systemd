@@ -15,3 +15,12 @@ coredumpctl_sources = files('coredumpctl.c')
 
 install_data('coredump.conf',
              install_dir : pkgsysconfdir)
+
+tests += [
+  [['src/coredump/test-coredump-vacuum.c',
+    'src/coredump/coredump-vacuum.c',
+    'src/coredump/coredump-vacuum.h'],
+   [],
+   [],
+   'ENABLE_COREDUMP', 'manual'],
+  ]
