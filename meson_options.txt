@@ -201,3 +201,5 @@ option('zshcompletiondir', type : 'string',
 
 option('tests', type : 'combo', choices : ['yes', 'unsafe'],
        description : 'enable extra tests with =unsafe')
+option('install-tests', type : 'boolean', value : 'false',
+       description : 'install test executables')

@@ -892,6 +892,7 @@ foreach pair : [['utmp',          'HAVE_UTMP'],
 endforeach
 
 want_tests = get_option('tests')
+install_tests = get_option('install-tests')
 tests = []
 
 #####################################################################
@@ -1870,13 +1871,18 @@ foreach tuple : tests
   name = sources[0].split('/')[-1].split('.')[0]
 
   if condition == '' or conf.get(condition, 0) == 1
+    install = install_tests and type == ''
+
     exe = executable(
         name,
         sources,
         include_directories : incs,
         link_with : link_with,
         dependencies : dependencies,
-        c_args : defs)
+        c_args : defs,
+        install : install,
+        install_dir : testsdir)
+
     if type == 'manual'
       message('@0@ is a manual test'.format(name))
     elif type == 'unsafe' and want_tests != 'unsafe'
