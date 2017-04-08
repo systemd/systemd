@@ -17,6 +17,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 #include "sd-id128.h"
 
 #include "alloc-util.h"
@@ -34,6 +38,7 @@
 #include "strv.h"
 #include "virt.h"
 #include "util.h"
+#include "user-util.h"
 
 static void test_condition_test_path(void) {
         Condition *condition;
@@ -323,6 +328,140 @@ static void test_condition_test_virtualization(void) {
         }
 }
 
+static void test_condition_test_user(void) {
+        Condition *condition;
+        char* uid;
+        char* username;
+        int r;
+
+        condition = condition_new(CONDITION_USER, "garbage oifdsjfoidsjoj", false, false);
+        assert_se(condition);
+        r = condition_test(condition);
+        log_info("ConditionUser=garbage → %i", r);
+        assert_se(r == 0);
+        condition_free(condition);
+
+        assert_se(asprintf(&uid, "%"PRIu32, UINT32_C(0xFFFF)) > 0);
+        condition = condition_new(CONDITION_USER, uid, false, false);
+        assert_se(condition);
+        r = condition_test(condition);
+        log_info("ConditionUser=%s → %i", uid, r);
+        assert_se(r == 0);
+        condition_free(condition);
+        free(uid);
+
+        assert_se(asprintf(&uid, "%u", (unsigned)getuid()) > 0);
+        condition = condition_new(CONDITION_USER, uid, false, false);
+        assert_se(condition);
+        r = condition_test(condition);
+        log_info("ConditionUser=%s → %i", uid, r);
+        assert_se(r > 0);
+        condition_free(condition);
+        free(uid);
+
+        assert_se(asprintf(&uid, "%u", (unsigned)getuid()+1) > 0);
+        condition = condition_new(CONDITION_USER, uid, false, false);
+        assert_se(condition);
+        r = condition_test(condition);
+        log_info("ConditionUser=%s → %i", uid, r);
+        assert_se(r == 0);
+        condition_free(condition);
+        free(uid);
+
+        username = getusername_malloc();
+        assert_se(username);
+        condition = condition_new(CONDITION_USER, username, false, false);
+        assert_se(condition);
+        r = condition_test(condition);
+        log_info("ConditionUser=%s → %i", username, r);
+        assert_se(r > 0);
+        condition_free(condition);
+        free(username);
+
+        username = (char*)(geteuid() == 0 ? NOBODY_USER_NAME : "root");
+        condition = condition_new(CONDITION_USER, username, false, false);
+        assert_se(condition);
+        r = condition_test(condition);
+        log_info("ConditionUser=%s → %i", username, r);
+        assert_se(r == 0);
+        condition_free(condition);
+}
+
+static void test_condition_test_group(void) {
+        Condition *condition;
+        char* gid;
+        char* groupname;
+        gid_t *gids, max_gid;
+        int ngroups_max, r, i;
+
+        assert_se(0 < asprintf(&gid, "%u", UINT32_C(0xFFFF)));
+        condition = condition_new(CONDITION_GROUP, gid, false, false);
+        assert_se(condition);
+        r = condition_test(condition);
+        log_info("ConditionGroup=%s → %i", gid, r);
+        assert_se(r == 0);
+        condition_free(condition);
+        free(gid);
+
+        assert_se(0 < asprintf(&gid, "%u", getgid()));
+        condition = condition_new(CONDITION_GROUP, gid, false, false);
+        assert_se(condition);
+        r = condition_test(condition);
+        log_info("ConditionGroup=%s → %i", gid, r);
+        assert_se(r > 0);
+        condition_free(condition);
+        free(gid);
+
+        ngroups_max = sysconf(_SC_NGROUPS_MAX);
+        assert(ngroups_max > 0);
+
+        gids = alloca(sizeof(gid_t) * ngroups_max);
+
+        r = getgroups(ngroups_max, gids);
+        assert(r >= 0);
+
+        max_gid = getgid();
+        for (i = 0; i < r; i++) {
+                assert_se(0 < asprintf(&gid, "%u", gids[i]));
+                condition = condition_new(CONDITION_GROUP, gid, false, false);
+                assert_se(condition);
+                r = condition_test(condition);
+                log_info("ConditionGroup=%s → %i", gid, r);
+                assert_se(r > 0);
+                condition_free(condition);
+                free(gid);
+                max_gid = gids[i] > max_gid ? gids[i] : max_gid;
+
+                groupname = gid_to_name(gids[i]);
+                assert_se(groupname);
+                condition = condition_new(CONDITION_GROUP, groupname, false, false);
+                assert_se(condition);
+                r = condition_test(condition);
+                log_info("ConditionGroup=%s → %i", groupname, r);
+                assert_se(r > 0);
+                condition_free(condition);
+                free(groupname);
+                max_gid = gids[i] > max_gid ? gids[i] : max_gid;
+        }
+
+        assert_se(0 < asprintf(&gid, "%u", max_gid+1));
+        condition = condition_new(CONDITION_GROUP, gid, false, false);
+        assert_se(condition);
+        r = condition_test(condition);
+        log_info("ConditionGroup=%s → %i", gid, r);
+        assert_se(r == 0);
+        condition_free(condition);
+        free(gid);
+
+        groupname = (char*)(geteuid() == 0 ? NOBODY_GROUP_NAME : "root");
+        condition = condition_new(CONDITION_GROUP, groupname, false, false);
+        assert_se(condition);
+        r = condition_test(condition);
+        log_info("ConditionGroup=%s → %i", groupname, r);
+        assert_se(r == 0);
+        condition_free(condition);
+}
+
 int main(int argc, char *argv[]) {
         log_set_max_level(LOG_DEBUG);
         log_parse_environment();
@@ -336,6 +475,8 @@ int main(int argc, char *argv[]) {
         test_condition_test_null();
         test_condition_test_security();
         test_condition_test_virtualization();
+        test_condition_test_user();
+        test_condition_test_group();
 
         return 0;
 }

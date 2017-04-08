@@ -221,6 +221,8 @@ Unit.ConditionSecurity,          config_parse_unit_condition_string, CONDITION_S
 Unit.ConditionCapability,        config_parse_unit_condition_string, CONDITION_CAPABILITY,          offsetof(Unit, conditions)
 Unit.ConditionHost,              config_parse_unit_condition_string, CONDITION_HOST,                offsetof(Unit, conditions)
 Unit.ConditionACPower,           config_parse_unit_condition_string, CONDITION_AC_POWER,            offsetof(Unit, conditions)
+Unit.ConditionUser,              config_parse_unit_condition_string, CONDITION_USER,                offsetof(Unit, conditions)
+Unit.ConditionGroup,             config_parse_unit_condition_string, CONDITION_GROUP,               offsetof(Unit, conditions)
 Unit.ConditionNull,              config_parse_unit_condition_null,   0,                             offsetof(Unit, conditions)
 Unit.AssertPathExists,           config_parse_unit_condition_path,   CONDITION_PATH_EXISTS,         offsetof(Unit, asserts)
 Unit.AssertPathExistsGlob,       config_parse_unit_condition_path,   CONDITION_PATH_EXISTS_GLOB,    offsetof(Unit, asserts)
@@ -240,6 +242,8 @@ Unit.AssertSecurity,             config_parse_unit_condition_string, CONDITION_S
 Unit.AssertCapability,           config_parse_unit_condition_string, CONDITION_CAPABILITY,          offsetof(Unit, asserts)
 Unit.AssertHost,                 config_parse_unit_condition_string, CONDITION_HOST,                offsetof(Unit, asserts)
 Unit.AssertACPower,              config_parse_unit_condition_string, CONDITION_AC_POWER,            offsetof(Unit, asserts)
+Unit.AssertUser,                 config_parse_unit_condition_string, CONDITION_USER,                offsetof(Unit, asserts)
+Unit.AssertGroup,                config_parse_unit_condition_string, CONDITION_GROUP,               offsetof(Unit, asserts)
 Unit.AssertNull,                 config_parse_unit_condition_null,   0,                             offsetof(Unit, asserts)
 m4_dnl
 Service.PIDFile,                 config_parse_unit_path_printf,      0,                             offsetof(Service, pid_file)
