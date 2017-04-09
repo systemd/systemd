@@ -65,7 +65,7 @@ if conf.get('ENABLE_LOGIND', 0) == 1
   install_data(logind_conf,
                install_dir : pkgsysconfdir)
 
-  pam_systemd_sym = meson.current_source_dir() + '/pam_systemd.sym'
+  pam_systemd_sym = 'src/login/pam_systemd.sym'
   pam_systemd_c = files('pam_systemd.c')
 
   install_data('org.freedesktop.login1.conf',

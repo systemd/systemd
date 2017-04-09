@@ -962,17 +962,19 @@ libjournal_core = static_library(
                  libsystemd_journal_internal],
     install : false)
 
+version_script_arg = '@0@/@1@'.format(meson.current_source_dir(), libsystemd_sym)
 libsystemd = shared_library(
     'systemd',
     libsystemd_internal_sources,
     version : '0.18.0',
     include_directories : includes,
     link_args : ['-shared',
-                 '-Wl,--version-script=' + libsystemd_sym],
+                 '-Wl,--version-script=' + version_script_arg],
     link_with : [libbasic,
                  libsystemd_internal,
                  libsystemd_journal_internal],
     dependencies : [threads],
+    link_depends : libsystemd_sym,
     install : true,
     install_dir : rootlibdir)
 
@@ -988,7 +990,8 @@ foreach tuple : [['myhostname', 'HAVE_MYHOSTNAME', []],
     module = tuple[0]
     extra_deps = tuple[2]
 
-    sym = meson.current_source_dir() + '/src/nss-@0@/nss-@0@.sym'.format(module)
+    sym = 'src/nss-@0@/nss-@0@.sym'.format(module)
+    version_script_arg = join_paths(meson.current_source_dir(), sym)
 
     shared_library(
       'nss_' + module,
@@ -996,12 +999,13 @@ foreach tuple : [['myhostname', 'HAVE_MYHOSTNAME', []],
       version : '2',
       include_directories : includes,
       link_args : ['-shared',
-                   '-Wl,--version-script=' + sym,
+                   '-Wl,--version-script=' + version_script_arg,
                    '-Wl,--undefined'],
       link_with : [libsystemd_internal,
                    libbasic],
       dependencies : [threads,
                       librt] + extra_deps,
+      link_depends : sym,
       install : true,
       install_dir : rootlibdir)
   endif
@@ -1207,16 +1211,18 @@ if conf.get('ENABLE_LOGIND', 0) == 1
              install_dir : rootbindir)
 
   if conf.get('HAVE_PAM', 0) == 1
+    version_script_arg = join_paths(meson.current_source_dir(), pam_systemd_sym)
     shared_library(
       'pam_systemd',
       pam_systemd_c,
       name_prefix : '',
       include_directories : includes,
       link_args : ['-shared',
-                   '-Wl,--version-script=' + pam_systemd_sym],
+                   '-Wl,--version-script=' + version_script_arg],
       link_with : [libshared],
       dependencies : [libpam,
                       libpam_misc],
+      link_depends : pam_systemd_sym,
       install : true,
       install_dir : pamlibdir)
   endif

@@ -16,17 +16,19 @@ libudev_sources = '''
 
 ############################################################
 
-libudev_sym = meson.current_source_dir() + '/libudev.sym'
+libudev_sym = 'libudev.sym'
 
+version_script_arg = '@0@/@1@'.format(meson.current_source_dir(), libudev_sym)
 libudev = shared_library(
     'udev',
     libudev_sources,
     version : '1.6.6',
     include_directories : includes,
     link_args : ['-shared',
-                 '-Wl,--version-script=' + libudev_sym],
+                 '-Wl,--version-script=' + version_script_arg],
     link_with : [libbasic,
                  libsystemd],
+    link_depends : libudev_sym,
     install : true,
     install_dir : rootlibdir)
 

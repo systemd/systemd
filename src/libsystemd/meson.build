@@ -88,7 +88,7 @@ libsystemd_internal = static_library(
     dependencies : [threads,
                     librt])
 
-libsystemd_sym = meson.current_source_dir() + '/libsystemd.sym'
+libsystemd_sym = 'src/libsystemd/libsystemd.sym'
 
 libsystemd_pc = configure_file(
     input : 'libsystemd.pc.in',
