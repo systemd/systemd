@@ -1044,7 +1044,8 @@ executable('systemd',
                            librt,
                            libseccomp,
                            libselinux,
-                           libmount],
+                           libmount,
+                           libblkid],
            install : true,
            install_dir : rootlibexecdir)
 
@@ -1057,7 +1058,8 @@ executable('systemd-analyze',
                            librt,
                            libseccomp,
                            libselinux,
-                           libmount],
+                           libmount,
+                           libblkid],
            install : true)
 
 executable('systemd-journald',

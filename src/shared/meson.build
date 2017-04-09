@@ -144,6 +144,24 @@ libshared = shared_library(
     install : true,
     install_dir : rootlibexecdir)
 
+libshared_static = static_library(
+    libshared_name,
+    shared_sources,
+    basic_sources,
+    include_directories : includes,
+    dependencies : [threads,
+                    librt,
+                    libcap,
+                    libacl,
+                    libcryptsetup,
+                    libiptc,
+                    libseccomp,
+                    libselinux,
+                    libidn,
+                    libxz,
+                    liblz4,
+                    libblkid])
+
 if conf.get('HAVE_LIBIPTC', 0) == 1
   libfirewall = static_library(
       'firewall',

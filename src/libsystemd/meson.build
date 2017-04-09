@@ -129,10 +129,6 @@ tests += [
    [],
    [threads]],
 
-  [['src/libsystemd/sd-bus/test-bus-error.c'],
-   [],
-   []],
-
   [['src/libsystemd/sd-bus/test-bus-gvariant.c'],
    [],
    [libglib,
