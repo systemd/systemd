@@ -199,6 +199,7 @@ substs.set('systemenvgeneratordir',                           systemenvgenerator
 substs.set('userenvgeneratordir',                             userenvgeneratordir)
 substs.set('systemshutdowndir',                               systemshutdowndir)
 substs.set('systemsleepdir',                                  systemsleepdir)
+substs.set('SYSTEMCTL',                                       rootbindir + '/systemctl')
 
 #####################################################################
 
@@ -412,6 +413,7 @@ foreach prog : progs
   endif
   name = prog.length() > 2 ? prog[2] : prog[0].to_upper()
   conf.set_quoted(name, path)
+  substs.set(name, path)
 endforeach
 
 # TODO: add ln --relative check
@@ -1041,6 +1043,7 @@ subdir('src/resolve')
 subdir('src/timedate')
 subdir('src/timesync')
 subdir('src/vconsole')
+subdir('src/sulogin-shell')
 
 subdir('src/test')
 
