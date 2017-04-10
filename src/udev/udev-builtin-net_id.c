@@ -34,7 +34,8 @@
  *
  * Type of names:
  *   b<number>                             — BCMA bus core number
- *   c<bus_id>                             — CCW bus group name, without leading zeros [s390]
+ *   c<bus_id>                             — bus id of a grouped CCW or CCW device,
+ *                                           with all leading zeros stripped [s390]
  *   o<index>[n<phys_port_name>|d<dev_port>]
  *                                         — on-board device index number
  *   s<slot>[f<function>][n<phys_port_name>|d<dev_port>]
@@ -44,6 +45,7 @@
  *                                         — PCI geographical location
  *   [P<domain>]p<bus>s<slot>[f<function>][u<port>][..][c<config>][i<interface>]
  *                                         — USB port number chain
+ *   v<slot>                               - VIO slot number (IBM PowerVM)
  *
  * All multi-function PCI devices will carry the [f<function>] number in the
  * device name, including the function 0 device.
@@ -87,6 +89,11 @@
  *   /sys/devices/pci0000:00/0000:00:1d.0/usb2/2-1/2-1.2/2-1.2:1.0/net/enp0s29u1u2
  *   ID_NET_NAME_MAC=enxd626b3450fb5
  *   ID_NET_NAME_PATH=enp0s29u1u2
+ *
+ * s390 grouped CCW interface:
+ *  /sys/devices/css0/0.0.0007/0.0.f5f0/group_device/net/encf5f0
+ *  ID_NET_NAME_MAC=enx026d3c00000a
+ *  ID_NET_NAME_PATH=encf5f0
  */
 
 #include <errno.h>
@@ -115,7 +122,8 @@ enum netname_type{
         NET_USB,
         NET_BCMA,
         NET_VIRTIO,
-        NET_CCWGROUP,
+        NET_CCW,
+        NET_VIO,
 };
 
 struct netnames {
@@ -132,8 +140,21 @@ struct netnames {
 
         char usb_ports[IFNAMSIZ];
         char bcma_core[IFNAMSIZ];
-        char ccw_group[IFNAMSIZ];
+        char ccw_busid[IFNAMSIZ];
+        char vio_slot[IFNAMSIZ];
 };
+
+/* skip intermediate virtio devices */
+static struct udev_device *skip_virtio(struct udev_device *dev) {
+        struct udev_device *parent = dev;
+
+        /* there can only ever be one virtio bus per parent device, so we can
+           safely ignore any virtio buses. see
+           <http://lists.linuxfoundation.org/pipermail/virtualization/2015-August/030331.html> */
+        while (parent && streq_ptr("virtio", udev_device_get_subsystem(parent)))
+                parent = udev_device_get_parent(parent);
+        return parent;
+}
 
 /* retrieve on-board index number and label from firmware */
 static int dev_pci_onboard(struct udev_device *dev, struct netnames *names) {
@@ -301,6 +322,33 @@ out:
         return err;
 }
 
+static int names_vio(struct udev_device *dev, struct netnames *names) {
+        struct udev_device *parent;
+        unsigned busid, slotid, ethid;
+        const char *syspath;
+
+        /* check if our direct parent is a VIO device with no other bus in-between */
+        parent = udev_device_get_parent(dev);
+        if (!parent)
+                return -ENOENT;
+
+        if (!streq_ptr("vio", udev_device_get_subsystem(parent)))
+                 return -ENOENT;
+
+        /* The devices' $DEVPATH number is tied to (virtual) hardware (slot id
+         * selected in the HMC), thus this provides a reliable naming (e.g.
+         * "/devices/vio/30000002/net/eth1"); we ignore the bus number, as
+         * there should only ever be one bus, and then remove leading zeros. */
+        syspath = udev_device_get_syspath(dev);
+
+        if (sscanf(syspath, "/sys/devices/vio/%4x%4x/net/eth%u", &busid, &slotid, &ethid) != 3)
+                return -EINVAL;
+
+        xsprintf(names->vio_slot, "v%u", slotid);
+        names->type = NET_VIO;
+        return 0;
+}
+
 static int names_pci(struct udev_device *dev, struct netnames *names) {
         struct udev_device *parent;
 
@@ -308,12 +356,8 @@ static int names_pci(struct udev_device *dev, struct netnames *names) {
         assert(names);
 
         parent = udev_device_get_parent(dev);
-
-        /* there can only ever be one virtio bus per parent device, so we can
-           safely ignore any virtio buses. see
-           <http://lists.linuxfoundation.org/pipermail/virtualization/2015-August/030331.html> */
-        while (parent && streq_ptr("virtio", udev_device_get_subsystem(parent)))
-                parent = udev_device_get_parent(parent);
+        /* skip virtio subsystem if present */
+        parent = skip_virtio(parent);
 
         if (!parent)
                 return -ENOENT;
@@ -412,8 +456,9 @@ static int names_bcma(struct udev_device *dev, struct netnames *names) {
 
 static int names_ccw(struct  udev_device *dev, struct netnames *names) {
         struct udev_device *cdev;
-        const char *bus_id;
+        const char *bus_id, *subsys;
         size_t bus_id_len;
+        size_t bus_id_start;
         int rc;
 
         assert(dev);
@@ -421,14 +466,17 @@ static int names_ccw(struct  udev_device *dev, struct netnames *names) {
 
         /* Retrieve the associated CCW device */
         cdev = udev_device_get_parent(dev);
+        /* skip virtio subsystem if present */
+        cdev = skip_virtio(cdev);
         if (!cdev)
                 return -ENOENT;
 
-        /* Network devices are always grouped CCW devices */
-        if (!streq_ptr("ccwgroup", udev_device_get_subsystem(cdev)))
+        /* Network devices are either single or grouped CCW devices */
+        subsys = udev_device_get_subsystem(cdev);
+        if (!STRPTR_IN_SET(subsys, "ccwgroup", "ccw"))
                 return -ENOENT;
 
-        /* Retrieve bus-ID of the grouped CCW device.  The bus-ID uniquely
+        /* Retrieve bus-ID of the CCW device.  The bus-ID uniquely
          * identifies the network device on the Linux on System z channel
          * subsystem.  Note that the bus-ID contains lowercase characters.
          */
@@ -447,14 +495,15 @@ static int names_ccw(struct  udev_device *dev, struct netnames *names) {
         /* Strip leading zeros from the bus id for aesthetic purposes. This
          * keeps the ccw names stable, yet much shorter in general case of
          * bus_id 0.0.0600 -> 600. This is similar to e.g. how PCI domain is
-         * not prepended when it is zero.
+         * not prepended when it is zero. Preserve the last 0 for 0.0.0000.
          */
-        bus_id += strspn(bus_id, ".0");
+        bus_id_start = strspn(bus_id, ".0");
+        bus_id += bus_id_start < bus_id_len ? bus_id_start : bus_id_len - 1;
 
         /* Store the CCW bus-ID for use as network device name */
-        rc = snprintf(names->ccw_group, sizeof(names->ccw_group), "c%s", bus_id);
-        if (rc >= 0 && rc < (int)sizeof(names->ccw_group))
-                names->type = NET_CCWGROUP;
+        rc = snprintf(names->ccw_busid, sizeof(names->ccw_busid), "c%s", bus_id);
+        if (rc >= 0 && rc < (int)sizeof(names->ccw_busid))
+                names->type = NET_CCW;
         return 0;
 }
 
@@ -564,11 +613,21 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
 
         /* get path names for Linux on System z network devices */
         err = names_ccw(dev, &names);
-        if (err >= 0 && names.type == NET_CCWGROUP) {
+        if (err >= 0 && names.type == NET_CCW) {
                 char str[IFNAMSIZ];
 
-                if (snprintf(str, sizeof(str), "%s%s", prefix, names.ccw_group) < (int)sizeof(str))
+                if (snprintf(str, sizeof(str), "%s%s", prefix, names.ccw_busid) < (int)sizeof(str))
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
+                goto out;
+        }
+
+        /* get ibmveth/ibmvnic slot-based names. */
+        err = names_vio(dev, &names);
+        if (err >= 0 && names.type == NET_VIO) {
+                char str[IFNAMSIZ];
+
+                if (snprintf(str, sizeof(str), "%s%s", prefix, names.vio_slot) < (int)sizeof(str))
+                        udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
                 goto out;
         }
 

@@ -19,7 +19,7 @@
 # Croatian translation
 
 # Format kataloga je dokumentiran na
-# http://www.freedesktop.org/wiki/Software/systemd/catalog
+# https://www.freedesktop.org/wiki/Software/systemd/catalog
 
 # Za pojašnjenje zašto ovo radimo, posjetite https://xkcd.com/1024/
 
@@ -93,7 +93,7 @@ trebalo bi se prijaviti razvijatelju kao greška.
 Subject: Nova sesija @SESSION_ID@ je stvorena za korisnika @USER_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Nova sesija sa ID @SESSION_ID@ je stvorena za korisnika @USER_ID@.
 
@@ -103,7 +103,7 @@ Glavni proces sesije je @LEADER@.
 Subject: Sesija @SESSION_ID@ je prekinuta
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Sesija sa ID @SESSION_ID@ je prekinuta.
 
@@ -111,7 +111,7 @@ Sesija sa ID @SESSION_ID@ je prekinuta.
 Subject: Novo sjedište @SEAT_ID@ je sada dostupno
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Novo sjedište @SEAT_ID@ je podešeno i sada je dostupno.
 
@@ -119,7 +119,7 @@ Novo sjedište @SEAT_ID@ je podešeno i sada je dostupno.
 Subject: Sjedište @SEAT_ID@ je sada uklonjeno
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Sjedište @SEAT_ID@ je uklonjeno i više nije dostupno.
 

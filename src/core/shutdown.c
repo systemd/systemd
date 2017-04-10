@@ -32,6 +32,7 @@
 #include "alloc-util.h"
 #include "cgroup-util.h"
 #include "def.h"
+#include "exec-util.h"
 #include "fileio.h"
 #include "killall.h"
 #include "log.h"
@@ -321,7 +322,7 @@ int main(int argc, char *argv[]) {
         arguments[0] = NULL;
         arguments[1] = arg_verb;
         arguments[2] = NULL;
-        execute_directories(dirs, DEFAULT_TIMEOUT_USEC, arguments);
+        execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments);
 
         if (!in_container && !in_initrd() &&
             access("/run/initramfs/shutdown", X_OK) == 0) {

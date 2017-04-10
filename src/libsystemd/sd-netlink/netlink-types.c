@@ -149,7 +149,7 @@ static const NLType rtnl_link_info_data_vxlan_types[] = {
         [IFLA_VXLAN_ID]                = { .type = NETLINK_TYPE_U32 },
         [IFLA_VXLAN_GROUP]             = { .type = NETLINK_TYPE_IN_ADDR },
         [IFLA_VXLAN_LINK]              = { .type = NETLINK_TYPE_U32 },
-        [IFLA_VXLAN_LOCAL]             = { .type = NETLINK_TYPE_U32},
+        [IFLA_VXLAN_LOCAL]             = { .type = NETLINK_TYPE_IN_ADDR },
         [IFLA_VXLAN_TTL]               = { .type = NETLINK_TYPE_U8 },
         [IFLA_VXLAN_TOS]               = { .type = NETLINK_TYPE_U8 },
         [IFLA_VXLAN_LEARNING]          = { .type = NETLINK_TYPE_U8 },
@@ -170,6 +170,9 @@ static const NLType rtnl_link_info_data_vxlan_types[] = {
         [IFLA_VXLAN_REMCSUM_RX]        = { .type = NETLINK_TYPE_U8 },
         [IFLA_VXLAN_GBP]               = { .type = NETLINK_TYPE_FLAG },
         [IFLA_VXLAN_REMCSUM_NOPARTIAL] = { .type = NETLINK_TYPE_FLAG },
+        [IFLA_VXLAN_COLLECT_METADATA]  = { .type = NETLINK_TYPE_U8 },
+        [IFLA_VXLAN_LABEL]             = { .type = NETLINK_TYPE_U32 },
+        [IFLA_VXLAN_GPE]               = { .type = NETLINK_TYPE_FLAG },
 };
 
 static const NLType rtnl_bond_arp_target_types[] = {

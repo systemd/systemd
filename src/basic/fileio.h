@@ -48,6 +48,8 @@ int parse_env_file(const char *fname, const char *separator, ...) _sentinel_;
 int load_env_file(FILE *f, const char *fname, const char *separator, char ***l);
 int load_env_file_pairs(FILE *f, const char *fname, const char *separator, char ***l);
 
+int merge_env_file(char ***env, FILE *f, const char *fname);
+
 int write_env_file(const char *fname, char **l);
 
 int executable_is_script(const char *path, char **interpreter);
@@ -84,6 +86,7 @@ int fputs_with_space(FILE *f, const char *s, const char *separator, bool *space)
 
 int open_tmpfile_unlinkable(const char *directory, int flags);
 int open_tmpfile_linkable(const char *target, int flags, char **ret_path);
+int open_serialization_fd(const char *ident);
 
 int link_tmpfile(int fd, const char *path, const char *target);
 

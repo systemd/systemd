@@ -51,10 +51,13 @@
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>systemd <arg choice="opt" rep="repeat">OPTIONS</arg></command>
+      <command>systemd</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>init <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="req">COMMAND</arg></command>
+      <command>init</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="req">COMMAND</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -150,6 +153,7 @@
         user instance. This setting may also be enabled during boot,
         on the kernel command line via the
         <varname>systemd.crash_vt=</varname> option, see
+        <!-- FIXME: there is no crash_vt command line option? -->
         below.</para></listitem>
       </varlistentry>
 
@@ -449,7 +453,7 @@
 
     <para>Note that some but not all interfaces provided
     by systemd are covered by the
-    <ulink url="http://www.freedesktop.org/wiki/Software/systemd/InterfaceStabilityPromise">Interface
+    <ulink url="https://www.freedesktop.org/wiki/Software/systemd/InterfaceStabilityPromise">Interface
     Stability Promise</ulink>.</para>
 
     <para>Units may be generated dynamically at boot and system
@@ -459,8 +463,8 @@
 
     <para>Systems which invoke systemd in a container or initrd
     environment should implement the
-    <ulink url="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container Interface</ulink> or
-    <ulink url="http://www.freedesktop.org/wiki/Software/systemd/InitrdInterface">initrd Interface</ulink>
+    <ulink url="https://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container Interface</ulink> or
+    <ulink url="https://www.freedesktop.org/wiki/Software/systemd/InitrdInterface">initrd Interface</ulink>
     specifications, respectively.</para>
   </refsect1>
 
@@ -757,7 +761,7 @@
         <term><constant>SIGRTMIN+27</constant></term>
         <term><constant>SIGRTMIN+28</constant></term>
 
-        <listitem><para>Sets the log level to
+        <listitem><para>Sets the log target to
         <literal>journal-or-kmsg</literal> (or
         <literal>console</literal> on
         <constant>SIGRTMIN+27</constant>, <literal>kmsg</literal> on
@@ -898,88 +902,91 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>systemd.dump_core=</varname></term>
+        <term><varname>systemd.dump_core</varname></term>
 
-        <listitem><para>Takes a boolean argument. If
-        <option>yes</option>, the systemd manager (PID 1) dumps core
-        when it crashes.  Otherwise, no core dump is created. Defaults
-        to <option>yes</option>.</para></listitem>
+        <listitem><para>Takes a boolean argument or enables the option if specified
+        without an argument. If enabled, the systemd manager (PID 1) dumps core when
+        it crashes. Otherwise, no core dump is created. Defaults to enabled.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>systemd.crash_chvt=</varname></term>
+        <term><varname>systemd.crash_chvt</varname></term>
 
-        <listitem><para>Takes a positive integer, or a boolean
-        argument. If a positive integer (in the range 1–63) is
-        specified, the system manager (PID 1) will activate the specified
-        virtual terminal (VT) when it crashes. Defaults to
-        <constant>no</constant>, meaning that no such switch is
-        attempted. If set to <constant>yes</constant>, the VT the
-        kernel messages are written to is selected.</para></listitem>
+        <listitem><para>Takes a positive integer, or a boolean argument. Can be also
+        specified without an argument, with the same effect as a positive boolean. If
+        a positive integer (in the range 1–63) is specified, the system manager (PID
+        1) will activate the specified virtual terminal (VT) when it
+        crashes. Defaults to disabled, meaning that no such switch is attempted. If
+        set to enabled, the VT the kernel messages are written to is selected.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>systemd.crash_shell=</varname></term>
+        <term><varname>systemd.crash_shell</varname></term>
 
-        <listitem><para>Takes a boolean argument. If
-        <option>yes</option>, the system manager (PID 1) spawns a
-        shell when it crashes, after a 10s delay. Otherwise, no shell
-        is spawned. Defaults to <option>no</option>, for security
-        reasons, as the shell is not protected by password
+        <listitem><para>Takes a boolean argument or enables the option if specified
+        without an argument. If enabled, the system manager (PID 1) spawns a shell
+        when it crashes, after a 10s delay. Otherwise, no shell is spawned. Defaults
+        to disabled, for security reasons, as the shell is not protected by password
         authentication.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>systemd.crash_reboot=</varname></term>
+        <term><varname>systemd.crash_reboot</varname></term>
 
-        <listitem><para>Takes a boolean argument. If
-        <option>yes</option>, the system manager (PID 1) will reboot
-        the machine automatically when it crashes, after a 10s delay.
-        Otherwise, the system will hang indefinitely. Defaults to
-        <option>no</option>, in order to avoid a reboot loop. If
-        combined with <varname>systemd.crash_shell=</varname>, the
+        <listitem><para>Takes a boolean argument or enables the option if specified
+        without an argument. If enabled, the system manager (PID 1) will reboot the
+        machine automatically when it crashes, after a 10s delay.  Otherwise, the
+        system will hang indefinitely. Defaults to disabled, in order to avoid a
+        reboot loop. If combined with <varname>systemd.crash_shell</varname>, the
         system is rebooted after the shell exits.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>systemd.confirm_spawn=</varname></term>
+        <term><varname>systemd.confirm_spawn</varname></term>
 
-        <listitem><para>Takes a boolean argument or a path to the
-        virtual console where the confirmation messages should be
-        emitted. If <option>yes</option>, the system manager (PID 1)
-        asks for confirmation when spawning processes using
-        <option>/dev/console</option>. If a path or a console name
-        (such as <literal>ttyS0</literal>) is provided, the virtual
-        console pointed to by this path or described by the give name
-        will be used instead. Defaults to <option>no</option>.</para></listitem>
+        <listitem><para>Takes a boolean argument or a path to the virtual console
+        where the confirmation messages should be emitted. Can be also specified
+        without an argument, with the same effect as a positive boolean. If enabled,
+        the system manager (PID 1) asks for confirmation when spawning processes
+        using <option>/dev/console</option>. If a path or a console name (such as
+        <literal>ttyS0</literal>) is provided, the virtual console pointed to by this
+        path or described by the give name will be used instead. Defaults to disabled.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>systemd.show_status=</varname></term>
+        <term><varname>systemd.show_status</varname></term>
 
-        <listitem><para>Takes a boolean argument or the constant <constant>auto</constant>. If <option>yes</option>,
-        the systemd manager (PID 1) shows terse service status updates on the console during bootup.
-        <constant>auto</constant> behaves like <option>false</option> until a unit fails or there is a significant
-        delay in boot.  Defaults to <option>yes</option>, unless <option>quiet</option> is passed as kernel command
-        line option, in which case it defaults to <constant>auto</constant>. If specified overrides the system manager
-        configuration file option <option>ShowStatus=</option>, see
-        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. However,
-        the process command line option <option>--show-status=</option> takes precedence over both this kernel command
-        line option and the configuration file option.</para></listitem>
+        <listitem><para>Takes a boolean argument or the constant
+        <constant>auto</constant>. Can be also specified without an argument, with
+        the same effect as a positive boolean.  If enabled, the systemd manager (PID
+        1) shows terse service status updates on the console during bootup.
+        <constant>auto</constant> behaves like <option>false</option> until a unit
+        fails or there is a significant delay in boot. Defaults to enabled, unless
+        <option>quiet</option> is passed as kernel command line option, in which case
+        it defaults to <constant>auto</constant>. If specified overrides the system
+        manager configuration file option <option>ShowStatus=</option>, see
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        However, the process command line option <option>--show-status=</option>
+        takes precedence over both this kernel command line option and the
+        configuration file option.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>systemd.log_target=</varname></term>
         <term><varname>systemd.log_level=</varname></term>
-        <term><varname>systemd.log_color=</varname></term>
         <term><varname>systemd.log_location=</varname></term>
+        <term><varname>systemd.log_color</varname></term>
 
-        <listitem><para>Controls log output, with the same effect as
-        the <varname>$SYSTEMD_LOG_TARGET</varname>,
+        <listitem><para>Controls log output, with the same effect as the
+        <varname>$SYSTEMD_LOG_TARGET</varname>,
         <varname>$SYSTEMD_LOG_LEVEL</varname>,
-        <varname>$SYSTEMD_LOG_COLOR</varname>,
-        <varname>$SYSTEMD_LOG_LOCATION</varname> environment variables
-        described above.</para></listitem>
+        <varname>$SYSTEMD_LOG_LOCATION</varname>,
+        <varname>$SYSTEMD_LOG_COLOR</varname> environment variables described above.
+        <varname>systemd.log_color</varname> can be specified without an argument,
+        with the same effect as a positive boolean.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1008,6 +1015,41 @@
         used for setting the machine-id. Intended mostly for
         network booting where the same machine-id is desired
         for every boot.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.unified_cgroup_hierarchy</varname></term>
+
+        <listitem><para>When specified without an argument or with a true argument,
+        enables the usage of
+        <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">unified cgroup hierarchy</ulink>
+        (a.k.a. cgroups-v2). When specified with a false argument, fall back to
+        hybrid or full legacy cgroup hierarchy.</para>
+
+        <para>If this option is not specified, the default behaviour is determined
+        during compilation (the <option>--with-default-hierarchy=</option>
+        option). If the kernel does not support unified cgroup hierarchy, the legacy
+        hierarchy will be used even if this option is specified.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.legacy_systemd_cgroup_controller</varname></term>
+
+        <listitem><para>Takes effect if the full unified cgroup hierarchy is not used
+        (see previous option). When specified without an argument or with a true
+        argument, disables the use of "hybrid" cgroup hierarchy (i.e. a cgroups-v2
+        tree used for systemd, and
+        <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v1/">legacy
+        cgroup hierarchy</ulink>, a.k.a. cgroups-v1, for other controllers), and
+        forces a full "legacy" mode. When specified with a false argument, enables
+        the use of "hybrid" hierarchy.</para>
+
+        <para>If this option is not specified, the default behaviour is determined
+        during compilation (the <option>--with-default-hierarchy=</option>
+        option). If the kernel does not support unified cgroup hierarchy, the legacy
+        hierarchy will be used  even if this option is specified.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1145,7 +1187,7 @@
   <refsect1>
     <title>See Also</title>
     <para>
-      The <ulink url="http://www.freedesktop.org/wiki/Software/systemd/">systemd Homepage</ulink>,
+      The <ulink url="https://www.freedesktop.org/wiki/Software/systemd/">systemd Homepage</ulink>,
       <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,

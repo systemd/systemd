@@ -469,12 +469,18 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>Group=</varname></term>
+        <term><varname>Remote=</varname></term>
         <listitem>
-          <para>An assigned multicast group IP address.</para>
+          <para>Configures destination multicast group IP address.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>Local=</varname></term>
+        <listitem>
+          <para>Configures local IP address.</para>
+        </listitem>
+      </varlistentry>
+        <varlistentry>
         <term><varname>TOS=</varname></term>
         <listitem>
           <para>The Type Of Service byte value for a vxlan interface.</para>
@@ -596,6 +602,14 @@
           to load balance based on outer header flow. It
           restricts the port range to the normal UDP local
           ports, and allows overriding via configuration.</para>
+        </listitem>
+      </varlistentry>
+    <varlistentry>
+      <term><varname>FlowLabel=</varname></term>
+        <listitem>
+          <para>Specifies the flow label to use in outgoing packets.
+          The valid range is 0-1048575.
+          </para>
         </listitem>
       </varlistentry>
     </variablelist>

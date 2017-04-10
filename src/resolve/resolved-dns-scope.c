@@ -124,6 +124,8 @@ DnsScope* dns_scope_free(DnsScope *s) {
         ordered_hashmap_free(s->conflict_queue);
         sd_event_source_unref(s->conflict_event_source);
 
+        sd_event_source_unref(s->announce_event_source);
+
         dns_cache_flush(&s->cache);
         dns_zone_flush(&s->zone);
 
@@ -549,7 +551,11 @@ static int dns_scope_multicast_membership(DnsScope *s, bool b, struct in_addr in
                         .imr_ifindex = s->link->ifindex,
                 };
 
-                fd = manager_llmnr_ipv4_udp_fd(s->manager);
+                if (s->protocol == DNS_PROTOCOL_LLMNR)
+                        fd = manager_llmnr_ipv4_udp_fd(s->manager);
+                else
+                        fd = manager_mdns_ipv4_fd(s->manager);
+
                 if (fd < 0)
                         return fd;
 
@@ -568,7 +574,11 @@ static int dns_scope_multicast_membership(DnsScope *s, bool b, struct in_addr in
                         .ipv6mr_interface = s->link->ifindex,
                 };
 
-                fd = manager_llmnr_ipv6_udp_fd(s->manager);
+                if (s->protocol == DNS_PROTOCOL_LLMNR)
+                        fd = manager_llmnr_ipv6_udp_fd(s->manager);
+                else
+                        fd = manager_mdns_ipv6_fd(s->manager);
+
                 if (fd < 0)
                         return fd;
 
@@ -601,7 +611,7 @@ int dns_scope_mdns_membership(DnsScope *s, bool b) {
         return dns_scope_multicast_membership(s, b, MDNS_MULTICAST_IPV4_ADDRESS, MDNS_MULTICAST_IPV6_ADDRESS);
 }
 
-static int dns_scope_make_reply_packet(
+int dns_scope_make_reply_packet(
                 DnsScope *s,
                 uint16_t id,
                 int rcode,
@@ -830,11 +840,11 @@ static int dns_scope_make_conflict_packet(
         DNS_PACKET_HEADER(p)->qdcount = htobe16(1);
         DNS_PACKET_HEADER(p)->arcount = htobe16(1);
 
-        r = dns_packet_append_key(p, rr->key, NULL);
+        r = dns_packet_append_key(p, rr->key, 0, NULL);
         if (r < 0)
                 return r;
 
-        r = dns_packet_append_rr(p, rr, NULL, NULL);
+        r = dns_packet_append_rr(p, rr, 0, NULL, NULL);
         if (r < 0)
                 return r;
 
@@ -928,17 +938,19 @@ void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p) {
         assert(scope);
         assert(p);
 
-        if (p->protocol != DNS_PROTOCOL_LLMNR)
+        if (!IN_SET(p->protocol, DNS_PROTOCOL_LLMNR, DNS_PROTOCOL_MDNS))
                 return;
 
         if (DNS_PACKET_RRCOUNT(p) <= 0)
                 return;
 
-        if (DNS_PACKET_LLMNR_C(p) != 0)
-                return;
+        if (p->protocol == DNS_PROTOCOL_LLMNR) {
+                if (DNS_PACKET_LLMNR_C(p) != 0)
+                        return;
 
-        if (DNS_PACKET_LLMNR_T(p) != 0)
-                return;
+                if (DNS_PACKET_LLMNR_T(p) != 0)
+                        return;
+        }
 
         if (manager_our_packet(scope->manager, p))
                 return;
@@ -1038,6 +1050,80 @@ int dns_scope_ifindex(DnsScope *s) {
 
         if (s->link)
                 return s->link->ifindex;
+
+        return 0;
+}
+
+static int on_announcement_timeout(sd_event_source *s, usec_t usec, void *userdata) {
+        DnsScope *scope = userdata;
+
+        assert(s);
+
+        scope->announce_event_source = sd_event_source_unref(scope->announce_event_source);
+
+        (void) dns_scope_announce(scope, false);
+        return 0;
+}
+
+int dns_scope_announce(DnsScope *scope, bool goodbye) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        LinkAddress *a;
+        int r;
+
+        if (!scope)
+                return 0;
+
+        if (scope->protocol != DNS_PROTOCOL_MDNS)
+                return 0;
+
+        answer = dns_answer_new(scope->link->n_addresses * 2);
+        if (!answer)
+                return log_oom();
+
+        LIST_FOREACH(addresses, a, scope->link->addresses) {
+                r = dns_answer_add(answer, a->mdns_address_rr, 0, goodbye ? DNS_ANSWER_GOODBYE : DNS_ANSWER_CACHE_FLUSH);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to add address RR to answer: %m");
+
+                r = dns_answer_add(answer, a->mdns_ptr_rr, 0, goodbye ? DNS_ANSWER_GOODBYE : DNS_ANSWER_CACHE_FLUSH);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to add PTR RR to answer: %m");
+        }
+
+        if (dns_answer_isempty(answer))
+                return 0;
+
+        r = dns_scope_make_reply_packet(scope, 0, DNS_RCODE_SUCCESS, NULL, answer, NULL, false, &p);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to build reply packet: %m");
+
+        r = dns_scope_emit_udp(scope, -1, p);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to send reply packet: %m");
+
+        /* In section 8.3 of RFC6762: "The Multicast DNS responder MUST send at least two unsolicited
+         * responses, one second apart." */
+        if (!scope->announced) {
+                usec_t ts;
+
+                scope->announced = true;
+
+                assert_se(sd_event_now(scope->manager->event, clock_boottime_or_monotonic(), &ts) >= 0);
+                ts += MDNS_ANNOUNCE_DELAY;
+
+                r = sd_event_add_time(
+                                scope->manager->event,
+                                &scope->announce_event_source,
+                                clock_boottime_or_monotonic(),
+                                ts,
+                                MDNS_JITTER_RANGE_USEC,
+                                on_announcement_timeout, scope);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to schedule second announcement: %m");
+
+                (void) sd_event_source_set_description(scope->announce_event_source, "mdns-announce");
+        }
 
         return 0;
 }

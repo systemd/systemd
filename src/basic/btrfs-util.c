@@ -1737,7 +1737,7 @@ int btrfs_subvol_snapshot_fd(int old_fd, const char *new_path, BtrfsSnapshotFlag
                 } else if (r < 0)
                         return r;
 
-                r = copy_directory_fd(old_fd, new_path, true);
+                r = copy_directory_fd(old_fd, new_path, COPY_MERGE|COPY_REFLINK);
                 if (r < 0)
                         goto fallback_fail;
 

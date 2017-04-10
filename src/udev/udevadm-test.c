@@ -59,7 +59,7 @@ static int adm_test(struct udev *udev, int argc, char *argv[]) {
                 {}
         };
 
-        log_debug("version %s", VERSION);
+        log_debug("version %s", PACKAGE_VERSION);
 
         while ((c = getopt_long(argc, argv, "a:N:h", options, NULL)) >= 0)
                 switch (c) {

@@ -126,6 +126,7 @@ int ip_tos_to_string_alloc(int i, char **s);
 int ip_tos_from_string(const char *s);
 
 bool ifname_valid(const char *p);
+bool address_label_valid(const char *p);
 
 int getpeercred(int fd, struct ucred *ucred);
 int getpeersec(int fd, char **ret);

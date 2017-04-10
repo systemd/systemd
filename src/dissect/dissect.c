@@ -208,6 +208,14 @@ int main(int argc, char *argv[]) {
                 log_error_errno(r, "No root partition for specified root hash found in %s.", arg_image);
                 goto finish;
         }
+        if (r == -ENOTUNIQ) {
+                log_error_errno(r, "Multiple suitable root partitions found in image %s.", arg_image);
+                goto finish;
+        }
+        if (r == -ENXIO) {
+                log_error_errno(r, "No suitable root partition found in image %s.", arg_image);
+                goto finish;
+        }
         if (r < 0) {
                 log_error_errno(r, "Failed to dissect image: %m");
                 goto finish;

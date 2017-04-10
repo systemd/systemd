@@ -41,6 +41,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-id128.h"
 
@@ -49,6 +50,7 @@
 #include "base-filesystem.h"
 #include "blkid-util.h"
 #include "btrfs-util.h"
+#include "bus-util.h"
 #include "cap-list.h"
 #include "capability-util.h"
 #include "cgroup-util.h"
@@ -314,7 +316,7 @@ static int custom_mount_check_all(void) {
 
 static int detect_unified_cgroup_hierarchy(const char *directory) {
         const char *e;
-        int r, all_unified, systemd_unified;
+        int r;
 
         /* Allow the user to control whether the unified hierarchy is used */
         e = getenv("UNIFIED_CGROUP_HIERARCHY");
@@ -330,15 +332,11 @@ static int detect_unified_cgroup_hierarchy(const char *directory) {
                 return 0;
         }
 
-        all_unified = cg_all_unified();
-        systemd_unified = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
-
-        if (all_unified < 0 || systemd_unified < 0)
-                return log_error_errno(all_unified < 0 ? all_unified : systemd_unified,
-                                       "Failed to determine whether the unified cgroups hierarchy is used: %m");
-
         /* Otherwise inherit the default from the host system */
-        if (all_unified > 0) {
+        r = cg_all_unified();
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether we are in all unified mode.");
+        if (r > 0) {
                 /* Unified cgroup hierarchy support was added in 230. Unfortunately the detection
                  * routine only detects 231, so we'll have a false negative here for 230. */
                 r = systemd_installation_has_version(directory, 230);
@@ -348,9 +346,9 @@ static int detect_unified_cgroup_hierarchy(const char *directory) {
                         arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_ALL;
                 else
                         arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
-        } else if (systemd_unified > 0) {
-                /* Mixed cgroup hierarchy support was added in 232 */
-                r = systemd_installation_has_version(directory, 232);
+        } else if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0) {
+                /* Mixed cgroup hierarchy support was added in 233 */
+                r = systemd_installation_has_version(directory, 233);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine systemd version in container: %m");
                 if (r > 0)
@@ -1323,6 +1321,34 @@ static int setup_timezone(const char *dest) {
         return 0;
 }
 
+static int resolved_listening(void) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_free_ char *dns_stub_listener_mode = NULL;
+        int r;
+
+        /* Check if resolved is listening */
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return r;
+
+        r = bus_name_has_owner(bus, "org.freedesktop.resolve1", NULL);
+        if (r <= 0)
+                return r;
+
+        r = sd_bus_get_property_string(bus,
+                                       "org.freedesktop.resolve1",
+                                       "/org/freedesktop/resolve1",
+                                       "org.freedesktop.resolve1.Manager",
+                                       "DNSStubListener",
+                                       NULL,
+                                       &dns_stub_listener_mode);
+        if (r < 0)
+                return r;
+
+        return STR_IN_SET(dns_stub_listener_mode, "udp", "yes");
+}
+
 static int setup_resolv_conf(const char *dest) {
         _cleanup_free_ char *resolved = NULL, *etc = NULL;
         const char *where;
@@ -1346,8 +1372,8 @@ static int setup_resolv_conf(const char *dest) {
                 return 0;
         }
 
-        if (access("/run/systemd/resolve/resolv.conf", F_OK) >= 0 &&
-            access("/usr/lib/systemd/resolv.conf", F_OK) >= 0) {
+        if (access("/usr/lib/systemd/resolv.conf", F_OK) >= 0 &&
+            resolved_listening() > 0) {
 
                 /* resolved is enabled on the host. In this, case bind mount its static resolv.conf file into the
                  * container, so that the container can use the host's resolver. Given that network namespacing is
@@ -1364,7 +1390,7 @@ static int setup_resolv_conf(const char *dest) {
         }
 
         /* If that didn't work, let's copy the file */
-        r = copy_file("/etc/resolv.conf", where, O_TRUNC|O_NOFOLLOW, 0644, 0);
+        r = copy_file("/etc/resolv.conf", where, O_TRUNC|O_NOFOLLOW, 0644, 0, COPY_REFLINK);
         if (r < 0) {
                 /* If the file already exists as symlink, let's suppress the warning, under the assumption that
                  * resolved or something similar runs inside and the symlink points there.
@@ -2153,8 +2179,6 @@ static int inner_child(
         assert(directory);
         assert(kmsg_socket >= 0);
 
-        cg_unified_flush();
-
         if (arg_userns_mode != USER_NAMESPACE_NO) {
                 /* Tell the parent, that it now can write the UID map. */
                 (void) barrier_place(barrier); /* #1 */
@@ -2425,8 +2449,6 @@ static int outer_child(
         assert(notify_socket >= 0);
         assert(kmsg_socket >= 0);
 
-        cg_unified_flush();
-
         if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0)
                 return log_error_errno(errno, "PR_SET_PDEATHSIG failed: %m");
 
@@ -2468,10 +2490,6 @@ static int outer_child(
         }
 
         r = determine_uid_shift(directory);
-        if (r < 0)
-                return r;
-
-        r = detect_unified_cgroup_hierarchy(directory);
         if (r < 0)
                 return r;
 
@@ -2539,7 +2557,7 @@ static int outer_child(
          * inside the containter that create a new mount namespace.
          * See https://github.com/systemd/systemd/issues/3860
          * Further submounts (such as /dev) done after this will inherit the
-         * shared propagation mode.*/
+         * shared propagation mode. */
         r = mount_verbose(LOG_ERR, NULL, directory, NULL, MS_SHARED|MS_REC, NULL);
         if (r < 0)
                 return r;
@@ -3527,6 +3545,10 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        r = cg_unified_flush();
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether the unified cgroups hierarchy is used: %m");
+
         /* Make sure rename_process() in the stub init process can work */
         saved_argv = argv;
         saved_argc = argc;
@@ -3700,7 +3722,7 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        r = copy_file(arg_image, np, O_EXCL, arg_read_only ? 0400 : 0600, FS_NOCOW_FL);
+                        r = copy_file(arg_image, np, O_EXCL, arg_read_only ? 0400 : 0600, FS_NOCOW_FL, COPY_REFLINK);
                         if (r < 0) {
                                 r = log_error_errno(r, "Failed to copy image file: %m");
                                 goto finish;
@@ -3795,6 +3817,10 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
+        r = detect_unified_cgroup_hierarchy(arg_directory);
+        if (r < 0)
+                goto finish;
+
         interactive =
                 isatty(STDIN_FILENO) > 0 &&
                 isatty(STDOUT_FILENO) > 0;
@@ -3856,7 +3882,7 @@ finish:
 
         /* Try to flush whatever is still queued in the pty */
         if (master >= 0) {
-                (void) copy_bytes(master, STDOUT_FILENO, (uint64_t) -1, false);
+                (void) copy_bytes(master, STDOUT_FILENO, (uint64_t) -1, 0);
                 master = safe_close(master);
         }
 

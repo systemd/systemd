@@ -209,7 +209,8 @@ static int write_mount_timeout(FILE *f, const char *where, const char *opts) {
                              "x-systemd.mount-timeout\0", "TimeoutSec");
 }
 
-static int write_requires_after(FILE *f, const char *opts) {
+static int write_dependency(FILE *f, const char *opts,
+                const char *filter, const char *format) {
         _cleanup_strv_free_ char **names = NULL, **units = NULL;
         _cleanup_free_ char *res = NULL;
         char **s;
@@ -218,7 +219,7 @@ static int write_requires_after(FILE *f, const char *opts) {
         assert(f);
         assert(opts);
 
-        r = fstab_extract_values(opts, "x-systemd.requires", &names);
+        r = fstab_extract_values(opts, filter, &names);
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse options: %m");
         if (r == 0)
@@ -239,10 +240,27 @@ static int write_requires_after(FILE *f, const char *opts) {
                 res = strv_join(units, " ");
                 if (!res)
                         return log_oom();
-                fprintf(f, "After=%1$s\nRequires=%1$s\n", res);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+                fprintf(f, format, res);
+#pragma GCC diagnostic pop
         }
 
         return 0;
+}
+
+static int write_after(FILE *f, const char *opts) {
+        return write_dependency(f, opts, "x-systemd.after", "After=%1$s\n");
+}
+
+static int write_requires_after(FILE *f, const char *opts) {
+        return write_dependency(f, opts,
+                                "x-systemd.requires", "After=%1$s\nRequires=%1$s\n");
+}
+
+static int write_before(FILE *f, const char *opts) {
+        return write_dependency(f, opts,
+                                "x-systemd.before", "Before=%1$s\n");
 }
 
 static int write_requires_mounts_for(FILE *f, const char *opts) {
@@ -344,7 +362,13 @@ static int add_mount(
                 fprintf(f, "Before=%s\n", post);
 
         if (!automount && opts) {
+                 r = write_after(f, opts);
+                 if (r < 0)
+                         return r;
                  r = write_requires_after(f, opts);
+                 if (r < 0)
+                         return r;
+                 r = write_before(f, opts);
                  if (r < 0)
                          return r;
                  r = write_requires_mounts_for(f, opts);
@@ -421,7 +445,13 @@ static int add_mount(
                 fprintf(f, "Before=%s\n", post);
 
                 if (opts) {
+                        r = write_after(f, opts);
+                        if (r < 0)
+                                return r;
                         r = write_requires_after(f, opts);
+                        if (r < 0)
+                                return r;
+                        r = write_before(f, opts);
                         if (r < 0)
                                 return r;
                         r = write_requires_mounts_for(f, opts);

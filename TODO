@@ -24,6 +24,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* sort generated hwdb files alphabetically when we import them, so that git
+  diffs remain minimal (in particular: the OUI databases we import are not
+  sorted, and not stable)
+
 * set SystemCallArchitectures=native on all our services
 
 * maybe add call sd_journal_set_block_timeout() or so to set SO_SNDTIMEO for
@@ -31,12 +35,19 @@ Features:
   O_NONBLOCK on it. That way people can control if and when to block for
   logging.
 
+* tighten sd_notify() MAINPID= checks a bit: don't accept foreign PIDs (i.e.
+  PIDs not managed by the service manager)
+
 * journald: when we recv a log datagram via the native or syslog transports,
   search for the PID in the active stream connections, and let's make sure to
   always process the datagrams before the streams. Then, cache client metadata
   per stream in the stream object. This way we can somewhat fix the race with
   quickly exiting processes which log as long as they had their own stream
   connection...
+
+* hostnamed: populate form factor data from a new hwdb database, so that old
+  yogas can be recognized as "convertible" too, even if they predate the DMI
+  "convertible" form factor
 
 * Maybe add a small tool invoked early at boot, that adds in or resizes
   partitions automatically, to be used when the media used is actually larger

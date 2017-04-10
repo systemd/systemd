@@ -55,7 +55,7 @@ char* gethostname_malloc(void) {
         assert_se(uname(&u) >= 0);
 
         if (isempty(u.nodename) || streq(u.nodename, "(none)"))
-                return strdup(u.sysname);
+                return strdup(FALLBACK_HOSTNAME);
 
         return strdup(u.nodename);
 }

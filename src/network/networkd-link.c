@@ -28,6 +28,7 @@
 #include "fileio.h"
 #include "netlink-util.h"
 #include "network-internal.h"
+#include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
@@ -2447,6 +2448,10 @@ static int link_configure(Link *link) {
         r = link_set_proxy_arp(link);
         if (r < 0)
                return r;
+
+        r = ipv6_proxy_ndp_addresses_configure(link);
+        if (r < 0)
+                return r;
 
         r = link_set_ipv4_forward(link);
         if (r < 0)

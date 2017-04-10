@@ -91,7 +91,7 @@
     for local use only and should be considered hacks. If applications
     want to react to system suspend/hibernation and resume,
     they should rather use the <ulink
-    url="http://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor
+    url="https://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor
     interface</ulink>.</para>
 
     <para>Note that

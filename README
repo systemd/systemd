@@ -4,7 +4,7 @@ DETAILS:
         http://0pointer.de/blog/projects/systemd.html
 
 WEB SITE:
-        http://www.freedesktop.org/wiki/Software/systemd
+        https://www.freedesktop.org/wiki/Software/systemd
 
 GIT:
         git@github.com:systemd/systemd.git
@@ -14,7 +14,7 @@ GITWEB:
         https://github.com/systemd/systemd
 
 MAILING LIST:
-        http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+        https://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 IRC:
         #systemd on irc.freenode.org
@@ -35,7 +35,7 @@ LICENSE:
         - except src/udev/* which is (currently still) GPLv2, GPLv2+
 
 REQUIREMENTS:
-        Linux kernel >= 3.12
+        Linux kernel >= 3.13
         Linux kernel >= 4.2 for unified cgroup hierarchy support
 
         Kernel Config Options:
@@ -49,6 +49,11 @@ REQUIREMENTS:
           CONFIG_SYSFS
           CONFIG_PROC_FS
           CONFIG_FHANDLE (libudev, mount and bind mount handling)
+
+        Kernel crypto/hash API
+          CONFIG_CRYPTO_USER_API_HASH
+          CONFIG_CRYPTO_HMAC
+          CONFIG_CRYPTO_SHA256
 
         udev will fail to work with the legacy sysfs layout:
           CONFIG_SYSFS_DEPRECATED=n
@@ -160,7 +165,7 @@ REQUIREMENTS:
         autoconf
         libtool
         intltool
-        gperf
+        gperf >= 3.1
         python (optional)
         python-lxml (optional, but required to build the indices)
 
@@ -180,6 +185,7 @@ REQUIREMENTS:
         - python3-pyparsing
         - python3-evdev      (used by hwdb parsing tests)
         - strace             (used by test/test-functions)
+        - capsh              (optional, used by test-execute)
 
 USERS AND GROUPS:
         Default udev rules use the following standard system group
@@ -268,17 +274,12 @@ WARNINGS:
         requires that /var/run is a symlink to /run.
 
         For more information on this issue consult
-        http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken
+        https://www.freedesktop.org/wiki/Software/systemd/separate-usr-is-broken
 
         To run systemd under valgrind, compile with VALGRIND defined
         (e.g. ./configure CPPFLAGS='... -DVALGRIND=1'). Otherwise,
         false positives will be triggered by code which violates
         some rules but is actually safe.
-
-        Currently, systemd-timesyncd defaults to use the Google NTP
-        servers if not specified otherwise at configure time. You
-        really should not ship an OS or device with this default
-        setting. See DISTRO_PORTING for details.
 
 ENGINEERING AND CONSULTING SERVICES:
         Kinvolk (https://kinvolk.io) offers professional engineering

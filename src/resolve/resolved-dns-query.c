@@ -28,7 +28,7 @@
 #include "string-util.h"
 
 /* How long to wait for the query in total */
-#define QUERY_TIMEOUT_USEC (30 * USEC_PER_SEC)
+#define QUERY_TIMEOUT_USEC (60 * USEC_PER_SEC)
 
 #define CNAME_MAX 8
 #define QUERIES_MAX 2048
@@ -403,6 +403,7 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         sd_bus_track_unref(q->bus_track);
 
         dns_packet_unref(q->request_dns_packet);
+        dns_packet_unref(q->reply_dns_packet);
 
         if (q->request_dns_stream) {
                 /* Detach the stream from our query, in case something else keeps a reference to it. */
@@ -810,6 +811,7 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                 q->answer = dns_answer_unref(q->answer);
                 q->answer_rcode = 0;
                 q->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
+                q->answer_authenticated = false;
                 q->answer_errno = c->error_code;
         }
 
@@ -846,15 +848,18 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                         continue;
 
                 default:
-                        /* Any kind of failure? Store the data away,
-                         * if there's nothing stored yet. */
-
+                        /* Any kind of failure? Store the data away, if there's nothing stored yet. */
                         if (state == DNS_TRANSACTION_SUCCESS)
+                                continue;
+
+                        /* If there's already an authenticated negative reply stored, then prefer that over any unauthenticated one */
+                        if (q->answer_authenticated && !t->answer_authenticated)
                                 continue;
 
                         q->answer = dns_answer_unref(q->answer);
                         q->answer_rcode = t->answer_rcode;
                         q->answer_dnssec_result = t->answer_dnssec_result;
+                        q->answer_authenticated = t->answer_authenticated;
                         q->answer_errno = t->answer_errno;
 
                         state = t->state;
@@ -1028,6 +1033,9 @@ int dns_query_process_cname(DnsQuery *q) {
         if (q->flags & SD_RESOLVED_NO_CNAME)
                 return -ELOOP;
 
+        if (!q->answer_authenticated)
+                q->previous_redirect_unauthenticated = true;
+
         /* OK, let's actually follow the CNAME */
         r = dns_query_cname_redirect(q, cname);
         if (r < 0)
@@ -1114,4 +1122,10 @@ const char *dns_query_string(DnsQuery *q) {
                 return name;
 
         return dns_question_first_name(q->question_idna);
+}
+
+bool dns_query_fully_authenticated(DnsQuery *q) {
+        assert(q);
+
+        return q->answer_authenticated && !q->previous_redirect_unauthenticated;
 }

@@ -62,7 +62,7 @@
     partitions and creates mount and swap units for them, based on the
     partition type GUIDs of GUID partition tables (GPT). It implements
     the <ulink
-    url="http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable
+    url="https://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable
     Partitions Specification</ulink>. Note that this generator has no
     effect on non-GPT systems, or where the directories under the
     mount points are already non-empty. Also, on systems where the

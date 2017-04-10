@@ -19,6 +19,7 @@
 ***/
 
 #include <arpa/inet.h>
+#include <linux/sockios.h>
 
 #include "sd-lldp.h"
 

@@ -31,10 +31,10 @@
 #include "util.h"
 
 int hostname_setup(void) {
-        int r;
         _cleanup_free_ char *b = NULL;
-        const char *hn;
         bool enoent = false;
+        const char *hn;
+        int r;
 
         r = read_hostname_config("/etc/hostname", &b);
         if (r < 0) {
@@ -56,7 +56,7 @@ int hostname_setup(void) {
                 if (enoent)
                         log_info("No hostname configured.");
 
-                hn = "localhost";
+                hn = FALLBACK_HOSTNAME;
         }
 
         r = sethostname_idempotent(hn);

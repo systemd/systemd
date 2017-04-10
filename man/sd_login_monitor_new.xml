@@ -203,7 +203,7 @@ if (t == (uint64_t) -1)
 else {
          struct timespec ts;
          uint64_t n;
-         clock_getttime(CLOCK_MONOTONIC, &amp;ts);
+         clock_gettime(CLOCK_MONOTONIC, &amp;ts);
          n = (uint64_t) ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
          msec = t > n ? (int) ((t - n + 999) / 1000) : 0;
 }</programlisting>

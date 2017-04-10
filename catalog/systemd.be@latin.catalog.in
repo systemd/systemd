@@ -20,7 +20,7 @@
 # Belarusian Latin translation
 
 # Farmat kataloha apisany na staroncy
-# http://www.freedesktop.org/wiki/Software/systemd/catalog
+# https://www.freedesktop.org/wiki/Software/systemd/catalog
 
 # For an explanation why we do all this, see https://xkcd.com/1024/
 
@@ -95,7 +95,7 @@ Rekamiendujecca paviedamić ab hetym raspracoŭnikam.
 Subject: Novaja siesija № @SESSION_ID@ stvorana dlia karystaĺnika @USER_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Novaja siesija z № @SESSION_ID@ stvorana dlia karystaĺnika @USER_ID@.
 
@@ -105,7 +105,7 @@ Lidar hetaj siesii pad № @LEADER@.
 Subject: Siesija № @SESSION_ID@ spyniena
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Siesija № @SESSION_ID@ spyniena.
 
@@ -113,7 +113,7 @@ Siesija № @SESSION_ID@ spyniena.
 Subject: Dastupna novaje pracoŭnaje miesca № @SEAT_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Novaje pracoŭnaje miesca № @SEAT_ID@ naladžana i dastupna dlia
 vykarystannia.
@@ -122,7 +122,7 @@ vykarystannia.
 Subject: Pracoŭnaje miesca № @SEAT_ID@ vydaliena
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Pracoŭnaje miesca № @SEAT_ID@ vydaliena i boĺš nie dastupna.
 

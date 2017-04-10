@@ -214,13 +214,13 @@ bool log_on_console(void) _pure_;
 const char *log_target_to_string(LogTarget target) _const_;
 LogTarget log_target_from_string(const char *s) _pure_;
 
-/* Helpers to prepare various fields for structured logging */
+/* Helper to prepare various field for structured logging */
 #define LOG_MESSAGE(fmt, ...) "MESSAGE=" fmt, ##__VA_ARGS__
-#define LOG_MESSAGE_ID(x) "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(x)
 
 void log_received_signal(int level, const struct signalfd_siginfo *si);
 
 void log_set_upgrade_syslog_to_journal(bool b);
+void log_set_always_reopen_console(bool b);
 
 int log_syntax_internal(
                 const char *unit,

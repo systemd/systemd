@@ -19,7 +19,7 @@
 # Danish translation
 
 # The catalog format is documented on
-# http://www.freedesktop.org/wiki/Software/systemd/catalog
+# https://www.freedesktop.org/wiki/Software/systemd/catalog
 
 # For an explanation why we do all this, see https://xkcd.com/1024/
 
@@ -79,7 +79,7 @@ og burde blive reporteret som en bug til folkene bag
 Subject: En ny session @SESSION_ID@ er blevet lavet for bruger @USER_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 En ny session med ID @SESSION_ID@ er blevet lavet for brugeren @USER_ID@.
 
@@ -89,7 +89,7 @@ Den ledende process for sessionen er @LEADER@.
 Subject: Session @SESSION_ID@ er blevet lukket ned
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 En session med ID @SESSION_ID@ er blevet lukket ned.
 
@@ -97,7 +97,7 @@ En session med ID @SESSION_ID@ er blevet lukket ned.
 Subject: En ny arbejdsstation $SEAT_ID@ er nu tilgængelig
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 En ny arbejdsstation @SEAT_ID@ er blevet konfigureret og er nu tilgængelig.
 
@@ -105,7 +105,7 @@ En ny arbejdsstation @SEAT_ID@ er blevet konfigureret og er nu tilgængelig.
 Subject: Arbejdsstation @SEAT_ID@ er nu blevet fjernet
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 En arbejdsstation @SEAT_ID@ er blevet fjernet og er ikke længere tilgængelig.
 

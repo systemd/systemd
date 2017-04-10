@@ -32,6 +32,9 @@ _arguments \
     {-o+,--output=}'[Write output to FILE]:output file:_files' \
     {-F+,--field=}'[Show field in list output]:field' \
     '-1[Show information about most recent entry only]' \
+    {-S,--since}'[Print entries since the specified date]' \
+    {-U,--until}'[Print entries until the specified date]' \
+    {-r,--reverse}'[Show the newest entries first]' \
     '--no-pager[Do not pipe output into a pager]' \
     '--no-legend[Do not print the column headers]' \
     {-h,--help}'[Show this help]' \

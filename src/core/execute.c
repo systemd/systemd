@@ -1144,11 +1144,13 @@ static int setup_pam(
 
                 /* Tell the parent that our setup is done. This is especially
                  * important regarding dropping privileges. Otherwise, unit
-                 * setup might race against our setresuid(2) call. */
-                barrier_place(&barrier);
+                 * setup might race against our setresuid(2) call.
+                 *
+                 * If the parent aborted, we'll detect this below, hence ignore
+                 * return failure here. */
+                (void) barrier_place(&barrier);
 
-                /* Check if our parent process might already have
-                 * died? */
+                /* Check if our parent process might already have died? */
                 if (getppid() == parent_pid) {
                         sigset_t ss;
 
@@ -1938,10 +1940,13 @@ static int compile_read_write_paths(
         return 0;
 }
 
-static int apply_mount_namespace(Unit *u, const ExecContext *context,
-                                 const ExecParameters *params,
-                                 ExecRuntime *runtime) {
-        int r;
+static int apply_mount_namespace(
+                Unit *u,
+                ExecCommand *command,
+                const ExecContext *context,
+                const ExecParameters *params,
+                ExecRuntime *runtime) {
+
         _cleanup_strv_free_ char **rw = NULL;
         char *tmp = NULL, *var = NULL;
         const char *root_dir = NULL, *root_image = NULL;
@@ -1953,6 +1958,8 @@ static int apply_mount_namespace(Unit *u, const ExecContext *context,
                 .protect_kernel_modules = context->protect_kernel_modules,
                 .mount_apivfs = context->mount_apivfs,
         };
+        bool apply_restrictions;
+        int r;
 
         assert(context);
 
@@ -1986,16 +1993,18 @@ static int apply_mount_namespace(Unit *u, const ExecContext *context,
         if (!context->dynamic_user && root_dir)
                 ns_info.ignore_protect_paths = true;
 
+        apply_restrictions = (params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged;
+
         r = setup_namespace(root_dir, root_image,
                             &ns_info, rw,
-                            context->read_only_paths,
-                            context->inaccessible_paths,
+                            apply_restrictions ? context->read_only_paths : NULL,
+                            apply_restrictions ? context->inaccessible_paths : NULL,
                             context->bind_mounts,
                             context->n_bind_mounts,
                             tmp,
                             var,
-                            context->protect_home,
-                            context->protect_system,
+                            apply_restrictions ? context->protect_home : PROTECT_HOME_NO,
+                            apply_restrictions ? context->protect_system : PROTECT_SYSTEM_NO,
                             context->mount_flags,
                             DISSECT_IMAGE_DISCARD_ON_LOOP);
 
@@ -2606,7 +2615,7 @@ static int exec_child(
 
         needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);
         if (needs_mount_namespace) {
-                r = apply_mount_namespace(unit, context, params, runtime);
+                r = apply_mount_namespace(unit, command, context, params, runtime);
                 if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
                         return r;
@@ -2974,7 +2983,7 @@ int exec_spawn(Unit *unit,
                         log_open();
                         if (error_message)
                                 log_struct_errno(LOG_ERR, r,
-                                                 LOG_MESSAGE_ID(SD_MESSAGE_SPAWN_FAILED),
+                                                 "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
                                                  LOG_UNIT_ID(unit),
                                                  LOG_UNIT_MESSAGE(unit, "%s: %m",
                                                                   error_message),
@@ -2982,7 +2991,7 @@ int exec_spawn(Unit *unit,
                                                  NULL);
                         else
                                 log_struct_errno(LOG_ERR, r,
-                                                 LOG_MESSAGE_ID(SD_MESSAGE_SPAWN_FAILED),
+                                                 "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
                                                  LOG_UNIT_ID(unit),
                                                  LOG_UNIT_MESSAGE(unit, "Failed at step %s spawning %s: %m",
                                                                   exit_status_to_string(exit_status, EXIT_STATUS_SYSTEMD),

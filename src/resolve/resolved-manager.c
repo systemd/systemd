@@ -322,28 +322,28 @@ static int manager_network_monitor_listen(Manager *m) {
         return 0;
 }
 
-static int determine_hostname(char **llmnr_hostname, char **mdns_hostname) {
+static int determine_hostname(char **full_hostname, char **llmnr_hostname, char **mdns_hostname) {
         _cleanup_free_ char *h = NULL, *n = NULL;
         char label[DNS_LABEL_MAX];
         const char *p;
         int r, k;
 
+        assert(full_hostname);
         assert(llmnr_hostname);
         assert(mdns_hostname);
 
-        /* Extract and normalize the first label of the locally
-         * configured hostname, and check it's not "localhost". */
+        /* Extract and normalize the first label of the locally configured hostname, and check it's not "localhost". */
 
-        h = gethostname_malloc();
-        if (!h)
-                return log_oom();
+        r = gethostname_strict(&h);
+        if (r < 0)
+                return log_debug_errno(r, "Can't determine system hostname: %m");
 
         p = h;
         r = dns_label_unescape(&p, label, sizeof(label));
         if (r < 0)
                 return log_error_errno(r, "Failed to unescape host name: %m");
         if (r == 0) {
-                log_error("Couldn't find a single label in hosntame.");
+                log_error("Couldn't find a single label in hostname.");
                 return -EINVAL;
         }
 
@@ -374,32 +374,84 @@ static int determine_hostname(char **llmnr_hostname, char **mdns_hostname) {
         *llmnr_hostname = n;
         n = NULL;
 
+        *full_hostname = h;
+        h = NULL;
+
+        return 0;
+}
+
+static const char *fallback_hostname(void) {
+
+        /* Determine the fall back hostname. For exposing this system to the outside world, we cannot have it to be
+         * "localhost" even if that's the compiled in hostname. In this case, let's revert to "linux" instead. */
+
+        if (is_localhost(FALLBACK_HOSTNAME))
+                return "linux";
+
+        return FALLBACK_HOSTNAME;
+}
+
+static int make_fallback_hostnames(char **full_hostname, char **llmnr_hostname, char **mdns_hostname) {
+        _cleanup_free_ char *n = NULL, *m = NULL;
+        char label[DNS_LABEL_MAX], *h;
+        const char *p;
+        int r;
+
+        assert(full_hostname);
+        assert(llmnr_hostname);
+        assert(mdns_hostname);
+
+        p = fallback_hostname();
+        r = dns_label_unescape(&p, label, sizeof(label));
+        if (r < 0)
+                return log_error_errno(r, "Failed to unescape fallback host name: %m");
+
+        assert(r > 0); /* The fallback hostname must have at least one label */
+
+        r = dns_label_escape_new(label, r, &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to escape fallback hostname: %m");
+
+        r = dns_name_concat(n, "local", &m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to concatenate mDNS hostname: %m");
+
+        h = strdup(fallback_hostname());
+        if (!h)
+                return log_oom();
+
+        *llmnr_hostname = n;
+        n = NULL;
+
+        *mdns_hostname = m;
+        m = NULL;
+
+        *full_hostname = h;
+
         return 0;
 }
 
 static int on_hostname_change(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
-        _cleanup_free_ char *llmnr_hostname = NULL, *mdns_hostname = NULL;
+        _cleanup_free_ char *full_hostname = NULL, *llmnr_hostname = NULL, *mdns_hostname = NULL;
         Manager *m = userdata;
         int r;
 
         assert(m);
 
-        r = determine_hostname(&llmnr_hostname, &mdns_hostname);
+        r = determine_hostname(&full_hostname, &llmnr_hostname, &mdns_hostname);
         if (r < 0)
                 return 0; /* ignore invalid hostnames */
 
-        if (streq(llmnr_hostname, m->llmnr_hostname) && streq(mdns_hostname, m->mdns_hostname))
+        if (streq(full_hostname, m->full_hostname) &&
+            streq(llmnr_hostname, m->llmnr_hostname) &&
+            streq(mdns_hostname, m->mdns_hostname))
                 return 0;
 
-        log_info("System hostname changed to '%s'.", llmnr_hostname);
+        log_info("System hostname changed to '%s'.", full_hostname);
 
-        free(m->llmnr_hostname);
-        free(m->mdns_hostname);
-
-        m->llmnr_hostname = llmnr_hostname;
-        m->mdns_hostname = mdns_hostname;
-
-        llmnr_hostname = mdns_hostname = NULL;
+        free_and_replace(m->full_hostname, full_hostname);
+        free_and_replace(m->llmnr_hostname, llmnr_hostname);
+        free_and_replace(m->mdns_hostname, mdns_hostname);
 
         manager_refresh_rrs(m);
 
@@ -428,18 +480,15 @@ static int manager_watch_hostname(Manager *m) {
 
         (void) sd_event_source_set_description(m->hostname_event_source, "hostname");
 
-        r = determine_hostname(&m->llmnr_hostname, &m->mdns_hostname);
+        r = determine_hostname(&m->full_hostname, &m->llmnr_hostname, &m->mdns_hostname);
         if (r < 0) {
-                log_info("Defaulting to hostname 'linux'.");
-                m->llmnr_hostname = strdup("linux");
-                if (!m->llmnr_hostname)
-                        return log_oom();
+                log_info("Defaulting to hostname '%s'.", fallback_hostname());
 
-                m->mdns_hostname = strdup("linux.local");
-                if (!m->mdns_hostname)
-                        return log_oom();
+                r = make_fallback_hostnames(&m->full_hostname, &m->llmnr_hostname, &m->mdns_hostname);
+                if (r < 0)
+                        return r;
         } else
-                log_info("Using system hostname '%s'.", m->llmnr_hostname);
+                log_info("Using system hostname '%s'.", m->full_hostname);
 
         return 0;
 }
@@ -498,7 +547,7 @@ int manager_new(Manager **ret) {
         m->hostname_fd = -1;
 
         m->llmnr_support = RESOLVE_SUPPORT_YES;
-        m->mdns_support = RESOLVE_SUPPORT_NO;
+        m->mdns_support = RESOLVE_SUPPORT_YES;
         m->dnssec_mode = DEFAULT_DNSSEC_MODE;
         m->enable_cache = true;
         m->dns_stub_listener_mode = DNS_STUB_LISTENER_UDP;
@@ -563,14 +612,6 @@ int manager_start(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = manager_llmnr_start(m);
-        if (r < 0)
-                return r;
-
-        r = manager_mdns_start(m);
-        if (r < 0)
-                return r;
-
         return 0;
 }
 
@@ -621,9 +662,13 @@ Manager *manager_free(Manager *m) {
 
         dns_resource_key_unref(m->llmnr_host_ipv4_key);
         dns_resource_key_unref(m->llmnr_host_ipv6_key);
+        dns_resource_key_unref(m->mdns_host_ipv4_key);
+        dns_resource_key_unref(m->mdns_host_ipv6_key);
 
         sd_event_source_unref(m->hostname_event_source);
         safe_close(m->hostname_fd);
+
+        free(m->full_hostname);
         free(m->llmnr_hostname);
         free(m->mdns_hostname);
 
@@ -1007,6 +1052,8 @@ void manager_refresh_rrs(Manager *m) {
 
         m->llmnr_host_ipv4_key = dns_resource_key_unref(m->llmnr_host_ipv4_key);
         m->llmnr_host_ipv6_key = dns_resource_key_unref(m->llmnr_host_ipv6_key);
+        m->mdns_host_ipv4_key = dns_resource_key_unref(m->mdns_host_ipv4_key);
+        m->mdns_host_ipv6_key = dns_resource_key_unref(m->mdns_host_ipv6_key);
 
         HASHMAP_FOREACH(l, m->links, i) {
                 link_add_rrs(l, true);
@@ -1146,8 +1193,14 @@ int manager_is_own_hostname(Manager *m, const char *name) {
                         return r;
         }
 
-        if (m->mdns_hostname)
-                return dns_name_equal(name, m->mdns_hostname);
+        if (m->mdns_hostname) {
+                r = dns_name_equal(name, m->mdns_hostname);
+                if (r != 0)
+                        return r;
+        }
+
+        if (m->full_hostname)
+                return dns_name_equal(name, m->full_hostname);
 
         return 0;
 }

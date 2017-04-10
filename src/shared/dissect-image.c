@@ -20,7 +20,6 @@
 #ifdef HAVE_LIBCRYPTSETUP
 #include <libcryptsetup.h>
 #endif
-#include <linux/dm-ioctl.h>
 #include <sys/mount.h>
 
 #include "architecture.h"
@@ -32,6 +31,7 @@
 #include "fs-util.h"
 #include "gpt.h"
 #include "hexdecoct.h"
+#include "linux-3.13/dm-ioctl.h"
 #include "mount-util.h"
 #include "path-util.h"
 #include "stat-util.h"
@@ -42,8 +42,8 @@
 #include "udev-util.h"
 #include "xattr-util.h"
 
-static int probe_filesystem(const char *node, char **ret_fstype) {
 #ifdef HAVE_BLKID
+static int probe_filesystem(const char *node, char **ret_fstype) {
         _cleanup_blkid_free_probe_ blkid_probe b = NULL;
         const char *fstype;
         int r;
@@ -61,12 +61,8 @@ static int probe_filesystem(const char *node, char **ret_fstype) {
                 log_debug("Failed to identify any partition type on partition %s", node);
                 goto not_found;
         }
-        if (r != 0) {
-                if (errno == 0)
-                        return -EIO;
-
-                return -errno;
-        }
+        if (r != 0)
+                return -errno ?: -EIO;
 
         (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
 
@@ -84,10 +80,8 @@ static int probe_filesystem(const char *node, char **ret_fstype) {
 not_found:
         *ret_fstype = NULL;
         return 0;
-#else
-        return -EOPNOTSUPP;
-#endif
 }
+#endif
 
 int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectImageFlags flags, DissectedImage **ret) {
 
@@ -146,12 +140,8 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
 
         errno = 0;
         r = blkid_probe_set_device(b, fd, 0, 0);
-        if (r != 0) {
-                if (errno == 0)
-                        return -ENOMEM;
-
-                return -errno;
-        }
+        if (r != 0)
+                return -errno ?: -ENOMEM;
 
         if ((flags & DISSECT_IMAGE_GPT_ONLY) == 0) {
                 /* Look for file system superblocks, unless we only shall look for GPT partition tables */
@@ -168,12 +158,8 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                 log_debug("Failed to identify any partition table.");
                 return -ENOPKG;
         }
-        if (r != 0) {
-                if (errno == 0)
-                        return -EIO;
-
-                return -errno;
-        }
+        if (r != 0)
+                return -errno ?: -EIO;
 
         m = new0(DissectedImage, 1);
         if (!m)
@@ -232,12 +218,8 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
 
         errno = 0;
         pl = blkid_probe_get_partitions(b);
-        if (!pl) {
-                if (errno == 0)
-                        return -ENOMEM;
-
-                return -errno;
-        }
+        if (!pl)
+                return -errno ?: -ENOMEM;
 
         udev = udev_new();
         if (!udev)

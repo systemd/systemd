@@ -19,7 +19,7 @@
 # Message catalog for systemd's own messages
 
 # The catalog format is documented on
-# http://www.freedesktop.org/wiki/Software/systemd/catalog
+# https://www.freedesktop.org/wiki/Software/systemd/catalog
 
 # For an explanation why we do all this, see https://xkcd.com/1024/
 
@@ -78,7 +78,7 @@ a szállítója felé kell bejelenteni.
 Subject: Új munkamenet (@SESSION_ID@) létrehozva, felhasználója: @USER_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Létrejött egy új munkamenet @SESSION_ID@ azonosítóval ezen felhasználóhoz:
 @USER_ID@.
@@ -89,7 +89,7 @@ A munkamenet vezető folyamata: @LEADER@.
 Subject: Munkamenet (@SESSION_ID@) befejezve
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 A következő azonosítójú munkamenet befejeződött: @SESSION_ID@.
 
@@ -97,7 +97,7 @@ A következő azonosítójú munkamenet befejeződött: @SESSION_ID@.
 Subject: Elérhető egy új munkaállomás: @SEAT_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Beállításra kerül és használható egy új munkaállomás: @SEAT_ID@.
 
@@ -105,7 +105,7 @@ Beállításra kerül és használható egy új munkaállomás: @SEAT_ID@.
 Subject: A munkaállomás eltávolítva: @SEAT_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 A munkaállomás el lett távolítva, és már nem érhető el: @SEAT_ID@
 

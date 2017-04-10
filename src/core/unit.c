@@ -402,6 +402,7 @@ void unit_add_to_dbus_queue(Unit *u) {
 
         /* Shortcut things if nobody cares */
         if (sd_bus_track_count(u->manager->subscribed) <= 0 &&
+            sd_bus_track_count(u->bus_track) <= 0 &&
             set_isempty(u->manager->private_buses)) {
                 u->sent_dbus_new_signal = true;
                 return;
@@ -1466,9 +1467,8 @@ static void unit_status_print_starting_stopping(Unit *u, JobType t) {
 }
 
 static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
-        const char *format;
+        const char *format, *mid;
         char buf[LINE_MAX];
-        sd_id128_t mid;
 
         assert(u);
 
@@ -1486,9 +1486,9 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
         snprintf(buf, sizeof buf, format, unit_description(u));
         REENABLE_WARNING;
 
-        mid = t == JOB_START ? SD_MESSAGE_UNIT_STARTING :
-              t == JOB_STOP  ? SD_MESSAGE_UNIT_STOPPING :
-                               SD_MESSAGE_UNIT_RELOADING;
+        mid = t == JOB_START ? "MESSAGE_ID=" SD_MESSAGE_UNIT_STARTING_STR :
+              t == JOB_STOP  ? "MESSAGE_ID=" SD_MESSAGE_UNIT_STOPPING_STR :
+                               "MESSAGE_ID=" SD_MESSAGE_UNIT_RELOADING_STR;
 
         /* Note that we deliberately use LOG_MESSAGE() instead of
          * LOG_UNIT_MESSAGE() here, since this is supposed to mimic
@@ -1497,7 +1497,7 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
          * possible, which means we should avoid the low-level unit
          * name. */
         log_struct(LOG_INFO,
-                   LOG_MESSAGE_ID(mid),
+                   mid,
                    LOG_UNIT_ID(u),
                    LOG_MESSAGE("%s", buf),
                    NULL);
@@ -1527,6 +1527,7 @@ int unit_start_limit_test(Unit *u) {
 }
 
 bool unit_shall_confirm_spawn(Unit *u) {
+        assert(u);
 
         if (manager_is_confirm_spawn_disabled(u->manager))
                 return false;
@@ -1537,6 +1538,31 @@ bool unit_shall_confirm_spawn(Unit *u) {
         return !unit_get_exec_context(u)->same_pgrp;
 }
 
+static bool unit_verify_deps(Unit *u) {
+        Unit *other;
+        Iterator j;
+
+        assert(u);
+
+        /* Checks whether all BindsTo= dependencies of this unit are fulfilled — if they are also combined with
+         * After=. We do not check Requires= or Requisite= here as they only should have an effect on the job
+         * processing, but do not have any effect afterwards. We don't check BindsTo= dependencies that are not used in
+         * conjunction with After= as for them any such check would make things entirely racy. */
+
+        SET_FOREACH(other, u->dependencies[UNIT_BINDS_TO], j) {
+
+                if (!set_contains(u->dependencies[UNIT_AFTER], other))
+                        continue;
+
+                if (!UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(other))) {
+                        log_unit_notice(u, "Bound to unit %s, but unit isn't active.", other->id);
+                        return false;
+                }
+        }
+
+        return true;
+}
+
 /* Errors:
  *         -EBADR:      This unit type does not support starting.
  *         -EALREADY:   Unit is already started.
@@ -1545,6 +1571,7 @@ bool unit_shall_confirm_spawn(Unit *u) {
  *         -EPROTO:     Assert failed
  *         -EINVAL:     Unit not loaded
  *         -EOPNOTSUPP: Unit type not supported
+ *         -ENOLINK:    The necessary dependencies are not fulfilled.
  */
 int unit_start(Unit *u) {
         UnitActiveState state;
@@ -1589,6 +1616,12 @@ int unit_start(Unit *u) {
          */
         if (!unit_supported(u))
                 return -EOPNOTSUPP;
+
+        /* Let's make sure that the deps really are in order before we start this. Normally the job engine should have
+         * taken care of this already, but let's check this here again. After all, our dependencies might not be in
+         * effect anymore, due to a reload or due to a failed condition. */
+        if (!unit_verify_deps(u))
+                return -ENOLINK;
 
         /* Forward to the main object, if we aren't it. */
         following = unit_following(u);
@@ -3121,6 +3154,11 @@ static bool fragment_mtime_newer(const char *path, usec_t mtime, bool path_maske
         if (!path)
                 return false;
 
+        /* If the source is some virtual kernel file system, then we assume we watch it anyway, and hence pretend we
+         * are never out-of-date. */
+        if (PATH_STARTSWITH_SET(path, "/proc", "/sys"))
+                return false;
+
         if (stat(path, &st) < 0)
                 /* What, cannot access this anymore? */
                 return true;
@@ -3863,10 +3901,10 @@ int unit_kill_context(
                          * should not exist in non-delegated units. On
                          * the unified hierarchy that's different,
                          * there we get proper events. Hence rely on
-                         * them.*/
+                         * them. */
 
-                        if  (cg_unified(SYSTEMD_CGROUP_CONTROLLER) > 0 ||
-                             (detect_container() == 0 && !unit_cgroup_delegate(u)))
+                        if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0 ||
+                            (detect_container() == 0 && !unit_cgroup_delegate(u)))
                                 wait_for_exit = true;
 
                         if (send_sighup) {
@@ -4036,7 +4074,7 @@ void unit_warn_if_dir_nonempty(Unit *u, const char* where) {
         }
 
         log_struct(LOG_NOTICE,
-                   LOG_MESSAGE_ID(SD_MESSAGE_OVERMOUNTING),
+                   "MESSAGE_ID=" SD_MESSAGE_OVERMOUNTING_STR,
                    LOG_UNIT_ID(u),
                    LOG_UNIT_MESSAGE(u, "Directory %s to mount over is not empty, mounting anyway.", where),
                    "WHERE=%s", where,
@@ -4058,7 +4096,7 @@ int unit_fail_if_symlink(Unit *u, const char* where) {
                 return 0;
 
         log_struct(LOG_ERR,
-                   LOG_MESSAGE_ID(SD_MESSAGE_OVERMOUNTING),
+                   "MESSAGE_ID=" SD_MESSAGE_OVERMOUNTING_STR,
                    LOG_UNIT_ID(u),
                    LOG_UNIT_MESSAGE(u, "Mount on symlink %s not allowed.", where),
                    "WHERE=%s", where,

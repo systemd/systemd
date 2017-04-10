@@ -569,8 +569,9 @@ fail:
         return r;
 }
 
-int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *k, size_t *start) {
+int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *k, const DnsAnswerFlags flags, size_t *start) {
         size_t saved_size;
+        uint16_t class;
         int r;
 
         assert(p);
@@ -586,7 +587,8 @@ int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *k, size_t *start) 
         if (r < 0)
                 goto fail;
 
-        r = dns_packet_append_uint16(p, k->class, NULL);
+        class = flags & DNS_ANSWER_CACHE_FLUSH ? k->class | MDNS_RR_CACHE_FLUSH : k->class;
+        r = dns_packet_append_uint16(p, class, NULL);
         if (r < 0)
                 goto fail;
 
@@ -791,9 +793,10 @@ int dns_packet_truncate_opt(DnsPacket *p) {
         return 1;
 }
 
-int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *start, size_t *rdata_start) {
+int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAnswerFlags flags, size_t *start, size_t *rdata_start) {
 
         size_t saved_size, rdlength_offset, end, rdlength, rds;
+        uint32_t ttl;
         int r;
 
         assert(p);
@@ -801,11 +804,12 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
 
         saved_size = p->size;
 
-        r = dns_packet_append_key(p, rr->key, NULL);
+        r = dns_packet_append_key(p, rr->key, flags, NULL);
         if (r < 0)
                 goto fail;
 
-        r = dns_packet_append_uint32(p, rr->ttl, NULL);
+        ttl = flags & DNS_ANSWER_GOODBYE ? 0 : rr->ttl;
+        r = dns_packet_append_uint32(p, ttl, NULL);
         if (r < 0)
                 goto fail;
 
@@ -1143,7 +1147,7 @@ int dns_packet_append_question(DnsPacket *p, DnsQuestion *q) {
         assert(p);
 
         DNS_QUESTION_FOREACH(key, q) {
-                r = dns_packet_append_key(p, key, NULL);
+                r = dns_packet_append_key(p, key, 0, NULL);
                 if (r < 0)
                         return r;
         }
@@ -1153,12 +1157,13 @@ int dns_packet_append_question(DnsPacket *p, DnsQuestion *q) {
 
 int dns_packet_append_answer(DnsPacket *p, DnsAnswer *a) {
         DnsResourceRecord *rr;
+        DnsAnswerFlags flags;
         int r;
 
         assert(p);
 
-        DNS_ANSWER_FOREACH(rr, a) {
-                r = dns_packet_append_rr(p, rr, NULL, NULL);
+        DNS_ANSWER_FOREACH_FLAGS(rr, flags, a) {
+                r = dns_packet_append_rr(p, rr, flags, NULL, NULL);
                 if (r < 0)
                         return r;
         }

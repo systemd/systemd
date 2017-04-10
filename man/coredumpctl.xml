@@ -92,6 +92,28 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-S</option></term>
+        <term><option>--since</option></term>
+
+        <listitem><para>Only print entries which are since the specified date.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-U</option></term>
+        <term><option>--until</option></term>
+
+        <listitem><para>Only print entries which are until the specified date.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-r</option></term>
+        <term><option>--reverse</option></term>
+
+        <listitem><para>Reverse output so that the newest entries are displayed first.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-F</option> <replaceable>FIELD</replaceable></term>
         <term><option>--field=</option><replaceable>FIELD</replaceable></term>
 
@@ -116,6 +138,14 @@
         </para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>Suppresses info messages about lack
+        of access to journal files and possible in-flight coredumps.
+        </para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -131,6 +161,57 @@
         <listitem><para>List core dumps captured in the journal
         matching specified characteristics. If no command is
         specified, this is the implied default.</para>
+
+        <para>The output is designed to be human readable and contains list contains
+        a table with the following columns:</para>
+        <variablelist>
+          <varlistentry>
+            <term>TIME</term>
+            <listitem><para>The timestamp of the crash, as reported by the kernel.</para>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term>PID</term>
+            <listitem><para>The identifier of the process that crashed.</para>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term>UID</term>
+            <term>GID</term>
+            <listitem><para>The user and group identifiers of the process that crashed.</para>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term>SIGNAL</term>
+            <listitem><para>The signal that caused the process to crash, when applicable.
+            </para></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term>COREFILE</term>
+            <listitem><para>Information whether the coredump was stored, and whether
+            it is still accessible: <literal>none</literal> means the the core was
+            not stored, <literal>-</literal> means that it was not available (for
+            example because the process was not terminated by a signal),
+            <literal>present</literal> means that the core file is accessible by the
+            current user, <literal>journal</literal> means that the core was stored
+            in the <literal>journal</literal>, <literal>truncated</literal> is the
+            same as one of the previous two, but the core was too large and was not
+            stored in its entirety, <literal>error</literal> means that the core file
+            cannot be accessed, most likely because of insufficient permissions, and
+            <literal>missing</literal> means that the core was stored in a file, but
+            this file has since been removed.</para></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term>EXE</term>
+            <listitem><para>The full path to the executable. For backtraces of scripts
+            this is the name of the interpreter.</para></listitem>
+          </varlistentry>
+        </variablelist>
 
         <para>It's worth noting that different restrictions apply to
         data saved in the journal and core dump files saved in
@@ -201,9 +282,9 @@
       <varlistentry>
         <term><replaceable>MATCH</replaceable></term>
 
-        <listitem><para>General journalctl predicates (see
+        <listitem><para>General journalctl predicate (see
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>).
-        Must contain an equal sign. </para></listitem>
+        Must contain an equals sign (<literal>=</literal>).</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

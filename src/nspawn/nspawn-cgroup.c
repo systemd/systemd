@@ -78,13 +78,12 @@ int sync_cgroup(pid_t pid, CGroupUnified unified_requested, uid_t arg_uid_shift)
         char tree[] = "/tmp/unifiedXXXXXX", pid_string[DECIMAL_STR_MAX(pid) + 1];
         bool undo_mount = false;
         const char *fn;
-        int unified, r;
+        int r, unified_controller;
 
-        unified = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
-        if (unified < 0)
-                return log_error_errno(unified, "Failed to determine whether the unified hierarchy is used: %m");
-
-        if ((unified > 0) == (unified_requested >= CGROUP_UNIFIED_SYSTEMD))
+        unified_controller = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
+        if (unified_controller < 0)
+                return log_error_errno(unified_controller, "Failed to determine whether the systemd hierarchy is unified: %m");
+        if ((unified_controller > 0) == (unified_requested >= CGROUP_UNIFIED_SYSTEMD))
                 return 0;
 
         /* When the host uses the legacy cgroup setup, but the
@@ -100,7 +99,7 @@ int sync_cgroup(pid_t pid, CGroupUnified unified_requested, uid_t arg_uid_shift)
         if (!mkdtemp(tree))
                 return log_error_errno(errno, "Failed to generate temporary mount point for unified hierarchy: %m");
 
-        if (unified)
+        if (unified_controller > 0)
                 r = mount_verbose(LOG_ERR, "cgroup", tree, "cgroup",
                                   MS_NOSUID|MS_NOEXEC|MS_NODEV, "none,name=systemd,xattr");
         else
@@ -142,7 +141,7 @@ finish:
 int create_subcgroup(pid_t pid, CGroupUnified unified_requested) {
         _cleanup_free_ char *cgroup = NULL;
         const char *child;
-        int unified, r;
+        int r;
         CGroupMask supported;
 
         /* In the unified hierarchy inner nodes may only contain
@@ -154,10 +153,10 @@ int create_subcgroup(pid_t pid, CGroupUnified unified_requested) {
         if (unified_requested == CGROUP_UNIFIED_NONE)
                 return 0;
 
-        unified = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
-        if (unified < 0)
-                return log_error_errno(unified, "Failed to determine whether the unified hierarchy is used: %m");
-        if (unified == 0)
+        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether the systemd controller is unified: %m");
+        if (r == 0)
                 return 0;
 
         r = cg_mask_supported(&supported);

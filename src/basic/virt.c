@@ -28,7 +28,6 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
 #include "macro.h"
 #include "process-util.h"
 #include "stat-util.h"
@@ -316,25 +315,31 @@ static int detect_vm_zvm(void) {
 /* Returns a short identifier for the various VM implementations */
 int detect_vm(void) {
         static thread_local int cached_found = _VIRTUALIZATION_INVALID;
-        int r;
+        int r, dmi;
 
         if (cached_found >= 0)
                 return cached_found;
 
         /* We have to use the correct order here:
-         * Some virtualization technologies do use KVM hypervisor but are
-         * expected to be detected as something else. So detect DMI first.
          *
-         * An example is Virtualbox since version 5.0, which uses KVM backend.
-         * Detection via DMI works corretly, the CPU ID would find KVM
-         * only. */
-        r = detect_vm_dmi();
+         * -> First try to detect Oracle Virtualbox, even if it uses KVM.
+         * -> Second try to detect from cpuid, this will report KVM for
+         *    whatever software is used even if info in dmi is overwritten.
+         * -> Third try to detect from dmi. */
+
+        dmi = detect_vm_dmi();
+        if (dmi == VIRTUALIZATION_ORACLE) {
+                r = dmi;
+                goto finish;
+        }
+
+        r = detect_vm_cpuid();
         if (r < 0)
                 return r;
         if (r != VIRTUALIZATION_NONE)
                 goto finish;
 
-        r = detect_vm_cpuid();
+        r = dmi;
         if (r < 0)
                 return r;
         if (r != VIRTUALIZATION_NONE)
@@ -564,30 +569,16 @@ int running_in_userns(void) {
 }
 
 int running_in_chroot(void) {
-        _cleanup_free_ char *self_mnt = NULL, *pid1_mnt = NULL;
-        int r;
-
-        /* Try to detect whether we are running in a chroot() environment. Specifically, check whether we have a
-         * different root directory than PID 1, even though we live in the same mount namespace as it. */
+        int ret;
 
         if (getenv_bool("SYSTEMD_IGNORE_CHROOT") > 0)
                 return 0;
 
-        r = files_same("/proc/1/root", "/");
-        if (r < 0)
-                return r;
-        if (r > 0)
-                return 0;
+        ret = files_same("/proc/1/root", "/");
+        if (ret < 0)
+                return ret;
 
-        r = readlink_malloc("/proc/self/ns/mnt", &self_mnt);
-        if (r < 0)
-                return r;
-
-        r = readlink_malloc("/proc/1/ns/mnt", &pid1_mnt);
-        if (r < 0)
-                return r;
-
-        return streq(self_mnt, pid1_mnt); /* Only if we live in the same namespace! */
+        return ret == 0;
 }
 
 static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {

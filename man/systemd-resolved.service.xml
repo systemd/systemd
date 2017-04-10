@@ -62,7 +62,7 @@
 
     <itemizedlist>
       <listitem><para>The native, fully-featured API <command>systemd-resolved</command> exposes on the bus. See the
-      <ulink url="http://www.freedesktop.org/wiki/Software/systemd/resolved">API Documentation</ulink> for
+      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/resolved">API Documentation</ulink> for
       details. Usage of this API is generally recommended to clients as it is asynchronous and fully featured (for
       example, properly returns DNSSEC validation status and interface scope for addresses as necessary for supporting
       link-local networking).</para></listitem>
@@ -156,7 +156,7 @@
     per-interface domains are exclusively routed to the matching
     interfaces.</para>
 
-    <para>See the <ulink url="http://www.freedesktop.org/wiki/Software/systemd/resolved"> resolved D-Bus API
+    <para>See the <ulink url="https://www.freedesktop.org/wiki/Software/systemd/resolved"> resolved D-Bus API
     Documentation</ulink> for information about the APIs <filename>systemd-resolved</filename> provides.</para>
 
   </refsect1>

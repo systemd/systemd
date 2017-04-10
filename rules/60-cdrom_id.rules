@@ -2,7 +2,7 @@
 
 ACTION=="remove", GOTO="cdrom_end"
 SUBSYSTEM!="block", GOTO="cdrom_end"
-KERNEL!="sr[0-9]*|xvd*", GOTO="cdrom_end"
+KERNEL!="sr[0-9]*|vdisk*|xvd*", GOTO="cdrom_end"
 ENV{DEVTYPE}!="disk", GOTO="cdrom_end"
 
 # unconditionally tag device as CDROM

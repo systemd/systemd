@@ -20,3 +20,4 @@
 ***/
 
 char* setup_fake_runtime_dir(void);
+const char* get_testdata_dir(const char *suffix);

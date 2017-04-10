@@ -20,10 +20,10 @@
 AC_PREREQ([2.64])
 
 AC_INIT([systemd],
-        [232],
-        [http://github.com/systemd/systemd/issues],
+        [233],
+        [https://github.com/systemd/systemd/issues],
         [systemd],
-        [http://www.freedesktop.org/wiki/Software/systemd])
+        [https://www.freedesktop.org/wiki/Software/systemd])
 
 AC_CONFIG_SRCDIR([src/core/main.c])
 AC_CONFIG_MACRO_DIR([m4])
@@ -167,6 +167,7 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -Werror=implicit-function-declaration \
         -Werror=missing-declarations \
         -Werror=return-type \
+        -Werror=incompatible-pointer-types \
         -Werror=format=2 \
         -Wstrict-prototypes \
         -Wredundant-decls \
@@ -359,7 +360,7 @@ AC_CHECK_DECLS([IFLA_INET6_ADDR_GEN_MODE,
                 IFLA_PHYS_PORT_ID,
                 IFLA_BOND_AD_INFO,
                 IFLA_VLAN_PROTOCOL,
-                IFLA_VXLAN_REMCSUM_NOPARTIAL,
+                IFLA_VXLAN_GPE,
                 IFLA_IPTUN_ENCAP_DPORT,
                 IFLA_GRE_ENCAP_DPORT,
                 IFLA_BRIDGE_VLAN_INFO,
@@ -581,7 +582,7 @@ AC_ARG_WITH([support-url],
         AS_HELP_STRING([--with-support-url=URL],
                 [specify the support URL to show in catalog entries included in systemd]),
         [SUPPORT_URL="$withval"],
-        [SUPPORT_URL=http://lists.freedesktop.org/mailman/listinfo/systemd-devel])
+        [SUPPORT_URL=https://lists.freedesktop.org/mailman/listinfo/systemd-devel])
 
 AC_SUBST(SUPPORT_URL)
 
@@ -611,6 +612,23 @@ AC_ARG_WITH([fallback-hostname],
 
 AC_SUBST(FALLBACK_HOSTNAME)
 AC_DEFINE_UNQUOTED(FALLBACK_HOSTNAME, ["$FALLBACK_HOSTNAME"], [The hostname used if none configured])
+
+# ------------------------------------------------------------------------------
+
+AC_ARG_WITH(default-hierarchy,
+        AS_HELP_STRING([--with-default-hierarchy=MODE],
+                [default cgroup hierarchy, defaults to "hybrid"]),
+        [DEFAULT_HIERARCHY="$withval"],
+        [DEFAULT_HIERARCHY="hybrid"])
+
+AS_CASE("$DEFAULT_HIERARCHY",
+        [legacy], [mode=CGROUP_UNIFIED_NONE],
+        [hybrid], [mode=CGROUP_UNIFIED_SYSTEMD],
+        [unified], [mode=CGROUP_UNIFIED_ALL],
+        AC_MSG_ERROR(Bad default hierarchy mode ${DEFAULT_HIERARCHY}))
+AC_DEFINE_UNQUOTED(DEFAULT_HIERARCHY, [$mode], [Default cgroup hierarchy])
+AC_DEFINE_UNQUOTED(DEFAULT_HIERARCHY_NAME, ["$DEFAULT_HIERARCHY"],
+                                           [Default cgroup hierarchy as string])
 
 # ------------------------------------------------------------------------------
 have_xz=no
@@ -1041,6 +1059,14 @@ fi
 AM_CONDITIONAL(ENABLE_TMPFILES, [test "$have_tmpfiles" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_environment_d=no
+AC_ARG_ENABLE(environment-d, AS_HELP_STRING([--disable-environment-d], [disable environment.d support]))
+if test "x$enable_environment_d" != "xno"; then
+        have_environment_d=yes
+fi
+AM_CONDITIONAL(ENABLE_ENVIRONMENT_D, [test "$have_environment_d" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_sysusers=no
 AC_ARG_ENABLE(sysusers, AS_HELP_STRING([--disable-sysusers], [disable sysusers support]))
 if test "x$enable_sysusers" != "xno"; then
@@ -1087,7 +1113,7 @@ if test "x$enable_logind" != "xno"; then
         have_logind=yes
 fi
 AM_CONDITIONAL(ENABLE_LOGIND, [test "$have_logind" = "yes"])
-AS_IF([test "$have_logind" = "yes"], [ AC_DEFINE(HAVE_LOGIND, [1], [Logind support available]) ])
+AS_IF([test "$have_logind" = "yes"], [ AC_DEFINE(ENABLE_LOGIND, [1], [Logind support available]) ])
 
 AC_ARG_WITH([kill-user-processes],
         [AS_HELP_STRING([--without-kill-user-processes], [set logind's KillUserProcesses=no by default])])
@@ -1146,10 +1172,7 @@ AC_ARG_WITH(ntp-servers,
         AS_HELP_STRING([--with-ntp-servers=NTPSERVERS],
                 [space-separated list of default NTP servers]),
         [NTP_SERVERS="$withval"],
-        [NTP_SERVERS="time1.google.com time2.google.com time3.google.com time4.google.com"
-        AC_MSG_WARN([*** Using Google NTP servers.
-                        Do not ship OSes or devices with these default settings.
-                        See DISTRO_PORTING for details!])])
+        [NTP_SERVERS="time1.google.com time2.google.com time3.google.com time4.google.com"])
 
 AC_DEFINE_UNQUOTED(NTP_SERVERS, ["$NTP_SERVERS"], [Default NTP Servers])
 AC_SUBST(NTP_SERVERS)
@@ -1183,6 +1206,16 @@ AC_DEFINE_UNQUOTED(SYSTEM_GID_MAX, [$SYSTEM_GID_MAX], [Maximum System GID])
 AC_SUBST(SYSTEM_GID_MAX)
 
 # ------------------------------------------------------------------------------
+
+AC_ARG_WITH(dev-kvm-mode,
+        AS_HELP_STRING([--with-dev-kvm-mode=MODE],
+                [/dev/kvm access mode, defaults to "0660"]),
+        [DEV_KVM_MODE="$withval"],
+        [DEV_KVM_MODE="0660"])
+
+AC_SUBST(DEV_KVM_MODE, [$DEV_KVM_MODE], [/dev/kvm access mode])
+
+# ------------------------------------------------------------------------------
 have_localed=no
 AC_ARG_ENABLE(localed, AS_HELP_STRING([--disable-localed], [disable locale daemon]))
 if test "x$enable_localed" != "xno"; then
@@ -1205,8 +1238,14 @@ AC_ARG_ENABLE(polkit, AS_HELP_STRING([--disable-polkit], [disable PolicyKit supp
 if test "x$enable_polkit" != "xno"; then
         AC_DEFINE(ENABLE_POLKIT, 1, [Define if PolicyKit support is to be enabled])
         have_polkit=yes
+
+        # also enable support for *.pkla files on old polkit
+        PKG_CHECK_MODULES(POLKIT, [ polkit-gobject-1 < 0.106 ],
+                           [polkit_pkla=yes],
+                           [polkit_pkla=no])
 fi
 AM_CONDITIONAL(ENABLE_POLKIT, [test "x$have_polkit" = "xyes"])
+AM_CONDITIONAL(ENABLE_POLKIT_PKLA, [test "x$polkit_pkla" = "xyes"])
 
 # ------------------------------------------------------------------------------
 have_resolved=no
@@ -1548,6 +1587,12 @@ AC_ARG_WITH([pamconfdir],
 AM_CONDITIONAL(ENABLE_PAM_CONFIG, [test "$with_pamconfdir" != "no"])
 AX_NORMALIZE_PATH([with_pamconfdir])
 
+AC_ARG_WITH([rpmmacrosdir],
+        AS_HELP_STRING([--with-rpmmacrosdir=DIR], [directory to store macros for RPM]),
+        [], [with_rpmmacrosdir=\${prefix}/lib/rpm/macros.d])
+AM_CONDITIONAL(ENABLE_RPM_MACROS, [test "$with_rpmmacrosdir" != "no"])
+AX_NORMALIZE_PATH([with_rpmmacrosdir])
+
 AC_ARG_ENABLE([split-usr],
         AS_HELP_STRING([--enable-split-usr], [assume that /bin, /sbin aren't symlinks into /usr]),
         [],
@@ -1618,6 +1663,7 @@ AC_SUBST([bashcompletiondir], [$with_bashcompletiondir])
 AC_SUBST([zshcompletiondir], [$with_zshcompletiondir])
 AC_SUBST([pamlibdir], [$with_pamlibdir])
 AC_SUBST([pamconfdir], [$with_pamconfdir])
+AC_SUBST([rpmmacrosdir], [$with_rpmmacrosdir])
 AC_SUBST([rootprefix], [$with_rootprefix])
 AC_SUBST([rootlibdir], [$with_rootlibdir])
 
@@ -1628,7 +1674,7 @@ AC_CONFIG_FILES([
 
 AC_OUTPUT
 AC_MSG_RESULT([
-        $PACKAGE_NAME $VERSION
+        $PACKAGE_NAME $PACKAGE_VERSION
 
         libcryptsetup:                     ${have_libcryptsetup}
         PAM:                               ${have_pam}
@@ -1655,27 +1701,29 @@ AC_MSG_RESULT([
         vconsole:                          ${have_vconsole}
         quotacheck:                        ${have_quotacheck}
         tmpfiles:                          ${have_tmpfiles}
+        environment.d:                     ${have_environment_d}
         sysusers:                          ${have_sysusers}
         firstboot:                         ${have_firstboot}
         randomseed:                        ${have_randomseed}
         backlight:                         ${have_backlight}
         rfkill:                            ${have_rfkill}
         logind:                            ${have_logind}
-        Default KillUserProcesses setting: ${KILL_USER_PROCESSES}
+        default cgroup hierarchy:          ${DEFAULT_HIERARCHY}
+        default KillUserProcesses setting: ${KILL_USER_PROCESSES}
         machined:                          ${have_machined}
         importd:                           ${have_importd}
         hostnamed:                         ${have_hostnamed}
         timedated:                         ${have_timedated}
         timesyncd:                         ${have_timesyncd}
-        Default NTP servers:               ${NTP_SERVERS}
+        default NTP servers:               ${NTP_SERVERS}
         time epoch:                        ${TIME_EPOCH}
         localed:                           ${have_localed}
         networkd:                          ${have_networkd}
         resolved:                          ${have_resolved}
-        Default DNS servers:               ${DNS_SERVERS}
-        Default DNSSEC mode:               ${DEFAULT_DNSSEC_MODE}
+        default DNS servers:               ${DNS_SERVERS}
+        default DNSSEC mode:               ${DEFAULT_DNSSEC_MODE}
         coredump:                          ${have_coredump}
-        polkit:                            ${have_polkit}
+        polkit:                            ${have_polkit} (legacy pkla support: ${polkit_pkla})
         efi:                               ${have_efi}
         gnuefi:                            ${have_gnuefi}
         efi arch:                          ${EFI_ARCH}
@@ -1712,27 +1760,29 @@ AC_MSG_RESULT([
         rootlib dir:                       ${with_rootlibdir}
         SysV init scripts:                 ${SYSTEM_SYSVINIT_PATH}
         SysV rc?.d directories:            ${SYSTEM_SYSVRCND_PATH}
-        Build Python:                      ${PYTHON}
+        build Python:                      ${PYTHON}
         PAM modules dir:                   ${with_pamlibdir}
         PAM configuration dir:             ${with_pamconfdir}
+        RPM macros dir:                    ${with_rpmmacrosdir}
         D-Bus policy dir:                  ${with_dbuspolicydir}
         D-Bus session dir:                 ${with_dbussessionservicedir}
         D-Bus system dir:                  ${with_dbussystemservicedir}
-        Bash completions dir:              ${with_bashcompletiondir}
-        Zsh completions dir:               ${with_zshcompletiondir}
-        Extra start script:                ${RC_LOCAL_SCRIPT_PATH_START}
-        Extra stop script:                 ${RC_LOCAL_SCRIPT_PATH_STOP}
-        Adm group:                         ${have_adm_group}
-        Wheel group:                       ${have_wheel_group}
-        Debug shell:                       ${SUSHELL} @ ${DEBUGTTY}
+        bash completions dir:              ${with_bashcompletiondir}
+        zsh completions dir:               ${with_zshcompletiondir}
+        extra start script:                ${RC_LOCAL_SCRIPT_PATH_START}
+        extra stop script:                 ${RC_LOCAL_SCRIPT_PATH_STOP}
+        adm group:                         ${have_adm_group}
+        wheel group:                       ${have_wheel_group}
+        debug shell:                       ${SUSHELL} @ ${DEBUGTTY}
         TTY GID:                           ${TTY_GID}
-        Maximum system UID:                ${SYSTEM_UID_MAX}
-        Maximum system GID:                ${SYSTEM_GID_MAX}
-        Certificate root:                  ${CERTIFICATEROOT}
-        Support URL:                       ${SUPPORT_URL}
+        maximum system UID:                ${SYSTEM_UID_MAX}
+        maximum system GID:                ${SYSTEM_GID_MAX}
+        /dev/kvm access mode:              ${DEV_KVM_MODE}
+        certificate root:                  ${CERTIFICATEROOT}
+        support URL:                       ${SUPPORT_URL}
         nobody user name:                  ${NOBODY_USER_NAME}
         nobody group name:                 ${NOBODY_GROUP_NAME}
-        Fallback hostname:                 ${FALLBACK_HOSTNAME}
+        fallback hostname:                 ${FALLBACK_HOSTNAME}
 
         CFLAGS:   ${OUR_CFLAGS} ${CFLAGS}
         CPPFLAGS: ${OUR_CPPFLAGS} ${CPPFLAGS}

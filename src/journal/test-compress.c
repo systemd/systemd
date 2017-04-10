@@ -109,7 +109,7 @@ static void test_decompress_startswith(int compression,
         size_t csize, usize = 0, len;
         int r;
 
-        log_info("/* testing decompress_startswith with %s on %.20s text*/",
+        log_info("/* testing decompress_startswith with %s on %.20s text */",
                  object_compressed_to_string(compression), data);
 
 #define BUFSIZE_1 512

@@ -1260,7 +1260,7 @@ static int usbffs_address_create(const char *path) {
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        /* Check whether this is a regular file (ffs endpoint)*/
+        /* Check whether this is a regular file (ffs endpoint) */
         if (!S_ISREG(st.st_mode))
                 return -EEXIST;
 
@@ -1340,11 +1340,11 @@ static int usbffs_write_descs(int fd, Service *s) {
         if (!s->usb_function_descriptors || !s->usb_function_strings)
                 return -EINVAL;
 
-        r = copy_file_fd(s->usb_function_descriptors, fd, false);
+        r = copy_file_fd(s->usb_function_descriptors, fd, 0);
         if (r < 0)
                 return r;
 
-        return copy_file_fd(s->usb_function_strings, fd, false);
+        return copy_file_fd(s->usb_function_strings, fd, 0);
 }
 
 static int usbffs_select_ep(const struct dirent *d) {

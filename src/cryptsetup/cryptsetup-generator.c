@@ -144,13 +144,17 @@ static int create_disk(
                 }
         }
 
-        if (is_device_path(u))
+        if (is_device_path(u)) {
                 fprintf(f,
                         "BindsTo=%s\n"
                         "After=%s\n"
                         "Before=umount.target\n",
                         d, d);
-        else
+
+                if (swap)
+                        fputs("Before=dev-mapper-%i.swap\n",
+                              f);
+        } else
                 fprintf(f,
                         "RequiresMountsFor=%s\n",
                         u);

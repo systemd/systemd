@@ -151,8 +151,8 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
         l = strlen(name);
         ms = ALIGN(l+1) + ALIGN(sizeof(struct gaih_addrtuple)) * c;
         if (buflen < ms) {
-                *errnop = ENOMEM;
-                *h_errnop = TRY_AGAIN;
+                *errnop = ERANGE;
+                *h_errnop = NETDB_INTERNAL;
                 return NSS_STATUS_TRYAGAIN;
         }
 
@@ -306,8 +306,8 @@ enum nss_status _nss_mymachines_gethostbyname3_r(
         ms = ALIGN(l+1) + c * ALIGN(alen) + (c+2) * sizeof(char*);
 
         if (buflen < ms) {
-                *errnop = ENOMEM;
-                *h_errnop = NO_RECOVERY;
+                *errnop = ERANGE;
+                *h_errnop = NETDB_INTERNAL;
                 return NSS_STATUS_TRYAGAIN;
         }
 
@@ -471,7 +471,7 @@ enum nss_status _nss_mymachines_getpwnam_r(
 
         l = strlen(name);
         if (buflen < l+1) {
-                *errnop = ENOMEM;
+                *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
 
@@ -550,7 +550,7 @@ enum nss_status _nss_mymachines_getpwuid_r(
                 goto not_found;
 
         if (snprintf(buffer, buflen, "vu-%s-" UID_FMT, machine, (uid_t) mapped) >= (int) buflen) {
-                *errnop = ENOMEM;
+                *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
 
@@ -645,7 +645,7 @@ enum nss_status _nss_mymachines_getgrnam_r(
 
         l = sizeof(char*) + strlen(name) + 1;
         if (buflen < l) {
-                *errnop = ENOMEM;
+                *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
 
@@ -722,13 +722,13 @@ enum nss_status _nss_mymachines_getgrgid_r(
                 goto not_found;
 
         if (buflen < sizeof(char*) + 1) {
-                *errnop = ENOMEM;
+                *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
 
         memzero(buffer, sizeof(char*));
         if (snprintf(buffer + sizeof(char*), buflen - sizeof(char*), "vg-%s-" GID_FMT, machine, (gid_t) mapped) >= (int) buflen) {
-                *errnop = ENOMEM;
+                *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
 

@@ -38,7 +38,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 
-#define DNS_CALL_TIMEOUT_USEC (45*USEC_PER_SEC)
+#define DNS_CALL_TIMEOUT_USEC (90*USEC_PER_SEC)
 
 static int arg_family = AF_UNSPEC;
 static int arg_ifindex = 0;
@@ -114,8 +114,8 @@ static void print_source(uint64_t flags, usec_t rtt) {
                        flags & SD_RESOLVED_DNS ? " DNS" :"",
                        flags & SD_RESOLVED_LLMNR_IPV4 ? " LLMNR/IPv4" : "",
                        flags & SD_RESOLVED_LLMNR_IPV6 ? " LLMNR/IPv6" : "",
-                       flags & SD_RESOLVED_MDNS_IPV4 ? "mDNS/IPv4" : "",
-                       flags & SD_RESOLVED_MDNS_IPV6 ? "mDNS/IPv6" : "");
+                       flags & SD_RESOLVED_MDNS_IPV4 ? " mDNS/IPv4" : "",
+                       flags & SD_RESOLVED_MDNS_IPV6 ? " mDNS/IPv6" : "");
 
         assert_se(format_timespan(rtt_str, sizeof(rtt_str), rtt, 100));
 
@@ -1186,6 +1186,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, bool *empt
                 {}
         };
 
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *ifi = NULL, *p = NULL;
         char ifname[IF_NAMESIZE] = "";
         char **i;
@@ -1213,9 +1214,10 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, bool *empt
                                    "org.freedesktop.resolve1",
                                    p,
                                    property_map,
+                                   &error,
                                    &link_info);
         if (r < 0) {
-                log_error_errno(r, "Failed to get link data for %i: %m", ifindex);
+                log_error_errno(r, "Failed to get link data for %i: %s", ifindex, bus_error_message(&error, r));
                 goto finish;
         }
 
@@ -1405,6 +1407,7 @@ static int status_global(sd_bus *bus, bool *empty_line) {
                 {}
         };
 
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char **i;
         int r;
 
@@ -1415,9 +1418,10 @@ static int status_global(sd_bus *bus, bool *empty_line) {
                                    "org.freedesktop.resolve1",
                                    "/org/freedesktop/resolve1",
                                    property_map,
+                                   &error,
                                    &global_info);
         if (r < 0) {
-                log_error_errno(r, "Failed to get global data: %m");
+                log_error_errno(r, "Failed to get global data: %s", bus_error_message(&error, r));
                 goto finish;
         }
 
@@ -1524,7 +1528,7 @@ static int status_all(sd_bus *bus) {
 static void help_protocol_types(void) {
         if (arg_legend)
                 puts("Known protocol types:");
-        puts("dns\nllmnr\nllmnr-ipv4\nllmnr-ipv6");
+        puts("dns\nllmnr\nllmnr-ipv4\nllmnr-ipv6\nmdns\nmnds-ipv4\nmdns-ipv6");
 }
 
 static void help_dns_types(void) {
@@ -1722,6 +1726,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_flags |= SD_RESOLVED_LLMNR_IPV4;
                         else if (streq(optarg, "llmnr-ipv6"))
                                 arg_flags |= SD_RESOLVED_LLMNR_IPV6;
+                        else if (streq(optarg, "mdns"))
+                                arg_flags |= SD_RESOLVED_MDNS;
+                        else if (streq(optarg, "mdns-ipv4"))
+                                arg_flags |= SD_RESOLVED_MDNS_IPV4;
+                        else if (streq(optarg, "mdns-ipv6"))
+                                arg_flags |= SD_RESOLVED_MDNS_IPV6;
                         else {
                                 log_error("Unknown protocol specifier: %s", optarg);
                                 return -EINVAL;

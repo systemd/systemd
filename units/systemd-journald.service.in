@@ -26,8 +26,10 @@ FileDescriptorStoreMax=1024
 CapabilityBoundingSet=CAP_SYS_ADMIN CAP_DAC_OVERRIDE CAP_SYS_PTRACE CAP_SYSLOG CAP_AUDIT_CONTROL CAP_AUDIT_READ CAP_CHOWN CAP_DAC_READ_SEARCH CAP_FOWNER CAP_SETUID CAP_SETGID CAP_MAC_OVERRIDE
 MemoryDenyWriteExecute=yes
 RestrictRealtime=yes
+RestrictNamespaces=yes
 RestrictAddressFamilies=AF_UNIX AF_NETLINK
-SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @mount @obsolete @raw-io
+SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @mount @obsolete @raw-io @reboot @swap
+SystemCallArchitectures=native
 
 # Increase the default a bit in order to allow many simultaneous
 # services being run since we keep one fd open per service. Also, when

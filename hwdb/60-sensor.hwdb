@@ -53,6 +53,22 @@ sensor:modalias:evdev:input:b0019v0000p0000e0000*
 sensor:modalias:acpi:SMO8500*:dmi:*svn*ASUSTeK*:*pn*TP500LB*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 0
 
+sensor:modalias:acpi:SMO8500*:dmi:*svn*ASUSTeK*:*pn*TP300LJ*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+
+#########################################
+# Endless
+#########################################
+sensor:modalias:acpi:ACCE0001*:dmi:*svnEndless*:*pnELT-NL3*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 0, 0, -1; -1, 0, 0
+
+#########################################
+# HP
+#########################################
+sensor:modalias:platform:lis3lv02d:dmi:*svn*Hewlett-Packard*:*pn*HPEliteBook8540w*
+sensor:modalias:platform:lis3lv02d:dmi:*svn*Hewlett-Packard*:*pn*HPEliteBook8560w*
+  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, 0, -1; 0, 1, 0
+
 #########################################
 # Winbook
 #########################################

@@ -47,6 +47,8 @@ struct LinkAddress {
 
         DnsResourceRecord *llmnr_address_rr;
         DnsResourceRecord *llmnr_ptr_rr;
+        DnsResourceRecord *mdns_address_rr;
+        DnsResourceRecord *mdns_ptr_rr;
 
         LIST_FIELDS(LinkAddress, addresses);
 };
@@ -58,6 +60,7 @@ struct Link {
         unsigned flags;
 
         LIST_HEAD(LinkAddress, addresses);
+        unsigned n_addresses;
 
         LIST_HEAD(DnsServer, dns_servers);
         DnsServer *current_dns_server;

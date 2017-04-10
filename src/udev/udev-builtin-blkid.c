@@ -122,7 +122,7 @@ static int find_gpt_root(struct udev_device *dev, blkid_probe pr, bool test) {
         errno = 0;
         pl = blkid_probe_get_partitions(pr);
         if (!pl)
-                return errno > 0 ? -errno : -ENOMEM;
+                return -errno ?: -ENOMEM;
 
         nvals = blkid_partlist_numof_partitions(pl);
         for (i = 0; i < nvals; i++) {
@@ -193,7 +193,7 @@ static int probe_superblocks(blkid_probe pr) {
         int rc;
 
         if (fstat(blkid_probe_get_fd(pr), &st))
-                return -1;
+                return -errno;
 
         blkid_probe_enable_partitions(pr, 1);
 

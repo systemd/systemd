@@ -110,6 +110,20 @@ static int count_addresses(sd_bus_message *m, int af, const char **canonical) {
         return c;
 }
 
+static uint32_t ifindex_to_scopeid(int family, const void *a, int ifindex) {
+        struct in6_addr in6;
+
+        if (family != AF_INET6)
+                return 0;
+
+        /* Some apps can't deal with the scope ID attached to non-link-local addresses. Hence, let's suppress that. */
+
+        assert(sizeof(in6) == FAMILY_ADDRESS_SIZE(AF_INET6));
+        memcpy(&in6, a, sizeof(struct in6_addr));
+
+        return IN6_IS_ADDR_LINKLOCAL(&in6) ? ifindex : 0;
+}
+
 enum nss_status _nss_resolve_gethostbyname4_r(
                 const char *name,
                 struct gaih_addrtuple **pat,
@@ -192,8 +206,8 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         l = strlen(canonical);
         ms = ALIGN(l+1) + ALIGN(sizeof(struct gaih_addrtuple)) * c;
         if (buflen < ms) {
-                *errnop = ENOMEM;
-                *h_errnop = TRY_AGAIN;
+                *errnop = ERANGE;
+                *h_errnop = NETDB_INTERNAL;
                 return NSS_STATUS_TRYAGAIN;
         }
 
@@ -245,7 +259,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
                 r_tuple->next = i == c-1 ? NULL : (struct gaih_addrtuple*) ((char*) r_tuple + ALIGN(sizeof(struct gaih_addrtuple)));
                 r_tuple->name = r_name;
                 r_tuple->family = family;
-                r_tuple->scopeid = ifindex;
+                r_tuple->scopeid = ifindex_to_scopeid(family, a, ifindex);
                 memcpy(r_tuple->addr, a, sz);
 
                 idx += ALIGN(sizeof(struct gaih_addrtuple));
@@ -380,8 +394,8 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         ms = ALIGN(l+1) + c * ALIGN(alen) + (c+2) * sizeof(char*);
 
         if (buflen < ms) {
-                *errnop = ENOMEM;
-                *h_errnop = TRY_AGAIN;
+                *errnop = ERANGE;
+                *h_errnop = NETDB_INTERNAL;
                 return NSS_STATUS_TRYAGAIN;
         }
 
@@ -601,8 +615,8 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
               c * sizeof(char*);        /* pointers to aliases, plus trailing NULL */
 
         if (buflen < ms) {
-                *errnop = ENOMEM;
-                *h_errnop = TRY_AGAIN;
+                *errnop = ERANGE;
+                *h_errnop = NETDB_INTERNAL;
                 return NSS_STATUS_TRYAGAIN;
         }
 

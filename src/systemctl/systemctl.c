@@ -1780,6 +1780,7 @@ static int list_dependencies_one(
         STRV_FOREACH(c, deps) {
                 if (strv_contains(*units, *c)) {
                         if (!arg_plain) {
+                                printf("  ");
                                 r = list_dependencies_print("...", level + 1, (branches << 1) | (c[1] == NULL ? 0 : 1), 1);
                                 if (r < 0)
                                         return r;
@@ -1922,7 +1923,7 @@ static int get_machine_properties(sd_bus *bus, struct machine_info *mi) {
                 bus = container;
         }
 
-        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", machine_info_property_map, mi);
+        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", machine_info_property_map, NULL, mi);
         if (r < 0)
                 return r;
 
@@ -1957,7 +1958,7 @@ static int get_machine_list(
                 machine_infos[c].name = hn;
                 hn = NULL;
 
-                get_machine_properties(bus, &machine_infos[c]);
+                (void) get_machine_properties(bus, &machine_infos[c]);
                 c++;
         }
 
@@ -1987,7 +1988,7 @@ static int get_machine_list(
                         return log_oom();
                 }
 
-                get_machine_properties(NULL, &machine_infos[c]);
+                (void) get_machine_properties(NULL, &machine_infos[c]);
                 c++;
         }
 
@@ -3190,8 +3191,8 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         return r;
 }
 
+#ifdef ENABLE_LOGIND
 static int logind_set_wall_message(void) {
-#ifdef HAVE_LOGIND
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
         _cleanup_free_ char *m = NULL;
@@ -3219,15 +3220,14 @@ static int logind_set_wall_message(void) {
 
         if (r < 0)
                 return log_warning_errno(r, "Failed to set wall message, ignoring: %s", bus_error_message(&error, r));
-
-#endif
         return 0;
 }
+#endif
 
 /* Ask systemd-logind, which might grant access to unprivileged users
  * through PolicyKit */
 static int logind_reboot(enum action a) {
-#ifdef HAVE_LOGIND
+#ifdef ENABLE_LOGIND
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *method, *description;
         sd_bus *bus;
@@ -3290,7 +3290,7 @@ static int logind_reboot(enum action a) {
 }
 
 static int logind_check_inhibitors(enum action a) {
-#ifdef HAVE_LOGIND
+#ifdef ENABLE_LOGIND
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_strv_free_ char **sessions = NULL;
         const char *what, *who, *why, *mode;
@@ -3409,7 +3409,7 @@ static int logind_check_inhibitors(enum action a) {
 }
 
 static int logind_prepare_firmware_setup(void) {
-#ifdef HAVE_LOGIND
+#ifdef ENABLE_LOGIND
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
         int r;
@@ -3482,6 +3482,8 @@ static int set_exit_code(uint8_t code) {
 static int start_special(int argc, char *argv[], void *userdata) {
         enum action a;
         int r;
+        bool termination_action; /* an action that terminates the manager,
+                                  * can be performed also by signal. */
 
         assert(argv);
 
@@ -3521,40 +3523,43 @@ static int start_special(int argc, char *argv[], void *userdata) {
                         return r;
         }
 
-        if (arg_force >= 2 &&
-            IN_SET(a,
-                   ACTION_HALT,
-                   ACTION_POWEROFF,
-                   ACTION_REBOOT))
+        termination_action = IN_SET(a,
+                                    ACTION_HALT,
+                                    ACTION_POWEROFF,
+                                    ACTION_REBOOT);
+        if (termination_action && arg_force >= 2)
                 return halt_now(a);
 
         if (arg_force >= 1 &&
-            IN_SET(a,
-                   ACTION_HALT,
-                   ACTION_POWEROFF,
-                   ACTION_REBOOT,
-                   ACTION_KEXEC,
-                   ACTION_EXIT))
-                return trivial_method(argc, argv, userdata);
+            (termination_action || IN_SET(a, ACTION_KEXEC, ACTION_EXIT)))
+                r = trivial_method(argc, argv, userdata);
+        else {
+                /* First try logind, to allow authentication with polkit */
+                if (IN_SET(a,
+                           ACTION_POWEROFF,
+                           ACTION_REBOOT,
+                           ACTION_SUSPEND,
+                           ACTION_HIBERNATE,
+                           ACTION_HYBRID_SLEEP)) {
 
-        /* First try logind, to allow authentication with polkit */
-        if (IN_SET(a,
-                   ACTION_POWEROFF,
-                   ACTION_REBOOT,
-                   ACTION_SUSPEND,
-                   ACTION_HIBERNATE,
-                   ACTION_HYBRID_SLEEP)) {
-                r = logind_reboot(a);
-                if (r >= 0)
-                        return r;
-                if (IN_SET(r, -EOPNOTSUPP, -EINPROGRESS))
-                        /* requested operation is not supported or already in progress */
-                        return r;
+                        r = logind_reboot(a);
+                        if (r >= 0)
+                                return r;
+                        if (IN_SET(r, -EOPNOTSUPP, -EINPROGRESS))
+                                /* requested operation is not supported or already in progress */
+                                return r;
 
-                /* On all other errors, try low-level operation */
+                        /* On all other errors, try low-level operation */
+                }
+
+                r = start_unit(argc, argv, userdata);
         }
 
-        return start_unit(argc, argv, userdata);
+        if (termination_action && arg_force < 2 &&
+            IN_SET(r, -ENOENT, -ETIMEDOUT))
+                log_notice("It is possible to perform action directly, see discussion of --force --force in man:systemctl(1).");
+
+        return r;
 }
 
 static int start_system_special(int argc, char *argv[], void *userdata) {
@@ -4953,7 +4958,7 @@ static int show_one(
                 return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
 
         if (unit) {
-                r = bus_message_map_all_properties(reply, property_map, &info);
+                r = bus_message_map_all_properties(reply, property_map, &error, &info);
                 if (r < 0)
                         return log_error_errno(r, "Failed to map properties: %s", bus_error_message(&error, r));
 
@@ -5125,8 +5130,9 @@ static int show_all(
 
 static int show_system_status(sd_bus *bus) {
         char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], since2[FORMAT_TIMESTAMP_MAX];
-        _cleanup_free_ char *hn = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(machine_info_clear) struct machine_info mi = {};
+        _cleanup_free_ char *hn = NULL;
         const char *on, *off;
         int r;
 
@@ -5134,9 +5140,9 @@ static int show_system_status(sd_bus *bus) {
         if (!hn)
                 return log_oom();
 
-        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", machine_info_property_map, &mi);
+        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", machine_info_property_map, &error, &mi);
         if (r < 0)
-                return log_error_errno(r, "Failed to read server status: %m");
+                return log_error_errno(r, "Failed to read server status: %s", bus_error_message(&error, r));
 
         if (streq_ptr(mi.state, "degraded")) {
                 on = ansi_highlight_red();
@@ -5299,7 +5305,7 @@ static int cat_file(const char *filename, bool newline) {
                ansi_normal());
         fflush(stdout);
 
-        return copy_bytes(fd, STDOUT_FILENO, (uint64_t) -1, false);
+        return copy_bytes(fd, STDOUT_FILENO, (uint64_t) -1, 0);
 }
 
 static int cat(int argc, char *argv[], void *userdata) {
@@ -5958,6 +5964,7 @@ static int mangle_names(char **original_names, char ***mangled_names) {
                 } else {
                         r = unit_name_mangle(*name, UNIT_NAME_NOGLOB, i);
                         if (r < 0) {
+                                *i = NULL;
                                 strv_free(l);
                                 return log_error_errno(r, "Failed to mangle unit name: %m");
                         }
@@ -6028,7 +6035,7 @@ static int unit_exists(const char *unit) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
 
-        r = bus_message_map_all_properties(reply, property_map, &info);
+        r = bus_message_map_all_properties(reply, property_map, &error, &info);
         if (r < 0)
                 return log_error_errno(r, "Failed to map properties: %s", bus_error_message(&error, r));
 
@@ -6581,7 +6588,7 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
         if (r < 0)
                 return log_error_errno(r, "Failed to create directories for \"%s\": %m", new_path);
 
-        r = copy_file(original_path, t, 0, 0644, 0);
+        r = copy_file(original_path, t, 0, 0644, 0, COPY_REFLINK);
         if (r == -ENOENT) {
 
                 r = touch(t);
@@ -6805,29 +6812,54 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                 return r;
 
         STRV_FOREACH(name, names) {
-                _cleanup_free_ char *path = NULL, *new_path = NULL, *tmp_path = NULL;
+                _cleanup_free_ char *path = NULL, *new_path = NULL, *tmp_path = NULL, *tmp_name = NULL;
+                const char *unit_name;
 
                 r = unit_find_paths(bus, *name, &lp, &path, NULL);
                 if (r < 0)
                         return r;
-                else if (!arg_force) {
-                        if (r == 0) {
-                                log_error("Run 'systemctl edit --force %s' to create a new unit.", *name);
-                                return -ENOENT;
-                        } else if (!path) {
-                                // FIXME: support units with path==NULL (no FragmentPath)
-                                log_error("No fragment exists for %s.", *name);
+
+                if (r == 0) {
+                        assert(!path);
+
+                        if (!arg_force) {
+                                log_error("Run 'systemctl edit%s --force %s' to create a new unit.",
+                                          arg_scope == UNIT_FILE_GLOBAL ? " --global" :
+                                          arg_scope == UNIT_FILE_USER ? " --user" : "",
+                                          *name);
                                 return -ENOENT;
                         }
-                }
 
-                if (path) {
+                        /* Create a new unit from scratch */
+                        unit_name = *name;
+                        r = unit_file_create_new(&lp, unit_name,
+                                                 arg_full ? NULL : ".d/override.conf",
+                                                 &new_path, &tmp_path);
+                } else {
+                        assert(path);
+
+                        unit_name = basename(path);
+                        /* We follow unit aliases, but we need to propagate the instance */
+                        if (unit_name_is_valid(*name, UNIT_NAME_INSTANCE) &&
+                            unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
+                                _cleanup_free_ char *instance = NULL;
+
+                                r = unit_name_to_instance(*name, &instance);
+                                if (r < 0)
+                                        return r;
+
+                                r = unit_name_replace_instance(unit_name, instance, &tmp_name);
+                                if (r < 0)
+                                        return r;
+
+                                unit_name = tmp_name;
+                        }
+
                         if (arg_full)
-                                r = unit_file_create_copy(&lp, basename(path), path, &new_path, &tmp_path);
+                                r = unit_file_create_copy(&lp, unit_name, path, &new_path, &tmp_path);
                         else
-                                r = unit_file_create_new(&lp, basename(path), ".d/override.conf", &new_path, &tmp_path);
-                } else
-                        r = unit_file_create_new(&lp, *name, NULL, &new_path, &tmp_path);
+                                r = unit_file_create_new(&lp, unit_name, ".d/override.conf", &new_path, &tmp_path);
+                }
                 if (r < 0)
                         return r;
 
@@ -7299,7 +7331,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case 't': {
                         if (isempty(optarg)) {
-                                log_error("--type requires arguments.");
+                                log_error("--type= requires arguments.");
                                 return -EINVAL;
                         }
 
@@ -7539,7 +7571,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_STATE: {
                         if (isempty(optarg)) {
-                                log_error("--signal requires arguments.");
+                                log_error("--state= requires arguments.");
                                 return -EINVAL;
                         }
 
@@ -7548,7 +7580,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                                 r = extract_first_word(&p, &s, ",", 0);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse signal: %s", optarg);
+                                        return log_error_errno(r, "Failed to parse state: %s", optarg);
                                 if (r == 0)
                                         break;
 
@@ -8248,7 +8280,7 @@ static int halt_now(enum action a) {
 
 static int logind_schedule_shutdown(void) {
 
-#ifdef HAVE_LOGIND
+#ifdef ENABLE_LOGIND
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char date[FORMAT_TIMESTAMP_MAX];
         const char *action;
@@ -8376,7 +8408,7 @@ static int runlevel_main(void) {
 }
 
 static int logind_cancel_shutdown(void) {
-#ifdef HAVE_LOGIND
+#ifdef ENABLE_LOGIND
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
         int r;

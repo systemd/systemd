@@ -25,18 +25,23 @@ typedef struct VxLan VxLan;
 #include "netdev/netdev.h"
 
 #define VXLAN_VID_MAX (1u << 24) - 1
+#define VXLAN_FLOW_LABEL_MAX_MASK 0xFFFFFU
 
 struct VxLan {
         NetDev meta;
 
         uint64_t id;
 
-        int family;
-        union in_addr_union group;
+        int remote_family;
+        int local_family;
+
+        union in_addr_union remote;
+        union in_addr_union local;
 
         unsigned tos;
         unsigned ttl;
         unsigned max_fdb;
+        unsigned flow_label;
 
         uint16_t dest_port;
 
@@ -60,16 +65,16 @@ struct VxLan {
 DEFINE_NETDEV_CAST(VXLAN, VxLan);
 extern const NetDevVTable vxlan_vtable;
 
-int config_parse_vxlan_group_address(const char *unit,
-                                     const char *filename,
-                                     unsigned line,
-                                     const char *section,
-                                     unsigned section_line,
-                                     const char *lvalue,
-                                     int ltype,
-                                     const char *rvalue,
-                                     void *data,
-                                     void *userdata);
+int config_parse_vxlan_address(const char *unit,
+                               const char *filename,
+                               unsigned line,
+                               const char *section,
+                               unsigned section_line,
+                               const char *lvalue,
+                               int ltype,
+                               const char *rvalue,
+                               void *data,
+                               void *userdata);
 int config_parse_port_range(const char *unit,
                             const char *filename,
                             unsigned line,
@@ -91,3 +96,14 @@ int config_parse_destination_port(const char *unit,
                                   const char *rvalue,
                                   void *data,
                                   void *userdata);
+
+int config_parse_flow_label(const char *unit,
+                            const char *filename,
+                            unsigned line,
+                            const char *section,
+                            unsigned section_line,
+                            const char *lvalue,
+                            int ltype,
+                            const char *rvalue,
+                            void *data,
+                            void *userdata);

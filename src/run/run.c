@@ -497,7 +497,7 @@ static int transient_service_set_properties(sd_bus_message *m, char **argv, cons
         if (r < 0)
                 return r;
 
-        if (arg_wait) {
+        if (arg_wait || arg_pty) {
                 r = sd_bus_message_append(m, "(sv)", "AddRef", "b", 1);
                 if (r < 0)
                         return r;
@@ -818,16 +818,18 @@ static int run_context_update(RunContext *c, const char *path) {
                 {}
         };
 
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         r = bus_map_all_properties(c->bus,
                                    "org.freedesktop.systemd1",
                                    path,
                                    map,
+                                   &error,
                                    c);
         if (r < 0) {
                 sd_event_exit(c->event, EXIT_FAILURE);
-                return log_error_errno(r, "Failed to query unit state: %m");
+                return log_error_errno(r, "Failed to query unit state: %s", bus_error_message(&error, r));
         }
 
         run_context_check_done(c);
@@ -1023,7 +1025,6 @@ static int start_transient_service(
 
                         pty_forward_set_handler(c.forward, pty_forward_handler, &c);
                 }
-
 
                 path = unit_dbus_path_from_name(service);
                 if (!path)

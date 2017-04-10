@@ -29,6 +29,7 @@
 #include "resolved-dns-rr.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 #include "unaligned.h"
 
 #define HASH_KEY SD_ID128_MAKE(d3,1e,48,90,4b,fa,4c,fe,af,9d,d5,a1,d7,2e,8a,b1)
@@ -115,7 +116,7 @@ int main(int argc, char **argv) {
                 N = argc - 1;
                 fnames = argv + 1;
         } else {
-                assert_se(glob(RESOLVE_TEST_DIR "/*.pkts", GLOB_NOSORT, NULL, &g) == 0);
+                assert_se(glob(get_testdata_dir("/test-resolve/*.pkts"), GLOB_NOSORT, NULL, &g) == 0);
                 N = g.gl_pathc;
                 fnames = g.gl_pathv;
         }

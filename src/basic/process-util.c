@@ -311,7 +311,7 @@ int rename_process(const char name[]) {
 
         /* Third step, completely replace the argv[] array the kernel maintains for us. This requires privileges, but
          * has the advantage that the argv[] array is exactly what we want it to be, and not filled up with zeros at
-         * the end. This is the best option for changing /proc/self/cmdline.*/
+         * the end. This is the best option for changing /proc/self/cmdline. */
         if (mm_size < l+1) {
                 size_t nn_size;
                 char *nn;
@@ -703,7 +703,7 @@ int kill_and_sigcont(pid_t pid, int sig) {
 
         /* If this worked, also send SIGCONT, unless we already just sent a SIGCONT, or SIGKILL was sent which isn't
          * affected by a process being suspended anyway. */
-        if (r >= 0 && !IN_SET(SIGCONT, SIGKILL))
+        if (r >= 0 && !IN_SET(sig, SIGCONT, SIGKILL))
                 (void) kill(pid, SIGCONT);
 
         return r;

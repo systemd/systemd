@@ -211,7 +211,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         r = sd_bus_message_append(
                         reply, "st",
                         normalized,
-                        SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, q->answer_authenticated));
+                        SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, dns_query_fully_authenticated(q)));
         if (r < 0)
                 goto finish;
 
@@ -439,7 +439,7 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
         if (r < 0)
                 goto finish;
 
-        r = sd_bus_message_append(reply, "t", SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, q->answer_authenticated));
+        r = sd_bus_message_append(reply, "t", SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, dns_query_fully_authenticated(q)));
         if (r < 0)
                 goto finish;
 
@@ -605,7 +605,7 @@ static void bus_method_resolve_record_complete(DnsQuery *q) {
         if (r < 0)
                 goto finish;
 
-        r = sd_bus_message_append(reply, "t", SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, q->answer_authenticated));
+        r = sd_bus_message_append(reply, "t", SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, dns_query_fully_authenticated(q)));
         if (r < 0)
                 goto finish;
 
@@ -979,7 +979,7 @@ static void resolve_service_all_complete(DnsQuery *q) {
                         reply,
                         "ssst",
                         name, type, domain,
-                        SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, q->answer_authenticated));
+                        SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, dns_query_fully_authenticated(q)));
         if (r < 0)
                 goto finish;
 
@@ -1450,6 +1450,8 @@ static int bus_property_get_ntas(
         return sd_bus_message_close_container(reply);
 }
 
+static BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_dns_stub_listener_mode, dns_stub_listener_mode, DnsStubListenerMode);
+
 static int bus_method_reset_statistics(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         DnsScope *s;
@@ -1577,6 +1579,7 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_PROPERTY("DNSSECStatistics", "(tttt)", bus_property_get_dnssec_statistics, 0, 0),
         SD_BUS_PROPERTY("DNSSECSupported", "b", bus_property_get_dnssec_supported, 0, 0),
         SD_BUS_PROPERTY("DNSSECNegativeTrustAnchors", "as", bus_property_get_ntas, 0, 0),
+        SD_BUS_PROPERTY("DNSStubListener", "s", bus_property_get_dns_stub_listener_mode, offsetof(Manager, dns_stub_listener_mode), 0),
 
         SD_BUS_METHOD("ResolveHostname", "isit", "a(iiay)st", bus_method_resolve_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ResolveAddress", "iiayt", "a(is)t", bus_method_resolve_address, SD_BUS_VTABLE_UNPRIVILEGED),

@@ -36,7 +36,9 @@
 /* The default value for the net.unix.max_dgram_qlen sysctl */
 #define DEFAULT_UNIX_MAX_DGRAM_QLEN 512UL
 
-#define SYSTEMD_CGROUP_CONTROLLER "name=systemd"
+#define SYSTEMD_CGROUP_CONTROLLER_LEGACY "name=systemd"
+#define SYSTEMD_CGROUP_CONTROLLER_HYBRID "name=unified"
+#define SYSTEMD_CGROUP_CONTROLLER "_systemd"
 
 #define SIGNALS_CRASH_HANDLER SIGSEGV,SIGILL,SIGFPE,SIGBUS,SIGQUIT,SIGABRT
 #define SIGNALS_IGNORE SIGPIPE
@@ -73,18 +75,18 @@
 #define NOTIFY_BUFFER_MAX PIPE_BUF
 
 #ifdef HAVE_SPLIT_USR
-#define _CONF_PATHS_SPLIT_USR(n) "/lib/" n "\0"
+#  define _CONF_PATHS_SPLIT_USR(n) "/lib/" n "\0"
 #else
-#define _CONF_PATHS_SPLIT_USR(n)
+#  define _CONF_PATHS_SPLIT_USR(n)
 #endif
 
 /* Return a nulstr for a standard cascade of configuration paths,
  * suitable to pass to conf_files_list_nulstr() or config_parse_many_nulstr()
  * to implement drop-in directories for extending configuration
  * files. */
-#define CONF_PATHS_NULSTR(n) \
-        "/etc/" n "\0" \
-        "/run/" n "\0" \
-        "/usr/local/lib/" n "\0" \
-        "/usr/lib/" n "\0" \
+#define CONF_PATHS_NULSTR(n)                    \
+        "/etc/" n "\0"                          \
+        "/run/" n "\0"                          \
+        "/usr/local/lib/" n "\0"                \
+        "/usr/lib/" n "\0"                      \
         _CONF_PATHS_SPLIT_USR(n)

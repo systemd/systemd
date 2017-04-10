@@ -1006,6 +1006,10 @@ int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bu
 
         assert(message);
 
+        r = mac_selinux_unit_access_check(u, message, "status", error);
+        if (r < 0)
+                return r;
+
         pids = set_new(NULL);
         if (!pids)
                 return -ENOMEM;
@@ -1127,7 +1131,7 @@ void bus_unit_send_change_signal(Unit *u) {
         if (!u->id)
                 return;
 
-        r = bus_foreach_bus(u->manager, NULL, u->sent_dbus_new_signal ? send_changed_signal : send_new_signal, u);
+        r = bus_foreach_bus(u->manager, u->bus_track, u->sent_dbus_new_signal ? send_changed_signal : send_new_signal, u);
         if (r < 0)
                 log_unit_debug_errno(u, r, "Failed to send unit change signal for %s: %m", u->id);
 
@@ -1173,7 +1177,7 @@ void bus_unit_send_removed_signal(Unit *u) {
         if (!u->id)
                 return;
 
-        r = bus_foreach_bus(u->manager, NULL, send_removed_signal, u);
+        r = bus_foreach_bus(u->manager, u->bus_track, send_removed_signal, u);
         if (r < 0)
                 log_unit_debug_errno(u, r, "Failed to send unit remove signal for %s: %m", u->id);
 }

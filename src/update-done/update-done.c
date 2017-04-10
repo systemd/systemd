@@ -26,7 +26,7 @@
 #define MESSAGE                                                         \
         "# This file was created by systemd-update-done. Its only \n"   \
         "# purpose is to hold a timestamp of the time this directory\n" \
-        "# was updated. See systemd-update-done.service(8).\n"
+        "# was updated. See man:systemd-update-done.service(8).\n"
 
 static int apply_timestamp(const char *path, struct timespec *ts) {
         struct timespec twice[2] = {

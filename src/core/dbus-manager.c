@@ -848,13 +848,9 @@ static int method_get_unit_processes(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
 
-        r = manager_load_unit(m, name, NULL, error, &u);
-        if (r < 0)
-                return r;
-
-        r = bus_unit_check_load_state(u, error);
-        if (r < 0)
-                return r;
+        u = manager_get_unit(m, name);
+        if (!u)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not loaded.", name);
 
         return bus_unit_method_get_processes(message, u, error);
 }
@@ -1342,7 +1338,7 @@ static int verify_run_space(const char *message, sd_bus_error *error) {
 }
 
 int verify_run_space_and_log(const char *message) {
-        sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         r = verify_run_space(message, &error);
@@ -1916,14 +1912,79 @@ static int send_unit_files_changed(sd_bus *bus, void *userdata) {
         return sd_bus_send(bus, message, NULL);
 }
 
+/* Create an error reply, using the error information from changes[]
+ * if possible, and fall back to generating an error from error code c.
+ * The error message only describes the first error.
+ *
+ * Coordinate with unit_file_dump_changes() in install.c.
+ */
+static int install_error(
+                sd_bus_error *error,
+                int c,
+                UnitFileChange *changes,
+                unsigned n_changes) {
+        int r;
+        unsigned i;
+
+        for (i = 0; i < n_changes; i++)
+
+                switch(changes[i].type) {
+
+                case 0 ... INT_MAX:
+                        continue;
+
+                case -EEXIST:
+                        if (changes[i].source)
+                                r = sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS,
+                                                      "File %s already exists and is a symlink to %s.",
+                                                      changes[i].path, changes[i].source);
+                        else
+                                r = sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS,
+                                                      "File %s already exists.",
+                                                      changes[i].path);
+                        goto found;
+
+                case -ERFKILL:
+                        r = sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED,
+                                              "Unit file %s is masked.", changes[i].path);
+                        goto found;
+
+                case -EADDRNOTAVAIL:
+                        r = sd_bus_error_setf(error, BUS_ERROR_UNIT_GENERATED,
+                                              "Unit %s is transient or generated.", changes[i].path);
+                        goto found;
+
+                case -ELOOP:
+                        r = sd_bus_error_setf(error, BUS_ERROR_UNIT_LINKED,
+                                              "Refusing to operate on linked unit file %s", changes[i].path);
+                        goto found;
+
+                case -ENOENT:
+                        r = sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit file %s does not exist.", changes[i].path);
+                        goto found;
+
+                default:
+                        r = sd_bus_error_set_errnof(error, changes[i].type, "File %s: %m", changes[i].path);
+                        goto found;
+                }
+
+        r = c < 0 ? c : -EINVAL;
+
+ found:
+        unit_file_changes_free(changes, n_changes);
+        return r;
+}
+
 static int reply_unit_file_changes_and_free(
                 Manager *m,
                 sd_bus_message *message,
                 int carries_install_info,
                 UnitFileChange *changes,
-                unsigned n_changes) {
+                unsigned n_changes,
+                sd_bus_error *error) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        bool bad = false, good = false;
         unsigned i;
         int r;
 
@@ -1947,19 +2008,28 @@ static int reply_unit_file_changes_and_free(
         if (r < 0)
                 goto fail;
 
-        for (i = 0; i < n_changes; i++)
-                if (changes[i].type >= 0) {
-                        const char *change = unit_file_change_type_to_string(changes[i].type);
-                        assert(change != NULL);
+        for (i = 0; i < n_changes; i++) {
 
-                        r = sd_bus_message_append(
-                                        reply, "(sss)",
-                                        change,
-                                        changes[i].path,
-                                        changes[i].source);
-                        if (r < 0)
-                                goto fail;
+                if (changes[i].type < 0) {
+                        bad = true;
+                        continue;
                 }
+
+                r = sd_bus_message_append(
+                                reply, "(sss)",
+                                unit_file_change_type_to_string(changes[i].type),
+                                changes[i].path,
+                                changes[i].source);
+                if (r < 0)
+                        goto fail;
+
+                good = true;
+        }
+
+        /* If there was a failed change, and no successful change, then return the first failure as proper method call
+         * error. */
+        if (bad && !good)
+                return install_error(error, 0, changes, n_changes);
 
         r = sd_bus_message_close_container(reply);
         if (r < 0)
@@ -1969,58 +2039,6 @@ static int reply_unit_file_changes_and_free(
         return sd_bus_send(NULL, reply, NULL);
 
 fail:
-        unit_file_changes_free(changes, n_changes);
-        return r;
-}
-
-/* Create an error reply, using the error information from changes[]
- * if possible, and fall back to generating an error from error code c.
- * The error message only describes the first error.
- *
- * Coordinate with unit_file_dump_changes() in install.c.
- */
-static int install_error(
-                sd_bus_error *error,
-                int c,
-                UnitFileChange *changes,
-                unsigned n_changes) {
-        int r;
-        unsigned i;
-        assert(c < 0);
-
-        for (i = 0; i < n_changes; i++)
-                switch(changes[i].type) {
-                case 0 ... INT_MAX:
-                        continue;
-                case -EEXIST:
-                        if (changes[i].source)
-                                r = sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS,
-                                                      "File %s already exists and is a symlink to %s.",
-                                                      changes[i].path, changes[i].source);
-                        else
-                                r = sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS,
-                                                      "File %s already exists.",
-                                                      changes[i].path);
-                        goto found;
-                case -ERFKILL:
-                        r = sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED,
-                                              "Unit file %s is masked.", changes[i].path);
-                        goto found;
-                case -EADDRNOTAVAIL:
-                        r = sd_bus_error_setf(error, BUS_ERROR_UNIT_GENERATED,
-                                              "Unit %s is transient or generated.", changes[i].path);
-                        goto found;
-                case -ELOOP:
-                        r = sd_bus_error_setf(error, BUS_ERROR_UNIT_LINKED,
-                                              "Refusing to operate on linked unit file %s", changes[i].path);
-                        goto found;
-                default:
-                        r = sd_bus_error_set_errnof(error, changes[i].type, "File %s: %m", changes[i].path);
-                        goto found;
-                }
-
-        r = c;
- found:
         unit_file_changes_free(changes, n_changes);
         return r;
 }
@@ -2061,7 +2079,7 @@ static int method_enable_unit_files_generic(
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, carries_install_info ? r : -1, changes, n_changes);
+        return reply_unit_file_changes_and_free(m, message, carries_install_info ? r : -1, changes, n_changes, error);
 }
 
 static int method_enable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2130,7 +2148,7 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, r, changes, n_changes);
+        return reply_unit_file_changes_and_free(m, message, r, changes, n_changes, error);
 }
 
 static int method_disable_unit_files_generic(
@@ -2165,7 +2183,7 @@ static int method_disable_unit_files_generic(
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes);
+        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes, error);
 }
 
 static int method_disable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2200,7 +2218,7 @@ static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes);
+        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes, error);
 }
 
 static int method_set_default_target(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2231,7 +2249,7 @@ static int method_set_default_target(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes);
+        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes, error);
 }
 
 static int method_preset_all_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2274,7 +2292,7 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes);
+        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes, error);
 }
 
 static int method_add_dependency_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2314,7 +2332,7 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes);
+        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes, error);
 }
 
 static int method_get_unit_file_links(sd_bus_message *message, void *userdata, sd_bus_error *error) {

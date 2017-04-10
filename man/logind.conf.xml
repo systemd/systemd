@@ -244,8 +244,9 @@
 
         <para>A different application may disable logind's handling of system power and
         sleep keys and the lid switch by taking a low-level inhibitor lock
-        ("handle-power-key", "handle-suspend-key", "handle-hibernate-key",
-        "handle-lid-switch"). This is most commonly used by graphical desktop environments
+        (<literal>handle-power-key</literal>, <literal>handle-suspend-key</literal>,
+        <literal>handle-hibernate-key</literal>, <literal>handle-lid-switch</literal>).
+        This is most commonly used by graphical desktop environments
         to take over suspend and hibernation handling, and to use their own configuration
         mechanisms. If a low-level inhibitor lock is taken, logind will not take any
         action when that key or switch is triggered and the <varname>Handle*=</varname>
@@ -261,7 +262,9 @@
         <listitem><para>Controls whether actions that <command>systemd-logind</command>
         takes when the power and sleep keys and the lid switch are triggered are subject
         to high-level inhibitor locks ("shutdown", "sleep", "idle"). Low level inhibitor
-        locks ("handle-*-key"), are always honored, irrespective of this setting.</para>
+        locks (<literal>handle-power-key</literal>, <literal>handle-suspend-key</literal>,
+        <literal>handle-hibernate-key</literal>, <literal>handle-lid-switch</literal>),
+        are always honored, irrespective of this setting.</para>
 
         <para>These settings take boolean arguments. If <literal>no</literal>, the
         inhibitor locks taken by applications are respected. If <literal>yes</literal>,

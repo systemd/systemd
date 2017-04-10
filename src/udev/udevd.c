@@ -1210,7 +1210,7 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
                         else
                                 log_warning("worker ["PID_FMT"] exited with return code %i", pid, WEXITSTATUS(status));
                 } else if (WIFSIGNALED(status)) {
-                        log_warning("worker ["PID_FMT"] terminated by signal %i (%s)", pid, WTERMSIG(status), strsignal(WTERMSIG(status)));
+                        log_warning("worker ["PID_FMT"] terminated by signal %i (%s)", pid, WTERMSIG(status), signal_to_string(WTERMSIG(status)));
                 } else if (WIFSTOPPED(status)) {
                         log_info("worker ["PID_FMT"] stopped", pid);
                         continue;
@@ -1492,7 +1492,7 @@ static int parse_argv(int argc, char *argv[]) {
                         help();
                         return 0;
                 case 'V':
-                        printf("%s\n", VERSION);
+                        printf("%s\n", PACKAGE_VERSION);
                         return 0;
                 case '?':
                         return -EINVAL;
@@ -1740,7 +1740,7 @@ int main(int argc, char *argv[]) {
         if (arg_daemonize) {
                 pid_t pid;
 
-                log_info("starting version " VERSION);
+                log_info("starting version " PACKAGE_VERSION);
 
                 /* connect /dev/null to stdin, stdout, stderr */
                 if (log_get_max_level() < LOG_DEBUG) {

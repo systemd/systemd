@@ -1,7 +1,14 @@
 # This file is part of systemd.
 #
-# Keyboard mapping of scan codes to key codes, and
-# scan codes to add to the AT keyboard's 'force-release' list.
+# This file contains 3 types of metadata to apply to keyboards and
+# keyboard-like input devices:
+# - Key mapping
+# - Hard-coded layouts
+# - Absence of modifier LEDs
+#
+# The matching process is the same for the different types of metadata.
+#
+# ########################### MATCHING #######################################
 #
 # The lookup keys are composed in:
 #   60-evdev.rules
@@ -31,6 +38,21 @@
 #    <input device name> is the name device specified by the
 #    driver, <vendor> is the firmware-provided string exported
 #    by the kernel DMI modalias, see /sys/class/dmi/id/modalias
+#
+#  - Extended input driver device name, properties and DMI data match:
+#      evdev:name:<input device name>:phys:<phys>:ev:<ev>:dmi:bvn*:bvr*:bd*:svn<vendor>:pn*
+#    <input device name> is the name device specified by the
+#    driver, <phys> is the physical-device-path, "cat
+#    /sys/class/input/input?/phys", <ev> is the event bitmask, "cat
+#    /sys/class/input/input?/capabilities/ev" and <vendor> is the
+#    firmware-provided string exported by the kernel DMI modalias,
+#    see /sys/class/dmi/id/modalias
+
+
+# ######################### KEY MAPPING ######################################
+#
+# Keyboard mapping of scan codes to key codes, and
+# scan codes to add to the AT keyboard's 'force-release' list.
 #
 # Scan codes are specified as:
 #   KEYBOARD_KEY_<hex scan code>=<key code identifier>
@@ -124,6 +146,9 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*8930:*
  KEYBOARD_KEY_89=fastforward
  KEYBOARD_KEY_9e=back
 
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*7750G:pvr*
+ KEYBOARD_KEY_e0=!pageup
+
 # Travelmate C300
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*C3[01]0*:pvr*
  KEYBOARD_KEY_67=f24                                    # FIXME: rotate screen
@@ -204,6 +229,14 @@ evdev:input:b0003v049Fp0051*
  KEYBOARD_KEY_0c0013=info
  KEYBOARD_KEY_0c0014=prog1
  KEYBOARD_KEY_0c0015=messenger
+
+###########################################################
+# Cube
+###########################################################
+
+evdev:name:gpio-keys:phys:gpio-keys/input0:ev:3:dmi:bvn*:bvr*:bd*:svncube:pni1-TF:*
+ KEYBOARD_KEY_0=home
+ KEYBOARD_KEY_1=power
 
 ###########################################################
 # Dell
@@ -1254,9 +1287,13 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDIXONSP:pnDIXON*:pvr*
  KEYBOARD_KEY_ae=!                                      # volume down
  KEYBOARD_KEY_b0=!                                      # volume up
 
-###########################################################
-# Fixed layout devices
-###########################################################
+######################### FIXED LAYOUT DEVICES #############################
+# This section lists devices for which only one keyboard layout is possible
+# or useful such as devices which "type" expecting the user's keymap to match
+# a particular one. For example, barcode readers and OTP keys.
+#
+# The layout must be an xkb compatible layout (defined with XKB_FIXED_LAYOUT),
+# with an accompanying variant (defined with XKB_FIXED_VARIANT) if necessary.
 
 # Yubico Yubico Yubikey II"
 evdev:input:b0003v1050p0010*
@@ -1268,3 +1305,16 @@ evdev:input:b0003v1050p0116*
 evdev:input:b0003v05FEp1010*
  XKB_FIXED_LAYOUT="us"
  XKB_FIXED_VARIANT=""
+
+######################### LACK OF MODIFIER LEDS ############################
+# This section lists keyboard which do not have their own LEDs for some
+# modifiers. Only Caps-Lock (KEYBOARD_LED_CAPSLOCK) and Num-Lock
+# (KEYBOARD_LED_CAPSLOCK) are currently handled and need their values set
+# to "0" to indicate the absence of LED.
+#
+# Presence of a LED is implicit when the property is absent.
+
+# Logitech K750
+evdev:input:b0003v046Dp4002*
+ KEYBOARD_LED_NUMLOCK=0
+ KEYBOARD_LED_CAPSLOCK=0

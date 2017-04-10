@@ -872,7 +872,7 @@ static int parse_attribute_from_arg(Item *item) {
                 { 's', FS_SECRM_FL },        /* Secure deletion */
                 { 'u', FS_UNRM_FL },         /* Undelete */
                 { 't', FS_NOTAIL_FL },       /* file tail should not be merged */
-                { 'T', FS_TOPDIR_FL },       /* Top of directory hierarchies*/
+                { 'T', FS_TOPDIR_FL },       /* Top of directory hierarchies */
                 { 'C', FS_NOCOW_FL },        /* Do not cow file */
         };
 
@@ -1170,7 +1170,7 @@ static int create_item(Item *i) {
                         return log_error_errno(r, "Failed to substitute specifiers in copy source %s: %m", i->argument);
 
                 log_debug("Copying tree \"%s\" to \"%s\".", resolved, i->path);
-                r = copy_tree(resolved, i->path, false);
+                r = copy_tree(resolved, i->path, i->uid_set ? i->uid : UID_INVALID, i->gid_set ? i->gid : GID_INVALID, COPY_REFLINK);
 
                 if (r == -EROFS && stat(i->path, &st) == 0)
                         r = -EEXIST;

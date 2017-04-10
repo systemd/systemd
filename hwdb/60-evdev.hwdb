@@ -346,3 +346,12 @@ evdev:name:ETPS/2 Elantech Touchpad:dmi:*svnSAMSUNGELECTRONICSCO.,LTD.:pn305V4A/
 evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:*svnTOSHIBA:pnTECRAM11*
  EVDEV_ABS_00=90:962:11
  EVDEV_ABS_01=51:681:14
+
+#########################################
+# Waltop
+#########################################
+
+# WALTOP International Corp. Slim Tablet
+evdev:input:b0003v172Fp0031*
+ EVDEV_ABS_00=0:10000:400
+ EVDEV_ABS_01=0:6250:400

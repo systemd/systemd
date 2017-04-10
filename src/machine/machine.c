@@ -38,6 +38,7 @@
 #include "parse-util.h"
 #include "process-util.h"
 #include "special.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "terminal-util.h"
 #include "unit-name.h"
@@ -401,7 +402,7 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
                 return r;
 
         log_struct(LOG_INFO,
-                   LOG_MESSAGE_ID(SD_MESSAGE_MACHINE_START),
+                   "MESSAGE_ID=" SD_MESSAGE_MACHINE_START_STR,
                    "NAME=%s", m->name,
                    "LEADER="PID_FMT, m->leader,
                    LOG_MESSAGE("New machine %s.", m->name),
@@ -464,7 +465,7 @@ int machine_finalize(Machine *m) {
 
         if (m->started)
                 log_struct(LOG_INFO,
-                           LOG_MESSAGE_ID(SD_MESSAGE_MACHINE_STOP),
+                           "MESSAGE_ID=" SD_MESSAGE_MACHINE_STOP_STR,
                            "NAME=%s", m->name,
                            "LEADER="PID_FMT, m->leader,
                            LOG_MESSAGE("Machine %s terminated.", m->name),
@@ -602,6 +603,96 @@ void machine_release_unit(Machine *m) {
 
         (void) hashmap_remove(m->manager->machine_units, m->unit);
         m->unit = mfree(m->unit);
+}
+
+int machine_get_uid_shift(Machine *m, uid_t *ret) {
+        char p[strlen("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
+        uid_t uid_base, uid_shift, uid_range;
+        gid_t gid_base, gid_shift, gid_range;
+        _cleanup_fclose_ FILE *f = NULL;
+        int k;
+
+        assert(m);
+        assert(ret);
+
+        /* Return the base UID/GID of the specified machine. Note that this only works for containers with simple
+         * mappings. In most cases setups should be simple like this, and administrators should only care about the
+         * basic offset a container has relative to the host. This is what this function exposes.
+         *
+         * If we encounter any more complex mappings we politely refuse this with ENXIO. */
+
+        if (m->class == MACHINE_HOST) {
+                *ret = 0;
+                return 0;
+        }
+
+        if (m->class != MACHINE_CONTAINER)
+                return -EOPNOTSUPP;
+
+        xsprintf(p, "/proc/" PID_FMT "/uid_map", m->leader);
+        f = fopen(p, "re");
+        if (!f) {
+                if (errno == ENOENT) {
+                        /* If the file doesn't exist, user namespacing is off in the kernel, return a zero mapping hence. */
+                        *ret = 0;
+                        return 0;
+                }
+
+                return -errno;
+        }
+
+        /* Read the first line. There's at least one. */
+        errno = 0;
+        k = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT "\n", &uid_base, &uid_shift, &uid_range);
+        if (k != 3) {
+                if (ferror(f))
+                        return -errno;
+
+                return -EBADMSG;
+        }
+
+        /* Not a mapping starting at 0? Then it's a complex mapping we can't expose here. */
+        if (uid_base != 0)
+                return -ENXIO;
+        /* Insist that at least the nobody user is mapped, everything else is weird, and hence complex, and we don't support it */
+        if (uid_range < (uid_t) 65534U)
+                return -ENXIO;
+
+        /* If there's more than one line, then we don't support this mapping. */
+        if (fgetc(f) != EOF)
+                return -ENXIO;
+
+        fclose(f);
+
+        xsprintf(p, "/proc/" PID_FMT "/gid_map", m->leader);
+        f = fopen(p, "re");
+        if (!f)
+                return -errno;
+
+        /* Read the first line. There's at least one. */
+        errno = 0;
+        k = fscanf(f, GID_FMT " " GID_FMT " " GID_FMT "\n", &gid_base, &gid_shift, &gid_range);
+        if (k != 3) {
+                if (ferror(f))
+                        return -errno;
+
+                return -EBADMSG;
+        }
+
+        /* If there's more than one line, then we don't support this file. */
+        if (fgetc(f) != EOF)
+                return -ENXIO;
+
+        /* If the UID and GID mapping doesn't match, we don't support this mapping. */
+        if (uid_base != (uid_t) gid_base)
+                return -ENXIO;
+        if (uid_shift != (uid_t) gid_shift)
+                return -ENXIO;
+        if (uid_range != (uid_t) gid_range)
+                return -ENXIO;
+
+        *ret = uid_shift;
+        return 0;
 }
 
 static const char* const machine_class_table[_MACHINE_CLASS_MAX] = {

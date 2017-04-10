@@ -68,7 +68,7 @@
     is a command line client to this service.</para>
 
     <para>See the <ulink
-    url="http://www.freedesktop.org/wiki/Software/systemd/localed">
+    url="https://www.freedesktop.org/wiki/Software/systemd/localed">
     developer documentation</ulink> for information about the APIs
     <filename>systemd-localed</filename> provides.</para>
   </refsect1>

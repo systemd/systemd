@@ -34,7 +34,7 @@ struct sd_device {
         uint64_t properties_generation; /* changes whenever the properties are changed */
         uint64_t properties_iterator_generation; /* generation when iteration was started */
 
-        /* the subset of the properties that should be written to the db*/
+        /* the subset of the properties that should be written to the db */
         OrderedHashmap *properties_db;
 
         Hashmap *sysattr_values; /* cached sysattr values */

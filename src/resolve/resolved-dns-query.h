@@ -71,7 +71,6 @@ struct DnsQuery {
          * family */
         bool suppress_unroutable_family;
 
-
         /* If true, the RR TTLs of the answer will be clamped by their current left validity in the cache */
         bool clamp_ttl;
 
@@ -90,6 +89,7 @@ struct DnsQuery {
         int answer_family;
         DnsSearchDomain *answer_search_domain;
         int answer_errno; /* if state is DNS_TRANSACTION_ERRNO */
+        bool previous_redirect_unauthenticated;
 
         /* Bus client information */
         sd_bus_message *request;
@@ -102,6 +102,7 @@ struct DnsQuery {
         /* DNS stub information */
         DnsPacket *request_dns_packet;
         DnsStream *request_dns_stream;
+        DnsPacket *reply_dns_packet;
 
         /* Completion callback */
         void (*complete)(DnsQuery* q);
@@ -139,3 +140,5 @@ DnsQuestion* dns_query_question_for_protocol(DnsQuery *q, DnsProtocol protocol);
 const char *dns_query_string(DnsQuery *q);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuery*, dns_query_free);
+
+bool dns_query_fully_authenticated(DnsQuery *q);

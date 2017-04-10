@@ -123,7 +123,8 @@ int uname_architecture(void) {
                 { "crisv32",    ARCHITECTURE_CRIS     },
 #elif defined(__nios2__)
                 { "nios2",      ARCHITECTURE_NIOS2    },
-#elif defined(__riscv__)
+#elif defined(__riscv__) || defined(__riscv)
+        /* __riscv__ is obsolete, remove in 2018 */
                 { "riscv32",    ARCHITECTURE_RISCV32  },
                 { "riscv64",    ARCHITECTURE_RISCV64  },
 #  if __SIZEOF_POINTER__ == 4

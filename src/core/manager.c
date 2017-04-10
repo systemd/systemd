@@ -52,6 +52,7 @@
 #include "dirent-util.h"
 #include "env-util.h"
 #include "escape.h"
+#include "exec-util.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -102,6 +103,7 @@ static int manager_dispatch_idle_pipe_fd(sd_event_source *source, int fd, uint32
 static int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_jobs_in_progress(sd_event_source *source, usec_t usec, void *userdata);
 static int manager_dispatch_run_queue(sd_event_source *source, void *userdata);
+static int manager_run_environment_generators(Manager *m);
 static int manager_run_generators(Manager *m);
 
 static void manager_watch_jobs_in_progress(Manager *m) {
@@ -530,9 +532,9 @@ static int manager_default_environment(Manager *m) {
         if (MANAGER_IS_SYSTEM(m)) {
                 /* The system manager always starts with a clean
                  * environment for its children. It does not import
-                 * the kernel or the parents exported variables.
+                 * the kernel's or the parents' exported variables.
                  *
-                 * The initial passed environ is untouched to keep
+                 * The initial passed environment is untouched to keep
                  * /proc/self/environ valid; it is used for tagging
                  * the init process inside containers. */
                 m->environment = strv_new("PATH=" DEFAULT_PATH,
@@ -540,11 +542,10 @@ static int manager_default_environment(Manager *m) {
 
                 /* Import locale variables LC_*= from configuration */
                 locale_setup(&m->environment);
-        } else {
+        } else
                 /* The user manager passes its own environment
                  * along to its children. */
                 m->environment = strv_copy(environ);
-        }
 
         if (!m->environment)
                 return -ENOMEM;
@@ -775,7 +776,10 @@ static int manager_setup_cgroups_agent(Manager *m) {
         if (!MANAGER_IS_SYSTEM(m))
                 return 0;
 
-        if (cg_unified(SYSTEMD_CGROUP_CONTROLLER) > 0) /* We don't need this anymore on the unified hierarchy */
+        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether unified cgroups hierarchy is used: %m");
+        if (r > 0) /* We don't need this anymore on the unified hierarchy */
                 return 0;
 
         if (m->cgroups_agent_fd < 0) {
@@ -1262,6 +1266,10 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         if (r < 0)
                 return r;
 
+        r = manager_run_environment_generators(m);
+        if (r < 0)
+                return r;
+
         /* Make sure the transient directory always exists, so that it remains in the search path */
         if (!m->test_run) {
                 r = mkdir_p_label(m->lookup_paths.transient, 0755);
@@ -1398,7 +1406,7 @@ tr_abort:
 }
 
 int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, sd_bus_error *e, Job **ret) {
-        Unit *unit;
+        Unit *unit = NULL;  /* just to appease gcc, initialization is not really necessary */
         int r;
 
         assert(m);
@@ -1409,6 +1417,7 @@ int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode 
         r = manager_load_unit(m, name, NULL, NULL, &unit);
         if (r < 0)
                 return r;
+        assert(unit);
 
         return manager_add_job(m, type, unit, mode, e, ret);
 }
@@ -1481,6 +1490,7 @@ int manager_load_unit_prepare(
 
         assert(m);
         assert(name || path);
+        assert(_ret);
 
         /* This will prepare the unit for loading, but not actually
          * load anything from disk. */
@@ -1528,8 +1538,7 @@ int manager_load_unit_prepare(
         unit_add_to_dbus_queue(ret);
         unit_add_to_gc_queue(ret);
 
-        if (_ret)
-                *_ret = ret;
+        *_ret = ret;
 
         return 0;
 }
@@ -1544,6 +1553,7 @@ int manager_load_unit(
         int r;
 
         assert(m);
+        assert(_ret);
 
         /* This will load the service information files, but not actually
          * start any services or anything. */
@@ -1554,8 +1564,7 @@ int manager_load_unit(
 
         manager_dispatch_load_queue(m);
 
-        if (_ret)
-                *_ret = unit_follow_merge(*_ret);
+        *_ret = unit_follow_merge(*_ret);
 
         return 0;
 }
@@ -2170,7 +2179,7 @@ static int manager_dispatch_time_change_fd(sd_event_source *source, int fd, uint
         assert(m->time_change_fd == fd);
 
         log_struct(LOG_DEBUG,
-                   LOG_MESSAGE_ID(SD_MESSAGE_TIME_CHANGE),
+                   "MESSAGE_ID=" SD_MESSAGE_TIME_CHANGE_STR,
                    LOG_MESSAGE("Time has been changed"),
                    NULL);
 
@@ -2436,22 +2445,14 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
 }
 
 int manager_open_serialization(Manager *m, FILE **_f) {
-        int fd = -1;
+        int fd;
         FILE *f;
 
         assert(_f);
 
-        fd = memfd_create("systemd-serialization", MFD_CLOEXEC);
-        if (fd < 0) {
-                const char *path;
-
-                path = MANAGER_IS_SYSTEM(m) ? "/run/systemd" : "/tmp";
-                fd = open_tmpfile_unlinkable(path, O_RDWR|O_CLOEXEC);
-                if (fd < 0)
-                        return -errno;
-                log_debug("Serializing state to %s.", path);
-        } else
-                log_debug("Serializing state to memfd.");
+        fd = open_serialization_fd("systemd-state");
+        if (fd < 0)
+                return fd;
 
         f = fdopen(fd, "w+");
         if (!f) {
@@ -2460,7 +2461,6 @@ int manager_open_serialization(Manager *m, FILE **_f) {
         }
 
         *_f = f;
-
         return 0;
 }
 
@@ -2468,7 +2468,6 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
         Iterator i;
         Unit *u;
         const char *t;
-        char **e;
         int r;
 
         assert(m);
@@ -2498,17 +2497,8 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
                 dual_timestamp_serialize(f, "units-load-finish-timestamp", &m->units_load_finish_timestamp);
         }
 
-        if (!switching_root) {
-                STRV_FOREACH(e, m->environment) {
-                        _cleanup_free_ char *ce;
-
-                        ce = cescape(*e);
-                        if (!ce)
-                                return -ENOMEM;
-
-                        fprintf(f, "env=%s\n", *e);
-                }
-        }
+        if (!switching_root)
+                (void) serialize_environment(f, m->environment);
 
         if (m->notify_fd >= 0) {
                 int copy;
@@ -2671,21 +2661,9 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 else if ((val = startswith(l, "units-load-finish-timestamp=")))
                         dual_timestamp_deserialize(val, &m->units_load_finish_timestamp);
                 else if (startswith(l, "env=")) {
-                        _cleanup_free_ char *uce = NULL;
-                        char **e;
-
-                        r = cunescape(l + 4, UNESCAPE_RELAX, &uce);
+                        r = deserialize_environment(&m->environment, l);
                         if (r < 0)
-                                goto finish;
-
-                        e = strv_env_set(m->environment, uce);
-                        if (!e) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
-
-                        strv_free(m->environment);
-                        m->environment = e;
+                                return r;
 
                 } else if ((val = startswith(l, "notify-fd="))) {
                         int fd;
@@ -2826,6 +2804,10 @@ int manager_reload(Manager *m) {
         if (q < 0 && r >= 0)
                 r = q;
 
+        q = manager_run_environment_generators(m);
+        if (q < 0 && r >= 0)
+                r = q;
+
         /* Find new unit paths */
         q = manager_run_generators(m);
         if (q < 0 && r >= 0)
@@ -2929,7 +2911,7 @@ static void manager_notify_finished(Manager *m) {
                         initrd_usec = m->userspace_timestamp.monotonic - m->initrd_timestamp.monotonic;
 
                         log_struct(LOG_INFO,
-                                   LOG_MESSAGE_ID(SD_MESSAGE_STARTUP_FINISHED),
+                                   "MESSAGE_ID=" SD_MESSAGE_STARTUP_FINISHED_STR,
                                    "KERNEL_USEC="USEC_FMT, kernel_usec,
                                    "INITRD_USEC="USEC_FMT, initrd_usec,
                                    "USERSPACE_USEC="USEC_FMT, userspace_usec,
@@ -2944,7 +2926,7 @@ static void manager_notify_finished(Manager *m) {
                         initrd_usec = 0;
 
                         log_struct(LOG_INFO,
-                                   LOG_MESSAGE_ID(SD_MESSAGE_STARTUP_FINISHED),
+                                   "MESSAGE_ID=" SD_MESSAGE_STARTUP_FINISHED_STR,
                                    "KERNEL_USEC="USEC_FMT, kernel_usec,
                                    "USERSPACE_USEC="USEC_FMT, userspace_usec,
                                    LOG_MESSAGE("Startup finished in %s (kernel) + %s (userspace) = %s.",
@@ -2958,7 +2940,7 @@ static void manager_notify_finished(Manager *m) {
                 total_usec = userspace_usec = m->finish_timestamp.monotonic - m->userspace_timestamp.monotonic;
 
                 log_struct(LOG_INFO,
-                           LOG_MESSAGE_ID(SD_MESSAGE_USER_STARTUP_FINISHED),
+                           "MESSAGE_ID=" SD_MESSAGE_USER_STARTUP_FINISHED_STR,
                            "USERSPACE_USEC="USEC_FMT, userspace_usec,
                            LOG_MESSAGE("Startup finished in %s.",
                                        format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC)),
@@ -3017,10 +2999,56 @@ void manager_check_finished(Manager *m) {
         manager_invalidate_startup_units(m);
 }
 
+static bool generator_path_any(const char* const* paths) {
+        char **path;
+        bool found = false;
+
+        /* Optimize by skipping the whole process by not creating output directories
+         * if no generators are found. */
+        STRV_FOREACH(path, (char**) paths)
+                if (access(*path, F_OK) == 0)
+                        found = true;
+                else if (errno != ENOENT)
+                        log_warning_errno(errno, "Failed to open generator directory %s: %m", *path);
+
+        return found;
+}
+
+static const char* system_env_generator_binary_paths[] = {
+        "/run/systemd/system-environment-generators",
+        "/etc/systemd/system-environment-generators",
+        "/usr/local/lib/systemd/system-environment-generators",
+        SYSTEM_ENV_GENERATOR_PATH,
+        NULL
+};
+
+static const char* user_env_generator_binary_paths[] = {
+        "/run/systemd/user-environment-generators",
+        "/etc/systemd/user-environment-generators",
+        "/usr/local/lib/systemd/user-environment-generators",
+        USER_ENV_GENERATOR_PATH,
+        NULL
+};
+
+static int manager_run_environment_generators(Manager *m) {
+        char **tmp = NULL; /* this is only used in the forked process, no cleanup here */
+        const char **paths;
+        void* args[] = {&tmp, &tmp, &m->environment};
+
+        if (m->test_run)
+                return 0;
+
+        paths = MANAGER_IS_SYSTEM(m) ? system_env_generator_binary_paths : user_env_generator_binary_paths;
+
+        if (!generator_path_any(paths))
+                return 0;
+
+        return execute_directories(paths, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL);
+}
+
 static int manager_run_generators(Manager *m) {
         _cleanup_strv_free_ char **paths = NULL;
         const char *argv[5];
-        char **path;
         int r;
 
         assert(m);
@@ -3032,18 +3060,9 @@ static int manager_run_generators(Manager *m) {
         if (!paths)
                 return log_oom();
 
-        /* Optimize by skipping the whole process by not creating output directories
-         * if no generators are found. */
-        STRV_FOREACH(path, paths) {
-                if (access(*path, F_OK) >= 0)
-                        goto found;
-                if (errno != ENOENT)
-                        log_warning_errno(errno, "Failed to open generator directory %s: %m", *path);
-        }
+        if (!generator_path_any((const char* const*) paths))
+                return 0;
 
-        return 0;
-
- found:
         r = lookup_paths_mkdir_generator(&m->lookup_paths);
         if (r < 0)
                 goto finish;
@@ -3055,7 +3074,8 @@ static int manager_run_generators(Manager *m) {
         argv[4] = NULL;
 
         RUN_WITH_UMASK(0022)
-                execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC, (char**) argv);
+                execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC,
+                                    NULL, NULL, (char**) argv);
 
 finish:
         lookup_paths_trim_generator(&m->lookup_paths);

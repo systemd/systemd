@@ -44,7 +44,7 @@ static pid_t pager_pid = 0;
 noreturn static void pager_fallback(void) {
         int r;
 
-        r = copy_bytes(STDIN_FILENO, STDOUT_FILENO, (uint64_t) -1, false);
+        r = copy_bytes(STDIN_FILENO, STDOUT_FILENO, (uint64_t) -1, 0);
         if (r < 0) {
                 log_error_errno(r, "Internal pager failed: %m");
                 _exit(EXIT_FAILURE);
@@ -104,7 +104,8 @@ int pager_open(bool no_pager, bool jump_to_end) {
                         less_opts = "FRSXMK";
                 if (jump_to_end)
                         less_opts = strjoina(less_opts, " +G");
-                setenv("LESS", less_opts, 1);
+                if (setenv("LESS", less_opts, 1) < 0)
+                        _exit(EXIT_FAILURE);
 
                 /* Initialize a good charset for less. This is
                  * particularly important if we output UTF-8
@@ -112,8 +113,9 @@ int pager_open(bool no_pager, bool jump_to_end) {
                 less_charset = getenv("SYSTEMD_LESSCHARSET");
                 if (!less_charset && is_locale_utf8())
                         less_charset = "utf-8";
-                if (less_charset)
-                        setenv("LESSCHARSET", less_charset, 1);
+                if (less_charset &&
+                    setenv("LESSCHARSET", less_charset, 1) < 0)
+                        _exit(EXIT_FAILURE);
 
                 /* Make sure the pager goes away when the parent dies */
                 if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
@@ -159,8 +161,8 @@ void pager_close(void) {
                 return;
 
         /* Inform pager that we are done */
-        stdout = safe_fclose(stdout);
-        stderr = safe_fclose(stderr);
+        safe_fclose(stdout);
+        safe_fclose(stderr);
 
         (void) kill(pager_pid, SIGCONT);
         (void) wait_for_terminate(pager_pid, NULL);

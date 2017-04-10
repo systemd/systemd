@@ -17,6 +17,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdio.h>
+
 #include "alloc-util.h"
 #include "log.h"
 #include "string-util.h"
@@ -25,12 +27,18 @@
 int main(int argc, char *argv[]) {
         _cleanup_(khash_unrefp) khash *h = NULL, *copy = NULL;
         _cleanup_free_ char *s = NULL;
+        int r;
 
         log_set_max_level(LOG_DEBUG);
 
         assert_se(khash_new(&h, NULL) == -EINVAL);
         assert_se(khash_new(&h, "") == -EINVAL);
-        assert_se(khash_new(&h, "foobar") == -EOPNOTSUPP);
+        r = khash_new(&h, "foobar");
+        if (r == -EAFNOSUPPORT) {
+                puts("khash not supported on this kernel, skipping");
+                return EXIT_TEST_SKIP;
+        }
+        assert_se(r == -EOPNOTSUPP);
 
         assert_se(khash_new(&h, "sha256") >= 0);
         assert_se(khash_get_size(h) == 32);

@@ -554,7 +554,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
         } else if (streq(field, "RestrictNamespaces")) {
                 bool invert = false;
-                uint64_t flags = 0;
+                unsigned long flags = 0;
 
                 if (eq[0] == '~') {
                         invert = true;
@@ -575,7 +575,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 if (invert)
                         flags = (~flags) & NAMESPACE_FLAGS_ALL;
 
-                r = sd_bus_message_append(m, "v", "t", flags);
+                r = sd_bus_message_append(m, "v", "t", (uint64_t) flags);
         } else if ((dep = unit_dependency_from_string(field)) >= 0)
                 r = sd_bus_message_append(m, "v", "as", 1, eq);
         else if (streq(field, "MountFlags")) {
@@ -585,7 +585,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse mount propagation flags: %s", eq);
 
-                r = sd_bus_message_append(m, "v", "t", f);
+                r = sd_bus_message_append(m, "v", "t", (uint64_t) f);
         } else if (STR_IN_SET(field, "BindPaths", "BindReadOnlyPaths")) {
                 const char *p = eq;
 
@@ -862,7 +862,7 @@ static void log_job_error_with_service_result(const char* service, const char *r
 
         service_shell_quoted = shell_maybe_quote(service);
 
-        if (extra_args && extra_args[1]) {
+        if (extra_args) {
                 _cleanup_free_ char *t;
 
                 t = strv_join((char**) extra_args, " ");

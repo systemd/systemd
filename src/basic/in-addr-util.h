@@ -39,6 +39,8 @@ struct in_addr_data {
 bool in4_addr_is_null(const struct in_addr *a);
 int in_addr_is_null(int family, const union in_addr_union *u);
 
+int in_addr_is_multicast(int family, const union in_addr_union *u);
+
 bool in4_addr_is_link_local(const struct in_addr *a);
 int in_addr_is_link_local(int family, const union in_addr_union *u);
 

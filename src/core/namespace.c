@@ -799,7 +799,7 @@ static int make_read_only(MountEntry *m, char **blacklist) {
 
         if (mount_entry_read_only(m))
                 r = bind_remount_recursive(mount_entry_path(m), true, blacklist);
-        else if (m->mode == PRIVATE_DEV) { /* Superblock can be readonly but the submounts can't*/
+        else if (m->mode == PRIVATE_DEV) { /* Superblock can be readonly but the submounts can't */
                 if (mount(NULL, mount_entry_path(m), NULL, MS_REMOUNT|DEV_MOUNT_OPTIONS|MS_RDONLY, NULL) < 0)
                         r = -errno;
         } else

@@ -20,7 +20,7 @@
 # Russian translation
 
 # Формат каталога сообщений описан по ссылке
-# http://www.freedesktop.org/wiki/Software/systemd/catalog
+# https://www.freedesktop.org/wiki/Software/systemd/catalog
 
 # Перед каждым элементом в комментарии указан Subject исходного
 # сообщения (на английском).
@@ -119,7 +119,7 @@ Documentation: man:coredump.conf(5)
 Subject: Для пользователя @USER_ID@ создан новый сеанс @SESSION_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Для пользователя @USER_ID@ создан новый сеанс с идентификатором @SESSION_ID@.
 
@@ -130,7 +130,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: Сеанс @SESSION_ID@ завершен
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Сеанс с идентификатором @SESSION_ID@ завершился.
 
@@ -139,7 +139,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: Добавлено новое рабочее место @SEAT_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Новое рабочее место (seat) @SEAT_ID@ полностью настроено и готово к
 использованию.
@@ -149,7 +149,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: Рабочее место @SEAT_ID@ отключено
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Рабочее место (seat) @SEAT_ID@ было отключено.
 

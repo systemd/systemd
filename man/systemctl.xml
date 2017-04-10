@@ -712,7 +712,22 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <listitem>
             <para>List timer units currently in memory, ordered by the time they elapse next. If one or more
             <replaceable>PATTERN</replaceable>s are specified, only units matching one of them are shown.
+            Produces output similar to
+            <programlisting>
+NEXT                         LEFT          LAST                         PASSED     UNIT                         ACTIVATES
+n/a                          n/a           Thu 2017-02-23 13:40:29 EST  3 days ago ureadahead-stop.timer        ureadahead-stop.service
+Sun 2017-02-26 18:55:42 EST  1min 14s left Thu 2017-02-23 13:54:44 EST  3 days ago systemd-tmpfiles-clean.timer systemd-tmpfiles-clean.service
+Sun 2017-02-26 20:37:16 EST  1h 42min left Sun 2017-02-26 11:56:36 EST  6h ago     apt-daily.timer              apt-daily.service
+Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago     snapd.refresh.timer          snapd.refresh.service
+            </programlisting>
             </para>
+
+            <para><emphasis>NEXT</emphasis> shows the next time the timer will run.</para>
+            <para><emphasis>LEFT</emphasis> shows how long till the next time the timer runs.</para>
+            <para><emphasis>LAST</emphasis> shows the last time the timer ran.</para>
+            <para><emphasis>PASSED</emphasis> shows has long as passed since the timer laset ran.</para>
+            <para><emphasis>UNIT</emphasis> shows the name of the timer</para>
+            <para><emphasis>ACTIVATES</emphasis> shows the the name the service the timer activates when it runs.</para>
 
             <para>Also see <option>--all</option> and <option>--state=</option>.</para>
           </listitem>
@@ -892,7 +907,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
               <programlisting>$ systemctl status bluetooth
 ● bluetooth.service - Bluetooth service
-   Loaded: loaded (/lib/systemd/system/bluetooth.service; enabled; vendor preset: enabled)
+   Loaded: loaded (/usr/lib/systemd/system/bluetooth.service; enabled; vendor preset: enabled)
    Active: active (running) since Wed 2017-01-04 13:54:04 EST; 1 weeks 0 days ago
      Docs: man:bluetoothd(8)
  Main PID: 930 (bluetoothd)
@@ -1181,7 +1196,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>For more information on the preset policy format, see
             <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
             For more information on the concept of presets, please consult the
-            <ulink url="http://freedesktop.org/wiki/Software/systemd/Preset">Preset</ulink>
+            <ulink url="https://www.freedesktop.org/wiki/Software/systemd/Preset">Preset</ulink>
             document.</para>
           </listitem>
         </varlistentry>

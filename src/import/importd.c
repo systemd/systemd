@@ -449,8 +449,11 @@ static int transfer_start(Transfer *t) {
 
                 stdio_unset_cloexec();
 
-                setenv("SYSTEMD_LOG_TARGET", "console-prefixed", 1);
-                setenv("NOTIFY_SOCKET", "/run/systemd/import/notify", 1);
+                if (setenv("SYSTEMD_LOG_TARGET", "console-prefixed", 1) < 0 ||
+                    setenv("NOTIFY_SOCKET", "/run/systemd/import/notify", 1) < 0) {
+                        log_error_errno(errno, "setenv() failed: %m");
+                        _exit(EXIT_FAILURE);
+                }
 
                 if (IN_SET(t->type, TRANSFER_IMPORT_TAR, TRANSFER_IMPORT_RAW))
                         cmd[k++] = SYSTEMD_IMPORT_PATH;

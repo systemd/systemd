@@ -44,6 +44,27 @@
 #define LONG(x) ((x)/BITS_PER_LONG)
 #define test_bit(bit, array)    ((array[LONG(bit)] >> OFF(bit)) & 1)
 
+/* available as of kernel 3.11 */
+#ifndef BTN_DPAD_UP
+#define BTN_DPAD_UP 0x220
+#endif /* BTN_DPAD_UP */
+
+/* available as of kernel 3.13 */
+#ifndef KEY_ALS_TOGGLE
+#define KEY_ALS_TOGGLE 0x230
+#endif /* KEY_ALS_TOGGLE */
+
+struct range {
+        unsigned start;
+        unsigned end;
+};
+
+/* key code ranges above BTN_MISC (start is inclusive, stop is exclusive)*/
+static const struct range high_key_blocks[] = {
+        { KEY_OK, BTN_DPAD_UP },
+        { KEY_ALS_TOGGLE, BTN_TRIGGER_HAPPY }
+};
+
 static inline int abs_size_mm(const struct input_absinfo *absinfo) {
         /* Resolution is defined to be in units/mm for ABS_X/Y */
         return (absinfo->maximum - absinfo->minimum) / absinfo->resolution;
@@ -260,13 +281,16 @@ static bool test_key(struct udev_device *dev,
                 found |= bitmask_key[i];
                 log_debug("test_key: checking bit block %lu for any keys; found=%i", (unsigned long)i*BITS_PER_LONG, found > 0);
         }
-        /* If there are no keys in the lower block, check the higher block */
+        /* If there are no keys in the lower block, check the higher blocks */
         if (!found) {
-                for (i = KEY_OK; i < BTN_TRIGGER_HAPPY; ++i) {
-                        if (test_bit(i, bitmask_key)) {
-                                log_debug("test_key: Found key %x in high block", i);
-                                found = 1;
-                                break;
+                unsigned block;
+                for (block = 0; block < (sizeof(high_key_blocks) / sizeof(struct range)); ++block) {
+                        for (i = high_key_blocks[block].start; i < high_key_blocks[block].end; ++i) {
+                                if (test_bit(i, bitmask_key)) {
+                                        log_debug("test_key: Found key %x in high block", i);
+                                        found = 1;
+                                        break;
+                                }
                         }
                 }
         }

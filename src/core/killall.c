@@ -213,7 +213,8 @@ static int killall(int sig, Set *pids, bool send_sighup) {
 
 
                         if (get_ctty_devnr(pid, NULL) >= 0)
-                                kill(pid, SIGHUP);
+                                /* it's OK if the process is gone, just ignore the result */
+                                (void) kill(pid, SIGHUP);
                 }
         }
 

@@ -859,8 +859,7 @@ static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
 
         if ((mask & CGROUP_MASK_MEMORY) && !is_root) {
                 if (cg_all_unified() > 0) {
-                        uint64_t max;
-                        uint64_t swap_max = CGROUP_LIMIT_MAX;
+                        uint64_t max, swap_max = CGROUP_LIMIT_MAX;
 
                         if (cgroup_context_has_unified_memory_config(c)) {
                                 max = c->memory_max;
@@ -1260,9 +1259,9 @@ int unit_watch_cgroup(Unit *u) {
                 return 0;
 
         /* Only applies to the unified hierarchy */
-        r = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
+        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
         if (r < 0)
-                return log_unit_error_errno(u, r, "Failed detect whether the unified hierarchy is used: %m");
+                return log_error_errno(r, "Failed to determine whether the name=systemd hierarchy is unified: %m");
         if (r == 0)
                 return 0;
 
@@ -1673,6 +1672,8 @@ static int unit_watch_pids_in_path(Unit *u, const char *path) {
 }
 
 int unit_watch_all_pids(Unit *u) {
+        int r;
+
         assert(u);
 
         /* Adds all PIDs from our cgroup to the set of PIDs we
@@ -1683,7 +1684,10 @@ int unit_watch_all_pids(Unit *u) {
         if (!u->cgroup_path)
                 return -ENOENT;
 
-        if (cg_unified(SYSTEMD_CGROUP_CONTROLLER) > 0) /* On unified we can use proper notifications */
+        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
+        if (r < 0)
+                return r;
+        if (r > 0) /* On unified we can use proper notifications */
                 return 0;
 
         return unit_watch_pids_in_path(u, u->cgroup_path);
@@ -1756,7 +1760,7 @@ static int on_cgroup_inotify_event(sd_event_source *s, int fd, uint32_t revents,
 int manager_setup_cgroup(Manager *m) {
         _cleanup_free_ char *path = NULL;
         CGroupController c;
-        int r, all_unified, systemd_unified;
+        int r, all_unified;
         char *e;
 
         assert(m);
@@ -1793,25 +1797,30 @@ int manager_setup_cgroup(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Cannot find cgroup mount point: %m");
 
+        r = cg_unified_flush();
+        if (r < 0)
+                return log_error_errno(r, "Couldn't determine if we are running in the unified hierarchy: %m");
+
         all_unified = cg_all_unified();
-        systemd_unified = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
-
-        if (all_unified < 0 || systemd_unified < 0)
-                return log_error_errno(all_unified < 0 ? all_unified : systemd_unified,
-                                       "Couldn't determine if we are running in the unified hierarchy: %m");
-
-        if (all_unified > 0)
+        if (r < 0)
+                return log_error_errno(r, "Couldn't determine whether we are in all unified mode: %m");
+        if (r > 0)
                 log_debug("Unified cgroup hierarchy is located at %s.", path);
-        else if (systemd_unified > 0)
-                log_debug("Unified cgroup hierarchy is located at %s. Controllers are on legacy hierarchies.", path);
-        else
-                log_debug("Using cgroup controller " SYSTEMD_CGROUP_CONTROLLER ". File system hierarchy is at %s.", path);
+        else {
+                r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine whether systemd's own controller is in unified mode: %m");
+                if (r > 0)
+                        log_debug("Unified cgroup hierarchy is located at %s. Controllers are on legacy hierarchies.", path);
+                else
+                        log_debug("Using cgroup controller " SYSTEMD_CGROUP_CONTROLLER_LEGACY ". File system hierarchy is at %s.", path);
+        }
 
         if (!m->test_run) {
                 const char *scope_path;
 
                 /* 3. Install agent */
-                if (systemd_unified) {
+                if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0) {
 
                         /* In the unified hierarchy we can get
                          * cgroup empty notifications via inotify. */
@@ -1997,10 +2006,13 @@ int unit_get_memory_current(Unit *u, uint64_t *ret) {
         if ((u->cgroup_realized_mask & CGROUP_MASK_MEMORY) == 0)
                 return -ENODATA;
 
-        if (cg_all_unified() <= 0)
-                r = cg_get_attribute("memory", u->cgroup_path, "memory.usage_in_bytes", &v);
-        else
+        r = cg_all_unified();
+        if (r < 0)
+                return r;
+        if (r > 0)
                 r = cg_get_attribute("memory", u->cgroup_path, "memory.current", &v);
+        else
+                r = cg_get_attribute("memory", u->cgroup_path, "memory.usage_in_bytes", &v);
         if (r == -ENOENT)
                 return -ENODATA;
         if (r < 0)
@@ -2042,7 +2054,10 @@ static int unit_get_cpu_usage_raw(Unit *u, nsec_t *ret) {
         if (!u->cgroup_path)
                 return -ENODATA;
 
-        if (cg_all_unified() > 0) {
+        r = cg_all_unified();
+        if (r < 0)
+                return r;
+        if (r > 0) {
                 const char *keys[] = { "usage_usec", NULL };
                 _cleanup_free_ char *val = NULL;
                 uint64_t us;

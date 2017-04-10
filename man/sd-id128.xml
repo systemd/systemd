@@ -47,6 +47,7 @@
     <refname>sd-id128</refname>
     <refname>sd_id128_t</refname>
     <refname>SD_ID128_MAKE</refname>
+    <refname>SD_ID128_MAKE_STR</refname>
     <refname>SD_ID128_NULL</refname>
     <refname>SD_ID128_CONST_STR</refname>
     <refname>SD_ID128_FORMAT_STR</refname>
@@ -113,12 +114,24 @@
     <para><function>SD_ID128_NULL</function> may be used to refer to the 128bit ID consisting of only NUL
     bytes.</para>
 
+    <para><function>SD_ID128_MAKE_STR()</function> is similar to <function>SD_ID128_MAKE()</function>, but creates a
+    <type>const char*</type> expression that can be conveniently used in message formats and such:</para>
+
+    <programlisting>#include &lt;stdio.h&gt;
+#define SD_MESSAGE_COREDUMP_STR SD_ID128_MAKE_STR(fc,2e,22,bc,6e,e6,47,b6,b9,07,29,ab,34,a2,50,b1)
+
+int main(int argc, char **argv) {
+        puts("Match for coredumps: MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR);
+}
+    </programlisting>
+
+
     <para><function>SD_ID128_CONST_STR()</function> may be used to
     convert constant 128-bit IDs into constant strings for output. The
     following example code will output the string
     "fc2e22bc6ee647b6b90729ab34a250b1":</para>
     <programlisting>int main(int argc, char *argv[]) {
-        puts(SD_ID128_CONST_STR(SD_MESSAGE_COREDUMP));
+        puts("Match for coredumps: %s", SD_ID128_CONST_STR(SD_MESSAGE_COREDUMP));
 }</programlisting>
 
     <para><function>SD_ID128_FORMAT_STR()</function> and
@@ -154,7 +167,7 @@
 
     <para>Note that new, randomized IDs may be generated with
     <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
-    <option>--new-id</option> option.</para>
+    <option>--new-id128</option> option.</para>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

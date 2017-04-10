@@ -545,10 +545,10 @@ int mount_all(const char *dest,
         static const MountPoint mount_table[] = {
                 /* inner child mounts */
                 { "proc",                "/proc",               "proc",  NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV,                              MOUNT_FATAL|MOUNT_IN_USERNS },
-                { "/proc/sys",           "/proc/sys",           NULL,    NULL,        MS_BIND,                                                   MOUNT_FATAL|MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO },                          /* Bind mount first ...*/
+                { "/proc/sys",           "/proc/sys",           NULL,    NULL,        MS_BIND,                                                   MOUNT_FATAL|MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO },                          /* Bind mount first ... */
                 { "/proc/sys/net",       "/proc/sys/net",       NULL,    NULL,        MS_BIND,                                                   MOUNT_FATAL|MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO|MOUNT_APPLY_APIVFS_NETNS }, /* (except for this) */
                 { NULL,                  "/proc/sys",           NULL,    NULL,        MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, MOUNT_FATAL|MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO },                          /* ... then, make it r/o */
-                { "/proc/sysrq-trigger", "/proc/sysrq-trigger", NULL,    NULL,        MS_BIND,                                                               MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO },                          /* Bind mount first ...*/
+                { "/proc/sysrq-trigger", "/proc/sysrq-trigger", NULL,    NULL,        MS_BIND,                                                               MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO },                          /* Bind mount first ... */
                 { NULL,                  "/proc/sysrq-trigger", NULL,    NULL,        MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,             MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO },                          /* ... then, make it r/o */
 
                 /* outer child mounts */
@@ -890,7 +890,7 @@ static int get_controllers(Set *subsystems) {
 
                 *e = 0;
 
-                if (STR_IN_SET(l, "", "name=systemd"))
+                if (STR_IN_SET(l, "", "name=systemd", "name=unified"))
                         continue;
 
                 p = strdup(l);
@@ -909,7 +909,6 @@ static int mount_legacy_cgroup_hierarchy(
                 const char *dest,
                 const char *controller,
                 const char *hierarchy,
-                CGroupUnified unified_requested,
                 bool read_only) {
 
         const char *to, *fstype, *opts;
@@ -927,14 +926,12 @@ static int mount_legacy_cgroup_hierarchy(
 
         /* The superblock mount options of the mount point need to be
          * identical to the hosts', and hence writable... */
-        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
-                if (unified_requested >= CGROUP_UNIFIED_SYSTEMD) {
-                        fstype = "cgroup2";
-                        opts = NULL;
-                } else {
-                        fstype = "cgroup";
-                        opts = "none,name=systemd,xattr";
-                }
+        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER_HYBRID)) {
+                fstype = "cgroup2";
+                opts = NULL;
+        } else if (streq(controller, SYSTEMD_CGROUP_CONTROLLER_LEGACY)) {
+                fstype = "cgroup";
+                opts = "none,name=systemd,xattr";
         } else {
                 fstype = "cgroup";
                 opts = controller;
@@ -994,7 +991,10 @@ static int mount_legacy_cgns_supported(
                         return r;
         }
 
-        if (cg_all_unified() > 0)
+        r = cg_all_unified();
+        if (r < 0)
+                return r;
+        if (r > 0)
                 goto skip_controllers;
 
         controllers = set_new(&string_hash_ops);
@@ -1012,7 +1012,7 @@ static int mount_legacy_cgns_supported(
                 if (!controller)
                         break;
 
-                r = mount_legacy_cgroup_hierarchy("", controller, controller, unified_requested, !userns);
+                r = mount_legacy_cgroup_hierarchy("", controller, controller, !userns);
                 if (r < 0)
                         return r;
 
@@ -1046,7 +1046,13 @@ static int mount_legacy_cgns_supported(
         }
 
 skip_controllers:
-        r = mount_legacy_cgroup_hierarchy("", SYSTEMD_CGROUP_CONTROLLER, "systemd", unified_requested, false);
+        if (unified_requested >= CGROUP_UNIFIED_SYSTEMD) {
+                r = mount_legacy_cgroup_hierarchy("", SYSTEMD_CGROUP_CONTROLLER_HYBRID, "unified", false);
+                if (r < 0)
+                        return r;
+        }
+
+        r = mount_legacy_cgroup_hierarchy("", SYSTEMD_CGROUP_CONTROLLER_LEGACY, "systemd", false);
         if (r < 0)
                 return r;
 
@@ -1091,7 +1097,10 @@ static int mount_legacy_cgns_unsupported(
                         return r;
         }
 
-        if (cg_all_unified() > 0)
+        r = cg_all_unified();
+        if (r < 0)
+                return r;
+        if (r > 0)
                 goto skip_controllers;
 
         controllers = set_new(&string_hash_ops);
@@ -1117,7 +1126,7 @@ static int mount_legacy_cgns_unsupported(
                 if (r == -EINVAL) {
                         /* Not a symbolic link, but directly a single cgroup hierarchy */
 
-                        r = mount_legacy_cgroup_hierarchy(dest, controller, controller, unified_requested, true);
+                        r = mount_legacy_cgroup_hierarchy(dest, controller, controller, true);
                         if (r < 0)
                                 return r;
 
@@ -1137,7 +1146,7 @@ static int mount_legacy_cgns_unsupported(
                                 continue;
                         }
 
-                        r = mount_legacy_cgroup_hierarchy(dest, combined, combined, unified_requested, true);
+                        r = mount_legacy_cgroup_hierarchy(dest, combined, combined, true);
                         if (r < 0)
                                 return r;
 
@@ -1150,7 +1159,13 @@ static int mount_legacy_cgns_unsupported(
         }
 
 skip_controllers:
-        r = mount_legacy_cgroup_hierarchy(dest, SYSTEMD_CGROUP_CONTROLLER, "systemd", unified_requested, false);
+        if (unified_requested >= CGROUP_UNIFIED_SYSTEMD) {
+                r = mount_legacy_cgroup_hierarchy(dest, SYSTEMD_CGROUP_CONTROLLER_HYBRID, "unified", false);
+                if (r < 0)
+                        return r;
+        }
+
+        r = mount_legacy_cgroup_hierarchy(dest, SYSTEMD_CGROUP_CONTROLLER_LEGACY, "systemd", false);
         if (r < 0)
                 return r;
 
@@ -1202,12 +1217,25 @@ int mount_cgroups(
         return mount_legacy_cgns_unsupported(dest, unified_requested, userns, uid_shift, uid_range, selinux_apifs_context);
 }
 
+static int mount_systemd_cgroup_writable_one(const char *systemd_own, const char *systemd_root)
+{
+        int r;
+
+        /* Make our own cgroup a (writable) bind mount */
+        r = mount_verbose(LOG_ERR, systemd_own, systemd_own,  NULL, MS_BIND, NULL);
+        if (r < 0)
+                return r;
+
+        /* And then remount the systemd cgroup root read-only */
+        return mount_verbose(LOG_ERR, NULL, systemd_root, NULL,
+                             MS_BIND|MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, NULL);
+}
+
 int mount_systemd_cgroup_writable(
                 const char *dest,
                 CGroupUnified unified_requested) {
 
         _cleanup_free_ char *own_cgroup_path = NULL;
-        const char *systemd_root, *systemd_own;
         int r;
 
         assert(dest);
@@ -1220,22 +1248,19 @@ int mount_systemd_cgroup_writable(
         if (path_equal(own_cgroup_path, "/"))
                 return 0;
 
-        if (unified_requested >= CGROUP_UNIFIED_ALL) {
-                systemd_own = strjoina(dest, "/sys/fs/cgroup", own_cgroup_path);
-                systemd_root = prefix_roota(dest, "/sys/fs/cgroup");
-        } else {
-                systemd_own = strjoina(dest, "/sys/fs/cgroup/systemd", own_cgroup_path);
-                systemd_root = prefix_roota(dest, "/sys/fs/cgroup/systemd");
+        if (unified_requested >= CGROUP_UNIFIED_ALL)
+                return mount_systemd_cgroup_writable_one(strjoina(dest, "/sys/fs/cgroup", own_cgroup_path),
+                                                         prefix_roota(dest, "/sys/fs/cgroup"));
+
+        if (unified_requested >= CGROUP_UNIFIED_SYSTEMD) {
+                r = mount_systemd_cgroup_writable_one(strjoina(dest, "/sys/fs/cgroup/unified", own_cgroup_path),
+                                                      prefix_roota(dest, "/sys/fs/cgroup/unified"));
+                if (r < 0)
+                        return r;
         }
 
-        /* Make our own cgroup a (writable) bind mount */
-        r = mount_verbose(LOG_ERR, systemd_own, systemd_own,  NULL, MS_BIND, NULL);
-        if (r < 0)
-                return r;
-
-        /* And then remount the systemd cgroup root read-only */
-        return mount_verbose(LOG_ERR, NULL, systemd_root, NULL,
-                             MS_BIND|MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, NULL);
+        return mount_systemd_cgroup_writable_one(strjoina(dest, "/sys/fs/cgroup/systemd", own_cgroup_path),
+                                                 prefix_roota(dest, "/sys/fs/cgroup/systemd"));
 }
 
 int setup_volatile_state(

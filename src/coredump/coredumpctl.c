@@ -24,27 +24,36 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-journal.h"
+#include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "bus-error.h"
+#include "bus-util.h"
 #include "compress.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "journal-internal.h"
+#include "journal-util.h"
 #include "log.h"
 #include "macro.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "set.h"
 #include "sigbus.h"
 #include "signal-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "user-util.h"
 #include "util.h"
+
+#define SHORT_BUS_CALL_TIMEOUT_USEC (3 * USEC_PER_SEC)
+
+static usec_t arg_since = USEC_INFINITY, arg_until = USEC_INFINITY;
 
 static enum {
         ACTION_NONE,
@@ -59,36 +68,11 @@ static bool arg_no_pager = false;
 static int arg_no_legend = false;
 static int arg_one = false;
 static FILE* arg_output = NULL;
+static bool arg_reverse = false;
+static char** arg_matches = NULL;
+static bool arg_quiet = false;
 
-static Set *new_matches(void) {
-        Set *set;
-        char *tmp;
-        int r;
-
-        set = set_new(NULL);
-        if (!set) {
-                log_oom();
-                return NULL;
-        }
-
-        tmp = strdup("MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1");
-        if (!tmp) {
-                log_oom();
-                set_free(set);
-                return NULL;
-        }
-
-        r = set_consume(set, tmp);
-        if (r < 0) {
-                log_error_errno(r, "failed to add to set: %m");
-                set_free(set);
-                return NULL;
-        }
-
-        return set;
-}
-
-static int add_match(Set *set, const char *match) {
+static int add_match(sd_journal *j, const char *match) {
         _cleanup_free_ char *p = NULL;
         char *pattern = NULL;
         const char* prefix;
@@ -100,7 +84,8 @@ static int add_match(Set *set, const char *match) {
         else if (strchr(match, '/')) {
                 r = path_make_absolute_cwd(match, &p);
                 if (r < 0)
-                        goto fail;
+                        return log_error_errno(r, "path_make_absolute_cwd(\"%s\"): %m", match);
+
                 match = p;
                 prefix = "COREDUMP_EXE=";
         } else if (parse_pid(match, &pid) >= 0)
@@ -109,19 +94,35 @@ static int add_match(Set *set, const char *match) {
                 prefix = "COREDUMP_COMM=";
 
         pattern = strjoin(prefix, match);
-        if (!pattern) {
-                r = -ENOMEM;
-                goto fail;
+        if (!pattern)
+                return log_oom();
+
+        log_debug("Adding match: %s", pattern);
+        r = sd_journal_add_match(j, pattern, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match \"%s\": %m", match);
+        return 0;
+}
+
+static int add_matches(sd_journal *j) {
+        char **match;
+        int r;
+
+        r = sd_journal_add_match(j, "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match \"%s\": %m", "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR);
+
+        r = sd_journal_add_match(j, "MESSAGE_ID=" SD_MESSAGE_BACKTRACE_STR, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match \"%s\": %m", "MESSAGE_ID=" SD_MESSAGE_BACKTRACE_STR);
+
+        STRV_FOREACH(match, arg_matches) {
+                r = add_match(j, *match);
+                if (r < 0)
+                        return r;
         }
 
-        log_debug("Adding pattern: %s", pattern);
-        r = set_consume(set, pattern);
-        if (r < 0)
-                goto fail;
-
         return 0;
-fail:
-        return log_error_errno(r, "Failed to add match: %m");
 }
 
 static void help(void) {
@@ -133,10 +134,13 @@ static void help(void) {
                "     --no-pager      Do not pipe output into a pager\n"
                "     --no-legend     Do not print the column headers.\n"
                "  -1                 Show information about most recent entry only\n"
+               "  -S --since=DATE    Only print coredumps since the date\n"
+               "  -U --until=DATE    Only print coredumps until the date\n"
+               "  -r --reverse       Show the newest entries first\n"
                "  -F --field=FIELD   List all values a certain field takes\n"
-               "  -o --output=FILE   Write output to FILE\n\n"
+               "  -o --output=FILE   Write output to FILE\n"
                "  -D --directory=DIR Use journal files from directory\n\n"
-
+               "  -q --quiet         Do not show info messages and privilege warning\n"
                "Commands:\n"
                "  list [MATCHES...]  List available coredumps (default)\n"
                "  info [MATCHES...]  Show detailed information about one or more coredumps\n"
@@ -145,14 +149,14 @@ static void help(void) {
                , program_invocation_short_name);
 }
 
-static int parse_argv(int argc, char *argv[], Set *matches) {
+static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
         };
 
-        int r, c;
+        int c, r;
 
         static const struct option options[] = {
                 { "help",         no_argument,       NULL, 'h'           },
@@ -162,15 +166,18 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
                 { "output",       required_argument, NULL, 'o'           },
                 { "field",        required_argument, NULL, 'F'           },
                 { "directory",    required_argument, NULL, 'D'           },
+                { "reverse",      no_argument,       NULL, 'r'           },
+                { "since",        required_argument, NULL, 'S'           },
+                { "until",        required_argument, NULL, 'U'           },
+                { "quiet",        no_argument,       NULL, 'q'           },
                 {}
         };
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "ho:F:1D:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "ho:F:1D:rS:U:q", options, NULL)) >= 0)
                 switch(c) {
-
                 case 'h':
                         arg_action = ACTION_NONE;
                         help();
@@ -200,6 +207,18 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
 
                         break;
 
+                case 'S':
+                        r = parse_timestamp(optarg, &arg_since);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse timestamp: %s", optarg);
+                        break;
+
+                case 'U':
+                        r = parse_timestamp(optarg, &arg_until);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse timestamp: %s", optarg);
+                        break;
+
                 case 'F':
                         if (arg_field) {
                                 log_error("cannot use --field/-F more than once");
@@ -216,12 +235,26 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
                         arg_directory = optarg;
                         break;
 
+                case 'r':
+                        arg_reverse = true;
+                        break;
+
+                case 'q':
+                        arg_quiet = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
                 default:
                         assert_not_reached("Unhandled option");
                 }
+
+        if (arg_since != USEC_INFINITY && arg_until != USEC_INFINITY &&
+            arg_since > arg_until) {
+                log_error("--since= must be before --until=.");
+                return -EINVAL;
+        }
 
         if (optind < argc) {
                 const char *cmd = argv[optind++];
@@ -244,12 +277,8 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
                 return -EINVAL;
         }
 
-        while (optind < argc) {
-                r = add_match(matches, argv[optind]);
-                if (r != 0)
-                        return r;
-                optind++;
-        }
+        if (optind < argc)
+                arg_matches = argv + optind;
 
         return 0;
 }
@@ -322,20 +351,22 @@ static int print_field(FILE* file, sd_journal *j) {
 
 static int print_list(FILE* file, sd_journal *j, int had_legend) {
         _cleanup_free_ char
-                *pid = NULL, *uid = NULL, *gid = NULL,
+                *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
                 *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
-                *filename = NULL, *coredump = NULL;
+                *filename = NULL, *truncated = NULL, *coredump = NULL;
         const void *d;
         size_t l;
         usec_t t;
         char buf[FORMAT_TIMESTAMP_MAX];
         int r;
         const char *present;
+        bool normal_coredump;
 
         assert(file);
         assert(j);
 
         SD_JOURNAL_FOREACH_DATA(j, d, l) {
+                RETRIEVE(d, l, "MESSAGE_ID", mid);
                 RETRIEVE(d, l, "COREDUMP_PID", pid);
                 RETRIEVE(d, l, "COREDUMP_UID", uid);
                 RETRIEVE(d, l, "COREDUMP_GID", gid);
@@ -344,6 +375,7 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
                 RETRIEVE(d, l, "COREDUMP_COMM", comm);
                 RETRIEVE(d, l, "COREDUMP_CMDLINE", cmdline);
                 RETRIEVE(d, l, "COREDUMP_FILENAME", filename);
+                RETRIEVE(d, l, "COREDUMP_TRUNCATED", truncated);
                 RETRIEVE(d, l, "COREDUMP", coredump);
         }
 
@@ -359,14 +391,16 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
         format_timestamp(buf, sizeof(buf), t);
 
         if (!had_legend && !arg_no_legend)
-                fprintf(file, "%-*s %*s %*s %*s %*s %*s %s\n",
+                fprintf(file, "%-*s %*s %*s %*s %*s %-*s %s\n",
                         FORMAT_TIMESTAMP_WIDTH, "TIME",
                         6, "PID",
                         5, "UID",
                         5, "GID",
                         3, "SIG",
-                        8, "COREFILE",
+                        9, "COREFILE",
                            "EXE");
+
+        normal_coredump = streq_ptr(mid, SD_MESSAGE_COREDUMP_STR);
 
         if (filename)
                 if (access(filename, R_OK) == 0)
@@ -377,16 +411,21 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
                         present = "error";
         else if (coredump)
                 present = "journal";
-        else
+        else if (normal_coredump)
                 present = "none";
+        else
+                present = "-";
+
+        if (STR_IN_SET(present, "present", "journal") && truncated && parse_boolean(truncated) > 0)
+                present = "truncated";
 
         fprintf(file, "%-*s %*s %*s %*s %*s %-*s %s\n",
                 FORMAT_TIMESTAMP_WIDTH, buf,
                 6, strna(pid),
                 5, strna(uid),
                 5, strna(gid),
-                3, strna(sgnl),
-                8, present,
+                3, normal_coredump ? strna(sgnl) : "-",
+                9, present,
                 strna(exe ?: (comm ?: cmdline)));
 
         return 0;
@@ -394,21 +433,23 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
 
 static int print_info(FILE *file, sd_journal *j, bool need_space) {
         _cleanup_free_ char
-                *pid = NULL, *uid = NULL, *gid = NULL,
+                *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
                 *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
                 *unit = NULL, *user_unit = NULL, *session = NULL,
                 *boot_id = NULL, *machine_id = NULL, *hostname = NULL,
                 *slice = NULL, *cgroup = NULL, *owner_uid = NULL,
                 *message = NULL, *timestamp = NULL, *filename = NULL,
-                *coredump = NULL;
+                *truncated = NULL, *coredump = NULL;
         const void *d;
         size_t l;
+        bool normal_coredump;
         int r;
 
         assert(file);
         assert(j);
 
         SD_JOURNAL_FOREACH_DATA(j, d, l) {
+                RETRIEVE(d, l, "MESSAGE_ID", mid);
                 RETRIEVE(d, l, "COREDUMP_PID", pid);
                 RETRIEVE(d, l, "COREDUMP_UID", uid);
                 RETRIEVE(d, l, "COREDUMP_GID", gid);
@@ -424,6 +465,7 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 RETRIEVE(d, l, "COREDUMP_CGROUP", cgroup);
                 RETRIEVE(d, l, "COREDUMP_TIMESTAMP", timestamp);
                 RETRIEVE(d, l, "COREDUMP_FILENAME", filename);
+                RETRIEVE(d, l, "COREDUMP_TRUNCATED", truncated);
                 RETRIEVE(d, l, "COREDUMP", coredump);
                 RETRIEVE(d, l, "_BOOT_ID", boot_id);
                 RETRIEVE(d, l, "_MACHINE_ID", machine_id);
@@ -433,6 +475,8 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
 
         if (need_space)
                 fputs("\n", file);
+
+        normal_coredump = streq_ptr(mid, SD_MESSAGE_COREDUMP_STR);
 
         if (comm)
                 fprintf(file,
@@ -479,11 +523,12 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
 
         if (sgnl) {
                 int sig;
+                const char *name = normal_coredump ? "Signal" : "Reason";
 
-                if (safe_atoi(sgnl, &sig) >= 0)
-                        fprintf(file, "        Signal: %s (%s)\n", sgnl, signal_to_string(sig));
+                if (normal_coredump && safe_atoi(sgnl, &sig) >= 0)
+                        fprintf(file, "        %s: %s (%s)\n", name, sgnl, signal_to_string(sig));
                 else
-                        fprintf(file, "        Signal: %s\n", sgnl);
+                        fprintf(file, "        %s: %s\n", name, sgnl);
         }
 
         if (timestamp) {
@@ -539,9 +584,24 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
         if (hostname)
                 fprintf(file, "      Hostname: %s\n", hostname);
 
-        if (filename)
-                fprintf(file, "       Storage: %s%s\n", filename,
-                        access(filename, R_OK) < 0 ? " (inaccessible)" : "");
+        if (filename) {
+                bool inacc, trunc;
+
+                inacc = access(filename, R_OK) < 0;
+                trunc = truncated && parse_boolean(truncated) > 0;
+
+                if (inacc || trunc)
+                        fprintf(file, "       Storage: %s%s (%s%s%s)%s\n",
+                                ansi_highlight_red(),
+                                filename,
+                                inacc ? "inaccessible" : "",
+                                inacc && trunc ? ", " : "",
+                                trunc ? "truncated" : "",
+                                ansi_normal());
+                else
+                        fprintf(file, "       Storage: %s\n", filename);
+        }
+
         else if (coredump)
                 fprintf(file, "       Storage: journal\n");
         else
@@ -602,14 +662,57 @@ static int dump_list(sd_journal *j) {
 
                 return print_entry(j, 0);
         } else {
-                SD_JOURNAL_FOREACH(j) {
+                if (arg_since != USEC_INFINITY && !arg_reverse)
+                        r = sd_journal_seek_realtime_usec(j, arg_since);
+                else if (arg_until != USEC_INFINITY && arg_reverse)
+                        r = sd_journal_seek_realtime_usec(j, arg_until);
+                else if (arg_reverse)
+                        r = sd_journal_seek_tail(j);
+                else
+                        r = sd_journal_seek_head(j);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to seek to date: %m");
+
+                for (;;) {
+                        if (!arg_reverse)
+                                r = sd_journal_next(j);
+                        else
+                                r = sd_journal_previous(j);
+
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to iterate through journal: %m");
+
+                        if (r == 0)
+                                break;
+
+                        if (arg_until != USEC_INFINITY && !arg_reverse) {
+                                usec_t usec;
+
+                                r = sd_journal_get_realtime_usec(j, &usec);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to determine timestamp: %m");
+                                if (usec > arg_until)
+                                        continue;
+                        }
+
+                        if (arg_since != USEC_INFINITY && arg_reverse) {
+                                usec_t usec;
+
+                                r = sd_journal_get_realtime_usec(j, &usec);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to determine timestamp: %m");
+                                if (usec < arg_since)
+                                        continue;
+                        }
+
                         r = print_entry(j, n_found++);
                         if (r < 0)
                                 return r;
                 }
 
                 if (!arg_field && n_found <= 0) {
-                        log_notice("No coredumps found.");
+                        if (!arg_quiet)
+                                log_notice("No coredumps found.");
                         return -ESRCH;
                 }
         }
@@ -771,8 +874,8 @@ static int dump_core(sd_journal* j) {
                 return r;
 
         r = sd_journal_previous(j);
-        if (r > 0)
-                log_warning("More than one entry matches, ignoring rest.");
+        if (r > 0 && !arg_quiet)
+                log_notice("More than one entry matches, ignoring rest.");
 
         return 0;
 }
@@ -858,24 +961,75 @@ finish:
         return r;
 }
 
+static int check_units_active(void) {
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        int c = 0, r;
+        const char *id, *state, *substate;
+
+        if (arg_quiet)
+                return false;
+
+        r = sd_bus_default_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire bus: %m");
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &m,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "ListUnitsByPatterns");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_strv(m, NULL);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_strv(m, STRV_MAKE("systemd-coredump@*.service"));
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, SHORT_BUS_CALL_TIMEOUT_USEC, &error, &reply);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if any systemd-coredump@.service units are running: %s",
+                                       bus_error_message(&error, r));
+
+        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssssouso)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        while ((r = sd_bus_message_read(
+                                reply, "(ssssssouso)",
+                                &id,  NULL,  NULL,  &state,  &substate,
+                                NULL,  NULL,  NULL,  NULL,  NULL)) > 0) {
+                bool found = !STR_IN_SET(state, "inactive", "dead", "failed");
+                log_debug("Unit %s is %s/%s, %scounting it.", id, state, substate, found ? "" : "not ");
+                c += found;
+        }
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return c;
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_(sd_journal_closep) sd_journal*j = NULL;
-        const char* match;
-        Iterator it;
-        int r = 0;
-        _cleanup_set_free_free_ Set *matches = NULL;
+        int r = 0, units_active;
 
         setlocale(LC_ALL, "");
         log_parse_environment();
         log_open();
 
-        matches = new_matches();
-        if (!matches) {
-                r = -ENOMEM;
-                goto end;
-        }
-
-        r = parse_argv(argc, argv, matches);
+        r = parse_argv(argc, argv);
         if (r < 0)
                 goto end;
 
@@ -898,14 +1052,13 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        SET_FOREACH(match, matches, it) {
-                r = sd_journal_add_match(j, match, strlen(match));
-                if (r != 0) {
-                        log_error_errno(r, "Failed to add match '%s': %m",
-                                        match);
-                        goto end;
-                }
-        }
+        r = journal_access_check_and_warn(j, arg_quiet);
+        if (r < 0)
+                goto end;
+
+        r = add_matches(j);
+        if (r < 0)
+                goto end;
 
         if (_unlikely_(log_get_max_level() >= LOG_DEBUG)) {
                 _cleanup_free_ char *filter;
@@ -913,6 +1066,8 @@ int main(int argc, char *argv[]) {
                 filter = journal_make_match_string(j);
                 log_debug("Journal filter: %s", filter);
         }
+
+        units_active = check_units_active(); /* error is treated the same as 0 */
 
         switch(arg_action) {
 
@@ -934,6 +1089,11 @@ int main(int argc, char *argv[]) {
                 assert_not_reached("Shouldn't be here");
         }
 
+        if (units_active > 0)
+                printf("%s-- Notice: %d systemd-coredump@.service %s, output may be incomplete.%s\n",
+                       ansi_highlight_red(),
+                       units_active, units_active == 1 ? "unit is running" : "units are running",
+                       ansi_normal());
 end:
         pager_close();
 

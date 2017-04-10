@@ -241,13 +241,13 @@ int cg_kernel_controllers(Set *controllers);
 bool cg_ns_supported(void);
 
 int cg_all_unified(void);
-int cg_unified(const char *controller);
-void cg_unified_flush(void);
+int cg_hybrid_unified(void);
+int cg_unified_controller(const char *controller);
+int cg_unified_flush(void);
 
 bool cg_is_unified_wanted(void);
 bool cg_is_legacy_wanted(void);
-bool cg_is_unified_systemd_controller_wanted(void);
-bool cg_is_legacy_systemd_controller_wanted(void);
+bool cg_is_hybrid_wanted(void);
 
 const char* cgroup_controller_to_string(CGroupController c) _const_;
 CGroupController cgroup_controller_from_string(const char *s) _pure_;

@@ -31,6 +31,7 @@
 #include "networkd-brvlan.h"
 #include "networkd-fdb.h"
 #include "networkd-lldp-tx.h"
+#include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-route.h"
 #include "networkd-util.h"
 #include "netdev/netdev.h"
@@ -80,6 +81,17 @@ typedef struct DUID {
         uint8_t raw_data_len;
         uint8_t raw_data[MAX_DUID_LEN];
 } DUID;
+
+typedef struct NetworkConfigSection {
+        unsigned line;
+        char filename[];
+} NetworkConfigSection;
+
+int network_config_section_new(const char *filename, unsigned line, NetworkConfigSection **s);
+void network_config_section_free(NetworkConfigSection *network);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(NetworkConfigSection*, network_config_section_free);
+#define _cleanup_network_config_section_free_ _cleanup_(network_config_section_freep)
 
 typedef struct Manager Manager;
 
@@ -188,10 +200,12 @@ struct Network {
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);
         LIST_HEAD(FdbEntry, static_fdb_entries);
+        LIST_HEAD(IPv6ProxyNDPAddress, ipv6_proxy_ndp_addresses);
 
         unsigned n_static_addresses;
         unsigned n_static_routes;
         unsigned n_static_fdb_entries;
+        unsigned n_ipv6_proxy_ndp_addresses;
 
         Hashmap *addresses_by_section;
         Hashmap *routes_by_section;

@@ -594,7 +594,7 @@ static int clone_auxiliary_file(const char *path, const char *new_name, const ch
         if (!rs)
                 return -ENOMEM;
 
-        return copy_file_atomic(path, rs, 0664, false, 0);
+        return copy_file_atomic(path, rs, 0664, 0, COPY_REFLINK);
 }
 
 int image_clone(Image *i, const char *new_name, bool read_only) {
@@ -636,7 +636,7 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
         case IMAGE_SUBVOLUME:
         case IMAGE_DIRECTORY:
                 /* If we can we'll always try to create a new btrfs subvolume here, even if the source is a plain
-                 * directory.*/
+                 * directory. */
 
                 new_path = strjoina("/var/lib/machines/", new_name);
 
@@ -656,7 +656,7 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
         case IMAGE_RAW:
                 new_path = strjoina("/var/lib/machines/", new_name, ".raw");
 
-                r = copy_file_atomic(i->path, new_path, read_only ? 0444 : 0644, false, FS_NOCOW_FL);
+                r = copy_file_atomic(i->path, new_path, read_only ? 0444 : 0644, FS_NOCOW_FL, COPY_REFLINK);
                 break;
 
         default:
@@ -712,7 +712,7 @@ int image_read_only(Image *i, bool b) {
                    use the "immutable" flag, to at least make the
                    top-level directory read-only. It's not as good as
                    a read-only subvolume, but at least something, and
-                   we can read the value back.*/
+                   we can read the value back. */
 
                 r = chattr_path(i->path, b ? FS_IMMUTABLE_FL : 0, FS_IMMUTABLE_FL);
                 if (r < 0)

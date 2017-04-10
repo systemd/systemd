@@ -1414,9 +1414,16 @@ int main(int argc, char *argv[]) {
 
         log_set_upgrade_syslog_to_journal(true);
 
-        /* Disable the umask logic */
-        if (getpid() == 1)
+        if (getpid() == 1) {
+                /* Disable the umask logic */
                 umask(0);
+
+                /* Always reopen /dev/console when running as PID 1 or one of its pre-execve() children. This is
+                 * important so that we never end up logging to any foreign stderr, for example if we have to log in a
+                 * child process right before execve()'ing the actual binary, at a point in time where socket
+                 * activation stderr/stdout area already set up. */
+                log_set_always_reopen_console(true);
+        }
 
         if (getpid() == 1 && detect_container() <= 0) {
 
@@ -1830,8 +1837,10 @@ int main(int argc, char *argv[]) {
         before_startup = now(CLOCK_MONOTONIC);
 
         r = manager_startup(m, arg_serialization, fds);
-        if (r < 0)
+        if (r < 0) {
                 log_error_errno(r, "Failed to fully start up daemon: %m");
+                goto finish;
+        }
 
         /* This will close all file descriptors that were opened, but
          * not claimed by any unit. */

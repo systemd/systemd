@@ -64,7 +64,7 @@
       <filename>systemd-journal-remote</filename> is a command to
       receive serialized journal events and store them to the journal.
       Input streams are in the
-      <ulink url="http://www.freedesktop.org/wiki/Software/systemd/export">
+      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/export">
         Journal Export Format
       </ulink>,
       i.e. like the output from

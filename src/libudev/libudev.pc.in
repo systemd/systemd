@@ -12,6 +12,6 @@ includedir=@includedir@
 
 Name: libudev
 Description: Library to access udev device information
-Version: @VERSION@
+Version: @PACKAGE_VERSION@
 Libs: -L${libdir} -ludev
 Cflags: -I${includedir}

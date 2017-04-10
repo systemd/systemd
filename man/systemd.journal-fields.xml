@@ -243,6 +243,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>_SYSTEMD_INVOCATION_ID=</varname></term>
+        <listitem>
+          <para>The invocation ID for the runtime cycle of the unit
+          the message was generated in, as available to processes
+          of the unit in <varname>$INVOCATION_ID</varname> (see
+          <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>).</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>_HOSTNAME=</varname></term>
         <listitem>
           <para>The name of the originating host.</para>
@@ -457,9 +467,9 @@
 
     <para>During serialization into external formats, such as the
     <ulink
-    url="http://www.freedesktop.org/wiki/Software/systemd/export">Journal
+    url="https://www.freedesktop.org/wiki/Software/systemd/export">Journal
     Export Format</ulink> or the <ulink
-    url="http://www.freedesktop.org/wiki/Software/systemd/json">Journal
+    url="https://www.freedesktop.org/wiki/Software/systemd/json">Journal
     JSON Format</ulink>, the addresses of journal entries are
     serialized into fields prefixed with double underscores. Note that
     these are not proper fields when stored in the journal but for

@@ -19,7 +19,7 @@
 # Catálogo de mensagens para as mensagens do próprio systemd
 
 # O formato do catálogo está documentado em
-# http://www.freedesktop.org/wiki/Software/systemd/catalog
+# https://www.freedesktop.org/wiki/Software/systemd/catalog
 
 # Para uma explicação do porquê de fazermos tudo isso, veja
 # https://xkcd.com/1024/
@@ -79,7 +79,7 @@ deveria ser relatado para seu fabricante como um erro.
 Subject: A nova sessão @SESSION_ID@ foi criada para usuário o @USER_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Uma nova sessão com o ID @SESSION_ID@ foi criada para o usuário @USER_ID@.
 
@@ -89,7 +89,7 @@ O processo originador da sessão é @LEADER@.
 Subject: Sessão @SESSION_ID@ foi terminada
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Um sessão com o ID @SESSION_ID@ foi terminada.
 
@@ -97,7 +97,7 @@ Um sessão com o ID @SESSION_ID@ foi terminada.
 Subject: Um novo seat @SEAT_ID@ está disponível
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Um novo seat @SEAT_ID@ foi configurado e está disponível.
 
@@ -105,7 +105,7 @@ Um novo seat @SEAT_ID@ foi configurado e está disponível.
 Subject: Seat @SEAT_ID@ foi removido agora
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Um seat @SEAT_ID@ foi removido e não está mais disponível.
 

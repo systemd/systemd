@@ -84,7 +84,7 @@
     This is useful for compatibility with SysV. Note that this
     compatibility is quite comprehensive but not 100%. For details
     about the incompatibilities, see the <ulink
-    url="http://www.freedesktop.org/wiki/Software/systemd/Incompatibilities">Incompatibilities
+    url="https://www.freedesktop.org/wiki/Software/systemd/Incompatibilities">Incompatibilities
     with SysV</ulink> document.</para>
   </refsect1>
 
@@ -184,7 +184,7 @@
         process has to exit before systemd starts follow-up units.
         <varname>RemainAfterExit=</varname> is particularly useful for
         this type of service. This is the implied default if neither
-        <varname>Type=</varname> or <varname>ExecStart=</varname> are
+        <varname>Type=</varname> nor <varname>ExecStart=</varname> are
         specified.</para>
 
         <para>Behavior of <option>dbus</option> is similar to

@@ -502,7 +502,7 @@
     url="http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
     Base Directory Specification</ulink>. Additional locations for
     high-level user resources are defined by <ulink
-    url="http://www.freedesktop.org/wiki/Software/xdg-user-dirs/">xdg-user-dirs</ulink>.</para>
+    url="https://www.freedesktop.org/wiki/Software/xdg-user-dirs/">xdg-user-dirs</ulink>.</para>
 
     <variablelist>
       <varlistentry>

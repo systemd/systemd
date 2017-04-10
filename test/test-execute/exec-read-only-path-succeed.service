@@ -1,0 +1,8 @@
+[Service]
+Type=oneshot
+# This should work, as we explicitly disable the effect of ReadOnlyPaths=
+ExecStart=+/bin/touch /tmp/thisisasimpletest
+# This should also work, as we do not disable the effect of ReadOnlyPaths= but invert the exit code
+ExecStart=/bin/sh -x -c '! /bin/touch /tmp/thisisasimpletest'
+ExecStart=+/bin/rm /tmp/thisisasimpletest
+ReadOnlyPaths=/tmp
