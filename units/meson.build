@@ -307,6 +307,12 @@ foreach tuple : m4_in_units
   endif
 endforeach
 
+meson.add_install_script(meson_make_symlink,
+                         pkgsysconfdir + '/user',
+                         sysconfdir + '/xdg/systemd/user')
+meson.add_install_script(meson_make_symlink,
+                         dbussystemservicedir + '/org.freedesktop.systemd1.service',
+                         dbussessionservicedir + '/org.freedesktop.systemd1.service')
 if conf.get('HAVE_SYSV_COMPAT', 0) == 1
   foreach i : [1, 2, 3, 4, 5]
     meson.add_install_script('sh', '-c',

@@ -385,6 +385,7 @@ stat = find_program('stat')
 git = find_program('git', required : false)
 etags = find_program('etags', required : false)
 
+meson_make_symlink = meson.source_root() + '/tools/meson-make-symlink.sh'
 mkdir_p = 'mkdir -p $DESTDIR/@0@'
 
 # if -Dxxx-path option is found, use that. Otherwise, check in $PATH,
@@ -1127,6 +1128,10 @@ if conf.get('ENABLE_ENVIRONMENT_D', 0) == 1
              install_dir : userenvgeneratordir,
              include_directories : includes,
              link_with : [libshared])
+
+  meson.add_install_script(meson_make_symlink,
+                           sysconfdir + '/environment',
+                           environmentdir + '/99-environment.conf')
 endif
 
 if conf.get('ENABLE_HIBERNATE', 0) == 1
@@ -1704,6 +1709,9 @@ executable('systemd-mount',
            include_directories : includes,
            link_with : [libshared],
            install : true)
+
+meson.add_install_script(meson_make_symlink,
+                         'systemd-mount', bindir + '/systemd-umount')
 
 executable('systemd-run',
            'src/run/run.c',
