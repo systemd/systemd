@@ -45,12 +45,13 @@ audit_type_to_name = custom_target(
     command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
     capture : true)
 
+libsystemd_journal_internal_sources += [audit_type_to_name]
+
 ############################################################
 
 libsystemd_journal_internal = static_library(
     'systemd-journal-internal',
     libsystemd_journal_internal_sources,
-    audit_type_to_name,
     gcrypt_util_sources,
     install : false,
     include_directories : includes,
