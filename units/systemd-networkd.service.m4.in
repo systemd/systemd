@@ -42,6 +42,7 @@ ReadWritePaths=/run/systemd
 [Install]
 WantedBy=multi-user.target
 Also=systemd-networkd.socket
+Alias=dbus-org.freedesktop.network1.service
 
 # We want to enable systemd-networkd-wait-online.service whenever this service
 # is enabled. systemd-networkd-wait-online.service has
