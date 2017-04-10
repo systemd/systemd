@@ -17,6 +17,19 @@ test_env.set('SYSTEMD_LANGUAGE_FALLBACK_MAP', language_fallback_map)
 test_env.set('PATH', path)
 test_env.prepend('PATH', meson.build_root())
 
+############################################################
+
+generate_sym_test_py = find_program('generate-sym-test.py')
+
+test_libsystemd_sym_c = custom_target(
+  'test-libsystemd-sym.c',
+  input : [libsystemd_sym_path] + systemd_headers,
+  output : 'test-libsystemd-sym.c',
+  command : [generate_sym_test_py, libsystemd_sym_path] + systemd_headers,
+  capture : true)
+
+############################################################
+
 tests += [
   [['src/test/test-device-nodes.c'],
    [libshared],

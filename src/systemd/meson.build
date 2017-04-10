@@ -1,6 +1,6 @@
 # -*- mode: meson -*-
 
-headers = '''
+systemd_headers = files('''
   sd-bus.h
   sd-bus-protocol.h
   sd-bus-vtable.h
@@ -10,8 +10,7 @@ headers = '''
   sd-journal.h
   sd-login.h
   sd-messages.h
-  _sd-common.h
-'''.split()
+'''.split())
 
 #  sd-device.h
 #  sd-hwdb.h
@@ -30,4 +29,7 @@ headers = '''
 #  sd-resolve.h
 #  sd-utf8.h
 
-install_headers(headers, subdir : 'systemd')
+install_headers(
+  systemd_headers,
+  '_sd-common.h',
+  subdir : 'systemd')

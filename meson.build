@@ -967,18 +967,20 @@ libjournal_core = static_library(
                  libsystemd_journal_internal],
     install : false)
 
-version_script_arg = '@0@/@1@'.format(meson.current_source_dir(), libsystemd_sym)
+libsystemd_sym_path = '@0@/@1@'.format(meson.current_source_dir(), libsystemd_sym)
 libsystemd = shared_library(
     'systemd',
     libsystemd_internal_sources,
+    libsystemd_journal_internal_sources,
     version : '0.18.0',
     include_directories : includes,
     link_args : ['-shared',
-                 '-Wl,--version-script=' + version_script_arg],
-    link_with : [libbasic,
-                 libsystemd_internal,
-                 libsystemd_journal_internal],
-    dependencies : [threads],
+                 '-Wl,--version-script=' + libsystemd_sym_path],
+    link_with : [libbasic],
+    dependencies : [threads,
+                    librt,
+                    libxz,
+                    liblz4],
     link_depends : libsystemd_sym,
     install : true,
     install_dir : rootlibdir)
@@ -1931,6 +1933,20 @@ foreach tuple : tests
     message('Not compiling @0@ because @1@ is not true'.format(name, condition))
   endif
 endforeach
+
+test_libsystemd_sym = executable(
+  'test-libsystemd-sym',
+  test_libsystemd_sym_c,
+  include_directories : includes,
+  # link_with : [libsystemd],
+  # TODO: try again with https://github.com/mesonbuild/meson/pull/1545
+  link_args : ['libsystemd.so.0.18.0'],
+  # link_depends : [libsystemd],
+  # TODO: try again after "Link_depends arguments must be strings." is solved
+  install : install_tests,
+  install_dir : testsdir)
+test('test-libsystemd-sym',
+     test_libsystemd_sym)
 
 ############################################################
 
