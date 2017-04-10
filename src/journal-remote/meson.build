@@ -43,3 +43,9 @@ endif
 
 install_data('browse.html',
              install_dir : pkgdatadir + '/gatewayd')
+
+meson.add_install_script('sh', '-c',
+                         mkdir_p.format('/var/log/journal/remote'))
+meson.add_install_script('sh', '-c',
+                         '''chown 0:0 $DESTDIR/var/log/journal/remote;
+                            chmod 755 $DESTDIR/var/log/journal/remote''')
