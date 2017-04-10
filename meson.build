@@ -2000,11 +2000,7 @@ test_libsystemd_sym = executable(
   'test-libsystemd-sym',
   test_libsystemd_sym_c,
   include_directories : includes,
-  # link_with : [libsystemd],
-  # TODO: try again with https://github.com/mesonbuild/meson/pull/1545
-  link_args : ['libsystemd.so.0.18.0'],
-  # link_depends : [libsystemd],
-  # TODO: try again after "Link_depends arguments must be strings." is solved
+  link_with : [libsystemd],
   install : install_tests,
   install_dir : testsdir)
 test('test-libsystemd-sym',
@@ -2015,7 +2011,7 @@ test_libudev_sym = executable(
   test_libudev_sym_c,
   include_directories : includes,
   c_args : ['-Wno-deprecated-declarations'],
-  link_args : ['src/libudev/libudev.so.1.6.6'],
+  link_with : [libudev],
   install : install_tests,
   install_dir : testsdir)
 test('test-libudev-sym',
