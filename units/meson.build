@@ -307,4 +307,12 @@ foreach tuple : m4_in_units
   endif
 endforeach
 
+if conf.get('HAVE_SYSV_COMPAT', 0) == 1
+  foreach i : [1, 2, 3, 4, 5]
+    meson.add_install_script('sh', '-c',
+                             mkdir_p
+                             .format(systemunitdir + '/runlevel@0@.target.wants'.format(i)))
+  endforeach
+endif
+
 subdir('user')

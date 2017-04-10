@@ -385,6 +385,8 @@ stat = find_program('stat')
 git = find_program('git', required : false)
 etags = find_program('etags', required : false)
 
+mkdir_p = 'mkdir -p $DESTDIR/@0@'
+
 # if -Dxxx-path option is found, use that. Otherwise, check in $PATH,
 # /usr/sbin, /sbin, and fall back to the default from middle column.
 progs = [['telinit',    '/lib/sysvinit/telinit'],
@@ -1530,6 +1532,11 @@ if conf.get('ENABLE_BINFMT', 0) == 1
              link_with : [libshared],
              install : true,
              install_dir : rootlibexecdir)
+
+  meson.add_install_script('sh', '-c',
+                           mkdir_p.format(binfmtdir))
+  meson.add_install_script('sh', '-c',
+                           mkdir_p.format(sysconfdir + '/binfmt.d'))
 endif
 
 if conf.get('ENABLE_VCONSOLE', 0) == 1
@@ -1821,6 +1828,11 @@ if conf.get('HAVE_KMOD', 0) == 1
              dependencies : [libkmod],
              install : true,
              install_dir : rootlibexecdir)
+
+  meson.add_install_script('sh', '-c',
+                           mkdir_p.format(modulesloaddir))
+  meson.add_install_script('sh', '-c',
+                           mkdir_p.format(sysconfdir + '/modules-load.d'))
 endif
 
 executable('systemd-nspawn',
@@ -1940,6 +1952,9 @@ install_data('README',
              'LICENSE.LGPL2.1',
              'src/libsystemd/sd-bus/GVARIANT-SERIALIZATION',
              install_dir : docdir)
+
+meson.add_install_script('sh', '-c', mkdir_p.format(systemdstatedir))
+meson.add_install_script('sh', '-c', 'touch $DESTDIR@0@'.format(prefixdir))
 
 ############################################################
 

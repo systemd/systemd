@@ -37,3 +37,8 @@ foreach file : m4_files
     install : enable_tmpfiles,
     install_dir : tmpfilesdir)
 endforeach
+
+if enable_tmpfiles
+  meson.add_install_script('sh', '-c',
+                           mkdir_p.format(sysconfdir + '/tmpfiles.d'))
+endif

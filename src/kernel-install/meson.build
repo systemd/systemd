@@ -8,3 +8,6 @@ install_data('50-depmod.install',
              '90-loaderentry.install',
              install_mode : 'rwxr-xr-x',
              install_dir : kernelinstalldir)
+
+meson.add_install_script('sh', '-c',
+                         mkdir_p.format(sysconfdir + '/kernel/install.d'))

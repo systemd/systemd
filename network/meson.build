@@ -6,4 +6,7 @@ if conf.get('ENABLE_NETWORKD', 0) == 1
                '80-container-vz.network',
                '99-default.link',
                install_dir : networkdir)
+
+  meson.add_install_script('sh', '-c',
+                           mkdir_p.format(sysconfdir + '/systemd/network'))
 endif

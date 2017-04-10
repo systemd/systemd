@@ -163,3 +163,6 @@ udev_pc = configure_file(
     configuration : substs)
 install_data(udev_pc,
              install_dir : pkgconfigdatadir)
+
+meson.add_install_script('sh', '-c',
+                         mkdir_p.format(sysconfdir + '/udev/rules.d'))

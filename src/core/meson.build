@@ -220,3 +220,17 @@ custom_target(
 install_data('system.conf',
              'user.conf',
              install_dir : pkgsysconfdir)
+
+meson.add_install_script('sh', '-c', mkdir_p.format(systemshutdowndir))
+meson.add_install_script('sh', '-c', mkdir_p.format(systemsleepdir))
+meson.add_install_script('sh', '-c', mkdir_p.format(systemgeneratordir))
+meson.add_install_script('sh', '-c', mkdir_p.format(usergeneratordir))
+
+meson.add_install_script('sh', '-c',
+                         mkdir_p.format(pkgsysconfdir + '/system/multi-user.target.wants'))
+meson.add_install_script('sh', '-c',
+                         mkdir_p.format(pkgsysconfdir + '/system/getty.target.wants'))
+meson.add_install_script('sh', '-c',
+                         mkdir_p.format(pkgsysconfdir + '/user'))
+meson.add_install_script('sh', '-c',
+                         mkdir_p.format(sysconfdir + '/xdg/systemd'))

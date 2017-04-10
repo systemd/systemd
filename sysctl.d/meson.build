@@ -18,3 +18,6 @@ foreach file : in_files
   install_data(gen,
                install_dir : sysctldir)
 endforeach
+
+meson.add_install_script('sh', '-c',
+                         mkdir_p.format(sysconfdir + '/sysctl.d'))
