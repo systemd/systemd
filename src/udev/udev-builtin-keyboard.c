@@ -29,7 +29,7 @@
 #include "string-util.h"
 #include "udev.h"
 
-static const struct key_name *keyboard_lookup_key(const char *str, GPERF_LEN_TYPE len);
+static const struct key *keyboard_lookup_key(const char *str, GPERF_LEN_TYPE len);
 #include "keyboard-keys-from-name.h"
 
 static int install_force_release(struct udev_device *dev, const unsigned *release, unsigned release_count) {
@@ -76,7 +76,7 @@ static void map_keycode(int fd, const char *devnode, int scancode, const char *k
                 unsigned key;
         } map;
         char *endptr;
-        const struct key_name *k;
+        const struct key *k;
         unsigned keycode_num;
 
         /* translate identifier to key code */
