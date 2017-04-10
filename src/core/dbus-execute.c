@@ -710,7 +710,7 @@ static int property_get_bind_paths(
                                 c->bind_mounts[i].source,
                                 c->bind_mounts[i].destination,
                                 c->bind_mounts[i].ignore_enoent,
-                                c->bind_mounts[i].recursive ? MS_REC : 0);
+                                c->bind_mounts[i].recursive ? (uint64_t) MS_REC : (uint64_t) 0);
                 if (r < 0)
                         return r;
         }
