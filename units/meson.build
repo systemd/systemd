@@ -4,14 +4,19 @@ units = [
   ['basic.target',                        ''],
   ['bluetooth.target',                    ''],
   ['cryptsetup-pre.target',               'HAVE_LIBCRYPTSETUP'],
-  ['cryptsetup.target',                   'HAVE_LIBCRYPTSETUP'],
-  ['dev-hugepages.mount',                 ''],
-  ['dev-mqueue.mount',                    ''],
+  ['cryptsetup.target',                   'HAVE_LIBCRYPTSETUP',
+   'sysinit.target.wants/'],
+  ['dev-hugepages.mount',                 '',
+   'sysinit.target.wants/'],
+  ['dev-mqueue.mount',                    '',
+   'sysinit.target.wants/'],
   ['emergency.target',                    ''],
   ['exit.target',                         ''],
   ['final.target',                        ''],
-  ['getty.target',                        ''],
-  ['graphical.target',                    ''],
+  ['getty.target',                        '',
+   'multi-user.target.wants/'],
+  ['graphical.target',                    '',
+   'runlevel5.target default.target'],
   ['halt.target',                         ''],
   ['hibernate.target',                    'ENABLE_HIBERNATE'],
   ['hybrid-sleep.target',                 'ENABLE_HIBERNATE'],
@@ -21,26 +26,34 @@ units = [
   ['initrd-switch-root.target',           ''],
   ['initrd.target',                       ''],
   ['kexec.target',                        ''],
-  ['ldconfig.service',                    'ENABLE_LDCONFIG'],
+  ['ldconfig.service',                    'ENABLE_LDCONFIG',
+   'sysinit.target.wants/'],
   ['local-fs-pre.target',                 ''],
   ['local-fs.target',                     ''],
   ['machine.slice',                       'ENABLE_MACHINED'],
-  ['machines.target',                     'ENABLE_MACHINED'],
-  ['multi-user.target',                   ''],
+  ['machines.target',                     'ENABLE_MACHINED',
+   pkgsysconfdir + '/system/multi-user.target.wants/'],
+  ['multi-user.target',                   '',
+   'runlevel2.target runlevel3.target runlevel4.target'],
   ['network-online.target',               ''],
   ['network-pre.target',                  ''],
   ['network.target',                      ''],
   ['nss-lookup.target',                   ''],
   ['nss-user-lookup.target',              ''],
   ['paths.target',                        ''],
-  ['poweroff.target',                     ''],
+  ['poweroff.target',                     '',
+   'runlevel0.target'],
   ['printer.target',                      ''],
-  ['proc-sys-fs-binfmt_misc.automount',   'ENABLE_BINFMT'],
+  ['proc-sys-fs-binfmt_misc.automount',   'ENABLE_BINFMT',
+   'sysinit.target.wants/'],
   ['proc-sys-fs-binfmt_misc.mount',       'ENABLE_BINFMT'],
-  ['reboot.target',                       ''],
+  ['reboot.target',                       '',
+   'runlevel6.target ctrl-alt-del.target'],
   ['remote-fs-pre.target',                ''],
-  ['remote-fs.target',                    ''],
-  ['rescue.target',                       ''],
+  ['remote-fs.target',                    '',
+   pkgsysconfdir + '/system/multi-user.target.wants/'],
+  ['rescue.target',                       '',
+   'runlevel1.target'],
   ['rpcbind.target',                      ''],
   ['shutdown.target',                     ''],
   ['sigpwr.target',                       ''],
@@ -51,38 +64,60 @@ units = [
   ['sound.target',                        ''],
   ['suspend.target',                      ''],
   ['swap.target',                         ''],
-  ['sys-fs-fuse-connections.mount',       ''],
-  ['sys-kernel-config.mount',             ''],
-  ['sys-kernel-debug.mount',              ''],
+  ['sys-fs-fuse-connections.mount',       '',
+   'sysinit.target.wants/'],
+  ['sys-kernel-config.mount',             '',
+   'sysinit.target.wants/'],
+  ['sys-kernel-debug.mount',              '',
+   'sysinit.target.wants/'],
   ['sysinit.target',                      ''],
   ['syslog.socket',                       ''],
   ['system-update.target',                ''],
   ['system.slice',                        ''],
-  ['systemd-ask-password-console.path',   ''],
-  ['systemd-ask-password-wall.path',      ''],
-  ['systemd-coredump.socket',             'ENABLE_COREDUMP'],
-  ['systemd-initctl.socket',              ''],
+  ['systemd-ask-password-console.path',   '',
+   'sysinit.target.wants/'],
+  ['systemd-ask-password-wall.path',      '',
+   'multi-user.target.wants/'],
+  ['systemd-coredump.socket',             'ENABLE_COREDUMP',
+   'sockets.target.wants/'],
+  ['systemd-initctl.socket',              '',
+   'sockets.target.wants/'],
   ['systemd-journal-gatewayd.socket',     ''],
   ['systemd-journal-remote.socket',       ''],
-  ['systemd-journald-audit.socket',       ''],
-  ['systemd-journald-dev-log.socket',     ''],
-  ['systemd-journald.socket',             ''],
-  ['systemd-networkd.socket',             ''],
+  ['systemd-journald-audit.socket',       '',
+   'sockets.target.wants/'],
+  ['systemd-journald-dev-log.socket',     '',
+   'sockets.target.wants/'],
+  ['systemd-journald.socket',             '',
+   'sockets.target.wants/'],
+  ['systemd-networkd.socket',             '',
+   pkgsysconfdir + '/system/sockets.target.wants/'],
   ['systemd-rfkill.socket',               'ENABLE_RFKILL'],
-  ['systemd-tmpfiles-clean.timer',        ''],
-  ['systemd-udevd-control.socket',        ''],
-  ['systemd-udevd-kernel.socket',         ''],
+  ['systemd-tmpfiles-clean.timer',        '',
+   'timers.target.wants/'],
+  ['systemd-udevd-control.socket',        '',
+   'sockets.target.wants/'],
+  ['systemd-udevd-kernel.socket',         '',
+   'sockets.target.wants/'],
   ['time-sync.target',                    ''],
   ['timers.target',                       ''],
   ['umount.target',                       ''],
   ['user.slice',                          ''],
-  ['var-lib-machines.mount',              ''],
+  ['var-lib-machines.mount',              '',
+   'local-fs.target.wants/'],
   ]
 
-foreach pair : units
-  if pair[1] == '' or conf.get(pair[1], 0) == 1
-    install_data(pair[0],
+foreach tuple : units
+  file = tuple[0]
+  if tuple[1] == '' or conf.get(tuple[1], 0) == 1
+    install_data(file,
                  install_dir : systemunitdir)
+
+    if tuple.length() > 2
+      foreach target : tuple[2].split()
+        meson.add_install_script('meson-add-wants.sh', systemunitdir, target, file)
+      endforeach
+    endif
   endif
 endforeach
 
@@ -94,7 +129,8 @@ in_units = [
   ['initrd-parse-etc.service',             ''],
   ['initrd-switch-root.service',           ''],
   ['initrd-udevadm-cleanup-db.service',    ''],
-  ['kmod-static-nodes.service',            'HAVE_KMOD ENABLE_TMPFILES'],
+  ['kmod-static-nodes.service',            'HAVE_KMOD ENABLE_TMPFILES',
+   'sysinit.target.wants/'],
   ['quotaon.service',                      'ENABLE_QUOTACHECK'],
   ['rc-local.service',                     'HAVE_SYSV_COMPAT'],
   ['rescue.service',                       ''],
@@ -102,62 +138,90 @@ in_units = [
   ['systemd-ask-password-console.service', ''],
   ['systemd-ask-password-wall.service',    ''],
   ['systemd-backlight@.service',           'ENABLE_BACKLIGHT'],
-  ['systemd-binfmt.service',               'ENABLE_BINFMT'],
+  ['systemd-binfmt.service',               'ENABLE_BINFMT',
+   'sysinit.target.wants/'],
   ['systemd-coredump@.service',            'ENABLE_COREDUMP'],
   ['systemd-exit.service',                 ''],
-  ['systemd-firstboot.service',            'ENABLE_FIRSTBOOT'],
+  ['systemd-firstboot.service',            'ENABLE_FIRSTBOOT',
+   'sysinit.target.wants/'],
   ['systemd-fsck-root.service',            ''],
   ['systemd-fsck@.service',                ''],
   ['systemd-halt.service',                 ''],
   ['systemd-hibernate-resume@.service',    'ENABLE_HIBERNATE'],
   ['systemd-hibernate.service',            'ENABLE_HIBERNATE'],
   ['systemd-hybrid-sleep.service',         'ENABLE_HIBERNATE'],
-  ['systemd-hostnamed.service',            'ENABLE_HOSTNAMED'],
-  ['systemd-hwdb-update.service',          'ENABLE_HWDB'],
-  ['systemd-importd.service',              'ENABLE_IMPORTD'],
+  ['systemd-hostnamed.service',            'ENABLE_HOSTNAMED',
+   'dbus-org.freedesktop.hostname1.service'],
+  ['systemd-hwdb-update.service',          'ENABLE_HWDB',
+   'sysinit.target.wants/'],
+  ['systemd-importd.service',              'ENABLE_IMPORTD',
+   'dbus-org.freedesktop.import1.service'],
   ['systemd-initctl.service',               ''],
-  ['systemd-journal-catalog-update.service', ''],
-  ['systemd-journal-flush.service',         ''],
+  ['systemd-journal-catalog-update.service', '',
+   'sysinit.target.wants/'],
+  ['systemd-journal-flush.service',         '',
+   'sysinit.target.wants/'],
   ['systemd-journal-gatewayd.service',     'ENABLE_REMOTE HAVE_MICROHTTPD'],
   ['systemd-journal-remote.service',       'ENABLE_REMOTE HAVE_MICROHTTPD'],
   ['systemd-journal-upload.service',       'ENABLE_REMOTE HAVE_LIBCURL'],
-  ['systemd-journald.service',             ''],
+  ['systemd-journald.service',             '',
+   'sysinit.target.wants/'],
   ['systemd-kexec.service',                ''],
-  ['systemd-localed.service',              'ENABLE_LOCALED'],
-  ['systemd-logind.service',               'ENABLE_LOGIND'],
-  ['systemd-machine-id-commit.service',    ''],
-  ['systemd-machined.service',             'ENABLE_MACHINED'],
-  ['systemd-modules-load.service',         'HAVE_KMOD'],
-  ['systemd-networkd-wait-online.service', 'ENABLE_NETWORKD'],
+  ['systemd-localed.service',              'ENABLE_LOCALED',
+   'dbus-org.freedesktop.locale1.service'],
+  ['systemd-logind.service',               'ENABLE_LOGIND',
+   'multi-user.target.wants/ dbus-org.freedesktop.login1.service'],
+  ['systemd-machine-id-commit.service',    '',
+   'sysinit.target.wants/'],
+  ['systemd-machined.service',             'ENABLE_MACHINED',
+   'dbus-org.freedesktop.machine1.service'],
+  ['systemd-modules-load.service',         'HAVE_KMOD',
+   'sysinit.target.wants/'],
+  ['systemd-networkd-wait-online.service', 'ENABLE_NETWORKD',
+   pkgsysconfdir + '/system/network-online.target.wants/'],
   ['systemd-nspawn@.service',              ''],
   ['systemd-poweroff.service',             ''],
   ['systemd-quotacheck.service',           'ENABLE_QUOTACHECK'],
-  ['systemd-random-seed.service',          'ENABLE_RANDOMSEED'],
+  ['systemd-random-seed.service',          'ENABLE_RANDOMSEED',
+   'sysinit.target.wants/'],
   ['systemd-reboot.service',               ''],
-  ['systemd-remount-fs.service',           ''],
+  ['systemd-remount-fs.service',           '',
+   'local-fs.target.wants/'],
   ['systemd-rfkill.service',               'ENABLE_RFKILL'],
   ['systemd-suspend.service',              ''],
-  ['systemd-sysctl.service',               ''],
-  ['systemd-sysusers.service',             'ENABLE_SYSUSERS'],
-  ['systemd-timedated.service',            'ENABLE_TIMEDATED'],
-  ['systemd-timesyncd.service',            'ENABLE_TIMESYNCD'],
+  ['systemd-sysctl.service',               '',
+   'sysinit.target.wants/'],
+  ['systemd-sysusers.service',             'ENABLE_SYSUSERS',
+   'sysinit.target.wants/'],
+  ['systemd-timedated.service',            'ENABLE_TIMEDATED',
+   'dbus-org.freedesktop.timedate1.service'],
+  ['systemd-timesyncd.service',            'ENABLE_TIMESYNCD',
+   pkgsysconfdir + '/system/sysinit.target.wants/'],
   ['systemd-tmpfiles-clean.service',       'ENABLE_TMPFILES'],
-  ['systemd-tmpfiles-setup-dev.service',   'ENABLE_TMPFILES'],
-  ['systemd-tmpfiles-setup.service',       'ENABLE_TMPFILES'],
+  ['systemd-tmpfiles-setup-dev.service',   'ENABLE_TMPFILES',
+   'sysinit.target.wants/'],
+  ['systemd-tmpfiles-setup.service',       'ENABLE_TMPFILES',
+   'sysinit.target.wants/'],
   ['systemd-udev-settle.service',          ''],
-  ['systemd-udev-trigger.service',         ''],
-  ['systemd-udevd.service',                ''],
-  ['systemd-update-done.service',          ''],
-  ['systemd-update-utmp-runlevel.service', 'HAVE_UTMP HAVE_SYSV_COMPAT'],
-  ['systemd-update-utmp.service',          'HAVE_UTMP'],
-  ['systemd-user-sessions.service',        ''],
+  ['systemd-udev-trigger.service',         '',
+   'sysinit.target.wants/'],
+  ['systemd-udevd.service',                '',
+   'sysinit.target.wants/'],
+  ['systemd-update-done.service',          '',
+   'sysinit.target.wants/'],
+  ['systemd-update-utmp-runlevel.service', 'HAVE_UTMP HAVE_SYSV_COMPAT',
+   'multi-user.target.wants/ graphical.target.wants/ rescue.target.wants/'],
+  ['systemd-update-utmp.service',          'HAVE_UTMP',
+   'sysinit.target.wants/'],
+  ['systemd-user-sessions.service',        '',
+   'multi-user.target.wants/'],
   ['systemd-vconsole-setup.service',       'ENABLE_VCONSOLE'],
   ['systemd-volatile-root.service',        ''],
   ]
 
-foreach pair : in_units
-  file = pair[0]
-  conds = pair[1].split(' ')
+foreach tuple : in_units
+  file = tuple[0]
+  conds = tuple[1].split(' ')
   install = ((conds.get(0, '') == '' or conf.get(conds[0], 0) == 1) and
              (conds.get(1, '') == '' or conf.get(conds[1], 0) == 1))
 
@@ -168,18 +232,27 @@ foreach pair : in_units
   if install
     install_data(gen,
                  install_dir : systemunitdir)
+
+    if tuple.length() > 2
+      foreach target : tuple[2].split()
+        meson.add_install_script('meson-add-wants.sh', systemunitdir, target, file)
+      endforeach
+    endif
   endif
 endforeach
 
 m4_units = [
-  ['getty@.service',                     ''],
+  ['getty@.service',                     '',
+   'autovt@.service ' +
+   pkgsysconfdir + '/system/getty.target.wants/getty@tty1.service'],
   ['serial-getty@.service',              ''],
-  ['tmp.mount',                          ''],
+  ['tmp.mount',                          '',
+   'local-fs.target.wants/'],
   ]
 
-foreach pair : m4_units
-  file = pair[0]
-  install = pair[1] == '' or conf.get(pair[1], 0) == 1
+foreach tuple : m4_units
+  file = tuple[0]
+  install = tuple[1] == '' or conf.get(tuple[1], 0) == 1
 
   custom_target(
     file,
@@ -189,19 +262,29 @@ foreach pair : m4_units
     capture : true,
     install : install,
     install_dir : systemunitdir)
+
+  if tuple.length() > 2 and install
+    foreach target : tuple[2].split()
+      meson.add_install_script('meson-add-wants.sh', systemunitdir, target, file)
+    endforeach
+  endif
 endforeach
 
 m4_in_units = [
   ['console-getty.service',              ''],
   ['container-getty@.service',           ''],
-  ['systemd-networkd.service',           'ENABLE_NETWORKD'],
-  ['systemd-resolved.service',           'ENABLE_RESOLVED'],
+  ['systemd-networkd.service',           'ENABLE_NETWORKD',
+   'dbus-org.freedesktop.network1.service ' +
+   pkgsysconfdir + '/system/multi-user.target.wants/ '],
+  ['systemd-resolved.service',           'ENABLE_RESOLVED',
+   'dbus-org.freedesktop.resolve1.service ' +
+   pkgsysconfdir + '/system/multi-user.target.wants/'],
   ['user@.service',                      ''],
   ]
 
-foreach pair : m4_in_units
-  file = pair[0]
-  install = pair[1] == '' or conf.get(pair[1], 0) == 1
+foreach tuple : m4_in_units
+  file = tuple[0]
+  install = tuple[1] == '' or conf.get(tuple[1], 0) == 1
 
   gen = configure_file(
       input : file + '.m4.in',
@@ -216,6 +299,12 @@ foreach pair : m4_in_units
     capture : true,
     install : install,
     install_dir : systemunitdir)
+
+  if tuple.length() > 2 and install
+    foreach target : tuple[2].split()
+      meson.add_install_script('meson-add-wants.sh', systemunitdir, target, file)
+    endforeach
+  endif
 endforeach
 
 subdir('user')
