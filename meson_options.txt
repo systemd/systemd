@@ -22,6 +22,11 @@ option('umount-path', type : 'string', description : 'path to umount')
 option('loadkeys-path', type : 'string', description : 'path to loadkeys')
 option('setfont-path', type : 'string', description : 'path to setfont')
 
+option('debug-shell', type : 'string', value : '/bin/sh',
+       description : 'path to debug shell binary')
+option('debug-tty', type : 'string', value : '/dev/tty9',
+       description : 'specify the tty device for debug shell')
+
 option('utmp', type : 'boolean',
        description : 'support for utmp/wtmp log handling')
 option('hibernate', type : 'boolean',

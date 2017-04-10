@@ -107,6 +107,7 @@ bootlibdir = prefixdir + '/lib/systemd/boot/efi'
 testsdir = prefixdir + '/lib/systemd/tests'
 systemdstatedir = localstatedir + '/lib/systemd'
 catalogstatedir = systemdstatedir + '/catalog'
+randomseeddir = localstatedir + '/lib/systemd/'
 
 dbuspolicydir = get_option('dbuspolicydir')
 if dbuspolicydir == ''
@@ -151,8 +152,8 @@ conf.set_quoted('SYSTEMCTL_BINARY_PATH',                      rootbindir + '/sys
 conf.set_quoted('SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH', rootbindir + '/systemd-tty-ask-password-agent')
 conf.set_quoted('SYSTEMD_STDIO_BRIDGE_BINARY_PATH',           bindir + '/systemd-stdio-bridge')
 conf.set_quoted('ROOTPREFIX',                                 rootprefixdir)
-conf.set_quoted('RANDOM_SEED_DIR',                            localstatedir + '/lib/systemd/')
-conf.set_quoted('RANDOM_SEED',                                localstatedir + '/lib/systemd/random-seed')
+conf.set_quoted('RANDOM_SEED_DIR',                            randomseeddir)
+conf.set_quoted('RANDOM_SEED',                                randomseeddir + '/random-seed')
 conf.set_quoted('SYSTEMD_CRYPTSETUP_PATH',                    rootlibexecdir + '/systemd-cryptsetup')
 conf.set_quoted('SYSTEM_GENERATOR_PATH',                      systemgeneratordir)
 conf.set_quoted('USER_GENERATOR_PATH',                        usergeneratordir)
@@ -179,7 +180,13 @@ conf.set_quoted('ABS_BUILD_DIR',                              meson.build_root()
 conf.set_quoted('ABS_SRC_DIR',                                meson.source_root())
 
 substs.set('prefix',                                          prefixdir)
+substs.set('exec_prefix',                                     prefixdir)
+substs.set('libdir',                                          libdir)
+substs.set('rootlibdir',                                      rootlibdir)
+substs.set('includedir',                                      includedir)
 substs.set('pkgsysconfdir',                                   pkgsysconfdir)
+substs.set('bindir',                                          bindir)
+substs.set('rootbindir',                                      rootbindir)
 substs.set('rootlibexecdir',                                  rootlibexecdir)
 substs.set('systemunitdir',                                   systemunitdir)
 substs.set('userunitdir',                                     userunitdir)
@@ -187,6 +194,7 @@ substs.set('systempresetdir',                                 systempresetdir)
 substs.set('userpresetdir',                                   userpresetdir)
 substs.set('udevhwdbdir',                                     udevhwdbdir)
 substs.set('udevrulesdir',                                    udevrulesdir)
+substs.set('udevlibexecdir',                                  udevlibexecdir)
 substs.set('catalogdir',                                      catalogdir)
 substs.set('tmpfilesdir',                                     tmpfilesdir)
 substs.set('sysusersdir',                                     sysusersdir)
@@ -200,6 +208,7 @@ substs.set('userenvgeneratordir',                             userenvgeneratordi
 substs.set('systemshutdowndir',                               systemshutdowndir)
 substs.set('systemsleepdir',                                  systemsleepdir)
 substs.set('SYSTEMCTL',                                       rootbindir + '/systemctl')
+substs.set('RANDOM_SEED',                                     randomseeddir + '/random-seed')
 
 #####################################################################
 
@@ -535,6 +544,9 @@ conf.set_quoted('DNS_SERVERS', get_option('dns-servers'))
 conf.set_quoted('NTP_SERVERS', get_option('ntp-servers'))
 
 conf.set_quoted('GETTEXT_PACKAGE', meson.project_name())
+
+substs.set('SUSHELL', get_option('debug-shell'))
+substs.set('DEBUGTTY', get_option('debug-tty'))
 
 #####################################################################
 
