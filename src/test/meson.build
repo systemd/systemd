@@ -28,6 +28,13 @@ test_libsystemd_sym_c = custom_target(
   command : [generate_sym_test_py, libsystemd_sym_path] + systemd_headers,
   capture : true)
 
+test_libudev_sym_c = custom_target(
+  'test-libudev-sym.c',
+  input : [libudev_sym_path, libudev_h_path],
+  output : 'test-libudev-sym.c',
+  command : [generate_sym_test_py, '@INPUT0@', '@INPUT1@'],
+  capture : true)
+
 ############################################################
 
 tests += [

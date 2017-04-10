@@ -1948,6 +1948,17 @@ test_libsystemd_sym = executable(
 test('test-libsystemd-sym',
      test_libsystemd_sym)
 
+test_libudev_sym = executable(
+  'test-libudev-sym',
+  test_libudev_sym_c,
+  include_directories : includes,
+  c_args : ['-Wno-deprecated-declarations'],
+  link_args : ['src/libudev/libudev.so.1.6.6'],
+  install : install_tests,
+  install_dir : testsdir)
+test('test-libudev-sym',
+     test_libudev_sym)
+
 ############################################################
 
 make_directive_index_py = find_program('tools/make-directive-index.py')
