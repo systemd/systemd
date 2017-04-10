@@ -173,7 +173,8 @@ tests += [
   [['src/resolve/test-dnssec-complex.c',
     'src/resolve/dns-type.c',
     dns_type_headers],
-   [libshared],
+   [libshared,
+    libsystemd_internal],
    [],
    'ENABLE_RESOLVED', 'manual'],
   ]

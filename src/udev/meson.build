@@ -105,7 +105,8 @@ executable('ata_id',
            'ata_id/ata_id.c',
            include_directories : includes,
            link_with : [libudev_internal,
-                        libshared],
+                        libshared,
+                        libsystemd_internal],
            install : true,
            install_dir : udevlibexecdir)
 
@@ -113,7 +114,8 @@ executable('cdrom_id',
            'cdrom_id/cdrom_id.c',
            include_directories : includes,
            link_with : [libudev_internal,
-                        libshared],
+                        libshared,
+                        libsystemd_internal],
            install : true,
            install_dir : udevlibexecdir)
 
@@ -121,7 +123,8 @@ executable('collect',
            'collect/collect.c',
            include_directories : includes,
            link_with : [libudev_internal,
-                        libshared],
+                        libshared,
+                        libsystemd_internal],
            install : true,
            install_dir : udevlibexecdir)
 
@@ -132,7 +135,8 @@ executable('scsi_id',
            'scsi_id/scsi.h',
            include_directories : includes,
            link_with : [libudev_internal,
-                        libshared],
+                        libshared,
+                        libsystemd_internal],
            install : true,
            install_dir : udevlibexecdir)
 
@@ -140,7 +144,8 @@ executable('v4l_id',
            'v4l_id/v4l_id.c',
            include_directories : includes,
            link_with : [libudev_internal,
-                        libshared],
+                        libshared,
+                        libsystemd_internal],
            install : true,
            install_dir : udevlibexecdir)
 
@@ -150,7 +155,8 @@ executable('mtd_probe',
            'mtd_probe/probe_smartmedia.c',
            include_directories : includes,
            link_with : [libudev_internal,
-                        libshared],
+                        libshared,
+                        libsystemd_internal],
            install : true,
            install_dir : udevlibexecdir)
 

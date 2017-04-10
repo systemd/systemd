@@ -126,7 +126,7 @@ libshared = shared_library(
     link_args : ['-shared'],
     c_args : ['-fvisibility=default'],
     link_with : [libsystemd_journal_internal,
-                 libsystemd,
+                 libsystemd_internal,
                  libudev,
                 ],
     dependencies : [threads,

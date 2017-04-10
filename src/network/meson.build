@@ -115,13 +115,15 @@ endif
 tests += [
   [['src/network/test-networkd-conf.c'],
    [libnetworkd_core,
-    libsystemd_network],
+    libsystemd_network,
+    libudev],
    []],
 
   [['src/network/test-network.c'],
    [libnetworkd_core,
     libudev_internal,
     libsystemd_network,
+    libsystemd_internal,
     libfirewall],
    [libiptc]],
 
@@ -132,6 +134,7 @@ tests += [
     libudev_internal,
     libudev_core,
     libsystemd_network,
+    libsystemd_internal,
     libfirewall],
    [],
    '', '', [],

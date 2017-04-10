@@ -26,7 +26,8 @@ libudev = shared_library(
     link_args : ['-shared',
                  '-Wl,--version-script=' + libudev_sym_path],
     link_with : [libbasic,
-                 libsystemd],
+                 libsystemd_internal],
+    dependencies : [threads],
     link_depends : libudev_sym,
     install : true,
     install_dir : rootlibdir)
