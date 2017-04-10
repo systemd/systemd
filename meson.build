@@ -1011,6 +1011,12 @@ foreach tuple : [['myhostname', 'HAVE_MYHOSTNAME', []],
       link_depends : sym,
       install : true,
       install_dir : rootlibdir)
+
+    # We cannot use shared_module because it does not support version suffix.
+    # Unfortunately shared_library insists on creating the symlink…
+    meson.add_install_script('sh', '-c',
+                             'rm $DESTDIR@0@/libnss_@1@.so'
+                             .format(rootlibdir, module))
   endif
 endforeach
 
