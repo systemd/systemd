@@ -67,23 +67,23 @@ EOL
 systemctl start test.socket
 systemctl is-active test.socket
 [[ "$(stat --format='%G' /run/test.socket)" == adm ]]
-echo A | nc -U /run/test.socket
+echo A | nc -w1 -U /run/test.socket
 
 mv $U ${U}.disabled
 systemctl daemon-reload
 systemctl is-active test.socket
 [[ "$(stat --format='%G' /run/test.socket)" == adm ]]
-echo B | nc -U /run/test.socket && exit 1
+echo B | nc -w1 -U /run/test.socket && exit 1
 
 mv ${U}.disabled $U
 systemctl daemon-reload
 systemctl is-active test.socket
-echo C | nc -U /run/test.socket && exit 1
+echo C | nc -w1 -U /run/test.socket && exit 1
 [[ "$(stat --format='%G' /run/test.socket)" == adm ]]
 
 systemctl restart test.socket
 systemctl is-active test.socket
-echo D | nc -U /run/test.socket
+echo D | nc -w1 -U /run/test.socket
 [[ "$(stat --format='%G' /run/test.socket)" == adm ]]
 
 
