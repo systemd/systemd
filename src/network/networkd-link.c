@@ -1325,6 +1325,11 @@ static int link_set_bridge(Link *link) {
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_COST attribute: %m");
         }
+        if (link->network->priority != LINK_BRIDGE_PORT_PRIORITY_INVALID) {
+                r = sd_netlink_message_append_u16(req, IFLA_BRPORT_PRIORITY, link->network->priority);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_PRIORITY attribute: %m");
+        }
 
         r = sd_netlink_message_close_container(req);
         if (r < 0)

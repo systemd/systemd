@@ -1257,7 +1257,18 @@
             <para>Sets the "cost" of sending packets of this interface.
             Each port in a bridge may have a different speed and the cost
             is used to decide which link to use. Faster interfaces
-            should have lower costs.</para>
+            should have lower costs. It is an interger value between 1 and
+            65535.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Priority=</varname></term>
+          <listitem>
+            <para>Sets the "priority" of sending packets on this interface.
+            Each port in a bridge may have a different priority which is used
+            to decide which link to use. Lower value means higher priority.
+            It is an interger value between 0 to 63. Networkd does not set any
+            default, meaning the kernel default value of 32 is used.</para>
           </listitem>
         </varlistentry>
       </variablelist>

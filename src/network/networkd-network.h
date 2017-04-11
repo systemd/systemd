@@ -163,7 +163,8 @@ struct Network {
         bool fast_leave;
         bool allow_port_to_be_root;
         bool unicast_flood;
-        unsigned cost;
+        uint32_t cost;
+        uint16_t priority;
 
         bool use_br_vlan;
         uint16_t pvid;
