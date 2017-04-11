@@ -206,28 +206,28 @@ generate_af_list = find_program('generate-af-list.sh')
 af_list_txt = custom_target(
     'af-list.txt',
     output : 'af-list.txt',
-    command : [generate_af_list],
+    command : [generate_af_list, cpp],
     capture : true)
 
 generate_arphrd_list = find_program('generate-arphrd-list.sh')
 arphrd_list_txt = custom_target(
     'arphrd-list.txt',
     output : 'arphrd-list.txt',
-    command : [generate_arphrd_list],
+    command : [generate_arphrd_list, cpp],
     capture : true)
 
 generate_cap_list = find_program('generate-cap-list.sh')
 cap_list_txt = custom_target(
     'cap-list.txt',
     output : 'cap-list.txt',
-    command : [generate_cap_list, config_h, missing_h],
+    command : [generate_cap_list, cpp, config_h, missing_h],
     capture : true)
 
 generate_errno_list = find_program('generate-errno-list.sh')
 errno_list_txt = custom_target(
     'errno-list.txt',
     output : 'errno-list.txt',
-    command : [generate_errno_list],
+    command : [generate_errno_list, cpp],
     capture : true)
 
 generated_gperf_headers = []

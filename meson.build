@@ -295,6 +295,8 @@ foreach arg : ['-Wl,-z,relro',
   endif
 endforeach
 
+cpp = ' '.join(cc.cmd_array()) + ' -E'
+
 #####################################################################
 # compilation result tests
 

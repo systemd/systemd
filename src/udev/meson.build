@@ -58,7 +58,7 @@ generate_keyboard_keys_list = find_program('generate-keyboard-keys-list.sh')
 keyboard_keys_list_txt = custom_target(
     'keyboard-keys-list.txt',
     output : 'keyboard-keys-list.txt',
-    command : [generate_keyboard_keys_list],
+    command : [generate_keyboard_keys_list, cpp],
     capture : true)
 
 fname = 'keyboard-keys-from-name.gperf'

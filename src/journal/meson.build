@@ -35,7 +35,7 @@ generate_audit_type_list = find_program('generate-audit_type-list.sh')
 audit_type_list_txt = custom_target(
     'audit_type-list.txt',
     output : 'audit_type-list.txt',
-    command : [generate_audit_type_list] + audit_type_includes,
+    command : [generate_audit_type_list, cpp] + audit_type_includes,
     capture : true)
 
 audit_type_to_name = custom_target(
