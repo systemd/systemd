@@ -488,14 +488,14 @@
           <term><option>-s</option></term>
           <term><option>--subsystem-match=<replaceable>string[/string]</replaceable></option></term>
           <listitem>
-            <para>Filter events by subsystem[/devtype]. Only udev events with a matching subsystem value will pass.</para>
+            <para>Filter kernel uevents and udev events by subsystem[/devtype]. Only events with a matching subsystem value will pass.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><option>-t</option></term>
           <term><option>--tag-match=<replaceable>string</replaceable></option></term>
           <listitem>
-            <para>Filter events by property. Only udev events with a given tag attached will pass.</para>
+            <para>Filter udev events by tag. Only udev events with a given tag attached will pass.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
