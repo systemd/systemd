@@ -1306,7 +1306,7 @@ if conf.get('HAVE_PAM', 0) == 1
              install_dir : rootlibexecdir)
 endif
 
-if conf.get('ENABLE_EFI', 0) == 1
+if conf.get('ENABLE_EFI', 0) == 1 and conf.get('HAVE_BLKID', 0) == 1
   executable('bootctl',
              'src/boot/bootctl.c',
              include_directories : includes,

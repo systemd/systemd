@@ -36,7 +36,7 @@ option('ldconfig', type : 'boolean',
 option('resolve', type : 'boolean',
        description : 'systemd-resolved stack')
 option('efi', type : 'boolean',
-       description : 'support for EFI')
+       description : 'enable systemd-boot and bootctl')
 option('environment-d', type : 'boolean',
        description : 'support for environment.d')
 option('binfmt', type : 'boolean',
