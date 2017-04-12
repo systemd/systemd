@@ -40,6 +40,7 @@ sysvrcnd_path = get_option('sysvrcnd-path')
 if sysvinit_path != '' or sysvrcnd_path != ''
   conf.set('HAVE_SYSV_COMPAT', 1,
            description : 'SysV init scripts and rcN.d links are supported')
+  m4_defines += ['-DHAVE_SYSV_COMPAT']
 endif
 
 # join_paths ignore the preceding arguments if an absolute component is
@@ -107,7 +108,7 @@ bootlibdir = prefixdir + '/lib/systemd/boot/efi'
 testsdir = prefixdir + '/lib/systemd/tests'
 systemdstatedir = localstatedir + '/lib/systemd'
 catalogstatedir = systemdstatedir + '/catalog'
-randomseeddir = localstatedir + '/lib/systemd/'
+randomseeddir = localstatedir + '/lib/systemd'
 
 dbuspolicydir = get_option('dbuspolicydir')
 if dbuspolicydir == ''
@@ -139,6 +140,8 @@ conf.set_quoted('SYSTEM_CONFIG_UNIT_PATH',                    pkgsysconfdir + '/
 conf.set_quoted('SYSTEM_DATA_UNIT_PATH',                      systemunitdir)
 conf.set_quoted('SYSTEM_SYSVINIT_PATH',                       sysvinit_path)
 conf.set_quoted('SYSTEM_SYSVRCND_PATH',                       sysvrcnd_path)
+conf.set_quoted('RC_LOCAL_SCRIPT_PATH_START',                 get_option('rc-local'))
+conf.set_quoted('RC_LOCAL_SCRIPT_PATH_STOP',                  get_option('halt-local'))
 conf.set_quoted('USER_CONFIG_UNIT_PATH',                      pkgsysconfdir + '/user')
 conf.set_quoted('USER_DATA_UNIT_PATH',                        userunitdir)
 conf.set_quoted('CERTIFICATE_ROOT',                           get_option('certificate-root'))
@@ -207,8 +210,14 @@ substs.set('systemenvgeneratordir',                           systemenvgenerator
 substs.set('userenvgeneratordir',                             userenvgeneratordir)
 substs.set('systemshutdowndir',                               systemshutdowndir)
 substs.set('systemsleepdir',                                  systemsleepdir)
+substs.set('VARLOGDIR',                                       varlogdir)
+substs.set('CERTIFICATEROOT',                                 get_option('certificate-root'))
 substs.set('SYSTEMCTL',                                       rootbindir + '/systemctl')
 substs.set('RANDOM_SEED',                                     randomseeddir + '/random-seed')
+substs.set('SYSTEM_SYSVINIT_PATH',                            sysvinit_path)
+substs.set('SYSTEM_SYSVRCND_PATH',                            sysvrcnd_path)
+substs.set('RC_LOCAL_SCRIPT_PATH_START',                      get_option('rc-local'))
+substs.set('RC_LOCAL_SCRIPT_PATH_STOP',                       get_option('halt-local'))
 
 #####################################################################
 
@@ -523,7 +532,7 @@ message('Maximum system GID is @0@'.format(system_gid_max))
 
 tty_gid = get_option('tty-gid')
 conf.set('TTY_GID', tty_gid)
-m4_defines += ['-DTTY_GID=' + tty_gid]
+substs.set('TTY_GID', tty_gid)
 
 if get_option('adm-group')
   m4_defines += ['-DENABLE_ADM_GROUP']
@@ -535,15 +544,20 @@ endif
 
 substs.set('DEV_KVM_MODE', get_option('dev-kvm-mode'))
 
-conf.set10('KILL_USER_PROCESSES', get_option('default-kill-user-processes'))
+kill_user_processes = get_option('default-kill-user-processes')
+conf.set10('KILL_USER_PROCESSES', kill_user_processes)
+substs.set('KILL_USER_PROCESSES', kill_user_processes ? 'yes' : 'no')
 
 default_dnssec = get_option('default-dnssec')
 conf.set('DEFAULT_DNSSEC_MODE',
          'DNSSEC_' + default_dnssec.underscorify().to_upper())
+substs.set('DEFAULT_DNSSEC_MODE', default_dnssec)
 
 conf.set_quoted('DNS_SERVERS', get_option('dns-servers'))
+substs.set('DNS_SERVERS', get_option('dns-servers'))
 
 conf.set_quoted('NTP_SERVERS', get_option('ntp-servers'))
+substs.set('NTP_SERVERS', get_option('ntp-servers'))
 
 conf.set_quoted('GETTEXT_PACKAGE', meson.project_name())
 
@@ -923,6 +937,7 @@ foreach pair : [['utmp',          'HAVE_UTMP'],
 
   if get_option(pair[0])
     conf.set(pair[1], 1)
+    m4_defines += ['-D' + pair[1]]
   endif
 endforeach
 

@@ -10,6 +10,10 @@ option('sysvinit-path', type : 'string', value : '/etc/init.d',
 option('sysvrcnd-path', type : 'string', value : '/etc/rc.d',
        description : 'the base directory for SysV rcN.d directories')
 option('telinit-path', type : 'string', description : 'path to telinit')
+option('rc-local', type : 'string',
+       value : '/etc/rc.local')
+option('halt-local', type : 'string',
+       value : '/usr/sbin/halt.local')
 
 option('quotaon-path', type : 'string', description : 'path to quotaon')
 option('quotacheck-path', type : 'string', description : 'path to quotacheck')
