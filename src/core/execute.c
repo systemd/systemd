@@ -2989,6 +2989,14 @@ int exec_spawn(Unit *unit,
                                                                   error_message),
                                                  "EXECUTABLE=%s", command->path,
                                                  NULL);
+                        else if (r == -ENOENT && command->ignore)
+                                log_struct_errno(LOG_INFO, r,
+                                                 "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
+                                                 LOG_UNIT_ID(unit),
+                                                 LOG_UNIT_MESSAGE(unit, "Skipped spawning %s: %m",
+                                                                  command->path),
+                                                 "EXECUTABLE=%s", command->path,
+                                                 NULL);
                         else
                                 log_struct_errno(LOG_ERR, r,
                                                  "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
