@@ -2075,8 +2075,13 @@ foreach tuple : tests
   type = tuple.length() >= 5 ? tuple[4] : ''
   defs = tuple.length() >= 6 ? tuple[5] : []
   incs = tuple.length() >= 7 ? tuple[6] : includes
+  timeout = 30
 
   name = sources[0].split('/')[-1].split('.')[0]
+  if type.startswith('timeout=')
+    timeout = type.split('=')[1].to_int()
+    type = ''
+  endif
 
   if condition == '' or conf.get(condition, 0) == 1
     install = install_tests and type == ''
@@ -2097,7 +2102,9 @@ foreach tuple : tests
     elif type == 'unsafe' and want_tests != 'unsafe'
       message('@0@ is an unsafe test'.format(name))
     else
-      test(name, exe, env : test_env)
+      test(name, exe,
+           env : test_env,
+           timeout : timeout)
     endif
   else
     message('Not compiling @0@ because @1@ is not true'.format(name, condition))

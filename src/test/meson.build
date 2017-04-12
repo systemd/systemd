@@ -340,7 +340,8 @@ tests += [
     'src/test/test-hashmap-plain.c',
     test_hashmap_ordered_c],
    [libshared],
-   []],
+   [],
+   '', 'timeout=90'],
 
   [['src/test/test-set.c'],
    [libshared],
@@ -698,7 +699,8 @@ tests += [
    [libjournal_core,
     libshared],
    [liblz4,
-    libxz]],
+    libxz],
+   '', 'timeout=90'],
 
   [['src/journal/test-audit-type.c'],
    [libjournal_core,
