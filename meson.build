@@ -903,6 +903,7 @@ foreach pair : [['utmp',          'HAVE_UTMP'],
                 ['hwdb',          'ENABLE_HWDB'],
                 ['rfkill',        'ENABLE_RFKILL'],
                 ['ldconfig',      'ENABLE_LDCONFIG'],
+                ['efi',           'ENABLE_EFI'],
                ]
 
   if get_option(pair[0])
@@ -917,15 +918,18 @@ tests = []
 #####################################################################
 
 if get_option('efi')
-  efi_arch = host_machine.cpu_family() # TODO: check this works at all
+  efi_arch = host_machine.cpu_family()
+
   if efi_arch == 'ia32'
     EFI_MACHINE_TYPE_NAME = 'ia32'
   elif efi_arch == 'x86_64'
     EFI_MACHINE_TYPE_NAME = 'x64'
+  elif efi_arch == 'arm'
+    EFI_MACHINE_TYPE_NAME = 'arm'
   elif efi_arch == 'aarch64'
-    EFI_MACHINE_TYPE_NAME = 'x64'
+    EFI_MACHINE_TYPE_NAME = 'aa64'
   else
-    EFI_MACHINE_TYPE_NAME = efi_arch
+    EFI_MACHINE_TYPE_NAME = ''
   endif
 
   conf.set('ENABLE_EFI', 1)
@@ -1060,6 +1064,7 @@ subdir('src/timedate')
 subdir('src/timesync')
 subdir('src/vconsole')
 subdir('src/sulogin-shell')
+subdir('src/boot/efi')
 
 subdir('src/test')
 

@@ -199,6 +199,19 @@ option('glib', type : 'combo', choices : ['auto', 'yes', 'no'],
 option('dbus', type : 'combo', choices : ['auto', 'yes', 'no'],
        description : 'libdbus support (for tests only)')
 
+option('gnu-efi', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'gnu-efi support for sd-boot')
+option('efi-cc', type : 'string', value : 'gcc',
+       description : 'the compiler to use for EFI modules')
+option('efi-ld', type : 'string', value : 'ld',
+       description : 'the linker to use for EFI modules')
+option('efi-libdir', type : 'string',
+       description : 'path to the EFI lib directory')
+option('efi-ldsdir', type : 'string',
+       description : 'path to the EFI lds directory')
+option('efi-includedir', type : 'string', value : '/usr/include/efi',
+       description : 'path to the EFI header directory')
+
 option('bashcompletiondir', type : 'string',
        description : 'directory for bash completion scripts ["no" disables]')
 option('zshcompletiondir', type : 'string',
