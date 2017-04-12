@@ -119,6 +119,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svneMachines:pneMachines*E725:pvr*
  KEYBOARD_KEY_f3=prog2                                  # "P2" programmable button
  KEYBOARD_KEY_f4=prog1                                  # "P1" programmable button
  KEYBOARD_KEY_f5=presentation
+ KEYBOARD_KEY_f6=power                                  # Power button
  KEYBOARD_KEY_f8=fn
  KEYBOARD_KEY_f9=prog1                                  # Launch NTI shadow
 
