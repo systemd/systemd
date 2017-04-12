@@ -424,7 +424,7 @@ tests += [
    [libshared,
     libsystemd_internal],
    [libkmod],
-   '', 'manual'],
+   'HAVE_KMOD', 'manual'],
 
   [['src/test/test-ellipsize.c'],
    [libshared],

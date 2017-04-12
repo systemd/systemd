@@ -855,7 +855,7 @@ if want_importd != 'no'
                conf.get('HAVE_ZLIB', 0) == 1 and
                conf.get('HAVE_BZIP2', 0) == 1 and
                conf.get('HAVE_XZ', 0) == 1 and
-               conf.get('HAVE_LZ4', 0) == 1)
+               conf.get('HAVE_LIBGCRYPT', 0) == 1)
   if have_deps
     conf.set('ENABLE_IMPORTD', 1)
   elif want_importd == 'yes'
@@ -2030,28 +2030,30 @@ executable('systemd-nspawn',
            install_rpath : rootlibexecdir,
            install : true)
 
-executable('systemd-networkd',
-           systemd_networkd_sources,
-           include_directories : includes,
-           link_with : [libnetworkd_core,
-                        libfirewall,
-                        libsystemd_network,
-                        libudev_internal,
-                        libshared,
-                        libsystemd_internal],
-           install_rpath : rootlibexecdir,
-           install : true,
-           install_dir : rootlibexecdir)
+if conf.get('ENABLE_NETWORKD', 0) == 1
+  executable('systemd-networkd',
+             systemd_networkd_sources,
+             include_directories : includes,
+             link_with : [libnetworkd_core,
+                          libfirewall,
+                          libsystemd_network,
+                          libudev_internal,
+                          libshared,
+                          libsystemd_internal],
+             install_rpath : rootlibexecdir,
+             install : true,
+             install_dir : rootlibexecdir)
 
-executable('systemd-networkd-wait-online',
-           systemd_networkd_wait_online_sources,
-           include_directories : includes,
-           link_with : [libnetworkd_core,
-                        libshared,
-                        libsystemd_internal],
-           install_rpath : rootlibexecdir,
-           install : true,
-           install_dir : rootlibexecdir)
+  executable('systemd-networkd-wait-online',
+             systemd_networkd_wait_online_sources,
+             include_directories : includes,
+             link_with : [libnetworkd_core,
+                          libshared,
+                          libsystemd_internal],
+             install_rpath : rootlibexecdir,
+             install : true,
+             install_dir : rootlibexecdir)
+endif
 
 executable('networkctl',
            networkctl_sources,
