@@ -929,7 +929,7 @@ static int show_session(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_free_ char *path = NULL;
 
-                r = get_session_path(bus, argv[1], &error, &path);
+                r = get_session_path(bus, argv[i], &error, &path);
                 if (r < 0) {
                         log_error("Failed to get session path: %s", bus_error_message(&error, r));
                         return r;
