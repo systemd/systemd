@@ -34,7 +34,7 @@ if conf.get('ENABLE_MACHINED', 0) == 1
     input : 'org.freedesktop.machine1.policy.in',
     output : 'org.freedesktop.machine1.policy',
     command : intltool_command,
-    install : true,
+    install : install_polkit,
     install_dir : polkitpolicydir)
 endif
 

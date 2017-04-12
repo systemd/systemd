@@ -19,7 +19,7 @@ if conf.get('ENABLE_LOCALED', 0) == 1
     input : 'org.freedesktop.locale1.policy.in',
     output : 'org.freedesktop.locale1.policy',
     command : intltool_command,
-    install : true,
+    install : install_polkit,
     install_dir : polkitpolicydir)
 endif
 

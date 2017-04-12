@@ -617,6 +617,21 @@ if smack_run_label != ''
   m4_defines += ['-DHAVE_SMACK_RUN_LABEL']
 endif
 
+want_polkit = get_option('polkit')
+install_polkit = false
+install_polkit_pkla = false
+if want_polkit != 'no'
+  conf.set('ENABLE_POLKIT', 1)
+  install_polkit = true
+
+  libpolkit = dependency('polkit-gobject-1',
+                         required : false)
+  if libpolkit.found() and libpolkit.version().version_compare('< 0.106')
+    message('Old polkit detected, will install pkla files')
+    install_polkit_pkla = true
+  endif
+endif
+
 want_audit = get_option('audit')
 if want_audit != 'no'
   libaudit = dependency('audit', required : want_audit == 'yes')

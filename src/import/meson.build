@@ -61,7 +61,7 @@ if conf.get('ENABLE_IMPORTD', 0) == 1
     input : 'org.freedesktop.import1.policy.in',
     output : 'org.freedesktop.import1.policy',
     command : intltool_command,
-    install : true,
+    install : install_polkit,
     install_dir : polkitpolicydir)
 
   install_data('import-pubring.gpg',

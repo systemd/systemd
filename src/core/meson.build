@@ -203,7 +203,7 @@ custom_target(
   input : policy_in,
   output : 'org.freedesktop.systemd1.policy',
   command : intltool_command,
-  install : true,
+  install : install_polkit,
   install_dir : polkitpolicydir)
 
 # TODO: this might work with meson from git, see
@@ -214,7 +214,7 @@ custom_target(
 #   po_dir : po_dir,
 #   input : policy_in,
 #   output : 'org.freedesktop.systemd1.policy',
-#   install : true,
+#   install : install_polkit,
 #   install_dir : polkitpolicydir)
 
 install_data('system.conf',

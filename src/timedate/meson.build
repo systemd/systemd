@@ -11,6 +11,6 @@ if conf.get('ENABLE_TIMEDATED', 0) == 1
     input : 'org.freedesktop.timedate1.policy.in',
     output : 'org.freedesktop.timedate1.policy',
     command : intltool_command,
-    install : true,
+    install : install_polkit,
     install_dir : polkitpolicydir)
 endif

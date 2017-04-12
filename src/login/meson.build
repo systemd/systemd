@@ -78,7 +78,7 @@ if conf.get('ENABLE_LOGIND', 0) == 1
     input : 'org.freedesktop.login1.policy.in',
     output : 'org.freedesktop.login1.policy',
     command : intltool_command,
-    install : true,
+    install : install_polkit,
     install_dir : polkitpolicydir)
 
   install_data('70-power-switch.rules',
