@@ -105,21 +105,7 @@ units = [
   ['user.slice',                          ''],
   ['var-lib-machines.mount',              '',
    'local-fs.target.wants/'],
-  ]
-
-foreach tuple : units
-  file = tuple[0]
-  if tuple[1] == '' or conf.get(tuple[1], 0) == 1
-    install_data(file,
-                 install_dir : systemunitdir)
-
-    if tuple.length() > 2
-      foreach target : tuple[2].split()
-        meson.add_install_script('meson-add-wants.sh', systemunitdir, target, file)
-      endforeach
-    endif
-  endif
-endforeach
+]
 
 in_units = [
   ['debug-shell.service',                  ''],
@@ -217,10 +203,44 @@ in_units = [
    'multi-user.target.wants/'],
   ['systemd-vconsole-setup.service',       'ENABLE_VCONSOLE'],
   ['systemd-volatile-root.service',        ''],
-  ]
+]
+
+m4_units = [
+  ['getty@.service',                     '',
+   'autovt@.service ' +
+   pkgsysconfdir + '/system/getty.target.wants/getty@tty1.service'],
+  ['serial-getty@.service',              ''],
+  ['tmp.mount',                          '',
+   'local-fs.target.wants/'],
+]
+
+m4_in_units = [
+  ['console-getty.service',              ''],
+  ['container-getty@.service',           ''],
+  ['systemd-networkd.service',           'ENABLE_NETWORKD',
+   'dbus-org.freedesktop.network1.service ' +
+   pkgsysconfdir + '/system/multi-user.target.wants/ '],
+  ['systemd-resolved.service',           'ENABLE_RESOLVED',
+   'dbus-org.freedesktop.resolve1.service ' +
+   pkgsysconfdir + '/system/multi-user.target.wants/'],
+  ['user@.service',                      ''],
+]
+
+foreach tuple : m4_in_units
+  file = tuple[0]
+
+  gen = configure_file(
+      input : file + '.m4.in',
+      output : file + '.m4',
+      configuration : substs)
+
+  m4_units += [[file, tuple.get(1, ''), tuple.get(2, ''), gen]]
+endforeach
 
 foreach tuple : in_units
   file = tuple[0]
+
+  # we do this here because install_data does not accept custom_target output
   conds = tuple[1].split(' ')
   install = ((conds.get(0, '') == '' or conf.get(conds[0], 0) == 1) and
              (conds.get(1, '') == '' or conf.get(conds[1], 0) == 1))
@@ -235,7 +255,7 @@ foreach tuple : in_units
     output : file,
     command : [sed, '/^## /d', '@INPUT@'],
     capture : true,
-    install : install,
+    install : true,
     install_dir : systemunitdir)
 
   if install and tuple.length() > 2
@@ -245,22 +265,18 @@ foreach tuple : in_units
   endif
 endforeach
 
-m4_units = [
-  ['getty@.service',                     '',
-   'autovt@.service ' +
-   pkgsysconfdir + '/system/getty.target.wants/getty@tty1.service'],
-  ['serial-getty@.service',              ''],
-  ['tmp.mount',                          '',
-   'local-fs.target.wants/'],
-  ]
-
 foreach tuple : m4_units
   file = tuple[0]
-  install = tuple[1] == '' or conf.get(tuple[1], 0) == 1
+  input = tuple.get(3, file + '.m4')
+
+  # we do this here because install_data does not accept custom_target output
+  conds = tuple[1].split(' ')
+  install = ((conds.get(0, '') == '' or conf.get(conds[0], 0) == 1) and
+             (conds.get(1, '') == '' or conf.get(conds[1], 0) == 1))
 
   custom_target(
     file,
-    input : file + '.m4',
+    input : input,
     output: file,
     command : [m4, '-P'] + m4_defines + ['@INPUT@'],
     capture : true,
@@ -274,42 +290,27 @@ foreach tuple : m4_units
   endif
 endforeach
 
-m4_in_units = [
-  ['console-getty.service',              ''],
-  ['container-getty@.service',           ''],
-  ['systemd-networkd.service',           'ENABLE_NETWORKD',
-   'dbus-org.freedesktop.network1.service ' +
-   pkgsysconfdir + '/system/multi-user.target.wants/ '],
-  ['systemd-resolved.service',           'ENABLE_RESOLVED',
-   'dbus-org.freedesktop.resolve1.service ' +
-   pkgsysconfdir + '/system/multi-user.target.wants/'],
-  ['user@.service',                      ''],
-  ]
-
-foreach tuple : m4_in_units
+foreach tuple : units
   file = tuple[0]
-  install = tuple[1] == '' or conf.get(tuple[1], 0) == 1
+  input = tuple.get(3, file)
 
-  gen = configure_file(
-      input : file + '.m4.in',
-      output : file + '.m4',
-      configuration : substs)
+  conds = tuple[1].split(' ')
+  install = ((conds.get(0, '') == '' or conf.get(conds[0], 0) == 1) and
+             (conds.get(1, '') == '' or conf.get(conds[1], 0) == 1))
 
-  custom_target(
-    file,
-    input : gen,
-    output: file,
-    command : [m4, '-P'] + m4_defines + ['@INPUT@'],
-    capture : true,
-    install : install,
-    install_dir : systemunitdir)
+  if install
+    install_data(input,
+                 install_dir : systemunitdir)
 
-  if tuple.length() > 2 and install
-    foreach target : tuple[2].split()
-      meson.add_install_script('meson-add-wants.sh', systemunitdir, target, file)
-    endforeach
+    if tuple.length() > 2
+      foreach target : tuple[2].split()
+        meson.add_install_script('meson-add-wants.sh', systemunitdir, target, file)
+      endforeach
+    endif
   endif
 endforeach
+
+############################################################
 
 meson.add_install_script(meson_make_symlink,
                          pkgsysconfdir + '/user',
