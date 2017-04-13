@@ -97,6 +97,7 @@
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pn*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnGateway*:pnA0A1*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svneMachines:pneMachines*E725:pvr*
+ KEYBOARD_KEY_86=wlan                                   # Fn+F3 or Fn+Q for comunication key
  KEYBOARD_KEY_a5=help                                   # Fn+F1
  KEYBOARD_KEY_a6=setup                                  # Fn+F2 Acer eSettings
  KEYBOARD_KEY_a7=battery                                # Fn+F3 Power Management
@@ -118,6 +119,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svneMachines:pneMachines*E725:pvr*
  KEYBOARD_KEY_f3=prog2                                  # "P2" programmable button
  KEYBOARD_KEY_f4=prog1                                  # "P1" programmable button
  KEYBOARD_KEY_f5=presentation
+ KEYBOARD_KEY_f6=power                                  # Power button
  KEYBOARD_KEY_f8=fn
  KEYBOARD_KEY_f9=prog1                                  # Launch NTI shadow
 
@@ -157,6 +159,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*C3[01]0*:pvr*
  KEYBOARD_KEY_6b=fn
  KEYBOARD_KEY_6c=screenlock                             # FIXME: lock tablet device/buttons
 
+# Travelmate P648-G2-MG
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*P648-G2-MG*:pvr*
+ KEYBOARD_KEY_8a=f20                                    # Microphone mute button; should be micmute
+
 # on some models this isn't brightnessup
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pn*5210*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pn*5220*:pvr*
@@ -170,6 +176,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*1640:*
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAOA*:pvr*
  KEYBOARD_KEY_a9=!switchvideomode                       # Fn+F5
+
+# Easynote models
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPackard*Bell*:pnEasynote*:pvr*
+ KEYBOARD_KEY_86=wlan                                   # Fn+F3 or Fn+Q for comunication key
 
 ###########################################################
 # Alienware
