@@ -161,7 +161,7 @@ executable('mtd_probe',
            install_dir : udevlibexecdir)
 
 install_data('udev.conf',
-             install_dir : sysconfdir + '/udev')
+             install_dir : join_paths(sysconfdir, 'udev'))
 
 udev_pc = configure_file(
     input : 'udev.pc.in',
@@ -171,4 +171,4 @@ install_data(udev_pc,
              install_dir : pkgconfigdatadir)
 
 meson.add_install_script('sh', '-c',
-                         mkdir_p.format(sysconfdir + '/udev/rules.d'))
+                         mkdir_p.format(join_paths(sysconfdir, 'udev/rules.d')))

@@ -52,7 +52,7 @@ foreach tuple : manpages
     htmlaliases += [alias + '.html']
   endforeach
 
-  mandirn = get_option('mandir') + '/man' + section
+  mandirn = join_paths(get_option('mandir'), 'man' + section)
 
   have = condition == '' or conf.get(condition, 0) == 1
 
@@ -74,7 +74,7 @@ foreach tuple : manpages
         command : [xsltproc, '-o', '@OUTPUT0@'] + xsltproc_flags + [custom_html_xsl, '@INPUT@'],
         depend_files : custom_entities_ent,
         install : want_html,
-        install_dir : docdir + '/html')
+        install_dir : join_paths(docdir, 'html'))
     html_pages += [p2]
 
     source_xml_files += files(tuple[0] + '.xml')
@@ -107,7 +107,7 @@ foreach tuple : [['systemd.directives', '7', systemd_directives_xml],
   html = stem + '.html'
   man = stem + '.' + section
 
-  mandirn = get_option('mandir') + '/man' + section
+  mandirn = join_paths(get_option('mandir'), 'man' + section)
 
   p1 = custom_target(
       man,
@@ -124,7 +124,7 @@ foreach tuple : [['systemd.directives', '7', systemd_directives_xml],
       output : html,
       command : [xsltproc, '-o', '@OUTPUT0@'] + xsltproc_flags + [custom_html_xsl, '@INPUT@'],
       install : want_html,
-      install_dir : docdir + '/html')
+      install_dir : join_paths(docdir, 'html'))
   html_pages += [p2]
 endforeach
 

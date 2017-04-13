@@ -20,4 +20,4 @@ foreach file : in_files
 endforeach
 
 meson.add_install_script('sh', '-c',
-                         mkdir_p.format(sysconfdir + '/sysctl.d'))
+                         mkdir_p.format(join_paths(sysconfdir, 'sysctl.d')))

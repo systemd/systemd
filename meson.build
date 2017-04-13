@@ -66,118 +66,118 @@ if rootlibdir == ''
 endif
 
 # Dirs of external packages
-pkgconfigdatadir = datadir + '/pkgconfig'
-pkgconfiglibdir = libdir + '/pkgconfig'
-polkitpolicydir = datadir + '/polkit-1/actions'
-polkitrulesdir = datadir + '/polkit-1/rules.d'
-polkitpkladir = localstatedir + '/lib/polkit-1/localauthority/10-vendor.d'
-varlogdir = localstatedir + '/log'
-xinitrcdir = sysconfdir + '/X11/xinit/xinitrc.d'
+pkgconfigdatadir = join_paths(datadir, 'pkgconfig')
+pkgconfiglibdir = join_paths(libdir, 'pkgconfig')
+polkitpolicydir = join_paths(datadir, 'polkit-1/actions')
+polkitrulesdir = join_paths(datadir, 'polkit-1/rules.d')
+polkitpkladir = join_paths(localstatedir, 'lib/polkit-1/localauthority/10-vendor.d')
+varlogdir = join_paths(localstatedir, 'log')
+xinitrcdir = join_paths(sysconfdir, 'X11/xinit/xinitrc.d')
 rpmmacrosdir = get_option('rpmmacrosdir')
 
 # Our own paths
-pkgdatadir = datadir + '/systemd'
-environmentdir = prefixdir + '/lib/environment.d'
-pkgsysconfdir = sysconfdir + '/systemd'
-userunitdir = prefixdir + '/lib/systemd/user'
-userpresetdir = prefixdir + '/lib/systemd/user-preset'
-tmpfilesdir = prefixdir + '/lib/tmpfiles.d'
-sysusersdir = prefixdir + '/lib/sysusers.d'
-sysctldir = prefixdir + '/lib/sysctl.d'
-binfmtdir = prefixdir + '/lib/binfmt.d'
-modulesloaddir = prefixdir + '/lib/modules-load.d'
-networkdir = rootprefixdir + '/lib/systemd/network'
-pkgincludedir = includedir + '/systemd'
-systemgeneratordir = rootlibexecdir + '/system-generators'
-usergeneratordir = prefixdir + '/lib/systemd/user-generators'
-systemenvgeneratordir = prefixdir + '/lib/systemd/system-environment-generators'
-userenvgeneratordir = prefixdir + '/lib/systemd/user-environment-generators'
-systemshutdowndir = rootlibexecdir + '/system-shutdown'
-systemsleepdir = rootlibexecdir + '/system-sleep'
-systemunitdir = rootprefixdir + '/lib/systemd/system'
-systempresetdir = rootprefixdir + '/lib/systemd/system-preset'
-udevlibexecdir = rootprefixdir + '/lib/udev'
-udevhomedir = udevlibexecdir + ''
-udevrulesdir = udevlibexecdir + '/rules.d'
-udevhwdbdir = udevlibexecdir + '/hwdb.d'
-catalogdir = prefixdir + '/lib/systemd/catalog'
-kernelinstalldir = prefixdir + '/lib/kernel/install.d'
-factorydir = datadir + '/factory'
-docdir = datadir + '/doc/systemd'
-bootlibdir = prefixdir + '/lib/systemd/boot/efi'
-testsdir = prefixdir + '/lib/systemd/tests'
-systemdstatedir = localstatedir + '/lib/systemd'
-catalogstatedir = systemdstatedir + '/catalog'
-randomseeddir = localstatedir + '/lib/systemd'
+pkgdatadir = join_paths(datadir, 'systemd')
+environmentdir = join_paths(prefixdir, 'lib/environment.d')
+pkgsysconfdir = join_paths(sysconfdir, 'systemd')
+userunitdir = join_paths(prefixdir, 'lib/systemd/user')
+userpresetdir = join_paths(prefixdir, 'lib/systemd/user-preset')
+tmpfilesdir = join_paths(prefixdir, 'lib/tmpfiles.d')
+sysusersdir = join_paths(prefixdir, 'lib/sysusers.d')
+sysctldir = join_paths(prefixdir, 'lib/sysctl.d')
+binfmtdir = join_paths(prefixdir, 'lib/binfmt.d')
+modulesloaddir = join_paths(prefixdir, 'lib/modules-load.d')
+networkdir = join_paths(rootprefixdir, 'lib/systemd/network')
+pkgincludedir = join_paths(includedir, 'systemd')
+systemgeneratordir = join_paths(rootlibexecdir, 'system-generators')
+usergeneratordir = join_paths(prefixdir, 'lib/systemd/user-generators')
+systemenvgeneratordir = join_paths(prefixdir, 'lib/systemd/system-environment-generators')
+userenvgeneratordir = join_paths(prefixdir, 'lib/systemd/user-environment-generators')
+systemshutdowndir = join_paths(rootlibexecdir, 'system-shutdown')
+systemsleepdir = join_paths(rootlibexecdir, 'system-sleep')
+systemunitdir = join_paths(rootprefixdir, 'lib/systemd/system')
+systempresetdir = join_paths(rootprefixdir, 'lib/systemd/system-preset')
+udevlibexecdir = join_paths(rootprefixdir, 'lib/udev')
+udevhomedir = udevlibexecdir
+udevrulesdir = join_paths(udevlibexecdir, 'rules.d')
+udevhwdbdir = join_paths(udevlibexecdir, 'hwdb.d')
+catalogdir = join_paths(prefixdir, 'lib/systemd/catalog')
+kernelinstalldir = join_paths(prefixdir, 'lib/kernel/install.d')
+factorydir = join_paths(datadir, 'factory')
+docdir = join_paths(datadir, 'doc/systemd')
+bootlibdir = join_paths(prefixdir, 'lib/systemd/boot/efi')
+testsdir = join_paths(prefixdir, 'lib/systemd/tests')
+systemdstatedir = join_paths(localstatedir, 'lib/systemd')
+catalogstatedir = join_paths(systemdstatedir, 'catalog')
+randomseeddir = join_paths(localstatedir, 'lib/systemd')
 
 dbuspolicydir = get_option('dbuspolicydir')
 if dbuspolicydir == ''
-  dbuspolicydir = datadir + '/dbus-1/system.d'
+  dbuspolicydir = join_paths(datadir, 'dbus-1/system.d')
 endif
 
 dbussessionservicedir = get_option('dbussessionservicedir')
 if dbussessionservicedir == ''
-  dbussessionservicedir = datadir + '/dbus-1/services'
+  dbussessionservicedir = join_paths(datadir, 'dbus-1/services')
 endif
 
 dbussystemservicedir = get_option('dbussystemservicedir')
 if dbussystemservicedir == ''
-  dbussystemservicedir = datadir + '/dbus-1/system-services'
+  dbussystemservicedir = join_paths(datadir, 'dbus-1/system-services')
 endif
 
 pamlibdir = get_option('pamlibdir')
 if pamlibdir == ''
-  pamlibdir = rootlibdir + '/security'
+  pamlibdir = join_paths(rootlibdir, 'security')
 endif
 
 pamconfdir = get_option('pamconfdir')
 if pamconfdir == ''
-  pamconfdir = sysconfdir + '/pam.d'
+  pamconfdir = join_paths(sysconfdir, 'pam.d')
 endif
 
 conf.set_quoted('PKGSYSCONFDIR',                              pkgsysconfdir)
-conf.set_quoted('SYSTEM_CONFIG_UNIT_PATH',                    pkgsysconfdir + '/system')
+conf.set_quoted('SYSTEM_CONFIG_UNIT_PATH',                    join_paths(pkgsysconfdir, 'system'))
 conf.set_quoted('SYSTEM_DATA_UNIT_PATH',                      systemunitdir)
 conf.set_quoted('SYSTEM_SYSVINIT_PATH',                       sysvinit_path)
 conf.set_quoted('SYSTEM_SYSVRCND_PATH',                       sysvrcnd_path)
 conf.set_quoted('RC_LOCAL_SCRIPT_PATH_START',                 get_option('rc-local'))
 conf.set_quoted('RC_LOCAL_SCRIPT_PATH_STOP',                  get_option('halt-local'))
-conf.set_quoted('USER_CONFIG_UNIT_PATH',                      pkgsysconfdir + '/user')
+conf.set_quoted('USER_CONFIG_UNIT_PATH',                      join_paths(pkgsysconfdir, 'user'))
 conf.set_quoted('USER_DATA_UNIT_PATH',                        userunitdir)
 conf.set_quoted('CERTIFICATE_ROOT',                           get_option('certificate-root'))
-conf.set_quoted('CATALOG_DATABASE',                           catalogstatedir + '/database')
-conf.set_quoted('SYSTEMD_CGROUP_AGENT_PATH',                  rootlibexecdir + '/systemd-cgroups-agent')
-conf.set_quoted('SYSTEMD_BINARY_PATH',                        rootlibexecdir + '/systemd')
-conf.set_quoted('SYSTEMD_FSCK_PATH',                          rootlibexecdir + '/systemd-fsck')
-conf.set_quoted('SYSTEMD_SHUTDOWN_BINARY_PATH',               rootlibexecdir + '/systemd-shutdown')
-conf.set_quoted('SYSTEMD_SLEEP_BINARY_PATH',                  rootlibexecdir + '/systemd-sleep')
-conf.set_quoted('SYSTEMCTL_BINARY_PATH',                      rootbindir + '/systemctl')
-conf.set_quoted('SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH', rootbindir + '/systemd-tty-ask-password-agent')
-conf.set_quoted('SYSTEMD_STDIO_BRIDGE_BINARY_PATH',           bindir + '/systemd-stdio-bridge')
+conf.set_quoted('CATALOG_DATABASE',                           join_paths(catalogstatedir, 'database'))
+conf.set_quoted('SYSTEMD_CGROUP_AGENT_PATH',                  join_paths(rootlibexecdir, 'systemd-cgroups-agent'))
+conf.set_quoted('SYSTEMD_BINARY_PATH',                        join_paths(rootlibexecdir, 'systemd'))
+conf.set_quoted('SYSTEMD_FSCK_PATH',                          join_paths(rootlibexecdir, 'systemd-fsck'))
+conf.set_quoted('SYSTEMD_SHUTDOWN_BINARY_PATH',               join_paths(rootlibexecdir, 'systemd-shutdown'))
+conf.set_quoted('SYSTEMD_SLEEP_BINARY_PATH',                  join_paths(rootlibexecdir, 'systemd-sleep'))
+conf.set_quoted('SYSTEMCTL_BINARY_PATH',                      join_paths(rootbindir, 'systemctl'))
+conf.set_quoted('SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH', join_paths(rootbindir, 'systemd-tty-ask-password-agent'))
+conf.set_quoted('SYSTEMD_STDIO_BRIDGE_BINARY_PATH',           join_paths(bindir, 'systemd-stdio-bridge'))
 conf.set_quoted('ROOTPREFIX',                                 rootprefixdir)
 conf.set_quoted('RANDOM_SEED_DIR',                            randomseeddir)
-conf.set_quoted('RANDOM_SEED',                                randomseeddir + '/random-seed')
-conf.set_quoted('SYSTEMD_CRYPTSETUP_PATH',                    rootlibexecdir + '/systemd-cryptsetup')
+conf.set_quoted('RANDOM_SEED',                                join_paths(randomseeddir, 'random-seed'))
+conf.set_quoted('SYSTEMD_CRYPTSETUP_PATH',                    join_paths(rootlibexecdir, 'systemd-cryptsetup'))
 conf.set_quoted('SYSTEM_GENERATOR_PATH',                      systemgeneratordir)
 conf.set_quoted('USER_GENERATOR_PATH',                        usergeneratordir)
 conf.set_quoted('SYSTEM_ENV_GENERATOR_PATH',                  systemenvgeneratordir)
 conf.set_quoted('USER_ENV_GENERATOR_PATH',                    userenvgeneratordir)
 conf.set_quoted('SYSTEM_SHUTDOWN_PATH',                       systemshutdowndir)
 conf.set_quoted('SYSTEM_SLEEP_PATH',                          systemsleepdir)
-conf.set_quoted('SYSTEMD_KBD_MODEL_MAP',                      pkgdatadir + '/kbd-model-map')
-conf.set_quoted('SYSTEMD_LANGUAGE_FALLBACK_MAP',              pkgdatadir + '/language-fallback-map')
+conf.set_quoted('SYSTEMD_KBD_MODEL_MAP',                      join_paths(pkgdatadir, 'kbd-model-map'))
+conf.set_quoted('SYSTEMD_LANGUAGE_FALLBACK_MAP',              join_paths(pkgdatadir, 'language-fallback-map'))
 conf.set_quoted('UDEVLIBEXECDIR',                             udevlibexecdir)
-conf.set_quoted('POLKIT_AGENT_BINARY_PATH',                   bindir + '/pkttyagent')
+conf.set_quoted('POLKIT_AGENT_BINARY_PATH',                   join_paths(bindir, 'pkttyagent'))
 conf.set_quoted('LIBDIR',                                     libdir)
 conf.set_quoted('ROOTLIBDIR',                                 rootlibdir)
 conf.set_quoted('ROOTLIBEXECDIR',                             rootlibexecdir)
 conf.set_quoted('BOOTLIBDIR',                                 bootlibdir)
-conf.set_quoted('SYSTEMD_PULL_PATH',                          rootlibexecdir + '/systemd-pull')
-conf.set_quoted('SYSTEMD_IMPORT_PATH',                        rootlibexecdir + '/systemd-import')
-conf.set_quoted('SYSTEMD_EXPORT_PATH',                        rootlibexecdir + '/systemd-export')
-conf.set_quoted('VENDOR_KEYRING_PATH',                        rootlibexecdir + '/import-pubring.gpg')
-conf.set_quoted('USER_KEYRING_PATH',                          pkgsysconfdir + '/import-pubring.gpg')
-conf.set_quoted('DOCUMENT_ROOT',                              pkgdatadir + '/gatewayd')
+conf.set_quoted('SYSTEMD_PULL_PATH',                          join_paths(rootlibexecdir, 'systemd-pull'))
+conf.set_quoted('SYSTEMD_IMPORT_PATH',                        join_paths(rootlibexecdir, 'systemd-import'))
+conf.set_quoted('SYSTEMD_EXPORT_PATH',                        join_paths(rootlibexecdir, 'systemd-export'))
+conf.set_quoted('VENDOR_KEYRING_PATH',                        join_paths(rootlibexecdir, 'import-pubring.gpg'))
+conf.set_quoted('USER_KEYRING_PATH',                          join_paths(pkgsysconfdir, 'import-pubring.gpg'))
+conf.set_quoted('DOCUMENT_ROOT',                              join_paths(pkgdatadir, 'gatewayd'))
 
 conf.set_quoted('ABS_BUILD_DIR',                              meson.build_root())
 conf.set_quoted('ABS_SRC_DIR',                                meson.source_root())
@@ -212,8 +212,8 @@ substs.set('systemshutdowndir',                               systemshutdowndir)
 substs.set('systemsleepdir',                                  systemsleepdir)
 substs.set('VARLOGDIR',                                       varlogdir)
 substs.set('CERTIFICATEROOT',                                 get_option('certificate-root'))
-substs.set('SYSTEMCTL',                                       rootbindir + '/systemctl')
-substs.set('RANDOM_SEED',                                     randomseeddir + '/random-seed')
+substs.set('SYSTEMCTL',                                       join_paths(rootbindir, 'systemctl'))
+substs.set('RANDOM_SEED',                                     join_paths(randomseeddir, 'random-seed'))
 substs.set('SYSTEM_SYSVINIT_PATH',                            sysvinit_path)
 substs.set('SYSTEM_SYSVRCND_PATH',                            sysvrcnd_path)
 substs.set('RC_LOCAL_SCRIPT_PATH_START',                      get_option('rc-local'))
@@ -1206,8 +1206,8 @@ if conf.get('ENABLE_ENVIRONMENT_D', 0) == 1
              install_dir : userenvgeneratordir)
 
   meson.add_install_script(meson_make_symlink,
-                           sysconfdir + '/environment',
-                           environmentdir + '/99-environment.conf')
+                           join_paths(sysconfdir, 'environment'),
+                           join_paths(environmentdir, '99-environment.conf'))
 endif
 
 if conf.get('ENABLE_HIBERNATE', 0) == 1
@@ -1689,7 +1689,7 @@ if conf.get('ENABLE_BINFMT', 0) == 1
   meson.add_install_script('sh', '-c',
                            mkdir_p.format(binfmtdir))
   meson.add_install_script('sh', '-c',
-                           mkdir_p.format(sysconfdir + '/binfmt.d'))
+                           mkdir_p.format(join_paths(sysconfdir, 'binfmt.d')))
 endif
 
 if conf.get('ENABLE_VCONSOLE', 0) == 1
@@ -1893,7 +1893,7 @@ executable('systemd-mount',
            install : true)
 
 meson.add_install_script(meson_make_symlink,
-                         'systemd-mount', bindir + '/systemd-umount')
+                         'systemd-mount', join_paths(bindir, 'systemd-umount'))
 
 executable('systemd-run',
            'src/run/run.c',
@@ -2044,7 +2044,7 @@ if conf.get('HAVE_KMOD', 0) == 1
   meson.add_install_script('sh', '-c',
                            mkdir_p.format(modulesloaddir))
   meson.add_install_script('sh', '-c',
-                           mkdir_p.format(sysconfdir + '/modules-load.d'))
+                           mkdir_p.format(join_paths(sysconfdir, 'modules-load.d')))
 endif
 
 executable('systemd-nspawn',

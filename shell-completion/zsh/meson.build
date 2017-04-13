@@ -2,7 +2,7 @@
 
 zshcompletiondir = get_option('zshcompletiondir')
 if zshcompletiondir == ''
-  zshcompletiondir = datadir + '/zsh/site-functions'
+  zshcompletiondir = join_paths(datadir, 'zsh/site-functions')
 
   message('zsh completions: @0@'.format(zshcompletiondir))
 endif

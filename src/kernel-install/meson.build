@@ -10,4 +10,4 @@ install_data('50-depmod.install',
              install_dir : kernelinstalldir)
 
 meson.add_install_script('sh', '-c',
-                         mkdir_p.format(sysconfdir + '/kernel/install.d'))
+                         mkdir_p.format(join_paths(sysconfdir, 'kernel/install.d')))

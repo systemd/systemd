@@ -32,7 +32,7 @@ units = [
   ['local-fs.target',                     ''],
   ['machine.slice',                       'ENABLE_MACHINED'],
   ['machines.target',                     'ENABLE_MACHINED',
-   pkgsysconfdir + '/system/multi-user.target.wants/'],
+   join_paths(pkgsysconfdir, 'system/multi-user.target.wants/')],
   ['multi-user.target',                   '',
    'runlevel2.target runlevel3.target runlevel4.target'],
   ['network-online.target',               ''],
@@ -51,7 +51,7 @@ units = [
    'runlevel6.target ctrl-alt-del.target'],
   ['remote-fs-pre.target',                ''],
   ['remote-fs.target',                    '',
-   pkgsysconfdir + '/system/multi-user.target.wants/'],
+   join_paths(pkgsysconfdir, 'system/multi-user.target.wants/')],
   ['rescue.target',                       '',
    'runlevel1.target'],
   ['rpcbind.target',                      ''],
@@ -91,7 +91,7 @@ units = [
   ['systemd-journald.socket',             '',
    'sockets.target.wants/'],
   ['systemd-networkd.socket',             '',
-   pkgsysconfdir + '/system/sockets.target.wants/'],
+   join_paths(pkgsysconfdir, 'system/sockets.target.wants/')],
   ['systemd-rfkill.socket',               'ENABLE_RFKILL'],
   ['systemd-tmpfiles-clean.timer',        '',
    'timers.target.wants/'],
@@ -164,7 +164,7 @@ in_units = [
   ['systemd-modules-load.service',         'HAVE_KMOD',
    'sysinit.target.wants/'],
   ['systemd-networkd-wait-online.service', 'ENABLE_NETWORKD',
-   pkgsysconfdir + '/system/network-online.target.wants/'],
+   join_paths(pkgsysconfdir, 'system/network-online.target.wants/')],
   ['systemd-nspawn@.service',              ''],
   ['systemd-poweroff.service',             ''],
   ['systemd-quotacheck.service',           'ENABLE_QUOTACHECK'],
@@ -182,7 +182,7 @@ in_units = [
   ['systemd-timedated.service',            'ENABLE_TIMEDATED',
    'dbus-org.freedesktop.timedate1.service'],
   ['systemd-timesyncd.service',            'ENABLE_TIMESYNCD',
-   pkgsysconfdir + '/system/sysinit.target.wants/'],
+   join_paths(pkgsysconfdir, 'system/sysinit.target.wants/')],
   ['systemd-tmpfiles-clean.service',       'ENABLE_TMPFILES'],
   ['systemd-tmpfiles-setup-dev.service',   'ENABLE_TMPFILES',
    'sysinit.target.wants/'],
@@ -208,7 +208,7 @@ in_units = [
 m4_units = [
   ['getty@.service',                     '',
    'autovt@.service ' +
-   pkgsysconfdir + '/system/getty.target.wants/getty@tty1.service'],
+   join_paths(pkgsysconfdir, 'system/getty.target.wants/getty@tty1.service')],
   ['serial-getty@.service',              ''],
   ['tmp.mount',                          '',
    'local-fs.target.wants/'],
@@ -219,10 +219,10 @@ m4_in_units = [
   ['container-getty@.service',           ''],
   ['systemd-networkd.service',           'ENABLE_NETWORKD',
    'dbus-org.freedesktop.network1.service ' +
-   pkgsysconfdir + '/system/multi-user.target.wants/ '],
+   join_paths(pkgsysconfdir, 'system/multi-user.target.wants/')],
   ['systemd-resolved.service',           'ENABLE_RESOLVED',
    'dbus-org.freedesktop.resolve1.service ' +
-   pkgsysconfdir + '/system/multi-user.target.wants/'],
+   join_paths(pkgsysconfdir, 'system/multi-user.target.wants/')],
   ['user@.service',                      ''],
 ]
 
@@ -313,16 +313,16 @@ endforeach
 ############################################################
 
 meson.add_install_script(meson_make_symlink,
-                         pkgsysconfdir + '/user',
-                         sysconfdir + '/xdg/systemd/user')
+                         join_paths(pkgsysconfdir, 'user'),
+                         join_paths(sysconfdir, 'xdg/systemd/user'))
 meson.add_install_script(meson_make_symlink,
-                         dbussystemservicedir + '/org.freedesktop.systemd1.service',
-                         dbussessionservicedir + '/org.freedesktop.systemd1.service')
+                         join_paths(dbussystemservicedir, 'org.freedesktop.systemd1.service'),
+                         join_paths(dbussessionservicedir, 'org.freedesktop.systemd1.service'))
 if conf.get('HAVE_SYSV_COMPAT', 0) == 1
   foreach i : [1, 2, 3, 4, 5]
     meson.add_install_script('sh', '-c',
                              mkdir_p
-                             .format(systemunitdir + '/runlevel@0@.target.wants'.format(i)))
+                             .format(join_paths(systemunitdir, 'runlevel@0@.target.wants'.format(i))))
   endforeach
 endif
 

@@ -70,7 +70,7 @@ if have_gnu_efi
 
   efi_ldsdir = get_option('efi-ldsdir')
   if efi_ldsdir == ''
-    efi_ldsdir = efi_libdir + '/gnuefi'
+    efi_ldsdir = join_paths(efi_libdir, 'gnuefi')
   endif
 
   efi_incdir = get_option('efi-includedir')
@@ -92,7 +92,7 @@ if have_gnu_efi
                   '-Wsign-compare',
                   '-Wno-missing-field-initializers',
                   '-isystem', efi_incdir,
-                  '-isystem', efi_incdir + '/' + efi_arch,
+                  '-isystem', join_paths(efi_incdir, efi_arch),
                   '-include', efi_config_h]
   if efi_arch == 'x86_64'
     compile_args += ['-mno-red-zone',
