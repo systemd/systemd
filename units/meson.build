@@ -225,19 +225,23 @@ foreach tuple : in_units
   install = ((conds.get(0, '') == '' or conf.get(conds[0], 0) == 1) and
              (conds.get(1, '') == '' or conf.get(conds[1], 0) == 1))
 
-  gen = configure_file(
-      input : file + '.in',
-      output : file,
-      configuration : substs)
-  if install
-    install_data(gen,
-                 install_dir : systemunitdir)
+  gen1 = configure_file(
+    input : file + '.in',
+    output : file + '.tmp',
+    configuration : substs)
+  gen2 = custom_target(
+    file,
+    input : gen1,
+    output : file,
+    command : [sed, '/^## /d', '@INPUT@'],
+    capture : true,
+    install : install,
+    install_dir : systemunitdir)
 
-    if tuple.length() > 2
-      foreach target : tuple[2].split()
-        meson.add_install_script('meson-add-wants.sh', systemunitdir, target, file)
-      endforeach
-    endif
+  if install and tuple.length() > 2
+    foreach target : tuple[2].split()
+      meson.add_install_script('meson-add-wants.sh', systemunitdir, target, file)
+    endforeach
   endif
 endforeach
 
