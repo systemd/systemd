@@ -1168,18 +1168,32 @@
       <varlistentry>
         <term><varname>ProtectKernelModules=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, explicit module loading will
+        <listitem><para>Takes a boolean argument or the special values <literal>full</literal> or
+        <literal>strict</literal>. If true, explicit module loading will
         be denied. This allows to turn off module load and unload operations on modular
         kernels. It is recommended to turn this on for most services that do not need special
         file systems or extra kernel modules to work. Default to off. Enabling this option
-        removes <constant>CAP_SYS_MODULE</constant> from the capability bounding set for
-        the unit, and installs a system call filter to block module system calls,
-        also <filename>/usr/lib/modules</filename> is made inaccessible. For this
-        setting the same restrictions regarding mount propagation and privileges
-        apply as for <varname>ReadOnlyPaths=</varname> and related calls, see above.
-        Note that limited automatic module loading due to user configuration or kernel
-        mapping tables might still happen as side effect of requested user operations,
-        both privileged and unprivileged. To disable module auto-load feature please see
+        installs a system call filter to block module system calls, also
+        <filename>/usr/lib/modules</filename> is made inaccessible. For this setting
+        the same restrictions regarding mount propagation and privileges apply as
+        for <varname>ReadOnlyPaths=</varname> and related calls, see above. If set to
+        <literal>full</literal>, then this implies <literal>yes</literal> restrictions, plus
+        if the kernel was compiled with ModAutoRestrict (Module Auto-load Restriction) LSM,
+        then automatic module loading due to a request for a feature that is
+        implemented by an unloaded kernel module will be available only if the
+        unit has the following capabilities <constant>CAP_SYS_MODULE</constant> or
+        <constant>CAP_NET_ADMIN</constant> for modules with the alias <constant>"netdev-%s"</constant>
+        in its capability bounding set. If set to <literal>strict</literal>, this also implies
+        <literal>yes</literal> restrictions, removes <constant>CAP_SYS_MODULE</constant> from
+        the capability bounding set for the unit, and if the ModAutoRestrict LSM
+        is available, then automatic module loading is completely disabled for
+        this unit. In this case and if this option is set to <literal>full</literal> or
+        <literal>strict</literal>, it is recommended that system administrators make sure that all
+        required kernel modules are already loaded. This protection allows to prevent loading
+        vulnerable kernel modules. If ModAutoRestrict LSM is not available then limited automatic
+        module loading due to user configuration or kernel mapping tables might still happen as side
+        effect of requested user operations, both privileged and unprivileged. In this case to
+        disable module auto-load feature please see
         <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         <constant>kernel.modules_disabled</constant> mechanism and
         <filename>/proc/sys/kernel/modules_disabled</filename> documentation.

@@ -543,6 +543,12 @@ struct btrfs_ioctl_quota_ctl_args {
 #define PR_SET_CHILD_SUBREAPER 36
 #endif
 
+#ifndef PR_MOD_AUTO_RESTRICT_OPTS
+#define PR_MOD_AUTO_RESTRICT_OPTS 48
+#define PR_SET_MOD_AUTO_RESTRICT 1
+#define PR_GET_MOD_AUTO_RESTRICT 2
+#endif
+
 #ifndef MAX_HANDLE_SZ
 #define MAX_HANDLE_SZ 128
 #endif

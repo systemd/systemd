@@ -1,7 +1,7 @@
 [Unit]
-Description=Test CAP_SYS_MODULE for ProtectKernelModules=yes
+Description=Test CAP_SYS_MODULE for ProtectKernelModules=strict
 
 [Service]
-ProtectKernelModules=yes
+ProtectKernelModules=strict
 ExecStart=/bin/sh -x -c '! capsh --print | grep cap_sys_module'
 Type=oneshot

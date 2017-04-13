@@ -36,6 +36,7 @@ typedef struct ExecParameters ExecParameters;
 #include "missing.h"
 #include "namespace.h"
 #include "nsflags.h"
+#include "protect-modules-setup.h"
 
 typedef enum ExecUtmpMode {
         EXEC_UTMP_INIT,
@@ -180,8 +181,8 @@ struct ExecContext {
         bool private_users;
         ProtectSystem protect_system;
         ProtectHome protect_home;
+        ProtectKernelModules protect_kernel_modules;
         bool protect_kernel_tunables;
-        bool protect_kernel_modules;
         bool protect_control_groups;
         bool mount_apivfs;
 

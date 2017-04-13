@@ -83,6 +83,7 @@ enum {
         EXIT_CHOWN,
         EXIT_SMACK_PROCESS_LABEL,
         EXIT_KEYRING,
+        EXIT_MOD_AUTO_RESTRICT,
 };
 
 typedef enum ExitStatusLevel {

@@ -50,8 +50,8 @@ struct NameSpaceInfo {
         bool private_dev:1;
         bool protect_control_groups:1;
         bool protect_kernel_tunables:1;
-        bool protect_kernel_modules:1;
         bool mount_apivfs:1;
+        unsigned int protect_kernel_modules;
 };
 
 struct BindMount {

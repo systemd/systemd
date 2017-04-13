@@ -1038,6 +1038,8 @@ libshared_la_SOURCES = \
 	src/shared/pager.h \
 	src/shared/spawn-polkit-agent.c \
 	src/shared/spawn-polkit-agent.h \
+	src/shared/lsm-util.c \
+	src/shared/lsm-util.h \
 	src/shared/apparmor-util.c \
 	src/shared/apparmor-util.h \
 	src/shared/ima-util.c \
@@ -1317,6 +1319,8 @@ libcore_la_SOURCES = \
 	src/core/smack-setup.h \
 	src/core/ima-setup.c \
 	src/core/ima-setup.h \
+	src/core/protect-modules-setup.c \
+	src/core/protect-modules-setup.h \
 	src/core/locale-setup.h \
 	src/core/locale-setup.c \
 	src/core/hostname-setup.c \

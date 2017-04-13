@@ -56,6 +56,7 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_exec_utmp_mode, exec_utmp_mode,
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_protect_home, protect_home, ProtectHome);
 static BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_protect_system, protect_system, ProtectSystem);
+static BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_protect_kernel_modules, protect_kernel_modules, ProtectKernelModules);
 
 static int property_get_environment_files(
                 sd_bus *bus,
@@ -803,7 +804,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("PrivateTmp", "b", bus_property_get_bool, offsetof(ExecContext, private_tmp), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateDevices", "b", bus_property_get_bool, offsetof(ExecContext, private_devices), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectKernelTunables", "b", bus_property_get_bool, offsetof(ExecContext, protect_kernel_tunables), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("ProtectKernelModules", "b", bus_property_get_bool, offsetof(ExecContext, protect_kernel_modules), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ProtectKernelModules", "s", bus_property_get_protect_kernel_modules, offsetof(ExecContext, protect_kernel_modules), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectControlGroups", "b", bus_property_get_bool, offsetof(ExecContext, protect_control_groups), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateNetwork", "b", bus_property_get_bool, offsetof(ExecContext, private_network), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateUsers", "b", bus_property_get_bool, offsetof(ExecContext, private_users), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1211,7 +1212,7 @@ int bus_exec_context_set_transient_property(
                               "PrivateTmp", "PrivateDevices", "PrivateNetwork", "PrivateUsers",
                               "NoNewPrivileges", "SyslogLevelPrefix", "MemoryDenyWriteExecute",
                               "RestrictRealtime", "DynamicUser", "RemoveIPC", "ProtectKernelTunables",
-                              "ProtectKernelModules", "ProtectControlGroups", "MountAPIVFS")) {
+                              "ProtectControlGroups", "MountAPIVFS")) {
                 int b;
 
                 r = sd_bus_message_read(message, "b", &b);
@@ -1247,8 +1248,6 @@ int bus_exec_context_set_transient_property(
                                 c->remove_ipc = b;
                         else if (streq(name, "ProtectKernelTunables"))
                                 c->protect_kernel_tunables = b;
-                        else if (streq(name, "ProtectKernelModules"))
-                                c->protect_kernel_modules = b;
                         else if (streq(name, "ProtectControlGroups"))
                                 c->protect_control_groups = b;
                         else if (streq(name, "MountAPIVFS"))
@@ -1538,6 +1537,32 @@ int bus_exec_context_set_transient_property(
                                 unit_write_drop_in_private_format(u, mode, name, "%s=%s", name, joined);
                         }
 
+                }
+
+                return 1;
+
+        } else if (streq(name, "ProtectKernelModules")) {
+                const char *s;
+                ProtectKernelModules pkm;
+
+                r = sd_bus_message_read(message, "s", &s);
+                if (r < 0)
+                        return r;
+
+                r = parse_boolean(s);
+                if (r > 0)
+                        pkm = PROTECT_KERNEL_MODULES_YES;
+                else if (r == 0)
+                        pkm = PROTECT_KERNEL_MODULES_NO;
+                else {
+                        pkm = protect_kernel_modules_from_string(s);
+                        if (pkm < 0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Failed to parse protect kernel modules value");
+                }
+
+                if (mode != UNIT_CHECK) {
+                        c->protect_kernel_modules = pkm;
+                        unit_write_drop_in_private_format(u, mode, name, "%s=%s", name, s);
                 }
 
                 return 1;

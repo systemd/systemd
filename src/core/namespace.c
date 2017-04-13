@@ -37,6 +37,7 @@
 #include "mount-util.h"
 #include "namespace.h"
 #include "path-util.h"
+#include "protect-modules-setup.h"
 #include "selinux-util.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -257,6 +258,28 @@ static int append_static_mounts(MountEntry **p, const MountEntry *mounts, unsign
                 };
 
         return 0;
+}
+
+static int append_protect_kernel_modules(MountEntry **p, ProtectKernelModules protect_modules, bool ignore_protect) {
+        int r = 0;
+
+        assert(p);
+
+        switch (protect_modules) {
+        case PROTECT_KERNEL_MODULES_NO:
+                return 0;
+
+        case PROTECT_KERNEL_MODULES_YES:
+        case PROTECT_KERNEL_MODULES_STRICT:
+                r = append_static_mounts(p, protect_kernel_modules_table,
+                                         ELEMENTSOF(protect_kernel_modules_table), ignore_protect);
+                break;
+
+        default:
+                assert_not_reached("Unexpected ProtectKernelModules= value");
+        }
+
+        return r;
 }
 
 static int append_protect_home(MountEntry **p, ProtectHome protect_home, bool ignore_protect) {
@@ -861,7 +884,8 @@ static unsigned namespace_calculate_mounts(
                 ns_info->private_dev +
                 (ns_info->protect_kernel_tunables ? ELEMENTSOF(protect_kernel_tunables_table) : 0) +
                 (ns_info->protect_control_groups ? 1 : 0) +
-                (ns_info->protect_kernel_modules ? ELEMENTSOF(protect_kernel_modules_table) : 0) +
+                (ns_info->protect_kernel_modules != PROTECT_KERNEL_MODULES_NO ?
+                 ELEMENTSOF(protect_kernel_modules_table) : 0) +
                 protect_home_cnt + protect_system_cnt +
                 (namespace_info_mount_apivfs(ns_info) ? ELEMENTSOF(apivfs_table) : 0);
 }
@@ -988,11 +1012,10 @@ int setup_namespace(
                                 goto finish;
                 }
 
-                if (ns_info->protect_kernel_modules) {
-                        r = append_static_mounts(&m, protect_kernel_modules_table, ELEMENTSOF(protect_kernel_modules_table), ns_info->ignore_protect_paths);
-                        if (r < 0)
-                                goto finish;
-                }
+                r = append_protect_kernel_modules(&m, ns_info->protect_kernel_modules,
+                                                  ns_info->ignore_protect_paths);
+                if (r < 0)
+                        goto finish;
 
                 if (ns_info->protect_control_groups) {
                         *(m++) = (MountEntry) {

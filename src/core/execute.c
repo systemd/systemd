@@ -1290,7 +1290,7 @@ static bool context_has_no_new_privileges(const ExecContext *c) {
                 c->restrict_realtime ||
                 exec_context_restrict_namespaces_set(c) ||
                 c->protect_kernel_tunables ||
-                c->protect_kernel_modules ||
+                c->protect_kernel_modules != PROTECT_KERNEL_MODULES_NO ||
                 c->private_devices ||
                 context_has_syscall_filters(c) ||
                 !set_isempty(c->syscall_archs);
@@ -1402,13 +1402,13 @@ static int apply_protect_sysctl(const Unit *u, const ExecContext *c) {
         return seccomp_protect_sysctl();
 }
 
-static int apply_protect_kernel_modules(const Unit *u, const ExecContext *c) {
+static int apply_protect_kernel_modules_seccomp(const Unit *u, const ExecContext *c) {
         assert(u);
         assert(c);
 
         /* Turn off module syscalls on ProtectKernelModules=yes */
 
-        if (!c->protect_kernel_modules)
+        if (c->protect_kernel_modules == PROTECT_KERNEL_MODULES_NO)
                 return 0;
 
         if (skip_seccomp_unavailable(u, "ProtectKernelModules="))
@@ -1666,7 +1666,7 @@ static bool exec_needs_mount_namespace(
             context->protect_system != PROTECT_SYSTEM_NO ||
             context->protect_home != PROTECT_HOME_NO ||
             context->protect_kernel_tunables ||
-            context->protect_kernel_modules ||
+            context->protect_kernel_modules != PROTECT_KERNEL_MODULES_NO ||
             context->protect_control_groups)
                 return true;
 
@@ -2747,6 +2747,13 @@ static int exec_child(
                         }
                 }
 
+                r = setup_module_auto_restrict(context->protect_kernel_modules);
+                if (r < 0) {
+                        *exit_status = EXIT_MOD_AUTO_RESTRICT;
+                        *error_message = strdup("Failed to set Module Auto-load Restrict");
+                        return r;
+                }
+
                 /* Apply the MAC contexts late, but before seccomp syscall filtering, as those should really be last to
                  * influence our own codepaths as little as possible. Moreover, applying MAC contexts usually requires
                  * syscalls that are subject to seccomp filtering, hence should probably be applied before the syscalls
@@ -2841,7 +2848,7 @@ static int exec_child(
                         return r;
                 }
 
-                r = apply_protect_kernel_modules(unit, context);
+                r = apply_protect_kernel_modules_seccomp(unit, context);
                 if (r < 0) {
                         *exit_status = EXIT_SECCOMP;
                         *error_message = strdup("Failed to apply module loading restrictions");
@@ -3387,7 +3394,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->private_tmp),
                 prefix, yes_no(c->private_devices),
                 prefix, yes_no(c->protect_kernel_tunables),
-                prefix, yes_no(c->protect_kernel_modules),
+                prefix, protect_kernel_modules_to_string(c->protect_kernel_modules),
                 prefix, yes_no(c->protect_control_groups),
                 prefix, yes_no(c->private_network),
                 prefix, yes_no(c->private_users),

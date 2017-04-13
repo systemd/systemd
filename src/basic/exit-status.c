@@ -151,6 +151,9 @@ const char* exit_status_to_string(int status, ExitStatusLevel level) {
 
                 case EXIT_KEYRING:
                         return "KEYRING";
+
+                case EXIT_MOD_AUTO_RESTRICT:
+                        return "MOD_AUTO_RESTRICT";
                 }
         }
 

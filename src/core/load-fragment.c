@@ -4137,6 +4137,49 @@ int config_parse_protect_system(
         return 0;
 }
 
+/* ProtectKernelModules */
+int config_parse_protect_modules(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        int k;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        /* Enums are a superset of booleans */
+        k = parse_boolean(rvalue);
+        if (k > 0)
+                c->protect_kernel_modules = PROTECT_KERNEL_MODULES_YES;
+        else if (k == 0)
+                c->protect_kernel_modules = PROTECT_KERNEL_MODULES_NO;
+        else {
+                ProtectKernelModules s;
+
+                s = protect_kernel_modules_from_string(rvalue);
+                if (s < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse protect kernel modules value, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                c->protect_kernel_modules = s;
+
+        }
+
+        return 0;
+}
+
 #define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
