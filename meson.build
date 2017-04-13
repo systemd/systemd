@@ -856,6 +856,18 @@ else
   libgio = []
 endif
 
+want_xkbcommon = get_option('xkbcommon')
+if want_xkbcommon != 'no'
+  libxkbcommon = dependency('xkbcommon',
+                            version : '>= 0.3.0',
+                            required : want_xkbcommon == 'yes')
+  if libxkbcommon.found()
+    conf.set('HAVE_XKBCOMMON', 1)
+  endif
+else
+  libxkbcommon = []
+endif
+
 want_dbus = get_option('dbus')
 if want_dbus != 'no'
   libdbus = dependency('dbus-1',
@@ -1493,12 +1505,19 @@ if conf.get('ENABLE_HOSTNAMED', 0) == 1
 endif
 
 if conf.get('ENABLE_LOCALED', 0) == 1
+  if conf.get('HAVE_XKBCOMMON', 0) == 1
+    # logind will load libxkbcommon.so dynamically on its own
+    deps = [libdl]
+  else
+    deps = []
+  endif
+
   executable('systemd-localed',
              systemd_localed_sources,
              include_directories : includes,
              link_with : [libshared,
                           libsystemd_internal],
-             dependencies : [libdl],
+             dependencies : deps,
              install_rpath : rootlibexecdir,
              install : true,
              install_dir : rootlibexecdir)

@@ -200,6 +200,8 @@ option('xz', type : 'combo', choices : ['auto', 'yes', 'no'],
        description : 'xz compression support')
 option('lz4', type : 'combo', choices : ['auto', 'yes', 'no'],
        description : 'lz4 compression support')
+option('xkbcommon', type : 'combo', choices : ['auto', 'yes', 'no'],
+       description : 'xkbcommon keymap support')
 option('glib', type : 'combo', choices : ['auto', 'yes', 'no'],
        description : 'libglib support (for tests only)')
 option('dbus', type : 'combo', choices : ['auto', 'yes', 'no'],
