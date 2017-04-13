@@ -945,6 +945,7 @@ foreach pair : [['utmp',          'HAVE_UTMP'],
                 ['rfkill',        'ENABLE_RFKILL'],
                 ['ldconfig',      'ENABLE_LDCONFIG'],
                 ['efi',           'ENABLE_EFI'],
+                ['ima',           'HAVE_IMA'],
                ]
 
   if get_option(pair[0])

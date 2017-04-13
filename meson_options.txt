@@ -165,6 +165,8 @@ option('smack-run-label', type : 'string',
        description : 'run systemd --system itself with a specific SMACK label')
 option('polkit', type : 'combo', choices : ['auto', 'yes', 'no'],
        description : 'PolicyKit support')
+option('ima', type : 'boolean',
+       description : 'IMA support')
 
 option('audit', type : 'combo', choices : ['auto', 'yes', 'no'],
        description : 'libaudit support')
