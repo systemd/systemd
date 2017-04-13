@@ -2236,6 +2236,7 @@ test('test-libudev-sym',
 
 make_directive_index_py = find_program('tools/make-directive-index.py')
 make_man_index_py = find_program('tools/make-man-index.py')
+xml_helper_py = find_program('tools/xml_helper.py')
 
 subdir('units')
 subdir('sysctl.d')

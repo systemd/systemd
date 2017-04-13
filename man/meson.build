@@ -85,6 +85,11 @@ endforeach
 
 ############################################################
 
+have_lxml = run_command(xml_helper_py).returncode() == 0
+if not have_lxml
+  message('python-lxml not available, not making man page indices')
+endif
+
 systemd_directives_xml = custom_target(
     'systemd.directives.xml',
     input : source_xml_files,
@@ -114,7 +119,7 @@ foreach tuple : [['systemd.directives', '7', systemd_directives_xml],
       input : xml,
       output : man,
       command : [xsltproc, '-o', '@OUTPUT0@'] + xsltproc_flags + [custom_man_xsl, '@INPUT@'],
-      install : want_man,
+      install : want_man and have_lxml,
       install_dir : mandirn)
   man_pages += [p1]
 
@@ -123,7 +128,7 @@ foreach tuple : [['systemd.directives', '7', systemd_directives_xml],
       input : xml,
       output : html,
       command : [xsltproc, '-o', '@OUTPUT0@'] + xsltproc_flags + [custom_html_xsl, '@INPUT@'],
-      install : want_html,
+      install : want_html and have_lxml,
       install_dir : join_paths(docdir, 'html'))
   html_pages += [p2]
 endforeach
