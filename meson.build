@@ -1074,6 +1074,10 @@ endforeach
 
 ############################################################
 
+# binaries that have --help and are intended for use by humans,
+# usually, but not always, installed in /bin.
+public_programs = []
+
 subdir('src/libudev')
 subdir('src/shared')
 subdir('src/core')
@@ -1115,21 +1119,22 @@ executable('systemd',
            install : true,
            install_dir : rootlibexecdir)
 
-executable('systemd-analyze',
-           systemd_analyze_sources,
-           include_directories : includes,
-           link_with : [libcore,
-                        libudev,
-                        libsystemd_internal,
-                        libshared],
-           dependencies : [threads,
-                           librt,
-                           libseccomp,
-                           libselinux,
-                           libmount,
-                           libblkid],
-           install_rpath : rootlibexecdir,
-           install : true)
+exe = executable('systemd-analyze',
+                 systemd_analyze_sources,
+                 include_directories : includes,
+                 link_with : [libcore,
+                              libudev,
+                              libsystemd_internal,
+                              libshared],
+                 dependencies : [threads,
+                                 librt,
+                                 libseccomp,
+                                 libselinux,
+                                 libmount,
+                                 libblkid],
+                 install_rpath : rootlibexecdir,
+                 install : true)
+public_programs += [exe]
 
 executable('systemd-journald',
            systemd_journald_sources,
@@ -1145,30 +1150,32 @@ executable('systemd-journald',
            install : true,
            install_dir : rootlibexecdir)
 
-executable('systemd-cat',
-           systemd_cat_sources,
-           include_directories : includes,
-           link_with : [libjournal_core,
-                        libshared,
-                        libudev],
-           dependencies : [threads],
-           install_rpath : rootlibexecdir,
-           install : true)
+exe = executable('systemd-cat',
+                 systemd_cat_sources,
+                 include_directories : includes,
+                 link_with : [libjournal_core,
+                              libshared,
+                              libudev],
+                 dependencies : [threads],
+                 install_rpath : rootlibexecdir,
+                 install : true)
+public_programs += [exe]
 
-executable('journalctl',
-           journalctl_sources,
-           include_directories : includes,
-           link_with : [libsystemd_journal_internal,
-                        libshared,
-                        libudev,
-                        libsystemd_internal],
-           dependencies : [threads,
-                           libqrencode,
-                           libxz,
-                           liblz4],
-           install_rpath : rootlibexecdir,
-           install : true,
-           install_dir : rootbindir)
+exe = executable('journalctl',
+                 journalctl_sources,
+                 include_directories : includes,
+                 link_with : [libsystemd_journal_internal,
+                              libshared,
+                              libudev,
+                              libsystemd_internal],
+                 dependencies : [threads,
+                                 libqrencode,
+                                 libxz,
+                                 liblz4],
+                 install_rpath : rootlibexecdir,
+                 install : true,
+                 install_dir : rootbindir)
+public_programs += [exe]
 
 executable('systemd-getty-generator',
            'src/getty-generator/getty-generator.c',
@@ -1241,13 +1248,14 @@ if conf.get('HAVE_BLKID', 0) == 1
              install : true,
              install_dir : systemgeneratordir)
 
-  executable('systemd-dissect',
-             'src/dissect/dissect.c',
-             include_directories : includes,
-             link_with : [libshared],
-             install_rpath : rootlibexecdir,
-             install : true,
-             install_dir : rootlibexecdir)
+  exe = executable('systemd-dissect',
+                   'src/dissect/dissect.c',
+                   include_directories : includes,
+                   link_with : [libshared],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootlibexecdir)
+  public_programs += [exe]
 endif
 
 if conf.get('ENABLE_RESOLVED', 0) == 1
@@ -1263,16 +1271,17 @@ if conf.get('ENABLE_RESOLVED', 0) == 1
              install : true,
              install_dir : rootlibexecdir)
 
-  executable('systemd-resolve',
-             systemd_resolve_sources,
-             include_directories : includes,
-             link_with : [libshared,
-                          libsystemd_internal],
-             dependencies : [threads,
-                             libm,
-                             libidn],
-             install_rpath : rootlibexecdir,
-             install : true)
+  exe = executable('systemd-resolve',
+                   systemd_resolve_sources,
+                   include_directories : includes,
+                   link_with : [libshared,
+                                libsystemd_internal],
+                   dependencies : [threads,
+                                   libm,
+                                   libidn],
+                   install_rpath : rootlibexecdir,
+                   install : true)
+  public_programs += [exe]
 endif
 
 if conf.get('ENABLE_LOGIND', 0) == 1
@@ -1289,27 +1298,29 @@ if conf.get('ENABLE_LOGIND', 0) == 1
              install : true,
              install_dir : rootlibexecdir)
 
-  executable('loginctl',
-             loginctl_sources,
-             include_directories : includes,
-             link_with : [libshared,
-                          libudev,
-                          libsystemd_internal],
-             dependencies : [threads,
-                             liblz4,
-                             libxz],
-             install_rpath : rootlibexecdir,
-             install : true,
-             install_dir : rootbindir)
+  exe = executable('loginctl',
+                   loginctl_sources,
+                   include_directories : includes,
+                   link_with : [libshared,
+                                libudev,
+                                libsystemd_internal],
+                   dependencies : [threads,
+                                   liblz4,
+                                   libxz],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootbindir)
+  public_programs += [exe]
 
-  executable('systemd-inhibit',
-             'src/login/inhibit.c',
-             include_directories : includes,
-             link_with : [libshared,
-                          libsystemd_internal],
-             install_rpath : rootlibexecdir,
-             install : true,
-             install_dir : rootbindir)
+  exe = executable('systemd-inhibit',
+                   'src/login/inhibit.c',
+                   include_directories : includes,
+                   link_with : [libshared,
+                                libsystemd_internal],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootbindir)
+  public_programs += [exe]
 
   if conf.get('HAVE_PAM', 0) == 1
     version_script_arg = join_paths(meson.current_source_dir(), pam_systemd_sym)
@@ -1342,34 +1353,37 @@ if conf.get('HAVE_PAM', 0) == 1
 endif
 
 if conf.get('ENABLE_EFI', 0) == 1 and conf.get('HAVE_BLKID', 0) == 1
-  executable('bootctl',
-             'src/boot/bootctl.c',
-             include_directories : includes,
-             link_with : [libshared],
-             dependencies : [libblkid],
-             install_rpath : rootlibexecdir,
-             install : true)
+  exe = executable('bootctl',
+                   'src/boot/bootctl.c',
+                   include_directories : includes,
+                   link_with : [libshared],
+                   dependencies : [libblkid],
+                   install_rpath : rootlibexecdir,
+                   install : true)
+  public_programs += [exe]
 endif
 
-executable('systemd-socket-activate', 'src/activate/activate.c',
-           include_directories : includes,
-           link_with : [libshared],
-           dependencies : [threads],
-           install_rpath : rootlibexecdir,
-           install : true)
+exe = executable('systemd-socket-activate', 'src/activate/activate.c',
+                 include_directories : includes,
+                 link_with : [libshared],
+                 dependencies : [threads],
+                 install_rpath : rootlibexecdir,
+                 install : true)
+public_programs += [exe]
 
-executable('systemctl', 'src/systemctl/systemctl.c',
-           include_directories : includes,
-           link_with : [libshared,
-                       libsystemd_internal],
-           dependencies : [threads,
-                           libcap,
-                           libselinux,
-                           libxz,
-                           liblz4],
-           install_rpath : rootlibexecdir,
-           install : true,
-           install_dir : rootbindir)
+exe = executable('systemctl', 'src/systemctl/systemctl.c',
+                 include_directories : includes,
+                 link_with : [libshared,
+                              libsystemd_internal],
+                 dependencies : [threads,
+                                 libcap,
+                                 libselinux,
+                                 libxz,
+                                 liblz4],
+                 install_rpath : rootlibexecdir,
+                 install : true,
+                 install_dir : rootbindir)
+public_programs += [exe]
 
 if conf.get('ENABLE_BACKLIGHT', 0) == 1
   executable('systemd-backlight',
@@ -1468,13 +1482,14 @@ if conf.get('ENABLE_HOSTNAMED', 0) == 1
              install : true,
              install_dir : rootlibexecdir)
 
-  executable('hostnamectl',
-             'src/hostname/hostnamectl.c',
-             include_directories : includes,
-             link_with : [libshared,
-                          libsystemd_internal],
-             install_rpath : rootlibexecdir,
-             install : true)
+  exe = executable('hostnamectl',
+                   'src/hostname/hostnamectl.c',
+                   include_directories : includes,
+                   link_with : [libshared,
+                                libsystemd_internal],
+                   install_rpath : rootlibexecdir,
+                   install : true)
+  public_programs += [exe]
 endif
 
 if conf.get('ENABLE_LOCALED', 0) == 1
@@ -1488,13 +1503,14 @@ if conf.get('ENABLE_LOCALED', 0) == 1
              install : true,
              install_dir : rootlibexecdir)
 
-  executable('localectl',
-             localectl_sources,
-             include_directories : includes,
-             link_with : [libshared,
-                          libsystemd_internal],
-             install_rpath : rootlibexecdir,
-             install : true)
+  exe = executable('localectl',
+                   localectl_sources,
+                   include_directories : includes,
+                   link_with : [libshared,
+                                libsystemd_internal],
+                   install_rpath : rootlibexecdir,
+                   install : true)
+  public_programs += [exe]
 endif
 
 if conf.get('ENABLE_TIMEDATED', 0) == 1
@@ -1507,13 +1523,14 @@ if conf.get('ENABLE_TIMEDATED', 0) == 1
              install : true,
              install_dir : rootlibexecdir)
 
-  executable('timedatectl',
-             'src/timedate/timedatectl.c',
-             include_directories : includes,
-             install_rpath : rootlibexecdir,
-             link_with : [libshared,
-                          libsystemd_internal],
-             install : true)
+  exe = executable('timedatectl',
+                   'src/timedate/timedatectl.c',
+                   include_directories : includes,
+                   install_rpath : rootlibexecdir,
+                   link_with : [libshared,
+                                libsystemd_internal],
+                   install : true)
+  public_programs += [exe]
 endif
 
 if conf.get('ENABLE_TIMESYNCD', 0) == 1
@@ -1540,17 +1557,18 @@ if conf.get('ENABLE_MACHINED', 0) == 1
              install : true,
              install_dir : rootlibexecdir)
 
-  executable('machinectl',
-             'src/machine/machinectl.c',
-             include_directories : includes,
-             link_with : [libshared,
-                          libsystemd_internal],
-             dependencies : [threads,
-                             libxz,
-                             liblz4],
-             install_rpath : rootlibexecdir,
-             install : true,
-             install_dir : rootbindir)
+  exe = executable('machinectl',
+                   'src/machine/machinectl.c',
+                   include_directories : includes,
+                   link_with : [libshared,
+                                libsystemd_internal],
+                   dependencies : [threads,
+                                   libxz,
+                                   liblz4],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootbindir)
+  public_programs += [exe]
 endif
 
 if conf.get('ENABLE_IMPORTD', 0) == 1
@@ -1564,88 +1582,91 @@ if conf.get('ENABLE_IMPORTD', 0) == 1
              install : true,
              install_dir : rootlibexecdir)
 
-  executable('systemd-pull',
-             systemd_pull_sources,
-             include_directories : includes,
-             link_with : [libshared],
-             dependencies : [libcurl,
-                             libz,
-                             libbzip2,
-                             libxz,
-                             libgcrypt],
-             install_rpath : rootlibexecdir,
-             install : true,
-             install_dir : rootlibexecdir)
+  systemd_pull = executable('systemd-pull',
+                            systemd_pull_sources,
+                            include_directories : includes,
+                            link_with : [libshared],
+                            dependencies : [libcurl,
+                                            libz,
+                                            libbzip2,
+                                            libxz,
+                                            libgcrypt],
+                            install_rpath : rootlibexecdir,
+                            install : true,
+                            install_dir : rootlibexecdir)
 
-  executable('systemd-import',
-             systemd_import_sources,
-             include_directories : includes,
-             link_with : [libshared],
-             dependencies : [libcurl,
-                             libz,
-                             libbzip2,
-                             libxz],
-             install_rpath : rootlibexecdir,
-             install : true,
-             install_dir : rootlibexecdir)
+  systemd_import = executable('systemd-import',
+                              systemd_import_sources,
+                              include_directories : includes,
+                              link_with : [libshared],
+                              dependencies : [libcurl,
+                                              libz,
+                                              libbzip2,
+                                              libxz],
+                              install_rpath : rootlibexecdir,
+                              install : true,
+                              install_dir : rootlibexecdir)
 
-  executable('systemd-export',
-             systemd_export_sources,
-             include_directories : includes,
-             link_with : [libshared],
-             dependencies : [libcurl,
-                             libz,
-                             libbzip2,
-                             libxz],
-             install_rpath : rootlibexecdir,
-             install : true,
-             install_dir : rootlibexecdir)
+  systemd_export = executable('systemd-export',
+                              systemd_export_sources,
+                              include_directories : includes,
+                              link_with : [libshared],
+                              dependencies : [libcurl,
+                                              libz,
+                                              libbzip2,
+                                              libxz],
+                              install_rpath : rootlibexecdir,
+                              install : true,
+                              install_dir : rootlibexecdir)
+  public_programs += [systemd_pull, systemd_import, systemd_export]
 endif
 
 if conf.get('ENABLE_REMOTE', 0) == 1 and conf.get('HAVE_LIBCURL', 0) == 1
-  executable('systemd-journal-upload',
-             systemd_journal_upload_sources,
-             include_directories : includes,
-             link_with : [libsystemd_journal_internal,
-                          libshared],
-             dependencies : [threads,
-                             libcurl,
-                             libgnutls,
-                             libxz,
-                             liblz4],
-             install_rpath : rootlibexecdir,
-             install : true,
-             install_dir : rootlibexecdir)
+  exe = executable('systemd-journal-upload',
+                   systemd_journal_upload_sources,
+                   include_directories : includes,
+                   link_with : [libsystemd_journal_internal,
+                                libshared],
+                   dependencies : [threads,
+                                   libcurl,
+                                   libgnutls,
+                                   libxz,
+                                   liblz4],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootlibexecdir)
+  public_programs += [exe]
 endif
 
 if conf.get('ENABLE_REMOTE', 0) == 1 and conf.get('HAVE_MICROHTTPD', 0) == 1
-  executable('systemd-journal-remote',
-             systemd_journal_remote_sources,
-             include_directories : includes,
-             link_with : [libsystemd_journal_internal,
-                          libshared],
-             dependencies : [threads,
-                             libmicrohttpd,
-                             libgnutls,
-                             libxz,
-                             liblz4],
-             install_rpath : rootlibexecdir,
-             install : true,
-             install_dir : rootlibexecdir)
+  s_j_remote = executable('systemd-journal-remote',
+                          systemd_journal_remote_sources,
+                          include_directories : includes,
+                          link_with : [libsystemd_journal_internal,
+                                       libshared],
+                          dependencies : [threads,
+                                          libmicrohttpd,
+                                          libgnutls,
+                                          libxz,
+                                          liblz4],
+                          install_rpath : rootlibexecdir,
+                          install : true,
+                          install_dir : rootlibexecdir)
 
-  executable('systemd-journal-gatewayd',
-             systemd_journal_gatewayd_sources,
-             include_directories : includes,
-             link_with : [libsystemd_journal_internal,
-                          libshared],
-             dependencies : [threads,
-                             libmicrohttpd,
-                             libgnutls,
-                             libxz,
-                             liblz4],
-             install_rpath : rootlibexecdir,
-             install : true,
-             install_dir : rootlibexecdir)
+  s_j_gatewayd = executable('systemd-journal-gatewayd',
+                            systemd_journal_gatewayd_sources,
+                            include_directories : includes,
+                            link_with : [libsystemd_journal_internal,
+                                         libshared],
+                            dependencies : [threads,
+                                            libmicrohttpd,
+                                            libgnutls,
+                                            libxz,
+                                            liblz4],
+                            install_rpath : rootlibexecdir,
+                            install : true,
+                            install_dir : rootlibexecdir)
+  public_programs += [s_j_remote, s_j_gatewayd]
 endif
 
 if conf.get('ENABLE_COREDUMP', 0) == 1
@@ -1664,27 +1685,29 @@ if conf.get('ENABLE_COREDUMP', 0) == 1
              install : true,
              install_dir : rootlibexecdir)
 
-  executable('coredumpctl',
-             coredumpctl_sources,
-             include_directories : includes,
-             link_with : [libsystemd_journal_internal,
-                          libshared,
-                          libsystemd_internal],
-             dependencies : [threads,
-                             libxz,
-                             liblz4],
-             install_rpath : rootlibexecdir,
-             install : true)
+  exe = executable('coredumpctl',
+                   coredumpctl_sources,
+                   include_directories : includes,
+                   link_with : [libsystemd_journal_internal,
+                                libshared,
+                                libsystemd_internal],
+                   dependencies : [threads,
+                                   libxz,
+                                   liblz4],
+                   install_rpath : rootlibexecdir,
+                   install : true)
+  public_programs += [exe]
 endif
 
 if conf.get('ENABLE_BINFMT', 0) == 1
-  executable('systemd-binfmt',
-             'src/binfmt/binfmt.c',
-             include_directories : includes,
-             link_with : [libshared],
-             install_rpath : rootlibexecdir,
-             install : true,
-             install_dir : rootlibexecdir)
+  exe = executable('systemd-binfmt',
+                   'src/binfmt/binfmt.c',
+                   include_directories : includes,
+                   link_with : [libshared],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootlibexecdir)
+  public_programs += [exe]
 
   meson.add_install_script('sh', '-c',
                            mkdir_p.format(binfmtdir))
@@ -1761,13 +1784,14 @@ executable('systemd-sleep',
            install : true,
            install_dir : rootlibexecdir)
 
-executable('systemd-sysctl',
-           'src/sysctl/sysctl.c',
-           include_directories : includes,
-           link_with : [libshared],
-           install_rpath : rootlibexecdir,
-           install : true,
-           install_dir : rootlibexecdir)
+exe = executable('systemd-sysctl',
+                 'src/sysctl/sysctl.c',
+                 include_directories : includes,
+                 link_with : [libshared],
+                 install_rpath : rootlibexecdir,
+                 install : true,
+                 install_dir : rootlibexecdir)
+public_programs += [exe]
 
 executable('systemd-ac-power',
            'src/ac-power/ac-power.c',
@@ -1777,35 +1801,39 @@ executable('systemd-ac-power',
            install : true,
            install_dir : rootlibexecdir)
 
-executable('systemd-detect-virt',
-           'src/detect-virt/detect-virt.c',
-           include_directories : includes,
-           link_with : [libshared],
-           install_rpath : rootlibexecdir,
-           install : true)
+exe = executable('systemd-detect-virt',
+                 'src/detect-virt/detect-virt.c',
+                 include_directories : includes,
+                 link_with : [libshared],
+                 install_rpath : rootlibexecdir,
+                 install : true)
+public_programs += [exe]
 
-executable('systemd-delta',
-           'src/delta/delta.c',
-           include_directories : includes,
-           link_with : [libshared],
-           install_rpath : rootlibexecdir,
-           install : true)
+exe = executable('systemd-delta',
+                 'src/delta/delta.c',
+                 include_directories : includes,
+                 link_with : [libshared],
+                 install_rpath : rootlibexecdir,
+                 install : true)
+public_programs += [exe]
 
-executable('systemd-escape',
-           'src/escape/escape.c',
-           include_directories : includes,
-           link_with : [libshared],
-           install_rpath : rootlibexecdir,
-           install : true,
-           install_dir : rootbindir)
+exe = executable('systemd-escape',
+                 'src/escape/escape.c',
+                 include_directories : includes,
+                 link_with : [libshared],
+                 install_rpath : rootlibexecdir,
+                 install : true,
+                 install_dir : rootbindir)
+public_programs += [exe]
 
-executable('systemd-notify',
-           'src/notify/notify.c',
-           include_directories : includes,
-           link_with : [libshared],
-           install_rpath : rootlibexecdir,
-           install : true,
-           install_dir : rootbindir)
+exe = executable('systemd-notify',
+                 'src/notify/notify.c',
+                 include_directories : includes,
+                 link_with : [libshared],
+                 install_rpath : rootlibexecdir,
+                 install : true,
+                 install_dir : rootbindir)
+public_programs += [exe]
 
 executable('systemd-volatile-root',
            'src/volatile-root/volatile-root.c',
@@ -1823,22 +1851,24 @@ executable('systemd-cgroups-agent',
            install : true,
            install_dir : rootlibexecdir)
 
-executable('systemd-path',
-           'src/path/path.c',
-           include_directories : includes,
-           link_with : [libsystemd_internal,
-                        libshared],
-           install_rpath : rootlibexecdir,
-           install : true)
+exe = executable('systemd-path',
+                 'src/path/path.c',
+                 include_directories : includes,
+                 link_with : [libsystemd_internal,
+                              libshared],
+                 install_rpath : rootlibexecdir,
+                 install : true)
+public_programs += [exe]
 
-executable('systemd-ask-password',
-           'src/ask-password/ask-password.c',
-           include_directories : includes,
-           link_with : [libshared,
-                        libsystemd_internal],
-           install_rpath : rootlibexecdir,
-           install : true,
-           install_dir : rootbindir)
+exe = executable('systemd-ask-password',
+                 'src/ask-password/ask-password.c',
+                 include_directories : includes,
+                 link_with : [libshared,
+                              libsystemd_internal],
+                 install_rpath : rootlibexecdir,
+                 install : true,
+                 install_dir : rootbindir)
+public_programs += [exe]
 
 executable('systemd-reply-password',
            'src/reply-password/reply-password.c',
@@ -1849,30 +1879,33 @@ executable('systemd-reply-password',
            install : true,
            install_dir : rootlibexecdir)
 
-executable('systemd-tty-ask-password-agent',
-           'src/tty-ask-password-agent/tty-ask-password-agent.c',
-           include_directories : includes,
-           link_with : [libshared,
-                        libsystemd_internal],
-           install_rpath : rootlibexecdir,
-           install : true,
-           install_dir : rootbindir)
+exe = executable('systemd-tty-ask-password-agent',
+                 'src/tty-ask-password-agent/tty-ask-password-agent.c',
+                 include_directories : includes,
+                 link_with : [libshared,
+                              libsystemd_internal],
+                 install_rpath : rootlibexecdir,
+                 install : true,
+                 install_dir : rootbindir)
+public_programs += [exe]
 
-executable('systemd-cgls',
-           'src/cgls/cgls.c',
-           include_directories : includes,
-           link_with : [libshared,
-                        libsystemd_internal],
-           install_rpath : rootlibexecdir,
-           install : true)
+exe = executable('systemd-cgls',
+                 'src/cgls/cgls.c',
+                 include_directories : includes,
+                 link_with : [libshared,
+                              libsystemd_internal],
+                 install_rpath : rootlibexecdir,
+                 install : true)
+public_programs += [exe]
 
-executable('systemd-cgtop',
-           'src/cgtop/cgtop.c',
-           include_directories : includes,
-           link_with : [libshared,
-                        libsystemd_internal],
-           install_rpath : rootlibexecdir,
-           install : true)
+exe = executable('systemd-cgtop',
+                 'src/cgtop/cgtop.c',
+                 include_directories : includes,
+                 link_with : [libshared,
+                              libsystemd_internal],
+                 install_rpath : rootlibexecdir,
+                 install : true)
+public_programs += [exe]
 
 executable('systemd-initctl',
            'src/initctl/initctl.c',
@@ -1883,75 +1916,82 @@ executable('systemd-initctl',
            install : true,
            install_dir : rootlibexecdir)
 
-executable('systemd-mount',
-           'src/mount/mount-tool.c',
-           include_directories : includes,
-           link_with : [libshared,
-                        libsystemd_internal,
-                        libudev],
-           install_rpath : rootlibexecdir,
-           install : true)
+exe = executable('systemd-mount',
+                 'src/mount/mount-tool.c',
+                 include_directories : includes,
+                 link_with : [libshared,
+                              libsystemd_internal,
+                              libudev],
+                 install_rpath : rootlibexecdir,
+                 install : true)
+public_programs += [exe]
 
 meson.add_install_script(meson_make_symlink,
                          'systemd-mount', join_paths(bindir, 'systemd-umount'))
 
-executable('systemd-run',
-           'src/run/run.c',
-           include_directories : includes,
-           link_with : [libshared,
-                        libsystemd_internal],
-           install_rpath : rootlibexecdir,
-           install : true)
+exe = executable('systemd-run',
+                 'src/run/run.c',
+                 include_directories : includes,
+                 link_with : [libshared,
+                              libsystemd_internal],
+                 install_rpath : rootlibexecdir,
+                 install : true)
+public_programs += [exe]
 
-executable('systemd-stdio-bridge',
-           'src/stdio-bridge/stdio-bridge.c',
-           include_directories : includes,
-           link_with : [libshared,
-                        libsystemd_internal],
-           install_rpath : rootlibexecdir,
-           install : true)
+exe = executable('systemd-stdio-bridge',
+                 'src/stdio-bridge/stdio-bridge.c',
+                 include_directories : includes,
+                 link_with : [libshared,
+                              libsystemd_internal],
+                 install_rpath : rootlibexecdir,
+                 install : true)
+public_programs += [exe]
 
-executable('busctl',
-           'src/busctl/busctl.c',
-           'src/busctl/busctl-introspect.c',
-           'src/busctl/busctl-introspect.h',
-           include_directories : includes,
-           link_with : [libshared,
-                        libsystemd_internal],
-           install_rpath : rootlibexecdir,
-           install : true)
+exe = executable('busctl',
+                 'src/busctl/busctl.c',
+                 'src/busctl/busctl-introspect.c',
+                 'src/busctl/busctl-introspect.h',
+                 include_directories : includes,
+                 link_with : [libshared,
+                              libsystemd_internal],
+                 install_rpath : rootlibexecdir,
+                 install : true)
+public_programs += [exe]
 
 if conf.get('ENABLE_SYSUSERS', 0) == 1
-  executable('systemd-sysusers',
-             'src/sysusers/sysusers.c',
-             include_directories : includes,
-             link_with : [libshared],
-             install_rpath : rootlibexecdir,
-             install : true,
-             install_dir : rootbindir)
+  exe = executable('systemd-sysusers',
+                   'src/sysusers/sysusers.c',
+                   include_directories : includes,
+                   link_with : [libshared],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootbindir)
+  public_programs += [exe]
 endif
 
 if conf.get('ENABLE_TMPFILES', 0) == 1
-  executable('systemd-tmpfiles',
-             'src/tmpfiles/tmpfiles.c',
-             include_directories : includes,
-             link_with : [libshared],
-             dependencies : [libacl],
-             install_rpath : rootlibexecdir,
-             install : true,
-             install_dir : rootbindir)
+  exe = executable('systemd-tmpfiles',
+                   'src/tmpfiles/tmpfiles.c',
+                   include_directories : includes,
+                   link_with : [libshared],
+                   dependencies : [libacl],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootbindir)
+  public_programs += [exe]
 endif
 
 if conf.get('ENABLE_HWDB', 0) == 1
-  executable('systemd-hwdb',
-             'src/hwdb/hwdb.c',
-             'src/libsystemd/sd-hwdb/hwdb-internal.h',
-             include_directories : includes,
-             link_with : [libshared,
-                          libsystemd_internal],
-             install_rpath : rootlibexecdir,
-             install : true,
-             install_dir : rootbindir)
+  exe = executable('systemd-hwdb',
+                   'src/hwdb/hwdb.c',
+                   'src/libsystemd/sd-hwdb/hwdb-internal.h',
+                   include_directories : includes,
+                   link_with : [libshared,
+                                libsystemd_internal],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootbindir)
+  public_programs += [exe]
 endif
 
 if conf.get('ENABLE_QUOTACHECK', 0) == 1
@@ -1964,45 +2004,48 @@ if conf.get('ENABLE_QUOTACHECK', 0) == 1
              install_dir : rootlibexecdir)
 endif
 
-executable('systemd-socket-proxyd',
-           'src/socket-proxy/socket-proxyd.c',
-           include_directories : includes,
-           link_with : [libshared,
-                        libsystemd_internal],
-           dependencies : [threads],
-           install_rpath : rootlibexecdir,
-           install : true,
-           install_dir : rootlibexecdir)
+exe = executable('systemd-socket-proxyd',
+                 'src/socket-proxy/socket-proxyd.c',
+                 include_directories : includes,
+                 link_with : [libshared,
+                              libsystemd_internal],
+                 dependencies : [threads],
+                 install_rpath : rootlibexecdir,
+                 install : true,
+                 install_dir : rootlibexecdir)
+public_programs += [exe]
 
-executable('systemd-udevd',
-           systemd_udevd_sources,
-           include_directories : includes,
-           link_with : [libudev_core,
-                        libudev_internal,
-                        libsystemd_network,
-                        libsystemd_internal,
-                        libshared],
-           dependencies : [libkmod,
-                           libidn,
-                           libacl],
-           install_rpath : rootlibexecdir,
-           install : true,
-           install_dir : rootlibexecdir)
+exe = executable('systemd-udevd',
+                 systemd_udevd_sources,
+                 include_directories : includes,
+                 link_with : [libudev_core,
+                              libudev_internal,
+                              libsystemd_network,
+                              libsystemd_internal,
+                              libshared],
+                 dependencies : [libkmod,
+                                 libidn,
+                                 libacl],
+                 install_rpath : rootlibexecdir,
+                 install : true,
+                 install_dir : rootlibexecdir)
+public_programs += [exe]
 
-executable('udevadm',
-           udevadm_sources,
-           include_directories : includes,
-           link_with : [libudev_core,
-                        libudev_internal,
-                        libsystemd_network,
-                        libshared,
-                        libsystemd_internal],
-           dependencies : [libkmod,
-                           libidn,
-                           libacl],
-           install_rpath : rootlibexecdir,
-           install : true,
-           install_dir : rootbindir)
+exe = executable('udevadm',
+                 udevadm_sources,
+                 include_directories : includes,
+                 link_with : [libudev_core,
+                              libudev_internal,
+                              libsystemd_network,
+                              libshared,
+                              libsystemd_internal],
+                 dependencies : [libkmod,
+                                 libidn,
+                                 libacl],
+                 install_rpath : rootlibexecdir,
+                 install : true,
+                 install_dir : rootbindir)
+public_programs += [exe]
 
 executable('systemd-shutdown',
            systemd_shutdown_sources,
@@ -2047,23 +2090,24 @@ if conf.get('HAVE_KMOD', 0) == 1
                            mkdir_p.format(join_paths(sysconfdir, 'modules-load.d')))
 endif
 
-executable('systemd-nspawn',
-           systemd_nspawn_sources,
-           'src/core/mount-setup.c', # FIXME: use a variable?
-           'src/core/mount-setup.h',
-           'src/core/loopback-setup.c',
-           'src/core/loopback-setup.h',
-           include_directories : [includes, include_directories('src/nspawn')],
-           link_with : [libfirewall,
-                        libshared,
-                        libudev,
-                        libsystemd_internal],
-           dependencies : [libacl,
-                           libblkid,
-                           libseccomp,
-                           libselinux],
-           install_rpath : rootlibexecdir,
-           install : true)
+exe = executable('systemd-nspawn',
+                 systemd_nspawn_sources,
+                 'src/core/mount-setup.c', # FIXME: use a variable?
+                 'src/core/mount-setup.h',
+                 'src/core/loopback-setup.c',
+                 'src/core/loopback-setup.h',
+                 include_directories : [includes, include_directories('src/nspawn')],
+                 link_with : [libfirewall,
+                              libshared,
+                              libudev,
+                              libsystemd_internal],
+                 dependencies : [libacl,
+                                 libblkid,
+                                 libseccomp,
+                                 libselinux],
+                 install_rpath : rootlibexecdir,
+                 install : true)
+public_programs += [exe]
 
 if conf.get('ENABLE_NETWORKD', 0) == 1
   executable('systemd-networkd',
@@ -2090,15 +2134,16 @@ if conf.get('ENABLE_NETWORKD', 0) == 1
              install_dir : rootlibexecdir)
 endif
 
-executable('networkctl',
-           networkctl_sources,
-           include_directories : includes,
-           link_with : [libsystemd_network,
-                        libshared,
-                        libsystemd_internal],
-           install_rpath : rootlibexecdir,
-           install : true,
-           install_dir : rootbindir)
+exe = executable('networkctl',
+                 networkctl_sources,
+                 include_directories : includes,
+                 link_with : [libsystemd_network,
+                              libshared,
+                              libsystemd_internal],
+                 install_rpath : rootlibexecdir,
+                 install : true,
+                 install_dir : rootbindir)
+public_programs += [exe]
 
 ############################################################
 
@@ -2207,6 +2252,17 @@ install_data('README',
 
 meson.add_install_script('sh', '-c', mkdir_p.format(systemdstatedir))
 meson.add_install_script('sh', '-c', 'touch $DESTDIR@0@'.format(prefixdir))
+
+############################################################
+
+meson_check_help = find_program('tools/meson-check-help.sh')
+
+foreach exec : public_programs
+  name = exec.full_path().split('/')[-1]
+  test('check-help-' + name,
+       meson_check_help,
+       args : [exec.full_path()])
+endforeach
 
 ############################################################
 
