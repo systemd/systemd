@@ -28,11 +28,12 @@ m4_defines = []
 
 #####################################################################
 
+rootprefixdir = get_option('rootprefix')
 if get_option('split-usr')
   conf.set('HAVE_SPLIT_USR', 1)
-  rootprefixdir = '/'
+  rootprefixdir = rootprefixdir != '' ? rootprefixdir : '/'
 else
-  rootprefixdir = '/usr'
+  rootprefixdir = rootprefixdir != '' ? rootprefixdir : '/usr'
 endif
 
 sysvinit_path = get_option('sysvinit-path')

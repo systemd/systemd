@@ -4,6 +4,8 @@ option('split-usr', type : 'boolean', value : false,
        description : '''assume that /bin, /sbin aren't symlinks into /usr''')
 option('rootlibdir', type : 'string',
        description : '''[/usr]/lib/x86_64-linux-gnu or such''')
+option('rootprefix', type : 'string',
+       description : '''override the root prefix''')
 
 option('sysvinit-path', type : 'string', value : '/etc/init.d',
        description : 'the directory where the SysV init scripts are located')
