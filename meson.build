@@ -1114,6 +1114,7 @@ subdir('src/sulogin-shell')
 subdir('src/boot/efi')
 
 subdir('src/test')
+subdir('test')
 
 executable('systemd',
            systemd_sources,
