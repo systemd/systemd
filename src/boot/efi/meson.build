@@ -28,7 +28,7 @@ stub_sources = '''
   stub.c
 '''.split()
 
-if conf.get('ENABLE_EFI', 0) == 1 and get_option('gnu-efi') != 'no'
+if conf.get('ENABLE_EFI', 0) == 1 and get_option('gnu-efi') != 'false'
   efi_cc = get_option('efi-cc')
   efi_ld = get_option('efi-ld')
 
@@ -53,7 +53,7 @@ else
   have_gnu_efi = false
 endif
 
-if get_option('gnu-efi') == 'yes' and not have_gnu_efi
+if get_option('gnu-efi') == 'true' and not have_gnu_efi
   error('gnu-efi support requested, but headers were not found')
 endif
 

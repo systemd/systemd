@@ -577,9 +577,9 @@ libmount = dependency('mount',
                       version : '>= 2.27')
 
 want_seccomp = get_option('seccomp')
-if want_seccomp != 'no'
+if want_seccomp != 'false'
   libseccomp = dependency('libseccomp',
-                          required : want_seccomp == 'yes')
+                          required : want_seccomp == 'true')
   if libseccomp.found()
     conf.set('HAVE_SECCOMP', 1)
     m4_defines += ['-DHAVE_SECCOMP']
@@ -589,10 +589,10 @@ else
 endif
 
 want_selinux = get_option('selinux')
-if want_selinux != 'no'
+if want_selinux != 'false'
   libselinux = dependency('libselinux',
                           version : '>= 2.1.9',
-                          required : want_selinux == 'yes')
+                          required : want_selinux == 'true')
   if libselinux.found()
     conf.set('HAVE_SELINUX', 1)
     m4_defines += ['-DHAVE_SELINUX']
@@ -602,9 +602,9 @@ else
 endif
 
 want_apparmor = get_option('apparmor')
-if want_apparmor != 'no'
+if want_apparmor != 'false'
   libapparmor = dependency('libapparmor',
-                           required : want_apparmor == 'yes')
+                           required : want_apparmor == 'true')
   if libapparmor.found()
     conf.set('HAVE_APPARMOR', 1)
     m4_defines += ['-DHAVE_APPARMOR']
@@ -614,9 +614,9 @@ else
 endif
 
 want_smack = get_option('smack')
-if want_smack != 'no'
+if want_smack != 'false'
   libsmack = dependency('libsmack',
-                        required : want_smack == 'yes')
+                        required : want_smack == 'true')
   if libsmack.found()
     conf.set('HAVE_SMACK', 1)
     m4_defines += ['-DHAVE_SMACK']
@@ -634,7 +634,7 @@ endif
 want_polkit = get_option('polkit')
 install_polkit = false
 install_polkit_pkla = false
-if want_polkit != 'no'
+if want_polkit != 'false'
   conf.set('ENABLE_POLKIT', 1)
   install_polkit = true
 
@@ -647,8 +647,8 @@ if want_polkit != 'no'
 endif
 
 want_audit = get_option('audit')
-if want_audit != 'no'
-  libaudit = dependency('audit', required : want_audit == 'yes')
+if want_audit != 'false'
+  libaudit = dependency('audit', required : want_audit == 'true')
   if libaudit.found()
     conf.set('HAVE_AUDIT', 1)
   endif
@@ -657,8 +657,8 @@ else
 endif
 
 want_blkid = get_option('blkid')
-if want_blkid != 'no'
-  libblkid = dependency('blkid', required : want_blkid == 'yes')
+if want_blkid != 'false'
+  libblkid = dependency('blkid', required : want_blkid == 'true')
   if libblkid.found()
     conf.set('HAVE_BLKID', 1)
   endif
@@ -667,10 +667,10 @@ else
 endif
 
 want_kmod = get_option('kmod')
-if want_kmod != 'no'
+if want_kmod != 'false'
   libkmod = dependency('libkmod',
                        version : '>= 15',
-                       required : want_kmod == 'yes')
+                       required : want_kmod == 'true')
   if libkmod.found()
     conf.set('HAVE_KMOD', 1)
   endif
@@ -679,9 +679,9 @@ else
 endif
 
 want_pam = get_option('pam')
-if want_pam != 'no'
-  libpam = cc.find_library('pam', required : want_pam == 'yes')
-  libpam_misc = cc.find_library('pam_misc', required : want_pam == 'yes')
+if want_pam != 'false'
+  libpam = cc.find_library('pam', required : want_pam == 'true')
+  libpam_misc = cc.find_library('pam_misc', required : want_pam == 'true')
   if libpam.found() and libpam_misc.found()
     conf.set('HAVE_PAM', 1)
     m4_defines += ['-DHAVE_PAM']
@@ -692,10 +692,10 @@ else
 endif
 
 want_microhttpd = get_option('microhttpd')
-if want_microhttpd != 'no'
+if want_microhttpd != 'false'
   libmicrohttpd = dependency('libmicrohttpd',
                              version : '>= 0.9.33',
-                             required : want_microhttpd == 'yes')
+                             required : want_microhttpd == 'true')
   if libmicrohttpd.found()
     conf.set('HAVE_MICROHTTPD', 1)
     m4_defines += ['-DHAVE_MICROHTTPD']
@@ -705,10 +705,10 @@ else
 endif
 
 want_libcryptsetup = get_option('libcryptsetup')
-if want_libcryptsetup != 'no'
+if want_libcryptsetup != 'false'
   libcryptsetup = dependency('libcryptsetup',
                              version : '>= 1.6.0',
-                             required : want_libcryptsetup == 'yes')
+                             required : want_libcryptsetup == 'true')
   if libcryptsetup.found()
     conf.set('HAVE_LIBCRYPTSETUP', 1)
   endif
@@ -717,10 +717,10 @@ else
 endif
 
 want_libcurl = get_option('libcurl')
-if want_libcurl != 'no'
+if want_libcurl != 'false'
   libcurl = dependency('libcurl',
                        version : '>= 7.32.0',
-                       required : want_libcurl == 'yes')
+                       required : want_libcurl == 'true')
   if libcurl.found()
     conf.set('HAVE_LIBCURL', 1)
     m4_defines += ['-DHAVE_LIBCURL']
@@ -730,9 +730,9 @@ else
 endif
 
 want_libidn = get_option('libidn')
-if want_libidn != 'no'
+if want_libidn != 'false'
   libidn = dependency('libidn',
-                      required : want_libidn == 'yes')
+                      required : want_libidn == 'true')
   if libidn.found()
     conf.set('HAVE_LIBIDN', 1)
     m4_defines += ['-DHAVE_LIBIDN']
@@ -742,9 +742,9 @@ else
 endif
 
 want_libiptc = get_option('libiptc')
-if want_libiptc != 'no'
+if want_libiptc != 'false'
   libiptc = dependency('libiptc',
-                       required : want_libiptc == 'yes')
+                       required : want_libiptc == 'true')
   if libiptc.found()
     conf.set('HAVE_LIBIPTC', 1)
     m4_defines += ['-DHAVE_LIBIPTC']
@@ -754,9 +754,9 @@ else
 endif
 
 want_qrencode = get_option('qrencode')
-if want_qrencode != 'no'
+if want_qrencode != 'false'
   libqrencode = dependency('libqrencode',
-                           required : want_qrencode == 'yes')
+                           required : want_qrencode == 'true')
   if libqrencode.found()
     conf.set('HAVE_QRENCODE', 1)
   endif
@@ -765,10 +765,10 @@ else
 endif
 
 want_gnutls = get_option('gnutls')
-if want_gnutls != 'no'
+if want_gnutls != 'false'
   libgnutls = dependency('gnutls',
                          version : '>= 3.1.4',
-                         required : want_gnutls == 'yes')
+                         required : want_gnutls == 'true')
   if libgnutls.found()
     conf.set('HAVE_GNUTLS', 1)
   endif
@@ -777,9 +777,9 @@ else
 endif
 
 want_elfutils = get_option('elfutils')
-if want_elfutils != 'no'
+if want_elfutils != 'false'
   libdw = dependency('libdw',
-                     required : want_elfutils == 'yes')
+                     required : want_elfutils == 'true')
   if libdw.found()
     conf.set('HAVE_ELFUTILS', 1)
   endif
@@ -788,9 +788,9 @@ else
 endif
 
 want_zlib = get_option('zlib')
-if want_zlib != 'no'
+if want_zlib != 'false'
   libz = dependency('zlib',
-                    required : want_zlib == 'yes')
+                    required : want_zlib == 'true')
   if libz.found()
     conf.set('HAVE_ZLIB', 1)
   endif
@@ -799,9 +799,9 @@ else
 endif
 
 want_bzip2 = get_option('bzip2')
-if want_bzip2 != 'no'
+if want_bzip2 != 'false'
   libbzip2 = cc.find_library('bz2',
-                             required : want_bzip2 == 'yes')
+                             required : want_bzip2 == 'true')
   if libbzip2.found()
     conf.set('HAVE_BZIP2', 1)
   endif
@@ -810,9 +810,9 @@ else
 endif
 
 want_xz = get_option('xz')
-if want_xz != 'no'
+if want_xz != 'false'
   libxz = dependency('liblzma',
-                     required : want_xz == 'yes')
+                     required : want_xz == 'true')
   if libxz.found()
     conf.set('HAVE_XZ', 1)
   endif
@@ -821,9 +821,9 @@ else
 endif
 
 want_lz4 = get_option('lz4')
-if want_lz4 != 'no'
+if want_lz4 != 'false'
   liblz4 = dependency('liblz4',
-                      required : want_lz4 == 'yes')
+                      required : want_lz4 == 'true')
   if liblz4.found()
     conf.set('HAVE_LZ4', 1)
   endif
@@ -838,15 +838,15 @@ if libacl.found()
 endif
 
 want_glib = get_option('glib')
-if want_glib != 'no'
+if want_glib != 'false'
   libglib =    dependency('glib-2.0',
                           version : '>= 2.22.0',
-                          required : want_glib == 'yes')
+                          required : want_glib == 'true')
   libgobject = dependency('gobject-2.0',
                           version : '>= 2.22.0',
-                          required : want_glib == 'yes')
+                          required : want_glib == 'true')
   libgio =     dependency('gio-2.0',
-                          required : want_glib == 'yes')
+                          required : want_glib == 'true')
   if libglib.found() and libgobject.found() and libgio.found()
     conf.set('HAVE_GLIB', 1)
   endif
@@ -857,10 +857,10 @@ else
 endif
 
 want_xkbcommon = get_option('xkbcommon')
-if want_xkbcommon != 'no'
+if want_xkbcommon != 'false'
   libxkbcommon = dependency('xkbcommon',
                             version : '>= 0.3.0',
-                            required : want_xkbcommon == 'yes')
+                            required : want_xkbcommon == 'true')
   if libxkbcommon.found()
     conf.set('HAVE_XKBCOMMON', 1)
   endif
@@ -869,10 +869,10 @@ else
 endif
 
 want_dbus = get_option('dbus')
-if want_dbus != 'no'
+if want_dbus != 'false'
   libdbus = dependency('dbus-1',
                        version : '>= 1.3.2',
-                       required : want_dbus == 'yes')
+                       required : want_dbus == 'true')
   if libdbus.found()
     conf.set('HAVE_DBUS', 1)
   endif
@@ -881,8 +881,8 @@ else
 endif
 
 want_libgcrypt = get_option('libgcrypt')
-if want_libgcrypt != 'no'
-  libgcrypt = cc.find_library('gcrypt', required : want_libgcrypt == 'yes')
+if want_libgcrypt != 'false'
+  libgcrypt = cc.find_library('gcrypt', required : want_libgcrypt == 'true')
   if libgcrypt.found()
     conf.set('HAVE_LIBGCRYPT', 1)
   endif
@@ -891,7 +891,7 @@ else
 endif
 
 want_importd = get_option('importd')
-if want_importd != 'no'
+if want_importd != 'false'
   have_deps = (conf.get('HAVE_LIBCURL', 0) == 1 and
                conf.get('HAVE_ZLIB', 0) == 1 and
                conf.get('HAVE_BZIP2', 0) == 1 and
@@ -899,20 +899,20 @@ if want_importd != 'no'
                conf.get('HAVE_LIBGCRYPT', 0) == 1)
   if have_deps
     conf.set('ENABLE_IMPORTD', 1)
-  elif want_importd == 'yes'
+  elif want_importd == 'true'
     error('importd support was requested, but dependencies are not available')
   endif
 endif
 
 want_remote = get_option('remote')
-if want_remote != 'no'
+if want_remote != 'false'
   have_deps = [conf.get('HAVE_MICROHTTPD', 0) == 1,
                conf.get('HAVE_LIBCURL', 0) == 1]
   # sd-j-remote requires µhttpd, and sd-j-upload requires libcurl, so
   # it's possible to build one without the other. Complain only if
   # support was explictly requested. The auxiliary files like sysusers
   # config should be installed when any of the programs are built.
-  if want_remote == 'yes' and not (have_deps[0] and have_deps[1])
+  if want_remote == 'true' and not (have_deps[0] and have_deps[1])
     error('remote support was requested, but dependencies are not available')
   endif
   if have_deps[0] or have_deps[1]

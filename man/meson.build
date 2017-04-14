@@ -9,9 +9,9 @@ subdir('rules')
 want_man = get_option('man')
 want_html = get_option('html')
 xsltproc = find_program('xsltproc',
-                        required : want_man == 'yes' or want_html == 'yes')
-want_man = want_man != 'no' and xsltproc.found()
-want_html = want_html != 'no' and xsltproc.found()
+                        required : want_man == 'true' or want_html == 'true')
+want_man = want_man != 'false' and xsltproc.found()
+want_html = want_html != 'false' and xsltproc.found()
 
 xsltproc_flags = [
   '--nonet',
