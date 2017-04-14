@@ -255,7 +255,7 @@ foreach tuple : in_units
     output : file,
     command : [sed, '/^## /d', '@INPUT@'],
     capture : true,
-    install : true,
+    install : install,
     install_dir : systemunitdir)
 
   if install and tuple.length() > 2
