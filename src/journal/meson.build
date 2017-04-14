@@ -1,6 +1,6 @@
 # -*- mode: meson -*-
 
-libsystemd_journal_internal_sources = files('''
+journal_internal_sources = files('''
   audit-type.c
   audit-type.h
   catalog.c
@@ -45,19 +45,9 @@ audit_type_to_name = custom_target(
     command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
     capture : true)
 
-libsystemd_journal_internal_sources += [audit_type_to_name]
+journal_internal_sources += [audit_type_to_name]
 
 ############################################################
-
-libsystemd_journal_internal = static_library(
-    'systemd-journal-internal',
-    libsystemd_journal_internal_sources,
-    gcrypt_util_sources,
-    install : false,
-    include_directories : includes,
-    link_with : libbasic,
-    dependencies : [libaudit,
-                   ])
 
 libjournal_core_sources = files('''
   journald-kmsg.c

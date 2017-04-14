@@ -128,7 +128,7 @@ if conf.get('ENABLE_NETWORKD', 0) == 1
      [libnetworkd_core,
       libudev_internal,
       libsystemd_network,
-      libsystemd_internal,
+      libshared,
       libfirewall],
      [libiptc]],
 
@@ -139,7 +139,7 @@ if conf.get('ENABLE_NETWORKD', 0) == 1
       libudev_internal,
       libudev_core,
       libsystemd_network,
-      libsystemd_internal,
+      libshared,
       libfirewall],
      [],
      '', '', [],

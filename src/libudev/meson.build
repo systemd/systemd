@@ -1,6 +1,6 @@
 # -*- mode: meson -*-
 
-libudev_sources = '''
+libudev_sources = files('''
   libudev-private.h
   libudev-device-internal.h
   libudev.c
@@ -12,7 +12,7 @@ libudev_sources = '''
   libudev-monitor.c
   libudev-queue.c
   libudev-hwdb.c
-'''.split()
+'''.split())
 
 ############################################################
 
@@ -31,13 +31,6 @@ libudev = shared_library(
     link_depends : libudev_sym,
     install : true,
     install_dir : rootlibdir)
-
-libudev_internal = static_library(
-    'udev',
-    libudev_sources,
-    include_directories : includes,
-    link_with : [libbasic,
-                 libsystemd])
 
 install_headers('libudev.h')
 libudev_h_path = '@0@/libudev.h'.format(meson.current_source_dir())
