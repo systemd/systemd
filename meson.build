@@ -2269,3 +2269,11 @@ if git.found() and etags.found()
     input : all_files,
     command : [etags, '-o', '@OUTPUT@'] + all_files)
 endif
+
+if git.found()
+  meson_git_contrib_sh = find_program('tools/meson-git-contrib.sh')
+  custom_target(
+    'git-contrib',
+    output : 'git-contrib',
+    command : [meson_git_contrib_sh])
+endif
