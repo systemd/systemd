@@ -47,5 +47,5 @@ install_data('browse.html',
 meson.add_install_script('sh', '-c',
                          mkdir_p.format('/var/log/journal/remote'))
 meson.add_install_script('sh', '-c',
-                         '''chown 0:0 $DESTDIR/var/log/journal/remote;
-                            chmod 755 $DESTDIR/var/log/journal/remote''')
+                         'chown 0:0 $DESTDIR/var/log/journal/remote &&
+                          chmod 755 $DESTDIR/var/log/journal/remote || :')
