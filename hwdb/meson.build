@@ -26,3 +26,10 @@ if conf.get('ENABLE_HWDB', 0) == 1
   meson.add_install_script('sh', '-c',
                            mkdir_p.format(join_paths(sysconfdir, 'udev/hwdb.d')))
 endif
+
+############################################################
+
+custom_target(
+  'update',
+  output : 'update',
+  command : [hwdb_update_sh, meson.current_source_dir()])
