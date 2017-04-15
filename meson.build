@@ -1046,45 +1046,6 @@ libsystemd = shared_library(
 
 ############################################################
 
-foreach tuple : [['myhostname', 'HAVE_MYHOSTNAME', []],
-                 ['systemd',     '',               []],
-                 ['mymachines', 'ENABLE_MACHINED', []],
-                 ['resolve',    'ENABLE_RESOLVED', [libdl]]]
-
-  condition = tuple[1] == '' or conf.get(tuple[1], 0) == 1
-  if condition
-    module = tuple[0]
-    extra_deps = tuple[2]
-
-    sym = 'src/nss-@0@/nss-@0@.sym'.format(module)
-    version_script_arg = join_paths(meson.current_source_dir(), sym)
-
-    shared_library(
-      'nss_' + module,
-      'src/nss-@0@/nss-@0@.c'.format(module),
-      version : '2',
-      include_directories : includes,
-      link_args : ['-shared',
-                   '-Wl,--version-script=' + version_script_arg,
-                   '-Wl,--undefined'],
-      link_with : [libsystemd_internal,
-                   libbasic],
-      dependencies : [threads,
-                      librt] + extra_deps,
-      link_depends : sym,
-      install : true,
-      install_dir : rootlibdir)
-
-    # We cannot use shared_module because it does not support version suffix.
-    # Unfortunately shared_library insists on creating the symlink…
-    meson.add_install_script('sh', '-c',
-                             'rm $DESTDIR@0@/libnss_@1@.so'
-                             .format(rootlibdir, module))
-  endif
-endforeach
-
-############################################################
-
 # binaries that have --help and are intended for use by humans,
 # usually, but not always, installed in /bin.
 public_programs = []
@@ -1113,6 +1074,60 @@ subdir('src/boot/efi')
 
 subdir('src/test')
 subdir('test')
+
+############################################################
+
+# only static linking apart from libdl, to make sure that the
+# module is linked to all libraries that it uses.
+test_dlopen = executable(
+  'test-dlopen',
+  test_dlopen_c,
+  include_directories : includes,
+  link_with : [libbasic],
+  dependencies : [libdl])
+
+foreach tuple : [['myhostname', 'HAVE_MYHOSTNAME', []],
+                 ['systemd',     '',               []],
+                 ['mymachines', 'ENABLE_MACHINED', []],
+                 ['resolve',    'ENABLE_RESOLVED', [libdl]]]
+
+  condition = tuple[1] == '' or conf.get(tuple[1], 0) == 1
+  if condition
+    module = tuple[0]
+    extra_deps = tuple[2]
+
+    sym = 'src/nss-@0@/nss-@0@.sym'.format(module)
+    version_script_arg = join_paths(meson.current_source_dir(), sym)
+
+    nss = shared_library(
+      'nss_' + module,
+      'src/nss-@0@/nss-@0@.c'.format(module),
+      version : '2',
+      include_directories : includes,
+      link_args : ['-shared',
+                   '-Wl,--version-script=' + version_script_arg,
+                   '-Wl,--undefined'],
+      link_with : [libsystemd_internal,
+                   libbasic],
+      dependencies : [threads,
+                      librt] + extra_deps,
+      link_depends : sym,
+      install : true,
+      install_dir : rootlibdir)
+
+    # We cannot use shared_module because it does not support version suffix.
+    # Unfortunately shared_library insists on creating the symlink…
+    meson.add_install_script('sh', '-c',
+                             'rm $DESTDIR@0@/libnss_@1@.so'
+                             .format(rootlibdir, module))
+
+    test('dlopen-nss_' + module,
+         test_dlopen,
+         args : [nss.full_path()]) # path to dlopen must include a slash
+  endif
+endforeach
+
+############################################################
 
 executable('systemd',
            systemd_sources,
@@ -1325,7 +1340,7 @@ if conf.get('ENABLE_LOGIND', 0) == 1
 
   if conf.get('HAVE_PAM', 0) == 1
     version_script_arg = join_paths(meson.current_source_dir(), pam_systemd_sym)
-    shared_library(
+    pam_systemd = shared_library(
       'pam_systemd',
       pam_systemd_c,
       name_prefix : '',
@@ -1340,6 +1355,10 @@ if conf.get('ENABLE_LOGIND', 0) == 1
       link_depends : pam_systemd_sym,
       install : true,
       install_dir : pamlibdir)
+
+    test('dlopen-pam_systemd',
+         test_dlopen,
+         args : [pam_systemd.full_path()]) # path to dlopen must include a slash
   endif
 endif
 

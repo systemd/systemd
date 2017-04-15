@@ -35,6 +35,8 @@ test_libudev_sym_c = custom_target(
   command : [generate_sym_test_py, '@INPUT0@', '@INPUT1@'],
   capture : true)
 
+test_dlopen_c = files('test-dlopen.c')
+
 ############################################################
 
 tests += [
