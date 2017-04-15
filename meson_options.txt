@@ -154,6 +154,9 @@ option('ntp-servers', type : 'string',
 option('support-url', type : 'string',
        description : 'the support URL to show in catalog entries included in systemd',
        value : 'https://lists.freedesktop.org/mailman/listinfo/systemd-devel')
+option('www-target', type : 'string',
+       description : 'the address and dir to upload docs too',
+       value : 'www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd')
 
 option('seccomp', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'SECCOMP support')

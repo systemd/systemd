@@ -133,12 +133,24 @@ foreach tuple : [['systemd.directives', '7', systemd_directives_xml],
   html_pages += [p2]
 endforeach
 
-custom_target('man',
-              depends : man_pages,
-              output : ['man'],
-              command : ['echo'])
+man = custom_target('man',
+                    depends : man_pages,
+                    output : 'man',
+                    command : ['echo'])
 
-custom_target('html',
-              depends : html_pages,
-              output : ['html'],
-              command : ['echo'])
+html = custom_target('html',
+                     depends : html_pages,
+                     output : 'html',
+                     command : ['echo'])
+
+custom_target('doc-sync',
+              depends : [man, html],
+              output : ['doc-sync'],
+              command : ['rsync', '-rlv',
+                         '--delete-excluded',
+                         '--include=man',
+                         '--include=*.html',
+                         '--exclude=*',
+                         '--omit-dir-times',
+                         meson.current_build_dir(),
+                         get_option('www-target')])
