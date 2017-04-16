@@ -158,7 +158,7 @@ if have_gnu_efi
          no_undefined_symbols,
          args : [so])
 
-    custom_target(
+    stub = custom_target(
       tuple[1],
       input : so,
       output : tuple[1],
@@ -175,5 +175,18 @@ if have_gnu_efi
                 ['@INPUT@', '@OUTPUT@'],
       install : true,
       install_dir : bootlibdir)
+
+    set_variable(tuple[0].underscorify(), so)
+    set_variable(tuple[0].underscorify() + '_stub', stub)
   endforeach
+endif
+
+############################################################
+
+if have_gnu_efi
+  test_efi_disk_img = custom_target(
+    'test-efi-disk.img',
+    input : [systemd_boot_so, stub_so_stub],
+    output : 'test-efi-disk.img',
+    command : [test_efi_create_disk_sh, '@OUTPUT@', '@INPUT0@', '@INPUT1@', splash_bmp])
 endif

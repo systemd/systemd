@@ -3077,8 +3077,8 @@ CLEANFILES += $(stub_objects) $(stub_solib) $(stub)
 # ------------------------------------------------------------------------------
 CLEANFILES += test-efi-disk.img
 
-test-efi-disk.img: $(systemd_boot) $(stub) test/test-efi-create-disk.sh
-	$(AM_V_GEN)test/test-efi-create-disk.sh
+test-efi-disk.img: $(systemd_boot) $(stub) test/splash.bmp test/test-efi-create-disk.sh
+	$(AM_V_GEN)test/test-efi-create-disk.sh $@ $(systemd_boot) $(stub) test/splash.bmp
 
 test-efi: test-efi-disk.img
 	$(QEMU) -machine accel=kvm -m 1024 -bios $(QEMU_BIOS) -snapshot test-efi-disk.img
