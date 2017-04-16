@@ -409,6 +409,7 @@ etags = find_program('etags', required : false)
 
 meson_make_symlink = meson.source_root() + '/tools/meson-make-symlink.sh'
 mkdir_p = 'mkdir -p $DESTDIR/@0@'
+check_compilation_sh = find_program('tools/meson-check-compilation.sh')
 
 # if -Dxxx-path option is found, use that. Otherwise, check in $PATH,
 # /usr/sbin, /sbin, and fall back to the default from middle column.

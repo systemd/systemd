@@ -1,6 +1,6 @@
 # -*- mode: meson -*-
 
-systemd_headers = files('''
+_systemd_headers = '''
   sd-bus.h
   sd-bus-protocol.h
   sd-bus-vtable.h
@@ -10,7 +10,10 @@ systemd_headers = files('''
   sd-journal.h
   sd-login.h
   sd-messages.h
-'''.split())
+'''.split()
+
+# https://github.com/mesonbuild/meson/issues/1633
+systemd_headers = files(_systemd_headers)
 
 #  sd-device.h
 #  sd-hwdb.h
@@ -33,3 +36,21 @@ install_headers(
   systemd_headers,
   '_sd-common.h',
   subdir : 'systemd')
+
+
+############################################################
+
+opts = [[],
+        ['-ansi'],
+        ['-std=iso9899:1990']]
+
+foreach header : _systemd_headers
+  foreach opt : opts
+    name = ''.join([header] + opt)
+    test('cc-' + name,
+         check_compilation_sh,
+         args : cc.cmd_array() + ['-x', 'c'] + opt +
+                ['-Werror', '-include',
+                 join_paths(meson.current_source_dir(), header)])
+  endforeach
+endforeach
