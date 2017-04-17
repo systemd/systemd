@@ -6,6 +6,8 @@ option('rootlibdir', type : 'string',
        description : '''[/usr]/lib/x86_64-linux-gnu or such''')
 option('rootprefix', type : 'string',
        description : '''override the root prefix''')
+option('link-udev-shared', type : 'boolean',
+       description : 'link systemd-udev and its helpers to libsystemd-shared.so')
 
 option('sysvinit-path', type : 'string', value : '/etc/init.d',
        description : 'the directory where the SysV init scripts are located')

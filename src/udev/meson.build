@@ -92,11 +92,20 @@ link_config_gperf_c = custom_target(
 
 ############################################################
 
+if get_option('link-udev-shared')
+  libudev_link_with = [libshared]
+  rpath = rootlibexecdir
+else
+  libudev_link_with = [libshared_static,
+                       libsystemd_internal]
+  rpath = ''
+endif
+
 libudev_internal = static_library(
     'udev',
     libudev_sources,
     include_directories : includes,
-    link_with : [libshared])
+    link_with : libudev_link_with)
 
 libudev_core_includes = [includes, include_directories('net')]
 libudev_core = static_library(
@@ -105,60 +114,28 @@ libudev_core = static_library(
     link_config_gperf_c,
     keyboard_keys_from_name_h,
     include_directories : libudev_core_includes,
-    link_with : [libshared])
+    link_with : libudev_link_with)
 
-executable('ata_id',
-           'ata_id/ata_id.c',
-           include_directories : includes,
-           link_with : [libudev_internal,
-                        libshared],
-           install : true,
-           install_dir : udevlibexecdir)
+foreach prog : [['ata_id/ata_id.c'],
+                ['cdrom_id/cdrom_id.c'],
+                ['collect/collect.c'],
+                ['scsi_id/scsi_id.c',
+                 'scsi_id/scsi_id.h',
+                 'scsi_id/scsi_serial.c',
+                 'scsi_id/scsi.h'],
+                ['v4l_id/v4l_id.c'],
+                ['mtd_probe/mtd_probe.c',
+                 'mtd_probe/mtd_probe.h',
+                 'mtd_probe/probe_smartmedia.c']]
 
-executable('cdrom_id',
-           'cdrom_id/cdrom_id.c',
-           include_directories : includes,
-           link_with : [libudev_internal,
-                        libshared],
-           install : true,
-           install_dir : udevlibexecdir)
-
-executable('collect',
-           'collect/collect.c',
-           include_directories : includes,
-           link_with : [libudev_internal,
-                        libshared],
-           install : true,
-           install_dir : udevlibexecdir)
-
-executable('scsi_id',
-           'scsi_id/scsi_id.c',
-           'scsi_id/scsi_id.h',
-           'scsi_id/scsi_serial.c',
-           'scsi_id/scsi.h',
-           include_directories : includes,
-           link_with : [libudev_internal,
-                        libshared],
-           install : true,
-           install_dir : udevlibexecdir)
-
-executable('v4l_id',
-           'v4l_id/v4l_id.c',
-           include_directories : includes,
-           link_with : [libudev_internal,
-                        libshared],
-           install : true,
-           install_dir : udevlibexecdir)
-
-executable('mtd_probe',
-           'mtd_probe/mtd_probe.c',
-           'mtd_probe/mtd_probe.h',
-           'mtd_probe/probe_smartmedia.c',
-           include_directories : includes,
-           link_with : [libudev_internal,
-                        libshared],
-           install : true,
-           install_dir : udevlibexecdir)
+  executable(prog[0].split('/')[0],
+             prog,
+             include_directories : includes,
+             link_with : [libudev_internal],
+             install_rpath : rpath,
+             install : true,
+             install_dir : udevlibexecdir)
+endforeach
 
 install_data('udev.conf',
              install_dir : join_paths(sysconfdir, 'udev'))
