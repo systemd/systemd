@@ -17,7 +17,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <blkid/blkid.h>
+#include <blkid.h>
 #include <stdlib.h>
 #include <sys/statfs.h>
 #include <unistd.h>

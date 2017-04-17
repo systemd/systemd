@@ -57,6 +57,7 @@ AS_IF([test "x$enable_largefile" = "xno"], [AC_MSG_ERROR([--disable-largefile is
 SET_ARCH(X86_64, x86_64*)
 SET_ARCH(IA32, i*86*)
 SET_ARCH(MIPS, mips*)
+SET_ARCH(ARM, arm*)
 SET_ARCH(AARCH64, aarch64*)
 
 # i18n stuff for the PolicyKit policy files, heck whether intltool can be found, disable NLS otherwise
@@ -1313,6 +1314,9 @@ AM_COND_IF(ARCH_IA32, [
 AM_COND_IF(ARCH_X86_64, [
         EFI_MACHINE_TYPE_NAME=x64])
 
+AM_COND_IF(ARCH_ARM, [
+        EFI_MACHINE_TYPE_NAME=arm])
+
 AM_COND_IF(ARCH_AARCH64, [
         EFI_MACHINE_TYPE_NAME=aa64])
 
@@ -1322,7 +1326,13 @@ AC_SUBST([EFI_MACHINE_TYPE_NAME])
 have_gnuefi=no
 AC_ARG_ENABLE(gnuefi, AS_HELP_STRING([--enable-gnuefi], [enable optional gnuefi support]))
 AS_IF([test "x$enable_gnuefi" != "xno"], [
-        AC_CHECK_HEADERS(efi/${EFI_ARCH}/efibind.h,
+        AC_ARG_WITH(efi-includedir,
+                AS_HELP_STRING([--with-efi-includedir=PATH], [path to EFI include directory]),
+                [EFI_INC_DIR="$withval"], [EFI_INC_DIR="/usr/include"]
+        )
+        AC_SUBST([EFI_INC_DIR])
+
+        AC_CHECK_HEADERS(${EFI_INC_DIR}/efi/${EFI_ARCH}/efibind.h,
                 [AC_DEFINE(HAVE_GNUEFI, 1, [Define if gnuefi is available])
                  have_gnuefi=yes],
                 [AS_IF([test "x$enable_gnuefi" = xyes],
@@ -1351,12 +1361,6 @@ AS_IF([test "x$enable_gnuefi" != "xno"], [
               [AS_IF([test "x$enable_gnuefi" = xyes],
                      [AC_MSG_ERROR([*** gnuefi support requested but files not found])],
                      [have_gnuefi=no])])
-
-        AC_ARG_WITH(efi-includedir,
-                AS_HELP_STRING([--with-efi-includedir=PATH], [path to EFI include directory]),
-                [EFI_INC_DIR="$withval"], [EFI_INC_DIR="/usr/include"]
-        )
-        AC_SUBST([EFI_INC_DIR])
 ])
 AM_CONDITIONAL(HAVE_GNUEFI, [test "x$have_gnuefi" = xyes])
 
