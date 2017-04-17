@@ -1,5 +1,3 @@
-# -*- mode: meson -*-
-
 enable_tmpfiles = conf.get('ENABLE_TMPFILES', 0) == 1
 
 tmpfiles = [['home.conf',            ''],
@@ -14,31 +12,32 @@ tmpfiles = [['home.conf',            ''],
            ]
 
 foreach pair : tmpfiles
-  if not enable_tmpfiles
-    # do nothing
-  elif pair[1] == '' or conf.get(pair[1], 0) == 1
-    install_data(pair[0], install_dir : tmpfilesdir)
-  else
-    message('Not installing tmpfiles.d/@0@ because @1@ is @2@'.format(
-        pair[0], pair[1], conf.get(pair[1], 0)))
-  endif
+        if not enable_tmpfiles
+                # do nothing
+        elif pair[1] == '' or conf.get(pair[1], 0) == 1
+                install_data(pair[0], install_dir : tmpfilesdir)
+        else
+                message('Not installing tmpfiles.d/@0@ because @1@ is @2@'
+                        .format(pair[0], pair[1], conf.get(pair[1], 0)))
+        endif
 endforeach
 
 m4_files = ['etc.conf',
             'systemd.conf']
 
 foreach file : m4_files
-  custom_target(
-    'tmpfiles.d/' + file,
-    input : file + '.m4',
-    output: file,
-    command : [m4, '-P'] + m4_defines + ['@INPUT@'],
-    capture : true,
-    install : enable_tmpfiles,
-    install_dir : tmpfilesdir)
+        custom_target(
+                'tmpfiles.d/' + file,
+                input : file + '.m4',
+                output: file,
+                command : [m4, '-P'] + m4_defines + ['@INPUT@'],
+                capture : true,
+                install : enable_tmpfiles,
+                install_dir : tmpfilesdir)
 endforeach
 
 if enable_tmpfiles
-  meson.add_install_script('sh', '-c',
-                           mkdir_p.format(join_paths(sysconfdir, 'tmpfiles.d')))
+        meson.add_install_script(
+                'sh', '-c',
+                mkdir_p.format(join_paths(sysconfdir, 'tmpfiles.d')))
 endif

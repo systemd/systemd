@@ -20,4 +20,5 @@
             (eval . (c-set-offset 'arglist-intro '++))
             (eval . (c-set-offset 'arglist-close 0))))
  (nxml-mode . ((nxml-child-indent . 2)
-               (fill-column . 119))))
+               (fill-column . 119)))
+ (meson-mode . ((meson-indent-basic . 8))))
