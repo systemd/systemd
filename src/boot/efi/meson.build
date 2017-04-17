@@ -32,7 +32,8 @@ if conf.get('ENABLE_EFI', 0) == 1 and get_option('gnu-efi') != 'false'
   efi_cc = get_option('efi-cc')
   efi_ld = get_option('efi-ld')
 
-  efibind_h = 'efi/@0@/efibind.h'.format(efi_arch)
+  efi_incdir = get_option('efi-includedir')
+  efibind_h = '@0@/@1@/efibind.h'.format(efi_incdir, efi_arch)
   have_header = cc.has_header(efibind_h)
 
   if have_header and EFI_MACHINE_TYPE_NAME == ''
@@ -72,8 +73,6 @@ if have_gnu_efi
   if efi_ldsdir == ''
     efi_ldsdir = join_paths(efi_libdir, 'gnuefi')
   endif
-
-  efi_incdir = get_option('efi-includedir')
 
   message('efi-libdir: "@0@"'.format(efi_libdir))
   message('efi-ldsdir: "@0@"'.format(efi_ldsdir))
