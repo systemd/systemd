@@ -91,19 +91,19 @@ link_config_gperf_c = custom_target(
 ############################################################
 
 if get_option('link-udev-shared')
-        libudev_link_with = [libshared]
-        rpath = rootlibexecdir
+        udev_link_with = [libshared]
+        udev_rpath = rootlibexecdir
 else
-        libudev_link_with = [libshared_static,
-                             libsystemd_internal]
-        rpath = ''
+        udev_link_with = [libshared_static,
+                          libsystemd_internal]
+        udev_rpath = ''
 endif
 
 libudev_internal = static_library(
         'udev',
         libudev_sources,
         include_directories : includes,
-        link_with : libudev_link_with)
+        link_with : udev_link_with)
 
 libudev_core_includes = [includes, include_directories('net')]
 libudev_core = static_library(
@@ -112,7 +112,8 @@ libudev_core = static_library(
         link_config_gperf_c,
         keyboard_keys_from_name_h,
         include_directories : libudev_core_includes,
-        link_with : libudev_link_with)
+        link_with : udev_link_with,
+        dependencies : [libblkid])
 
 foreach prog : [['ata_id/ata_id.c'],
                 ['cdrom_id/cdrom_id.c'],
@@ -130,7 +131,7 @@ foreach prog : [['ata_id/ata_id.c'],
                    prog,
                    include_directories : includes,
                    link_with : [libudev_internal],
-                   install_rpath : rpath,
+                   install_rpath : udev_rpath,
                    install : true,
                    install_dir : udevlibexecdir)
 endforeach
