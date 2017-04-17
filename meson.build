@@ -2278,8 +2278,7 @@ endif
 
 if git.found()
         meson_git_contrib_sh = find_program('tools/meson-git-contrib.sh')
-        custom_target(
+        run_target(
                 'git-contrib',
-                output : 'git-contrib',
                 command : [meson_git_contrib_sh])
 endif

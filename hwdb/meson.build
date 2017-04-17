@@ -31,7 +31,6 @@ endif
 
 ############################################################
 
-custom_target(
+run_target(
         'update',
-        output : 'update',
         command : [hwdb_update_sh, meson.current_source_dir()])
