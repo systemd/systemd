@@ -53,3 +53,10 @@ touchpad:usb:v05ac*
 ###########################################################
 touchpad:usb:v056a*
  ID_INPUT_TOUCHPAD_INTEGRATION=external
+
+###########################################################
+# Microsoft (Surface Type Covers)
+###########################################################
+touchpad:usb:v045ep07*
+ ID_INPUT_TOUCHPAD_INTEGRATION=internal
+ 
