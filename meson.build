@@ -441,8 +441,9 @@ foreach prog : progs
         substs.set(name, path)
 endforeach
 
-# TODO: add ln --relative check
-# AS_IF([! ln --relative --help > /dev/null 2>&1], [AC_MSG_ERROR([*** ln doesn't support --relative ***])])
+if run_command('ln', '--relative', '--help').returncode() != 0
+        error('ln does not support --relative')
+endif
 
 ############################################################
 
