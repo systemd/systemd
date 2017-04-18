@@ -1,4 +1,4 @@
-#!/bin/sh -e
+#!/bin/sh -eu
 
 # output width
 if "$1"  --help | grep -v 'default:' | grep -E -q '.{80}.'; then

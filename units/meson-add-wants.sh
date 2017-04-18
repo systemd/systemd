@@ -1,4 +1,4 @@
-#!/bin/sh -e
+#!/bin/sh -eu
 
 unitdir="$1"
 target="$2"

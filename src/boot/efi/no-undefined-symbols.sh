@@ -1,4 +1,4 @@
-#!/bin/sh -e
+#!/bin/sh -eu
 
 if nm -D -u "$1" | grep ' U '; then
     echo "Undefined symbols detected!"

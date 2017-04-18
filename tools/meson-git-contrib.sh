@@ -1,4 +1,4 @@
-#!/bin/sh -e
+#!/bin/sh -eu
 
 git shortlog -s `git describe --abbrev=0`.. | \
     cut -c8- | \

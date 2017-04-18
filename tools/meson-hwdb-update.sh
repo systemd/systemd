@@ -1,4 +1,4 @@
-#!/bin/sh -ex
+#!/bin/sh -eu
 
 cd "$1"
 
