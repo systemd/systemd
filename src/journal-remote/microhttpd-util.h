@@ -31,14 +31,21 @@
 #  define MHD_HTTP_NOT_ACCEPTABLE MHD_HTTP_METHOD_NOT_ACCEPTABLE
 #endif
 
+/* Renamed in µhttpd 0.9.51 */
+#ifndef MHD_USE_PIPE_FOR_SHUTDOWN
+#  define MHD_USE_ITC MHD_USE_PIPE_FOR_SHUTDOWN
+#endif
+
 /* Renamed in µhttpd 0.9.52 */
 #ifndef MHD_USE_EPOLL_LINUX_ONLY
 #  define MHD_USE_EPOLL MHD_USE_EPOLL_LINUX_ONLY
 #endif
 
-/* Renamed in µhttpd 0.9.51 */
-#ifndef MHD_USE_PIPE_FOR_SHUTDOWN
-#  define MHD_USE_ITC MHD_USE_PIPE_FOR_SHUTDOWN
+/* Both the old and new names are defines, check for the new one. */
+
+/* Renamed in µhttpd 0.9.53 */
+#ifndef MHD_HTTP_PAYLOAD_TOO_LARGE
+#  define MHD_HTTP_PAYLOAD_TOO_LARGE MHD_HTTP_REQUEST_ENTITY_TOO_LARGE
 #endif
 
 #if MHD_VERSION < 0x00094203
