@@ -127,8 +127,10 @@ foreach tuple : [['systemd.directives', '7', systemd_directives_xml],
         html_pages += [p2]
 endforeach
 
-man = run_target(
+# cannot use run_target until https://github.com/mesonbuild/meson/issues/1644 is resolved
+man = custom_target(
         'man',
+        output : 'man',
         depends : man_pages,
         command : ['echo'])
 
