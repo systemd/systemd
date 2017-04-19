@@ -328,7 +328,6 @@ AC_CHECK_DECLS([
         pivot_root,
         name_to_handle_at,
         setns,
-        getrandom,
         renameat2,
         kcmp,
         keyctl,
@@ -343,6 +342,13 @@ AC_CHECK_DECLS([
 #include <sched.h>
 #include <string.h>
 #include <linux/loop.h>
+]])
+
+AC_CHECK_DECLS([getrandom],
+               [AC_DEFINE([USE_SYS_RANDOM_H], [], [sys/random.h is usable])],
+               [AC_CHECK_DECLS([getrandom], [], [], [[
+#include <sys/random.h>
+]])], [[
 #include <linux/random.h>
 ]])
 
