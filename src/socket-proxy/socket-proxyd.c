@@ -578,7 +578,7 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "connections-max", required_argument, NULL, 'c'           },
+                { "max-connections", required_argument, NULL, 'c'           },
                 { "help",            no_argument,       NULL, 'h'           },
                 { "version",         no_argument,       NULL, ARG_VERSION   },
                 {}
@@ -600,7 +600,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'c':
                         r = safe_atou(optarg, &arg_connections_max);
                         if (r < 0) {
-                                log_error("Failed to parse --connections-max= argument: %s", optarg);
+                                log_error("Failed to parse --max-connections= argument: %s", optarg);
                                 return r;
                         }
 
