@@ -388,7 +388,7 @@ foreach ident : [
                                  #include <keyutils.h>'''],
         ['copy_file_range',   '''#include <sys/syscall.h>
                                  #include <unistd.h>'''],
-        ['explicit_bzero' ,   '''#include <strings.h>'''],
+        ['explicit_bzero' ,   '''#include <string.h>'''],
 ]
 
         have = cc.has_function(ident[0], prefix : ident[1])
