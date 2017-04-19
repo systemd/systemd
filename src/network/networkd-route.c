@@ -939,3 +939,44 @@ int config_parse_route_table(const char *unit,
 
         return 0;
 }
+
+int config_parse_gateway_onlink(const char *unit,
+                                const char *filename,
+                                unsigned line,
+                                const char *section,
+                                unsigned section_line,
+                                const char *lvalue,
+                                int ltype,
+                                const char *rvalue,
+                                void *data,
+                                void *userdata) {
+        Network *network = userdata;
+        _cleanup_route_free_ Route *n = NULL;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = route_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return r;
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Could not parse gateway onlink \"%s\", ignoring assignment: %m", rvalue);
+                return 0;
+        }
+
+        if (r)
+                n->flags |= RTNH_F_ONLINK;
+        else
+                n->flags &= ~RTNH_F_ONLINK;
+
+        n = NULL;
+
+        return 0;
+}
