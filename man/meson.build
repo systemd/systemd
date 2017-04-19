@@ -1,9 +1,6 @@
 # This is lame, I know, but meson has no other include mechanism
 subdir('rules')
 
-# TODO: add regeneration rule:
-# python3 tools/make-man-rules.py --meson man/*xml > man/rules/meson.build
-
 want_man = get_option('man')
 want_html = get_option('html')
 xsltproc = find_program('xsltproc',
@@ -152,3 +149,18 @@ run_target(
                    '--omit-dir-times',
                    meson.current_build_dir(),
                    get_option('www-target')])
+
+############################################################
+
+if git.found()
+        run_target(
+                'update-man-rules',
+                # slightly strange syntax because of
+                # https://github.com/mesonbuild/meson/issues/1643
+                # and https://github.com/mesonbuild/meson/issues/1512
+                command : ['sh', '-c',
+                           'cd @0@ && '.format(meson.build_root()) +
+                           'python3 @0@/tools/make-man-rules.py --meson `git ls-files ":/man/*.xml"` >t && '.format(meson.source_root()) +
+                           'mv t @0@/rules/meson.build'.format(meson.current_source_dir())],
+                depend_files : custom_entities_ent)
+endif
