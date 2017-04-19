@@ -99,8 +99,8 @@ int manager_parse_config_file(Manager *m) {
         assert(m);
 
         return config_parse_many_nulstr(PKGSYSCONFDIR "/timesyncd.conf",
-                                 CONF_PATHS_NULSTR("systemd/timesyncd.conf.d"),
-                                 "Time\0",
-                                 config_item_perf_lookup, timesyncd_gperf_lookup,
-                                 false, m);
+                                        CONF_PATHS_NULSTR("systemd/timesyncd.conf.d"),
+                                        "Time\0",
+                                        config_item_perf_lookup, timesyncd_gperf_lookup,
+                                        false, m);
 }
