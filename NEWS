@@ -3318,7 +3318,7 @@ CHANGES WITH 216:
           like Cockpit which register web clients as PAM sessions.
 
         * timer units with at least one OnCalendar= setting will now
-          be started only after timer-sync.target has been
+          be started only after time-sync.target has been
           reached. This way they will not elapse before the system
           clock has been corrected by a local NTP client or
           similar. This is particular useful on RTC-less embedded

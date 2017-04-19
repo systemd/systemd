@@ -93,7 +93,7 @@
     on <filename>timers.target</filename>, as well as <varname>Conflicts=</varname> and <varname>Before=</varname> on
     <filename>shutdown.target</filename> to ensure that they are stopped cleanly prior to system shutdown.  Timer units
     with at least one <varname>OnCalendar=</varname> directive will have an additional <varname>After=</varname>
-    dependency on <filename>timer-sync.target</filename> to avoid being started before the system clock has been
+    dependency on <filename>time-sync.target</filename> to avoid being started before the system clock has been
     correctly set. Only timer units involved with early boot or late system shutdown should disable the
     <varname>DefaultDependencies=</varname> option.</para>
   </refsect1>
