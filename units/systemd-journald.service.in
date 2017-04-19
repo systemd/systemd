@@ -19,7 +19,6 @@ Sockets=systemd-journald.socket systemd-journald-dev-log.socket systemd-journald
 ExecStart=@rootlibexecdir@/systemd-journald
 Restart=always
 RestartSec=0
-NotifyAccess=all
 StandardOutput=null
 WatchdogSec=3min
 FileDescriptorStoreMax=1024
