@@ -216,10 +216,10 @@ m4_in_units = [
         ['console-getty.service',              ''],
         ['container-getty@.service',           ''],
         ['systemd-networkd.service',           'ENABLE_NETWORKD',
-         'dbus-org.freedesktop.network1.service ' +
+         join_paths(pkgsysconfdir, 'system/dbus-org.freedesktop.network1.service') + ' ' +
          join_paths(pkgsysconfdir, 'system/multi-user.target.wants/')],
         ['systemd-resolved.service',           'ENABLE_RESOLVED',
-         'dbus-org.freedesktop.resolve1.service ' +
+         join_paths(pkgsysconfdir, 'system/dbus-org.freedesktop.resolve1.service') + ' ' +
          join_paths(pkgsysconfdir, 'system/multi-user.target.wants/')],
         ['user@.service',                      ''],
 ]
