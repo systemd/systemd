@@ -135,7 +135,12 @@ _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
         fmt2 = strjoina("selinux: ", fmt);
 
         va_start(ap, fmt);
-        log_internalv(LOG_AUTH | callback_type_to_priority(type), 0, __FILE__, __LINE__, __FUNCTION__, fmt2, ap);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+        log_internalv(LOG_AUTH | callback_type_to_priority(type),
+                      0, __FILE__, __LINE__, __FUNCTION__,
+                      fmt2, ap);
+#pragma GCC diagnostic pop
         va_end(ap);
 
         return 0;

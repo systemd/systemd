@@ -115,7 +115,7 @@ int log_object_internalv(
                 const char *extra_field,
                 const char *extra,
                 const char *format,
-                va_list ap) _printf_(9,0);
+                va_list ap) _printf_(10,0);
 
 int log_struct_internal(
                 int level,
