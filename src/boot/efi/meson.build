@@ -33,8 +33,8 @@ if conf.get('ENABLE_EFI', 0) == 1 and get_option('gnu-efi') != 'false'
         efi_ld = get_option('efi-ld')
 
         efi_incdir = get_option('efi-includedir')
-        efibind_h = '@0@/@1@/efibind.h'.format(efi_incdir, efi_arch)
-        have_header = cc.has_header(efibind_h)
+        have_header = (gnu_efi_arch != '' and
+                       cc.has_header('@0@/@1@/efibind.h'.format(efi_incdir, gnu_efi_arch)))
 
         if have_header and EFI_MACHINE_TYPE_NAME == ''
                 error('gnu-efi is available, but EFI_MACHINE_TYPE_NAME is unknown')
@@ -70,8 +70,17 @@ if have_gnu_efi
         objcopy = find_program('objcopy')
 
         efi_ldsdir = get_option('efi-ldsdir')
+        arch_lds = 'elf_@0@_efi.lds'.format(gnu_efi_arch)
         if efi_ldsdir == ''
                 efi_ldsdir = join_paths(efi_libdir, 'gnuefi')
+                cmd = run_command('test', '-f', join_paths(efi_ldsdir, arch_lds))
+                if cmd.returncode() != 0
+                        efi_ldsdir = efi_libdir
+                        cmd = run_command('test', '-f', join_paths(efi_ldsdir, arch_lds))
+                        if cmd.returncode() != 0
+                               error('Cannot find @0@'.format(arch_lds))
+                        endif
+                endif
         endif
 
         message('efi-libdir: "@0@"'.format(efi_libdir))
@@ -91,7 +100,7 @@ if have_gnu_efi
                         '-Wsign-compare',
                         '-Wno-missing-field-initializers',
                         '-isystem', efi_incdir,
-                        '-isystem', join_paths(efi_incdir, efi_arch),
+                        '-isystem', join_paths(efi_incdir, gnu_efi_arch),
                         '-include', efi_config_h]
         if efi_arch == 'x86_64'
                 compile_args += ['-mno-red-zone',
@@ -105,20 +114,20 @@ if have_gnu_efi
         endif
 
         efi_ldflags = ['-T',
-                       '@0@/elf_@1@_efi.lds'.format(efi_ldsdir, efi_arch),
+                       join_paths(efi_ldsdir, arch_lds),
                        '-shared',
                        '-Bsymbolic',
                        '-nostdlib',
                        '-znocombreloc',
                        '-L', efi_libdir,
-                       '@0@/crt0-efi-@1@.o'.format(efi_ldsdir, efi_arch)]
+                       join_paths(efi_ldsdir, 'crt0-efi-@0@.o'.format(gnu_efi_arch))]
         if efi_arch == 'aarch64' or efi_arch == 'arm'
                 # Aarch64 and ARM32 don't have an EFI capable objcopy. Use 'binary'
                 # instead, and add required symbols manually.
                 efi_ldflags += ['--defsym=EFI_SUBSYSTEM=0xa']
                 efi_format = ['-O', 'binary']
         else
-                efi_format = ['--target=efi-app-@0@'.format(efi_arch)]
+                efi_format = ['--target=efi-app-@0@'.format(gnu_efi_arch)]
         endif
 
         systemd_boot_objects = []

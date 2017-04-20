@@ -977,16 +977,21 @@ tests = []
 if get_option('efi')
         efi_arch = host_machine.cpu_family()
 
-        if efi_arch == 'ia32'
+        if efi_arch == 'x86'
                 EFI_MACHINE_TYPE_NAME = 'ia32'
+                gnu_efi_arch = 'ia32'
         elif efi_arch == 'x86_64'
                 EFI_MACHINE_TYPE_NAME = 'x64'
+                gnu_efi_arch = 'x86_64'
         elif efi_arch == 'arm'
                 EFI_MACHINE_TYPE_NAME = 'arm'
+                gnu_efi_arch = 'arm'
         elif efi_arch == 'aarch64'
                 EFI_MACHINE_TYPE_NAME = 'aa64'
+                gnu_efi_arch = 'aarch64'
         else
                 EFI_MACHINE_TYPE_NAME = ''
+                gnu_efi_arch = ''
         endif
 
         conf.set('ENABLE_EFI', 1)
