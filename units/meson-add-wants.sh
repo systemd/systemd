@@ -6,14 +6,14 @@ unit="$3"
 
 case "$target" in
     */?*) # a path, but not just a slash at the end
-        dir="${DESTDIR}${target}"
+        dir="${DESTDIR:-}${target}"
         ;;
     *)
-        dir="${DESTDIR}${unitdir}/${target}"
+        dir="${DESTDIR:-}${unitdir}/${target}"
         ;;
 esac
 
-unitpath="${DESTDIR}${unitdir}/${unit}"
+unitpath="${DESTDIR:-}${unitdir}/${unit}"
 
 case "$target" in
     */)
