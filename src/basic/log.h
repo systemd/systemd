@@ -137,7 +137,7 @@ int log_format_iovec(
                 bool newline_separator,
                 int error,
                 const char *format,
-                va_list ap);
+                va_list ap) _printf_(6, 0);
 
 /* This modifies the buffer passed! */
 int log_dump_internal(

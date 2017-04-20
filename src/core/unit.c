@@ -1497,9 +1497,9 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
          * possible, which means we should avoid the low-level unit
          * name. */
         log_struct(LOG_INFO,
-                   mid,
-                   LOG_UNIT_ID(u),
                    LOG_MESSAGE("%s", buf),
+                   LOG_UNIT_ID(u),
+                   mid,
                    NULL);
 }
 

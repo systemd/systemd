@@ -800,18 +800,18 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
 
         default:
                 log_struct(job_result_log_level[result],
-                           LOG_UNIT_ID(u),
                            LOG_MESSAGE("%s", buf),
                            "RESULT=%s", job_result_to_string(result),
+                           LOG_UNIT_ID(u),
                            NULL);
                 return;
         }
 
         log_struct(job_result_log_level[result],
-                   mid,
-                   LOG_UNIT_ID(u),
                    LOG_MESSAGE("%s", buf),
                    "RESULT=%s", job_result_to_string(result),
+                   LOG_UNIT_ID(u),
+                   mid,
                    NULL);
 }
 
