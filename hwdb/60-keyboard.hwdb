@@ -314,6 +314,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnPrecision*:pvr*
  KEYBOARD_KEY_88=!                                      # wireless switch
  KEYBOARD_KEY_9e=!f21
 
+# Dell Latitude E7*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*E7*:pvr*
+ KEYBOARD_KEY_88=unknown                                # Fn-PrtScr rfkill - handled in HW
+
 # Dell XPS
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnXPS*:pvr*
  KEYBOARD_KEY_8c=!unknown
