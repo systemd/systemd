@@ -49,6 +49,11 @@ int ima_setup(void) {
                 return 0;
         }
 
+        if (access(IMA_POLICY_PATH, F_OK) < 0) {
+                log_debug("No IMA custom policy file "IMA_POLICY_PATH", ignoring.");
+                return 0;
+        }
+
         imafd = open(IMA_SECFS_POLICY, O_WRONLY|O_CLOEXEC);
         if (imafd < 0) {
                 log_error_errno(errno, "Failed to open the IMA kernel interface "IMA_SECFS_POLICY", ignoring: %m");
@@ -62,8 +67,7 @@ int ima_setup(void) {
         /* fall back to copying the policy line-by-line */
         input = fopen(IMA_POLICY_PATH, "re");
         if (!input) {
-                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
-                               "Failed to open the IMA custom policy file "IMA_POLICY_PATH", ignoring: %m");
+                log_warning_errno(errno, "Failed to open the IMA custom policy file "IMA_POLICY_PATH", ignoring: %m");
                 return 0;
         }
 
