@@ -381,7 +381,6 @@ foreach ident : [
                                  #include <fcntl.h>'''],
         ['setns',             '''#define _GNU_SOURCE
                                  #include <sched.h>'''],
-        ['getrandom',         '''#include <sys/random.h>'''],
         ['renameat2',         '''#include <stdio.h>'''],
         ['kcmp',              '''#include <linux/kcmp.h>'''],
         ['keyctl',            '''#include <sys/types.h>
@@ -394,6 +393,14 @@ foreach ident : [
         have = cc.has_function(ident[0], prefix : ident[1])
         conf.set10('HAVE_DECL_' + ident[0].to_upper(), have)
 endforeach
+
+if cc.has_function('getrandom', prefix : '''#include <sys/random.h>''')
+        conf.set('USE_SYS_RANDOM_H', 1)
+        conf.set10('HAVE_DECL_GETRANDOM', 1)
+else
+        have = cc.has_function('getrandom', prefix : '''#include <linux/random.h>''')
+        conf.set10('HAVE_DECL_GETRANDOM', have)
+endif
 
 #####################################################################
 
