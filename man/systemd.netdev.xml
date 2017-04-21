@@ -399,8 +399,15 @@
             This option is compulsory.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>GVRP=</varname></term>
+          <listitem>
+            <para>The Generic VLAN Registration Protocol (GVRP) is a protocol that
+            allows automatic learning of VLANs on a network. A boolean. When unset,
+            the kernel's default setting applies.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
-
   </refsect1>
 
   <refsect1>

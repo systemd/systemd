@@ -36,6 +36,7 @@ NetDev.Kind,                 config_parse_netdev_kind,             0,           
 NetDev.MTUBytes,             config_parse_iec_size,                0,                             offsetof(NetDev, mtu)
 NetDev.MACAddress,           config_parse_hwaddr,                  0,                             offsetof(NetDev, mac)
 VLAN.Id,                     config_parse_vlanid,                  0,                             offsetof(VLan, id)
+VLAN.GVRP,                   config_parse_tristate,                0,                             offsetof(VLan, gvrp)
 MACVLAN.Mode,                config_parse_macvlan_mode,            0,                             offsetof(MacVlan, mode)
 MACVTAP.Mode,                config_parse_macvlan_mode,            0,                             offsetof(MacVlan, mode)
 IPVLAN.Mode,                 config_parse_ipvlan_mode,             0,                             offsetof(IPVlan, mode)
