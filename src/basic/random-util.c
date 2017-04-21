@@ -27,7 +27,13 @@
 #include <stdint.h>
 
 #ifdef HAVE_SYS_AUXV_H
-#include <sys/auxv.h>
+#  include <sys/auxv.h>
+#endif
+
+#ifdef USE_SYS_RANDOM_H
+#  include <sys/random.h>
+#else
+#  include <linux/random.h>
 #endif
 
 #include "fd-util.h"

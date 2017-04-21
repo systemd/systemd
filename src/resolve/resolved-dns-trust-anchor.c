@@ -17,7 +17,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sd-messages.h>
+#include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "conf-files.h"

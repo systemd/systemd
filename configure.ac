@@ -328,7 +328,6 @@ AC_CHECK_DECLS([
         pivot_root,
         name_to_handle_at,
         setns,
-        getrandom,
         renameat2,
         kcmp,
         keyctl,
@@ -343,6 +342,13 @@ AC_CHECK_DECLS([
 #include <sched.h>
 #include <string.h>
 #include <linux/loop.h>
+]])
+
+AC_CHECK_DECLS([getrandom],
+               [AC_DEFINE([USE_SYS_RANDOM_H], [], [sys/random.h is usable])],
+               [AC_CHECK_DECLS([getrandom], [], [], [[
+#include <sys/random.h>
+]])], [[
 #include <linux/random.h>
 ]])
 
@@ -397,6 +403,16 @@ AS_IF([test "x$enable_dbus" != "xno"], [
         AS_IF([test "x$have_dbus" = "xno" -a "x$enable_dbus" = "xyes"],
                 [AC_MSG_ERROR([*** dbus-1 support requested but libraries not found])])])
 AM_CONDITIONAL(HAVE_DBUS, [test "$have_dbus" = "yes"])
+
+# ------------------------------------------------------------------------------
+have_glib=no
+AC_ARG_ENABLE(glib, AS_HELP_STRING([--disable-glib], [disable usage of glib,gobject,gio in tests]))
+AS_IF([test "x$enable_glib" != "xno"], [
+        PKG_CHECK_MODULES(GLIB, [glib-2.0 >= 2.22.0 gobject-2.0 >= 2.22.0 gio-2.0],
+                [AC_DEFINE(HAVE_GLIB, 1, [Define if glib,gobject,gio are available]) have_glib=yes],
+                [have_glib=no])
+        AS_IF([test "x$have_glib" = "xno" -a "x$enable_glib" = "xyes"],
+                [AC_MSG_ERROR([*** glib support requested but libraries not found])])])
 
 # ------------------------------------------------------------------------------
 have_utmp=yes
@@ -1741,6 +1757,7 @@ AC_MSG_RESULT([
         blkid:                             ${have_blkid}
         libmount:                          ${have_libmount}
         dbus:                              ${have_dbus}
+        glib:                              ${have_glib}
         nss-myhostname:                    ${have_myhostname}
         hwdb:                              ${enable_hwdb}
         tpm:                               ${have_tpm}

@@ -529,7 +529,7 @@ static int process_http_upload(
                         log_warning("Failed to process data for connection %p", connection);
                         if (r == -E2BIG)
                                 return mhd_respondf(connection,
-                                                    r, MHD_HTTP_REQUEST_ENTITY_TOO_LARGE,
+                                                    r, MHD_HTTP_PAYLOAD_TOO_LARGE,
                                                     "Entry is too large, maximum is " STRINGIFY(DATA_SIZE_MAX) " bytes.");
                         else
                                 return mhd_respondf(connection,

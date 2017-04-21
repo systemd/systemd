@@ -67,10 +67,6 @@
                 .un.sun_path = "\0/org/freedesktop/plymouthd",  \
         }
 
-#ifndef TTY_GID
-#define TTY_GID 5
-#endif
-
 #define NOTIFY_FD_MAX 768
 #define NOTIFY_BUFFER_MAX PIPE_BUF
 

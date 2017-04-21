@@ -28,14 +28,6 @@
 #include "string-util.h"
 #include "util.h"
 
-#ifndef RC_LOCAL_SCRIPT_PATH_START
-#define RC_LOCAL_SCRIPT_PATH_START "/etc/rc.d/rc.local"
-#endif
-
-#ifndef RC_LOCAL_SCRIPT_PATH_STOP
-#define RC_LOCAL_SCRIPT_PATH_STOP "/sbin/halt.local"
-#endif
-
 static const char *arg_dest = "/tmp";
 
 static int add_symlink(const char *service, const char *where) {

@@ -2990,22 +2990,24 @@ endif
 endif
 
 # ------------------------------------------------------------------------------
-systemd_boot_headers = \
-	src/boot/efi/util.h \
+efi_headers = \
 	src/boot/efi/console.h \
+	src/boot/efi/disk.h \
 	src/boot/efi/graphics.h \
-	src/boot/efi/pefile.h \
+	src/boot/efi/linux.h \
 	src/boot/efi/measure.h \
-	src/boot/efi/disk.h
+	src/boot/efi/pefile.h \
+	src/boot/efi/splash.h \
+	src/boot/efi/util.h
 
 systemd_boot_sources = \
-	src/boot/efi/util.c \
+	src/boot/efi/boot.c \
 	src/boot/efi/console.c \
-	src/boot/efi/graphics.c \
-	src/boot/efi/pefile.c \
 	src/boot/efi/disk.c \
+	src/boot/efi/graphics.c \
 	src/boot/efi/measure.c \
-	src/boot/efi/boot.c
+	src/boot/efi/pefile.c \
+	src/boot/efi/util.c
 
 EXTRA_DIST += $(systemd_boot_sources) $(systemd_boot_headers)
 
@@ -3017,7 +3019,7 @@ if ENABLE_EFI
 if HAVE_GNUEFI
 bootlib_DATA = $(systemd_boot)
 
-$(top_builddir)/src/boot/efi/%.o: $(top_srcdir)/src/boot/efi/%.c $(addprefix $(top_srcdir)/,$(systemd_boot_headers))
+$(top_builddir)/src/boot/efi/%.o: $(top_srcdir)/src/boot/efi/%.c $(addprefix $(top_srcdir)/,$(efi_headers))
 	@$(MKDIR_P) $(top_builddir)/src/boot/efi/
 	$(AM_V_CC)$(EFI_CC) $(efi_cppflags) $(efi_cflags) -c $< -o $@
 
@@ -3035,24 +3037,15 @@ endif
 CLEANFILES += $(systemd_boot_objects) $(systemd_boot_solib) $(systemd_boot)
 
 # ------------------------------------------------------------------------------
-stub_headers = \
-	src/boot/efi/util.h \
-	src/boot/efi/pefile.h \
-	src/boot/efi/disk.h \
-	src/boot/efi/graphics.h \
-	src/boot/efi/splash.h \
-	src/boot/efi/measure.h \
-	src/boot/efi/linux.h
-
 stub_sources = \
-	src/boot/efi/util.c \
-	src/boot/efi/pefile.c \
 	src/boot/efi/disk.c \
 	src/boot/efi/graphics.c \
-	src/boot/efi/splash.c \
 	src/boot/efi/linux.c \
 	src/boot/efi/measure.c \
-	src/boot/efi/stub.c
+	src/boot/efi/pefile.c \
+	src/boot/efi/splash.c \
+	src/boot/efi/stub.c \
+	src/boot/efi/util.c
 
 EXTRA_DIST += \
 	$(stub_sources) \
@@ -3066,10 +3059,6 @@ stub = linux$(EFI_MACHINE_TYPE_NAME).efi.stub
 if ENABLE_EFI
 if HAVE_GNUEFI
 bootlib_DATA += $(stub)
-
-$(top_builddir)/src/boot/efi/%.o: $(top_srcdir)/src/boot/efi/%.c $(addprefix $(top_srcdir)/,$(stub_headers))
-	@$(MKDIR_P) $(top_builddir)/src/boot/efi/
-	$(AM_V_CC)$(EFI_CC) $(efi_cppflags) $(efi_cflags) -c $< -o $@
 
 $(stub_solib): $(stub_objects)
 	$(AM_V_CCLD)$(LD) $(efi_ldflags) $(stub_objects) \
@@ -5933,10 +5922,8 @@ dist_dbuspolicy_DATA += \
 GENERAL_ALIASES += \
 	$(systemunitdir)/systemd-networkd.socket $(pkgsysconfdir)/system/sockets.target.wants/systemd-networkd.socket \
 	$(systemunitdir)/systemd-networkd.service $(pkgsysconfdir)/system/multi-user.target.wants/systemd-networkd.service \
-	$(systemunitdir)/systemd-networkd-wait-online.service $(pkgsysconfdir)/system/network-online.target.wants/systemd-networkd-wait-online.service
-
-SYSTEM_UNIT_ALIASES += \
-	systemd-networkd.service dbus-org.freedesktop.network1.service
+	$(systemunitdir)/systemd-networkd-wait-online.service $(pkgsysconfdir)/system/network-online.target.wants/systemd-networkd-wait-online.service \
+	$(systemunitdir)/systemd-networkd.service $(pkgsysconfdir)/system/dbus-org.freedesktop.network1.service
 
 BUSNAMES_TARGET_WANTS += \
 	org.freedesktop.network1.busname
