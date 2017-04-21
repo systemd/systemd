@@ -812,7 +812,7 @@
          <varlistentry>
            <term><varname>GatewayOnlink=</varname></term>
            <listitem>
-             <para>The <literal>GatewayOnlink</literal> option tells the kernel that the it does not have
+             <para>The <literal>GatewayOnlink</literal> option tells the kernel that it does not have
              to check if the gateway is reachable directly by the current machine (i.e., the kernel does
              not need to check if the gateway is attached to the local network), so that we can insert the
              route in the kernel table without it being complained about. A boolean, defaults to <literal>no</literal>.
