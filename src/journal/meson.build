@@ -20,6 +20,17 @@ journal_internal_sources = files('''
         sd-journal.c
 '''.split())
 
+if conf.get('HAVE_GCRYPT', 0) == 1
+        journal_internal_sources += files('''
+                journal-authenticate.c
+                journal-authenticate.h
+                fsprg.c
+                fsprg.h
+        '''.split())
+
+        journal_internal_sources += gcrypt_util_sources
+endif
+
 ############################################################
 
 audit_type_includes = [config_h,

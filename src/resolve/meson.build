@@ -147,6 +147,7 @@ tests += [
           'src/shared/test-tables.h'],
          [],
          [libgcrypt,
+          libgpg_error,
           libm],
          'ENABLE_RESOLVED'],
 
@@ -155,6 +156,7 @@ tests += [
           dns_type_headers],
          [],
          [libgcrypt,
+          libgpg_error,
           libm],
          'ENABLE_RESOLVED'],
 
@@ -163,6 +165,7 @@ tests += [
           dns_type_headers],
          [],
          [libgcrypt,
+          libgpg_error,
           libm],
          'ENABLE_RESOLVED'],
 

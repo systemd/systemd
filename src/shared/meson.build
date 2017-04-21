@@ -131,6 +131,7 @@ libshared = shared_library(
                         libcap,
                         libacl,
                         libcryptsetup,
+                        libgcrypt,
                         libiptc,
                         libseccomp,
                         libselinux,

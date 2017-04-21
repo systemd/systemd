@@ -899,14 +899,21 @@ else
         libdbus = []
 endif
 
-want_libgcrypt = get_option('libgcrypt')
-if want_libgcrypt != 'false'
-        libgcrypt = cc.find_library('gcrypt', required : want_libgcrypt == 'true')
-        if libgcrypt.found()
-                conf.set('HAVE_LIBGCRYPT', 1)
+want_gcrypt = get_option('gcrypt')
+if want_gcrypt != 'false'
+        libgcrypt = cc.find_library('gcrypt', required : want_gcrypt == 'true')
+        libgpg_error = cc.find_library('gpg-error', required : want_gcrypt == 'true')
+
+        if libgcrypt.found() and libgpg_error.found()
+                conf.set('HAVE_GCRYPT', 1)
+        else
+                # link to neither of the libs if one is not found
+                libgcrypt = []
+                libgpg_error = []
         endif
 else
         libgcrypt = []
+        libgpg_error = []
 endif
 
 want_importd = get_option('importd')
@@ -915,7 +922,7 @@ if want_importd != 'false'
                      conf.get('HAVE_ZLIB', 0) == 1 and
                      conf.get('HAVE_BZIP2', 0) == 1 and
                      conf.get('HAVE_XZ', 0) == 1 and
-                     conf.get('HAVE_LIBGCRYPT', 0) == 1)
+                     conf.get('HAVE_GCRYPT', 0) == 1)
         if have_deps
                 conf.set('ENABLE_IMPORTD', 1)
         elif want_importd == 'true'
@@ -1060,6 +1067,7 @@ libsystemd = shared_library(
                      '-Wl,--version-script=' + libsystemd_sym_path],
         link_with : [libbasic],
         dependencies : [threads,
+                        libgcrypt,
                         librt,
                         libxz,
                         liblz4],
@@ -1305,9 +1313,12 @@ endif
 if conf.get('ENABLE_RESOLVED', 0) == 1
         executable('systemd-resolved',
                    systemd_resolved_sources,
+                   gcrypt_util_sources,
                    include_directories : includes,
                    link_with : [libshared],
                    dependencies : [threads,
+                                   libgcrypt,
+                                   libgpg_error,
                                    libm,
                                    libidn],
                    install_rpath : rootlibexecdir,
@@ -1316,9 +1327,12 @@ if conf.get('ENABLE_RESOLVED', 0) == 1
 
         exe = executable('systemd-resolve',
                          systemd_resolve_sources,
+                         gcrypt_util_sources,
                          include_directories : includes,
                          link_with : [libshared],
                          dependencies : [threads,
+                                         libgcrypt,
+                                         libgpg_error,
                                          libm,
                                          libidn],
                          install_rpath : rootlibexecdir,
