@@ -63,6 +63,9 @@ static int target_add_default_dependencies(Target *t) {
 
         assert(t);
 
+        if (!UNIT(t)->default_dependencies)
+                return 0;
+
         /* Imply ordering for requirement dependencies on target
          * units. Note that when the user created a contradicting
          * ordering manually we won't add anything in here to make
@@ -93,7 +96,7 @@ static int target_load(Unit *u) {
                 return r;
 
         /* This is a new unit? Then let's add in some extras */
-        if (u->load_state == UNIT_LOADED && u->default_dependencies) {
+        if (u->load_state == UNIT_LOADED) {
                 r = target_add_default_dependencies(t);
                 if (r < 0)
                         return r;
