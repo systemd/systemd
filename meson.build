@@ -2018,8 +2018,8 @@ if conf.get('ENABLE_HWDB', 0) == 1
                          'src/hwdb/hwdb.c',
                          'src/libsystemd/sd-hwdb/hwdb-internal.h',
                          include_directories : includes,
-                         link_with : [libshared],
-                         install_rpath : rootlibexecdir,
+                         link_with : [libudev_internal],
+                         install_rpath : udev_rpath,
                          install : true,
                          install_dir : rootbindir)
         public_programs += [exe]
