@@ -553,7 +553,7 @@ static int write_to_journal(
         return 1;
 }
 
-static int log_dispatch(
+int log_dispatch_internal(
                 int level,
                 int error,
                 const char *file,
@@ -653,7 +653,7 @@ int log_dump_internal(
         if (_likely_(LOG_PRI(level) > log_max_level))
                 return -error;
 
-        return log_dispatch(level, error, file, line, func, NULL, NULL, NULL, NULL, buffer);
+        return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, buffer);
 }
 
 int log_internalv(
@@ -680,7 +680,7 @@ int log_internalv(
 
         vsnprintf(buffer, sizeof(buffer), format, ap);
 
-        return log_dispatch(level, error, file, line, func, NULL, NULL, NULL, NULL, buffer);
+        return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, buffer);
 }
 
 int log_internal(
@@ -744,7 +744,8 @@ int log_object_internalv(
 
         vsnprintf(b, l, format, ap);
 
-        return log_dispatch(level, error, file, line, func, object_field, object, extra_field, extra, buffer);
+        return log_dispatch_internal(level, error, file, line, func,
+                                     object_field, object, extra_field, extra, buffer);
 }
 
 int log_object_internal(
@@ -788,7 +789,7 @@ static void log_assert(
 
         log_abort_msg = buffer;
 
-        log_dispatch(level, 0, file, line, func, NULL, NULL, NULL, NULL, buffer);
+        log_dispatch_internal(level, 0, file, line, func, NULL, NULL, NULL, NULL, buffer);
 }
 
 noreturn void log_assert_failed(const char *text, const char *file, int line, const char *func) {
@@ -943,7 +944,7 @@ int log_struct_internal(
         if (!found)
                 return -error;
 
-        return log_dispatch(level, error, file, line, func, NULL, NULL, NULL, NULL, buf + 8);
+        return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, buf + 8);
 }
 
 int log_set_target_from_string(const char *e) {
