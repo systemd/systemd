@@ -27,6 +27,8 @@ struct VLan {
         NetDev meta;
 
         uint16_t id;
+
+        int gvrp;
 };
 
 DEFINE_NETDEV_CAST(VLAN, VLan);
