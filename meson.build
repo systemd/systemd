@@ -660,6 +660,17 @@ if want_polkit != 'false'
         endif
 endif
 
+want_acl = get_option('acl')
+if want_acl != 'false'
+        libacl = cc.find_library('acl', required : want_acl == 'true')
+        if libacl.found()
+                conf.set('HAVE_ACL', 1)
+                m4_defines += ['-DHAVE_ACL']
+        endif
+else
+        libacl = []
+endif
+
 want_audit = get_option('audit')
 if want_audit != 'false'
         libaudit = dependency('audit', required : want_audit == 'true')
@@ -843,12 +854,6 @@ if want_lz4 != 'false'
         endif
 else
         liblz4 = []
-endif
-
-libacl = cc.find_library('acl', required : false)
-if libacl.found()
-        conf.set('HAVE_ACL', 1)
-        m4_defines += ['-DHAVE_ACL']
 endif
 
 want_glib = get_option('glib')

@@ -175,6 +175,8 @@ option('polkit', type : 'combo', choices : ['auto', 'true', 'false'],
 option('ima', type : 'boolean',
        description : 'IMA support')
 
+option('acl', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'libacl support')
 option('audit', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libaudit support')
 option('blkid', type : 'combo', choices : ['auto', 'true', 'false'],
