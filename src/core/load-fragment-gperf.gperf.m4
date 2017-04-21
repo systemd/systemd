@@ -409,6 +409,7 @@ Path.DirectoryNotEmpty,          config_parse_path_spec,             0,         
 Path.Unit,                       config_parse_trigger_unit,          0,                             0
 Path.MakeDirectory,              config_parse_bool,                  0,                             offsetof(Path, make_directory)
 Path.DirectoryMode,              config_parse_mode,                  0,                             offsetof(Path, directory_mode)
+Path.ReloadOnTrigger,            config_parse_bool,                  0,                             offsetof(Path, reload_on_trigger)
 m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Slice)m4_dnl
 m4_dnl

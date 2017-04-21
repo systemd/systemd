@@ -464,6 +464,7 @@ static void path_enter_running(Path *p) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         Unit *trigger;
         int r;
+        JobType type = JOB_START;
 
         assert(p);
 
@@ -478,7 +479,10 @@ static void path_enter_running(Path *p) {
                 return;
         }
 
-        r = manager_add_job(UNIT(p)->manager, JOB_START, trigger, JOB_REPLACE, &error, NULL);
+        if (p->reload_on_trigger)
+                type = JOB_RELOAD_OR_START;
+
+        r = manager_add_job(UNIT(p)->manager, type, trigger, JOB_REPLACE, &error, NULL);
         if (r < 0)
                 goto fail;
 
