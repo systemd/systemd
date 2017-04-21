@@ -30,7 +30,7 @@
 #include "timesyncd-manager.h"
 #include "user-util.h"
 
-static int load_clock_timestamp(uid_t uid, gid_t gid) {
+static int load_clock_timestamp(uid_t uid, gid_t gid, bool local_rtc) {
         _cleanup_close_ int fd = -1;
         usec_t min = TIME_EPOCH * USEC_PER_SEC;
         usec_t ct;
@@ -68,6 +68,7 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
         ct = now(CLOCK_REALTIME);
         if (ct < min) {
                 struct timespec ts;
+                struct tm* tm;
                 char date[FORMAT_TIMESTAMP_MAX];
 
                 log_info("System clock time unset or jumped backwards, restoring from recorded timestamp: %s",
@@ -75,6 +76,13 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
 
                 if (clock_settime(CLOCK_REALTIME, timespec_store(&ts, min)) < 0)
                         log_error_errno(errno, "Failed to restore system clock: %m");
+
+                if (local_rtc)
+                        tm = localtime(&ts.tv_sec);
+                else
+                        tm = gmtime(&ts.tv_sec);
+
+                clock_set_hwclock(tm);
         }
 
         return 0;
@@ -83,6 +91,7 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
 int main(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         const char *user = "systemd-timesync";
+        bool local_rtc;
         uid_t uid;
         gid_t gid;
         int r;
@@ -106,7 +115,8 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = load_clock_timestamp(uid, gid);
+        local_rtc = clock_is_localtime(NULL) > 0;
+        r = load_clock_timestamp(uid, gid, local_rtc);
         if (r < 0)
                 goto finish;
 
@@ -122,7 +132,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (clock_is_localtime(NULL) > 0) {
+        if (local_rtc) {
                 log_info("The system is configured to read the RTC time in the local time zone. "
                          "This mode can not be fully supported. All system time to RTC updates are disabled.");
                 m->rtc_local_time = true;
