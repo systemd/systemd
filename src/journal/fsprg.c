@@ -40,6 +40,9 @@
 #define RND_GEN_Q 0x02
 #define RND_GEN_X 0x03
 
+#pragma GCC diagnostic ignored "-Wpointer-arith"
+/* TODO: remove void* arithmetic and this work-around */
+
 /******************************************************************************/
 
 static void mpi_export(void *buf, size_t buflen, const gcry_mpi_t x) {
