@@ -800,12 +800,11 @@ log:
         if (journald_crash) {
                 /* We cannot log to the journal, so just print the MESSAGE.
                  * The target was set previously to something safe. */
-                log_struct(LOG_ERR, core_message, NULL);
+                log_dispatch(LOG_ERR, 0, core_message);
                 return 0;
         }
 
-        if (core_message)
-                IOVEC_SET_STRING(iovec[n_iovec++], core_message);
+        IOVEC_SET_STRING(iovec[n_iovec++], core_message);
 
         if (truncated)
                 IOVEC_SET_STRING(iovec[n_iovec++], "COREDUMP_TRUNCATED=1");

@@ -2693,7 +2693,6 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                 log_struct(f == SERVICE_SUCCESS ? LOG_DEBUG :
                            (code == CLD_EXITED ? LOG_NOTICE : LOG_WARNING),
-                           LOG_UNIT_ID(u),
                            LOG_UNIT_MESSAGE(u, "Main process exited, code=%s, status=%i/%s",
                                             sigchld_code_to_string(code), status,
                                             strna(code == CLD_EXITED
@@ -2701,6 +2700,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                                   : signal_to_string(status))),
                            "EXIT_CODE=%s", sigchld_code_to_string(code),
                            "EXIT_STATUS=%i", status,
+                           LOG_UNIT_ID(u),
                            NULL);
 
                 if (s->result == SERVICE_SUCCESS)

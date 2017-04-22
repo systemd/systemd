@@ -2887,9 +2887,9 @@ static int exec_child(
                 if (line) {
                         log_open();
                         log_struct(LOG_DEBUG,
-                                   LOG_UNIT_ID(unit),
                                    "EXECUTABLE=%s", command->path,
                                    LOG_UNIT_MESSAGE(unit, "Executing: %s", line),
+                                   LOG_UNIT_ID(unit),
                                    NULL);
                         log_close();
                 }
@@ -2953,9 +2953,9 @@ int exec_spawn(Unit *unit,
                 return log_oom();
 
         log_struct(LOG_DEBUG,
-                   LOG_UNIT_ID(unit),
                    LOG_UNIT_MESSAGE(unit, "About to execute: %s", line),
                    "EXECUTABLE=%s", command->path,
+                   LOG_UNIT_ID(unit),
                    NULL);
         pid = fork();
         if (pid < 0)

@@ -75,6 +75,18 @@ void log_close_console(void);
 
 void log_parse_environment(void);
 
+int log_dispatch_internal(
+                int level,
+                int error,
+                const char *file,
+                int line,
+                const char *func,
+                const char *object_field,
+                const char *object,
+                const char *extra,
+                const char *extra_field,
+                char *buffer);
+
 int log_internal(
                 int level,
                 int error,
@@ -115,7 +127,7 @@ int log_object_internalv(
                 const char *extra_field,
                 const char *extra,
                 const char *format,
-                va_list ap) _printf_(9,0);
+                va_list ap) _printf_(10,0);
 
 int log_struct_internal(
                 int level,
@@ -137,7 +149,7 @@ int log_format_iovec(
                 bool newline_separator,
                 int error,
                 const char *format,
-                va_list ap);
+                va_list ap) _printf_(6, 0);
 
 /* This modifies the buffer passed! */
 int log_dump_internal(
@@ -166,6 +178,9 @@ void log_assert_failed_return(
                 const char *file,
                 int line,
                 const char *func);
+
+#define log_dispatch(level, error, buffer)                              \
+        log_dispatch_internal(level, error, __FILE__, __LINE__, __func__, NULL, NULL, NULL, NULL, buffer)
 
 /* Logging with level */
 #define log_full_errno(level, error, ...)                               \
