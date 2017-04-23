@@ -1384,7 +1384,7 @@ WantedBy=multi-user.target</programlisting>
       ordered appropriately (<varname>After=</varname>). Thirdly, in
       order to harden the service a bit more, the administrator would
       like to set the <varname>PrivateTmp=</varname> setting (see
-      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       for details). And lastly, the administrator would like to reset
       the niceness of the service to its default value of 0.</para>
 
