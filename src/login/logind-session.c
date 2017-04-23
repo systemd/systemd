@@ -338,6 +338,7 @@ int session_load(Session *s) {
                            "VTNR",           &vtnr,
                            "STATE",          &state,
                            "POSITION",       &position,
+                           "POS",            &position, /* for upgrades from systemd <= 222 */
                            "LEADER",         &leader,
                            "TYPE",           &type,
                            "CLASS",          &class,
