@@ -87,7 +87,7 @@
           recommended to be a UUID-compatible ID, but this is not
           enforced, and formatted differently. Developers can generate
           a new ID for this purpose with <command>journalctl
-          <option>--new-id</option></command>.
+          <option>--new-id128</option></command>.
           </para>
         </listitem>
       </varlistentry>
