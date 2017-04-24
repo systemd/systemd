@@ -1,4 +1,4 @@
 #!/bin/sh -eu
 
 $1 -dM -include errno.h - </dev/null | \
-    awk '/^#define[ \t]+E[^ _]+[ \t]+/ { print $2; }'
+        awk '/^#define[ \t]+E[^ _]+[ \t]+/ { print $2; }'
