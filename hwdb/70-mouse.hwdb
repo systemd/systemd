@@ -248,7 +248,7 @@ mouse:usb:v093ap2510:name:PIXART USB OPTICAL MOUSE:
 ##########################################
 
 # IBM USB Travel Mouse (MO32BO)
-mouse:usb:v04b3p3107:name:HID 04b3:3107:
+mouse:usb:v04b3p3107:name:*
  MOUSE_DPI=800@125
 
 ##########################################
