@@ -17,6 +17,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <linux/icmpv6.h>
+
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "in-addr-util.h"
@@ -975,6 +977,35 @@ int config_parse_gateway_onlink(const char *unit,
                 n->flags |= RTNH_F_ONLINK;
         else
                 n->flags &= ~RTNH_F_ONLINK;
+        n = NULL;
+
+        return 0;
+}
+
+int config_parse_ipv6_route_preference(const char *unit,
+                                       const char *filename,
+                                       unsigned line,
+                                       const char *section,
+                                       unsigned section_line,
+                                       const char *lvalue,
+                                       int ltype,
+                                       const char *rvalue,
+                                       void *data,
+                                       void *userdata) {
+        Network *network = userdata;
+        _cleanup_route_free_ Route *n = NULL;
+        int r;
+
+        if (streq(rvalue, "low"))
+                n->pref = ICMPV6_ROUTER_PREF_LOW;
+        else if (streq(rvalue, "medium"))
+                n->pref = ICMPV6_ROUTER_PREF_MEDIUM;
+        else if (streq(rvalue, "high"))
+                n->pref = ICMPV6_ROUTER_PREF_HIGH;
+        else {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Unknown route preference: %s", rvalue);
+                return 0;
+        }
 
         n = NULL;
 

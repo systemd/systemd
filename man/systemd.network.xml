@@ -842,6 +842,16 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>IPv6Preference=</varname></term>
+          <listitem>
+            <para>Specifies the route preference as defined in <ulink
+            url="https://tools.ietf.org/html/rfc4191">RFC4191</ulink> for Router Discovery messages.
+            Which can be one of <literal>low</literal> the route has a lowest priority,
+            <literal>medium</literal> the route has a default priority or
+            <literal>high</literal> the route has a highest priority.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Scope=</varname></term>
           <listitem>
             <para>The scope of the route, which can be <literal>global</literal>,
