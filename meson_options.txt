@@ -45,6 +45,8 @@ option('resolve', type : 'boolean',
        description : 'systemd-resolved stack')
 option('efi', type : 'boolean',
        description : 'enable systemd-boot and bootctl')
+option('tpm', type : 'boolean', value : false,
+       description : 'TPM should be used to log events and extend the registers')
 option('environment-d', type : 'boolean',
        description : 'support for environment.d')
 option('binfmt', type : 'boolean',
@@ -230,6 +232,8 @@ option('efi-ldsdir', type : 'string',
        description : 'path to the EFI lds directory')
 option('efi-includedir', type : 'string', value : '/usr/include/efi',
        description : 'path to the EFI header directory')
+option('tpm-pcrindex', type : 'string', value : '8',
+       description : 'TPM PCR register number to use')
 
 option('bashcompletiondir', type : 'string',
        description : 'directory for bash completion scripts ["no" disables]')
