@@ -303,6 +303,21 @@ foreach arg : ['-Wl,-z,relro',
         endif
 endforeach
 
+if get_option('buildtype') != 'debug'
+        foreach arg : ['-ffunction-sections',
+                       '-fdata-sections']
+                if cc.has_argument(arg)
+                        add_project_arguments(arg, language : 'c')
+                endif
+        endforeach
+
+        foreach arg : ['-Wl,--gc-sections']
+                if cc.has_argument(arg)
+                        add_project_link_arguments(arg, language : 'c')
+                endif
+        endforeach
+endif
+
 cpp = ' '.join(cc.cmd_array()) + ' -E'
 
 #####################################################################
