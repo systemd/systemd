@@ -168,7 +168,7 @@ option('selinux', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'SELinux support')
 option('apparmor', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'AppArmor support')
-option('smack', type : 'combo', choices : ['auto', 'true', 'false'],
+option('smack', type : 'boolean',
        description : 'SMACK support')
 option('smack-run-label', type : 'string',
        description : 'run systemd --system itself with a specific SMACK label')

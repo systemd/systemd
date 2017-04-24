@@ -642,18 +642,6 @@ else
         libapparmor = []
 endif
 
-want_smack = get_option('smack')
-if want_smack != 'false'
-        libsmack = dependency('libsmack',
-                              required : want_smack == 'true')
-        if libsmack.found()
-                conf.set('HAVE_SMACK', 1)
-                m4_defines += ['-DHAVE_SMACK']
-        endif
-else
-        libsmack = []
-endif
-
 smack_run_label = get_option('smack-run-label')
 if smack_run_label != ''
         conf.set_quoted('SMACK_RUN_LABEL', smack_run_label)
@@ -988,6 +976,7 @@ foreach pair : [['utmp',          'HAVE_UTMP'],
                 ['efi',           'ENABLE_EFI'],
                 ['tpm',           'SD_BOOT_LOG_TPM'],
                 ['ima',           'HAVE_IMA'],
+                ['smack',         'HAVE_SMACK'],
                ]
 
         if get_option(pair[0])
