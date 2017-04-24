@@ -1162,6 +1162,8 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool switching
 static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
         struct rlimit nl;
         int r;
+        int min_max;
+        _cleanup_free_ char *nr_open = NULL;
 
         assert(saved_rlimit);
 
@@ -1182,8 +1184,16 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
                 arg_default_rlimit[RLIMIT_NOFILE] = rl;
         }
 
+        /* Get current RLIMIT_NOFILE maximum compiled into the kernel. */
+        r = read_one_line_file("/proc/sys/fs/nr_open", &nr_open);
+        if (r == 0)
+                r = safe_atoi(nr_open, &min_max);
+        /* If we fail, fallback to the hard-coded kernel limit of 1024 * 1024. */
+        if (r < 0)
+                min_max = 1024 * 1024;
+
         /* Bump up the resource limit for ourselves substantially */
-        nl.rlim_cur = nl.rlim_max = 64*1024;
+        nl.rlim_cur = nl.rlim_max = min_max;
         r = setrlimit_closest(RLIMIT_NOFILE, &nl);
         if (r < 0)
                 return log_warning_errno(r, "Setting RLIMIT_NOFILE failed, ignoring: %m");
