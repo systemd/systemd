@@ -156,7 +156,9 @@
         <listitem>
           <para>The process, user, and group ID of the process the
           journal entry originates from formatted as a decimal
-          string.</para>
+          string. Note that entries obtained via <literal>stdout</literal> or
+          <literal>stderr</literal> of forked processes will contain credentials valid for a parent
+          process (that initiated the connection to <command>systemd-journald</command>).</para>
         </listitem>
       </varlistentry>
 
