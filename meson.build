@@ -2321,3 +2321,22 @@ if git.found()
                 'git-contrib',
                 command : [meson_git_contrib_sh])
 endif
+
+if git.found()
+        git_head = run_command(
+                git,
+                ['--git-dir=@0@/.git'.format(meson.source_root()),
+                 'rev-parse', 'HEAD']).stdout().strip()
+        git_head_short = run_command(
+                git,
+                ['--git-dir=@0@/.git'.format(meson.source_root()),
+                 'rev-parse', '--short=7', 'HEAD']).stdout().strip()
+
+        run_target(
+                'git-snapshot',
+                command : ['git', 'archive',
+                           '-o', '@0@/systemd-@1@.tar.gz'.format(meson.source_root(),
+                                                                 git_head_short),
+                           '--prefix', 'systemd-@0@/'.format(git_head),
+                           'HEAD'])
+endif
