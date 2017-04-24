@@ -74,7 +74,7 @@ tests += [
           libselinux,
           libmount,
           libblkid],
-         '', 'unsafe'],
+         '', 'manual'],
 
         [['src/test/test-loopback.c'],
          [libcore,
