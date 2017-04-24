@@ -5946,7 +5946,8 @@ EXTRA_DIST += \
 	src/network/systemd-networkd.pkla \
 	units/systemd-networkd.service.m4.in \
 	units/systemd-networkd-wait-online.service.in \
-	test/networkd-test.py
+	test/networkd-test.py \
+	test/test-exec-deserialization.py
 
 # ------------------------------------------------------------------------------
 if ENABLE_LOGIND
