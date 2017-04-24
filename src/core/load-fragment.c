@@ -3907,6 +3907,7 @@ int config_parse_bind_paths(
                 void *userdata) {
 
         ExecContext *c = data;
+        Unit *u = userdata;
         const char *p;
         int r;
 
@@ -3926,6 +3927,7 @@ int config_parse_bind_paths(
         p = rvalue;
         for (;;) {
                 _cleanup_free_ char *source = NULL, *destination = NULL;
+                _cleanup_free_ char *sresolved = NULL, *dresolved = NULL;
                 char *s = NULL, *d = NULL;
                 bool rbind = true, ignore_enoent = false;
 
@@ -3939,7 +3941,14 @@ int config_parse_bind_paths(
                         return 0;
                 }
 
-                s = source;
+                r = unit_full_printf(u, source, &sresolved);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to resolved specifiers in \"%s\", ignoring: %m", source);
+                        return 0;
+                }
+
+                s = sresolved;
                 if (s[0] == '-') {
                         ignore_enoent = true;
                         s++;
@@ -3970,16 +3979,23 @@ int config_parse_bind_paths(
                                 return 0;
                         }
 
-                        if (!utf8_is_valid(destination)) {
-                                log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, destination);
-                                return 0;
-                        }
-                        if (!path_is_absolute(destination)) {
-                                log_syntax(unit, LOG_ERR, filename, line, 0, "Not an absolute destination path, ignoring: %s", destination);
+                        r = unit_full_printf(u, destination, &dresolved);
+                        if (r < 0) {
+                                log_syntax(unit, LOG_ERR, filename, line, r,
+                                           "Failed to resolved specifiers in \"%s\", ignoring: %m", destination);
                                 return 0;
                         }
 
-                        d = path_kill_slashes(destination);
+                        if (!utf8_is_valid(dresolved)) {
+                                log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, dresolved);
+                                return 0;
+                        }
+                        if (!path_is_absolute(dresolved)) {
+                                log_syntax(unit, LOG_ERR, filename, line, 0, "Not an absolute destination path, ignoring: %s", dresolved);
+                                return 0;
+                        }
+
+                        d = path_kill_slashes(dresolved);
 
                         /* Optionally, there's also a short option string specified */
                         if (p && p[-1] == ':') {
