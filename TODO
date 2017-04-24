@@ -24,6 +24,11 @@ Janitorial Clean-ups:
 
 Features:
 
+* add some optional flag to ReadWritePaths= and friends, that has the effect
+  that we create the dir in question when the service is started. Example:
+
+  ReadWritePaths=:/var/lib/foobar
+
 * sort generated hwdb files alphabetically when we import them, so that git
   diffs remain minimal (in particular: the OUI databases we import are not
   sorted, and not stable)
