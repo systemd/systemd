@@ -75,6 +75,7 @@ static usec_t arg_delay = 1*USEC_PER_SEC;
 static char* arg_machine = NULL;
 static char* arg_root = NULL;
 static bool arg_recursive = true;
+static bool arg_recursive_unset = false;
 
 static enum {
         COUNT_PIDS,
@@ -732,7 +733,6 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        bool recursive_unset = false;
         int c, r;
 
         assert(argc >= 1);
@@ -852,7 +852,7 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         arg_recursive = r;
-                        recursive_unset = r == 0;
+                        arg_recursive_unset = r == 0;
                         break;
 
                 case 'M':
@@ -870,11 +870,6 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_root = argv[optind];
         else if (optind < argc) {
                 log_error("Too many arguments.");
-                return -EINVAL;
-        }
-
-        if (recursive_unset && arg_count == COUNT_PIDS) {
-                log_error("Non-recursive counting is only supported when counting processes, not tasks. Use -P or -k.");
                 return -EINVAL;
         }
 
@@ -902,6 +897,10 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                goto finish;
+
         r = cg_mask_supported(&mask);
         if (r < 0) {
                 log_error_errno(r, "Failed to determine supported controllers: %m");
@@ -910,9 +909,10 @@ int main(int argc, char *argv[]) {
 
         arg_count = (mask & CGROUP_MASK_PIDS) ? COUNT_PIDS : COUNT_USERSPACE_PROCESSES;
 
-        r = parse_argv(argc, argv);
-        if (r <= 0)
-                goto finish;
+        if (arg_recursive_unset && arg_count == COUNT_PIDS) {
+                log_error("Non-recursive counting is only supported when counting processes, not tasks. Use -P or -k.");
+                return -EINVAL;
+        }
 
         r = show_cgroup_get_path_and_warn(arg_machine, arg_root, &root);
         if (r < 0) {
