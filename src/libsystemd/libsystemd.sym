@@ -517,3 +517,8 @@ global:
         sd_id128_get_machine_app_specific;
         sd_is_socket_sockaddr;
 } LIBSYSTEMD_232;
+
+LIBSYSTEMD_234 {
+global:
+        sd_bus_message_appendv;
+} LIBSYSTEMD_233;

@@ -326,6 +326,7 @@ MANPAGES_ALIAS += \
 	man/sd_bus_message_append_array_space.3 \
 	man/sd_bus_message_append_string_iovec.3 \
 	man/sd_bus_message_append_string_space.3 \
+	man/sd_bus_message_appendv.3 \
 	man/sd_bus_message_get_realtime_usec.3 \
 	man/sd_bus_message_get_reply_cookie.3 \
 	man/sd_bus_message_get_seqnum.3 \
@@ -685,6 +686,7 @@ man/sd_bus_message_append_array_memfd.3: man/sd_bus_message_append_array.3
 man/sd_bus_message_append_array_space.3: man/sd_bus_message_append_array.3
 man/sd_bus_message_append_string_iovec.3: man/sd_bus_message_append_string_memfd.3
 man/sd_bus_message_append_string_space.3: man/sd_bus_message_append_string_memfd.3
+man/sd_bus_message_appendv.3: man/sd_bus_message_append.3
 man/sd_bus_message_get_realtime_usec.3: man/sd_bus_message_get_monotonic_usec.3
 man/sd_bus_message_get_reply_cookie.3: man/sd_bus_message_get_cookie.3
 man/sd_bus_message_get_seqnum.3: man/sd_bus_message_get_monotonic_usec.3
@@ -1320,6 +1322,9 @@ man/sd_bus_message_append_string_iovec.html: man/sd_bus_message_append_string_me
 	$(html-alias)
 
 man/sd_bus_message_append_string_space.html: man/sd_bus_message_append_string_memfd.html
+	$(html-alias)
+
+man/sd_bus_message_appendv.html: man/sd_bus_message_append.html
 	$(html-alias)
 
 man/sd_bus_message_get_realtime_usec.html: man/sd_bus_message_get_monotonic_usec.html
@@ -2597,16 +2602,6 @@ man/sd_uid_is_on_seat.html: man/sd_uid_get_state.html
 
 man/systemd-user-sessions.html: man/systemd-user-sessions.service.html
 	$(html-alias)
-
-endif
-
-if HAVE_PYTHON
-MANPAGES += \
-	man/systemd.directives.7 \
-	man/systemd.index.7
-MANPAGES_ALIAS += \
-	#
-
 
 endif
 

@@ -48,7 +48,7 @@ _public_ int sd_bus_emit_signal(
                 va_list ap;
 
                 va_start(ap, types);
-                r = bus_message_append_ap(m, types, ap);
+                r = sd_bus_message_appendv(m, types, ap);
                 va_end(ap);
                 if (r < 0)
                         return r;
@@ -85,7 +85,7 @@ _public_ int sd_bus_call_method_async(
                 va_list ap;
 
                 va_start(ap, types);
-                r = bus_message_append_ap(m, types, ap);
+                r = sd_bus_message_appendv(m, types, ap);
                 va_end(ap);
                 if (r < 0)
                         return r;
@@ -123,7 +123,7 @@ _public_ int sd_bus_call_method(
                 va_list ap;
 
                 va_start(ap, types);
-                r = bus_message_append_ap(m, types, ap);
+                r = sd_bus_message_appendv(m, types, ap);
                 va_end(ap);
                 if (r < 0)
                         goto fail;
@@ -162,7 +162,7 @@ _public_ int sd_bus_reply_method_return(
                 va_list ap;
 
                 va_start(ap, types);
-                r = bus_message_append_ap(m, types, ap);
+                r = sd_bus_message_appendv(m, types, ap);
                 va_end(ap);
                 if (r < 0)
                         return r;
@@ -493,7 +493,7 @@ _public_ int sd_bus_set_property(
                 goto fail;
 
         va_start(ap, type);
-        r = bus_message_append_ap(m, type, ap);
+        r = sd_bus_message_appendv(m, type, ap);
         va_end(ap);
         if (r < 0)
                 goto fail;

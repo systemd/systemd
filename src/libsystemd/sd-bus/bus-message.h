@@ -220,8 +220,6 @@ int bus_message_from_malloc(
 int bus_message_get_arg(sd_bus_message *m, unsigned i, const char **str);
 int bus_message_get_arg_strv(sd_bus_message *m, unsigned i, char ***strv);
 
-int bus_message_append_ap(sd_bus_message *m, const char *types, va_list ap);
-
 int bus_message_parse_fields(sd_bus_message *m);
 
 struct bus_body_part *message_append_part(sd_bus_message *m);

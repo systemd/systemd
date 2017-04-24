@@ -2341,7 +2341,7 @@ static int type_stack_pop(TypeStack *stack, unsigned max, unsigned *i, const cha
         return 1;
 }
 
-int bus_message_append_ap(
+_public_ int sd_bus_message_appendv(
                 sd_bus_message *m,
                 const char *types,
                 va_list ap) {
@@ -2351,10 +2351,10 @@ int bus_message_append_ap(
         unsigned stack_ptr = 0;
         int r;
 
-        assert(m);
-
-        if (!types)
-                return 0;
+        assert_return(m, -EINVAL);
+        assert_return(types, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(!m->poisoned, -ESTALE);
 
         n_array = (unsigned) -1;
         n_struct = strlen(types);
@@ -2555,7 +2555,7 @@ _public_ int sd_bus_message_append(sd_bus_message *m, const char *types, ...) {
         assert_return(!m->poisoned, -ESTALE);
 
         va_start(ap, types);
-        r = bus_message_append_ap(m, types, ap);
+        r = sd_bus_message_appendv(m, types, ap);
         va_end(ap);
 
         return r;

@@ -45,6 +45,7 @@
 
   <refnamediv>
     <refname>sd_bus_message_append</refname>
+    <refname>sd_bus_message_appendv</refname>
 
     <refpurpose>Attach fields to a D-Bus message based on a type
     string</refpurpose>
@@ -60,6 +61,14 @@
         <paramdef>const char *<parameter>types</parameter></paramdef>
         <paramdef>…</paramdef>
       </funcprototype>
+
+      <funcprototype>
+          <funcdef>int sd_bus_message_appendv</funcdef>
+          <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+          <paramdef>const char *<parameter>types</parameter></paramdef>
+          <paramdef>va_list <parameter>ap</parameter></paramdef>
+      </funcprototype>
+
     </funcsynopsis>
   </refsynopsisdiv>
 
@@ -108,6 +117,14 @@
     with the number of dictionary entries, followed by a pair of
     values for each entry matching the element type of
     the dictionary entries.</para>
+
+    <para>The <function>sd_bus_message_appendv()</function> is equivalent to
+    the function <function>sd_bus_message_append()</function>,
+    except that it is called with a <literal>va_list</literal> instead of
+    a variable number of arguments. This function does not call the
+    <function>va_end()</function> macro. Because it invokes the
+    <function>va_arg()</function> macro, the value of ap
+    is undefined after the call.</para>
 
     <para>For further details on the D-Bus type system, please consult
     the <ulink
@@ -238,8 +255,8 @@ sd_bus_message_append(m, "ynqiuxtd", y, n, q, i, u, x, t, d);</programlisting>
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, this call returns 0 or a positive
-    integer. On failure, this call returns a negative
+    <para>On success, these functions return 0 or a positive
+    integer. On failure, these functions return a negative
     errno-style error code.</para>
   </refsect1>
 
