@@ -286,6 +286,19 @@ static const NLType rtnl_link_info_data_vrf_types[] = {
         [IFLA_VRF_TABLE]                 = { .type = NETLINK_TYPE_U32 },
 };
 
+static const NLType rtnl_link_info_data_geneve_types[] = {
+        [IFLA_GENEVE_ID]                = { .type = NETLINK_TYPE_U32 },
+        [IFLA_GENEVE_TTL]               = { .type = NETLINK_TYPE_U8 },
+        [IFLA_GENEVE_TOS]               = { .type = NETLINK_TYPE_U8 },
+        [IFLA_GENEVE_PORT]              = { .type = NETLINK_TYPE_U16 },
+        [IFLA_GENEVE_REMOTE]            = { .type = NETLINK_TYPE_IN_ADDR },
+        [IFLA_GENEVE_REMOTE6]           = { .type = NETLINK_TYPE_IN_ADDR },
+        [IFLA_GENEVE_UDP_CSUM]          = { .type = NETLINK_TYPE_U8 },
+        [IFLA_GENEVE_UDP_ZERO_CSUM6_TX] = { .type = NETLINK_TYPE_U8 },
+        [IFLA_GENEVE_UDP_ZERO_CSUM6_RX] = { .type = NETLINK_TYPE_U8 },
+        [IFLA_GENEVE_LABEL]             = { .type = NETLINK_TYPE_U32 },
+};
+
 /* these strings must match the .kind entries in the kernel */
 static const char* const nl_union_link_info_data_table[] = {
         [NL_UNION_LINK_INFO_DATA_BOND] = "bond",
@@ -308,6 +321,7 @@ static const char* const nl_union_link_info_data_table[] = {
         [NL_UNION_LINK_INFO_DATA_IP6TNL_TUNNEL] = "ip6tnl",
         [NL_UNION_LINK_INFO_DATA_VRF] = "vrf",
         [NL_UNION_LINK_INFO_DATA_VCAN] = "vcan",
+        [NL_UNION_LINK_INFO_DATA_GENEVE] = "geneve",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(nl_union_link_info_data, NLUnionLinkInfoData);
@@ -349,6 +363,8 @@ static const NLTypeSystem rtnl_link_info_data_type_systems[] = {
                                                        .types = rtnl_link_info_data_ip6tnl_types },
         [NL_UNION_LINK_INFO_DATA_VRF] =              { .count = ELEMENTSOF(rtnl_link_info_data_vrf_types),
                                                        .types = rtnl_link_info_data_vrf_types },
+        [NL_UNION_LINK_INFO_DATA_GENEVE] =           { .count = ELEMENTSOF(rtnl_link_info_data_geneve_types),
+                                                       .types = rtnl_link_info_data_geneve_types },
 };
 
 static const NLTypeSystemUnion rtnl_link_info_data_type_system_union = {

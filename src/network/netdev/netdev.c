@@ -35,6 +35,7 @@
 
 #include "netdev/bridge.h"
 #include "netdev/bond.h"
+#include "netdev/geneve.h"
 #include "netdev/vlan.h"
 #include "netdev/macvlan.h"
 #include "netdev/ipvlan.h"
@@ -69,6 +70,7 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_IP6TNL] = &ip6tnl_vtable,
         [NETDEV_KIND_VRF] = &vrf_vtable,
         [NETDEV_KIND_VCAN] = &vcan_vtable,
+        [NETDEV_KIND_GENEVE] = &geneve_vtable,
 };
 
 static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
@@ -94,6 +96,7 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_IP6TNL] = "ip6tnl",
         [NETDEV_KIND_VRF] = "vrf",
         [NETDEV_KIND_VCAN] = "vcan",
+        [NETDEV_KIND_GENEVE] = "geneve",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
