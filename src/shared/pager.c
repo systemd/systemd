@@ -176,11 +176,11 @@ void pager_close(void) {
 
         /* Inform pager that we are done */
         (void) fflush(stdout);
-        if (stdout_redirected && (stored_stdout < 0 || dup2(stored_stdout, STDOUT_FILENO)) < 0)
+        if (stdout_redirected && ((stored_stdout < 0) || (dup2(stored_stdout, STDOUT_FILENO) < 0)))
                 (void) close(STDOUT_FILENO);
         stored_stdout = safe_close(stored_stdout);
         (void) fflush(stderr);
-        if (stderr_redirected && (stored_stderr < 0 || dup2(stored_stderr, STDERR_FILENO)) < 0)
+        if (stderr_redirected && ((stored_stderr < 0) || (dup2(stored_stderr, STDERR_FILENO) < 0)))
                 (void) close(STDERR_FILENO);
         stored_stderr = safe_close(stored_stderr);
         stdout_redirected = stderr_redirected = false;
