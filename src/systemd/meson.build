@@ -47,7 +47,7 @@ foreach header : _systemd_headers
                 name = ''.join([header] + opt)
                 test('cc-' + name,
                      check_compilation_sh,
-                     args : cc.cmd_array() + ['-x', 'c'] + opt +
+                     args : cc.cmd_array() + ['-x', 'c', '-c'] + opt +
                             ['-Werror', '-include',
                              join_paths(meson.current_source_dir(), header)])
         endforeach

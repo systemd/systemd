@@ -222,6 +222,7 @@ substs.set('RC_LOCAL_SCRIPT_PATH_STOP',                       get_option('halt-l
 
 cc = meson.get_compiler('c')
 pkgconfig = import('pkgconfig')
+check_compilation_sh = find_program('tools/meson-check-compilation.sh')
 
 foreach arg : ['-Wundef',
                '-Wlogical-op',
@@ -291,6 +292,8 @@ if cc.get_id() == 'clang'
         endforeach
 endif
 
+link_test_c = files('tools/meson-link-test.c')
+
 # --as-needed and --no-undefined are provided by meson by default,
 # run mesonconf to see what is enabled
 foreach arg : ['-Wl,-z,relro',
@@ -298,7 +301,12 @@ foreach arg : ['-Wl,-z,relro',
                '-pie',
                '-Wl,-fuse-ld=gold',
               ]
-        if cc.has_argument(arg)
+
+        have = run_command(check_compilation_sh,
+                           cc.cmd_array(), '-x', 'c', arg,
+                           '-include', link_test_c).returncode() == 0
+        message('Linking with @0@ supported: @1@'.format(arg, have ? 'yes' : 'no'))
+        if have
                 add_project_link_arguments(arg, language : 'c')
         endif
 endforeach
@@ -312,7 +320,11 @@ if get_option('buildtype') != 'debug'
         endforeach
 
         foreach arg : ['-Wl,--gc-sections']
-                if cc.has_argument(arg)
+                have = run_command(check_compilation_sh,
+                                   cc.cmd_array(), '-x', 'c', arg,
+                                   '-include', link_test_c).returncode() == 0
+                message('Linking with @0@ supported: @1@'.format(arg, have ? 'yes' : 'no'))
+                if have
                         add_project_link_arguments(arg, language : 'c')
                 endif
         endforeach
@@ -429,7 +441,6 @@ etags = find_program('etags', required : false)
 
 meson_make_symlink = meson.source_root() + '/tools/meson-make-symlink.sh'
 mkdir_p = 'mkdir -p $DESTDIR/@0@'
-check_compilation_sh = find_program('tools/meson-check-compilation.sh')
 test_efi_create_disk_sh = find_program('test/test-efi-create-disk.sh')
 splash_bmp = files('test/splash.bmp')
 
