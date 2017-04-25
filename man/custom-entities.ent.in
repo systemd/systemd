@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!ENTITY MOUNT_PATH @MOUNT_PATH@>
+<!ENTITY UMOUNT_PATH @UMOUNT_PATH@>
+<!ENTITY systemgeneratordir @SYSTEM_GENERATOR_PATH@>
+<!ENTITY usergeneratordir @USER_GENERATOR_PATH@>
+<!ENTITY systemenvgeneratordir @SYSTEM_ENV_GENERATOR_PATH@>
+<!ENTITY userenvgeneratordir @USER_ENV_GENERATOR_PATH@>

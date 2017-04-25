@@ -156,21 +156,47 @@ REQUIREMENTS:
         dracut (optional)
         PolicyKit (optional)
 
-        When building from git, the following tools are needed:
+        Two build systems are supported: meson + ninja-build and autools + make.
+
+        The following tools are needed with both systems:
 
         pkg-config
-        docbook-xsl
-        xsltproc
+        gperf >= 3.1
+        docbook-xsl (optional, required for documentation)
+        xsltproc    (optional, required for documentation)
+        python-lxml (optional, required to build the indices)
+
+        When building with meson, python and ninja-build are required.
+
+        To build in directory build/:
+          meson build/ && ninja -C build
+
+        Any configuration options can be specfied as -Darg=value... arguments
+        to meson. After the build directory is initially configured, meson will
+        refuse to run again, and options must be changed with:
+          mesonconf -Darg=value...
+        mesonconf without any arguments will print out available options and
+        their current values.
+
+        Useful commands:
+          ninja -v some/target
+          ninja test
+          sudo ninja install
+          DESTDIR=... ninja install
+
+        When building with autotools, the following tools are needed:
+
         automake
         autoconf
         libtool
         intltool
-        gperf >= 3.1
         python (optional)
-        python-lxml (optional, but required to build the indices)
 
-        The build system is initialized with ./autogen.sh. A tar ball
-        can be created with:
+        The build system is initialized with ./autogen.sh and the usual
+          ./configure && make
+        should be used.
+
+        A tar ball can be created with:
           git archive --format=tar --prefix=systemd-222/ v222 | xz > systemd-222.tar.xz
 
         When systemd-hostnamed is used, it is strongly recommended to

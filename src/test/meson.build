@@ -1,0 +1,895 @@
+awkscript = 'test-hashmap-ordered.awk'
+test_hashmap_ordered_c = custom_target(
+        'test-hashmap-ordered.c',
+        input : [awkscript, 'test-hashmap-plain.c'],
+        output : 'test-hashmap-ordered.c',
+        command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
+        capture : true)
+
+test_include_dir = include_directories('.')
+
+path = run_command('sh', ['-c', 'echo "$PATH"']).stdout()
+test_env = environment()
+test_env.set('SYSTEMD_KBD_MODEL_MAP', kbd_model_map)
+test_env.set('SYSTEMD_LANGUAGE_FALLBACK_MAP', language_fallback_map)
+test_env.set('PATH', path)
+test_env.prepend('PATH', meson.build_root())
+
+############################################################
+
+generate_sym_test_py = find_program('generate-sym-test.py')
+
+test_libsystemd_sym_c = custom_target(
+        'test-libsystemd-sym.c',
+        input : [libsystemd_sym_path] + systemd_headers,
+        output : 'test-libsystemd-sym.c',
+        command : [generate_sym_test_py, libsystemd_sym_path] + systemd_headers,
+        capture : true)
+
+test_libudev_sym_c = custom_target(
+        'test-libudev-sym.c',
+        input : [libudev_sym_path, libudev_h_path],
+        output : 'test-libudev-sym.c',
+        command : [generate_sym_test_py, '@INPUT0@', '@INPUT1@'],
+        capture : true)
+
+test_dlopen_c = files('test-dlopen.c')
+
+############################################################
+
+tests += [
+        [['src/test/test-device-nodes.c'],
+         [],
+         []],
+
+        [['src/test/test-engine.c'],
+         [libcore,
+          libudev,
+          libsystemd_internal],
+         [threads,
+          librt,
+          libseccomp,
+          libselinux,
+          libmount,
+          libblkid]],
+
+        [['src/test/test-job-type.c'],
+         [libcore,
+          libshared,
+          libudev],
+         [threads,
+          librt,
+          libseccomp,
+          libselinux,
+          libmount,
+          libblkid]],
+
+        [['src/test/test-ns.c'],
+         [libcore,
+          libshared,
+          libudev],
+         [threads,
+          librt,
+          libseccomp,
+          libselinux,
+          libmount,
+          libblkid],
+         '', 'manual'],
+
+        [['src/test/test-loopback.c'],
+         [libcore,
+          libshared],
+         [threads,
+          librt,
+          libseccomp,
+          libselinux,
+          libmount,
+          libblkid]],
+
+        [['src/test/test-hostname.c'],
+         [libcore,
+          libshared,
+          libudev],
+         [threads,
+          librt,
+          libseccomp,
+          libselinux,
+          libmount,
+          libblkid],
+         '', 'unsafe'],
+
+        [['src/test/test-dns-domain.c'],
+         [libcore,
+          libsystemd_network],
+         []],
+
+        [['src/test/test-boot-timestamps.c'],
+         [],
+         [],
+         'ENABLE_EFI'],
+
+        [['src/test/test-unit-name.c'],
+         [libcore,
+          libshared,
+          libudev],
+         [threads,
+          librt,
+          libseccomp,
+          libselinux,
+          libmount,
+          libblkid]],
+
+        [['src/test/test-unit-file.c'],
+         [libcore,
+          libshared,
+          libudev],
+         [threads,
+          librt,
+          libseccomp,
+          libselinux,
+          libmount,
+          libblkid]],
+
+        [['src/test/test-utf8.c'],
+         [],
+         []],
+
+        [['src/test/test-capability.c'],
+         [],
+         [libcap]],
+
+        [['src/test/test-async.c'],
+         [],
+         []],
+
+        [['src/test/test-locale-util.c'],
+         [],
+         []],
+
+        [['src/test/test-copy.c'],
+         [libshared_static],
+         []],
+
+        [['src/test/test-sigbus.c'],
+         [],
+         []],
+
+        [['src/test/test-condition.c'],
+         [],
+         []],
+
+        [['src/test/test-fdset.c'],
+         [],
+         []],
+
+        [['src/test/test-fstab-util.c'],
+         [],
+         []],
+
+        [['src/test/test-ratelimit.c'],
+         [],
+         []],
+
+        [['src/test/test-util.c'],
+         [],
+         []],
+
+        [['src/test/test-mount-util.c'],
+         [],
+         []],
+
+        [['src/test/test-exec-util.c'],
+         [],
+         []],
+
+        [['src/test/test-hexdecoct.c'],
+         [],
+         []],
+
+        [['src/test/test-alloc-util.c'],
+         [],
+         []],
+
+        [['src/test/test-xattr-util.c'],
+         [],
+         []],
+
+        [['src/test/test-io-util.c'],
+         [],
+         []],
+
+        [['src/test/test-glob-util.c'],
+         [],
+         []],
+
+        [['src/test/test-fs-util.c'],
+         [],
+         []],
+
+        [['src/test/test-proc-cmdline.c'],
+         [],
+         []],
+
+        [['src/test/test-fd-util.c'],
+         [],
+         []],
+
+        [['src/test/test-web-util.c'],
+         [],
+         []],
+
+        [['src/test/test-cpu-set-util.c'],
+         [],
+         []],
+
+        [['src/test/test-stat-util.c'],
+         [],
+         []],
+
+        [['src/test/test-escape.c'],
+         [],
+         []],
+
+        [['src/test/test-string-util.c'],
+         [],
+         []],
+
+        [['src/test/test-extract-word.c'],
+         [],
+         []],
+
+        [['src/test/test-parse-util.c'],
+         [],
+         []],
+
+        [['src/test/test-user-util.c'],
+         [],
+         []],
+
+        [['src/test/test-hostname-util.c'],
+         [],
+         []],
+
+        [['src/test/test-process-util.c'],
+         [],
+         []],
+
+        [['src/test/test-terminal-util.c'],
+         [],
+         []],
+
+        [['src/test/test-path-lookup.c'],
+         [],
+         []],
+
+        [['src/test/test-uid-range.c'],
+         [],
+         []],
+
+        [['src/test/test-cap-list.c',
+          generated_gperf_headers],
+         [],
+         [libcap]],
+
+        [['src/test/test-socket-util.c'],
+         [],
+         []],
+
+        [['src/test/test-barrier.c'],
+         [],
+         []],
+
+        [['src/test/test-tmpfiles.c'],
+         [],
+         []],
+
+        [['src/test/test-namespace.c'],
+         [libcore,
+          libshared,
+          libudev],
+         [threads,
+          libblkid]],
+
+        [['src/test/test-verbs.c'],
+         [],
+         []],
+
+        [['src/test/test-install-root.c'],
+         [],
+         []],
+
+        [['src/test/test-acl-util.c'],
+         [],
+         [],
+         'HAVE_ACL'],
+
+        [['src/test/test-seccomp.c'],
+         [],
+         [libseccomp],
+         'HAVE_SECCOMP'],
+
+        [['src/test/test-rlimit-util.c'],
+         [],
+         []],
+
+        [['src/test/test-ask-password-api.c'],
+         [],
+         [],
+         '', 'manual'],
+
+        [['src/test/test-dissect-image.c'],
+         [],
+         [libblkid],
+         '', 'manual'],
+
+        [['src/test/test-signal-util.c'],
+         [],
+         []],
+
+        [['src/test/test-selinux.c'],
+         [],
+         []],
+
+        [['src/test/test-sizeof.c'],
+         [libbasic],
+         []],
+
+        [['src/test/test-hashmap.c',
+          'src/test/test-hashmap-plain.c',
+          test_hashmap_ordered_c],
+         [],
+         [],
+         '', 'timeout=90'],
+
+        [['src/test/test-set.c'],
+         [],
+         []],
+
+        [['src/test/test-bitmap.c'],
+         [],
+         []],
+
+        [['src/test/test-xml.c'],
+         [],
+         []],
+
+        [['src/test/test-list.c'],
+         [],
+         []],
+
+        [['src/test/test-unaligned.c'],
+         [],
+         []],
+
+        [['src/test/test-tables.c',
+          'src/shared/test-tables.h',
+          'src/journal/journald-server.c',
+          'src/journal/journald-server.h'],
+         [libcore,
+          libjournal_core,
+          libudev_core,
+          libudev_internal,
+          libsystemd_network,
+          libshared],
+         [threads,
+          libseccomp,
+          libmount,
+          libxz,
+          liblz4,
+          libblkid],
+         '', '', [], libudev_core_includes],
+
+        [['src/test/test-prioq.c'],
+         [],
+         []],
+
+        [['src/test/test-fileio.c'],
+         [],
+         []],
+
+        [['src/test/test-time.c'],
+         [],
+         []],
+
+        [['src/test/test-clock.c'],
+         [],
+         []],
+
+        [['src/test/test-architecture.c'],
+         [],
+         []],
+
+        [['src/test/test-log.c'],
+         [],
+         []],
+
+        [['src/test/test-ipcrm.c'],
+         [],
+         [],
+         '', 'unsafe'],
+
+        [['src/test/test-btrfs.c'],
+         [],
+         [],
+         '', 'manual'],
+
+
+        [['src/test/test-firewall-util.c'],
+         [libfirewall,
+          libshared],
+         [],
+         'HAVE_LIBIPTC'],
+
+        [['src/test/test-netlink-manual.c'],
+         [],
+         [libkmod],
+         'HAVE_KMOD', 'manual'],
+
+        [['src/test/test-ellipsize.c'],
+         [],
+         []],
+
+        [['src/test/test-date.c'],
+         [],
+         []],
+
+        [['src/test/test-sleep.c'],
+         [],
+         []],
+
+        [['src/test/test-replace-var.c'],
+         [],
+         []],
+
+        [['src/test/test-calendarspec.c'],
+         [],
+         []],
+
+        [['src/test/test-strip-tab-ansi.c'],
+         [],
+         []],
+
+        [['src/test/test-daemon.c'],
+         [],
+         []],
+
+        [['src/test/test-cgroup.c'],
+         [],
+         [],
+         '', 'manual'],
+
+
+        [['src/test/test-cgroup-mask.c'],
+         [libcore,
+          libshared,
+          libudev],
+         [threads,
+          librt,
+          libseccomp,
+          libselinux,
+          libmount,
+          libblkid]],
+
+        [['src/test/test-cgroup-util.c'],
+         [],
+         []],
+
+        [['src/test/test-env-util.c'],
+         [],
+         []],
+
+        [['src/test/test-strbuf.c'],
+         [],
+         []],
+
+        [['src/test/test-strv.c'],
+         [],
+         []],
+
+        [['src/test/test-path-util.c'],
+         [],
+         []],
+
+        [['src/test/test-path.c'],
+         [libcore,
+          libshared,
+          libudev],
+         [threads,
+          librt,
+          libseccomp,
+          libselinux,
+          libmount,
+          libblkid]],
+
+        [['src/test/test-execute.c'],
+         [libcore,
+          libshared,
+          libudev],
+         [threads,
+          librt,
+          libseccomp,
+          libselinux,
+          libmount,
+          libblkid]],
+
+        [['src/test/test-siphash24.c'],
+         [],
+         []],
+
+        [['src/test/test-strxcpyx.c'],
+         [],
+         []],
+
+        [['src/test/test-install.c'],
+         [libcore,
+          libshared],
+         [],
+         '', 'manual'],
+
+        [['src/test/test-watchdog.c'],
+         [],
+         []],
+
+        [['src/test/test-sched-prio.c'],
+         [libcore,
+          libshared,
+          libudev],
+         [threads,
+          librt,
+          libseccomp,
+          libselinux,
+          libmount,
+          libblkid]],
+
+        [['src/test/test-conf-files.c'],
+         [],
+         []],
+
+        [['src/test/test-conf-parser.c'],
+         [],
+         []],
+
+        [['src/test/test-af-list.c',
+          generated_gperf_headers],
+         [],
+         []],
+
+        [['src/test/test-arphrd-list.c',
+          generated_gperf_headers],
+         [],
+         []],
+
+        [['src/test/test-journal-importer.c'],
+         [],
+         []],
+
+        [['src/test/test-libudev.c'],
+         [libshared,
+          libudev],
+         []],
+
+        [['src/test/test-udev.c'],
+         [libudev_core,
+          libudev_internal,
+          libsystemd_network,
+          libshared],
+         [threads,
+          librt,
+          libblkid,
+          libkmod,
+          libacl],
+         '', 'manual'],
+
+        [['src/test/test-id128.c'],
+         [],
+         []],
+
+        [['src/test/test-hash.c'],
+         [],
+         []],
+
+        [['src/test/test-nss.c'],
+         [],
+         [libdl],
+         '', 'manual'],
+]
+
+############################################################
+
+# define some tests here, because the link_with deps were not defined earlier
+
+tests += [
+        [['src/journal/test-journal.c'],
+         [libjournal_core,
+          libshared],
+         [threads,
+          libxz,
+          liblz4]],
+
+        [['src/journal/test-journal-send.c'],
+         [libjournal_core,
+          libshared],
+         [threads,
+          libxz,
+          liblz4]],
+
+        [['src/journal/test-journal-syslog.c'],
+         [libjournal_core,
+          libshared,
+          libudev],
+         [threads,
+          libxz,
+          liblz4,
+          libselinux]],
+
+        [['src/journal/test-journal-match.c'],
+         [libjournal_core,
+          libshared],
+         [threads,
+          libxz,
+          liblz4]],
+
+        [['src/journal/test-journal-enum.c'],
+         [libjournal_core,
+          libshared],
+         [threads,
+          libxz,
+          liblz4]],
+
+        [['src/journal/test-journal-stream.c'],
+         [libjournal_core,
+          libshared],
+         [threads,
+          libxz,
+          liblz4]],
+
+        [['src/journal/test-journal-flush.c'],
+         [libjournal_core,
+          libshared],
+         [threads,
+          libxz,
+          liblz4]],
+
+        [['src/journal/test-journal-init.c'],
+         [libjournal_core,
+          libshared],
+         [threads,
+          libxz,
+          liblz4]],
+
+        [['src/journal/test-journal-verify.c'],
+         [libjournal_core,
+          libshared],
+         [threads,
+          libxz,
+          liblz4]],
+
+        [['src/journal/test-journal-interleaving.c'],
+         [libjournal_core,
+          libshared],
+         [threads,
+          libxz,
+          liblz4]],
+
+        [['src/journal/test-mmap-cache.c'],
+         [libjournal_core,
+          libshared],
+         [threads,
+          libxz,
+          liblz4]],
+
+        [['src/journal/test-catalog.c'],
+         [libjournal_core,
+          libshared],
+         [threads,
+          libxz,
+          liblz4],
+         '', '', '-DCATALOG_DIR="@0@"'.format(build_catalog_dir)],
+
+        [['src/journal/test-compress.c'],
+         [libjournal_core,
+          libshared],
+         [liblz4,
+          libxz]],
+
+        [['src/journal/test-compress-benchmark.c'],
+         [libjournal_core,
+          libshared],
+         [liblz4,
+          libxz],
+         '', 'timeout=90'],
+
+        [['src/journal/test-audit-type.c'],
+         [libjournal_core,
+          libshared],
+         [liblz4,
+          libxz]],
+]
+
+############################################################
+
+tests += [
+        [['src/libsystemd/sd-bus/test-bus-marshal.c'],
+         [],
+         [threads,
+          libglib,
+          libgobject,
+          libgio,
+          libdbus]],
+
+        [['src/libsystemd/sd-bus/test-bus-signature.c'],
+         [],
+         [threads]],
+
+        [['src/libsystemd/sd-bus/test-bus-chat.c'],
+         [],
+         [threads]],
+
+        [['src/libsystemd/sd-bus/test-bus-cleanup.c'],
+         [],
+         [threads,
+          libseccomp]],
+
+        [['src/libsystemd/sd-bus/test-bus-error.c'],
+         [libshared_static,
+          libsystemd_internal],
+         []],
+
+        [['src/libsystemd/sd-bus/test-bus-track.c'],
+         [],
+         [libseccomp]],
+
+        [['src/libsystemd/sd-bus/test-bus-server.c'],
+         [],
+         [threads]],
+
+        [['src/libsystemd/sd-bus/test-bus-objects.c'],
+         [],
+         [threads]],
+
+        [['src/libsystemd/sd-bus/test-bus-gvariant.c'],
+         [],
+         [libglib,
+          libgobject,
+          libgio]],
+
+        [['src/libsystemd/sd-bus/test-bus-creds.c'],
+         [],
+         []],
+
+        [['src/libsystemd/sd-bus/test-bus-match.c'],
+         [],
+         []],
+
+        [['src/libsystemd/sd-bus/test-bus-kernel.c'],
+         [],
+         []],
+
+        [['src/libsystemd/sd-bus/test-bus-kernel-bloom.c'],
+         [],
+         []],
+
+        [['src/libsystemd/sd-bus/test-bus-benchmark.c'],
+         [],
+         [threads]],
+
+        [['src/libsystemd/sd-bus/test-bus-zero-copy.c'],
+         [],
+         []],
+
+        [['src/libsystemd/sd-bus/test-bus-introspect.c'],
+         [],
+         []],
+
+        [['src/libsystemd/sd-event/test-event.c'],
+         [],
+         []],
+
+        [['src/libsystemd/sd-netlink/test-netlink.c'],
+         [],
+         []],
+
+        [['src/libsystemd/sd-netlink/test-local-addresses.c'],
+         [],
+         []],
+
+        [['src/libsystemd/sd-resolve/test-resolve.c'],
+         [],
+         [threads]],
+
+        [['src/libsystemd/sd-login/test-login.c'],
+         [],
+         [],
+         '', 'manual'],
+]
+
+############################################################
+
+tests += [
+        [['src/libsystemd-network/test-dhcp-option.c',
+          'src/libsystemd-network/dhcp-protocol.h',
+          'src/libsystemd-network/dhcp-internal.h'],
+         [libshared,
+          libsystemd_network],
+         []],
+
+        [['src/libsystemd-network/test-dhcp-client.c',
+          'src/libsystemd-network/dhcp-protocol.h',
+          'src/libsystemd-network/dhcp-internal.h',
+          'src/systemd/sd-dhcp-client.h'],
+         [libshared,
+          libsystemd_network,
+          libudev],
+         []],
+
+        [['src/libsystemd-network/test-dhcp-server.c'],
+         [libshared,
+          libsystemd_network],
+         []],
+
+        [['src/libsystemd-network/test-ipv4ll.c',
+          'src/libsystemd-network/arp-util.h',
+          'src/systemd/sd-ipv4ll.h'],
+         [libshared,
+          libsystemd_network],
+         []],
+
+        [['src/libsystemd-network/test-ipv4ll-manual.c',
+          'src/systemd/sd-ipv4ll.h'],
+         [libshared,
+          libsystemd_network],
+         [],
+         '', 'manual'],
+
+        [['src/libsystemd-network/test-acd.c',
+          'src/systemd/sd-ipv4acd.h'],
+         [libshared,
+          libsystemd_network],
+         [],
+         '', 'manual'],
+
+        [['src/libsystemd-network/test-ndisc-rs.c',
+          'src/libsystemd-network/dhcp-identifier.h',
+          'src/libsystemd-network/dhcp-identifier.c',
+          'src/libsystemd-network/icmp6-util.h',
+          'src/systemd/sd-dhcp6-client.h',
+          'src/systemd/sd-ndisc.h'],
+         [libshared,
+          libsystemd_network,
+          libudev],
+         []],
+
+        [['src/libsystemd-network/test-dhcp6-client.c',
+          'src/libsystemd-network/dhcp-identifier.h',
+          'src/libsystemd-network/dhcp-identifier.c',
+          'src/libsystemd-network/dhcp6-internal.h',
+          'src/systemd/sd-dhcp6-client.h'],
+         [libshared,
+          libsystemd_network,
+          libudev],
+         []],
+
+        [['src/libsystemd-network/test-lldp.c'],
+         [libshared,
+          libsystemd_network],
+         []],
+]
+
+############################################################
+
+tests += [
+        [['src/login/test-login-shared.c'],
+         [],
+         []],
+
+        [['src/login/test-inhibit.c'],
+         [],
+         [],
+         '', 'manual'],
+
+        [['src/login/test-login-tables.c'],
+         [liblogind_core,
+          libshared,
+          libudev],
+         [threads]],
+]
