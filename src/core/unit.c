@@ -1707,9 +1707,9 @@ bool unit_can_stop(Unit *u) {
 }
 
 /* Errors:
+ *         -EINVAL:   Unit is not loaded.
  *         -EBADR:    This unit type does not support reloading.
  *         -ENOEXEC:  Unit is not started.
- *         -EAGAIN:   An operation is already in progress. Retry later.
  */
 int unit_reload(Unit *u) {
         UnitActiveState state;
@@ -1724,10 +1724,7 @@ int unit_reload(Unit *u) {
                 return -EBADR;
 
         state = unit_active_state(u);
-        if (state == UNIT_RELOADING)
-                return -EALREADY;
-
-        if (state != UNIT_ACTIVE) {
+        if (state != UNIT_ACTIVE && state != UNIT_RELOADING) {
                 log_unit_warning(u, "Unit cannot be reloaded because it is inactive.");
                 return -ENOEXEC;
         }

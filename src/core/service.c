@@ -2194,7 +2194,7 @@ static int service_reload(Unit *u) {
 
         assert(s);
 
-        assert(s->state == SERVICE_RUNNING || s->state == SERVICE_EXITED);
+        assert(s->state == SERVICE_RUNNING || s->state == SERVICE_EXITED || s->state == SERVICE_RELOAD);
 
         service_enter_reload(s);
         return 1;
