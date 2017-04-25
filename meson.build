@@ -7,7 +7,7 @@ project('systemd', 'c',
                 'sysconfdir=/etc',
                 'localstatedir=/var',
         ],
-        meson_version : '>= 0.39.1',
+        meson_version : '>= 0.40',
        )
 
 # We need the same data in three different formats, ugh!
@@ -435,7 +435,7 @@ endif
 sed = find_program('sed')
 grep = find_program('grep')
 awk = find_program('awk')
-m4 = find_program('/usr/bin/m4')
+m4 = find_program('m4')
 stat = find_program('stat')
 git = find_program('git', required : false)
 etags = find_program('etags', required : false)
