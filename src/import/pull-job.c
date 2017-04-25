@@ -22,15 +22,15 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "hexdecoct.h"
+#include "import-util.h"
 #include "io-util.h"
 #include "machine-pool.h"
 #include "parse-util.h"
+#include "pull-common.h"
 #include "pull-job.h"
 #include "string-util.h"
 #include "strv.h"
 #include "xattr-util.h"
-#include "pull-common.h"
-#include "import-util.h"
 
 PullJob* pull_job_unref(PullJob *j) {
         if (!j)
@@ -84,10 +84,9 @@ static int pull_job_restart(PullJob *j) {
                 return r;
 
         free(j->url);
-        free(j->payload);
         j->url = chksum_url;
         j->state = PULL_JOB_INIT;
-        j->payload = NULL;
+        j->payload = mfree(j->payload);
         j->payload_size = 0;
         j->payload_allocated = 0;
         j->written_compressed = 0;
@@ -100,7 +99,6 @@ static int pull_job_restart(PullJob *j) {
 
         return 0;
 }
-
 
 void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
         PullJob *j = NULL;
