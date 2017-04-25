@@ -169,6 +169,9 @@
           <row><entry><varname>vxlan</varname></entry>
           <entry>A virtual extensible LAN (vxlan), for connecting Cloud computing deployments.</entry></row>
 
+          <row><entry><varname>geneve</varname></entry>
+          <entry>A GEneric NEtwork Virtualization Encapsulation (GENEVE) netdev driver.</entry></row>
+
           <row><entry><varname>vrf</varname></entry>
           <entry>A Virtual Routing and Forwarding (<ulink url="https://www.kernel.org/doc/Documentation/networking/vrf.txt">VRF</ulink>) interface to create separate routing and forwarding domains.</entry></row>
 
@@ -617,6 +620,69 @@
           <para>Specifies the flow label to use in outgoing packets.
           The valid range is 0-1048575.
           </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+  <refsect1>
+    <title>[GENEVE] Section Options</title>
+    <para>The <literal>[GENEVE]</literal> section only applies for
+    netdevs of kind <literal>geneve</literal>, and accepts the
+    following keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Id=</varname></term>
+        <listitem>
+          <para>Specifies the Virtual Network Identifer (VNI) to use. Ranges [0-16777215].</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Remote=</varname></term>
+        <listitem>
+          <para>Specifies the unicast destination IP address to use in outgoing packets.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>TOS=</varname></term>
+        <listitem>
+          <para>Specifies the TOS value to use in outgoing packets. Ranges [1-255]. </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>TTL=</varname></term>
+        <listitem>
+          <para>Specifies the TTL value to use in outgoing packets. Ranges [1-255]. </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>UDPChecksum=</varname></term>
+        <listitem>
+          <para>A boolean. When true, specifies if UDP checksum is calculated for transmitted packets over IPv4.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>UDP6ZeroChecksumTx=</varname></term>
+        <listitem>
+          <para>A boolean. When true, skip UDP checksum calculation for transmitted packets over IPv6.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>UDP6ZeroChecksumRx=</varname></term>
+        <listitem>
+          <para>A boolean. When true, allows incoming UDP packets over IPv6 with zero checksum field.</para>
+        </listitem>
+      </varlistentry>
+    <varlistentry>
+      <term><varname>DestinationPort=</varname></term>
+      <listitem>
+        <para>Specifies destination port. Defaults to 6081.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><varname>FlowLabel=</varname></term>
+        <listitem>
+          <para>Specifies the flow label to use in outgoing packets.</para>
         </listitem>
       </varlistentry>
     </variablelist>

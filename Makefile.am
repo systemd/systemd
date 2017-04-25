@@ -5776,6 +5776,8 @@ libnetworkd_core_la_SOURCES = \
 	src/network/netdev/veth.c \
 	src/network/netdev/vxlan.h \
 	src/network/netdev/vxlan.c \
+	src/network/netdev/geneve.h \
+	src/network/netdev/geneve.c \
 	src/network/netdev/vlan.h \
 	src/network/netdev/vlan.c \
 	src/network/netdev/macvlan.h \
