@@ -277,8 +277,7 @@ if cc.compiles('
            struct timespec now;
            return 0;
    }
-')
-        # TODO: message?
+', name : '-Werror=shadow with local shadowing')
         add_project_arguments('-Werror=shadow', language : 'c')
 endif
 
@@ -286,7 +285,8 @@ if cc.get_id() == 'clang'
         foreach arg : ['-Wno-typedef-redefinition',
                        '-Wno-gnu-variable-sized-type-not-at-end',
                       ]
-                if cc.has_argument(arg)
+                if cc.has_argument(arg,
+                                   name : '@0@ is supported'.format(arg))
                         add_project_arguments(arg, language : 'c')
                 endif
         endforeach
@@ -314,7 +314,8 @@ endforeach
 if get_option('buildtype') != 'debug'
         foreach arg : ['-ffunction-sections',
                        '-fdata-sections']
-                if cc.has_argument(arg)
+                if cc.has_argument(arg,
+                                   name : '@0@ is supported'.format(arg))
                         add_project_arguments(arg, language : 'c')
                 endif
         endforeach
@@ -553,7 +554,7 @@ endif
 system_uid_max = system_uid_max.to_int()
 conf.set('SYSTEM_UID_MAX', system_uid_max)
 substs.set('systemuidmax', system_uid_max)
-message('Maximum system UID is @0@'.format(system_uid_max))
+message('maximum system UID is @0@'.format(system_uid_max))
 
 conf.set_quoted('NOBODY_USER_NAME', get_option('nobody-user'))
 conf.set_quoted('NOBODY_GROUP_NAME', get_option('nobody-group'))
@@ -568,7 +569,7 @@ endif
 system_gid_max = system_gid_max.to_int()
 conf.set('SYSTEM_GID_MAX', system_gid_max)
 substs.set('systemgidmax', system_gid_max)
-message('Maximum system GID is @0@'.format(system_gid_max))
+message('maximum system GID is @0@'.format(system_gid_max))
 
 tty_gid = get_option('tty-gid')
 conf.set('TTY_GID', tty_gid)
