@@ -392,7 +392,9 @@ int config_parse_socket_listen(const char *unit,
 
                 r = socket_address_parse_and_warn(&p->address, k);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse address value, ignoring: %s", rvalue);
+                        if (r != -EAFNOSUPPORT)
+                                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse address value, ignoring: %s", rvalue);
+
                         return 0;
                 }
 
