@@ -1057,6 +1057,22 @@ static int object_manager_serialize_path(
                         if (r < 0)
                                 return r;
 
+                        r = sd_bus_message_append(reply, "{sa{sv}}", "org.freedesktop.DBus.Peer", 0);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_append(reply, "{sa{sv}}", "org.freedesktop.DBus.Introspectable", 0);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_append(reply, "{sa{sv}}", "org.freedesktop.DBus.Properties", 0);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_append(reply, "{sa{sv}}", "org.freedesktop.DBus.ObjectManager", 0);
+                        if (r < 0)
+                                return r;
+
                         found_something = true;
                 }
 
