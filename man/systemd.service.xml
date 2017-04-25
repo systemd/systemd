@@ -384,7 +384,8 @@
         multiple command lines, following the same scheme as described
         for <varname>ExecStart=</varname> above. Use of this setting
         is optional. After the commands configured in this option are
-        run, all processes remaining for a service are terminated
+        run, it is implied that the service is stopped, and any processes
+        remaining for it are terminated
         according to the <varname>KillMode=</varname> setting (see
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
         If this option is not specified, the process is terminated by
