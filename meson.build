@@ -374,6 +374,7 @@ foreach decl : [['IFLA_INET6_ADDR_GEN_MODE',         'linux/if_link.h'],
                 ['IFLA_VLAN_PROTOCOL',               'linux/if_link.h'],
                 ['IFLA_VXLAN_REMCSUM_NOPARTIAL',     'linux/if_link.h'],
                 ['IFLA_VXLAN_GPE',                   'linux/if_link.h'],
+                ['IFLA_GENEVE_LABEL',                'linux/if_link.h'],
                 # if_tunnel.h is buggy and cannot be included on its own
                 ['IFLA_VTI_REMOTE',                  'linux/if_tunnel.h', '#include <net/if.h>'],
                 ['IFLA_IPTUN_ENCAP_DPORT',           'linux/if_tunnel.h', '#include <net/if.h>'],

@@ -25,6 +25,8 @@ sources = files('''
         netdev/vrf.h
         netdev/vxlan.c
         netdev/vxlan.h
+        netdev/geneve.c
+        netdev/geneve.h
         networkd-address-pool.c
         networkd-address-pool.h
         networkd-address.c
