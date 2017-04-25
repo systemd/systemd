@@ -18,6 +18,7 @@
 ***/
 
 #include <netinet/in.h>
+#include <linux/if_addrlabel.h>
 #include <stdbool.h>
 #include <unistd.h>
 
@@ -699,4 +700,43 @@ int sd_rtnl_message_get_family(sd_netlink_message *m, int *family) {
         }
 
         return -EOPNOTSUPP;
+}
+
+int sd_rtnl_message_new_addrlabel(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int ifindex, int ifal_family) {
+        struct ifaddrlblmsg *addrlabel;
+        int r;
+
+        assert_return(rtnl_message_type_is_addrlabel(nlmsg_type), -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        r = message_new(rtnl, ret, nlmsg_type);
+        if (r < 0)
+                return r;
+
+        if (nlmsg_type == RTM_NEWADDRLABEL)
+                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL;
+
+        addrlabel = NLMSG_DATA((*ret)->hdr);
+
+        addrlabel->ifal_family = ifal_family;
+        addrlabel->ifal_index = ifindex;
+
+        return 0;
+}
+
+int sd_rtnl_message_addrlabel_set_prefixlen(sd_netlink_message *m, unsigned char prefixlen) {
+        struct ifaddrlblmsg *addrlabel;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_addrlabel(m->hdr->nlmsg_type), -EINVAL);
+
+        addrlabel = NLMSG_DATA(m->hdr);
+
+        if (prefixlen > 128)
+                return -ERANGE;
+
+        addrlabel->ifal_prefixlen = prefixlen;
+
+        return 0;
 }

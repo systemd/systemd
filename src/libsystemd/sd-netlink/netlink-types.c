@@ -26,6 +26,7 @@
 #include <linux/veth.h>
 #include <linux/if_bridge.h>
 #include <linux/if_addr.h>
+#include <linux/if_addrlabel.h>
 #include <linux/if.h>
 #include <linux/ip.h>
 #include <linux/if_link.h>
@@ -586,22 +587,35 @@ static const NLTypeSystem rtnl_neigh_type_system = {
         .types = rtnl_neigh_types,
 };
 
+static const NLType rtnl_addrlabel_types[] = {
+        [IFAL_ADDRESS]         = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in6_addr) },
+        [IFAL_LABEL]           = { .type = NETLINK_TYPE_U32 },
+};
+
+static const NLTypeSystem rtnl_addrlabel_type_system = {
+        .count = ELEMENTSOF(rtnl_addrlabel_types),
+        .types = rtnl_addrlabel_types,
+};
+
 static const NLType rtnl_types[] = {
-        [NLMSG_DONE]   = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system, .size = 0 },
-        [NLMSG_ERROR]  = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system, .size = sizeof(struct nlmsgerr) },
-        [RTM_NEWLINK]  = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
-        [RTM_DELLINK]  = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
-        [RTM_GETLINK]  = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
-        [RTM_SETLINK]  = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
-        [RTM_NEWADDR]  = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_address_type_system, .size = sizeof(struct ifaddrmsg) },
-        [RTM_DELADDR]  = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_address_type_system, .size = sizeof(struct ifaddrmsg) },
-        [RTM_GETADDR]  = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_address_type_system, .size = sizeof(struct ifaddrmsg) },
-        [RTM_NEWROUTE] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_route_type_system, .size = sizeof(struct rtmsg) },
-        [RTM_DELROUTE] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_route_type_system, .size = sizeof(struct rtmsg) },
-        [RTM_GETROUTE] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_route_type_system, .size = sizeof(struct rtmsg) },
-        [RTM_NEWNEIGH] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_neigh_type_system, .size = sizeof(struct ndmsg) },
-        [RTM_DELNEIGH] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_neigh_type_system, .size = sizeof(struct ndmsg) },
-        [RTM_GETNEIGH] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_neigh_type_system, .size = sizeof(struct ndmsg) },
+        [NLMSG_DONE]       = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system, .size = 0 },
+        [NLMSG_ERROR]      = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system, .size = sizeof(struct nlmsgerr) },
+        [RTM_NEWLINK]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
+        [RTM_DELLINK]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
+        [RTM_GETLINK]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
+        [RTM_SETLINK]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
+        [RTM_NEWADDR]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_address_type_system, .size = sizeof(struct ifaddrmsg) },
+        [RTM_DELADDR]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_address_type_system, .size = sizeof(struct ifaddrmsg) },
+        [RTM_GETADDR]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_address_type_system, .size = sizeof(struct ifaddrmsg) },
+        [RTM_NEWROUTE]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_route_type_system, .size = sizeof(struct rtmsg) },
+        [RTM_DELROUTE]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_route_type_system, .size = sizeof(struct rtmsg) },
+        [RTM_GETROUTE]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_route_type_system, .size = sizeof(struct rtmsg) },
+        [RTM_NEWNEIGH]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_neigh_type_system, .size = sizeof(struct ndmsg) },
+        [RTM_DELNEIGH]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_neigh_type_system, .size = sizeof(struct ndmsg) },
+        [RTM_GETNEIGH]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_neigh_type_system, .size = sizeof(struct ndmsg) },
+        [RTM_NEWADDRLABEL] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_addrlabel_type_system, .size = sizeof(struct ifaddrlblmsg) },
+        [RTM_DELADDRLABEL] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_addrlabel_type_system, .size = sizeof(struct ifaddrlblmsg) },
+        [RTM_GETADDRLABEL] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_addrlabel_type_system, .size = sizeof(struct ifaddrlblmsg) },
 };
 
 const NLTypeSystem type_system_root = {
