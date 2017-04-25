@@ -114,6 +114,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         LIST_HEAD_INIT(network->static_routes);
         LIST_HEAD_INIT(network->static_fdb_entries);
         LIST_HEAD_INIT(network->ipv6_proxy_ndp_addresses);
+        LIST_HEAD_INIT(network->address_labels);
 
         network->stacked_netdevs = hashmap_new(&string_hash_ops);
         if (!network->stacked_netdevs)
@@ -129,6 +130,10 @@ static int network_load_one(Manager *manager, const char *filename) {
 
         network->fdb_entries_by_section = hashmap_new(NULL);
         if (!network->fdb_entries_by_section)
+                return log_oom();
+
+        network->address_labels_by_section = hashmap_new(&network_config_hash_ops);
+        if (!network->address_labels_by_section)
                 return log_oom();
 
         network->filename = strdup(filename);
@@ -192,6 +197,7 @@ static int network_load_one(Manager *manager, const char *filename) {
                               "Link\0"
                               "Network\0"
                               "Address\0"
+                              "IPv6AddressLabel\0"
                               "Route\0"
                               "DHCP\0"
                               "DHCPv4\0" /* compat */
@@ -271,6 +277,7 @@ void network_free(Network *network) {
         Address *address;
         FdbEntry *fdb_entry;
         IPv6ProxyNDPAddress *ipv6_proxy_ndp_address;
+        AddressLabel *label;
         Iterator i;
 
         if (!network)
@@ -318,9 +325,13 @@ void network_free(Network *network) {
         while ((ipv6_proxy_ndp_address = network->ipv6_proxy_ndp_addresses))
                 ipv6_proxy_ndp_address_free(ipv6_proxy_ndp_address);
 
+        while ((label = network->address_labels))
+                address_label_free(label);
+
         hashmap_free(network->addresses_by_section);
         hashmap_free(network->routes_by_section);
         hashmap_free(network->fdb_entries_by_section);
+        hashmap_free(network->address_labels_by_section);
 
         if (network->manager) {
                 if (network->manager->networks)
