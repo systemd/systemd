@@ -19,11 +19,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <glob.h>
 #include <stdbool.h>
 #include <string.h>
 
 #include "macro.h"
 #include "string-util.h"
+
+/* Note: this function modifies pglob to set various functions. */
+int safe_glob(const char *path, int flags, glob_t *pglob);
 
 int glob_exists(const char *path);
 int glob_extend(char ***strv, const char *path);
