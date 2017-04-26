@@ -34,6 +34,7 @@ shared_sources = '''
         efivars.h
         fdset.c
         fdset.h
+        firewall-util.h
         fstab-util.c
         fstab-util.h
         gcrypt-util.c
@@ -114,6 +115,10 @@ if conf.get('HAVE_SECCOMP', 0) == 1
         shared_sources += ['seccomp-util.c']
 endif
 
+if conf.get('HAVE_LIBIPTC', 0) == 1
+        shared_sources += ['firewall-util.c']
+endif
+
 libshared_name = 'systemd-shared-@0@'.format(meson.project_version())
 
 libshared = shared_library(
@@ -132,6 +137,7 @@ libshared = shared_library(
                         libacl,
                         libcryptsetup,
                         libgcrypt,
+                        libiptc,
                         libseccomp,
                         libselinux,
                         libidn,
@@ -157,14 +163,3 @@ libshared_static = static_library(
                         libxz,
                         liblz4,
                         libblkid])
-
-if conf.get('HAVE_LIBIPTC', 0) == 1
-        libfirewall = static_library(
-                'firewall',
-                'firewall-util.h',
-                'firewall-util.c',
-                include_directories : includes,
-                dependencies : [libiptc])
-else
-        libfirewall = []
-endif
