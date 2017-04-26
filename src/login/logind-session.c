@@ -449,7 +449,7 @@ int session_load(Session *s) {
 
         if (controller) {
                 if (bus_name_has_owner(s->manager->bus, controller, NULL) > 0)
-                        session_set_controller(s, controller, false);
+                        session_set_controller(s, controller, false, false);
                 else
                         session_restore_vt(s);
         }
@@ -1170,7 +1170,7 @@ static int on_bus_track(sd_bus_track *track, void *userdata) {
         return 0;
 }
 
-int session_set_controller(Session *s, const char *sender, bool force) {
+int session_set_controller(Session *s, const char *sender, bool force, bool prepare) {
         _cleanup_free_ char *name = NULL;
         int r;
 
@@ -1202,11 +1202,14 @@ int session_set_controller(Session *s, const char *sender, bool force) {
          * Note that we reset the VT on ReleaseControl() and if the controller
          * exits.
          * If logind crashes/restarts, we restore the controller during restart
-         * or reset the VT in case it crashed/exited, too. */
-        r = session_prepare_vt(s);
-        if (r < 0) {
-                s->track = sd_bus_track_unref(s->track);
-                return r;
+         * (without preparing the VT since the controller has probably overridden
+         * VT state by now) or reset the VT in case it crashed/exited, too. */
+        if (prepare) {
+                r = session_prepare_vt(s);
+                if (r < 0) {
+                        s->track = sd_bus_track_unref(s->track);
+                        return r;
+                }
         }
 
         session_release_controller(s, true);

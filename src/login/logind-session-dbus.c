@@ -396,7 +396,7 @@ static int method_take_control(sd_bus_message *message, void *userdata, sd_bus_e
         if (uid != 0 && (force || uid != s->user->uid))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Only owner of session may take control");
 
-        r = session_set_controller(s, sd_bus_message_get_sender(message), force);
+        r = session_set_controller(s, sd_bus_message_get_sender(message), force, true);
         if (r < 0)
                 return r;
 

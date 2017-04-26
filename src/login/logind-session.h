@@ -176,7 +176,7 @@ void session_restore_vt(Session *s);
 void session_leave_vt(Session *s);
 
 bool session_is_controller(Session *s, const char *sender);
-int session_set_controller(Session *s, const char *sender, bool force);
+int session_set_controller(Session *s, const char *sender, bool force, bool prepare);
 void session_drop_controller(Session *s);
 
 int bus_session_method_activate(sd_bus_message *message, void *userdata, sd_bus_error *error);
