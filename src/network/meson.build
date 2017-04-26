@@ -27,6 +27,8 @@ sources = files('''
         netdev/vxlan.h
         netdev/geneve.c
         netdev/geneve.h
+        networkd-address-label.c
+        networkd-address-label.h
         networkd-address-pool.c
         networkd-address-pool.h
         networkd-address.c
