@@ -130,7 +130,7 @@ if conf.get('ENABLE_NETWORKD', 0) == 1
       libsystemd_network,
       libshared,
       libfirewall],
-     [libiptc]],
+     []],
 
     [['src/network/test-network-tables.c',
       'src/network/test-network-tables.c',
