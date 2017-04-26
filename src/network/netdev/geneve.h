@@ -63,28 +63,6 @@ int config_parse_geneve_vni(const char *unit,
                             void *data,
                             void *userdata);
 
-int config_parse_geneve_tos(const char *unit,
-                            const char *filename,
-                            unsigned line,
-                            const char *section,
-                            unsigned section_line,
-                            const char *lvalue,
-                            int ltype,
-                            const char *rvalue,
-                            void *data,
-                            void *userdata);
-
-int config_parse_geneve_ttl(const char *unit,
-                            const char *filename,
-                            unsigned line,
-                            const char *section,
-                            unsigned section_line,
-                            const char *lvalue,
-                            int ltype,
-                            const char *rvalue,
-                            void *data,
-                            void *userdata);
-
 int config_parse_geneve_address(const char *unit,
                                const char *filename,
                                unsigned line,

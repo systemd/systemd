@@ -201,71 +201,6 @@ int config_parse_geneve_vni(const char *unit,
         return 0;
 }
 
-int config_parse_geneve_tos(const char *unit,
-                                   const char *filename,
-                                   unsigned line,
-                                   const char *section,
-                                   unsigned section_line,
-                                   const char *lvalue,
-                                   int ltype,
-                                   const char *rvalue,
-                                   void *data,
-                                   void *userdata) {
-        Geneve *v = userdata;
-        uint8_t f;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = safe_atou8(rvalue, &f);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse Geneve TOS '%s'.", rvalue);
-                return 0;
-        }
-
-        v->tos = f;
-
-        return 0;
-}
-
-int config_parse_geneve_ttl(const char *unit,
-                            const char *filename,
-                            unsigned line,
-                            const char *section,
-                            unsigned section_line,
-                            const char *lvalue,
-                            int ltype,
-                            const char *rvalue,
-                            void *data,
-                            void *userdata) {
-        Geneve *v = userdata;
-        uint8_t f;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = safe_atou8(rvalue, &f);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse Geneve TTL '%s'.", rvalue);
-                return 0;
-        }
-
-        if (f == 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid Geneve TTL '%s'.", rvalue);
-                return 0;
-        }
-
-        v->ttl = f;
-
-        return 0;
-}
-
 int config_parse_geneve_address(const char *unit,
                                 const char *filename,
                                 unsigned line,
@@ -369,6 +304,21 @@ int config_parse_geneve_flow_label(const char *unit,
         return 0;
 }
 
+static int netdev_geneve_verify(NetDev *netdev, const char *filename) {
+        Geneve *v = GENEVE(netdev);
+
+        assert(netdev);
+        assert(v);
+        assert(filename);
+
+        if (v->ttl == 0) {
+                log_warning("Invalid Geneve TTL value '0' configured in '%s'. Ignoring", filename);
+                return -EINVAL;
+        }
+
+        return 0;
+}
+
 static void geneve_init(NetDev *netdev) {
         Geneve *v;
 
@@ -391,4 +341,5 @@ const NetDevVTable geneve_vtable = {
         .sections = "Match\0NetDev\0GENEVE\0",
         .create = netdev_geneve_create,
         .create_type = NETDEV_CREATE_INDEPENDENT,
+        .config_verify = netdev_geneve_verify,
 };

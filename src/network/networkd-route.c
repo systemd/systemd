@@ -996,6 +996,10 @@ int config_parse_ipv6_route_preference(const char *unit,
         _cleanup_route_free_ Route *n = NULL;
         int r;
 
+        r = route_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return r;
+
         if (streq(rvalue, "low"))
                 n->pref = ICMPV6_ROUTER_PREF_LOW;
         else if (streq(rvalue, "medium"))
