@@ -182,17 +182,10 @@ int rm_rf(const char *path, RemoveFlags flags) {
         /* We refuse to clean the root file system with this
          * call. This is extra paranoia to never cause a really
          * seriously broken system. */
-        if (path_equal(path, "/")) {
+        if (path_equal_or_files_same(path, "/")) {
                 log_error("Attempted to remove entire root file system, and we can't allow that.");
                 return -EPERM;
         }
-
-        /* Another safe-check. Removing "/path/.." could easily remove entire root as well.
-         * It's especially easy to do using globs in tmpfiles, like "/path/.*", which the glob()
-         * function expands to both "/path/." and "/path/..".
-         * Return -EINVAL to be consistent with rmdir("/path/."). */
-        if (endswith(path, "/..") || endswith(path, "/../"))
-                return -EINVAL;
 
         if ((flags & (REMOVE_SUBVOLUME|REMOVE_ROOT|REMOVE_PHYSICAL)) == (REMOVE_SUBVOLUME|REMOVE_ROOT|REMOVE_PHYSICAL)) {
                 /* Try to remove as subvolume first */
