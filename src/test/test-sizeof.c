@@ -32,6 +32,14 @@
                strstr(STRINGIFY(t), "signed") ? "" :            \
                ((t)-1 < (t)0 ? ", signed" : ", unsigned"));
 
+enum Enum {
+        enum_value,
+};
+
+enum BigEnum {
+        big_enum_value = UINT64_C(-1),
+};
+
 int main(void) {
         info(char);
         info(signed char);
@@ -52,6 +60,9 @@ int main(void) {
         info(time_t);
         info(usec_t);
         info(__time_t);
+
+        info(enum Enum);
+        info(enum BigEnum);
 
         return 0;
 }
