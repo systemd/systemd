@@ -37,10 +37,10 @@ if conf.get('ENABLE_REMOTE', 0) == 1 and conf.get('HAVE_MICROHTTPD', 0) == 1
                 configuration : substs)
         install_data(journal_remote_conf,
                      install_dir : pkgsysconfdir)
-
-        install_data('browse.html',
-                     install_dir : join_paths(pkgdatadir, 'gatewayd'))
 endif
+
+install_data('browse.html',
+             install_dir : join_paths(pkgdatadir, 'gatewayd'))
 
 meson.add_install_script('sh', '-c',
                          mkdir_p.format('/var/log/journal/remote'))
