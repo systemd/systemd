@@ -27,9 +27,11 @@ endif
 kbd_model_map = join_paths(meson.current_source_dir(),  'kbd-model-map')
 language_fallback_map = join_paths(meson.current_source_dir(), 'language-fallback-map')
 
-install_data('kbd-model-map',
-             'language-fallback-map',
-             install_dir : pkgdatadir)
+if conf.get('ENABLE_LOCALED', 0) == 1
+        install_data('kbd-model-map',
+                     'language-fallback-map',
+                     install_dir : pkgdatadir)
+endif
 
 tests += [
         [['src/locale/test-keymap-util.c',
