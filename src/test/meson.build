@@ -415,8 +415,7 @@ tests += [
 
 
         [['src/test/test-firewall-util.c'],
-         [libfirewall,
-          libshared],
+         [libshared],
          [],
          'HAVE_LIBIPTC'],
 
