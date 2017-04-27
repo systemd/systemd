@@ -324,6 +324,10 @@ _public_ int sd_device_new_from_subsystem_sysname(sd_device **ret, const char *s
         if (access(syspath, F_OK) >= 0)
                 return sd_device_new_from_syspath(ret, syspath);
 
+        syspath = strjoina("/sys/firmware/", subsystem, "/", sysname);
+        if (access(syspath, F_OK) >= 0)
+                return sd_device_new_from_syspath(ret, syspath);
+
         return -ENODEV;
 }
 
