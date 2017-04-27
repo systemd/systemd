@@ -5599,6 +5599,9 @@ GENERAL_ALIASES += \
 nodist_pkgsysconf_DATA += \
 	src/resolve/resolved.conf
 
+dist_rootlibexec_DATA += \
+	src/resolve/resolv.conf
+
 libnss_resolve_la_SOURCES = \
 	src/nss-resolve/nss-resolve.sym \
 	src/nss-resolve/nss-resolve.c
@@ -5736,9 +5739,6 @@ gperf_gperf_sources += \
 EXTRA_DIST += \
 	units/systemd-resolved.service.m4.in \
 	src/resolve/resolved.conf.in
-
-dist_rootlibexec_DATA += \
-	src/resolve/resolv.conf
 
 # ------------------------------------------------------------------------------
 if ENABLE_NETWORKD
