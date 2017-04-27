@@ -135,10 +135,10 @@ if conf.get('ENABLE_RESOLVED', 0) == 1
                 configuration : substs)
         install_data(resolved_conf,
                      install_dir : pkgsysconfdir)
-endif
 
-install_data('resolv.conf',
-             install_dir : rootlibexecdir)
+        install_data('resolv.conf',
+                     install_dir : rootlibexecdir)
+endif
 
 tests += [
         [['src/resolve/test-resolve-tables.c',
