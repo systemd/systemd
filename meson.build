@@ -246,10 +246,6 @@ foreach arg : ['-Wundef',
                '-Wendif-labels',
                '-Wstrict-aliasing=2',
                '-Wwrite-strings',
-               '-Wno-unused-parameter',
-               '-Wno-missing-field-initializers',
-               '-Wno-unused-result',
-               '-Wno-format-signedness',
                '-Werror=overflow',
                '-Wdate-time',
                '-Wnested-externs',
@@ -265,6 +261,17 @@ foreach arg : ['-Wundef',
               ]
         if cc.has_argument(arg)
                 add_project_arguments(arg, language : 'c')
+        endif
+endforeach
+
+# "negative" arguments: gcc on purpose does not return an error for "-Wno-"
+# arguments, just emits a warnings. So test for the "positive" version instead.
+foreach arg : ['unused-parameter',
+               'missing-field-initializers',
+               'unused-result',
+               'format-signedness']
+        if cc.has_argument('-W' + arg)
+                add_project_arguments('-Wno-' + arg, language : 'c')
         endif
 endforeach
 
@@ -614,13 +621,19 @@ libm = cc.find_library('m')
 libdl = cc.find_library('dl')
 libcrypt = cc.find_library('crypt')
 
-libcap = dependency('libcap')
+libcap = dependency('libcap', required : false)
+if not libcap.found()
+        # Compat with Ubuntu 14.04 which ships libcap w/o .pc file
+        libcap = cc.find_library('cap')
+endif
+
 libmount = dependency('mount',
                       version : '>= 2.27')
 
 want_seccomp = get_option('seccomp')
 if want_seccomp != 'false'
         libseccomp = dependency('libseccomp',
+                                version : '>= 2.3.1',
                                 required : want_seccomp == 'true')
         if libseccomp.found()
                 conf.set('HAVE_SECCOMP', 1)
