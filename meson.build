@@ -246,10 +246,6 @@ foreach arg : ['-Wundef',
                '-Wendif-labels',
                '-Wstrict-aliasing=2',
                '-Wwrite-strings',
-               '-Wno-unused-parameter',
-               '-Wno-missing-field-initializers',
-               '-Wno-unused-result',
-               '-Wno-format-signedness',
                '-Werror=overflow',
                '-Wdate-time',
                '-Wnested-externs',
@@ -265,6 +261,17 @@ foreach arg : ['-Wundef',
               ]
         if cc.has_argument(arg)
                 add_project_arguments(arg, language : 'c')
+        endif
+endforeach
+
+# "negative" arguments: gcc on purpose does not return an error for "-Wno-"
+# arguments, just emits a warnings. So test for the "positive" version instead.
+foreach arg : ['unused-parameter',
+               'missing-field-initializers',
+               'unused-result',
+               'format-signedness']
+        if cc.has_argument('-W' + arg)
+                add_project_arguments('-Wno-' + arg, language : 'c')
         endif
 endforeach
 
