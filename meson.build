@@ -626,6 +626,7 @@ libmount = dependency('mount',
 want_seccomp = get_option('seccomp')
 if want_seccomp != 'false'
         libseccomp = dependency('libseccomp',
+                                version : '>= 2.3.1',
                                 required : want_seccomp == 'true')
         if libseccomp.found()
                 conf.set('HAVE_SECCOMP', 1)
