@@ -55,8 +55,7 @@ tests += [
 
         [['src/test/test-job-type.c'],
          [libcore,
-          libshared,
-          libudev],
+          libshared],
          [threads,
           librt,
           libseccomp,
@@ -66,8 +65,7 @@ tests += [
 
         [['src/test/test-ns.c'],
          [libcore,
-          libshared,
-          libudev],
+          libshared],
          [threads,
           librt,
           libseccomp,
@@ -88,8 +86,7 @@ tests += [
 
         [['src/test/test-hostname.c'],
          [libcore,
-          libshared,
-          libudev],
+          libshared],
          [threads,
           librt,
           libseccomp,
@@ -110,8 +107,7 @@ tests += [
 
         [['src/test/test-unit-name.c'],
          [libcore,
-          libshared,
-          libudev],
+          libshared],
          [threads,
           librt,
           libseccomp,
@@ -121,8 +117,7 @@ tests += [
 
         [['src/test/test-unit-file.c'],
          [libcore,
-          libshared,
-          libudev],
+          libshared],
          [threads,
           librt,
           libseccomp,
@@ -285,8 +280,7 @@ tests += [
 
         [['src/test/test-namespace.c'],
          [libcore,
-          libshared,
-          libudev],
+          libshared],
          [threads,
           libblkid]],
 
@@ -460,8 +454,7 @@ tests += [
 
         [['src/test/test-cgroup-mask.c'],
          [libcore,
-          libshared,
-          libudev],
+          libshared],
          [threads,
           librt,
           libseccomp,
@@ -491,8 +484,7 @@ tests += [
 
         [['src/test/test-path.c'],
          [libcore,
-          libshared,
-          libudev],
+          libshared],
          [threads,
           librt,
           libseccomp,
@@ -502,8 +494,7 @@ tests += [
 
         [['src/test/test-execute.c'],
          [libcore,
-          libshared,
-          libudev],
+          libshared],
          [threads,
           librt,
           libseccomp,
@@ -531,8 +522,7 @@ tests += [
 
         [['src/test/test-sched-prio.c'],
          [libcore,
-          libshared,
-          libudev],
+          libshared],
          [threads,
           librt,
           libseccomp,
@@ -563,8 +553,7 @@ tests += [
          []],
 
         [['src/test/test-libudev.c'],
-         [libshared,
-          libudev],
+         [libshared],
          []],
 
         [['src/test/test-udev.c'],
@@ -614,8 +603,7 @@ tests += [
 
         [['src/journal/test-journal-syslog.c'],
          [libjournal_core,
-          libshared,
-          libudev],
+          libshared],
          [threads,
           libxz,
           liblz4,
@@ -817,8 +805,7 @@ tests += [
           'src/libsystemd-network/dhcp-internal.h',
           'src/systemd/sd-dhcp-client.h'],
          [libshared,
-          libsystemd_network,
-          libudev],
+          libsystemd_network],
          []],
 
         [['src/libsystemd-network/test-dhcp-server.c'],
@@ -854,8 +841,7 @@ tests += [
           'src/systemd/sd-dhcp6-client.h',
           'src/systemd/sd-ndisc.h'],
          [libshared,
-          libsystemd_network,
-          libudev],
+          libsystemd_network],
          []],
 
         [['src/libsystemd-network/test-dhcp6-client.c',
@@ -864,8 +850,7 @@ tests += [
           'src/libsystemd-network/dhcp6-internal.h',
           'src/systemd/sd-dhcp6-client.h'],
          [libshared,
-          libsystemd_network,
-          libudev],
+          libsystemd_network],
          []],
 
         [['src/libsystemd-network/test-lldp.c'],
@@ -888,7 +873,6 @@ tests += [
 
         [['src/login/test-login-tables.c'],
          [liblogind_core,
-          libshared,
-          libudev],
+          libshared],
          [threads]],
 ]

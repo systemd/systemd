@@ -39,8 +39,7 @@ endif
 tests += [
         [['src/machine/test-machine-tables.c'],
          [libmachine_core,
-          libshared,
-          libudev],
+          libshared],
          [threads],
          'ENABLE_MACHINED'],
 ]
