@@ -602,11 +602,13 @@ conf.set('DEFAULT_DNSSEC_MODE',
          'DNSSEC_' + default_dnssec.underscorify().to_upper())
 substs.set('DEFAULT_DNSSEC_MODE', default_dnssec)
 
-conf.set_quoted('DNS_SERVERS', get_option('dns-servers'))
-substs.set('DNS_SERVERS', get_option('dns-servers'))
+dns_servers = get_option('dns-servers')
+conf.set_quoted('DNS_SERVERS', dns_servers)
+substs.set('DNS_SERVERS', dns_servers)
 
-conf.set_quoted('NTP_SERVERS', get_option('ntp-servers'))
-substs.set('NTP_SERVERS', get_option('ntp-servers'))
+ntp_servers = get_option('ntp-servers')
+conf.set_quoted('NTP_SERVERS', ntp_servers)
+substs.set('NTP_SERVERS', ntp_servers)
 
 conf.set_quoted('GETTEXT_PACKAGE', meson.project_name())
 
@@ -2364,3 +2366,161 @@ if git.found()
                            '--prefix', 'systemd-@0@/'.format(git_head),
                            'HEAD'])
 endif
+
+############################################################
+
+status = [
+        '@0@ @1@'.format(meson.project_name(), meson.project_version()),
+
+        'prefix:                            @0@'.format(prefixdir),
+        'rootprefix:                        @0@'.format(rootprefixdir),
+        'sysconf dir:                       @0@'.format(sysconfdir),
+        'includedir:                        @0@'.format(includedir),
+        'lib dir:                           @0@'.format(libdir),
+        'rootlib dir:                       @0@'.format(rootlibdir),
+        'SysV init scripts:                 @0@'.format(sysvinit_path),
+        'SysV rc?.d directories:            @0@'.format(sysvrcnd_path),
+        'PAM modules dir:                   @0@'.format(pamlibdir),
+        'PAM configuration dir:             @0@'.format(pamconfdir),
+        'RPM macros dir:                    @0@'.format(rpmmacrosdir),
+        'D-Bus policy dir:                  @0@'.format(dbuspolicydir),
+        'D-Bus session dir:                 @0@'.format(dbussessionservicedir),
+        'D-Bus system dir:                  @0@'.format(dbussystemservicedir),
+        'bash completions dir:              @0@'.format(bashcompletiondir),
+        'zsh completions dir:               @0@'.format(zshcompletiondir),
+        'extra start script:                @0@'.format(get_option('rc-local')),
+        'extra stop script:                 @0@'.format(get_option('halt-local')),
+        'debug shell:                       @0@ @ @1@'.format(get_option('debug-shell'),
+                                                              get_option('debug-tty')),
+        'TTY GID:                           @0@'.format(tty_gid),
+        'maximum system UID:                @0@'.format(system_uid_max),
+        'maximum system GID:                @0@'.format(system_gid_max),
+        '/dev/kvm access mode:              @0@'.format(get_option('dev-kvm-mode')),
+        'certificate root:                  @0@'.format(get_option('certificate-root')),
+        'support URL:                       @0@'.format(support_url),
+        'nobody user name:                  @0@'.format(get_option('nobody-user')),
+        'nobody group name:                 @0@'.format(get_option('nobody-group')),
+        'fallback hostname:                 @0@'.format(get_option('fallback-hostname')),
+
+        'default DNSSEC mode:               @0@'.format(default_dnssec),
+        'default cgroup hierarchy:          @0@'.format(default_hierarchy),
+        'default KillUserProcesses setting: @0@'.format(kill_user_processes)]
+
+alt_dns_servers = '\n                                            '.join(dns_servers.split(' '))
+alt_ntp_servers = '\n                                            '.join(ntp_servers.split(' '))
+status += [
+        'default DNS servers:               @0@'.format(alt_dns_servers),
+        'default NTP servers:               @0@'.format(alt_ntp_servers)]
+
+alt_time_epoch = run_command('date', '-Is', '-u', '-d',
+                             '@@0@'.format(time_epoch)).stdout().strip()
+status += [
+        'time epoch:                        @0@ (@1@)'.format(time_epoch, alt_time_epoch)]
+
+# TODO:
+# CFLAGS:   ${OUR_CFLAGS} ${CFLAGS}
+# CPPFLAGS: ${OUR_CPPFLAGS} ${CPPFLAGS}
+# LDFLAGS:  ${OUR_LDFLAGS} ${LDFLAGS}
+
+if conf.get('ENABLE_EFI', 0) == 1
+        status += [
+                'efi arch:                          @0@'.format(efi_arch)]
+
+        if have_gnu_efi
+                status += [
+                        'EFI machine type:                  @0@'.format(EFI_MACHINE_TYPE_NAME),
+                        'EFI CC                             @0@'.format(efi_cc),
+                        'EFI libdir:                        @0@'.format(efi_libdir),
+                        'EFI ldsdir:                        @0@'.format(efi_ldsdir),
+                        'EFI includedir:                    @0@'.format(efi_incdir)]
+        endif
+endif
+
+found = []
+missing = []
+
+foreach tuple : [
+        ['libcryptsetup'],
+        ['PAM'],
+        ['AUDIT'],
+        ['IMA'],
+        ['AppArmor'],
+        ['SELinux'],
+        ['SECCOMP'],
+        ['SMACK'],
+        ['zlib'],
+        ['xz'],
+        ['lz4'],
+        ['bzip2'],
+        ['ACL'],
+        ['gcrypt'],
+        ['qrencode'],
+        ['microhttpd'],
+        ['gnutls'],
+        ['libcurl'],
+        ['libidn'],
+        ['libiptc'],
+        ['elfutils'],
+        ['binfmt'],
+        ['vconsole'],
+        ['quotacheck'],
+        ['tmpfiles'],
+        ['environment.d'],
+        ['sysusers'],
+        ['firstboot'],
+        ['randomseed'],
+        ['backlight'],
+        ['rfkill'],
+        ['logind'],
+        ['machined'],
+        ['importd'],
+        ['hostnamed'],
+        ['timedated'],
+        ['timesyncd'],
+        ['localed'],
+        ['networkd'],
+        ['resolved'],
+        ['coredump'],
+        ['polkit'],
+        ['legacy pkla',      install_polkit_pkla],
+        ['efi'],
+        ['gnu-efi',          have_gnu_efi],
+        ['kmod'],
+        ['xkbcommon'],
+        ['blkid'],
+        ['dbus'],
+        ['glib'],
+        ['nss-myhostname',   conf.get('HAVE_MYHOSTNAME', 0) == 1],
+        ['hwdb'],
+        ['tpm'],
+        ['man pages',        want_man],
+        ['html pages',       want_html],
+        ['man page indices', want_man and have_lxml],
+        ['split /usr',       conf.get('HAVE_SPLIT_USR', 0) == 1],
+        ['SysV compat'],
+        ['utmp'],
+        ['ldconfig'],
+        ['hibernate'],
+        ['adm group',        get_option('adm-group')],
+        ['wheel group',      get_option('wheel-group')],
+        ['debug hashmap'],
+        ['debug mmap cache'],
+]
+
+        cond = tuple.get(1, '')
+        if cond == ''
+                ident1 = 'HAVE_' + tuple[0].underscorify().to_upper()
+                ident2 = 'ENABLE_' + tuple[0].underscorify().to_upper()
+                cond = conf.get(ident1, 0) == 1 or conf.get(ident2, 0) == 1
+        endif
+        if cond
+                found += [tuple[0]]
+        else
+                missing += [tuple[0]]
+        endif
+endforeach
+
+status += [
+        'enabled features: @0@'.format(', '.join(found)),
+        'disabled features: @0@'.format(', '.join(missing))]
+message('\n         '.join(status))
