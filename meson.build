@@ -613,6 +613,19 @@ conf.set_quoted('GETTEXT_PACKAGE', meson.project_name())
 substs.set('SUSHELL', get_option('debug-shell'))
 substs.set('DEBUGTTY', get_option('debug-tty'))
 
+debug = get_option('debug')
+if debug != ''
+        foreach name : debug.split(',')
+                if name == 'hashmap'
+                        conf.set('ENABLE_DEBUG_HASHMAP', 1)
+                elif name == 'mmap-cache'
+                        conf.set('ENABLE_DEBUG_MMAP_CACHE', 1)
+                else
+                        message('unknown debug option "@0@", ignoring'.format(name))
+                endif
+        endforeach
+endif
+
 #####################################################################
 
 threads = dependency('threads')
