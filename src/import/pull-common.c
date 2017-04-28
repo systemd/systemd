@@ -394,7 +394,6 @@ int pull_verify(PullJob *main_job,
                 PullJob *signature_job) {
 
         _cleanup_close_pair_ int gpg_pipe[2] = { -1, -1 };
-        _cleanup_free_ char *fn = NULL;
         _cleanup_close_ int sig_file = -1;
         char sig_file_path[] = "/tmp/sigXXXXXX", gpg_home[] = "/tmp/gpghomeXXXXXX";
         _cleanup_(sigkill_waitp) pid_t pid = 0;
