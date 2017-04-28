@@ -172,6 +172,8 @@ int copy_bytes(int fdf, int fdt, uint64_t max_bytes, CopyFlags copy_flags) {
                  * but don't go below our copy buffer size, unless we are
                  * close the limit of bytes we are allowed to copy. */
                 m = MAX(MIN(COPY_BUFFER_SIZE, max_bytes), m - n);
+                if (m == 0)
+                        break;
         }
 
         return 0; /* return 0 if we hit EOF earlier than the size limit */
