@@ -613,6 +613,9 @@ static int journal_file_verify_header(JournalFile *f) {
                         return -EBUSY;
                 }
 
+                if (f->header->field_hash_table_size == 0 || f->header->data_hash_table_size == 0)
+                        return -EBADMSG;
+
                 /* Don't permit appending to files from the future. Because otherwise the realtime timestamps wouldn't
                  * be strictly ordered in the entries in the file anymore, and we can't have that since it breaks
                  * bisection. */
