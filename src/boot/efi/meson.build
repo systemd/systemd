@@ -28,7 +28,7 @@ stub_sources = '''
         stub.c
 '''.split()
 
-if conf.get('ENABLE_EFI', 0) == 1 and get_option('gnu-efi') != 'false'
+if conf.get('ENABLE_EFI', false) and get_option('gnu-efi') != 'false'
         efi_cc = get_option('efi-cc')
         efi_ld = get_option('efi-ld')
 

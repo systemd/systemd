@@ -240,8 +240,8 @@ foreach tuple : in_units
 
         # we do this here because install_data does not accept custom_target output
         conds = tuple[1].split(' ')
-        install = ((conds.get(0, '') == '' or conf.get(conds[0], 0) == 1) and
-                   (conds.get(1, '') == '' or conf.get(conds[1], 0) == 1))
+        install = ((conds.get(0, '') == '' or conf.get(conds[0], false)) and
+                   (conds.get(1, '') == '' or conf.get(conds[1], false)))
 
         gen1 = configure_file(
                 input : file + '.in',
@@ -269,8 +269,8 @@ foreach tuple : m4_units
 
         # we do this here because install_data does not accept custom_target output
         conds = tuple[1].split(' ')
-        install = ((conds.get(0, '') == '' or conf.get(conds[0], 0) == 1) and
-                   (conds.get(1, '') == '' or conf.get(conds[1], 0) == 1))
+        install = ((conds.get(0, '') == '' or conf.get(conds[0], false)) and
+                   (conds.get(1, '') == '' or conf.get(conds[1], false)))
 
         custom_target(
                 file,
@@ -293,8 +293,8 @@ foreach tuple : units
         input = tuple.get(3, file)
 
         conds = tuple[1].split(' ')
-        install = ((conds.get(0, '') == '' or conf.get(conds[0], 0) == 1) and
-                   (conds.get(1, '') == '' or conf.get(conds[1], 0) == 1))
+        install = ((conds.get(0, '') == '' or conf.get(conds[0], false)) and
+                   (conds.get(1, '') == '' or conf.get(conds[1], false)))
 
         if install
                 install_data(input,
@@ -317,7 +317,7 @@ meson.add_install_script(meson_make_symlink,
 meson.add_install_script(meson_make_symlink,
                          join_paths(dbussystemservicedir, 'org.freedesktop.systemd1.service'),
                          join_paths(dbussessionservicedir, 'org.freedesktop.systemd1.service'))
-if conf.get('HAVE_SYSV_COMPAT', 0) == 1
+if conf.get('HAVE_SYSV_COMPAT', false)
         foreach i : [1, 2, 3, 4, 5]
                 meson.add_install_script(
                         'sh', '-c',

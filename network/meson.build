@@ -1,4 +1,4 @@
-if conf.get('ENABLE_NETWORKD', 0) == 1
+if conf.get('ENABLE_NETWORKD', false)
         install_data('80-container-host0.network',
                      '80-container-ve.network',
                      '80-container-vz.network',

@@ -1,4 +1,4 @@
-enable_tmpfiles = conf.get('ENABLE_TMPFILES', 0) == 1
+enable_tmpfiles = conf.get('ENABLE_TMPFILES', false)
 
 tmpfiles = [['home.conf',            ''],
             ['journal-nocow.conf',   ''],
@@ -14,7 +14,7 @@ tmpfiles = [['home.conf',            ''],
 foreach pair : tmpfiles
         if not enable_tmpfiles
                 # do nothing
-        elif pair[1] == '' or conf.get(pair[1], 0) == 1
+        elif pair[1] == '' or conf.get(pair[1], false)
                 install_data(pair[0], install_dir : tmpfilesdir)
         else
                 message('Not installing tmpfiles.d/@0@ because @1@ is @2@'

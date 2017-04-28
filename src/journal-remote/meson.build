@@ -21,7 +21,7 @@ systemd_journal_gatewayd_sources = files('''
         microhttpd-util.c
 '''.split())
 
-if conf.get('ENABLE_REMOTE', 0) == 1 and conf.get('HAVE_LIBCURL', 0) == 1
+if conf.get('ENABLE_REMOTE', false) and conf.get('HAVE_LIBCURL', false)
         journal_upload_conf = configure_file(
                 input : 'journal-upload.conf.in',
                 output : 'journal-upload.conf',
@@ -30,7 +30,7 @@ if conf.get('ENABLE_REMOTE', 0) == 1 and conf.get('HAVE_LIBCURL', 0) == 1
                      install_dir : pkgsysconfdir)
 endif
 
-if conf.get('ENABLE_REMOTE', 0) == 1 and conf.get('HAVE_MICROHTTPD', 0) == 1
+if conf.get('ENABLE_REMOTE', false) and conf.get('HAVE_MICROHTTPD', false)
         journal_remote_conf = configure_file(
                 input : 'journal-remote.conf.in',
                 output : 'journal-remote.conf',

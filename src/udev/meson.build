@@ -36,15 +36,15 @@ libudev_core_sources = '''
         net/ethtool-util.h
 '''.split()
 
-if conf.get('HAVE_KMOD', 0) == 1
+if conf.get('HAVE_KMOD', false)
         libudev_core_sources += ['udev-builtin-kmod.c']
 endif
 
-if conf.get('HAVE_BLKID', 0) == 1
+if conf.get('HAVE_BLKID', false)
         libudev_core_sources += ['udev-builtin-blkid.c']
 endif
 
-if conf.get('HAVE_ACL', 0) == 1
+if conf.get('HAVE_ACL', false)
         libudev_core_sources += ['udev-builtin-uaccess.c',
 	                         logind_acl_c,
                                  sd_login_c]
