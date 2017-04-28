@@ -28,6 +28,7 @@
 #include "network-internal.h"
 #include "netdev/netdev.h"
 #include "networkd-manager.h"
+#include "networkd-link.h"
 #include "siphash24.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -220,6 +221,13 @@ static int netdev_enslave_ready(NetDev *netdev, Link* link, sd_netlink_message_h
         assert(IN_SET(netdev->kind, NETDEV_KIND_BRIDGE, NETDEV_KIND_BOND, NETDEV_KIND_VRF));
         assert(link);
         assert(callback);
+
+        if (link->flags & IFF_UP) {
+                log_netdev_debug(netdev, "Link '%s' was up when attempting to enslave it. Bringing link down.", link->ifname);
+                r = link_down(link);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not bring link down: %m");
+        }
 
         r = sd_rtnl_message_new_link(netdev->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
         if (r < 0)
