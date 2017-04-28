@@ -20,7 +20,8 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
-<refentry id="environment.d" xmlns:xi="http://www.w3.org/2001/XInclude">
+<refentry id="environment.d" conditional='ENABLE_ENVIRONMENT_D'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>environment.d</title>
