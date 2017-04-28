@@ -24,7 +24,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd.environment-generator" xmlns:xi="http://www.w3.org/2001/XInclude">
+<refentry id="systemd.environment-generator" conditional='ENABLE_ENVIRONMENT_D'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>systemd.environment-generator</title>
     <productname>systemd</productname>

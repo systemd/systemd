@@ -23,7 +23,7 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
-<refentry id="systemd-environment-d-generator">
+<refentry id="systemd-environment-d-generator" conditional='ENABLE_ENVIRONMENT_D'>
 
   <refentryinfo>
     <title>systemd-environment-d-generator</title>

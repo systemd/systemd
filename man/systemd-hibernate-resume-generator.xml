@@ -19,7 +19,7 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
-<refentry id="systemd-hibernate-resume-generator">
+<refentry id="systemd-hibernate-resume-generator" conditional='ENABLE_HIBERNATE'>
 
   <refentryinfo>
     <title>systemd-hibernate-resume-generator</title>
