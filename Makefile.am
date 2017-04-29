@@ -5812,6 +5812,8 @@ libnetworkd_core_la_SOURCES = \
 	src/network/networkd-network-bus.c \
 	src/network/networkd-address.h \
 	src/network/networkd-address.c \
+	src/network/networkd-address-label.h \
+	src/network/networkd-address-label.c \
 	src/network/networkd-route.h \
 	src/network/networkd-route.c \
 	src/network/networkd-fdb.h \

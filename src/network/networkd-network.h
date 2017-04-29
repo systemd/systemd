@@ -28,6 +28,7 @@
 #include "resolve-util.h"
 
 #include "networkd-address.h"
+#include "networkd-address-label.h"
 #include "networkd-brvlan.h"
 #include "networkd-fdb.h"
 #include "networkd-lldp-tx.h"
@@ -202,15 +203,18 @@ struct Network {
         LIST_HEAD(Route, static_routes);
         LIST_HEAD(FdbEntry, static_fdb_entries);
         LIST_HEAD(IPv6ProxyNDPAddress, ipv6_proxy_ndp_addresses);
+        LIST_HEAD(AddressLabel, address_labels);
 
         unsigned n_static_addresses;
         unsigned n_static_routes;
         unsigned n_static_fdb_entries;
         unsigned n_ipv6_proxy_ndp_addresses;
+        unsigned n_address_labels;
 
         Hashmap *addresses_by_section;
         Hashmap *routes_by_section;
         Hashmap *fdb_entries_by_section;
+        Hashmap *address_labels_by_section;
 
         struct in_addr_data *dns;
         unsigned n_dns;

@@ -853,6 +853,35 @@ static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
         return 1;
 }
 
+static int address_label_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
+        _cleanup_link_unref_ Link *link = userdata;
+        int r;
+
+        assert(rtnl);
+        assert(m);
+        assert(link);
+        assert(link->ifname);
+        assert(link->link_messages > 0);
+
+        link->link_messages--;
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -EEXIST)
+                log_link_warning_errno(link, r, "could not set address label: %m");
+        else if (r >= 0)
+                manager_rtnl_process_address(rtnl, m, link->manager);
+
+        if (link->link_messages == 0) {
+                log_link_debug(link, "Addresses label set");
+                link_enter_set_routes(link);
+        }
+
+        return 1;
+}
+
 static int link_push_uplink_dns_to_dhcp_server(Link *link, sd_dhcp_server *s) {
         _cleanup_free_ struct in_addr *addresses = NULL;
         size_t n_addresses = 0, n_allocated = 0;
@@ -965,6 +994,7 @@ static int link_set_bridge_fdb(Link *link) {
 }
 
 static int link_enter_set_addresses(Link *link) {
+        AddressLabel *label;
         Address *ad;
         int r;
 
@@ -982,6 +1012,17 @@ static int link_enter_set_addresses(Link *link) {
                 r = address_configure(ad, link, address_handler, false);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "Could not set addresses: %m");
+                        link_enter_failed(link);
+                        return r;
+                }
+
+                link->link_messages++;
+        }
+
+        LIST_FOREACH(labels, label, link->network->address_labels) {
+                r = address_label_configure(label, link, address_label_handler, false);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Could not set address label: %m");
                         link_enter_failed(link);
                         return r;
                 }

@@ -155,6 +155,9 @@ int sd_rtnl_message_neigh_get_ifindex(sd_netlink_message *m, int *family);
 int sd_rtnl_message_neigh_get_state(sd_netlink_message *m, uint16_t *state);
 int sd_rtnl_message_neigh_get_flags(sd_netlink_message *m, uint8_t *flags);
 
+int sd_rtnl_message_new_addrlabel(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int ifindex, int ifal_family);
+int sd_rtnl_message_addrlabel_set_prefixlen(sd_netlink_message *m, unsigned char prefixlen);
+
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_netlink, sd_netlink_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_netlink_message, sd_netlink_message_unref);
 
