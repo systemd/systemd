@@ -580,7 +580,6 @@ static int raw_pull_job_on_open_disk_generic(
                 const char *extra,
                 char **temp_path) {
 
-        _cleanup_free_ char *p = NULL;
         int r;
 
         assert(i);

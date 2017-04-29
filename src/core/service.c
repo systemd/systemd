@@ -2163,7 +2163,6 @@ static int service_serialize_exec_command(Unit *u, FILE *f, ExecCommand *command
         unsigned idx;
         const char *type;
         char **arg;
-        _cleanup_strv_free_ char **escaped_args = NULL;
         _cleanup_free_ char *args = NULL, *p = NULL;
         size_t allocated = 0, length = 0;
 
@@ -2306,7 +2305,7 @@ static int service_deserialize_exec_command(Unit *u, const char *key, const char
         bool control, found = false;
         ServiceExecCommand id = _SERVICE_EXEC_COMMAND_INVALID;
         ExecCommand *command = NULL;
-        _cleanup_free_ char *args = NULL, *path = NULL;
+        _cleanup_free_ char *path = NULL;
         _cleanup_strv_free_ char **argv = NULL;
 
         enum ExecCommandState {
