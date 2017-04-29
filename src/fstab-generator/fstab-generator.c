@@ -399,6 +399,10 @@ static int add_mount(
         if (r < 0)
                 return r;
 
+        r = generator_write_device_deps(dest, what, where, opts);
+        if (r < 0)
+                return r;
+
         r = write_mount_timeout(f, where, opts);
         if (r < 0)
                 return r;
