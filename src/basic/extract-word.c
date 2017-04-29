@@ -241,7 +241,12 @@ int extract_first_word_and_warn(
         return log_syntax(unit, LOG_ERR, filename, line, r, "Unable to decode word \"%s\", ignoring: %m", rvalue);
 }
 
-int extract_many_words(const char **p, const char *separators, ExtractFlags flags, ...) {
+/* We pass ExtractFlags as unsigned int (to avoid undefined behaviour when passing
+ * an object that undergoes default argument promotion as an argument to va_start).
+ * Let's make sure that ExtractFlags fits into an unsigned int. */
+assert_cc(sizeof(enum ExtractFlags) <= sizeof(unsigned));
+
+int extract_many_words(const char **p, const char *separators, unsigned flags, ...) {
         va_list ap;
         char **l;
         int n = 0, i, c, r;
