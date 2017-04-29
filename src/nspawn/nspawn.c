@@ -1158,6 +1158,10 @@ static int parse_argv(int argc, char *argv[]) {
 
         arg_caps_retain = (arg_caps_retain | plus | (arg_private_network ? 1ULL << CAP_NET_ADMIN : 0)) & ~minus;
 
+        r = cg_unified_flush();
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether the unified cgroups hierarchy is used: %m");
+
         e = getenv("SYSTEMD_NSPAWN_CONTAINER_SERVICE");
         if (e)
                 arg_container_service_name = e;
@@ -3544,10 +3548,6 @@ int main(int argc, char *argv[]) {
 
         log_parse_environment();
         log_open();
-
-        r = cg_unified_flush();
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine whether the unified cgroups hierarchy is used: %m");
 
         /* Make sure rename_process() in the stub init process can work */
         saved_argv = argv;
