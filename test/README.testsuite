@@ -3,7 +3,7 @@ subdirectories named "test/TEST-??-*", which are run one by one.
 
 To run the extended testsuite do the following:
 
-$ make all
+$ make all  # Avoid the "sudo make" below building anything as root
 $ cd test
 $ sudo make clean check
 ...
