@@ -727,10 +727,7 @@ bool path_is_safe(const char *p) {
                 return false;
 
         /* The following two checks are not really dangerous, but hey, they still are confusing */
-        if (startswith(p, "./") || endswith(p, "/.") || strstr(p, "/./"))
-                return false;
-
-        if (strstr(p, "//"))
+        if (startswith(p, "./") || endswith(p, "/."))
                 return false;
 
         return true;
