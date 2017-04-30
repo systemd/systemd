@@ -79,7 +79,7 @@ VXLAN.FDBAgeingSec,          config_parse_sec,                     0,           
 VXLAN.GroupPolicyExtension,  config_parse_bool,                    0,                             offsetof(VxLan, group_policy)
 VXLAN.MaximumFDBEntries,     config_parse_unsigned,                0,                             offsetof(VxLan, max_fdb)
 VXLAN.PortRange,             config_parse_port_range,              0,                             0
-VXLAN.DestinationPort,       config_parse_destination_port,        0,                             offsetof(VxLan, dest_port)
+VXLAN.DestinationPort,       config_parse_ip_port,                 0,                             offsetof(VxLan, dest_port)
 VXLAN.FlowLabel,             config_parse_flow_label,              0,                             0
 GENEVE.Id,                   config_parse_geneve_vni,              0,                             offsetof(Geneve, id)
 GENEVE.Remote,               config_parse_geneve_address,          0,                             offsetof(Geneve, remote)
@@ -88,7 +88,7 @@ GENEVE.TTL,                  config_parse_uint8,                   0,           
 GENEVE.UDPChecksum,          config_parse_bool,                    0,                             offsetof(Geneve, udpcsum)
 GENEVE.UDP6ZeroCheckSumRx,   config_parse_bool,                    0,                             offsetof(Geneve, udp6zerocsumrx)
 GENEVE.UDP6ZeroCheckSumTx,   config_parse_bool,                    0,                             offsetof(Geneve, udp6zerocsumtx)
-GENEVE.DestinationPort,      config_parse_geneve_destination_port, 0,                             offsetof(Geneve, dest_port)
+GENEVE.DestinationPort,      config_parse_ip_port,                 0,                             offsetof(Geneve, dest_port)
 GENEVE.FlowLabel,            config_parse_geneve_flow_label,       0,                             0
 Tun.OneQueue,                config_parse_bool,                    0,                             offsetof(TunTap, one_queue)
 Tun.MultiQueue,              config_parse_bool,                    0,                             offsetof(TunTap, multi_queue)

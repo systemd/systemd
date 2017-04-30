@@ -600,8 +600,8 @@
       <listitem>
         <para>Configures the default destination UDP port on a per-device basis.
         If destination port is not specified then Linux kernel default will be used.
-        Set destination port 4789 to get the IANA assigned value,
-        and destination port 0 to get default values.</para>
+        Set destination port 4789 to get the IANA assigned value. If not set or if the
+        destination port is assigned the empty string the default port of 4789 is used.</para>
       </listitem>
     </varlistentry>
     <varlistentry>
@@ -646,13 +646,13 @@
       <varlistentry>
         <term><varname>TOS=</varname></term>
         <listitem>
-          <para>Specifies the TOS value to use in outgoing packets. Ranges [1-255]. </para>
+          <para>Specifies the TOS value to use in outgoing packets. Ranges [1-255].</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>TTL=</varname></term>
         <listitem>
-          <para>Specifies the TTL value to use in outgoing packets. Ranges [1-255]. </para>
+          <para>Specifies the TTL value to use in outgoing packets. Ranges [1-255].</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -676,7 +676,8 @@
     <varlistentry>
       <term><varname>DestinationPort=</varname></term>
       <listitem>
-        <para>Specifies destination port. Defaults to 6081.</para>
+        <para>Specifies destination port. Defaults to 6081. If not set or assigned the empty string, the default
+        port of 6081 is used.</para>
       </listitem>
     </varlistentry>
     <varlistentry>

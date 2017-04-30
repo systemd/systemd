@@ -271,36 +271,6 @@ int config_parse_port_range(const char *unit,
         return 0;
 }
 
-int config_parse_destination_port(const char *unit,
-                                  const char *filename,
-                                  unsigned line,
-                                  const char *section,
-                                  unsigned section_line,
-                                  const char *lvalue,
-                                  int ltype,
-                                  const char *rvalue,
-                                  void *data,
-                                  void *userdata) {
-        VxLan *v = userdata;
-        uint16_t port;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = parse_ip_port(rvalue, &port);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse VXLAN destination port '%s'.", rvalue);
-                return 0;
-        }
-
-        v->dest_port = port;
-
-        return 0;
-}
-
 int config_parse_flow_label(const char *unit,
                             const char *filename,
                             unsigned line,

@@ -238,36 +238,6 @@ int config_parse_geneve_address(const char *unit,
         return 0;
 }
 
-int config_parse_geneve_destination_port(const char *unit,
-                                         const char *filename,
-                                         unsigned line,
-                                         const char *section,
-                                         unsigned section_line,
-                                         const char *lvalue,
-                                         int ltype,
-                                         const char *rvalue,
-                                         void *data,
-                                         void *userdata) {
-        Geneve *v = userdata;
-        uint16_t port;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = parse_ip_port(rvalue, &port);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse Geneve destination port '%s'.", rvalue);
-                return 0;
-        }
-
-        v->dest_port = port;
-
-        return 0;
-}
-
 int config_parse_geneve_flow_label(const char *unit,
                                    const char *filename,
                                    unsigned line,

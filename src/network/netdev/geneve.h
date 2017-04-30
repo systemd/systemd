@@ -73,17 +73,6 @@ int config_parse_geneve_address(const char *unit,
                                void *data,
                                void *userdata);
 
-int config_parse_geneve_destination_port(const char *unit,
-                                         const char *filename,
-                                         unsigned line,
-                                         const char *section,
-                                         unsigned section_line,
-                                         const char *lvalue,
-                                         int ltype,
-                                         const char *rvalue,
-                                         void *data,
-                                         void *userdata);
-
 int config_parse_geneve_flow_label(const char *unit,
                                    const char *filename,
                                    unsigned line,
