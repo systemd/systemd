@@ -199,7 +199,7 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(const EFI_TCG *tcg, UINT32 p
 
         event_number = 1;
         status = uefi_call_wrapper(tcg->HashLogExtendEvent, 7,
-                                   tcg, buffer, buffer_size, TCG_ALG_SHA, tcg_event, &event_number, &event_log_last);
+                                   (EFI_TCG *) tcg, buffer, buffer_size, TCG_ALG_SHA, tcg_event, &event_number, &event_log_last);
 
         if (EFI_ERROR(status))
                 return status;
@@ -219,7 +219,7 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(const EFI_TCG *tcg, UINT32 p
  */
 static EFI_STATUS trigger_tcg2_final_events_table(const EFI_TCG2 *tcg)
 {
-        return uefi_call_wrapper(tcg->GetEventLog, 5, tcg,
+        return uefi_call_wrapper(tcg->GetEventLog, 5, (EFI_TCG2 *) tcg,
                                  EFI_TCG2_EVENT_LOG_FORMAT_TCG_2, NULL,
                                  NULL, NULL);
 }
@@ -254,7 +254,7 @@ static EFI_STATUS tpm2_measure_to_pcr_and_event_log(const EFI_TCG2 *tcg, UINT32 
 
         CopyMem((VOID *) tcg_event->Event, (VOID *) description, desc_len);
 
-        status = uefi_call_wrapper(tcg->HashLogExtendEvent, 5, tcg, 0, buffer, buffer_size, tcg_event);
+        status = uefi_call_wrapper(tcg->HashLogExtendEvent, 5, (EFI_TCG2 *) tcg, 0, buffer, buffer_size, tcg_event);
 
         uefi_call_wrapper(BS->FreePool, 1, tcg_event);
 
