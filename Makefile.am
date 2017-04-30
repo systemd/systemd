@@ -749,8 +749,10 @@ man/index.html: man/systemd.index.html
 	$(AM_V_LN)$(LN_S) -f systemd.index.html $@
 
 if HAVE_PYTHON
+if ENABLE_MANPAGES
 noinst_DATA += \
 	man/index.html
+endif
 endif
 
 CLEANFILES += \
