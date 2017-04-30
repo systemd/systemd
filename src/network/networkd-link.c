@@ -1644,7 +1644,7 @@ static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
         return 1;
 }
 
-static int link_up(Link *link) {
+int link_up(Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         uint8_t ipv6ll_mode;
         int r;
@@ -1765,7 +1765,7 @@ static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, void *user
         return 1;
 }
 
-static int link_down(Link *link) {
+int link_down(Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
