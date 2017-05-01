@@ -3306,9 +3306,6 @@ static int logind_check_inhibitors(enum action a) {
         if (arg_when > 0)
                 return 0;
 
-        if (geteuid() == 0)
-                return 0;
-
         if (!on_tty())
                 return 0;
 
