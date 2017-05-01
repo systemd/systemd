@@ -61,18 +61,9 @@ foreach tuple : manpages
                         install_dir : mandirn)
                 man_pages += [p1]
 
-                p2 = custom_target(
-                        html,
-                        input : xml,
-                        output : html,
-                        command : xslt_cmd + [custom_html_xsl, '@INPUT@'],
-                        depend_files : custom_entities_ent,
-                        install : want_html,
-                        install_dir : join_paths(docdir, 'html'))
-                html_pages += [p2]
-
+                p2 = []
                 foreach htmlalias : htmlaliases
-                        p3 = custom_target(
+                        link = custom_target(
                                 htmlalias,
                                 input : p2,
                                 output : htmlalias,
@@ -81,9 +72,21 @@ foreach tuple : manpages
                                 dst = join_paths(docdir, 'html', htmlalias)
                                 cmd = 'ln -fs @0@ $DESTDIR@1@'.format(html, dst)
                                 meson.add_install_script('sh', '-c', cmd)
+                                p2 += [link]
                         endif
-                        html_pages += [p3]
+                        html_pages += [link]
                 endforeach
+
+                p3 = custom_target(
+                        html,
+                        input : xml,
+                        output : html,
+                        command : xslt_cmd + [custom_html_xsl, '@INPUT@'],
+                        depend_files : custom_entities_ent,
+                        depends : p2,
+                        install : want_html,
+                        install_dir : join_paths(docdir, 'html'))
+                html_pages += [p3]
 
                 source_xml_files += files(tuple[0] + '.xml')
         else
@@ -131,18 +134,10 @@ foreach tuple : [['systemd.directives', '7', systemd_directives_xml],
                 install_dir : mandirn)
         man_pages += [p1]
 
-        p2 = custom_target(
-                html,
-                input : xml,
-                output : html,
-                command : xslt_cmd + [custom_html_xsl, '@INPUT@'],
-                install : want_html and have_lxml,
-                install_dir : join_paths(docdir, 'html'))
-        html_pages += [p2]
-
+        p2 = []
         if html == 'systemd.index.html'
                 htmlalias = 'index.html'
-                p3 = custom_target(
+                link = custom_target(
                         htmlalias,
                         input : p2,
                         output : htmlalias,
@@ -151,9 +146,21 @@ foreach tuple : [['systemd.directives', '7', systemd_directives_xml],
                         dst = join_paths(docdir, 'html', htmlalias)
                         cmd = 'ln -fs @0@ $DESTDIR@1@'.format(html, dst)
                         meson.add_install_script('sh', '-c', cmd)
+                        p2 += [link]
                 endif
-                html_pages += [p3]
+                html_pages += [link]
         endif
+
+        p3 = custom_target(
+                html,
+                input : xml,
+                output : html,
+                command : xslt_cmd + [custom_html_xsl, '@INPUT@'],
+                depend_files : custom_entities_ent,
+                depends : p2,
+                install : want_html and have_lxml,
+                install_dir : join_paths(docdir, 'html'))
+        html_pages += [p3]
 endforeach
 
 # cannot use run_target until https://github.com/mesonbuild/meson/issues/1644 is resolved
