@@ -139,6 +139,21 @@ foreach tuple : [['systemd.directives', '7', systemd_directives_xml],
                 install : want_html and have_lxml,
                 install_dir : join_paths(docdir, 'html'))
         html_pages += [p2]
+
+        if html == 'systemd.index.html'
+                htmlalias = 'index.html'
+                p3 = custom_target(
+                        htmlalias,
+                        input : p2,
+                        output : htmlalias,
+                        command : ['ln', '-fs', html, '@OUTPUT@'])
+                if want_html
+                        dst = join_paths(docdir, 'html', htmlalias)
+                        cmd = 'ln -fs @0@ $DESTDIR@1@'.format(html, dst)
+                        meson.add_install_script('sh', '-c', cmd)
+                endif
+                html_pages += [p3]
+        endif
 endforeach
 
 # cannot use run_target until https://github.com/mesonbuild/meson/issues/1644 is resolved
