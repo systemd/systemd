@@ -1,6 +1,6 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
-OUTFILE_HEADER = """#!/usr/bin/python3
+OUTFILE_HEADER = """#!/usr/bin/env python3
 #
 # create-sys-script.py
 #
