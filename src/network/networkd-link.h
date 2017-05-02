@@ -33,8 +33,6 @@
 #include "list.h"
 #include "set.h"
 
-#define LINK_BRIDGE_PORT_PRIORITY_INVALID 128
-
 typedef enum LinkState {
         LINK_STATE_PENDING,
         LINK_STATE_ENSLAVING,
