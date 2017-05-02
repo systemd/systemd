@@ -131,6 +131,7 @@ static int ndisc_reset(sd_ndisc *nd) {
         nd->timeout_event_source = sd_event_source_unref(nd->timeout_event_source);
         nd->recv_event_source = sd_event_source_unref(nd->recv_event_source);
         nd->fd = safe_close(nd->fd);
+        nd->nd_sent = 0;
 
         return 0;
 }
