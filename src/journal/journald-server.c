@@ -918,7 +918,7 @@ static void dispatch_message_real(
                 }
 
 #ifdef HAVE_SELINUX
-                if (mac_selinux_have()) {
+                if (mac_selinux_use()) {
                         if (label) {
                                 x = alloca(strlen("_SELINUX_CONTEXT=") + label_len + 1);
 
