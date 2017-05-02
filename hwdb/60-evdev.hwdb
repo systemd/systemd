@@ -115,6 +115,13 @@ evdev:name:ETPS/2 Elantech Touchpad:dmi:*:svnASUSTeKCOMPUTERINC.:pn?550C?:*
  EVDEV_ABS_35=::31
  EVDEV_ABS_36=::30
 
+# Asus UX301L
+evdev:name:Elan Touchpad:dmi:*:svnASUSTeKCOMPUTERINC.:pnUX301LAA:*
+ EVDEV_ABS_00=::30
+ EVDEV_ABS_01=::29
+ EVDEV_ABS_35=::30
+ EVDEV_ABS_36=::29
+
 # Asus UX305
 evdev:name:Elan Touchpad:dmi:*:svnASUSTeKCOMPUTERINC.:pnUX305UA:*
  EVDEV_ABS_00=0:3097:32
