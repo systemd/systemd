@@ -129,7 +129,7 @@ Bridge.HairPin,                         config_parse_bool,                      
 Bridge.FastLeave,                       config_parse_bool,                              0,                             offsetof(Network, fast_leave)
 Bridge.AllowPortToBeRoot,               config_parse_bool,                              0,                             offsetof(Network, allow_port_to_be_root)
 Bridge.UnicastFlood,                    config_parse_bool,                              0,                             offsetof(Network, unicast_flood)
-Bridge.Priority,                        config_parse_uint16,                            0,                             offsetof(Network, priority)
+Bridge.Priority,                        config_parse_bridge_port_priority,              0,                             offsetof(Network, priority)
 BridgeFDB.MACAddress,                   config_parse_fdb_hwaddr,                        0,                             0
 BridgeFDB.VLANId,                       config_parse_fdb_vlan_id,                       0,                             0
 BridgeVLAN.PVID,                        config_parse_brvlan_pvid,                       0,                             0
