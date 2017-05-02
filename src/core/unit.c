@@ -956,9 +956,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tPerpetual: %s\n"
                 "%s\tSlice: %s\n"
                 "%s\tCGroup: %s\n"
-                "%s\tCGroup realized: %s\n"
-                "%s\tCGroup mask: 0x%x\n"
-                "%s\tCGroup members mask: 0x%x\n",
+                "%s\tCGroup realized: %s\n",
                 prefix, u->id,
                 prefix, unit_description(u),
                 prefix, strna(u->instance),
@@ -975,9 +973,18 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(u->perpetual),
                 prefix, strna(unit_slice_name(u)),
                 prefix, strna(u->cgroup_path),
-                prefix, yes_no(u->cgroup_realized),
-                prefix, u->cgroup_realized_mask,
-                prefix, u->cgroup_members_mask);
+                prefix, yes_no(u->cgroup_realized));
+
+        if (u->cgroup_realized_mask != 0) {
+                _cleanup_free_ char *s = NULL;
+                (void) cg_mask_to_string(u->cgroup_realized_mask, &s);
+                fprintf(f, "%s\tCGroup mask: %s\n", prefix, strnull(s));
+        }
+        if (u->cgroup_members_mask != 0) {
+                _cleanup_free_ char *s = NULL;
+                (void) cg_mask_to_string(u->cgroup_members_mask, &s);
+                fprintf(f, "%s\tCGroup members mask: %s\n", prefix, strnull(s));
+        }
 
         SET_FOREACH(t, u->names, i)
                 fprintf(f, "%s\tName: %s\n", prefix, t);

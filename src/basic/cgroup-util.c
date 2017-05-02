@@ -55,6 +55,7 @@
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "unit-name.h"
 #include "user-util.h"
 
@@ -2211,6 +2212,60 @@ int cg_trim_everywhere(CGroupMask supported, const char *path, bool delete_root)
         return 0;
 }
 
+int cg_mask_to_string(CGroupMask mask, char **ret) {
+        const char *controllers[_CGROUP_CONTROLLER_MAX + 1];
+        CGroupController c;
+        int i = 0;
+        char *s;
+
+        assert(ret);
+
+        if (mask == 0) {
+                *ret = NULL;
+                return 0;
+        }
+
+        for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
+
+                if (!(mask & CGROUP_CONTROLLER_TO_MASK(c)))
+                        continue;
+
+                controllers[i++] = cgroup_controller_to_string(c);
+                controllers[i] = NULL;
+        }
+
+        s = strv_join((char **)controllers, NULL);
+        if (!s)
+                return -ENOMEM;
+
+        *ret = s;
+        return 0;
+}
+
+int cg_mask_from_string(const char *value, CGroupMask *mask) {
+        assert(mask);
+        assert(value);
+
+        for (;;) {
+                _cleanup_free_ char *n = NULL;
+                CGroupController v;
+                int r;
+
+                r = extract_first_word(&value, &n, NULL, 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                v = cgroup_controller_from_string(n);
+                if (v < 0)
+                        continue;
+
+                *mask |= CGROUP_CONTROLLER_TO_MASK(v);
+        }
+        return 0;
+}
+
 int cg_mask_supported(CGroupMask *ret) {
         CGroupMask mask = 0;
         int r;
@@ -2224,7 +2279,6 @@ int cg_mask_supported(CGroupMask *ret) {
                 return r;
         if (r > 0) {
                 _cleanup_free_ char *root = NULL, *controllers = NULL, *path = NULL;
-                const char *c;
 
                 /* In the unified hierarchy we can read the supported
                  * and accessible controllers from a the top-level
@@ -2242,23 +2296,9 @@ int cg_mask_supported(CGroupMask *ret) {
                 if (r < 0)
                         return r;
 
-                c = controllers;
-                for (;;) {
-                        _cleanup_free_ char *n = NULL;
-                        CGroupController v;
-
-                        r = extract_first_word(&c, &n, NULL, 0);
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                break;
-
-                        v = cgroup_controller_from_string(n);
-                        if (v < 0)
-                                continue;
-
-                        mask |= CGROUP_CONTROLLER_TO_MASK(v);
-                }
+                r = cg_mask_from_string(controllers, &mask);
+                if (r < 0)
+                        return r;
 
                 /* Currently, we support the cpu, memory, io and pids
                  * controller in the unified hierarchy, mask
