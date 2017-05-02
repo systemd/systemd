@@ -241,14 +241,23 @@ int socket_write_message(sd_netlink *nl, sd_netlink_message *m) {
         } addr = {
                 .nl.nl_family = AF_NETLINK,
         };
+        struct iovec iov = {
+                .iov_base = m->hdr,
+                .iov_len = m->hdr->nlmsg_len
+        };
+        struct msghdr msg = {
+                .msg_name = &addr,
+                .msg_namelen = sizeof(addr),
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+        };
         ssize_t k;
 
         assert(nl);
         assert(m);
         assert(m->hdr);
 
-        k = sendto(nl->fd, m->hdr, m->hdr->nlmsg_len,
-                        0, &addr.sa, sizeof(addr));
+        k = sendmsg(nl->fd, &msg, 0);
         if (k < 0)
                 return -errno;
 
