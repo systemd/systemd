@@ -1,52 +1,44 @@
 #compdef machinectl
 
-__get_available_machines () {
-    machinectl --no-legend list-images | {while read -r a b; do echo $a; done;}
-}
-
-_available_machines() {
-    local -a _machines
-    _machines=("${(fo)$(__get_available_machines)}")
-    typeset -U _machines
-    if [[ -n "$_machines" ]]; then
-        _describe 'machines' _machines
-    else
-        _message 'no machines'
-    fi
-}
-
 (( $+functions[_machinectl_command] )) || _machinectl_command()
 {
   local -a _machinectl_cmds
   _machinectl_cmds=(
-    "list:List currently running VMs/containers"
-    "status:Show VM/container status"
-    "show:Show properties of one or more VMs/containers"
-    "start:Start container as a service"
-    "stop:Stop container (equal to poweroff)"
-    "login:Get a login prompt on a VM/container"
-    "enable:Enable automatic container start at boot"
-    "disable:Disable automatic container start at boot"
-    "poweroff:Power off one or more VMs/containers"
-    "reboot:Reboot one or more VMs/containers"
-    "terminate:Terminate one or more VMs/containers"
-    "kill:Send signal to process or a VM/container"
-    "copy-to:Copy files from the host to a container"
-    "copy-from:Copy files from a container to the host"
-    "bind:Bind mount a path from the host into a container"
+    "list:list currently running VMs/containers"
+    "status:show VM/container status"
+    "show:show properties of one or more VMs/containers"
+    "start:start container as a service"
+    "stop:stop container (equal to poweroff)"
+    "login:get a login prompt on a VM/container"
+    "shell:open an interactive shell in a container"
+    "enable:enable automatic container start at boot"
+    "disable:disable automatic container start at boot"
+    "poweroff:power off one or more VMs/containers"
+    "reboot:reboot one or more VMs/containers"
+    "terminate:terminate one or more VMs/containers"
+    "kill:send signal to process or a VM/container"
+    "copy-to:copy files from the host to a container"
+    "copy-from:copy files from a container to the host"
+    "bind:bind mount a path from the host into a container"
 
-    "list-images:Show available container and VM images"
-    "image-status:Show image details"
-    "show-image:Show properties of image"
-    "clone:Clone an image"
-    "rename:Rename an image"
-    "read-only:Mark or unmark image read-only"
-    "remove:Remove an image"
+    "list-images:show available container and VM images"
+    "image-status:show image details"
+    "show-image:show properties of image"
+    "clone:clone an image"
+    "rename:rename an image"
+    "read-only:mark or unmark image read-only"
+    "remove:remove an image"
+    "set-limit:set size quota for VM/container"
+    "clean:remove hidden VM or container images"
 
-    "pull-tar:Download a TAR container image"
-    "pull-raw:Download a RAW container or VM image"
-    "list-transfers:Show list of downloads in progress"
-    "cancel-transfer:Cancel a download"
+    "pull-tar:download a TAR container image"
+    "pull-raw:download a RAW container or VM image"
+    "import-tar:import container from TAR file"
+    "export-tar:export container to TAR file"
+    "import-raw:import VM from RAW file"
+    "export-raw:export VM to RAW file"
+    "list-transfers:show list of downloads in progress"
+    "cancel-transfer:cancel a download"
   )
 
   if (( CURRENT == 1 )); then
@@ -55,46 +47,65 @@ _available_machines() {
     local curcontext="$curcontext"
     cmd="${${_machinectl_cmds[(r)$words[1]:*]%%:*}}"
     if (( $#cmd )); then
-      if (( CURRENT == 2 )); then
-        case $cmd in
-          list*|cancel-transfer|pull-tar|pull-raw)
-            msg="no options" ;;
-          start)
-            _available_machines ;;
-          *)
-            _sd_machines
-        esac
-      else
-        case $cmd in
-          copy-to|copy-from|bind)
-            _files ;;
-          *) msg="no options"
-        esac
-      fi
+      case $cmd in
+        copy-to|copy-from|bind)
+          _arguments '1: : _sd_machines' {2,3}': : _files';;
+        clone|rename)
+          _arguments '1: : _sd_machines' '2:new name';;
+        shell)
+          # we are completing commands from outside the container;
+          # better than nothing, unless the root directory can be
+          # queried. locallying changing path would be enough once
+          # you have that, see _jexec from zsh's src for an example.
+          _arguments '1: : _sd_machines' '*::: :{
+            if (( CURRENT == 1 )); then
+              _command_names -e
+            else
+              _normal
+            fi }';;
+        read-only)
+          _arguments '1: : _sd_machines' '2:boolean:(true false)';;
+        set-limit)
+          _arguments '1: : _sd_machines' '2:size';;
+        pull-(tar|raw))
+          _arguments '1: : _urls' '2:new name';;
+        import-(tar|raw))
+          _arguments '1: : _files' '2:new name';;
+        export-(tar|raw))
+          _arguments '1: : _sd_machines -t i' '2: : _files';;
+        list*|cancel-transfer|clean)
+          _nothing;;
+        start)
+          _sd_machines -t i;;
+        *)
+          _sd_machines
+      esac
     else
-      _message "no more options"
+      # completing files is more useful than a message
+      # in the event of an unhandled verb
+      _default
     fi
   fi
 }
 
 _arguments \
-  {-h,--help}'[Prints a short help text and exits.]' \
-  '--version[Prints a short version string and exits.]' \
-  '--no-pager[Do not pipe output into a pager.]' \
-  '--no-legend[Do not show the headers and footers.]' \
-  '--no-ask-password[Do not ask for system passwords.]' \
-  {-H+,--host=}'[Operate on remote host.]:userathost:_sd_hosts_or_user_at_host' \
-  {-M+,--machine=}'[Operate on local container.]:machine:_sd_machines' \
-  {-p+,--property=}'[Limit output to specified property.]:property:(Name Id Timestamp TimestampMonotonic Service Scope Leader Class State RootDirectory)' \
-  {-a,--all}'[Show all proerties.]' \
-  {-q,--quiet}'[Suppress output.]' \
-  {-l,--full}'[Do not ellipsize cgroup members.]' \
-  '--kill-who=[Who to send signal to.]:killwho:(leader all)' \
-  {-s+,--signal=}'[Which signal to send.]:signal:_signals' \
-  '--read-only[Create read-only bind mount.]' \
-  '--mkdir[Create directory before bind mounting, if missing.]' \
-  {-n+,--lines=}'[Number of journal entries to show.]:integer' \
-  {-o+,--output=}'[Change journal output mode.]:output modes:_sd_outputmodes' \
-  '--verify=[Verification mode for downloaded images.]:verify:(no checksum signature)' \
-  '--force[Download image even if already exists.]' \
+  {-h,--help}'[prints a short help text and exits.]' \
+  '--version[prints a short version string and exits.]' \
+  '--no-pager[do not pipe output into a pager.]' \
+  '--no-legend[do not show the headers and footers.]' \
+  '--no-ask-password[do not ask for system passwords.]' \
+  {-H+,--host=}'[operate on remote host.]:userathost:_sd_hosts_or_user_at_host' \
+  {-M+,--machine=}'[operate on local container.]:machine:_sd_machines' \
+  {-p+,--property=}'[limit output to specified property.]:property:(Name Id Timestamp TimestampMonotonic Service Scope Leader Class State RootDirectory)' \
+  {-a,--all}'[show all proerties.]' \
+  {-q,--quiet}'[suppress output.]' \
+  {-l,--full}'[do not ellipsize cgroup members.]' \
+  '--kill-who=[who to send signal to.]:killwho:(leader all)' \
+  {-s+,--signal=}'[which signal to send.]:signal:_signals' \
+  '--read-only[create read-only bind mount.]' \
+  '--mkdir[create directory before bind mounting, if missing.]' \
+  {-n+,--lines=}'[number of journal entries to show.]:integer' \
+  {-o+,--output=}'[change journal output mode.]:output modes:_sd_outputmodes' \
+  '--verify=[verification mode for downloaded images.]:verify:(no checksum signature)' \
+  '--force[download image even if already exists.]' \
   '*::machinectl command:_machinectl_command'
