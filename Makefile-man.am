@@ -2615,6 +2615,16 @@ man/systemd-user-sessions.html: man/systemd-user-sessions.service.html
 
 endif
 
+if HAVE_PYTHON
+MANPAGES += \
+	man/systemd.directives.7 \
+	man/systemd.index.7
+MANPAGES_ALIAS += \
+	#
+
+
+endif
+
 if HAVE_SYSV_COMPAT
 MANPAGES += \
 	man/systemd-sysv-generator.8
