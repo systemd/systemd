@@ -27,6 +27,7 @@
 #include <libaudit.h>
 #include <stdbool.h>
 
+#include "capability-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "util.h"
@@ -37,6 +38,13 @@ static int audit_fd;
 int get_audit_fd(void) {
 
         if (!initialized) {
+                if (have_effective_cap(CAP_AUDIT_WRITE) == 0) {
+                        audit_fd = -EPERM;
+                        initialized = true;
+
+                        return audit_fd;
+                }
+
                 audit_fd = audit_open();
 
                 if (audit_fd < 0) {
