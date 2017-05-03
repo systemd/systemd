@@ -286,12 +286,12 @@ static void test_restrict_address_families(void) {
                 assert_se(fd >= 0);
                 safe_close(fd);
 
-#if SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN
                 fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+#if SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN
                 assert_se(fd >= 0);
                 safe_close(fd);
 #else
-                assert_se(socket(AF_UNIX, SOCK_DGRAM, 0) < 0);
+                assert_se(fd < 0);
                 assert_se(errno == EAFNOSUPPORT);
 #endif
 
@@ -309,19 +309,21 @@ static void test_restrict_address_families(void) {
                 assert_se(fd >= 0);
                 safe_close(fd);
 
-#if SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN
                 fd = socket(AF_UNIX, SOCK_DGRAM, 0);
-                assert_se(fd >= 0);
-                safe_close(fd);
-
-                fd = socket(AF_NETLINK, SOCK_DGRAM, 0);
+#if SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN
                 assert_se(fd >= 0);
                 safe_close(fd);
 #else
-                assert_se(socket(AF_UNIX, SOCK_DGRAM, 0) < 0);
+                assert_se(fd < 0);
                 assert_se(errno == EAFNOSUPPORT);
+#endif
 
-                assert_se(socket(AF_NETLINK, SOCK_DGRAM, 0) < 0);
+                fd = socket(AF_NETLINK, SOCK_DGRAM, 0);
+#if SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN
+                assert_se(fd >= 0);
+                safe_close(fd);
+#else
+                assert_se(fd < 0);
                 assert_se(errno == EAFNOSUPPORT);
 #endif
 
@@ -393,12 +395,11 @@ static void test_memory_deny_write_execute(void) {
 
                 assert_se(seccomp_memory_deny_write_execute() >= 0);
 
-#if SECCOMP_MEMORY_DENY_WRITE_EXECUTE_BROKEN
                 p = mmap(NULL, page_size(), PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1,0);
+#if SECCOMP_MEMORY_DENY_WRITE_EXECUTE_BROKEN
                 assert_se(p != MAP_FAILED);
                 assert_se(munmap(p, page_size()) >= 0);
 #else
-                p = mmap(NULL, page_size(), PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1,0);
                 assert_se(p == MAP_FAILED);
                 assert_se(errno == EPERM);
 #endif
