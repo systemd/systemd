@@ -123,7 +123,7 @@ systemd_resolve_sources = (basic_dns_sources +
                            systemd_resolve_only_sources +
                            dns_type_headers)
 
-if conf.get('ENABLE_RESOLVED', 0) == 1
+if conf.get('ENABLE_RESOLVED', false)
         install_data('org.freedesktop.resolve1.conf',
                      install_dir : dbuspolicydir)
         install_data('org.freedesktop.resolve1.service',

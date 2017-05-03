@@ -3,7 +3,7 @@ file = configure_file(
         output : 'README',
         configuration : substs)
 
-if conf.get('HAVE_SYSV_COMPAT', 0) == 1
+if conf.get('HAVE_SYSV_COMPAT', false)
         install_data(file,
                      install_dir : varlogdir)
 endif

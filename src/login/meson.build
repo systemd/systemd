@@ -39,7 +39,7 @@ liblogind_core_sources = files('''
 '''.split())
 
 logind_acl_c = files('logind-acl.c')
-if conf.get('HAVE_ACL', 0) == 1
+if conf.get('HAVE_ACL', false)
         liblogind_core_sources += logind_acl_c
 endif
 
@@ -55,7 +55,7 @@ loginctl_sources = files('''
         sysfs-show.c
 '''.split())
 
-if conf.get('ENABLE_LOGIND', 0) == 1
+if conf.get('ENABLE_LOGIND', false)
         logind_conf = configure_file(
                 input : 'logind.conf.in',
                 output : 'logind.conf',

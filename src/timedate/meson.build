@@ -1,4 +1,4 @@
-if conf.get('ENABLE_TIMEDATED', 0) == 1
+if conf.get('ENABLE_TIMEDATED', false)
         install_data('org.freedesktop.timedate1.conf',
                      install_dir : dbuspolicydir)
         install_data('org.freedesktop.timedate1.service',

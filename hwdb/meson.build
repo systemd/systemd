@@ -17,7 +17,7 @@ hwdb_files = files('''
         70-touchpad.hwdb
 '''.split())
 
-if conf.get('ENABLE_HWDB', 0) == 1
+if conf.get('ENABLE_HWDB', false)
         install_data(hwdb_files,
                      install_dir : udevhwdbdir)
 

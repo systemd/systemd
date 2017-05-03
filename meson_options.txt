@@ -34,6 +34,8 @@ option('debug-shell', type : 'string', value : '/bin/sh',
        description : 'path to debug shell binary')
 option('debug-tty', type : 'string', value : '/dev/tty9',
        description : 'specify the tty device for debug shell')
+option('debug', type : 'string',
+       description : 'enable extra debugging (hashmap,mmap-cache)')
 
 option('utmp', type : 'boolean',
        description : 'support for utmp/wtmp log handling')
