@@ -804,6 +804,12 @@ int seccomp_restrict_namespaces(unsigned long retain) {
                 case SCMP_ARCH_X32:
                 case SCMP_ARCH_PPC64:
                 case SCMP_ARCH_PPC64LE:
+                case SCMP_ARCH_MIPS:
+                case SCMP_ARCH_MIPSEL:
+                case SCMP_ARCH_MIPS64:
+                case SCMP_ARCH_MIPSEL64:
+                case SCMP_ARCH_MIPS64N32:
+                case SCMP_ARCH_MIPSEL64N32:
                         clone_reversed_order = 0;
                         break;
 

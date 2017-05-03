@@ -1597,7 +1597,8 @@
         the specified flags parameters into account. Note that — if this option is used — in addition to restricting
         creation and switching of the specified types of namespaces (or all of them, if true) access to the
         <function>setns()</function> system call with a zero flags parameter is prohibited.  This setting is only
-        supported on x86, x86-64, s390 and s390x, and enforces no restrictions on other architectures. If running in user
+        supported on x86, x86-64, mips, mips-le, mips64, mips64-le, mips64-n32, mips64-le-n32, ppc64, ppc64-le,
+        s390 and s390x, and enforces no restrictions on other architectures. If running in user
         mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
         <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname> is implied.  </para></listitem>
       </varlistentry>
