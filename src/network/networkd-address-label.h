@@ -38,7 +38,6 @@ struct AddressLabel {
         Link *link;
         NetworkConfigSection *section;
 
-        int family;
         unsigned char prefixlen;
         uint32_t label;
 
