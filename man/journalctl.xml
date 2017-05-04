@@ -272,11 +272,21 @@
 
             <varlistentry>
               <term>
+                <option>short-iso-precise</option>
+              </term>
+              <listitem>
+                <para>as for <option>short-iso</option> but includes full
+                microsecond precision.</para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term>
                 <option>short-precise</option>
               </term>
               <listitem>
-                <para>is very similar, but shows timestamps with full
-                microsecond precision.</para>
+                <para>is very similar, but shows classic syslog timestamps
+                with full microsecond precision.</para>
               </listitem>
             </varlistentry>
 

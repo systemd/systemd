@@ -24,6 +24,7 @@ static const char *const output_mode_table[_OUTPUT_MODE_MAX] = {
         [OUTPUT_SHORT] = "short",
         [OUTPUT_SHORT_FULL] = "short-full",
         [OUTPUT_SHORT_ISO] = "short-iso",
+        [OUTPUT_SHORT_ISO_PRECISE] = "short-iso-precise",
         [OUTPUT_SHORT_PRECISE] = "short-precise",
         [OUTPUT_SHORT_MONOTONIC] = "short-monotonic",
         [OUTPUT_SHORT_UNIX] = "short-unix",
