@@ -42,11 +42,7 @@ static int netdev_vlan_fill_message_create(NetDev *netdev, Link *link, sd_netlin
 
         if (v->gvrp != -1) {
                 flags.mask |= VLAN_FLAG_GVRP;
-
-                if (v->gvrp)
-                        flags.flags |= VLAN_FLAG_GVRP;
-                else
-                        flags.flags &= ~VLAN_FLAG_GVRP;
+                SET_FLAG(flags.flags, VLAN_FLAG_GVRP, v->gvrp);
         }
 
         r = sd_netlink_message_append_data(req, IFLA_VLAN_FLAGS, &flags, sizeof(struct ifla_vlan_flags));

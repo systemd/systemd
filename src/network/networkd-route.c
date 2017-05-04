@@ -973,10 +973,7 @@ int config_parse_gateway_onlink(const char *unit,
                 return 0;
         }
 
-        if (r)
-                n->flags |= RTNH_F_ONLINK;
-        else
-                n->flags &= ~RTNH_F_ONLINK;
+        SET_FLAG(n->flags, RTNH_F_ONLINK, r);
         n = NULL;
 
         return 0;
