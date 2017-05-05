@@ -173,7 +173,9 @@
         <para>Note that timers do not necessarily expire at the
         precise time configured with this setting, as it is subject to
         the <varname>AccuracySec=</varname> setting
-        below.</para></listitem>
+        below.</para>
+
+       <para>May be specified more than once.</para></listitem>
       </varlistentry>
 
       <varlistentry>
