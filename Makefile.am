@@ -301,6 +301,24 @@ install-busnames-target-wants-hook:
 	what="$(BUSNAMES_TARGET_WANTS)" && wants=busnames.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(USER_BUSNAMES_TARGET_WANTS)" && wants=busnames.target && dir=$(userunitdir) && $(add-wants)
 
+# Macro to emulate ln --relative when needed
+# $(1): options for ln, except --relative
+# $(2): source file, absolute path without leading DESTDIR
+# $(3): destination file, absolute path without leading DESTDIR
+if HAVE_LN_RELATIVE
+define ln-s-relative
+	$(LN_S) --relative $(1) \
+		$(DESTDIR)$(strip $(2)) \
+		$(DESTDIR)$(strip $(3))
+endef
+else
+define ln-s-relative
+	$(LN_S) $(1) \
+		`dirname $(strip $(3)) |sed -r -e 's:/+[^/]+:../:g; s:/$$::'`$(strip $(2)) \
+		$(DESTDIR)$(strip $(3))
+endef
+endif
+
 define add-wants
 	[ -z "$$what" ] || ( \
 	  dir=$(DESTDIR)$$dir/$$wants.wants && \
@@ -314,8 +332,9 @@ install-directories-hook:
 	$(MKDIR_P) $(addprefix $(DESTDIR),$(INSTALL_DIRS))
 
 install-environment-conf-hook: install-directories-hook
-	$(AM_V_LN)$(LN_S) --relative -f $(DESTDIR)$(sysconfdir)/environment \
-		$(DESTDIR)$(environmentdir)/99-environment.conf
+	$(AM_V_LN)$(call ln-s-relative,-f,\
+			$(sysconfdir)/environment,\
+			$(environmentdir)/99-environment.conf)
 
 install-aliases-hook:
 	set -- $(SYSTEM_UNIT_ALIASES) && \
@@ -338,7 +357,7 @@ define install-relative-aliases
 	while [ -n "$$1" ]; do \
 		$(MKDIR_P) `dirname $(DESTDIR)$$dir/$$2` && \
 		rm -f $(DESTDIR)$$dir/$$2 && \
-		$(LN_S) --relative $(DESTDIR)$$1 $(DESTDIR)$$dir/$$2 && \
+		$(call ln-s-relative,,$$1,$$dir/$$2) && \
 		shift 2 || exit $$?; \
 	done
 endef

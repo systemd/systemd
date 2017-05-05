@@ -109,7 +109,10 @@ AC_PATH_PROG([SULOGIN], [sulogin], [/usr/sbin/sulogin], [$PATH:/usr/sbin:/sbin])
 AC_PATH_PROG([MOUNT_PATH], [mount], [/usr/bin/mount], [$PATH:/usr/sbin:/sbin])
 AC_PATH_PROG([UMOUNT_PATH], [umount], [/usr/bin/umount], [$PATH:/usr/sbin:/sbin])
 
-AS_IF([! ln --relative --help > /dev/null 2>&1], [AC_MSG_ERROR([*** ln doesn't support --relative ***])])
+AC_MSG_CHECKING([if ln supports --relative])
+AS_IF([! ${LN_S} --relative --help > /dev/null 2>&1], [ln_relative=no], [ln_relative=yes])
+AC_MSG_RESULT([$ln_relative])
+AM_CONDITIONAL([HAVE_LN_RELATIVE], [test "x$ln_relative" = "xyes"])
 
 M4_DEFINES=
 
