@@ -1192,6 +1192,27 @@ int seccomp_restrict_realtime(void) {
         return 0;
 }
 
+static int add_seccomp_syscall_filter(scmp_filter_ctx seccomp,
+                                      uint32_t arch,
+                                      int nr,
+                                      unsigned int arg_cnt,
+                                      const struct scmp_arg_cmp arg) {
+        int r;
+
+        r = seccomp_rule_add_exact(seccomp, SCMP_ACT_ERRNO(EPERM), nr, arg_cnt, arg);
+        if (r < 0) {
+                _cleanup_free_ char *n = NULL;
+
+                n = seccomp_syscall_resolve_num_arch(arch, nr);
+                log_debug_errno(r, "Failed to add %s() rule for architecture %s, skipping: %m",
+                                strna(n),
+                                seccomp_arch_to_string(arch));
+        }
+
+        return r;
+}
+
+
 int seccomp_memory_deny_write_execute(void) {
 
         uint32_t arch;
@@ -1235,63 +1256,30 @@ int seccomp_memory_deny_write_execute(void) {
                 if (r < 0)
                         return r;
 
-                if (filter_syscall != 0)  {
-                        r = seccomp_rule_add_exact(
-                                        seccomp,
-                                        SCMP_ACT_ERRNO(EPERM),
-                                        filter_syscall,
-                                        1,
-                                        SCMP_A2(SCMP_CMP_MASKED_EQ, PROT_EXEC|PROT_WRITE, PROT_EXEC|PROT_WRITE));
-                        if (r < 0) {
-                                _cleanup_free_ char *n = NULL;
-
-                                n = seccomp_syscall_resolve_num_arch(arch, filter_syscall);
-                                log_debug_errno(r, "Failed to add %s() rule for architecture %s, skipping: %m",
-                                                strna(n),
-                                                seccomp_arch_to_string(arch));
-                                continue;
-                        }
-                }
+                r = add_seccomp_syscall_filter(seccomp, arch, filter_syscall,
+                                               1,
+                                               SCMP_A2(SCMP_CMP_MASKED_EQ, PROT_EXEC|PROT_WRITE, PROT_EXEC|PROT_WRITE));
+                if (r < 0)
+                        continue;
 
                 if (block_syscall != 0) {
-                        r = seccomp_rule_add_exact(
-                                        seccomp,
-                                        SCMP_ACT_ERRNO(EPERM),
-                                        block_syscall,
-                                        0);
-                        if (r < 0) {
-                                _cleanup_free_ char *n = NULL;
-
-                                n = seccomp_syscall_resolve_num_arch(arch, block_syscall);
-                                log_debug_errno(r, "Failed to add %s() rule for architecture %s, skipping: %m",
-                                                strna(n),
-                                                seccomp_arch_to_string(arch));
+                        r = add_seccomp_syscall_filter(seccomp, arch, block_syscall, 0, (const struct scmp_arg_cmp){} );
+                        if (r < 0)
                                 continue;
-                        }
                 }
 
-                r = seccomp_rule_add_exact(
-                                seccomp,
-                                SCMP_ACT_ERRNO(EPERM),
-                                SCMP_SYS(mprotect),
-                                1,
-                                SCMP_A2(SCMP_CMP_MASKED_EQ, PROT_EXEC, PROT_EXEC));
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to add mprotect() rule for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+                r = add_seccomp_syscall_filter(seccomp, arch, SCMP_SYS(mprotect),
+                                               1,
+                                               SCMP_A2(SCMP_CMP_MASKED_EQ, PROT_EXEC, PROT_EXEC));
+                if (r < 0)
                         continue;
-                }
 
                 if (shmat_syscall != 0) {
-                        r = seccomp_rule_add_exact(
-                                        seccomp,
-                                        SCMP_ACT_ERRNO(EPERM),
-                                        SCMP_SYS(shmat),
-                                        1,
-                                        SCMP_A2(SCMP_CMP_MASKED_EQ, SHM_EXEC, SHM_EXEC));
-                        if (r < 0) {
-                                log_debug_errno(r, "Failed to add shmat() rule for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+                        r = add_seccomp_syscall_filter(seccomp, arch, SCMP_SYS(shmat),
+                                                       1,
+                                                       SCMP_A2(SCMP_CMP_MASKED_EQ, SHM_EXEC, SHM_EXEC));
+                        if (r < 0)
                                 continue;
-                        }
                 }
 
                 r = seccomp_load(seccomp);
