@@ -1213,7 +1213,7 @@ static int add_seccomp_syscall_filter(scmp_filter_ctx seccomp,
 }
 
 /* For known architectures, check that syscalls are indeed defined or not. */
-#if defined(__x86_64__)
+#if defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
 assert_cc(SCMP_SYS(shmget) > 0);
 assert_cc(SCMP_SYS(shmat) > 0);
 assert_cc(SCMP_SYS(shmdt) > 0);
@@ -1251,15 +1251,24 @@ int seccomp_memory_deny_write_execute(void) {
 
                         break;
 
+                case SCMP_ARCH_AARCH64:
+                        block_syscall = SCMP_SYS(mmap);
+                        /* fall through */
+
+                case SCMP_ARCH_ARM:
+                        filter_syscall = SCMP_SYS(mmap2); /* arm has only mmap2 */
+                        shmat_syscall = SCMP_SYS(shmat);
+                        break;
+
                 case SCMP_ARCH_X86_64:
                 case SCMP_ARCH_X32:
-                        filter_syscall = SCMP_SYS(mmap);
+                        filter_syscall = SCMP_SYS(mmap); /* amd64 and x32 have only mmap */
                         shmat_syscall = SCMP_SYS(shmat);
                         break;
 
                 /* Please add more definitions here, if you port systemd to other architectures! */
 
-#if !defined(__i386__) && !defined(__x86_64__) && !defined(__powerpc64__)
+#if !defined(__i386__) && !defined(__x86_64__) && !defined(__powerpc64__) && !defined(__arm__) && !defined(__aarch64__)
 #warning "Consider adding the right mmap() syscall definitions here!"
 #endif
                 }
