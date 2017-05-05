@@ -398,7 +398,7 @@ static void test_memory_deny_write_execute_mmap(void) {
                 assert_se(seccomp_memory_deny_write_execute() >= 0);
 
                 p = mmap(NULL, page_size(), PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1,0);
-#if defined(__x86_64__) || defined(__i386__)
+#if defined(__x86_64__) || defined(__i386__) || defined(__powerpc64__)
                 assert_se(p == MAP_FAILED);
                 assert_se(errno == EPERM);
 #else /* unknown architectures */
@@ -448,7 +448,7 @@ static void test_memory_deny_write_execute_shmat(void) {
 #if defined(__x86_64__)
                 assert_se(p == MAP_FAILED);
                 assert_se(errno == EPERM);
-#else /* __i386__ and "unknown" architectures */
+#else /* __i386__, __powerpc64__, and "unknown" architectures */
                 assert_se(p != MAP_FAILED);
                 assert_se(shmdt(p) == 0);
 #endif

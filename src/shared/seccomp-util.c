@@ -1212,6 +1212,16 @@ static int add_seccomp_syscall_filter(scmp_filter_ctx seccomp,
         return r;
 }
 
+/* For known architectures, check that syscalls are indeed defined or not. */
+#if defined(__x86_64__)
+assert_cc(SCMP_SYS(shmget) > 0);
+assert_cc(SCMP_SYS(shmat) > 0);
+assert_cc(SCMP_SYS(shmdt) > 0);
+#elif defined(__i386__) || defined(__powerpc64__)
+assert_cc(SCMP_SYS(shmget) < 0);
+assert_cc(SCMP_SYS(shmat) < 0);
+assert_cc(SCMP_SYS(shmdt) < 0);
+#endif
 
 int seccomp_memory_deny_write_execute(void) {
 
@@ -1229,10 +1239,16 @@ int seccomp_memory_deny_write_execute(void) {
                 case SCMP_ARCH_X86:
                         filter_syscall = SCMP_SYS(mmap2);
                         block_syscall = SCMP_SYS(mmap);
+                        break;
 
-                        /* Note that shmat() isn't available on i386, where the call is multiplexed through ipc(). We
-                         * ignore that here, which means there's still a way to get writable/executable memory, if an
-                         * IPC key is mapped like this on i386. That's a pity, but no total loss. */
+                case SCMP_ARCH_PPC64:
+                case SCMP_ARCH_PPC64LE:
+                        filter_syscall = SCMP_SYS(mmap);
+
+                        /* Note that shmat() isn't available, and the call is multiplexed through ipc().
+                         * We ignore that here, which means there's still a way to get writable/executable
+                         * memory, if an IPC key is mapped like this. That's a pity, but no total loss. */
+
                         break;
 
                 case SCMP_ARCH_X86_64:
@@ -1243,7 +1259,7 @@ int seccomp_memory_deny_write_execute(void) {
 
                 /* Please add more definitions here, if you port systemd to other architectures! */
 
-#if !defined(__i386__) && !defined(__x86_64__)
+#if !defined(__i386__) && !defined(__x86_64__) && !defined(__powerpc64__)
 #warning "Consider adding the right mmap() syscall definitions here!"
 #endif
                 }
