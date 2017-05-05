@@ -128,7 +128,7 @@ Bridge.MaxAgeSec,            config_parse_sec,                     0,           
 Bridge.AgeingTimeSec,        config_parse_sec,                     0,                             offsetof(Bridge, ageing_time)
 Bridge.ForwardDelaySec,      config_parse_sec,                     0,                             offsetof(Bridge, forward_delay)
 Bridge.Priority,             config_parse_uint16,                  0,                             offsetof(Bridge, priority)
-Bridge.DefaultPVID,          config_parse_vlanid,                  0,                             offsetof(Bridge, default_pvid)
+Bridge.DefaultPVID,          config_parse_default_port_vlanid,     0,                             offsetof(Bridge, default_pvid)
 Bridge.MulticastQuerier,     config_parse_tristate,                0,                             offsetof(Bridge, mcast_querier)
 Bridge.MulticastSnooping,    config_parse_tristate,                0,                             offsetof(Bridge, mcast_snooping)
 Bridge.VLANFiltering,        config_parse_tristate,                0,                             offsetof(Bridge, vlan_filtering)
