@@ -84,13 +84,6 @@ int seccomp_memory_deny_write_execute(void);
 #define SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN 0
 #endif
 
-/* we don't know the right order of the clone() parameters except for these archs, for now */
-#if defined(__x86_64__) || defined(__i386__) || defined(__s390x__) || defined(__s390__) || defined(__powerpc64__) || defined(__mips__)
-#define SECCOMP_RESTRICT_NAMESPACES_BROKEN 0
-#else
-#define SECCOMP_RESTRICT_NAMESPACES_BROKEN 1
-#endif
-
 extern const uint32_t seccomp_local_archs[];
 
 #define SECCOMP_FOREACH_LOCAL_ARCH(arch) \
