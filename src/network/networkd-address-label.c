@@ -117,7 +117,7 @@ int address_label_configure(
         assert(link->manager->rtnl);
 
         r = sd_rtnl_message_new_addrlabel(link->manager->rtnl, &req, RTM_NEWADDRLABEL,
-                                          link->ifindex, label->family);
+                                          link->ifindex, AF_INET6);
         if (r < 0)
                 return log_error_errno(r, "Could not allocate RTM_NEWADDR message: %m");
 
@@ -155,9 +155,7 @@ int config_parse_address_label_prefix(const char *unit,
 
         _cleanup_address_label_free_ AddressLabel *n = NULL;
         Network *network = userdata;
-        const char *prefix, *e;
-        union in_addr_union buffer;
-        int r, f;
+        int r;
 
         assert(filename);
         assert(section);
@@ -169,43 +167,11 @@ int config_parse_address_label_prefix(const char *unit,
         if (r < 0)
                 return r;
 
-        /* AddressLabel=prefix/prefixlen */
-
-        /* prefixlen */
-        e = strchr(rvalue, '/');
-        if (e) {
-                unsigned i;
-
-                r = safe_atou(e + 1, &i);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Prefix length is invalid, ignoring assignment: %s", e + 1);
-                        return 0;
-                }
-
-                if (i > 128) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Prefix length is out of range, ignoring assignment: %s", e + 1);
-                        return 0;
-                }
-
-                n->prefixlen = (unsigned char) i;
-
-                prefix = strndupa(rvalue, e - rvalue);
-        } else
-                prefix = rvalue;
-
-        r = in_addr_from_string_auto(prefix, &f, &buffer);
+        r = in_addr_prefix_from_string(rvalue, AF_INET6, &n->in_addr, &n->prefixlen);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Address label is invalid, ignoring assignment: %s", prefix);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Address label is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
-
-        if (f != AF_INET6) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Address label family is not IPv6, ignoring assignment: %s", prefix);
-                return 0;
-        }
-
-        n->family = f;
-        n->in_addr = buffer;
 
         n = NULL;
 
