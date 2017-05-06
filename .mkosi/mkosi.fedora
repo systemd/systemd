@@ -20,7 +20,7 @@
 
 [Distribution]
 Distribution=fedora
-Release=25
+Release=26
 
 [Output]
 Format=raw_btrfs
@@ -32,8 +32,7 @@ RootSize=3G
 [Packages]
 BuildPackages=
         audit-libs-devel
-        autoconf
-        automake
+        meson
         bzip2-devel
         cryptsetup-devel
         dbus-devel
@@ -63,7 +62,6 @@ BuildPackages=
         libxkbcommon-devel
         libxslt
         lz4-devel
-        make
         pam-devel
         pkgconfig
         python3-devel

@@ -32,8 +32,6 @@ RootSize=2G
 Cache=/var/cache/pacman/pkg/
 BuildPackages=
         acl
-        autoconf
-        automake
         bzip2
         cryptsetup
         curl
@@ -58,7 +56,7 @@ BuildPackages=
         libxkbcommon
         libxslt
         lz4
-        make
+        meson
         pam
         pkgconfig
         python
