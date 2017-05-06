@@ -61,6 +61,7 @@ BuildPackages=
         libtool
         libxkbcommon-devel
         libxslt
+        lz4
         lz4-devel
         pam-devel
         pkgconfig
