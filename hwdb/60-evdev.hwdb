@@ -191,8 +191,8 @@ evdev:name:AlpsPS/2 ALPS GlidePoint:dmi:bvn*:bvr*:bd*:svnDellInc.:pnXPSM1530*
 
 # Fujitsu Component - USB Touch Panel
 evdev:input:b0003v0430p0530*
- EVDEV_ABS_00=0:4096:
- EVDEV_ABS_01=0:4096:
+ EVDEV_ABS_00=0:4096:16
+ EVDEV_ABS_01=0:4096:16
 
 #########################################
 # Google
