@@ -1580,7 +1580,7 @@
 
         <listitem><para>Restricts access to Linux namespace functionality for the processes of this unit. For details
         about Linux namespaces, see
-        <citerefentry><refentrytitle>namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>. Either takes a
+        <citerefentry project='man-pages'><refentrytitle>namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>. Either takes a
         boolean argument, or a space-separated list of namespace type identifiers. If false (the default), no
         restrictions on namespace creation and switching are made. If true, access to any kind of namespacing is
         prohibited. Otherwise, a space-separated list of namespace type identifiers must be specified, consisting of

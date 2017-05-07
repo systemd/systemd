@@ -507,7 +507,7 @@
             <para>This setting is read by
             <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
             "Search domains" correspond to the <varname>domain</varname> and <varname>search</varname> entries in
-            <citerefentry><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
             Domain name routing has no equivalent in the traditional glibc API, which has no concept of domain
             name servers limited to a specific link.</para>
           </listitem>

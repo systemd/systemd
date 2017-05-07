@@ -76,7 +76,7 @@
     <replaceable>WHERE</replaceable>.</para>
 
     <para>In many ways, <command>systemd-mount</command> is similar to the lower-level
-    <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry> command, however instead
+    <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry> command, however instead
     of executing the mount operation directly and immediately, <command>systemd-mount</command> schedules it through
     the service manager job queue, so that it may pull in further dependencies (such as parent mounts, or a file system
     checker to execute a priori), and may make use of the auto-mounting logic.</para>
@@ -301,7 +301,7 @@
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,

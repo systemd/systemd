@@ -123,7 +123,7 @@
 
     <para>In order to by used in the <option>--backtrace</option> mode, an appropriate backtrace
     handler must be installed on the sender side. For example, in case of
-    <citerefentry><refentrytitle>python</refentrytitle><manvolnum>1</manvolnum></citerefentry>, this
+    <citerefentry project='die-net'><refentrytitle>python</refentrytitle><manvolnum>1</manvolnum></citerefentry>, this
     means a <varname>sys.excepthook</varname> must installed, see
     <ulink url="https://github.com/keszybz/systemd-coredump-python">systemd-coredump-python</ulink>.
     </para>
