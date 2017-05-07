@@ -59,7 +59,7 @@
 
     <para><filename>systemd-vconsole-setup</filename> is a helper used to prepare either all virtual consoles, or — if
       the optional <replaceable>TTY</replaceable> parameter is provided — a specific one. When the system is booting up
-      it's called by <citerefentry><command>udev</command></citerefentry> during vtconsole subsystem initialization.
+      it's called by <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry> during vtconsole subsystem initialization.
       <productname>Systemd</productname> also calls it internally as needed via
       <filename>systemd-vconsole-setup.service</filename>. The helper calls
       <citerefentry project='mankier'><refentrytitle>loadkeys</refentrytitle><manvolnum>1</manvolnum></citerefentry> and
