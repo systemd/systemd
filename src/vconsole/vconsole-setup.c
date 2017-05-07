@@ -99,10 +99,7 @@ static int toggle_utf8(const char *name, int fd, bool utf8) {
 
         r = tcgetattr(fd, &tc);
         if (r >= 0) {
-                if (utf8)
-                        tc.c_iflag |= IUTF8;
-                else
-                        tc.c_iflag &= ~IUTF8;
+                SET_FLAG(tc.c_iflag, IUTF8, utf8);
                 r = tcsetattr(fd, TCSANOW, &tc);
         }
         if (r < 0)

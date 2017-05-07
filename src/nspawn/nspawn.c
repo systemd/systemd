@@ -389,12 +389,10 @@ static void parse_mount_settings_env(void) {
         if (r < 0) {
                 log_warning_errno(r, "Failed to parse SYSTEMD_NSPAWN_API_VFS_WRITABLE from environment, ignoring.");
                 return;
-        } else if (r > 0)
-                arg_mount_settings &= ~MOUNT_APPLY_APIVFS_RO;
-        else
-                arg_mount_settings |= MOUNT_APPLY_APIVFS_RO;
+        }
 
-        arg_mount_settings &= ~MOUNT_APPLY_APIVFS_NETNS;
+        SET_FLAG(arg_mount_settings, MOUNT_APPLY_APIVFS_RO, r == 0);
+        SET_FLAG(arg_mount_settings, MOUNT_APPLY_APIVFS_NETNS, false);
 }
 
 static int parse_argv(int argc, char *argv[]) {
