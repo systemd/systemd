@@ -38,6 +38,9 @@ static bool ipv6_proxy_ndp_is_needed(Link *link) {
         if (!link->network)
                 return false;
 
+        if (link->network->ipv6_proxy_ndp != -1)
+                return link->network->ipv6_proxy_ndp;
+
         if (link->network->n_ipv6_proxy_ndp_addresses == 0)
                 return false;
 
