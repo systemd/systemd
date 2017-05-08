@@ -242,23 +242,17 @@
     the local timezone, similar to the supported syntax of timestamps (see above). Non-local timezones except for UTC
     are not supported.</para>
 
-    <para>The special expressions
-    <literal>minutely</literal>,
-    <literal>hourly</literal>, <literal>daily</literal>,
-    <literal>monthly</literal>, <literal>weekly</literal>,
-    <literal>yearly</literal>,
-    <literal>quarterly</literal>,
-    <literal>semiannually</literal> may be used as
-    calendar events which refer to
-    <literal>*-*-* *:*:00</literal>,
-    <literal>*-*-* *:00:00</literal>,
-    <literal>*-*-* 00:00:00</literal>,
-    <literal>*-*-01 00:00:00</literal>,
-    <literal>Mon *-*-* 00:00:00</literal>,
-    <literal>*-01-01 00:00:00</literal>,
-    <literal>*-01,04,07,10-01 00:00:00</literal> and
-    <literal>*-01,07-01 00:00:00</literal>, respectively.
-    </para>
+  <para>The following special expressions may be used as shorthands for longer normalized forms:</para>
+
+    <programlisting>    minutely → *-*-* *:*:00
+      hourly → *-*-* *:00:00
+       daily → *-*-* 00:00:00
+     monthly → *-*-01 00:00:00
+      weekly → Mon *-*-* 00:00:00
+      yearly → *-01-01 00:00:00
+   quarterly → *-01,04,07,10-01 00:00:00
+semiannually → *-01,07-01 00:00:00
+   </programlisting>
 
     <para>Examples for valid timestamps and their
     normalized form:</para>
