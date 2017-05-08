@@ -264,6 +264,8 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
                 }
 
         } else {
+                char usec[7];
+
                 gettime_r = (flags & OUTPUT_UTC) ? gmtime_r : localtime_r;
                 t = (time_t) (x / USEC_PER_SEC);
 
@@ -275,9 +277,19 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
 
                 case OUTPUT_SHORT_ISO:
                         if (strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S%z", gettime_r(&t, &tm)) <= 0) {
-                                log_error("Failed for format ISO time");
+                                log_error("Failed to format ISO time");
                                 return -EINVAL;
                         }
+                        break;
+
+                case OUTPUT_SHORT_ISO_PRECISE:
+                        /* No usec in strftime, so we leave space and copy over */
+                        if (strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S.xxxxxx%z", gettime_r(&t, &tm)) <= 0) {
+                                log_error("Failed to format ISO-precise time");
+                                return -EINVAL;
+                        }
+                        xsprintf(usec, "%06"PRI_USEC, x % USEC_PER_SEC);
+                        memcpy(buf + 20, usec, 6);
                         break;
 
                 case OUTPUT_SHORT:
@@ -949,6 +961,7 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(
 
         [OUTPUT_SHORT] = output_short,
         [OUTPUT_SHORT_ISO] = output_short,
+        [OUTPUT_SHORT_ISO_PRECISE] = output_short,
         [OUTPUT_SHORT_PRECISE] = output_short,
         [OUTPUT_SHORT_MONOTONIC] = output_short,
         [OUTPUT_SHORT_UNIX] = output_short,
