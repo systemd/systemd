@@ -2927,8 +2927,13 @@ int exec_spawn(Unit *unit,
             context->std_output == EXEC_OUTPUT_SOCKET ||
             context->std_error == EXEC_OUTPUT_SOCKET) {
 
-                if (params->n_fds != 1) {
+                if (params->n_fds > 1) {
                         log_unit_error(unit, "Got more than one socket.");
+                        return -EINVAL;
+                }
+
+                if (params->n_fds == 0) {
+                        log_unit_error(unit, "Got no socket.");
                         return -EINVAL;
                 }
 
