@@ -1015,7 +1015,11 @@ static int server_receive_message(sd_event_source *s, int fd,
                 }
         }
 
-        return dhcp_server_handle_message(server, message, (size_t)len);
+        int r = dhcp_server_handle_message(server, message, (size_t)len);
+        if (r < 0)
+            log_dhcp_server(server, "DHCP_server: message error: %d", r);
+
+        return 0;
 }
 
 int sd_dhcp_server_start(sd_dhcp_server *server) {
