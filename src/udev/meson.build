@@ -113,7 +113,7 @@ libudev_core = static_library(
         keyboard_keys_from_name_h,
         include_directories : libudev_core_includes,
         link_with : udev_link_with,
-        dependencies : [libblkid])
+        dependencies : [libblkid, libkmod])
 
 foreach prog : [['ata_id/ata_id.c'],
                 ['cdrom_id/cdrom_id.c'],
