@@ -658,9 +658,10 @@
 
         <para>As exceptions to the setting above, the service will not
         be restarted if the exit code or signal is specified in
-        <varname>RestartPreventExitStatus=</varname> (see below).
-        Also, the services will always be restarted if the exit code
-        or signal is specified in
+        <varname>RestartPreventExitStatus=</varname> (see below) or
+        the service is stopped with <command>systemctl stop</command>
+        or an equivalent operation. Also, the services will always be
+        restarted if the exit code or signal is specified in
         <varname>RestartForceExitStatus=</varname> (see below).</para>
 
         <para>Note that service restart is subject to unit start rate
