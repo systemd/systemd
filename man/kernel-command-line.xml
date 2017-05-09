@@ -59,8 +59,8 @@
     kernel command line arguments.</para>
 
     <para>For command line parameters understood by the kernel, please
-    see <ulink
-    url="https://www.kernel.org/doc/Documentation/kernel-parameters.txt"><filename>kernel-parameters.txt</filename></ulink>
+    see
+    <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html"><filename>kernel-parameters.html</filename></ulink>
     and
     <citerefentry project='man-pages'><refentrytitle>bootparam</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 

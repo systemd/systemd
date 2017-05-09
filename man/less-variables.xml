@@ -12,8 +12,8 @@
       <listitem><para>Pager to use when <option>--no-pager</option> is not given; overrides
       <varname>$PAGER</varname>. If neither <varname>$SYSTEMD_PAGER</varname> nor <varname>$PAGER</varname> are set, a
       set of well-known pager implementations are tried in turn, including
-      <citerefentry><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry> and
-      <citerefentry><refentrytitle>more</refentrytitle><manvolnum>1</manvolnum></citerefentry>, until one is found. If
+      <citerefentry project='man-pages'><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry> and
+      <citerefentry project='man-pages'><refentrytitle>more</refentrytitle><manvolnum>1</manvolnum></citerefentry>, until one is found. If
       no pager implementation is discovered no pager is invoked. Setting this environment variable to an empty string
       or the value <literal>cat</literal> is equivalent to passing <option>--no-pager</option>.</para></listitem>
     </varlistentry>
