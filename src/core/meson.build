@@ -146,6 +146,7 @@ libcore = static_library(
         include_directories : includes,
         link_with : [libshared_static],
         dependencies : [threads,
+                        libseccomp,
                         libpam,
                         libaudit,
                         libkmod,
