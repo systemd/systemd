@@ -1012,3 +1012,40 @@ int config_parse_ipv6_route_preference(const char *unit,
 
         return 0;
 }
+
+int config_parse_route_protocol(const char *unit,
+                                const char *filename,
+                                unsigned line,
+                                const char *section,
+                                unsigned section_line,
+                                const char *lvalue,
+                                int ltype,
+                                const char *rvalue,
+                                void *data,
+                                void *userdata) {
+        Network *network = userdata;
+        _cleanup_route_free_ Route *n = NULL;
+        int r;
+
+        r = route_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return r;
+
+        if (streq(rvalue, "kernel"))
+                n->protocol = RTPROT_KERNEL;
+        else if (streq(rvalue, "boot"))
+                n->protocol = RTPROT_BOOT;
+        else if (streq(rvalue, "static"))
+                n->protocol = RTPROT_STATIC;
+        else {
+                r = safe_atou8(rvalue , &n->protocol);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Could not parse route protocol \"%s\", ignoring assignment: %m", rvalue);
+                        return 0;
+                }
+        }
+
+        n = NULL;
+
+        return 0;
+}
