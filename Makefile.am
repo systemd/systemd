@@ -2139,6 +2139,10 @@ test_acl_util_LDADD = \
 test_seccomp_SOURCES = \
 	src/test/test-seccomp.c
 
+test_seccomp_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(SECCOMP_CFLAGS)
+
 test_seccomp_LDADD = \
 	libsystemd-shared.la \
 	$(SECCOMP_LIBS)
@@ -2435,6 +2439,7 @@ test_execute_SOURCES = \
 
 test_execute_CFLAGS = \
 	$(AM_CFLAGS) \
+	$(SECCOMP_CFLAGS) \
 	$(MOUNT_CFLAGS)
 
 test_execute_LDADD = \
