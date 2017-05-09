@@ -34,6 +34,8 @@ SUBSYSTEM=="video4linux", GROUP="video"
 SUBSYSTEM=="graphics", GROUP="video"
 SUBSYSTEM=="drm", GROUP="video"
 SUBSYSTEM=="dvb", GROUP="video"
+SUBSYSTEM=="media", GROUP="video"
+SUBSYSTEM=="cec", GROUP="video"
 
 SUBSYSTEM=="sound", GROUP="audio", \
   OPTIONS+="static_node=snd/seq", OPTIONS+="static_node=snd/timer"
