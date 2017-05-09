@@ -178,6 +178,7 @@ struct Network {
         int ipv6_accept_ra;
         int ipv6_dad_transmits;
         int ipv6_hop_limit;
+        int ipv6_proxy_ndp;
         int proxy_arp;
 
         bool ipv6_accept_ra_use_dns;
