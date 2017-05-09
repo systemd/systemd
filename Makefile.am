@@ -272,6 +272,8 @@ LOCAL_FS_TARGET_WANTS =
 MULTI_USER_TARGET_WANTS =
 GRAPHICAL_TARGET_WANTS =
 RESCUE_TARGET_WANTS =
+REBOOT_TARGET_WANTS =
+POWEROFF_TARGET_WANTS =
 SYSINIT_TARGET_WANTS =
 SOCKETS_TARGET_WANTS =
 BUSNAMES_TARGET_WANTS =
@@ -290,6 +292,8 @@ install-target-wants-hook:
 	what="$(MULTI_USER_TARGET_WANTS)" && wants=multi-user.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(GRAPHICAL_TARGET_WANTS)" && wants=graphical.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(RESCUE_TARGET_WANTS)" && wants=rescue.target && dir=$(systemunitdir) && $(add-wants)
+	what="$(REBOOT_TARGET_WANTS)" && wants=reboot.target && dir=$(systemunitdir) && $(add-wants)
+	what="$(POWEROFF_TARGET_WANTS)" && wants=poweroff.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(SYSINIT_TARGET_WANTS)" && wants=sysinit.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(SOCKETS_TARGET_WANTS)" && wants=sockets.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(TIMERS_TARGET_WANTS)" && wants=timers.target && dir=$(systemunitdir) && $(add-wants)
@@ -6467,6 +6471,10 @@ MULTI_USER_TARGET_WANTS += \
 GRAPHICAL_TARGET_WANTS += \
 	systemd-update-utmp-runlevel.service
 RESCUE_TARGET_WANTS += \
+	systemd-update-utmp-runlevel.service
+REBOOT_TARGET_WANTS += \
+	systemd-update-utmp-runlevel.service
+POWEROFF_TARGET_WANTS += \
 	systemd-update-utmp-runlevel.service
 endif
 
