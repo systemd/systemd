@@ -410,6 +410,31 @@
             the kernel's default setting applies.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>MVRP=</varname></term>
+          <listitem>
+            <para>Multiple VLAN Registration Protocol (MVRP) formerly known as GARP VLAN
+            Registration Protocol (GVRP) is a standards-based Layer 2 network protocol,
+            for automatic configuration of VLAN information on switches. It was defined
+            in the 802.1ak amendment to 802.1Q-2005. A boolean. When unset, the kernel's
+            default setting applies.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>LooseBinding=</varname></term>
+          <listitem>
+            <para>The VLAN loose binding mode, in which only the operational state is passed
+            from the parent to the associated VLANs, but the VLAN device state is not changed.
+            A boolean. When unset, the kernel's default setting applies.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>ReorderHeader=</varname></term>
+          <listitem>
+            <para>The VLAN reorder header is set VLAN interfaces behave like physical interfaces.
+            A boolean. When unset, the kernel's default setting applies.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 
