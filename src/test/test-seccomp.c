@@ -39,6 +39,15 @@
 #include "util.h"
 #include "virt.h"
 
+#if SCMP_SYS(socket) < 0 || defined(__i386__) || defined(__s390x__) || defined(__s390__)
+/* On these archs, socket() is implemented via the socketcall() syscall multiplexer,
+ * and we can't restrict it hence via seccomp. */
+#  define SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN 1
+#else
+#  define SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN 0
+#endif
+
+
 static void test_seccomp_arch_to_string(void) {
         uint32_t a, b;
         const char *name;

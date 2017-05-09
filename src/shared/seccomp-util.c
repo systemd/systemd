@@ -940,16 +940,16 @@ int seccomp_restrict_address_families(Set *address_families, bool whitelist) {
                 case SCMP_ARCH_X32:
                 case SCMP_ARCH_ARM:
                 case SCMP_ARCH_AARCH64:
+                case SCMP_ARCH_PPC64:
+                case SCMP_ARCH_PPC64LE:
                         /* These we know we support (i.e. are the ones that do not use socketcall()) */
                         supported = true;
                         break;
 
-                case SCMP_ARCH_X86:
                 case SCMP_ARCH_S390:
                 case SCMP_ARCH_S390X:
                 case SCMP_ARCH_PPC:
-                case SCMP_ARCH_PPC64:
-                case SCMP_ARCH_PPC64LE:
+                case SCMP_ARCH_X86:
                 default:
                         /* These we either know we don't support (i.e. are the ones that do use socketcall()), or we
                          * don't know */
