@@ -3005,7 +3005,8 @@ efi_headers = \
 	src/boot/efi/measure.h \
 	src/boot/efi/pefile.h \
 	src/boot/efi/splash.h \
-	src/boot/efi/util.h
+	src/boot/efi/util.h \
+	src/boot/efi/shim.h
 
 systemd_boot_sources = \
 	src/boot/efi/boot.c \
@@ -3014,7 +3015,8 @@ systemd_boot_sources = \
 	src/boot/efi/graphics.c \
 	src/boot/efi/measure.c \
 	src/boot/efi/pefile.c \
-	src/boot/efi/util.c
+	src/boot/efi/util.c \
+	src/boot/efi/shim.c
 
 EXTRA_DIST += $(systemd_boot_sources) $(systemd_boot_headers)
 

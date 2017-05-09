@@ -7,6 +7,7 @@ efi_headers = files('''
         pefile.h
         splash.h
         util.h
+        shim.h
 '''.split())
 
 common_sources = '''
@@ -20,6 +21,7 @@ common_sources = '''
 systemd_boot_sources = '''
         boot.c
         console.c
+        shim.c
 '''.split()
 
 stub_sources = '''

@@ -23,6 +23,7 @@
 #include "pefile.h"
 #include "util.h"
 #include "measure.h"
+#include "shim.h"
 
 #ifndef EFI_OS_INDICATIONS_BOOT_TO_FW_UI
 #define EFI_OS_INDICATIONS_BOOT_TO_FW_UI 0x0000000000000001ULL
@@ -382,6 +383,9 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 Print(L"SetupMode:              %s\n", *b > 0 ? L"setup" : L"user");
                 FreePool(b);
         }
+
+        if (shim_loaded())
+                Print(L"Shim:                   present\n");
 
         if (efivar_get_raw(&global_guid, L"OsIndicationsSupported", &b, &size) == EFI_SUCCESS) {
                 Print(L"OsIndicationsSupported: %d\n", (UINT64)*b);
@@ -1745,6 +1749,14 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 return EFI_LOAD_ERROR;
         }
 
+        if (secure_boot_enabled() && shim_loaded()) {
+                err = security_policy_install();
+                if (EFI_ERROR(err)) {
+                        Print(L"Error installing security policy: %r ", err);
+                        uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+                        return err;
+                }
+        }
 
         /* the filesystem path to this image, to prevent adding ourselves to the menu */
         loaded_image_path = DevicePathToStr(loaded_image->FilePath);
