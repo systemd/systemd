@@ -114,7 +114,7 @@ static int create_disk(
               "After=cryptsetup-pre.target\n",
               f);
 
-        if (!nofail)
+        if (!noauto)
                 fprintf(f,
                         "Before=cryptsetup.target\n");
 
