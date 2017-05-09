@@ -146,6 +146,8 @@ option('dev-kvm-mode', type : 'string', value : '0660',
        description : '/dev/kvm access mode')
 option('default-kill-user-processes', type : 'boolean',
        description : 'the default value for KillUserProcesses= setting')
+option('gshadow', type : 'boolean',
+       description : 'support for shadow group')
 
 option('default-dnssec', type : 'combo',
        description : 'default DNSSEC mode',

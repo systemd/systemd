@@ -1092,6 +1092,11 @@ if test "x$enable_sysusers" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_SYSUSERS, [test "$have_sysusers" = "yes"])
 
+AC_ARG_ENABLE(gshadow, AS_HELP_STRING([--disable-gshadow], [disable shadow group support]))
+AS_IF([test "x${enable_gshadow}" != "xno"], [
+        AC_DEFINE(ENABLE_GSHADOW, 1, [shadow group support is enabled])
+])
+
 # ------------------------------------------------------------------------------
 have_firstboot=no
 AC_ARG_ENABLE(firstboot, AS_HELP_STRING([--disable-firstboot], [disable firstboot support]))

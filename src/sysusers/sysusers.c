@@ -292,6 +292,7 @@ static int putgrent_with_members(const struct group *gr, FILE *group) {
         return 0;
 }
 
+#ifdef ENABLE_GSHADOW
 static int putsgent_with_members(const struct sgrp *sg, FILE *gshadow) {
         char **a;
 
@@ -341,6 +342,7 @@ static int putsgent_with_members(const struct sgrp *sg, FILE *gshadow) {
 
         return 0;
 }
+#endif
 
 static int sync_rights(FILE *from, FILE *to) {
         struct stat st;
@@ -659,6 +661,7 @@ fail:
 }
 
 static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, char **tmpfile_path) {
+#ifdef ENABLE_GSHADOW
         _cleanup_fclose_ FILE *original = NULL, *gshadow = NULL;
         _cleanup_free_ char *gshadow_tmp = NULL;
         bool group_changed = false;
@@ -740,6 +743,9 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
 fail:
         unlink(gshadow_tmp);
         return r;
+#else
+        return 0;
+#endif
 }
 
 static int write_files(void) {
