@@ -76,6 +76,7 @@ enum {
         SD_DHCP_OPTION_FQDN                        = 81,
         SD_DHCP_OPTION_NEW_POSIX_TIMEZONE          = 100,
         SD_DHCP_OPTION_NEW_TZDB_TIMEZONE           = 101,
+        SD_DHCP_OPTION_DOMAIN_SEARCH_LIST          = 119,
         SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE      = 121,
         SD_DHCP_OPTION_PRIVATE_BASE                = 224,
         SD_DHCP_OPTION_PRIVATE_LAST                = 254,

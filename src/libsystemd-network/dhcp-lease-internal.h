@@ -75,6 +75,7 @@ struct sd_dhcp_lease {
         uint16_t mtu; /* 0 if unset */
 
         char *domainname;
+        char **search_domains;
         char *hostname;
         char *root_path;
 
@@ -92,6 +93,7 @@ struct sd_dhcp_lease {
 int dhcp_lease_new(sd_dhcp_lease **ret);
 
 int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void *userdata);
+int dhcp_lease_parse_search_domains(const uint8_t *option, size_t len, char ***domains);
 int dhcp_lease_insert_private_option(sd_dhcp_lease *lease, uint8_t tag, const void *data, uint8_t len);
 
 int dhcp_lease_set_default_subnet_mask(sd_dhcp_lease *lease);

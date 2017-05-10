@@ -3690,6 +3690,14 @@ test_dhcp_option_LDADD = \
 	libsystemd-network.la \
 	libsystemd-shared.la
 
+test_sd_dhcp_lease_SOURCES = \
+      src/libsystemd-network/dhcp-lease-internal.h \
+      src/libsystemd-network/test-sd-dhcp-lease.c
+
+test_sd_dhcp_lease_LDADD = \
+      libsystemd-network.la \
+      libsystemd-shared.la
+
 test_dhcp_client_SOURCES = \
 	src/systemd/sd-dhcp-client.h \
 	src/libsystemd-network/dhcp-protocol.h \
@@ -3768,6 +3776,7 @@ tests += \
 	test-dhcp-option \
 	test-dhcp-client \
 	test-dhcp-server \
+	test-sd-dhcp-lease \
 	test-ipv4ll \
 	test-ndisc-rs \
 	test-dhcp6-client \
