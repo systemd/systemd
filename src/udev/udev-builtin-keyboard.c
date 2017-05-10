@@ -173,6 +173,9 @@ static void set_trackpoint_sensitivity(struct udev_device *dev, const char *valu
         if (r < 0) {
                 log_error("Unable to parse POINTINGSTICK_SENSITIVITY '%s' for '%s'", value, udev_device_get_devnode(dev));
                 return;
+        } else if (val_i < 0 || val_i > 255) {
+                log_error("POINTINGSTICK_SENSITIVITY %d outside range [0..255] for '%s' ", val_i, udev_device_get_devnode(dev));
+                return;
         }
 
         xsprintf(val_s, "%d", val_i);
