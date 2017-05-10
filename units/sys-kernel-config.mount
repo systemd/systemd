@@ -6,7 +6,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Configuration File System
+Description=Kernel Configuration File System
 Documentation=https://www.kernel.org/doc/Documentation/filesystems/configfs/configfs.txt
 Documentation=http://www.freedesktop.org/wiki/Software/systemd/APIFileSystems
 DefaultDependencies=no
