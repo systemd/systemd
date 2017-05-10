@@ -29,6 +29,7 @@
 #include "copy.h"
 #include "def.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "fileio-label.h"
 #include "format-util.h"
 #include "hashmap.h"
@@ -374,7 +375,7 @@ static int rename_and_apply_smack(const char *temp_path, const char *dest_path) 
 
 static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char **tmpfile_path) {
         _cleanup_fclose_ FILE *original = NULL, *passwd = NULL;
-        _cleanup_free_ char *passwd_tmp = NULL;
+        _cleanup_(unlink_and_freep) char *passwd_tmp = NULL;
         Iterator iterator;
         Item *i;
         int r;
@@ -392,7 +393,7 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
 
                 r = sync_rights(original, passwd);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
                 errno = 0;
                 while ((pw = fgetpwent(original))) {
@@ -400,35 +401,28 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
                         i = hashmap_get(users, pw->pw_name);
                         if (i && i->todo_user) {
                                 log_error("%s: User \"%s\" already exists.", passwd_path, pw->pw_name);
-                                r = -EEXIST;
-                                goto fail;
+                                return -EEXIST;
                         }
 
                         if (hashmap_contains(todo_uids, UID_TO_PTR(pw->pw_uid))) {
                                 log_error("%s: Detected collision for UID " UID_FMT ".", passwd_path, pw->pw_uid);
-                                r = -EEXIST;
-                                goto fail;
+                                return -EEXIST;
                         }
 
                         errno = 0;
-                        if (putpwent(pw, passwd) < 0) {
-                                r = errno ? -errno : -EIO;
-                                goto fail;
-                        }
+                        if (putpwent(pw, passwd) < 0)
+                                return errno ? -errno : -EIO;
 
                         errno = 0;
                 }
-                if (!IN_SET(errno, 0, ENOENT)) {
-                        r = -errno;
-                        goto fail;
-                }
+                if (!IN_SET(errno, 0, ENOENT))
+                        return -errno;
 
-        } else if (errno != ENOENT) {
-                r = -errno;
-                goto fail;
-        } else if (fchmod(fileno(passwd), 0644) < 0) {
-                r = -errno;
-                goto fail;
+        } else {
+                if (errno != ENOENT)
+                        return -errno;
+                if (fchmod(fileno(passwd), 0644) < 0)
+                        return -errno;
         }
 
         HASHMAP_FOREACH(i, todo_uids, iterator) {
@@ -450,30 +444,24 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
                 };
 
                 errno = 0;
-                if (putpwent(&n, passwd) != 0) {
-                        r = errno ? -errno : -EIO;
-                        goto fail;
-                }
+                if (putpwent(&n, passwd) != 0)
+                        return errno ? -errno : -EIO;
         }
 
         r = fflush_and_check(passwd);
         if (r < 0)
-                goto fail;
+                return r;
 
         *tmpfile = passwd;
         *tmpfile_path = passwd_tmp;
         passwd = NULL;
         passwd_tmp = NULL;
         return 0;
-
-fail:
-        unlink(passwd_tmp);
-        return r;
 }
 
 static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char **tmpfile_path) {
         _cleanup_fclose_ FILE *original = NULL, *shadow = NULL;
-        _cleanup_free_ char *shadow_tmp = NULL;
+        _cleanup_(unlink_and_freep) char *shadow_tmp = NULL;
         Iterator iterator;
         long lstchg;
         Item *i;
@@ -494,7 +482,7 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
 
                 r = sync_rights(original, shadow);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
                 errno = 0;
                 while ((sp = fgetspent(original))) {
@@ -511,23 +499,19 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
                         }
 
                         errno = 0;
-                        if (putspent(sp, shadow) < 0) {
-                                r = errno ? -errno : -EIO;
-                                goto fail;
-                        }
+                        if (putspent(sp, shadow) < 0)
+                                return errno ? -errno : -EIO;
 
                         errno = 0;
                 }
-                if (!IN_SET(errno, 0, ENOENT)) {
-                        r = -errno;
-                        goto fail;
-                }
-        } else if (errno != ENOENT) {
-                r = -errno;
-                goto fail;
-        } else if (fchmod(fileno(shadow), 0000) < 0) {
-                r = -errno;
-                goto fail;
+                if (!IN_SET(errno, 0, ENOENT))
+                        return -errno;
+
+        } else {
+                if (errno != ENOENT)
+                        return -errno;
+                if (fchmod(fileno(shadow), 0000) < 0)
+                        return -errno;
         }
 
         HASHMAP_FOREACH(i, todo_uids, iterator) {
@@ -544,30 +528,24 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
                 };
 
                 errno = 0;
-                if (putspent(&n, shadow) != 0) {
-                        r = errno ? -errno : -EIO;
-                        goto fail;
-                }
+                if (putspent(&n, shadow) != 0)
+                        return errno ? -errno : -EIO;
         }
 
         r = fflush_and_check(shadow);
         if (r < 0)
-                goto fail;
+                return r;
 
         *tmpfile = shadow;
         *tmpfile_path = shadow_tmp;
         shadow = NULL;
         shadow_tmp = NULL;
         return 0;
-
-fail:
-        unlink(shadow_tmp);
-        return r;
 }
 
 static int write_temporary_group(const char *group_path, FILE **tmpfile, char **tmpfile_path) {
         _cleanup_fclose_ FILE *original = NULL, *group = NULL;
-        _cleanup_free_ char *group_tmp = NULL;
+        _cleanup_(unlink_and_freep) char *group_tmp = NULL;
         bool group_changed = false;
         Iterator iterator;
         Item *i;
@@ -586,7 +564,7 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
 
                 r = sync_rights(original, group);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
                 errno = 0;
                 while ((gr = fgetgrent(original))) {
@@ -598,35 +576,30 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
                         i = hashmap_get(groups, gr->gr_name);
                         if (i && i->todo_group) {
                                 log_error("%s: Group \"%s\" already exists.", group_path, gr->gr_name);
-                                r = -EEXIST;
-                                goto fail;
+                                return -EEXIST;
                         }
 
                         if (hashmap_contains(todo_gids, GID_TO_PTR(gr->gr_gid))) {
                                 log_error("%s: Detected collision for GID " GID_FMT ".", group_path, gr->gr_gid);
-                                r = -EEXIST;
-                                goto fail;
+                                return  -EEXIST;
                         }
 
                         r = putgrent_with_members(gr, group);
                         if (r < 0)
-                                goto fail;
+                                return r;
                         if (r > 0)
                                 group_changed = true;
 
                         errno = 0;
                 }
-                if (!IN_SET(errno, 0, ENOENT)) {
-                        r = -errno;
-                        goto fail;
-                }
+                if (!IN_SET(errno, 0, ENOENT))
+                        return -errno;
 
-        } else if (errno != ENOENT) {
-                r = -errno;
-                goto fail;
-        } else if (fchmod(fileno(group), 0644) < 0) {
-                r = -errno;
-                goto fail;
+        } else {
+                if (errno != ENOENT)
+                        return -errno;
+                if (fchmod(fileno(group), 0644) < 0)
+                        return -errno;
         }
 
         HASHMAP_FOREACH(i, todo_gids, iterator) {
@@ -638,14 +611,14 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
 
                 r = putgrent_with_members(&n, group);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
                 group_changed = true;
         }
 
         r = fflush_and_check(group);
         if (r < 0)
-                goto fail;
+                return r;
 
         if (group_changed) {
                 *tmpfile = group;
@@ -654,16 +627,12 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
                 group_tmp = NULL;
         }
         return 0;
-
-fail:
-        unlink(group_tmp);
-        return r;
 }
 
 static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, char **tmpfile_path) {
 #ifdef ENABLE_GSHADOW
         _cleanup_fclose_ FILE *original = NULL, *gshadow = NULL;
-        _cleanup_free_ char *gshadow_tmp = NULL;
+        _cleanup_(unlink_and_freep) char *gshadow_tmp = NULL;
         bool group_changed = false;
         Iterator iterator;
         Item *i;
@@ -682,7 +651,7 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
 
                 r = sync_rights(original, gshadow);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
                 errno = 0;
                 while ((sg = fgetsgent(original))) {
@@ -690,29 +659,25 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
                         i = hashmap_get(groups, sg->sg_namp);
                         if (i && i->todo_group) {
                                 log_error("%s: Group \"%s\" already exists.", gshadow_path, sg->sg_namp);
-                                r = -EEXIST;
-                                goto fail;
+                                return -EEXIST;
                         }
 
                         r = putsgent_with_members(sg, gshadow);
                         if (r < 0)
-                                goto fail;
+                                return r;
                         if (r > 0)
                                 group_changed = true;
 
                         errno = 0;
                 }
-                if (!IN_SET(errno, 0, ENOENT)) {
-                        r = -errno;
-                        goto fail;
-                }
+                if (!IN_SET(errno, 0, ENOENT))
+                        return -errno;
 
-        } else if (errno != ENOENT) {
-                r = -errno;
-                goto fail;
-        } else if (fchmod(fileno(gshadow), 0000) < 0) {
-                r = -errno;
-                goto fail;
+        } else {
+                if (errno != ENOENT)
+                        return -errno;
+                if (fchmod(fileno(gshadow), 0000) < 0)
+                        return -errno;
         }
 
         HASHMAP_FOREACH(i, todo_gids, iterator) {
@@ -723,14 +688,14 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
 
                 r = putsgent_with_members(&n, gshadow);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
                 group_changed = true;
         }
 
         r = fflush_and_check(gshadow);
         if (r < 0)
-                goto fail;
+                return r;
 
         if (group_changed) {
                 *tmpfile = gshadow;
@@ -739,19 +704,14 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
                 gshadow_tmp = NULL;
         }
         return 0;
-
-fail:
-        unlink(gshadow_tmp);
-        return r;
 #else
         return 0;
 #endif
 }
 
 static int write_files(void) {
-
         _cleanup_fclose_ FILE *passwd = NULL, *group = NULL, *shadow = NULL, *gshadow = NULL;
-        _cleanup_free_ char *passwd_tmp = NULL, *group_tmp = NULL, *shadow_tmp = NULL, *gshadow_tmp = NULL;
+        _cleanup_(unlink_and_freep) char *passwd_tmp = NULL, *group_tmp = NULL, *shadow_tmp = NULL, *gshadow_tmp = NULL;
         const char *passwd_path = NULL, *group_path = NULL, *shadow_path = NULL, *gshadow_path = NULL;
         int r;
 
@@ -762,55 +722,55 @@ static int write_files(void) {
 
         r = write_temporary_group(group_path, &group, &group_tmp);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = write_temporary_gshadow(gshadow_path, &gshadow, &gshadow_tmp);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = write_temporary_passwd(passwd_path, &passwd, &passwd_tmp);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = write_temporary_shadow(shadow_path, &shadow, &shadow_tmp);
         if (r < 0)
-                goto finish;
+                return r;
 
         /* Make a backup of the old files */
         if (group) {
                 r = make_backup("/etc/group", group_path);
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
         if (gshadow) {
                 r = make_backup("/etc/gshadow", gshadow_path);
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
 
         if (passwd) {
                 r = make_backup("/etc/passwd", passwd_path);
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
         if (shadow) {
                 r = make_backup("/etc/shadow", shadow_path);
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
 
         /* And make the new files count */
         if (group) {
                 r = rename_and_apply_smack(group_tmp, group_path);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 group_tmp = mfree(group_tmp);
         }
         if (gshadow) {
                 r = rename_and_apply_smack(gshadow_tmp, gshadow_path);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 gshadow_tmp = mfree(gshadow_tmp);
         }
@@ -818,31 +778,19 @@ static int write_files(void) {
         if (passwd) {
                 r = rename_and_apply_smack(passwd_tmp, passwd_path);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 passwd_tmp = mfree(passwd_tmp);
         }
         if (shadow) {
                 r = rename_and_apply_smack(shadow_tmp, shadow_path);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 shadow_tmp = mfree(shadow_tmp);
         }
 
-        r = 0;
-
-finish:
-        if (passwd_tmp)
-                unlink(passwd_tmp);
-        if (shadow_tmp)
-                unlink(shadow_tmp);
-        if (group_tmp)
-                unlink(group_tmp);
-        if (gshadow_tmp)
-                unlink(gshadow_tmp);
-
-        return r;
+        return 0;
 }
 
 static int uid_is_ok(uid_t uid, const char *name) {
