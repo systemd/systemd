@@ -142,7 +142,7 @@ REQUIREMENTS:
         libqrencode (optional)
         libmicrohttpd (optional)
         libpython (optional)
-        libidn (optional)
+        libidn2 or libidn (optional)
         elfutils >= 158 (optional)
         make, gcc, and similar tools
 

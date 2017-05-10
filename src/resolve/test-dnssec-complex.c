@@ -218,7 +218,7 @@ int main(int argc, char* argv[]) {
         test_hostname_lookup(bus, "poettering.de", AF_INET, NULL);
         test_hostname_lookup(bus, "poettering.de", AF_INET6, NULL);
 
-#ifdef HAVE_LIBIDN
+#if defined(HAVE_LIBIDN2) || defined(HAVE_LIBIDN)
         /* Unsigned A with IDNA conversion necessary */
         test_hostname_lookup(bus, "pöttering.de", AF_UNSPEC, NULL);
         test_hostname_lookup(bus, "pöttering.de", AF_INET, NULL);

@@ -127,6 +127,12 @@
 #define _KMOD_FEATURE_ "-KMOD"
 #endif
 
+#ifdef HAVE_LIBIDN2
+#define _IDN2_FEATURE_ "+IDN2"
+#else
+#define _IDN2_FEATURE_ "-IDN2"
+#endif
+
 #ifdef HAVE_LIBIDN
 #define _IDN_FEATURE_ "+IDN"
 #else
@@ -154,5 +160,6 @@
         _BLKID_FEATURE_ " "                                             \
         _ELFUTILS_FEATURE_ " "                                          \
         _KMOD_FEATURE_ " "                                              \
+        _IDN2_FEATURE_ " "                                              \
         _IDN_FEATURE_ " "                                               \
         _CGROUP_HIEARCHY_

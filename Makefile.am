@@ -1137,6 +1137,7 @@ libshared_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(ACL_CFLAGS) \
 	$(LIBIDN_CFLAGS) \
+	$(LIBIDN2_CFLAGS) \
 	$(SECCOMP_CFLAGS) \
 	$(BLKID_CFLAGS) \
 	$(LIBCRYPTSETUP_CFLAGS)
@@ -1148,6 +1149,7 @@ libshared_la_LIBADD = \
 	libudev-internal.la \
 	$(ACL_LIBS) \
 	$(LIBIDN_LIBS) \
+	$(LIBIDN2_LIBS) \
 	$(SECCOMP_LIBS) \
 	$(BLKID_LIBS) \
 	$(LIBCRYPTSETUP_LIBS)
@@ -1171,6 +1173,7 @@ libsystemd_shared_la_CFLAGS = \
 	$(libudev_internal_la_CFLAGS) \
 	$(ACL_CFLAGS) \
 	$(LIBIDN_CFLAGS) \
+	$(LIBIDN2_CFLAGS) \
 	$(SECCOMP_CFLAGS) \
 	$(BLKID_CFLAGS) \
 	$(LIBCRYPTSETUP_CFLAGS) \
@@ -1185,6 +1188,7 @@ libsystemd_shared_la_LIBADD = \
 	$(libudev_internal_la_LIBADD) \
 	$(ACL_LIBS) \
 	$(LIBIDN_LIBS) \
+	$(LIBIDN2_LIBS) \
 	$(SECCOMP_LIBS) \
 	$(BLKID_LIBS) \
 	$(LIBCRYPTSETUP_LIBS)

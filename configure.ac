@@ -1015,16 +1015,32 @@ AM_CONDITIONAL(HAVE_LIBCURL, [test "$have_libcurl" = "yes"])
 AM_CONDITIONAL(HAVE_REMOTE, [test "$have_microhttpd" = "yes" -o "$have_libcurl" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_libidn2=no
+AC_ARG_ENABLE(libidn2, AS_HELP_STRING([--disable-libidn2], [disable optional LIBIDN2 support]))
+if test "x$enable_libidn2" != "xno"; then
+        PKG_CHECK_MODULES(LIBIDN2, [libidn2 >= 2.0.0],
+               [AC_DEFINE(HAVE_LIBIDN2, 1, [Define if libidn2 is available])
+                have_libidn2=yes
+                M4_DEFINES="$M4_DEFINES -DHAVE_LIBIDN2"],
+               [have_libidn2=no])
+        if test "x$have_libidn2" = "xno" -a "x$enable_libidn2" = "xyes"; then
+                AC_MSG_ERROR([*** libidn2 support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_LIBIDN2, [test "$have_libidn2" = "yes"])
+
 have_libidn=no
 AC_ARG_ENABLE(libidn, AS_HELP_STRING([--disable-libidn], [disable optional LIBIDN support]))
-if test "x$enable_libidn" != "xno"; then
-        PKG_CHECK_MODULES(LIBIDN, [libidn],
-               [AC_DEFINE(HAVE_LIBIDN, 1, [Define if libidn is available])
-                have_libidn=yes
-                M4_DEFINES="$M4_DEFINES -DHAVE_LIBIDN"],
-               [have_libidn=no])
-        if test "x$have_libidn" = "xno" -a "x$enable_libidn" = "xyes"; then
-                AC_MSG_ERROR([*** libidn support requested but libraries not found])
+if test "$have_libidn2" != "yes"; then
+        if test "x$enable_libidn" != "xno"; then
+                PKG_CHECK_MODULES(LIBIDN, [libidn],
+                       [AC_DEFINE(HAVE_LIBIDN, 1, [Define if libidn is available])
+                        have_libidn=yes
+                        M4_DEFINES="$M4_DEFINES -DHAVE_LIBIDN"],
+                       [have_libidn=no])
+                if test "x$have_libidn" = "xno" -a "x$enable_libidn" = "xyes"; then
+                        AC_MSG_ERROR([*** libidn support requested but libraries not found])
+                fi
         fi
 fi
 AM_CONDITIONAL(HAVE_LIBIDN, [test "$have_libidn" = "yes"])
@@ -1715,6 +1731,7 @@ AC_MSG_RESULT([
         MICROHTTPD:                        ${have_microhttpd}
         GNUTLS:                            ${have_gnutls}
         libcurl:                           ${have_libcurl}
+        libidn2:                           ${have_libidn2}
         libidn:                            ${have_libidn}
         libiptc:                           ${have_libiptc}
         ELFUTILS:                          ${have_elfutils}

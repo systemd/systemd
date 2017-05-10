@@ -21,6 +21,10 @@
 #include <poll.h>
 #include <sys/ioctl.h>
 
+#ifdef HAVE_LIBIDN2
+#include <idn2.h>
+#endif
+
 #include "af-list.h"
 #include "alloc-util.h"
 #include "dirent-util.h"
@@ -324,9 +328,14 @@ static int manager_network_monitor_listen(Manager *m) {
 
 static int determine_hostname(char **full_hostname, char **llmnr_hostname, char **mdns_hostname) {
         _cleanup_free_ char *h = NULL, *n = NULL;
+#if defined(HAVE_LIBIDN2)
+        _cleanup_free_ char *utf8 = NULL;
+#elif defined(HAVE_LIBIDN)
+        int k;
+#endif
         char label[DNS_LABEL_MAX];
-        const char *p;
-        int r, k;
+        const char *p, *decoded;
+        int r;
 
         assert(full_hostname);
         assert(llmnr_hostname);
@@ -339,7 +348,7 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
                 return log_debug_errno(r, "Can't determine system hostname: %m");
 
         p = h;
-        r = dns_label_unescape(&p, label, sizeof(label));
+        r = dns_label_unescape(&p, label, sizeof label);
         if (r < 0)
                 return log_error_errno(r, "Failed to unescape host name: %m");
         if (r == 0) {
@@ -347,7 +356,16 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
                 return -EINVAL;
         }
 
-        k = dns_label_undo_idna(label, r, label, sizeof(label));
+#if defined(HAVE_LIBIDN2)
+        r = idn2_to_unicode_8z8z(label, &utf8, 0);
+        if (r != IDN2_OK)
+                return log_error("Failed to undo IDNA: %s", idn2_strerror(r));
+        assert(utf8_is_valid(utf8));
+
+        r = strlen(utf8);
+        decoded = utf8;
+#elif defined(HAVE_LIBIDN)
+        k = dns_label_undo_idna(label, r, label, sizeof label);
         if (k < 0)
                 return log_error_errno(k, "Failed to undo IDNA: %m");
         if (k > 0)
@@ -357,8 +375,12 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
                 log_error("System hostname is not UTF-8 clean.");
                 return -EINVAL;
         }
+        decoded = label;
+#else
+        decoded = label; /* no decoding */
+#endif
 
-        r = dns_label_escape_new(label, r, &n);
+        r = dns_label_escape_new(decoded, r, &n);
         if (r < 0)
                 return log_error_errno(r, "Failed to escape host name: %m");
 
