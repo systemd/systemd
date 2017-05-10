@@ -22,12 +22,20 @@
 #include "fd-util.h"
 #include "sigbus.h"
 #include "util.h"
+#ifdef HAVE_VALGRIND_VALGRIND_H
+#include <valgrind/valgrind.h>
+#endif
 
 int main(int argc, char *argv[]) {
         _cleanup_close_ int fd = -1;
         char template[] = "/tmp/sigbus-test-XXXXXX";
         void *addr = NULL;
         uint8_t *p;
+
+#ifdef HAVE_VALGRIND_VALGRIND_H
+        if (RUNNING_ON_VALGRIND)
+                return EXIT_TEST_SKIP;
+#endif
 
 #ifdef __SANITIZE_ADDRESS__
         return EXIT_TEST_SKIP;
