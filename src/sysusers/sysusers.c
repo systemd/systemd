@@ -29,6 +29,7 @@
 #include "copy.h"
 #include "def.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "fileio-label.h"
 #include "format-util.h"
 #include "hashmap.h"
@@ -292,6 +293,7 @@ static int putgrent_with_members(const struct group *gr, FILE *group) {
         return 0;
 }
 
+#ifdef ENABLE_GSHADOW
 static int putsgent_with_members(const struct sgrp *sg, FILE *gshadow) {
         char **a;
 
@@ -341,6 +343,7 @@ static int putsgent_with_members(const struct sgrp *sg, FILE *gshadow) {
 
         return 0;
 }
+#endif
 
 static int sync_rights(FILE *from, FILE *to) {
         struct stat st;
@@ -370,400 +373,424 @@ static int rename_and_apply_smack(const char *temp_path, const char *dest_path) 
         return r;
 }
 
-static int write_files(void) {
+static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char **tmpfile_path) {
+        _cleanup_fclose_ FILE *original = NULL, *passwd = NULL;
+        _cleanup_(unlink_and_freep) char *passwd_tmp = NULL;
+        Iterator iterator;
+        Item *i;
+        int r;
 
-        _cleanup_fclose_ FILE *passwd = NULL, *group = NULL, *shadow = NULL, *gshadow = NULL;
-        _cleanup_free_ char *passwd_tmp = NULL, *group_tmp = NULL, *shadow_tmp = NULL, *gshadow_tmp = NULL;
-        const char *passwd_path = NULL, *group_path = NULL, *shadow_path = NULL, *gshadow_path = NULL;
+        if (hashmap_size(todo_uids) == 0)
+                return 0;
+
+        r = fopen_temporary_label("/etc/passwd", passwd_path, &passwd, &passwd_tmp);
+        if (r < 0)
+                return r;
+
+        original = fopen(passwd_path, "re");
+        if (original) {
+                struct passwd *pw;
+
+                r = sync_rights(original, passwd);
+                if (r < 0)
+                        return r;
+
+                errno = 0;
+                while ((pw = fgetpwent(original))) {
+
+                        i = hashmap_get(users, pw->pw_name);
+                        if (i && i->todo_user) {
+                                log_error("%s: User \"%s\" already exists.", passwd_path, pw->pw_name);
+                                return -EEXIST;
+                        }
+
+                        if (hashmap_contains(todo_uids, UID_TO_PTR(pw->pw_uid))) {
+                                log_error("%s: Detected collision for UID " UID_FMT ".", passwd_path, pw->pw_uid);
+                                return -EEXIST;
+                        }
+
+                        errno = 0;
+                        if (putpwent(pw, passwd) < 0)
+                                return errno ? -errno : -EIO;
+
+                        errno = 0;
+                }
+                if (!IN_SET(errno, 0, ENOENT))
+                        return -errno;
+
+        } else {
+                if (errno != ENOENT)
+                        return -errno;
+                if (fchmod(fileno(passwd), 0644) < 0)
+                        return -errno;
+        }
+
+        HASHMAP_FOREACH(i, todo_uids, iterator) {
+                struct passwd n = {
+                        .pw_name = i->name,
+                        .pw_uid = i->uid,
+                        .pw_gid = i->gid,
+                        .pw_gecos = i->description,
+
+                        /* "x" means the password is stored in the shadow file */
+                        .pw_passwd = (char*) "x",
+
+                        /* We default to the root directory as home */
+                        .pw_dir = i->home ? i->home : (char*) "/",
+
+                        /* Initialize the shell to nologin, with one exception:
+                         * for root we patch in something special */
+                        .pw_shell = i->uid == 0 ? (char*) "/bin/sh" : (char*) "/sbin/nologin",
+                };
+
+                errno = 0;
+                if (putpwent(&n, passwd) != 0)
+                        return errno ? -errno : -EIO;
+        }
+
+        r = fflush_and_check(passwd);
+        if (r < 0)
+                return r;
+
+        *tmpfile = passwd;
+        *tmpfile_path = passwd_tmp;
+        passwd = NULL;
+        passwd_tmp = NULL;
+        return 0;
+}
+
+static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char **tmpfile_path) {
+        _cleanup_fclose_ FILE *original = NULL, *shadow = NULL;
+        _cleanup_(unlink_and_freep) char *shadow_tmp = NULL;
+        Iterator iterator;
+        long lstchg;
+        Item *i;
+        int r;
+
+        if (hashmap_size(todo_uids) == 0)
+                return 0;
+
+        r = fopen_temporary_label("/etc/shadow", shadow_path, &shadow, &shadow_tmp);
+        if (r < 0)
+                return r;
+
+        lstchg = (long) (now(CLOCK_REALTIME) / USEC_PER_DAY);
+
+        original = fopen(shadow_path, "re");
+        if (original) {
+                struct spwd *sp;
+
+                r = sync_rights(original, shadow);
+                if (r < 0)
+                        return r;
+
+                errno = 0;
+                while ((sp = fgetspent(original))) {
+
+                        i = hashmap_get(users, sp->sp_namp);
+                        if (i && i->todo_user) {
+                                /* we will update the existing entry */
+                                sp->sp_lstchg = lstchg;
+
+                                /* only the /etc/shadow stage is left, so we can
+                                 * safely remove the item from the todo set */
+                                i->todo_user = false;
+                                hashmap_remove(todo_uids, UID_TO_PTR(i->uid));
+                        }
+
+                        errno = 0;
+                        if (putspent(sp, shadow) < 0)
+                                return errno ? -errno : -EIO;
+
+                        errno = 0;
+                }
+                if (!IN_SET(errno, 0, ENOENT))
+                        return -errno;
+
+        } else {
+                if (errno != ENOENT)
+                        return -errno;
+                if (fchmod(fileno(shadow), 0000) < 0)
+                        return -errno;
+        }
+
+        HASHMAP_FOREACH(i, todo_uids, iterator) {
+                struct spwd n = {
+                        .sp_namp = i->name,
+                        .sp_pwdp = (char*) "!!",
+                        .sp_lstchg = lstchg,
+                        .sp_min = -1,
+                        .sp_max = -1,
+                        .sp_warn = -1,
+                        .sp_inact = -1,
+                        .sp_expire = -1,
+                        .sp_flag = (unsigned long) -1, /* this appears to be what everybody does ... */
+                };
+
+                errno = 0;
+                if (putspent(&n, shadow) != 0)
+                        return errno ? -errno : -EIO;
+        }
+
+        r = fflush_and_check(shadow);
+        if (r < 0)
+                return r;
+
+        *tmpfile = shadow;
+        *tmpfile_path = shadow_tmp;
+        shadow = NULL;
+        shadow_tmp = NULL;
+        return 0;
+}
+
+static int write_temporary_group(const char *group_path, FILE **tmpfile, char **tmpfile_path) {
+        _cleanup_fclose_ FILE *original = NULL, *group = NULL;
+        _cleanup_(unlink_and_freep) char *group_tmp = NULL;
         bool group_changed = false;
         Iterator iterator;
         Item *i;
         int r;
 
-        if (hashmap_size(todo_gids) > 0 || hashmap_size(members) > 0) {
-                _cleanup_fclose_ FILE *original = NULL;
+        if (hashmap_size(todo_gids) == 0 && hashmap_size(members) == 0)
+                return 0;
 
-                /* First we update the actual group list file */
-                group_path = prefix_roota(arg_root, "/etc/group");
-                r = fopen_temporary_label("/etc/group", group_path, &group, &group_tmp);
+        r = fopen_temporary_label("/etc/group", group_path, &group, &group_tmp);
+        if (r < 0)
+                return r;
+
+        original = fopen(group_path, "re");
+        if (original) {
+                struct group *gr;
+
+                r = sync_rights(original, group);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
-                original = fopen(group_path, "re");
-                if (original) {
-                        struct group *gr;
+                errno = 0;
+                while ((gr = fgetgrent(original))) {
+                        /* Safety checks against name and GID collisions. Normally,
+                         * this should be unnecessary, but given that we look at the
+                         * entries anyway here, let's make an extra verification
+                         * step that we don't generate duplicate entries. */
 
-                        r = sync_rights(original, group);
+                        i = hashmap_get(groups, gr->gr_name);
+                        if (i && i->todo_group) {
+                                log_error("%s: Group \"%s\" already exists.", group_path, gr->gr_name);
+                                return -EEXIST;
+                        }
+
+                        if (hashmap_contains(todo_gids, GID_TO_PTR(gr->gr_gid))) {
+                                log_error("%s: Detected collision for GID " GID_FMT ".", group_path, gr->gr_gid);
+                                return  -EEXIST;
+                        }
+
+                        r = putgrent_with_members(gr, group);
                         if (r < 0)
-                                goto finish;
+                                return r;
+                        if (r > 0)
+                                group_changed = true;
 
                         errno = 0;
-                        while ((gr = fgetgrent(original))) {
-                                /* Safety checks against name and GID
-                                 * collisions. Normally, this should
-                                 * be unnecessary, but given that we
-                                 * look at the entries anyway here,
-                                 * let's make an extra verification
-                                 * step that we don't generate
-                                 * duplicate entries. */
-
-                                i = hashmap_get(groups, gr->gr_name);
-                                if (i && i->todo_group) {
-                                        log_error("%s: Group \"%s\" already exists.", group_path, gr->gr_name);
-                                        r = -EEXIST;
-                                        goto finish;
-                                }
-
-                                if (hashmap_contains(todo_gids, GID_TO_PTR(gr->gr_gid))) {
-                                        log_error("%s: Detected collision for GID " GID_FMT ".", group_path, gr->gr_gid);
-                                        r = -EEXIST;
-                                        goto finish;
-                                }
-
-                                r = putgrent_with_members(gr, group);
-                                if (r < 0)
-                                        goto finish;
-                                if (r > 0)
-                                        group_changed = true;
-
-                                errno = 0;
-                        }
-                        if (!IN_SET(errno, 0, ENOENT)) {
-                                r = -errno;
-                                goto finish;
-                        }
-
-                } else if (errno != ENOENT) {
-                        r = -errno;
-                        goto finish;
-                } else if (fchmod(fileno(group), 0644) < 0) {
-                        r = -errno;
-                        goto finish;
                 }
+                if (!IN_SET(errno, 0, ENOENT))
+                        return -errno;
 
-                HASHMAP_FOREACH(i, todo_gids, iterator) {
-                        struct group n = {
-                                .gr_name = i->name,
-                                .gr_gid = i->gid,
-                                .gr_passwd = (char*) "x",
-                        };
-
-                        r = putgrent_with_members(&n, group);
-                        if (r < 0)
-                                goto finish;
-
-                        group_changed = true;
-                }
-
-                r = fflush_and_check(group);
-                if (r < 0)
-                        goto finish;
-
-                if (original) {
-                        fclose(original);
-                        original = NULL;
-                }
-
-                /* OK, now also update the shadow file for the group list */
-                gshadow_path = prefix_roota(arg_root, "/etc/gshadow");
-                r = fopen_temporary_label("/etc/gshadow", gshadow_path, &gshadow, &gshadow_tmp);
-                if (r < 0)
-                        goto finish;
-
-                original = fopen(gshadow_path, "re");
-                if (original) {
-                        struct sgrp *sg;
-
-                        r = sync_rights(original, gshadow);
-                        if (r < 0)
-                                goto finish;
-
-                        errno = 0;
-                        while ((sg = fgetsgent(original))) {
-
-                                i = hashmap_get(groups, sg->sg_namp);
-                                if (i && i->todo_group) {
-                                        log_error("%s: Group \"%s\" already exists.", gshadow_path, sg->sg_namp);
-                                        r = -EEXIST;
-                                        goto finish;
-                                }
-
-                                r = putsgent_with_members(sg, gshadow);
-                                if (r < 0)
-                                        goto finish;
-                                if (r > 0)
-                                        group_changed = true;
-
-                                errno = 0;
-                        }
-                        if (!IN_SET(errno, 0, ENOENT)) {
-                                r = -errno;
-                                goto finish;
-                        }
-
-                } else if (errno != ENOENT) {
-                        r = -errno;
-                        goto finish;
-                } else if (fchmod(fileno(gshadow), 0000) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
-
-                HASHMAP_FOREACH(i, todo_gids, iterator) {
-                        struct sgrp n = {
-                                .sg_namp = i->name,
-                                .sg_passwd = (char*) "!!",
-                        };
-
-                        r = putsgent_with_members(&n, gshadow);
-                        if (r < 0)
-                                goto finish;
-
-                        group_changed = true;
-                }
-
-                r = fflush_and_check(gshadow);
-                if (r < 0)
-                        goto finish;
+        } else {
+                if (errno != ENOENT)
+                        return -errno;
+                if (fchmod(fileno(group), 0644) < 0)
+                        return -errno;
         }
 
-        if (hashmap_size(todo_uids) > 0) {
-                _cleanup_fclose_ FILE *original = NULL;
-                long lstchg;
+        HASHMAP_FOREACH(i, todo_gids, iterator) {
+                struct group n = {
+                        .gr_name = i->name,
+                        .gr_gid = i->gid,
+                        .gr_passwd = (char*) "x",
+                };
 
-                /* First we update the user database itself */
-                passwd_path = prefix_roota(arg_root, "/etc/passwd");
-                r = fopen_temporary_label("/etc/passwd", passwd_path, &passwd, &passwd_tmp);
+                r = putgrent_with_members(&n, group);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
-                original = fopen(passwd_path, "re");
-                if (original) {
-                        struct passwd *pw;
-
-                        r = sync_rights(original, passwd);
-                        if (r < 0)
-                                goto finish;
-
-                        errno = 0;
-                        while ((pw = fgetpwent(original))) {
-
-                                i = hashmap_get(users, pw->pw_name);
-                                if (i && i->todo_user) {
-                                        log_error("%s: User \"%s\" already exists.", passwd_path, pw->pw_name);
-                                        r = -EEXIST;
-                                        goto finish;
-                                }
-
-                                if (hashmap_contains(todo_uids, UID_TO_PTR(pw->pw_uid))) {
-                                        log_error("%s: Detected collision for UID " UID_FMT ".", passwd_path, pw->pw_uid);
-                                        r = -EEXIST;
-                                        goto finish;
-                                }
-
-                                errno = 0;
-                                if (putpwent(pw, passwd) < 0) {
-                                        r = errno ? -errno : -EIO;
-                                        goto finish;
-                                }
-
-                                errno = 0;
-                        }
-                        if (!IN_SET(errno, 0, ENOENT)) {
-                                r = -errno;
-                                goto finish;
-                        }
-
-                } else if (errno != ENOENT) {
-                        r = -errno;
-                        goto finish;
-                } else if (fchmod(fileno(passwd), 0644) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
-
-                HASHMAP_FOREACH(i, todo_uids, iterator) {
-                        struct passwd n = {
-                                .pw_name = i->name,
-                                .pw_uid = i->uid,
-                                .pw_gid = i->gid,
-                                .pw_gecos = i->description,
-
-                                /* "x" means the password is stored in
-                                 * the shadow file */
-                                .pw_passwd = (char*) "x",
-
-                                /* We default to the root directory as home */
-                                .pw_dir = i->home ? i->home : (char*) "/",
-
-                                /* Initialize the shell to nologin,
-                                 * with one exception: for root we
-                                 * patch in something special */
-                                .pw_shell = i->uid == 0 ? (char*) "/bin/sh" : (char*) "/sbin/nologin",
-                        };
-
-                        errno = 0;
-                        if (putpwent(&n, passwd) != 0) {
-                                r = errno ? -errno : -EIO;
-                                goto finish;
-                        }
-                }
-
-                r = fflush_and_check(passwd);
-                if (r < 0)
-                        goto finish;
-
-                if (original) {
-                        fclose(original);
-                        original = NULL;
-                }
-
-                /* The we update the shadow database */
-                shadow_path = prefix_roota(arg_root, "/etc/shadow");
-                r = fopen_temporary_label("/etc/shadow", shadow_path, &shadow, &shadow_tmp);
-                if (r < 0)
-                        goto finish;
-
-                lstchg = (long) (now(CLOCK_REALTIME) / USEC_PER_DAY);
-
-                original = fopen(shadow_path, "re");
-                if (original) {
-                        struct spwd *sp;
-
-                        r = sync_rights(original, shadow);
-                        if (r < 0)
-                                goto finish;
-
-                        errno = 0;
-                        while ((sp = fgetspent(original))) {
-
-                                i = hashmap_get(users, sp->sp_namp);
-                                if (i && i->todo_user) {
-                                        /* we will update the existing entry */
-                                        sp->sp_lstchg = lstchg;
-
-                                        /* only the /etc/shadow stage is left, so we can
-                                         * safely remove the item from the todo set */
-                                        i->todo_user = false;
-                                        hashmap_remove(todo_uids, UID_TO_PTR(i->uid));
-                                }
-
-                                errno = 0;
-                                if (putspent(sp, shadow) < 0) {
-                                        r = errno ? -errno : -EIO;
-                                        goto finish;
-                                }
-
-                                errno = 0;
-                        }
-                        if (!IN_SET(errno, 0, ENOENT)) {
-                                r = -errno;
-                                goto finish;
-                        }
-                } else if (errno != ENOENT) {
-                        r = -errno;
-                        goto finish;
-                } else if (fchmod(fileno(shadow), 0000) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
-
-                HASHMAP_FOREACH(i, todo_uids, iterator) {
-                        struct spwd n = {
-                                .sp_namp = i->name,
-                                .sp_pwdp = (char*) "!!",
-                                .sp_lstchg = lstchg,
-                                .sp_min = -1,
-                                .sp_max = -1,
-                                .sp_warn = -1,
-                                .sp_inact = -1,
-                                .sp_expire = -1,
-                                .sp_flag = (unsigned long) -1, /* this appears to be what everybody does ... */
-                        };
-
-                        errno = 0;
-                        if (putspent(&n, shadow) != 0) {
-                                r = errno ? -errno : -EIO;
-                                goto finish;
-                        }
-                }
-
-                r = fflush_and_check(shadow);
-                if (r < 0)
-                        goto finish;
+                group_changed = true;
         }
+
+        r = fflush_and_check(group);
+        if (r < 0)
+                return r;
+
+        if (group_changed) {
+                *tmpfile = group;
+                *tmpfile_path = group_tmp;
+                group = NULL;
+                group_tmp = NULL;
+        }
+        return 0;
+}
+
+static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, char **tmpfile_path) {
+#ifdef ENABLE_GSHADOW
+        _cleanup_fclose_ FILE *original = NULL, *gshadow = NULL;
+        _cleanup_(unlink_and_freep) char *gshadow_tmp = NULL;
+        bool group_changed = false;
+        Iterator iterator;
+        Item *i;
+        int r;
+
+        if (hashmap_size(todo_gids) == 0 && hashmap_size(members) == 0)
+                return 0;
+
+        r = fopen_temporary_label("/etc/gshadow", gshadow_path, &gshadow, &gshadow_tmp);
+        if (r < 0)
+                return r;
+
+        original = fopen(gshadow_path, "re");
+        if (original) {
+                struct sgrp *sg;
+
+                r = sync_rights(original, gshadow);
+                if (r < 0)
+                        return r;
+
+                errno = 0;
+                while ((sg = fgetsgent(original))) {
+
+                        i = hashmap_get(groups, sg->sg_namp);
+                        if (i && i->todo_group) {
+                                log_error("%s: Group \"%s\" already exists.", gshadow_path, sg->sg_namp);
+                                return -EEXIST;
+                        }
+
+                        r = putsgent_with_members(sg, gshadow);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                group_changed = true;
+
+                        errno = 0;
+                }
+                if (!IN_SET(errno, 0, ENOENT))
+                        return -errno;
+
+        } else {
+                if (errno != ENOENT)
+                        return -errno;
+                if (fchmod(fileno(gshadow), 0000) < 0)
+                        return -errno;
+        }
+
+        HASHMAP_FOREACH(i, todo_gids, iterator) {
+                struct sgrp n = {
+                        .sg_namp = i->name,
+                        .sg_passwd = (char*) "!!",
+                };
+
+                r = putsgent_with_members(&n, gshadow);
+                if (r < 0)
+                        return r;
+
+                group_changed = true;
+        }
+
+        r = fflush_and_check(gshadow);
+        if (r < 0)
+                return r;
+
+        if (group_changed) {
+                *tmpfile = gshadow;
+                *tmpfile_path = gshadow_tmp;
+                gshadow = NULL;
+                gshadow_tmp = NULL;
+        }
+        return 0;
+#else
+        return 0;
+#endif
+}
+
+static int write_files(void) {
+        _cleanup_fclose_ FILE *passwd = NULL, *group = NULL, *shadow = NULL, *gshadow = NULL;
+        _cleanup_(unlink_and_freep) char *passwd_tmp = NULL, *group_tmp = NULL, *shadow_tmp = NULL, *gshadow_tmp = NULL;
+        const char *passwd_path = NULL, *group_path = NULL, *shadow_path = NULL, *gshadow_path = NULL;
+        int r;
+
+        passwd_path = prefix_roota(arg_root, "/etc/passwd");
+        shadow_path = prefix_roota(arg_root, "/etc/shadow");
+        group_path = prefix_roota(arg_root, "/etc/group");
+        gshadow_path = prefix_roota(arg_root, "/etc/gshadow");
+
+        r = write_temporary_group(group_path, &group, &group_tmp);
+        if (r < 0)
+                return r;
+
+        r = write_temporary_gshadow(gshadow_path, &gshadow, &gshadow_tmp);
+        if (r < 0)
+                return r;
+
+        r = write_temporary_passwd(passwd_path, &passwd, &passwd_tmp);
+        if (r < 0)
+                return r;
+
+        r = write_temporary_shadow(shadow_path, &shadow, &shadow_tmp);
+        if (r < 0)
+                return r;
 
         /* Make a backup of the old files */
-        if (group_changed) {
-                if (group) {
-                        r = make_backup("/etc/group", group_path);
-                        if (r < 0)
-                                goto finish;
-                }
-                if (gshadow) {
-                        r = make_backup("/etc/gshadow", gshadow_path);
-                        if (r < 0)
-                                goto finish;
-                }
+        if (group) {
+                r = make_backup("/etc/group", group_path);
+                if (r < 0)
+                        return r;
+        }
+        if (gshadow) {
+                r = make_backup("/etc/gshadow", gshadow_path);
+                if (r < 0)
+                        return r;
         }
 
         if (passwd) {
                 r = make_backup("/etc/passwd", passwd_path);
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
         if (shadow) {
                 r = make_backup("/etc/shadow", shadow_path);
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
 
         /* And make the new files count */
-        if (group_changed) {
-                if (group) {
-                        r = rename_and_apply_smack(group_tmp, group_path);
-                        if (r < 0)
-                                goto finish;
+        if (group) {
+                r = rename_and_apply_smack(group_tmp, group_path);
+                if (r < 0)
+                        return r;
 
-                        group_tmp = mfree(group_tmp);
-                }
-                if (gshadow) {
-                        r = rename_and_apply_smack(gshadow_tmp, gshadow_path);
-                        if (r < 0)
-                                goto finish;
+                group_tmp = mfree(group_tmp);
+        }
+        if (gshadow) {
+                r = rename_and_apply_smack(gshadow_tmp, gshadow_path);
+                if (r < 0)
+                        return r;
 
-                        gshadow_tmp = mfree(gshadow_tmp);
-                }
+                gshadow_tmp = mfree(gshadow_tmp);
         }
 
         if (passwd) {
                 r = rename_and_apply_smack(passwd_tmp, passwd_path);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 passwd_tmp = mfree(passwd_tmp);
         }
         if (shadow) {
                 r = rename_and_apply_smack(shadow_tmp, shadow_path);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 shadow_tmp = mfree(shadow_tmp);
         }
 
-        r = 0;
-
-finish:
-        if (passwd_tmp)
-                unlink(passwd_tmp);
-        if (shadow_tmp)
-                unlink(shadow_tmp);
-        if (group_tmp)
-                unlink(group_tmp);
-        if (gshadow_tmp)
-                unlink(gshadow_tmp);
-
-        return r;
+        return 0;
 }
 
 static int uid_is_ok(uid_t uid, const char *name) {

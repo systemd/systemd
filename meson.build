@@ -988,6 +988,7 @@ foreach pair : [['utmp',          'HAVE_UTMP'],
                 ['tpm',           'SD_BOOT_LOG_TPM'],
                 ['ima',           'HAVE_IMA'],
                 ['smack',         'HAVE_SMACK'],
+                ['gshadow',       'ENABLE_GSHADOW'],
                ]
 
         if get_option(pair[0])
@@ -2473,6 +2474,7 @@ foreach tuple : [
         ['hibernate'],
         ['adm group',        get_option('adm-group')],
         ['wheel group',      get_option('wheel-group')],
+        ['gshadow'],
         ['debug hashmap'],
         ['debug mmap cache'],
 ]
