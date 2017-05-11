@@ -17,7 +17,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dlfcn.h>
 #include <errno.h>
 #include <netdb.h>
 #include <nss.h>
@@ -38,20 +37,6 @@ NSS_GETHOSTBYNAME_PROTOTYPES(resolve);
 NSS_GETHOSTBYADDR_PROTOTYPES(resolve);
 
 #define DNS_CALL_TIMEOUT_USEC (45*USEC_PER_SEC)
-
-typedef void (*voidfunc_t)(void);
-
-static voidfunc_t find_fallback(const char *module, const char *symbol) {
-        void *dl;
-
-        /* Try to find a fallback NSS module symbol */
-
-        dl = dlopen(module, RTLD_LAZY|RTLD_NODELETE);
-        if (!dl)
-                return NULL;
-
-        return dlsym(dl, symbol);
-}
 
 static bool bus_error_shall_fallback(sd_bus_error *e) {
         return sd_bus_error_has_name(e, SD_BUS_ERROR_SERVICE_UNKNOWN) ||
@@ -151,7 +136,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
 
         r = sd_bus_open_system(&bus);
         if (r < 0)
-                goto fallback;
+                goto fail;
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -179,13 +164,14 @@ enum nss_status _nss_resolve_gethostbyname4_r(
                         return NSS_STATUS_NOTFOUND;
                 }
 
-                if (bus_error_shall_fallback(&error))
-                        goto fallback;
+                /* Return NSS_STATUS_UNAVAIL when communication with systemd-resolved fails,
+                   allowing falling back to other nss modules. Treat all other error conditions as
+                   NOTFOUND. This includes DNSSEC errors and suchlike. (We don't use UNAVAIL in this
+                   case so that the nsswitch.conf configuration can distuingish such executed but
+                   negative replies from complete failure to talk to resolved). */
+                if (!bus_error_shall_fallback(&error))
+                        ret = NSS_STATUS_NOTFOUND;
 
-                /* Treat all other error conditions as NOTFOUND, and fail. This includes DNSSEC errors and
-                   suchlike. (We don't use UNAVAIL in this case so that the nsswitch.conf configuration can distuingish
-                   such executed but negative replies from complete failure to talk to resolved. */
-                ret = NSS_STATUS_NOTFOUND;
                 goto fail;
         }
 
@@ -286,17 +272,6 @@ enum nss_status _nss_resolve_gethostbyname4_r(
 
         return NSS_STATUS_SUCCESS;
 
-fallback:
-        {
-                _nss_gethostbyname4_r_t fallback;
-
-                fallback = (_nss_gethostbyname4_r_t)
-                        find_fallback("libnss_dns.so.2", "_nss_dns_gethostbyname4_r");
-
-                if (fallback)
-                        return fallback(name, pat, buffer, buflen, errnop, h_errnop, ttlp);
-        }
-
 fail:
         *errnop = -r;
         *h_errnop = NO_RECOVERY;
@@ -339,7 +314,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
 
         r = sd_bus_open_system(&bus);
         if (r < 0)
-                goto fallback;
+                goto fail;
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -367,10 +342,9 @@ enum nss_status _nss_resolve_gethostbyname3_r(
                         return NSS_STATUS_NOTFOUND;
                 }
 
-                if (bus_error_shall_fallback(&error))
-                        goto fallback;
+                if (!bus_error_shall_fallback(&error))
+                        ret = NSS_STATUS_NOTFOUND;
 
-                ret = NSS_STATUS_NOTFOUND;
                 goto fail;
         }
 
@@ -484,16 +458,6 @@ enum nss_status _nss_resolve_gethostbyname3_r(
 
         return NSS_STATUS_SUCCESS;
 
-fallback:
-        {
-                _nss_gethostbyname3_r_t fallback;
-
-                fallback = (_nss_gethostbyname3_r_t)
-                        find_fallback("libnss_dns.so.2", "_nss_dns_gethostbyname3_r");
-                if (fallback)
-                        return fallback(name, af, result, buffer, buflen, errnop, h_errnop, ttlp, canonp);
-        }
-
 fail:
         *errnop = -r;
         *h_errnop = NO_RECOVERY;
@@ -540,7 +504,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
 
         r = sd_bus_open_system(&bus);
         if (r < 0)
-                goto fallback;
+                goto fail;
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -576,10 +540,9 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
                         return NSS_STATUS_NOTFOUND;
                 }
 
-                if (bus_error_shall_fallback(&error))
-                        goto fallback;
+                if (!bus_error_shall_fallback(&error))
+                        ret = NSS_STATUS_NOTFOUND;
 
-                ret = NSS_STATUS_NOTFOUND;
                 goto fail;
         }
 
@@ -673,17 +636,6 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         h_errno = 0;
 
         return NSS_STATUS_SUCCESS;
-
-fallback:
-        {
-                _nss_gethostbyaddr2_r_t fallback;
-
-                fallback = (_nss_gethostbyaddr2_r_t)
-                        find_fallback("libnss_dns.so.2", "_nss_dns_gethostbyaddr2_r");
-
-                if (fallback)
-                        return fallback(addr, len, af, result, buffer, buflen, errnop, h_errnop, ttlp);
-        }
 
 fail:
         *errnop = -r;

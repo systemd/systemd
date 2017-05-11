@@ -1,5 +1,12 @@
 systemd System and Service Manager
 
+CHANGES WITH 234 in spe
+
+        * The code to call libnss_dns as a fallback from libnss_resolve when
+          the communication with systemd-resolved fails was removed. This
+          fallback was redundant and interfered with the [!UNAVAIL=return]
+          suffix. See nss-resolve(8) for the recommended configuration.
+
 CHANGES WITH 233:
 
         * This version requires at least gperf 3.1 for building, 3.0 is not

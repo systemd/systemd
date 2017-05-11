@@ -5626,8 +5626,7 @@ libnss_resolve_la_LDFLAGS = \
 
 libnss_resolve_la_LIBADD = \
 	libsystemd-internal.la \
-	libbasic.la \
-        -ldl
+	libbasic.la
 
 rootlib_LTLIBRARIES += \
 	libnss_resolve.la
