@@ -776,7 +776,9 @@ int config_parse_destination(const char *unit,
         if (r < 0) {
                 r = in_addr_prefix_from_string(rvalue, AF_INET6, &buffer, &prefixlen);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Route source or destination prefix is invalid, ignoring assignment: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Route %s= prefix is invalid, ignoring assignment: %s",
+                                   lvalue, rvalue);
                         return 0;
                 }
 
