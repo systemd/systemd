@@ -1083,6 +1083,8 @@ static int monitor(sd_bus *bus, char *argv[], int (*dump)(sd_bus_message *m, FIL
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char **i;
         uint32_t flags = 0;
+        const char *unique_name;
+        bool is_monitor = false;
         int r;
 
         /* upgrade connection; it's not used for anything else after this call */
@@ -1140,6 +1142,10 @@ static int monitor(sd_bus *bus, char *argv[], int (*dump)(sd_bus_message *m, FIL
                 return r;
         }
 
+        r = sd_bus_get_unique_name(bus, &unique_name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get unique name: %m");
+
         log_info("Monitoring bus message stream.");
 
         for (;;) {
@@ -1148,6 +1154,23 @@ static int monitor(sd_bus *bus, char *argv[], int (*dump)(sd_bus_message *m, FIL
                 r = sd_bus_process(bus, &m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to process bus: %m");
+
+                if (!is_monitor) {
+                        const char *name;
+
+                        /* wait until we lose our unique name */
+                        if (sd_bus_message_is_signal(m, "org.freedesktop.DBus", "NameLost") <= 0)
+                                continue;
+
+                        r = sd_bus_message_read(m, "s", &name);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read lost name: %m");
+
+                        if (!streq(name, unique_name))
+                                continue;
+
+                        is_monitor = true;
+                }
 
                 if (m) {
                         dump(m, stdout);
