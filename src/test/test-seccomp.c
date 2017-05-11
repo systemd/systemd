@@ -21,8 +21,10 @@
 #include <stdlib.h>
 #include <sys/eventfd.h>
 #include <sys/mman.h>
-#include <unistd.h>
 #include <sys/poll.h>
+#include <sys/shm.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -36,6 +38,15 @@
 #include "string-util.h"
 #include "util.h"
 #include "virt.h"
+
+#if SCMP_SYS(socket) < 0 || defined(__i386__) || defined(__s390x__) || defined(__s390__)
+/* On these archs, socket() is implemented via the socketcall() syscall multiplexer,
+ * and we can't restrict it hence via seccomp. */
+#  define SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN 1
+#else
+#  define SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN 0
+#endif
+
 
 static void test_seccomp_arch_to_string(void) {
         uint32_t a, b;
@@ -158,8 +169,6 @@ static void test_restrict_namespace(void) {
         assert_se(streq(s, "cgroup ipc net mnt pid user uts"));
         assert_se(namespace_flag_from_string_many(s, &ul) == 0 && ul == NAMESPACE_FLAGS_ALL);
 
-#if SECCOMP_RESTRICT_NAMESPACES_BROKEN == 0
-
         if (!is_seccomp_available())
                 return;
         if (geteuid() != 0)
@@ -218,7 +227,6 @@ static void test_restrict_namespace(void) {
         }
 
         assert_se(wait_for_terminate_and_warn("nsseccomp", pid, true) == EXIT_SUCCESS);
-#endif
 }
 
 static void test_protect_sysctl(void) {
@@ -286,12 +294,12 @@ static void test_restrict_address_families(void) {
                 assert_se(fd >= 0);
                 safe_close(fd);
 
-#if SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN
                 fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+#if SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN
                 assert_se(fd >= 0);
                 safe_close(fd);
 #else
-                assert_se(socket(AF_UNIX, SOCK_DGRAM, 0) < 0);
+                assert_se(fd < 0);
                 assert_se(errno == EAFNOSUPPORT);
 #endif
 
@@ -309,19 +317,21 @@ static void test_restrict_address_families(void) {
                 assert_se(fd >= 0);
                 safe_close(fd);
 
-#if SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN
                 fd = socket(AF_UNIX, SOCK_DGRAM, 0);
-                assert_se(fd >= 0);
-                safe_close(fd);
-
-                fd = socket(AF_NETLINK, SOCK_DGRAM, 0);
+#if SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN
                 assert_se(fd >= 0);
                 safe_close(fd);
 #else
-                assert_se(socket(AF_UNIX, SOCK_DGRAM, 0) < 0);
+                assert_se(fd < 0);
                 assert_se(errno == EAFNOSUPPORT);
+#endif
 
-                assert_se(socket(AF_NETLINK, SOCK_DGRAM, 0) < 0);
+                fd = socket(AF_NETLINK, SOCK_DGRAM, 0);
+#if SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN
+                assert_se(fd >= 0);
+                safe_close(fd);
+#else
+                assert_se(fd < 0);
                 assert_se(errno == EAFNOSUPPORT);
 #endif
 
@@ -369,7 +379,7 @@ static void test_restrict_realtime(void) {
         assert_se(wait_for_terminate_and_warn("realtimeseccomp", pid, true) == EXIT_SUCCESS);
 }
 
-static void test_memory_deny_write_execute(void) {
+static void test_memory_deny_write_execute_mmap(void) {
         pid_t pid;
 
         if (!is_seccomp_available())
@@ -393,14 +403,13 @@ static void test_memory_deny_write_execute(void) {
 
                 assert_se(seccomp_memory_deny_write_execute() >= 0);
 
-#if SECCOMP_MEMORY_DENY_WRITE_EXECUTE_BROKEN
                 p = mmap(NULL, page_size(), PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1,0);
-                assert_se(p != MAP_FAILED);
-                assert_se(munmap(p, page_size()) >= 0);
-#else
-                p = mmap(NULL, page_size(), PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1,0);
+#if defined(__x86_64__) || defined(__i386__) || defined(__powerpc64__) || defined(__arm__) || defined(__aarch64__)
                 assert_se(p == MAP_FAILED);
                 assert_se(errno == EPERM);
+#else /* unknown architectures */
+                assert_se(p != MAP_FAILED);
+                assert_se(munmap(p, page_size()) >= 0);
 #endif
 
                 p = mmap(NULL, page_size(), PROT_WRITE|PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1,0);
@@ -410,7 +419,54 @@ static void test_memory_deny_write_execute(void) {
                 _exit(EXIT_SUCCESS);
         }
 
-        assert_se(wait_for_terminate_and_warn("memoryseccomp", pid, true) == EXIT_SUCCESS);
+        assert_se(wait_for_terminate_and_warn("memoryseccomp-mmap", pid, true) == EXIT_SUCCESS);
+}
+
+static void test_memory_deny_write_execute_shmat(void) {
+        int shmid;
+        pid_t pid;
+
+        if (!is_seccomp_available())
+                return;
+        if (geteuid() != 0)
+                return;
+
+        shmid = shmget(IPC_PRIVATE, page_size(), 0);
+        assert_se(shmid >= 0);
+
+        pid = fork();
+        assert_se(pid >= 0);
+
+        if (pid == 0) {
+                void *p;
+
+                p = shmat(shmid, NULL, 0);
+                assert_se(p != MAP_FAILED);
+                assert_se(shmdt(p) == 0);
+
+                p = shmat(shmid, NULL, SHM_EXEC);
+                assert_se(p != MAP_FAILED);
+                assert_se(shmdt(p) == 0);
+
+                assert_se(seccomp_memory_deny_write_execute() >= 0);
+
+                p = shmat(shmid, NULL, SHM_EXEC);
+#if defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
+                assert_se(p == MAP_FAILED);
+                assert_se(errno == EPERM);
+#else /* __i386__, __powerpc64__, and "unknown" architectures */
+                assert_se(p != MAP_FAILED);
+                assert_se(shmdt(p) == 0);
+#endif
+
+                p = shmat(shmid, NULL, 0);
+                assert_se(p != MAP_FAILED);
+                assert_se(shmdt(p) == 0);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        assert_se(wait_for_terminate_and_warn("memoryseccomp-shmat", pid, true) == EXIT_SUCCESS);
 }
 
 static void test_restrict_archs(void) {
@@ -509,7 +565,8 @@ int main(int argc, char *argv[]) {
         test_protect_sysctl();
         test_restrict_address_families();
         test_restrict_realtime();
-        test_memory_deny_write_execute();
+        test_memory_deny_write_execute_mmap();
+        test_memory_deny_write_execute_shmat();
         test_restrict_archs();
         test_load_syscall_filter_set_raw();
 

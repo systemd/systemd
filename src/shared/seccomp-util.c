@@ -792,42 +792,9 @@ int seccomp_restrict_namespaces(unsigned long retain) {
 
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
-                int clone_reversed_order = -1;
                 unsigned i;
 
                 log_debug("Operating on architecture: %s", seccomp_arch_to_string(arch));
-
-                switch (arch) {
-
-                case SCMP_ARCH_X86_64:
-                case SCMP_ARCH_X86:
-                case SCMP_ARCH_X32:
-                case SCMP_ARCH_PPC64:
-                case SCMP_ARCH_PPC64LE:
-                case SCMP_ARCH_MIPS:
-                case SCMP_ARCH_MIPSEL:
-                case SCMP_ARCH_MIPS64:
-                case SCMP_ARCH_MIPSEL64:
-                case SCMP_ARCH_MIPS64N32:
-                case SCMP_ARCH_MIPSEL64N32:
-                        clone_reversed_order = 0;
-                        break;
-
-                case SCMP_ARCH_S390:
-                case SCMP_ARCH_S390X:
-                        /* On s390/s390x the first two parameters to clone are switched */
-                        clone_reversed_order = 1;
-                        break;
-
-                /* Please add more definitions here, if you port systemd to other architectures! */
-
-#if SECCOMP_RESTRICT_NAMESPACES_BROKEN
-#  warning "Consider adding the right clone() syscall definitions here!"
-#endif
-                }
-
-                if (clone_reversed_order < 0) /* we don't know the right order, let's ignore this arch... */
-                        continue;
 
                 r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ALLOW);
                 if (r < 0)
@@ -877,7 +844,8 @@ int seccomp_restrict_namespaces(unsigned long retain) {
                                 break;
                         }
 
-                        if (clone_reversed_order == 0)
+                        /* On s390/s390x the first two parameters to clone are switched */
+                        if (!IN_SET(arch, SCMP_ARCH_S390, SCMP_ARCH_S390X))
                                 r = seccomp_rule_add_exact(
                                                 seccomp,
                                                 SCMP_ACT_ERRNO(EPERM),
@@ -972,16 +940,16 @@ int seccomp_restrict_address_families(Set *address_families, bool whitelist) {
                 case SCMP_ARCH_X32:
                 case SCMP_ARCH_ARM:
                 case SCMP_ARCH_AARCH64:
+                case SCMP_ARCH_PPC64:
+                case SCMP_ARCH_PPC64LE:
                         /* These we know we support (i.e. are the ones that do not use socketcall()) */
                         supported = true;
                         break;
 
-                case SCMP_ARCH_X86:
                 case SCMP_ARCH_S390:
                 case SCMP_ARCH_S390X:
                 case SCMP_ARCH_PPC:
-                case SCMP_ARCH_PPC64:
-                case SCMP_ARCH_PPC64LE:
+                case SCMP_ARCH_X86:
                 default:
                         /* These we either know we don't support (i.e. are the ones that do use socketcall()), or we
                          * don't know */
@@ -1192,6 +1160,37 @@ int seccomp_restrict_realtime(void) {
         return 0;
 }
 
+static int add_seccomp_syscall_filter(scmp_filter_ctx seccomp,
+                                      uint32_t arch,
+                                      int nr,
+                                      unsigned int arg_cnt,
+                                      const struct scmp_arg_cmp arg) {
+        int r;
+
+        r = seccomp_rule_add_exact(seccomp, SCMP_ACT_ERRNO(EPERM), nr, arg_cnt, arg);
+        if (r < 0) {
+                _cleanup_free_ char *n = NULL;
+
+                n = seccomp_syscall_resolve_num_arch(arch, nr);
+                log_debug_errno(r, "Failed to add %s() rule for architecture %s, skipping: %m",
+                                strna(n),
+                                seccomp_arch_to_string(arch));
+        }
+
+        return r;
+}
+
+/* For known architectures, check that syscalls are indeed defined or not. */
+#if defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
+assert_cc(SCMP_SYS(shmget) > 0);
+assert_cc(SCMP_SYS(shmat) > 0);
+assert_cc(SCMP_SYS(shmdt) > 0);
+#elif defined(__i386__) || defined(__powerpc64__)
+assert_cc(SCMP_SYS(shmget) < 0);
+assert_cc(SCMP_SYS(shmat) < 0);
+assert_cc(SCMP_SYS(shmdt) < 0);
+#endif
+
 int seccomp_memory_deny_write_execute(void) {
 
         uint32_t arch;
@@ -1208,21 +1207,36 @@ int seccomp_memory_deny_write_execute(void) {
                 case SCMP_ARCH_X86:
                         filter_syscall = SCMP_SYS(mmap2);
                         block_syscall = SCMP_SYS(mmap);
+                        break;
 
-                        /* Note that shmat() isn't available on i386, where the call is multiplexed through ipc(). We
-                         * ignore that here, which means there's still a way to get writable/executable memory, if an
-                         * IPC key is mapped like this on i386. That's a pity, but no total loss. */
+                case SCMP_ARCH_PPC64:
+                case SCMP_ARCH_PPC64LE:
+                        filter_syscall = SCMP_SYS(mmap);
+
+                        /* Note that shmat() isn't available, and the call is multiplexed through ipc().
+                         * We ignore that here, which means there's still a way to get writable/executable
+                         * memory, if an IPC key is mapped like this. That's a pity, but no total loss. */
+
+                        break;
+
+                case SCMP_ARCH_AARCH64:
+                        block_syscall = SCMP_SYS(mmap);
+                        /* fall through */
+
+                case SCMP_ARCH_ARM:
+                        filter_syscall = SCMP_SYS(mmap2); /* arm has only mmap2 */
+                        shmat_syscall = SCMP_SYS(shmat);
                         break;
 
                 case SCMP_ARCH_X86_64:
                 case SCMP_ARCH_X32:
-                        filter_syscall = SCMP_SYS(mmap);
+                        filter_syscall = SCMP_SYS(mmap); /* amd64 and x32 have only mmap */
                         shmat_syscall = SCMP_SYS(shmat);
                         break;
 
                 /* Please add more definitions here, if you port systemd to other architectures! */
 
-#if !defined(__i386__) && !defined(__x86_64__)
+#if !defined(__i386__) && !defined(__x86_64__) && !defined(__powerpc64__) && !defined(__arm__) && !defined(__aarch64__)
 #warning "Consider adding the right mmap() syscall definitions here!"
 #endif
                 }
@@ -1235,63 +1249,30 @@ int seccomp_memory_deny_write_execute(void) {
                 if (r < 0)
                         return r;
 
-                if (filter_syscall != 0)  {
-                        r = seccomp_rule_add_exact(
-                                        seccomp,
-                                        SCMP_ACT_ERRNO(EPERM),
-                                        filter_syscall,
-                                        1,
-                                        SCMP_A2(SCMP_CMP_MASKED_EQ, PROT_EXEC|PROT_WRITE, PROT_EXEC|PROT_WRITE));
-                        if (r < 0) {
-                                _cleanup_free_ char *n = NULL;
-
-                                n = seccomp_syscall_resolve_num_arch(arch, filter_syscall);
-                                log_debug_errno(r, "Failed to add %s() rule for architecture %s, skipping: %m",
-                                                strna(n),
-                                                seccomp_arch_to_string(arch));
-                                continue;
-                        }
-                }
+                r = add_seccomp_syscall_filter(seccomp, arch, filter_syscall,
+                                               1,
+                                               SCMP_A2(SCMP_CMP_MASKED_EQ, PROT_EXEC|PROT_WRITE, PROT_EXEC|PROT_WRITE));
+                if (r < 0)
+                        continue;
 
                 if (block_syscall != 0) {
-                        r = seccomp_rule_add_exact(
-                                        seccomp,
-                                        SCMP_ACT_ERRNO(EPERM),
-                                        block_syscall,
-                                        0);
-                        if (r < 0) {
-                                _cleanup_free_ char *n = NULL;
-
-                                n = seccomp_syscall_resolve_num_arch(arch, block_syscall);
-                                log_debug_errno(r, "Failed to add %s() rule for architecture %s, skipping: %m",
-                                                strna(n),
-                                                seccomp_arch_to_string(arch));
+                        r = add_seccomp_syscall_filter(seccomp, arch, block_syscall, 0, (const struct scmp_arg_cmp){} );
+                        if (r < 0)
                                 continue;
-                        }
                 }
 
-                r = seccomp_rule_add_exact(
-                                seccomp,
-                                SCMP_ACT_ERRNO(EPERM),
-                                SCMP_SYS(mprotect),
-                                1,
-                                SCMP_A2(SCMP_CMP_MASKED_EQ, PROT_EXEC, PROT_EXEC));
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to add mprotect() rule for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+                r = add_seccomp_syscall_filter(seccomp, arch, SCMP_SYS(mprotect),
+                                               1,
+                                               SCMP_A2(SCMP_CMP_MASKED_EQ, PROT_EXEC, PROT_EXEC));
+                if (r < 0)
                         continue;
-                }
 
                 if (shmat_syscall != 0) {
-                        r = seccomp_rule_add_exact(
-                                        seccomp,
-                                        SCMP_ACT_ERRNO(EPERM),
-                                        SCMP_SYS(shmat),
-                                        1,
-                                        SCMP_A2(SCMP_CMP_MASKED_EQ, SHM_EXEC, SHM_EXEC));
-                        if (r < 0) {
-                                log_debug_errno(r, "Failed to add shmat() rule for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+                        r = add_seccomp_syscall_filter(seccomp, arch, SCMP_SYS(shmat),
+                                                       1,
+                                                       SCMP_A2(SCMP_CMP_MASKED_EQ, SHM_EXEC, SHM_EXEC));
+                        if (r < 0)
                                 continue;
-                        }
                 }
 
                 r = seccomp_load(seccomp);
