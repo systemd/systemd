@@ -2101,7 +2101,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                         check_unneeded_dependencies(u);
 
                 if (ns != os && ns == UNIT_FAILED) {
-                        log_unit_notice(u, "Unit entered failed state.");
+                        log_unit_warning(u, "Unit entered failed state.");
                         unit_start_on_failure(u);
                 }
         }
