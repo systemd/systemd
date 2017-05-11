@@ -3236,7 +3236,8 @@ int exec_context_load_environment(Unit *unit, const ExecContext *c, char ***l) {
 
         STRV_FOREACH(i, c->environment_files) {
                 char *fn;
-                int k, n;
+                int k;
+                unsigned n;
                 bool ignore = false;
                 char **p;
                 _cleanup_globfree_ glob_t pglob = {};
