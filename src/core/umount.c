@@ -369,6 +369,14 @@ static int delete_dm(dev_t devnum) {
         return 0;
 }
 
+static bool nonunmountable_path(const char *path) {
+        return path_equal(path, "/")
+#ifndef HAVE_SPLIT_USR
+                || path_equal(path, "/usr")
+#endif
+                || path_startswith(path, "/run/initramfs");
+}
+
 static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_error) {
         MountPoint *m, *n;
         int n_failed = 0;
@@ -404,21 +412,21 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_e
                          * somehwere else via a bind mount. If we
                          * explicitly remount the super block of that
                          * alias read-only we hence should be
-                         * relatively safe regarding keeping the fs we
-                         * can otherwise not see dirty. */
+                         * relatively safe regarding keeping dirty an fs
+                         * we cannot otherwise see. */
                         log_info("Remounting '%s' read-only with options '%s'.", m->path, options);
-                        (void) mount(NULL, m->path, NULL, MS_REMOUNT|MS_RDONLY, options);
+                        if (mount(NULL, m->path, NULL, MS_REMOUNT|MS_RDONLY, options) < 0) {
+                                if (log_error)
+                                        log_notice_errno(errno, "Failed to remount '%s' read-only: %m", m->path);
+                                if (nonunmountable_path(m->path))
+                                        n_failed++;
+                        }
                 }
 
                 /* Skip / and /usr since we cannot unmount that
                  * anyway, since we are running from it. They have
                  * already been remounted ro. */
-                if (path_equal(m->path, "/")
-#ifndef HAVE_SPLIT_USR
-                    || path_equal(m->path, "/usr")
-#endif
-                    || path_startswith(m->path, "/run/initramfs")
-                )
+                if (nonunmountable_path(m->path))
                         continue;
 
                 /* Trying to umount. We don't force here since we rely
@@ -430,8 +438,9 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_e
                                 *changed = true;
 
                         mount_point_free(head, m);
-                } else if (log_error) {
-                        log_warning_errno(errno, "Could not unmount %s: %m", m->path);
+                } else {
+                        if (log_error)
+                                log_warning_errno(errno, "Could not unmount %s: %m", m->path);
                         n_failed++;
                 }
         }
@@ -555,8 +564,6 @@ int umount_all(bool *changed) {
 
         /* umount one more time with logging enabled */
         r = mount_points_list_umount(&mp_list_head, &umount_changed, true);
-        if (r <= 0)
-                goto end;
 
   end:
         mount_points_list_free(&mp_list_head);
