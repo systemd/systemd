@@ -131,6 +131,7 @@ struct sd_bus_vtable {
                         .member = _member,                              \
                         .signature = _signature,                        \
                         .get = _get,                                    \
+                        .set = NULL,                                    \
                         .offset = _offset,                              \
                     },                                                  \
                 },                                                      \
@@ -154,6 +155,9 @@ struct sd_bus_vtable {
 #define SD_BUS_VTABLE_END                                               \
         {                                                               \
                 .type = _SD_BUS_VTABLE_END,                             \
+                .flags = 0,                                             \
+                .x = {                                                  \
+                },                                                      \
         }
 
 _SD_END_DECLARATIONS;
