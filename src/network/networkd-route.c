@@ -772,45 +772,20 @@ int config_parse_destination(const char *unit,
         if (r < 0)
                 return r;
 
-        /* Destination|Source=address/prefixlen */
-
-        /* address */
-        e = strchr(rvalue, '/');
-        if (e)
-                address = strndupa(rvalue, e - rvalue);
-        else
-                address = rvalue;
-
-        r = in_addr_from_string_auto(address, &f, &buffer);
+        r = in_addr_prefix_from_string(rvalue, AF_INET, &buffer, &prefixlen);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Destination is invalid, ignoring assignment: %s", address);
-                return 0;
-        }
-
-        if (f != AF_INET && f != AF_INET6) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Unknown address family, ignoring assignment: %s", address);
-                return 0;
-        }
-
-        /* prefixlen */
-        if (e) {
-                r = safe_atou8(e + 1, &prefixlen);
+                r = in_addr_prefix_from_string(rvalue, AF_INET6, &buffer, &prefixlen);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Route destination prefix length is invalid, ignoring assignment: %s", e + 1);
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Route %s= prefix is invalid, ignoring assignment: %s",
+                                   lvalue, rvalue);
                         return 0;
                 }
-        } else {
-                switch (f) {
-                        case AF_INET:
-                                prefixlen = 32;
-                                break;
-                        case AF_INET6:
-                                prefixlen = 128;
-                                break;
-                }
-        }
 
-        n->family = f;
+                n->family = AF_INET6;
+        } else
+                n->family = AF_INET;
+
         if (streq(lvalue, "Destination")) {
                 n->dst = buffer;
                 n->dst_prefixlen = prefixlen;
