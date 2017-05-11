@@ -18,6 +18,8 @@ sources = files('''
         ndisc-internal.h
         ndisc-router.h
         ndisc-router.c
+        sd-radv.c
+        radv-internal.h
         icmp6-util.h
         icmp6-util.c
         sd-dhcp6-client.c
