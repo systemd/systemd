@@ -1150,15 +1150,14 @@ test_dlopen = executable(
         link_with : [libbasic],
         dependencies : [libdl])
 
-foreach tuple : [['myhostname', 'HAVE_MYHOSTNAME', []],
-                 ['systemd',     '',               []],
-                 ['mymachines', 'ENABLE_MACHINED', []],
-                 ['resolve',    'ENABLE_RESOLVED', [libdl]]]
+foreach tuple : [['myhostname', 'HAVE_MYHOSTNAME'],
+                 ['systemd',    ''               ],
+                 ['mymachines', 'ENABLE_MACHINED'],
+                 ['resolve',    'ENABLE_RESOLVED']]
 
         condition = tuple[1] == '' or conf.get(tuple[1], false)
         if condition
                 module = tuple[0]
-                extra_deps = tuple[2]
 
                 sym = 'src/nss-@0@/nss-@0@.sym'.format(module)
                 version_script_arg = join_paths(meson.current_source_dir(), sym)
@@ -1174,7 +1173,7 @@ foreach tuple : [['myhostname', 'HAVE_MYHOSTNAME', []],
                         link_with : [libsystemd_internal,
                                      libbasic],
                         dependencies : [threads,
-                                        librt] + extra_deps,
+                                        librt],
                         link_depends : sym,
                         install : true,
                         install_dir : rootlibdir)
