@@ -20,6 +20,7 @@
 #include <netinet/icmp6.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <linux/in6.h>
 
 #include "sd-radv.h"
 
@@ -44,6 +45,7 @@ _public_ int sd_radv_new(sd_radv **ret) {
                 return -ENOMEM;
 
         ra->n_ref = 1;
+        ra->fd = -1;
 
         LIST_HEAD_INIT(ra->prefixes);
 
@@ -129,8 +131,71 @@ _public_ sd_radv *sd_radv_unref(sd_radv *ra) {
 
 static int radv_send(sd_radv *ra, const struct in6_addr *dst,
                      const uint32_t router_lifetime) {
+        static const struct ether_addr mac_zero = {};
+        sd_radv_prefix *p;
+        struct sockaddr_in6 dst_addr = {
+                .sin6_family = AF_INET6,
+                .sin6_addr = IN6ADDR_ALL_NODES_MULTICAST_INIT,
+        };
+        struct nd_router_advert adv = {};
+        struct {
+                struct nd_opt_hdr opthdr;
+                struct ether_addr slladdr;
+        } _packed_ opt_mac = {
+                .opthdr = {
+                        .nd_opt_type = ND_OPT_SOURCE_LINKADDR,
+                        .nd_opt_len = (sizeof(struct nd_opt_hdr) +
+                                       sizeof(struct ether_addr) - 1) /8 + 1,
+                },
+        };
+        struct nd_opt_mtu opt_mtu =  {
+                .nd_opt_mtu_type = ND_OPT_MTU,
+                .nd_opt_mtu_len = 1,
+        };
+        /* Reserve iov space for RA header, linkaddr, MTU + N prefixes */
+        struct iovec iov[3 + ra->n_prefixes];
+        struct msghdr msg = {
+                .msg_name = &dst_addr,
+                .msg_namelen = sizeof(dst_addr),
+                .msg_iov = iov,
+        };
 
-        return -ENOSYS;
+        if (dst)
+                dst_addr.sin6_addr = *dst;
+        adv.nd_ra_type = ND_ROUTER_ADVERT;
+        adv.nd_ra_curhoplimit = ra->hop_limit;
+        adv.nd_ra_flags_reserved = ra->flags;
+        adv.nd_ra_router_lifetime = htobe16(router_lifetime);
+        iov[msg.msg_iovlen].iov_base = &adv;
+        iov[msg.msg_iovlen].iov_len = sizeof(adv);
+        msg.msg_iovlen++;
+
+        /* MAC address is optional, either because the link does not use L2
+           addresses or load sharing is desired. See RFC 4861, Section 4.2 */
+        if (memcmp(&mac_zero, &ra->mac_addr, sizeof(mac_zero))) {
+                opt_mac.slladdr = ra->mac_addr;
+                iov[msg.msg_iovlen].iov_base = &opt_mac;
+                iov[msg.msg_iovlen].iov_len = sizeof(opt_mac);
+                msg.msg_iovlen++;
+        }
+
+        if (ra->mtu) {
+                opt_mtu.nd_opt_mtu_mtu = htobe32(ra->mtu);
+                iov[msg.msg_iovlen].iov_base = &opt_mtu;
+                iov[msg.msg_iovlen].iov_len = sizeof(opt_mtu);
+                msg.msg_iovlen++;
+        }
+
+        LIST_FOREACH(prefix, p, ra->prefixes) {
+                iov[msg.msg_iovlen].iov_base = &p->opt;
+                iov[msg.msg_iovlen].iov_len = sizeof(p->opt);
+                msg.msg_iovlen++;
+        }
+
+        if (sendmsg(ra->fd, &msg, 0) < 0)
+                return -errno;
+
+        return 0;
 }
 
 static usec_t radv_compute_timeout(usec_t min, usec_t max) {
@@ -213,6 +278,7 @@ _public_ int sd_radv_stop(sd_radv *ra) {
                 log_radv_warning_errno(r, "Unable to send last Router Advertisement with router lifetime set to zero: %m");
 
         radv_reset(ra);
+        ra->fd = safe_close(ra->fd);
         ra->state = SD_RADV_STATE_IDLE;
 
         return 0;
@@ -241,6 +307,13 @@ _public_ int sd_radv_start(sd_radv *ra) {
 
         (void) sd_event_source_set_description(ra->timeout_event_source,
                                                "radv-timeout");
+
+        r = icmp6_bind_router_advertisement(ra->ifindex);
+        if (r < 0)
+                goto fail;
+
+        ra->fd = r;
+        r = 0;
 
         ra->state = SD_RADV_STATE_ADVERTISING;
 

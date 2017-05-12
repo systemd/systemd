@@ -56,6 +56,7 @@ struct sd_radv {
         uint32_t mtu;
         uint16_t lifetime;
 
+        int fd;
         unsigned ra_sent;
         sd_event_source *timeout_event_source;
 
