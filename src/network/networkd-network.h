@@ -158,6 +158,13 @@ struct Network {
         AddressFamilyBoolean link_local;
         bool ipv4ll_route;
 
+        /* IPv6 prefix delegation support */
+        bool router_prefix_delegation;
+        usec_t router_lifetime_usec;
+        uint8_t router_preference;
+        bool router_managed;
+        bool router_other_information;
+
         /* Bridge Support */
         bool use_bpdu;
         bool hairpin;

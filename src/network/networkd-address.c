@@ -933,6 +933,36 @@ bool address_is_ready(const Address *a) {
         return !(a->flags & (IFA_F_TENTATIVE | IFA_F_DEPRECATED));
 }
 
+int config_parse_router_preference(const char *unit,
+                                   const char *filename,
+                                   unsigned line,
+                                   const char *section,
+                                   unsigned section_line,
+                                   const char *lvalue,
+                                   int ltype,
+                                   const char *rvalue,
+                                   void *data,
+                                   void *userdata) {
+        Network *network = userdata;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (streq(rvalue, "high"))
+                network->router_preference = SD_NDISC_PREFERENCE_HIGH;
+        else if (STR_IN_SET(rvalue, "medium", "normal", "default"))
+                network->router_preference = SD_NDISC_PREFERENCE_MEDIUM;
+        else if (streq(rvalue, "low"))
+                network->router_preference = SD_NDISC_PREFERENCE_LOW;
+        else
+                log_syntax(unit, LOG_ERR, filename, line, -EINVAL, "Router preference '%s' is invalid, ignoring assignment: %m", rvalue);
+
+        return 0;
+}
+
 void prefix_free(Prefix *prefix) {
         if (!prefix)
                 return;
