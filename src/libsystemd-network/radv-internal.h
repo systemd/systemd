@@ -25,6 +25,31 @@
 #include "list.h"
 #include "sparse-endian.h"
 
+enum RAdvState {
+        SD_RADV_STATE_IDLE                      = 0,
+        SD_RADV_STATE_ADVERTISING               = 1,
+};
+typedef enum RAdvState RAdvState;
+
+struct sd_radv {
+        unsigned n_ref;
+        RAdvState state;
+
+        int ifindex;
+
+        sd_event *event;
+        int event_priority;
+
+        struct ether_addr mac_addr;
+        uint8_t hop_limit;
+        uint8_t flags;
+        uint32_t mtu;
+        uint16_t lifetime;
+
+        unsigned n_prefixes;
+        LIST_HEAD(sd_radv_prefix, prefixes);
+};
+
 struct sd_radv_prefix {
         unsigned n_ref;
 

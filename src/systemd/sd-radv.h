@@ -25,13 +25,38 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 
+#include "sd-ndisc.h"
+
 #include "sd-event.h"
 
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
 
+typedef struct sd_radv sd_radv;
 typedef struct sd_radv_prefix sd_radv_prefix;
+
+/* Router Advertisment */
+int sd_radv_new(sd_radv **ret);
+sd_radv *sd_radv_ref(sd_radv *ra);
+sd_radv *sd_radv_unref(sd_radv *ra);
+
+int sd_radv_attach_event(sd_radv *ra, sd_event *event, int64_t priority);
+int sd_radv_detach_event(sd_radv *nd);
+sd_event *sd_radv_get_event(sd_radv *ra);
+
+int sd_radv_start(sd_radv *ra);
+int sd_radv_stop(sd_radv *ra);
+
+int sd_radv_set_ifindex(sd_radv *ra, int interface_index);
+int sd_radv_set_mac(sd_radv *ra, const struct ether_addr *mac_addr);
+int sd_radv_set_mtu(sd_radv *ra, uint32_t mtu);
+int sd_radv_set_hop_limit(sd_radv *ra, uint8_t hop_limit);
+int sd_radv_set_router_lifetime(sd_radv *ra, uint32_t router_lifetime);
+int sd_radv_set_managed_information(sd_radv *ra, int managed);
+int sd_radv_set_other_information(sd_radv *ra, int other);
+int sd_radv_set_preference(sd_radv *ra, unsigned preference);
+int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p);
 
 /* Advertised prefixes */
 int sd_radv_prefix_new(sd_radv_prefix **ret);
