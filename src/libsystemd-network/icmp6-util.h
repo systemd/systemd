@@ -22,4 +22,5 @@
 #include <net/ethernet.h>
 
 int icmp6_bind_router_solicitation(int index);
+int icmp6_bind_router_advertisement(int index);
 int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr);

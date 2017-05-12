@@ -41,12 +41,9 @@
         { { { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 } } }
 
-int icmp6_bind_router_solicitation(int index) {
-        struct icmp6_filter filter = { };
-        struct ipv6_mreq mreq = {
-                .ipv6mr_multiaddr = IN6ADDR_ALL_NODES_MULTICAST_INIT,
-                .ipv6mr_interface = index,
-        };
+static int icmp6_bind_router_message(const struct icmp6_filter *filter,
+                                     const struct ipv6_mreq *mreq) {
+        int index = mreq->ipv6mr_interface;
         _cleanup_close_ int s = -1;
         char ifname[IF_NAMESIZE] = "";
         static const int zero = 0, one = 1, hops = 255;
@@ -56,9 +53,11 @@ int icmp6_bind_router_solicitation(int index) {
         if (s < 0)
                 return -errno;
 
-        ICMP6_FILTER_SETBLOCKALL(&filter);
-        ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT, &filter);
-        r = setsockopt(s, IPPROTO_ICMPV6, ICMP6_FILTER, &filter, sizeof(filter));
+        r = setsockopt(s, IPPROTO_ICMPV6, ICMP6_FILTER, filter, sizeof(*filter));
+        if (r < 0)
+                return -errno;
+
+        r = setsockopt(s, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, mreq, sizeof(*mreq));
         if (r < 0)
                 return -errno;
 
@@ -78,7 +77,7 @@ int icmp6_bind_router_solicitation(int index) {
         if (r < 0)
                 return -errno;
 
-        r = setsockopt(s, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
+        r = setsockopt(s, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &hops, sizeof(hops));
         if (r < 0)
                 return -errno;
 
@@ -100,6 +99,32 @@ int icmp6_bind_router_solicitation(int index) {
         r = s;
         s = -1;
         return r;
+}
+
+int icmp6_bind_router_solicitation(int index) {
+        struct icmp6_filter filter = {};
+        struct ipv6_mreq mreq = {
+                .ipv6mr_multiaddr = IN6ADDR_ALL_NODES_MULTICAST_INIT,
+                .ipv6mr_interface = index,
+        };
+
+        ICMP6_FILTER_SETBLOCKALL(&filter);
+        ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT, &filter);
+
+        return icmp6_bind_router_message(&filter, &mreq);
+}
+
+int icmp6_bind_router_advertisement(int index) {
+        struct icmp6_filter filter = {};
+        struct ipv6_mreq mreq = {
+                .ipv6mr_multiaddr = IN6ADDR_ALL_ROUTERS_MULTICAST_INIT,
+                .ipv6mr_interface = index,
+        };
+
+        ICMP6_FILTER_SETBLOCKALL(&filter);
+        ICMP6_FILTER_SETPASS(ND_ROUTER_SOLICIT, &filter);
+
+        return icmp6_bind_router_message(&filter, &mreq);
 }
 
 int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
