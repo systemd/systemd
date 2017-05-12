@@ -247,6 +247,7 @@ struct ExecParameters {
         int *fds;
         char **fd_names;
         unsigned n_fds;
+        unsigned n_socket_fds;
 
         ExecFlags flags;
         bool selinux_context_net:1;

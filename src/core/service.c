@@ -1068,14 +1068,16 @@ static int service_coldplug(Unit *u) {
         return 0;
 }
 
-static int service_collect_fds(Service *s, int **fds, char ***fd_names) {
+static int service_collect_fds(Service *s, int **fds, char ***fd_names, unsigned *n_socket_fds) {
         _cleanup_strv_free_ char **rfd_names = NULL;
         _cleanup_free_ int *rfds = NULL;
-        int rn_fds = 0, r;
+        unsigned rn_socket_fds = 0;
+        int rn_fds = 0,  r;
 
         assert(s);
         assert(fds);
         assert(fd_names);
+        assert(n_socket_fds);
 
         if (s->socket_fd >= 0) {
 
@@ -1138,6 +1140,8 @@ static int service_collect_fds(Service *s, int **fds, char ***fd_names) {
                 }
         }
 
+        rn_socket_fds = rn_fds;
+
         if (s->n_fd_store > 0) {
                 ServiceFDStore *fs;
                 char **nl;
@@ -1169,6 +1173,7 @@ static int service_collect_fds(Service *s, int **fds, char ***fd_names) {
 
         *fds = rfds;
         *fd_names = rfd_names;
+        *n_socket_fds = rn_socket_fds;
 
         rfds = NULL;
         rfd_names = NULL;
@@ -1204,7 +1209,7 @@ static int service_spawn(
 
         _cleanup_strv_free_ char **final_env = NULL, **our_env = NULL, **fd_names = NULL;
         _cleanup_free_ int *fds = NULL;
-        unsigned n_fds = 0, n_env = 0;
+        unsigned n_fds = 0, n_socket_fds = 0, n_env = 0;
         const char *path;
         pid_t pid;
 
@@ -1248,7 +1253,7 @@ static int service_spawn(
             s->exec_context.std_output == EXEC_OUTPUT_SOCKET ||
             s->exec_context.std_error == EXEC_OUTPUT_SOCKET) {
 
-                r = service_collect_fds(s, &fds, &fd_names);
+                r = service_collect_fds(s, &fds, &fd_names, &n_socket_fds);
                 if (r < 0)
                         return r;
 
@@ -1348,6 +1353,7 @@ static int service_spawn(
         exec_params.fds = fds;
         exec_params.fd_names = fd_names;
         exec_params.n_fds = n_fds;
+        exec_params.n_socket_fds = n_socket_fds;
         exec_params.confirm_spawn = manager_get_confirm_spawn(UNIT(s)->manager);
         exec_params.cgroup_supported = UNIT(s)->manager->cgroup_supported;
         exec_params.cgroup_path = path;

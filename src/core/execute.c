@@ -157,7 +157,7 @@ static int shift_fds(int fds[], unsigned n_fds) {
         return 0;
 }
 
-static int flags_fds(const int fds[], unsigned n_fds, bool nonblock) {
+static int flags_fds(const int fds[], unsigned n_fds, unsigned n_socket_fds, bool nonblock) {
         unsigned i;
         int r;
 
@@ -166,13 +166,16 @@ static int flags_fds(const int fds[], unsigned n_fds, bool nonblock) {
 
         assert(fds);
 
-        /* Drops/Sets O_NONBLOCK and FD_CLOEXEC from the file flags */
+        /* Drops/Sets O_NONBLOCK and FD_CLOEXEC from the file flags.
+         * O_NONBLOCK only applies to socket activation though. */
 
         for (i = 0; i < n_fds; i++) {
 
-                r = fd_nonblock(fds[i], nonblock);
-                if (r < 0)
-                        return r;
+                if (i < n_socket_fds) {
+                        r = fd_nonblock(fds[i], nonblock);
+                        if (r < 0)
+                                return r;
+                }
 
                 /* We unconditionally drop FD_CLOEXEC from the fds,
                  * since after all we want to pass these fds to our
@@ -2242,6 +2245,7 @@ static int exec_child(
                 int socket_fd,
                 int named_iofds[3],
                 int *fds, unsigned n_fds,
+                unsigned n_socket_fds,
                 char **files_env,
                 int user_lookup_fd,
                 int *exit_status,
@@ -2669,7 +2673,7 @@ static int exec_child(
         if (r >= 0)
                 r = shift_fds(fds, n_fds);
         if (r >= 0)
-                r = flags_fds(fds, n_fds, context->non_blocking);
+                r = flags_fds(fds, n_fds, n_socket_fds, context->non_blocking);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return r;
@@ -2909,7 +2913,8 @@ int exec_spawn(Unit *unit,
                pid_t *ret) {
 
         _cleanup_strv_free_ char **files_env = NULL;
-        int *fds = NULL; unsigned n_fds = 0;
+        int *fds = NULL;
+        unsigned n_fds = 0, n_socket_fds = 0;
         _cleanup_free_ char *line = NULL;
         int socket_fd, r;
         int named_iofds[3] = { -1, -1, -1 };
@@ -2942,6 +2947,7 @@ int exec_spawn(Unit *unit,
                 socket_fd = -1;
                 fds = params->fds;
                 n_fds = params->n_fds;
+                n_socket_fds = params->n_socket_fds;
         }
 
         r = exec_context_named_iofds(unit, context, params, named_iofds);
@@ -2980,6 +2986,7 @@ int exec_spawn(Unit *unit,
                                socket_fd,
                                named_iofds,
                                fds, n_fds,
+                               n_socket_fds,
                                files_env,
                                unit->manager->user_lookup_fds[1],
                                &exit_status,
