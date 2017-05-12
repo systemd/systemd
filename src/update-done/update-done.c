@@ -18,10 +18,7 @@
 ***/
 
 #include "alloc-util.h"
-#include "fd-util.h"
-#include "fileio.h"
-#include "fs-util.h"
-#include "io-util.h"
+#include "fileio-label.h"
 #include "selinux-util.h"
 #include "util.h"
 
@@ -31,64 +28,25 @@
         "# was updated. See man:systemd-update-done.service(8).\n"
 
 static int apply_timestamp(const char *path, struct timespec *ts) {
-        struct timespec twice[2] = {
-                *ts,
-                *ts
-        };
-        _cleanup_fclose_ FILE *f = NULL;
-        int fd = -1;
+        _cleanup_free_ char *message = NULL;
         int r;
-        _cleanup_(unlink_and_freep) char *tmp = NULL;
-
-        assert(path);
-        assert(ts);
 
         /*
          * We store the timestamp both as mtime of the file and in the file itself,
          * to support filesystems which cannot store nanosecond-precision timestamps.
-         * Hence, don't bother updating the file, let's just rewrite it.
          */
 
-        r = mac_selinux_create_file_prepare(path, S_IFREG);
+        if (asprintf(&message,
+                     MESSAGE
+                     "TIMESTAMP_NSEC=" NSEC_FMT "\n",
+                     timespec_load_nsec(ts)) < 0)
+                return log_oom();
+
+        r = write_string_file_atomic_label_ts(path, message, ts);
+        if (r == -EROFS)
+                return log_debug("Cannot create \"%s\", file system is read-only.", path);
         if (r < 0)
-                return log_error_errno(r, "Failed to set SELinux context for %s: %m", path);
-
-        fd = open_tmpfile_linkable(path, O_WRONLY|O_CLOEXEC, &tmp);
-        mac_selinux_create_file_clear();
-
-        if (fd < 0) {
-                if (errno == EROFS)
-                        return log_debug("Can't create temporary timestamp file %s, file system is read-only.", tmp);
-
-                return log_error_errno(errno, "Failed to create/open temporary timestamp file %s: %m", tmp);
-        }
-
-        f = fdopen(fd, "we");
-        if (!f) {
-                safe_close(fd);
-                return log_error_errno(errno, "Failed to fdopen() timestamp file %s: %m", tmp);
-        }
-
-        (void) fprintf(f,
-                       MESSAGE
-                       "TIMESTAMP_NSEC=" NSEC_FMT "\n",
-                       timespec_load_nsec(ts));
-
-        r = fflush_and_check(f);
-        if (r < 0)
-                return log_error_errno(r, "Failed to write timestamp file: %m");
-
-        if (futimens(fd, twice) < 0)
-                return log_error_errno(errno, "Failed to update timestamp on %s: %m", tmp);
-
-        /* fix permissions */
-        (void) fchmod(fd, 0644);
-        r = link_tmpfile(fd, tmp, path);
-        if (r < 0)
-                return log_error_errno(r, "Failed to move \"%s\" to \"%s\": %m", tmp, path);
-
-        tmp = mfree(tmp);
-
+                return log_error_errno(r, "Failed to write \"%s\": %m", path);
         return 0;
 }
 
