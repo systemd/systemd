@@ -3756,6 +3756,16 @@ test_ndisc_rs_LDADD = \
 	libudev.la \
 	libsystemd-shared.la
 
+test_ndisc_ra_SOURCES = \
+	src/systemd/sd-ndisc.h \
+	src/libsystemd-network/icmp6-util.h \
+	src/libsystemd-network/test-ndisc-ra.c
+
+test_ndisc_ra_LDADD = \
+	libsystemd-network.la \
+	libudev.la \
+	libsystemd-shared.la
+
 test_dhcp6_client_SOURCES = \
 	src/systemd/sd-dhcp6-client.h \
 	src/libsystemd-network/dhcp6-internal.h \
@@ -3782,6 +3792,7 @@ tests += \
 	test-sd-dhcp-lease \
 	test-ipv4ll \
 	test-ndisc-rs \
+	test-ndisc-ra \
 	test-dhcp6-client \
 	test-lldp
 
