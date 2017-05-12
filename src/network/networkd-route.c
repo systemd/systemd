@@ -757,10 +757,9 @@ int config_parse_destination(const char *unit,
 
         Network *network = userdata;
         _cleanup_route_free_ Route *n = NULL;
-        const char *address, *e;
         union in_addr_union buffer;
         unsigned char prefixlen;
-        int r, f;
+        int r;
 
         assert(filename);
         assert(section);
