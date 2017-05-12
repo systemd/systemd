@@ -115,6 +115,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         LIST_HEAD_INIT(network->static_fdb_entries);
         LIST_HEAD_INIT(network->ipv6_proxy_ndp_addresses);
         LIST_HEAD_INIT(network->address_labels);
+        LIST_HEAD_INIT(network->static_prefixes);
 
         network->stacked_netdevs = hashmap_new(&string_hash_ops);
         if (!network->stacked_netdevs)
@@ -134,6 +135,10 @@ static int network_load_one(Manager *manager, const char *filename) {
 
         network->address_labels_by_section = hashmap_new(&network_config_hash_ops);
         if (!network->address_labels_by_section)
+                log_oom();
+
+        network->prefixes_by_section = hashmap_new(&network_config_hash_ops);
+        if (!network->prefixes_by_section)
                 return log_oom();
 
         network->filename = strdup(filename);
@@ -279,6 +284,7 @@ void network_free(Network *network) {
         FdbEntry *fdb_entry;
         IPv6ProxyNDPAddress *ipv6_proxy_ndp_address;
         AddressLabel *label;
+        Prefix *prefix;
         Iterator i;
 
         if (!network)
@@ -329,10 +335,14 @@ void network_free(Network *network) {
         while ((label = network->address_labels))
                 address_label_free(label);
 
+        while ((prefix = network->static_prefixes))
+                prefix_free(prefix);
+
         hashmap_free(network->addresses_by_section);
         hashmap_free(network->routes_by_section);
         hashmap_free(network->fdb_entries_by_section);
         hashmap_free(network->address_labels_by_section);
+        hashmap_free(network->prefixes_by_section);
 
         if (network->manager) {
                 if (network->manager->networks)

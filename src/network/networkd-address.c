@@ -932,3 +932,83 @@ bool address_is_ready(const Address *a) {
 
         return !(a->flags & (IFA_F_TENTATIVE | IFA_F_DEPRECATED));
 }
+
+void prefix_free(Prefix *prefix) {
+        if (!prefix)
+                return;
+
+        if (prefix->network) {
+                LIST_REMOVE(prefixes, prefix->network->static_prefixes, prefix);
+                assert(prefix->network->n_static_prefixes > 0);
+                prefix->network->n_static_prefixes--;
+
+                if (prefix->section)
+                        hashmap_remove(prefix->network->prefixes_by_section,
+                                       prefix->section);
+        }
+
+        free(prefix);
+}
+
+int prefix_new(Prefix **ret) {
+        Prefix *prefix = NULL;
+
+        prefix = new0(Prefix, 1);
+        if (!prefix)
+                return -ENOMEM;
+
+        *ret = prefix;
+        prefix = NULL;
+
+        return 0;
+}
+
+int prefix_new_static(Network *network, const char *filename,
+                      unsigned section_line, Prefix **ret) {
+        _cleanup_network_config_section_free_ NetworkConfigSection *n = NULL;
+        _cleanup_prefix_free_ Prefix *prefix = NULL;
+        int r;
+
+        assert(network);
+        assert(ret);
+        assert(!!filename == (section_line > 0));
+
+        if (filename) {
+                r = network_config_section_new(filename, section_line, &n);
+                if (r < 0)
+                        return r;
+
+                if (section_line) {
+                        prefix = hashmap_get(network->prefixes_by_section, n);
+                        if (prefix) {
+                                *ret = prefix;
+                                prefix = NULL;
+
+                                return 0;
+                        }
+                }
+        }
+
+        r = prefix_new(&prefix);
+        if (r < 0)
+                return r;
+
+        if (filename) {
+                prefix->section = n;
+                n = NULL;
+
+                r = hashmap_put(network->prefixes_by_section, prefix->section,
+                                prefix);
+                if (r < 0)
+                        return r;
+        }
+
+        prefix->network = network;
+        LIST_APPEND(prefixes, network->static_prefixes, prefix);
+        network->n_static_prefixes++;
+
+        *ret = prefix;
+        prefix = NULL;
+
+        return 0;
+}

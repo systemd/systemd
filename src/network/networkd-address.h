@@ -25,6 +25,7 @@
 #include "in-addr-util.h"
 
 typedef struct Address Address;
+typedef struct Prefix Prefix;
 
 #include "networkd-link.h"
 #include "networkd-network.h"
@@ -34,6 +35,13 @@ typedef struct Address Address;
 typedef struct Network Network;
 typedef struct Link Link;
 typedef struct NetworkConfigSection NetworkConfigSection;
+
+struct Prefix {
+        Network *network;
+        NetworkConfigSection *section;
+
+        LIST_FIELDS(Prefix, prefixes);
+};
 
 struct Address {
         Network *network;
@@ -78,6 +86,14 @@ bool address_is_ready(const Address *a);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Address*, address_free);
 #define _cleanup_address_free_ _cleanup_(address_freep)
+
+int prefix_new(Prefix **ret);
+void prefix_free(Prefix *prefix);
+int prefix_new_static(Network *network, const char *filename, unsigned section,
+                      Prefix **ret);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Prefix*, prefix_free);
+#define _cleanup_prefix_free_ _cleanup_(prefix_freep)
 
 int config_parse_address(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_broadcast(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
