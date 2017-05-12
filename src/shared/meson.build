@@ -89,6 +89,7 @@ shared_sources = '''
         tests.c
         tests.h
         udev-util.h
+        udev-util.c
         uid-range.c
         uid-range.h
         utmp-wtmp.h

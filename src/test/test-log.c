@@ -24,6 +24,15 @@
 #include "log.h"
 #include "util.h"
 
+assert_cc(LOG_REALM_REMOVE_LEVEL(LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, LOG_FTP | LOG_DEBUG))
+          == LOG_REALM_SYSTEMD);
+assert_cc(LOG_REALM_REMOVE_LEVEL(LOG_REALM_PLUS_LEVEL(LOG_REALM_UDEV, LOG_LOCAL7 | LOG_DEBUG))
+          == LOG_REALM_UDEV);
+assert_cc((LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, LOG_LOCAL3 | LOG_DEBUG) & LOG_FACMASK)
+          == LOG_LOCAL3);
+assert_cc((LOG_REALM_PLUS_LEVEL(LOG_REALM_UDEV, LOG_USER | LOG_INFO) & LOG_PRIMASK)
+          == LOG_INFO);
+
 int main(int argc, char* argv[]) {
 
         log_set_target(LOG_TARGET_CONSOLE);

@@ -38,6 +38,7 @@
 
 #include "libudev-private.h"
 #include "random-util.h"
+#include "udev-util.h"
 
 /* device info */
 static unsigned int cd_cd_rom;
@@ -843,8 +844,7 @@ static int cd_media_toc(struct udev *udev, int fd)
         return 0;
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
         struct udev *udev;
         static const struct option options[] = {
                 { "lock-media", no_argument, NULL, 'l' },
@@ -862,6 +862,8 @@ int main(int argc, char *argv[])
         int cnt;
         int rc = 0;
 
+        log_set_target(LOG_TARGET_AUTO);
+        udev_parse_config();
         log_parse_environment();
         log_open();
 

@@ -2069,6 +2069,7 @@ public_programs += [exe]
 exe = executable('systemd-udevd',
                  systemd_udevd_sources,
                  include_directories : includes,
+                 c_args : ['-DLOG_REALM=LOG_REALM_UDEV'],
                  link_with : [libudev_core,
                               libsystemd_network,
                               libudev_internal],
