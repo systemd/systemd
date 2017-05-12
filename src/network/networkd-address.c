@@ -947,6 +947,8 @@ void prefix_free(Prefix *prefix) {
                                        prefix->section);
         }
 
+        prefix->radv_prefix = sd_radv_prefix_unref(prefix->radv_prefix);
+
         free(prefix);
 }
 
@@ -955,6 +957,9 @@ int prefix_new(Prefix **ret) {
 
         prefix = new0(Prefix, 1);
         if (!prefix)
+                return -ENOMEM;
+
+        if (sd_radv_prefix_new(&prefix->radv_prefix) < 0)
                 return -ENOMEM;
 
         *ret = prefix;
@@ -1012,3 +1017,137 @@ int prefix_new_static(Network *network, const char *filename,
 
         return 0;
 }
+
+int config_parse_prefix(const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        _cleanup_prefix_free_ Prefix *p = NULL;
+        uint8_t prefixlen = 64;
+        union in_addr_union in6addr;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = prefix_new_static(network, filename, section_line, &p);
+        if (r < 0)
+                return r;
+
+        r = in_addr_prefix_from_string(rvalue, AF_INET6, &in6addr, &prefixlen);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Prefix is invalid, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        if (sd_radv_prefix_set_prefix(p->radv_prefix, &in6addr.in6, prefixlen) < 0)
+                return -EADDRNOTAVAIL;
+
+        log_syntax(unit, LOG_INFO, filename, line, r, "Found prefix %s", rvalue);
+
+        p = NULL;
+
+        return 0;
+}
+
+int config_parse_prefix_flags(const char *unit,
+                              const char *filename,
+                              unsigned line,
+                              const char *section,
+                              unsigned section_line,
+                              const char *lvalue,
+                              int ltype,
+                              const char *rvalue,
+                              void *data,
+                              void *userdata) {
+        Network *network = userdata;
+        _cleanup_prefix_free_ Prefix *p = NULL;
+        int r, val;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = prefix_new_static(network, filename, section_line, &p);
+        if (r < 0)
+                return r;
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse address flag, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        val = r;
+
+        if (streq(lvalue, "OnLink"))
+                r = sd_radv_prefix_set_onlink(p->radv_prefix, val);
+        else if (streq(lvalue, "AddressAutoconfiguration"))
+                r = sd_radv_prefix_set_address_autoconfiguration(p->radv_prefix, val);
+        if (r < 0)
+                return r;
+
+        p = NULL;
+
+        return 0;
+}
+
+int config_parse_prefix_lifetime(const char *unit,
+                                 const char *filename,
+                                 unsigned line,
+                                 const char *section,
+                                 unsigned section_line,
+                                 const char *lvalue,
+                                 int ltype,
+                                 const char *rvalue,
+                                 void *data,
+                                 void *userdata) {
+        Network *network = userdata;
+        _cleanup_prefix_free_ Prefix *p = NULL;
+        usec_t usec;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = prefix_new_static(network, filename, section_line, &p);
+        if (r < 0)
+                return r;
+
+        r = parse_sec(rvalue, &usec);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Lifetime is invalid, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        /* a value of 0xffffffff represents infinity, 0x0 means this host is
+           not a router */
+        if (streq(lvalue, "PreferredLifetimeSec"))
+                r = sd_radv_prefix_set_preferred_lifetime(p->radv_prefix,
+                                                          (usec + USEC_PER_SEC - 1) / USEC_PER_SEC);
+        else if (streq(lvalue, "ValidLifetimeSec"))
+                r = sd_radv_prefix_set_valid_lifetime(p->radv_prefix,
+                                                      (usec + USEC_PER_SEC - 1) / USEC_PER_SEC);
+        if (r < 0)
+                return r;
+
+        p = NULL;
+
+        return 0;
+};

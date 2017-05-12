@@ -28,6 +28,7 @@
 #include "sd-ipv4ll.h"
 #include "sd-lldp.h"
 #include "sd-ndisc.h"
+#include "sd-radv.h"
 #include "sd-netlink.h"
 
 #include "list.h"
