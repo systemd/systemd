@@ -3637,6 +3637,7 @@ libsystemd_network_la_SOURCES = \
 	src/systemd/sd-ipv4ll.h \
 	src/systemd/sd-ipv4acd.h \
 	src/systemd/sd-ndisc.h \
+	src/systemd/sd-radv.h \
 	src/systemd/sd-dhcp6-client.h \
 	src/systemd/sd-dhcp6-lease.h \
 	src/systemd/sd-lldp.h \
@@ -3660,6 +3661,8 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/ndisc-internal.h \
 	src/libsystemd-network/ndisc-router.h \
 	src/libsystemd-network/ndisc-router.c \
+	src/libsystemd-network/sd-radv.c \
+	src/libsystemd-network/radv-internal.h \
 	src/libsystemd-network/icmp6-util.h \
 	src/libsystemd-network/icmp6-util.c \
 	src/libsystemd-network/sd-dhcp6-client.c \
