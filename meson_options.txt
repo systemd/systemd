@@ -197,6 +197,8 @@ option('libcryptsetup', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libcryptsetup support')
 option('libcurl', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libcurl support')
+option('libidn2', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'libidn2 support')
 option('libidn', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libidn support')
 option('libiptc', type : 'combo', choices : ['auto', 'true', 'false'],

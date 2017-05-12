@@ -608,7 +608,7 @@ static void test_dns_name_common_suffix(void) {
 }
 
 static void test_dns_name_apply_idna_one(const char *s, const char *result) {
-#ifdef HAVE_LIBIDN
+#if defined(HAVE_LIBIDN2) || defined(HAVE_LIBIDN)
         _cleanup_free_ char *buf = NULL;
         assert_se(dns_name_apply_idna(s, &buf) >= 0);
         assert_se(dns_name_equal(buf, result) > 0);

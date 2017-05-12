@@ -48,7 +48,7 @@ BuildPackages=
         kmod
         libcap
         libgcrypt
-        libidn
+        libidn2
         libmicrohttpd
         libseccomp
         libtool
