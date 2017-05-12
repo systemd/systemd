@@ -32,6 +32,7 @@
 #include "socket-util.h"
 #include "string-util.h"
 #include "util.h"
+#include "random-util.h"
 
 _public_ int sd_radv_new(sd_radv **ret) {
         _cleanup_(sd_radv_unrefp) sd_radv *ra = NULL;
@@ -85,6 +86,14 @@ _public_ sd_event *sd_radv_get_event(sd_radv *ra) {
         return ra->event;
 }
 
+static void radv_reset(sd_radv *ra) {
+
+        ra->timeout_event_source =
+                sd_event_source_unref(ra->timeout_event_source);
+
+        ra->ra_sent = 0;
+}
+
 _public_ sd_radv *sd_radv_ref(sd_radv *ra) {
         if (!ra)
                 return NULL;
@@ -112,21 +121,106 @@ _public_ sd_radv *sd_radv_unref(sd_radv *ra) {
                 sd_radv_prefix_unref(p);
         }
 
+        radv_reset(ra);
+
         sd_radv_detach_event(ra);
         return mfree(ra);
 }
 
+static int radv_send(sd_radv *ra, const struct in6_addr *dst,
+                     const uint32_t router_lifetime) {
+
+        return -ENOSYS;
+}
+
+static usec_t radv_compute_timeout(usec_t min, usec_t max) {
+        assert_return(min <= max, SD_RADV_DEFAULT_MIN_TIMEOUT_USEC);
+
+        return min + (random_u32() % (max - min));
+}
+
+static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
+        int r;
+        sd_radv *ra = userdata;
+        usec_t min_timeout = SD_RADV_DEFAULT_MIN_TIMEOUT_USEC;
+        usec_t max_timeout = SD_RADV_DEFAULT_MAX_TIMEOUT_USEC;
+        usec_t time_now, timeout;
+        char time_string[FORMAT_TIMESPAN_MAX];
+
+        assert(s);
+        assert(ra);
+        assert(ra->event);
+
+        ra->timeout_event_source = sd_event_source_unref(ra->timeout_event_source);
+
+        r = sd_event_now(ra->event, clock_boottime_or_monotonic(), &time_now);
+        if (r < 0)
+                goto fail;
+
+        r = radv_send(ra, NULL, ra->lifetime);
+        if (r < 0)
+                log_radv_warning_errno(r, "Unable to send Router Advertisement: %m");
+
+        /* RFC 4861, Section 6.2.4, sending initial Router Advertisements */
+        if (ra->ra_sent < SD_RADV_MAX_INITIAL_RTR_ADVERTISEMENTS) {
+                max_timeout = SD_RADV_MAX_INITIAL_RTR_ADVERT_INTERVAL_USEC;
+                min_timeout = SD_RADV_MAX_INITIAL_RTR_ADVERT_INTERVAL_USEC / 3;
+        }
+
+        timeout = radv_compute_timeout(min_timeout, max_timeout);
+
+        log_radv("Next Router Advertisement in %s",
+                 format_timespan(time_string, FORMAT_TIMESPAN_MAX,
+                                 timeout, USEC_PER_SEC));
+
+        r = sd_event_add_time(ra->event, &ra->timeout_event_source,
+                              clock_boottime_or_monotonic(),
+                              time_now + timeout, MSEC_PER_SEC,
+                              radv_timeout, ra);
+        if (r < 0)
+                goto fail;
+
+        r = sd_event_source_set_priority(ra->timeout_event_source,
+                                         ra->event_priority);
+        if (r < 0)
+                goto fail;
+
+        r = sd_event_source_set_description(ra->timeout_event_source,
+                                            "radv-timeout");
+        if (r < 0)
+                goto fail;
+
+        ra->ra_sent++;
+
+fail:
+        if (r < 0)
+                sd_radv_stop(ra);
+
+        return 0;
+}
+
 _public_ int sd_radv_stop(sd_radv *ra) {
+        int r;
+
         assert_return(ra, -EINVAL);
 
         log_radv("Stopping IPv6 Router Advertisement daemon");
 
+        /* RFC 4861, Section 6.2.5, send at least one Router Advertisement
+           with zero lifetime  */
+        r = radv_send(ra, NULL, 0);
+        if (r < 0)
+                log_radv_warning_errno(r, "Unable to send last Router Advertisement with router lifetime set to zero: %m");
+
+        radv_reset(ra);
         ra->state = SD_RADV_STATE_IDLE;
 
         return 0;
 }
 
 _public_ int sd_radv_start(sd_radv *ra) {
+        int r = 0;
+
         assert_return(ra, -EINVAL);
         assert_return(ra->event, -EINVAL);
         assert_return(ra->ifindex > 0, -EINVAL);
@@ -134,11 +228,30 @@ _public_ int sd_radv_start(sd_radv *ra) {
         if (ra->state != SD_RADV_STATE_IDLE)
                 return 0;
 
+        r = sd_event_add_time(ra->event, &ra->timeout_event_source,
+                              clock_boottime_or_monotonic(), 0, 0,
+                              radv_timeout, ra);
+        if (r < 0)
+                goto fail;
+
+        r = sd_event_source_set_priority(ra->timeout_event_source,
+                                         ra->event_priority);
+        if (r < 0)
+                goto fail;
+
+        (void) sd_event_source_set_description(ra->timeout_event_source,
+                                               "radv-timeout");
+
         ra->state = SD_RADV_STATE_ADVERTISING;
 
         log_radv("Started IPv6 Router Advertisement daemon");
 
         return 0;
+
+ fail:
+        radv_reset(ra);
+
+        return r;
 }
 
 _public_ int sd_radv_set_ifindex(sd_radv *ra, int ifindex) {

@@ -25,6 +25,16 @@
 #include "list.h"
 #include "sparse-endian.h"
 
+#define SD_RADV_DEFAULT_MIN_TIMEOUT_USEC        (200*USEC_PER_SEC)
+#define SD_RADV_DEFAULT_MAX_TIMEOUT_USEC        (600*USEC_PER_SEC)
+assert_cc(SD_RADV_DEFAULT_MIN_TIMEOUT_USEC <= SD_RADV_DEFAULT_MAX_TIMEOUT_USEC)
+
+#define SD_RADV_MAX_INITIAL_RTR_ADVERT_INTERVAL_USEC (16*USEC_PER_SEC)
+#define SD_RADV_MAX_INITIAL_RTR_ADVERTISEMENTS  3
+#define SD_RADV_MAX_FINAL_RTR_ADVERTISEMENTS    3
+#define SD_RADV_MIN_DELAY_BETWEEN_RAS           3
+#define SD_RADV_MAX_RA_DELAY_TIME_USEC          (500*USEC_PER_MSEC)
+
 enum RAdvState {
         SD_RADV_STATE_IDLE                      = 0,
         SD_RADV_STATE_ADVERTISING               = 1,
@@ -45,6 +55,9 @@ struct sd_radv {
         uint8_t flags;
         uint32_t mtu;
         uint16_t lifetime;
+
+        unsigned ra_sent;
+        sd_event_source *timeout_event_source;
 
         unsigned n_prefixes;
         LIST_HEAD(sd_radv_prefix, prefixes);
