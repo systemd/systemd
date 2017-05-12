@@ -93,6 +93,9 @@ static void radv_reset(sd_radv *ra) {
         ra->timeout_event_source =
                 sd_event_source_unref(ra->timeout_event_source);
 
+        ra->recv_event_source =
+                sd_event_source_unref(ra->recv_event_source);
+
         ra->ra_sent = 0;
 }
 
@@ -160,8 +163,9 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst,
                 .msg_iov = iov,
         };
 
-        if (dst)
+        if (dst && !in_addr_is_null(AF_INET6, (union in_addr_union*) dst))
                 dst_addr.sin6_addr = *dst;
+
         adv.nd_ra_type = ND_ROUTER_ADVERT;
         adv.nd_ra_curhoplimit = ra->hop_limit;
         adv.nd_ra_flags_reserved = ra->flags;
@@ -194,6 +198,63 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst,
 
         if (sendmsg(ra->fd, &msg, 0) < 0)
                 return -errno;
+
+        return 0;
+}
+
+static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        sd_radv *ra = userdata;
+        _cleanup_free_ char *addr = NULL;
+        struct in6_addr src;
+        triple_timestamp timestamp;
+        int r;
+        ssize_t buflen;
+        _cleanup_free_ char *buf = NULL;
+
+        assert(s);
+        assert(ra);
+        assert(ra->event);
+
+        buflen = next_datagram_size_fd(fd);
+
+        if ((unsigned) buflen < sizeof(struct nd_router_solicit))
+                return log_radv("Too short packet received");
+
+        buf = new0(char, buflen);
+        if (!buf)
+                return 0;
+
+        r = icmp6_receive(fd, buf, buflen, &src, &timestamp);
+        if (r < 0) {
+                switch (r) {
+                case -EADDRNOTAVAIL:
+                        (void) in_addr_to_string(AF_INET6, (union in_addr_union*) &src, &addr);
+                        log_radv("Received RS from non-link-local address %s. Ignoring", addr);
+                        break;
+
+                case -EMULTIHOP:
+                        log_radv("Received RS with invalid hop limit. Ignoring.");
+                        break;
+
+                case -EPFNOSUPPORT:
+                        log_radv("Received invalid source address from ICMPv6 socket. Ignoring.");
+                        break;
+
+                default:
+                        log_radv_warning_errno(r, "Error receiving from ICMPv6 socket: %m");
+                        break;
+                }
+
+                return 0;
+        }
+
+        (void) in_addr_to_string(AF_INET6, (union in_addr_union*) &src, &addr);
+
+        r = radv_send(ra, &src, ra->lifetime);
+        if (r < 0)
+                log_radv_warning_errno(r, "Unable to send solicited Router Advertisment to %s: %m", addr);
+        else
+                log_radv("Sent solicited Router Advertisement to %s", addr);
 
         return 0;
 }
@@ -313,7 +374,16 @@ _public_ int sd_radv_start(sd_radv *ra) {
                 goto fail;
 
         ra->fd = r;
-        r = 0;
+
+        r = sd_event_add_io(ra->event, &ra->recv_event_source, ra->fd, EPOLLIN, radv_recv, ra);
+        if (r < 0)
+                goto fail;
+
+        r = sd_event_source_set_priority(ra->recv_event_source, ra->event_priority);
+        if (r < 0)
+                goto fail;
+
+        (void) sd_event_source_set_description(ra->recv_event_source, "radv-receive-message");
 
         ra->state = SD_RADV_STATE_ADVERTISING;
 

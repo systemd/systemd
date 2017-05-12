@@ -58,6 +58,7 @@ struct sd_radv {
 
         int fd;
         unsigned ra_sent;
+        sd_event_source *recv_event_source;
         sd_event_source *timeout_event_source;
 
         unsigned n_prefixes;
