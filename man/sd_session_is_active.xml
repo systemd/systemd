@@ -184,8 +184,9 @@
     <para><function>sd_session_get_seat()</function> may be used to
     determine the seat identifier of the seat the session identified
     by the specified session identifier belongs to. Note that not all
-    sessions are attached to a seat, this call will fail for them. The
-    returned string needs to be freed with the libc
+    sessions are attached to a seat, this call will fail (returning
+    <constant>-ENODATA</constant>) for them. The returned string needs
+    to be freed with the libc
     <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call after use.</para>
 

@@ -177,7 +177,7 @@
     processes, user processes that are shared between multiple
     sessions of the same user, or kernel threads). For processes not
     being part of a login session, this function will fail with
-    -ENODATA. The returned string needs to be freed with the libc
+    <constant>-ENODATA</constant>. The returned string needs to be freed with the libc
     <citerefentry
     project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call after use.</para>
@@ -189,7 +189,7 @@
     paths. Note that not all processes are part of a system
     unit/service (e.g. user processes, or kernel threads). For
     processes not being part of a systemd system unit, this function
-    will fail with -ENODATA. (More specifically, this call will not
+    will fail with <constant>-ENODATA</constant>. (More specifically, this call will not
     work for kernel threads.) The returned string needs to be freed
     with the libc <citerefentry
     project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -208,7 +208,7 @@
     multiple login sessions of the same user, whereas
     <function>sd_pid_get_session()</function> will fail. For processes
     not being part of a login session and not being a shared process
-    of a user, this function will fail with -ENODATA.</para>
+    of a user, this function will fail with <constant>-ENODATA</constant>.</para>
 
     <para><function>sd_pid_get_machine_name()</function> may be used
     to determine the name of the VM or container is a member of. The
@@ -217,7 +217,7 @@
     <citerefentry
     project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call after use. For processes not part of a VM or containers, this
-    function fails with -ENODATA.</para>
+    function fails with <constant>-ENODATA</constant>.</para>
 
     <para><function>sd_pid_get_slice()</function> may be used to
     determine the slice unit the process is a member of. See
