@@ -118,6 +118,8 @@ typedef struct Link {
         Set *ndisc_rdnss;
         Set *ndisc_dnssl;
 
+        sd_radv *radv;
+
         sd_dhcp6_client *dhcp6_client;
         bool rtnl_extended_attrs;
 
