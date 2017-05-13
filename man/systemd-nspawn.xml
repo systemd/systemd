@@ -636,7 +636,7 @@
         broadcast domain, here called a "zone". Each container may only be part of one zone, but each zone may contain
         any number of containers. Each zone is referenced by its name. Names may be chosen freely (as long as they form
         valid network interface names when prefixed with <literal>vz-</literal>), and it is sufficient to pass the same
-        name to the <option>--network-zones=</option> switch of the various concurrently running containers to join
+        name to the <option>--network-zone=</option> switch of the various concurrently running containers to join
         them in one zone.</para>
 
         <para>Note that
