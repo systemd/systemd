@@ -71,10 +71,10 @@ int arp_send_probe(int fd, int ifindex,
                     be32_t pa, const struct ether_addr *ha) {
         struct ether_arp ea = {};
 
-        assert(fd >= 0);
-        assert(ifindex > 0);
-        assert(pa != 0);
-        assert(ha);
+        assert_se(fd >= 0);
+        assert_se(ifindex > 0);
+        assert_se(pa != 0);
+        assert_se(ha);
 
         return arp_network_send_raw_socket(fd, ifindex, &ea);
 }
@@ -83,10 +83,10 @@ int arp_send_announcement(int fd, int ifindex,
                           be32_t pa, const struct ether_addr *ha) {
         struct ether_arp ea = {};
 
-        assert(fd >= 0);
-        assert(ifindex > 0);
-        assert(pa != 0);
-        assert(ha);
+        assert_se(fd >= 0);
+        assert_se(ifindex > 0);
+        assert_se(pa != 0);
+        assert_se(ha);
 
         return arp_network_send_raw_socket(fd, ifindex, &ea);
 }
