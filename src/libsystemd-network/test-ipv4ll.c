@@ -17,7 +17,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
