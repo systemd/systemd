@@ -418,7 +418,8 @@ int sd_dhcp_client_set_client_port(
 
 int sd_dhcp_client_set_mtu(sd_dhcp_client *client, uint32_t mtu) {
         assert_return(client, -EINVAL);
-        assert_return(mtu >= DHCP_DEFAULT_MIN_SIZE, -ERANGE);
+        if (mtu < DHCP_DEFAULT_MIN_SIZE)
+                log_warning_errno(ERANGE, "Invalid MTU value in DHCP client: %m.");
 
         client->mtu = mtu;
 
