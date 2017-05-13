@@ -195,8 +195,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                                         /* this is not a valid device */
                                         return -ENODEV;
 
-                                log_debug("sd-device: %s does not have an uevent file: %m", syspath);
-                                return -errno;
+                                return log_debug_errno(errno, "sd-device: %s does not have an uevent file: %m", syspath);
                         }
                 } else {
                         /* everything else just needs to be a directory */

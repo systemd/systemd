@@ -814,7 +814,7 @@ static const char *get_key_attribute(struct udev *udev, char *str) {
                 attr++;
                 pos = strchr(attr, '}');
                 if (pos == NULL) {
-                        log_error("missing closing brace for format");
+                        log_error("Missing closing brace for format");
                         return NULL;
                 }
                 pos[0] = '\0';
@@ -2536,19 +2536,19 @@ int udev_rules_apply_static_dev_perms(struct udev_rules *rules) {
                         }
                         if (mode != (stats.st_mode & 01777)) {
                                 r = chmod(device_node, mode);
-                                if (r < 0) {
-                                        log_error("failed to chmod '%s' %#o", device_node, mode);
-                                        return -errno;
-                                } else
+                                if (r < 0)
+                                        return log_error_errno(errno, "Failed to chmod '%s' %#o: %m",
+                                                               device_node, mode);
+                                else
                                         log_debug("chmod '%s' %#o", device_node, mode);
                         }
 
                         if ((uid != 0 && uid != stats.st_uid) || (gid != 0 && gid != stats.st_gid)) {
                                 r = chown(device_node, uid, gid);
-                                if (r < 0) {
-                                        log_error("failed to chown '%s' %u %u ", device_node, uid, gid);
-                                        return -errno;
-                                } else
+                                if (r < 0)
+                                        return log_error_errno(errno, "Failed to chown '%s' %u %u: %m",
+                                                               device_node, uid, gid);
+                                else
                                         log_debug("chown '%s' %u %u", device_node, uid, gid);
                         }
 

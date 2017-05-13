@@ -292,7 +292,7 @@ int main(int argc, char *argv[]) {
                         r = ppoll(p, ELEMENTSOF(p), ts, NULL);
                 }
                 if (r < 0) {
-                        log_error("ppoll() failed: %m");
+                        log_error_errno(errno, "ppoll() failed: %m");
                         goto finish;
                 }
         }

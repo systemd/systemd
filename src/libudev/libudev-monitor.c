@@ -681,7 +681,7 @@ retry:
 
         udev_device = udev_device_new_from_nulstr(udev_monitor->udev, &buf.raw[bufpos], buflen - bufpos);
         if (!udev_device) {
-                log_debug("could not create device: %m");
+                log_debug_errno(errno, "could not create device: %m");
                 return NULL;
         }
 
