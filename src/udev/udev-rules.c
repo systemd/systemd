@@ -474,6 +474,13 @@ static int add_token(struct udev_rules *rules, struct token *token) {
         return 0;
 }
 
+static void log_unknown_owner(int error, const char *entity, const char *owner) {
+        if (IN_SET(abs(error), ENOENT, ESRCH))
+                log_error("Specified %s '%s' unknown", entity, owner);
+        else
+                log_error_errno(error, "Error resolving %s '%s': %m", entity, owner);
+}
+
 static uid_t add_uid(struct udev_rules *rules, const char *owner) {
         unsigned int i;
         uid_t uid = 0;
@@ -489,12 +496,8 @@ static uid_t add_uid(struct udev_rules *rules, const char *owner) {
                 }
         }
         r = get_user_creds(&owner, &uid, NULL, NULL, NULL);
-        if (r < 0) {
-                if (r == -ENOENT || r == -ESRCH)
-                        log_error("specified user '%s' unknown", owner);
-                else
-                        log_error_errno(r, "error resolving user '%s': %m", owner);
-        }
+        if (r < 0)
+                log_unknown_owner(r, "user", owner);
 
         /* grow buffer if needed */
         if (rules->uids_cur+1 >= rules->uids_max) {
@@ -536,12 +539,8 @@ static gid_t add_gid(struct udev_rules *rules, const char *group) {
                 }
         }
         r = get_group_creds(&group, &gid);
-        if (r < 0) {
-                if (r == -ENOENT || r == -ESRCH)
-                        log_error("specified group '%s' unknown", group);
-                else
-                        log_error_errno(r, "error resolving group '%s': %m", group);
-        }
+        if (r < 0)
+                log_unknown_owner(r, "group", group);
 
         /* grow buffer if needed */
         if (rules->gids_cur+1 >= rules->gids_max) {
@@ -2119,11 +2118,7 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                         event->owner_set = true;
                         r = get_user_creds(&ow, &event->uid, NULL, NULL, NULL);
                         if (r < 0) {
-                                if (r == -ENOENT || r == -ESRCH)
-                                        log_error("specified user '%s' unknown", owner);
-                                else
-                                        log_error_errno(r, "error resolving user '%s': %m", owner);
-
+                                log_unknown_owner(r, "user", owner);
                                 event->uid = 0;
                         }
                         log_debug("OWNER %u %s:%u",
@@ -2145,11 +2140,7 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                         event->group_set = true;
                         r = get_group_creds(&gr, &event->gid);
                         if (r < 0) {
-                                if (r == -ENOENT || r == -ESRCH)
-                                        log_error("specified group '%s' unknown", group);
-                                else
-                                        log_error_errno(r, "error resolving group '%s': %m", group);
-
+                                log_unknown_owner(r, "group", group);
                                 event->gid = 0;
                         }
                         log_debug("GROUP %u %s:%u",
