@@ -115,7 +115,7 @@ int main(int argc, char *argv[]) {
                 in_fd = SD_LISTEN_FDS_START;
                 out_fd = SD_LISTEN_FDS_START;
         } else {
-                log_error("Illegal number of file descriptors passed\n");
+                log_error("Illegal number of file descriptors passed.");
                 goto finish;
         }
 
@@ -190,7 +190,7 @@ int main(int argc, char *argv[]) {
         }
 
         for (;;) {
-                _cleanup_(sd_bus_message_unrefp)sd_bus_message *m = NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
                 int events_a, events_b, fd;
                 uint64_t timeout_a, timeout_b, t;
                 struct timespec _ts, *ts;
