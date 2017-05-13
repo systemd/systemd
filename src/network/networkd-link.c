@@ -3266,6 +3266,7 @@ int link_save(Link *link) {
                 sd_dhcp6_lease *dhcp6_lease = NULL;
                 const char *dhcp_domainname = NULL;
                 char **dhcp6_domains = NULL;
+                char **dhcp_domains = NULL;
                 unsigned j;
 
                 if (link->dhcp6_client) {
@@ -3375,13 +3376,16 @@ int link_save(Link *link) {
                 fputc('\n', f);
 
                 if (link->network->dhcp_use_domains != DHCP_USE_DOMAINS_NO) {
-                        if (link->dhcp_lease)
+                        if (link->dhcp_lease) {
                                 (void) sd_dhcp_lease_get_domainname(link->dhcp_lease, &dhcp_domainname);
+                                (void) sd_dhcp_lease_get_search_domains(link->dhcp_lease, &dhcp_domains);
+                        }
                         if (dhcp6_lease)
                                 (void) sd_dhcp6_lease_get_domains(dhcp6_lease, &dhcp6_domains);
                 }
 
                 fputs("DOMAINS=", f);
+                space = false;
                 fputstrv(f, link->network->search_domains, NULL, &space);
 
                 if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES) {
@@ -3389,6 +3393,8 @@ int link_save(Link *link) {
 
                         if (dhcp_domainname)
                                 fputs_with_space(f, dhcp_domainname, NULL, &space);
+                        if (dhcp_domains)
+                                fputstrv(f, dhcp_domains, NULL, &space);
                         if (dhcp6_domains)
                                 fputstrv(f, dhcp6_domains, NULL, &space);
 
@@ -3399,13 +3405,16 @@ int link_save(Link *link) {
                 fputc('\n', f);
 
                 fputs("ROUTE_DOMAINS=", f);
-                fputstrv(f, link->network->route_domains, NULL, NULL);
+                space = false;
+                fputstrv(f, link->network->route_domains, NULL, &space);
 
                 if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_ROUTE) {
                         NDiscDNSSL *dd;
 
                         if (dhcp_domainname)
                                 fputs_with_space(f, dhcp_domainname, NULL, &space);
+                        if (dhcp_domains)
+                                fputstrv(f, dhcp_domains, NULL, &space);
                         if (dhcp6_domains)
                                 fputstrv(f, dhcp6_domains, NULL, &space);
 

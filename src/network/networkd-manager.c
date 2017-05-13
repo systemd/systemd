@@ -961,15 +961,20 @@ static int manager_save(Manager *m) {
 
                 if (link->network->dhcp_use_domains != DHCP_USE_DOMAINS_NO) {
                         const char *domainname;
+                        char **domains = NULL;
 
+                        OrderedSet *target_domains = (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES) ? search_domains : route_domains;
                         r = sd_dhcp_lease_get_domainname(link->dhcp_lease, &domainname);
                         if (r >= 0) {
+                                r = ordered_set_put_strdup(target_domains, domainname);
+                                if (r < 0)
+                                        return r;
+                        } else if (r != -ENODATA)
+                                return r;
 
-                                if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES)
-                                        r = ordered_set_put_strdup(search_domains, domainname);
-                                else
-                                        r = ordered_set_put_strdup(route_domains, domainname);
-
+                        r = sd_dhcp_lease_get_search_domains(link->dhcp_lease, &domains);
+                        if (r >= 0) {
+                                r = ordered_set_put_strdupv(target_domains, domains);
                                 if (r < 0)
                                         return r;
                         } else if (r != -ENODATA)

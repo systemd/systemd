@@ -800,6 +800,12 @@ tests += [
           libsystemd_network],
          []],
 
+        [['src/libsystemd-network/test-sd-dhcp-lease.c',
+          'src/libsystemd-network/dhcp-lease-internal.h'],
+         [libshared,
+          libsystemd_network],
+         []],
+
         [['src/libsystemd-network/test-dhcp-client.c',
           'src/libsystemd-network/dhcp-protocol.h',
           'src/libsystemd-network/dhcp-internal.h',
