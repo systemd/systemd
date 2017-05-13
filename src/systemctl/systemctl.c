@@ -5646,17 +5646,6 @@ static int switch_root(int argc, char *argv[], void *userdata) {
         }
 
         init = empty_to_null(init);
-        if (init) {
-                const char *root_systemd_path = NULL, *root_init_path = NULL;
-
-                root_systemd_path = strjoina(root, "/" SYSTEMD_BINARY_PATH);
-                root_init_path = strjoina(root, "/", init);
-
-                /* If the passed init is actually the same as the
-                 * systemd binary, then let's suppress it. */
-                if (files_same(root_init_path, root_systemd_path) > 0)
-                        init = NULL;
-        }
 
         /* Instruct PID1 to exclude us from its killing spree applied during
          * the transition. Otherwise we would exit with a failure status even
