@@ -40,6 +40,7 @@
 #include "selinux-util.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "unaligned.h"
 
 bool valid_user_field(const char *p, size_t l, bool allow_protected) {
         const char *a;
@@ -218,7 +219,6 @@ void server_process_native_message(
                         p = e + 1;
                         continue;
                 } else {
-                        le64_t l_le;
                         uint64_t l;
                         char *k;
 
@@ -227,8 +227,7 @@ void server_process_native_message(
                                 break;
                         }
 
-                        memcpy(&l_le, e + 1, sizeof(uint64_t));
-                        l = le64toh(l_le);
+                        l = unaligned_read_le64(e + 1);
 
                         if (l > DATA_SIZE_MAX) {
                                 log_debug("Received binary data block of %"PRIu64" bytes is too large, ignoring.", l);
