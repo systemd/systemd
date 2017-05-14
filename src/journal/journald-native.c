@@ -81,60 +81,52 @@ static bool allow_object_pid(const struct ucred *ucred) {
         return ucred && ucred->uid == 0;
 }
 
-void server_process_native_message(
+static int server_process_entry(
                 Server *s,
-                const void *buffer, size_t buffer_size,
+                const void *buffer, size_t *remaining,
                 const struct ucred *ucred,
                 const struct timeval *tv,
                 const char *label, size_t label_len) {
 
+        /* Process a single entry from a native message.
+         * Returns 0 if nothing special happened and the message processing should continue,
+         * and a negative or positive value otherwise.
+         *
+         * Note that *remaining is altered on both success and failure. */
+
         struct iovec *iovec = NULL;
         unsigned n = 0, j, tn = (unsigned) -1;
         const char *p;
-        size_t remaining, m = 0, entry_size = 0;
+        size_t m = 0, entry_size = 0;
         int priority = LOG_INFO;
         char *identifier = NULL, *message = NULL;
         pid_t object_pid = 0;
-
-        assert(s);
-        assert(buffer || buffer_size == 0);
+        int r = 0;
 
         p = buffer;
-        remaining = buffer_size;
 
-        while (remaining > 0) {
+        while (*remaining > 0) {
                 const char *e, *q;
 
-                e = memchr(p, '\n', remaining);
+                e = memchr(p, '\n', *remaining);
 
                 if (!e) {
                         /* Trailing noise, let's ignore it, and flush what we collected */
                         log_debug("Received message with trailing noise, ignoring.");
+                        r = 1; /* finish processing of the message */
                         break;
                 }
 
                 if (e == p) {
                         /* Entry separator */
-
-                        if (entry_size + n + 1 > ENTRY_SIZE_MAX) { /* data + separators + trailer */
-                                log_debug("Entry is too big with %u properties and %zu bytes, ignoring.", n, entry_size);
-                                continue;
-                        }
-
-                        server_dispatch_message(s, iovec, n, m, ucred, tv, label, label_len, NULL, priority, object_pid);
-                        n = 0;
-                        priority = LOG_INFO;
-                        entry_size = 0;
-
-                        p++;
-                        remaining--;
-                        continue;
+                        *remaining -= 1;
+                        break;
                 }
 
                 if (*p == '.' || *p == '#') {
                         /* Ignore control commands for now, and
                          * comments too. */
-                        remaining -= (e - p) + 1;
+                        *remaining -= (e - p) + 1;
                         p = e + 1;
                         continue;
                 }
@@ -143,7 +135,7 @@ void server_process_native_message(
 
                 /* n existing properties, 1 new, +1 for _TRANSPORT */
                 if (!GREEDY_REALLOC(iovec, m, n + 2 + N_IOVEC_META_FIELDS + N_IOVEC_OBJECT_FIELDS)) {
-                        log_oom();
+                        r = log_oom();
                         break;
                 }
 
@@ -160,7 +152,7 @@ void server_process_native_message(
                                  * field */
                                 iovec[n].iov_base = (char*) p;
                                 iovec[n].iov_len = l;
-                                entry_size += iovec[n].iov_len;
+                                entry_size += l;
                                 n++;
 
                                 /* We need to determine the priority
@@ -210,19 +202,18 @@ void server_process_native_message(
                                         memcpy(buf, p + strlen("OBJECT_PID="), l - strlen("OBJECT_PID="));
                                         buf[l-strlen("OBJECT_PID=")] = '\0';
 
-                                        /* ignore error */
-                                        parse_pid(buf, &object_pid);
+                                        (void) parse_pid(buf, &object_pid);
                                 }
                         }
 
-                        remaining -= (e - p) + 1;
+                        *remaining -= (e - p) + 1;
                         p = e + 1;
                         continue;
                 } else {
                         uint64_t l;
                         char *k;
 
-                        if (remaining < e - p + 1 + sizeof(uint64_t) + 1) {
+                        if (*remaining < e - p + 1 + sizeof(uint64_t) + 1) {
                                 log_debug("Failed to parse message, ignoring.");
                                 break;
                         }
@@ -234,7 +225,7 @@ void server_process_native_message(
                                 break;
                         }
 
-                        if ((uint64_t) remaining < e - p + 1 + sizeof(uint64_t) + l + 1 ||
+                        if ((uint64_t) *remaining < e - p + 1 + sizeof(uint64_t) + l + 1 ||
                             e[1+sizeof(uint64_t)+l] != '\n') {
                                 log_debug("Failed to parse message, ignoring.");
                                 break;
@@ -258,13 +249,15 @@ void server_process_native_message(
                         } else
                                 free(k);
 
-                        remaining -= (e - p) + 1 + sizeof(uint64_t) + l + 1;
+                        *remaining -= (e - p) + 1 + sizeof(uint64_t) + l + 1;
                         p = e + 1 + sizeof(uint64_t) + l + 1;
                 }
         }
 
-        if (n <= 0)
+        if (n <= 0) {
+                r = 1;
                 goto finish;
+        }
 
         tn = n++;
         IOVEC_SET_STRING(iovec[tn], "_TRANSPORT=journal");
@@ -298,13 +291,35 @@ finish:
                         continue;
 
                 if (iovec[j].iov_base < buffer ||
-                    (const uint8_t*) iovec[j].iov_base >= (const uint8_t*) buffer + buffer_size)
+                    (const char*) iovec[j].iov_base >= p + *remaining)
                         free(iovec[j].iov_base);
         }
 
         free(iovec);
         free(identifier);
         free(message);
+
+        return r;
+}
+
+void server_process_native_message(
+                Server *s,
+                const void *buffer, size_t buffer_size,
+                const struct ucred *ucred,
+                const struct timeval *tv,
+                const char *label, size_t label_len) {
+
+        int r;
+        size_t remaining = buffer_size;
+
+        assert(s);
+        assert(buffer || buffer_size == 0);
+
+        do {
+                r = server_process_entry(s,
+                                         (const uint8_t*) buffer + (buffer_size - remaining), &remaining,
+                                         ucred, tv, label, label_len);
+        } while (r == 0);
 }
 
 void server_process_native_file(
