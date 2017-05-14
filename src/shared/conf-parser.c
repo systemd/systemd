@@ -793,7 +793,7 @@ int config_parse_strv(const char *unit,
                 }
 
                 if (!utf8_is_valid(word)) {
-                        log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, rvalue);
+                        log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, word);
                         free(word);
                         continue;
                 }
