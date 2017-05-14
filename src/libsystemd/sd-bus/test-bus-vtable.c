@@ -20,6 +20,10 @@ static int handler(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         return 1;
 }
 
+static int value_handler(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+        return 1;
+}
+
 static int get_handler(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
         return 1;
 }
@@ -34,6 +38,12 @@ static const sd_bus_vtable vtable[] = {
         SD_BUS_METHOD("Exit", "", "", handler, 0),
         SD_BUS_METHOD_WITH_OFFSET("AlterSomething2", "s", "s", handler, 200, 0),
         SD_BUS_METHOD_WITH_OFFSET("Exit2", "", "", handler, 200, 0),
+        SD_BUS_PROPERTY("Value", "s", value_handler, 10, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Value2", "s", value_handler, 10, SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        SD_BUS_PROPERTY("Value3", "s", value_handler, 10, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Value4", "s", value_handler, 10, 0),
+        SD_BUS_PROPERTY("AnExplicitProperty", "s", NULL, offsetof(struct context, something),
+                        SD_BUS_VTABLE_PROPERTY_EXPLICIT|SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         SD_BUS_WRITABLE_PROPERTY("Something", "s", get_handler, set_handler, 0, 0),
         SD_BUS_WRITABLE_PROPERTY("AutomaticStringProperty", "s", NULL, NULL,
                                  offsetof(struct context, automatic_string_property), 0),
