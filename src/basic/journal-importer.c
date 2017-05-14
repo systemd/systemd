@@ -69,6 +69,7 @@ void journal_importer_cleanup(JournalImporter *imp) {
                 safe_close(imp->fd);
         }
 
+        free(imp->name);
         free(imp->buf);
         iovw_free_contents(&imp->iovw);
 }
