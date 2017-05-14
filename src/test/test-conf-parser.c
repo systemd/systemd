@@ -109,8 +109,10 @@ static void test_config_parse_path(void) {
         test_config_parse_path_one("/path", "/path");
         test_config_parse_path_one("/path//////////", "/path");
         test_config_parse_path_one("///path/foo///bar////bar//", "/path/foo/bar/bar");
+        test_config_parse_path_one("/path/\xc3\x80", "/path/\xc3\x80");
 
         test_config_parse_path_one("not_absolute/path", NULL);
+        test_config_parse_path_one("/path/\xc3\x7f", NULL);
 }
 
 static void test_config_parse_log_level(void) {
@@ -180,6 +182,8 @@ static void test_config_parse_strv(void) {
         test_config_parse_strv_one("foo", STRV_MAKE("foo"));
         test_config_parse_strv_one("foo bar foo", STRV_MAKE("foo", "bar", "foo"));
         test_config_parse_strv_one("\"foo bar\" foo", STRV_MAKE("foo bar", "foo"));
+        test_config_parse_strv_one("\xc3\x80", STRV_MAKE("\xc3\x80"));
+        test_config_parse_strv_one("\xc3\x7f", STRV_MAKE_EMPTY);
 }
 
 static void test_config_parse_mode(void) {
