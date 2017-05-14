@@ -314,6 +314,15 @@ static void test_env_assignment_is_valid(void) {
         assert_se(!env_assignment_is_valid("głąb=printf \"\x1b]0;<mock-chroot>\x07<mock-chroot>\""));
 }
 
+static void test_deserialize_environment(void) {
+        _cleanup_strv_free_ char **env = strv_new("A=1", NULL);
+
+        assert_se(deserialize_environment(&env, "env=test") < 0);
+        assert_se(deserialize_environment(&env, "env=B=2") >= 0);
+
+        assert_se(strv_equal(env, STRV_MAKE("A=1", "B=2")));
+}
+
 int main(int argc, char *argv[]) {
         test_strv_env_delete();
         test_strv_env_get();
@@ -330,6 +339,7 @@ int main(int argc, char *argv[]) {
         test_env_name_is_valid();
         test_env_value_is_valid();
         test_env_assignment_is_valid();
+        test_deserialize_environment();
 
         return 0;
 }
