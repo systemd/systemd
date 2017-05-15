@@ -36,6 +36,7 @@ int repeat_unmount(const char *path, int flags);
 
 int umount_recursive(const char *target, int flags);
 int bind_remount_recursive(const char *prefix, bool ro, char **blacklist);
+int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **blacklist, FILE *proc_self_mountinfo);
 
 int mount_move_root(const char *path);
 
