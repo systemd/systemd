@@ -59,12 +59,13 @@ keyboard_keys_list_txt = custom_target(
         command : [generate_keyboard_keys_list, cpp],
         capture : true)
 
+generate_keyboard_gperf = find_program('generate-keyboard-gperf.py')
 fname = 'keyboard-keys-from-name.gperf'
 gperf_file = custom_target(
         fname,
         input : keyboard_keys_list_txt,
         output : fname,
-        command : [generate_gperfs, 'key', '', '@INPUT@'],
+        command : [generate_keyboard_gperf, '@INPUT@'],
         capture : true)
 
 fname = 'keyboard-keys-from-name.h'
@@ -73,7 +74,7 @@ keyboard_keys_from_name_h = custom_target(
         input : gperf_file,
         output : fname,
         command : [gperf,
-                   '-L', 'ANSI-C', '-t', '--ignore-case',
+                   '-L', 'ANSI-C', '-t',
                    '-N', 'keyboard_lookup_key',
                    '-H', 'hash_key_name',
                    '-p', '-C',
