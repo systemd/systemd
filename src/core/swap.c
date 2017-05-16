@@ -1340,7 +1340,7 @@ int swap_process_device_new(Manager *m, struct udev_device *dev) {
         struct udev_list_entry *item = NULL, *first = NULL;
         _cleanup_free_ char *e = NULL;
         const char *dn;
-        Swap *s;
+        Unit *u;
         int r = 0;
 
         assert(m);
@@ -1354,9 +1354,9 @@ int swap_process_device_new(Manager *m, struct udev_device *dev) {
         if (r < 0)
                 return r;
 
-        s = hashmap_get(m->units, e);
-        if (s)
-                r = swap_set_devnode(s, dn);
+        u = manager_get_unit(m, e);
+        if (u)
+                r = swap_set_devnode(SWAP(u), dn);
 
         first = udev_device_get_devlinks_list_entry(dev);
         udev_list_entry_foreach(item, first) {
@@ -1367,9 +1367,9 @@ int swap_process_device_new(Manager *m, struct udev_device *dev) {
                 if (q < 0)
                         return q;
 
-                s = hashmap_get(m->units, n);
-                if (s) {
-                        q = swap_set_devnode(s, dn);
+                u = manager_get_unit(m, n);
+                if (u) {
+                        q = swap_set_devnode(SWAP(u), dn);
                         if (q < 0)
                                 r = q;
                 }
