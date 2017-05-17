@@ -19,6 +19,7 @@
 
 #include <linux/veth.h>
 #include <net/if.h>
+#include <sys/file.h>
 
 #include "libudev.h"
 #include "sd-id128.h"

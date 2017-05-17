@@ -17,6 +17,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <sys/file.h>
 #include <sys/mount.h>
 
 #include "alloc-util.h"
