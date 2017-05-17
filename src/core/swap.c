@@ -487,13 +487,14 @@ static void swap_set_state(Swap *s, SwapState state) {
         old_state = s->state;
         s->state = state;
 
-        if (state != SWAP_ACTIVATING &&
-            state != SWAP_ACTIVATING_SIGTERM &&
-            state != SWAP_ACTIVATING_SIGKILL &&
-            state != SWAP_ACTIVATING_DONE &&
-            state != SWAP_DEACTIVATING &&
-            state != SWAP_DEACTIVATING_SIGTERM &&
-            state != SWAP_DEACTIVATING_SIGKILL) {
+        if (!IN_SET(state,
+                    SWAP_ACTIVATING,
+                    SWAP_ACTIVATING_SIGTERM,
+                    SWAP_ACTIVATING_SIGKILL,
+                    SWAP_ACTIVATING_DONE,
+                    SWAP_DEACTIVATING,
+                    SWAP_DEACTIVATING_SIGTERM,
+                    SWAP_DEACTIVATING_SIGKILL)) {
                 s->timer_event_source = sd_event_source_unref(s->timer_event_source);
                 swap_unwatch_control_pid(s);
                 s->control_command = NULL;
@@ -695,20 +696,19 @@ static void swap_enter_active(Swap *s, SwapResult f) {
 
 static void swap_enter_signal(Swap *s, SwapState state, SwapResult f) {
         int r;
+        KillOperation kop;
 
         assert(s);
 
         if (s->result == SWAP_SUCCESS)
                 s->result = f;
 
-        r = unit_kill_context(
-                        UNIT(s),
-                        &s->kill_context,
-                        (state != SWAP_ACTIVATING_SIGTERM && state != SWAP_DEACTIVATING_SIGTERM) ?
-                        KILL_KILL : KILL_TERMINATE,
-                        -1,
-                        s->control_pid,
-                        false);
+        if (IN_SET(state, SWAP_ACTIVATING_SIGTERM, SWAP_DEACTIVATING_SIGTERM))
+                kop = KILL_TERMINATE;
+        else
+                kop = KILL_KILL;
+
+        r = unit_kill_context(UNIT(s), &s->kill_context, kop, -1, s->control_pid, false);
         if (r < 0)
                 goto fail;
 
@@ -829,17 +829,18 @@ static int swap_start(Unit *u) {
         /* We cannot fulfill this request right now, try again later
          * please! */
 
-        if (s->state == SWAP_DEACTIVATING ||
-            s->state == SWAP_DEACTIVATING_SIGTERM ||
-            s->state == SWAP_DEACTIVATING_SIGKILL ||
-            s->state == SWAP_ACTIVATING_SIGTERM ||
-            s->state == SWAP_ACTIVATING_SIGKILL)
+        if (IN_SET(s->state,
+                   SWAP_DEACTIVATING,
+                   SWAP_DEACTIVATING_SIGTERM,
+                   SWAP_DEACTIVATING_SIGKILL,
+                   SWAP_ACTIVATING_SIGTERM,
+                   SWAP_ACTIVATING_SIGKILL))
                 return -EAGAIN;
 
         if (s->state == SWAP_ACTIVATING)
                 return 0;
 
-        assert(s->state == SWAP_DEAD || s->state == SWAP_FAILED);
+        assert(IN_SET(s->state, SWAP_DEAD, SWAP_FAILED));
 
         if (detect_container() > 0)
                 return -EPERM;
@@ -873,16 +874,15 @@ static int swap_stop(Unit *u) {
 
         assert(s);
 
-        if (s->state == SWAP_DEACTIVATING ||
-            s->state == SWAP_DEACTIVATING_SIGTERM ||
-            s->state == SWAP_DEACTIVATING_SIGKILL ||
-            s->state == SWAP_ACTIVATING_SIGTERM ||
-            s->state == SWAP_ACTIVATING_SIGKILL)
+        if (IN_SET(s->state,
+                   SWAP_DEACTIVATING,
+                   SWAP_DEACTIVATING_SIGTERM,
+                   SWAP_DEACTIVATING_SIGKILL,
+                   SWAP_ACTIVATING_SIGTERM,
+                   SWAP_ACTIVATING_SIGKILL))
                 return 0;
 
-        assert(s->state == SWAP_ACTIVATING ||
-               s->state == SWAP_ACTIVATING_DONE ||
-               s->state == SWAP_ACTIVE);
+        assert(IN_SET(s->state, SWAP_ACTIVATING, SWAP_ACTIVATING_DONE, SWAP_ACTIVE));
 
         if (detect_container() > 0)
                 return -EPERM;
