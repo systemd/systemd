@@ -99,6 +99,7 @@ static bool arg_dmesg = false;
 static bool arg_no_hostname = false;
 static const char *arg_cursor = NULL;
 static const char *arg_after_cursor = NULL;
+static const char *arg_until_cursor = NULL;
 static bool arg_show_cursor = false;
 static const char *arg_directory = NULL;
 static char **arg_file = NULL;
@@ -285,6 +286,7 @@ static void help(void) {
                "  -U --until=DATE          Show entries not newer than the specified date\n"
                "  -c --cursor=CURSOR       Show entries starting at the specified cursor\n"
                "     --after-cursor=CURSOR Show entries after the specified cursor\n"
+               "     --until-cursor=CURSOR Show entries until the specified cursor is reached\n"
                "     --show-cursor         Print the cursor after all the entries\n"
                "  -b --boot[=ID]           Show current boot or the specified boot\n"
                "     --list-boots          Show terse information about recorded boots\n"
@@ -363,6 +365,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERIFY_KEY,
                 ARG_DISK_USAGE,
                 ARG_AFTER_CURSOR,
+                ARG_UNTIL_CURSOR,
                 ARG_SHOW_CURSOR,
                 ARG_USER_UNIT,
                 ARG_LIST_CATALOG,
@@ -414,6 +417,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "disk-usage",     no_argument,       NULL, ARG_DISK_USAGE     },
                 { "cursor",         required_argument, NULL, 'c'                },
                 { "after-cursor",   required_argument, NULL, ARG_AFTER_CURSOR   },
+                { "until-cursor",   required_argument, NULL, ARG_UNTIL_CURSOR   },
                 { "show-cursor",    no_argument,       NULL, ARG_SHOW_CURSOR    },
                 { "since",          required_argument, NULL, 'S'                },
                 { "until",          required_argument, NULL, 'U'                },
@@ -625,6 +629,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_AFTER_CURSOR:
                         arg_after_cursor = optarg;
+                        break;
+
+                case ARG_UNTIL_CURSOR:
+                        arg_until_cursor = optarg;
                         break;
 
                 case ARG_SHOW_CURSOR:
@@ -868,6 +876,11 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (!!arg_cursor + !!arg_after_cursor + !!arg_since_set > 1) {
                 log_error("Please specify only one of --since=, --cursor=, and --after-cursor.");
+                return -EINVAL;
+        }
+
+        if (!!arg_until_cursor && arg_until_set) {
+                log_error("Please specify only one of --until= and --until-cursor=.");
                 return -EINVAL;
         }
 
@@ -2438,6 +2451,14 @@ int main(int argc, char *argv[]) {
                                 }
                                 if (usec < arg_since)
                                         goto finish;
+                        }
+
+                        if (arg_until_cursor) {
+                            r = sd_journal_test_cursor(j, arg_until_cursor);
+                            if (r < 0)
+                                    log_error_errno(r, "Failed to test cursor: %m");
+                            else if (r > 0)
+                                    goto finish;
                         }
 
                         if (!arg_merge && !arg_quiet) {
