@@ -32,7 +32,6 @@ RootSize=2G
 [Packages]
 BuildPackages=
         acl
-        diffutils
         docbook-xml
         docbook-xsl
         gcc
