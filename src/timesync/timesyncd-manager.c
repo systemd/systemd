@@ -378,7 +378,7 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
         m->drift_ppm = tmx.freq / 65536;
 
         log_debug("  status       : %04i %s\n"
-                  "  time now     : %li.%03"PRI_USEC"\n"
+                  "  time now     : %"PRI_TIME".%03"PRI_USEC"\n"
                   "  constant     : %li\n"
                   "  offset       : %+.3f sec\n"
                   "  freq offset  : %+li (%i ppm)\n",
