@@ -35,16 +35,16 @@ static void test_testing(void) {
         b = mac_selinux_use();
         log_info("mac_selinux_use → %s", yes_no(b));
 
-        b = mac_selinux_have();
-        log_info("mac_selinux_have → %s", yes_no(b));
+        b = mac_selinux_use();
+        log_info("mac_selinux_use → %s", yes_no(b));
 
         mac_selinux_retest();
 
         b = mac_selinux_use();
         log_info("mac_selinux_use → %s", yes_no(b));
 
-        b = mac_selinux_have();
-        log_info("mac_selinux_have → %s", yes_no(b));
+        b = mac_selinux_use();
+        log_info("mac_selinux_use → %s", yes_no(b));
 }
 
 static void test_loading(void) {

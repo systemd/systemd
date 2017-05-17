@@ -235,7 +235,7 @@ static int condition_test_security(Condition *c) {
         assert(c->type == CONDITION_SECURITY);
 
         if (streq(c->parameter, "selinux"))
-                return mac_selinux_have();
+                return mac_selinux_use();
         if (streq(c->parameter, "smack"))
                 return mac_smack_use();
         if (streq(c->parameter, "apparmor"))

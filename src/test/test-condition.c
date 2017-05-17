@@ -243,7 +243,7 @@ static void test_condition_test_security(void) {
 
         condition = condition_new(CONDITION_SECURITY, "selinux", false, true);
         assert_se(condition);
-        assert_se(condition_test(condition) != mac_selinux_have());
+        assert_se(condition_test(condition) != mac_selinux_use());
         condition_free(condition);
 
         condition = condition_new(CONDITION_SECURITY, "ima", false, false);
