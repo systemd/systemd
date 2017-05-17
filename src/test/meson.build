@@ -734,6 +734,10 @@ tests += [
          [],
          [threads]],
 
+        [['src/libsystemd/sd-bus/test-bus-vtable.c'],
+         [],
+         []],
+
         [['src/libsystemd/sd-bus/test-bus-gvariant.c'],
          [],
          [libglib,
@@ -789,6 +793,14 @@ tests += [
          [],
          '', 'manual'],
 ]
+
+if cxx.found()
+        tests += [
+                [['src/libsystemd/sd-bus/test-bus-vtable-cc.cc'],
+                 [],
+                 []]
+        ]
+endif
 
 ############################################################
 

@@ -224,6 +224,12 @@ cc = meson.get_compiler('c')
 pkgconfig = import('pkgconfig')
 check_compilation_sh = find_program('tools/meson-check-compilation.sh')
 
+cxx = find_program('c++', required : false)
+if cxx.found()
+        #  Used only for tests
+        add_languages('cpp')
+endif
+
 foreach arg : ['-Wundef',
                '-Wlogical-op',
                '-Wmissing-include-dirs',

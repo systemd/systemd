@@ -19,7 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
 #include <inttypes.h>
 #include <stdbool.h>
 #include <sys/param.h>

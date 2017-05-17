@@ -38,16 +38,17 @@ install_headers(
 
 ############################################################
 
-opts = [[],
-        ['-ansi'],
-        ['-std=iso9899:1990']]
+opts = [['c'],
+        ['c', '-ansi'],
+        ['c', '-std=iso9899:1990'],
+        ['c++']]
 
 foreach header : _systemd_headers
         foreach opt : opts
-                name = ''.join([header] + opt)
+                name = ''.join([header, ':'] + opt)
                 test('cc-' + name,
                      check_compilation_sh,
-                     args : cc.cmd_array() + ['-x', 'c', '-c'] + opt +
+                     args : cc.cmd_array() + ['-c', '-x'] + opt +
                             ['-Werror', '-include',
                              join_paths(meson.current_source_dir(), header)])
         endforeach

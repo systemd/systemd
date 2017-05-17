@@ -160,6 +160,8 @@
 /test-bus-server
 /test-bus-signature
 /test-bus-track
+/test-bus-vtable
+/test-bus-vtable-cc
 /test-bus-zero-copy
 /test-calendarspec
 /test-cap-list

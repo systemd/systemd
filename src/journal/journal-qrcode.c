@@ -17,7 +17,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
 #include <errno.h>
 #include <qrencode.h>
 #include <stdbool.h>
@@ -25,6 +24,7 @@
 #include <stdlib.h>
 
 #include "journal-qrcode.h"
+#include "macro.h"
 
 #define WHITE_ON_BLACK "\033[40;37;1m"
 #define NORMAL "\033[0m"

@@ -3461,6 +3461,7 @@ tests += \
 	test-bus-zero-copy \
 	test-bus-introspect \
 	test-bus-objects \
+	test-bus-vtable \
 	test-bus-error \
 	test-bus-creds \
 	test-bus-gvariant \
@@ -3528,6 +3529,12 @@ test_bus_objects_SOURCES = \
 	src/libsystemd/sd-bus/test-bus-objects.c
 
 test_bus_objects_LDADD = \
+	libsystemd-shared.la
+
+test_bus_vtable_SOURCES = \
+	src/libsystemd/sd-bus/test-bus-vtable.c
+
+test_bus_vtable_LDADD = \
 	libsystemd-shared.la
 
 test_bus_error_SOURCES = \
