@@ -53,7 +53,7 @@ BuildPackages=
         libfdisk-dev
         libgcrypt20-dev
         libgnutls28-dev
-        libidn2-dev
+        libidn2-0-dev
         libkmod-dev
         liblzma-dev
         liblz4-dev
