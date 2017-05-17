@@ -487,22 +487,33 @@ static int parse_weekdays(const char **p, CalendarSpec *c) {
         }
 }
 
+static int parse_one_number(const char *p, const char **e, unsigned long *ret) {
+        char *ee = NULL;
+        unsigned long value;
+
+        errno = 0;
+        value = strtoul(p, &ee, 10);
+        if (errno > 0)
+                return -errno;
+        if (ee == p)
+                return -EINVAL;
+
+        *ret = value;
+        *e = ee;
+        return 0;
+}
+
 static int parse_component_decimal(const char **p, bool usec, int *res) {
         unsigned long value;
         const char *e = NULL;
-        char *ee = NULL;
         int r;
 
         if (!isdigit(**p))
                 return -EINVAL;
 
-        errno = 0;
-        value = strtoul(*p, &ee, 10);
-        if (errno > 0)
-                return -errno;
-        if (ee == *p)
-                return -EINVAL;
-        e = ee;
+        r = parse_one_number(*p, &e, &value);
+        if (r < 0)
+                return r;
 
         if (usec) {
                 if (value * USEC_PER_SEC / USEC_PER_SEC != value)
@@ -550,6 +561,47 @@ static int const_chain(int value, CalendarComponent **c) {
 
         *c = cc;
 
+        return 0;
+}
+
+static int calendarspec_from_time_t(CalendarSpec *c, time_t time) {
+        struct tm tm;
+        CalendarComponent *year = NULL, *month = NULL, *day = NULL, *hour = NULL, *minute = NULL, *us = NULL;
+        int r;
+
+        assert_se(gmtime_r(&time, &tm));
+
+        r = const_chain(tm.tm_year + 1900, &year);
+        if (r < 0)
+                return r;
+
+        r = const_chain(tm.tm_mon + 1, &month);
+        if (r < 0)
+                return r;
+
+        r = const_chain(tm.tm_mday, &day);
+        if (r < 0)
+                return r;
+
+        r = const_chain(tm.tm_hour, &hour);
+        if (r < 0)
+                return r;
+
+        r = const_chain(tm.tm_min, &minute);
+        if (r < 0)
+                return r;
+
+        r = const_chain(tm.tm_sec * USEC_PER_SEC, &us);
+        if (r < 0)
+                return r;
+
+        c->utc = true;
+        c->year = year;
+        c->month = month;
+        c->day = day;
+        c->hour = hour;
+        c->minute = minute;
+        c->microsecond = us;
         return 0;
 }
 
@@ -656,6 +708,27 @@ static int parse_date(const char **p, CalendarSpec *c) {
 
         if (*t == 0)
                 return 0;
+
+        /* @TIMESTAMP — UNIX time in seconds since the epoch */
+        if (*t == '@') {
+                unsigned long value;
+                time_t time;
+
+                r = parse_one_number(t + 1, &t, &value);
+                if (r < 0)
+                        return r;
+
+                time = value;
+                if ((unsigned long) time != value)
+                        return -ERANGE;
+
+                r = calendarspec_from_time_t(c, time);
+                if (r < 0)
+                        return r;
+
+                *p = t;
+                return 1; /* finito, don't parse H:M:S after that */
+        }
 
         r = parse_chain(&t, false, &first);
         if (r < 0)
@@ -832,7 +905,7 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
                                 continue;
 
                         e = endswith_no_case(p, tzname[j]);
-                        if(!e)
+                        if (!e)
                                 continue;
                         if (e == p)
                                 continue;
@@ -986,9 +1059,11 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
                 if (r < 0)
                         goto fail;
 
-                r = parse_calendar_time(&p, c);
-                if (r < 0)
-                        goto fail;
+                if (r == 0) {
+                        r = parse_calendar_time(&p, c);
+                        if (r < 0)
+                                goto fail;
+                }
 
                 if (*p != 0) {
                         r = -EINVAL;
