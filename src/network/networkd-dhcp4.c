@@ -52,8 +52,21 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m,
         return 1;
 }
 
+static int route_scope_from_address(const Route *route, const struct in_addr *self_addr) {
+        assert(route);
+        assert(self_addr);
+
+        if (in_addr_is_localhost(AF_INET, &route->dst) ||
+            (self_addr->s_addr && route->dst.in.s_addr == self_addr->s_addr))
+                return RT_SCOPE_HOST;
+        else if (in4_addr_is_null(&route->gw.in))
+                return RT_SCOPE_LINK;
+        else
+                return RT_SCOPE_UNIVERSE;
+}
+
 static int link_set_dhcp_routes(Link *link) {
-        struct in_addr gateway;
+        struct in_addr gateway, address;
         _cleanup_free_ sd_dhcp_route **static_routes = NULL;
         int r, n, i;
 
@@ -69,7 +82,6 @@ static int link_set_dhcp_routes(Link *link) {
                 return log_link_warning_errno(link, r, "DHCP error: could not get gateway: %m");
 
         if (r >= 0) {
-                struct in_addr address;
                 _cleanup_route_free_ Route *route = NULL;
                 _cleanup_route_free_ Route *route_gw = NULL;
 
@@ -141,6 +153,7 @@ static int link_set_dhcp_routes(Link *link) {
                 assert_se(sd_dhcp_route_get_destination_prefix_length(static_routes[i], &route->dst_prefixlen) >= 0);
                 route->priority = link->network->dhcp_route_metric;
                 route->table = link->network->dhcp_route_table;
+                route->scope = route_scope_from_address(route, &address);
 
                 r = route_configure(route, link, dhcp4_route_handler);
                 if (r < 0)
