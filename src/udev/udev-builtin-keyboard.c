@@ -201,6 +201,7 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
         unsigned release_count = 0;
         _cleanup_close_ int fd = -1;
         const char *node;
+        int has_abs = -1;
 
         node = udev_device_get_devnode(dev);
         if (!node) {
@@ -260,6 +261,24 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
                                 if (fd < 0)
                                         return EXIT_FAILURE;
                         }
+
+                        if (has_abs == -1) {
+                                unsigned long bits;
+                                int rc;
+
+                                rc = ioctl(fd, EVIOCGBIT(0, sizeof(bits)), &bits);
+                                if (rc < 0) {
+                                        log_error_errno(errno, "Unable to EVIOCGBIT device \"%s\"", node);
+                                        return EXIT_FAILURE;
+                                }
+
+                                has_abs = !!(bits & (1 << EV_ABS));
+                                if (!has_abs)
+                                        log_warning("EVDEV_ABS override set but no EV_ABS present on device \"%s\"", node);
+                        }
+
+                        if (!has_abs)
+                                continue;
 
                         override_abs(fd, node, evcode, udev_list_entry_get_value(entry));
                 } else if (streq(key, "POINTINGSTICK_SENSITIVITY"))
