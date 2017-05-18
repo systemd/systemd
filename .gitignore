@@ -274,6 +274,7 @@
 /test-ring
 /test-rlimit-util
 /test-sched-prio
+/test-sd-dhcp-lease
 /test-seccomp
 /test-selinux
 /test-set
