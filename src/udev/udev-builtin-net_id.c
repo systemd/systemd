@@ -360,7 +360,7 @@ static int names_platform(struct udev_device *dev, struct netnames *names, bool 
         struct udev_device *parent;
         char vendor[5];
         unsigned model, instance, ethid;
-        const char *syspath, *pattern, *validchars;
+        const char *syspath;
 
         /* check if our direct parent is a platform device with no other bus in-between */
         parent = udev_device_get_parent(dev);
@@ -377,22 +377,15 @@ static int names_platform(struct udev_device *dev, struct netnames *names, bool 
                 return -EINVAL;
 
         /* Vendor ID can be either PNP ID (3 chars A-Z) or ACPI ID (4 chars A-Z and numerals) */
-        if (syspath[sizeof _PLATFORM_TEST - 1] == ':') {
-                pattern = _PLATFORM_PATTERN4;
-                validchars = UPPERCASE_LETTERS DIGITS;
-        } else {
-                pattern = _PLATFORM_PATTERN3;
-                validchars = UPPERCASE_LETTERS;
-        }
 
         /* Platform devices are named after ACPI table match, and instance id
          * eg. "/sys/devices/platform/HISI00C2:00");
          * The Vendor (3 or 4 char), followed by hexdecimal model number : instance id.
          */
-        if (sscanf(syspath, pattern, vendor, &model, &instance, &ethid) != 4)
+        if (sscanf(syspath, (syspath[sizeof _PLATFORM_TEST - 1] == ':') ? _PLATFORM_PATTERN4 : _PLATFORM_PATTERN3, vendor, &model, &instance, &ethid) != 4)
                 return -EINVAL;
 
-        if (!in_charset(vendor, validchars))
+        if (!in_charset(vendor, (syspath[sizeof _PLATFORM_TEST - 1] == ':') ? UPPERCASE_LETTERS DIGITS : UPPERCASE_LETTERS))
                 return -ENOENT;
 
         ascii_strlower(vendor);
