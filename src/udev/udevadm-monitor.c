@@ -41,7 +41,7 @@ static void print_device(struct udev_device *device, const char *source, int pro
         struct timespec ts;
 
         assert_se(clock_gettime(CLOCK_MONOTONIC, &ts) == 0);
-        printf("%-6s[%"PRI_TIME".%06"PRI_NSEC"] %-8s %s (%s)\n",
+        printf("%-6s[%"PRI_TIME".%06"PRI_NSEC_glibc"] %-8s %s (%s)\n",
                source,
                ts.tv_sec, ts.tv_nsec/1000,
                udev_device_get_action(device),
