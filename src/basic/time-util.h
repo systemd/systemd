@@ -29,7 +29,11 @@
 typedef uint64_t usec_t;
 typedef uint64_t nsec_t;
 
-#define PRI_NSEC PRIu64
+#if defined __x86_64__ && defined __ILP32__ && defined __GLIBC__
+#  define PRI_NSEC PRIi64
+#else
+#  define PRI_NSEC "ld"
+#endif
 #define PRI_USEC PRIu64
 #define NSEC_FMT "%" PRI_NSEC
 #define USEC_FMT "%" PRI_USEC

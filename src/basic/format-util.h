@@ -54,6 +54,12 @@
 #  error Unknown time_t size
 #endif
 
+#if defined __x86_64__ && defined __ILP32__
+#  define PRI_TIMEX PRIi64
+#else
+#  define PRI_TIMEX "li"
+#endif
+
 #if SIZEOF_RLIM_T == 8
 #  define RLIM_FMT "%" PRIu64
 #elif SIZEOF_RLIM_T == 4
