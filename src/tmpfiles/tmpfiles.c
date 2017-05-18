@@ -1353,6 +1353,15 @@ static int create_item(Item *i) {
                                         r = symlink_atomic(resolved, i->path);
                                         mac_selinux_create_file_clear();
 
+                                        if (IN_SET(r, -EEXIST, -ENOTEMPTY)) {
+                                                r = rm_rf(i->path, REMOVE_ROOT|REMOVE_PHYSICAL);
+                                                if (r < 0)
+                                                        return log_error_errno(r, "rm -fr %s failed: %m", i->path);
+
+                                                mac_selinux_create_file_prepare(i->path, S_IFLNK);
+                                                r = symlink(resolved, i->path) < 0 ? -errno : 0;
+                                                mac_selinux_create_file_clear();
+                                        }
                                         if (r < 0)
                                                 return log_error_errno(r, "symlink(%s, %s) failed: %m", resolved, i->path);
 
