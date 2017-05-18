@@ -289,6 +289,7 @@ static int address_add_internal(Link *link, Set **addresses,
                 *ret = address;
 
         address = NULL;
+        link_send_changed(link, "Addresses", NULL);
 
         return 0;
 }
@@ -374,6 +375,7 @@ int address_update(
         address->cinfo = *cinfo;
 
         link_update_operstate(address->link);
+        link_send_changed(address->link, "Addresses", NULL);
 
         if (!ready && address_is_ready(address)) {
                 link_check_ready(address->link);

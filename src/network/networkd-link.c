@@ -1219,6 +1219,7 @@ int link_address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *u
         if (r < 0 && r != -EADDRNOTAVAIL)
                 log_link_warning_errno(link, r, "Could not drop address: %m");
 
+        link_send_changed(link, "Addresses", NULL);
         return 1;
 }
 
