@@ -59,7 +59,8 @@ static void test_login(void) {
         uid_t u, u2;
         char *t, **seats, **sessions;
 
-        assert_se(sd_pid_get_unit(0, &unit) >= 0);
+        r = sd_pid_get_unit(0, &unit);
+        assert_se(r >= 0 || r == -ENODATA);
         log_info("sd_pid_get_unit(0, …) → \"%s\"", unit);
 
         r = sd_pid_get_user_unit(0, &user_unit);
