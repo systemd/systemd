@@ -56,11 +56,13 @@
  */
 
 _public_ int sd_pid_get_session(pid_t pid, char **session) {
+        int r;
 
         assert_return(pid >= 0, -EINVAL);
         assert_return(session, -EINVAL);
 
-        return cg_pid_get_session(pid, session);
+        r = cg_pid_get_session(pid, session);
+        return r == -ENXIO ? -ENODATA : r;
 }
 
 _public_ int sd_pid_get_unit(pid_t pid, char **unit) {
