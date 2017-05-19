@@ -862,7 +862,7 @@
         <varname>arm64-be</varname>,
         <varname>sh</varname>,
         <varname>sh64</varname>,
-        <varname>m86k</varname>,
+        <varname>m68k</varname>,
         <varname>tilegx</varname>,
         <varname>cris</varname> to test
         against a specific architecture. The architecture is
