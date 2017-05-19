@@ -385,6 +385,16 @@ static void test_condition_test_user(void) {
         log_info("ConditionUser=%s → %i", username, r);
         assert_se(r == 0);
         condition_free(condition);
+
+        condition = condition_new(CONDITION_USER, "@system", false, false);
+        assert_se(condition);
+        r = condition_test(condition);
+        log_info("ConditionUser=@system → %i", r);
+        if (geteuid() == 0)
+                assert_se(r > 0);
+        else
+                assert_se(r == 0);
+        condition_free(condition);
 }
 
 static void test_condition_test_group(void) {
