@@ -52,6 +52,8 @@ static inline int pivot_root(const char *new_root, const char *put_old) {
 #      endif
 #    elif defined __i386__
 #      define __NR_memfd_create 356
+#    elif defined __arc__
+#      define __NR_memfd_create 279
 #    else
 #      warning "__NR_memfd_create unknown for your architecture"
 #    endif
@@ -97,6 +99,8 @@ static inline int memfd_create(const char *name, unsigned int flags) {
 #      if _MIPS_SIM == _MIPS_SIM_ABI64
 #        define __NR_getrandom 5313
 #      endif
+#    elif defined(__arc__)
+#      define __NR_getrandom 278
 #    else
 #      warning "__NR_getrandom unknown for your architecture"
 #    endif
@@ -132,6 +136,8 @@ static inline pid_t gettid(void) {
 #      define __NR_name_to_handle_at 370
 #    elif defined(__powerpc__)
 #      define __NR_name_to_handle_at 345
+#    elif defined(__arc__)
+#      define __NR_name_to_handle_at 264
 #    else
 #      error "__NR_name_to_handle_at is not defined"
 #    endif
@@ -161,6 +167,8 @@ static inline int name_to_handle_at(int fd, const char *name, struct file_handle
 #      define __NR_setns 308
 #    elif defined(__i386__)
 #      define __NR_setns 346
+#    elif defined(__arc__)
+#      define __NR_setns 268
 #    else
 #      error "__NR_setns is not defined"
 #    endif
@@ -208,6 +216,8 @@ static inline pid_t raw_getpid(void) {
 #      endif
 #    elif defined __i386__
 #      define __NR_renameat2 353
+#    elif defined __arc__
+#      define __NR_renameat2 276
 #    else
 #      warning "__NR_renameat2 unknown for your architecture"
 #    endif
@@ -283,6 +293,8 @@ static inline key_serial_t request_key(const char *type, const char *description
 #      define __NR_copy_file_range 285
 #    elif defined __powerpc__
 #      define __NR_copy_file_range 379
+#    elif defined __arc__
+#      define __NR_copy_file_range 285
 #    else
 #      warning "__NR_copy_file_range not defined for your architecture"
 #    endif

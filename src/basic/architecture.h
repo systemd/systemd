@@ -60,6 +60,8 @@ enum {
         ARCHITECTURE_NIOS2,
         ARCHITECTURE_RISCV32,
         ARCHITECTURE_RISCV64,
+        ARCHITECTURE_ARC,
+        ARCHITECTURE_ARC_BE,
         _ARCHITECTURE_MAX,
         _ARCHITECTURE_INVALID = -1
 };
@@ -236,6 +238,14 @@ int uname_architecture(void);
 #    define LIB_ARCH_TUPLE "riscv64-linux-gnu"
 #  else
 #    error "Unrecognized riscv architecture variant"
+#  endif
+#elif defined(__arc__)
+#  if __BYTE_ORDER == __BIG_ENDIAN
+#    define native_architecture() ARCHITECTURE_ARC_BE
+#    define LIB_ARCH_TUPLE "arceb-linux"
+#  else
+#    define native_architecture() ARCHITECTURE_ARC
+#    define LIB_ARCH_TUPLE "arc-linux"
 #  endif
 #else
 #  error "Please register your architecture here!"

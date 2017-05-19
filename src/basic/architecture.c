@@ -132,6 +132,9 @@ int uname_architecture(void) {
 #  elif __SIZEOF_POINTER__ == 8
                 { "riscv",      ARCHITECTURE_RISCV64  },
 #  endif
+#elif defined(__arc__)
+                { "arc",        ARCHITECTURE_ARC      },
+                { "arceb",      ARCHITECTURE_ARC_BE   },
 #else
 #error "Please register your architecture here!"
 #endif
@@ -185,6 +188,8 @@ static const char *const architecture_table[_ARCHITECTURE_MAX] = {
         [ARCHITECTURE_NIOS2] = "nios2",
         [ARCHITECTURE_RISCV32] = "riscv32",
         [ARCHITECTURE_RISCV64] = "riscv64",
+        [ARCHITECTURE_ARC] = "arc",
+        [ARCHITECTURE_ARC_BE] = "arc-be",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(architecture, int);

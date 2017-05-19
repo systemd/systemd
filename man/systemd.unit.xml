@@ -864,7 +864,9 @@
         <varname>sh64</varname>,
         <varname>m86k</varname>,
         <varname>tilegx</varname>,
-        <varname>cris</varname> to test
+        <varname>cris</varname>,
+        <varname>arc</varname>,
+        <varname>arc-be</varname> to test
         against a specific architecture. The architecture is
         determined from the information returned by
         <citerefentry project='man-pages'><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
