@@ -32,6 +32,7 @@
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
+#include "networkd-radv.h"
 #include "set.h"
 #include "socket-util.h"
 #include "stdio-util.h"
@@ -117,6 +118,15 @@ static bool link_ipv6_enabled(Link *link) {
 
         /* DHCPv6 client will not be started if no IPv6 link-local address is configured. */
         return link_ipv6ll_enabled(link) || network_has_static_ipv6_addresses(link->network);
+}
+
+static bool link_radv_enabled(Link *link) {
+        assert(link);
+
+        if (!link_ipv6ll_enabled(link))
+                return false;
+
+        return link->network->router_prefix_delegation;
 }
 
 static bool link_lldp_rx_enabled(Link *link) {
@@ -521,6 +531,7 @@ static void link_free(Link *link) {
         sd_ipv4ll_unref(link->ipv4ll);
         sd_dhcp6_client_unref(link->dhcp6_client);
         sd_ndisc_unref(link->ndisc);
+        sd_radv_unref(link->radv);
 
         if (link->manager)
                 hashmap_remove(link->manager->links, INT_TO_PTR(link->ifindex));
@@ -638,6 +649,12 @@ static int link_stop_clients(Link *link) {
                 k = sd_ndisc_stop(link->ndisc);
                 if (k < 0)
                         r = log_link_warning_errno(link, k, "Could not stop IPv6 Router Discovery: %m");
+        }
+
+        if (link->radv) {
+                k = sd_radv_stop(link->radv);
+                if (k < 0)
+                        r = log_link_warning_errno(link, k, "Could not stop IPv6 Router Advertisement: %m");
         }
 
         link_lldp_emit_stop(link);
@@ -1552,6 +1569,17 @@ static int link_acquire_ipv6_conf(Link *link) {
                 r = sd_ndisc_start(link->ndisc);
                 if (r < 0 && r != -EBUSY)
                         return log_link_warning_errno(link, r, "Could not start IPv6 Router Discovery: %m");
+        }
+
+        if (link_radv_enabled(link)) {
+                assert(link->radv);
+                assert(in_addr_is_link_local(AF_INET6, (const union in_addr_union*)&link->ipv6ll_address) > 0);
+
+                log_link_debug(link, "Starting IPv6 Router Advertisements");
+
+                r = sd_radv_start(link->radv);
+                if (r < 0 && r != -EBUSY)
+                        return log_link_warning_errno(link, r, "Could not start IPv6 Router Advertisement: %m");
         }
 
         return 0;
@@ -2562,6 +2590,12 @@ static int link_configure(Link *link) {
                         return r;
         }
 
+        if (link_radv_enabled(link)) {
+                r = radv_configure(link);
+                if (r < 0)
+                        return r;
+        }
+
         if (link_lldp_rx_enabled(link)) {
                 r = sd_lldp_new(&link->lldp);
                 if (r < 0)
@@ -3098,6 +3132,12 @@ int link_update(Link *link, sd_netlink_message *m) {
                                 return r;
                         }
                 }
+
+                if (link->radv) {
+                        r = sd_radv_set_mtu(link->radv, link->mtu);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Could not set MTU for Router Advertisement: %m");
+                }
         }
 
         /* The kernel may broadcast NEWLINK messages without the MAC address
@@ -3165,6 +3205,12 @@ int link_update(Link *link, sd_netlink_message *m) {
                                                              duid->raw_data_len);
                                 if (r < 0)
                                         return log_link_warning_errno(link, r, "Could not update DHCPv6 DUID: %m");
+                        }
+
+                        if (link->radv) {
+                                r = sd_radv_set_mac(link->radv, &link->mac);
+                                if (r < 0)
+                                        return log_link_warning_errno(link, r, "Could not update MAC for Router Advertisement: %m");
                         }
                 }
         }

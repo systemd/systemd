@@ -862,6 +862,13 @@ tests += [
           libsystemd_network],
          []],
 
+        [['src/libsystemd-network/test-ndisc-ra.c',
+          'src/libsystemd-network/icmp6-util.h',
+          'src/systemd/sd-ndisc.h'],
+         [libshared,
+          libsystemd_network],
+         []],
+
         [['src/libsystemd-network/test-dhcp6-client.c',
           'src/libsystemd-network/dhcp-identifier.h',
           'src/libsystemd-network/dhcp-identifier.c',

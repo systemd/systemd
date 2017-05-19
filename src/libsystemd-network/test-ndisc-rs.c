@@ -193,6 +193,21 @@ int icmp6_bind_router_solicitation(int index) {
         return test_fd[0];
 }
 
+int icmp6_bind_router_advertisement(int index) {
+
+        return -ENOSYS;
+}
+
+int icmp6_receive(int fd, void *iov_base, size_t iov_len,
+                  struct in6_addr *dst, triple_timestamp *timestamp) {
+        assert (read (fd, iov_base, iov_len) == (ssize_t)iov_len);
+
+        if (timestamp)
+                triple_timestamp_get(timestamp);
+
+        return 0;
+}
+
 static int send_ra(uint8_t flags) {
         uint8_t advertisement[] = {
                 0x86, 0x00, 0xde, 0x83, 0x40, 0xc0, 0x00, 0xb4,

@@ -222,23 +222,9 @@ static int ndisc_handle_datagram(sd_ndisc *nd, sd_ndisc_router *rt) {
 static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(sd_ndisc_router_unrefp) sd_ndisc_router *rt = NULL;
         sd_ndisc *nd = userdata;
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int)) + /* ttl */
-                            CMSG_SPACE(sizeof(struct timeval))];
-        } control = {};
-        struct iovec iov = {};
-        union sockaddr_union sa = {};
-        struct msghdr msg = {
-                .msg_name = &sa.sa,
-                .msg_namelen = sizeof(sa),
-                .msg_iov = &iov,
-                .msg_iovlen = 1,
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-        };
-        struct cmsghdr *cmsg;
-        ssize_t len, buflen;
+        ssize_t buflen;
+        int r;
+        _cleanup_free_ char *addr = NULL;
 
         assert(s);
         assert(nd);
@@ -252,65 +238,26 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
         if (!rt)
                 return -ENOMEM;
 
-        iov.iov_base = NDISC_ROUTER_RAW(rt);
-        iov.iov_len = rt->raw_size;
+        r = icmp6_receive(fd, NDISC_ROUTER_RAW(rt), rt->raw_size, &rt->address,
+                     &rt->timestamp);
+        if (r < 0) {
+                switch (r) {
+                case -EADDRNOTAVAIL:
+                        (void) in_addr_to_string(AF_INET6, (union in_addr_union*) &rt->address, &addr);
+                        log_ndisc("Received RA from non-link-local address %s. Ignoring", addr);
+                        break;
 
-        len = recvmsg(fd, &msg, MSG_DONTWAIT);
-        if (len < 0) {
-                if (errno == EAGAIN || errno == EINTR)
-                        return 0;
+                case -EMULTIHOP:
+                        log_ndisc("Received RA with invalid hop limit. Ignoring.");
+                        break;
 
-                return log_ndisc_errno(errno, "Could not receive message from ICMPv6 socket: %m");
-        }
-
-        if ((size_t) len != rt->raw_size) {
-                log_ndisc("Packet size mismatch.");
-                return -EINVAL;
-        }
-
-        if (msg.msg_namelen == sizeof(struct sockaddr_in6) &&
-            sa.in6.sin6_family == AF_INET6)  {
-
-                if (in_addr_is_link_local(AF_INET6, (union in_addr_union*) &sa.in6.sin6_addr) <= 0) {
-                        _cleanup_free_ char *addr = NULL;
-
-                        (void) in_addr_to_string(AF_INET6, (union in_addr_union*) &sa.in6.sin6_addr, &addr);
-                        log_ndisc("Received RA from non-link-local address %s. Ignoring.", strna(addr));
-                        return 0;
+                case -EPFNOSUPPORT:
+                        log_ndisc("Received invalid source address from ICMPv6 socket.");
+                        break;
                 }
 
-                rt->address = sa.in6.sin6_addr;
-
-        } else if (msg.msg_namelen > 0) {
-                log_ndisc("Received invalid source address size from ICMPv6 socket: %zu bytes", (size_t) msg.msg_namelen);
-                return -EINVAL;
+                return 0;
         }
-
-        /* namelen == 0 only happens when running the test-suite over a socketpair */
-
-        assert(!(msg.msg_flags & MSG_CTRUNC));
-        assert(!(msg.msg_flags & MSG_TRUNC));
-
-        CMSG_FOREACH(cmsg, &msg) {
-                if (cmsg->cmsg_level == SOL_IPV6 &&
-                    cmsg->cmsg_type == IPV6_HOPLIMIT &&
-                    cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
-                        int hops = *(int*) CMSG_DATA(cmsg);
-
-                        if (hops != 255) {
-                                log_ndisc("Received RA with invalid hop limit %d. Ignoring.", hops);
-                                return 0;
-                        }
-                }
-
-                if (cmsg->cmsg_level == SOL_SOCKET &&
-                    cmsg->cmsg_type == SO_TIMESTAMP &&
-                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval)))
-                        triple_timestamp_from_realtime(&rt->timestamp, timeval_load((struct timeval*) CMSG_DATA(cmsg)));
-        }
-
-        if (!triple_timestamp_is_set(&rt->timestamp))
-                triple_timestamp_get(&rt->timestamp);
 
         nd->timeout_event_source = sd_event_source_unref(nd->timeout_event_source);
 

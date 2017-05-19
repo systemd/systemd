@@ -28,6 +28,7 @@
 #include "sd-ipv4ll.h"
 #include "sd-lldp.h"
 #include "sd-ndisc.h"
+#include "sd-radv.h"
 #include "sd-netlink.h"
 
 #include "list.h"
@@ -116,6 +117,8 @@ typedef struct Link {
         sd_ndisc *ndisc;
         Set *ndisc_rdnss;
         Set *ndisc_dnssl;
+
+        sd_radv *radv;
 
         sd_dhcp6_client *dhcp6_client;
         bool rtnl_extended_attrs;

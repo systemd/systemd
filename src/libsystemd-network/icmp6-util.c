@@ -32,6 +32,7 @@
 #include "fd-util.h"
 #include "icmp6-util.h"
 #include "socket-util.h"
+#include "in-addr-util.h"
 
 #define IN6ADDR_ALL_ROUTERS_MULTICAST_INIT \
         { { { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
@@ -41,12 +42,9 @@
         { { { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 } } }
 
-int icmp6_bind_router_solicitation(int index) {
-        struct icmp6_filter filter = { };
-        struct ipv6_mreq mreq = {
-                .ipv6mr_multiaddr = IN6ADDR_ALL_NODES_MULTICAST_INIT,
-                .ipv6mr_interface = index,
-        };
+static int icmp6_bind_router_message(const struct icmp6_filter *filter,
+                                     const struct ipv6_mreq *mreq) {
+        int index = mreq->ipv6mr_interface;
         _cleanup_close_ int s = -1;
         char ifname[IF_NAMESIZE] = "";
         static const int zero = 0, one = 1, hops = 255;
@@ -56,9 +54,11 @@ int icmp6_bind_router_solicitation(int index) {
         if (s < 0)
                 return -errno;
 
-        ICMP6_FILTER_SETBLOCKALL(&filter);
-        ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT, &filter);
-        r = setsockopt(s, IPPROTO_ICMPV6, ICMP6_FILTER, &filter, sizeof(filter));
+        r = setsockopt(s, IPPROTO_ICMPV6, ICMP6_FILTER, filter, sizeof(*filter));
+        if (r < 0)
+                return -errno;
+
+        r = setsockopt(s, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, mreq, sizeof(*mreq));
         if (r < 0)
                 return -errno;
 
@@ -78,7 +78,7 @@ int icmp6_bind_router_solicitation(int index) {
         if (r < 0)
                 return -errno;
 
-        r = setsockopt(s, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
+        r = setsockopt(s, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &hops, sizeof(hops));
         if (r < 0)
                 return -errno;
 
@@ -100,6 +100,32 @@ int icmp6_bind_router_solicitation(int index) {
         r = s;
         s = -1;
         return r;
+}
+
+int icmp6_bind_router_solicitation(int index) {
+        struct icmp6_filter filter = {};
+        struct ipv6_mreq mreq = {
+                .ipv6mr_multiaddr = IN6ADDR_ALL_NODES_MULTICAST_INIT,
+                .ipv6mr_interface = index,
+        };
+
+        ICMP6_FILTER_SETBLOCKALL(&filter);
+        ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT, &filter);
+
+        return icmp6_bind_router_message(&filter, &mreq);
+}
+
+int icmp6_bind_router_advertisement(int index) {
+        struct icmp6_filter filter = {};
+        struct ipv6_mreq mreq = {
+                .ipv6mr_multiaddr = IN6ADDR_ALL_ROUTERS_MULTICAST_INIT,
+                .ipv6mr_interface = index,
+        };
+
+        ICMP6_FILTER_SETBLOCKALL(&filter);
+        ICMP6_FILTER_SETPASS(ND_ROUTER_SOLICIT, &filter);
+
+        return icmp6_bind_router_message(&filter, &mreq);
 }
 
 int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
@@ -136,6 +162,77 @@ int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
         r = sendmsg(s, &msg, 0);
         if (r < 0)
                 return -errno;
+
+        return 0;
+}
+
+int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *dst,
+                  triple_timestamp *timestamp) {
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(int)) + /* ttl */
+                            CMSG_SPACE(sizeof(struct timeval))];
+        } control = {};
+        struct iovec iov = {};
+        union sockaddr_union sa = {};
+        struct msghdr msg = {
+                .msg_name = &sa.sa,
+                .msg_namelen = sizeof(sa),
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct cmsghdr *cmsg;
+        ssize_t len;
+
+        iov.iov_base = buffer;
+        iov.iov_len = size;
+
+        len = recvmsg(fd, &msg, MSG_DONTWAIT);
+        if (len < 0) {
+                if (errno == EAGAIN || errno == EINTR)
+                        return 0;
+
+                return -errno;
+        }
+
+        if ((size_t) len != size)
+                return -EINVAL;
+
+        if (msg.msg_namelen == sizeof(struct sockaddr_in6) &&
+            sa.in6.sin6_family == AF_INET6)  {
+
+                *dst = sa.in6.sin6_addr;
+                if (in_addr_is_link_local(AF_INET6, (union in_addr_union*) dst) <= 0)
+                        return -EADDRNOTAVAIL;
+
+        } else if (msg.msg_namelen > 0)
+                return -EPFNOSUPPORT;
+
+        /* namelen == 0 only happens when running the test-suite over a socketpair */
+
+        assert(!(msg.msg_flags & MSG_CTRUNC));
+        assert(!(msg.msg_flags & MSG_TRUNC));
+
+        CMSG_FOREACH(cmsg, &msg) {
+                if (cmsg->cmsg_level == SOL_IPV6 &&
+                    cmsg->cmsg_type == IPV6_HOPLIMIT &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
+                        int hops = *(int*) CMSG_DATA(cmsg);
+
+                        if (hops != 255)
+                                return -EMULTIHOP;
+                }
+
+                if (cmsg->cmsg_level == SOL_SOCKET &&
+                    cmsg->cmsg_type == SO_TIMESTAMP &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval)))
+                        triple_timestamp_from_realtime(timestamp, timeval_load((struct timeval*) CMSG_DATA(cmsg)));
+        }
+
+        if (!triple_timestamp_is_set(timestamp))
+                triple_timestamp_get(timestamp);
 
         return 0;
 }

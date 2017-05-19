@@ -137,6 +137,16 @@ BridgeFDB.VLANId,                       config_parse_fdb_vlan_id,               
 BridgeVLAN.PVID,                        config_parse_brvlan_pvid,                       0,                             0
 BridgeVLAN.VLAN,                        config_parse_brvlan_vlan,                       0,                             0
 BridgeVLAN.EgressUntagged,              config_parse_brvlan_untagged,                   0,                             0
+Network.IPv6PrefixDelegation,           config_parse_bool,                              0,                             offsetof(Network, router_prefix_delegation)
+IPv6PrefixDelegation.RouterLifetimeSec, config_parse_sec,                               0,                             offsetof(Network, router_lifetime_usec)
+IPv6PrefixDelegation.Managed,           config_parse_bool,                              0,                             offsetof(Network, router_managed)
+IPv6PrefixDelegation.OtherInformation,  config_parse_bool,                              0,                             offsetof(Network, router_other_information)
+IPv6PrefixDelegation.RouterPreference,  config_parse_router_preference,                 0,                             0
+IPv6Prefix.Prefix,                      config_parse_prefix,                            0,                             0
+IPv6Prefix.OnLink,                      config_parse_prefix_flags,                      0,                             0
+IPv6Prefix.AddressAutoconfiguration,    config_parse_prefix_flags,                      0,                             0
+IPv6Prefix.ValidLifetimeSec,            config_parse_prefix_lifetime,                   0,                             0
+IPv6Prefix.PreferredLifetimeSec,        config_parse_prefix_lifetime,                   0,                             0
 /* backwards compatibility: do not add new entries to this section */
 Network.IPv4LL,                         config_parse_ipv4ll,                            0,                             offsetof(Network, link_local)
 DHCPv4.UseDNS,                          config_parse_bool,                              0,                             offsetof(Network, dhcp_use_dns)
