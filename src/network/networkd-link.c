@@ -141,7 +141,10 @@ static bool link_lldp_rx_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        if (link->network->bridge)
+        /* LLDP should be handled on bridge slaves as those have a direct
+         * connection to their peers not on the bridge master. Linux doesn't
+         * even (by default) forward lldp packets to the bridge master.*/
+        if (streq_ptr("bridge", link->kind))
                 return false;
 
         return link->network->lldp_mode != LLDP_MODE_NO;
