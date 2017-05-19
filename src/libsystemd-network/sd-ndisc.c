@@ -281,12 +281,6 @@ static int ndisc_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         assert(nd);
         assert(nd->event);
 
-        r = icmp6_send_router_solicitation(nd->fd, &nd->mac_addr);
-        if (r < 0) {
-                log_ndisc_errno(r, "Error sending Router Solicitation: %m");
-                goto fail;
-        }
-
         assert_se(sd_event_now(nd->event, clock_boottime_or_monotonic(), &time_now) >= 0);
 
         nd->timeout_event_source = sd_event_source_unref(nd->timeout_event_source);
@@ -316,6 +310,12 @@ static int ndisc_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         r = sd_event_source_set_enabled(nd->timeout_event_source, SD_EVENT_ONESHOT);
         if (r < 0) {
                 log_ndisc_errno(r, "Error reenabling timer: %m");
+                goto fail;
+        }
+
+        r = icmp6_send_router_solicitation(nd->fd, &nd->mac_addr);
+        if (r < 0) {
+                log_ndisc_errno(r, "Error sending Router Solicitation: %m");
                 goto fail;
         }
 
