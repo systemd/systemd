@@ -72,7 +72,7 @@ void server_forward_console(
         /* First: timestamp */
         if (prefix_timestamp()) {
                 assert_se(clock_gettime(CLOCK_MONOTONIC, &ts) == 0);
-                xsprintf(tbuf, "[%5"PRI_TIME".%06ld] ",
+                xsprintf(tbuf, "[%5"PRI_TIME".%06"PRI_NSEC_glibc"] ",
                          ts.tv_sec,
                          ts.tv_nsec / 1000);
                 IOVEC_SET_STRING(iovec[n++], tbuf);
