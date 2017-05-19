@@ -854,6 +854,10 @@ _public_ int sd_get_machine_names(char ***machines) {
         assert_return(machines, -EINVAL);
 
         r = get_files_in_directory("/run/systemd/machines/", &l);
+        if (r == -ENOENT) {
+                *machines = NULL;
+                return 0;
+        }
         if (r < 0)
                 return r;
 
