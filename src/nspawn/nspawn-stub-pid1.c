@@ -18,9 +18,9 @@
 ***/
 
 #include <sys/reboot.h>
-#include <sys/unistd.h>
 #include <sys/wait.h>
 #include <sys/prctl.h>
+#include <unistd.h>
 
 #include "fd-util.h"
 #include "log.h"
