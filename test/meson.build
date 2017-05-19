@@ -85,6 +85,7 @@ test_data_files = '''
         test-execute/exec-readonlypaths-mount-propagation.service
         test-execute/exec-readwritepaths-mount-propagation.service
         test-execute/exec-inaccessiblepaths-mount-propagation.service
+        test-execute/exec-inaccessiblepaths-proc.service
         test-execute/exec-spec-interpolation.service
         test-execute/exec-systemcallerrornumber.service
         test-execute/exec-systemcallfilter-failing2.service
