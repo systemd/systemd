@@ -73,26 +73,34 @@
     <title>Description</title>
 
     <para>
-      <function>sd_bus_add_match()</function> adds a match rule used to dispatch
-      incoming messages. The syntax of the rule passed in
-      <parameter>match</parameter> is described in the
-      <ulink url="https://dbus.freedesktop.org/doc/dbus-specification.html">D-Bus Specification</ulink>.
+      <function>sd_bus_add_match()</function> installs a match rule for incoming messages received on the specified bus
+      connection object <parameter>bus</parameter>. The syntax of the match rule expression passed in
+      <parameter>match</parameter> is described in the <ulink
+      url="https://dbus.freedesktop.org/doc/dbus-specification.html">D-Bus Specification</ulink>. The specified handler
+      function <parameter>callback</parameter> is called for eaching incoming message matching the specified
+      expression, the <parameter>userdata</parameter> parameter is passed as-is to the callback function.
     </para>
 
     <para>
-      The message <parameter>m</parameter> passed to the callback is only
-      borrowed, that is, the callback should not call
-      <citerefentry><refentrytitle>sd_bus_message_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-      on it. If the callback wants to hold on to the message beyond the lifetime
-      of the callback, it needs to call
-      <citerefentry><refentrytitle>sd_bus_message_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-      to create a new reference.
+      On success, and if non-<constant>NULL</constant>, the <parameter>slot</parameter> return parameter will be set to
+      a slot object that may be used as a reference to the installed match, and may be utilized to remove it again at a
+      later time with
+      <citerefentry><refentrytitle>sd_bus_slot_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>. If
+      specified as <constant>NULL</constant> the lifetime of the match is bound to the lifetime of the bus object itself, and the match
+      cannot be removed independently.
     </para>
 
     <para>
-      If an error occurs during the callback invocation, the callback should
-      return a negative error number. If it wants other callbacks that match the
-      same rule to be called, it should return 0. Otherwise it should return a
+      The message <parameter>m</parameter> passed to the callback is only borrowed, that is, the callback should not
+      call <citerefentry><refentrytitle>sd_bus_message_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry> on
+      it. If the callback wants to hold on to the message beyond the lifetime of the callback, it needs to call
+      <citerefentry><refentrytitle>sd_bus_message_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry> to create
+      a new reference.
+    </para>
+
+    <para>
+      If an error occurs during the callback invocation, the callback should return a negative error number. If it
+      wants other callbacks that match the same rule to be called, it should return 0. Otherwise it should return a
       positive integer.
     </para>
   </refsect1>
@@ -101,9 +109,8 @@
     <title>Return Value</title>
 
     <para>
-      On success, <function>sd_bus_add_match()</function> returns 0 or a
-      positive integer. On failure, it returns a negative errno-style error
-      code.
+      On success, <function>sd_bus_add_match()</function> returns 0 or a positive integer. On failure, it returns a
+      negative errno-style error code.
     </para>
   </refsect1>
 
@@ -112,7 +119,7 @@
 
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 

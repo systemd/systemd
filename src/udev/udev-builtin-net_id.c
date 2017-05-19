@@ -389,8 +389,12 @@ static int names_platform(struct udev_device *dev, struct netnames *names, bool 
          * eg. "/sys/devices/platform/HISI00C2:00");
          * The Vendor (3 or 4 char), followed by hexdecimal model number : instance id.
          */
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
         if (sscanf(syspath, pattern, vendor, &model, &instance, &ethid) != 4)
                 return -EINVAL;
+#pragma GCC diagnostic pop
 
         if (!in_charset(vendor, validchars))
                 return -ENOENT;
