@@ -723,7 +723,7 @@ _public_ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **ui
 
                                 r = parse_uid(k, b + i);
                                 if (r < 0)
-                                        continue;
+                                        return r;
 
                                 i++;
                         }

@@ -105,8 +105,9 @@
     one (<constant>NULL</constant> terminated) with the session
     identifiers of the sessions and one with the user identifiers of
     the Unix users the sessions belong to. An additional parameter may
-    be used to return the number of entries in the latter array. The
-    two arrays and the latter parameter may be passed as
+    be used to return the number of entries in the latter array. This
+    value is the same the return value, if the latter is nonnegative.
+    The two arrays and the last parameter may be passed as
     <constant>NULL</constant> in case these values need not to be
     determined. The arrays and the strings referenced by them need to
     be freed with the libc
