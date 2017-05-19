@@ -2177,6 +2177,8 @@ void server_done(Server *s) {
         free(s->tty_path);
         free(s->cgroup_root);
         free(s->hostname_field);
+        free(s->runtime_storage.path);
+        free(s->system_storage.path);
 
         if (s->mmap)
                 mmap_cache_unref(s->mmap);

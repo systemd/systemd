@@ -61,7 +61,7 @@ typedef struct JournalStorageSpace {
 
 typedef struct JournalStorage {
         const char *name;
-        const char *path;
+        char *path;
 
         JournalMetrics metrics;
         JournalStorageSpace space;
