@@ -687,7 +687,7 @@ _public_ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **ui
 
         r = parse_env_file(p, NEWLINE,
                            "SESSIONS", &s,
-                           "ACTIVE_SESSIONS", &t,
+                           "UIDS", &t,
                            NULL);
         if (r == -ENOENT)
                 return -ENXIO;
