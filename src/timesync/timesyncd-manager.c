@@ -379,9 +379,9 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
 
         log_debug("  status       : %04i %s\n"
                   "  time now     : %li.%03"PRI_USEC"\n"
-                  "  constant     : %li\n"
+                  "  constant     : %"PRI_TIMEX"\n"
                   "  offset       : %+.3f sec\n"
-                  "  freq offset  : %+li (%i ppm)\n",
+                  "  freq offset  : %+"PRI_TIMEX" (%i ppm)\n",
                   tmx.status, tmx.status & STA_UNSYNC ? "unsync" : "sync",
                   tmx.time.tv_sec, tmx.time.tv_usec / NSEC_PER_MSEC,
                   tmx.constant,
