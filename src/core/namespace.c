@@ -793,13 +793,14 @@ static int apply_mount(
         return 0;
 }
 
-static int make_read_only(MountEntry *m, char **blacklist) {
+static int make_read_only(MountEntry *m, char **blacklist, FILE *proc_self_mountinfo) {
         int r = 0;
 
         assert(m);
+        assert(proc_self_mountinfo);
 
         if (mount_entry_read_only(m))
-                r = bind_remount_recursive(mount_entry_path(m), true, blacklist);
+                r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), true, blacklist, proc_self_mountinfo);
         else if (m->mode == PRIVATE_DEV) { /* Superblock can be readonly but the submounts can't */
                 if (mount(NULL, mount_entry_path(m), NULL, MS_REMOUNT|DEV_MOUNT_OPTIONS|MS_RDONLY, NULL) < 0)
                         r = -errno;
@@ -1082,8 +1083,17 @@ int setup_namespace(
         }
 
         if (n_mounts > 0) {
+                _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
                 char **blacklist;
                 unsigned j;
+
+                /* Open /proc/self/mountinfo now as it may become unavailable if we mount anything on top of /proc.
+                 * For example, this is the case with the option: 'InaccessiblePaths=/proc' */
+                proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
+                if (!proc_self_mountinfo) {
+                        r = -errno;
+                        goto finish;
+                }
 
                 /* First round, add in all special mounts we need */
                 for (m = mounts; m < mounts + n_mounts; ++m) {
@@ -1100,7 +1110,7 @@ int setup_namespace(
 
                 /* Second round, flip the ro bits if necessary. */
                 for (m = mounts; m < mounts + n_mounts; ++m) {
-                        r = make_read_only(m, blacklist);
+                        r = make_read_only(m, blacklist, proc_self_mountinfo);
                         if (r < 0)
                                 goto finish;
                 }
