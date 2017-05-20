@@ -246,7 +246,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
                 return 0;
 
         if (s->forward_to_syslog || s->server->forward_to_syslog)
-                server_forward_syslog(s->server, syslog_fixup_facility(priority), s->identifier, p, &s->ucred, NULL);
+                server_forward_syslog(s->server, syslog_fixup_facility(priority), s->identifier, p, strlen(p), &s->ucred, NULL);
 
         if (s->forward_to_kmsg || s->server->forward_to_kmsg)
                 server_forward_kmsg(s->server, priority, s->identifier, p, &s->ucred);
