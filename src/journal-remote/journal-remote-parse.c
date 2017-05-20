@@ -41,7 +41,7 @@ void source_free(RemoteSource *source) {
 
 /**
  * Initialize zero-filled source with given values. On success, takes
- * ownerhship of fd and writer, otherwise does not touch them.
+ * ownership of fd, name, and writer, otherwise does not touch them.
  */
 RemoteSource* source_new(int fd, bool passive_fd, char *name, Writer *writer) {
 

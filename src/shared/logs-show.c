@@ -485,6 +485,7 @@ static int output_verbose(
         _cleanup_free_ char *cursor = NULL;
         uint64_t realtime = 0;
         char ts[FORMAT_TIMESTAMP_MAX + 7];
+        const char *timestamp;
         int r;
 
         assert(f);
@@ -520,10 +521,10 @@ static int output_verbose(
         if (r < 0)
                 return log_error_errno(r, "Failed to get cursor: %m");
 
+        timestamp = flags & OUTPUT_UTC ? format_timestamp_us_utc(ts, sizeof ts, realtime)
+                                       : format_timestamp_us(ts, sizeof ts, realtime);
         fprintf(f, "%s [%s]\n",
-                flags & OUTPUT_UTC ?
-                format_timestamp_us_utc(ts, sizeof(ts), realtime) :
-                format_timestamp_us(ts, sizeof(ts), realtime),
+                timestamp ?: "(no timestamp)",
                 cursor);
 
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
