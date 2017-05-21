@@ -38,10 +38,12 @@ static bool unit_name_compatible(const char *a, const char *b) {
                 return true;
 
         r = unit_name_template(a, &prefix);
-        if (r < 0) {
-                log_oom();
+        if (r == -EINVAL)
+                /* not a template */
+                return false;
+        if (r < 0)
+                /* oom, or some other failure. Just skip the warning. */
                 return true;
-        }
 
         /* an instance name points to a target that is just the template name */
         if (streq(prefix, b))
