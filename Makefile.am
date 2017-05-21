@@ -6128,10 +6128,10 @@ test_login_tables_LDADD = \
 	liblogind-core.la
 
 manual_tests += \
-	test-login \
 	test-inhibit
 
 tests += \
+	test-login \
 	test-login-tables \
 	test-login-shared
 

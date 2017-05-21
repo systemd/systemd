@@ -56,27 +56,33 @@
  */
 
 _public_ int sd_pid_get_session(pid_t pid, char **session) {
+        int r;
 
         assert_return(pid >= 0, -EINVAL);
         assert_return(session, -EINVAL);
 
-        return cg_pid_get_session(pid, session);
+        r = cg_pid_get_session(pid, session);
+        return r == -ENXIO ? -ENODATA : r;
 }
 
 _public_ int sd_pid_get_unit(pid_t pid, char **unit) {
+        int r;
 
         assert_return(pid >= 0, -EINVAL);
         assert_return(unit, -EINVAL);
 
-        return cg_pid_get_unit(pid, unit);
+        r = cg_pid_get_unit(pid, unit);
+        return r == -ENXIO ? -ENODATA : r;
 }
 
 _public_ int sd_pid_get_user_unit(pid_t pid, char **unit) {
+        int r;
 
         assert_return(pid >= 0, -EINVAL);
         assert_return(unit, -EINVAL);
 
-        return cg_pid_get_user_unit(pid, unit);
+        r = cg_pid_get_user_unit(pid, unit);
+        return r == -ENXIO ? -ENODATA : r;
 }
 
 _public_ int sd_pid_get_machine_name(pid_t pid, char **name) {
@@ -687,7 +693,7 @@ _public_ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **ui
 
         r = parse_env_file(p, NEWLINE,
                            "SESSIONS", &s,
-                           "ACTIVE_SESSIONS", &t,
+                           "UIDS", &t,
                            NULL);
         if (r == -ENOENT)
                 return -ENXIO;
@@ -723,7 +729,7 @@ _public_ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **ui
 
                                 r = parse_uid(k, b + i);
                                 if (r < 0)
-                                        continue;
+                                        return r;
 
                                 i++;
                         }
@@ -848,6 +854,10 @@ _public_ int sd_get_machine_names(char ***machines) {
         assert_return(machines, -EINVAL);
 
         r = get_files_in_directory("/run/systemd/machines/", &l);
+        if (r == -ENOENT) {
+                *machines = NULL;
+                return 0;
+        }
         if (r < 0)
                 return r;
 

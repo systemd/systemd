@@ -790,8 +790,7 @@ tests += [
 
         [['src/libsystemd/sd-login/test-login.c'],
          [],
-         [],
-         '', 'manual'],
+         []],
 ]
 
 if cxx.found()
