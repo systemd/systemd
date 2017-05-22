@@ -610,6 +610,11 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 r = lease_parse_u16(option, len, &lease->mtu, 68);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse MTU, ignoring: %m");
+                if (lease->mtu < DHCP_DEFAULT_MIN_SIZE) {
+                        log_warning("MTU value of %d too small. Using default MTU value of %d instead.", lease->mtu, DHCP_DEFAULT_MIN_SIZE);
+                        lease->mtu = DHCP_DEFAULT_MIN_SIZE;
+                }
+
                 break;
 
         case SD_DHCP_OPTION_DOMAIN_NAME:
