@@ -422,7 +422,11 @@ AC_ARG_ENABLE([utmp], AS_HELP_STRING([--disable-utmp], [disable utmp/wtmp log ha
                 [xyes], [have_utmp=yes],
                 [xno],  [have_utmp=no],
                 AC_MSG_ERROR(bad value ${enableval} for --enable-utmp)))
-AS_IF([test "x$have_utmp" = "xyes"], [AC_DEFINE(HAVE_UTMP, 1, [Define if utmp/wtmp support is enabled])])
+AS_IF([test "x$have_utmp" = "xyes"], [
+        AC_DEFINE(HAVE_UTMP, 1, [Define if utmp/wtmp support is enabled])
+        have_utmp=yes
+        M4_DEFINES="$M4_DEFINES -DHAVE_UTMP"],
+        [have_utmp=no])
 AM_CONDITIONAL([HAVE_UTMP], [test "x$have_utmp" = "xyes"])
 
 # ------------------------------------------------------------------------------

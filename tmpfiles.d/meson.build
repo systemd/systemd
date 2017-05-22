@@ -6,7 +6,6 @@ tmpfiles = [['home.conf',            ''],
             ['systemd-nspawn.conf',  ''],
             ['systemd-remote.conf',  'ENABLE_REMOTE'],
             ['tmp.conf',             ''],
-            ['var.conf',             ''],
             ['x11.conf',             ''],
             ['legacy.conf',          'HAVE_SYSV_COMPAT'],
            ]
@@ -23,7 +22,8 @@ foreach pair : tmpfiles
 endforeach
 
 m4_files = ['etc.conf',
-            'systemd.conf']
+            'systemd.conf',
+            'var.conf']
 
 foreach file : m4_files
         custom_target(

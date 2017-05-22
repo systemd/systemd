@@ -12,8 +12,10 @@ q /var 0755 - - -
 L /var/run - - - - ../run
 
 d /var/log 0755 - - -
+m4_ifdef(`HAVE_UTMP',
 f /var/log/wtmp 0664 root utmp -
 f /var/log/btmp 0600 root utmp -
+)m4_dnl
 
 d /var/cache 0755 - - -
 
