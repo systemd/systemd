@@ -2029,7 +2029,7 @@ static int determine_names(void) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to find image for machine '%s': %m", arg_machine);
                         if (r == 0) {
-                                log_error("No image for machine '%s': %m", arg_machine);
+                                log_error("No image for machine '%s'.", arg_machine);
                                 return -ENOENT;
                         }
 

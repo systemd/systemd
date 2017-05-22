@@ -525,8 +525,6 @@ int main(int argc, char *argv[]) {
         void *p;
         int r, q;
 
-        zero(c);
-
         c.automatic_integer_property = 4711;
         assert_se(c.automatic_string_property = strdup("dudeldu"));
 

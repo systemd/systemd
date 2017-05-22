@@ -3045,7 +3045,7 @@ int unit_file_get_list(
                         if (errno == ENOENT)
                                 continue;
                         if (IN_SET(errno, ENOTDIR, EACCES)) {
-                                log_debug("Failed to open \"%s\": %m", *i);
+                                log_debug_errno(errno, "Failed to open \"%s\": %m", *i);
                                 continue;
                         }
 

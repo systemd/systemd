@@ -724,10 +724,9 @@ static int path_set_xattrs(Item *i, const char *path) {
 
                 n = strlen(*value);
                 log_debug("Setting extended attribute '%s=%s' on %s.", *name, *value, path);
-                if (lsetxattr(path, *name, *value, n, 0) < 0) {
-                        log_error("Setting extended attribute %s=%s on %s failed: %m", *name, *value, path);
-                        return -errno;
-                }
+                if (lsetxattr(path, *name, *value, n, 0) < 0)
+                        return log_error_errno(errno, "Setting extended attribute %s=%s on %s failed: %m",
+                                               *name, *value, path);
         }
         return 0;
 }

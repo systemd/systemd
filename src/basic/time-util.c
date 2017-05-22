@@ -555,14 +555,28 @@ void dual_timestamp_serialize(FILE *f, const char *name, dual_timestamp *t) {
 
 int dual_timestamp_deserialize(const char *value, dual_timestamp *t) {
         uint64_t a, b;
+        int r, pos;
 
         assert(value);
         assert(t);
 
-        if (sscanf(value, "%" PRIu64 "%" PRIu64, &a, &b) != 2) {
-                log_debug("Failed to parse dual timestamp value \"%s\": %m", value);
+        pos = strspn(value, WHITESPACE);
+        if (value[pos] == '-')
+                return -EINVAL;
+        pos += strspn(value + pos, DIGITS);
+        pos += strspn(value + pos, WHITESPACE);
+        if (value[pos] == '-')
+                return -EINVAL;
+
+        r = sscanf(value, "%" PRIu64 "%" PRIu64 "%n", &a, &b, &pos);
+        if (r != 2) {
+                log_debug("Failed to parse dual timestamp value \"%s\".", value);
                 return -EINVAL;
         }
+
+        if (value[pos] != '\0')
+                /* trailing garbage */
+                return -EINVAL;
 
         t->realtime = a;
         t->monotonic = b;

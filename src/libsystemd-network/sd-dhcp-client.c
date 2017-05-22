@@ -1655,7 +1655,8 @@ static int client_receive_message_udp(
                 if (errno == EAGAIN || errno == EINTR)
                         return 0;
 
-                return log_dhcp_client_errno(client, errno, "Could not receive message from UDP socket: %m");
+                return log_dhcp_client_errno(client, errno,
+                                             "Could not receive message from UDP socket: %m");
         }
         if ((size_t) len < sizeof(DHCPMessage)) {
                 log_dhcp_client(client, "Too small to be a DHCP message: ignoring");
@@ -1748,9 +1749,8 @@ static int client_receive_message_raw(
                 if (errno == EAGAIN || errno == EINTR)
                         return 0;
 
-                log_dhcp_client(client, "Could not receive message from raw socket: %m");
-
-                return -errno;
+                return log_dhcp_client_errno(client, errno,
+                                             "Could not receive message from raw socket: %m");
         } else if ((size_t)len < sizeof(DHCPPacket))
                 return 0;
 

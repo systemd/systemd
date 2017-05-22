@@ -273,6 +273,43 @@ static void test_format_timestamp_utc(void) {
         test_format_timestamp_utc_one(USEC_INFINITY, NULL);
 }
 
+static void test_dual_timestamp_deserialize(void) {
+        int r;
+        dual_timestamp t;
+
+        r = dual_timestamp_deserialize("1234 5678", &t);
+        assert_se(r == 0);
+        assert_se(t.realtime == 1234);
+        assert_se(t.monotonic == 5678);
+
+        r = dual_timestamp_deserialize("1234x 5678", &t);
+        assert_se(r == -EINVAL);
+
+        r = dual_timestamp_deserialize("1234 5678y", &t);
+        assert_se(r == -EINVAL);
+
+        r = dual_timestamp_deserialize("-1234 5678", &t);
+        assert_se(r == -EINVAL);
+
+        r = dual_timestamp_deserialize("1234 -5678", &t);
+        assert_se(r == -EINVAL);
+
+        /* Check that output wasn't modified. */
+        assert_se(t.realtime == 1234);
+        assert_se(t.monotonic == 5678);
+
+        r = dual_timestamp_deserialize("+123 567", &t);
+        assert_se(r == 0);
+        assert_se(t.realtime == 123);
+        assert_se(t.monotonic == 567);
+
+        /* Check that we get "infinity" on overflow. */
+        r = dual_timestamp_deserialize("18446744073709551617 0", &t);
+        assert_se(r == 0);
+        assert_se(t.realtime == USEC_INFINITY);
+        assert_se(t.monotonic == 0);
+}
+
 int main(int argc, char *argv[]) {
         uintmax_t x;
 
@@ -288,6 +325,7 @@ int main(int argc, char *argv[]) {
         test_usec_sub();
         test_format_timestamp();
         test_format_timestamp_utc();
+        test_dual_timestamp_deserialize();
 
         /* Ensure time_t is signed */
         assert_cc((time_t) -1 < (time_t) 1);
