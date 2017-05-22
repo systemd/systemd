@@ -611,7 +611,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse MTU, ignoring: %m");
                 if (lease->mtu < DHCP_DEFAULT_MIN_SIZE) {
-                        log_warning("MTU value of %d too small. Using default MTU value of %d instead.", lease->mtu, DHCP_DEFAULT_MIN_SIZE);
+                        log_debug("MTU value of %" PRIu16 " too small. Using default MTU value of %d instead.", lease->mtu, DHCP_DEFAULT_MIN_SIZE);
                         lease->mtu = DHCP_DEFAULT_MIN_SIZE;
                 }
 
