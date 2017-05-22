@@ -1,9 +1,11 @@
 ### Submission type
 
-  - [ ] Bug report
-  - [ ] Request for enhancement (RFE)
+<!-- Delete unnecessary option: -->
 
-*NOTE: Do not submit anything other than bug reports or RFEs via the issue tracker!*
+ - Bug report
+ - Request for enhancement (RFE)
+
+<!-- **NOTE:** Do not submit anything other than bug reports or RFEs via the issue tracker! -->
 
 ### systemd version the issue has been seen with
 
