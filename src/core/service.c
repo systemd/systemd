@@ -1701,7 +1701,11 @@ static void service_enter_running(Service *s, ServiceResult f) {
                         service_enter_reload_by_notify(s);
                 else if (s->notify_state == NOTIFY_STOPPING)
                         service_enter_stop_by_notify(s);
-                else {
+                else if ((cgroup_good(s) == 0) && streq(service_type_to_string(s->type), "forking")) {
+                        service_unwatch_main_pid(s);
+                        service_unwatch_pid_file(s);
+                        service_enter_stop(s, SERVICE_SUCCESS);
+                } else {
                         service_set_state(s, SERVICE_RUNNING);
                         service_arm_timer(s, usec_add(UNIT(s)->active_enter_timestamp.monotonic, s->runtime_max_usec));
                 }
