@@ -37,8 +37,13 @@
 #include "sleep-config.h"
 #include "string-util.h"
 #include "strv.h"
+#include "proc-cmdline.h"
+#include "fstab-util.h"
 
 #define USE(x, y) do { (x) = (y); (y) = NULL; } while (0)
+
+static char *arg_resume_dev = NULL;
+static bool validate_hibernate_generator = true;
 
 int parse_sleep_config(const char *verb, char ***_modes, char ***_states) {
 
@@ -55,6 +60,7 @@ int parse_sleep_config(const char *verb, char ***_modes, char ***_states) {
                 { "Sleep",   "HibernateState",   config_parse_strv,  0, &hibernate_state },
                 { "Sleep",   "HybridSleepMode",  config_parse_strv,  0, &hybrid_mode  },
                 { "Sleep",   "HybridSleepState", config_parse_strv,  0, &hybrid_state },
+                { "Sleep",   "ValidateHibernateGenerator", config_parse_bool, 0, &validate_hibernate_generator },
                 {}
         };
 
@@ -259,6 +265,52 @@ static bool enough_memory_for_hibernation(void) {
         return r;
 }
 
+static int parse_proc_cmdline_item(const char *key, const char *value) {
+
+        assert(key);
+
+        if (streq(key, "resume") && value) {
+                free(arg_resume_dev);
+                arg_resume_dev = fstab_node_to_udev_node(value);
+                if (!arg_resume_dev) {
+                        return log_oom();
+                }
+        }
+
+        return 0;
+
+}
+
+static bool resume_passed_to_kernel(void) {
+        int r = 0;
+        struct stat rd;
+
+        /* If not using the systemd hibernate generator we don't care about the cmdline */
+        if (!validate_hibernate_generator)
+                return true;
+
+        r = parse_proc_cmdline(parse_proc_cmdline_item);
+        if (r < 0) {
+                log_warning("Failed to parse kernel command line, disabling hibernation");
+                return false;
+        }
+
+        if (arg_resume_dev == NULL)
+                        return false;
+
+        if (stat(arg_resume_dev, &rd) == -1) {
+                log_warning("Could not stat resume device, disabling hibernation");
+                return false;
+        }
+
+        if ((rd.st_mode & S_IFMT) != S_IFBLK) {
+                log_warning("The resume= device must be a block device, disabling hibernation");
+                return false;
+        }
+
+        return true;
+}
+
 int can_sleep(const char *verb) {
         _cleanup_strv_free_ char **modes = NULL, **states = NULL;
         int r;
@@ -274,5 +326,5 @@ int can_sleep(const char *verb) {
         if (!can_sleep_state(states) || !can_sleep_disk(modes))
                 return false;
 
-        return streq(verb, "suspend") || enough_memory_for_hibernation();
+        return streq(verb, "suspend") || (enough_memory_for_hibernation() && resume_passed_to_kernel());
 }

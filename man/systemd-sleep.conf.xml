@@ -158,6 +158,15 @@
         neither succeeds, the operation will be aborted.
         </para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>ValidateHibernateGenerator</varname></term>
+
+        <listitem><para>Defaults to true. Determines whether the
+        requirements for the systemd hibernate generator should be 
+        validated as part of the canHibernate checks.
+        </para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
