@@ -170,6 +170,12 @@
         expressions. Otherwise, the semantics are similar to
         <varname>OnActiveSec=</varname> and related settings.</para>
 
+        <para>Note that your service will only be activated by the timer
+        if the service is inactive. This means that for a
+        <varname>oneshot</varname> if you set <varname>RemainAfterExit=</varname>
+        in the service, the timer will not start new instances of the service
+        after the first.</para>
+
         <para>Note that timers do not necessarily expire at the
         precise time configured with this setting, as it is subject to
         the <varname>AccuracySec=</varname> setting
