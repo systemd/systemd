@@ -415,8 +415,11 @@ static int autofs_set_timeout(int dev_autofs_fd, int ioctl_fd, usec_t usec) {
         init_autofs_dev_ioctl(&param);
         param.ioctlfd = ioctl_fd;
 
-        /* Convert to seconds, rounding up. */
-        param.timeout.timeout = (usec + USEC_PER_SEC - 1) / USEC_PER_SEC;
+        if (usec == USEC_INFINITY)
+                param.timeout.timeout = 0;
+        else
+                /* Convert to seconds, rounding up. */
+                param.timeout.timeout = (usec + USEC_PER_SEC - 1) / USEC_PER_SEC;
 
         if (ioctl(dev_autofs_fd, AUTOFS_DEV_IOCTL_TIMEOUT, &param) < 0)
                 return -errno;
