@@ -299,7 +299,7 @@ Socket.ExecStartPre,             config_parse_exec,                  SOCKET_EXEC
 Socket.ExecStartPost,            config_parse_exec,                  SOCKET_EXEC_START_POST,        offsetof(Socket, exec_command)
 Socket.ExecStopPre,              config_parse_exec,                  SOCKET_EXEC_STOP_PRE,          offsetof(Socket, exec_command)
 Socket.ExecStopPost,             config_parse_exec,                  SOCKET_EXEC_STOP_POST,         offsetof(Socket, exec_command)
-Socket.TimeoutSec,               config_parse_sec,                   0,                             offsetof(Socket, timeout_usec)
+Socket.TimeoutSec,               config_parse_sec_fix_0,             0,                             offsetof(Socket, timeout_usec)
 Socket.SocketUser,               config_parse_user_group,            0,                             offsetof(Socket, user)
 Socket.SocketGroup,              config_parse_user_group,            0,                             offsetof(Socket, group)
 Socket.SocketMode,               config_parse_mode,                  0,                             offsetof(Socket, socket_mode)
@@ -363,7 +363,7 @@ Mount.What,                      config_parse_unit_string_printf,    0,         
 Mount.Where,                     config_parse_path,                  0,                             offsetof(Mount, where)
 Mount.Options,                   config_parse_unit_string_printf,    0,                             offsetof(Mount, parameters_fragment.options)
 Mount.Type,                      config_parse_string,                0,                             offsetof(Mount, parameters_fragment.fstype)
-Mount.TimeoutSec,                config_parse_sec,                   0,                             offsetof(Mount, timeout_usec)
+Mount.TimeoutSec,                config_parse_sec_fix_0,             0,                             offsetof(Mount, timeout_usec)
 Mount.DirectoryMode,             config_parse_mode,                  0,                             offsetof(Mount, directory_mode)
 Mount.SloppyOptions,             config_parse_bool,                  0,                             offsetof(Mount, sloppy_options)
 Mount.LazyUnmount,               config_parse_bool,                  0,                             offsetof(Mount, lazy_unmount)
@@ -374,12 +374,12 @@ KILL_CONTEXT_CONFIG_ITEMS(Mount)m4_dnl
 m4_dnl
 Automount.Where,                 config_parse_path,                  0,                             offsetof(Automount, where)
 Automount.DirectoryMode,         config_parse_mode,                  0,                             offsetof(Automount, directory_mode)
-Automount.TimeoutIdleSec,        config_parse_sec,                   0,                             offsetof(Automount, timeout_idle_usec)
+Automount.TimeoutIdleSec,        config_parse_sec_fix_0,             0,                             offsetof(Automount, timeout_idle_usec)
 m4_dnl
 Swap.What,                       config_parse_path,                  0,                             offsetof(Swap, parameters_fragment.what)
 Swap.Priority,                   config_parse_int,                   0,                             offsetof(Swap, parameters_fragment.priority)
 Swap.Options,                    config_parse_unit_string_printf,    0,                             offsetof(Swap, parameters_fragment.options)
-Swap.TimeoutSec,                 config_parse_sec,                   0,                             offsetof(Swap, timeout_usec)
+Swap.TimeoutSec,                 config_parse_sec_fix_0,             0,                             offsetof(Swap, timeout_usec)
 EXEC_CONTEXT_CONFIG_ITEMS(Swap)m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Swap)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Swap)m4_dnl
