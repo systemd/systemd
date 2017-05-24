@@ -77,6 +77,10 @@ static int link_set_dhcp_routes(Link *link) {
         if (!link->network->dhcp_use_routes)
                 return 0;
 
+        r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "DHCP error: could not get address: %m");
+
         r = sd_dhcp_lease_get_router(link->dhcp_lease, &gateway);
         if (r < 0 && r != -ENODATA)
                 return log_link_warning_errno(link, r, "DHCP error: could not get gateway: %m");
@@ -84,10 +88,6 @@ static int link_set_dhcp_routes(Link *link) {
         if (r >= 0) {
                 _cleanup_route_free_ Route *route = NULL;
                 _cleanup_route_free_ Route *route_gw = NULL;
-
-                r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "DHCP error: could not get address: %m");
 
                 r = route_new(&route);
                 if (r < 0)
