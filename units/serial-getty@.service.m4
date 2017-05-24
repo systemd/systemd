@@ -28,7 +28,10 @@ Conflicts=rescue.service
 Before=rescue.service
 
 [Service]
-ExecStart=-/sbin/agetty --keep-baud 115200,38400,9600 %I $TERM
+# The '-o' option value tells agetty to replace 'login' arguments with an
+# option to preserve environment (-p), followed by '--' for safety, and then
+# the entered username.
+ExecStart=-/sbin/agetty -o '-p -- \\u' --keep-baud 115200,38400,9600 %I $TERM
 Type=idle
 Restart=always
 UtmpIdentifier=%I
