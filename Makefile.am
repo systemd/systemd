@@ -2675,13 +2675,13 @@ nodist_systemunit_DATA += \
 
 nodist_tmpfiles_DATA = \
 	tmpfiles.d/systemd.conf \
+	tmpfiles.d/var.conf \
 	tmpfiles.d/etc.conf
 
 dist_tmpfiles_DATA = \
 	tmpfiles.d/systemd-nologin.conf \
 	tmpfiles.d/tmp.conf \
 	tmpfiles.d/x11.conf \
-	tmpfiles.d/var.conf \
 	tmpfiles.d/home.conf \
 	tmpfiles.d/systemd-nspawn.conf \
 	tmpfiles.d/journal-nocow.conf
@@ -2709,6 +2709,7 @@ endif
 EXTRA_DIST += \
 	tmpfiles.d/systemd.conf.m4 \
 	tmpfiles.d/etc.conf.m4 \
+	tmpfiles.d/var.conf.m4 \
 	units/systemd-tmpfiles-setup-dev.service.in \
 	units/systemd-tmpfiles-setup.service.in \
 	units/systemd-tmpfiles-clean.service.in
