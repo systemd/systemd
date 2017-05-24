@@ -319,9 +319,15 @@ int address_add(Link *link, int family, const union in_addr_union *in_addr, unsi
                         return r;
 
                 set_remove(link->addresses_foreign, address);
-        } else if (r == 1) {
-                /* Already exists, do nothing */
-                ;
+        } else if (r == 1) { /* Already exists */
+                /* When the network interface is unplugged and has already been
+                 * configured, the address has already been registered and
+                 * signaled for a change via DBUS. Then if the iface is plugged,
+                 * the carrier will be gained but the address won't be signaled,
+                 * for the first plug. The call to link_send_changed() avoids
+                 * this issue
+                 */
+                link_send_changed(link, "Addresses", NULL);
         } else
                 return r;
 
