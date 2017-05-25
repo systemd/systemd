@@ -1166,10 +1166,10 @@ static int monitor(sd_bus *bus, char *argv[], int (*dump)(sd_bus_message *m, FIL
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read lost name: %m");
 
-                        if (!streq(name, unique_name))
-                                continue;
+                        if (streq(name, unique_name))
+                                is_monitor = true;
 
-                        is_monitor = true;
+                        continue;
                 }
 
                 if (m) {
