@@ -41,6 +41,7 @@
 #include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "util.h"
 #include "virt.h"
@@ -121,6 +122,7 @@ static int toggle_utf8_sysfs(bool utf8) {
 }
 
 static int keyboard_load_and_wait(const char *vc, const char *map, const char *map_toggle, bool utf8) {
+        _cleanup_free_ char *cmd = NULL;
         const char *args[8];
         int i = 0;
         pid_t pid;
@@ -140,6 +142,9 @@ static int keyboard_load_and_wait(const char *vc, const char *map, const char *m
                 args[i++] = map_toggle;
         args[i++] = NULL;
 
+        log_debug("Executing \"%s\"...",
+                  strnull((cmd = strv_join((char**) args, " "))));
+
         pid = fork();
         if (pid < 0)
                 return log_error_errno(errno, "Failed to fork: %m");
@@ -156,6 +161,7 @@ static int keyboard_load_and_wait(const char *vc, const char *map, const char *m
 }
 
 static int font_load_and_wait(const char *vc, const char *font, const char *map, const char *unimap) {
+        _cleanup_free_ char *cmd = NULL;
         const char *args[9];
         int i = 0;
         pid_t pid;
@@ -178,6 +184,9 @@ static int font_load_and_wait(const char *vc, const char *font, const char *map,
         if (!isempty(font))
                 args[i++] = font;
         args[i++] = NULL;
+
+        log_debug("Executing \"%s\"...",
+                  strnull((cmd = strv_join((char**) args, " "))));
 
         pid = fork();
         if (pid < 0)
