@@ -483,8 +483,9 @@ static int enable_audit(int fd, bool b) {
                 .header.nlmsg_flags = NLM_F_REQUEST,
                 .header.nlmsg_seq = 1,
                 .header.nlmsg_pid = 0,
-                .body.mask = AUDIT_STATUS_ENABLED,
+                .body.mask = AUDIT_STATUS_ENABLED | AUDIT_STATUS_PID,
                 .body.enabled = b,
+                .body.pid = getpid(),
         };
         union sockaddr_union sa = {
                 .nl.nl_family = AF_NETLINK,
