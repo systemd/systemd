@@ -293,6 +293,7 @@
 /test-tables
 /test-terminal-util
 /test-time
+/test-timesync
 /test-tmpfiles
 /test-udev
 /test-uid-range

@@ -24,3 +24,19 @@ if conf.get('ENABLE_TIMESYNCD', false)
         install_data(timesyncd_conf,
                      install_dir : pkgsysconfdir)
 endif
+
+############################################################
+
+tests += [
+        [['src/timesync/test-timesync.c',
+          'src/timesync/timesyncd-manager.c',
+          'src/timesync/timesyncd-manager.h',
+          'src/timesync/timesyncd-conf.c',
+          'src/timesync/timesyncd-conf.h',
+          'src/timesync/timesyncd-server.c',
+          'src/timesync/timesyncd-server.h',
+          timesyncd_gperf_c],
+         [libshared],
+         [libm],
+         'ENABLE_TIMESYNCD'],
+]

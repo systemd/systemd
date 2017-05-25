@@ -1124,10 +1124,6 @@ int manager_new(Manager **ret) {
 
         RATELIMIT_INIT(m->ratelimit, RATELIMIT_INTERVAL_USEC, RATELIMIT_BURST);
 
-        r = manager_parse_server_string(m, SERVER_FALLBACK, NTP_SERVERS);
-        if (r < 0)
-                return r;
-
         r = sd_event_default(&m->event);
         if (r < 0)
                 return r;
