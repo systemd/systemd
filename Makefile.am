@@ -5221,6 +5221,25 @@ systemd_timesyncd_LDADD = \
 	libsystemd-shared.la \
 	-lm
 
+test_timesync_SOURCES = \
+	src/timesync/test-timesync.c \
+	src/timesync/timesyncd-manager.c \
+	src/timesync/timesyncd-manager.h \
+	src/timesync/timesyncd-conf.c \
+	src/timesync/timesyncd-conf.h \
+	src/timesync/timesyncd-server.c \
+	src/timesync/timesyncd-server.h
+
+nodist_test_timesync_SOURCES = \
+	src/timesync/timesyncd-gperf.c
+
+test_timesync_LDADD = \
+	libsystemd-shared.la \
+	-lm
+
+tests += \
+	test-timesync
+
 rootlibexec_PROGRAMS += \
 	systemd-timesyncd
 
