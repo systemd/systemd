@@ -1737,6 +1737,7 @@ TEST_DATA_FILES += \
 	test/test-execute/exec-readonlypaths-mount-propagation.service \
 	test/test-execute/exec-readwritepaths-mount-propagation.service \
 	test/test-execute/exec-inaccessiblepaths-mount-propagation.service \
+	test/test-execute/exec-inaccessiblepaths-proc.service \
 	test/test-execute/exec-spec-interpolation.service \
 	test/test-execute/exec-systemcallerrornumber.service \
 	test/test-execute/exec-systemcallfilter-failing2.service \
