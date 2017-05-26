@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
+#include <sysexits.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -41,6 +42,7 @@
 #include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "util.h"
 #include "virt.h"
@@ -121,6 +123,7 @@ static int toggle_utf8_sysfs(bool utf8) {
 }
 
 static int keyboard_load_and_wait(const char *vc, const char *map, const char *map_toggle, bool utf8) {
+        _cleanup_free_ char *cmd = NULL;
         const char *args[8];
         int i = 0;
         pid_t pid;
@@ -140,6 +143,9 @@ static int keyboard_load_and_wait(const char *vc, const char *map, const char *m
                 args[i++] = map_toggle;
         args[i++] = NULL;
 
+        log_debug("Executing \"%s\"...",
+                  strnull((cmd = strv_join((char**) args, " "))));
+
         pid = fork();
         if (pid < 0)
                 return log_error_errno(errno, "Failed to fork: %m");
@@ -156,6 +162,7 @@ static int keyboard_load_and_wait(const char *vc, const char *map, const char *m
 }
 
 static int font_load_and_wait(const char *vc, const char *font, const char *map, const char *unimap) {
+        _cleanup_free_ char *cmd = NULL;
         const char *args[9];
         int i = 0;
         pid_t pid;
@@ -178,6 +185,9 @@ static int font_load_and_wait(const char *vc, const char *font, const char *map,
         if (!isempty(font))
                 args[i++] = font;
         args[i++] = NULL;
+
+        log_debug("Executing \"%s\"...",
+                  strnull((cmd = strv_join((char**) args, " "))));
 
         pid = fork();
         if (pid < 0)
@@ -324,8 +334,8 @@ int main(int argc, char **argv) {
                 *vc_keymap = NULL, *vc_keymap_toggle = NULL,
                 *vc_font = NULL, *vc_font_map = NULL, *vc_font_unimap = NULL;
         _cleanup_close_ int fd = -1;
-        bool utf8, font_copy = false, font_ok, keyboard_ok;
-        int r = EXIT_FAILURE;
+        bool utf8, font_copy = false, keyboard_ok;
+        int r;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
@@ -370,7 +380,6 @@ int main(int argc, char **argv) {
                            "FONT_MAP", &vc_font_map,
                            "FONT_UNIMAP", &vc_font_unimap,
                            NULL);
-
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "Failed to read /etc/vconsole.conf: %m");
 
@@ -387,22 +396,27 @@ int main(int argc, char **argv) {
                                    "vconsole.font.map", &vc_font_map,
                                    "vconsole.font.unimap", &vc_font_unimap,
                                    NULL);
-
                 if (r < 0 && r != -ENOENT)
                         log_warning_errno(r, "Failed to read /proc/cmdline: %m");
         }
 
         toggle_utf8_sysfs(utf8);
         toggle_utf8(vc, fd, utf8);
-        font_ok = font_load_and_wait(vc, vc_font, vc_font_map, vc_font_unimap) == 0;
+
+        r = font_load_and_wait(vc, vc_font, vc_font_map, vc_font_unimap);
         keyboard_ok = keyboard_load_and_wait(vc, vc_keymap, vc_keymap_toggle, utf8) == 0;
 
         if (font_copy) {
-                if (font_ok)
+                if (r == 0)
                         setup_remaining_vcs(fd, utf8);
+                else if (r == EX_OSERR)
+                        /* setfont returns EX_OSERR when ioctl(KDFONTOP/PIO_FONTX/PIO_FONTX) fails.
+                         * This might mean various things, but in particular lack of a graphical
+                         * console. Let's be generous and not treat this as an error. */
+                        log_notice("Setting fonts failed with a \"system error\", ignoring.");
                 else
                         log_warning("Setting source virtual console failed, ignoring remaining ones");
         }
 
-        return font_ok && keyboard_ok ? EXIT_SUCCESS : EXIT_FAILURE;
+        return IN_SET(r, 0, EX_OSERR) && keyboard_ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }
