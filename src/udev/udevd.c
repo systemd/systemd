@@ -69,7 +69,6 @@
 static bool arg_debug = false;
 static int arg_daemonize = false;
 static int arg_resolve_names = 1;
-static unsigned arg_children_max;
 static int arg_exec_delay;
 static usec_t arg_event_timeout_usec = 180 * USEC_PER_SEC;
 static usec_t arg_event_timeout_warn_usec = 180 * USEC_PER_SEC / 3;
@@ -1005,6 +1004,10 @@ static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userd
                                   "READY=1\n"
                                   "STATUS=Processing with %u children at max", arg_children_max);
         }
+
+        i = udev_ctrl_get_show_children_max(ctrl_msg);
+        if (i >= 0)
+                log_debug("udevd message (SHOW_CHILDREN_MAX) received, children_max=%i", i);
 
         if (udev_ctrl_get_ping(ctrl_msg) > 0)
                 log_debug("udevd message (SYNC) received");
