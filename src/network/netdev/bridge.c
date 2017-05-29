@@ -24,6 +24,7 @@
 #include "netlink-util.h"
 #include "netdev/bridge.h"
 #include "networkd-manager.h"
+#include "vlan-util.h"
 
 /* callback for brige netdev's parameter set */
 static int netdev_bridge_set_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
@@ -102,7 +103,7 @@ static int netdev_bridge_post_create(NetDev *netdev, Link *link, sd_netlink_mess
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_PRIORITY attribute: %m");
         }
 
-        if (b->default_pvid > 0) {
+        if (b->default_pvid != VLANID_INVALID) {
                 r = sd_netlink_message_append_u16(req, IFLA_BR_VLAN_DEFAULT_PVID, b->default_pvid);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_VLAN_DEFAULT_PVID attribute: %m");
@@ -160,6 +161,7 @@ static void bridge_init(NetDev *n) {
         b->mcast_snooping = -1;
         b->vlan_filtering = -1;
         b->stp = -1;
+        b->default_pvid = VLANID_INVALID;
         b->forward_delay = USEC_INFINITY;
 }
 
