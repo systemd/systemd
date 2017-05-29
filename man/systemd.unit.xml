@@ -820,6 +820,8 @@
         <term><varname>ConditionDirectoryNotEmpty=</varname></term>
         <term><varname>ConditionFileNotEmpty=</varname></term>
         <term><varname>ConditionFileIsExecutable=</varname></term>
+        <term><varname>ConditionUser=</varname></term>
+        <term><varname>ConditionGroup=</varname></term>
 
         <!-- We do not document ConditionNull=
              here, as it is not particularly
@@ -1033,6 +1035,21 @@
         whether a certain path exists, is a regular file and marked
         executable.</para>
 
+        <para><varname>ConditionUser=</varname> takes a numeric
+        <literal>UID</literal>, a UNIX user name, or the special value
+        <literal>@system</literal>. This condition may be used to check
+        whether the service manager is running as the given user. The
+        special value <literal>@system</literal> can be used to check
+        if the user id is within the system user range. This option is not
+        useful for system services, as the system manager exclusively
+        runs as the root user, and thus the test result is constant.</para>
+
+        <para><varname>ConditionGroup=</varname> is similar
+        to <varname>ConditionUser=</varname> but verifies that the
+        service manager's real or effective group, or any of its
+        auxiliary groups match the specified group or GID. This setting
+        does not have a special value <literal>@system</literal>.</para>
+
         <para>If multiple conditions are specified, the unit will be
         executed if all of them apply (i.e. a logical AND is applied).
         Condition checks can be prefixed with a pipe symbol (|) in
@@ -1069,6 +1086,8 @@
         <term><varname>AssertDirectoryNotEmpty=</varname></term>
         <term><varname>AssertFileNotEmpty=</varname></term>
         <term><varname>AssertFileIsExecutable=</varname></term>
+        <term><varname>AssertUser=</varname></term>
+        <term><varname>AssertGroup=</varname></term>
 
         <listitem><para>Similar to the <varname>ConditionArchitecture=</varname>,
         <varname>ConditionVirtualization=</varname>, …, condition settings described above, these settings add
