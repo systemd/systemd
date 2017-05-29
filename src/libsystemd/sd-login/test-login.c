@@ -41,7 +41,7 @@ static char* format_uids(char **buf, uid_t* uids, int count) {
                 pos += inc;
         }
 
-        assert_se(pos < size);
+        assert_se(pos < (ssize_t)size);
         (*buf)[pos] = '\0';
 
         return *buf;
