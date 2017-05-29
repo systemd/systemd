@@ -189,7 +189,7 @@ _systemctl () {
         fi
 
         local -A VERBS=(
-                [ALL_UNITS]='is-active is-failed is-enabled status show cat mask preset help list-dependencies edit set-property'
+                [ALL_UNITS]='is-active is-failed is-enabled status show cat mask preset help list-dependencies edit set-property revert'
             [ENABLED_UNITS]='disable'
            [DISABLED_UNITS]='enable'
         [REENABLABLE_UNITS]='reenable'
