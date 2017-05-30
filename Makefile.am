@@ -2676,6 +2676,7 @@ nodist_systemunit_DATA += \
 
 nodist_tmpfiles_DATA = \
 	tmpfiles.d/systemd.conf \
+	tmpfiles.d/systemd-remote.conf \
 	tmpfiles.d/var.conf \
 	tmpfiles.d/etc.conf
 
@@ -2709,6 +2710,7 @@ endif
 
 EXTRA_DIST += \
 	tmpfiles.d/systemd.conf.m4 \
+	tmpfiles.d/systemd-remote.conf.m4 \
 	tmpfiles.d/etc.conf.m4 \
 	tmpfiles.d/var.conf.m4 \
 	units/systemd-tmpfiles-setup-dev.service.in \
@@ -4331,11 +4333,6 @@ systemd_journal_remote_CFLAGS = \
 systemd_journal_remote_LDADD += \
 	$(MICROHTTPD_LIBS)
 
-if ENABLE_TMPFILES
-dist_tmpfiles_DATA += \
-	tmpfiles.d/systemd-remote.conf
-endif
-
 if HAVE_GNUTLS
 systemd_journal_remote_LDADD += \
 	$(GNUTLS_LIBS)
@@ -4362,6 +4359,13 @@ EXTRA_DIST += \
 	units/systemd-journal-remote.service.in \
 	src/journal-remote/journal-remote.conf.in \
 	src/journal-remote/log-generator.py
+endif
+
+if HAVE_REMOTE
+if ENABLE_TMPFILES
+dist_tmpfiles_DATA += \
+	tmpfiles.d/systemd-remote.conf
+endif
 endif
 
 # using _CFLAGS = in the conditional below would suppress AM_CFLAGS
