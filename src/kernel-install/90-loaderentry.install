@@ -7,13 +7,11 @@ KERNEL_VERSION="$2"
 BOOT_DIR_ABS="$3"
 KERNEL_IMAGE="$4"
 
-if [[ -f /etc/machine-id ]]; then
-    read MACHINE_ID < /etc/machine-id
+if ! [[ $KERNEL_INSTALL_MACHINE_ID ]]; then
+    exit 0
 fi
 
-if ! [[ $MACHINE_ID ]]; then
-    exit 1
-fi
+MACHINE_ID=$KERNEL_INSTALL_MACHINE_ID
 
 BOOT_DIR="/$MACHINE_ID/$KERNEL_VERSION"
 BOOT_ROOT=${BOOT_DIR_ABS%$BOOT_DIR}
