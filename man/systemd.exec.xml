@@ -1656,8 +1656,8 @@
         <citerefentry><refentrytitle>mprotect</refentrytitle><manvolnum>2</manvolnum></citerefentry> system calls with
         <constant>PROT_EXEC</constant> set and
         <citerefentry><refentrytitle>shmat</refentrytitle><manvolnum>2</manvolnum></citerefentry> system calls with
-        <constant>SHM_EXEC</constant> set. Note that this option is incompatible with programs that generate program
-        code dynamically at runtime, such as JIT execution engines, or programs compiled making use of the code
+        <constant>SHM_EXEC</constant> set. Note that this option is incompatible with programs and libraries that
+        generate program code dynamically at runtime, including JIT execution engines, executable stacks, and code
         "trampoline" feature of various C compilers. This option improves service security, as it makes harder for
         software exploits to change running code dynamically. Note that this feature is fully available on x86-64, and
         partially on x86. Specifically, the <function>shmat()</function> protection is not available on x86. Note that
