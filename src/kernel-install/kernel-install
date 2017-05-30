@@ -77,18 +77,15 @@ if [[ -f /etc/machine-id ]]; then
     read MACHINE_ID < /etc/machine-id
 fi
 
-if ! [[ $MACHINE_ID ]]; then
-    echo "Could not determine your machine ID from /etc/machine-id." >&2
-    echo "Please run 'systemd-machine-id-setup' as root. See man:machine-id(5)" >&2
-    exit 1
-fi
-
 if [[ ! $COMMAND ]] || [[ ! $KERNEL_VERSION ]]; then
     echo "Not enough arguments" >&2
     exit 1
 fi
 
-if [[ -d /efi/loader/entries ]] || [[ -d /efi/$MACHINE_ID ]]; then
+if ! [[ $MACHINE_ID ]]; then
+    BOOT_DIR_ABS=$(mktemp -d /tmp/kernel-install.XXXXX) || exit 1
+    trap "rm -rf '$BOOT_DIR_ABS'" EXIT INT QUIT PIPE
+elif [[ -d /efi/loader/entries ]] || [[ -d /efi/$MACHINE_ID ]]; then
     BOOT_DIR_ABS="/efi/$MACHINE_ID/$KERNEL_VERSION"
 elif [[ -d /boot/loader/entries ]] || [[ -d /boot/$MACHINE_ID ]]; then
     BOOT_DIR_ABS="/boot/$MACHINE_ID/$KERNEL_VERSION"
@@ -101,6 +98,8 @@ elif mountpoint -q /boot/efi; then
 else
     BOOT_DIR_ABS="/boot/$MACHINE_ID/$KERNEL_VERSION"
 fi
+
+export KERNEL_INSTALL_MACHINE_ID=$MACHINE_ID
 
 ret=0
 
@@ -127,11 +126,20 @@ case $COMMAND in
                 "$f" add "$KERNEL_VERSION" "$BOOT_DIR_ABS" "$KERNEL_IMAGE"
                 x=$?
                 if [[ $x == $SKIP_REMAINING ]]; then
-                    exit 0
+                    ret=0
+                    break
                 fi
                 ((ret+=$x))
             fi
         done
+
+        if ! [[ $MACHINE_ID ]] && ! rmdir "$BOOT_DIR_ABS"; then
+            echo "Warning: In kernel-install plugins, requiring BOOT_DIR_ABS to be preset is deprecated." >&2
+            echo "         All plugins should not put anything in BOOT_DIR_ABS if the environment" >&2
+            echo "         variable KERNEL_INSTALL_MACHINE_ID is empty." >&2
+            rm -rf "$BOOT_DIR_ABS"
+            ((ret+=$?))
+        fi
         ;;
 
     remove)
@@ -140,7 +148,8 @@ case $COMMAND in
                 "$f" remove "$KERNEL_VERSION" "$BOOT_DIR_ABS"
                 x=$?
                 if [[ $x == $SKIP_REMAINING ]]; then
-                    exit 0
+                    ret=0
+                    break
                 fi
                 ((ret+=$x))
             fi

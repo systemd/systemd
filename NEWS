@@ -7,6 +7,13 @@ CHANGES WITH 234 in spe
           fallback was redundant and interfered with the [!UNAVAIL=return]
           suffix. See nss-resolve(8) for the recommended configuration.
 
+        * All kernel install plugins are called with the environment variable
+          KERNEL_INSTALL_MACHINE_ID which is set to the machine ID given by
+          /etc/machine-id. If the file is missing or empty, the variable is
+          empty and BOOT_DIR_ABS is the path of a temporary directory which is
+          removed after the all plugins exit. So, if KERNEL_INSTALL_MACHINE_ID
+          is empty, all plugins should not put anything in BOOT_DIR_ABS.
+
 CHANGES WITH 233:
 
         * This version requires at least gperf 3.1 for building, 3.0 is not
