@@ -2325,11 +2325,10 @@ if git.found() and etags.found()
                  ':/*.[ch]'])
         all_files = files(all_files.stdout().split())
 
-        custom_target(
+        run_target(
                 'TAGS',
-                output : 'TAGS',
                 input : all_files,
-                command : [etags, '-o', '@OUTPUT@'] + all_files)
+                command : [etags, '-o', '@0@/TAGS'.format(meson.source_root())] + all_files)
 endif
 
 if git.found()
