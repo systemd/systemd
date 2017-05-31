@@ -81,8 +81,10 @@
     <title>Description</title>
 
     <para><function>sd_get_seats()</function> may be used to determine
-    all currently available local seats. Returns a
-    <constant>NULL</constant> terminated array of seat identifiers.
+    all currently available local seats. Returns the number of seat
+    identifiers and if the input pointer is non-NULL, a
+    <constant>NULL</constant>-terminated array of seat identifiers
+    is stored at the address.
     The returned array and all strings it references need to be freed
     with the libc
     <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -122,13 +124,6 @@
     <para>Returned errors may indicate the following problems:</para>
 
     <variablelist>
-
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
-
-        <listitem><para>An input parameter was invalid (out of range,
-        or NULL, where that is not accepted).</para></listitem>
-      </varlistentry>
 
       <varlistentry>
         <term><constant>-ENOMEM</constant></term>
