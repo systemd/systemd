@@ -249,8 +249,9 @@ static void test_login(void) {
                 assert_se(r >= 0);
                 assert_se(r == (int) strv_length(machines));
                 assert_se(buf = strv_join(machines, " "));
-
                 log_info("sd_get_machines(…) → [%i] \"%s\"", r, buf);
+
+                assert_se(sd_get_machine_names(NULL) == r);
         }
 }
 
