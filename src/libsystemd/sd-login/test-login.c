@@ -61,14 +61,15 @@ static void test_login(void) {
 
         r = sd_pid_get_unit(0, &unit);
         assert_se(r >= 0 || r == -ENODATA);
-        log_info("sd_pid_get_unit(0, …) → \"%s\"", unit);
+        log_info("sd_pid_get_unit(0, …) → \"%s\"", strna(unit));
 
         r = sd_pid_get_user_unit(0, &user_unit);
         assert_se(r >= 0 || r == -ENODATA);
-        log_info("sd_pid_get_user_unit(0, …) → \"%s\"", user_unit);
+        log_info("sd_pid_get_user_unit(0, …) → \"%s\"", strna(user_unit));
 
-        assert_se(sd_pid_get_slice(0, &slice) >= 0);
-        log_info("sd_pid_get_slice(0, …) → \"%s\"", slice);
+        r = sd_pid_get_slice(0, &slice);
+        assert_se(r >= 0 || r == -ENODATA);
+        log_info("sd_pid_get_slice(0, …) → \"%s\"", strna(slice));
 
         r = sd_pid_get_session(0, &session);
         if (r < 0) {
