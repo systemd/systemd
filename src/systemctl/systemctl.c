@@ -8260,7 +8260,7 @@ static int halt_now(enum action a) {
                 _cleanup_free_ char *param = NULL;
 
                 r = read_one_line_file("/run/systemd/reboot-param", &param);
-                if (r < 0)
+                if (r < 0 && r != -ENOENT)
                         log_warning_errno(r, "Failed to read reboot parameter file: %m");
 
                 if (!isempty(param)) {
