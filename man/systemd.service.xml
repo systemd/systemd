@@ -928,10 +928,9 @@
     result in a warning. In particular, any backslashes should be doubled. Finally, a trailing
     backslash (<literal>\</literal>) may be used to merge lines.</para>
 
-    <para>This syntax is intended to be very similar to shell syntax,
-    but only the meta-characters and expansions described in the
-    following paragraphs are understood. Specifically, redirection
-    using
+    <para>This syntax is inspired by shell syntax, but only the meta-characters and expansions
+    described in the following paragraphs are understood, and the expansion of variables is
+    different. Specifically, redirection using
     <literal>&lt;</literal>,
     <literal>&lt;&lt;</literal>,
     <literal>&gt;</literal>, and
