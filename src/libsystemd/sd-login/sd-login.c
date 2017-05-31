@@ -798,11 +798,27 @@ _public_ int sd_seat_can_graphical(const char *seat) {
 }
 
 _public_ int sd_get_seats(char ***seats) {
-        return get_files_in_directory("/run/systemd/seats/", seats);
+        int r;
+
+        r = get_files_in_directory("/run/systemd/seats/", seats);
+        if (r == -ENOENT) {
+                if (seats)
+                        *seats = NULL;
+                return 0;
+        }
+        return r;
 }
 
 _public_ int sd_get_sessions(char ***sessions) {
-        return get_files_in_directory("/run/systemd/sessions/", sessions);
+        int r;
+
+        r = get_files_in_directory("/run/systemd/sessions/", sessions);
+        if (r == -ENOENT) {
+                if (sessions)
+                        *sessions = NULL;
+                return 0;
+        }
+        return r;
 }
 
 _public_ int sd_get_uids(uid_t **users) {
@@ -813,8 +829,14 @@ _public_ int sd_get_uids(uid_t **users) {
         _cleanup_free_ uid_t *l = NULL;
 
         d = opendir("/run/systemd/users/");
-        if (!d)
+        if (!d) {
+                if (errno == ENOENT) {
+                        if (users)
+                                *users = NULL;
+                        return 0;
+                }
                 return -errno;
+        }
 
         FOREACH_DIRENT_ALL(de, d, return -errno) {
                 int k;
