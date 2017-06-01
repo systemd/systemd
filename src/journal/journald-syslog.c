@@ -316,7 +316,7 @@ static void syslog_skip_date(char **buf) {
 
 void server_process_syslog_message(
                 Server *s,
-                const char *buf,
+                char *buf,
                 const struct ucred *ucred,
                 const struct timeval *tv,
                 const char *label,
@@ -335,13 +335,15 @@ void server_process_syslog_message(
         assert(buf);
 
         orig = buf;
-        syslog_parse_priority(&buf, &priority, true);
+        syslog_parse_priority((const char **) &buf, &priority, true);
 
         if (s->forward_to_syslog)
                 forward_syslog_raw(s, priority, orig, ucred, tv);
 
+        strstrip(buf);
+
         syslog_skip_date((char**) &buf);
-        syslog_parse_identifier(&buf, &identifier, &pid);
+        syslog_parse_identifier((const char **) &buf, &identifier, &pid);
 
         if (s->forward_to_kmsg)
                 server_forward_kmsg(s, priority, identifier, buf, ucred);
