@@ -264,10 +264,13 @@ static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
                 if ((flags & KDBUS_LIST_UNIQUE) && name->id != previous_id && !(name->flags & KDBUS_HELLO_ACTIVATOR)) {
                         char *n;
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat"
                         if (asprintf(&n, ":1.%llu", name->id) < 0) {
                                 r = -ENOMEM;
                                 goto fail;
                         }
+#pragma GCC diagnostic pop
 
                         r = strv_consume(x, n);
                         if (r < 0)
@@ -711,10 +714,13 @@ int bus_get_name_creds_kdbus(
         }
 
         if (mask & SD_BUS_CREDS_UNIQUE_NAME) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat"
                 if (asprintf(&c->unique_name, ":1.%llu", conn_info->id) < 0) {
                         r = -ENOMEM;
                         goto fail;
                 }
+#pragma GCC diagnostic pop
 
                 c->mask |= SD_BUS_CREDS_UNIQUE_NAME;
         }
