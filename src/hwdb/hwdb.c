@@ -31,6 +31,7 @@
 #include "hwdb-util.h"
 #include "label.h"
 #include "mkdir.h"
+#include "path-util.h"
 #include "selinux-util.h"
 #include "strbuf.h"
 #include "string-util.h"
@@ -670,7 +671,7 @@ static int hwdb_update(int argc, char *argv[], void *userdata) {
         log_debug("strings dedup'ed: %8zu bytes (%8zu)",
                   trie->strings->dedup_len, trie->strings->dedup_count);
 
-        hwdb_bin = strjoin(arg_root, "/", arg_hwdb_bin_dir, "/hwdb.bin");
+        hwdb_bin = path_join(arg_root, arg_hwdb_bin_dir, "hwdb.bin");
         if (!hwdb_bin)
                 return -ENOMEM;
 
