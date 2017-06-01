@@ -1074,12 +1074,11 @@ static int activate(int argc, char *argv[], void *userdata) {
         polkit_agent_open_if_enabled();
 
         if (argc < 2) {
-                /* No argument? Let's convert this into the empty
-                 * session name, which the calls will then resolve to
-                 * the caller's session. */
+                /* No argument? Let's either use $XDG_SESSION_ID (if specified), or an empty
+                 * session name, in which case logind will try to guess our session. */
 
                 short_argv[0] = argv[0];
-                short_argv[1] = (char*) "";
+                short_argv[1] = getenv("XDG_SESSION_ID") ?: (char*) "";
                 short_argv[2] = NULL;
 
                 argv = short_argv;
@@ -1155,8 +1154,11 @@ static int enable_linger(int argc, char *argv[], void *userdata) {
         b = streq(argv[0], "enable-linger");
 
         if (argc < 2) {
+                /* No argument? Let's either use $XDG_SESSION_ID (if specified), or an empty
+                 * session name, in which case logind will try to guess our session. */
+
                 short_argv[0] = argv[0];
-                short_argv[1] = (char*) "";
+                short_argv[1] = getenv("XDG_SESSION_ID") ?: (char*) "";
                 short_argv[2] = NULL;
                 argv = short_argv;
                 argc = 2;
