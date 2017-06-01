@@ -3175,7 +3175,8 @@ systemd_escape_LDADD = \
 
 # -----------------------------------------------------------------------------
 systemctl_SOURCES = \
-	src/systemctl/systemctl.c
+	src/systemctl/systemctl.c \
+	src/core/load-fragment-gperf-nulstr.c
 
 systemctl_LDADD = \
 	libsystemd-shared.la
