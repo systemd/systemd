@@ -858,6 +858,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMAXDATA:pnPro*7000*:pvr*
 ###########################################################
 
 # Akoya
+evdev:atkbd:dmi:bvn*:bvr*:svnMEDION*:pnS3409*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:svnMedion*:pnAkoya*:pvr*
  KEYBOARD_KEY_a0=!mute
  KEYBOARD_KEY_ae=!volumedown
