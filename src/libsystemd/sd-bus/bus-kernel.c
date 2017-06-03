@@ -51,6 +51,8 @@
 #include "user-util.h"
 #include "util.h"
 
+#pragma GCC diagnostic ignored "-Wformat"
+
 #define UNIQUE_NAME_MAX (3+DECIMAL_STR_MAX(uint64_t))
 
 int bus_kernel_parse_unique_name(const char *s, uint64_t *id) {
