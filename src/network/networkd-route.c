@@ -230,7 +230,7 @@ int route_get(Link *link,
               unsigned char dst_prefixlen,
               unsigned char tos,
               uint32_t priority,
-              unsigned char table,
+              uint32_t table,
               Route **ret) {
 
         Route route, *existing;
@@ -272,7 +272,7 @@ static int route_add_internal(
                 unsigned char dst_prefixlen,
                 unsigned char tos,
                 uint32_t priority,
-                unsigned char table,
+                uint32_t table,
                 Route **ret) {
 
         _cleanup_route_free_ Route *route = NULL;
@@ -318,7 +318,7 @@ int route_add_foreign(
                 unsigned char dst_prefixlen,
                 unsigned char tos,
                 uint32_t priority,
-                unsigned char table,
+                uint32_t table,
                 Route **ret) {
 
         return route_add_internal(link, &link->routes_foreign, family, dst, dst_prefixlen, tos, priority, table, ret);
@@ -331,7 +331,7 @@ int route_add(
               unsigned char dst_prefixlen,
               unsigned char tos,
               uint32_t priority,
-              unsigned char table,
+              uint32_t table,
               Route **ret) {
 
         Route *route;
