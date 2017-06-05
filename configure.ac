@@ -307,7 +307,11 @@ AM_CONDITIONAL([HAVE_PYTHON], [test "x$have_python" = "xyes"])
 # ------------------------------------------------------------------------------
 
 AC_CHECK_HEADERS([sys/capability.h], [], [AC_MSG_ERROR([*** POSIX caps headers not found])])
-AC_CHECK_HEADERS([linux/btrfs.h], [], [])
+AC_CHECK_HEADERS([linux/btrfs.h], [], [],
+[[#ifdef HAVE_LINUX_BTRFS_H
+#include <linux/btrfs.h>
+#endif
+]])
 AC_CHECK_HEADERS([linux/memfd.h], [], [])
 AC_CHECK_HEADERS([linux/vm_sockets.h], [], [], [#include <sys/socket.h>])
 
