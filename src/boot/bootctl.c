@@ -1115,6 +1115,12 @@ static int verb_install(int argc, char *argv[], void *userdata) {
 
                 if (install) {
                         r = install_loader_config(arg_path);
+                        /* missing /etc/machine-id is fine, simply no
+                         * machine-specific config is written *
+                         * e.g. probably one is preparing a gold
+                         * installation image. */
+                        if (r == -ENOENT)
+                                r = 0;
                         if (r < 0)
                                 return r;
                 }
