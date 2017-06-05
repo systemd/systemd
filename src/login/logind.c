@@ -1171,9 +1171,23 @@ int main(int argc, char *argv[]) {
          * existence of /run/systemd/seats/ to determine whether
          * logind is available, so please always make sure this check
          * stays in. */
-        mkdir_label("/run/systemd/seats", 0755);
-        mkdir_label("/run/systemd/users", 0755);
-        mkdir_label("/run/systemd/sessions", 0755);
+        r = mkdir_label("/run/systemd/seats", 0755);
+        if (r < 0) {
+                log_error_errno(r, "Failed to create /run/systemd/seats directory: %m");
+                goto finish;
+        }
+
+        r = mkdir_label("/run/systemd/users", 0755);
+        if (r < 0) {
+                log_error_errno(r, "Failed to create /run/systemd/users directory: %m");
+                goto finish;
+        }
+
+        r = mkdir_label("/run/systemd/sessions", 0755);
+        if (r < 0) {
+                log_error_errno(r, "Failed to create /run/systemd/sessions directory: %m");
+                goto finish;
+        }
 
         m = manager_new();
         if (!m) {
