@@ -291,10 +291,12 @@ static void context_free(Context *c) {
 }
 
 static void fd_free(FileDescriptor *f) {
+        Window *w;
+
         assert(f);
 
-        while (f->windows)
-                window_free(f->windows);
+        LIST_FOREACH(by_fd, w, f->windows)
+                window_free(w);
 
         if (f->cache)
                 assert_se(hashmap_remove(f->cache->fds, FD_TO_PTR(f->fd)));
@@ -373,6 +375,8 @@ static int make_room(MMapCache *m) {
                 return 0;
 
         window_free(m->last_unused);
+        m->last_unused = NULL;
+
         return 1;
 }
 
