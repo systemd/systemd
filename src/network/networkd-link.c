@@ -2443,7 +2443,7 @@ static int link_drop_foreign_config(Link *link) {
 }
 
 static int link_drop_config(Link *link) {
-        Address *address;
+        Address *address, *pool_address;
         Route *route;
         Iterator i;
         int r;
@@ -2456,6 +2456,15 @@ static int link_drop_config(Link *link) {
                 r = address_remove(address, link, link_address_remove_handler);
                 if (r < 0)
                         return r;
+
+                /* If this address came from an address pool, clean up the pool */
+                LIST_FOREACH(addresses, pool_address, link->pool_addresses) {
+                        if (address_equal(address, pool_address)) {
+                                LIST_REMOVE(addresses, link->pool_addresses, pool_address);
+                                address_free(pool_address);
+                                break;
+                        }
+                }
         }
 
         SET_FOREACH(route, link->routes, i) {
