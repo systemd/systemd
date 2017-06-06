@@ -1514,6 +1514,14 @@ AS_IF([test "x$enable_manpages" != xno], [
 AM_CONDITIONAL(ENABLE_MANPAGES, [test "x$have_manpages" = "xyes"])
 
 # ------------------------------------------------------------------------------
+have_journald_dbus=no
+AC_ARG_ENABLE(journald_dbus, AS_HELP_STRING([--disable-journald-dbus], [disable journal dbus objects]))
+if test "x$enable_journald_dbus" != "xno"; then
+        have_journald_dbus=yes
+fi
+AM_CONDITIONAL(ENABLE_JOURNALD_DBUS, [test "$have_journald_dbus" = "yes"])
+
+# ------------------------------------------------------------------------------
 AC_ARG_ENABLE(hibernate,
        [AS_HELP_STRING([--disable-hibernate], [disable hibernation support])],
        enable_hibernate=$enableval, enable_hibernate=yes)
@@ -1790,6 +1798,7 @@ AC_MSG_RESULT([
         tpm:                               ${have_tpm}
         Python:                            ${have_python}
         man pages:                         ${have_manpages}
+        journald-dbus:                     ${have_journald_dbus}
         test coverage:                     ${have_coverage}
         Split /usr:                        ${enable_split_usr}
         SysV compatibility:                ${SYSTEM_SYSV_COMPAT}
