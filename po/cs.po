@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
-"Report-Msgid-Bugs-To: \n"
+"Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
 "POT-Creation-Date: 2016-04-23 14:24+0200\n"
 "PO-Revision-Date: 2017-04-20 23:00+0200\n"
 "Last-Translator: Daniel Rusek <mail@asciiwolf.com>\n"
