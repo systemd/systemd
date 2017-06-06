@@ -34,7 +34,6 @@ BuildPackages=
         acl
         docbook-xml
         docbook-xsl
-        g++
         gcc
         git
         gnu-efi
