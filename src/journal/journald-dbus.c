@@ -21,6 +21,20 @@
 #include "def.h"
 #include "sd-bus.h"
 
+static int method_synchronize(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        int r;
+
+        r = system("journalctl --sync");
+        r = WEXITSTATUS(r);
+        return sd_bus_reply_method_return(m, "i", r);
+}
+
+static const sd_bus_vtable journal_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+        SD_BUS_METHOD("Synchronize", NULL, "i", method_synchronize, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_VTABLE_END,
+};
+
 static int connect_bus(sd_event *event, sd_bus **_bus) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
@@ -31,6 +45,10 @@ static int connect_bus(sd_event *event, sd_bus **_bus) {
         r = sd_bus_default_system(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to get system bus connection: %m");
+
+        r = sd_bus_add_object_vtable(bus, NULL, "/org/freedesktop/journal1", "org.freedesktop.journal1", journal_vtable, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register object: %m");
 
         r = sd_bus_request_name(bus, "org.freedesktop.journal1", 0);
         if (r < 0)
