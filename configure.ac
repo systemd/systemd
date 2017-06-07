@@ -321,7 +321,7 @@ CAP_LIBS="$LIBS"
 LIBS="$save_LIBS"
 AC_SUBST(CAP_LIBS)
 
-AC_CHECK_FUNCS([__secure_getenv secure_getenv])
+AC_CHECK_FUNCS([issetugid __secure_getenv secure_getenv])
 AC_CHECK_DECLS([
         memfd_create,
         gettid,
