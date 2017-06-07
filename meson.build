@@ -603,11 +603,6 @@ kill_user_processes = get_option('default-kill-user-processes')
 conf.set10('KILL_USER_PROCESSES', kill_user_processes)
 substs.set('KILL_USER_PROCESSES', kill_user_processes ? 'yes' : 'no')
 
-default_dnssec = get_option('default-dnssec')
-conf.set('DEFAULT_DNSSEC_MODE',
-         'DNSSEC_' + default_dnssec.underscorify().to_upper())
-substs.set('DEFAULT_DNSSEC_MODE', default_dnssec)
-
 dns_servers = get_option('dns-servers')
 conf.set_quoted('DNS_SERVERS', dns_servers)
 substs.set('DNS_SERVERS', dns_servers)
@@ -952,6 +947,15 @@ else
         libgcrypt = []
         libgpg_error = []
 endif
+
+default_dnssec = get_option('default-dnssec')
+if default_dnssec != 'no' and not conf.get('HAVE_GCRYPT', false)
+        message('default-dnssec cannot be set to yes or allow-downgrade when gcrypt is disabled. Setting default-dnssec to no.')
+        default_dnssec = 'no'
+endif
+conf.set('DEFAULT_DNSSEC_MODE',
+         'DNSSEC_' + default_dnssec.underscorify().to_upper())
+substs.set('DEFAULT_DNSSEC_MODE', default_dnssec)
 
 want_importd = get_option('importd')
 if want_importd != 'false'

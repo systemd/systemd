@@ -313,6 +313,12 @@ void link_set_dnssec_mode(Link *l, DnssecMode mode) {
 
         assert(l);
 
+#ifndef HAVE_GCRYPT
+        if (mode == DNSSEC_YES || mode == DNSSEC_ALLOW_DOWNGRADE)
+                log_warning("DNSSEC option for the link cannot be enabled or set to allow-downgrade when systemd-resolved is built without gcrypt support. Turning off DNSSEC support.");
+        return;
+#endif
+
         if (l->dnssec_mode == mode)
                 return;
 
