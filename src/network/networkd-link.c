@@ -2135,6 +2135,12 @@ static int link_joined(Link *link) {
                         log_link_error_errno(link, r, "Could not set bridge vlan: %m");
         }
 
+        /* Skip setting up addresses until it gets carrier,
+           or it would try to set addresses twice,
+           which is bad for non-idempotent steps. */
+        if (!link_has_carrier(link))
+                return 0;
+
         return link_enter_set_addresses(link);
 }
 
