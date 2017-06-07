@@ -778,12 +778,12 @@ int device_rename(sd_device *device, const char *name) {
 
         r = sd_device_get_property_value(device, "INTERFACE", &interface);
         if (r >= 0) {
-                r = device_add_property_internal(device, "INTERFACE", name);
+                /* like DEVPATH_OLD, INTERFACE_OLD is not saved to the db, but only stays around for the current event */
+                r = device_add_property_internal(device, "INTERFACE_OLD", interface);
                 if (r < 0)
                         return r;
 
-                /* like DEVPATH_OLD, INTERFACE_OLD is not saved to the db, but only stays around for the current event */
-                r = device_add_property_internal(device, "INTERFACE_OLD", interface);
+                r = device_add_property_internal(device, "INTERFACE", name);
                 if (r < 0)
                         return r;
         } else if (r != -ENOENT)
