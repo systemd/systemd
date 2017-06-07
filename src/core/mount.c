@@ -886,7 +886,7 @@ static void mount_enter_unmounting(Mount *m) {
         m->control_command_id = MOUNT_EXEC_UNMOUNT;
         m->control_command = m->exec_command + MOUNT_EXEC_UNMOUNT;
 
-        r = exec_command_set(m->control_command, UMOUNT_PATH, m->where, NULL);
+        r = exec_command_set(m->control_command, UMOUNT_PATH, m->where, "-c", NULL);
         if (r >= 0 && m->lazy_unmount)
                 r = exec_command_append(m->control_command, "-l", NULL);
         if (r >= 0 && m->force_unmount)
