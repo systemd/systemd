@@ -41,10 +41,14 @@
 #include "util.h"
 #include "virt.h"
 
+static bool link_ipv6_enabled(Link *);
+static bool link_ipv6ll_enabled(Link *);
+
 static bool link_dhcp6_enabled(Link *link) {
         assert(link);
 
-        if (!socket_ipv6_is_supported())
+        /* DHCPv6 client will not be started if no IPv6 link-local address is configured. */
+        if (!link_ipv6ll_enabled(link))
                 return false;
 
         if (link->flags & IFF_LOOPBACK)
@@ -95,7 +99,7 @@ static bool link_ipv4ll_enabled(Link *link) {
 static bool link_ipv6ll_enabled(Link *link) {
         assert(link);
 
-        if (!socket_ipv6_is_supported())
+        if (!link_ipv6_enabled(link))
                 return false;
 
         if (link->flags & IFF_LOOPBACK)
@@ -108,16 +112,30 @@ static bool link_ipv6ll_enabled(Link *link) {
 }
 
 static bool link_ipv6_enabled(Link *link) {
+        const char *p = NULL;
+
         assert(link);
 
         if (!socket_ipv6_is_supported())
                 return false;
 
-        if (link->network->bridge)
+        if (link->network && link->network->bridge)
                 return false;
 
-        /* DHCPv6 client will not be started if no IPv6 link-local address is configured. */
-        return link_ipv6ll_enabled(link) || network_has_static_ipv6_addresses(link->network);
+        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/disable_ipv6");
+        if (p) {
+                _cleanup_free_ char *line = NULL;
+                int r;
+
+                r = read_one_line_file(p, &line);
+                if (r < 0)
+                        return false;
+
+                if (line[0] != '0')
+                        return false;
+        }
+
+        return network_has_static_ipv6_addresses(link->network);
 }
 
 static bool link_radv_enabled(Link *link) {
@@ -183,7 +201,7 @@ static bool link_ipv4_forward_enabled(Link *link) {
 static bool link_ipv6_forward_enabled(Link *link) {
         assert(link);
 
-        if (!socket_ipv6_is_supported())
+        if (!link_ipv6_enabled(link))
                 return false;
 
         if (link->flags & IFF_LOOPBACK)
@@ -216,7 +234,7 @@ static bool link_proxy_arp_enabled(Link *link) {
 static bool link_ipv6_accept_ra_enabled(Link *link) {
         assert(link);
 
-        if (!socket_ipv6_is_supported())
+        if (!link_ipv6_enabled(link))
                 return false;
 
         if (link->flags & IFF_LOOPBACK)
@@ -243,7 +261,7 @@ static bool link_ipv6_accept_ra_enabled(Link *link) {
 static IPv6PrivacyExtensions link_ipv6_privacy_extensions(Link *link) {
         assert(link);
 
-        if (!socket_ipv6_is_supported())
+        if (!link_ipv6_enabled(link))
                 return _IPV6_PRIVACY_EXTENSIONS_INVALID;
 
         if (link->flags & IFF_LOOPBACK)
@@ -2338,7 +2356,7 @@ static int link_set_ipv6_accept_ra(Link *link) {
         int r;
 
         /* Make this a NOP if IPv6 is not available */
-        if (!socket_ipv6_is_supported())
+        if (!link_ipv6_enabled(link))
                 return 0;
 
         if (link->flags & IFF_LOOPBACK)
@@ -2363,7 +2381,7 @@ static int link_set_ipv6_dad_transmits(Link *link) {
         int r;
 
         /* Make this a NOP if IPv6 is not available */
-        if (!socket_ipv6_is_supported())
+        if (!link_ipv6_enabled(link))
                 return 0;
 
         if (link->flags & IFF_LOOPBACK)
@@ -2391,7 +2409,7 @@ static int link_set_ipv6_hop_limit(Link *link) {
         int r;
 
         /* Make this a NOP if IPv6 is not available */
-        if (!socket_ipv6_is_supported())
+        if (!link_ipv6_enabled(link))
                 return 0;
 
         if (link->flags & IFF_LOOPBACK)
