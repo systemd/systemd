@@ -69,6 +69,7 @@ static enum {
         MODE_RESOLVE_SERVICE,
         MODE_RESOLVE_OPENPGP,
         MODE_RESOLVE_TLSA,
+        MODE_RESOLVE_CAA,
         MODE_STATISTICS,
         MODE_RESET_STATISTICS,
         MODE_FLUSH_CACHES,
@@ -902,6 +903,17 @@ static int resolve_tlsa(sd_bus *bus, const char *address) {
                               arg_type ?: DNS_TYPE_TLSA, true);
 }
 
+static int resolve_caa(sd_bus *bus, const char *address) {
+        assert(bus);
+        assert(address);
+
+        log_debug("Looking up \"%s\".", address);
+
+        return resolve_record(bus, address,
+                              arg_class ?: DNS_CLASS_IN,
+                              arg_type ?: DNS_TYPE_CAA, true);
+}
+
 static int show_statistics(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -1579,6 +1591,7 @@ static void help(void) {
                "     --service-txt=BOOL     Resolve TXT records for services (default: yes)\n"
                "     --openpgp              Query OpenPGP public key\n"
                "     --tlsa                 Query TLS public key\n"
+               "     --caa                  Query CAA records\n"
                "     --cname=BOOL           Follow CNAME redirects (default: yes)\n"
                "     --search=BOOL          Use search domains for single-label names\n"
                "                                                              (default: yes)\n"
@@ -1601,6 +1614,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SERVICE_TXT,
                 ARG_OPENPGP,
                 ARG_TLSA,
+                ARG_CAA,
                 ARG_RAW,
                 ARG_SEARCH,
                 ARG_STATISTICS,
@@ -1624,6 +1638,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "service-txt",      required_argument, NULL, ARG_SERVICE_TXT      },
                 { "openpgp",          no_argument,       NULL, ARG_OPENPGP          },
                 { "tlsa",             optional_argument, NULL, ARG_TLSA             },
+                { "caa",              optional_argument, NULL, ARG_CAA              },
                 { "raw",              optional_argument, NULL, ARG_RAW              },
                 { "search",           required_argument, NULL, ARG_SEARCH           },
                 { "statistics",       no_argument,       NULL, ARG_STATISTICS,      },
@@ -1754,6 +1769,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 log_error("Unknown service family \"%s\".", optarg);
                                 return -EINVAL;
                         }
+                        break;
+
+                case ARG_CAA:
+                        arg_mode = MODE_RESOLVE_CAA;
                         break;
 
                 case ARG_RAW:
@@ -1964,6 +1983,24 @@ int main(int argc, char **argv) {
                         int k;
 
                         k = resolve_tlsa(bus, argv[optind++]);
+                        if (k < 0)
+                                r = k;
+                }
+                break;
+
+        case MODE_RESOLVE_CAA:
+                if (argc < optind + 1) {
+                        log_error("Domain name required.");
+                        r = -EINVAL;
+                        goto finish;
+
+                }
+
+                r = 0;
+                while (optind < argc) {
+                        int k;
+
+                        k = resolve_caa(bus, argv[optind++]);
                         if (k < 0)
                                 r = k;
                 }
