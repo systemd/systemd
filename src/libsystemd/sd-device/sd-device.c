@@ -1895,6 +1895,7 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
                 r = device_add_sysattr_value(device, sysattr, value);
                 if (r < 0)
                         return r;
+                value = NULL;
 
                 return -ENXIO;
         }
