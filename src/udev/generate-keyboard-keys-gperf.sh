@@ -6,4 +6,5 @@ awk '   BEGIN {
         }
 
         /^KEY_/ { print tolower(substr($1 ,5)) ", " $1 }
+                { print tolower($1) ", " $1 }
 ' < "$1"

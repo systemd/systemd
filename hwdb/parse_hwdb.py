@@ -172,7 +172,9 @@ def check_one_keycode(prop, value):
     if value != '!' and ecodes is not None:
         key = 'KEY_' + value.upper()
         if key not in ecodes:
-            error('Keycode {} unknown', key)
+            key = value.upper()
+            if key not in ecodes:
+                error('Keycode {} unknown', key)
 
 def check_properties(groups):
     grammar = property_grammar()

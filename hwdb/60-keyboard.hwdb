@@ -58,6 +58,8 @@
 #   KEYBOARD_KEY_<hex scan code>=<key code identifier>
 # The scan code should be expressed in hex lowercase. The key codes
 # are retrieved and normalized from the kernel input API header.
+# Keycodes are either KEY_* defines in lowercase with the key_ prefix
+# optionally removed or BTN_ defines in lowercase with btn_ preserved.
 #
 # An '!' as the first character of the key identifier string
 # will add the scan code to the AT keyboard's list of scan codes
