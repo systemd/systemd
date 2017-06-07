@@ -82,7 +82,8 @@
 #   systemd-hwdb update
 #   udevadm trigger /dev/input/eventXX
 # where /dev/input/eventXX is the keyboard in question. If in
-# doubt, simply use /dev/input/event* to reload all input rules.
+# doubt, simply reload all input rules
+#   udevadm trigger --verbose --sysname-match="event*"
 #
 # If your changes are generally applicable, preferably send them as a pull
 # request to
