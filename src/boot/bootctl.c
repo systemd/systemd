@@ -478,8 +478,10 @@ static int version_check(int fd_from, const char *from, int fd_to, const char *t
         if (r < 0)
                 return r;
         if (r == 0 || compare_product(a, b) != 0) {
-                log_notice("Skipping \"%s\", since it's owned by another boot loader.", to);
-                return -EEXIST;
+                if (!compare_product(b, "gummiboot")) {
+                        log_notice("Skipping \"%s\", since it's owned by another boot loader.", to);
+                        return -EEXIST;
+                }
         }
 
         if (compare_version(a, b) < 0) {
