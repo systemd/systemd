@@ -30,6 +30,7 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "blkid-util.h"
 #include "efivars.h"
 #include "fd-util.h"
 #include "gpt.h"
@@ -225,7 +226,7 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
         int64_t offset = 0;
         bool noraid = false;
         _cleanup_close_ int fd = -1;
-        blkid_probe pr;
+        _cleanup_blkid_free_probe_ blkid_probe pr = NULL;
         const char *data;
         const char *name;
         const char *prtype = NULL;
@@ -321,7 +322,6 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
         if (is_gpt)
                 find_gpt_root(dev, pr, test);
 
-        blkid_free_probe(pr);
 out:
         if (err < 0)
                 return EXIT_FAILURE;
