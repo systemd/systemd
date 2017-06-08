@@ -1008,6 +1008,43 @@ int config_parse_dhcp_server_dns(
         return 0;
 }
 
+int config_parse_dhcp_user_class(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *n = data;
+        uint8_t user_class;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = safe_atou8(rvalue, &user_class);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse DHCP user class option, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (user_class <= 0 || user_class >= 255) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "DHCP UserClass option is out of range. Should be greater than 0 and less than 255, ignoring: %d", user_class);
+                return 0;
+        }
+
+        n->dhcp_user_class = user_class;
+
+        return 0;
+}
+
 int config_parse_dhcp_server_ntp(
                 const char *unit,
                 const char *filename,
