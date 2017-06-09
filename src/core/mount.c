@@ -1492,6 +1492,11 @@ static int mount_setup_existing_unit(
                 load_extras = true;
         }
 
+        if (!mount_is_extrinsic(MOUNT(u)) && u->default_dependencies &&
+            !mount_is_network(p))
+                /* Ensure nofail mounts are unmounted in the correct sequence */
+                unit_add_dependency_by_name(u, UNIT_BEFORE, SPECIAL_LOCAL_FS_TARGET, NULL, true);
+
         if (u->load_state == UNIT_NOT_FOUND) {
                 u->load_state = UNIT_LOADED;
                 u->load_error = 0;
