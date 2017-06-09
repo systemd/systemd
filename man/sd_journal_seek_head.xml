@@ -101,7 +101,8 @@
     to the entry with the specified monotonic timestamp, i.e.
     <constant>CLOCK_MONOTONIC</constant>. Since monotonic time
     restarts on every reboot a boot ID needs to be specified as
-    well.</para>
+    well. However, due to a bug the given boot ID is always ignored.
+    See https://github.com/systemd/systemd/issues/1752 for details.</para>
 
     <para><function>sd_journal_seek_realtime_usec()</function> seeks
     to the entry with the specified realtime (wallclock) timestamp,
