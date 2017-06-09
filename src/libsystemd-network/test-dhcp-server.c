@@ -63,7 +63,7 @@ static int test_basic(sd_event *event) {
         assert_se(sd_dhcp_server_configure_pool(server, &address_any, 28, 0, 0) == -EINVAL);
         assert_se(sd_dhcp_server_configure_pool(server, &address_lo, 38, 0, 0) == -ERANGE);
         assert_se(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0) >= 0);
-        assert_se(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0) == -EBUSY);
+        assert_se(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0) >= 0);
 
         test_pool(&address_any, 1, -EINVAL);
         test_pool(&address_lo, 1, 0);

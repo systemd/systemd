@@ -3060,6 +3060,8 @@ static int link_carrier_lost(Link *link) {
                 return r;
         }
 
+        (void) sd_dhcp_server_stop(link->dhcp_server);
+
         r = link_drop_config(link);
         if (r < 0)
                 return r;
