@@ -2384,10 +2384,9 @@ int cg_kernel_controllers(Set **ret) {
 
         assert(ret);
 
-        /* Determines the full list of kernel-known controllers. Might
-         * include controllers we don't actually support, arbitrary
-         * named hierarchies and controllers that aren't currently
-         * accessible (because not mounted). */
+        /* Determines the full list of kernel-known controllers. Might include controllers we don't actually support
+         * and controllers that aren't currently accessible (because not mounted). This does not include "name="
+         * pseudo-controllers. */
 
         controllers = set_new(&string_hash_ops);
         if (!controllers)
