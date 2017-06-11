@@ -723,8 +723,12 @@ int socknameinfo_pretty(union sockaddr_union *sa, socklen_t salen, char **_ret) 
 
         assert(_ret);
 
+#ifdef HAVE_LIBIDN
         r = getnameinfo(&sa->sa, salen, host, sizeof(host), NULL, 0,
-                        NI_IDN|NI_IDN_USE_STD3_ASCII_RULES);
+                NI_IDN|NI_IDN_USE_STD3_ASCII_RULES);
+#else
+        r = getnameinfo(&sa->sa, salen, host, sizeof(host), NULL, 0, 0);
+#endif
         if (r != 0) {
                 int saved_errno = errno;
 
