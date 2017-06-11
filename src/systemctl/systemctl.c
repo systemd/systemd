@@ -47,6 +47,7 @@
 #include "dropin.h"
 #include "efivars.h"
 #include "env-util.h"
+#include "escape.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -5573,6 +5574,24 @@ static int reset_failed(int argc, char *argv[], void *userdata) {
         return r;
 }
 
+static int print_variable(const char *s) {
+        const char *sep;
+        _cleanup_free_ char *esc = NULL;
+
+        sep = strchr(s, '=');
+        if (!sep) {
+                log_error("Invalid environment block");
+                return -EUCLEAN;
+        }
+
+        esc = shell_maybe_quote(sep + 1, ESCAPE_POSIX);
+        if (!esc)
+                return log_oom();
+
+        printf("%.*s=%s\n", (int)(sep-s), s, esc);
+        return 0;
+}
+
 static int show_environment(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -5602,8 +5621,11 @@ static int show_environment(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        while ((r = sd_bus_message_read_basic(reply, SD_BUS_TYPE_STRING, &text)) > 0)
-                puts(text);
+        while ((r = sd_bus_message_read_basic(reply, SD_BUS_TYPE_STRING, &text)) > 0) {
+                r = print_variable(text);
+                if (r < 0)
+                        return r;
+        }
         if (r < 0)
                 return bus_log_parse_error(r);
 

@@ -860,7 +860,7 @@ static void log_job_error_with_service_result(const char* service, const char *r
 
         assert(service);
 
-        service_shell_quoted = shell_maybe_quote(service);
+        service_shell_quoted = shell_maybe_quote(service, ESCAPE_BACKSLASH);
 
         if (extra_args) {
                 _cleanup_free_ char *t;

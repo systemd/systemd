@@ -741,7 +741,7 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
         if (t == JOB_START && result == JOB_FAILED) {
                 _cleanup_free_ char *quoted;
 
-                quoted = shell_maybe_quote(u->id);
+                quoted = shell_maybe_quote(u->id, ESCAPE_BACKSLASH);
                 manager_status_printf(u->manager, STATUS_TYPE_NORMAL, NULL, "See 'systemctl status %s' for details.", strna(quoted));
         }
 }
