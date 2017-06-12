@@ -11,7 +11,6 @@ SUBSYSTEM=="rtc", ATTR{hctosys}=="1", SYMLINK+="rtc"
 SUBSYSTEM=="rtc", KERNEL=="rtc0", SYMLINK+="rtc", OPTIONS+="link_priority=-100"
 
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", IMPORT{builtin}="usb_id", IMPORT{builtin}="hwdb --subsystem=usb"
-SUBSYSTEM=="input", ENV{ID_INPUT}=="", IMPORT{builtin}="input_id"
 ENV{MODALIAS}!="", IMPORT{builtin}="hwdb --subsystem=$env{SUBSYSTEM}"
 
 ACTION!="add", GOTO="default_end"

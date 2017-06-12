@@ -3887,6 +3887,7 @@ dist_udevrules_DATA += \
 
 nodist_udevrules_DATA += \
 	rules/50-udev-default.rules \
+	rules/60-input-id.rules \
 	rules/99-systemd.rules
 
 udevconfdir = $(sysconfdir)/udev
