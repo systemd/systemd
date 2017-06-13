@@ -2558,7 +2558,6 @@ static int inner_child(
         r = mount_all(NULL,
                       arg_mount_settings | MOUNT_IN_USERNS,
                       arg_uid_shift,
-                      arg_uid_range,
                       arg_selinux_apifs_context);
         if (r < 0)
                 return r;
@@ -2990,7 +2989,6 @@ static int outer_child(
         r = mount_all(directory,
                       arg_mount_settings,
                       arg_uid_shift,
-                      arg_uid_range,
                       arg_selinux_apifs_context);
         if (r < 0)
                 return r;

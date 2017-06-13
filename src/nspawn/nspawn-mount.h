@@ -43,7 +43,7 @@ int bind_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_only);
 int tmpfs_mount_parse(CustomMount **l, size_t *n, const char *s);
 int overlay_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_only);
 
-int mount_all(const char *dest, MountSettingsMask mount_settings, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context);
+int mount_all(const char *dest, MountSettingsMask mount_settings, uid_t uid_shift, const char *selinux_apifs_context);
 int mount_sysfs(const char *dest, MountSettingsMask mount_settings);
 
 int mount_cgroups(const char *dest, CGroupUnified unified_requested, bool userns, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context, bool use_cgns);
