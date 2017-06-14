@@ -158,6 +158,7 @@ static bool test_pointers(struct udev_device *dev,
                           const unsigned long* bitmask_rel,
                           const unsigned long* bitmask_props,
                           bool test) {
+        int button, axis;
         bool has_abs_coordinates = false;
         bool has_rel_coordinates = false;
         bool has_mt_coordinates = false;
@@ -193,7 +194,8 @@ static bool test_pointers(struct udev_device *dev,
         is_pointing_stick = test_bit(INPUT_PROP_POINTING_STICK, bitmask_props);
         stylus_or_pen = test_bit(BTN_STYLUS, bitmask_key) || test_bit(BTN_TOOL_PEN, bitmask_key);
         finger_but_no_pen = test_bit(BTN_TOOL_FINGER, bitmask_key) && !test_bit(BTN_TOOL_PEN, bitmask_key);
-        has_mouse_button = test_bit(BTN_LEFT, bitmask_key);
+        for (button = BTN_MOUSE; button < BTN_JOYSTICK && !has_mouse_button; button++)
+                has_mouse_button = test_bit(button, bitmask_key);
         has_rel_coordinates = test_bit(EV_REL, bitmask_ev) && test_bit(REL_X, bitmask_rel) && test_bit(REL_Y, bitmask_rel);
         has_mt_coordinates = test_bit(ABS_MT_POSITION_X, bitmask_abs) && test_bit(ABS_MT_POSITION_Y, bitmask_abs);
 
@@ -205,18 +207,12 @@ static bool test_pointers(struct udev_device *dev,
         /* joysticks don't necessarily have buttons; e. g.
          * rudders/pedals are joystick-like, but buttonless; they have
          * other fancy axes. Others have buttons only but no axes. */
-        has_joystick_axes_or_buttons = test_bit(BTN_TRIGGER, bitmask_key) ||
-                                       test_bit(BTN_TRIGGER_HAPPY, bitmask_key) ||
-                                       test_bit(BTN_A, bitmask_key) ||
-                                       test_bit(BTN_1, bitmask_key) ||
-                                       test_bit(ABS_RX, bitmask_abs) ||
-                                       test_bit(ABS_RY, bitmask_abs) ||
-                                       test_bit(ABS_RZ, bitmask_abs) ||
-                                       test_bit(ABS_THROTTLE, bitmask_abs) ||
-                                       test_bit(ABS_RUDDER, bitmask_abs) ||
-                                       test_bit(ABS_WHEEL, bitmask_abs) ||
-                                       test_bit(ABS_GAS, bitmask_abs) ||
-                                       test_bit(ABS_BRAKE, bitmask_abs);
+        for (button = BTN_JOYSTICK; button < BTN_DIGI && !has_joystick_axes_or_buttons; button++)
+                has_joystick_axes_or_buttons = test_bit(button, bitmask_key);
+        for (button = BTN_TRIGGER_HAPPY1; button <= BTN_TRIGGER_HAPPY40 && !has_joystick_axes_or_buttons; button++)
+                has_joystick_axes_or_buttons = test_bit(button, bitmask_key);
+        for (axis = ABS_RX; axis < ABS_PRESSURE && !has_joystick_axes_or_buttons; axis++)
+                has_joystick_axes_or_buttons = test_bit(axis, bitmask_abs);
 
         if (has_abs_coordinates) {
                 if (stylus_or_pen)
