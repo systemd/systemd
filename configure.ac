@@ -1050,6 +1050,15 @@ fi
 AM_CONDITIONAL(HAVE_LIBIDN, [test "$have_libidn" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_idn=no
+AC_ARG_ENABLE(idn, AS_HELP_STRING([--disable-idn], [disable IDN when printing host names]))
+if test "x$enable_idn" != "xno"; then
+        have_idn=yes
+        AC_DEFINE(ENABLE_IDN, [1], [IDN is enabled])
+fi
+AM_CONDITIONAL(ENABLE_IDN, [test "$have_idn" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_libiptc=no
 AC_ARG_ENABLE(libiptc, AS_HELP_STRING([--disable-libiptc], [disable optional LIBIPTC support]))
 if test "x$enable_libiptc" != "xno"; then
@@ -1742,6 +1751,7 @@ AC_MSG_RESULT([
         libcurl:                           ${have_libcurl}
         libidn2:                           ${have_libidn2}
         libidn:                            ${have_libidn}
+        IDN:                               ${have_idn}
         libiptc:                           ${have_libiptc}
         ELFUTILS:                          ${have_elfutils}
         binfmt:                            ${have_binfmt}
