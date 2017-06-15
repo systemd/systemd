@@ -244,6 +244,7 @@
         <term><varname>SUPPORT_URL=</varname></term>
         <term><varname>BUG_REPORT_URL=</varname></term>
         <term><varname>PRIVACY_POLICY_URL=</varname></term>
+        <term><varname>PACKAGING_URL=</varname></term>
 
         <listitem><para>Links to resources on the Internet related the
         operating system. <varname>HOME_URL=</varname> should refer to
@@ -258,11 +259,14 @@
         systems that rely on community QA.
         <varname>PRIVACY_POLICY_URL=</varname> should refer to the
         main privacy policy page for the operation system, if there is
-        any. These settings are optional, and providing only some of
+        any. <varname>PACKAGING_URL=</varname> should refer to the
+        default page for information packages in this OS.
+        These settings are optional, and providing only some of
         these settings is common. These URLs are intended to be
         exposed in "About this system" UIs behind links with captions
         such as "About this Operating System", "Obtain Support",
-        "Report a Bug", or "Privacy Policy". The values should be in
+        "Report a Bug", "Privacy Policy", or "Packages".
+        The values should be in
         <ulink url="https://tools.ietf.org/html/rfc3986">RFC3986
         format</ulink>, and should be <literal>http:</literal> or
         <literal>https:</literal> URLs, and possibly
@@ -270,8 +274,11 @@
         one URL shall be listed in each setting. If multiple resources
         need to be referenced, it is recommended to provide an online
         landing page linking all available resources. Examples:
-        <literal>HOME_URL="https://fedoraproject.org/"</literal> and
-        <literal>BUG_REPORT_URL="https://bugzilla.redhat.com/"</literal></para></listitem>
+        <literal>HOME_URL="https://fedoraproject.org/"</literal>,
+        <literal>BUG_REPORT_URL="https://bugzilla.redhat.com/"</literal>,
+        <literal>PRIVACY_POLICY_URL="https://fedoraproject.org/wiki/Legal:PrivacyPolicy"</literal>, and
+        <literal>PACKAGING_URL="https://koji.fedoraproject.org/"</literal>
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
