@@ -1009,6 +1009,7 @@ foreach pair : [['utmp',          'HAVE_UTMP'],
                 ['ima',           'HAVE_IMA'],
                 ['smack',         'HAVE_SMACK'],
                 ['gshadow',       'ENABLE_GSHADOW'],
+                ['idn',           'ENABLE_IDN'],
                ]
 
         if get_option(pair[0])
@@ -2448,6 +2449,7 @@ foreach tuple : [
         ['microhttpd'],
         ['gnutls'],
         ['libcurl'],
+        ['idn'],
         ['libidn2'],
         ['libidn'],
         ['libiptc'],

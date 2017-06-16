@@ -48,6 +48,12 @@
 #include "utf8.h"
 #include "util.h"
 
+#ifdef ENABLE_IDN
+#  define IDN_FLAGS (NI_IDN|NI_IDN_USE_STD3_ASCII_RULES)
+#else
+#  define IDN_FLAGS 0
+#endif
+
 int socket_address_parse(SocketAddress *a, const char *s) {
         char *e, *n;
         unsigned u;
@@ -723,8 +729,7 @@ int socknameinfo_pretty(union sockaddr_union *sa, socklen_t salen, char **_ret) 
 
         assert(_ret);
 
-        r = getnameinfo(&sa->sa, salen, host, sizeof(host), NULL, 0,
-                        NI_IDN|NI_IDN_USE_STD3_ASCII_RULES);
+        r = getnameinfo(&sa->sa, salen, host, sizeof(host), NULL, 0, IDN_FLAGS);
         if (r != 0) {
                 int saved_errno = errno;
 
