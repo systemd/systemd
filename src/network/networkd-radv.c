@@ -58,7 +58,7 @@ int radv_configure(Link *link) {
         /* a value of 0xffffffff represents infinity, 0x0 means this host is
            not a router */
         r = sd_radv_set_router_lifetime(link->radv,
-                                        link->network->router_lifetime_usec);
+                                        DIV_ROUND_UP(link->network->router_lifetime_usec, USEC_PER_SEC));
         if (r < 0)
                 return r;
 
