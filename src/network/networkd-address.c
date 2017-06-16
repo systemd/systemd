@@ -1166,8 +1166,7 @@ int config_parse_prefix_lifetime(const char *unit,
                 return 0;
         }
 
-        /* a value of 0xffffffff represents infinity, 0x0 means this host is
-           not a router */
+        /* a value of 0xffffffff represents infinity */
         if (streq(lvalue, "PreferredLifetimeSec"))
                 r = sd_radv_prefix_set_preferred_lifetime(p->radv_prefix,
                                                           (usec + USEC_PER_SEC - 1) / USEC_PER_SEC);
