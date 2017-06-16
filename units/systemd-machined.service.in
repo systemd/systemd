@@ -11,6 +11,7 @@ Documentation=man:systemd-machined.service(8)
 Documentation=http://www.freedesktop.org/wiki/Software/systemd/machined
 Wants=machine.slice
 After=machine.slice
+RequiresMountsFor=/var/lib/machines
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-machined
