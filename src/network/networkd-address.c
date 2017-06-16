@@ -1169,10 +1169,10 @@ int config_parse_prefix_lifetime(const char *unit,
         /* a value of 0xffffffff represents infinity */
         if (streq(lvalue, "PreferredLifetimeSec"))
                 r = sd_radv_prefix_set_preferred_lifetime(p->radv_prefix,
-                                                          (usec + USEC_PER_SEC - 1) / USEC_PER_SEC);
+                                                          DIV_ROUND_UP(usec, USEC_PER_SEC));
         else if (streq(lvalue, "ValidLifetimeSec"))
                 r = sd_radv_prefix_set_valid_lifetime(p->radv_prefix,
-                                                      (usec + USEC_PER_SEC - 1) / USEC_PER_SEC);
+                                                      DIV_ROUND_UP(usec, USEC_PER_SEC));
         if (r < 0)
                 return r;
 
