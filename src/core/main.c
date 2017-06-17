@@ -23,6 +23,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/capability.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/reboot.h>
@@ -1780,18 +1781,20 @@ int main(int argc, char *argv[]) {
                 if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
                         log_error_errno(errno, "Failed to adjust timer slack: %m");
 
-        if (!cap_test_all(arg_capability_bounding_set)) {
-                r = capability_bounding_set_drop_usermode(arg_capability_bounding_set);
-                if (r < 0) {
-                        log_emergency_errno(r, "Failed to drop capability bounding set of usermode helpers: %m");
-                        error_message = "Failed to drop capability bounding set of usermode helpers";
-                        goto finish;
-                }
-                r = capability_bounding_set_drop(arg_capability_bounding_set, true);
-                if (r < 0) {
-                        log_emergency_errno(r, "Failed to drop capability bounding set: %m");
-                        error_message = "Failed to drop capability bounding set";
-                        goto finish;
+        if(arg_system) {
+                if (!cap_test_all(arg_capability_bounding_set)) {
+                        r = capability_bounding_set_drop_usermode(arg_capability_bounding_set);
+                        if (r < 0) {
+                                log_emergency_errno(r, "Failed to drop capability bounding set of usermode helpers: %m");
+                                error_message = "Failed to drop capability bounding set of usermode helpers";
+                                goto finish;
+                        }
+                        r = capability_bounding_set_drop(arg_capability_bounding_set, true);
+                        if (r < 0) {
+                                log_emergency_errno(r, "Failed to drop capability bounding set: %m");
+                                error_message = "Failed to drop capability bounding set";
+                                goto finish;
+                        }
                 }
         }
 
