@@ -422,7 +422,7 @@ static bool chroot_symlinks_same(const char *root, const char *wd, const char *a
 
         a = strjoina(path_is_absolute(a) ? root : wd, "/", a);
         b = strjoina(path_is_absolute(b) ? root : wd, "/", b);
-        return path_equal_or_files_same(a, b);
+        return path_equal_or_files_same(a, b, 0);
 }
 
 static int create_symlink(

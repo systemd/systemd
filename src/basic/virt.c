@@ -574,7 +574,7 @@ int running_in_chroot(void) {
         if (getenv_bool("SYSTEMD_IGNORE_CHROOT") > 0)
                 return 0;
 
-        ret = files_same("/proc/1/root", "/");
+        ret = files_same("/proc/1/root", "/", 0);
         if (ret < 0)
                 return ret;
 

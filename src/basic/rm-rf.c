@@ -182,7 +182,7 @@ int rm_rf(const char *path, RemoveFlags flags) {
         /* We refuse to clean the root file system with this
          * call. This is extra paranoia to never cause a really
          * seriously broken system. */
-        if (path_equal_or_files_same(path, "/")) {
+        if (path_equal_or_files_same(path, "/", 0)) {
                 log_error("Attempted to remove entire root file system, and we can't allow that.");
                 return -EPERM;
         }

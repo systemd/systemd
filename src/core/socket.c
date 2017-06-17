@@ -2528,7 +2528,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 else
                         LIST_FOREACH(port, p, s->ports)
                                 if (p->type == SOCKET_FIFO &&
-                                    path_equal_or_files_same(p->path, value+skip)) {
+                                    path_equal_or_files_same(p->path, value+skip, 0)) {
                                         socket_port_take_fd(p, fds, fd);
                                         break;
                                 }
@@ -2542,7 +2542,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 else
                         LIST_FOREACH(port, p, s->ports)
                                 if (p->type == SOCKET_SPECIAL &&
-                                    path_equal_or_files_same(p->path, value+skip)) {
+                                    path_equal_or_files_same(p->path, value+skip, 0)) {
                                         socket_port_take_fd(p, fds, fd);
                                         break;
                                 }
@@ -2596,7 +2596,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 else
                         LIST_FOREACH(port, p, s->ports)
                                 if (p->type == SOCKET_USB_FUNCTION &&
-                                    path_equal_or_files_same(p->path, value+skip)) {
+                                    path_equal_or_files_same(p->path, value+skip, 0)) {
                                         socket_port_take_fd(p, fds, fd);
                                         break;
                                 }

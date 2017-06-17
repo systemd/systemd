@@ -412,7 +412,7 @@ bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) {
                         return false;
 
                 if (a->sockaddr.un.sun_path[0]) {
-                        if (!path_equal_or_files_same(a->sockaddr.un.sun_path, b->sockaddr.un.sun_path))
+                        if (!path_equal_or_files_same(a->sockaddr.un.sun_path, b->sockaddr.un.sun_path, 0))
                                 return false;
                 } else {
                         if (a->size != b->size)
