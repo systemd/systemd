@@ -1796,6 +1796,44 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
                 }
+        } else {
+        /* Drop all the capabilities for the user manager.
+         * Retain the CAP_AUDIT_WRITE capability if we have it so we are still
+         * able to log to audit if requested. */
+
+                _cleanup_cap_free_ cap_t tmp_cap = NULL, cur_cap = NULL;
+                cap_flag_value_t audit_cap;
+                const cap_value_t cap_audit_write[1] = {CAP_AUDIT_WRITE};
+
+                cur_cap = cap_get_proc();
+                if (!cur_cap)
+                        goto finish;
+
+                if (cap_get_flag(cur_cap, CAP_AUDIT_WRITE, CAP_PERMITTED, &audit_cap) < 0) {
+                        log_emergency_errno(r, "Failed to drop the capabilities: %m");
+                        error_message = "Failed to drop the capabilities";
+                        goto finish;
+                }
+
+                tmp_cap = cap_init();
+                if (!tmp_cap) {
+                        log_oom();
+                        goto finish;
+                }
+
+
+                if(audit_cap == CAP_SET) {
+                        log_debug("AUDIT WRITE capability present in permitted set, preserving it");
+                        cap_set_flag(tmp_cap, CAP_PERMITTED, 1, cap_audit_write, CAP_SET);
+                        cap_set_flag(tmp_cap, CAP_EFFECTIVE, 1, cap_audit_write, CAP_SET);
+                }
+
+                r = cap_set_proc(tmp_cap);
+                if (r < 0) {
+                        log_emergency_errno(r, "Failed to drop the capabilities: %m");
+                        error_message = "Failed to drop the capabilities";
+                        goto finish;
+                }
         }
 
         if (arg_syscall_archs) {
