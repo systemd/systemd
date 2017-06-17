@@ -1326,6 +1326,11 @@ AC_ARG_WITH(default-dnssec,
         [DEFAULT_DNSSEC_MODE="$withval"],
         [DEFAULT_DNSSEC_MODE="allow-downgrade"])
 
+if test "x$have_gcrypt" = xno -a "x${DEFAULT_DNSSEC_MODE}" != xno ; then
+        AC_MSG_WARN(default-dnssec cannot be set to yes or allow-downgrade when gcrypt is disabled. Setting default-dnssec to no.)
+        DEFAULT_DNSSEC_MODE="no"
+fi
+
 AS_CASE("x${DEFAULT_DNSSEC_MODE}",
         [xno], [mode=DNSSEC_NO],
         [xyes], [mode=DNSSEC_YES],
