@@ -977,7 +977,7 @@ static int bus_init_private(Manager *m) {
                 char *p = sa.un.sun_path;
                 const char *e;
 
-                e = secure_getenv("XDG_RUNTIME_DIR");
+                e = getenv("XDG_RUNTIME_DIR");
                 if (!e) {
                         log_error("Failed to determine XDG_RUNTIME_DIR");
                         return -EHOSTDOWN;
