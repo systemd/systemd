@@ -45,6 +45,7 @@
 #endif
 #include "strv.h"
 #include "syslog-util.h"
+#include "unit-printf.h"
 #include "user-util.h"
 #include "utf8.h"
 
@@ -1317,7 +1318,7 @@ int bus_exec_context_set_transient_property(
 
         } else if (streq(name, "Environment")) {
 
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_strv_free_ char **l = NULL, **q = NULL;
 
                 r = sd_bus_message_read_strv(message, &l);
                 if (r < 0)
@@ -1326,22 +1327,27 @@ int bus_exec_context_set_transient_property(
                 if (!strv_env_is_valid(l))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment block.");
 
-                if (mode != UNIT_CHECK) {
-                        _cleanup_free_ char *joined = NULL;
-                        char **e;
+                r = unit_full_printf_strv(u, l, &q);
+                if (r < 0)
+                        return r;
 
-                        if (strv_length(l) == 0) {
+                if (mode != UNIT_CHECK) {
+                        if (strv_length(q) == 0) {
                                 c->environment = strv_free(c->environment);
                                 unit_write_drop_in_private_format(u, mode, name, "Environment=");
                         } else {
-                                e = strv_env_merge(2, c->environment, l);
+                                _cleanup_free_ char *joined = NULL;
+                                char **e;
+
+                                e = strv_env_merge(2, c->environment, q);
                                 if (!e)
                                         return -ENOMEM;
 
                                 strv_free(c->environment);
                                 c->environment = e;
 
-                                joined = strv_join_quoted(c->environment);
+                                /* We write just the new settings out to file, with unresolved specifiers */
+                                joined = strv_join_quoted(q);
                                 if (!joined)
                                         return -ENOMEM;
 
