@@ -1621,7 +1621,6 @@
 
       <varlistentry>
         <term><varname>RuntimeDirectory=</varname></term>
-        <term><varname>RuntimeDirectoryMode=</varname></term>
 
         <listitem><para>Takes a list of directory names. If set, one
         or more directories by the specified names will be created
@@ -1643,6 +1642,16 @@
         that require more complex or different configuration or
         lifetime guarantees, please consider using
         <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RuntimeDirectoryMode=</varname></term>
+
+        <listitem><para>Specifies the access mode of the directories specified in
+        <varname>RuntimeDirectory=</varname> as an octal number. Defaults to
+        <constant>0755</constant>. See "Permissions" in
+        <citerefentry project='man-pages'><refentrytitle>path_resolution</refentrytitle><manvolnum>7</manvolnum></citerefentry> for a discussion of the meaning of permission bits.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
