@@ -407,7 +407,15 @@ int bus_cgroup_set_property(
                 if (mode != UNIT_CHECK) {
                         c->cpu_quota_per_sec_usec = u64;
                         unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
-                        unit_write_drop_in_private_format(u, mode, "CPUQuota", "CPUQuota=%0.f%%", (double) (c->cpu_quota_per_sec_usec / 10000));
+                        if (c->cpu_quota_per_sec_usec == USEC_INFINITY)
+                                unit_write_drop_in_private_format(u, mode, "CPUQuota",
+                                                                  "CPUQuota=");
+                        else
+                                /* config_parse_cpu_quota() requires an integer, so
+                                 * truncating division is used on purpose here. */
+                                unit_write_drop_in_private_format(u, mode, "CPUQuota",
+                                                                  "CPUQuota=%0.f%%",
+                                                                  (double) (c->cpu_quota_per_sec_usec / 10000));
                 }
 
                 return 1;
