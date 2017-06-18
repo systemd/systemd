@@ -160,6 +160,15 @@ tests += [
           libm],
          'ENABLE_RESOLVED'],
 
+        [['src/resolve/test-resolved-packet.c',
+          basic_dns_sources,
+          dns_type_headers],
+         [],
+         [libgcrypt,
+          libgpg_error,
+          libm],
+         'ENABLE_RESOLVED'],
+
         [['src/resolve/test-dnssec.c',
           basic_dns_sources,
           dns_type_headers],
