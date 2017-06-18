@@ -150,6 +150,7 @@ struct Job {
 
         sd_event_source *timer_event_source;
         usec_t begin_usec;
+        usec_t begin_running_usec;
 
         /*
          * This tracks where to send signals, and also which clients
