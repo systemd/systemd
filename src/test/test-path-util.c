@@ -118,23 +118,33 @@ static void test_path_equal_root(void) {
 
         /* Make sure that files_same works as expected. */
 
-        assert_se(files_same("/", "/") > 0);
-        assert_se(files_same("/", "//") > 0);
+        assert_se(files_same("/", "/", 0) > 0);
+        assert_se(files_same("/", "/", AT_SYMLINK_NOFOLLOW) > 0);
+        assert_se(files_same("/", "//", 0) > 0);
+        assert_se(files_same("/", "//", AT_SYMLINK_NOFOLLOW) > 0);
 
-        assert_se(files_same("/", "/./") > 0);
-        assert_se(files_same("/", "/../") > 0);
+        assert_se(files_same("/", "/./", 0) > 0);
+        assert_se(files_same("/", "/./", AT_SYMLINK_NOFOLLOW) > 0);
+        assert_se(files_same("/", "/../", 0) > 0);
+        assert_se(files_same("/", "/../", AT_SYMLINK_NOFOLLOW) > 0);
 
-        assert_se(files_same("/", "/.../") == -ENOENT);
+        assert_se(files_same("/", "/.../", 0) == -ENOENT);
+        assert_se(files_same("/", "/.../", AT_SYMLINK_NOFOLLOW) == -ENOENT);
 
         /* The same for path_equal_or_files_same. */
 
-        assert_se(path_equal_or_files_same("/", "/"));
-        assert_se(path_equal_or_files_same("/", "//"));
+        assert_se(path_equal_or_files_same("/", "/", 0));
+        assert_se(path_equal_or_files_same("/", "/", AT_SYMLINK_NOFOLLOW));
+        assert_se(path_equal_or_files_same("/", "//", 0));
+        assert_se(path_equal_or_files_same("/", "//", AT_SYMLINK_NOFOLLOW));
 
-        assert_se(path_equal_or_files_same("/", "/./"));
-        assert_se(path_equal_or_files_same("/", "/../"));
+        assert_se(path_equal_or_files_same("/", "/./", 0));
+        assert_se(path_equal_or_files_same("/", "/./", AT_SYMLINK_NOFOLLOW));
+        assert_se(path_equal_or_files_same("/", "/../", 0));
+        assert_se(path_equal_or_files_same("/", "/../", AT_SYMLINK_NOFOLLOW));
 
-        assert_se(!path_equal_or_files_same("/", "/.../"));
+        assert_se(!path_equal_or_files_same("/", "/.../", 0));
+        assert_se(!path_equal_or_files_same("/", "/.../", AT_SYMLINK_NOFOLLOW));
 }
 
 static void test_find_binary(const char *self) {

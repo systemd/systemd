@@ -541,7 +541,7 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
                 if (asprintf(&userns_fd_path, "/proc/self/fd/%d", userns_fd) < 0)
                         return -ENOMEM;
 
-                r = files_same(userns_fd_path, "/proc/self/ns/user");
+                r = files_same(userns_fd_path, "/proc/self/ns/user", 0);
                 if (r < 0)
                         return r;
                 if (r)

@@ -38,8 +38,10 @@ static void test_files_same(void) {
         assert_se(fd >= 0);
         assert_se(symlink(name, name_alias) >= 0);
 
-        assert_se(files_same(name, name));
-        assert_se(files_same(name, name_alias));
+        assert_se(files_same(name, name, 0));
+        assert_se(files_same(name, name, AT_SYMLINK_NOFOLLOW));
+        assert_se(files_same(name, name_alias, 0));
+        assert_se(!files_same(name, name_alias, AT_SYMLINK_NOFOLLOW));
 
         unlink(name);
         unlink(name_alias);
