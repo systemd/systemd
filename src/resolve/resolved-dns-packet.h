@@ -66,8 +66,6 @@ struct DnsPacketHeader {
 /* With EDNS0 we can use larger packets, default to 4096, which is what is commonly used */
 #define DNS_PACKET_UNICAST_SIZE_LARGE_MAX 4096
 
-#define DNS_PACKET_SIZE_START 512
-
 struct DnsPacket {
         int n_ref;
         DnsProtocol protocol;
