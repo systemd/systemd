@@ -5277,6 +5277,7 @@ manual_tests += \
 	test-nss
 
 # ------------------------------------------------------------------------------
+if ENABLE_NSS
 libnss_systemd_la_SOURCES = \
 	src/nss-systemd/nss-systemd.sym \
 	src/nss-systemd/nss-systemd.c
@@ -5296,6 +5297,7 @@ libnss_systemd_la_LIBADD = \
 
 rootlib_LTLIBRARIES += \
 	libnss_systemd.la
+endif
 
 # ------------------------------------------------------------------------------
 if HAVE_MYHOSTNAME

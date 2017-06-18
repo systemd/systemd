@@ -1059,6 +1059,15 @@ fi
 AM_CONDITIONAL(ENABLE_IDN, [test "$have_idn" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_nss=no
+AC_ARG_ENABLE(nss, AS_HELP_STRING([--disable-nss], [disable NSS]))
+if test "x$enable_nss" != "xno"; then
+        have_nss=yes
+        AC_DEFINE(ENABLE_NSS, [1], [NSS is enabled])
+fi
+AM_CONDITIONAL(ENABLE_NSS, [test "$have_nss" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_libiptc=no
 AC_ARG_ENABLE(libiptc, AS_HELP_STRING([--disable-libiptc], [disable optional LIBIPTC support]))
 if test "x$enable_libiptc" != "xno"; then
@@ -1757,6 +1766,7 @@ AC_MSG_RESULT([
         libidn2:                           ${have_libidn2}
         libidn:                            ${have_libidn}
         IDN:                               ${have_idn}
+        NSS:                               ${have_nss}
         libiptc:                           ${have_libiptc}
         ELFUTILS:                          ${have_elfutils}
         binfmt:                            ${have_binfmt}

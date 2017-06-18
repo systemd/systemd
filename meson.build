@@ -1014,6 +1014,7 @@ foreach pair : [['utmp',          'HAVE_UTMP'],
                 ['smack',         'HAVE_SMACK'],
                 ['gshadow',       'ENABLE_GSHADOW'],
                 ['idn',           'ENABLE_IDN'],
+                ['nss',           'ENABLE_NSS'],
                ]
 
         if get_option(pair[0])
@@ -2456,6 +2457,7 @@ foreach tuple : [
         ['idn'],
         ['libidn2'],
         ['libidn'],
+        ['nss'],
         ['libiptc'],
         ['elfutils'],
         ['binfmt'],
