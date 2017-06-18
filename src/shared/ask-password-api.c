@@ -68,7 +68,10 @@ static int lookup_key(const char *keyname, key_serial_t *ret) {
         assert(keyname);
         assert(ret);
 
-        serial = request_key("user", keyname, NULL, 0);
+        serial = keyctl(KEYCTL_SEARCH,
+                        KEY_SPEC_USER_KEYRING,
+                        (unsigned long) "user",
+                        (unsigned long) keyname, 0);
         if (serial == -1)
                 return negative_errno();
 
@@ -139,7 +142,7 @@ static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **pa
         if (r < 0)
                 return r;
 
-        serial = add_key("user", keyname, p, n, KEY_SPEC_USER_KEYRING);
+        serial = add_key("user", keyname, p, n, KEY_SPEC_SESSION_KEYRING);
         explicit_bzero(p, n);
         if (serial == -1)
                 return -errno;
@@ -148,6 +151,21 @@ static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **pa
                    (unsigned long) serial,
                    (unsigned long) DIV_ROUND_UP(KEYRING_TIMEOUT_USEC, USEC_PER_SEC), 0, 0) < 0)
                 log_debug_errno(errno, "Failed to adjust timeout: %m");
+
+        if (keyctl(KEYCTL_SETPERM,
+                   (unsigned long) serial,
+                   KEY_POS_ALL|KEY_USR_ALL, 0, 0) < 0)
+                return -errno;
+
+        if (keyctl(KEYCTL_LINK,
+                   (unsigned long) serial,
+                   KEY_SPEC_USER_KEYRING, 0, 0) < 0)
+                return -errno;
+
+        if (keyctl(KEYCTL_UNLINK,
+                   (unsigned long) serial,
+                   KEY_SPEC_SESSION_KEYRING, 0, 0) < 0)
+                return -errno;
 
         log_debug("Added key to keyring as %" PRIi32 ".", serial);
 
