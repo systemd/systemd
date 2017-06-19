@@ -1,6 +1,6 @@
 ### Submission type
 
-<!-- Delete the unnecessary option below: -->
+<!-- Delete the inappropriate option below: -->
 
  - Bug report
  - Request for enhancement (RFE)
