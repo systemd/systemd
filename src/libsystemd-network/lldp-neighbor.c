@@ -249,10 +249,6 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
                                 log_lldp("End marker TLV not zero-sized, ignoring datagram.");
                                 return -EBADMSG;
                         }
-                        if (left != 0) {
-                                log_lldp("Trailing garbage in datagram, ignoring datagram.");
-                                return -EBADMSG;
-                        }
 
                         goto end_marker;
 
