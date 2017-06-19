@@ -1,6 +1,6 @@
 ### Submission type
 
-<!-- Delete unnecessary option: -->
+<!-- Delete the unnecessary option below: -->
 
  - Bug report
  - Request for enhancement (RFE)
@@ -11,7 +11,7 @@
 
 > …
 
-*NOTE: Do not submit bug reports about anything but the two most recently released systemd versions upstream!*
+<!-- **NOTE:** Do not submit bug reports about anything but the two most recently released systemd versions upstream! -->
 
 ### Used distribution
 
