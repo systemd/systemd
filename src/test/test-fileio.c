@@ -509,7 +509,8 @@ static void test_load_env_file_pairs(void) {
                         "ANSI_COLOR=\"0;36\"\n"
                         "HOME_URL=\"https://www.archlinux.org/\"\n"
                         "SUPPORT_URL=\"https://bbs.archlinux.org/\"\n"
-                        "BUG_REPORT_URL=\"https://bugs.archlinux.org/\"\n",
+                        "BUG_REPORT_URL=\"https://bugs.archlinux.org/\"\n"
+                        "PACKAGING_URL=\"https://aur.archlinux.org/\"\n",
                         WRITE_STRING_FILE_CREATE);
         assert_se(r == 0);
 
@@ -519,9 +520,9 @@ static void test_load_env_file_pairs(void) {
         r = load_env_file_pairs(f, fn, NULL, &l);
         assert_se(r >= 0);
 
-        assert_se(strv_length(l) == 14);
+        assert_se(strv_length(l) == 16);
         STRV_FOREACH_PAIR(k, v, l) {
-                assert_se(STR_IN_SET(*k, "NAME", "ID", "PRETTY_NAME", "ANSI_COLOR", "HOME_URL", "SUPPORT_URL", "BUG_REPORT_URL"));
+                assert_se(STR_IN_SET(*k, "NAME", "ID", "PRETTY_NAME", "ANSI_COLOR", "HOME_URL", "SUPPORT_URL", "BUG_REPORT_URL", "PACKAGING_URL"));
                 printf("%s=%s\n", *k, *v);
                 if (streq(*k, "NAME")) assert_se(streq(*v, "Arch Linux"));
                 if (streq(*k, "ID")) assert_se(streq(*v, "arch"));
@@ -530,6 +531,7 @@ static void test_load_env_file_pairs(void) {
                 if (streq(*k, "HOME_URL")) assert_se(streq(*v, "https://www.archlinux.org/"));
                 if (streq(*k, "SUPPORT_URL")) assert_se(streq(*v, "https://bbs.archlinux.org/"));
                 if (streq(*k, "BUG_REPORT_URL")) assert_se(streq(*v, "https://bugs.archlinux.org/"));
+                if (streq(*k, "PACKAGING_URL")) assert_se(streq(*v, "https://aur.archlinux.org/"));
         }
 
         unlink(fn);
