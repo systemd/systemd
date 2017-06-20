@@ -853,21 +853,18 @@
 
       <varlistentry>
         <term><varname>FileDescriptorStoreMax=</varname></term>
-        <listitem><para>Configure how many file descriptors may be
-        stored in the service manager for the service using
+        <listitem><para>Configure how many file descriptors may be stored in the service manager for the service using
         <citerefentry><refentrytitle>sd_pid_notify_with_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>'s
-        <literal>FDSTORE=1</literal> messages. This is useful for
-        implementing service restart schemes where the state is
-        serialized to <filename>/run</filename> and the file
-        descriptors passed to the service manager, to allow restarts
-        without losing state. Defaults to 0, i.e. no file descriptors
-        may be stored in the service manager. All file
-        descriptors passed to the service manager from a specific
-        service are passed back to the service's main process on the
-        next service restart. Any file descriptors passed to the
-        service manager are automatically closed when POLLHUP or
-        POLLERR is seen on them, or when the service is fully stopped
-        and no job is queued or being executed for it.</para></listitem>
+        <literal>FDSTORE=1</literal> messages. This is useful for implementing services that can restart after an
+        explicit request or a crash without losing state. Any open sockets and other file descriptors which should not
+        be closed during the restart may be stored this way. Application state can either be serialized to a file in
+        <filename>/run</filename>, or better, stored in a
+        <citerefentry><refentrytitle>memfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry> memory file
+        descriptor. Defaults to 0, i.e. no file descriptors may be stored in the service manager. All file descriptors
+        passed to the service manager from a specific service are passed back to the service's main process on the next
+        service restart. Any file descriptors passed to the service manager are automatically closed when
+        <constant>POLLHUP</constant> or <constant>POLLERR</constant> is seen on them, or when the service is fully
+        stopped and no job is queued or being executed for it.</para></listitem>
       </varlistentry>
 
       <varlistentry>

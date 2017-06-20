@@ -413,13 +413,12 @@ static int service_add_fd_store(Service *s, int fd, const char *name) {
         }
 
         r = sd_event_add_io(UNIT(s)->manager->event, &fs->event_source, fd, 0, on_fd_store_io, fs);
-        if (r < 0) {
+        if (r < 0 && r != -EPERM) { /* EPERM indicates fds that aren't pollable, which is OK */
                 free(fs->fdname);
                 free(fs);
                 return r;
-        }
-
-        (void) sd_event_source_set_description(fs->event_source, "service-fd-store");
+        } else if (r >= 0)
+                (void) sd_event_source_set_description(fs->event_source, "service-fd-store");
 
         LIST_PREPEND(fd_store, s->fd_store, fs);
         s->n_fd_store++;
