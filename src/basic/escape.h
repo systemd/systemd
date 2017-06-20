@@ -31,12 +31,29 @@
 /* What characters are special in the shell? */
 /* must be escaped outside and inside double-quotes */
 #define SHELL_NEED_ESCAPE "\"\\`$"
-/* can be escaped or double-quoted */
-#define SHELL_NEED_QUOTES SHELL_NEED_ESCAPE GLOB_CHARS "'()<>|&;"
+
+/* Those that can be escaped or double-quoted.
+ *
+ * Stricly speaking, ! does not need to be escaped, except in interactive
+ * mode, but let's be extra nice to the user and quote ! in case this
+ * output is ever used in interactive mode. */
+#define SHELL_NEED_QUOTES SHELL_NEED_ESCAPE GLOB_CHARS "'()<>|&;!"
+
+/* Note that we assume control characters would need to be escaped too in
+ * addition to the "special" characters listed here, if they appear in the
+ * string. Current users disallow control characters. Also '"' shall not
+ * be escaped.
+ */
+#define SHELL_NEED_ESCAPE_POSIX "\\\'"
 
 typedef enum UnescapeFlags {
         UNESCAPE_RELAX = 1,
 } UnescapeFlags;
+
+typedef enum EscapeStyle {
+        ESCAPE_BACKSLASH = 1,
+        ESCAPE_POSIX = 2,
+} EscapeStyle;
 
 char *cescape(const char *s);
 char *cescape_length(const char *s, size_t n);
@@ -51,4 +68,4 @@ char *xescape(const char *s, const char *bad);
 char *octescape(const char *s, size_t len);
 
 char *shell_escape(const char *s, const char *bad);
-char *shell_maybe_quote(const char *s);
+char* shell_maybe_quote(const char *s, EscapeStyle style);

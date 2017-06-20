@@ -1495,11 +1495,26 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <term><command>show-environment</command></term>
 
           <listitem>
-            <para>Dump the systemd manager environment block. The
-            environment block will be dumped in straight-forward form
-            suitable for sourcing into a shell script. This environment
-            block will be passed to all processes the manager
-            spawns.</para>
+            <para>Dump the systemd manager environment block. This is the environment
+            block that is passed to all processes the manager spawns. The environment
+            block will be dumped in straight-forward form suitable for sourcing into
+            most shells. If no special characters or whitespace is present in the variable
+            values, no escaping is performed, and the assignments have the form
+            <literal>VARIABLE=value</literal>. If whitespace or characters which have
+            special meaning to the shell are present, dollar-single-quote escaping is
+            used, and assignments have the form <literal>VARIABLE=$'value'</literal>.
+            This syntax is known to be supported by
+            <citerefentry project='die-net'><refentrytitle>bash</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+            <citerefentry project='die-net'><refentrytitle>zsh</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+            <citerefentry project='die-net'><refentrytitle>ksh</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+            and
+            <citerefentry project='die-net'><refentrytitle>busybox</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+            <citerefentry project='die-net'><refentrytitle>ash</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+            but not
+            <citerefentry project='die-net'><refentrytitle>dash</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+            or
+            <citerefentry project='die-net'><refentrytitle>fish</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
