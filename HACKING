@@ -30,7 +30,7 @@ systemd-nspawn or in an UEFI-capable VM:
 
 or:
 
-        # qemu-kvm -m 512 -smp 2 -bios /usr/share/edk2/ovmf/OVMF_CODE.fd -hda image.raw
+        # qemu-system-x86_64 -enable-kvm -m 512 -smp 2 -bios /usr/share/edk2/ovmf/OVMF_CODE.fd -hda image.raw
 
 Every time you rerun the "mkosi" command a fresh image is built, incorporating
 all current changes you made to the project tree.
