@@ -36,6 +36,7 @@ Link.BitsPerSecond,              config_parse_si_size,       0,                 
 Link.Duplex,                     config_parse_duplex,        0,                             offsetof(link_config, duplex)
 Link.AutoNegotiation,            config_parse_tristate,      0,                             offsetof(link_config, autonegotiation)
 Link.WakeOnLan,                  config_parse_wol,           0,                             offsetof(link_config, wol)
+Link.Port,                       config_parse_port,          0,                             offsetof(link_config, port)
 Link.GenericSegmentationOffload, config_parse_tristate,      0,                             offsetof(link_config, features[NET_DEV_FEAT_GSO])
 Link.TCPSegmentationOffload,     config_parse_tristate,      0,                             offsetof(link_config, features[NET_DEV_FEAT_TSO])
 Link.UDPSegmentationOffload,     config_parse_tristate,      0,                             offsetof(link_config, features[NET_DEV_FEAT_UFO])

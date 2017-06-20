@@ -71,6 +71,7 @@ struct link_config {
         Duplex duplex;
         int autonegotiation;
         WakeOnLan wol;
+        NetDevPort port;
         NetDevFeature features[_NET_DEV_FEAT_MAX];
 
         LIST_FIELDS(link_config, links);
