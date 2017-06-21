@@ -398,24 +398,19 @@
       <varlistentry>
         <term><option>--slice=</option></term>
 
-        <listitem><para>Make the container part of the specified
-        slice, instead of the default
-        <filename>machine.slice</filename>. This is only applies if
-        the machine is run in its own scope unit, i.e. if
-        <option>--keep-unit</option> is not used.</para>
+        <listitem><para>Make the container part of the specified slice, instead of the default
+        <filename>machine.slice</filename>. This applies only if the machine is run in its own scope unit, i.e. if
+        <option>--keep-unit</option> isn't used.</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--property=</option></term>
 
-        <listitem><para>Set a unit property on the scope unit to
-        register for the machine. This only applies if the machine is
-        run in its own scope unit, i.e. if
-        <option>--keep-unit</option> is not used. Takes unit property
-        assignments in the same format as <command>systemctl
-        set-property</command>. This is useful to set memory limits
-        and similar for machines.</para>
+        <listitem><para>Set a unit property on the scope unit to register for the machine. This applies only if the
+        machine is run in its own scope unit, i.e. if <option>--keep-unit</option> isn't used. Takes unit property
+        assignments in the same format as <command>systemctl set-property</command>. This is useful to set memory
+        limits and similar for container.</para>
         </listitem>
       </varlistentry>
 
@@ -888,18 +883,16 @@
       <varlistentry>
         <term><option>--register=</option></term>
 
-        <listitem><para>Controls whether the container is registered
-        with
-        <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-        Takes a boolean argument, which defaults to <literal>yes</literal>.
-        This option should be enabled when the container runs a full
-        Operating System (more specifically: an init system), and is
-        useful to ensure that the container is accessible via
-        <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        and shown by tools such as
-        <citerefentry project='man-pages'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-        If the container does not run an init system, it is
-        recommended to set this option to <literal>no</literal>.</para></listitem>
+        <listitem><para>Controls whether the container is registered with
+        <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>.  Takes a
+        boolean argument, which defaults to <literal>yes</literal>.  This option should be enabled when the container
+        runs a full Operating System (more specifically: a system and service manager as PID 1), and is useful to
+        ensure that the container is accessible via
+        <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> and shown by
+        tools such as <citerefentry
+        project='man-pages'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>.  If the container
+        does not run a service manager, it is recommended to set this option to
+        <literal>no</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -916,7 +909,9 @@
         service unit, and the service unit's sole purpose is to run a
         single <command>systemd-nspawn</command> container. This
         option is not available if run from a user
-        session.</para></listitem>
+        session.</para>
+        <para>Note that passing <option>--keep-unit</option> disables the effect of <option>--slice=</option> and
+        <option>--property=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
