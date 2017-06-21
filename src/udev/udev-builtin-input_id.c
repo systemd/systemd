@@ -204,7 +204,7 @@ static bool test_pointers(struct udev_device *dev,
         has_touch = test_bit(BTN_TOUCH, bitmask_key);
         /* joysticks don't necessarily have buttons; e. g.
          * rudders/pedals are joystick-like, but buttonless; they have
-         * other fancy axes */
+         * other fancy axes. Others have buttons only but no axes. */
         has_joystick_axes_or_buttons = test_bit(BTN_TRIGGER, bitmask_key) ||
                                        test_bit(BTN_TRIGGER_HAPPY, bitmask_key) ||
                                        test_bit(BTN_A, bitmask_key) ||
@@ -231,7 +231,10 @@ static bool test_pointers(struct udev_device *dev,
                         is_touchscreen = true;
                 else if (has_joystick_axes_or_buttons)
                         is_joystick = true;
+        } else if (has_joystick_axes_or_buttons) {
+                is_joystick = true;
         }
+
         if (has_mt_coordinates) {
                 if (stylus_or_pen)
                         is_tablet = true;
