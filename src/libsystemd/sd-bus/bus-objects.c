@@ -974,8 +974,10 @@ static int process_introspect(
                 /* Nothing?, let's see if we exist at all, and if not
                  * refuse to do anything */
                 r = bus_node_exists(bus, n, m->path, require_fallback);
-                if (r <= 0)
+                if (r <= 0) {
+                        r = bus_maybe_reply_error(m, r, &error);
                         goto finish;
+                }
                 if (bus->nodes_modified) {
                         r = 0;
                         goto finish;
@@ -1199,7 +1201,7 @@ static int process_get_managed_objects(
 
         r = get_child_nodes(bus, m->path, n, CHILDREN_RECURSIVE, &s, &error);
         if (r < 0)
-                return r;
+                return bus_maybe_reply_error(m, r, &error);
         if (bus->nodes_modified)
                 return 0;
 
@@ -1214,7 +1216,7 @@ static int process_get_managed_objects(
         SET_FOREACH(path, s, i) {
                 r = object_manager_serialize_path_and_fallbacks(bus, reply, path, &error);
                 if (r < 0)
-                        return r;
+                        return bus_maybe_reply_error(m, r, &error);
 
                 if (bus->nodes_modified)
                         return 0;
@@ -1344,7 +1346,7 @@ static int object_find_and_run(
         if (!*found_object) {
                 r = bus_node_exists(bus, n, m->path, require_fallback);
                 if (r < 0)
-                        return r;
+                        return bus_maybe_reply_error(m, r, NULL);
                 if (bus->nodes_modified)
                         return 0;
                 if (r > 0)
