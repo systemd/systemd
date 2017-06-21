@@ -40,6 +40,7 @@ BuildPackages=
         docbook-style-xsl
         elfutils-devel
         gcc
+        gcc-c++
         git
         gnu-efi
         gnu-efi-devel

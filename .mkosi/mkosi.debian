@@ -35,6 +35,7 @@ BuildPackages=
         docbook-xml
         docbook-xsl
         gcc
+        g++
         git
         gnu-efi
         gperf
