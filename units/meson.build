@@ -101,8 +101,8 @@ units = [
         ['timers.target',                       ''],
         ['umount.target',                       ''],
         ['user.slice',                          ''],
-        ['var-lib-machines.mount',              '',
-         'local-fs.target.wants/'],
+        ['var-lib-machines.mount',              'ENABLE_MACHINED',
+         'remote-fs.target.wants/ machines.target.wants/'],
 ]
 
 in_units = [
