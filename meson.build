@@ -2175,6 +2175,7 @@ if conf.get('ENABLE_NETWORKD', false)
                                 libsystemd_network,
                                 libudev_internal,
                                 libshared],
+                   dependencies : [threads],
                    install_rpath : rootlibexecdir,
                    install : true,
                    install_dir : rootlibexecdir)

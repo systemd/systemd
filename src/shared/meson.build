@@ -122,6 +122,20 @@ endif
 
 libshared_name = 'systemd-shared-@0@'.format(meson.project_version())
 
+libshared_deps = [threads,
+                  librt,
+                  libcap,
+                  libacl,
+                  libcryptsetup,
+                  libgcrypt,
+                  libiptc,
+                  libseccomp,
+                  libselinux,
+                  libidn,
+                  libxz,
+                  liblz4,
+                  libblkid]
+
 libshared = shared_library(
         libshared_name,
         shared_sources,
@@ -132,19 +146,7 @@ libshared = shared_library(
         include_directories : includes,
         link_args : ['-shared'],
         c_args : ['-fvisibility=default'],
-        dependencies : [threads,
-                        librt,
-                        libcap,
-                        libacl,
-                        libcryptsetup,
-                        libgcrypt,
-                        libiptc,
-                        libseccomp,
-                        libselinux,
-                        libidn,
-                        libxz,
-                        liblz4,
-                        libblkid],
+        dependencies : libshared_deps,
         install : true,
         install_dir : rootlibexecdir)
 
@@ -153,14 +155,4 @@ libshared_static = static_library(
         shared_sources,
         basic_sources,
         include_directories : includes,
-        dependencies : [threads,
-                        librt,
-                        libcap,
-                        libacl,
-                        libcryptsetup,
-                        libseccomp,
-                        libselinux,
-                        libidn,
-                        libxz,
-                        liblz4,
-                        libblkid])
+        dependencies : libshared_deps)

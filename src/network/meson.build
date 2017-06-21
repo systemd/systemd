@@ -133,7 +133,7 @@ if conf.get('ENABLE_NETWORKD', false)
       libudev_internal,
       libsystemd_network,
       libshared],
-     []],
+     [threads]],
 
     [['src/network/test-network-tables.c',
       'src/network/test-network-tables.c',
@@ -143,7 +143,7 @@ if conf.get('ENABLE_NETWORKD', false)
       libudev_core,
       libsystemd_network,
       libshared],
-     [],
+     [threads],
      '', '', [],
      [network_include_dir] + libudev_core_includes],
   ]
