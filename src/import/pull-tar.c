@@ -315,7 +315,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
         if (!tar_pull_is_done(i))
                 return;
 
-        if (i->checksum_job->style == VERIFICATION_PER_DIRECTORY && i->signature_job->error != 0) {
+        if (i->signature_job && i->checksum_job->style == VERIFICATION_PER_DIRECTORY && i->signature_job->error != 0) {
                 log_error_errno(j->error, "Failed to retrieve signature file, cannot verify. (Try --verify=no?)");
 
                 r = i->signature_job->error;
