@@ -206,6 +206,7 @@ static bool test_pointers(struct udev_device *dev,
          * rudders/pedals are joystick-like, but buttonless; they have
          * other fancy axes */
         has_joystick_axes_or_buttons = test_bit(BTN_TRIGGER, bitmask_key) ||
+                                       test_bit(BTN_TRIGGER_HAPPY, bitmask_key) ||
                                        test_bit(BTN_A, bitmask_key) ||
                                        test_bit(BTN_1, bitmask_key) ||
                                        test_bit(ABS_RX, bitmask_abs) ||
