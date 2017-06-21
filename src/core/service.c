@@ -3583,15 +3583,6 @@ static const char* const service_exec_command_table[_SERVICE_EXEC_COMMAND_MAX] =
 
 DEFINE_STRING_TABLE_LOOKUP(service_exec_command, ServiceExecCommand);
 
-static const char* const notify_access_table[_NOTIFY_ACCESS_MAX] = {
-        [NOTIFY_NONE] = "none",
-        [NOTIFY_MAIN] = "main",
-        [NOTIFY_EXEC] = "exec",
-        [NOTIFY_ALL] = "all"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(notify_access, NotifyAccess);
-
 static const char* const notify_state_table[_NOTIFY_STATE_MAX] = {
         [NOTIFY_UNKNOWN] = "unknown",
         [NOTIFY_READY] = "ready",
