@@ -107,7 +107,7 @@ dual_timestamp* dual_timestamp_from_realtime(dual_timestamp *ts, usec_t u) {
         ts->realtime = u;
 
         delta = (int64_t) now(CLOCK_REALTIME) - (int64_t) u;
-        ts->monotonic = usec_sub(now(CLOCK_MONOTONIC), delta);
+        ts->monotonic = usec_sub_signed(now(CLOCK_MONOTONIC), delta);
 
         return ts;
 }
@@ -124,8 +124,8 @@ triple_timestamp* triple_timestamp_from_realtime(triple_timestamp *ts, usec_t u)
 
         ts->realtime = u;
         delta = (int64_t) now(CLOCK_REALTIME) - (int64_t) u;
-        ts->monotonic = usec_sub(now(CLOCK_MONOTONIC), delta);
-        ts->boottime = clock_boottime_supported() ? usec_sub(now(CLOCK_BOOTTIME), delta) : USEC_INFINITY;
+        ts->monotonic = usec_sub_signed(now(CLOCK_MONOTONIC), delta);
+        ts->boottime = clock_boottime_supported() ? usec_sub_signed(now(CLOCK_BOOTTIME), delta) : USEC_INFINITY;
 
         return ts;
 }
@@ -141,7 +141,7 @@ dual_timestamp* dual_timestamp_from_monotonic(dual_timestamp *ts, usec_t u) {
 
         ts->monotonic = u;
         delta = (int64_t) now(CLOCK_MONOTONIC) - (int64_t) u;
-        ts->realtime = usec_sub(now(CLOCK_REALTIME), delta);
+        ts->realtime = usec_sub_signed(now(CLOCK_REALTIME), delta);
 
         return ts;
 }
@@ -156,8 +156,8 @@ dual_timestamp* dual_timestamp_from_boottime_or_monotonic(dual_timestamp *ts, us
 
         dual_timestamp_get(ts);
         delta = (int64_t) now(clock_boottime_or_monotonic()) - (int64_t) u;
-        ts->realtime = usec_sub(ts->realtime, delta);
-        ts->monotonic = usec_sub(ts->monotonic, delta);
+        ts->realtime = usec_sub_signed(ts->realtime, delta);
+        ts->monotonic = usec_sub_signed(ts->monotonic, delta);
 
         return ts;
 }

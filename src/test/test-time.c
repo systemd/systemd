@@ -195,16 +195,37 @@ static void test_usec_add(void) {
         assert_se(usec_add(USEC_INFINITY, 2) == USEC_INFINITY);
 }
 
-static void test_usec_sub(void) {
-        assert_se(usec_sub(0, 0) == 0);
-        assert_se(usec_sub(4, 1) == 3);
-        assert_se(usec_sub(4, 4) == 0);
-        assert_se(usec_sub(4, 5) == 0);
-        assert_se(usec_sub(USEC_INFINITY-3, -3) == USEC_INFINITY);
-        assert_se(usec_sub(USEC_INFINITY-3, -3) == USEC_INFINITY);
-        assert_se(usec_sub(USEC_INFINITY-3, -4) == USEC_INFINITY);
-        assert_se(usec_sub(USEC_INFINITY-3, -5) == USEC_INFINITY);
-        assert_se(usec_sub(USEC_INFINITY, 5) == USEC_INFINITY);
+static void test_usec_sub_unsigned(void) {
+        assert_se(usec_sub_unsigned(0, 0) == 0);
+        assert_se(usec_sub_unsigned(0, 2) == 0);
+        assert_se(usec_sub_unsigned(0, USEC_INFINITY) == 0);
+        assert_se(usec_sub_unsigned(1, 0) == 1);
+        assert_se(usec_sub_unsigned(1, 1) == 0);
+        assert_se(usec_sub_unsigned(1, 2) == 0);
+        assert_se(usec_sub_unsigned(1, 3) == 0);
+        assert_se(usec_sub_unsigned(1, USEC_INFINITY) == 0);
+        assert_se(usec_sub_unsigned(USEC_INFINITY-1, 0) == USEC_INFINITY-1);
+        assert_se(usec_sub_unsigned(USEC_INFINITY-1, 1) == USEC_INFINITY-2);
+        assert_se(usec_sub_unsigned(USEC_INFINITY-1, 2) == USEC_INFINITY-3);
+        assert_se(usec_sub_unsigned(USEC_INFINITY-1, USEC_INFINITY-2) == 1);
+        assert_se(usec_sub_unsigned(USEC_INFINITY-1, USEC_INFINITY-1) == 0);
+        assert_se(usec_sub_unsigned(USEC_INFINITY-1, USEC_INFINITY) == 0);
+        assert_se(usec_sub_unsigned(USEC_INFINITY, 0) == USEC_INFINITY);
+        assert_se(usec_sub_unsigned(USEC_INFINITY, 1) == USEC_INFINITY);
+        assert_se(usec_sub_unsigned(USEC_INFINITY, 2) == USEC_INFINITY);
+        assert_se(usec_sub_unsigned(USEC_INFINITY, USEC_INFINITY) == USEC_INFINITY);
+}
+
+static void test_usec_sub_signed(void) {
+        assert_se(usec_sub_signed(0, 0) == 0);
+        assert_se(usec_sub_signed(4, 1) == 3);
+        assert_se(usec_sub_signed(4, 4) == 0);
+        assert_se(usec_sub_signed(4, 5) == 0);
+        assert_se(usec_sub_signed(USEC_INFINITY-3, -3) == USEC_INFINITY);
+        assert_se(usec_sub_signed(USEC_INFINITY-3, -3) == USEC_INFINITY);
+        assert_se(usec_sub_signed(USEC_INFINITY-3, -4) == USEC_INFINITY);
+        assert_se(usec_sub_signed(USEC_INFINITY-3, -5) == USEC_INFINITY);
+        assert_se(usec_sub_signed(USEC_INFINITY, 5) == USEC_INFINITY);
 }
 
 static void test_format_timestamp(void) {
@@ -322,7 +343,8 @@ int main(int argc, char *argv[]) {
         test_timezone_is_valid();
         test_get_timezones();
         test_usec_add();
-        test_usec_sub();
+        test_usec_sub_signed();
+        test_usec_sub_unsigned();
         test_format_timestamp();
         test_format_timestamp_utc();
         test_dual_timestamp_deserialize();

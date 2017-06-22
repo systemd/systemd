@@ -251,7 +251,7 @@ static inline void check_update_watchdog(Uploader *u) {
                 return;
 
         after = now(CLOCK_MONOTONIC);
-        elapsed_time = usec_sub(after, u->watchdog_timestamp);
+        elapsed_time = usec_sub_unsigned(after, u->watchdog_timestamp);
         if (elapsed_time > u->watchdog_usec / 2) {
                 log_debug("Update watchdog timer");
                 sd_notify(false, "WATCHDOG=1");
