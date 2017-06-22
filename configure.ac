@@ -1059,13 +1059,13 @@ fi
 AM_CONDITIONAL(ENABLE_IDN, [test "$have_idn" = "yes"])
 
 # ------------------------------------------------------------------------------
-have_nss=no
-AC_ARG_ENABLE(nss, AS_HELP_STRING([--disable-nss], [disable NSS]))
-if test "x$enable_nss" != "xno"; then
-        have_nss=yes
-        AC_DEFINE(ENABLE_NSS, [1], [NSS is enabled])
+have_nss_systemd=no
+AC_ARG_ENABLE(nss-systemd, AS_HELP_STRING([--disable-nss-systemd], [disable nss-systemd support]))
+if test "x$enable_nss_systemd" != "xno"; then
+        have_nss_systemd=yes
+        AC_DEFINE(ENABLE_NSS_SYSTEMD, [1], [nss-systemd is enabled])
 fi
-AM_CONDITIONAL(ENABLE_NSS, [test "$have_nss" = "yes"])
+AM_CONDITIONAL(ENABLE_NSS_SYSTEMD, [test "$have_nss_systemd" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_libiptc=no
@@ -1766,7 +1766,6 @@ AC_MSG_RESULT([
         libidn2:                           ${have_libidn2}
         libidn:                            ${have_libidn}
         IDN:                               ${have_idn}
-        NSS:                               ${have_nss}
         libiptc:                           ${have_libiptc}
         ELFUTILS:                          ${have_elfutils}
         binfmt:                            ${have_binfmt}
@@ -1811,6 +1810,7 @@ AC_MSG_RESULT([
         dbus:                              ${have_dbus}
         glib:                              ${have_glib}
         nss-myhostname:                    ${have_myhostname}
+        nss-systemd:                       ${have_nss_systemd}
         hwdb:                              ${enable_hwdb}
         tpm:                               ${have_tpm}
         Python:                            ${have_python}

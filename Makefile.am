@@ -5277,7 +5277,7 @@ manual_tests += \
 	test-nss
 
 # ------------------------------------------------------------------------------
-if ENABLE_NSS
+if ENABLE_NSS_SYSTEMD
 libnss_systemd_la_SOURCES = \
 	src/nss-systemd/nss-systemd.sym \
 	src/nss-systemd/nss-systemd.c
