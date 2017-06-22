@@ -372,6 +372,13 @@ static void test_usec_shift_clock(void) {
 int main(int argc, char *argv[]) {
         uintmax_t x;
 
+        log_info("realtime=" USEC_FMT "\n"
+                 "monotonic=" USEC_FMT "\n"
+                 "boottime=" USEC_FMT "\n",
+                 now(CLOCK_REALTIME),
+                 now(CLOCK_MONOTONIC),
+                 now(clock_boottime_or_monotonic()));
+
         test_parse_sec();
         test_parse_time();
         test_parse_nsec();
