@@ -269,8 +269,10 @@ INSTALL_DIRS =
 
 SHUTDOWN_TARGET_WANTS =
 LOCAL_FS_TARGET_WANTS =
+REMOTE_FS_TARGET_WANTS =
 MULTI_USER_TARGET_WANTS =
 GRAPHICAL_TARGET_WANTS =
+MACHINES_TARGET_WANTS =
 RESCUE_TARGET_WANTS =
 SYSINIT_TARGET_WANTS =
 SOCKETS_TARGET_WANTS =
@@ -287,6 +289,8 @@ GENERAL_ALIASES =
 install-target-wants-hook:
 	what="$(SHUTDOWN_TARGET_WANTS)" && wants=shutdown.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(LOCAL_FS_TARGET_WANTS)" && wants=local-fs.target && dir=$(systemunitdir) && $(add-wants)
+	what="$(REMOTE_FS_TARGET_WANTS)" && wants=remote-fs.target && dir=$(systemunitdir) && $(add-wants)
+	what="$(MACHINES_TARGET_WANTS)" && wants=machines.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(MULTI_USER_TARGET_WANTS)" && wants=multi-user.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(GRAPHICAL_TARGET_WANTS)" && wants=graphical.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(RESCUE_TARGET_WANTS)" && wants=rescue.target && dir=$(systemunitdir) && $(add-wants)
@@ -539,7 +543,6 @@ dist_systemunit_DATA = \
 	units/sys-kernel-debug.mount \
 	units/sys-fs-fuse-connections.mount \
 	units/tmp.mount \
-	units/var-lib-machines.mount \
 	units/printer.target \
 	units/sound.target \
 	units/bluetooth.target \
@@ -5322,6 +5325,10 @@ endif
 
 # ------------------------------------------------------------------------------
 if ENABLE_MACHINED
+
+dist_systemunit_DATA += \
+	units/var-lib-machines.mount
+
 systemd_machined_SOURCES = \
 	src/machine/machined.c \
 	src/machine/machined.h
@@ -6568,7 +6575,9 @@ SYSINIT_TARGET_WANTS += \
 
 LOCAL_FS_TARGET_WANTS += \
 	systemd-remount-fs.service \
-	tmp.mount \
+	tmp.mount
+
+REMOTE_FS_TARGET_WANTS += \
 	var-lib-machines.mount
 
 MULTI_USER_TARGET_WANTS += \
@@ -6583,6 +6592,11 @@ SYSINIT_TARGET_WANTS += \
 	sys-fs-fuse-connections.mount \
 	systemd-sysctl.service \
 	systemd-ask-password-console.path
+
+if ENABLE_MACHINED
+MACHINES_TARGET_WANTS += \
+	var-lib-machines.mount
+endif
 
 if HAVE_SYSV_COMPAT
 SYSTEM_UNIT_ALIASES += \
