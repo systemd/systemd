@@ -70,3 +70,6 @@ BuildPackages=
         qrencode-devel
         tree
         xz-devel
+
+Packages=
+        libidn2
