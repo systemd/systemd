@@ -331,6 +331,44 @@ static void test_dual_timestamp_deserialize(void) {
         assert_se(t.monotonic == 0);
 }
 
+static void assert_similar(usec_t a, usec_t b) {
+        usec_t d;
+
+        if (a > b)
+                d = a - b;
+        else
+                d = b - a;
+
+        assert(d < 10*USEC_PER_SEC);
+}
+
+static void test_usec_shift_clock(void) {
+        usec_t rt, mn, bt;
+
+        rt = now(CLOCK_REALTIME);
+        mn = now(CLOCK_MONOTONIC);
+        bt = now(clock_boottime_or_monotonic());
+
+        assert_se(usec_shift_clock(USEC_INFINITY, CLOCK_REALTIME, CLOCK_MONOTONIC) == USEC_INFINITY);
+
+        assert_similar(usec_shift_clock(rt + USEC_PER_HOUR, CLOCK_REALTIME, CLOCK_MONOTONIC), mn + USEC_PER_HOUR);
+        assert_similar(usec_shift_clock(rt + 2*USEC_PER_HOUR, CLOCK_REALTIME, clock_boottime_or_monotonic()), bt + 2*USEC_PER_HOUR);
+        assert_se(usec_shift_clock(rt + 3*USEC_PER_HOUR, CLOCK_REALTIME, CLOCK_REALTIME_ALARM) == rt + 3*USEC_PER_HOUR);
+
+        assert_similar(usec_shift_clock(mn + 4*USEC_PER_HOUR, CLOCK_MONOTONIC, CLOCK_REALTIME_ALARM), rt + 4*USEC_PER_HOUR);
+        assert_similar(usec_shift_clock(mn + 5*USEC_PER_HOUR, CLOCK_MONOTONIC, clock_boottime_or_monotonic()), bt + 5*USEC_PER_HOUR);
+        assert_se(usec_shift_clock(mn + 6*USEC_PER_HOUR, CLOCK_MONOTONIC, CLOCK_MONOTONIC) == mn + 6*USEC_PER_HOUR);
+
+        assert_similar(usec_shift_clock(bt + 7*USEC_PER_HOUR, clock_boottime_or_monotonic(), CLOCK_MONOTONIC), mn + 7*USEC_PER_HOUR);
+        assert_similar(usec_shift_clock(bt + 8*USEC_PER_HOUR, clock_boottime_or_monotonic(), CLOCK_REALTIME_ALARM), rt + 8*USEC_PER_HOUR);
+        assert_se(usec_shift_clock(bt + 9*USEC_PER_HOUR, clock_boottime_or_monotonic(), clock_boottime_or_monotonic()) == bt + 9*USEC_PER_HOUR);
+
+        if (mn > USEC_PER_MINUTE) {
+                assert_similar(usec_shift_clock(rt - 30 * USEC_PER_SEC, CLOCK_REALTIME_ALARM, CLOCK_MONOTONIC), mn - 30 * USEC_PER_SEC);
+                assert_similar(usec_shift_clock(rt - 50 * USEC_PER_SEC, CLOCK_REALTIME, clock_boottime_or_monotonic()), bt - 50 * USEC_PER_SEC);
+        }
+}
+
 int main(int argc, char *argv[]) {
         uintmax_t x;
 
@@ -348,6 +386,7 @@ int main(int argc, char *argv[]) {
         test_format_timestamp();
         test_format_timestamp_utc();
         test_dual_timestamp_deserialize();
+        test_usec_shift_clock();
 
         /* Ensure time_t is signed */
         assert_cc((time_t) -1 < (time_t) 1);

@@ -1351,3 +1351,22 @@ unsigned long usec_to_jiffies(usec_t u) {
 
         return DIV_ROUND_UP(u , USEC_PER_SEC / hz);
 }
+
+usec_t usec_shift_clock(usec_t x, clockid_t from, clockid_t to) {
+        usec_t a, b;
+
+        if (x == USEC_INFINITY)
+                return USEC_INFINITY;
+        if (map_clock_id(from) == map_clock_id(to))
+                return x;
+
+        a = now(from);
+        b = now(to);
+
+        if (x > a)
+                /* x lies in the future */
+                return usec_add(b, usec_sub_unsigned(x, a));
+        else
+                /* x lies in the past */
+                return usec_sub_unsigned(b, usec_sub_unsigned(a, x));
+}
