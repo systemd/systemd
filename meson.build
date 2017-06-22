@@ -2219,7 +2219,7 @@ foreach tuple : tests
         endif
 
         if condition == '' or conf.get(condition, false)
-                install = install_tests and type == ''
+                install = install_tests and (type == '' or type == 'install-only')
 
                 exe = executable(
                         name,
@@ -2234,6 +2234,8 @@ foreach tuple : tests
 
                 if type == 'manual'
                         message('@0@ is a manual test'.format(name))
+                elif type == 'install-only'
+                        message('@0@ is an install-only test'.format(name))
                 elif type == 'unsafe' and want_tests != 'unsafe'
                         message('@0@ is an unsafe test'.format(name))
                 else

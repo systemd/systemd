@@ -566,7 +566,7 @@ tests += [
           libblkid,
           libkmod,
           libacl],
-         '', 'manual'],
+         '', 'install-only'],
 
         [['src/test/test-id128.c'],
          [],
