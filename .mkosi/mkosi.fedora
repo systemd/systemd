@@ -32,7 +32,6 @@ RootSize=3G
 [Packages]
 BuildPackages=
         audit-libs-devel
-        meson
         bzip2-devel
         cryptsetup-devel
         dbus-devel
@@ -63,6 +62,7 @@ BuildPackages=
         libxslt
         lz4
         lz4-devel
+        meson
         pam-devel
         pkgconfig
         python3-devel
