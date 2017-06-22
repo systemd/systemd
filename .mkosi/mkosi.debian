@@ -77,3 +77,4 @@ BuildPackages=
 Packages=
         libqrencode3
         locales
+        libidn2-0

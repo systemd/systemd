@@ -63,3 +63,6 @@ BuildPackages=
         python-lxml
         qrencode
         xz
+
+Packages=
+        libidn2
