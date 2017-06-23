@@ -2319,7 +2319,10 @@ int manager_load_unit_from_dbus_path(Manager *m, const char *s, sd_bus_error *e,
                 return sd_bus_error_setf(e, BUS_ERROR_NO_UNIT_FOR_INVOCATION_ID, "No unit with the specified invocation ID " SD_ID128_FORMAT_STR " known.", SD_ID128_FORMAT_VAL(invocation_id));
         }
 
-        /* If this didn't work, we use the suffix as unit name. */
+        /* If this didn't work, we check if this is a unit name */
+        if (!unit_name_is_valid(n, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
+                return sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS, "Unit name %s is neither a valid invocation ID nor unit name.", n);
+
         r = manager_load_unit(m, n, NULL, e, &u);
         if (r < 0)
                 return r;
