@@ -2638,6 +2638,9 @@ static int signal_name_owner_changed(sd_bus_message *message, void *userdata, sd
                 return 0;
         }
 
+        old_owner = isempty(old_owner) ? NULL : old_owner;
+        new_owner = isempty(new_owner) ? NULL : new_owner;
+
         if (UNIT_VTABLE(u)->bus_name_owner_change)
                 UNIT_VTABLE(u)->bus_name_owner_change(u, name, old_owner, new_owner);
 
