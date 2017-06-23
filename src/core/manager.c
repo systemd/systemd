@@ -2588,8 +2588,8 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
         m->n_reloading++;
 
         for (;;) {
-                char line[LINE_MAX], *l;
-                const char *val;
+                char line[LINE_MAX];
+                const char *val, *l;
 
                 if (!fgets(line, sizeof(line), f)) {
                         if (feof(f))
@@ -2665,8 +2665,10 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         dual_timestamp_deserialize(val, &m->units_load_finish_timestamp);
                 else if (startswith(l, "env=")) {
                         r = deserialize_environment(&m->environment, l);
+                        if (r == -ENOMEM)
+                                goto finish;
                         if (r < 0)
-                                return r;
+                                log_notice_errno(r, "Failed to parse environment entry: \"%s\": %m", l);
 
                 } else if ((val = startswith(l, "notify-fd="))) {
                         int fd;
