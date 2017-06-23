@@ -250,6 +250,9 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
                                 return -EBADMSG;
                         }
 
+                        /* Note that after processing the SD_LLDP_TYPE_END left could still be > 0
+                         * as the message may contain padding (see IEEE 802.1AB-2016, sec. 8.5.12) */
+
                         goto end_marker;
 
                 case SD_LLDP_TYPE_CHASSIS_ID:
