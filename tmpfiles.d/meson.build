@@ -31,7 +31,7 @@ foreach pair : m4_files
                 # do nothing
         elif pair[1] == '' or conf.get(pair[1], false)
                 custom_target(
-                        'tmpfiles.d/' + pair[0],
+                        'tmpfiles.d_' + pair[0],
                          input : pair[0] + '.m4',
                          output: pair[0],
                          command : [m4, '-P'] + m4_defines + ['@INPUT@'],
