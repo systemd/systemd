@@ -144,28 +144,14 @@ static int property_get_next_elapse_monotonic(
                 sd_bus_error *error) {
 
         Timer *t = userdata;
-        usec_t x;
 
         assert(bus);
         assert(reply);
         assert(t);
 
-        if (t->next_elapse_monotonic_or_boottime <= 0)
-                x = 0;
-        else if (t->wake_system) {
-                usec_t a, b;
-
-                a = now(CLOCK_MONOTONIC);
-                b = now(clock_boottime_or_monotonic());
-
-                if (t->next_elapse_monotonic_or_boottime + a > b)
-                        x = t->next_elapse_monotonic_or_boottime + a - b;
-                else
-                        x = 0;
-        } else
-                x = t->next_elapse_monotonic_or_boottime;
-
-        return sd_bus_message_append(reply, "t", x);
+        return sd_bus_message_append(reply, "t",
+                                     (uint64_t) usec_shift_clock(t->next_elapse_monotonic_or_boottime,
+                                                                 TIMER_MONOTONIC_CLOCK(t), CLOCK_MONOTONIC));
 }
 
 const sd_bus_vtable bus_timer_vtable[] = {
