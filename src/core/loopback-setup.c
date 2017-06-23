@@ -190,15 +190,15 @@ int loopback_setup(void) {
 
         r = add_ipv4_address(rtnl, &state);
         if (r < 0)
-                return log_error_errno(r, "Failed to enqeue IPv4 loopback address add request: %m");
+                return log_error_errno(r, "Failed to enqueue IPv4 loopback address add request: %m");
 
         r = add_ipv6_address(rtnl, &state);
         if (r < 0)
-                return log_error_errno(r, "Failed to enqeue IPv4 loopback address add request: %m");
+                return log_error_errno(r, "Failed to enqueue IPv4 loopback address add request: %m");
 
         r = start_loopback(rtnl, &state);
         if (r < 0)
-                return log_error_errno(r, "Failed to enqeue loopback interface start request: %m");
+                return log_error_errno(r, "Failed to enqueue loopback interface start request: %m");
 
         while (state.n_messages > 0) {
                 r = sd_netlink_wait(rtnl, USEC_INFINITY);
