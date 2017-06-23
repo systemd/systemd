@@ -188,7 +188,16 @@ int stub_pid1(sd_id128_t uuid) {
                 else
                         assert_not_reached("Got unexpected signal");
 
-                /* (void) kill_and_sigcont(pid, SIGTERM); */
+                r = kill_and_sigcont(pid, SIGTERM);
+
+                /* Let's send a SIGHUP after the SIGTERM, as shells tend to ignore SIGTERM but do react to SIGHUP. We
+                 * do it strictly in this order, so that the SIGTERM is dispatched first, and SIGHUP second for those
+                 * processes which handle both. That's because services tend to bind configuration reload or something
+                 * else to SIGHUP. */
+
+                if (r != -ESRCH)
+                        (void) kill(pid, SIGHUP);
+
                 quit_usec = now(CLOCK_MONOTONIC) + DEFAULT_TIMEOUT_USEC;
         }
 
