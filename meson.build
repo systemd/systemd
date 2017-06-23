@@ -2219,8 +2219,6 @@ foreach tuple : tests
         endif
 
         if condition == '' or conf.get(condition, false)
-                install = install_tests and type == ''
-
                 exe = executable(
                         name,
                         sources,
@@ -2229,8 +2227,8 @@ foreach tuple : tests
                         dependencies : dependencies,
                         c_args : defs,
                         install_rpath : rootlibexecdir,
-                        install : install,
-                        install_dir : testsdir)
+                        install : install_tests,
+                        install_dir : join_paths(testsdir, type))
 
                 if type == 'manual'
                         message('@0@ is a manual test'.format(name))
