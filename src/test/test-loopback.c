@@ -27,6 +27,7 @@ int main(int argc, char* argv[]) {
         int r;
 
         log_open();
+        log_set_max_level(LOG_DEBUG);
         log_parse_environment();
 
         r = loopback_setup();
