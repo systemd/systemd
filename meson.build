@@ -1014,6 +1014,7 @@ foreach pair : [['utmp',          'HAVE_UTMP'],
                 ['smack',         'HAVE_SMACK'],
                 ['gshadow',       'ENABLE_GSHADOW'],
                 ['idn',           'ENABLE_IDN'],
+                ['nss-systemd',   'ENABLE_NSS_SYSTEMD'],
                ]
 
         if get_option(pair[0])
@@ -1162,7 +1163,7 @@ test_dlopen = executable(
         dependencies : [libdl])
 
 foreach tuple : [['myhostname', 'HAVE_MYHOSTNAME'],
-                 ['systemd',    ''               ],
+                 ['systemd',    'ENABLE_NSS_SYSTEMD'],
                  ['mymachines', 'ENABLE_MACHINED'],
                  ['resolve',    'ENABLE_RESOLVED']]
 
@@ -2455,6 +2456,7 @@ foreach tuple : [
         ['idn'],
         ['libidn2'],
         ['libidn'],
+        ['nss-systemd'],
         ['libiptc'],
         ['elfutils'],
         ['binfmt'],

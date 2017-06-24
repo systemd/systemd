@@ -23,7 +23,6 @@ MANPAGES += \
 	man/localtime.5 \
 	man/machine-id.5 \
 	man/machine-info.5 \
-	man/nss-systemd.8 \
 	man/os-release.5 \
 	man/sd-bus-errors.3 \
 	man/sd-bus.3 \
@@ -259,7 +258,6 @@ MANPAGES_ALIAS += \
 	man/SD_WARNING.3 \
 	man/init.1 \
 	man/journald.conf.d.5 \
-	man/libnss_systemd.so.2.8 \
 	man/poweroff.8 \
 	man/reboot.8 \
 	man/sd_bus_creds_get_audit_login_uid.3 \
@@ -617,7 +615,6 @@ man/SD_NOTICE.3: man/sd-daemon.3
 man/SD_WARNING.3: man/sd-daemon.3
 man/init.1: man/systemd.1
 man/journald.conf.d.5: man/journald.conf.5
-man/libnss_systemd.so.2.8: man/nss-systemd.8
 man/poweroff.8: man/halt.8
 man/reboot.8: man/halt.8
 man/sd_bus_creds_get_audit_login_uid.3: man/sd_bus_creds_get_pid.3
@@ -1129,9 +1126,6 @@ man/init.html: man/systemd.html
 	$(html-alias)
 
 man/journald.conf.d.html: man/journald.conf.html
-	$(html-alias)
-
-man/libnss_systemd.so.2.html: man/nss-systemd.html
 	$(html-alias)
 
 man/poweroff.html: man/halt.html
@@ -2166,6 +2160,17 @@ man/systemd-networkd-wait-online.html: man/systemd-networkd-wait-online.service.
 	$(html-alias)
 
 man/systemd-networkd.html: man/systemd-networkd.service.html
+	$(html-alias)
+
+endif
+
+if ENABLE_NSS_SYSTEMD
+MANPAGES += \
+	man/nss-systemd.8
+MANPAGES_ALIAS += \
+	man/libnss_systemd.so.2.8
+man/libnss_systemd.so.2.8: man/nss-systemd.8
+man/libnss_systemd.so.2.html: man/nss-systemd.html
 	$(html-alias)
 
 endif

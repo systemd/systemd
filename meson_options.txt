@@ -203,6 +203,8 @@ option('libidn2', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libidn2 support')
 option('libidn', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libidn support')
+option('nss-systemd', type : 'boolean',
+       description : 'enable nss-systemd')
 option('libiptc', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libiptc support')
 option('qrencode', type : 'combo', choices : ['auto', 'true', 'false'],
