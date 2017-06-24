@@ -152,6 +152,18 @@ void session_set_user(Session *s, User *u) {
         LIST_PREPEND(sessions_by_user, u->sessions, s);
 }
 
+static void session_save_devices(Session *s, FILE *f) {
+        SessionDevice *sd;
+        Iterator i;
+
+        if (!hashmap_isempty(s->devices)) {
+                fprintf(f, "DEVICES=");
+                HASHMAP_FOREACH(sd, s->devices, i)
+                        fprintf(f, "%u:%u ", major(sd->dev), minor(sd->dev));
+                fprintf(f, "\n");
+        }
+}
+
 int session_save(Session *s) {
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -281,8 +293,10 @@ int session_save(Session *s) {
                         s->timestamp.realtime,
                         s->timestamp.monotonic);
 
-        if (s->controller)
+        if (s->controller) {
                 fprintf(f, "CONTROLLER=%s\n", s->controller);
+                session_save_devices(s, f);
+        }
 
         r = fflush_and_check(f);
         if (r < 0)
@@ -304,6 +318,43 @@ fail:
         return log_error_errno(r, "Failed to save session data %s: %m", s->state_file);
 }
 
+static int session_load_devices(Session *s, const char *devices) {
+        const char *p;
+        int r = 0;
+
+        assert(s);
+
+        for (p = devices;;) {
+                _cleanup_free_ char *word = NULL;
+                SessionDevice *sd;
+                dev_t dev;
+                int k;
+
+                k = extract_first_word(&p, &word, NULL, 0);
+                if (k == 0)
+                        break;
+                if (k < 0) {
+                        r = k;
+                        break;
+                }
+
+                k = parse_dev(word, &dev);
+                if (k < 0) {
+                        r = k;
+                        continue;
+                }
+
+                /* The file descriptors for loaded devices will be reattached later. */
+                k = session_device_new(s, dev, false, &sd);
+                if (k < 0)
+                        r = k;
+        }
+
+        if (r < 0)
+                log_error_errno(r, "Loading session devices for session %s failed: %m", s->id);
+
+        return r;
+}
 
 int session_load(Session *s) {
         _cleanup_free_ char *remote = NULL,
@@ -317,7 +368,9 @@ int session_load(Session *s) {
                 *uid = NULL,
                 *realtime = NULL,
                 *monotonic = NULL,
-                *controller = NULL;
+                *controller = NULL,
+                *active = NULL,
+                *devices = NULL;
 
         int k, r;
 
@@ -345,6 +398,8 @@ int session_load(Session *s) {
                            "REALTIME",       &realtime,
                            "MONOTONIC",      &monotonic,
                            "CONTROLLER",     &controller,
+                           "ACTIVE",         &active,
+                           "DEVICES",        &devices,
                            NULL);
 
         if (r < 0)
@@ -447,10 +502,17 @@ int session_load(Session *s) {
         if (monotonic)
                 timestamp_deserialize(monotonic, &s->timestamp.monotonic);
 
+        if (active) {
+                k = parse_boolean(active);
+                if (k >= 0)
+                        s->was_active = k;
+        }
+
         if (controller) {
-                if (bus_name_has_owner(s->manager->bus, controller, NULL) > 0)
-                        session_set_controller(s, controller, false);
-                else
+                if (bus_name_has_owner(s->manager->bus, controller, NULL) > 0) {
+                        session_set_controller(s, controller, false, false);
+                        session_load_devices(s, devices);
+                } else
                         session_restore_vt(s);
         }
 
@@ -1170,7 +1232,7 @@ static int on_bus_track(sd_bus_track *track, void *userdata) {
         return 0;
 }
 
-int session_set_controller(Session *s, const char *sender, bool force) {
+int session_set_controller(Session *s, const char *sender, bool force, bool prepare) {
         _cleanup_free_ char *name = NULL;
         int r;
 
@@ -1202,11 +1264,14 @@ int session_set_controller(Session *s, const char *sender, bool force) {
          * Note that we reset the VT on ReleaseControl() and if the controller
          * exits.
          * If logind crashes/restarts, we restore the controller during restart
-         * or reset the VT in case it crashed/exited, too. */
-        r = session_prepare_vt(s);
-        if (r < 0) {
-                s->track = sd_bus_track_unref(s->track);
-                return r;
+         * (without preparing the VT since the controller has probably overridden
+         * VT state by now) or reset the VT in case it crashed/exited, too. */
+        if (prepare) {
+                r = session_prepare_vt(s);
+                if (r < 0) {
+                        s->track = sd_bus_track_unref(s->track);
+                        return r;
+                }
         }
 
         session_release_controller(s, true);

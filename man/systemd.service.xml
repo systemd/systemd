@@ -782,15 +782,14 @@
 
       <varlistentry>
         <term><varname>NonBlocking=</varname></term>
-        <listitem><para>Set the <constant>O_NONBLOCK</constant> flag
-        for all file descriptors passed via socket-based activation.
-        If true, all file descriptors >= 3 (i.e. all except stdin,
-        stdout, and stderr) will have the
-        <constant>O_NONBLOCK</constant> flag set and hence are in
-        non-blocking mode. This option is only useful in conjunction
-        with a socket unit, as described in
-        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        Defaults to false.</para></listitem>
+        <listitem><para>Set the <constant>O_NONBLOCK</constant> flag for all file descriptors passed via socket-based
+        activation. If true, all file descriptors >= 3 (i.e. all except stdin, stdout, stderr), excluding those passed
+        in via the file descriptor storage logic (see <varname>FileDescriptorStoreMax=</varname> for details), will
+        have the <constant>O_NONBLOCK</constant> flag set and hence are in non-blocking mode. This option is only
+        useful in conjunction with a socket unit, as described in
+        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry> and has no
+        effect on file descriptors which were previously saved in the file-descriptor store for example.  Defaults to
+        false.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -111,6 +111,8 @@ struct Session {
         bool started:1;
         bool stopping:1;
 
+        bool was_active:1;
+
         sd_bus_message *create_message;
 
         sd_event_source *timer_event_source;
@@ -176,7 +178,7 @@ void session_restore_vt(Session *s);
 void session_leave_vt(Session *s);
 
 bool session_is_controller(Session *s, const char *sender);
-int session_set_controller(Session *s, const char *sender, bool force);
+int session_set_controller(Session *s, const char *sender, bool force, bool prepare);
 void session_drop_controller(Session *s);
 
 int bus_session_method_activate(sd_bus_message *message, void *userdata, sd_bus_error *error);

@@ -396,7 +396,7 @@ static int method_take_control(sd_bus_message *message, void *userdata, sd_bus_e
         if (uid != 0 && (force || uid != s->user->uid))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Only owner of session may take control");
 
-        r = session_set_controller(s, sd_bus_message_get_sender(message), force);
+        r = session_set_controller(s, sd_bus_message_get_sender(message), force, true);
         if (r < 0)
                 return r;
 
@@ -444,14 +444,23 @@ static int method_take_device(sd_bus_message *message, void *userdata, sd_bus_er
                  * equivalent). */
                 return sd_bus_error_setf(error, BUS_ERROR_DEVICE_IS_TAKEN, "Device already taken");
 
-        r = session_device_new(s, dev, &sd);
+        r = session_device_new(s, dev, true, &sd);
         if (r < 0)
                 return r;
 
+        r = session_device_save(sd);
+        if (r < 0)
+                goto error;
+
         r = sd_bus_reply_method_return(message, "hb", sd->fd, !sd->active);
         if (r < 0)
-                session_device_free(sd);
+                goto error;
 
+        session_save(s);
+        return 0;
+
+error:
+        session_device_free(sd);
         return r;
 }
 
@@ -478,6 +487,8 @@ static int method_release_device(sd_bus_message *message, void *userdata, sd_bus
                 return sd_bus_error_setf(error, BUS_ERROR_DEVICE_NOT_TAKEN, "Device not taken");
 
         session_device_free(sd);
+        session_save(s);
+
         return sd_bus_reply_method_return(message, NULL);
 }
 
