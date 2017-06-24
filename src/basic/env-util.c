@@ -779,7 +779,7 @@ int serialize_environment(FILE *f, char **environment) {
                 if (!ce)
                         return -ENOMEM;
 
-                fprintf(f, "env=%s\n", *e);
+                fprintf(f, "env=%s\n", ce);
         }
 
         /* caller should call ferror() */
@@ -788,7 +788,7 @@ int serialize_environment(FILE *f, char **environment) {
 }
 
 int deserialize_environment(char ***environment, const char *line) {
-        char *uce = NULL;
+        char *uce;
         int r;
 
         assert(line);
