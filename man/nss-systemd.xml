@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="nss-systemd">
+<refentry id="nss-systemd" conditional='ENABLE_NSS_SYSTEMD'>
 
   <refentryinfo>
     <title>nss-systemd</title>
