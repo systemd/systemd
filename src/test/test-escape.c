@@ -69,6 +69,14 @@ static void test_cunescape(void) {
 
         assert_se(cunescape("\\073", 0, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, ";"));
+        unescaped = mfree(unescaped);
+
+        assert_se(cunescape("A=A\\\\x0aB", 0, &unescaped) >= 0);
+        assert_se(streq_ptr(unescaped, "A=A\\x0aB"));
+        unescaped = mfree(unescaped);
+
+        assert_se(cunescape("A=A\\\\x0aB", UNESCAPE_RELAX, &unescaped) >= 0);
+        assert_se(streq_ptr(unescaped, "A=A\\x0aB"));
 }
 
 static void test_shell_escape_one(const char *s, const char *bad, const char *expected) {
