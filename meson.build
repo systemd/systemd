@@ -312,7 +312,6 @@ link_test_c = files('tools/meson-link-test.c')
 foreach arg : ['-Wl,-z,relro',
                '-Wl,-z,now',
                '-pie',
-               '-Wl,-fuse-ld=gold',
               ]
 
         have = run_command(check_compilation_sh,
