@@ -23,6 +23,7 @@
 #include <stdint.h>
 
 int dev_urandom(void *p, size_t n);
+void pseudorandom_bytes(void *p, size_t n);
 void random_bytes(void *p, size_t n);
 void initialize_srand(void);
 

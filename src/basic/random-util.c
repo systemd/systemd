@@ -121,19 +121,44 @@ void initialize_srand(void) {
         srand_called = true;
 }
 
-void random_bytes(void *p, size_t n) {
+/* INT_MAX gives us only 31 bits, so use 24 out of that. */
+#if RAND_MAX >= INT_MAX
+#  define RAND_STEP 3
+#else
+/* SHORT_INT_MAX or lower gives at most 15 bits, we just just 8 out of that. */
+#  define RAND_STEP 1
+#endif
+
+void pseudorandom_bytes(void *p, size_t n) {
         uint8_t *q;
+
+        initialize_srand();
+
+        for (q = p; q < (uint8_t*) p + n; q += RAND_STEP) {
+                unsigned rr;
+
+                rr = (unsigned) rand();
+
+#if RAND_STEP >= 3
+                if (q - (uint8_t*) p + 2 < n)
+                        q[2] = rr >> 16;
+#endif
+#if RAND_STEP >= 2
+                if (q - (uint8_t*) p + 1 < n)
+                        q[1] = rr >> 8;
+#endif
+                q[0] = rr;
+        }
+}
+
+void random_bytes(void *p, size_t n) {
         int r;
 
         r = dev_urandom(p, n);
         if (r >= 0)
                 return;
 
-        /* If some idiot made /dev/urandom unavailable to us, he'll
-         * get a PRNG instead. */
-
-        initialize_srand();
-
-        for (q = p; q < (uint8_t*) p + n; q ++)
-                *q = rand();
+        /* If some idiot made /dev/urandom unavailable to us, or the
+         * kernel has no entropy, use a PRNG instead. */
+        return pseudorandom_bytes(p, n);
 }
