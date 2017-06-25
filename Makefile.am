@@ -1624,6 +1624,7 @@ tests += \
 	test-conf-parser \
 	test-capability \
 	test-async \
+	test-random-util \
 	test-ratelimit \
 	test-condition \
 	test-uid-range \
@@ -1943,6 +1944,12 @@ test_fstab_util_SOURCES = \
 	src/test/test-fstab-util.c
 
 test_fstab_util_LDADD = \
+	libsystemd-shared.la
+
+test_random_util_SOURCES = \
+	src/test/test-random-util.c
+
+test_random_util_LDADD = \
 	libsystemd-shared.la
 
 test_ratelimit_SOURCES = \

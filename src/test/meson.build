@@ -161,6 +161,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-random-util.c'],
+         [],
+         []],
+
         [['src/test/test-ratelimit.c'],
          [],
          []],
