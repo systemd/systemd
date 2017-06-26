@@ -216,6 +216,10 @@ static inline pid_t raw_getpid(void) {
 #      endif
 #    elif defined __i386__
 #      define __NR_renameat2 353
+#    elif defined __powerpc64__
+#      define __NR_renameat2 357
+#    elif defined __s390__ || defined __s390x__
+#      define __NR_renameat2 347
 #    elif defined __arc__
 #      define __NR_renameat2 276
 #    else
