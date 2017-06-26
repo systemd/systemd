@@ -328,14 +328,13 @@
         all <varname>ExecStartPre=</varname> commands that were not prefixed
         with a <literal>-</literal> exit successfully.</para>
 
-        <para><varname>ExecStartPost=</varname> commands are only run after
-        the service has started successfully, as determined by <varname>Type=</varname>
-        (i.e. the process has been started for <varname>Type=simple</varname>
-        or <varname>Type=idle</varname>, the process exits successfully for
-        <varname>Type=oneshot</varname>, the initial process exits successfully
-        for <varname>Type=forking</varname>, <literal>READY=1</literal> is sent
-        for <varname>Type=notify</varname>, or the <varname>BusName=</varname>
-        has been taken for <varname>Type=dbus</varname>).</para>
+        <para><varname>ExecStartPost=</varname> commands are only run after the commands specified in
+        <varname>ExecStart=</varname> have been invoked successfully, as determined by <varname>Type=</varname>
+        (i.e. the process has been started for <varname>Type=simple</varname> or <varname>Type=idle</varname>, the last
+        <varname>ExecStart=</varname> process exited successfully for <varname>Type=oneshot</varname>, the initial
+        process exited successfully for <varname>Type=forking</varname>, <literal>READY=1</literal> is sent for
+        <varname>Type=notify</varname>, or the <varname>BusName=</varname> has been taken for
+        <varname>Type=dbus</varname>).</para>
 
         <para>Note that <varname>ExecStartPre=</varname> may not be
         used to start long-running processes. All processes forked
