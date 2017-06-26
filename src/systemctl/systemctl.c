@@ -5912,7 +5912,8 @@ static int enable_sysv_units(const char *verb, char **args) {
                 if (!l)
                         return log_oom();
 
-                log_info("Executing: %s", l);
+                if (!arg_quiet)
+                        log_info("Executing: %s", l);
 
                 pid = fork();
                 if (pid < 0)
