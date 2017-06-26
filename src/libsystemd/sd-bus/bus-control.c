@@ -926,6 +926,9 @@ _public_ int sd_bus_get_name_creds(
         if (streq(name, "org.freedesktop.DBus.Local"))
                 return -EINVAL;
 
+        if (streq(name, "org.freedesktop.DBus"))
+                return sd_bus_get_owner_creds(bus, mask, creds);
+
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
 
