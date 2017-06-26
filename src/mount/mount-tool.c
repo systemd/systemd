@@ -26,6 +26,7 @@
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "escape.h"
+#include "fd-util.h"
 #include "fstab-util.h"
 #include "pager.h"
 #include "parse-util.h"
@@ -77,7 +78,9 @@ static void polkit_agent_open_if_enabled(void) {
 }
 
 static void help(void) {
-        printf("%s [OPTIONS...] WHAT [WHERE]\n\n"
+        printf("systemd-mount [OPTIONS...] WHAT [WHERE]\n"
+               "systemd-mount [OPTIONS...] --list\n"
+               "%s [OPTIONS...] %sWHAT|WHERE...\n\n"
                "Establish a mount or auto-mount point transiently.\n\n"
                "  -h --help                       Show this help\n"
                "     --version                    Show package version\n"
@@ -100,8 +103,9 @@ static void help(void) {
                "                                  Set automount unit property\n"
                "     --bind-device                Bind automount unit to device\n"
                "     --list                       List mountable block devices\n"
-               "  -u --umount                     Unmount mount points\n"
-               , program_invocation_short_name);
+               "  -u --umount                     Unmount mount points\n",
+               program_invocation_short_name,
+               streq(program_invocation_short_name, "systemd-umount") ? "" : "--umount ");
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -295,6 +299,16 @@ static int parse_argv(int argc, char *argv[]) {
 
                 if (arg_transport != BUS_TRANSPORT_LOCAL) {
                         log_error("Listing devices only supported locally.");
+                        return -EOPNOTSUPP;
+                }
+        } else if (arg_action == ACTION_UMOUNT) {
+                if (optind >= argc) {
+                        log_error("At least one argument required.");
+                        return -EINVAL;
+                }
+
+                if (arg_transport != BUS_TRANSPORT_LOCAL) {
+                        log_error("Unmounting devices only supported locally.");
                         return -EOPNOTSUPP;
                 }
         } else {
@@ -621,8 +635,9 @@ static int start_transient_automount(
 
 static int stop_mount(
                 sd_bus *bus,
-                char **argv,
-                const char *suffix) {
+                const char *where,
+                const char *suffix,
+                bool ignore_enoent) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -636,9 +651,9 @@ static int stop_mount(
                         return log_error_errno(r, "Could not watch jobs: %m");
         }
 
-        r = unit_name_from_path(arg_mount_where, suffix, &mount_unit);
+        r = unit_name_from_path(where, suffix, &mount_unit);
         if (r < 0)
-                return log_error_errno(r, "Failed to make mount unit name: %m");
+                return log_error_errno(r, "Failed to make mount unit name from path %s: %m", where);
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -662,8 +677,11 @@ static int stop_mount(
         polkit_agent_open_if_enabled();
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0)
-                return log_error_errno(r, "Failed to stop mount unit: %s", bus_error_message(&error, r));
+        if (r < 0) {
+                if (r != -ENOENT || !ignore_enoent)
+                        return log_error_errno(r, "Failed to stop mount unit: %s", bus_error_message(&error, r));
+                return r;
+        }
 
         if (w) {
                 const char *object;
@@ -680,26 +698,193 @@ static int stop_mount(
         if (!arg_quiet)
                 log_info("Stopped unit %s%s%s for mount point: %s%s%s",
                          ansi_highlight(), mount_unit, ansi_normal(),
-                         ansi_highlight(), arg_mount_where, ansi_normal());
+                         ansi_highlight(), where, ansi_normal());
 
         return 0;
 }
 
 static int stop_mounts(
                 sd_bus *bus,
-                char **argv) {
+                const char *where,
+                bool ignore_enoent) {
 
         int r;
 
-        r = stop_mount(bus, argv + optind, ".mount");
+        if (path_equal(where, "/")) {
+                log_error("Refusing to operate on root directory: %s", where);
+                return -EINVAL;
+        }
+
+        if (!path_is_safe(where)) {
+                log_error("Path contains unsafe components: %s", where);
+                return -EINVAL;
+        }
+
+        r = stop_mount(bus, where, ".mount", ignore_enoent);
         if (r < 0)
                 return r;
 
-        r = stop_mount(bus, argv + optind, ".automount");
+        r = stop_mount(bus, where, ".automount", ignore_enoent);
         if (r < 0)
                 return r;
 
         return 0;
+}
+
+static int umount_by_mountinfo(sd_bus *bus, const char *what) {
+        _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
+        int r, r2 = 0;
+
+        proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
+        if (!proc_self_mountinfo)
+                return -errno;
+
+        for (;;) {
+                _cleanup_free_ char *path = NULL, *where = NULL, *dev = NULL;
+                int k;
+
+                k = fscanf(proc_self_mountinfo,
+                           "%*s "       /* (1) mount id */
+                           "%*s "       /* (2) parent id */
+                           "%*s "       /* (3) major:minor */
+                           "%*s "       /* (4) root */
+                           "%ms "       /* (5) mount point */
+                           "%*s"        /* (6) mount options */
+                           "%*[^-]"     /* (7) optional fields */
+                           "- "         /* (8) separator */
+                           "%*s "       /* (9) file system type */
+                           "%ms"        /* (10) mount source */
+                           "%*s"        /* (11) mount options 2 */
+                           "%*[^\n]",   /* some rubbish at the end */
+                           &path, &dev);
+                if (k != 2) {
+                        if (k == EOF)
+                                break;
+
+                        continue;
+                }
+
+                if (!streq(what, dev))
+                        continue;
+
+                r = cunescape(path, UNESCAPE_RELAX, &where);
+                if (r < 0) {
+                        if (r2 >= 0)
+                                r2 = r;
+                        continue;
+                }
+
+                r = stop_mounts(bus, where, false);
+                if (r < 0) {
+                        if (r2 >= 0)
+                                r2 = r;
+                        continue;
+                }
+        }
+
+        return r2;
+}
+
+static int umount_by_device(sd_bus *bus, const char *what) {
+        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_free_ char *where = NULL;
+        struct stat st;
+        const char *v;
+        int r = 0, r2;
+
+        assert(what);
+
+        if (stat(what, &st) < 0)
+                return log_error_errno(errno, "Can't stat %s: %m", what);
+
+        if (!S_ISBLK(st.st_mode)) {
+                log_error("Path %s is not a block device, don't know what to do.", what);
+                return -ENOTBLK;
+        }
+
+        udev = udev_new();
+        if (!udev)
+                return log_oom();
+
+        d = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
+        if (!d)
+                return log_oom();
+
+        v = udev_device_get_property_value(d, "ID_FS_USAGE");
+        if (!streq_ptr(v, "filesystem")) {
+                log_error("%s does not contain a known file system.", what);
+                return -EINVAL;
+        }
+
+        v = udev_device_get_property_value(d, "SYSTEMD_MOUNT_WHERE");
+        if (!isempty(v)) {
+                where = strdup(v);
+                if (!where)
+                        return log_oom();
+                r = stop_mounts(bus, where, false);
+        }
+
+        v = udev_device_get_devnode(d);
+        if (!isempty(v)) {
+                r2 = umount_by_mountinfo(bus, v);
+                if (r2 < 0)
+                        return r2;
+        }
+
+        return r;
+}
+
+static int action_umount(
+                sd_bus *bus,
+                int argc,
+                char **argv) {
+
+        int i, r, r2 = 0;
+
+        for (i = optind; i < argc; i++) {
+                _cleanup_free_ char *what = NULL, *where = NULL, *u = NULL;
+                bool ignore_enoent;
+
+                u = fstab_node_to_udev_node(argv[i]);
+                if (!u)
+                        return log_oom();
+                if (streq(u, argv[i])) {
+                        r = path_make_absolute_cwd(argv[i], &where);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to make path absolute: %m");
+                                if (r2 >= 0)
+                                        r2 = r;
+                        } else {
+                                path_kill_slashes(where);
+                                ignore_enoent = is_device_path(where);
+                                r = stop_mounts(bus, where, ignore_enoent);
+                                if (r >= 0)
+                                        continue;
+                                if ((r != -ENOENT || !ignore_enoent) && r2 >= 0)
+                                        r2 = r;
+                        }
+                }
+
+                r = path_make_absolute_cwd(u, &what);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to make path absolute: %m");
+                        if (r2 >= 0)
+                                r2 = r;
+                        continue;
+                }
+
+                path_kill_slashes(what);
+
+                if (!is_device_path(what))
+                        continue;
+
+                r = umount_by_device(bus, what);
+                if (r < 0 && r2 >= 0)
+                        r2 = r;
+        }
+
+        return r2;
 }
 
 static int acquire_mount_type(struct udev_device *d) {
@@ -907,7 +1092,7 @@ static int discover_device(void) {
 
         v = udev_device_get_property_value(d, "ID_FS_USAGE");
         if (!streq_ptr(v, "filesystem")) {
-                log_error("%s does not contain a file system.", arg_mount_what);
+                log_error("%s does not contain a known file system.", arg_mount_what);
                 return -EINVAL;
         }
 
@@ -1130,6 +1315,17 @@ int main(int argc, char* argv[]) {
                 goto finish;
         }
 
+        r = bus_connect_transport_systemd(arg_transport, arg_host, arg_user, &bus);
+        if (r < 0) {
+                log_error_errno(r, "Failed to create bus connection: %m");
+                goto finish;
+        }
+
+        if (arg_action == ACTION_UMOUNT) {
+                r = action_umount(bus, argc, argv);
+                goto finish;
+        }
+
         r = discover_device();
         if (r < 0)
                 goto finish;
@@ -1148,7 +1344,7 @@ int main(int argc, char* argv[]) {
         }
 
         if (!path_is_safe(arg_mount_where)) {
-                log_error("Path is contains unsafe components.");
+                log_error("Path contains unsafe components.");
                 r = -EINVAL;
                 goto finish;
         }
@@ -1171,12 +1367,6 @@ int main(int argc, char* argv[]) {
                 }
         }
 
-        r = bus_connect_transport_systemd(arg_transport, arg_host, arg_user, &bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create bus connection: %m");
-                goto finish;
-        }
-
         switch (arg_action) {
 
         case ACTION_MOUNT:
@@ -1186,10 +1376,6 @@ int main(int argc, char* argv[]) {
 
         case ACTION_AUTOMOUNT:
                 r = start_transient_automount(bus, argv + optind);
-                break;
-
-        case ACTION_UMOUNT:
-                r = stop_mounts(bus, argv + optind);
                 break;
 
         default:

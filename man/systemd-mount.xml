@@ -62,9 +62,10 @@
       <arg choice="plain"><option>--list</option></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-umount</command>
+      <command>systemd-mount</command>
       <arg choice="opt" rep="repeat"><replaceable>OPTIONS</replaceable></arg>
-      <arg choice="plain" rep="repeat"><replaceable>WHERE</replaceable></arg>
+      <arg choice="plain"><option>--umount</option></arg>
+      <arg choice="plain" rep="repeat"><replaceable>WHAT|WHERE</replaceable></arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -253,7 +254,11 @@
         <term><option>--umount</option></term>
 
         <listitem><para>Stop the mount and automount units corresponding to the specified mount points
-        <replaceable>WHERE</replaceable>.</para>
+        <replaceable>WHERE</replaceable> or the devices <replaceable>WHAT</replaceable>.
+        <command>systemd-mount</command> with this option or <command>systemd-umount</command> can take multiple arguments
+        which can be path, device, or <filename>/etc/fstab</filename> style node name, like
+        <command>systemd-mount --umount /path/to/umount /dev/sda1 UUID=xxxxxx-xxxx LABEL=xxxxx</command>.
+      </para>
         </listitem>
       </varlistentry>
 
