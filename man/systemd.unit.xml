@@ -980,13 +980,11 @@
         to make sure they run before the stamp file's modification
         time gets reset indicating a completed update.</para>
 
-        <para><varname>ConditionFirstBoot=</varname> takes a boolean
-        argument. This condition may be used to conditionalize units
-        on whether the system is booting up with an unpopulated
-        <filename>/etc</filename> directory. This may be used to
-        populate <filename>/etc</filename> on the first boot after
-        factory reset, or when a new system instances boots up for the
-        first time.</para>
+        <para><varname>ConditionFirstBoot=</varname> takes a boolean argument. This condition may be used to
+        conditionalize units on whether the system is booting up with an unpopulated <filename>/etc</filename>
+        directory (specifically: an <filename>/etc</filename> with no <filename>/etc/machine-id</filename>). This may
+        be used to populate <filename>/etc</filename> on the first boot after factory reset, or when a new system
+        instance boots up for the first time.</para>
 
         <para>With <varname>ConditionPathExists=</varname> a file
         existence condition is checked before a unit is started. If
