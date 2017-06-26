@@ -413,13 +413,12 @@ static int service_add_fd_store(Service *s, int fd, const char *name) {
         }
 
         r = sd_event_add_io(UNIT(s)->manager->event, &fs->event_source, fd, 0, on_fd_store_io, fs);
-        if (r < 0) {
+        if (r < 0 && r != -EPERM) { /* EPERM indicates fds that aren't pollable, which is OK */
                 free(fs->fdname);
                 free(fs);
                 return r;
-        }
-
-        (void) sd_event_source_set_description(fs->event_source, "service-fd-store");
+        } else if (r >= 0)
+                (void) sd_event_source_set_description(fs->event_source, "service-fd-store");
 
         LIST_PREPEND(fd_store, s->fd_store, fs);
         s->n_fd_store++;
@@ -3583,15 +3582,6 @@ static const char* const service_exec_command_table[_SERVICE_EXEC_COMMAND_MAX] =
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_exec_command, ServiceExecCommand);
-
-static const char* const notify_access_table[_NOTIFY_ACCESS_MAX] = {
-        [NOTIFY_NONE] = "none",
-        [NOTIFY_MAIN] = "main",
-        [NOTIFY_EXEC] = "exec",
-        [NOTIFY_ALL] = "all"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(notify_access, NotifyAccess);
 
 static const char* const notify_state_table[_NOTIFY_STATE_MAX] = {
         [NOTIFY_UNKNOWN] = "unknown",

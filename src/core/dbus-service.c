@@ -199,6 +199,39 @@ static int bus_service_set_transient_property(
 
                 return 1;
 
+        } else if (streq(name, "FileDescriptorStoreMax")) {
+                uint32_t u;
+
+                r = sd_bus_message_read(message, "u", &u);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        s->n_fd_store_max = (unsigned) u;
+                        unit_write_drop_in_private_format(UNIT(s), mode, name, "FileDescriptorStoreMax=%" PRIu32, u);
+                }
+
+                return 1;
+
+        } else if (streq(name, "NotifyAccess")) {
+                const char *t;
+                NotifyAccess k;
+
+                r = sd_bus_message_read(message, "s", &t);
+                if (r < 0)
+                        return r;
+
+                k = notify_access_from_string(t);
+                if (k < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid notify access setting %s", t);
+
+                if (mode != UNIT_CHECK) {
+                        s->notify_access = k;
+                        unit_write_drop_in_private_format(UNIT(s), mode, name, "NotifyAccess=%s", notify_access_to_string(s->notify_access));
+                }
+
+                return 1;
+
         } else if (streq(name, "ExecStart")) {
                 unsigned n = 0;
 
