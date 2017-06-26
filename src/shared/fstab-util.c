@@ -34,6 +34,26 @@
 #include "strv.h"
 #include "util.h"
 
+int fstab_has_fstype(const char *fstype) {
+        _cleanup_endmntent_ FILE *f = NULL;
+        struct mntent *m;
+
+        f = setmntent("/etc/fstab", "re");
+        if (!f)
+                return errno == ENOENT ? false : -errno;
+
+        for (;;) {
+                errno = 0;
+                m = getmntent(f);
+                if (!m)
+                        return errno != 0 ? -errno : false;
+
+                if (streq(m->mnt_type, fstype))
+                        return true;
+        }
+        return false;
+}
+
 int fstab_is_mount_point(const char *mount) {
         _cleanup_endmntent_ FILE *f = NULL;
         struct mntent *m;
