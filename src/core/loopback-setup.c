@@ -26,6 +26,8 @@
 #include "missing.h"
 #include "netlink-util.h"
 
+#define LOOPBACK_SETUP_TIMEOUT_USEC (5 * USEC_PER_SEC)
+
 struct state {
         unsigned n_messages;
         int rcode;
@@ -61,7 +63,7 @@ static int start_loopback(sd_netlink *rtnl, struct state *s) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call_async(rtnl, req, start_loopback_handler, s, USEC_INFINITY, NULL);
+        r = sd_netlink_call_async(rtnl, req, start_loopback_handler, s, LOOPBACK_SETUP_TIMEOUT_USEC, NULL);
         if (r < 0)
                 return r;
 
@@ -201,7 +203,7 @@ int loopback_setup(void) {
                 return log_error_errno(r, "Failed to enqueue loopback interface start request: %m");
 
         while (state.n_messages > 0) {
-                r = sd_netlink_wait(rtnl, USEC_INFINITY);
+                r = sd_netlink_wait(rtnl, LOOPBACK_SETUP_TIMEOUT_USEC);
                 if (r < 0)
                         return log_error_errno(r, "Failed to wait for netlink event: %m");
 
