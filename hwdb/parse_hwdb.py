@@ -66,6 +66,7 @@ UDEV_TAG = Word(string.ascii_uppercase, alphanums + '_')
 TYPES = {'mouse':    ('usb', 'bluetooth', 'ps2', '*'),
          'evdev':    ('name', 'atkbd', 'input'),
          'touchpad': ('i8042', 'rmi', 'bluetooth', 'usb'),
+         'joystick': ('i8042', 'rmi', 'bluetooth', 'usb'),
          'keyboard': ('name', ),
          'sensor':   ('modalias', ),
         }
@@ -109,6 +110,7 @@ def property_grammar():
              ('MOUSE_WHEEL_TILT_VERTICAL', Literal('1')),
              ('POINTINGSTICK_SENSITIVITY', INTEGER),
              ('POINTINGSTICK_CONST_ACCEL', REAL),
+             ('ID_INPUT_JOYSTICK_INTEGRATION', Or(('internal', 'external'))),
              ('ID_INPUT_TOUCHPAD_INTEGRATION', Or(('internal', 'external'))),
              ('XKB_FIXED_LAYOUT', STRING),
              ('XKB_FIXED_VARIANT', STRING),
