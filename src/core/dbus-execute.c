@@ -1037,7 +1037,7 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
         } else if (streq(name, "SyslogLevel")) {
-                int level;
+                int32_t level;
 
                 r = sd_bus_message_read(message, "i", &level);
                 if (r < 0)
@@ -1053,7 +1053,7 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
         } else if (streq(name, "SyslogFacility")) {
-                int facility;
+                int32_t facility;
 
                 r = sd_bus_message_read(message, "i", &facility);
                 if (r < 0)
@@ -1069,7 +1069,7 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
         } else if (streq(name, "Nice")) {
-                int n;
+                int32_t n;
 
                 r = sd_bus_message_read(message, "i", &n);
                 if (r < 0)
