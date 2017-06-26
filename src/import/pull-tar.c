@@ -359,7 +359,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
                 r = rename_noreplace(AT_FDCWD, i->temp_path, AT_FDCWD, i->final_path);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to rename to final image name: %m");
+                        log_error_errno(r, "Failed to rename to final image name to %s: %m", i->final_path);
                         goto finish;
                 }
 
@@ -386,7 +386,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
                         r = rename_noreplace(AT_FDCWD, i->settings_temp_path, AT_FDCWD, i->settings_path);
                         if (r < 0) {
-                                log_error_errno(r, "Failed to rename settings file: %m");
+                                log_error_errno(r, "Failed to rename settings file to %s: %m", i->settings_path);
                                 goto finish;
                         }
 

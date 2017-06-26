@@ -538,7 +538,7 @@ static void raw_pull_job_on_finished(PullJob *j) {
 
                 r = rename_noreplace(AT_FDCWD, i->temp_path, AT_FDCWD, i->final_path);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to move RAW file into place: %m");
+                        log_error_errno(r, "Failed to rename raw file to %s: %m", i->final_path);
                         goto finish;
                 }
 
