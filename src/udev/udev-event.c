@@ -58,7 +58,7 @@ struct udev_event *udev_event_new(struct udev_device *dev) {
         event->udev = udev;
         udev_list_init(udev, &event->run_list, false);
         udev_list_init(udev, &event->seclabel_list, false);
-        event->birth_usec = clock_boottime_or_monotonic();
+        event->birth_usec = now(CLOCK_MONOTONIC);
         return event;
 }
 
@@ -520,7 +520,7 @@ static void spawn_read(struct udev_event *event,
                 if (timeout_usec > 0) {
                         usec_t age_usec;
 
-                        age_usec = clock_boottime_or_monotonic() - event->birth_usec;
+                        age_usec = now(CLOCK_MONOTONIC) - event->birth_usec;
                         if (age_usec >= timeout_usec) {
                                 log_error("timeout '%s'", cmd);
                                 return;
@@ -671,13 +671,13 @@ static int spawn_wait(struct udev_event *event,
         if (timeout_usec > 0) {
                 usec_t usec, age_usec;
 
-                usec = now(clock_boottime_or_monotonic());
+                usec = now(CLOCK_MONOTONIC);
                 age_usec = usec - event->birth_usec;
                 if (age_usec < timeout_usec) {
                         if (timeout_warn_usec > 0 && timeout_warn_usec < timeout_usec && age_usec < timeout_warn_usec) {
                                 spawn.timeout_warn = timeout_warn_usec - age_usec;
 
-                                r = sd_event_add_time(e, NULL, clock_boottime_or_monotonic(),
+                                r = sd_event_add_time(e, NULL, CLOCK_MONOTONIC,
                                                       usec + spawn.timeout_warn, USEC_PER_SEC,
                                                       on_spawn_timeout_warning, &spawn);
                                 if (r < 0)
@@ -686,7 +686,7 @@ static int spawn_wait(struct udev_event *event,
 
                         spawn.timeout = timeout_usec - age_usec;
 
-                        r = sd_event_add_time(e, NULL, clock_boottime_or_monotonic(),
+                        r = sd_event_add_time(e, NULL, CLOCK_MONOTONIC,
                                               usec + spawn.timeout, USEC_PER_SEC, on_spawn_timeout, &spawn);
                         if (r < 0)
                                 return r;
