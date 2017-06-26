@@ -940,8 +940,8 @@ int config_parse_exec_io_priority(const char *unit,
         assert(rvalue);
         assert(data);
 
-        r = safe_atoi(rvalue, &i);
-        if (r < 0 || i < 0 || i >= IOPRIO_BE_NR) {
+        r = ioprio_parse_priority(rvalue, &i);
+        if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse IO priority, ignoring: %s", rvalue);
                 return 0;
         }
