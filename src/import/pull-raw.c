@@ -444,7 +444,7 @@ static int raw_pull_rename_auxiliary_file(
         assert(suffix);
         assert(path);
 
-        /* Regenerate final name for this auxiliary file, we might know the etag of the raw file now, and we shoud
+        /* Regenerate final name for this auxiliary file, we might know the etag of the file now, and we should
          * incorporate it in the file name if we can */
         *path = mfree(*path);
         r = raw_pull_determine_path(i, suffix, path);

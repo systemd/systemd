@@ -114,6 +114,7 @@ TarPull* tar_pull_unref(TarPull *i) {
         free(i->settings_path);
         free(i->image_root);
         free(i->local);
+
         return mfree(i);
 }
 
@@ -367,13 +368,14 @@ static void tar_pull_job_on_finished(PullJob *j) {
                 if (i->settings_job &&
                     i->settings_job->error == 0) {
 
-                        assert(i->settings_temp_path);
-                        assert(i->settings_path);
-
-                        /* Also move the settings file into place, if it exist. Note that we do so only if we also
+                        /* Also move the settings file into place, if it exists. Note that we do so only if we also
                          * moved the tar file in place, to keep things strictly in sync. */
+                        assert(i->settings_temp_path);
 
+                        /* Regenerate final name for this auxiliary file, we might know the etag of the file now, and
+                         * we should incorporate it in the file name if we can */
                         i->settings_path = mfree(i->settings_path);
+
                         r = tar_pull_determine_path(i, ".nspawn", &i->settings_path);
                         if (r < 0)
                                 goto finish;
