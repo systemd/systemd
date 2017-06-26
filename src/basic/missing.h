@@ -23,6 +23,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <linux/audit.h>
 #include <linux/capability.h>
 #include <linux/if_link.h>
@@ -567,6 +568,17 @@ struct btrfs_ioctl_quota_ctl_args {
 
 #ifndef EVIOCREVOKE
 #  define EVIOCREVOKE _IOW('E', 0x91, int)
+#endif
+
+#ifndef EVIOCSMASK
+
+struct input_mask {
+        uint32_t type;
+        uint32_t codes_size;
+        uint64_t codes_ptr;
+};
+
+#define EVIOCSMASK _IOW('E', 0x93, struct input_mask)
 #endif
 
 #ifndef DRM_IOCTL_SET_MASTER

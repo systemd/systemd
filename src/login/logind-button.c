@@ -32,6 +32,18 @@
 #include "string-util.h"
 #include "util.h"
 
+#define CONST_MAX4(a, b, c, d) CONST_MAX(CONST_MAX(a, b), CONST_MAX(c, d))
+
+#define ULONG_BITS (sizeof(unsigned long)*8)
+
+static bool bitset_get(const unsigned long *bits, unsigned i) {
+        return (bits[i / ULONG_BITS] >> (i % ULONG_BITS)) & 1UL;
+}
+
+static void bitset_put(unsigned long *bits, unsigned i) {
+        bits[i / ULONG_BITS] |= (unsigned long) 1 << (i % ULONG_BITS);
+}
+
 Button* button_new(Manager *m, const char *name) {
         Button *b;
 
@@ -231,6 +243,59 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
         return 0;
 }
 
+static int button_set_mask(Button *b) {
+        unsigned long
+                types[CONST_MAX(EV_KEY, EV_SW)/ULONG_BITS+1] = {},
+                keys[CONST_MAX4(KEY_POWER, KEY_POWER2, KEY_SLEEP, KEY_SUSPEND)/ULONG_BITS+1] = {},
+                switches[CONST_MAX(SW_LID, SW_DOCK)/ULONG_BITS+1] = {};
+        struct input_mask mask;
+
+        assert(b);
+        assert(b->fd >= 0);
+
+        bitset_put(types, EV_KEY);
+        bitset_put(types, EV_SW);
+
+        mask = (struct input_mask) {
+                .type = EV_SYN,
+                .codes_size = sizeof(types),
+                .codes_ptr = PTR_TO_UINT64(types),
+        };
+
+        if (ioctl(b->fd, EVIOCSMASK, &mask) < 0)
+                /* Log only at debug level if the kernel doesn't do EVIOCSMASK yet */
+                return log_full_errno(IN_SET(errno, ENOTTY, EOPNOTSUPP, EINVAL) ? LOG_DEBUG : LOG_WARNING,
+                                      errno, "Failed to set EV_SYN event mask on /dev/input/%s: %m", b->name);
+
+        bitset_put(keys, KEY_POWER);
+        bitset_put(keys, KEY_POWER2);
+        bitset_put(keys, KEY_SLEEP);
+        bitset_put(keys, KEY_SUSPEND);
+
+        mask = (struct input_mask) {
+                .type = EV_KEY,
+                .codes_size = sizeof(keys),
+                .codes_ptr = PTR_TO_UINT64(keys),
+        };
+
+        if (ioctl(b->fd, EVIOCSMASK, &mask) < 0)
+                return log_warning_errno(errno, "Failed to set EV_KEY event mask on /dev/input/%s: %m", b->name);
+
+        bitset_put(switches, SW_LID);
+        bitset_put(switches, SW_DOCK);
+
+        mask = (struct input_mask) {
+                .type = EV_SW,
+                .codes_size = sizeof(switches),
+                .codes_ptr = PTR_TO_UINT64(switches),
+        };
+
+        if (ioctl(b->fd, EVIOCSMASK, &mask) < 0)
+                return log_warning_errno(errno, "Failed to set EV_SW event mask on /dev/input/%s: %m", b->name);
+
+        return 0;
+}
+
 int button_open(Button *b) {
         char *p, name[256];
         int r;
@@ -250,6 +315,8 @@ int button_open(Button *b) {
                 goto fail;
         }
 
+        (void) button_set_mask(b);
+
         r = sd_event_add_io(b->manager->event, &b->io_event_source, b->fd, EPOLLIN, button_dispatch, b);
         if (r < 0) {
                 log_error_errno(r, "Failed to add button event: %m");
@@ -266,7 +333,7 @@ fail:
 }
 
 int button_check_switches(Button *b) {
-        uint8_t switches[SW_MAX/8+1] = {};
+        unsigned long switches[CONST_MAX(SW_LID, SW_DOCK)/ULONG_BITS+1] = {};
         assert(b);
 
         if (b->fd < 0)
@@ -275,8 +342,8 @@ int button_check_switches(Button *b) {
         if (ioctl(b->fd, EVIOCGSW(sizeof(switches)), switches) < 0)
                 return -errno;
 
-        b->lid_closed = (switches[SW_LID/8] >> (SW_LID % 8)) & 1;
-        b->docked = (switches[SW_DOCK/8] >> (SW_DOCK % 8)) & 1;
+        b->lid_closed = bitset_get(switches, SW_LID);
+        b->docked = bitset_get(switches, SW_DOCK);
 
         if (b->lid_closed)
                 button_install_check_event_source(b);
