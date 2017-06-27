@@ -284,12 +284,12 @@ static void worker_attach_event(struct worker *worker, struct event *event) {
 
         e = worker->manager->event;
 
-        assert_se(sd_event_now(e, clock_boottime_or_monotonic(), &usec) >= 0);
+        assert_se(sd_event_now(e, CLOCK_MONOTONIC, &usec) >= 0);
 
-        (void) sd_event_add_time(e, &event->timeout_warning, clock_boottime_or_monotonic(),
+        (void) sd_event_add_time(e, &event->timeout_warning, CLOCK_MONOTONIC,
                                  usec + arg_event_timeout_warn_usec, USEC_PER_SEC, on_event_timeout_warning, event);
 
-        (void) sd_event_add_time(e, &event->timeout, clock_boottime_or_monotonic(),
+        (void) sd_event_add_time(e, &event->timeout, CLOCK_MONOTONIC,
                                  usec + arg_event_timeout_usec, USEC_PER_SEC, on_event_timeout, event);
 }
 
@@ -755,9 +755,9 @@ static void manager_exit(Manager *manager) {
         event_queue_cleanup(manager, EVENT_QUEUED);
         manager_kill_workers(manager);
 
-        assert_se(sd_event_now(manager->event, clock_boottime_or_monotonic(), &usec) >= 0);
+        assert_se(sd_event_now(manager->event, CLOCK_MONOTONIC, &usec) >= 0);
 
-        r = sd_event_add_time(manager->event, NULL, clock_boottime_or_monotonic(),
+        r = sd_event_add_time(manager->event, NULL, CLOCK_MONOTONIC,
                               usec + 30 * USEC_PER_SEC, USEC_PER_SEC, on_exit_timeout, manager);
         if (r < 0)
                 return;
@@ -791,7 +791,7 @@ static void event_queue_start(Manager *manager) {
             manager->exit || manager->stop_exec_queue)
                 return;
 
-        assert_se(sd_event_now(manager->event, clock_boottime_or_monotonic(), &usec) >= 0);
+        assert_se(sd_event_now(manager->event, CLOCK_MONOTONIC, &usec) >= 0);
         /* check for changed config, every 3 seconds at most */
         if (manager->last_usec == 0 ||
             (usec - manager->last_usec) > 3 * USEC_PER_SEC) {
