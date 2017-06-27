@@ -5912,7 +5912,8 @@ static int enable_sysv_units(const char *verb, char **args) {
                 if (!l)
                         return log_oom();
 
-                log_info("Executing: %s", l);
+                if (!arg_quiet)
+                        log_info("Executing: %s", l);
 
                 pid = fork();
                 if (pid < 0)
@@ -8268,12 +8269,14 @@ static int halt_now(enum action a) {
         switch (a) {
 
         case ACTION_HALT:
-                log_info("Halting.");
+                if (!arg_quiet)
+                        log_info("Halting.");
                 (void) reboot(RB_HALT_SYSTEM);
                 return -errno;
 
         case ACTION_POWEROFF:
-                log_info("Powering off.");
+                if (!arg_quiet)
+                        log_info("Powering off.");
                 (void) reboot(RB_POWER_OFF);
                 return -errno;
 
@@ -8286,12 +8289,14 @@ static int halt_now(enum action a) {
                         log_warning_errno(r, "Failed to read reboot parameter file: %m");
 
                 if (!isempty(param)) {
-                        log_info("Rebooting with argument '%s'.", param);
+                        if (!arg_quiet)
+                                log_info("Rebooting with argument '%s'.", param);
                         (void) syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART2, param);
                         log_warning_errno(errno, "Failed to reboot with parameter, retrying without: %m");
                 }
 
-                log_info("Rebooting.");
+                if (!arg_quiet)
+                        log_info("Rebooting.");
                 (void) reboot(RB_AUTOBOOT);
                 return -errno;
         }
@@ -8352,7 +8357,8 @@ static int logind_schedule_shutdown(void) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to call ScheduleShutdown in logind, proceeding with immediate shutdown: %s", bus_error_message(&error, r));
 
-        log_info("Shutdown scheduled for %s, use 'shutdown -c' to cancel.", format_timestamp(date, sizeof(date), arg_when));
+        if (!arg_quiet)
+                log_info("Shutdown scheduled for %s, use 'shutdown -c' to cancel.", format_timestamp(date, sizeof(date), arg_when));
         return 0;
 #else
         log_error("Cannot schedule shutdown without logind support, proceeding with immediate shutdown.");
@@ -8480,7 +8486,9 @@ int main(int argc, char*argv[]) {
                 goto finish;
 
         if (arg_action != ACTION_SYSTEMCTL && running_in_chroot() > 0) {
-                log_info("Running in chroot, ignoring request.");
+
+                if (!arg_quiet)
+                        log_info("Running in chroot, ignoring request.");
                 r = 0;
                 goto finish;
         }
