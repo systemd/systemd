@@ -378,18 +378,19 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         if (!old_name)
                 return -EINVAL;
 
-
-        speed = DIV_ROUND_UP(config->speed, 1000000);
-
         r = ethtool_set_glinksettings(&ctx->ethtool_fd, old_name, config);
         if (r < 0) {
 
+                if (config->port != _NET_DEV_PORT_INVALID)
+                        log_warning_errno(r,  "Could not set port (%s) of %s: %m", port_to_string(config->port), old_name);
+
+                speed = DIV_ROUND_UP(config->speed, 1000000);
                 if (r == -EOPNOTSUPP)
                         r = ethtool_set_speed(&ctx->ethtool_fd, old_name, speed, config->duplex);
 
                 if (r < 0)
-                        log_warning_errno(r, "Could not set speed, duplex or port (%s) of %s to %u Mbps (%s): %m",
-                                          port_to_string(config->port), old_name, speed, duplex_to_string(config->duplex));
+                        log_warning_errno(r, "Could not set speed or duplex of %s to %u Mbps (%s): %m",
+                                          old_name, speed, duplex_to_string(config->duplex));
         }
 
         r = ethtool_set_wol(&ctx->ethtool_fd, old_name, config->wol);

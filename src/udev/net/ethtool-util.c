@@ -527,7 +527,7 @@ int ethtool_set_glinksettings(int *fd, const char *ifname, struct link_config *l
         }
 
         if (link->speed)
-                u->base.speed = link->speed;
+                u->base.speed = DIV_ROUND_UP(link->speed, 1000000);
 
         if (link->duplex != _DUP_INVALID)
                 u->base.duplex = link->duplex;
