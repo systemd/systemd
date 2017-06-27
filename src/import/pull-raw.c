@@ -444,7 +444,7 @@ static int raw_pull_rename_auxiliary_file(
         assert(suffix);
         assert(path);
 
-        /* Regenerate final name for this auxiliary file, we might know the etag of the raw file now, and we shoud
+        /* Regenerate final name for this auxiliary file, we might know the etag of the file now, and we should
          * incorporate it in the file name if we can */
         *path = mfree(*path);
         r = raw_pull_determine_path(i, suffix, path);
@@ -538,7 +538,7 @@ static void raw_pull_job_on_finished(PullJob *j) {
 
                 r = rename_noreplace(AT_FDCWD, i->temp_path, AT_FDCWD, i->final_path);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to move RAW file into place: %m");
+                        log_error_errno(r, "Failed to rename raw file to %s: %m", i->final_path);
                         goto finish;
                 }
 
