@@ -435,7 +435,10 @@ static int add_esp(DissectedPartition *p) {
         esp = access("/efi/", F_OK) >= 0 ? "/efi" : "/boot";
 
         /* We create an .automount which is not overridden by the .mount from the fstab generator. */
-        if (fstab_is_mount_point(esp)) {
+        r = fstab_is_mount_point(esp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse fstab: %m");
+        if (r == 0) {
                 log_debug("%s specified in fstab, ignoring.", esp);
                 return 0;
         }
