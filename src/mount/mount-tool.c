@@ -25,13 +25,16 @@
 #include "bus-error.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
+#include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fstab-util.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "spawn-polkit-agent.h"
+#include "stat-util.h"
 #include "strv.h"
 #include "udev-util.h"
 #include "unit-name.h"
@@ -636,8 +639,7 @@ static int start_transient_automount(
 static int stop_mount(
                 sd_bus *bus,
                 const char *where,
-                const char *suffix,
-                bool ignore_enoent) {
+                const char *suffix) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -677,11 +679,8 @@ static int stop_mount(
         polkit_agent_open_if_enabled();
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0) {
-                if (r != -ENOENT || !ignore_enoent)
-                        return log_error_errno(r, "Failed to stop mount unit: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to stop mount unit: %s", bus_error_message(&error, r));
 
         if (w) {
                 const char *object;
@@ -705,8 +704,7 @@ static int stop_mount(
 
 static int stop_mounts(
                 sd_bus *bus,
-                const char *where,
-                bool ignore_enoent) {
+                const char *where) {
 
         int r;
 
@@ -720,11 +718,11 @@ static int stop_mounts(
                 return -EINVAL;
         }
 
-        r = stop_mount(bus, where, ".mount", ignore_enoent);
+        r = stop_mount(bus, where, ".mount");
         if (r < 0)
                 return r;
 
-        r = stop_mount(bus, where, ".automount", ignore_enoent);
+        r = stop_mount(bus, where, ".automount");
         if (r < 0)
                 return r;
 
@@ -769,15 +767,13 @@ static int umount_by_mountinfo(sd_bus *bus, const char *what) {
 
                 r = cunescape(path, UNESCAPE_RELAX, &where);
                 if (r < 0) {
-                        if (r2 >= 0)
-                                r2 = r;
+                        r2 = r;
                         continue;
                 }
 
-                r = stop_mounts(bus, where, false);
+                r = stop_mounts(bus, where);
                 if (r < 0) {
-                        if (r2 >= 0)
-                                r2 = r;
+                        r2 = r;
                         continue;
                 }
         }
@@ -791,7 +787,7 @@ static int umount_by_device(sd_bus *bus, const char *what) {
         _cleanup_free_ char *where = NULL;
         struct stat st;
         const char *v;
-        int r = 0, r2;
+        int r, r2 = 0;
 
         assert(what);
 
@@ -799,7 +795,7 @@ static int umount_by_device(sd_bus *bus, const char *what) {
                 return log_error_errno(errno, "Can't stat %s: %m", what);
 
         if (!S_ISBLK(st.st_mode)) {
-                log_error("Path %s is not a block device, don't know what to do.", what);
+                log_error("Not a block device: %s", what);
                 return -ENOTBLK;
         }
 
@@ -822,17 +818,74 @@ static int umount_by_device(sd_bus *bus, const char *what) {
                 where = strdup(v);
                 if (!where)
                         return log_oom();
-                r = stop_mounts(bus, where, false);
+                r2 = stop_mounts(bus, where);
         }
 
         v = udev_device_get_devnode(d);
         if (!isempty(v)) {
-                r2 = umount_by_mountinfo(bus, v);
-                if (r2 < 0)
-                        return r2;
+                r = umount_by_mountinfo(bus, v);
+                if (r < 0)
+                        return r;
         }
 
-        return r;
+        return r2;
+}
+
+static int umount_loop(sd_bus *bus, const char *backing_file) {
+        _cleanup_closedir_ DIR *d = NULL;
+        struct dirent *de;
+        int r, r2 = 0;
+        bool found = false;
+
+        assert(backing_file);
+
+        d = opendir("/sys/devices/virtual/block");
+        if (!d) {
+                if (errno == ENOENT)
+                        return log_error_errno(errno, "File %s is not mounted.", backing_file);
+                return log_error_errno(errno, "Can't open directory /sys/devices/virtual/block: %m");
+        }
+
+        FOREACH_DIRENT(de, d, return -errno) {
+                _cleanup_free_ char *sys = NULL, *what = NULL, *fname = NULL;
+
+                dirent_ensure_type(d, de);
+
+                if (de->d_type != DT_DIR)
+                        continue;
+
+                if (!startswith(de->d_name, "loop"))
+                        continue;
+
+                sys = strjoin("/sys/devices/virtual/block/", de->d_name, "/loop/backing_file");
+                if (!sys)
+                        return log_oom();
+
+                r = read_one_line_file(sys, &fname);
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                r2 = log_error_errno(r, "Can't read %s: %m", sys);
+                        continue;
+                }
+
+                if (!files_same(fname, backing_file, 0))
+                        continue;
+
+                found = true;
+
+                what = strjoin("/dev/", de->d_name);
+                if (!what)
+                        return log_oom();
+
+                r = umount_by_device(bus, what);
+                if (r < 0)
+                        r2 = r;
+        }
+
+        if (!found)
+                return log_error_errno(ENOENT, "File %s is not mounted.", backing_file);
+
+        return r2;
 }
 
 static int action_umount(
@@ -843,44 +896,36 @@ static int action_umount(
         int i, r, r2 = 0;
 
         for (i = optind; i < argc; i++) {
-                _cleanup_free_ char *what = NULL, *where = NULL, *u = NULL;
-                bool ignore_enoent;
+                _cleanup_free_ char *u = NULL, *p = NULL;
+                struct stat st;
 
                 u = fstab_node_to_udev_node(argv[i]);
                 if (!u)
                         return log_oom();
-                if (streq(u, argv[i])) {
-                        r = path_make_absolute_cwd(argv[i], &where);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to make path absolute: %m");
-                                if (r2 >= 0)
-                                        r2 = r;
-                        } else {
-                                path_kill_slashes(where);
-                                ignore_enoent = is_device_path(where);
-                                r = stop_mounts(bus, where, ignore_enoent);
-                                if (r >= 0)
-                                        continue;
-                                if ((r != -ENOENT || !ignore_enoent) && r2 >= 0)
-                                        r2 = r;
-                        }
-                }
 
-                r = path_make_absolute_cwd(u, &what);
+                r = path_make_absolute_cwd(u, &p);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to make path absolute: %m");
-                        if (r2 >= 0)
-                                r2 = r;
+                        r2 = log_error_errno(r, "Failed to make path absolute: %m");
                         continue;
                 }
 
-                path_kill_slashes(what);
+                path_kill_slashes(p);
 
-                if (!is_device_path(what))
-                        continue;
+                if (stat(p, &st) < 0)
+                        return log_error_errno(errno, "Can't stat %s: %m", p);
 
-                r = umount_by_device(bus, what);
-                if (r < 0 && r2 >= 0)
+                if (S_ISBLK(st.st_mode))
+                        r = umount_by_device(bus, p);
+                else if (S_ISREG(st.st_mode))
+                        r = umount_loop(bus, p);
+                else if (S_ISDIR(st.st_mode))
+                        r = stop_mounts(bus, p);
+                else {
+                        log_error("Invalid file type: %s", p);
+                        r = -EINVAL;
+                }
+
+                if (r < 0)
                         r2 = r;
         }
 
