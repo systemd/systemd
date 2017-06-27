@@ -269,7 +269,11 @@ int manager_process_button_device(Manager *m, struct udev_device *d) {
                         sn = "seat0";
 
                 button_set_seat(b, sn);
-                button_open(b);
+
+                r = button_open(b);
+                if (r < 0) /* event device doesn't have any keys or switches relevant to us? (or any other error
+                            * opening the device?) let's close the button again. */
+                        button_free(b);
         }
 
         return 0;
