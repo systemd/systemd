@@ -68,6 +68,14 @@ static const char* const netdev_feature_table[_NET_DEV_FEAT_MAX] = {
         [NET_DEV_FEAT_UFO] = "tx-udp-fragmentation",
 };
 
+static const char* const xcvr_table[_NET_DEV_XCVR_MAX] = {
+        [NET_DEV_XCVR_INTERNAL] = "internal",
+        [NET_DEV_XCVR_EXTERNAL] = "external",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(xcvr, NetDevXcvr);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_xcvr, xcvr, NetDevXcvr, "Failed to parse transceiver type");
+
 int ethtool_connect(int *ret) {
         int fd;
 
@@ -534,6 +542,9 @@ int ethtool_set_glinksettings(int *fd, const char *ifname, struct link_config *l
 
         if (link->port != _NET_DEV_PORT_INVALID)
               u->base.port = link->port;
+
+        if (link->xcvr != _NET_DEV_XCVR_INVALID)
+                u->deprecated.transceiver = link->xcvr;
 
         u->base.autoneg = link->autonegotiation;
 
