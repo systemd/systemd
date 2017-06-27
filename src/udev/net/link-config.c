@@ -168,6 +168,7 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
         link->wol = _WOL_INVALID;
         link->duplex = _DUP_INVALID;
         link->port = _NET_DEV_PORT_INVALID;
+        link->xcvr = _NET_DEV_XCVR_INVALID;
         link->autonegotiation = -1;
 
         memset(&link->features, -1, sizeof(link->features));
@@ -383,6 +384,9 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
 
                 if (config->port != _NET_DEV_PORT_INVALID)
                         log_warning_errno(r,  "Could not set port (%s) of %s: %m", port_to_string(config->port), old_name);
+
+                if (config->xcvr != _NET_DEV_XCVR_INVALID)
+                        log_warning_errno(r,  "Could not set transceiver type (%s) of %s: %m", xcvr_to_string(config->xcvr), old_name);
 
                 speed = DIV_ROUND_UP(config->speed, 1000000);
                 if (r == -EOPNOTSUPP)

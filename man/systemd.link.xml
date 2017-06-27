@@ -443,6 +443,26 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>TransceiverType=</varname></term>
+        <listitem>
+          <para>Specifies the transceiver type. The supported values are:</para>
+          <variablelist>
+            <varlistentry>
+              <term><literal>internal</literal></term>
+              <listitem>
+                <para>Use internal transceiver.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>external</literal></term>
+              <listitem>
+                <para>Use external transceiver.</para>
+              </listitem>
+            </varlistentry>
+          </variablelist>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>TCPSegmentationOffload=</varname></term>
         <listitem>
           <para>The TCP Segmentation Offload (TSO) when true enables

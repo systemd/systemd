@@ -66,10 +66,21 @@ typedef enum NetDevPort {
         _NET_DEV_PORT_INVALID = -1
 } NetDevPort;
 
+typedef enum NetDevXcvr {
+        NET_DEV_XCVR_INTERNAL = XCVR_INTERNAL,
+        NET_DEV_XCVR_EXTERNAL = XCVR_EXTERNAL,
+        _NET_DEV_XCVR_MAX,
+         _NET_DEV_XCVR_INVALID = -1
+} NetDevXcvr;
+
 #define ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32    (SCHAR_MAX)
 
 /* layout of the struct passed from/to userland */
 struct ethtool_link_usettings {
+        struct {
+                __u8 transceiver;
+        } deprecated;
+
         struct ethtool_link_settings base;
 
         struct {
@@ -96,6 +107,10 @@ WakeOnLan wol_from_string(const char *wol) _pure_;
 const char *port_to_string(NetDevPort port) _const_;
 NetDevPort port_from_string(const char *port) _pure_;
 
+const char *xcvr_to_string(NetDevXcvr xcvr) _const_;
+NetDevXcvr xcvr_from_string(const char *xcvr) _pure_;
+
 int config_parse_duplex(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_wol(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_port(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_xcvr(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
