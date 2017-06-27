@@ -1042,6 +1042,11 @@ _public_ int sd_bus_get_name_creds(
         if (!bus->bus_client)
                 return -EINVAL;
 
+        /* Turn off augmenting if this isn't a local connection. If the connection is not local, then /proc is not
+         * going to match. */
+        if (!bus->is_local)
+                mask &= ~SD_BUS_CREDS_AUGMENT;
+
         if (streq(name, "org.freedesktop.DBus.Local"))
                 return -EINVAL;
 
@@ -1167,6 +1172,9 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
 
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
+
+        if (!bus->is_local)
+                mask &= ~SD_BUS_CREDS_AUGMENT;
 
         if (bus->is_kernel)
                 return bus_get_owner_creds_kdbus(bus, mask, ret);
