@@ -23,6 +23,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/capability.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/reboot.h>
@@ -1780,17 +1781,57 @@ int main(int argc, char *argv[]) {
                 if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
                         log_error_errno(errno, "Failed to adjust timer slack: %m");
 
-        if (!cap_test_all(arg_capability_bounding_set)) {
-                r = capability_bounding_set_drop_usermode(arg_capability_bounding_set);
-                if (r < 0) {
-                        log_emergency_errno(r, "Failed to drop capability bounding set of usermode helpers: %m");
-                        error_message = "Failed to drop capability bounding set of usermode helpers";
+        if(arg_system) {
+                if (!cap_test_all(arg_capability_bounding_set)) {
+                        r = capability_bounding_set_drop_usermode(arg_capability_bounding_set);
+                        if (r < 0) {
+                                log_emergency_errno(r, "Failed to drop capability bounding set of usermode helpers: %m");
+                                error_message = "Failed to drop capability bounding set of usermode helpers";
+                                goto finish;
+                        }
+                        r = capability_bounding_set_drop(arg_capability_bounding_set, true);
+                        if (r < 0) {
+                                log_emergency_errno(r, "Failed to drop capability bounding set: %m");
+                                error_message = "Failed to drop capability bounding set";
+                                goto finish;
+                        }
+                }
+        } else {
+        /* Drop all the capabilities for the user manager.
+         * Retain the CAP_AUDIT_WRITE capability if we have it so we are still
+         * able to log to audit if requested. */
+
+                _cleanup_cap_free_ cap_t tmp_cap = NULL, cur_cap = NULL;
+                cap_flag_value_t audit_cap;
+                const cap_value_t cap_audit_write[1] = {CAP_AUDIT_WRITE};
+
+                cur_cap = cap_get_proc();
+                if (!cur_cap)
+                        goto finish;
+
+                if (cap_get_flag(cur_cap, CAP_AUDIT_WRITE, CAP_PERMITTED, &audit_cap) < 0) {
+                        log_emergency_errno(r, "Failed to drop the capabilities: %m");
+                        error_message = "Failed to drop the capabilities";
                         goto finish;
                 }
-                r = capability_bounding_set_drop(arg_capability_bounding_set, true);
+
+                tmp_cap = cap_init();
+                if (!tmp_cap) {
+                        log_oom();
+                        goto finish;
+                }
+
+
+                if(audit_cap == CAP_SET) {
+                        log_debug("AUDIT WRITE capability present in permitted set, preserving it");
+                        cap_set_flag(tmp_cap, CAP_PERMITTED, 1, cap_audit_write, CAP_SET);
+                        cap_set_flag(tmp_cap, CAP_EFFECTIVE, 1, cap_audit_write, CAP_SET);
+                }
+
+                r = cap_set_proc(tmp_cap);
                 if (r < 0) {
-                        log_emergency_errno(r, "Failed to drop capability bounding set: %m");
-                        error_message = "Failed to drop capability bounding set";
+                        log_emergency_errno(r, "Failed to drop the capabilities: %m");
+                        error_message = "Failed to drop the capabilities";
                         goto finish;
                 }
         }
