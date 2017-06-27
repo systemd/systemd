@@ -18,6 +18,7 @@
 ***/
 
 #include <getopt.h>
+#include <linux/if_addrlabel.h>
 #include <net/if.h>
 #include <stdbool.h>
 
@@ -35,6 +36,7 @@
 #include "hwdb-util.h"
 #include "local-addresses.h"
 #include "locale-util.h"
+#include "macro.h"
 #include "netlink-util.h"
 #include "pager.h"
 #include "parse-util.h"
@@ -569,6 +571,76 @@ static int dump_addresses(
         return 0;
 }
 
+static int dump_address_labels(sd_netlink *rtnl) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        sd_netlink_message *m;
+        int r;
+
+        assert(rtnl);
+
+        r = sd_rtnl_message_new_addrlabel(rtnl, &req, RTM_GETADDRLABEL, 0, AF_INET6);
+        if (r < 0)
+                return log_error_errno(r, "Could not allocate RTM_GETADDRLABEL message: %m");
+
+        r = sd_netlink_message_request_dump(req, true);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_call(rtnl, req, 0, &reply);
+        if (r < 0)
+                return r;
+
+        printf("%10s/%s %30s\n", "Prefix", "Prefixlen", "Label");
+
+        for (m = reply; m; m = sd_netlink_message_next(m)) {
+                _cleanup_free_ char *pretty = NULL;
+                union in_addr_union prefix = {};
+                uint8_t prefixlen;
+                uint32_t label;
+
+                r = sd_netlink_message_get_errno(m);
+                if (r < 0) {
+                        log_error_errno(r, "got error: %m");
+                        continue;
+                }
+
+                r = sd_netlink_message_read_u32(m, IFAL_LABEL, &label);
+                if (r < 0 && r != -ENODATA) {
+                        log_error_errno(r, "Could not read IFAL_LABEL, ignoring: %m");
+                        continue;
+                }
+
+                r = sd_netlink_message_read_in6_addr(m, IFAL_ADDRESS, &prefix.in6);
+                if (r < 0)
+                        continue;
+
+                r = in_addr_to_string(AF_INET6, &prefix, &pretty);
+                if (r < 0)
+                        continue;
+
+                r = sd_rtnl_message_addrlabel_get_prefixlen(m, &prefixlen);
+                if (r < 0)
+                        continue;
+
+                printf("%10s/%-5u %30u\n", pretty, prefixlen, label);
+        }
+
+        return 0;
+}
+
+static int list_address_labels(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        int r;
+
+        r = sd_netlink_open(&rtnl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to netlink: %m");
+
+        dump_address_labels(rtnl);
+
+        return 0;
+}
+
 static int open_lldp_neighbors(int ifindex, FILE **ret) {
         _cleanup_free_ char *p = NULL;
         FILE *f;
@@ -1043,6 +1115,7 @@ static void help(void) {
                "  list [LINK...]        List links\n"
                "  status [LINK...]      Show link status\n"
                "  lldp [LINK...]        Show LLDP neighbors\n"
+               "  label                 Show current address label entries in the kernel\n"
                , program_invocation_short_name);
 }
 
@@ -1107,6 +1180,7 @@ static int networkctl_main(int argc, char *argv[]) {
                 { "list",   VERB_ANY, VERB_ANY, VERB_DEFAULT, list_links       },
                 { "status", VERB_ANY, VERB_ANY, 0,            link_status      },
                 { "lldp",   VERB_ANY, VERB_ANY, 0,            link_lldp_status },
+                { "label",  VERB_ANY, VERB_ANY, 0,            list_address_labels},
                 {}
         };
 

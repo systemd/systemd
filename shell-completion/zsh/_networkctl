@@ -6,6 +6,7 @@ _networkctl_command(){
             'list:List existing links'
 	    'status:Show information about the specified links'
 	    'lldp:Show Link Layer Discovery Protocol status'
+	    'label:Show address labels'
     )
     if (( CURRENT == 1 )); then
         _describe -t commands 'networkctl command' _networkctl_cmds
