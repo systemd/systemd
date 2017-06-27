@@ -905,6 +905,23 @@ int pid_compare_func(const void *a, const void *b) {
         return 0;
 }
 
+int ioprio_parse_priority(const char *s, int *ret) {
+        int i, r;
+
+        assert(s);
+        assert(ret);
+
+        r = safe_atoi(s, &i);
+        if (r < 0)
+                return r;
+
+        if (!ioprio_priority_is_valid(i))
+                return -EINVAL;
+
+        *ret = i;
+        return 0;
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

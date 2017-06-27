@@ -399,6 +399,24 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 r = sd_bus_message_append(m, "v", "u", (uint32_t) u);
 
+        } else if (streq(field, "IOSchedulingClass")) {
+                int c;
+
+                c = ioprio_class_from_string(eq);
+                if (c < 0)
+                        return log_error_errno(r, "Failed to parse IO scheduling class: %s", eq);
+
+                r = sd_bus_message_append(m, "v", "i", (int32_t) c);
+
+        } else if (streq(field, "IOSchedulingPriority")) {
+                int q;
+
+                r = ioprio_parse_priority(eq, &q);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse IO scheduling priority: %s", eq);
+
+                r = sd_bus_message_append(m, "v", "i", (int32_t) q);
+
         } else if (STR_IN_SET(field, "Environment", "PassEnvironment")) {
                 const char *p;
 

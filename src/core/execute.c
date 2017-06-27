@@ -3701,6 +3701,21 @@ bool exec_context_maintains_privileges(ExecContext *c) {
         return false;
 }
 
+int exec_context_get_effective_ioprio(ExecContext *c) {
+        int p;
+
+        assert(c);
+
+        if (c->ioprio_set)
+                return c->ioprio;
+
+        p = ioprio_get(IOPRIO_WHO_PROCESS, 0);
+        if (p < 0)
+                return IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 4);
+
+        return p;
+}
+
 void exec_status_start(ExecStatus *s, pid_t pid) {
         assert(s);
 
