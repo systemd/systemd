@@ -1,5 +1,5 @@
 project('systemd', 'c',
-        version : '233',
+        version : '234',
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu99',
@@ -1105,7 +1105,7 @@ libsystemd = shared_library(
         'systemd',
         libsystemd_internal_sources,
         journal_internal_sources,
-        version : '0.18.0',
+        version : '0.19.0',
         include_directories : includes,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libsystemd_sym_path],
