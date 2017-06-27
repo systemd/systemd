@@ -24,7 +24,8 @@
 
 #include "macro.h"
 
-bool fstab_is_mount_point(const char *mount);
+int fstab_is_mount_point(const char *mount);
+int fstab_has_fstype(const char *fstype);
 
 int fstab_filter_options(const char *opts, const char *names, const char **namefound, char **value, char **filtered);
 
