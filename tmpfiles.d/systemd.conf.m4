@@ -21,6 +21,9 @@ d /run/systemd/netif 0755 systemd-network systemd-network -
 d /run/systemd/netif/links 0755 systemd-network systemd-network -
 d /run/systemd/netif/leases 0755 systemd-network systemd-network -
 )m4_dnl
+m4_ifdef(`ENABLE_RESOLVED',
+d /run/systemd/resolve 0755 systemd-resolve systemd-resolve -
+)m4_dnl
 
 d /run/log 0755 root root -
 

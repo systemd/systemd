@@ -60,13 +60,6 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        /* Always create the directory where resolv.conf will live */
-        r = mkdir_safe_label("/run/systemd/resolve", 0755, uid, gid);
-        if (r < 0) {
-                log_error_errno(r, "Could not create runtime directory: %m");
-                goto finish;
-        }
-
         /* Drop privileges, but keep three caps. Note that we drop those too, later on (see below) */
         r = drop_privileges(uid, gid,
                             (UINT64_C(1) << CAP_NET_RAW)|          /* needed for SO_BINDTODEVICE */
