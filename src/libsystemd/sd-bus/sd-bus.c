@@ -588,6 +588,8 @@ static int parse_unix_address(sd_bus *b, const char **p, char **guid) {
                 b->sockaddr_size = offsetof(struct sockaddr_un, sun_path) + 1 + l;
         }
 
+        b->is_local = true;
+
         return 0;
 }
 
@@ -654,6 +656,8 @@ static int parse_tcp_address(sd_bus *b, const char **p, char **guid) {
         b->sockaddr_size = result->ai_addrlen;
 
         freeaddrinfo(result);
+
+        b->is_local = false;
 
         return 0;
 }
@@ -737,6 +741,9 @@ static int parse_exec_address(sd_bus *b, const char **p, char **guid) {
 
         b->exec_path = path;
         b->exec_argv = argv;
+
+        b->is_local = false;
+
         return 0;
 
 fail:
@@ -779,6 +786,8 @@ static int parse_kernel_address(sd_bus *b, const char **p, char **guid) {
         free(b->kernel);
         b->kernel = path;
         path = NULL;
+
+        b->is_local = true;
 
         return 0;
 }
@@ -838,6 +847,7 @@ static int parse_container_unix_address(sd_bus *b, const char **p, char **guid) 
         b->sockaddr.un.sun_family = AF_UNIX;
         strncpy(b->sockaddr.un.sun_path, "/var/run/dbus/system_bus_socket", sizeof(b->sockaddr.un.sun_path));
         b->sockaddr_size = SOCKADDR_UN_LEN(b->sockaddr.un);
+        b->is_local = false;
 
         return 0;
 }
@@ -897,6 +907,8 @@ static int parse_container_kernel_address(sd_bus *b, const char **p, char **guid
         r = free_and_strdup(&b->kernel, "/sys/fs/kdbus/0-system/bus");
         if (r < 0)
                 return r;
+
+        b->is_local = false;
 
         return 0;
 }
@@ -1179,6 +1191,7 @@ _public_ int sd_bus_open(sd_bus **ret) {
         /* We don't know whether the bus is trusted or not, so better
          * be safe, and authenticate everything */
         b->trusted = false;
+        b->is_local = false;
         b->attach_flags |= KDBUS_ATTACH_CAPS | KDBUS_ATTACH_CREDS;
         b->creds_mask |= SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_EFFECTIVE_CAPS;
 
@@ -1227,6 +1240,7 @@ _public_ int sd_bus_open_system(sd_bus **ret) {
         b->trusted = false;
         b->attach_flags |= KDBUS_ATTACH_CAPS | KDBUS_ATTACH_CREDS;
         b->creds_mask |= SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_EFFECTIVE_CAPS;
+        b->is_local = true;
 
         r = sd_bus_start(b);
         if (r < 0)
@@ -1293,6 +1307,7 @@ _public_ int sd_bus_open_user(sd_bus **ret) {
         /* We don't do any per-method access control on the user
          * bus. */
         b->trusted = true;
+        b->is_local = true;
 
         r = sd_bus_start(b);
         if (r < 0)
@@ -1364,6 +1379,7 @@ _public_ int sd_bus_open_system_remote(sd_bus **ret, const char *host) {
         bus->bus_client = true;
         bus->trusted = false;
         bus->is_system = true;
+        bus->is_local = false;
 
         r = sd_bus_start(bus);
         if (r < 0)
@@ -1413,6 +1429,7 @@ _public_ int sd_bus_open_system_machine(sd_bus **ret, const char *machine) {
         bus->bus_client = true;
         bus->trusted = false;
         bus->is_system = true;
+        bus->is_local = false;
 
         r = sd_bus_start(bus);
         if (r < 0)
