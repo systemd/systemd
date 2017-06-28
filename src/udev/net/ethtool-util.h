@@ -29,8 +29,8 @@ struct link_config;
 /* we can't use DUPLEX_ prefix, as it
  * clashes with <linux/ethtool.h> */
 typedef enum Duplex {
-        DUP_FULL,
-        DUP_HALF,
+        DUP_HALF = DUPLEX_HALF,
+        DUP_FULL = DUPLEX_FULL,
         _DUP_MAX,
         _DUP_INVALID = -1
 } Duplex;
