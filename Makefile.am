@@ -3871,6 +3871,7 @@ dist_udevrules_DATA += \
 	rules/60-block.rules \
 	rules/60-drm.rules \
 	rules/60-evdev.rules \
+	rules/60-input-id.rules \
 	rules/60-persistent-storage-tape.rules \
 	rules/60-persistent-input.rules \
 	rules/60-persistent-alsa.rules \
@@ -3887,7 +3888,6 @@ dist_udevrules_DATA += \
 
 nodist_udevrules_DATA += \
 	rules/50-udev-default.rules \
-	rules/60-input-id.rules \
 	rules/99-systemd.rules
 
 udevconfdir = $(sysconfdir)/udev
