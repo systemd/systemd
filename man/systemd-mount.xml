@@ -256,8 +256,9 @@
         <listitem><para>Stop the mount and automount units corresponding to the specified mount points
         <replaceable>WHERE</replaceable> or the devices <replaceable>WHAT</replaceable>.
         <command>systemd-mount</command> with this option or <command>systemd-umount</command> can take multiple arguments
-        which can be path, device, or <filename>/etc/fstab</filename> style node name, like
-        <command>systemd-mount --umount /path/to/umount /dev/sda1 UUID=xxxxxx-xxxx LABEL=xxxxx</command>.
+        which can be mount points, devices, <filename>/etc/fstab</filename> style node names, or backing files
+        corresponding to loop devices, like
+        <command>systemd-mount --umount /path/to/umount /dev/sda1 UUID=xxxxxx-xxxx LABEL=xxxxx /path/to/disk.img</command>.
       </para>
         </listitem>
       </varlistentry>
