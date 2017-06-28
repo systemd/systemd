@@ -14,6 +14,8 @@ CHANGES WITH 234 in spe
           removed after the all plugins exit. So, if KERNEL_INSTALL_MACHINE_ID
           is empty, all plugins should not put anything in BOOT_DIR_ABS.
 
+        * Fix for CVE-2017-9445 (out-of-bounds-write in systemd-resolved)
+
 CHANGES WITH 233:
 
         * This version requires at least gperf 3.1 for building, 3.0 is not
