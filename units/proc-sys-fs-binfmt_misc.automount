@@ -7,7 +7,7 @@
 
 [Unit]
 Description=Arbitrary Executable File Formats File System Automount Point
-Documentation=https://www.kernel.org/doc/Documentation/binfmt_misc.txt
+Documentation=https://www.kernel.org/doc/html/latest/admin-guide/binfmt-misc.html
 Documentation=http://www.freedesktop.org/wiki/Software/systemd/APIFileSystems
 DefaultDependencies=no
 Before=sysinit.target
