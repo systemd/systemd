@@ -28,6 +28,9 @@
 
 #define EDNS0_OPT_DO (1<<15)
 
+#define DNS_PACKET_SIZE_START 512u
+assert_cc(DNS_PACKET_SIZE_START > UDP_PACKET_HEADER_SIZE)
+
 typedef struct DnsPacketRewinder {
         DnsPacket *packet;
         size_t saved_rindex;
@@ -47,13 +50,14 @@ int dns_packet_new(DnsPacket **ret, DnsProtocol protocol, size_t mtu) {
 
         assert(ret);
 
-        if (mtu <= UDP_PACKET_HEADER_SIZE)
+        /* When dns_packet_new() is called with mtu == 0, allocate more than the
+         * absolute minimum (which is the dns packet header size), to avoid
+         * resizing immediately again after appending the first data to the packet.
+         */
+        if (mtu < UDP_PACKET_HEADER_SIZE)
                 a = DNS_PACKET_SIZE_START;
         else
-                a = mtu - UDP_PACKET_HEADER_SIZE;
-
-        if (a < DNS_PACKET_HEADER_SIZE)
-                a = DNS_PACKET_HEADER_SIZE;
+                a = MAX(mtu, DNS_PACKET_HEADER_SIZE);
 
         /* round up to next page size */
         a = PAGE_ALIGN(ALIGN(sizeof(DnsPacket)) + a) - ALIGN(sizeof(DnsPacket));

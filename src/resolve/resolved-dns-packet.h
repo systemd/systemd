@@ -58,15 +58,13 @@ struct DnsPacketHeader {
 /* The various DNS protocols deviate in how large a packet can grow,
    but the TCP transport has a 16bit size field, hence that appears to
    be the absolute maximum. */
-#define DNS_PACKET_SIZE_MAX 0xFFFF
+#define DNS_PACKET_SIZE_MAX 0xFFFFu
 
 /* RFC 1035 say 512 is the maximum, for classic unicast DNS */
-#define DNS_PACKET_UNICAST_SIZE_MAX 512
+#define DNS_PACKET_UNICAST_SIZE_MAX 512u
 
 /* With EDNS0 we can use larger packets, default to 4096, which is what is commonly used */
-#define DNS_PACKET_UNICAST_SIZE_LARGE_MAX 4096
-
-#define DNS_PACKET_SIZE_START 512
+#define DNS_PACKET_UNICAST_SIZE_LARGE_MAX 4096u
 
 struct DnsPacket {
         int n_ref;

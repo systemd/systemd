@@ -271,6 +271,7 @@
 /test-replace-var
 /test-resolve
 /test-resolve-tables
+/test-resolved-packet
 /test-ring
 /test-rlimit-util
 /test-sched-prio
