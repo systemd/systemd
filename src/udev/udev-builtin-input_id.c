@@ -211,6 +211,8 @@ static bool test_pointers(struct udev_device *dev,
                 has_joystick_axes_or_buttons = test_bit(button, bitmask_key);
         for (button = BTN_TRIGGER_HAPPY1; button <= BTN_TRIGGER_HAPPY40 && !has_joystick_axes_or_buttons; button++)
                 has_joystick_axes_or_buttons = test_bit(button, bitmask_key);
+        for (button = BTN_DPAD_UP; button <= BTN_DPAD_RIGHT && !has_joystick_axes_or_buttons; button++)
+                has_joystick_axes_or_buttons = test_bit(button, bitmask_key);
         for (axis = ABS_RX; axis < ABS_PRESSURE && !has_joystick_axes_or_buttons; axis++)
                 has_joystick_axes_or_buttons = test_bit(axis, bitmask_abs);
 
