@@ -330,14 +330,58 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
                 }
 
-                arg_mount_what = fstab_node_to_udev_node(argv[optind]);
-                if (!arg_mount_what)
-                        return log_oom();
+                if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                        _cleanup_free_ char *u = NULL, *p = NULL;
 
-                if (argc > optind+1) {
-                        r = path_make_absolute_cwd(argv[optind+1], &arg_mount_where);
+                        u = fstab_node_to_udev_node(argv[optind]);
+                        if (!u)
+                                return log_oom();
+
+                        r = path_make_absolute_cwd(u, &p);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to make path absolute: %m");
+
+                        arg_mount_what = canonicalize_file_name(p);
+                        if (!arg_mount_what)
+                                return log_error_errno(errno, "Failed to canonicalize path: %m");
+
+                } else {
+                        arg_mount_what = strdup(argv[optind+1]);
+                        if (!arg_mount_what)
+                                return log_oom();
+
+                        path_kill_slashes(arg_mount_what);
+
+                        if (!path_is_absolute(arg_mount_what)) {
+                                log_error("Only absolute path is supported: %s", arg_mount_what);
+                                return -EINVAL;
+                        }
+                }
+
+                if (argc > optind+1) {
+                        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                                _cleanup_free_ char *p = NULL;
+
+                                r = path_make_absolute_cwd(argv[optind+1], &p);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to make path absolute: %m");
+
+                                arg_mount_where = canonicalize_file_name(p);
+                                if (!arg_mount_where)
+                                        return log_error_errno(errno, "Failed to canonicalize path: %m");
+
+                        } else {
+                                arg_mount_where = strdup(argv[optind+1]);
+                                if (!arg_mount_where)
+                                        return log_oom();
+
+                                path_kill_slashes(arg_mount_where);
+
+                                if (!path_is_absolute(arg_mount_where)) {
+                                        log_error("Only absolute path is supported: %s", arg_mount_where);
+                                        return -EINVAL;
+                                }
+                        }
                 } else
                         arg_discover = true;
 
@@ -941,20 +985,20 @@ static int action_umount(
         }
 
         for (i = optind; i < argc; i++) {
-                _cleanup_free_ char *u = NULL, *p = NULL;
+                _cleanup_free_ char *u = NULL, *a = NULL, *p = NULL;
                 struct stat st;
 
                 u = fstab_node_to_udev_node(argv[i]);
                 if (!u)
                         return log_oom();
 
-                r = path_make_absolute_cwd(u, &p);
+                r = path_make_absolute_cwd(u, &a);
                 if (r < 0) {
                         r2 = log_error_errno(r, "Failed to make path absolute: %m");
                         continue;
                 }
 
-                path_kill_slashes(p);
+                p = canonicalize_file_name(a);
 
                 if (stat(p, &st) < 0)
                         return log_error_errno(errno, "Can't stat %s: %m", p);
@@ -1512,8 +1556,6 @@ int main(int argc, char* argv[]) {
                 goto finish;
         }
 
-        path_kill_slashes(arg_mount_what);
-
         if (!path_is_safe(arg_mount_what)) {
                 log_error("Path contains unsafe components: %s", arg_mount_what);
                 r = -EINVAL;
@@ -1531,8 +1573,6 @@ int main(int argc, char* argv[]) {
                 r = -EINVAL;
                 goto finish;
         }
-
-        path_kill_slashes(arg_mount_where);
 
         if (path_equal(arg_mount_where, "/")) {
                 log_error("Refusing to operate on root directory.");
