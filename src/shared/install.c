@@ -1003,7 +1003,7 @@ static int install_info_add(
         assert(c);
         assert(name || path);
 
-        if (!name)
+        if (!name && path)
                 name = basename(path);
 
         if (!unit_name_is_valid(name, UNIT_NAME_ANY))
