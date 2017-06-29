@@ -52,24 +52,6 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
-        /* Always create the directories people can create inotify
-         * watches in. */
-        r = mkdir_safe_label("/run/systemd/netif", 0755, uid, gid);
-        if (r < 0)
-                log_warning_errno(r, "Could not create runtime directory: %m");
-
-        r = mkdir_safe_label("/run/systemd/netif/links", 0755, uid, gid);
-        if (r < 0)
-                log_warning_errno(r, "Could not create runtime directory 'links': %m");
-
-        r = mkdir_safe_label("/run/systemd/netif/leases", 0755, uid, gid);
-        if (r < 0)
-                log_warning_errno(r, "Could not create runtime directory 'leases': %m");
-
-        r = mkdir_safe_label("/run/systemd/netif/lldp", 0755, uid, gid);
-        if (r < 0)
-                log_warning_errno(r, "Could not create runtime directory 'lldp': %m");
-
         r = drop_privileges(uid, gid,
                             (1ULL << CAP_NET_ADMIN) |
                             (1ULL << CAP_NET_BIND_SERVICE) |
