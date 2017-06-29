@@ -8,8 +8,8 @@
 [Unit]
 Description=Login Service Bus Name
 Documentation=man:systemd-logind.service(8) man:logind.conf(5)
-Documentation=http://www.freedesktop.org/wiki/Software/systemd/logind
-Documentation=http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation=https://www.freedesktop.org/wiki/Software/systemd/logind
+Documentation=https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 [BusName]
 Service=systemd-logind.service
