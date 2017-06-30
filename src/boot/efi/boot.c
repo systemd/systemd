@@ -20,10 +20,10 @@
 #include "disk.h"
 #include "graphics.h"
 #include "linux.h"
-#include "pefile.h"
-#include "util.h"
 #include "measure.h"
+#include "pe.h"
 #include "shim.h"
+#include "util.h"
 
 #ifndef EFI_OS_INDICATIONS_BOOT_TO_FW_UI
 #define EFI_OS_INDICATIONS_BOOT_TO_FW_UI 0x0000000000000001ULL
@@ -1543,7 +1543,7 @@ static VOID config_entry_add_linux( Config *config, EFI_LOADED_IMAGE *loaded_ima
                                 continue;
 
                         /* look for .osrel and .cmdline sections in the .efi binary */
-                        err = pefile_locate_sections(linux_dir, f->FileName, sections, addrs, offs, szs);
+                        err = pe_file_locate_sections(linux_dir, f->FileName, sections, addrs, offs, szs);
                         if (EFI_ERROR(err))
                                 continue;
 

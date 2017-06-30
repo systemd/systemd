@@ -4,7 +4,7 @@ efi_headers = files('''
         graphics.h
         linux.h
         measure.h
-        pefile.h
+        pe.h
         splash.h
         util.h
         shim.h
@@ -14,7 +14,7 @@ common_sources = '''
         disk.c
         graphics.c
         measure.c
-        pefile.c
+        pe.c
         util.c
 '''.split()
 
