@@ -31,7 +31,7 @@ CHANGES WITH 234:
           gained support for configuration of GENEVE links, and IPv6 address
           labels. The [Network] section gained the new IPv6ProxyNDP= setting.
 
-        * .link files now understand the new Port= setting.
+        * .link files now understand a new Port= setting.
 
         * systemd-networkd's DHCP support gained support for DHCP option 119
           (domain search list).
@@ -77,6 +77,17 @@ CHANGES WITH 234:
           the communication with systemd-resolved fails was removed. This
           fallback was redundant and interfered with the [!UNAVAIL=return]
           suffix. See nss-resolve(8) for the recommended configuration.
+
+        * systemd-logind may now be restarted without losing state. It stores
+          the file descriptors for devices it manages in the system manager
+          using the FDSTORE= mechanim. Please note that further changes in
+          other components may be required to make use of this (for example
+          Xorg has code to listen for stops of systemd-logind and terminate
+          itself when logind is stopped or restarted, in order to avoid using
+          stale file descriptors for graphical devices, which is now
+          counterproductive and must be reverted in order for restarts of
+          systemd-logind to be safe. See
+          https://cgit.freedesktop.org/xorg/xserver/commit/?id=dc48bd653c7e101.)
 
         * All kernel install plugins are called with the environment variable
           KERNEL_INSTALL_MACHINE_ID which is set to the machine ID given by
