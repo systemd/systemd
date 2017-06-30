@@ -1498,7 +1498,7 @@ int manager_load_unit_prepare(
         if (path && !is_path(path))
                 return sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not absolute.", path);
 
-        if (!name)
+        if (!name && path)
                 name = basename(path);
 
         t = unit_name_to_type(name);
