@@ -88,13 +88,11 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
 
 int change_uid_gid(const char *user, char **_home) {
         char line[LINE_MAX], *x, *u, *g, *h;
-        const char *word, *state;
-        _cleanup_free_ uid_t *uids = NULL;
+        _cleanup_free_ gid_t *gids = NULL;
         _cleanup_free_ char *home = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_close_ int fd = -1;
-        unsigned n_uids = 0;
-        size_t sz = 0, l;
+        int n_gids = 32;
         uid_t uid;
         gid_t gid;
         pid_t pid;
@@ -196,48 +194,14 @@ int change_uid_gid(const char *user, char **_home) {
                 return log_oom();
 
         /* Second, get group memberships */
-        fd = spawn_getent("initgroups", user, &pid);
-        if (fd < 0)
-                return fd;
-
-        fclose(f);
-        f = fdopen(fd, "r");
-        if (!f)
+        gids = new(gid_t, n_gids);
+        if (!gids)
                 return log_oom();
-        fd = -1;
-
-        if (!fgets(line, sizeof(line), f)) {
-                if (!ferror(f)) {
-                        log_error("Failed to resolve user %s.", user);
-                        return -ESRCH;
-                }
-
-                return log_error_errno(errno, "Failed to read from getent: %m");
-        }
-
-        truncate_nl(line);
-
-        wait_for_terminate_and_warn("getent initgroups", pid, true);
-
-        /* Skip over the username and subsequent separator whitespace */
-        x = line;
-        x += strcspn(x, WHITESPACE);
-        x += strspn(x, WHITESPACE);
-
-        FOREACH_WORD(word, l, x, state) {
-                char c[l+1];
-
-                memcpy(c, word, l);
-                c[l] = 0;
-
-                if (!GREEDY_REALLOC(uids, sz, n_uids+1))
+        if (getgrouplist(user, gid, gids, &n_gids) < 0) {
+                gids = realloc(gids, n_gids * sizeof(gid_t));
+                if (!gids)
                         return log_oom();
-
-                r = parse_uid(c, &uids[n_uids++]);
-                if (r < 0) {
-                        log_error("Failed to parse group data from getent.");
-                        return -EIO;
-                }
+                getgrouplist(user, gid, gids, &n_gids);
         }
 
         r = mkdir_parents(home, 0775);
@@ -252,7 +216,7 @@ int change_uid_gid(const char *user, char **_home) {
         (void) fchown(STDOUT_FILENO, uid, gid);
         (void) fchown(STDERR_FILENO, uid, gid);
 
-        if (setgroups(n_uids, uids) < 0)
+        if (setgroups(n_gids-1, gids+1) < 0)
                 return log_error_errno(errno, "Failed to set auxiliary groups: %m");
 
         if (setresgid(gid, gid, gid) < 0)
