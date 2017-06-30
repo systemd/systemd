@@ -267,6 +267,7 @@
 /test-process-util
 /test-pty
 /test-qcow2
+/test-random-util
 /test-ratelimit
 /test-replace-var
 /test-resolve

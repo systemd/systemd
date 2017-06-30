@@ -42,53 +42,59 @@
 #include "random-util.h"
 #include "time-util.h"
 
-int dev_urandom(void *p, size_t n) {
+int acquire_random_bytes(void *p, size_t n, bool high_quality_required) {
         static int have_syscall = -1;
 
         _cleanup_close_ int fd = -1;
         int r;
+        unsigned already_done = 0;
 
-        /* Gathers some randomness from the kernel. This call will
-         * never block, and will always return some data from the
-         * kernel, regardless if the random pool is fully initialized
-         * or not. It thus makes no guarantee for the quality of the
-         * returned entropy, but is good enough for our usual usecases
-         * of seeding the hash functions for hashtable */
+        /* Gathers some randomness from the kernel. This call will never block. If
+         * high_quality_required, it will always return some data from the kernel,
+         * regardless of whether the random pool is fully initialized or not.
+         * Otherwise, it will return success if at least some random bytes were
+         * successfully acquired, and an error if the kernel has no entropy whatsover
+         * for us. */
 
-        /* Use the getrandom() syscall unless we know we don't have
-         * it, or when the requested size is too large for it. */
-        if (have_syscall != 0 || (size_t) (int) n != n) {
+        /* Use the getrandom() syscall unless we know we don't have it. */
+        if (have_syscall != 0) {
                 r = getrandom(p, n, GRND_NONBLOCK);
-                if (r == (int) n) {
+                if (r > 0) {
                         have_syscall = true;
-                        return 0;
-                }
+                        if (r == n)
+                                return 0;
+                        if (!high_quality_required) {
+                                /* Fill in the remaing bytes using pseudorandom values */
+                                pseudorandom_bytes((uint8_t*) p + r, n - r);
+                                return 0;
+                        }
 
-                if (r < 0) {
-                        if (errno == ENOSYS)
-                                /* we lack the syscall, continue with
-                                 * reading from /dev/urandom */
-                                have_syscall = false;
-                        else if (errno == EAGAIN)
-                                /* not enough entropy for now. Let's
-                                 * remember to use the syscall the
-                                 * next time, again, but also read
-                                 * from /dev/urandom for now, which
-                                 * doesn't care about the current
-                                 * amount of entropy.  */
-                                have_syscall = true;
-                        else
-                                return -errno;
+                        already_done = r;
+                } else if (errno == ENOSYS)
+                          /* We lack the syscall, continue with reading from /dev/urandom. */
+                          have_syscall = false;
+                else if (errno == EAGAIN) {
+                        /* The kernel has no entropy whatsoever. Let's remember to
+                         * use the syscall the next time again though.
+                         *
+                         * If high_quality_required is false, return an error so that
+                         * random_bytes() can produce some pseudorandom
+                         * bytes. Otherwise, fall back to /dev/urandom, which we know
+                         * is empty, but the kernel will produce some bytes for us on
+                         * a best-effort basis. */
+                        have_syscall = true;
+
+                        if (!high_quality_required)
+                                return -ENODATA;
                 } else
-                        /* too short read? */
-                        return -ENODATA;
+                        return -errno;
         }
 
         fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
                 return errno == ENOENT ? -ENOSYS : -errno;
 
-        return loop_read_exact(fd, p, n, true);
+        return loop_read_exact(fd, (uint8_t*) p + already_done, n - already_done, true);
 }
 
 void initialize_srand(void) {
@@ -102,8 +108,9 @@ void initialize_srand(void) {
                 return;
 
 #ifdef HAVE_SYS_AUXV_H
-        /* The kernel provides us with 16 bytes of entropy in auxv, so let's try to make use of that to seed the
-         * pseudo-random generator. It's better than nothing... */
+        /* The kernel provides us with 16 bytes of entropy in auxv, so let's
+         * try to make use of that to seed the pseudo-random generator. It's
+         * better than nothing... */
 
         auxv = (void*) getauxval(AT_RANDOM);
         if (auxv) {
@@ -121,19 +128,44 @@ void initialize_srand(void) {
         srand_called = true;
 }
 
-void random_bytes(void *p, size_t n) {
+/* INT_MAX gives us only 31 bits, so use 24 out of that. */
+#if RAND_MAX >= INT_MAX
+#  define RAND_STEP 3
+#else
+/* SHORT_INT_MAX or lower gives at most 15 bits, we just just 8 out of that. */
+#  define RAND_STEP 1
+#endif
+
+void pseudorandom_bytes(void *p, size_t n) {
         uint8_t *q;
-        int r;
-
-        r = dev_urandom(p, n);
-        if (r >= 0)
-                return;
-
-        /* If some idiot made /dev/urandom unavailable to us, he'll
-         * get a PRNG instead. */
 
         initialize_srand();
 
-        for (q = p; q < (uint8_t*) p + n; q ++)
-                *q = rand();
+        for (q = p; q < (uint8_t*) p + n; q += RAND_STEP) {
+                unsigned rr;
+
+                rr = (unsigned) rand();
+
+#if RAND_STEP >= 3
+                if (q - (uint8_t*) p + 2 < n)
+                        q[2] = rr >> 16;
+#endif
+#if RAND_STEP >= 2
+                if (q - (uint8_t*) p + 1 < n)
+                        q[1] = rr >> 8;
+#endif
+                q[0] = rr;
+        }
+}
+
+void random_bytes(void *p, size_t n) {
+        int r;
+
+        r = acquire_random_bytes(p, n, false);
+        if (r >= 0)
+                return;
+
+        /* If some idiot made /dev/urandom unavailable to us, or the
+         * kernel has no entropy, use a PRNG instead. */
+        return pseudorandom_bytes(p, n);
 }
