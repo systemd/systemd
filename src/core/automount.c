@@ -474,10 +474,10 @@ static int automount_send_ready(Automount *a, Set *tokens, int status) {
         while ((token = PTR_TO_UINT(set_steal_first(tokens)))) {
                 int k;
 
-                /* Autofs fun fact II:
+                /* Autofs fun fact:
                  *
-                 * if you pass a positive status code here, the kernel will
-                 * freeze! Yay! */
+                 * if you pass a positive status code here, kernels
+                 * prior to 4.12 will freeze! Yay! */
 
                 k = autofs_send_ready(UNIT(a)->manager->dev_autofs_fd,
                                       ioctl_fd,
@@ -618,12 +618,6 @@ static void automount_enter_waiting(Automount *a) {
         r = autofs_set_timeout(dev_autofs_fd, ioctl_fd, a->timeout_idle_usec);
         if (r < 0)
                 goto fail;
-
-        /* Autofs fun fact:
-         *
-         * Unless we close the ioctl fd here, for some weird reason
-         * the direct mount will not receive events from the
-         * kernel. */
 
         r = sd_event_add_io(UNIT(a)->manager->event, &a->pipe_event_source, p[0], EPOLLIN, automount_dispatch_io, a);
         if (r < 0)
