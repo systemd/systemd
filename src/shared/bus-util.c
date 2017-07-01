@@ -724,15 +724,8 @@ int bus_print_property(const char *name, sd_bus_message *property, bool value, b
                 if (r < 0)
                         return r;
 
-                if (all || !isempty(s)) {
-                        _cleanup_free_ char *escaped = NULL;
-
-                        escaped = xescape(s, "\n");
-                        if (!escaped)
-                                return -ENOMEM;
-
-                        print_property(name, "%s", escaped);
-                }
+                if (all || !isempty(s))
+                        print_property(name, "%s", s);
 
                 return 1;
         }
@@ -852,16 +845,10 @@ int bus_print_property(const char *name, sd_bus_message *property, bool value, b
                                 return r;
 
                         while ((r = sd_bus_message_read_basic(property, SD_BUS_TYPE_STRING, &str)) > 0) {
-                                _cleanup_free_ char *escaped = NULL;
-
                                 if (first && !value)
                                         printf("%s=", name);
 
-                                escaped = xescape(str, "\n ");
-                                if (!escaped)
-                                        return -ENOMEM;
-
-                                printf("%s%s", first ? "" : " ", escaped);
+                                printf("%s%s", first ? "" : " ", str);
 
                                 first = false;
                         }
