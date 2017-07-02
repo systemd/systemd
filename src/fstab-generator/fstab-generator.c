@@ -176,7 +176,7 @@ static bool mount_in_initrd(struct mntent *me) {
 }
 
 static int write_timeout(FILE *f, const char *where, const char *opts,
-                const char *filter, const char *variable) {
+                         const char *filter, const char *variable) {
         _cleanup_free_ char *timeout = NULL;
         char timespan[FORMAT_TIMESPAN_MAX];
         usec_t u;
@@ -188,7 +188,7 @@ static int write_timeout(FILE *f, const char *where, const char *opts,
         if (r == 0)
                 return 0;
 
-        r = parse_sec(timeout, &u);
+        r = parse_sec_fix_0(timeout, &u);
         if (r < 0) {
                 log_warning("Failed to parse timeout for %s, ignoring: %s", where, timeout);
                 return 0;

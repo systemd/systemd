@@ -167,12 +167,13 @@ int generator_write_timeouts(
         usec_t u;
         int r;
 
-        r = fstab_filter_options(opts, "comment=systemd.device-timeout\0" "x-systemd.device-timeout\0",
+        r = fstab_filter_options(opts, "comment=systemd.device-timeout\0"
+                                       "x-systemd.device-timeout\0",
                                  NULL, &timeout, filtered);
         if (r <= 0)
                 return r;
 
-        r = parse_sec(timeout, &u);
+        r = parse_sec_fix_0(timeout, &u);
         if (r < 0) {
                 log_warning("Failed to parse timeout for %s, ignoring: %s", where, timeout);
                 return 0;

@@ -1870,14 +1870,11 @@ int config_parse_sec_fix_0(
          * compatibility with older versions of systemd where 0 instead of infinity was used as indicator to turn off a
          * timeout. */
 
-        r = parse_sec(rvalue, usec);
+        r = parse_sec_fix_0(rvalue, usec);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s= parameter, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
-
-        if (*usec <= 0)
-                *usec = USEC_INFINITY;
 
         return 0;
 }

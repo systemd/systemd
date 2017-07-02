@@ -61,6 +61,19 @@ static void test_parse_sec(void) {
         assert_se(parse_sec(".3 infinity", &u) < 0);
 }
 
+static void test_parse_sec_fix_0(void) {
+        usec_t u;
+
+        assert_se(parse_sec_fix_0("5s", &u) >= 0);
+        assert_se(u == 5 * USEC_PER_SEC);
+        assert_se(parse_sec_fix_0("0s", &u) >= 0);
+        assert_se(u == 0 * USEC_PER_SEC);
+        assert_se(parse_sec_fix_0("0", &u) >= 0);
+        assert_se(u == USEC_INFINITY);
+        assert_se(parse_sec_fix_0(" 0", &u) >= 0);
+        assert_se(u == USEC_INFINITY);
+}
+
 static void test_parse_time(void) {
         usec_t u;
 
@@ -380,6 +393,7 @@ int main(int argc, char *argv[]) {
                  now(clock_boottime_or_monotonic()));
 
         test_parse_sec();
+        test_parse_sec_fix_0();
         test_parse_time();
         test_parse_nsec();
         test_format_timespan(1);
