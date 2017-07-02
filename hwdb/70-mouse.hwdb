@@ -214,6 +214,14 @@ mouse:usb:v0461p4d16:name:USB Optical Mouse:
  MOUSE_DPI=500@125
 
 ##########################################
+# Future Technology Devices International
+##########################################
+
+# SNES Mouse plugged into a Retrode 2
+mouse:usb:v0403p97c1:name:Retrode SNES Mouse:
+ MOUSE_DPI=235@126
+
+##########################################
 # HandShoe Mouse
 ##########################################
 
