@@ -37,6 +37,9 @@
 size_t strpcpy(char **dest, size_t size, const char *src) {
         size_t len;
 
+        assert(dest);
+        assert(src);
+
         if (size == 0)
                 return 0;
 
@@ -59,6 +62,9 @@ size_t strpcpyf(char **dest, size_t size, const char *src, ...) {
         va_list va;
         int i;
 
+        assert(dest);
+        assert(src);
+
         if (size == 0)
                 return 0;
 
@@ -77,6 +83,9 @@ size_t strpcpyf(char **dest, size_t size, const char *src, ...) {
 size_t strpcpyl(char **dest, size_t size, const char *src, ...) {
         va_list va;
 
+        assert(dest);
+        assert(src);
+
         va_start(va, src);
         do {
                 size = strpcpy(dest, size, src);
@@ -89,6 +98,9 @@ size_t strpcpyl(char **dest, size_t size, const char *src, ...) {
 size_t strscpy(char *dest, size_t size, const char *src) {
         char *s;
 
+        assert(dest);
+        assert(src);
+
         s = dest;
         return strpcpy(&s, size, src);
 }
@@ -96,6 +108,9 @@ size_t strscpy(char *dest, size_t size, const char *src) {
 size_t strscpyl(char *dest, size_t size, const char *src, ...) {
         va_list va;
         char *s;
+
+        assert(dest);
+        assert(src);
 
         va_start(va, src);
         s = dest;
