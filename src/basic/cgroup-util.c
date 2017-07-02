@@ -840,7 +840,7 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
         if (r > 0 && streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
                 r = cg_attach(SYSTEMD_CGROUP_CONTROLLER_LEGACY, path, pid);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to attach %d to compat systemd cgroup %s: %m", pid, path);
+                        log_warning_errno(r, "Failed to attach "PID_FMT" to compat systemd cgroup %s: %m", pid, path);
         }
 
         return 0;
