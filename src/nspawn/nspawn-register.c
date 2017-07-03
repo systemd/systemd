@@ -263,13 +263,19 @@ int allocate_scope(
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_free_ char *scope = NULL;
-        const char *description;
+        const char *description, *object;
         int r;
 
         r = sd_bus_default_system(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to open system bus: %m");
+
+        r = bus_wait_for_jobs_new(bus, &w);
+        if (r < 0)
+                return log_error_errno(r, "Could not watch job: %m");
 
         r = unit_name_mangle_with_suffix(machine_name, UNIT_NAME_NOGLOB, ".scope", &scope);
         if (r < 0)
@@ -329,11 +335,19 @@ int allocate_scope(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, NULL);
+        r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
                 log_error("Failed to allocate scope: %s", bus_error_message(&error, r));
                 return r;
         }
+
+        r = sd_bus_message_read(reply, "o", &object);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = bus_wait_for_jobs_one(w, object, false);
+        if (r < 0)
+                return r;
 
         return 0;
 }
