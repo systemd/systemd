@@ -80,7 +80,7 @@ CHANGES WITH 234:
 
         * systemd-logind may now be restarted without losing state. It stores
           the file descriptors for devices it manages in the system manager
-          using the FDSTORE= mechanim. Please note that further changes in
+          using the FDSTORE= mechanism. Please note that further changes in
           other components may be required to make use of this (for example
           Xorg has code to listen for stops of systemd-logind and terminate
           itself when logind is stopped or restarted, in order to avoid using
@@ -93,7 +93,7 @@ CHANGES WITH 234:
           KERNEL_INSTALL_MACHINE_ID which is set to the machine ID given by
           /etc/machine-id. If the file is missing or empty, the variable is
           empty and BOOT_DIR_ABS is the path of a temporary directory which is
-          removed after the all plugins exit. So, if KERNEL_INSTALL_MACHINE_ID
+          removed after all the plugins exit. So, if KERNEL_INSTALL_MACHINE_ID
           is empty, all plugins should not put anything in BOOT_DIR_ABS.
 
         Contributions from: Adrian Heine né Lang, Aggelos Avgerinos, Alexander
