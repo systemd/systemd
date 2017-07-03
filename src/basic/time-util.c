@@ -1009,6 +1009,16 @@ int parse_sec(const char *t, usec_t *usec) {
         return parse_time(t, usec, USEC_PER_SEC);
 }
 
+int parse_sec_fix_0(const char *t, usec_t *usec) {
+        t += strspn(t, WHITESPACE);
+        if (streq(t, "0")) {
+                *usec = USEC_INFINITY;
+                return 0;
+        }
+
+        return parse_sec(t, usec);
+}
+
 int parse_nsec(const char *t, nsec_t *nsec) {
         static const struct {
                 const char *suffix;
