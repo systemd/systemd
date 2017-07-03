@@ -451,7 +451,6 @@ awk = find_program('awk')
 m4 = find_program('m4')
 stat = find_program('stat')
 git = find_program('git', required : false)
-etags = find_program('etags', required : false)
 
 meson_make_symlink = meson.source_root() + '/tools/meson-make-symlink.sh'
 mkdir_p = 'mkdir -p $DESTDIR/@0@'
@@ -2321,7 +2320,7 @@ endforeach
 
 ############################################################
 
-if git.found() and etags.found()
+if git.found()
         all_files = run_command(
                 git,
                 ['--git-dir=@0@/.git'.format(meson.source_root()),
@@ -2330,9 +2329,13 @@ if git.found() and etags.found()
         all_files = files(all_files.stdout().split())
 
         run_target(
-                'TAGS',
+                'tags',
                 input : all_files,
-                command : [etags, '-o', '@0@/TAGS'.format(meson.source_root())] + all_files)
+                command : ['env', 'etags', '-o', '@0@/TAGS'.format(meson.source_root())] + all_files)
+        run_target(
+                'ctags',
+                input : all_files,
+                command : ['env', 'ctags', '-o', '@0@/tags'.format(meson.source_root())] + all_files)
 endif
 
 if git.found()
