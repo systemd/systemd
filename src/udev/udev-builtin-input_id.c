@@ -47,6 +47,7 @@
 /* available as of kernel 3.11 */
 #ifndef BTN_DPAD_UP
 #define BTN_DPAD_UP 0x220
+#define BTN_DPAD_RIGHT 0x223
 #endif /* BTN_DPAD_UP */
 
 /* available as of kernel 3.13 */
