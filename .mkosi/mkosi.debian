@@ -75,6 +75,7 @@ BuildPackages=
         xz-utils
 
 Packages=
+        iproute2
         libqrencode3
         locales
         libidn2-0
