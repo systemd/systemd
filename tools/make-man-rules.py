@@ -23,7 +23,7 @@ import collections
 import sys
 import os.path
 import pprint
-from xml_helper import *
+from xml_helper import xml_parse
 
 def man(page, number):
     return '{}.{}'.format(page, number)

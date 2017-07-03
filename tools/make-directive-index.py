@@ -21,7 +21,7 @@
 import sys
 import collections
 import re
-from xml_helper import *
+from xml_helper import xml_parse, xml_print, tree
 from copy import deepcopy
 
 TEMPLATE = '''\
