@@ -6,12 +6,13 @@ export PATH
 
 LOOKS_LIKE_DEBIAN=$(source /etc/os-release && [[ "$ID" = "debian" || "$ID_LIKE" = "debian" ]] && echo yes)
 LOOKS_LIKE_ARCH=$(source /etc/os-release && [[ "$ID" = "arch" ]] && echo yes)
+LOOKS_LIKE_SUSE=$(source /etc/os-release && [[ "$ID_LIKE" = "suse" ]] && echo yes)
 KERNEL_VER=${KERNEL_VER-$(uname -r)}
 KERNEL_MODS="/lib/modules/$KERNEL_VER/"
 QEMU_TIMEOUT="${QEMU_TIMEOUT:-infinity}"
 NSPAWN_TIMEOUT="${NSPAWN_TIMEOUT:-infinity}"
 TIMED_OUT=  # will be 1 after run_* if *_TIMEOUT is set and test timed out
-FSTYPE="${FSTYPE:-ext3}"
+[[ "$LOOKS_LIKE_SUSE" ]] && FSTYPE="${FSTYPE:-btrfs}" || FSTYPE="${FSTYPE:-ext3}"
 UNIFIED_CGROUP_HIERARCHY="${UNIFIED_CGROUP_HIERARCHY:-default}"
 
 if ! ROOTLIBDIR=$(pkg-config --variable=systemdutildir systemd); then
@@ -73,6 +74,7 @@ run_qemu() {
     default_fedora_initrd=/boot/initramfs-${KERNEL_VER}.img
     default_debian_initrd=/boot/initrd.img-${KERNEL_VER}
     default_arch_initrd=/boot/initramfs-linux.img
+    default_suse_initrd=/boot/initrd-${KERNEL_VER}
     if [[ ! "$INITRD" ]]; then
         if [[ -e "$default_fedora_initrd" ]]; then
             INITRD="$default_fedora_initrd"
@@ -80,6 +82,8 @@ run_qemu() {
             INITRD="$default_debian_initrd"
         elif [[ "$LOOKS_LIKE_ARCH" && -e "$default_arch_initrd" ]]; then
             INITRD="$default_arch_initrd"
+        elif [[ "$LOOKS_LIKE_SUSE" && -e "$default_suse_initrd" ]]; then
+            INITRD="$default_suse_initrd"
         fi
     fi
 
@@ -99,11 +103,17 @@ run_qemu() {
         exit 1
     fi
 
-    KERNEL_APPEND="root=/dev/sda1 \
+if [[ "$LOOKS_LIKE_SUSE" ]]; then
+    PARAMS+="rd.hostonly=0"
+else
+    PARAMS+="ro"
+fi
+
+KERNEL_APPEND="$PARAMS \
+root=/dev/sda1 \
 raid=noautodetect \
 loglevel=2 \
 init=$ROOTLIBDIR/systemd \
-ro \
 console=ttyS0 \
 selinux=0 \
 $_cgroup_args \
@@ -314,6 +324,8 @@ install_systemd() {
     # and it could fill the available space
     strip_binaries
 
+   [[ "$LOOKS_LIKE_SUSE" ]] && setup_suse
+
     # enable debug logging in PID1
     echo LogLevel=debug >> $initdir/etc/systemd/system.conf
 }
@@ -442,8 +454,14 @@ install_config_files() {
     # set the hostname
     echo systemd-testsuite > $initdir/etc/hostname
     # fstab
+    if [[ "$LOOKS_LIKE_SUSE" ]]; then
+       ROOTMOUNT="/dev/sda1           /       ${FSTYPE}    rw 0 1"
+    else
+       ROOTMOUNT="LABEL=systemd           /       ${FSTYPE}    rw 0 1"
+    fi
+
     cat >$initdir/etc/fstab <<EOF
-LABEL=systemd           /       ${FSTYPE}    rw 0 1
+$ROOTMOUNT
 EOF
 }
 
@@ -1334,6 +1352,12 @@ inst_libdir_file() {
             done
         done
     fi
+}
+
+setup_suse() {
+    ln -s ../usr/bin/systemctl $initdir/bin/systemctl
+    ln -s ../usr/lib/systemd $initdir/lib/systemd
+    inst_simple "/usr/lib/systemd/system/haveged.service"
 }
 
 do_test() {
