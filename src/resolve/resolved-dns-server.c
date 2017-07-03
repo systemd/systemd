@@ -719,9 +719,9 @@ DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
                 return s;
 
         if (s)
-                log_info("Switching to %s DNS server %s.",
-                         dns_server_type_to_string(s->type),
-                         dns_server_string(s));
+                log_debug("Switching to %s DNS server %s.",
+                          dns_server_type_to_string(s->type),
+                          dns_server_string(s));
 
         dns_server_unref(m->current_dns_server);
         m->current_dns_server = dns_server_ref(s);
