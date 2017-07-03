@@ -697,20 +697,20 @@ _pure_ static const char *job_get_status_message_format(Unit *u, JobType t, JobR
         return NULL;
 }
 
-static void job_print_status_message(Unit *u, JobType t, JobResult result) {
-        static const struct {
-                const char *color, *word;
-        } statuses[_JOB_RESULT_MAX] = {
-                [JOB_DONE]        = { ANSI_GREEN,            "  OK  " },
-                [JOB_TIMEOUT]     = { ANSI_HIGHLIGHT_RED,    " TIME " },
-                [JOB_FAILED]      = { ANSI_HIGHLIGHT_RED,    "FAILED" },
-                [JOB_DEPENDENCY]  = { ANSI_HIGHLIGHT_YELLOW, "DEPEND" },
-                [JOB_SKIPPED]     = { ANSI_HIGHLIGHT,        " INFO " },
-                [JOB_ASSERT]      = { ANSI_HIGHLIGHT_YELLOW, "ASSERT" },
-                [JOB_UNSUPPORTED] = { ANSI_HIGHLIGHT_YELLOW, "UNSUPP" },
-                [JOB_COLLECTED]   = { ANSI_HIGHLIGHT,        " INFO " },
-        };
+static const struct {
+        const char *color, *word;
+} job_print_status_messages [_JOB_RESULT_MAX] = {
+        [JOB_DONE]        = { ANSI_GREEN,            "  OK  " },
+        [JOB_TIMEOUT]     = { ANSI_HIGHLIGHT_RED,    " TIME " },
+        [JOB_FAILED]      = { ANSI_HIGHLIGHT_RED,    "FAILED" },
+        [JOB_DEPENDENCY]  = { ANSI_HIGHLIGHT_YELLOW, "DEPEND" },
+        [JOB_SKIPPED]     = { ANSI_HIGHLIGHT,        " INFO " },
+        [JOB_ASSERT]      = { ANSI_HIGHLIGHT_YELLOW, "ASSERT" },
+        [JOB_UNSUPPORTED] = { ANSI_HIGHLIGHT_YELLOW, "UNSUPP" },
+        /* JOB_COLLECTED */
+};
 
+static void job_print_status_message(Unit *u, JobType t, JobResult result) {
         const char *format;
         const char *status;
 
@@ -722,14 +722,19 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
         if (t == JOB_RELOAD)
                 return;
 
+        if (!job_print_status_messages[result].word)
+                return;
+
         format = job_get_status_message_format(u, t, result);
         if (!format)
                 return;
 
         if (log_get_show_color())
-                status = strjoina(statuses[result].color, statuses[result].word, ANSI_NORMAL);
+                status = strjoina(job_print_status_messages[result].color,
+                                  job_print_status_messages[result].word,
+                                  ANSI_NORMAL);
         else
-                status = statuses[result].word;
+                status = job_print_status_messages[result].word;
 
         if (result != JOB_DONE)
                 manager_flip_auto_status(u->manager, true);
@@ -766,10 +771,9 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
         assert(t >= 0);
         assert(t < _JOB_TYPE_MAX);
 
-        /* Skip this if it goes to the console. since we already print
-         * to the console anyway... */
-
-        if (log_on_console())
+        /* Skip printing if output goes to the console, and job_print_status_message()
+           will actually print something to the console. */
+        if (log_on_console() && job_print_status_messages[result].word)
                 return;
 
         format = job_get_status_message_format(u, t, result);
@@ -1310,9 +1314,8 @@ bool job_check_gc(Job *j) {
                         return true;
         }
 
-        /* If we are going down, but something else is orederd After= us, then it needs to wait for us */
-        if (IN_SET(j->type, JOB_STOP, JOB_RESTART)) {
-
+        /* If we are going down, but something else is ordered After= us, then it needs to wait for us */
+        if (IN_SET(j->type, JOB_STOP, JOB_RESTART))
                 SET_FOREACH(other, j->unit->dependencies[UNIT_AFTER], i) {
                         if (!other->job)
                                 continue;
@@ -1322,7 +1325,6 @@ bool job_check_gc(Job *j) {
 
                         return true;
                 }
-        }
 
         /* The logic above is kinda the inverse of the job_is_runnable() logic. Specifically, if the job "we" is
          * ordered before the job "other":

@@ -31,9 +31,10 @@
 struct state {
         unsigned n_messages;
         int rcode;
+        const char *title;
 };
 
-static int start_loopback_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
+static int generic_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         struct state *s = userdata;
 
         assert(s);
@@ -41,7 +42,7 @@ static int start_loopback_handler(sd_netlink *rtnl, sd_netlink_message *m, void 
         s->n_messages--;
 
         errno = 0;
-        log_debug_errno(sd_netlink_message_get_errno(m), "Got start error code: %m");
+        log_debug_errno(sd_netlink_message_get_errno(m), "Failed to %s: %m", s->title);
 
         s->rcode = sd_netlink_message_get_errno(m);
 
@@ -63,25 +64,11 @@ static int start_loopback(sd_netlink *rtnl, struct state *s) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call_async(rtnl, req, start_loopback_handler, s, LOOPBACK_SETUP_TIMEOUT_USEC, NULL);
+        r = sd_netlink_call_async(rtnl, req, generic_handler, s, LOOPBACK_SETUP_TIMEOUT_USEC, NULL);
         if (r < 0)
                 return r;
 
         s->n_messages ++;
-        return 0;
-}
-
-static int generic_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        struct state *s = userdata;
-
-        assert(s);
-        assert(s->n_messages > 0);
-        s->n_messages--;
-
-        /* Note that we don't really care whether the addresses could be added or not */
-        errno = 0;
-        log_debug_errno(sd_netlink_message_get_errno(m), "Got address error code: %m");
-
         return 0;
 }
 
@@ -177,7 +164,9 @@ static bool check_loopback(sd_netlink *rtnl) {
 
 int loopback_setup(void) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        struct state state = {};
+        struct state state_4 = { .title = "add address 127.0.0.1 to loopback interface" },
+                     state_6 = { .title = "add address ::1 to loopback interface"},
+                     state_up = { .title = "bring loopback interface up" };
         int r;
 
         r = sd_netlink_open(&rtnl);
@@ -190,19 +179,19 @@ int loopback_setup(void) {
          *
          * https://github.com/systemd/systemd/issues/5641 */
 
-        r = add_ipv4_address(rtnl, &state);
+        r = add_ipv4_address(rtnl, &state_4);
         if (r < 0)
                 return log_error_errno(r, "Failed to enqueue IPv4 loopback address add request: %m");
 
-        r = add_ipv6_address(rtnl, &state);
+        r = add_ipv6_address(rtnl, &state_6);
         if (r < 0)
-                return log_error_errno(r, "Failed to enqueue IPv4 loopback address add request: %m");
+                return log_error_errno(r, "Failed to enqueue IPv6 loopback address add request: %m");
 
-        r = start_loopback(rtnl, &state);
+        r = start_loopback(rtnl, &state_up);
         if (r < 0)
                 return log_error_errno(r, "Failed to enqueue loopback interface start request: %m");
 
-        while (state.n_messages > 0) {
+        while (state_4.n_messages + state_6.n_messages + state_up.n_messages > 0) {
                 r = sd_netlink_wait(rtnl, LOOPBACK_SETUP_TIMEOUT_USEC);
                 if (r < 0)
                         return log_error_errno(r, "Failed to wait for netlink event: %m");
@@ -212,16 +201,15 @@ int loopback_setup(void) {
                         return log_warning_errno(r, "Failed to process netlink event: %m");
         }
 
-        if (state.rcode != 0) {
-
-                /* If we lack the permissions to configure the
-                 * loopback device, but we find it to be already
-                 * configured, let's exit cleanly, in order to
-                 * supported unprivileged containers. */
-                if (state.rcode == -EPERM && check_loopback(rtnl))
+        /* Note that we don't really care whether the addresses could be added or not */
+        if (state_up.rcode != 0) {
+                /* If we lack the permissions to configure the loopback device,
+                 * but we find it to be already configured, let's exit cleanly,
+                 * in order to supported unprivileged containers. */
+                if (state_up.rcode == -EPERM && check_loopback(rtnl))
                         return 0;
 
-                return log_warning_errno(state.rcode, "Failed to configure loopback device: %m");
+                return log_warning_errno(state_up.rcode, "Failed to configure loopback device: %m");
         }
 
         return 0;

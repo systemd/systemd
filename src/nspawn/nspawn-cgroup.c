@@ -49,7 +49,7 @@ static int chown_cgroup_path(const char *path, uid_t uid_shift) {
                        "cgroup.subtree_control")
                 if (fchownat(fd, fn, uid_shift, uid_shift, 0) < 0)
                         log_full_errno(errno == ENOENT ? LOG_DEBUG :  LOG_WARNING, errno,
-                                       "Failed to chown() cgroup file %s, ignoring: %m", fn);
+                                       "Failed to chown \"%s/%s\", ignoring: %m", path, fn);
 
         return 0;
 }
