@@ -3026,7 +3026,7 @@ efi_headers = \
 	src/boot/efi/graphics.h \
 	src/boot/efi/linux.h \
 	src/boot/efi/measure.h \
-	src/boot/efi/pefile.h \
+	src/boot/efi/pe.h \
 	src/boot/efi/splash.h \
 	src/boot/efi/util.h \
 	src/boot/efi/shim.h
@@ -3037,7 +3037,7 @@ systemd_boot_sources = \
 	src/boot/efi/disk.c \
 	src/boot/efi/graphics.c \
 	src/boot/efi/measure.c \
-	src/boot/efi/pefile.c \
+	src/boot/efi/pe.c \
 	src/boot/efi/util.c \
 	src/boot/efi/shim.c
 
@@ -3074,7 +3074,7 @@ stub_sources = \
 	src/boot/efi/graphics.c \
 	src/boot/efi/linux.c \
 	src/boot/efi/measure.c \
-	src/boot/efi/pefile.c \
+	src/boot/efi/pe.c \
 	src/boot/efi/splash.c \
 	src/boot/efi/stub.c \
 	src/boot/efi/util.c
