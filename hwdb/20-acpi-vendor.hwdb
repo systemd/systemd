@@ -42,6 +42,9 @@ acpi:ATML*:
 acpi:AUTH*:
  ID_VENDOR_FROM_DATABASE=AuthenTec
 
+acpi:BOOT*:
+ ID_VENDOR_FROM_DATABASE=Coreboot Project
+
 acpi:BOSC*:
  ID_VENDOR_FROM_DATABASE=Robert Bosch GmbH
 
@@ -71,6 +74,9 @@ acpi:ELAN*:
 
 acpi:ESSX*:
  ID_VENDOR_FROM_DATABASE=Everest Semiconductor Co., Ltd.
+
+acpi:EXAR*:
+ ID_VENDOR_FROM_DATABASE=Exar Corporation
 
 acpi:FRSC*:
  ID_VENDOR_FROM_DATABASE=Freescale, Inc
@@ -140,6 +146,9 @@ acpi:MCHP*:
 
 acpi:MIPI*:
  ID_VENDOR_FROM_DATABASE=MIPI Alliance
+
+acpi:MRVL*:
+ ID_VENDOR_FROM_DATABASE=Marvell Technology Group Ltd.
 
 acpi:MSAY*:
  ID_VENDOR_FROM_DATABASE=Microsoft Corporation

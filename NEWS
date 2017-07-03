@@ -1,11 +1,93 @@
 systemd System and Service Manager
 
-CHANGES WITH 234 in spe
+CHANGES WITH 234:
+
+        * Meson is now supported as build system in addition to Automake. It is
+          our plan to remove Automake in one of our next releases, so that
+          Meson becomes our exclusive build system. Hence, please start using
+          the Meson build system in your downstream packaging. There's plenty
+          of documentation around how to use Meson, the extremely brief
+          summary:
+
+              ./autogen.sh && ./configure && make && sudo make install
+
+          becomes:
+
+              meson build && ninja -C build && sudo ninja -C build install
+
+        * Unit files gained support for a new JobRunningTimeoutUSec= setting,
+          which permits configuring a timeout on the time a job is
+          running. This is particularly useful for setting timeouts on jobs for
+          .device units.
+
+        * Unit files gained two new options ConditionUser= and ConditionGroup=
+          for conditionalizing units based on the identity of the user/group
+          running a systemd user instance.
+
+        * systemd-networkd now understands a new FlowLabel= setting in the
+          [VXLAN] section of .network files, as well as a Priority= in
+          [Bridge], GVRP= + MVRP= + LooseBinding= + ReorderHeader= in [VLAN]
+          and GatewayOnlink= + IPv6Preference= + Protocol= in [Route]. It also
+          gained support for configuration of GENEVE links, and IPv6 address
+          labels. The [Network] section gained the new IPv6ProxyNDP= setting.
+
+        * .link files now understand a new Port= setting.
+
+        * systemd-networkd's DHCP support gained support for DHCP option 119
+          (domain search list).
+
+        * systemd-networkd gained support for serving IPv6 address ranges using
+          the Router Advertisment protocol. The new .network configuration
+          section [IPv6Prefix] may be used to configure the ranges to
+          serve. This is implemented based on a new, minimal, native server
+          implementation of RA.
+
+        * journalctl's --output= switch gained support for a new parameter
+          "short-iso-precise" for a mode where timestamps are shown as precise
+          ISO date values.
+
+        * systemd-udevd's "net_id" builtin may now generate stable network
+          interface names from IBM PowerVM VIO devices as well as ACPI platform
+          devices.
+
+        * MulticastDNS support in systemd-resolved may now be explicitly
+          enabled/disabled using the new MulticastDNS= configuration file
+          option.
+
+        * systemd-resolved may now optionally use libidn2 instead of the libidn
+          for processing internationalized domain names. The old version
+          remains supported, as it has a much smaller footprint.
+
+        * "machinectl pull-tar" and related call may now do verification of
+          downloaded images using SUSE-style .sha256 checksum files in addition
+          to the already existing support for validating using Ubuntu-style
+          SHA256SUMS files.
+
+        * sd-bus gained support for a new sd_bus_message_appendv() call which
+          is va_list equivalent of sd_bus_message_append().
+
+        * sd-boot gained support for validating images using SHIM/MOK.
+
+        * The SMACK code learnt support for "onlycap".
+
+        * systemd-mount --umount is now much smarter in figuring out how to
+          properly unmount a device given its mount or device path.
 
         * The code to call libnss_dns as a fallback from libnss_resolve when
           the communication with systemd-resolved fails was removed. This
           fallback was redundant and interfered with the [!UNAVAIL=return]
           suffix. See nss-resolve(8) for the recommended configuration.
+
+        * systemd-logind may now be restarted without losing state. It stores
+          the file descriptors for devices it manages in the system manager
+          using the FDSTORE= mechanim. Please note that further changes in
+          other components may be required to make use of this (for example
+          Xorg has code to listen for stops of systemd-logind and terminate
+          itself when logind is stopped or restarted, in order to avoid using
+          stale file descriptors for graphical devices, which is now
+          counterproductive and must be reverted in order for restarts of
+          systemd-logind to be safe. See
+          https://cgit.freedesktop.org/xorg/xserver/commit/?id=dc48bd653c7e101.)
 
         * All kernel install plugins are called with the environment variable
           KERNEL_INSTALL_MACHINE_ID which is set to the machine ID given by
@@ -13,6 +95,37 @@ CHANGES WITH 234 in spe
           empty and BOOT_DIR_ABS is the path of a temporary directory which is
           removed after the all plugins exit. So, if KERNEL_INSTALL_MACHINE_ID
           is empty, all plugins should not put anything in BOOT_DIR_ABS.
+
+          Contributions from: Adrian Heine né Lang, Aggelos Avgerinos,
+          AlexanderKurtz, Alexandros Frantzis, Alexey Brodkin, Amir Pakdel,
+          Amir Yalon, Anchor Cat, Bastien Nocera, Benjamin Gilbert,
+          Charles Plessy, Christian Brauner, Chris Chiu, Chris Lamb,
+          codekipper, Danielle Church, Daniel Drake, Daniel Molkentin,
+          Daniel Rusek, Daniel Wang, Davide Cavalca, David Herrmann,
+          David Michael, Dax Kelson, Dimitri John Ledkov, Djalal Harouni,
+          Dušan Kazik, Elias Probst, Evgeny Vereshchagin, Federico,
+          Felipe Sateler, Felix Zhang, flussence, Franck Bui, Gary Tierney,
+          George McCollister, hanklank, Hans de Goede, hecke, hendrikw01,
+          Hristo Venev, Ian Wienand, iplayinsun, Ivan Shapovalov,
+          James Cowgill, James Hemsing, Janne Heß, Jan Synacek, Jason Reeder,
+          João Paulo Rechi Vita, John Paul Adrian Glaubitz, Jörg Thalheim,
+          Josef Gajdusek, Julian Mehne, Kai Krakow, kjackiewicz,
+          Lars Karlitski, Lennart Poettering, Lluís Gili, Lucas Werkmeister,
+          Lukáš Nykrýn, Mantas Mikulėnas, Marcin Bachry, Mark Stosberg,
+          Martin Pitt, Matija Skala, Matthias Greiner, Matthijs van Duin,
+          Matt Clarkson, Max Resch, Michael Biebl, Michal Koutný,
+          Michal Sekletar, Michal Suchanek, Nate Clark, Nathaniel R. Lewis,
+          Neil Brown, Pascal S. de Kloe, Patrik Flykt, Pat Riehecky,
+          Paul Kocialkowski, Peter Hutterer, Philip Withnall,
+          Rafael Fontenelle, Ray Strode, Richard Maw, Roelf Wichertjes,
+          Ronny Chevalier, Sarang S. Dalal, Sjoerd Simons, slodki, steelman,
+          Stefan Schweter, Susant Sahani, Ted W, Thomas Blume, Thomas Haller,
+          Thomas H. P. Andersen, Timothée Ravier, Tobias Jungel,
+          Tobias Stoeckmann, Tom Gundersen, Tom Yan, Torstein Husebø,
+          Umut Tezduyar Lindskog, userwithuid, Waldemar Brodkorb, WaLyong Cho,
+          wiertel, Yusuke Nojima, Yu Watanabe, Zbigniew Jędrzejewski-Szmek,
+
+        — Berlin, 2017-06-XX
 
 CHANGES WITH 233:
 
