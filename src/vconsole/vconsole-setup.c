@@ -47,31 +47,33 @@
 #include "util.h"
 #include "virt.h"
 
-static bool is_vconsole(int fd) {
+static int verify_vc_device(int fd) {
         unsigned char data[1];
+        int r;
 
         data[0] = TIOCL_GETFGCONSOLE;
-        return ioctl(fd, TIOCLINUX, data) >= 0;
+        r = ioctl(fd, TIOCLINUX, data);
+        return r < 0 ? -errno : r;
 }
 
-static bool is_allocated(unsigned int idx) {
-        char vcname[strlen("/dev/vcs") + DECIMAL_STR_MAX(int)];
+static int verify_vc_allocation(unsigned idx) {
+        char vcname[sizeof("/dev/vcs") + DECIMAL_STR_MAX(unsigned) - 2];
+        int r;
 
-        xsprintf(vcname, "/dev/vcs%i", idx);
-        return access(vcname, F_OK) == 0;
+        xsprintf(vcname, "/dev/vcs%u", idx);
+        r = access(vcname, F_OK);
+        return r < 0 ? -errno : r;
 }
 
-static bool is_allocated_byfd(int fd) {
+static int verify_vc_allocation_byfd(int fd) {
         struct vt_stat vcs = {};
+        int r;
 
-        if (ioctl(fd, VT_GETSTATE, &vcs) < 0) {
-                log_warning_errno(errno, "VT_GETSTATE failed: %m");
-                return false;
-        }
-        return is_allocated(vcs.v_active);
+        r = ioctl(fd, VT_GETSTATE, &vcs);
+        return r < 0 ? -errno : verify_vc_allocation(vcs.v_active);
 }
 
-static bool is_settable(int fd) {
+static int verify_vc_kbmode(int fd) {
         int r, curr_mode;
 
         r = ioctl(fd, KDGKBMODE, &curr_mode);
@@ -82,7 +84,10 @@ static bool is_settable(int fd) {
          *
          * http://lists.freedesktop.org/archives/systemd-devel/2013-February/008573.html
          */
-        return r == 0 && IN_SET(curr_mode, K_XLATE, K_UNICODE);
+        if (r < 0)
+                return -errno;
+
+        return IN_SET(curr_mode, K_XLATE, K_UNICODE) ? 0 : -EBUSY;
 }
 
 static int toggle_utf8(const char *name, int fd, bool utf8) {
@@ -125,7 +130,7 @@ static int toggle_utf8_sysfs(bool utf8) {
 static int keyboard_load_and_wait(const char *vc, const char *map, const char *map_toggle, bool utf8) {
         _cleanup_free_ char *cmd = NULL;
         const char *args[8];
-        int i = 0;
+        unsigned i = 0;
         pid_t pid;
 
         /* An empty map means kernel map */
@@ -164,7 +169,7 @@ static int keyboard_load_and_wait(const char *vc, const char *map, const char *m
 static int font_load_and_wait(const char *vc, const char *font, const char *map, const char *unimap) {
         _cleanup_free_ char *cmd = NULL;
         const char *args[9];
-        int i = 0;
+        unsigned i = 0;
         pid_t pid;
 
         /* Any part can be set independently */
@@ -205,7 +210,7 @@ static int font_load_and_wait(const char *vc, const char *font, const char *map,
 }
 
 /*
- * A newly allocated VT uses the font from the active VT. Here
+ * A newly allocated VT uses the font from the source VT. Here
  * we update all possibly already allocated VTs with the configured
  * font. It also allows to restart systemd-vconsole-setup.service,
  * to apply a new font to all VTs.
@@ -213,18 +218,18 @@ static int font_load_and_wait(const char *vc, const char *font, const char *map,
  * We also setup per-console utf8 related stuff: kbdmode, term
  * processing, stty iutf8.
  */
-static void setup_remaining_vcs(int fd, bool utf8) {
+static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
         struct console_font_op cfo = {
                 .op = KD_FONT_OP_GET,
                 .width = UINT_MAX, .height = UINT_MAX,
                 .charcount = UINT_MAX,
         };
-        struct vt_stat vcs = {};
         struct unimapinit adv = {};
         struct unimapdesc unimapd;
         _cleanup_free_ struct unipair* unipairs = NULL;
         _cleanup_free_ void *fontbuf = NULL;
-        int i, r;
+        unsigned i;
+        int r;
 
         unipairs = new(struct unipair, USHRT_MAX);
         if (!unipairs) {
@@ -232,15 +237,8 @@ static void setup_remaining_vcs(int fd, bool utf8) {
                 return;
         }
 
-        /* get active, and 16 bit mask of used VT numbers */
-        r = ioctl(fd, VT_GETSTATE, &vcs);
-        if (r < 0) {
-                log_warning_errno(errno, "VT_GETSTATE failed, ignoring remaining consoles: %m");
-                return;
-        }
-
         /* get metadata of the current font (width, height, count) */
-        r = ioctl(fd, KDFONTOP, &cfo);
+        r = ioctl(src_fd, KDFONTOP, &cfo);
         if (r < 0)
                 log_warning_errno(errno, "KD_FONT_OP_GET failed while trying to get the font metadata: %m");
         else {
@@ -260,15 +258,15 @@ static void setup_remaining_vcs(int fd, bool utf8) {
                                 log_oom();
                                 return;
                         }
-                        /* get fonts from source console */
+                        /* get fonts from the source console */
                         cfo.data = fontbuf;
-                        r = ioctl(fd, KDFONTOP, &cfo);
+                        r = ioctl(src_fd, KDFONTOP, &cfo);
                         if (r < 0)
                                 log_warning_errno(errno, "KD_FONT_OP_GET failed while trying to read the font data: %m");
                         else {
                                 unimapd.entries  = unipairs;
                                 unimapd.entry_ct = USHRT_MAX;
-                                r = ioctl(fd, GIO_UNIMAP, &unimapd);
+                                r = ioctl(src_fd, GIO_UNIMAP, &unimapd);
                                 if (r < 0)
                                         log_warning_errno(errno, "GIO_UNIMAP failed while trying to read unicode mappings: %m");
                                 else
@@ -281,21 +279,21 @@ static void setup_remaining_vcs(int fd, bool utf8) {
                 log_warning("Fonts will not be copied to remaining consoles");
 
         for (i = 1; i <= 63; i++) {
-                char ttyname[strlen("/dev/tty") + DECIMAL_STR_MAX(int)];
+                char ttyname[sizeof("/dev/tty63")];
                 _cleanup_close_ int fd_d = -1;
 
-                if (i == vcs.v_active || !is_allocated(i))
+                if (i == src_idx || verify_vc_allocation(i) < 0)
                         continue;
 
                 /* try to open terminal */
-                xsprintf(ttyname, "/dev/tty%i", i);
-                fd_d = open_terminal(ttyname, O_RDWR|O_CLOEXEC);
+                xsprintf(ttyname, "/dev/tty%u", i);
+                fd_d = open_terminal(ttyname, O_RDWR|O_CLOEXEC|O_NOCTTY);
                 if (fd_d < 0) {
-                        log_warning_errno(fd_d, "Unable to open tty%i, fonts will not be copied: %m", i);
+                        log_warning_errno(fd_d, "Unable to open tty%u, fonts will not be copied: %m", i);
                         continue;
                 }
 
-                if (!is_settable(fd_d))
+                if (verify_vc_kbmode(fd_d) < 0)
                         continue;
 
                 toggle_utf8(ttyname, fd_d, utf8);
@@ -305,22 +303,24 @@ static void setup_remaining_vcs(int fd, bool utf8) {
 
                 r = ioctl(fd_d, KDFONTOP, &cfo);
                 if (r < 0) {
-                        log_warning_errno(errno, "KD_FONT_OP_SET failed, fonts will not be copied to tty%i: %m", i);
+                        log_warning_errno(errno, "KD_FONT_OP_SET failed, fonts will not be copied to tty%u: %m", i);
                         continue;
                 }
 
-                /* copy unicode translation table */
-                /* unimapd is a ushort count and a pointer to an
-                   array of struct unipair { ushort, ushort } */
+                /*
+                 * copy unicode translation table
+                 * unimapd is a ushort count and a pointer to an
+                 * array of struct unipair { ushort, ushort }
+                 */
                 r = ioctl(fd_d, PIO_UNIMAPCLR, &adv);
                 if (r < 0) {
-                        log_warning_errno(errno, "PIO_UNIMAPCLR failed, unimaps might be incorrect for tty%i: %m", i);
+                        log_warning_errno(errno, "PIO_UNIMAPCLR failed, unimaps might be incorrect for tty%u: %m", i);
                         continue;
                 }
 
                 r = ioctl(fd_d, PIO_UNIMAP, &unimapd);
                 if (r < 0) {
-                        log_warning_errno(errno, "PIO_UNIMAP failed, unimaps might be incorrect for tty%i: %m", i);
+                        log_warning_errno(errno, "PIO_UNIMAP failed, unimaps might be incorrect for tty%u: %m", i);
                         continue;
                 }
 
@@ -328,13 +328,90 @@ static void setup_remaining_vcs(int fd, bool utf8) {
         }
 }
 
+static int find_source_vc(char **ret_path, unsigned *ret_idx) {
+        _cleanup_free_ char *path = NULL;
+        unsigned i;
+        int ret_fd, r, err = 0;
+
+        path = new(char, sizeof("/dev/tty63"));
+        if (path == NULL)
+                return log_oom();
+
+        for (i = 1; i <= 63; i++) {
+                _cleanup_close_ int fd = -1;
+
+                r = verify_vc_allocation(i);
+                if (r < 0) {
+                        if (!err)
+                                err = -r;
+                        continue;
+                }
+
+                sprintf(path, "/dev/tty%u", i);
+                fd = open_terminal(path, O_RDWR|O_CLOEXEC|O_NOCTTY);
+                if (fd < 0) {
+                        if (!err)
+                                err = -fd;
+                        continue;
+                }
+                r = verify_vc_kbmode(fd);
+                if (r < 0) {
+                        if (!err)
+                                err = -r;
+                        continue;
+                }
+
+                /* all checks passed, return this one as a source console */
+                *ret_idx = i;
+                *ret_path = path;
+                path = NULL;
+                ret_fd = fd;
+                fd = -1;
+                return ret_fd;
+        }
+
+        return log_error_errno(err, "No usable source console found: %m");
+}
+
+static int verify_source_vc(char **ret_path, const char *src_vc) {
+        char *path;
+        _cleanup_close_ int fd = -1;
+        int ret_fd, r;
+
+        fd = open_terminal(src_vc, O_RDWR|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open %s: %m", src_vc);
+
+        r = verify_vc_device(fd);
+        if (r < 0)
+                return log_error_errno(r, "Device %s is not a virtual console: %m", src_vc);
+
+        r = verify_vc_allocation_byfd(fd);
+        if (r < 0)
+                return log_error_errno(r, "Virtual console %s is not allocated: %m", src_vc);
+
+        r = verify_vc_kbmode(fd);
+        if (r < 0)
+                return log_error_errno(r, "Virtual console %s is not in K_XLATE or K_UNICODE: %m", src_vc);
+
+        path = strdup(src_vc);
+        if (path == NULL)
+                return log_oom();
+
+        *ret_path = path;
+        ret_fd = fd;
+        fd = -1;
+        return ret_fd;
+}
+
 int main(int argc, char **argv) {
-        const char *vc;
         _cleanup_free_ char
+                *vc = NULL,
                 *vc_keymap = NULL, *vc_keymap_toggle = NULL,
                 *vc_font = NULL, *vc_font_map = NULL, *vc_font_unimap = NULL;
         _cleanup_close_ int fd = -1;
-        bool utf8, font_copy = false, keyboard_ok;
+        bool utf8, keyboard_ok;
+        unsigned idx = 0;
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
@@ -344,32 +421,12 @@ int main(int argc, char **argv) {
         umask(0022);
 
         if (argv[1])
-                vc = argv[1];
-        else {
-                vc = "/dev/tty0";
-                font_copy = true;
-        }
+                fd = verify_source_vc(&vc, argv[1]);
+        else
+                fd = find_source_vc(&vc, &idx);
 
-        fd = open_terminal(vc, O_RDWR|O_CLOEXEC);
-        if (fd < 0) {
-                log_error_errno(fd, "Failed to open %s: %m", vc);
+        if (fd < 0)
                 return EXIT_FAILURE;
-        }
-
-        if (!is_vconsole(fd)) {
-                log_error("Device %s is not a virtual console.", vc);
-                return EXIT_FAILURE;
-        }
-
-        if (!is_allocated_byfd(fd)) {
-                log_error("Virtual console %s is not allocated.", vc);
-                return EXIT_FAILURE;
-        }
-
-        if (!is_settable(fd)) {
-                log_error("Virtual console %s is not in K_XLATE or K_UNICODE.", vc);
-                return EXIT_FAILURE;
-        }
 
         utf8 = is_locale_utf8();
 
@@ -406,9 +463,9 @@ int main(int argc, char **argv) {
         r = font_load_and_wait(vc, vc_font, vc_font_map, vc_font_unimap);
         keyboard_ok = keyboard_load_and_wait(vc, vc_keymap, vc_keymap_toggle, utf8) == 0;
 
-        if (font_copy) {
+        if (idx > 0) {
                 if (r == 0)
-                        setup_remaining_vcs(fd, utf8);
+                        setup_remaining_vcs(fd, idx, utf8);
                 else if (r == EX_OSERR)
                         /* setfont returns EX_OSERR when ioctl(KDFONTOP/PIO_FONTX/PIO_FONTX) fails.
                          * This might mean various things, but in particular lack of a graphical
