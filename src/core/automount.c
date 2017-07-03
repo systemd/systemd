@@ -970,7 +970,6 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         union autofs_v5_packet_union packet;
         Automount *a = AUTOMOUNT(userdata);
-        struct stat st;
         Unit *trigger;
         int r;
 
@@ -1030,18 +1029,6 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
                 if (r < 0) {
                         log_unit_error_errno(UNIT(a), r, "Failed to remember token: %m");
                         goto fail;
-                }
-
-                /* Before we do anything, let's see if somebody is playing games with us? */
-                if (lstat(a->where, &st) < 0) {
-                        log_unit_warning_errno(UNIT(a), errno, "Failed to stat automount point: %m");
-                        goto fail;
-                }
-
-                if (!S_ISDIR(st.st_mode) || st.st_dev == a->dev_id) {
-                        log_unit_info(UNIT(a), "Automount point already unmounted?");
-                        automount_send_ready(a, a->expire_tokens, 0);
-                        break;
                 }
 
                 trigger = UNIT_TRIGGER(UNIT(a));
