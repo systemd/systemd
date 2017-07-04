@@ -198,6 +198,7 @@ struct ExecContext {
         bool same_pgrp;
 
         unsigned long personality;
+        bool lock_personality;
 
         unsigned long restrict_namespaces; /* The CLONE_NEWxyz flags permitted to the unit's processes */
 

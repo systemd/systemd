@@ -1652,6 +1652,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>LockPersonality=</varname></term>
+
+        <listitem><para>Locks down the <citerefentry
+        project='man-pages'><refentrytitle>personality</refentrytitle><manvolnum>2</manvolnum></citerefentry> system
+        call so that the kernel execution domain may not be changed from the default or the personality selected with
+        <varname>Personality=</varname> directive. This may be useful to improve security, because odd personality
+        emulations may be poorly tested and source of vulnerabilities. If running in user mode, or in system mode, but
+        without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting <varname>User=</varname>),
+        <varname>NoNewPrivileges=yes</varname> is implied.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RuntimeDirectory=</varname></term>
 
         <listitem><para>Takes a list of directory names. If set, one

@@ -1297,7 +1297,8 @@ static bool context_has_no_new_privileges(const ExecContext *c) {
                 c->protect_kernel_modules ||
                 c->private_devices ||
                 context_has_syscall_filters(c) ||
-                !set_isempty(c->syscall_archs);
+                !set_isempty(c->syscall_archs) ||
+                c->lock_personality;
 }
 
 #ifdef HAVE_SECCOMP
@@ -1447,6 +1448,25 @@ static int apply_restrict_namespaces(Unit *u, const ExecContext *c) {
                 return 0;
 
         return seccomp_restrict_namespaces(c->restrict_namespaces);
+}
+
+static int apply_lock_personality(const Unit* u, const ExecContext *c) {
+        unsigned long personality = c->personality;
+
+        assert(u);
+        assert(c);
+
+        if (!c->lock_personality)
+                return 0;
+
+        if (skip_seccomp_unavailable(u, "LockPersonality="))
+                return 0;
+
+        /* If personality is not specified, use the default (Linux) */
+        if (personality == PERSONALITY_INVALID)
+                personality = PER_LINUX;
+
+        return seccomp_lock_personality(personality);
 }
 
 #endif
@@ -2870,6 +2890,13 @@ static int exec_child(
                         return r;
                 }
 
+                r = apply_lock_personality(unit, context);
+                if (r < 0) {
+                        *exit_status = EXIT_SECCOMP;
+                        *error_message = strdup("Failed to lock personalities");
+                        return r;
+                }
+
                 /* This really should remain the last step before the execve(), to make sure our own code is unaffected
                  * by the filter as little as possible. */
                 r = apply_syscall_filter(unit, context);
@@ -3617,6 +3644,10 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f,
                         "%sPersonality: %s\n",
                         prefix, strna(personality_to_string(c->personality)));
+
+        fprintf(f,
+                "%sLockPersonality: %s\n",
+                prefix, yes_no(c->lock_personality));
 
         if (c->syscall_filter) {
 #ifdef HAVE_SECCOMP
