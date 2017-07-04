@@ -51,6 +51,13 @@ static void test_strpcpyf(void) {
 
         assert_se(streq(target, "space left: 25. foobar"));
         assert_se(space_left == 3);
+
+        /* test overflow */
+        s = target;
+        space_left = strpcpyf(&s, 12, "00 left: %i. ", 999);
+        assert_se(streq(target, "00 left: 99"));
+        assert_se(space_left == 0);
+        assert_se(target[12] == '2');
 }
 
 static void test_strpcpyl(void) {
