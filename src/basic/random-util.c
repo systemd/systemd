@@ -61,7 +61,7 @@ int acquire_random_bytes(void *p, size_t n, bool high_quality_required) {
                 r = getrandom(p, n, GRND_NONBLOCK);
                 if (r > 0) {
                         have_syscall = true;
-                        if (r == n)
+                        if (r == (int) n)
                                 return 0;
                         if (!high_quality_required) {
                                 /* Fill in the remaing bytes using pseudorandom values */
@@ -147,11 +147,11 @@ void pseudorandom_bytes(void *p, size_t n) {
                 rr = (unsigned) rand();
 
 #if RAND_STEP >= 3
-                if (q - (uint8_t*) p + 2 < n)
+                if (q - (uint8_t*) p + 2 < (ptrdiff_t) n)
                         q[2] = rr >> 16;
 #endif
 #if RAND_STEP >= 2
-                if (q - (uint8_t*) p + 1 < n)
+                if (q - (uint8_t*) p + 1 < (ptrdiff_t) n)
                         q[1] = rr >> 8;
 #endif
                 q[0] = rr;
