@@ -72,7 +72,7 @@
     running, but are routed to <command>nss-dns</command> if this service is not available.</para>
 
     <para>Note that <command>systemd-resolved</command> will synthesize DNS resource
-    records in a few cases, for example for the <literal>localhost</literal> and the
+    records in a few cases, for example for <literal>localhost</literal> and the
     current hostname, see
     <citerefentry><refentrytitle>systemd-resolved</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     for the full list. This duplicates the functionality of
