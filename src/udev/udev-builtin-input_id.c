@@ -31,6 +31,7 @@
 #include <linux/input.h>
 
 #include "fd-util.h"
+#include "missing.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "udev.h"
@@ -43,17 +44,6 @@
 #define BIT(x)  (1UL<<OFF(x))
 #define LONG(x) ((x)/BITS_PER_LONG)
 #define test_bit(bit, array)    ((array[LONG(bit)] >> OFF(bit)) & 1)
-
-/* available as of kernel 3.11 */
-#ifndef BTN_DPAD_UP
-#define BTN_DPAD_UP 0x220
-#define BTN_DPAD_RIGHT 0x223
-#endif /* BTN_DPAD_UP */
-
-/* available as of kernel 3.13 */
-#ifndef KEY_ALS_TOGGLE
-#define KEY_ALS_TOGGLE 0x230
-#endif /* KEY_ALS_TOGGLE */
 
 struct range {
         unsigned start;

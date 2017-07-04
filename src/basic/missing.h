@@ -1073,6 +1073,15 @@ struct input_mask {
 #define INPUT_PROP_ACCELEROMETER  0x06
 #endif
 
+#ifndef BTN_DPAD_UP
+#define BTN_DPAD_UP 0x220
+#define BTN_DPAD_RIGHT 0x223
+#endif
+
+#ifndef KEY_ALS_TOGGLE
+#define KEY_ALS_TOGGLE 0x230
+#endif
+
 #ifndef HAVE_KEY_SERIAL_T
 typedef int32_t key_serial_t;
 #endif
