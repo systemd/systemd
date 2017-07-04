@@ -447,7 +447,7 @@ static int add_esp(DissectedPartition *p) {
         r = fstab_is_mount_point(esp);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse fstab: %m");
-        if (r == 0) {
+        if (r > 0) {
                 log_debug("%s specified in fstab, ignoring.", esp);
                 return 0;
         }
