@@ -307,7 +307,7 @@ install_dmevent() {
 
 install_systemd() {
     # install compiled files
-    (cd $TEST_BASE_DIR/..; set -x; make DESTDIR=$initdir install)
+    (set -x; DESTDIR=$initdir ninja -C $ABS_BUILD_DIR install)
     # remove unneeded documentation
     rm -fr $initdir/usr/share/{man,doc}
     # we strip binaries since debug symbols increase binaries size a lot
