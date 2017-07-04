@@ -22,8 +22,9 @@
 
 static void test_dns_packet_new(void) {
         size_t i;
+         _cleanup_(dns_packet_unrefp) DnsPacket *p2 = NULL;
 
-        for (i = 0; i < DNS_PACKET_SIZE_MAX + 2; i++) {
+        for (i = 0; i <= DNS_PACKET_SIZE_MAX; i++) {
                 _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
 
                 assert_se(dns_packet_new(&p, DNS_PROTOCOL_DNS, i) == 0);
@@ -31,6 +32,8 @@ static void test_dns_packet_new(void) {
                 log_debug("dns_packet_new: %zu → %zu", i, p->allocated);
                 assert_se(p->allocated >= MIN(DNS_PACKET_SIZE_MAX, i));
         }
+
+        assert_se(dns_packet_new(&p2, DNS_PROTOCOL_DNS, DNS_PACKET_SIZE_MAX + 1) == -EFBIG);
 }
 
 int main(int argc, char **argv) {

@@ -29,7 +29,7 @@
 #define EDNS0_OPT_DO (1<<15)
 
 #define DNS_PACKET_SIZE_START 512u
-assert_cc(DNS_PACKET_SIZE_START > UDP_PACKET_HEADER_SIZE)
+assert_cc(DNS_PACKET_SIZE_START > DNS_PACKET_HEADER_SIZE)
 
 typedef struct DnsPacketRewinder {
         DnsPacket *packet;
@@ -44,20 +44,28 @@ static void rewind_dns_packet(DnsPacketRewinder *rewinder) {
 #define INIT_REWINDER(rewinder, p) do { rewinder.packet = p; rewinder.saved_rindex = p->rindex; } while (0)
 #define CANCEL_REWINDER(rewinder) do { rewinder.packet = NULL; } while (0)
 
-int dns_packet_new(DnsPacket **ret, DnsProtocol protocol, size_t mtu) {
+int dns_packet_new(DnsPacket **ret, DnsProtocol protocol, size_t min_alloc_dsize) {
         DnsPacket *p;
         size_t a;
 
         assert(ret);
 
-        /* When dns_packet_new() is called with mtu == 0, allocate more than the
+        /* The caller may not check what is going to be truly allocated, so do not allow to
+         * allocate a DNS packet bigger than DNS_PACKET_SIZE_MAX.
+         */
+        if (min_alloc_dsize > DNS_PACKET_SIZE_MAX) {
+                log_error("Requested packet data size too big: %zu", min_alloc_dsize);
+                return -EFBIG;
+        }
+
+        /* When dns_packet_new() is called with min_alloc_dsize == 0, allocate more than the
          * absolute minimum (which is the dns packet header size), to avoid
          * resizing immediately again after appending the first data to the packet.
          */
-        if (mtu < UDP_PACKET_HEADER_SIZE)
+        if (min_alloc_dsize < DNS_PACKET_HEADER_SIZE)
                 a = DNS_PACKET_SIZE_START;
         else
-                a = MAX(mtu, DNS_PACKET_HEADER_SIZE);
+                a = min_alloc_dsize;
 
         /* round up to next page size */
         a = PAGE_ALIGN(ALIGN(sizeof(DnsPacket)) + a) - ALIGN(sizeof(DnsPacket));
@@ -131,13 +139,13 @@ void dns_packet_set_flags(DnsPacket *p, bool dnssec_checking_disabled, bool trun
         }
 }
 
-int dns_packet_new_query(DnsPacket **ret, DnsProtocol protocol, size_t mtu, bool dnssec_checking_disabled) {
+int dns_packet_new_query(DnsPacket **ret, DnsProtocol protocol, size_t min_alloc_dsize, bool dnssec_checking_disabled) {
         DnsPacket *p;
         int r;
 
         assert(ret);
 
-        r = dns_packet_new(&p, protocol, mtu);
+        r = dns_packet_new(&p, protocol, min_alloc_dsize);
         if (r < 0)
                 return r;
 
