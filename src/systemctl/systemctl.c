@@ -3818,6 +3818,8 @@ typedef struct UnitStatusInfo {
         bool failed_assert_negate;
         const char *failed_assert;
         const char *failed_assert_parameter;
+        usec_t next_elapse_real;
+        usec_t next_elapse_monotonic;
 
         /* Socket */
         unsigned n_accepted;
@@ -3986,6 +3988,31 @@ static void print_status_info(
                 printf(" since %s\n", s2);
         else
                 printf("\n");
+
+        if (endswith(i->id, ".timer")) {
+                char tstamp1[FORMAT_TIMESTAMP_RELATIVE_MAX],
+                     tstamp2[FORMAT_TIMESTAMP_MAX];
+                char *next_rel_time, *next_time;
+                dual_timestamp nw, next = {i->next_elapse_real,
+                                           i->next_elapse_monotonic};
+                usec_t next_elapse;
+
+                printf("  Trigger: ");
+
+                dual_timestamp_get(&nw);
+                next_elapse = calc_next_elapse(&nw, &next);
+                next_rel_time = format_timestamp_relative(tstamp1,
+                                                          sizeof(tstamp1),
+                                                          next_elapse);
+                next_time = format_timestamp(tstamp2,
+                                             sizeof(tstamp2),
+                                             next_elapse);
+
+                if (next_time && next_rel_time)
+                        printf("%s; %s\n", next_time, next_rel_time);
+                else
+                        printf("n/a\n");
+        }
 
         if (!i->condition_result && i->condition_timestamp > 0) {
                 UnitCondition *c;
@@ -4424,6 +4451,10 @@ static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *
                         i->tasks_max = u;
                 else if (streq(name, "CPUUsageNSec"))
                         i->cpu_usage_nsec = u;
+                else if (streq(name, "NextElapseUSecMonotonic"))
+                        i->next_elapse_monotonic = u;
+                else if (streq(name, "NextElapseUSecRealtime"))
+                        i->next_elapse_real = u;
 
                 break;
         }
