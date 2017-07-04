@@ -230,7 +230,8 @@ if cxx.found()
         add_languages('cpp')
 endif
 
-foreach arg : ['-Wundef',
+foreach arg : ['-Wextra',
+               '-Wundef',
                '-Wlogical-op',
                '-Wmissing-include-dirs',
                '-Wold-style-definition',
