@@ -636,6 +636,125 @@ static int start_transient_automount(
         return 0;
 }
 
+static int find_mount_points(const char *what, char ***list) {
+        _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
+        _cleanup_strv_free_ char **l = NULL;
+        size_t bufsize = 0, n = 0;
+
+        assert(what);
+        assert(list);
+
+        /* Returns all mount points obtained from /proc/self/mountinfo in *list,
+         * and the number of mount points as return value. */
+
+        proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
+        if (!proc_self_mountinfo)
+                return log_error_errno(errno, "Can't open /proc/self/mountinfo: %m");
+
+        for (;;) {
+                _cleanup_free_ char *path = NULL, *where = NULL, *dev = NULL;
+                int r;
+
+                r = fscanf(proc_self_mountinfo,
+                           "%*s "       /* (1) mount id */
+                           "%*s "       /* (2) parent id */
+                           "%*s "       /* (3) major:minor */
+                           "%*s "       /* (4) root */
+                           "%ms "       /* (5) mount point */
+                           "%*s"        /* (6) mount options */
+                           "%*[^-]"     /* (7) optional fields */
+                           "- "         /* (8) separator */
+                           "%*s "       /* (9) file system type */
+                           "%ms"        /* (10) mount source */
+                           "%*s"        /* (11) mount options 2 */
+                           "%*[^\n]",   /* some rubbish at the end */
+                           &path, &dev);
+                if (r != 2) {
+                        if (r == EOF)
+                                break;
+
+                        continue;
+                }
+
+                if (!streq(what, dev))
+                        continue;
+
+                r = cunescape(path, UNESCAPE_RELAX, &where);
+                if (r < 0)
+                        continue;
+
+                /* one extra slot is needed for the terminating NULL */
+                if (!GREEDY_REALLOC(l, bufsize, n + 2))
+                        return log_oom();
+
+                l[n] = strdup(where);
+                if (!l[n])
+                        return log_oom();
+
+                n++;
+        }
+
+        l[n] = NULL;
+        *list = l;
+        l = NULL; /* avoid freeing */
+
+        return n;
+}
+
+static int find_loop_device(const char *backing_file, char **loop_dev) {
+        _cleanup_closedir_ DIR *d = NULL;
+        struct dirent *de;
+        _cleanup_free_ char *l = NULL;
+
+        assert(backing_file);
+        assert(loop_dev);
+
+        d = opendir("/sys/devices/virtual/block");
+        if (!d) {
+                if (errno == ENOENT)
+                        return -ENOENT;
+                return log_error_errno(errno, "Can't open directory /sys/devices/virtual/block: %m");
+        }
+
+        FOREACH_DIRENT(de, d, return -errno) {
+                _cleanup_free_ char *sys = NULL, *fname = NULL;
+                int r;
+
+                dirent_ensure_type(d, de);
+
+                if (de->d_type != DT_DIR)
+                        continue;
+
+                if (!startswith(de->d_name, "loop"))
+                        continue;
+
+                sys = strjoin("/sys/devices/virtual/block/", de->d_name, "/loop/backing_file");
+                if (!sys)
+                        return log_oom();
+
+                r = read_one_line_file(sys, &fname);
+                if (r < 0)
+                        continue;
+
+                if (files_same(fname, backing_file, 0) <= 0)
+                        continue;
+
+                l = strjoin("/dev/", de->d_name);
+                if (!l)
+                        return log_oom();
+
+                break;
+        }
+
+        if (!l)
+                return -ENOENT;
+
+        *loop_dev = l;
+        l = NULL; /* avoid freeing */
+
+        return 0;
+}
+
 static int stop_mount(
                 sd_bus *bus,
                 const char *where,
@@ -729,64 +848,13 @@ static int stop_mounts(
         return 0;
 }
 
-static int umount_by_mountinfo(sd_bus *bus, const char *what) {
-        _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
-        int r, r2 = 0;
-
-        proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
-        if (!proc_self_mountinfo)
-                return -errno;
-
-        for (;;) {
-                _cleanup_free_ char *path = NULL, *where = NULL, *dev = NULL;
-                int k;
-
-                k = fscanf(proc_self_mountinfo,
-                           "%*s "       /* (1) mount id */
-                           "%*s "       /* (2) parent id */
-                           "%*s "       /* (3) major:minor */
-                           "%*s "       /* (4) root */
-                           "%ms "       /* (5) mount point */
-                           "%*s"        /* (6) mount options */
-                           "%*[^-]"     /* (7) optional fields */
-                           "- "         /* (8) separator */
-                           "%*s "       /* (9) file system type */
-                           "%ms"        /* (10) mount source */
-                           "%*s"        /* (11) mount options 2 */
-                           "%*[^\n]",   /* some rubbish at the end */
-                           &path, &dev);
-                if (k != 2) {
-                        if (k == EOF)
-                                break;
-
-                        continue;
-                }
-
-                if (!streq(what, dev))
-                        continue;
-
-                r = cunescape(path, UNESCAPE_RELAX, &where);
-                if (r < 0) {
-                        r2 = r;
-                        continue;
-                }
-
-                r = stop_mounts(bus, where);
-                if (r < 0) {
-                        r2 = r;
-                        continue;
-                }
-        }
-
-        return r2;
-}
-
 static int umount_by_device(sd_bus *bus, const char *what) {
         _cleanup_udev_device_unref_ struct udev_device *d = NULL;
         _cleanup_udev_unref_ struct udev *udev = NULL;
-        _cleanup_free_ char *where = NULL;
+        _cleanup_strv_free_ char **list = NULL;
         struct stat st;
         const char *v;
+        char **l;
         int r, r2 = 0;
 
         assert(what);
@@ -814,78 +882,33 @@ static int umount_by_device(sd_bus *bus, const char *what) {
         }
 
         v = udev_device_get_property_value(d, "SYSTEMD_MOUNT_WHERE");
-        if (!isempty(v)) {
-                where = strdup(v);
-                if (!where)
-                        return log_oom();
-                r2 = stop_mounts(bus, where);
-        }
+        if (!isempty(v))
+                r2 = stop_mounts(bus, v);
 
-        v = udev_device_get_devnode(d);
-        if (!isempty(v)) {
-                r = umount_by_mountinfo(bus, v);
+        r = find_mount_points(what, &list);
+        if (r < 0)
+                return r;
+
+        for (l = list; *l; l++) {
+                r = stop_mounts(bus, *l);
                 if (r < 0)
-                        return r;
+                        r2 = r;
         }
 
         return r2;
 }
 
 static int umount_loop(sd_bus *bus, const char *backing_file) {
-        _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
-        int r, r2 = 0;
-        bool found = false;
+        _cleanup_free_ char *loop_dev = NULL;
+        int r;
 
         assert(backing_file);
 
-        d = opendir("/sys/devices/virtual/block");
-        if (!d) {
-                if (errno == ENOENT)
-                        return log_error_errno(errno, "File %s is not mounted.", backing_file);
-                return log_error_errno(errno, "Can't open directory /sys/devices/virtual/block: %m");
-        }
+        r = find_loop_device(backing_file, &loop_dev);
+        if (r < 0)
+                return log_error_errno(r, r == -ENOENT ? "File %s is not mounted." : "Can't get loop device for %s: %m", backing_file);
 
-        FOREACH_DIRENT(de, d, return -errno) {
-                _cleanup_free_ char *sys = NULL, *what = NULL, *fname = NULL;
-
-                dirent_ensure_type(d, de);
-
-                if (de->d_type != DT_DIR)
-                        continue;
-
-                if (!startswith(de->d_name, "loop"))
-                        continue;
-
-                sys = strjoin("/sys/devices/virtual/block/", de->d_name, "/loop/backing_file");
-                if (!sys)
-                        return log_oom();
-
-                r = read_one_line_file(sys, &fname);
-                if (r < 0) {
-                        if (r != -ENOENT)
-                                r2 = log_error_errno(r, "Can't read %s: %m", sys);
-                        continue;
-                }
-
-                if (!files_same(fname, backing_file, 0))
-                        continue;
-
-                found = true;
-
-                what = strjoin("/dev/", de->d_name);
-                if (!what)
-                        return log_oom();
-
-                r = umount_by_device(bus, what);
-                if (r < 0)
-                        r2 = r;
-        }
-
-        if (!found)
-                return log_error_errno(ENOENT, "File %s is not mounted.", backing_file);
-
-        return r2;
+        return umount_by_device(bus, loop_dev);
 }
 
 static int action_umount(
@@ -1019,6 +1042,8 @@ static int acquire_mount_where(struct udev_device *d) {
                 }
 
                 escaped = xescape(name, "\\");
+                if (!escaped)
+                        return log_oom();
                 if (!filename_is_valid(escaped))
                         return 0;
 
@@ -1026,6 +1051,32 @@ static int acquire_mount_where(struct udev_device *d) {
         } else
                 arg_mount_where = strdup(v);
 
+        if (!arg_mount_where)
+                return log_oom();
+
+        log_debug("Discovered where=%s", arg_mount_where);
+        return 1;
+}
+
+static int acquire_mount_where_for_loop_dev(const char *loop_dev) {
+        _cleanup_strv_free_ char **list = NULL;
+        int r;
+
+        if (arg_mount_where)
+                return 0;
+
+        r = find_mount_points(loop_dev, &list);
+        if (r < 0)
+                return r;
+        else if (r == 0) {
+                log_error("Can't find mount point of %s. It is expected that %s is already mounted on a place.", loop_dev, loop_dev);
+                return -EINVAL;
+        } else if (r >= 2) {
+                log_error("%s is mounted on %d places. It is expected that %s is mounted on a place.", loop_dev, r, loop_dev);
+                return -EINVAL;
+        }
+
+        arg_mount_where = strdup(list[0]);
         if (!arg_mount_where)
                 return log_oom();
 
@@ -1104,6 +1155,79 @@ static int acquire_removable(struct udev_device *d) {
         return 1;
 }
 
+static int discover_loop_backing_file(void) {
+        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_free_ char *loop_dev = NULL;
+        struct stat st;
+        const char *v;
+        int r;
+
+        r = find_loop_device(arg_mount_what, &loop_dev);
+        if (r < 0 && r != -ENOENT)
+                return log_error_errno(errno, "Can't get loop device for %s: %m", arg_mount_what);
+
+        if (r == -ENOENT) {
+                _cleanup_free_ char *escaped = NULL;
+
+                if (arg_mount_where)
+                        return 0;
+
+                escaped = xescape(basename(arg_mount_what), "\\");
+                if (!escaped)
+                        return log_oom();
+                if (!filename_is_valid(escaped))
+                        return -EINVAL;
+
+                arg_mount_where = strjoin("/run/media/system/", escaped);
+                if (!arg_mount_where)
+                        return log_oom();
+
+                log_debug("Discovered where=%s", arg_mount_where);
+                return 0;
+        }
+
+        if (stat(loop_dev, &st) < 0)
+                return log_error_errno(errno, "Can't stat %s: %m", loop_dev);
+
+        if (!S_ISBLK(st.st_mode)) {
+                log_error("Invalid file type: %s", loop_dev);
+                return -EINVAL;
+        }
+
+        udev = udev_new();
+        if (!udev)
+                return log_oom();
+
+        d = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
+        if (!d)
+                return log_oom();
+
+        v = udev_device_get_property_value(d, "ID_FS_USAGE");
+        if (!streq_ptr(v, "filesystem")) {
+                log_error("%s does not contain a known file system.", arg_mount_what);
+                return -EINVAL;
+        }
+
+        r = acquire_mount_type(d);
+        if (r < 0)
+                return r;
+
+        r = acquire_mount_options(d);
+        if (r < 0)
+                return r;
+
+        r = acquire_mount_where_for_loop_dev(loop_dev);
+        if (r < 0)
+                return r;
+
+        r = acquire_description(d);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int discover_device(void) {
         _cleanup_udev_device_unref_ struct udev_device *d = NULL;
         _cleanup_udev_unref_ struct udev *udev = NULL;
@@ -1111,20 +1235,15 @@ static int discover_device(void) {
         const char *v;
         int r;
 
-        if (!arg_discover)
-                return 0;
-
-        if (!is_device_path(arg_mount_what)) {
-                log_error("Discovery only supported for block devices, don't know what to do.");
-                return -EINVAL;
-        }
-
         if (stat(arg_mount_what, &st) < 0)
                 return log_error_errno(errno, "Can't stat %s: %m", arg_mount_what);
 
+        if (S_ISREG(st.st_mode))
+                return discover_loop_backing_file();
+
         if (!S_ISBLK(st.st_mode)) {
-                log_error("Path %s is not a block device, don't know what to do.", arg_mount_what);
-                return -ENOTBLK;
+                log_error("Invalid file type: %s", arg_mount_what);
+                return -EINVAL;
         }
 
         udev = udev_new();
@@ -1371,9 +1490,20 @@ int main(int argc, char* argv[]) {
                 goto finish;
         }
 
-        r = discover_device();
-        if (r < 0)
+        path_kill_slashes(arg_mount_what);
+
+        if (!path_is_safe(arg_mount_what)) {
+                log_error("Path contains unsafe components: %s", arg_mount_what);
+                r = -EINVAL;
                 goto finish;
+        }
+
+        if (arg_discover) {
+                r = discover_device();
+                if (r < 0)
+                        goto finish;
+        }
+
         if (!arg_mount_where) {
                 log_error("Can't figure out where to mount %s.", arg_mount_what);
                 r = -EINVAL;
@@ -1389,7 +1519,7 @@ int main(int argc, char* argv[]) {
         }
 
         if (!path_is_safe(arg_mount_where)) {
-                log_error("Path contains unsafe components.");
+                log_error("Path contains unsafe components: %s", arg_mount_where);
                 r = -EINVAL;
                 goto finish;
         }
