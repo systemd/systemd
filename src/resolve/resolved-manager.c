@@ -583,7 +583,7 @@ int manager_new(Manager **ret) {
 
         r = manager_parse_config_file(m);
         if (r < 0)
-                return r;
+                log_warning_errno(r, "Failed to parse configuration file: %m");
 
         r = sd_event_default(&m->event);
         if (r < 0)
