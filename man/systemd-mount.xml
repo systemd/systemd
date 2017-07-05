@@ -260,8 +260,8 @@
         which can be mount points, devices, <filename>/etc/fstab</filename> style node names, or backing files
         corresponding to loop devices, like
         <command>systemd-mount --umount /path/to/umount /dev/sda1 UUID=xxxxxx-xxxx LABEL=xxxxx /path/to/disk.img</command>.
-      </para>
-        </listitem>
+        Note that when <option>-H</option> or <option>-M</option> is specified, only absolute paths to mount points are
+        supported.</para></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="user" />

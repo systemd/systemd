@@ -311,8 +311,13 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 if (arg_transport != BUS_TRANSPORT_LOCAL) {
-                        log_error("Unmounting devices only supported locally.");
-                        return -EOPNOTSUPP;
+                        int i;
+
+                        for (i = optind; i < argc; i++)
+                                if (!path_is_absolute(argv[i]) ) {
+                                        log_error("Only absolute path is supported: %s", argv[i]);
+                                        return -EINVAL;
+                                }
                 }
         } else {
                 if (optind >= argc) {
@@ -917,6 +922,23 @@ static int action_umount(
                 char **argv) {
 
         int i, r, r2 = 0;
+
+        if (arg_transport != BUS_TRANSPORT_LOCAL) {
+                for (i = optind; i < argc; i++) {
+                        _cleanup_free_ char *p = NULL;
+
+                        p = strdup(argv[i]);
+                        if (!p)
+                                return log_oom();
+
+                        path_kill_slashes(p);
+
+                        r = stop_mounts(bus, p);
+                        if (r < 0)
+                                r2 = r;
+                }
+                return r2;
+        }
 
         for (i = optind; i < argc; i++) {
                 _cleanup_free_ char *u = NULL, *p = NULL;
