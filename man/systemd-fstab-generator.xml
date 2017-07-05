@@ -71,6 +71,14 @@
     for more information about special <filename>/etc/fstab</filename>
     mount options this generator understands.</para>
 
+    <para>One special topic is handling of symbolic links.  Historical init
+    implementations supported symlinks in <filename>/etc/fstab</filename>.
+    Because mount units will refuse mounts where the target is a symbolic link,
+    this generator will resolve any symlinks as far as possible when processing
+    <filename>/etc/fstab</filename> in order to enhance backwards compatibility.
+    If a symlink target does not exist at the time that this generator runs, it
+    is assumed that the symlink target is the final target of the mount.</para>
+
     <para><filename>systemd-fstab-generator</filename> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
   </refsect1>

@@ -373,8 +373,9 @@
 
       <varlistentry>
         <term><varname>Where=</varname></term>
-        <listitem><para>Takes an absolute path of a directory of the
-        mount point. If the mount point does not exist at the time of
+        <listitem><para>Takes an absolute path of a directory for the
+        mount point; in particular, the destination cannot be a symbolic
+        link.  If the mount point does not exist at the time of
         mounting, it is created. This string must be reflected in the
         unit filename. (See above.) This option is
         mandatory.</para></listitem>
