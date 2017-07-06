@@ -242,6 +242,7 @@ int config_parse_unit_path_printf(
         _cleanup_free_ char *k = NULL;
         Unit *u = userdata;
         int r;
+        bool fatal = ltype;
 
         assert(filename);
         assert(lvalue);
@@ -250,8 +251,10 @@ int config_parse_unit_path_printf(
 
         r = unit_full_printf(u, rvalue, &k);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers on %s, ignoring: %m", rvalue);
-                return 0;
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to resolve unit specifiers on %s%s: %m",
+                           fatal ? "" : ", ignoring", rvalue);
+                return fatal ? -ENOEXEC : 0;
         }
 
         return config_parse_path(unit, filename, line, section, section_line, lvalue, ltype, k, data, userdata);

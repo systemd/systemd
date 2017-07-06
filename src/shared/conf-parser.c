@@ -615,6 +615,7 @@ int config_parse_bool(const char* unit,
 
         int k;
         bool *b = data;
+        bool fatal = ltype;
 
         assert(filename);
         assert(lvalue);
@@ -623,8 +624,10 @@ int config_parse_bool(const char* unit,
 
         k = parse_boolean(rvalue);
         if (k < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, k, "Failed to parse boolean value, ignoring: %s", rvalue);
-                return 0;
+                log_syntax(unit, LOG_ERR, filename, line, k,
+                           "Failed to parse boolean value%s: %s",
+                           fatal ? "" : ", ignoring", rvalue);
+                return fatal ? -ENOEXEC : 0;
         }
 
         *b = !!k;
@@ -715,6 +718,7 @@ int config_parse_path(
                 void *userdata) {
 
         char **s = data, *n;
+        bool fatal = ltype;
 
         assert(filename);
         assert(lvalue);
@@ -723,12 +727,14 @@ int config_parse_path(
 
         if (!utf8_is_valid(rvalue)) {
                 log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, rvalue);
-                return 0;
+                return fatal ? -ENOEXEC : 0;
         }
 
         if (!path_is_absolute(rvalue)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Not an absolute path, ignoring: %s", rvalue);
-                return 0;
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Not an absolute path%s: %s",
+                           fatal ? "" : ", ignoring", rvalue);
+                return fatal ? -ENOEXEC : 0;
         }
 
         n = strdup(rvalue);
