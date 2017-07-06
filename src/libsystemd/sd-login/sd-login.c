@@ -293,7 +293,7 @@ _public_ int sd_uid_get_state(uid_t uid, char**state) {
                         return -ENOMEM;
 
         }
-        if (r < 0) {
+        else if (r < 0) {
                 free(s);
                 return r;
         }
