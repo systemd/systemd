@@ -358,7 +358,7 @@ static int add_mount(
                 "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n",
                 source);
 
-        if (STR_IN_SET(fstype, "nfs", "nfs4") && !automount &&
+        if (STRPTR_IN_SET(fstype, "nfs", "nfs4") && !automount &&
             fstab_test_yes_no_option(opts, "bg\0" "fg\0")) {
                 /* The default retry timeout that mount.nfs uses for 'bg' mounts
                  * is 10000 minutes, where as it uses 2 minutes for 'fg' mounts.
