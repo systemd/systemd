@@ -372,7 +372,7 @@ static int add_mount(
                 nofail = true;
         }
 
-        if (!nofail && !automount)
+        if (!nofail)
                 fprintf(f, "Before=%s\n", post);
 
         if (!automount && opts) {
