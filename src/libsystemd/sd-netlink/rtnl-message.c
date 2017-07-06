@@ -740,3 +740,17 @@ int sd_rtnl_message_addrlabel_set_prefixlen(sd_netlink_message *m, unsigned char
 
         return 0;
 }
+
+int sd_rtnl_message_addrlabel_get_prefixlen(sd_netlink_message *m, unsigned char *prefixlen) {
+        struct ifaddrlblmsg *addrlabel;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_addrlabel(m->hdr->nlmsg_type), -EINVAL);
+
+        addrlabel = NLMSG_DATA(m->hdr);
+
+        *prefixlen = addrlabel->ifal_prefixlen;
+
+        return 0;
+}

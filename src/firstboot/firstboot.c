@@ -572,7 +572,7 @@ static int process_root_password(void) {
         if (!arg_root_password)
                 return 0;
 
-        r = dev_urandom(raw, 16);
+        r = acquire_random_bytes(raw, 16, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to get salt: %m");
 

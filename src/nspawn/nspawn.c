@@ -1083,8 +1083,8 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_userns_mode == USER_NAMESPACE_PICK)
                 arg_userns_chown = true;
 
-        if (arg_keep_unit && cg_pid_get_owner_uid(0, NULL) >= 0) {
-                log_error("--keep-unit may not be used when invoked from a user session.");
+        if (arg_keep_unit && arg_register && cg_pid_get_owner_uid(0, NULL) >= 0) {
+                log_error("--keep-unit --register=yes may not be used when invoked from a user session.");
                 return -EINVAL;
         }
 
@@ -3387,7 +3387,19 @@ static int run(int master,
                                 arg_container_service_name);
                 if (r < 0)
                         return r;
-        }
+        } else if (!arg_keep_unit) {
+                r = allocate_scope(
+                                arg_machine,
+                                *pid,
+                                arg_slice,
+                                arg_custom_mounts, arg_n_custom_mounts,
+                                arg_kill_signal,
+                                arg_property);
+                if (r < 0)
+                        return r;
+
+        } else if (arg_slice || arg_property)
+                log_notice("Machine and scope registration turned off, --slice= and --property= settings will have no effect.");
 
         r = sync_cgroup(*pid, arg_unified_cgroup_hierarchy, arg_uid_shift);
         if (r < 0)

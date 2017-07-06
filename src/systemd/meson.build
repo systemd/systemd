@@ -40,8 +40,12 @@ install_headers(
 
 opts = [['c'],
         ['c', '-ansi'],
-        ['c', '-std=iso9899:1990'],
-        ['c++']]
+        ['c', '-std=iso9899:1990']]
+
+cxx = find_program('c++', required : false)
+if cxx.found()
+        opts += [['c++']]
+endif
 
 foreach header : _systemd_headers
         foreach opt : opts

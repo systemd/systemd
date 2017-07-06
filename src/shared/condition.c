@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -52,6 +53,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "user-util.h"
 #include "util.h"
 #include "virt.h"
 
@@ -136,6 +138,60 @@ static int condition_test_kernel_command_line(Condition *c) {
         }
 
         return false;
+}
+
+static int condition_test_user(Condition *c) {
+        uid_t id;
+        int r;
+        _cleanup_free_ char *username = NULL;
+        const char *u;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_USER);
+
+        r = parse_uid(c->parameter, &id);
+        if (r >= 0)
+                return id == getuid() || id == geteuid();
+
+        if (streq("@system", c->parameter))
+                return getuid() <= SYSTEM_UID_MAX || geteuid() <= SYSTEM_UID_MAX;
+
+        username = getusername_malloc();
+        if (!username)
+                return -ENOMEM;
+
+        if (streq(username, c->parameter))
+                return 1;
+
+        if (getpid() == 1)
+                return streq(c->parameter, "root");
+
+        u = c->parameter;
+        r = get_user_creds(&u, &id, NULL, NULL, NULL);
+        if (r < 0)
+                return 0;
+
+        return id == getuid() || id == geteuid();
+}
+
+static int condition_test_group(Condition *c) {
+        gid_t id;
+        int r;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_GROUP);
+
+        r = parse_gid(c->parameter, &id);
+        if (r >= 0)
+                return in_gid(id);
+
+        /* Avoid any NSS lookups if we are PID1 */
+        if (getpid() == 1)
+                return streq(c->parameter, "root");
+
+        return in_group(c->parameter) > 0;
 }
 
 static int condition_test_virtualization(Condition *c) {
@@ -475,6 +531,8 @@ int condition_test(Condition *c) {
                 [CONDITION_ARCHITECTURE] = condition_test_architecture,
                 [CONDITION_NEEDS_UPDATE] = condition_test_needs_update,
                 [CONDITION_FIRST_BOOT] = condition_test_first_boot,
+                [CONDITION_USER] = condition_test_user,
+                [CONDITION_GROUP] = condition_test_group,
                 [CONDITION_NULL] = condition_test_null,
         };
 
@@ -538,6 +596,8 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_DIRECTORY_NOT_EMPTY] = "ConditionDirectoryNotEmpty",
         [CONDITION_FILE_NOT_EMPTY] = "ConditionFileNotEmpty",
         [CONDITION_FILE_IS_EXECUTABLE] = "ConditionFileIsExecutable",
+        [CONDITION_USER] = "ConditionUser",
+        [CONDITION_GROUP] = "ConditionGroup",
         [CONDITION_NULL] = "ConditionNull"
 };
 
@@ -562,6 +622,8 @@ static const char* const assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_DIRECTORY_NOT_EMPTY] = "AssertDirectoryNotEmpty",
         [CONDITION_FILE_NOT_EMPTY] = "AssertFileNotEmpty",
         [CONDITION_FILE_IS_EXECUTABLE] = "AssertFileIsExecutable",
+        [CONDITION_USER] = "AssertUser",
+        [CONDITION_GROUP] = "AssertGroup",
         [CONDITION_NULL] = "AssertNull"
 };
 

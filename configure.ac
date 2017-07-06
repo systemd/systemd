@@ -20,7 +20,7 @@
 AC_PREREQ([2.64])
 
 AC_INIT([systemd],
-        [233],
+        [234],
         [https://github.com/systemd/systemd/issues],
         [systemd],
         [https://www.freedesktop.org/wiki/Software/systemd])
@@ -1050,6 +1050,24 @@ fi
 AM_CONDITIONAL(HAVE_LIBIDN, [test "$have_libidn" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_idn=no
+AC_ARG_ENABLE(idn, AS_HELP_STRING([--disable-idn], [disable IDN when printing host names]))
+if test "x$enable_idn" != "xno"; then
+        have_idn=yes
+        AC_DEFINE(ENABLE_IDN, [1], [IDN is enabled])
+fi
+AM_CONDITIONAL(ENABLE_IDN, [test "$have_idn" = "yes"])
+
+# ------------------------------------------------------------------------------
+have_nss_systemd=no
+AC_ARG_ENABLE(nss-systemd, AS_HELP_STRING([--disable-nss-systemd], [disable nss-systemd support]))
+if test "x$enable_nss_systemd" != "xno"; then
+        have_nss_systemd=yes
+        AC_DEFINE(ENABLE_NSS_SYSTEMD, [1], [nss-systemd is enabled])
+fi
+AM_CONDITIONAL(ENABLE_NSS_SYSTEMD, [test "$have_nss_systemd" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_libiptc=no
 AC_ARG_ENABLE(libiptc, AS_HELP_STRING([--disable-libiptc], [disable optional LIBIPTC support]))
 if test "x$enable_libiptc" != "xno"; then
@@ -1316,6 +1334,11 @@ AC_ARG_WITH(default-dnssec,
                [default DNSSEC mode, defaults to "allow-downgrade"]),
         [DEFAULT_DNSSEC_MODE="$withval"],
         [DEFAULT_DNSSEC_MODE="allow-downgrade"])
+
+if test "x$have_gcrypt" = xno -a "x${DEFAULT_DNSSEC_MODE}" != xno ; then
+        AC_MSG_WARN(default-dnssec cannot be set to yes or allow-downgrade when gcrypt is disabled. Setting default-dnssec to no.)
+        DEFAULT_DNSSEC_MODE="no"
+fi
 
 AS_CASE("x${DEFAULT_DNSSEC_MODE}",
         [xno], [mode=DNSSEC_NO],
@@ -1742,6 +1765,7 @@ AC_MSG_RESULT([
         libcurl:                           ${have_libcurl}
         libidn2:                           ${have_libidn2}
         libidn:                            ${have_libidn}
+        IDN:                               ${have_idn}
         libiptc:                           ${have_libiptc}
         ELFUTILS:                          ${have_elfutils}
         binfmt:                            ${have_binfmt}
@@ -1786,6 +1810,7 @@ AC_MSG_RESULT([
         dbus:                              ${have_dbus}
         glib:                              ${have_glib}
         nss-myhostname:                    ${have_myhostname}
+        nss-systemd:                       ${have_nss_systemd}
         hwdb:                              ${enable_hwdb}
         tpm:                               ${have_tpm}
         Python:                            ${have_python}

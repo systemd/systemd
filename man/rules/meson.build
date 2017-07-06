@@ -39,7 +39,7 @@ manpages = [
  ['nss-myhostname', '8', ['libnss_myhostname.so.2'], 'HAVE_MYHOSTNAME'],
  ['nss-mymachines', '8', ['libnss_mymachines.so.2'], 'ENABLE_MACHINED'],
  ['nss-resolve', '8', ['libnss_resolve.so.2'], 'ENABLE_RESOLVED'],
- ['nss-systemd', '8', ['libnss_systemd.so.2'], ''],
+ ['nss-systemd', '8', ['libnss_systemd.so.2'], 'ENABLE_NSS_SYSTEMD'],
  ['os-release', '5', [], ''],
  ['pam_systemd', '8', [], 'HAVE_PAM'],
  ['resolved.conf', '5', ['resolved.conf.d'], 'ENABLE_RESOLVED'],

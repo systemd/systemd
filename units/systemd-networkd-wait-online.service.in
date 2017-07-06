@@ -10,7 +10,7 @@ Description=Wait for Network to be Configured
 Documentation=man:systemd-networkd-wait-online.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
-Requisite=systemd-networkd.service
+Requires=systemd-networkd.service
 After=systemd-networkd.service
 Before=network-online.target
 

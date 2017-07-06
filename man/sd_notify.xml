@@ -205,25 +205,24 @@
       <varlistentry>
         <term>FDSTORE=1</term>
 
-        <listitem><para>Stores additional file descriptors in the service manager. File
-        descriptors sent this way will be maintained per-service by the service manager
-        and will be passed again using the usual file descriptor passing logic on the next
-        invocation of the service, see
-        <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-        This is useful for implementing service restart schemes where services serialize
-        their state to <filename>/run</filename>, push their file descriptors to the
-        system manager, and are then restarted, retrieving their state again via socket
-        passing and <filename>/run</filename>. Note that the service manager will accept
-        messages for a service only if <varname>FileDescriptorStoreMax=</varname> is set
-        to non-zero for it (defaults to zero, see
-        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
-        File descriptors must be pollable, see
-        <citerefentry><refentrytitle>epoll_ctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
-        Multiple arrays of file descriptors may be sent in separate messages, in which
-        case the arrays are combined.  Note that the service manager removes duplicate
-        file descriptors before passing them to the service. Use
-        <function>sd_pid_notify_with_fds()</function> to send messages with
-        <literal>FDSTORE=1</literal>, see below.</para></listitem>
+        <listitem><para>Stores additional file descriptors in the service manager. File descriptors sent this way will
+        be maintained per-service by the service manager and will later be handed back using the usual file descriptor
+        passing logic at the next invocation of the service, see
+        <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>.  This is
+        useful for implementing services that can restart after an explicit request or a crash without losing
+        state. Any open sockets and other file descriptors which should not be closed during the restart may be stored
+        this way. Application state can either be serialized to a file in <filename>/run</filename>, or better, stored
+        in a <citerefentry><refentrytitle>memfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry> memory
+        file descriptor. Note that the service manager will accept messages for a service only if its
+        <varname>FileDescriptorStoreMax=</varname> setting is non-zero (defaults to zero, see
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>). If file
+        descriptors sent are pollable (see
+        <citerefentry><refentrytitle>epoll_ctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>), then any
+        <constant>EPOLLHUP</constant> or <constant>EPOLLERR</constant> event seen on them will result in their
+        automatic removal from the store. Multiple arrays of file descriptors may be sent in separate messages, in
+        which case the arrays are combined. Note that the service manager removes duplicate (pointing to the same
+        object) file descriptors before passing them to the service. Use <function>sd_pid_notify_with_fds()</function>
+        to send messages with <literal>FDSTORE=1</literal>, see below.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -312,13 +311,14 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>On failure, these calls return a negative errno-style error
-    code. If <varname>$NOTIFY_SOCKET</varname> was not set and hence
-    no status data could be sent, 0 is returned. If the status was
-    sent, these functions return with a positive return value. In
-    order to support both, init systems that implement this scheme and
-    those which do not, it is generally recommended to ignore the
-    return value of this call.</para>
+    <para>On failure, these calls return a negative errno-style error code. If <varname>$NOTIFY_SOCKET</varname> was
+    not set and hence no status message could be sent, 0 is returned. If the status was sent, these functions return a
+    positive value. In order to support both service managers that implement this scheme and those which do not, it is
+    generally recommended to ignore the return value of this call. Note that the return value simply indicates whether
+    the notification message was enqueued properly, it does not reflect whether the message could be processed
+    successfully. Specifically, no error is returned when a file descriptor is attempted to be stored using
+    <varname>FDSTORE=1</varname> but the service is not actually configured to permit storing of file descriptors (see
+    above).</para>
   </refsect1>
 
   <refsect1>

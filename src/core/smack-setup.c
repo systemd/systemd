@@ -264,6 +264,54 @@ static int write_netlabel_rules(const char* srcdir) {
         return r;
 }
 
+static int write_onlycap_list(void) {
+        _cleanup_close_ int onlycap_fd = -1;
+        _cleanup_free_ char *list = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        size_t len = 0, allocated = 0;
+        char buf[LINE_MAX];
+        int r;
+
+        f = fopen("/etc/smack/onlycap", "re");
+        if (!f) {
+                if (errno != ENOENT)
+                        log_warning_errno(errno, "Failed to read '/etc/smack/onlycap'");
+                return errno == ENOENT ? ENOENT : -errno;
+        }
+
+        FOREACH_LINE(buf, f, return -errno) {
+                size_t l;
+
+                if (isempty(truncate_nl(buf)) || strchr(COMMENTS, *buf))
+                        continue;
+
+                l = strlen(buf);
+                if (!GREEDY_REALLOC(list, allocated, len + l + 1))
+                        return log_oom();
+
+                stpcpy(list + len, buf)[0] = ' ';
+                len += l + 1;
+        }
+
+        if (!len)
+                return 0;
+
+        list[len - 1] = 0;
+
+        onlycap_fd = open("/sys/fs/smackfs/onlycap", O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (onlycap_fd < 0) {
+                if (errno != ENOENT)
+                        log_warning_errno(errno, "Failed to open '/sys/fs/smackfs/onlycap'");
+                return -errno; /* negative error */
+        }
+
+        r = write(onlycap_fd, list, len);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to write onlycap list(%s) to '/sys/fs/smackfs/onlycap'", list);
+
+        return 0;
+}
+
 #endif
 
 int mac_smack_setup(bool *loaded_policy) {
@@ -336,6 +384,22 @@ int mac_smack_setup(bool *loaded_policy) {
         default:
                 log_warning_errno(r, "Failed to load Smack network host rules: %m, ignoring.");
                 break;
+        }
+
+        r = write_onlycap_list();
+        switch(r) {
+        case -ENOENT:
+                log_debug("Smack is not enabled in the kernel.");
+                break;
+        case ENOENT:
+                log_debug("Smack onlycap list file '/etc/smack/onlycap' not found");
+                break;
+        case 0:
+                log_info("Successfully wrote Smack onlycap list.");
+                break;
+        default:
+                log_emergency_errno(r, "Failed to write Smack onlycap list.");
+                return r;
         }
 
         *loaded_policy = true;

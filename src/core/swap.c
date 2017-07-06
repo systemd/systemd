@@ -487,13 +487,14 @@ static void swap_set_state(Swap *s, SwapState state) {
         old_state = s->state;
         s->state = state;
 
-        if (state != SWAP_ACTIVATING &&
-            state != SWAP_ACTIVATING_SIGTERM &&
-            state != SWAP_ACTIVATING_SIGKILL &&
-            state != SWAP_ACTIVATING_DONE &&
-            state != SWAP_DEACTIVATING &&
-            state != SWAP_DEACTIVATING_SIGTERM &&
-            state != SWAP_DEACTIVATING_SIGKILL) {
+        if (!IN_SET(state,
+                    SWAP_ACTIVATING,
+                    SWAP_ACTIVATING_SIGTERM,
+                    SWAP_ACTIVATING_SIGKILL,
+                    SWAP_ACTIVATING_DONE,
+                    SWAP_DEACTIVATING,
+                    SWAP_DEACTIVATING_SIGTERM,
+                    SWAP_DEACTIVATING_SIGKILL)) {
                 s->timer_event_source = sd_event_source_unref(s->timer_event_source);
                 swap_unwatch_control_pid(s);
                 s->control_command = NULL;
@@ -695,20 +696,19 @@ static void swap_enter_active(Swap *s, SwapResult f) {
 
 static void swap_enter_signal(Swap *s, SwapState state, SwapResult f) {
         int r;
+        KillOperation kop;
 
         assert(s);
 
         if (s->result == SWAP_SUCCESS)
                 s->result = f;
 
-        r = unit_kill_context(
-                        UNIT(s),
-                        &s->kill_context,
-                        (state != SWAP_ACTIVATING_SIGTERM && state != SWAP_DEACTIVATING_SIGTERM) ?
-                        KILL_KILL : KILL_TERMINATE,
-                        -1,
-                        s->control_pid,
-                        false);
+        if (IN_SET(state, SWAP_ACTIVATING_SIGTERM, SWAP_DEACTIVATING_SIGTERM))
+                kop = KILL_TERMINATE;
+        else
+                kop = KILL_KILL;
+
+        r = unit_kill_context(UNIT(s), &s->kill_context, kop, -1, s->control_pid, false);
         if (r < 0)
                 goto fail;
 
@@ -829,17 +829,18 @@ static int swap_start(Unit *u) {
         /* We cannot fulfill this request right now, try again later
          * please! */
 
-        if (s->state == SWAP_DEACTIVATING ||
-            s->state == SWAP_DEACTIVATING_SIGTERM ||
-            s->state == SWAP_DEACTIVATING_SIGKILL ||
-            s->state == SWAP_ACTIVATING_SIGTERM ||
-            s->state == SWAP_ACTIVATING_SIGKILL)
+        if (IN_SET(s->state,
+                   SWAP_DEACTIVATING,
+                   SWAP_DEACTIVATING_SIGTERM,
+                   SWAP_DEACTIVATING_SIGKILL,
+                   SWAP_ACTIVATING_SIGTERM,
+                   SWAP_ACTIVATING_SIGKILL))
                 return -EAGAIN;
 
         if (s->state == SWAP_ACTIVATING)
                 return 0;
 
-        assert(s->state == SWAP_DEAD || s->state == SWAP_FAILED);
+        assert(IN_SET(s->state, SWAP_DEAD, SWAP_FAILED));
 
         if (detect_container() > 0)
                 return -EPERM;
@@ -873,16 +874,15 @@ static int swap_stop(Unit *u) {
 
         assert(s);
 
-        if (s->state == SWAP_DEACTIVATING ||
-            s->state == SWAP_DEACTIVATING_SIGTERM ||
-            s->state == SWAP_DEACTIVATING_SIGKILL ||
-            s->state == SWAP_ACTIVATING_SIGTERM ||
-            s->state == SWAP_ACTIVATING_SIGKILL)
+        if (IN_SET(s->state,
+                   SWAP_DEACTIVATING,
+                   SWAP_DEACTIVATING_SIGTERM,
+                   SWAP_DEACTIVATING_SIGKILL,
+                   SWAP_ACTIVATING_SIGTERM,
+                   SWAP_ACTIVATING_SIGKILL))
                 return 0;
 
-        assert(s->state == SWAP_ACTIVATING ||
-               s->state == SWAP_ACTIVATING_DONE ||
-               s->state == SWAP_ACTIVE);
+        assert(IN_SET(s->state, SWAP_ACTIVATING, SWAP_ACTIVATING_DONE, SWAP_ACTIVE));
 
         if (detect_container() > 0)
                 return -EPERM;
@@ -1340,7 +1340,7 @@ int swap_process_device_new(Manager *m, struct udev_device *dev) {
         struct udev_list_entry *item = NULL, *first = NULL;
         _cleanup_free_ char *e = NULL;
         const char *dn;
-        Swap *s;
+        Unit *u;
         int r = 0;
 
         assert(m);
@@ -1354,9 +1354,9 @@ int swap_process_device_new(Manager *m, struct udev_device *dev) {
         if (r < 0)
                 return r;
 
-        s = hashmap_get(m->units, e);
-        if (s)
-                r = swap_set_devnode(s, dn);
+        u = manager_get_unit(m, e);
+        if (u)
+                r = swap_set_devnode(SWAP(u), dn);
 
         first = udev_device_get_devlinks_list_entry(dev);
         udev_list_entry_foreach(item, first) {
@@ -1367,9 +1367,9 @@ int swap_process_device_new(Manager *m, struct udev_device *dev) {
                 if (q < 0)
                         return q;
 
-                s = hashmap_get(m->units, n);
-                if (s) {
-                        q = swap_set_devnode(s, dn);
+                u = manager_get_unit(m, n);
+                if (u) {
+                        q = swap_set_devnode(SWAP(u), dn);
                         if (q < 0)
                                 r = q;
                 }

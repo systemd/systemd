@@ -25,6 +25,7 @@
 #include "conf-parser.h"
 #include "ethtool-util.h"
 #include "log.h"
+#include "link-config.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "strxcpyx.h"
@@ -47,6 +48,17 @@ static const char* const wol_table[_WOL_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(wol, WakeOnLan);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_wol, wol, WakeOnLan, "Failed to parse WakeOnLan setting");
+
+static const char* const port_table[_NET_DEV_PORT_MAX] = {
+        [NET_DEV_PORT_TP]     = "tp",
+        [NET_DEV_PORT_AUI]    = "aui",
+        [NET_DEV_PORT_MII]    = "mii",
+        [NET_DEV_PORT_FIBRE]  = "fibre",
+        [NET_DEV_PORT_BNC]    = "bnc"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(port, NetDevPort);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_port, port, NetDevPort, "Failed to parse Port setting");
 
 static const char* const netdev_feature_table[_NET_DEV_FEAT_MAX] = {
         [NET_DEV_FEAT_GSO] = "tx-generic-segmentation",
@@ -488,12 +500,12 @@ static int set_sset(int *fd, struct ifreq *ifr, const struct ethtool_link_usetti
  * enabled speed and @duplex is %DUPLEX_UNKNOWN or the best enabled duplex mode.
  */
 
-int ethtool_set_glinksettings(int *fd, const char *ifname, unsigned int speed, Duplex duplex, int autonegotiation) {
+int ethtool_set_glinksettings(int *fd, const char *ifname, struct link_config *link) {
         _cleanup_free_ struct ethtool_link_usettings *u = NULL;
         struct ifreq ifr = {};
         int r;
 
-        if (autonegotiation != 0) {
+        if (link->autonegotiation != 0) {
                 log_info("link_config: autonegotiation is unset or enabled, the speed and duplex are not writable.");
                 return 0;
         }
@@ -514,13 +526,16 @@ int ethtool_set_glinksettings(int *fd, const char *ifname, unsigned int speed, D
                         return log_warning_errno(r, "link_config: Cannot get device settings for %s : %m", ifname);
         }
 
-        if (speed)
-                u->base.speed = speed;
+        if (link->speed)
+                u->base.speed = DIV_ROUND_UP(link->speed, 1000000);
 
-        if (duplex != _DUP_INVALID)
-                u->base.duplex = duplex;
+        if (link->duplex != _DUP_INVALID)
+                u->base.duplex = link->duplex;
 
-        u->base.autoneg = autonegotiation;
+        if (link->port != _NET_DEV_PORT_INVALID)
+              u->base.port = link->port;
+
+        u->base.autoneg = link->autonegotiation;
 
         if (u->base.cmd == ETHTOOL_GLINKSETTINGS)
                 r = set_slinksettings(fd, &ifr, u);

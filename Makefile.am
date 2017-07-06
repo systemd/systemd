@@ -42,9 +42,9 @@ LIBUDEV_CURRENT=7
 LIBUDEV_REVISION=6
 LIBUDEV_AGE=6
 
-LIBSYSTEMD_CURRENT=18
+LIBSYSTEMD_CURRENT=19
 LIBSYSTEMD_REVISION=0
-LIBSYSTEMD_AGE=18
+LIBSYSTEMD_AGE=19
 
 # Dirs of external packages
 dbuspolicydir=@dbuspolicydir@
@@ -269,8 +269,10 @@ INSTALL_DIRS =
 
 SHUTDOWN_TARGET_WANTS =
 LOCAL_FS_TARGET_WANTS =
+REMOTE_FS_TARGET_WANTS =
 MULTI_USER_TARGET_WANTS =
 GRAPHICAL_TARGET_WANTS =
+MACHINES_TARGET_WANTS =
 RESCUE_TARGET_WANTS =
 SYSINIT_TARGET_WANTS =
 SOCKETS_TARGET_WANTS =
@@ -287,6 +289,8 @@ GENERAL_ALIASES =
 install-target-wants-hook:
 	what="$(SHUTDOWN_TARGET_WANTS)" && wants=shutdown.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(LOCAL_FS_TARGET_WANTS)" && wants=local-fs.target && dir=$(systemunitdir) && $(add-wants)
+	what="$(REMOTE_FS_TARGET_WANTS)" && wants=remote-fs.target && dir=$(systemunitdir) && $(add-wants)
+	what="$(MACHINES_TARGET_WANTS)" && wants=machines.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(MULTI_USER_TARGET_WANTS)" && wants=multi-user.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(GRAPHICAL_TARGET_WANTS)" && wants=graphical.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(RESCUE_TARGET_WANTS)" && wants=rescue.target && dir=$(systemunitdir) && $(add-wants)
@@ -539,7 +543,6 @@ dist_systemunit_DATA = \
 	units/sys-kernel-debug.mount \
 	units/sys-fs-fuse-connections.mount \
 	units/tmp.mount \
-	units/var-lib-machines.mount \
 	units/printer.target \
 	units/sound.target \
 	units/bluetooth.target \
@@ -1621,6 +1624,7 @@ tests += \
 	test-conf-parser \
 	test-capability \
 	test-async \
+	test-random-util \
 	test-ratelimit \
 	test-condition \
 	test-uid-range \
@@ -1940,6 +1944,12 @@ test_fstab_util_SOURCES = \
 	src/test/test-fstab-util.c
 
 test_fstab_util_LDADD = \
+	libsystemd-shared.la
+
+test_random_util_SOURCES = \
+	src/test/test-random-util.c
+
+test_random_util_LDADD = \
 	libsystemd-shared.la
 
 test_ratelimit_SOURCES = \
@@ -2692,6 +2702,11 @@ dist_tmpfiles_DATA += \
 	tmpfiles.d/legacy.conf
 endif
 
+if HAVE_REMOTE
+nodist_tmpfiles_DATA += \
+	tmpfiles.d/systemd-remote.conf
+endif
+
 SYSINIT_TARGET_WANTS += \
 	systemd-tmpfiles-setup-dev.service \
 	systemd-tmpfiles-setup.service
@@ -2709,6 +2724,7 @@ endif
 
 EXTRA_DIST += \
 	tmpfiles.d/systemd.conf.m4 \
+	tmpfiles.d/systemd-remote.conf.m4 \
 	tmpfiles.d/etc.conf.m4 \
 	tmpfiles.d/var.conf.m4 \
 	units/systemd-tmpfiles-setup-dev.service.in \
@@ -3010,7 +3026,7 @@ efi_headers = \
 	src/boot/efi/graphics.h \
 	src/boot/efi/linux.h \
 	src/boot/efi/measure.h \
-	src/boot/efi/pefile.h \
+	src/boot/efi/pe.h \
 	src/boot/efi/splash.h \
 	src/boot/efi/util.h \
 	src/boot/efi/shim.h
@@ -3021,7 +3037,7 @@ systemd_boot_sources = \
 	src/boot/efi/disk.c \
 	src/boot/efi/graphics.c \
 	src/boot/efi/measure.c \
-	src/boot/efi/pefile.c \
+	src/boot/efi/pe.c \
 	src/boot/efi/util.c \
 	src/boot/efi/shim.c
 
@@ -3058,7 +3074,7 @@ stub_sources = \
 	src/boot/efi/graphics.c \
 	src/boot/efi/linux.c \
 	src/boot/efi/measure.c \
-	src/boot/efi/pefile.c \
+	src/boot/efi/pe.c \
 	src/boot/efi/splash.c \
 	src/boot/efi/stub.c \
 	src/boot/efi/util.c
@@ -3862,6 +3878,7 @@ dist_udevrules_DATA += \
 	rules/60-block.rules \
 	rules/60-drm.rules \
 	rules/60-evdev.rules \
+	rules/60-input-id.rules \
 	rules/60-persistent-storage-tape.rules \
 	rules/60-persistent-input.rules \
 	rules/60-persistent-alsa.rules \
@@ -3869,6 +3886,7 @@ dist_udevrules_DATA += \
 	rules/60-sensor.rules \
 	rules/60-serial.rules \
 	rules/64-btrfs.rules \
+	rules/70-joystick.rules \
 	rules/70-mouse.rules \
 	rules/70-touchpad.rules \
 	rules/75-net-description.rules \
@@ -3915,10 +3933,10 @@ noinst_LTLIBRARIES += \
 
 src/udev/keyboard-keys-list.txt:
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include linux/input.h - < /dev/null | $(AWK) '/^#define[ \t]+KEY_[^ ]+[ \t]+[0-9K]/ { if ($$2 != "KEY_MAX") { print $$2 } }' > $@
+	$(AM_V_GEN)$(top_srcdir)/src/udev/generate-keyboard-keys-list.sh "$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS)" > $@
 
 src/udev/keyboard-keys-from-name.gperf: src/udev/keyboard-keys-list.txt
-	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct key_name { const char* name; unsigned short id; };"; print "%null-strings"; print "%%";} { print tolower(substr($$1 ,5)) ", " $$1 }' < $< > $@
+	$(AM_V_GEN)$(top_srcdir)/src/udev/generate-keyboard-keys-gperf.sh $< > $@
 
 src/udev/keyboard-keys-from-name.h: src/udev/keyboard-keys-from-name.gperf
 	$(AM_V_GPERF)$(GPERF) -L ANSI-C -t -N keyboard_lookup_key -H hash_key_name -p -C < $< > $@
@@ -4330,11 +4348,6 @@ systemd_journal_remote_CFLAGS = \
 
 systemd_journal_remote_LDADD += \
 	$(MICROHTTPD_LIBS)
-
-if ENABLE_TMPFILES
-dist_tmpfiles_DATA += \
-	tmpfiles.d/systemd-remote.conf
-endif
 
 if HAVE_GNUTLS
 systemd_journal_remote_LDADD += \
@@ -5276,6 +5289,7 @@ manual_tests += \
 	test-nss
 
 # ------------------------------------------------------------------------------
+if ENABLE_NSS_SYSTEMD
 libnss_systemd_la_SOURCES = \
 	src/nss-systemd/nss-systemd.sym \
 	src/nss-systemd/nss-systemd.c
@@ -5295,6 +5309,7 @@ libnss_systemd_la_LIBADD = \
 
 rootlib_LTLIBRARIES += \
 	libnss_systemd.la
+endif
 
 # ------------------------------------------------------------------------------
 if HAVE_MYHOSTNAME
@@ -5321,6 +5336,10 @@ endif
 
 # ------------------------------------------------------------------------------
 if ENABLE_MACHINED
+
+dist_systemunit_DATA += \
+	units/var-lib-machines.mount
+
 systemd_machined_SOURCES = \
 	src/machine/machined.c \
 	src/machine/machined.h
@@ -5747,6 +5766,7 @@ dist_zshcompletion_data += \
 tests += \
 	test-dns-packet \
 	test-resolve-tables \
+	test-resolved-packet \
 	test-dnssec
 
 manual_tests += \
@@ -5764,6 +5784,19 @@ test_resolve_tables_CFLAGS = \
 	$(GCRYPT_CFLAGS)
 
 test_resolve_tables_LDADD = \
+	libsystemd-shared.la \
+	$(GCRYPT_LIBS) \
+	-lm
+
+test_resolved_packet_SOURCES = \
+	src/resolve/test-resolved-packet.c \
+	$(basic_dns_sources)
+
+test_resolved_packet_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(GCRYPT_CFLAGS)
+
+test_resolved_packet_LDADD = \
 	libsystemd-shared.la \
 	$(GCRYPT_LIBS) \
 	-lm
@@ -6567,7 +6600,9 @@ SYSINIT_TARGET_WANTS += \
 
 LOCAL_FS_TARGET_WANTS += \
 	systemd-remount-fs.service \
-	tmp.mount \
+	tmp.mount
+
+REMOTE_FS_TARGET_WANTS += \
 	var-lib-machines.mount
 
 MULTI_USER_TARGET_WANTS += \
@@ -6582,6 +6617,11 @@ SYSINIT_TARGET_WANTS += \
 	sys-fs-fuse-connections.mount \
 	systemd-sysctl.service \
 	systemd-ask-password-console.path
+
+if ENABLE_MACHINED
+MACHINES_TARGET_WANTS += \
+	var-lib-machines.mount
+endif
 
 if HAVE_SYSV_COMPAT
 SYSTEM_UNIT_ALIASES += \

@@ -176,7 +176,7 @@ static bool mount_in_initrd(struct mntent *me) {
 }
 
 static int write_timeout(FILE *f, const char *where, const char *opts,
-                const char *filter, const char *variable) {
+                         const char *filter, const char *variable) {
         _cleanup_free_ char *timeout = NULL;
         char timespan[FORMAT_TIMESPAN_MAX];
         usec_t u;
@@ -188,7 +188,7 @@ static int write_timeout(FILE *f, const char *where, const char *opts,
         if (r == 0)
                 return 0;
 
-        r = parse_sec(timeout, &u);
+        r = parse_sec_fix_0(timeout, &u);
         if (r < 0) {
                 log_warning("Failed to parse timeout for %s, ignoring: %s", where, timeout);
                 return 0;
@@ -357,6 +357,20 @@ static int add_mount(
                 "SourcePath=%s\n"
                 "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n",
                 source);
+
+        if (STRPTR_IN_SET(fstype, "nfs", "nfs4") && !automount &&
+            fstab_test_yes_no_option(opts, "bg\0" "fg\0")) {
+                /* The default retry timeout that mount.nfs uses for 'bg' mounts
+                 * is 10000 minutes, where as it uses 2 minutes for 'fg' mounts.
+                 * As we are making  'bg' mounts look like an 'fg' mount to
+                 * mount.nfs (so systemd can manage the job-control aspects of 'bg'),
+                 * we need to explicitly preserve that default, and also ensure
+                 * the systemd mount-timeout doesn't interfere.
+                 * By placing these options first, they can be over-ridden by
+                 * settings in /etc/fstab. */
+                opts = strjoina("x-systemd.mount-timeout=infinity,retry=10000,", opts, ",fg");
+                nofail = true;
+        }
 
         if (!nofail)
                 fprintf(f, "Before=%s\n", post);

@@ -65,6 +65,9 @@ int manager_get_session_from_creds(Manager *m, sd_bus_message *message, const ch
                         return r;
 
                 r = sd_bus_creds_get_session(creds, &name);
+                if (r == -ENXIO)
+                        return sd_bus_error_setf(error, BUS_ERROR_NO_SESSION_FOR_PID,
+                                                 "Caller does not belong to any known session");
                 if (r < 0)
                         return r;
         }

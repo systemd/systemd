@@ -17,9 +17,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "vlan-util.h"
-#include "parse-util.h"
 #include "conf-parser.h"
+#include "parse-util.h"
+#include "string-util.h"
+#include "vlan-util.h"
 
 int parse_vlanid(const char *p, uint16_t *ret) {
         uint16_t id;
@@ -33,6 +34,32 @@ int parse_vlanid(const char *p, uint16_t *ret) {
 
         *ret = id;
         return 0;
+}
+
+int config_parse_default_port_vlanid(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        uint16_t *id = data;
+
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (streq(rvalue, "none")) {
+                *id = 0;
+                return 0;
+        }
+
+        return config_parse_vlanid(unit, filename, line, section, section_line,
+                                   lvalue, ltype, rvalue, data, userdata);
 }
 
 int config_parse_vlanid(

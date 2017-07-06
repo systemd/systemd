@@ -807,7 +807,7 @@ int pid_from_same_root_fs(pid_t pid) {
 
         root = procfs_file_alloca(pid, "root");
 
-        return files_same(root, "/proc/1/root");
+        return files_same(root, "/proc/1/root", 0);
 }
 
 bool is_main_thread(void) {
@@ -902,6 +902,23 @@ int pid_compare_func(const void *a, const void *b) {
                 return -1;
         if (*p > *q)
                 return 1;
+        return 0;
+}
+
+int ioprio_parse_priority(const char *s, int *ret) {
+        int i, r;
+
+        assert(s);
+        assert(ret);
+
+        r = safe_atoi(s, &i);
+        if (r < 0)
+                return r;
+
+        if (!ioprio_priority_is_valid(i))
+                return -EINVAL;
+
+        *ret = i;
         return 0;
 }
 

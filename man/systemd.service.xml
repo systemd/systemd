@@ -328,14 +328,13 @@
         all <varname>ExecStartPre=</varname> commands that were not prefixed
         with a <literal>-</literal> exit successfully.</para>
 
-        <para><varname>ExecStartPost=</varname> commands are only run after
-        the service has started successfully, as determined by <varname>Type=</varname>
-        (i.e. the process has been started for <varname>Type=simple</varname>
-        or <varname>Type=idle</varname>, the process exits successfully for
-        <varname>Type=oneshot</varname>, the initial process exits successfully
-        for <varname>Type=forking</varname>, <literal>READY=1</literal> is sent
-        for <varname>Type=notify</varname>, or the <varname>BusName=</varname>
-        has been taken for <varname>Type=dbus</varname>).</para>
+        <para><varname>ExecStartPost=</varname> commands are only run after the commands specified in
+        <varname>ExecStart=</varname> have been invoked successfully, as determined by <varname>Type=</varname>
+        (i.e. the process has been started for <varname>Type=simple</varname> or <varname>Type=idle</varname>, the last
+        <varname>ExecStart=</varname> process exited successfully for <varname>Type=oneshot</varname>, the initial
+        process exited successfully for <varname>Type=forking</varname>, <literal>READY=1</literal> is sent for
+        <varname>Type=notify</varname>, or the <varname>BusName=</varname> has been taken for
+        <varname>Type=dbus</varname>).</para>
 
         <para>Note that <varname>ExecStartPre=</varname> may not be
         used to start long-running processes. All processes forked
@@ -782,15 +781,14 @@
 
       <varlistentry>
         <term><varname>NonBlocking=</varname></term>
-        <listitem><para>Set the <constant>O_NONBLOCK</constant> flag
-        for all file descriptors passed via socket-based activation.
-        If true, all file descriptors >= 3 (i.e. all except stdin,
-        stdout, and stderr) will have the
-        <constant>O_NONBLOCK</constant> flag set and hence are in
-        non-blocking mode. This option is only useful in conjunction
-        with a socket unit, as described in
-        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        Defaults to false.</para></listitem>
+        <listitem><para>Set the <constant>O_NONBLOCK</constant> flag for all file descriptors passed via socket-based
+        activation. If true, all file descriptors >= 3 (i.e. all except stdin, stdout, stderr), excluding those passed
+        in via the file descriptor storage logic (see <varname>FileDescriptorStoreMax=</varname> for details), will
+        have the <constant>O_NONBLOCK</constant> flag set and hence are in non-blocking mode. This option is only
+        useful in conjunction with a socket unit, as described in
+        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry> and has no
+        effect on file descriptors which were previously saved in the file-descriptor store for example.  Defaults to
+        false.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -854,21 +852,18 @@
 
       <varlistentry>
         <term><varname>FileDescriptorStoreMax=</varname></term>
-        <listitem><para>Configure how many file descriptors may be
-        stored in the service manager for the service using
+        <listitem><para>Configure how many file descriptors may be stored in the service manager for the service using
         <citerefentry><refentrytitle>sd_pid_notify_with_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>'s
-        <literal>FDSTORE=1</literal> messages. This is useful for
-        implementing service restart schemes where the state is
-        serialized to <filename>/run</filename> and the file
-        descriptors passed to the service manager, to allow restarts
-        without losing state. Defaults to 0, i.e. no file descriptors
-        may be stored in the service manager. All file
-        descriptors passed to the service manager from a specific
-        service are passed back to the service's main process on the
-        next service restart. Any file descriptors passed to the
-        service manager are automatically closed when POLLHUP or
-        POLLERR is seen on them, or when the service is fully stopped
-        and no job is queued or being executed for it.</para></listitem>
+        <literal>FDSTORE=1</literal> messages. This is useful for implementing services that can restart after an
+        explicit request or a crash without losing state. Any open sockets and other file descriptors which should not
+        be closed during the restart may be stored this way. Application state can either be serialized to a file in
+        <filename>/run</filename>, or better, stored in a
+        <citerefentry><refentrytitle>memfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry> memory file
+        descriptor. Defaults to 0, i.e. no file descriptors may be stored in the service manager. All file descriptors
+        passed to the service manager from a specific service are passed back to the service's main process on the next
+        service restart. Any file descriptors passed to the service manager are automatically closed when
+        <constant>POLLHUP</constant> or <constant>POLLERR</constant> is seen on them, or when the service is fully
+        stopped and no job is queued or being executed for it.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -921,17 +916,18 @@
 
     <para>Each command line is split on whitespace, with the first item being the command to
     execute, and the subsequent items being the arguments. Double quotes ("…") and single quotes
-    ('…') may be used, in which case everything until the next matching quote becomes part of the
-    same argument. Quotes themselves are removed. C-style escapes are also supported. The table
-    below contains the list of known escape patterns. Only escape patterns which match the syntax in
-    the table are allowed; other patterns may be added in the future and unknown patterns will
-    result in a warning. In particular, any backslashes should be doubled. Finally, a trailing
-    backslash (<literal>\</literal>) may be used to merge lines.</para>
+    ('…') may be used to wrap a whole item (the opening quote may appear only at the beginning or
+    after whitespace that is not quoted, and the closing quote must be followed by whitespace or the
+    end of line), in which case everything until the next matching quote becomes part of the same
+    argument. Quotes themselves are removed. C-style escapes are also supported. The table below
+    contains the list of known escape patterns. Only escape patterns which match the syntax in the
+    table are allowed; other patterns may be added in the future and unknown patterns will result in
+    a warning. In particular, any backslashes should be doubled. Finally, a trailing backslash
+    (<literal>\</literal>) may be used to merge lines.</para>
 
-    <para>This syntax is intended to be very similar to shell syntax,
-    but only the meta-characters and expansions described in the
-    following paragraphs are understood. Specifically, redirection
-    using
+    <para>This syntax is inspired by shell syntax, but only the meta-characters and expansions
+    described in the following paragraphs are understood, and the expansion of variables is
+    different. Specifically, redirection using
     <literal>&lt;</literal>,
     <literal>&lt;&lt;</literal>,
     <literal>&gt;</literal>, and

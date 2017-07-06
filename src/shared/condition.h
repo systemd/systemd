@@ -49,6 +49,9 @@ typedef enum ConditionType {
 
         CONDITION_NULL,
 
+        CONDITION_USER,
+        CONDITION_GROUP,
+
         _CONDITION_TYPE_MAX,
         _CONDITION_TYPE_INVALID = -1
 } ConditionType;

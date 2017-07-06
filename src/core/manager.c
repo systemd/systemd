@@ -2319,7 +2319,10 @@ int manager_load_unit_from_dbus_path(Manager *m, const char *s, sd_bus_error *e,
                 return sd_bus_error_setf(e, BUS_ERROR_NO_UNIT_FOR_INVOCATION_ID, "No unit with the specified invocation ID " SD_ID128_FORMAT_STR " known.", SD_ID128_FORMAT_VAL(invocation_id));
         }
 
-        /* If this didn't work, we use the suffix as unit name. */
+        /* If this didn't work, we check if this is a unit name */
+        if (!unit_name_is_valid(n, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
+                return sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS, "Unit name %s is neither a valid invocation ID nor unit name.", n);
+
         r = manager_load_unit(m, n, NULL, e, &u);
         if (r < 0)
                 return r;
@@ -2585,8 +2588,8 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
         m->n_reloading++;
 
         for (;;) {
-                char line[LINE_MAX], *l;
-                const char *val;
+                char line[LINE_MAX];
+                const char *val, *l;
 
                 if (!fgets(line, sizeof(line), f)) {
                         if (feof(f))
@@ -2607,7 +2610,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         uint32_t id;
 
                         if (safe_atou32(val, &id) < 0)
-                                log_debug("Failed to parse current job id value %s", val);
+                                log_notice("Failed to parse current job id value %s", val);
                         else
                                 m->current_job_id = MAX(m->current_job_id, id);
 
@@ -2615,7 +2618,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         uint32_t n;
 
                         if (safe_atou32(val, &n) < 0)
-                                log_debug("Failed to parse installed jobs counter %s", val);
+                                log_notice("Failed to parse installed jobs counter %s", val);
                         else
                                 m->n_installed_jobs += n;
 
@@ -2623,7 +2626,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         uint32_t n;
 
                         if (safe_atou32(val, &n) < 0)
-                                log_debug("Failed to parse failed jobs counter %s", val);
+                                log_notice("Failed to parse failed jobs counter %s", val);
                         else
                                 m->n_failed_jobs += n;
 
@@ -2632,7 +2635,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
                         b = parse_boolean(val);
                         if (b < 0)
-                                log_debug("Failed to parse taint /usr flag %s", val);
+                                log_notice("Failed to parse taint /usr flag %s", val);
                         else
                                 m->taint_usr = m->taint_usr || b;
 
@@ -2662,14 +2665,16 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         dual_timestamp_deserialize(val, &m->units_load_finish_timestamp);
                 else if (startswith(l, "env=")) {
                         r = deserialize_environment(&m->environment, l);
+                        if (r == -ENOMEM)
+                                goto finish;
                         if (r < 0)
-                                return r;
+                                log_notice_errno(r, "Failed to parse environment entry: \"%s\": %m", l);
 
                 } else if ((val = startswith(l, "notify-fd="))) {
                         int fd;
 
                         if (safe_atoi(val, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
-                                log_debug("Failed to parse notify fd: %s", val);
+                                log_notice("Failed to parse notify fd: \"%s\"", val);
                         else {
                                 m->notify_event_source = sd_event_source_unref(m->notify_event_source);
                                 safe_close(m->notify_fd);
@@ -2692,7 +2697,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         int fd;
 
                         if (safe_atoi(val, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
-                                log_debug("Failed to parse cgroups agent fd: %s", val);
+                                log_notice("Failed to parse cgroups agent fd: %s", val);
                         else {
                                 m->cgroups_agent_event_source = sd_event_source_unref(m->cgroups_agent_event_source);
                                 safe_close(m->cgroups_agent_fd);
@@ -2703,7 +2708,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         int fd0, fd1;
 
                         if (sscanf(val, "%i %i", &fd0, &fd1) != 2 || fd0 < 0 || fd1 < 0 || fd0 == fd1 || !fdset_contains(fds, fd0) || !fdset_contains(fds, fd1))
-                                log_debug("Failed to parse user lookup fd: %s", val);
+                                log_notice("Failed to parse user lookup fd: %s", val);
                         else {
                                 m->user_lookup_event_source = sd_event_source_unref(m->user_lookup_event_source);
                                 safe_close_pair(m->user_lookup_fds);
@@ -2723,7 +2728,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 log_oom();
 
                 } else if (!startswith(l, "kdbus-fd=")) /* ignore this one */
-                        log_debug("Unknown serialization item '%s'", l);
+                        log_notice("Unknown serialization item '%s'", l);
         }
 
         for (;;) {

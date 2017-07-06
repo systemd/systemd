@@ -344,7 +344,8 @@
         <varlistentry>
           <term><varname>DefaultPVID=</varname></term>
           <listitem>
-            <para>This specifies the default port VLAN ID of a newly attached bridge port.</para>
+            <para>This specifies the default port VLAN ID of a newly attached bridge port.
+            Set this to an integer in the range 1–4094 or <literal>none</literal> to disable the PVID.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

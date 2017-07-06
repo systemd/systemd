@@ -907,6 +907,8 @@ static int show_session(int argc, char *argv[], void *userdata) {
         bool properties, new_line = false;
         sd_bus *bus = userdata;
         int r, i;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *path = NULL;
 
         assert(bus);
         assert(argv);
@@ -916,19 +918,27 @@ static int show_session(int argc, char *argv[], void *userdata) {
         pager_open(arg_no_pager, false);
 
         if (argc <= 1) {
-                /* If not argument is specified inspect the manager
-                 * itself */
+                const char *session, *p = "/org/freedesktop/login1/session/self";
+
                 if (properties)
+                        /* If no argument is specified inspect the manager itself */
                         return show_properties(bus, "/org/freedesktop/login1", &new_line);
 
                 /* And in the pretty case, show data of the calling session */
-                return print_session_status_info(bus, "/org/freedesktop/login1/session/self", &new_line);
+                session = getenv("XDG_SESSION_ID");
+                if (session) {
+                        r = get_session_path(bus, session, &error, &path);
+                        if (r < 0) {
+                                log_error("Failed to get session path: %s", bus_error_message(&error, r));
+                                return r;
+                        }
+                        p = path;
+                }
+
+                return print_session_status_info(bus, p, &new_line);
         }
 
         for (i = 1; i < argc; i++) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_free_ char *path = NULL;
-
                 r = get_session_path(bus, argv[i], &error, &path);
                 if (r < 0) {
                         log_error("Failed to get session path: %s", bus_error_message(&error, r));
@@ -1074,12 +1084,11 @@ static int activate(int argc, char *argv[], void *userdata) {
         polkit_agent_open_if_enabled();
 
         if (argc < 2) {
-                /* No argument? Let's convert this into the empty
-                 * session name, which the calls will then resolve to
-                 * the caller's session. */
+                /* No argument? Let's either use $XDG_SESSION_ID (if specified), or an empty
+                 * session name, in which case logind will try to guess our session. */
 
                 short_argv[0] = argv[0];
-                short_argv[1] = (char*) "";
+                short_argv[1] = getenv("XDG_SESSION_ID") ?: (char*) "";
                 short_argv[2] = NULL;
 
                 argv = short_argv;
@@ -1155,8 +1164,11 @@ static int enable_linger(int argc, char *argv[], void *userdata) {
         b = streq(argv[0], "enable-linger");
 
         if (argc < 2) {
+                /* No argument? Let's either use $XDG_SESSION_ID (if specified), or an empty
+                 * session name, in which case logind will try to guess our session. */
+
                 short_argv[0] = argv[0];
-                short_argv[1] = (char*) "";
+                short_argv[1] = getenv("XDG_SESSION_ID") ?: (char*) "";
                 short_argv[2] = NULL;
                 argv = short_argv;
                 argc = 2;

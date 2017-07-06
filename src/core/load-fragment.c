@@ -940,8 +940,8 @@ int config_parse_exec_io_priority(const char *unit,
         assert(rvalue);
         assert(data);
 
-        r = safe_atoi(rvalue, &i);
-        if (r < 0 || i < 0 || i >= IOPRIO_BE_NR) {
+        r = ioprio_parse_priority(rvalue, &i);
+        if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse IO priority, ignoring: %s", rvalue);
                 return 0;
         }
@@ -1870,14 +1870,11 @@ int config_parse_sec_fix_0(
          * compatibility with older versions of systemd where 0 instead of infinity was used as indicator to turn off a
          * timeout. */
 
-        r = parse_sec(rvalue, usec);
+        r = parse_sec_fix_0(rvalue, usec);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s= parameter, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
-
-        if (*usec <= 0)
-                *usec = USEC_INFINITY;
 
         return 0;
 }

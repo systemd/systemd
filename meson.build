@@ -1,5 +1,5 @@
 project('systemd', 'c',
-        version : '233',
+        version : '234',
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu99',
@@ -312,7 +312,6 @@ link_test_c = files('tools/meson-link-test.c')
 foreach arg : ['-Wl,-z,relro',
                '-Wl,-z,now',
                '-pie',
-               '-Wl,-fuse-ld=gold',
               ]
 
         have = run_command(check_compilation_sh,
@@ -452,7 +451,6 @@ awk = find_program('awk')
 m4 = find_program('m4')
 stat = find_program('stat')
 git = find_program('git', required : false)
-etags = find_program('etags', required : false)
 
 meson_make_symlink = meson.source_root() + '/tools/meson-make-symlink.sh'
 mkdir_p = 'mkdir -p $DESTDIR/@0@'
@@ -602,11 +600,6 @@ substs.set('DEV_KVM_MODE', get_option('dev-kvm-mode'))
 kill_user_processes = get_option('default-kill-user-processes')
 conf.set10('KILL_USER_PROCESSES', kill_user_processes)
 substs.set('KILL_USER_PROCESSES', kill_user_processes ? 'yes' : 'no')
-
-default_dnssec = get_option('default-dnssec')
-conf.set('DEFAULT_DNSSEC_MODE',
-         'DNSSEC_' + default_dnssec.underscorify().to_upper())
-substs.set('DEFAULT_DNSSEC_MODE', default_dnssec)
 
 dns_servers = get_option('dns-servers')
 conf.set_quoted('DNS_SERVERS', dns_servers)
@@ -953,6 +946,15 @@ else
         libgpg_error = []
 endif
 
+default_dnssec = get_option('default-dnssec')
+if default_dnssec != 'no' and not conf.get('HAVE_GCRYPT', false)
+        message('default-dnssec cannot be set to yes or allow-downgrade when gcrypt is disabled. Setting default-dnssec to no.')
+        default_dnssec = 'no'
+endif
+conf.set('DEFAULT_DNSSEC_MODE',
+         'DNSSEC_' + default_dnssec.underscorify().to_upper())
+substs.set('DEFAULT_DNSSEC_MODE', default_dnssec)
+
 want_importd = get_option('importd')
 if want_importd != 'false'
         have_deps = (conf.get('HAVE_LIBCURL', false) and
@@ -1009,6 +1011,8 @@ foreach pair : [['utmp',          'HAVE_UTMP'],
                 ['ima',           'HAVE_IMA'],
                 ['smack',         'HAVE_SMACK'],
                 ['gshadow',       'ENABLE_GSHADOW'],
+                ['idn',           'ENABLE_IDN'],
+                ['nss-systemd',   'ENABLE_NSS_SYSTEMD'],
                ]
 
         if get_option(pair[0])
@@ -1100,7 +1104,7 @@ libsystemd = shared_library(
         'systemd',
         libsystemd_internal_sources,
         journal_internal_sources,
-        version : '0.18.0',
+        version : '0.19.0',
         include_directories : includes,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libsystemd_sym_path],
@@ -1157,7 +1161,7 @@ test_dlopen = executable(
         dependencies : [libdl])
 
 foreach tuple : [['myhostname', 'HAVE_MYHOSTNAME'],
-                 ['systemd',    ''               ],
+                 ['systemd',    'ENABLE_NSS_SYSTEMD'],
                  ['mymachines', 'ENABLE_MACHINED'],
                  ['resolve',    'ENABLE_RESOLVED']]
 
@@ -2170,6 +2174,7 @@ if conf.get('ENABLE_NETWORKD', false)
                                 libsystemd_network,
                                 libudev_internal,
                                 libshared],
+                   dependencies : [threads],
                    install_rpath : rootlibexecdir,
                    install : true,
                    install_dir : rootlibexecdir)
@@ -2213,8 +2218,6 @@ foreach tuple : tests
         endif
 
         if condition == '' or conf.get(condition, false)
-                install = install_tests and type == ''
-
                 exe = executable(
                         name,
                         sources,
@@ -2223,8 +2226,8 @@ foreach tuple : tests
                         dependencies : dependencies,
                         c_args : defs,
                         install_rpath : rootlibexecdir,
-                        install : install,
-                        install_dir : testsdir)
+                        install : install_tests,
+                        install_dir : join_paths(testsdir, type))
 
                 if type == 'manual'
                         message('@0@ is a manual test'.format(name))
@@ -2317,7 +2320,7 @@ endforeach
 
 ############################################################
 
-if git.found() and etags.found()
+if git.found()
         all_files = run_command(
                 git,
                 ['--git-dir=@0@/.git'.format(meson.source_root()),
@@ -2325,11 +2328,14 @@ if git.found() and etags.found()
                  ':/*.[ch]'])
         all_files = files(all_files.stdout().split())
 
-        custom_target(
-                'TAGS',
-                output : 'TAGS',
+        run_target(
+                'tags',
                 input : all_files,
-                command : [etags, '-o', '@OUTPUT@'] + all_files)
+                command : ['env', 'etags', '-o', '@0@/TAGS'.format(meson.source_root())] + all_files)
+        run_target(
+                'ctags',
+                input : all_files,
+                command : ['env', 'ctags', '-o', '@0@/tags'.format(meson.source_root())] + all_files)
 endif
 
 if git.found()
@@ -2449,8 +2455,10 @@ foreach tuple : [
         ['microhttpd'],
         ['gnutls'],
         ['libcurl'],
+        ['idn'],
         ['libidn2'],
         ['libidn'],
+        ['nss-systemd'],
         ['libiptc'],
         ['elfutils'],
         ['binfmt'],

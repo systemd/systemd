@@ -1621,7 +1621,6 @@
 
       <varlistentry>
         <term><varname>RuntimeDirectory=</varname></term>
-        <term><varname>RuntimeDirectoryMode=</varname></term>
 
         <listitem><para>Takes a list of directory names. If set, one
         or more directories by the specified names will be created
@@ -1646,6 +1645,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RuntimeDirectoryMode=</varname></term>
+
+        <listitem><para>Specifies the access mode of the directories specified in
+        <varname>RuntimeDirectory=</varname> as an octal number. Defaults to
+        <constant>0755</constant>. See "Permissions" in
+        <citerefentry project='man-pages'><refentrytitle>path_resolution</refentrytitle><manvolnum>7</manvolnum></citerefentry> for a discussion of the meaning of permission bits.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MemoryDenyWriteExecute=</varname></term>
 
         <listitem><para>Takes a boolean argument. If set, attempts to create memory mappings that are writable and
@@ -1656,8 +1665,8 @@
         <citerefentry><refentrytitle>mprotect</refentrytitle><manvolnum>2</manvolnum></citerefentry> system calls with
         <constant>PROT_EXEC</constant> set and
         <citerefentry><refentrytitle>shmat</refentrytitle><manvolnum>2</manvolnum></citerefentry> system calls with
-        <constant>SHM_EXEC</constant> set. Note that this option is incompatible with programs that generate program
-        code dynamically at runtime, such as JIT execution engines, or programs compiled making use of the code
+        <constant>SHM_EXEC</constant> set. Note that this option is incompatible with programs and libraries that
+        generate program code dynamically at runtime, including JIT execution engines, executable stacks, and code
         "trampoline" feature of various C compilers. This option improves service security, as it makes harder for
         software exploits to change running code dynamically. Note that this feature is fully available on x86-64, and
         partially on x86. Specifically, the <function>shmat()</function> protection is not available on x86. Note that

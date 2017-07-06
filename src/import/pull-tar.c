@@ -114,6 +114,7 @@ TarPull* tar_pull_unref(TarPull *i) {
         free(i->settings_path);
         free(i->image_root);
         free(i->local);
+
         return mfree(i);
 }
 
@@ -315,7 +316,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
         if (!tar_pull_is_done(i))
                 return;
 
-        if (i->checksum_job->style == VERIFICATION_PER_DIRECTORY && i->signature_job->error != 0) {
+        if (i->signature_job && i->checksum_job->style == VERIFICATION_PER_DIRECTORY && i->signature_job->error != 0) {
                 log_error_errno(j->error, "Failed to retrieve signature file, cannot verify. (Try --verify=no?)");
 
                 r = i->signature_job->error;
@@ -358,7 +359,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
                 r = rename_noreplace(AT_FDCWD, i->temp_path, AT_FDCWD, i->final_path);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to rename to final image name: %m");
+                        log_error_errno(r, "Failed to rename to final image name to %s: %m", i->final_path);
                         goto finish;
                 }
 
@@ -367,13 +368,14 @@ static void tar_pull_job_on_finished(PullJob *j) {
                 if (i->settings_job &&
                     i->settings_job->error == 0) {
 
-                        assert(i->settings_temp_path);
-                        assert(i->settings_path);
-
-                        /* Also move the settings file into place, if it exist. Note that we do so only if we also
+                        /* Also move the settings file into place, if it exists. Note that we do so only if we also
                          * moved the tar file in place, to keep things strictly in sync. */
+                        assert(i->settings_temp_path);
 
+                        /* Regenerate final name for this auxiliary file, we might know the etag of the file now, and
+                         * we should incorporate it in the file name if we can */
                         i->settings_path = mfree(i->settings_path);
+
                         r = tar_pull_determine_path(i, ".nspawn", &i->settings_path);
                         if (r < 0)
                                 goto finish;
@@ -384,7 +386,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
                         r = rename_noreplace(AT_FDCWD, i->settings_temp_path, AT_FDCWD, i->settings_path);
                         if (r < 0) {
-                                log_error_errno(r, "Failed to rename settings file: %m");
+                                log_error_errno(r, "Failed to rename settings file to %s: %m", i->settings_path);
                                 goto finish;
                         }
 

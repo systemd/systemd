@@ -190,7 +190,7 @@ static int parse_one_option(const char *option) {
                 arg_type = CRYPT_PLAIN;
         else if ((val = startswith(option, "timeout="))) {
 
-                r = parse_sec(val, &arg_timeout);
+                r = parse_sec_fix_0(val, &arg_timeout);
                 if (r < 0) {
                         log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
                         return 0;

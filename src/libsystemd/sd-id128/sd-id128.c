@@ -289,7 +289,7 @@ _public_ int sd_id128_randomize(sd_id128_t *ret) {
 
         assert_return(ret, -EINVAL);
 
-        r = dev_urandom(&t, sizeof(t));
+        r = acquire_random_bytes(&t, sizeof t, true);
         if (r < 0)
                 return r;
 

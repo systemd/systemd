@@ -2135,6 +2135,12 @@ static int link_joined(Link *link) {
                         log_link_error_errno(link, r, "Could not set bridge vlan: %m");
         }
 
+        /* Skip setting up addresses until it gets carrier,
+           or it would try to set addresses twice,
+           which is bad for non-idempotent steps. */
+        if (!link_has_carrier(link))
+                return 0;
+
         return link_enter_set_addresses(link);
 }
 
@@ -2443,7 +2449,7 @@ static int link_drop_foreign_config(Link *link) {
 }
 
 static int link_drop_config(Link *link) {
-        Address *address;
+        Address *address, *pool_address;
         Route *route;
         Iterator i;
         int r;
@@ -2456,6 +2462,15 @@ static int link_drop_config(Link *link) {
                 r = address_remove(address, link, link_address_remove_handler);
                 if (r < 0)
                         return r;
+
+                /* If this address came from an address pool, clean up the pool */
+                LIST_FOREACH(addresses, pool_address, link->pool_addresses) {
+                        if (address_equal(address, pool_address)) {
+                                LIST_REMOVE(addresses, link->pool_addresses, pool_address);
+                                address_free(pool_address);
+                                break;
+                        }
+                }
         }
 
         SET_FOREACH(route, link->routes, i) {
@@ -3044,6 +3059,8 @@ static int link_carrier_lost(Link *link) {
                 link_enter_failed(link);
                 return r;
         }
+
+        (void) sd_dhcp_server_stop(link->dhcp_server);
 
         r = link_drop_config(link);
         if (r < 0)

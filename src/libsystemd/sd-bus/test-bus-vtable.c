@@ -4,6 +4,7 @@
 /* We use system assert.h here, because we don't want to keep macro.h and log.h C++ compatible */
 #undef NDEBUG
 #include <assert.h>
+#include <errno.h>
 
 #include "sd-bus-vtable.h"
 
@@ -58,6 +59,7 @@ static const sd_bus_vtable vtable[] = {
 static void test_vtable(void) {
         sd_bus *bus = NULL;
         struct context c = {};
+        int r;
 
         assert(sd_bus_new(&bus) >= 0);
 
@@ -65,7 +67,9 @@ static void test_vtable(void) {
         assert(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.testVtable2", vtable, &c) >= 0);
 
         assert(sd_bus_set_address(bus, DEFAULT_BUS_PATH) >= 0);
-        assert(sd_bus_start(bus) >= 0);
+        r = sd_bus_start(bus);
+        assert(r == 0 ||     /* success */
+               r == -ENOENT  /* dbus is inactive */ );
 
         sd_bus_unref(bus);
 }

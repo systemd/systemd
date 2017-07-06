@@ -30,6 +30,8 @@
 #include "fd-util.h"
 #include "logind-session-device.h"
 #include "missing.h"
+#include "parse-util.h"
+#include "sd-daemon.h"
 #include "util.h"
 
 enum SessionDeviceNotifications {
@@ -206,7 +208,10 @@ static int session_device_start(SessionDevice *sd) {
                 r = session_device_open(sd, true);
                 if (r < 0)
                         return r;
-                close_nointr(sd->fd);
+                /* For evdev devices, the file descriptor might be left
+                 * uninitialized. This might happen while resuming into a
+                 * session and logind has been restarted right before. */
+                safe_close(sd->fd);
                 sd->fd = r;
                 break;
         case DEVICE_TYPE_UNKNOWN:
@@ -341,7 +346,7 @@ err_dev:
         return r;
 }
 
-int session_device_new(Session *s, dev_t dev, SessionDevice **out) {
+int session_device_new(Session *s, dev_t dev, bool open_device, SessionDevice **out) {
         SessionDevice *sd;
         int r;
 
@@ -370,22 +375,24 @@ int session_device_new(Session *s, dev_t dev, SessionDevice **out) {
                 goto error;
         }
 
-        /* Open the device for the first time. We need a valid fd to pass back
-         * to the caller. If the session is not active, this _might_ immediately
-         * revoke access and thus invalidate the fd. But this is still needed
-         * to pass a valid fd back. */
-        sd->active = session_is_active(s);
-        r = session_device_open(sd, sd->active);
-        if (r < 0) {
-                /* EINVAL _may_ mean a master is active; retry inactive */
-                if (sd->active && r == -EINVAL) {
-                        sd->active = false;
-                        r = session_device_open(sd, false);
+        if (open_device) {
+                /* Open the device for the first time. We need a valid fd to pass back
+                 * to the caller. If the session is not active, this _might_ immediately
+                 * revoke access and thus invalidate the fd. But this is still needed
+                 * to pass a valid fd back. */
+                sd->active = session_is_active(s);
+                r = session_device_open(sd, sd->active);
+                if (r < 0) {
+                        /* EINVAL _may_ mean a master is active; retry inactive */
+                        if (sd->active && r == -EINVAL) {
+                                sd->active = false;
+                                r = session_device_open(sd, false);
+                        }
+                        if (r < 0)
+                                goto error;
                 }
-                if (r < 0)
-                        goto error;
+                sd->fd = r;
         }
-        sd->fd = r;
 
         LIST_PREPEND(sd_by_device, sd->device->session_devices, sd);
 
@@ -435,15 +442,16 @@ void session_device_complete_pause(SessionDevice *sd) {
 void session_device_resume_all(Session *s) {
         SessionDevice *sd;
         Iterator i;
-        int r;
 
         assert(s);
 
         HASHMAP_FOREACH(sd, s->devices, i) {
                 if (!sd->active) {
-                        r = session_device_start(sd);
-                        if (!r)
-                                session_device_notify(sd, SESSION_DEVICE_RESUME);
+                        if (session_device_start(sd) < 0)
+                                continue;
+                        if (session_device_save(sd) < 0)
+                                continue;
+                        session_device_notify(sd, SESSION_DEVICE_RESUME);
                 }
         }
 }
@@ -477,4 +485,37 @@ unsigned int session_device_try_pause_all(Session *s) {
         }
 
         return num_pending;
+}
+
+int session_device_save(SessionDevice *sd) {
+        _cleanup_free_ char *state = NULL;
+        int r;
+
+        assert(sd);
+
+        /* Store device fd in PID1. It will send it back to us on
+         * restart so revocation will continue to work. To make things
+         * simple, send fds for all type of devices even if they don't
+         * support the revocation mechanism so we don't have to handle
+         * them differently later.
+         *
+         * Note: for device supporting revocation, PID1 will drop a
+         * stored fd automatically if the corresponding device is
+         * revoked. */
+        r = asprintf(&state, "FDSTORE=1\n"
+                             "FDNAME=session-%s", sd->session->id);
+        if (r < 0)
+                return -ENOMEM;
+
+        return sd_pid_notify_with_fds(0, false, state, &sd->fd, 1);
+}
+
+void session_device_attach_fd(SessionDevice *sd, int fd, bool active) {
+        assert(fd > 0);
+        assert(sd);
+        assert(sd->fd < 0);
+        assert(!sd->active);
+
+        sd->fd = fd;
+        sd->active = active;
 }

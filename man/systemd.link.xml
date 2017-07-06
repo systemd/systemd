@@ -402,6 +402,47 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>Port=</varname></term>
+        <listitem>
+          <para>The port option is used to select the device port. The
+          supported values are:</para>
+
+          <variablelist>
+            <varlistentry>
+              <term><literal>tp</literal></term>
+              <listitem>
+                <para>An Ethernet interface using Twisted-Pair cable as the medium.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>aui</literal></term>
+              <listitem>
+                <para>Attachment Unit Interface (AUI). Normally used with hubs.
+                </para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>bnc</literal></term>
+              <listitem>
+                <para>An Ethernet interface using BNC connectors and co-axial cable.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>mii</literal></term>
+              <listitem>
+                <para>An Ethernet interface using a Media Independent Interface (MII).</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>fibre</literal></term>
+              <listitem>
+                <para>An Ethernet interface using Optical Fibre as the medium.</para>
+              </listitem>
+            </varlistentry>
+          </variablelist>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>TCPSegmentationOffload=</varname></term>
         <listitem>
           <para>The TCP Segmentation Offload (TSO) when true enables

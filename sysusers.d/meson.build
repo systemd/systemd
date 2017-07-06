@@ -21,7 +21,7 @@ endif
 
 foreach file : m4_files
         custom_target(
-                'sysusers.d/' + file,
+                'sysusers.d_' + file,
                 input : file + '.m4',
                 output: file,
                 command : [m4, '-P'] + m4_defines + ['@INPUT@'],

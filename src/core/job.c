@@ -697,20 +697,20 @@ _pure_ static const char *job_get_status_message_format(Unit *u, JobType t, JobR
         return NULL;
 }
 
-static void job_print_status_message(Unit *u, JobType t, JobResult result) {
-        static const struct {
-                const char *color, *word;
-        } statuses[_JOB_RESULT_MAX] = {
-                [JOB_DONE]        = { ANSI_GREEN,            "  OK  " },
-                [JOB_TIMEOUT]     = { ANSI_HIGHLIGHT_RED,    " TIME " },
-                [JOB_FAILED]      = { ANSI_HIGHLIGHT_RED,    "FAILED" },
-                [JOB_DEPENDENCY]  = { ANSI_HIGHLIGHT_YELLOW, "DEPEND" },
-                [JOB_SKIPPED]     = { ANSI_HIGHLIGHT,        " INFO " },
-                [JOB_ASSERT]      = { ANSI_HIGHLIGHT_YELLOW, "ASSERT" },
-                [JOB_UNSUPPORTED] = { ANSI_HIGHLIGHT_YELLOW, "UNSUPP" },
-                [JOB_COLLECTED]   = { ANSI_HIGHLIGHT,        " INFO " },
-        };
+static const struct {
+        const char *color, *word;
+} job_print_status_messages [_JOB_RESULT_MAX] = {
+        [JOB_DONE]        = { ANSI_GREEN,            "  OK  " },
+        [JOB_TIMEOUT]     = { ANSI_HIGHLIGHT_RED,    " TIME " },
+        [JOB_FAILED]      = { ANSI_HIGHLIGHT_RED,    "FAILED" },
+        [JOB_DEPENDENCY]  = { ANSI_HIGHLIGHT_YELLOW, "DEPEND" },
+        [JOB_SKIPPED]     = { ANSI_HIGHLIGHT,        " INFO " },
+        [JOB_ASSERT]      = { ANSI_HIGHLIGHT_YELLOW, "ASSERT" },
+        [JOB_UNSUPPORTED] = { ANSI_HIGHLIGHT_YELLOW, "UNSUPP" },
+        /* JOB_COLLECTED */
+};
 
+static void job_print_status_message(Unit *u, JobType t, JobResult result) {
         const char *format;
         const char *status;
 
@@ -722,14 +722,19 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
         if (t == JOB_RELOAD)
                 return;
 
+        if (!job_print_status_messages[result].word)
+                return;
+
         format = job_get_status_message_format(u, t, result);
         if (!format)
                 return;
 
         if (log_get_show_color())
-                status = strjoina(statuses[result].color, statuses[result].word, ANSI_NORMAL);
+                status = strjoina(job_print_status_messages[result].color,
+                                  job_print_status_messages[result].word,
+                                  ANSI_NORMAL);
         else
-                status = statuses[result].word;
+                status = job_print_status_messages[result].word;
 
         if (result != JOB_DONE)
                 manager_flip_auto_status(u->manager, true);
@@ -741,7 +746,7 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
         if (t == JOB_START && result == JOB_FAILED) {
                 _cleanup_free_ char *quoted;
 
-                quoted = shell_maybe_quote(u->id);
+                quoted = shell_maybe_quote(u->id, ESCAPE_BACKSLASH);
                 manager_status_printf(u->manager, STATUS_TYPE_NORMAL, NULL, "See 'systemctl status %s' for details.", strna(quoted));
         }
 }
@@ -766,10 +771,9 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
         assert(t >= 0);
         assert(t < _JOB_TYPE_MAX);
 
-        /* Skip this if it goes to the console. since we already print
-         * to the console anyway... */
-
-        if (log_on_console())
+        /* Skip printing if output goes to the console, and job_print_status_message()
+           will actually print something to the console. */
+        if (log_on_console() && job_print_status_messages[result].word)
                 return;
 
         format = job_get_status_message_format(u, t, result);
@@ -952,14 +956,15 @@ static int job_dispatch_timer(sd_event_source *s, uint64_t monotonic, void *user
 
 int job_start_timer(Job *j, bool job_running) {
         int r;
-        usec_t run_begin, timeout_time, old_timeout_time;
+        usec_t timeout_time, old_timeout_time;
 
         if (job_running) {
+                j->begin_running_usec = now(CLOCK_MONOTONIC);
+
                 if (j->unit->job_running_timeout == USEC_INFINITY)
                         return 0;
 
-                run_begin = now(CLOCK_MONOTONIC);
-                timeout_time = usec_add(run_begin, j->unit->job_running_timeout);
+                timeout_time = usec_add(j->begin_running_usec, j->unit->job_running_timeout);
 
                 if (j->timer_event_source) {
                         /* Update only if JobRunningTimeoutSec= results in earlier timeout */
@@ -1051,6 +1056,8 @@ int job_serialize(Job *j, FILE *f) {
 
         if (j->begin_usec > 0)
                 fprintf(f, "job-begin="USEC_FMT"\n", j->begin_usec);
+        if (j->begin_running_usec > 0)
+                fprintf(f, "job-begin-running="USEC_FMT"\n", j->begin_running_usec);
 
         bus_track_serialize(j->bus_track, f, "subscribed");
 
@@ -1148,6 +1155,14 @@ int job_deserialize(Job *j, FILE *f) {
                         else
                                 j->begin_usec = ull;
 
+                } else if (streq(l, "job-begin-running")) {
+                        unsigned long long ull;
+
+                        if (sscanf(v, "%llu", &ull) != 1)
+                                log_debug("Failed to parse job-begin-running value %s", v);
+                        else
+                                j->begin_running_usec = ull;
+
                 } else if (streq(l, "subscribed")) {
 
                         if (strv_extend(&j->deserialized_clients, v) < 0)
@@ -1158,6 +1173,7 @@ int job_deserialize(Job *j, FILE *f) {
 
 int job_coldplug(Job *j) {
         int r;
+        usec_t timeout_time = USEC_INFINITY;
 
         assert(j);
 
@@ -1171,7 +1187,18 @@ int job_coldplug(Job *j) {
         /* Maybe due to new dependencies we don't actually need this job anymore? */
         job_add_to_gc_queue(j);
 
-        if (j->begin_usec == 0 || j->unit->job_timeout == USEC_INFINITY)
+        /* Create timer only when job began or began running and the respective timeout is finite.
+         * Follow logic of job_start_timer() if both timeouts are finite */
+        if (j->begin_usec == 0)
+                return 0;
+
+        if (j->unit->job_timeout != USEC_INFINITY)
+                timeout_time = usec_add(j->begin_usec, j->unit->job_timeout);
+
+        if (j->begin_running_usec > 0 && j->unit->job_running_timeout != USEC_INFINITY)
+                timeout_time = MIN(timeout_time, usec_add(j->begin_running_usec, j->unit->job_running_timeout));
+
+        if (timeout_time == USEC_INFINITY)
                 return 0;
 
         j->timer_event_source = sd_event_source_unref(j->timer_event_source);
@@ -1180,7 +1207,7 @@ int job_coldplug(Job *j) {
                         j->manager->event,
                         &j->timer_event_source,
                         CLOCK_MONOTONIC,
-                        usec_add(j->begin_usec, j->unit->job_timeout), 0,
+                        timeout_time, 0,
                         job_dispatch_timer, j);
         if (r < 0)
                 log_debug_errno(r, "Failed to restart timeout for job: %m");
@@ -1287,9 +1314,8 @@ bool job_check_gc(Job *j) {
                         return true;
         }
 
-        /* If we are going down, but something else is orederd After= us, then it needs to wait for us */
-        if (IN_SET(j->type, JOB_STOP, JOB_RESTART)) {
-
+        /* If we are going down, but something else is ordered After= us, then it needs to wait for us */
+        if (IN_SET(j->type, JOB_STOP, JOB_RESTART))
                 SET_FOREACH(other, j->unit->dependencies[UNIT_AFTER], i) {
                         if (!other->job)
                                 continue;
@@ -1299,7 +1325,6 @@ bool job_check_gc(Job *j) {
 
                         return true;
                 }
-        }
 
         /* The logic above is kinda the inverse of the job_is_runnable() logic. Specifically, if the job "we" is
          * ordered before the job "other":

@@ -167,6 +167,7 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
         link->mac_policy = _MACPOLICY_INVALID;
         link->wol = _WOL_INVALID;
         link->duplex = _DUP_INVALID;
+        link->port = _NET_DEV_PORT_INVALID;
         link->autonegotiation = -1;
 
         memset(&link->features, -1, sizeof(link->features));
@@ -377,12 +378,13 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         if (!old_name)
                 return -EINVAL;
 
-
-        speed = DIV_ROUND_UP(config->speed, 1000000);
-
-        r = ethtool_set_glinksettings(&ctx->ethtool_fd, old_name, speed, config->duplex, config->autonegotiation);
+        r = ethtool_set_glinksettings(&ctx->ethtool_fd, old_name, config);
         if (r < 0) {
 
+                if (config->port != _NET_DEV_PORT_INVALID)
+                        log_warning_errno(r,  "Could not set port (%s) of %s: %m", port_to_string(config->port), old_name);
+
+                speed = DIV_ROUND_UP(config->speed, 1000000);
                 if (r == -EOPNOTSUPP)
                         r = ethtool_set_speed(&ctx->ethtool_fd, old_name, speed, config->duplex);
 

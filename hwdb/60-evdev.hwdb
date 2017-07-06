@@ -159,6 +159,13 @@ evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLati
  EVDEV_ABS_35=79:1841:22
  EVDEV_ABS_36=140:1325:29
 
+# Dell Latitude E7470
+evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE7470*
+ EVDEV_ABS_00=39:5856:59
+ EVDEV_ABS_01=10:1532:29
+ EVDEV_ABS_35=39:5856:59
+ EVDEV_ABS_36=10:1532:29
+
 # Dell Precision 5510
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnPrecision5510*
  EVDEV_ABS_00=::42

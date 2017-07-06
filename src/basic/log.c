@@ -720,7 +720,6 @@ int log_object_internalv(
 
         PROTECT_ERRNO;
         char *buffer, *b;
-        size_t l;
 
         if (error < 0)
                 error = -error;
@@ -737,16 +736,12 @@ int log_object_internalv(
                 size_t n;
 
                 n = strlen(object);
-                l = n + 2 + LINE_MAX;
-
-                buffer = newa(char, l);
+                buffer = newa(char, n + 2 + LINE_MAX);
                 b = stpcpy(stpcpy(buffer, object), ": ");
-        } else {
-                l = LINE_MAX;
-                b = buffer = newa(char, l);
-        }
+        } else
+                b = buffer = newa(char, LINE_MAX);
 
-        vsnprintf(b, l, format, ap);
+        vsnprintf(b, LINE_MAX, format, ap);
 
         return log_dispatch_internal(level, error, file, line, func,
                                      object_field, object, extra_field, extra, buffer);

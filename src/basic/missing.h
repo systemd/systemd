@@ -23,6 +23,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <linux/audit.h>
 #include <linux/capability.h>
 #include <linux/if_link.h>
@@ -569,6 +570,17 @@ struct btrfs_ioctl_quota_ctl_args {
 #  define EVIOCREVOKE _IOW('E', 0x91, int)
 #endif
 
+#ifndef EVIOCSMASK
+
+struct input_mask {
+        uint32_t type;
+        uint32_t codes_size;
+        uint64_t codes_ptr;
+};
+
+#define EVIOCSMASK _IOW('E', 0x93, struct input_mask)
+#endif
+
 #ifndef DRM_IOCTL_SET_MASTER
 #  define DRM_IOCTL_SET_MASTER _IO('d', 0x1e)
 #endif
@@ -1061,6 +1073,15 @@ struct btrfs_ioctl_quota_ctl_args {
 #define INPUT_PROP_ACCELEROMETER  0x06
 #endif
 
+#ifndef BTN_DPAD_UP
+#define BTN_DPAD_UP 0x220
+#define BTN_DPAD_RIGHT 0x223
+#endif
+
+#ifndef KEY_ALS_TOGGLE
+#define KEY_ALS_TOGGLE 0x230
+#endif
+
 #ifndef HAVE_KEY_SERIAL_T
 typedef int32_t key_serial_t;
 #endif
@@ -1079,6 +1100,10 @@ typedef int32_t key_serial_t;
 
 #ifndef KEYCTL_DESCRIBE
 #define KEYCTL_DESCRIBE 6
+#endif
+
+#ifndef KEYCTL_LINK
+#define KEYCTL_LINK 8
 #endif
 
 #ifndef KEYCTL_READ

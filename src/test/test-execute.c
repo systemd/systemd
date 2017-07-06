@@ -234,6 +234,11 @@ static void test_exec_inaccessiblepaths(Manager *m) {
 }
 
 static void test_exec_inaccessiblepaths_proc(Manager *m) {
+        if (!is_inaccessible_available()) {
+                log_notice("testing without inaccessible, skipping %s", __func__);
+                return;
+        }
+
         test(m, "exec-inaccessiblepaths-proc.service", 0, CLD_EXITED);
 }
 

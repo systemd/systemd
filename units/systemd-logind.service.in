@@ -8,8 +8,8 @@
 [Unit]
 Description=Login Service
 Documentation=man:systemd-logind.service(8) man:logind.conf(5)
-Documentation=http://www.freedesktop.org/wiki/Software/systemd/logind
-Documentation=http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation=https://www.freedesktop.org/wiki/Software/systemd/logind
+Documentation=https://www.freedesktop.org/wiki/Software/systemd/multiseat
 Wants=user.slice
 After=nss-user-lookup.target user.slice
 
@@ -31,6 +31,7 @@ RestrictNamespaces=yes
 RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
 SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @obsolete @raw-io @reboot @swap
 SystemCallArchitectures=native
+FileDescriptorStoreMax=512
 
 # Increase the default a bit in order to allow many simultaneous
 # logins since we keep one fd open per session.

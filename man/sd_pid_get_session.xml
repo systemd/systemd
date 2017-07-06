@@ -285,7 +285,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><constant>-BADF</constant></term>
+        <term><constant>-EBADF</constant></term>
 
         <listitem><para>The specified socket file descriptor was
         invalid.</para></listitem>

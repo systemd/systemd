@@ -413,13 +413,12 @@ static int service_add_fd_store(Service *s, int fd, const char *name) {
         }
 
         r = sd_event_add_io(UNIT(s)->manager->event, &fs->event_source, fd, 0, on_fd_store_io, fs);
-        if (r < 0) {
+        if (r < 0 && r != -EPERM) { /* EPERM indicates fds that aren't pollable, which is OK */
                 free(fs->fdname);
                 free(fs);
                 return r;
-        }
-
-        (void) sd_event_source_set_description(fs->event_source, "service-fd-store");
+        } else if (r >= 0)
+                (void) sd_event_source_set_description(fs->event_source, "service-fd-store");
 
         LIST_PREPEND(fd_store, s->fd_store, fs);
         s->n_fd_store++;
@@ -1068,14 +1067,21 @@ static int service_coldplug(Unit *u) {
         return 0;
 }
 
-static int service_collect_fds(Service *s, int **fds, char ***fd_names) {
+static int service_collect_fds(Service *s,
+                               int **fds,
+                               char ***fd_names,
+                               unsigned *n_storage_fds,
+                               unsigned *n_socket_fds) {
+
         _cleanup_strv_free_ char **rfd_names = NULL;
         _cleanup_free_ int *rfds = NULL;
-        int rn_fds = 0, r;
+        unsigned rn_socket_fds = 0, rn_storage_fds = 0;
+        int r;
 
         assert(s);
         assert(fds);
         assert(fd_names);
+        assert(n_socket_fds);
 
         if (s->socket_fd >= 0) {
 
@@ -1090,7 +1096,7 @@ static int service_collect_fds(Service *s, int **fds, char ***fd_names) {
                 if (!rfd_names)
                         return -ENOMEM;
 
-                rn_fds = 1;
+                rn_socket_fds = 1;
         } else {
                 Iterator i;
                 Unit *u;
@@ -1116,20 +1122,20 @@ static int service_collect_fds(Service *s, int **fds, char ***fd_names) {
 
                         if (!rfds) {
                                 rfds = cfds;
-                                rn_fds = cn_fds;
+                                rn_socket_fds = cn_fds;
 
                                 cfds = NULL;
                         } else {
                                 int *t;
 
-                                t = realloc(rfds, (rn_fds + cn_fds) * sizeof(int));
+                                t = realloc(rfds, (rn_socket_fds + cn_fds) * sizeof(int));
                                 if (!t)
                                         return -ENOMEM;
 
-                                memcpy(t + rn_fds, cfds, cn_fds * sizeof(int));
+                                memcpy(t + rn_socket_fds, cfds, cn_fds * sizeof(int));
 
                                 rfds = t;
-                                rn_fds += cn_fds;
+                                rn_socket_fds += cn_fds;
                         }
 
                         r = strv_extend_n(&rfd_names, socket_fdname(sock), cn_fds);
@@ -1140,40 +1146,45 @@ static int service_collect_fds(Service *s, int **fds, char ***fd_names) {
 
         if (s->n_fd_store > 0) {
                 ServiceFDStore *fs;
+                unsigned n_fds;
                 char **nl;
                 int *t;
 
-                t = realloc(rfds, (rn_fds + s->n_fd_store) * sizeof(int));
+                t = realloc(rfds, (rn_socket_fds + s->n_fd_store) * sizeof(int));
                 if (!t)
                         return -ENOMEM;
 
                 rfds = t;
 
-                nl = realloc(rfd_names, (rn_fds + s->n_fd_store + 1) * sizeof(char*));
+                nl = realloc(rfd_names, (rn_socket_fds + s->n_fd_store + 1) * sizeof(char*));
                 if (!nl)
                         return -ENOMEM;
 
                 rfd_names = nl;
+                n_fds = rn_socket_fds;
 
                 LIST_FOREACH(fd_store, fs, s->fd_store) {
-                        rfds[rn_fds] = fs->fd;
-                        rfd_names[rn_fds] = strdup(strempty(fs->fdname));
-                        if (!rfd_names[rn_fds])
+                        rfds[n_fds] = fs->fd;
+                        rfd_names[n_fds] = strdup(strempty(fs->fdname));
+                        if (!rfd_names[n_fds])
                                 return -ENOMEM;
 
-                        rn_fds++;
+                        rn_storage_fds++;
+                        n_fds++;
                 }
 
-                rfd_names[rn_fds] = NULL;
+                rfd_names[n_fds] = NULL;
         }
 
         *fds = rfds;
         *fd_names = rfd_names;
+        *n_socket_fds = rn_socket_fds;
+        *n_storage_fds = rn_storage_fds;
 
         rfds = NULL;
         rfd_names = NULL;
 
-        return rn_fds;
+        return 0;
 }
 
 static bool service_exec_needs_notify_socket(Service *s, ExecFlags flags) {
@@ -1204,7 +1215,7 @@ static int service_spawn(
 
         _cleanup_strv_free_ char **final_env = NULL, **our_env = NULL, **fd_names = NULL;
         _cleanup_free_ int *fds = NULL;
-        unsigned n_fds = 0, n_env = 0;
+        unsigned n_storage_fds = 0, n_socket_fds = 0, n_env = 0;
         const char *path;
         pid_t pid;
 
@@ -1248,12 +1259,11 @@ static int service_spawn(
             s->exec_context.std_output == EXEC_OUTPUT_SOCKET ||
             s->exec_context.std_error == EXEC_OUTPUT_SOCKET) {
 
-                r = service_collect_fds(s, &fds, &fd_names);
+                r = service_collect_fds(s, &fds, &fd_names, &n_storage_fds, &n_socket_fds);
                 if (r < 0)
                         return r;
 
-                n_fds = r;
-                log_unit_debug(UNIT(s), "Passing %i fds to service", n_fds);
+                log_unit_debug(UNIT(s), "Passing %i fds to service", n_storage_fds + n_socket_fds);
         }
 
         r = service_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), timeout));
@@ -1347,7 +1357,8 @@ static int service_spawn(
         exec_params.environment = final_env;
         exec_params.fds = fds;
         exec_params.fd_names = fd_names;
-        exec_params.n_fds = n_fds;
+        exec_params.n_storage_fds = n_storage_fds;
+        exec_params.n_socket_fds = n_socket_fds;
         exec_params.confirm_spawn = manager_get_confirm_spawn(UNIT(s)->manager);
         exec_params.cgroup_supported = UNIT(s)->manager->cgroup_supported;
         exec_params.cgroup_path = path;
@@ -3571,15 +3582,6 @@ static const char* const service_exec_command_table[_SERVICE_EXEC_COMMAND_MAX] =
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_exec_command, ServiceExecCommand);
-
-static const char* const notify_access_table[_NOTIFY_ACCESS_MAX] = {
-        [NOTIFY_NONE] = "none",
-        [NOTIFY_MAIN] = "main",
-        [NOTIFY_EXEC] = "exec",
-        [NOTIFY_ALL] = "all"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(notify_access, NotifyAccess);
 
 static const char* const notify_state_table[_NOTIFY_STATE_MAX] = {
         [NOTIFY_UNKNOWN] = "unknown",

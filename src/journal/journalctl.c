@@ -2365,20 +2365,13 @@ int main(int argc, char *argv[]) {
                 log_error_errno(r, "Failed to iterate through journal: %m");
                 goto finish;
         }
-        if (r == 0) {
-                if (arg_follow)
-                        need_seek = true;
-                else {
-                        if (!arg_quiet)
-                                printf("-- No entries --\n");
-                        goto finish;
-                }
-        }
+        if (r == 0)
+                need_seek = true;
 
         if (!arg_follow)
                 pager_open(arg_no_pager, arg_pager_end);
 
-        if (!arg_quiet) {
+        if (!arg_quiet && (arg_lines != 0 || arg_follow)) {
                 usec_t start, end;
                 char start_buf[FORMAT_TIMESTAMP_MAX], end_buf[FORMAT_TIMESTAMP_MAX];
 
@@ -2474,6 +2467,9 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (!arg_follow) {
+                        if (n_shown == 0 && !arg_quiet)
+                                printf("-- No entries --\n");
+
                         if (arg_show_cursor) {
                                 _cleanup_free_ char *cursor = NULL;
 

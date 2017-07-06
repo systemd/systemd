@@ -133,6 +133,7 @@ int timestamp_deserialize(const char *value, usec_t *timestamp);
 int parse_timestamp(const char *t, usec_t *usec);
 
 int parse_sec(const char *t, usec_t *usec);
+int parse_sec_fix_0(const char *t, usec_t *usec);
 int parse_time(const char *t, usec_t *usec, usec_t default_unit);
 int parse_nsec(const char *t, nsec_t *nsec);
 
@@ -144,6 +145,8 @@ bool timezone_is_valid(const char *name);
 bool clock_boottime_supported(void);
 bool clock_supported(clockid_t clock);
 clockid_t clock_boottime_or_monotonic(void);
+
+usec_t usec_shift_clock(usec_t, clockid_t from, clockid_t to);
 
 #define xstrftime(buf, fmt, tm) \
         assert_message_se(strftime(buf, ELEMENTSOF(buf), fmt, tm) > 0, \
@@ -169,17 +172,21 @@ static inline usec_t usec_add(usec_t a, usec_t b) {
         return c;
 }
 
-static inline usec_t usec_sub(usec_t timestamp, int64_t delta) {
-        if (delta < 0)
-                return usec_add(timestamp, (usec_t) (-delta));
+static inline usec_t usec_sub_unsigned(usec_t timestamp, usec_t delta) {
 
         if (timestamp == USEC_INFINITY) /* Make sure infinity doesn't degrade */
                 return USEC_INFINITY;
-
-        if (timestamp < (usec_t) delta)
+        if (timestamp < delta)
                 return 0;
 
         return timestamp - delta;
+}
+
+static inline usec_t usec_sub_signed(usec_t timestamp, int64_t delta) {
+        if (delta < 0)
+                return usec_add(timestamp, (usec_t) (-delta));
+        else
+                return usec_sub_unsigned(timestamp, (usec_t) delta);
 }
 
 #if SIZEOF_TIME_T == 8

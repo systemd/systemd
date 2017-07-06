@@ -444,7 +444,7 @@ static int raw_pull_rename_auxiliary_file(
         assert(suffix);
         assert(path);
 
-        /* Regenerate final name for this auxiliary file, we might know the etag of the raw file now, and we shoud
+        /* Regenerate final name for this auxiliary file, we might know the etag of the file now, and we should
          * incorporate it in the file name if we can */
         *path = mfree(*path);
         r = raw_pull_determine_path(i, suffix, path);
@@ -498,7 +498,7 @@ static void raw_pull_job_on_finished(PullJob *j) {
         if (!raw_pull_is_done(i))
                 return;
 
-        if (i->checksum_job->style == VERIFICATION_PER_DIRECTORY && i->signature_job->error != 0) {
+        if (i->signature_job && i->checksum_job->style == VERIFICATION_PER_DIRECTORY && i->signature_job->error != 0) {
                 log_error_errno(j->error, "Failed to retrieve signature file, cannot verify. (Try --verify=no?)");
 
                 r = i->signature_job->error;
@@ -538,7 +538,7 @@ static void raw_pull_job_on_finished(PullJob *j) {
 
                 r = rename_noreplace(AT_FDCWD, i->temp_path, AT_FDCWD, i->final_path);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to move RAW file into place: %m");
+                        log_error_errno(r, "Failed to rename raw file to %s: %m", i->final_path);
                         goto finish;
                 }
 

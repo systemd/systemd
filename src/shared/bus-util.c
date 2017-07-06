@@ -725,13 +725,12 @@ int bus_print_property(const char *name, sd_bus_message *property, bool value, b
                         return r;
 
                 if (all || !isempty(s)) {
-                        _cleanup_free_ char *escaped = NULL;
+                        bool good;
 
-                        escaped = xescape(s, "\n");
-                        if (!escaped)
-                                return -ENOMEM;
-
-                        print_property(name, "%s", escaped);
+                        /* This property has a single value, so we need to take
+                         * care not to print a new line, everything else is OK. */
+                        good = !strchr(s, '\n');
+                        print_property(name, "%s", good ? s : "[unprintable]");
                 }
 
                 return 1;
@@ -852,16 +851,16 @@ int bus_print_property(const char *name, sd_bus_message *property, bool value, b
                                 return r;
 
                         while ((r = sd_bus_message_read_basic(property, SD_BUS_TYPE_STRING, &str)) > 0) {
-                                _cleanup_free_ char *escaped = NULL;
+                                bool good;
 
                                 if (first && !value)
                                         printf("%s=", name);
 
-                                escaped = xescape(str, "\n ");
-                                if (!escaped)
-                                        return -ENOMEM;
+                                /* This property has multiple space-seperated values, so
+                                 * neither spaces not newlines can be allowed in a value. */
+                                good = str[strcspn(str, " \n")] == '\0';
 
-                                printf("%s%s", first ? "" : " ", escaped);
+                                printf("%s%s", first ? "" : " ", good ? str : "[unprintable]");
 
                                 first = false;
                         }

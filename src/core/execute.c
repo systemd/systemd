@@ -157,22 +157,26 @@ static int shift_fds(int fds[], unsigned n_fds) {
         return 0;
 }
 
-static int flags_fds(const int fds[], unsigned n_fds, bool nonblock) {
-        unsigned i;
+static int flags_fds(const int fds[], unsigned n_storage_fds, unsigned n_socket_fds, bool nonblock) {
+        unsigned i, n_fds;
         int r;
 
+        n_fds = n_storage_fds + n_socket_fds;
         if (n_fds <= 0)
                 return 0;
 
         assert(fds);
 
-        /* Drops/Sets O_NONBLOCK and FD_CLOEXEC from the file flags */
+        /* Drops/Sets O_NONBLOCK and FD_CLOEXEC from the file flags.
+         * O_NONBLOCK only applies to socket activation though. */
 
         for (i = 0; i < n_fds; i++) {
 
-                r = fd_nonblock(fds[i], nonblock);
-                if (r < 0)
-                        return r;
+                if (i < n_socket_fds) {
+                        r = fd_nonblock(fds[i], nonblock);
+                        if (r < 0)
+                                return r;
+                }
 
                 /* We unconditionally drop FD_CLOEXEC from the fds,
                  * since after all we want to pass these fds to our
@@ -2095,6 +2099,14 @@ static int setup_keyring(Unit *u, const ExecParameters *p, uid_t uid, gid_t gid)
                 return 0;
         }
 
+        /* Having our own session keyring is nice, but results in keys added
+         * to the user keyring being inaccessible with permission denied.
+         * So link the user keyring to our session keyring. */
+        if (keyctl(KEYCTL_LINK,
+                   KEY_SPEC_USER_KEYRING,
+                   keyring,  0, 0) < 0)
+                return log_debug_errno(errno, "Failed to link user keyring to session keyring.");
+
         /* Populate they keyring with the invocation ID by default. */
         if (!sd_id128_is_null(u->invocation_id)) {
                 key_serial_t key;
@@ -2241,7 +2253,9 @@ static int exec_child(
                 char **argv,
                 int socket_fd,
                 int named_iofds[3],
-                int *fds, unsigned n_fds,
+                int *fds,
+                unsigned n_storage_fds,
+                unsigned n_socket_fds,
                 char **files_env,
                 int user_lookup_fd,
                 int *exit_status,
@@ -2258,6 +2272,7 @@ static int exec_child(
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
         int i, r, ngids = 0;
+        unsigned n_fds;
 
         assert(unit);
         assert(command);
@@ -2298,6 +2313,7 @@ static int exec_child(
 
         log_forget_fds();
 
+        n_fds = n_storage_fds + n_socket_fds;
         r = close_remaining_fds(params, runtime, dcreds, user_lookup_fd, socket_fd, fds, n_fds);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
@@ -2669,7 +2685,7 @@ static int exec_child(
         if (r >= 0)
                 r = shift_fds(fds, n_fds);
         if (r >= 0)
-                r = flags_fds(fds, n_fds, context->non_blocking);
+                r = flags_fds(fds, n_storage_fds, n_socket_fds, context->non_blocking);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return r;
@@ -2909,7 +2925,8 @@ int exec_spawn(Unit *unit,
                pid_t *ret) {
 
         _cleanup_strv_free_ char **files_env = NULL;
-        int *fds = NULL; unsigned n_fds = 0;
+        int *fds = NULL;
+        unsigned n_storage_fds = 0, n_socket_fds = 0;
         _cleanup_free_ char *line = NULL;
         int socket_fd, r;
         int named_iofds[3] = { -1, -1, -1 };
@@ -2921,18 +2938,18 @@ int exec_spawn(Unit *unit,
         assert(context);
         assert(ret);
         assert(params);
-        assert(params->fds || params->n_fds <= 0);
+        assert(params->fds || (params->n_storage_fds + params->n_socket_fds <= 0));
 
         if (context->std_input == EXEC_INPUT_SOCKET ||
             context->std_output == EXEC_OUTPUT_SOCKET ||
             context->std_error == EXEC_OUTPUT_SOCKET) {
 
-                if (params->n_fds > 1) {
+                if (params->n_socket_fds > 1) {
                         log_unit_error(unit, "Got more than one socket.");
                         return -EINVAL;
                 }
 
-                if (params->n_fds == 0) {
+                if (params->n_socket_fds == 0) {
                         log_unit_error(unit, "Got no socket.");
                         return -EINVAL;
                 }
@@ -2941,7 +2958,8 @@ int exec_spawn(Unit *unit,
         } else {
                 socket_fd = -1;
                 fds = params->fds;
-                n_fds = params->n_fds;
+                n_storage_fds = params->n_storage_fds;
+                n_socket_fds = params->n_socket_fds;
         }
 
         r = exec_context_named_iofds(unit, context, params, named_iofds);
@@ -2979,7 +2997,9 @@ int exec_spawn(Unit *unit,
                                argv,
                                socket_fd,
                                named_iofds,
-                               fds, n_fds,
+                               fds,
+                               n_storage_fds,
+                               n_socket_fds,
                                files_env,
                                unit->manager->user_lookup_fds[1],
                                &exit_status,
@@ -3188,6 +3208,7 @@ const char* exec_context_fdname(const ExecContext *c, int fd_index) {
 int exec_context_named_iofds(Unit *unit, const ExecContext *c, const ExecParameters *p, int named_iofds[3]) {
         unsigned i, targets;
         const char* stdio_fdname[3];
+        unsigned n_fds;
 
         assert(c);
         assert(p);
@@ -3199,7 +3220,9 @@ int exec_context_named_iofds(Unit *unit, const ExecContext *c, const ExecParamet
         for (i = 0; i < 3; i++)
                 stdio_fdname[i] = exec_context_fdname(c, i);
 
-        for (i = 0; i < p->n_fds && targets > 0; i++)
+        n_fds = p->n_storage_fds + p->n_socket_fds;
+
+        for (i = 0; i < n_fds  && targets > 0; i++)
                 if (named_iofds[STDIN_FILENO] < 0 &&
                     c->std_input == EXEC_INPUT_NAMED_FD &&
                     stdio_fdname[STDIN_FILENO] &&
@@ -3684,6 +3707,21 @@ bool exec_context_maintains_privileges(ExecContext *c) {
                 return true;
 
         return false;
+}
+
+int exec_context_get_effective_ioprio(ExecContext *c) {
+        int p;
+
+        assert(c);
+
+        if (c->ioprio_set)
+                return c->ioprio;
+
+        p = ioprio_get(IOPRIO_WHO_PROCESS, 0);
+        if (p < 0)
+                return IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 4);
+
+        return p;
 }
 
 void exec_status_start(ExecStatus *s, pid_t pid) {

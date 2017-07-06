@@ -265,7 +265,7 @@
     <parameter>dst</parameter> using the values in
     <parameter>e</parameter>. If the strings in
     <parameter>e</parameter> were set using
-    <function>sd_bus_set_error_const()</function>, they will be shared.
+    <function>sd_bus_error_set_const()</function>, they will be shared.
     Otherwise, they will be copied. Returns a converted
     <varname>errno</varname>-like, negative error code.</para>
 

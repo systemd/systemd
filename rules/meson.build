@@ -3,6 +3,7 @@ rules = files('''
         60-cdrom_id.rules
         60-drm.rules
         60-evdev.rules
+        60-input-id.rules
         60-persistent-alsa.rules
         60-persistent-input.rules
         60-persistent-storage.rules

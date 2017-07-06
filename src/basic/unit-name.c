@@ -1047,3 +1047,12 @@ static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency);
+
+static const char* const notify_access_table[_NOTIFY_ACCESS_MAX] = {
+        [NOTIFY_NONE] = "none",
+        [NOTIFY_MAIN] = "main",
+        [NOTIFY_EXEC] = "exec",
+        [NOTIFY_ALL] = "all"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(notify_access, NotifyAccess);

@@ -62,9 +62,10 @@
       <arg choice="plain"><option>--list</option></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-umount</command>
+      <command>systemd-mount</command>
       <arg choice="opt" rep="repeat"><replaceable>OPTIONS</replaceable></arg>
-      <arg choice="plain" rep="repeat"><replaceable>WHERE</replaceable></arg>
+      <arg choice="plain"><option>--umount</option></arg>
+      <arg choice="plain" rep="repeat"><replaceable>WHAT|WHERE</replaceable></arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -82,7 +83,8 @@
     checker to execute a priori), and may make use of the auto-mounting logic.</para>
 
     <para>The command takes either one or two arguments. If only one argument is specified it should refer to a block
-    device containing a file system (e.g. <literal>/dev/sdb1</literal>), which is then probed for a label and other
+    device or regular file containing a file system (e.g. <literal>/dev/sdb1</literal> or
+    <literal>/path/to/disk.img</literal>). If it is a block device, which is then probed for a label and other
     metadata, and is mounted to a directory whose name is generated from the label. In this mode the block device must
     exist at the time of invocation of the command, so that it may be probed. If the device is found to be a removable
     block device (e.g. a USB stick) an automount point instead of a regular mount point is created (i.e. the
@@ -253,8 +255,13 @@
         <term><option>--umount</option></term>
 
         <listitem><para>Stop the mount and automount units corresponding to the specified mount points
-        <replaceable>WHERE</replaceable>.</para>
-        </listitem>
+        <replaceable>WHERE</replaceable> or the devices <replaceable>WHAT</replaceable>.
+        <command>systemd-mount</command> with this option or <command>systemd-umount</command> can take multiple arguments
+        which can be mount points, devices, <filename>/etc/fstab</filename> style node names, or backing files
+        corresponding to loop devices, like
+        <command>systemd-mount --umount /path/to/umount /dev/sda1 UUID=xxxxxx-xxxx LABEL=xxxxx /path/to/disk.img</command>.
+        Note that when <option>-H</option> or <option>-M</option> is specified, only absolute paths to mount points are
+        supported.</para></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="user" />

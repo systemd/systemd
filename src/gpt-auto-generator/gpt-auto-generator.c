@@ -305,6 +305,15 @@ static int add_swap(const char *path) {
 
         assert(path);
 
+        /* Disable the swap auto logic if at least one swap is defined in /etc/fstab, see #6192. */
+        r = fstab_has_fstype("swap");
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse fstab: %m");
+        if (r > 0) {
+                log_debug("swap specified in fstab, ignoring.");
+                return 0;
+        }
+
         log_debug("Adding swap: %s", path);
 
         r = unit_name_from_path(path, ".swap", &name);
@@ -435,7 +444,10 @@ static int add_esp(DissectedPartition *p) {
         esp = access("/efi/", F_OK) >= 0 ? "/efi" : "/boot";
 
         /* We create an .automount which is not overridden by the .mount from the fstab generator. */
-        if (fstab_is_mount_point(esp)) {
+        r = fstab_is_mount_point(esp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse fstab: %m");
+        if (r > 0) {
                 log_debug("%s specified in fstab, ignoring.", esp);
                 return 0;
         }

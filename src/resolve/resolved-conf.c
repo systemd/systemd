@@ -246,6 +246,12 @@ int manager_parse_config_file(Manager *m) {
                         return r;
         }
 
+#ifndef HAVE_GCRYPT
+        if (m->dnssec_mode != DNSSEC_NO) {
+                log_warning("DNSSEC option cannot be enabled or set to allow-downgrade when systemd-resolved is built without gcrypt support. Turning off DNSSEC support.");
+                m->dnssec_mode = DNSSEC_NO;
+        }
+#endif
         return 0;
 
 }

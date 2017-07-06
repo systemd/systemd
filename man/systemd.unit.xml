@@ -546,26 +546,29 @@
         <term><varname>Before=</varname></term>
         <term><varname>After=</varname></term>
 
-        <listitem><para>A space-separated list of unit names.  Configures ordering dependencies between units. If a
-        unit <filename>foo.service</filename> contains a setting <option>Before=bar.service</option> and both units are
-        being started, <filename>bar.service</filename>'s start-up is delayed until <filename>foo.service</filename> is
-        started up.  Note that this setting is independent of and orthogonal to the requirement dependencies as
-        configured by <varname>Requires=</varname>, <varname>Wants=</varname> or <varname>BindsTo=</varname>. It is a
-        common pattern to include a unit name in both the <varname>After=</varname> and <varname>Requires=</varname>
-        option, in which case the unit listed will be started before the unit that is configured with these
-        options. This option may be specified more than once, in which case ordering dependencies for all listed names
-        are created. <varname>After=</varname> is the inverse of <varname>Before=</varname>, i.e. while
-        <varname>After=</varname> ensures that the configured unit is started after the listed unit finished starting
-        up, <varname>Before=</varname> ensures the opposite, i.e. that the configured unit is fully started up before
-        the listed unit is started. Note that when two units with an ordering dependency between them are shut down,
-        the inverse of the start-up order is applied. i.e. if a unit is configured with <varname>After=</varname> on
-        another unit, the former is stopped before the latter if both are shut down. Given two units with any ordering
-        dependency between them, if one unit is shut down and the other is started up, the shutdown is ordered before
-        the start-up. It doesn't matter if the ordering dependency is <varname>After=</varname> or
-        <varname>Before=</varname>, in this case. It also doesn't matter which of the two is shut down, as long as one
-        is shut down and the other is started up. The shutdown is ordered before the start-up in all cases. If two
-        units have no ordering dependencies between them, they are shut down or started up simultaneously, and no
-        ordering takes place.  </para></listitem>
+        <listitem><para>These two settings expect a space-separated list of unit names. They configure ordering
+        dependencies between units. If a unit <filename>foo.service</filename> contains a setting
+        <option>Before=bar.service</option> and both units are being started, <filename>bar.service</filename>'s
+        start-up is delayed until <filename>foo.service</filename> has finished starting up.  Note that this setting is
+        independent of and orthogonal to the requirement dependencies as configured by <varname>Requires=</varname>,
+        <varname>Wants=</varname> or <varname>BindsTo=</varname>. It is a common pattern to include a unit name in both
+        the <varname>After=</varname> and <varname>Requires=</varname> options, in which case the unit listed will be
+        started before the unit that is configured with these options. This option may be specified more than once, in
+        which case ordering dependencies for all listed names are created. <varname>After=</varname> is the inverse of
+        <varname>Before=</varname>, i.e. while <varname>After=</varname> ensures that the configured unit is started
+        after the listed unit finished starting up, <varname>Before=</varname> ensures the opposite, that the
+        configured unit is fully started up before the listed unit is started. Note that when two units with an
+        ordering dependency between them are shut down, the inverse of the start-up order is applied. i.e. if a unit is
+        configured with <varname>After=</varname> on another unit, the former is stopped before the latter if both are
+        shut down. Given two units with any ordering dependency between them, if one unit is shut down and the other is
+        started up, the shutdown is ordered before the start-up. It doesn't matter if the ordering dependency is
+        <varname>After=</varname> or <varname>Before=</varname>, in this case. It also doesn't matter which of the two
+        is shut down, as long as one is shut down and the other is started up. The shutdown is ordered before the
+        start-up in all cases. If two units have no ordering dependencies between them, they are shut down or started
+        up simultaneously, and no ordering takes place. It depends on the unit type when precisely a unit has finished
+        starting up. Most importantly, for service units start-up is considered completed for the purpose of
+        <varname>Before=</varname>/<varname>After=</varname> when all its configured start-up commands have been
+        invoked and they either failed or reported start-up success.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -820,6 +823,8 @@
         <term><varname>ConditionDirectoryNotEmpty=</varname></term>
         <term><varname>ConditionFileNotEmpty=</varname></term>
         <term><varname>ConditionFileIsExecutable=</varname></term>
+        <term><varname>ConditionUser=</varname></term>
+        <term><varname>ConditionGroup=</varname></term>
 
         <!-- We do not document ConditionNull=
              here, as it is not particularly
@@ -978,13 +983,11 @@
         to make sure they run before the stamp file's modification
         time gets reset indicating a completed update.</para>
 
-        <para><varname>ConditionFirstBoot=</varname> takes a boolean
-        argument. This condition may be used to conditionalize units
-        on whether the system is booting up with an unpopulated
-        <filename>/etc</filename> directory. This may be used to
-        populate <filename>/etc</filename> on the first boot after
-        factory reset, or when a new system instances boots up for the
-        first time.</para>
+        <para><varname>ConditionFirstBoot=</varname> takes a boolean argument. This condition may be used to
+        conditionalize units on whether the system is booting up with an unpopulated <filename>/etc</filename>
+        directory (specifically: an <filename>/etc</filename> with no <filename>/etc/machine-id</filename>). This may
+        be used to populate <filename>/etc</filename> on the first boot after factory reset, or when a new system
+        instance boots up for the first time.</para>
 
         <para>With <varname>ConditionPathExists=</varname> a file
         existence condition is checked before a unit is started. If
@@ -1033,6 +1036,21 @@
         whether a certain path exists, is a regular file and marked
         executable.</para>
 
+        <para><varname>ConditionUser=</varname> takes a numeric
+        <literal>UID</literal>, a UNIX user name, or the special value
+        <literal>@system</literal>. This condition may be used to check
+        whether the service manager is running as the given user. The
+        special value <literal>@system</literal> can be used to check
+        if the user id is within the system user range. This option is not
+        useful for system services, as the system manager exclusively
+        runs as the root user, and thus the test result is constant.</para>
+
+        <para><varname>ConditionGroup=</varname> is similar
+        to <varname>ConditionUser=</varname> but verifies that the
+        service manager's real or effective group, or any of its
+        auxiliary groups match the specified group or GID. This setting
+        does not have a special value <literal>@system</literal>.</para>
+
         <para>If multiple conditions are specified, the unit will be
         executed if all of them apply (i.e. a logical AND is applied).
         Condition checks can be prefixed with a pipe symbol (|) in
@@ -1069,6 +1087,8 @@
         <term><varname>AssertDirectoryNotEmpty=</varname></term>
         <term><varname>AssertFileNotEmpty=</varname></term>
         <term><varname>AssertFileIsExecutable=</varname></term>
+        <term><varname>AssertUser=</varname></term>
+        <term><varname>AssertGroup=</varname></term>
 
         <listitem><para>Similar to the <varname>ConditionArchitecture=</varname>,
         <varname>ConditionVirtualization=</varname>, …, condition settings described above, these settings add

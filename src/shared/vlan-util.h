@@ -32,4 +32,5 @@ static inline bool vlanid_is_valid(uint16_t id) {
 
 int parse_vlanid(const char *p, uint16_t *ret);
 
+int config_parse_default_port_vlanid(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_vlanid(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);

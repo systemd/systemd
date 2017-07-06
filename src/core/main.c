@@ -1780,7 +1780,7 @@ int main(int argc, char *argv[]) {
                 if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
                         log_error_errno(errno, "Failed to adjust timer slack: %m");
 
-        if (!cap_test_all(arg_capability_bounding_set)) {
+        if (arg_system && !cap_test_all(arg_capability_bounding_set)) {
                 r = capability_bounding_set_drop_usermode(arg_capability_bounding_set);
                 if (r < 0) {
                         log_emergency_errno(r, "Failed to drop capability bounding set of usermode helpers: %m");

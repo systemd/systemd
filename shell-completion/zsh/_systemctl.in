@@ -29,6 +29,8 @@
     "list-unit-files:List installed unit files"
     "enable:Enable one or more unit files"
     "disable:Disable one or more unit files"
+    "add-wants:Add Wants= dependencies to a unit"
+    "add-requires:Add Requires= dependencies to a unit"
     "reenable:Reenable one or more unit files"
     "preset:Enable/disable one or more unit files based on preset configuration"
     "set-default:Set the default target"
@@ -58,6 +60,7 @@
     "kexec:Shut down and reboot the system with kexec"
     "exit:Ask for user instance termination"
     "switch-root:Change root directory"
+    "revert:Revert unit files to their vendor versions"
   )
 
   if (( CURRENT == 1 )); then
@@ -157,7 +160,7 @@ _systemctl_unit_state() { typeset -gA _sys_unit_state; _sys_unit_state=( $(__sys
 
 local fun
 # Completion functions for ALL_UNITS
-for fun in is-active is-failed is-enabled status show cat mask preset help list-dependencies edit ; do
+for fun in is-active is-failed is-enabled status show cat mask preset help list-dependencies edit revert add-wants add-requires ; do
   (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
   {
     _systemctl_really_all_units

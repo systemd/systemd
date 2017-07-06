@@ -78,6 +78,8 @@ struct Timer {
         char *stamp_path;
 };
 
+#define TIMER_MONOTONIC_CLOCK(t) ((t)->wake_system && clock_boottime_supported() ? CLOCK_BOOTTIME_ALARM : CLOCK_MONOTONIC)
+
 void timer_free_values(Timer *t);
 
 extern const UnitVTable timer_vtable;

@@ -246,7 +246,8 @@ struct ExecParameters {
 
         int *fds;
         char **fd_names;
-        unsigned n_fds;
+        unsigned n_storage_fds;
+        unsigned n_socket_fds;
 
         ExecFlags flags;
         bool selinux_context_net:1;
@@ -305,6 +306,8 @@ const char* exec_context_fdname(const ExecContext *c, int fd_index);
 
 bool exec_context_may_touch_console(ExecContext *c);
 bool exec_context_maintains_privileges(ExecContext *c);
+
+int exec_context_get_effective_ioprio(ExecContext *c);
 
 void exec_status_start(ExecStatus *s, pid_t pid);
 void exec_status_exit(ExecStatus *s, ExecContext *context, pid_t pid, int code, int status);

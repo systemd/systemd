@@ -324,6 +324,10 @@ _public_ int sd_device_new_from_subsystem_sysname(sd_device **ret, const char *s
         if (access(syspath, F_OK) >= 0)
                 return sd_device_new_from_syspath(ret, syspath);
 
+        syspath = strjoina("/sys/firmware/", subsystem, "/", sysname);
+        if (access(syspath, F_OK) >= 0)
+                return sd_device_new_from_syspath(ret, syspath);
+
         return -ENODEV;
 }
 
@@ -1891,6 +1895,7 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
                 r = device_add_sysattr_value(device, sysattr, value);
                 if (r < 0)
                         return r;
+                value = NULL;
 
                 return -ENXIO;
         }

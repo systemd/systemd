@@ -304,7 +304,10 @@ void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLeve
         if (s->max_rtt < rtt) {
                 s->max_rtt = rtt;
                 s->resend_timeout = CLAMP(s->max_rtt * 2, DNS_TIMEOUT_MIN_USEC, DNS_TIMEOUT_MAX_USEC);
-        }
+        } else if (s->resend_timeout > rtt)
+                /* If we received the packet faster than the resend_timeout, bias
+                 * the resend_timeout back to the rtt. */
+                s->resend_timeout = CLAMP((2 * s->resend_timeout + rtt) / 3, DNS_TIMEOUT_MIN_USEC, DNS_TIMEOUT_MAX_USEC);
 }
 
 void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel level, usec_t usec) {
@@ -716,9 +719,9 @@ DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
                 return s;
 
         if (s)
-                log_info("Switching to %s DNS server %s.",
-                         dns_server_type_to_string(s->type),
-                         dns_server_string(s));
+                log_debug("Switching to %s DNS server %s.",
+                          dns_server_type_to_string(s->type),
+                          dns_server_string(s));
 
         dns_server_unref(m->current_dns_server);
         m->current_dns_server = dns_server_ref(s);

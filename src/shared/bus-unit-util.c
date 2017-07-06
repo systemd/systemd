@@ -266,7 +266,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                               "StandardInput", "StandardOutput", "StandardError",
                               "Description", "Slice", "Type", "WorkingDirectory",
                               "RootDirectory", "SyslogIdentifier", "ProtectSystem",
-                              "ProtectHome", "SELinuxContext", "Restart", "RootImage"))
+                              "ProtectHome", "SELinuxContext", "Restart", "RootImage",
+                              "NotifyAccess"))
                 r = sd_bus_message_append(m, "v", "s", eq);
 
         else if (streq(field, "SyslogLevel")) {
@@ -388,6 +389,33 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         return log_error_errno(r, "Failed to parse nice value: %s", eq);
 
                 r = sd_bus_message_append(m, "v", "i", (int32_t) n);
+
+        } else if (streq(field, "FileDescriptorStoreMax")) {
+                unsigned u;
+
+                r = safe_atou(eq, &u);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse file descriptor store limit: %s", eq);
+
+                r = sd_bus_message_append(m, "v", "u", (uint32_t) u);
+
+        } else if (streq(field, "IOSchedulingClass")) {
+                int c;
+
+                c = ioprio_class_from_string(eq);
+                if (c < 0)
+                        return log_error_errno(r, "Failed to parse IO scheduling class: %s", eq);
+
+                r = sd_bus_message_append(m, "v", "i", (int32_t) c);
+
+        } else if (streq(field, "IOSchedulingPriority")) {
+                int q;
+
+                r = ioprio_parse_priority(eq, &q);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse IO scheduling priority: %s", eq);
+
+                r = sd_bus_message_append(m, "v", "i", (int32_t) q);
 
         } else if (STR_IN_SET(field, "Environment", "PassEnvironment")) {
                 const char *p;
@@ -860,7 +888,7 @@ static void log_job_error_with_service_result(const char* service, const char *r
 
         assert(service);
 
-        service_shell_quoted = shell_maybe_quote(service);
+        service_shell_quoted = shell_maybe_quote(service, ESCAPE_BACKSLASH);
 
         if (extra_args) {
                 _cleanup_free_ char *t;

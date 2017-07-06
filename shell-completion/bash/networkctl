@@ -36,7 +36,7 @@ _networkctl() {
         )
 
         local -A VERBS=(
-                [STANDALONE]='list lldp'
+                [STANDALONE]='list lldp label'
                 [LINKS]='status'
         )
 

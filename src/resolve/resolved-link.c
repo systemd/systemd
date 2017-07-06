@@ -313,6 +313,12 @@ void link_set_dnssec_mode(Link *l, DnssecMode mode) {
 
         assert(l);
 
+#ifndef HAVE_GCRYPT
+        if (mode == DNSSEC_YES || mode == DNSSEC_ALLOW_DOWNGRADE)
+                log_warning("DNSSEC option for the link cannot be enabled or set to allow-downgrade when systemd-resolved is built without gcrypt support. Turning off DNSSEC support.");
+        return;
+#endif
+
         if (l->dnssec_mode == mode)
                 return;
 
@@ -611,7 +617,7 @@ DnsServer* link_set_dns_server(Link *l, DnsServer *s) {
                 return s;
 
         if (s)
-                log_info("Switching to DNS server %s for interface %s.", dns_server_string(s), l->name);
+                log_debug("Switching to DNS server %s for interface %s.", dns_server_string(s), l->name);
 
         dns_server_unref(l->current_dns_server);
         l->current_dns_server = dns_server_ref(s);

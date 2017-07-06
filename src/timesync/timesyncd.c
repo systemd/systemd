@@ -132,7 +132,11 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_warning_errno(r, "Failed to parse configuration file: %m");
 
-        assert_se(manager_parse_fallback_string(m, NTP_SERVERS) >= 0);
+        r = manager_parse_fallback_string(m, NTP_SERVERS);
+        if (r < 0) {
+                log_error_errno(r, "Failed to parse fallback server strings: %m");
+                goto finish;
+        }
 
         log_debug("systemd-timesyncd running as pid " PID_FMT, getpid());
         sd_notify(false,

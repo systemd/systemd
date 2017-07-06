@@ -30,6 +30,7 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "blkid-util.h"
 #include "efivars.h"
 #include "fd-util.h"
 #include "gpt.h"
@@ -225,10 +226,9 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
         int64_t offset = 0;
         bool noraid = false;
         _cleanup_close_ int fd = -1;
-        blkid_probe pr;
+        _cleanup_blkid_free_probe_ blkid_probe pr = NULL;
         const char *data;
         const char *name;
-        const char *prtype = NULL;
         int nvals;
         int i;
         int err = 0;
@@ -264,8 +264,7 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
         blkid_probe_set_superblocks_flags(pr,
                 BLKID_SUBLKS_LABEL | BLKID_SUBLKS_UUID |
                 BLKID_SUBLKS_TYPE | BLKID_SUBLKS_SECTYPE |
-                BLKID_SUBLKS_USAGE | BLKID_SUBLKS_VERSION |
-                BLKID_SUBLKS_BADCSUM);
+                BLKID_SUBLKS_USAGE | BLKID_SUBLKS_VERSION);
 
         if (noraid)
                 blkid_probe_filter_superblocks_usage(pr, BLKID_FLTR_NOTIN, BLKID_USAGE_RAID);
@@ -287,15 +286,6 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
         err = probe_superblocks(pr);
         if (err < 0)
                 goto out;
-        if (blkid_probe_has_value(pr, "SBBADCSUM")) {
-                if (!blkid_probe_lookup_value(pr, "TYPE", &prtype, NULL))
-                        log_warning("incorrect %s checksum on %s",
-                                    prtype, udev_device_get_devnode(dev));
-                else
-                        log_warning("incorrect checksum on %s",
-                                    udev_device_get_devnode(dev));
-                goto out;
-        }
 
         /* If we are a partition then our parent passed on the root
          * partition UUID to us */
@@ -321,7 +311,6 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
         if (is_gpt)
                 find_gpt_root(dev, pr, test);
 
-        blkid_free_probe(pr);
 out:
         if (err < 0)
                 return EXIT_FAILURE;

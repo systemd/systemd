@@ -59,13 +59,13 @@ keyboard_keys_list_txt = custom_target(
         command : [generate_keyboard_keys_list, cpp],
         capture : true)
 
-generate_keyboard_gperf = find_program('generate-keyboard-gperf.py')
+generate_keyboard_keys_gperf = find_program('generate-keyboard-keys-gperf.sh')
 fname = 'keyboard-keys-from-name.gperf'
 gperf_file = custom_target(
         fname,
         input : keyboard_keys_list_txt,
         output : fname,
-        command : [generate_keyboard_gperf, '@INPUT@'],
+        command : [generate_keyboard_keys_gperf, '@INPUT@'],
         capture : true)
 
 fname = 'keyboard-keys-from-name.h'

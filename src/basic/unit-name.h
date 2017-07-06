@@ -257,6 +257,15 @@ typedef enum UnitDependency {
         _UNIT_DEPENDENCY_INVALID = -1
 } UnitDependency;
 
+typedef enum NotifyAccess {
+        NOTIFY_NONE,
+        NOTIFY_ALL,
+        NOTIFY_MAIN,
+        NOTIFY_EXEC,
+        _NOTIFY_ACCESS_MAX,
+        _NOTIFY_ACCESS_INVALID = -1
+} NotifyAccess;
+
 typedef enum UnitNameFlags {
         UNIT_NAME_PLAIN = 1,      /* Allow foo.service */
         UNIT_NAME_INSTANCE = 2,   /* Allow foo@bar.service */
@@ -365,3 +374,6 @@ TimerState timer_state_from_string(const char *s) _pure_;
 
 const char *unit_dependency_to_string(UnitDependency i) _const_;
 UnitDependency unit_dependency_from_string(const char *s) _pure_;
+
+const char* notify_access_to_string(NotifyAccess i) _const_;
+NotifyAccess notify_access_from_string(const char *s) _pure_;

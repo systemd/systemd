@@ -61,15 +61,6 @@ typedef enum ServiceExecCommand {
         _SERVICE_EXEC_COMMAND_INVALID = -1
 } ServiceExecCommand;
 
-typedef enum NotifyAccess {
-        NOTIFY_NONE,
-        NOTIFY_ALL,
-        NOTIFY_MAIN,
-        NOTIFY_EXEC,
-        _NOTIFY_ACCESS_MAX,
-        _NOTIFY_ACCESS_INVALID = -1
-} NotifyAccess;
-
 typedef enum NotifyState {
         NOTIFY_UNKNOWN,
         NOTIFY_READY,
@@ -217,9 +208,6 @@ ServiceType service_type_from_string(const char *s) _pure_;
 
 const char* service_exec_command_to_string(ServiceExecCommand i) _const_;
 ServiceExecCommand service_exec_command_from_string(const char *s) _pure_;
-
-const char* notify_access_to_string(NotifyAccess i) _const_;
-NotifyAccess notify_access_from_string(const char *s) _pure_;
 
 const char* notify_state_to_string(NotifyState i) _const_;
 NotifyState notify_state_from_string(const char *s) _pure_;

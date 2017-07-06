@@ -63,13 +63,24 @@
     hostnames via DNS.</para>
 
     <para>To activate the NSS module, add <literal>resolve</literal> to the line starting with
-    <literal>hosts:</literal> in <filename>/etc/nsswitch.conf</filename>. Specifcally, it is recommended to place
-    <literal>resolve</literal> early in <filename>/etc/nsswitch.conf</filename>' <literal>hosts:</literal> line (but
+    <literal>hosts:</literal> in <filename>/etc/nsswitch.conf</filename>. Specifically, it is recommended to place
+    <literal>resolve</literal> early in <filename>/etc/nsswitch.conf</filename>'s <literal>hosts:</literal> line (but
     after the <literal>files</literal> or <literal>mymachines</literal> entries), right before the
     <literal>dns</literal> entry if it exists, followed by <literal>[!UNAVAIL=return]</literal>, to ensure DNS queries
     are always routed via
     <citerefentry><refentrytitle>systemd-resolved</refentrytitle><manvolnum>8</manvolnum></citerefentry> if it is
     running, but are routed to <command>nss-dns</command> if this service is not available.</para>
+
+    <para>Note that <command>systemd-resolved</command> will synthesize DNS resource
+    records in a few cases, for example for <literal>localhost</literal> and the
+    current hostname, see
+    <citerefentry><refentrytitle>systemd-resolved</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    for the full list. This duplicates the functionality of
+    <citerefentry><refentrytitle>nss-myhostname</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    but it is still recommended (see examples below) to keep
+    <command>nss-myhostname</command> configured in
+    <filename>/etc/nsswitch.conf</filename>, to keep those names resolveable if
+    <command>systemd-resolved</command> is not running.</para>
   </refsect1>
 
   <refsect1>

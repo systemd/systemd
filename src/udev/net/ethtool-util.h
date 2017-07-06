@@ -24,11 +24,13 @@
 
 #include "missing.h"
 
+struct link_config;
+
 /* we can't use DUPLEX_ prefix, as it
  * clashes with <linux/ethtool.h> */
 typedef enum Duplex {
-        DUP_FULL,
-        DUP_HALF,
+        DUP_HALF = DUPLEX_HALF,
+        DUP_FULL = DUPLEX_FULL,
         _DUP_MAX,
         _DUP_INVALID = -1
 } Duplex;
@@ -51,6 +53,18 @@ typedef enum NetDevFeature {
         _NET_DEV_FEAT_INVALID = -1
 } NetDevFeature;
 
+typedef enum NetDevPort {
+        NET_DEV_PORT_TP     = 0x00,
+        NET_DEV_PORT_AUI    = 0x01,
+        NET_DEV_PORT_MII    = 0x02,
+        NET_DEV_PORT_FIBRE  = 0x03,
+        NET_DEV_PORT_BNC    = 0x04,
+        NET_DEV_PORT_DA     = 0x05,
+        NET_DEV_PORT_NONE   = 0xef,
+        NET_DEV_PORT_OTHER  = 0xff,
+        _NET_DEV_PORT_MAX,
+        _NET_DEV_PORT_INVALID = -1
+} NetDevPort;
 
 #define ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32    (SCHAR_MAX)
 
@@ -71,7 +85,7 @@ int ethtool_get_driver(int *fd, const char *ifname, char **ret);
 int ethtool_set_speed(int *fd, const char *ifname, unsigned int speed, Duplex duplex);
 int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol);
 int ethtool_set_features(int *fd, const char *ifname, NetDevFeature *features);
-int ethtool_set_glinksettings(int *fd, const char *ifname, unsigned int speed, Duplex duplex, int autoneg);
+int ethtool_set_glinksettings(int *fd, const char *ifname, struct link_config *link);
 
 const char *duplex_to_string(Duplex d) _const_;
 Duplex duplex_from_string(const char *d) _pure_;
@@ -79,5 +93,9 @@ Duplex duplex_from_string(const char *d) _pure_;
 const char *wol_to_string(WakeOnLan wol) _const_;
 WakeOnLan wol_from_string(const char *wol) _pure_;
 
+const char *port_to_string(NetDevPort port) _const_;
+NetDevPort port_from_string(const char *port) _pure_;
+
 int config_parse_duplex(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_wol(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_port(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
