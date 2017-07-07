@@ -81,6 +81,7 @@ struct MMapCache {
 
         LIST_HEAD(Window, unused);
         Window *last_unused;
+        FileDescriptor *last_fd;
 };
 
 #define WINDOWS_MIN 64
@@ -296,10 +297,24 @@ static void fd_free(FileDescriptor *f) {
         while (f->windows)
                 window_free(f->windows);
 
-        if (f->cache)
+        if (f->cache) {
                 assert_se(hashmap_remove(f->cache->fds, FD_TO_PTR(f->fd)));
+                if (f->cache->last_fd == f)
+                        f->cache->last_fd = NULL;
+        }
 
         free(f);
+}
+
+static FileDescriptor * fd_get(MMapCache *m, int fd)
+{
+        assert(m);
+        assert(fd >= 0);
+
+        if (m->last_fd && m->last_fd->fd == fd)
+                return m->last_fd;
+
+        return hashmap_get(m->fds, FD_TO_PTR(fd));
 }
 
 static FileDescriptor* fd_add(MMapCache *m, int fd) {
@@ -309,7 +324,7 @@ static FileDescriptor* fd_add(MMapCache *m, int fd) {
         assert(m);
         assert(fd >= 0);
 
-        f = hashmap_get(m->fds, FD_TO_PTR(fd));
+        f = fd_get(m, fd);
         if (f)
                 return f;
 
@@ -438,7 +453,7 @@ static int find_mmap(
         assert(fd >= 0);
         assert(size > 0);
 
-        f = hashmap_get(m->fds, FD_TO_PTR(fd));
+        f = fd_get(m, fd);
         if (!f)
                 return 0;
 
@@ -460,6 +475,8 @@ static int find_mmap(
 
         context_attach_window(c, w);
         w->keep_always = w->keep_always || keep_always;
+
+        m->last_fd = f;
 
         *ret = (uint8_t*) w->ptr + (offset - w->offset);
         return 1;
@@ -564,6 +581,8 @@ static int add_mmap(
         context_detach_window(c);
         c->window = w;
         LIST_PREPEND(by_window, w->contexts, c);
+
+        m->last_fd = f;
 
         *ret = (uint8_t*) w->ptr + (offset - w->offset);
         return 1;
@@ -696,7 +715,7 @@ bool mmap_cache_got_sigbus(MMapCache *m, int fd) {
 
         mmap_cache_process_sigbus(m);
 
-        f = hashmap_get(m->fds, FD_TO_PTR(fd));
+        f = fd_get(m, fd);
         if (!f)
                 return false;
 
@@ -715,7 +734,7 @@ void mmap_cache_close_fd(MMapCache *m, int fd) {
 
         mmap_cache_process_sigbus(m);
 
-        f = hashmap_get(m->fds, FD_TO_PTR(fd));
+        f = fd_get(m, fd);
         if (!f)
                 return;
 
