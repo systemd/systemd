@@ -991,7 +991,6 @@ int output_journal(
                 n_columns = columns();
 
         ret = output_funcs[mode](f, j, mode, n_columns, flags);
-        fflush(stdout);
 
         if (ellipsized && ret > 0)
                 *ellipsized = true;
