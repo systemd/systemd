@@ -75,7 +75,7 @@ int chown_cgroup(pid_t pid, CGroupUnified unified_requested, uid_t uid_shift) {
         return 0;
 }
 
-int sync_cgroup(pid_t pid, CGroupUnified unified_requested, uid_t arg_uid_shift) {
+int sync_cgroup(pid_t pid, CGroupUnified unified_requested, uid_t uid_shift) {
         _cleanup_free_ char *cgroup = NULL;
         char tree[] = "/tmp/unifiedXXXXXX", pid_string[DECIMAL_STR_MAX(pid) + 1];
         bool undo_mount = false;
@@ -129,7 +129,7 @@ int sync_cgroup(pid_t pid, CGroupUnified unified_requested, uid_t arg_uid_shift)
         }
 
         fn = strjoina(tree, cgroup);
-        r = chown_cgroup_path(fn, arg_uid_shift);
+        r = chown_cgroup_path(fn, uid_shift);
         if (r < 0)
                 log_error_errno(r, "Failed to chown() cgroup %s: %m", fn);
 finish:
