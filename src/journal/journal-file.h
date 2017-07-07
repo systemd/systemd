@@ -75,6 +75,7 @@ typedef enum OfflineState {
 
 typedef struct JournalFile {
         int fd;
+        MMapFileDescriptor *cache_fd;
 
         mode_t mode;
 
