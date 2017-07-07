@@ -2483,6 +2483,7 @@ int main(int argc, char *argv[]) {
                         break;
                 }
 
+                fflush(stdout);
                 r = sd_journal_wait(j, (uint64_t) -1);
                 if (r < 0) {
                         log_error_errno(r, "Couldn't wait for journal event: %m");
@@ -2493,6 +2494,7 @@ int main(int argc, char *argv[]) {
         }
 
 finish:
+        fflush(stdout);
         pager_close();
 
         strv_free(arg_file);
