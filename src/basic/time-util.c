@@ -847,19 +847,23 @@ parse_usec:
 
 from_tm:
         x = mktime_or_timegm(&tm, utc);
-        if (x < 0)
-                return -EINVAL;
+        if (x == (time_t) -1)
+                return -EOVERFLOW;
 
         if (weekday >= 0 && tm.tm_wday != weekday)
                 return -EINVAL;
 
-        ret = (usec_t) x * USEC_PER_SEC + x_usec;
+        if (x < 0)
+                ret = 0;
+        else
+                ret = (usec_t) x * USEC_PER_SEC + x_usec;
+
         if (ret > USEC_TIMESTAMP_FORMATTABLE_MAX)
                 return -EINVAL;
 
 finish:
         if (ret + plus < ret) /* overflow? */
-                return -EINVAL;
+                return -EOVERFLOW;
         ret += plus;
         if (ret > USEC_TIMESTAMP_FORMATTABLE_MAX)
                 return -EINVAL;
