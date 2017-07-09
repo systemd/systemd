@@ -6033,6 +6033,34 @@ static int mangle_names(char **original_names, char ***mangled_names) {
         return 0;
 }
 
+static int normalize_filenames(char **names) {
+        char **u;
+        int r;
+
+        STRV_FOREACH(u, names)
+                if (!path_is_absolute(*u)) {
+                        char* normalized_path;
+
+                        if (!isempty(arg_root)) {
+                                log_error("Non-absolute paths are not allowed when --root is used: %s", *u);
+                                return -EINVAL;
+                        }
+
+                        if (!strchr(*u,'/')) {
+                                log_error("Link argument does contain at least one directory separator: %s", *u);
+                                return -EINVAL;
+                        }
+
+                        r = path_make_absolute_cwd(*u, &normalized_path);
+                        if (r < 0)
+                                return r;
+
+                        free_and_replace(*u, normalized_path);
+                }
+
+        return 0;
+}
+
 static int normalize_names(char **names, bool warn_if_path) {
         char **u;
         bool was_path = false;
@@ -6125,6 +6153,12 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
 
         if (streq(verb, "disable")) {
                 r = normalize_names(names, true);
+                if (r < 0)
+                        return r;
+        }
+
+        if (streq(verb, "link")) {
+                r = normalize_filenames(names);
                 if (r < 0)
                         return r;
         }
