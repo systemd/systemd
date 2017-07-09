@@ -1041,19 +1041,19 @@ void log_parse_environment_realm(LogRealm realm) {
                    user stuff. */
                 (void) proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
 
-        e = secure_getenv("SYSTEMD_LOG_TARGET");
+        e = getenv("SYSTEMD_LOG_TARGET");
         if (e && log_set_target_from_string(e) < 0)
                 log_warning("Failed to parse log target '%s'. Ignoring.", e);
 
-        e = secure_getenv("SYSTEMD_LOG_LEVEL");
+        e = getenv("SYSTEMD_LOG_LEVEL");
         if (e && log_set_max_level_from_string_realm(realm, e) < 0)
                 log_warning("Failed to parse log level '%s'. Ignoring.", e);
 
-        e = secure_getenv("SYSTEMD_LOG_COLOR");
+        e = getenv("SYSTEMD_LOG_COLOR");
         if (e && log_show_color_from_string(e) < 0)
                 log_warning("Failed to parse bool '%s'. Ignoring.", e);
 
-        e = secure_getenv("SYSTEMD_LOG_LOCATION");
+        e = getenv("SYSTEMD_LOG_LOCATION");
         if (e && log_show_location_from_string(e) < 0)
                 log_warning("Failed to parse bool '%s'. Ignoring.", e);
 }
