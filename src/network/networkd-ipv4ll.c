@@ -109,7 +109,7 @@ static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, void 
 
         link->ipv4ll_address = true;
 
-        if (link->ipv4ll_route == true)
+        if (link->ipv4ll_route)
                 link_check_ready(link);
 
         return 1;

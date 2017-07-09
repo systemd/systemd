@@ -878,7 +878,8 @@ _public_ int sd_get_uids(uid_t **users) {
 }
 
 _public_ int sd_get_machine_names(char ***machines) {
-        char **l, **a, **b;
+        _cleanup_strv_free_ char **l = NULL;
+        char **a, **b;
         int r;
 
         r = get_files_in_directory("/run/systemd/machines/", &l);
@@ -907,8 +908,10 @@ _public_ int sd_get_machine_names(char ***machines) {
                 *b = NULL;
         }
 
-        if (machines)
+        if (machines) {
                 *machines = l;
+                l = NULL;
+        }
         return r;
 }
 
