@@ -345,10 +345,10 @@ static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, 
                 return r;
 
         r = dns_question_new_address(&question_idna, family, hostname, true);
-        if (r < 0)
+        if (r < 0 && r != -EALREADY)
                 return r;
 
-        r = dns_query_new(m, &q, question_utf8, question_idna, ifindex, flags);
+        r = dns_query_new(m, &q, question_utf8, question_idna ?: question_utf8, ifindex, flags);
         if (r < 0)
                 return r;
 

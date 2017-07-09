@@ -607,24 +607,53 @@ static void test_dns_name_common_suffix(void) {
         test_dns_name_common_suffix_one("FOO.BAR", "tEST.bAR", "BAR");
 }
 
-static void test_dns_name_apply_idna_one(const char *s, const char *result) {
-#if defined(HAVE_LIBIDN2) || defined(HAVE_LIBIDN)
+static void test_dns_name_apply_idna_one(const char *s, int expected, const char *result) {
         _cleanup_free_ char *buf = NULL;
-        assert_se(dns_name_apply_idna(s, &buf) >= 0);
-        assert_se(dns_name_equal(buf, result) > 0);
-#endif
+        int r;
+
+        r = dns_name_apply_idna(s, &buf);
+        log_debug("dns_name_apply_idna: \"%s\" → %d/\"%s\" (expected %d/\"%s\")",
+                  s, r, strnull(buf), expected, strnull(result));
+
+        assert_se(r == expected);
+        if (expected == 1)
+                assert_se(dns_name_equal(buf, result) == 1);
 }
 
 static void test_dns_name_apply_idna(void) {
-        test_dns_name_apply_idna_one("", "");
-        test_dns_name_apply_idna_one("foo", "foo");
-        test_dns_name_apply_idna_one("foo.", "foo");
-        test_dns_name_apply_idna_one("foo.bar", "foo.bar");
-        test_dns_name_apply_idna_one("foo.bar.", "foo.bar");
-        test_dns_name_apply_idna_one("föö", "xn--f-1gaa");
-        test_dns_name_apply_idna_one("föö.", "xn--f-1gaa");
-        test_dns_name_apply_idna_one("föö.bär", "xn--f-1gaa.xn--br-via");
-        test_dns_name_apply_idna_one("föö.bär.", "xn--f-1gaa.xn--br-via");
+#if defined HAVE_LIBIDN2 || defined HAVE_LIBIDN
+        const int ret = 1;
+#else
+        const int ret = 0;
+#endif
+
+        /* IDNA2008 forbids names with hyphens in third and fourth positions
+         * (https://tools.ietf.org/html/rfc5891#section-4.2.3.1).
+         * IDNA2003 does not have this restriction
+         * (https://tools.ietf.org/html/rfc3490#section-5).
+         * This means that when using libidn we will transform and test more
+         * labels. If registrars follow IDNA2008 we'll just be performing a
+         * useless lookup.
+         */
+#if defined HAVE_LIBIDN
+        const int ret2 = 1;
+#else
+        const int ret2 = 0;
+#endif
+
+        test_dns_name_apply_idna_one("", ret, "");
+        test_dns_name_apply_idna_one("foo", ret, "foo");
+        test_dns_name_apply_idna_one("foo.", ret, "foo");
+        test_dns_name_apply_idna_one("foo.bar", ret, "foo.bar");
+        test_dns_name_apply_idna_one("foo.bar.", ret, "foo.bar");
+        test_dns_name_apply_idna_one("föö", ret, "xn--f-1gaa");
+        test_dns_name_apply_idna_one("föö.", ret, "xn--f-1gaa");
+        test_dns_name_apply_idna_one("föö.bär", ret, "xn--f-1gaa.xn--br-via");
+        test_dns_name_apply_idna_one("föö.bär.", ret, "xn--f-1gaa.xn--br-via");
+        test_dns_name_apply_idna_one("xn--f-1gaa.xn--br-via", ret, "xn--f-1gaa.xn--br-via");
+
+        test_dns_name_apply_idna_one("r3---sn-ab5l6ne7.googlevideo.com", ret2,
+                                     ret2 ? "r3---sn-ab5l6ne7.googlevideo.com" : "");
 }
 
 static void test_dns_name_is_valid_or_address(void) {
@@ -640,6 +669,9 @@ static void test_dns_name_is_valid_or_address(void) {
 }
 
 int main(int argc, char *argv[]) {
+        log_set_max_level(LOG_DEBUG);
+        log_parse_environment();
+        log_open();
 
         test_dns_label_unescape();
         test_dns_label_unescape_suffix();
