@@ -47,7 +47,8 @@ int generator_add_symlink(const char *root, const char *dst, const char *dep_typ
 
         mkdir_parents_label(to, 0755);
         if (symlink(from, to) < 0)
-                return log_error_errno(errno, "Failed to create symlink \"%s\": %m", to);
+                if (errno != EEXIST)
+                        return log_error_errno(errno, "Failed to create symlink \"%s\": %m", to);
 
         return 0;
 }

@@ -28,6 +28,7 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "generator.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
 #include "install.h"
@@ -99,29 +100,6 @@ static void free_sysvstub_hashmapp(Hashmap **h) {
                 free_sysvstub(stub);
 
         hashmap_free(*h);
-}
-
-static int add_symlink(const char *service, const char *where) {
-        const char *from, *to;
-        int r;
-
-        assert(service);
-        assert(where);
-
-        from = strjoina(arg_dest, "/", service);
-        to = strjoina(arg_dest, "/", where, ".wants/", service);
-
-        mkdir_parents_label(to, 0755);
-
-        r = symlink(from, to);
-        if (r < 0) {
-                if (errno == EEXIST)
-                        return 0;
-
-                return -errno;
-        }
-
-        return 1;
 }
 
 static int add_alias(const char *service, const char *alias) {
@@ -219,11 +197,8 @@ static int generate_unit_file(SysvStub *s) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit %s: %m", unit);
 
-        STRV_FOREACH(p, s->wanted_by) {
-                r = add_symlink(s->name, *p);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to create 'Wants' symlink to %s, ignoring: %m", *p);
-        }
+        STRV_FOREACH(p, s->wanted_by)
+                (void) generator_add_symlink(arg_dest, *p, "wants", s->name);
 
         return 1;
 }
