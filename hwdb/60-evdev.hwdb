@@ -298,6 +298,13 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrThinkPadX1Carbon5th*
  EVDEV_ABS_35=::44
  EVDEV_ABS_36=::65
 
+# Lenovo Thinkpad Carbon X1 5th gen. (rmi4)
+evdev:name:Synaptics TM3289-002:dmi:*svnLENOVO*:pvrThinkPadX1Carbon5th*
+ EVDEV_ABS_00=::19
+ EVDEV_ABS_01=::19
+ EVDEV_ABS_35=::19
+ EVDEV_ABS_36=::19
+
 # Lenovo T460
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*ThinkPad*T460*
  EVDEV_ABS_00=1266:5677:44
