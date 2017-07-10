@@ -1241,8 +1241,10 @@ static int discover_loop_backing_file(void) {
                 escaped = xescape(basename(arg_mount_what), "\\");
                 if (!escaped)
                         return log_oom();
-                if (!filename_is_valid(escaped))
+                if (!filename_is_valid(escaped)) {
+                        log_error("Escaped name %s is not a valid filename.", escaped);
                         return -EINVAL;
+                }
 
                 arg_mount_where = strjoin("/run/media/system/", escaped);
                 if (!arg_mount_where)
