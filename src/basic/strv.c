@@ -770,11 +770,7 @@ static int str_compare(const void *_a, const void *_b) {
 }
 
 char **strv_sort(char **l) {
-
-        if (strv_isempty(l))
-                return l;
-
-        qsort(l, strv_length(l), sizeof(char*), str_compare);
+        qsort_safe(l, strv_length(l), sizeof(char*), str_compare);
         return l;
 }
 
