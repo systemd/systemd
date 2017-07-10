@@ -795,7 +795,7 @@ static int find_loop_device(const char *backing_file, char **loop_dev) {
         }
 
         if (!l)
-                return -ENOENT;
+                return -ENXIO;
 
         *loop_dev = l;
         l = NULL; /* avoid freeing */
@@ -954,7 +954,7 @@ static int umount_loop(sd_bus *bus, const char *backing_file) {
 
         r = find_loop_device(backing_file, &loop_dev);
         if (r < 0)
-                return log_error_errno(r, r == -ENOENT ? "File %s is not mounted." : "Can't get loop device for %s: %m", backing_file);
+                return log_error_errno(r, r == -ENXIO ? "File %s is not mounted." : "Can't get loop device for %s: %m", backing_file);
 
         return umount_by_device(bus, loop_dev);
 }
@@ -1229,10 +1229,10 @@ static int discover_loop_backing_file(void) {
         int r;
 
         r = find_loop_device(arg_mount_what, &loop_dev);
-        if (r < 0 && r != -ENOENT)
+        if (r < 0 && r != -ENXIO)
                 return log_error_errno(errno, "Can't get loop device for %s: %m", arg_mount_what);
 
-        if (r == -ENOENT) {
+        if (r == -ENXIO) {
                 _cleanup_free_ char *escaped = NULL;
 
                 if (arg_mount_where)
