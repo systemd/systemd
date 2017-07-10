@@ -165,13 +165,28 @@
         <term><varname>Group=</varname></term>
 
         <listitem><para>Set the UNIX user or group that the processes are executed as, respectively. Takes a single
-        user or group name, or numeric ID as argument. For system services (services run by the system service manager,
+        user or group name, or a numeric ID as argument. For system services (services run by the system service manager,
         i.e. managed by PID 1) and for user services of the root user (services managed by root's instance of
         <command>systemd --user</command>), the default is <literal>root</literal>, but <varname>User=</varname> may be
         used to specify a different user. For user services of any other user, switching user identity is not
         permitted, hence the only valid setting is the same user the user's service manager is running as. If no group
         is set, the default group of the user is used. This setting does not affect commands whose command line is
-        prefixed with <literal>+</literal>.</para></listitem>
+        prefixed with <literal>+</literal>.</para>
+
+        <para>Note that restrictions on the user/group name syntax are enforced: the specified name must consist only
+        of the characters a-z, A-Z, 0-9, <literal>_</literal> and <literal>-</literal>, except for the first character
+        which must be one of a-z, A-Z or <literal>_</literal> (i.e. numbers and <literal>-</literal> are not permitted
+        as first character). The user/group name must have at least one character, and at most 31. These restrictions
+        are enforced in order to avoid ambiguities and to ensure user/group names and unit files remain portable among
+        Linux systems.</para>
+
+        <para>When used in conjunction with <varname>DynamicUser=</varname> the user/group name specified is
+        dynamically allocated at the time the service is started, and released at the time the service is stopped —
+        unless it is already allocated statically (see below). If <varname>DynamicUser=</varname> is not used the
+        specified user and group must have been created statically in the user database no later than the moment the
+        service is started, for example using the
+        <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> facility, which
+        is applied at boot or package install time.</para></listitem>
       </varlistentry>
 
       <varlistentry>
