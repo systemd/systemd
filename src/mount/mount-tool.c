@@ -736,12 +736,12 @@ static int find_mount_points(const char *what, char ***list) {
                 if (!GREEDY_REALLOC(l, bufsize, n + 2))
                         return log_oom();
 
-                l[n] = strdup(where);
-                if (!l[n])
-                        return log_oom();
-
-                n++;
+                l[n++] = where;
+                where = NULL;
         }
+
+        if (!GREEDY_REALLOC(l, bufsize, n + 1))
+                return log_oom();
 
         l[n] = NULL;
         *list = l;
