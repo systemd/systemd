@@ -232,6 +232,8 @@ fail:
 int log_open(void) {
         int r;
 
+        /* Do not call from library code. */
+
         /* If we don't use the console we close it here, to not get
          * killed by SAK. If we don't use syslog we close it here so
          * that we are not confused by somebody deleting the socket in
@@ -306,6 +308,8 @@ void log_set_target(LogTarget target) {
 }
 
 void log_close(void) {
+        /* Do not call from library code. */
+
         log_close_journal();
         log_close_syslog();
         log_close_kmsg();
@@ -313,6 +317,8 @@ void log_close(void) {
 }
 
 void log_forget_fds(void) {
+        /* Do not call from library code. */
+
         console_fd = kmsg_fd = syslog_fd = journal_fd = -1;
 }
 
@@ -1034,6 +1040,8 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 }
 
 void log_parse_environment_realm(LogRealm realm) {
+        /* Do not call from library code. */
+
         const char *e;
 
         if (get_ctty_devnr(0, NULL) < 0)
