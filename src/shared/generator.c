@@ -37,6 +37,21 @@
 #include "unit-name.h"
 #include "util.h"
 
+int generator_add_symlink(const char *root, const char *dst, const char *dep_type, const char *src) {
+        /* Adds a symlink from <dst>.<dep_type>.d/ to ../<src> */
+
+        const char *from, *to;
+
+        from = strjoina("../", src);
+        to = strjoina(root, "/", dst, ".", dep_type, "/", src);
+
+        mkdir_parents_label(to, 0755);
+        if (symlink(from, to) < 0)
+                return log_error_errno(errno, "Failed to create symlink \"%s\": %m", to);
+
+        return 0;
+}
+
 static int write_fsck_sysroot_service(const char *dir, const char *what) {
         _cleanup_free_ char *device = NULL, *escaped = NULL;
         _cleanup_fclose_ FILE *f = NULL;

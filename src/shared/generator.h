@@ -21,6 +21,8 @@
 
 #include <stdio.h>
 
+int generator_add_symlink(const char *root, const char *dst, const char *dep_type, const char *src);
+
 int generator_write_fsck_deps(
         FILE *f,
         const char *dir,
