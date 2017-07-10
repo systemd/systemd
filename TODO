@@ -24,6 +24,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* Add AddUser= setting to unit files, similar to DynamicUser=1 which however
+  creates a static, persistent user rather than a dynamic, transient user. We
+  can leverage code from sysusers.d for this.
+
 * add some optional flag to ReadWritePaths= and friends, that has the effect
   that we create the dir in question when the service is started. Example:
 
