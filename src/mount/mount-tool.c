@@ -736,12 +736,12 @@ static int find_mount_points(const char *what, char ***list) {
                 if (!GREEDY_REALLOC(l, bufsize, n + 2))
                         return log_oom();
 
-                l[n] = strdup(where);
-                if (!l[n])
-                        return log_oom();
-
-                n++;
+                l[n++] = where;
+                where = NULL;
         }
+
+        if (!GREEDY_REALLOC(l, bufsize, n + 1))
+                return log_oom();
 
         l[n] = NULL;
         *list = l;
@@ -759,11 +759,8 @@ static int find_loop_device(const char *backing_file, char **loop_dev) {
         assert(loop_dev);
 
         d = opendir("/sys/devices/virtual/block");
-        if (!d) {
-                if (errno == ENOENT)
-                        return -ENOENT;
-                return log_error_errno(errno, "Can't open directory /sys/devices/virtual/block: %m");
-        }
+        if (!d)
+                return -errno;
 
         FOREACH_DIRENT(de, d, return -errno) {
                 _cleanup_free_ char *sys = NULL, *fname = NULL;
@@ -779,24 +776,26 @@ static int find_loop_device(const char *backing_file, char **loop_dev) {
 
                 sys = strjoin("/sys/devices/virtual/block/", de->d_name, "/loop/backing_file");
                 if (!sys)
-                        return log_oom();
+                        return -ENOMEM;
 
                 r = read_one_line_file(sys, &fname);
-                if (r < 0)
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to read %s, ignoring: %m", sys);
                         continue;
+                }
 
                 if (files_same(fname, backing_file, 0) <= 0)
                         continue;
 
                 l = strjoin("/dev/", de->d_name);
                 if (!l)
-                        return log_oom();
+                        return -ENOMEM;
 
                 break;
         }
 
         if (!l)
-                return -ENOENT;
+                return -ENXIO;
 
         *loop_dev = l;
         l = NULL; /* avoid freeing */
@@ -955,7 +954,7 @@ static int umount_loop(sd_bus *bus, const char *backing_file) {
 
         r = find_loop_device(backing_file, &loop_dev);
         if (r < 0)
-                return log_error_errno(r, r == -ENOENT ? "File %s is not mounted." : "Can't get loop device for %s: %m", backing_file);
+                return log_error_errno(r, r == -ENXIO ? "File %s is not mounted." : "Can't get loop device for %s: %m", backing_file);
 
         return umount_by_device(bus, loop_dev);
 }
@@ -1230,10 +1229,10 @@ static int discover_loop_backing_file(void) {
         int r;
 
         r = find_loop_device(arg_mount_what, &loop_dev);
-        if (r < 0 && r != -ENOENT)
+        if (r < 0 && r != -ENXIO)
                 return log_error_errno(errno, "Can't get loop device for %s: %m", arg_mount_what);
 
-        if (r == -ENOENT) {
+        if (r == -ENXIO) {
                 _cleanup_free_ char *escaped = NULL;
 
                 if (arg_mount_where)
@@ -1242,8 +1241,10 @@ static int discover_loop_backing_file(void) {
                 escaped = xescape(basename(arg_mount_what), "\\");
                 if (!escaped)
                         return log_oom();
-                if (!filename_is_valid(escaped))
+                if (!filename_is_valid(escaped)) {
+                        log_error("Escaped name %s is not a valid filename.", escaped);
                         return -EINVAL;
+                }
 
                 arg_mount_where = strjoin("/run/media/system/", escaped);
                 if (!arg_mount_where)
