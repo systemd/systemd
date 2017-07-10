@@ -779,8 +779,10 @@ static int find_loop_device(const char *backing_file, char **loop_dev) {
                         return -ENOMEM;
 
                 r = read_one_line_file(sys, &fname);
-                if (r < 0)
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to read %s, ignoring: %m", sys);
                         continue;
+                }
 
                 if (files_same(fname, backing_file, 0) <= 0)
                         continue;
