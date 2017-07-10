@@ -759,11 +759,8 @@ static int find_loop_device(const char *backing_file, char **loop_dev) {
         assert(loop_dev);
 
         d = opendir("/sys/devices/virtual/block");
-        if (!d) {
-                if (errno == ENOENT)
-                        return -ENOENT;
-                return log_error_errno(errno, "Can't open directory /sys/devices/virtual/block: %m");
-        }
+        if (!d)
+                return -errno;
 
         FOREACH_DIRENT(de, d, return -errno) {
                 _cleanup_free_ char *sys = NULL, *fname = NULL;
@@ -779,7 +776,7 @@ static int find_loop_device(const char *backing_file, char **loop_dev) {
 
                 sys = strjoin("/sys/devices/virtual/block/", de->d_name, "/loop/backing_file");
                 if (!sys)
-                        return log_oom();
+                        return -ENOMEM;
 
                 r = read_one_line_file(sys, &fname);
                 if (r < 0)
@@ -790,7 +787,7 @@ static int find_loop_device(const char *backing_file, char **loop_dev) {
 
                 l = strjoin("/dev/", de->d_name);
                 if (!l)
-                        return log_oom();
+                        return -ENOMEM;
 
                 break;
         }
