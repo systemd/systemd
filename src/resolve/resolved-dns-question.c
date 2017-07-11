@@ -309,8 +309,14 @@ int dns_question_new_address(DnsQuestion **ret, int family, const char *name, bo
                 r = dns_name_apply_idna(name, &buf);
                 if (r < 0)
                         return r;
-                if (r > 0)
+                if (r > 0 && !streq(name, buf))
                         name = buf;
+                else
+                        /* We did not manage to create convert the idna name, or it's
+                         * the same as the original name. We assume the caller already
+                         * created an uncoverted question, so let's not repeat work
+                         * unnecessarily. */
+                        return -EALREADY;
         }
 
         q = dns_question_new(family == AF_UNSPEC ? 2 : 1);
