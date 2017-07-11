@@ -241,7 +241,7 @@ usec_t timeval_load(const struct timeval *tv) {
 struct timeval *timeval_store(struct timeval *tv, usec_t u) {
         assert(tv);
 
-        if (u == USEC_INFINITY||
+        if (u == USEC_INFINITY ||
             u / USEC_PER_SEC > TIME_T_MAX) {
                 tv->tv_sec = (time_t) -1;
                 tv->tv_usec = (suseconds_t) -1;
@@ -847,31 +847,27 @@ parse_usec:
 
 from_tm:
         x = mktime_or_timegm(&tm, utc);
-        if (x == (time_t) -1)
-                return -EOVERFLOW;
+        if (x < 0)
+                return -EINVAL;
 
         if (weekday >= 0 && tm.tm_wday != weekday)
                 return -EINVAL;
 
-        if (x < 0)
-                ret = 0;
-        else
-                ret = (usec_t) x * USEC_PER_SEC + x_usec;
-
+        ret = (usec_t) x * USEC_PER_SEC + x_usec;
         if (ret > USEC_TIMESTAMP_FORMATTABLE_MAX)
                 return -EINVAL;
 
 finish:
         if (ret + plus < ret) /* overflow? */
-                return -EOVERFLOW;
+                return -EINVAL;
         ret += plus;
         if (ret > USEC_TIMESTAMP_FORMATTABLE_MAX)
                 return -EINVAL;
 
-        if (ret > minus)
+        if (ret >= minus)
                 ret -= minus;
         else
-                ret = 0;
+                return -EINVAL;
 
         *usec = ret;
 
