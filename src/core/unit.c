@@ -1832,6 +1832,10 @@ static void unit_check_binds_to(Unit *u) {
                 if (other->job)
                         continue;
 
+                if (!other->coldplugged)
+                        /* We might yet create a job for the other unit… */
+                        continue;
+
                 if (!UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other)))
                         continue;
 
