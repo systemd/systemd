@@ -97,34 +97,37 @@ CHANGES WITH 234:
           is empty, all plugins should not put anything in BOOT_DIR_ABS.
 
         Contributions from: Adrian Heine né Lang, Aggelos Avgerinos, Alexander
-        Kurtz, Alexandros Frantzis, Alexey Brodkin, Amir Pakdel, Amir Yalon,
-        Anchor Cat, Anthony Parsons, Bastien Nocera, Benjamin Gilbert, Charles
-        Plessy, Chris Chiu, Chris Lamb, Christian Brauner, Daniel Drake,
+        Kurtz, Alexandros Frantzis, Alexey Brodkin, Alex Lu, Amir Pakdel, Amir
+        Yalon, Anchor Cat, Anthony Parsons, Bastien Nocera, Benjamin Gilbert,
+        Benjamin Robin, Boucman, Charles Plessy, Chris Chiu, Chris Lamb,
+        Christian Brauner, Christian Hesse, Colin Walters, Daniel Drake,
         Danielle Church, Daniel Molkentin, Daniel Rusek, Daniel Wang, Davide
         Cavalca, David Herrmann, David Michael, Dax Kelson, Dimitri John
         Ledkov, Djalal Harouni, Dušan Kazik, Elias Probst, Evgeny Vereshchagin,
         Federico Di Pierro, Felipe Sateler, Felix Zhang, Franck Bui, Gary
-        Tierney, George McCollister, Hans de Goede, hecke, Hendrik Westerberg,
-        Hristo Venev, Ian Wienand, Insun Pyo, Ivan Shapovalov, James Cowgill,
-        James Hemsing, Janne Heß, Jan Synacek, Jason Reeder, João Paulo Rechi
-        Vita, John Paul Adrian Glaubitz, Jörg Thalheim, Josef Andersson, Josef
-        Gajdusek, Julian Mehne, Kai Krakow, Krzysztof Jackiewicz, Lars
-        Karlitski, Lennart Poettering, Lluís Gili, Lucas Werkmeister, Lukáš
-        Nykrýn, Łukasz Stelmach, Mantas Mikulėnas, Marcin Bachry, Marcus
-        Cooper, Mark Stosberg, Martin Pitt, Matija Skala, Matt Clarkson,
-        Matthias Greiner, Matthijs van Duin, Max Resch, Michael Biebl, Michal
-        Koutný, Michal Sekletar, Michal Suchanek, Nate Clark, Nathaniel
-        R. Lewis, Neil Brown, Pascal S. de Kloe, Pat Riehecky, Patrik Flykt,
-        Paul Kocialkowski, Peter Hutterer, Philip Withnall, Piotr Szydełko,
-        Rafael Fontenelle, Ray Strode, Richard Maw, Roelf Wichertjes, Ronny
-        Chevalier, Sarang S. Dalal, Sjoerd Simons, slodki, Stefan Schweter,
-        Susant Sahani, Ted Wood, Thomas Blume, Thomas Haller, Thomas
+        Tierney, George McCollister, Giedrius Statkevičius, Hans de Goede,
+        hecke, Hendrik Westerberg, Hristo Venev, Ian Wienand, Insun Pyo, Ivan
+        Shapovalov, James Cowgill, James Hemsing, Janne Heß, Jan Synacek, Jason
+        Reeder, João Paulo Rechi Vita, John Paul Adrian Glaubitz, Jörg
+        Thalheim, Josef Andersson, Josef Gajdusek, Julian Mehne, Kai Krakow,
+        Krzysztof Jackiewicz, Lars Karlitski, Lennart Poettering, Lluís Gili,
+        Lucas Werkmeister, Lukáš Nykrýn, Łukasz Stelmach, Mantas Mikulėnas,
+        Marcin Bachry, Marcus Cooper, Mark Stosberg, Martin Pitt, Matija Skala,
+        Matt Clarkson, Matthew Garrett, Matthias Greiner, Matthijs van Duin,
+        Max Resch, Michael Biebl, Michal Koutný, Michal Sekletar, Michal
+        Soltys, Michal Suchanek, Mike Gilbert, Nate Clark, Nathaniel R. Lewis,
+        Neil Brown, Nikolai Kondrashov, Pascal S. de Kloe, Pat Riehecky, Patrik
+        Flykt, Paul Kocialkowski, Peter Hutterer, Philip Withnall, Piotr
+        Szydełko, Rafael Fontenelle, Ray Strode, Richard Maw, Roelf Wichertjes,
+        Ronny Chevalier, Sarang S. Dalal, Sjoerd Simons, slodki, Stefan
+        Schweter, Susant Sahani, Ted Wood, Thomas Blume, Thomas Haller, Thomas
         H. P. Andersen, Timothée Ravier, Tobias Jungel, Tobias Stoeckmann, Tom
         Gundersen, Tom Yan, Torstein Husebø, Umut Tezduyar Lindskog,
-        userwithuid, Waldemar Brodkorb, WaLyong Cho, Yusuke Nojima, Yu
-        Watanabe, Zbigniew Jędrzejewski-Szmek
+        userwithuid, Vito Caputo, Waldemar Brodkorb, WaLyong Cho, Yu, Li-Yu,
+        Yusuke Nojima, Yu Watanabe, Zbigniew Jędrzejewski-Szmek, Дамјан
+        Георгиевски
 
-        — Berlin, 2017-06-XX
+        — Berlin, 2017-07-12
 
 CHANGES WITH 233:
 
