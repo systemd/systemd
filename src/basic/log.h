@@ -86,6 +86,11 @@ int log_get_max_level_realm(LogRealm realm) _pure_;
 #define log_get_max_level()                     \
         log_get_max_level_realm(LOG_REALM)
 
+/* Functions below that open and close logs or configure logging based on the
+ * environment should not be called from library code — this is always a job
+ * for the application itself.
+ */
+
 int log_open(void);
 void log_close(void);
 void log_forget_fds(void);
