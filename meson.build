@@ -537,6 +537,8 @@ endforeach
 ############################################################
 
 conf.set_quoted('FALLBACK_HOSTNAME', get_option('fallback-hostname'))
+conf.set10('ENABLE_COMPAT_GATEWAY_HOSTNAME', get_option('compat-gateway-hostname'))
+gateway_hostnames = ['_gateway'] + (conf.get('ENABLE_COMPAT_GATEWAY_HOSTNAME') == 1 ? ['gateway'] : [])
 
 default_hierarchy = get_option('default-hierarchy')
 conf.set_quoted('DEFAULT_HIERARCHY_NAME', default_hierarchy,
@@ -2399,6 +2401,7 @@ status = [
         'nobody user name:                  @0@'.format(get_option('nobody-user')),
         'nobody group name:                 @0@'.format(get_option('nobody-group')),
         'fallback hostname:                 @0@'.format(get_option('fallback-hostname')),
+        'symbolic gateway hostnames:        @0@'.format(', '.join(gateway_hostnames)),
 
         'default DNSSEC mode:               @0@'.format(default_dnssec),
         'default cgroup hierarchy:          @0@'.format(default_hierarchy),

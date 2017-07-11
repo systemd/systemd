@@ -491,7 +491,7 @@ static int parse_argv(int argc, char **argv,
                 if (!hostname)
                         return -ENOMEM;
 
-                names = strv_new("localhost", "gateway", "foo_no_such_host", hostname, NULL);
+                names = strv_new("localhost", "_gateway", "foo_no_such_host", hostname, NULL);
                 if (!names)
                         return -ENOMEM;
 

@@ -334,7 +334,7 @@ static int synthesize_gateway_ptr(Manager *m, int af, const union in_addr_union 
         if (n < 0)
                 return n;
 
-        return answer_add_addresses_ptr(answer, "gateway", addresses, n, af, address);
+        return answer_add_addresses_ptr(answer, "_gateway", addresses, n, af, address);
 }
 
 int dns_synthesize_answer(
