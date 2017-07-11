@@ -73,9 +73,14 @@ static int verify_esp(
         struct statfs sfs;
         sd_id128_t uuid = SD_ID128_NULL;
         uint32_t part = 0;
+        bool quiet;
         int r;
 
         assert(p);
+
+        /* Non-root user can run only `bootctl status`, then if error occured in the following, it does not cause any issues.
+         * So, let's silence the error messages. */
+        quiet = (geteuid() != 0);
 
         if (statfs(p, &sfs) < 0) {
 
@@ -83,7 +88,8 @@ static int verify_esp(
                 if (errno == ENOENT && searching)
                         return -ENOENT;
 
-                return log_error_errno(errno, "Failed to check file system type of \"%s\": %m", p);
+                return log_full_errno(quiet && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
+                                      "Failed to check file system type of \"%s\": %m", p);
         }
 
         if (!F_TYPE_EQUAL(sfs.f_type, MSDOS_SUPER_MAGIC)) {
@@ -96,7 +102,8 @@ static int verify_esp(
         }
 
         if (stat(p, &st) < 0)
-                return log_error_errno(errno, "Failed to determine block device node of \"%s\": %m", p);
+                return log_full_errno(quiet && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
+                                      "Failed to determine block device node of \"%s\": %m", p);
 
         if (major(st.st_dev) == 0) {
                 log_error("Block device node of %p is invalid.", p);
@@ -106,7 +113,8 @@ static int verify_esp(
         t2 = strjoina(p, "/..");
         r = stat(t2, &st2);
         if (r < 0)
-                return log_error_errno(errno, "Failed to determine block device node of parent of \"%s\": %m", p);
+                return log_full_errno(quiet && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
+                                      "Failed to determine block device node of parent of \"%s\": %m", p);
 
         if (st.st_dev == st2.st_dev) {
                 log_error("Directory \"%s\" is not the root of the EFI System Partition (ESP) file system.", p);
@@ -114,8 +122,8 @@ static int verify_esp(
         }
 
         /* In a container we don't have access to block devices, skip this part of the verification, we trust the
-         * container manager set everything up correctly on its own. */
-        if (detect_container() > 0)
+         * container manager set everything up correctly on its own. Also skip the following verification for non-root user. */
+        if (detect_container() > 0 || geteuid() != 0)
                 goto finish;
 
         r = asprintf(&t, "/dev/block/%u:%u", major(st.st_dev), minor(st.st_dev));
@@ -339,7 +347,15 @@ static int status_binaries(const char *esp_path, sd_id128_t partition) {
 
         printf("Boot Loader Binaries:\n");
 
-        printf("          ESP: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n", SD_ID128_FORMAT_VAL(partition));
+        if (!esp_path) {
+                printf("          ESP: Cannot find or access mount point of ESP.\n\n");
+                return -ENOENT;
+        }
+
+        printf("          ESP: %s", esp_path);
+        if (!sd_id128_is_null(partition))
+                printf(" (/dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x)", SD_ID128_FORMAT_VAL(partition));
+        printf("\n");
 
         r = enumerate_binaries(esp_path, "EFI/systemd", NULL);
         if (r == 0)
@@ -389,11 +405,6 @@ static int status_variables(void) {
         int n_options, n_order;
         _cleanup_free_ uint16_t *options = NULL, *order = NULL;
         int i;
-
-        if (!is_efi_boot()) {
-                log_notice("Not booted with EFI, not showing EFI variables.");
-                return 0;
-        }
 
         n_options = efi_get_boot_options(&options);
         if (n_options == -ENOENT)
@@ -1026,15 +1037,9 @@ static int must_be_root(void) {
 static int verb_status(int argc, char *argv[], void *userdata) {
 
         sd_id128_t uuid = SD_ID128_NULL;
-        int r;
+        int r, r2;
 
-        r = must_be_root();
-        if (r < 0)
-                return r;
-
-        r = find_esp(NULL, NULL, NULL, &uuid);
-        if (r < 0)
-                return r;
+        r2 = find_esp(NULL, NULL, NULL, &uuid);
 
         if (is_efi_boot()) {
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL;
@@ -1050,44 +1055,47 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 
                 r = efi_loader_get_device_part_uuid(&loader_part_uuid);
                 if (r < 0 && r != -ENOENT)
-                        log_warning_errno(r, "Failed to read EFI variable LoaderDevicePartUUID: %m");
+                        r2 = log_warning_errno(r, "Failed to read EFI variable LoaderDevicePartUUID: %m");
 
                 printf("System:\n");
                 printf("     Firmware: %s (%s)\n", strna(fw_type), strna(fw_info));
 
                 r = is_efi_secure_boot();
                 if (r < 0)
-                        log_warning_errno(r, "Failed to query secure boot status: %m");
+                        r2 = log_warning_errno(r, "Failed to query secure boot status: %m");
                 else
                         printf("  Secure Boot: %sd\n", enable_disable(r));
 
                 r = is_efi_secure_boot_setup_mode();
                 if (r < 0)
-                        log_warning_errno(r, "Failed to query secure boot mode: %m");
+                        r2 = log_warning_errno(r, "Failed to query secure boot mode: %m");
                 else
                         printf("   Setup Mode: %s\n", r ? "setup" : "user");
                 printf("\n");
 
-                printf("Loader:\n");
+                printf("Current Loader:\n");
                 printf("      Product: %s\n", strna(loader));
                 if (!sd_id128_is_null(loader_part_uuid))
-                        printf("    Partition: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
+                        printf("          ESP: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
                                SD_ID128_FORMAT_VAL(loader_part_uuid));
                 else
-                        printf("    Partition: n/a\n");
+                        printf("          ESP: n/a\n");
                 printf("         File: %s%s\n", special_glyph(TREE_RIGHT), strna(loader_path));
                 printf("\n");
         } else
-                printf("System:\n    Not booted with EFI\n");
+                printf("System:\n    Not booted with EFI\n\n");
 
         r = status_binaries(arg_path, uuid);
         if (r < 0)
-                return r;
+                r2 = r;
 
-        if (arg_touch_variables)
+        if (is_efi_boot()) {
                 r = status_variables();
+                if (r < 0)
+                        r2 = r;
+        }
 
-        return r;
+        return r2;
 }
 
 static int verb_install(int argc, char *argv[], void *userdata) {
