@@ -114,7 +114,7 @@ void initialize_srand(void) {
 
         auxv = (void*) getauxval(AT_RANDOM);
         if (auxv) {
-                assert_cc(sizeof(x) < 16);
+                assert_cc(sizeof(x) <= 16);
                 memcpy(&x, auxv, sizeof(x));
         } else
 #endif
