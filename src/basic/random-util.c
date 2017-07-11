@@ -46,8 +46,8 @@ int acquire_random_bytes(void *p, size_t n, bool high_quality_required) {
         static int have_syscall = -1;
 
         _cleanup_close_ int fd = -1;
-        int r;
         unsigned already_done = 0;
+        int r;
 
         /* Gathers some randomness from the kernel. This call will never block. If
          * high_quality_required, it will always return some data from the kernel,
@@ -61,7 +61,7 @@ int acquire_random_bytes(void *p, size_t n, bool high_quality_required) {
                 r = getrandom(p, n, GRND_NONBLOCK);
                 if (r > 0) {
                         have_syscall = true;
-                        if (r == (int) n)
+                        if ((size_t) r == n)
                                 return 0;
                         if (!high_quality_required) {
                                 /* Fill in the remaing bytes using pseudorandom values */
@@ -147,11 +147,11 @@ void pseudorandom_bytes(void *p, size_t n) {
                 rr = (unsigned) rand();
 
 #if RAND_STEP >= 3
-                if (q - (uint8_t*) p + 2 < (ptrdiff_t) n)
+                if ((size_t) (q - (uint8_t*) p + 2) < n)
                         q[2] = rr >> 16;
 #endif
 #if RAND_STEP >= 2
-                if (q - (uint8_t*) p + 1 < (ptrdiff_t) n)
+                if ((size_t) (q - (uint8_t*) p + 1) < n)
                         q[1] = rr >> 8;
 #endif
                 q[0] = rr;
