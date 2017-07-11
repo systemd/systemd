@@ -543,6 +543,14 @@ int manager_dns_stub_start(Manager *m) {
 
         assert(m);
 
+        if (m->dns_stub_listener_mode == DNS_STUB_LISTENER_NO)
+                log_debug("Not creating stub listener.");
+        else
+                log_debug("Creating stub listener using %s.",
+                          m->dns_stub_listener_mode == DNS_STUB_LISTENER_UDP ? "UDP" :
+                          m->dns_stub_listener_mode == DNS_STUB_LISTENER_TCP ? "TCP" :
+                          "UDP/TCP");
+
         if (IN_SET(m->dns_stub_listener_mode, DNS_STUB_LISTENER_YES, DNS_STUB_LISTENER_UDP))
                 r = manager_dns_stub_udp_fd(m);
 
