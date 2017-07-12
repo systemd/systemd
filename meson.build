@@ -1026,6 +1026,8 @@ want_tests = get_option('tests')
 install_tests = get_option('install-tests')
 tests = []
 
+conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', get_option('slow-tests'))
+
 #####################################################################
 
 if get_option('efi')
