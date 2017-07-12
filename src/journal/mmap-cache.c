@@ -157,17 +157,24 @@ static void window_free(Window *w) {
         free(w);
 }
 
-_pure_ static bool window_matches(Window *w, MMapFileDescriptor *f, int prot, uint64_t offset, size_t size) {
+_pure_ static inline bool window_matches(Window *w, int prot, uint64_t offset, size_t size) {
+        assert(w);
+        assert(size > 0);
+
+        return
+                prot == w->prot &&
+                offset >= w->offset &&
+                offset + size <= w->offset + w->size;
+}
+
+_pure_ static bool window_matches_fd(Window *w, MMapFileDescriptor *f, int prot, uint64_t offset, size_t size) {
         assert(w);
         assert(f);
-        assert(size > 0);
 
         return
                 w->fd &&
                 f->fd == w->fd->fd &&
-                prot == w->prot &&
-                offset >= w->offset &&
-                offset + size <= w->offset + w->size;
+                window_matches(w, prot, offset, size);
 }
 
 static Window *window_add(MMapCache *m, MMapFileDescriptor *f, int prot, bool keep_always, uint64_t offset, size_t size, void *ptr) {
@@ -357,7 +364,7 @@ static int try_context(
         if (!c->window)
                 return 0;
 
-        if (!window_matches(c->window, f, prot, offset, size)) {
+        if (!window_matches_fd(c->window, f, prot, offset, size)) {
 
                 /* Drop the reference to the window, since it's unnecessary now */
                 context_detach_window(c);
@@ -395,7 +402,7 @@ static int find_mmap(
                 return -EIO;
 
         LIST_FOREACH(by_fd, w, f->windows)
-                if (window_matches(w, f, prot, offset, size))
+                if (window_matches(w, prot, offset, size))
                         break;
 
         if (!w)
