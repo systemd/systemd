@@ -503,9 +503,7 @@ static int add_mmap(
         if (!w)
                 goto outofmem;
 
-        context_detach_window(c);
-        c->window = w;
-        LIST_PREPEND(by_window, w->contexts, c);
+        context_attach_window(c, w);
 
         *ret = (uint8_t*) w->ptr + (offset - w->offset);
         return 1;
