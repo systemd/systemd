@@ -1144,6 +1144,10 @@ typedef int32_t key_serial_t;
 #define KEY_OTH_SETATTR 0x00000020
 #endif
 
+#ifndef KEY_SPEC_USER_SESSION_KEYRING
+#define KEY_SPEC_USER_SESSION_KEYRING -5
+#endif
+
 #ifndef KEY_SPEC_USER_KEYRING
 #define KEY_SPEC_USER_KEYRING -4
 #endif

@@ -2100,12 +2100,17 @@ static int setup_keyring(Unit *u, const ExecParameters *p, uid_t uid, gid_t gid)
         }
 
         /* Having our own session keyring is nice, but results in keys added
-         * to the user keyring being inaccessible with permission denied.
-         * So link the user keyring to our session keyring. */
+         * to the user and user session keyring being inaccessible with
+         * permission denied.
+         * So link the keyrings to our session keyring. */
         if (keyctl(KEYCTL_LINK,
                    KEY_SPEC_USER_KEYRING,
                    keyring,  0, 0) < 0)
                 return log_debug_errno(errno, "Failed to link user keyring to session keyring.");
+        if (keyctl(KEYCTL_LINK,
+                   KEY_SPEC_USER_SESSION_KEYRING,
+                   keyring,  0, 0) < 0)
+                return log_debug_errno(errno, "Failed to link user session keyring to session keyring.");
 
         /* Populate they keyring with the invocation ID by default. */
         if (!sd_id128_is_null(u->invocation_id)) {
