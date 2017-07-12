@@ -146,7 +146,7 @@ static void test_config_parse_exec(void) {
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "/RValue/ argv0 r1",
                               &c, u);
-        assert_se(r == 0);
+        assert_se(r == -ENOEXEC);
         assert_se(c1->command_next == NULL);
 
         log_info("/* honour_argv0 */");
@@ -161,7 +161,7 @@ static void test_config_parse_exec(void) {
         r = config_parse_exec(NULL, "fake", 3, "section", 1,
                               "LValue", 0, "@/RValue",
                               &c, u);
-        assert_se(r == 0);
+        assert_se(r == -ENOEXEC);
         assert_se(c1->command_next == NULL);
 
         log_info("/* no command, whitespace only, reset */");
@@ -220,7 +220,7 @@ static void test_config_parse_exec(void) {
                               "-@/RValue argv0 r1 ; ; "
                               "/goo/goo boo",
                               &c, u);
-        assert_se(r >= 0);
+        assert_se(r == -ENOEXEC);
         c1 = c1->command_next;
         check_execcommand(c1, "/RValue", "argv0", "r1", NULL, true);
 
@@ -374,7 +374,7 @@ static void test_config_parse_exec(void) {
                 r = config_parse_exec(NULL, "fake", 4, "section", 1,
                                       "LValue", 0, path,
                                       &c, u);
-                assert_se(r == 0);
+                assert_se(r == -ENOEXEC);
                 assert_se(c1->command_next == NULL);
         }
 
@@ -401,21 +401,21 @@ static void test_config_parse_exec(void) {
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "/path\\",
                               &c, u);
-        assert_se(r == 0);
+        assert_se(r == -ENOEXEC);
         assert_se(c1->command_next == NULL);
 
         log_info("/* missing ending ' */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "/path 'foo",
                               &c, u);
-        assert_se(r == 0);
+        assert_se(r == -ENOEXEC);
         assert_se(c1->command_next == NULL);
 
         log_info("/* missing ending ' with trailing backslash */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "/path 'foo\\",
                               &c, u);
-        assert_se(r == 0);
+        assert_se(r == -ENOEXEC);
         assert_se(c1->command_next == NULL);
 
         log_info("/* invalid space between modifiers */");

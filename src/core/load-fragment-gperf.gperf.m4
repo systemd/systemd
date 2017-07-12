@@ -18,8 +18,8 @@ struct ConfigPerfItem;
 m4_dnl Define the context options only once
 m4_define(`EXEC_CONTEXT_CONFIG_ITEMS',
 `$1.WorkingDirectory,            config_parse_working_directory,     0,                             offsetof($1, exec_context)
-$1.RootDirectory,                config_parse_unit_path_printf,      0,                             offsetof($1, exec_context.root_directory)
-$1.RootImage,                    config_parse_unit_path_printf,      0,                             offsetof($1, exec_context.root_image)
+$1.RootDirectory,                config_parse_unit_path_printf,      true,                          offsetof($1, exec_context.root_directory)
+$1.RootImage,                    config_parse_unit_path_printf,      true,                          offsetof($1, exec_context.root_image)
 $1.User,                         config_parse_user_group,            0,                             offsetof($1, exec_context.user)
 $1.Group,                        config_parse_user_group,            0,                             offsetof($1, exec_context.group)
 $1.SupplementaryGroups,          config_parse_user_group_strv,       0,                             offsetof($1, exec_context.supplementary_groups)
@@ -35,7 +35,7 @@ $1.UMask,                        config_parse_mode,                  0,         
 $1.Environment,                  config_parse_environ,               0,                             offsetof($1, exec_context.environment)
 $1.EnvironmentFile,              config_parse_unit_env_file,         0,                             offsetof($1, exec_context.environment_files)
 $1.PassEnvironment,              config_parse_pass_environ,          0,                             offsetof($1, exec_context.pass_environment)
-$1.DynamicUser,                  config_parse_bool,                  0,                             offsetof($1, exec_context.dynamic_user)
+$1.DynamicUser,                  config_parse_bool,                  true,                          offsetof($1, exec_context.dynamic_user)
 $1.StandardInput,                config_parse_exec_input,            0,                             offsetof($1, exec_context)
 $1.StandardOutput,               config_parse_exec_output,           0,                             offsetof($1, exec_context)
 $1.StandardError,                config_parse_exec_output,           0,                             offsetof($1, exec_context)
