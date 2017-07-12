@@ -562,7 +562,7 @@ bool link_relevant(Link *l, int family, bool local_multicast) {
 
         assert(l);
 
-        /* A link is relevant for local multicast traffic if it isn't a loopback or pointopoint device, has a link
+        /* A link is relevant for local multicast traffic if it isn't a loopback device, has a link
          * beat, can do multicast and has at least one link-local (or better) IP address.
          *
          * A link is relevant for non-multicast traffic if it isn't a loopback device, has a link beat, and has at
@@ -575,9 +575,6 @@ bool link_relevant(Link *l, int family, bool local_multicast) {
                 return false;
 
         if (local_multicast) {
-                if (l->flags & IFF_POINTOPOINT)
-                        return false;
-
                 if ((l->flags & IFF_MULTICAST) != IFF_MULTICAST)
                         return false;
         }
