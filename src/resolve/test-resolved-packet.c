@@ -31,6 +31,9 @@ static void test_dns_packet_new(void) {
 
                 log_debug("dns_packet_new: %zu → %zu", i, p->allocated);
                 assert_se(p->allocated >= MIN(DNS_PACKET_SIZE_MAX, i));
+
+                if (i > DNS_PACKET_SIZE_START + 10 && i < DNS_PACKET_SIZE_MAX - 10)
+                        i = MIN(i * 2, DNS_PACKET_SIZE_MAX - 10);
         }
 
         assert_se(dns_packet_new(&p2, DNS_PROTOCOL_DNS, DNS_PACKET_SIZE_MAX + 1) == -EFBIG);

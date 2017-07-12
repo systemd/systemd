@@ -56,9 +56,13 @@ struct DnsPacketHeader {
 #define UDP_PACKET_HEADER_SIZE (sizeof(struct iphdr) + sizeof(struct udphdr))
 
 /* The various DNS protocols deviate in how large a packet can grow,
-   but the TCP transport has a 16bit size field, hence that appears to
-   be the absolute maximum. */
+ * but the TCP transport has a 16bit size field, hence that appears to
+ * be the absolute maximum. */
 #define DNS_PACKET_SIZE_MAX 0xFFFFu
+
+/* The default size to use for allocation when we don't know how large
+ * the packet will turn out to be. */
+#define DNS_PACKET_SIZE_START 512u
 
 /* RFC 1035 say 512 is the maximum, for classic unicast DNS */
 #define DNS_PACKET_UNICAST_SIZE_MAX 512u
