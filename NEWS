@@ -55,8 +55,9 @@ CHANGES WITH 234:
           option.
 
         * systemd-resolved may now optionally use libidn2 instead of the libidn
-          for processing internationalized domain names. The old version
-          remains supported, as it has a much smaller footprint.
+          for processing internationalized domain names. Support for libidn2
+          should be considered experimental and should not be enabled by
+          default yet.
 
         * "machinectl pull-tar" and related call may now do verification of
           downloaded images using SUSE-style .sha256 checksum files in addition

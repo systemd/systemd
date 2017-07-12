@@ -796,23 +796,23 @@ if want_libidn == 'true' and want_libidn2 == 'true'
         error('libidn and libidn2 cannot be requested simultaneously')
 endif
 
-if want_libidn2 != 'false' and want_libidn != 'true'
-        libidn = dependency('libidn2',
-                            required : want_libidn2 == 'true')
-        # libidn is used for both libidn and libidn2 objects
-        if libidn.found()
-                conf.set('HAVE_LIBIDN2', true)
-                m4_defines += ['-DHAVE_LIBIDN2']
-        endif
-else
-        libidn = []
-endif
-if not conf.get('HAVE_LIBIDN2', false) and want_libidn != 'false'
+if want_libidn != 'false' and want_libidn2 != 'true'
         libidn = dependency('libidn',
                             required : want_libidn == 'true')
         if libidn.found()
                 conf.set('HAVE_LIBIDN', true)
                 m4_defines += ['-DHAVE_LIBIDN']
+        endif
+else
+        libidn = []
+endif
+if not conf.get('HAVE_LIBIDN', false) and want_libidn2 != 'false'
+        # libidn is used for both libidn and libidn2 objects
+        libidn = dependency('libidn2',
+                            required : want_libidn2 == 'true')
+        if libidn.found()
+                conf.set('HAVE_LIBIDN2', true)
+                m4_defines += ['-DHAVE_LIBIDN2']
         endif
 endif
 
