@@ -49,6 +49,8 @@
 /localectl
 /loginctl
 /machinectl
+/mkosi.builddir/
+/mkosi.cache/
 /mtd_probe
 /networkctl
 /scsi_id

@@ -20,15 +20,19 @@
 # This is a build script for OS image generation using mkosi (https://github.com/systemd/mkosi).
 # Simply invoke "mkosi" in the project directory to build an OS image.
 
+# If mkosi.builddir/ exists mkosi will set $BUILDDIR to it, let's then use it
+# as out-of-tree build dir. Otherwise, let's make up our own builddir.
+[ -z "$BUILDDIR" ] && BUILDDIR=build
+
 export LC_CTYPE=C.UTF-8
-meson build
-ninja -C build all
-ninja -C build test
-ninja -C build install
+test -f "$BUILDDIR"/build.ninja || meson "$BUILDDIR"
+ninja -C "$BUILDDIR" all
+ninja -C "$BUILDDIR" test
+ninja -C "$BUILDDIR" install
 
-mkdir -p $DESTDIR/etc
+mkdir -p "$DESTDIR"/etc
 
-cat > $DESTDIR/etc/issue <<EOF
+cat > "$DESTDIR"/etc/issue <<EOF
 \S (built from systemd tree)
 Kernel \r on an \m (\l)
 
