@@ -12,6 +12,7 @@ hwdb_files = files('''
         60-evdev.hwdb
         60-keyboard.hwdb
         60-sensor.hwdb
+        70-joystick.hwdb
         70-mouse.hwdb
         70-pointingstick.hwdb
         70-touchpad.hwdb
