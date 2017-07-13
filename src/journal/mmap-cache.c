@@ -338,7 +338,8 @@ static int try_context(
                 bool keep_always,
                 uint64_t offset,
                 size_t size,
-                void **ret) {
+                void **ret,
+                size_t *ret_size) {
 
         Context *c;
 
@@ -370,6 +371,9 @@ static int try_context(
         c->window->keep_always = c->window->keep_always || keep_always;
 
         *ret = (uint8_t*) c->window->ptr + (offset - c->window->offset);
+        if (ret_size)
+                *ret_size = c->window->size - (offset - c->window->offset);
+
         return 1;
 }
 
@@ -381,7 +385,8 @@ static int find_mmap(
                 bool keep_always,
                 uint64_t offset,
                 size_t size,
-                void **ret) {
+                void **ret,
+                size_t *ret_size) {
 
         Window *w;
         Context *c;
@@ -409,6 +414,9 @@ static int find_mmap(
         w->keep_always = w->keep_always || keep_always;
 
         *ret = (uint8_t*) w->ptr + (offset - w->offset);
+        if (ret_size)
+                *ret_size = w->size - (offset - w->offset);
+
         return 1;
 }
 
@@ -448,7 +456,8 @@ static int add_mmap(
                 uint64_t offset,
                 size_t size,
                 struct stat *st,
-                void **ret) {
+                void **ret,
+                size_t *ret_size) {
 
         uint64_t woffset, wsize;
         Context *c;
@@ -508,6 +517,9 @@ static int add_mmap(
         LIST_PREPEND(by_window, w->contexts, c);
 
         *ret = (uint8_t*) w->ptr + (offset - w->offset);
+        if (ret_size)
+                *ret_size = w->size - (offset - w->offset);
+
         return 1;
 
 outofmem:
@@ -524,7 +536,8 @@ int mmap_cache_get(
                 uint64_t offset,
                 size_t size,
                 struct stat *st,
-                void **ret) {
+                void **ret,
+                size_t *ret_size) {
 
         int r;
 
@@ -536,14 +549,14 @@ int mmap_cache_get(
         assert(context < MMAP_CACHE_MAX_CONTEXTS);
 
         /* Check whether the current context is the right one already */
-        r = try_context(m, f, prot, context, keep_always, offset, size, ret);
+        r = try_context(m, f, prot, context, keep_always, offset, size, ret, ret_size);
         if (r != 0) {
                 m->n_hit++;
                 return r;
         }
 
         /* Search for a matching mmap */
-        r = find_mmap(m, f, prot, context, keep_always, offset, size, ret);
+        r = find_mmap(m, f, prot, context, keep_always, offset, size, ret, ret_size);
         if (r != 0) {
                 m->n_hit++;
                 return r;
@@ -552,7 +565,7 @@ int mmap_cache_get(
         m->n_missed++;
 
         /* Create a new mmap */
-        return add_mmap(m, f, prot, context, keep_always, offset, size, st, ret);
+        return add_mmap(m, f, prot, context, keep_always, offset, size, st, ret, ret_size);
 }
 
 unsigned mmap_cache_get_hit(MMapCache *m) {
