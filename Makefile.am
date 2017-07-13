@@ -4062,6 +4062,7 @@ dist_udevhwdb_DATA = \
 	hwdb/60-evdev.hwdb \
 	hwdb/60-keyboard.hwdb \
 	hwdb/60-sensor.hwdb \
+	hwdb/70-joystick.hwdb \
 	hwdb/70-mouse.hwdb \
 	hwdb/70-pointingstick.hwdb \
 	hwdb/70-touchpad.hwdb
