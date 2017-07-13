@@ -3614,6 +3614,16 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         "%sSELinuxContext: %s%s\n",
                         prefix, c->selinux_context_ignore ? "-" : "", c->selinux_context);
 
+        if (c->apparmor_profile)
+                fprintf(f,
+                        "%sAppArmorProfile: %s%s\n",
+                        prefix, c->apparmor_profile_ignore ? "-" : "", c->apparmor_profile);
+
+        if (c->smack_process_label)
+                fprintf(f,
+                        "%sSmackProcessLabel: %s%s\n",
+                        prefix, c->smack_process_label_ignore ? "-" : "", c->smack_process_label);
+
         if (c->personality != PERSONALITY_INVALID)
                 fprintf(f,
                         "%sPersonality: %s\n",
