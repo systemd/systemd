@@ -165,3 +165,9 @@ if install_tests
                              install_dir : testsdir + '/testdata/' + subdir)
         endforeach
 endif
+
+############################################################
+
+sysv_generator_test_py = find_program('sysv-generator-test.py')
+test('sysv-generator-test',
+     sysv_generator_test_py)
