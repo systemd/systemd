@@ -47,7 +47,7 @@ option('resolve', type : 'boolean',
        description : 'systemd-resolved stack')
 option('efi', type : 'boolean',
        description : 'enable systemd-boot and bootctl')
-option('tpm', type : 'boolean', value : false,
+option('tpm', type : 'boolean', value : true,
        description : 'TPM should be used to log events and extend the registers')
 option('environment-d', type : 'boolean',
        description : 'support for environment.d')
