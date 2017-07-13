@@ -727,7 +727,7 @@ static unsigned type_to_context(ObjectType type) {
         return type > OBJECT_UNUSED && type < _OBJECT_TYPE_MAX ? type : 0;
 }
 
-static int journal_file_move_to(JournalFile *f, ObjectType type, bool keep_always, uint64_t offset, uint64_t size, void **ret) {
+static int journal_file_move_to(JournalFile *f, ObjectType type, bool keep_always, uint64_t offset, uint64_t size, void **ret, size_t *ret_size) {
         int r;
 
         assert(f);
@@ -749,7 +749,7 @@ static int journal_file_move_to(JournalFile *f, ObjectType type, bool keep_alway
                         return -EADDRNOTAVAIL;
         }
 
-        return mmap_cache_get(f->mmap, f->cache_fd, f->prot, type_to_context(type), keep_always, offset, size, &f->last_stat, ret, NULL);
+        return mmap_cache_get(f->mmap, f->cache_fd, f->prot, type_to_context(type), keep_always, offset, size, &f->last_stat, ret, ret_size);
 }
 
 static uint64_t minimum_header_size(Object *o) {
@@ -773,6 +773,7 @@ static uint64_t minimum_header_size(Object *o) {
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret) {
         int r;
         void *t;
+        size_t tsize;
         Object *o;
         uint64_t s;
 
@@ -791,7 +792,7 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
                 return -EBADMSG;
         }
 
-        r = journal_file_move_to(f, type, false, offset, sizeof(ObjectHeader), &t);
+        r = journal_file_move_to(f, type, false, offset, sizeof(ObjectHeader), &t, &tsize);
         if (r < 0)
                 return r;
 
@@ -822,8 +823,8 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
                 return -EBADMSG;
         }
 
-        if (s > sizeof(ObjectHeader)) {
-                r = journal_file_move_to(f, type, false, offset, s, &t);
+        if (s > tsize) {
+                r = journal_file_move_to(f, type, false, offset, s, &t, NULL);
                 if (r < 0)
                         return r;
 
@@ -893,7 +894,7 @@ int journal_file_append_object(JournalFile *f, ObjectType type, uint64_t size, O
         if (r < 0)
                 return r;
 
-        r = journal_file_move_to(f, type, false, p, size, &t);
+        r = journal_file_move_to(f, type, false, p, size, &t, NULL);
         if (r < 0)
                 return r;
 
