@@ -56,15 +56,17 @@ for systemd (this example is for Fedora):
         $ git clone https://github.com/systemd/systemd.git
         $ cd systemd
         $ vim src/core/main.c                  # or wherever you'd like to make your changes
-        $ ./autogen.sh c                       # configure the source tree
-        $ make -j `nproc`                      # build it locally, see if everything compiles fine
-        $ make -j `nproc` check                # run some simple regression tests
+        $ meson build                          # configure the build
+        $ ninja -C build                       # build it locally, see if everything compiles fine
+        $ ninja -C build test                  # run some simple regression tests
         $ sudo mkosi                           # build a test image
         $ sudo systemd-nspawn -bi image.raw    # boot up the test image
         $ git add -p                           # interactively put together your patch
         $ git commit                           # commit it
-        $ ...
+        $ git push REMOTE HEAD:refs/heads/BRANCH
+                                               # where REMOTE is your "fork" on github
+                                               # and BRANCH is a branch name.
 
-And after that, please submit your branch as PR to systemd via github.
+And after that, head over to your repo on github and click "Compare & pull request"
 
 Happy hacking!
