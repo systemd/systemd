@@ -3099,6 +3099,7 @@ void exec_context_done(ExecContext *c) {
         c->utmp_id = mfree(c->utmp_id);
         c->selinux_context = mfree(c->selinux_context);
         c->apparmor_profile = mfree(c->apparmor_profile);
+        c->smack_process_label = mfree(c->smack_process_label);
 
         c->syscall_filter = set_free(c->syscall_filter);
         c->syscall_archs = set_free(c->syscall_archs);
