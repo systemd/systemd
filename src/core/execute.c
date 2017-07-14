@@ -278,7 +278,7 @@ static int open_null_as(int flags, int nfd) {
 }
 
 static int connect_journal_socket(int fd, uid_t uid, gid_t gid) {
-        union sockaddr_union sa = {
+        static const union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
                 .un.sun_path = "/run/systemd/journal/stdout",
         };
@@ -289,24 +289,20 @@ static int connect_journal_socket(int fd, uid_t uid, gid_t gid) {
         if (gid_is_valid(gid)) {
                 oldgid = getgid();
 
-                r = setegid(gid);
-                if (r < 0)
+                if (setegid(gid) < 0)
                         return -errno;
         }
 
         if (uid_is_valid(uid)) {
                 olduid = getuid();
 
-                r = seteuid(uid);
-                if (r < 0) {
+                if (seteuid(uid) < 0) {
                         r = -errno;
                         goto restore_gid;
                 }
         }
 
-        r = connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
-        if (r < 0)
-                r = -errno;
+        r = connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0 ? -errno : 0;
 
         /* If we fail to restore the uid or gid, things will likely
            fail later on. This should only happen if an LSM interferes. */
