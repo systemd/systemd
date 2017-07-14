@@ -45,7 +45,7 @@
 
   <refnamediv>
     <refname>systemd-escape</refname>
-    <refpurpose>Escape strings for usage in system unit names</refpurpose>
+    <refpurpose>Escape strings for usage in systemd unit names</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
