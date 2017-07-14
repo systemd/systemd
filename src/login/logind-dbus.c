@@ -767,8 +767,8 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
         if (hashmap_size(m->sessions) >= m->sessions_max)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Maximum number of sessions (%" PRIu64 ") reached, refusing further sessions.", m->sessions_max);
 
-        audit_session_from_pid(leader, &audit_id);
-        if (audit_id > 0) {
+        (void) audit_session_from_pid(leader, &audit_id);
+        if (audit_session_is_valid(audit_id)) {
                 /* Keep our session IDs and the audit session IDs in sync */
 
                 if (asprintf(&id, "%"PRIu32, audit_id) < 0)
@@ -780,7 +780,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                  * ID */
                 if (hashmap_get(m->sessions, id)) {
                         log_warning("Existing logind session ID %s used by new audit session, ignoring", id);
-                        audit_id = 0;
+                        audit_id = AUDIT_SESSION_INVALID;
 
                         id = mfree(id);
                 }

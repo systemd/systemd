@@ -570,7 +570,7 @@ _public_ int sd_bus_creds_get_audit_session_id(sd_bus_creds *c, uint32_t *sessio
         if (!(c->mask & SD_BUS_CREDS_AUDIT_SESSION_ID))
                 return -ENODATA;
 
-        if (c->audit_session_id == AUDIT_SESSION_INVALID)
+        if (!audit_session_is_valid(c->audit_session_id))
                 return -ENXIO;
 
         *sessionid = c->audit_session_id;

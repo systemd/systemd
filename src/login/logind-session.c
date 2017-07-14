@@ -82,6 +82,7 @@ Session* session_new(Manager *m, const char *id) {
         s->manager = m;
         s->fifo_fd = -1;
         s->vtfd = -1;
+        s->audit_id = AUDIT_SESSION_INVALID;
 
         return s;
 }
@@ -283,7 +284,7 @@ int session_save(Session *s) {
         if (s->leader > 0)
                 fprintf(f, "LEADER="PID_FMT"\n", s->leader);
 
-        if (s->audit_id > 0)
+        if (audit_session_is_valid(s->audit_id))
                 fprintf(f, "AUDIT=%"PRIu32"\n", s->audit_id);
 
         if (dual_timestamp_is_set(&s->timestamp))
@@ -459,9 +460,8 @@ int session_load(Session *s) {
         }
 
         if (leader) {
-                k = parse_pid(leader, &s->leader);
-                if (k >= 0)
-                        audit_session_from_pid(s->leader, &s->audit_id);
+                if (parse_pid(leader, &s->leader) >= 0)
+                        (void) audit_session_from_pid(s->leader, &s->audit_id);
         }
 
         if (type) {
