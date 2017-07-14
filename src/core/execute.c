@@ -356,8 +356,8 @@ static int connect_logger_as(
                 "%i\n"
                 "%i\n"
                 "%i\n",
-                context->syslog_identifier ? context->syslog_identifier : ident,
-                unit->id,
+                context->syslog_identifier ?: ident,
+                MANAGER_IS_SYSTEM(unit->manager) ? unit->id : "",
                 context->syslog_priority,
                 !!context->syslog_level_prefix,
                 output == EXEC_OUTPUT_SYSLOG || output == EXEC_OUTPUT_SYSLOG_AND_CONSOLE,
