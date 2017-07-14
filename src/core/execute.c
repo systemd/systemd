@@ -286,7 +286,7 @@ static int connect_journal_socket(int fd, uid_t uid, gid_t gid) {
         gid_t oldgid = GID_INVALID;
         int r;
 
-        if (gid != GID_INVALID) {
+        if (gid_is_valid(gid)) {
                 oldgid = getgid();
 
                 r = setegid(gid);
@@ -294,7 +294,7 @@ static int connect_journal_socket(int fd, uid_t uid, gid_t gid) {
                         return -errno;
         }
 
-        if (uid != UID_INVALID) {
+        if (uid_is_valid(uid)) {
                 olduid = getuid();
 
                 r = seteuid(uid);
@@ -311,11 +311,11 @@ static int connect_journal_socket(int fd, uid_t uid, gid_t gid) {
         /* If we fail to restore the uid or gid, things will likely
            fail later on. This should only happen if an LSM interferes. */
 
-        if (uid != UID_INVALID)
+        if (uid_is_valid(uid))
                 (void) seteuid(olduid);
 
  restore_gid:
-        if (gid != GID_INVALID)
+        if (gid_is_valid(gid))
                 (void) setegid(oldgid);
 
         return r;

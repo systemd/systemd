@@ -88,7 +88,7 @@ int manager_get_user_from_creds(Manager *m, sd_bus_message *message, uid_t uid, 
         assert(message);
         assert(ret);
 
-        if (uid == UID_INVALID) {
+        if (!uid_is_valid(uid)) {
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
 
                 /* Note that we get the owner UID of the session, not the actual client UID here! */
@@ -1132,7 +1132,7 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        if (uid == UID_INVALID) {
+        if (!uid_is_valid(uid)) {
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
 
                 /* Note that we get the owner UID of the session, not the actual client UID here! */

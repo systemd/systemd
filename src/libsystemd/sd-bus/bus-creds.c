@@ -584,7 +584,7 @@ _public_ int sd_bus_creds_get_audit_login_uid(sd_bus_creds *c, uid_t *uid) {
         if (!(c->mask & SD_BUS_CREDS_AUDIT_LOGIN_UID))
                 return -ENODATA;
 
-        if (c->audit_login_uid == UID_INVALID)
+        if (!uid_is_valid(c->audit_login_uid))
                 return -ENXIO;
 
         *uid = c->audit_login_uid;
