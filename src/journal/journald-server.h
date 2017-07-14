@@ -112,6 +112,7 @@ struct Server {
 
         bool compress;
         bool seal;
+        bool read_kmsg;
 
         bool forward_to_kmsg;
         bool forward_to_syslog;

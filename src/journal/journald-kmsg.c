@@ -397,16 +397,25 @@ static int dispatch_dev_kmsg(sd_event_source *es, int fd, uint32_t revents, void
 }
 
 int server_open_dev_kmsg(Server *s) {
+        mode_t mode;
         int r;
 
         assert(s);
 
-        s->dev_kmsg_fd = open("/dev/kmsg", O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (s->read_kmsg)
+                mode = O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY;
+        else
+                mode = O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY;
+
+        s->dev_kmsg_fd = open("/dev/kmsg", mode);
         if (s->dev_kmsg_fd < 0) {
                 log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
                          "Failed to open /dev/kmsg, ignoring: %m");
                 return 0;
         }
+
+        if (!s->read_kmsg)
+                return 0;
 
         r = sd_event_add_io(s->event, &s->dev_kmsg_event_source, s->dev_kmsg_fd, EPOLLIN, dispatch_dev_kmsg, s);
         if (r < 0) {
