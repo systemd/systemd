@@ -42,13 +42,41 @@
 # Sort by brand, model
 
 #########################################
+# Acer
+#########################################
+sensor:modalias:acpi:BMA250E*:dmi:*:svnAcer:pnIconiaW1-810:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
+#########################################
 # AsusTek
 #########################################
+sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100CHI*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+
+sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TA*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
 sensor:modalias:acpi:SMO8500*:dmi:*svn*ASUSTeK*:*pn*TP500LB*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 0
 
 sensor:modalias:acpi:SMO8500*:dmi:*svn*ASUSTeK*:*pn*TP300LJ*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+
+#########################################
+# Chuwi
+#########################################
+
+# Chuwi Vi8 Plus
+sensor:modalias:acpi:BOSC0200*:dmi:*:svnHampoo:pnD2D3_Vi8A1:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+
+#########################################
+# Cube
+#########################################
+
+# Cube iWork8 Air
+sensor:modalias:acpi:KIOX000A*:dmi:*:svncube:pni1-TF:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
 # Endless
@@ -57,11 +85,78 @@ sensor:modalias:acpi:ACCE0001*:dmi:*svnEndless*:*pnELT-NL3*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 0, 0, -1; -1, 0, 0
 
 #########################################
+# GP-electronic
+#########################################
+sensor:modalias:acpi:KIOX000A*:dmi:bvnINSYDECorp.:bvrBYT70A.YNCHENG.WIN.007:*:svnInsyde:pnT701:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+
+#########################################
 # HP
 #########################################
 sensor:modalias:platform:lis3lv02d:dmi:*svn*Hewlett-Packard*:*pn*HPEliteBook8540w*
 sensor:modalias:platform:lis3lv02d:dmi:*svn*Hewlett-Packard*:*pn*HPEliteBook8560w*
   ACCEL_MOUNT_MATRIX=1, 0, 0; 0, 0, -1; 0, 1, 0
+
+sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream7Tablet:*
+  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+
+#########################################
+# I.T.Works
+#########################################
+
+# The I.T.Works TW891 2-in-1's DMI has the product-name field set, but not
+# the sys-vendor field. This makes the DMI data a bit generic, so we match
+# the whole dmi modalias, except for the BIOS version/date
+sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:*:svnTobefilledbyO.E.M.:pnTW891:pvrTobefilledbyO.E.M.:rvnTobefilledbyO.E.M.:rnTW891:rvr1.0:cvnToBeFilledByO.E.M.:ct3:cvrToBeFilledByO.E.M.:
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+
+#########################################
+# Jumper
+#########################################
+
+# EZpad mini 3
+sensor:modalias:acpi:BOSC0200*:dmi:bvnINSYDECorp.:bvrjumperx.T87.KFBNEE*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+
+#########################################
+# Lamina
+#########################################
+sensor:modalias:acpi:SMO8500*:dmi:*svnLamina*:*pnT701BR.SE*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+
+#########################################
+# Peaq
+#########################################
+sensor:modalias:acpi:SMO8500*:dmi:*:svnPEAQ:pnPEAQPMMC1010MD99187:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+
+#########################################
+# Pipo
+#########################################
+sensor:modalias:acpi:KIOX000A*:dmi:*:svnPIPO:pnW2S:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
+#########################################
+# Ployer
+#########################################
+sensor:modalias:acpi:BMA250E*:dmi:*:svnShenzhenPLOYER*:pnMOMO7W:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+
+#########################################
+# Point of View
+#########################################
+
+# The Point of View TAB-P800W does not have its product name filled, so we
+# match the entire dmi-alias, assuming that the use of a BMA250E +
+# bios-version + bios-date combo is unique
+sensor:modalias:acpi:BMA250E*:dmi:bvnAmericanMegatrendsInc.:bvr3BAIR1013:bd08/22/2014:svnTobefilledbyO.E.M.:pnTobefilledbyO.E.M.:pvrTobefilledbyO.E.M.:rvnAMICorporation:rnAptioCRB:rvrTobefilledbyO.E.M.:cvnToBeFilledByO.E.M.:ct3:cvrToBeFilledByO.E.M.:
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+
+#########################################
+# Trekstor
+#########################################
+sensor:modalias:acpi:BMA250*:dmi:*:bvrTREK.G.WI71C.JGBMRBA*:*:svnInsyde:pnST70416-6:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
 # Winbook
