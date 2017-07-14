@@ -46,6 +46,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "syslog-util.h"
+#include "unit-name.h"
 
 #define STDOUT_STREAMS_MAX 4096
 
@@ -295,9 +296,7 @@ static int stdout_stream_line(StdoutStream *s, char *p) {
         switch (s->state) {
 
         case STDOUT_STREAM_IDENTIFIER:
-                if (isempty(p))
-                        s->identifier = NULL;
-                else  {
+                if (!isempty(p)) {
                         s->identifier = strdup(p);
                         if (!s->identifier)
                                 return log_oom();
@@ -307,14 +306,12 @@ static int stdout_stream_line(StdoutStream *s, char *p) {
                 return 0;
 
         case STDOUT_STREAM_UNIT_ID:
-                if (s->ucred.uid == 0) {
-                        if (isempty(p))
-                                s->unit_id = NULL;
-                        else  {
-                                s->unit_id = strdup(p);
-                                if (!s->unit_id)
-                                        return log_oom();
-                        }
+                if (s->ucred.uid == 0 &&
+                    unit_name_is_valid(p, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE)) {
+
+                        s->unit_id = strdup(p);
+                        if (!s->unit_id)
+                                return log_oom();
                 }
 
                 s->state = STDOUT_STREAM_PRIORITY;
