@@ -529,7 +529,11 @@ static void test_load_syscall_filter_set_raw(void) {
                 assert_se(poll(NULL, 0, 0) == 0);
 
                 assert_se(s = set_new(NULL));
+#if SCMP_SYS(access) >= 0
                 assert_se(set_put(s, UINT32_TO_PTR(__NR_access + 1)) >= 0);
+#else
+                assert_se(set_put(s, UINT32_TO_PTR(__NR_faccessat + 1)) >= 0);
+#endif
 
                 assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN)) >= 0);
 
@@ -541,7 +545,11 @@ static void test_load_syscall_filter_set_raw(void) {
                 s = set_free(s);
 
                 assert_se(s = set_new(NULL));
+#if SCMP_SYS(poll) >= 0
                 assert_se(set_put(s, UINT32_TO_PTR(__NR_poll + 1)) >= 0);
+#else
+                assert_se(set_put(s, UINT32_TO_PTR(__NR_ppoll + 1)) >= 0);
+#endif
 
                 assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUNATCH)) >= 0);
 
