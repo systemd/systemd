@@ -1091,6 +1091,7 @@ static int help(void) {
         printf("%s [OPTIONS...]\n\n"
                "Starts up and maintains the system or user services.\n\n"
                "  -h --help                      Show this help\n"
+               "     --version                   Show version\n"
                "     --test                      Determine startup sequence, dump it and exit\n"
                "     --no-pager                  Do not pipe output into a pager\n"
                "     --dump-configuration-items  Dump understood unit configuration items\n"
