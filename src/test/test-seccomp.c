@@ -244,13 +244,17 @@ static void test_protect_sysctl(void) {
         assert_se(pid >= 0);
 
         if (pid == 0) {
+#if __NR__sysctl > 0
                 assert_se(syscall(__NR__sysctl, NULL) < 0);
                 assert_se(errno == EFAULT);
+#endif
 
                 assert_se(seccomp_protect_sysctl() >= 0);
 
+#if __NR__sysctl > 0
                 assert_se(syscall(__NR__sysctl, 0, 0, 0) < 0);
                 assert_se(errno == EPERM);
+#endif
 
                 _exit(EXIT_SUCCESS);
         }

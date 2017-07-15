@@ -899,6 +899,10 @@ int seccomp_protect_sysctl(void) {
 
                 log_debug("Operating on architecture: %s", seccomp_arch_to_string(arch));
 
+                if (IN_SET(arch, SCMP_ARCH_X32, SCMP_ARCH_AARCH64))
+                        /* No _sysctl syscall */
+                        continue;
+
                 r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ALLOW);
                 if (r < 0)
                         return r;
