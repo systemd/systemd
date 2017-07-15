@@ -1223,10 +1223,6 @@ int seccomp_memory_deny_write_execute(void) {
 
                         break;
 
-                case SCMP_ARCH_AARCH64:
-                        block_syscall = SCMP_SYS(mmap);
-                        /* fall through */
-
                 case SCMP_ARCH_ARM:
                         filter_syscall = SCMP_SYS(mmap2); /* arm has only mmap2 */
                         shmat_syscall = SCMP_SYS(shmat);
@@ -1234,7 +1230,8 @@ int seccomp_memory_deny_write_execute(void) {
 
                 case SCMP_ARCH_X86_64:
                 case SCMP_ARCH_X32:
-                        filter_syscall = SCMP_SYS(mmap); /* amd64 and x32 have only mmap */
+                case SCMP_ARCH_AARCH64:
+                        filter_syscall = SCMP_SYS(mmap); /* amd64, x32, and arm64 have only mmap */
                         shmat_syscall = SCMP_SYS(shmat);
                         break;
 
