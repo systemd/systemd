@@ -1915,6 +1915,7 @@ int server_init(Server *s) {
         s->syslog_fd = s->native_fd = s->stdout_fd = s->dev_kmsg_fd = s->audit_fd = s->hostname_fd = s->notify_fd = -1;
         s->compress = true;
         s->seal = true;
+        s->read_kmsg = true;
 
         s->watchdog_usec = USEC_INFINITY;
 
@@ -2051,7 +2052,7 @@ int server_init(Server *s) {
         if (r < 0)
                 return r;
 
-        /* /dev/ksmg */
+        /* /dev/kmsg */
         r = server_open_dev_kmsg(s);
         if (r < 0)
                 return r;
