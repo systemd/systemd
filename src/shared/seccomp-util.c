@@ -692,7 +692,7 @@ static int seccomp_add_syscall_filter_set(
                         r = seccomp_rule_add_exact(seccomp, action, id, 0);
                         if (r < 0)
                                 /* If the system call is not known on this architecture, then that's fine, let's ignore it */
-                                log_debug_errno(r, "Failed to add rule for system call %s, ignoring: %m", sys);
+                                log_debug_errno(r, "Failed to add rule for system call %s() / %d, ignoring: %m", sys, id);
                 }
         }
 
@@ -761,7 +761,7 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Set* set, uint3
                                 _cleanup_free_ char *n = NULL;
 
                                 n = seccomp_syscall_resolve_num_arch(arch, PTR_TO_INT(id) - 1);
-                                log_debug_errno(r, "Failed to add rule for system call %s, ignoring: %m", strna(n));
+                                log_debug_errno(r, "Failed to add rule for system call %s() / %d, ignoring: %m", strna(n), PTR_TO_INT(id) - 1);
                         }
                 }
 
