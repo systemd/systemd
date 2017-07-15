@@ -1619,7 +1619,7 @@
         any combination of: <constant>cgroup</constant>, <constant>ipc</constant>, <constant>net</constant>,
         <constant>mnt</constant>, <constant>pid</constant>, <constant>user</constant> and <constant>uts</constant>. Any
         namespace type listed is made accessible to the unit's processes, access to namespace types not listed is
-        prohibited (whitelisting). By prepending the list with a single tilda character (<literal>~</literal>) the
+        prohibited (whitelisting). By prepending the list with a single tilde character (<literal>~</literal>) the
         effect may be inverted: only the listed namespace types will be made inaccessible, all unlisted ones are
         permitted (blacklisting). If the empty string is assigned, the default namespace restrictions are applied,
         which is equivalent to false. Internally, this setting limits access to the
