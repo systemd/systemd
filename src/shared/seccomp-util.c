@@ -692,7 +692,7 @@ static int seccomp_add_syscall_filter_set(
                         r = seccomp_rule_add_exact(seccomp, action, id, 0);
                         if (r < 0)
                                 /* If the system call is not known on this architecture, then that's fine, let's ignore it */
-                                log_debug_errno(r, "Failed to add rule for system call %s, ignoring: %m", sys);
+                                log_debug_errno(r, "Failed to add rule for system call %s() / %d, ignoring: %m", sys, id);
                 }
         }
 
@@ -761,7 +761,7 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Set* set, uint3
                                 _cleanup_free_ char *n = NULL;
 
                                 n = seccomp_syscall_resolve_num_arch(arch, PTR_TO_INT(id) - 1);
-                                log_debug_errno(r, "Failed to add rule for system call %s, ignoring: %m", strna(n));
+                                log_debug_errno(r, "Failed to add rule for system call %s() / %d, ignoring: %m", strna(n), PTR_TO_INT(id) - 1);
                         }
                 }
 
@@ -898,6 +898,10 @@ int seccomp_protect_sysctl(void) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
 
                 log_debug("Operating on architecture: %s", seccomp_arch_to_string(arch));
+
+                if (IN_SET(arch, SCMP_ARCH_X32, SCMP_ARCH_AARCH64))
+                        /* No _sysctl syscall */
+                        continue;
 
                 r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ALLOW);
                 if (r < 0)
@@ -1219,10 +1223,6 @@ int seccomp_memory_deny_write_execute(void) {
 
                         break;
 
-                case SCMP_ARCH_AARCH64:
-                        block_syscall = SCMP_SYS(mmap);
-                        /* fall through */
-
                 case SCMP_ARCH_ARM:
                         filter_syscall = SCMP_SYS(mmap2); /* arm has only mmap2 */
                         shmat_syscall = SCMP_SYS(shmat);
@@ -1230,7 +1230,8 @@ int seccomp_memory_deny_write_execute(void) {
 
                 case SCMP_ARCH_X86_64:
                 case SCMP_ARCH_X32:
-                        filter_syscall = SCMP_SYS(mmap); /* amd64 and x32 have only mmap */
+                case SCMP_ARCH_AARCH64:
+                        filter_syscall = SCMP_SYS(mmap); /* amd64, x32, and arm64 have only mmap */
                         shmat_syscall = SCMP_SYS(shmat);
                         break;
 
