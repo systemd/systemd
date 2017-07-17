@@ -58,7 +58,7 @@ static bool arg_root_rw = false;
 static int add_cryptsetup(const char *id, const char *what, bool rw, bool require, char **device) {
         _cleanup_free_ char *e = NULL, *n = NULL, *p = NULL, *d = NULL, *to = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        char *from, *ret;
+        char *ret;
         int r;
 
         assert(id);
@@ -109,35 +109,21 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, bool requir
         if (r < 0)
                 return log_error_errno(r, "Failed to write file %s: %m", p);
 
-        from = strjoina("../", n);
-
-        to = strjoin(arg_dest, "/", d, ".wants/", n);
-        if (!to)
-                return log_oom();
-
-        mkdir_parents_label(to, 0755);
-        if (symlink(from, to) < 0)
-                return log_error_errno(errno, "Failed to create symlink %s: %m", to);
+        r = generator_add_symlink(arg_dest, d, "wants", n);
+        if (r < 0)
+                return r;
 
         if (require) {
-                free(to);
+                const char *dmname;
 
-                to = strjoin(arg_dest, "/cryptsetup.target.requires/", n);
-                if (!to)
-                        return log_oom();
+                r = generator_add_symlink(arg_dest, "cryptsetup.target", "requires", n);
+                if (r < 0)
+                        return r;
 
-                mkdir_parents_label(to, 0755);
-                if (symlink(from, to) < 0)
-                        return log_error_errno(errno, "Failed to create symlink %s: %m", to);
-
-                free(to);
-                to = strjoin(arg_dest, "/dev-mapper-", e, ".device.requires/", n);
-                if (!to)
-                        return log_oom();
-
-                mkdir_parents_label(to, 0755);
-                if (symlink(from, to) < 0)
-                        return log_error_errno(errno, "Failed to create symlink %s: %m", to);
+                dmname = strjoina("dev-mapper-", e, ".device");
+                r = generator_add_symlink(arg_dest, dmname, "requires", n);
+                if (r < 0)
+                        return r;
         }
 
         free(p);
@@ -173,7 +159,7 @@ static int add_mount(
                 const char *description,
                 const char *post) {
 
-        _cleanup_free_ char *unit = NULL, *lnk = NULL, *crypto_what = NULL, *p = NULL;
+        _cleanup_free_ char *unit = NULL, *crypto_what = NULL, *p = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -239,16 +225,8 @@ static int add_mount(
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit file %s: %m", p);
 
-        if (post) {
-                lnk = strjoin(arg_dest, "/", post, ".requires/", unit);
-                if (!lnk)
-                        return log_oom();
-
-                mkdir_parents_label(lnk, 0755);
-                if (symlink(p, lnk) < 0)
-                        return log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
-        }
-
+        if (post)
+                return generator_add_symlink(arg_dest, post, "requires", unit);
         return 0;
 }
 
@@ -299,7 +277,7 @@ static int add_partition_mount(
 }
 
 static int add_swap(const char *path) {
-        _cleanup_free_ char *name = NULL, *unit = NULL, *lnk = NULL;
+        _cleanup_free_ char *name = NULL, *unit = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -341,15 +319,7 @@ static int add_swap(const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit file %s: %m", unit);
 
-        lnk = strjoin(arg_dest, "/" SPECIAL_SWAP_TARGET ".wants/", name);
-        if (!lnk)
-                return log_oom();
-
-        mkdir_parents_label(lnk, 0755);
-        if (symlink(unit, lnk) < 0)
-                return log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
-
-        return 0;
+        return generator_add_symlink(arg_dest, SPECIAL_SWAP_TARGET, "wants", name);
 }
 
 #ifdef ENABLE_EFI
@@ -363,7 +333,7 @@ static int add_automount(
                 const char *description,
                 usec_t timeout) {
 
-        _cleanup_free_ char *unit = NULL, *lnk = NULL;
+        _cleanup_free_ char *unit = NULL;
         _cleanup_free_ char *opt, *p = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -418,15 +388,7 @@ static int add_automount(
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit file %s: %m", p);
 
-        lnk = strjoin(arg_dest, "/" SPECIAL_LOCAL_FS_TARGET ".wants/", unit);
-        if (!lnk)
-                return log_oom();
-        mkdir_parents_label(lnk, 0755);
-
-        if (symlink(p, lnk) < 0)
-                return log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
-
-        return 0;
+        return generator_add_symlink(arg_dest, SPECIAL_LOCAL_FS_TARGET, "wants", unit);
 }
 
 static int add_esp(DissectedPartition *p) {

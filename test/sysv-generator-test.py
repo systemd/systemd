@@ -153,7 +153,8 @@ class SysvGeneratorTest(unittest.TestCase):
             link = os.path.join(self.out_dir, '%s.target.wants' % target, unit)
             if target in targets:
                 unit_file = os.readlink(link)
-                self.assertTrue(os.path.exists(unit_file))
+                # os.path.exists() will fail on a dangling symlink
+                self.assertTrue(os.path.exists(link))
                 self.assertEqual(os.path.basename(unit_file), unit)
             else:
                 self.assertFalse(os.path.exists(link),

@@ -92,7 +92,7 @@ static int add_swap(
                 bool noauto,
                 bool nofail) {
 
-        _cleanup_free_ char *name = NULL, *unit = NULL, *lnk = NULL;
+        _cleanup_free_ char *name = NULL, *unit = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -149,14 +149,10 @@ static int add_swap(
                 return r;
 
         if (!noauto) {
-                lnk = strjoin(arg_dest, "/" SPECIAL_SWAP_TARGET,
-                              nofail ? ".wants/" : ".requires/", name, NULL);
-                if (!lnk)
-                        return log_oom();
-
-                mkdir_parents_label(lnk, 0755);
-                if (symlink(unit, lnk) < 0)
-                        return log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
+                r = generator_add_symlink(arg_dest, SPECIAL_SWAP_TARGET,
+                                          nofail ? "wants" : "requires", name);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -302,7 +298,7 @@ static int add_mount(
                 const char *source) {
 
         _cleanup_free_ char
-                *name = NULL, *unit = NULL, *lnk = NULL,
+                *name = NULL, *unit = NULL,
                 *automount_name = NULL, *automount_unit = NULL,
                 *filtered = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -431,13 +427,10 @@ static int add_mount(
                 return log_error_errno(r, "Failed to write unit file %s: %m", unit);
 
         if (!noauto && !automount) {
-                lnk = strjoin(dest, "/", post, nofail ? ".wants/" : ".requires/", name);
-                if (!lnk)
-                        return log_oom();
-
-                mkdir_parents_label(lnk, 0755);
-                if (symlink(unit, lnk) < 0)
-                        return log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
+                r = generator_add_symlink(dest, post,
+                                          nofail ? "wants" : "requires", name);
+                if (r < 0)
+                        return r;
         }
 
         if (automount) {
@@ -492,14 +485,10 @@ static int add_mount(
                 if (r < 0)
                         return log_error_errno(r, "Failed to write unit file %s: %m", automount_unit);
 
-                free(lnk);
-                lnk = strjoin(dest, "/", post, nofail ? ".wants/" : ".requires/", automount_name);
-                if (!lnk)
-                        return log_oom();
-
-                mkdir_parents_label(lnk, 0755);
-                if (symlink(automount_unit, lnk) < 0)
-                        return log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
+                r = generator_add_symlink(dest, post,
+                                          nofail ? "wants" : "requires", automount_name);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
