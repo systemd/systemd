@@ -43,6 +43,11 @@ void server_forward_wall(
         if (LOG_PRI(priority) > s->max_level_wall)
                 return;
 
+        if (s->facilities_store) {
+                if (!set_contains(s->facilities_store, UINT_TO_PTR(LOG_FAC(priority))))
+                        return;
+        }
+
         if (ucred) {
                 if (!identifier) {
                         get_process_comm(ucred->pid, &ident_buf);

@@ -61,6 +61,11 @@ void server_forward_kmsg(
         if (_unlikely_(LOG_PRI(priority) > s->max_level_kmsg))
                 return;
 
+        if (s->facilities_store) {
+                if (!set_contains(s->facilities_store, UINT_TO_PTR(LOG_FAC(priority))))
+                        return;
+        }
+
         if (_unlikely_(s->dev_kmsg_fd < 0))
                 return;
 

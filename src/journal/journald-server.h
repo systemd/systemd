@@ -143,6 +143,8 @@ struct Server {
         int max_level_console;
         int max_level_wall;
 
+        Set *facilities_store;
+
         Storage storage;
         SplitMode split_mode;
 
@@ -204,6 +206,8 @@ int config_parse_split_mode(const char *unit, const char *filename, unsigned lin
 
 const char *split_mode_to_string(SplitMode s) _const_;
 SplitMode split_mode_from_string(const char *s) _pure_;
+
+int config_parse_journal_log_facility(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
 int server_init(Server *s);
 void server_done(Server *s);

@@ -71,6 +71,11 @@ void server_forward_console(
         if (LOG_PRI(priority) > s->max_level_console)
                 return;
 
+        if (s->facilities_store) {
+                if (!set_contains(s->facilities_store, UINT_TO_PTR(LOG_FAC(priority))))
+                        return;
+        }
+
         /* First: timestamp */
         if (prefix_timestamp()) {
                 assert_se(clock_gettime(CLOCK_MONOTONIC, &ts) == 0);
