@@ -334,7 +334,7 @@ DHCP=%s
 
             # check networkctl state
             out = subprocess.check_output(['networkctl'])
-            self.assertRegex(out, (r'%s\s+ether\s+routable\s+unmanaged' % self.if_router).encode())
+            self.assertRegex(out, (r'%s\s+ether\s+[a-z-]+\s+unmanaged' % self.if_router).encode())
             self.assertRegex(out, (r'%s\s+ether\s+routable\s+configured' % self.iface).encode())
 
             out = subprocess.check_output(['networkctl', 'status', self.iface])
