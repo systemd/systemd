@@ -198,6 +198,10 @@ int generator_write_timeouts(
         node = fstab_node_to_udev_node(what);
         if (!node)
                 return log_oom();
+        if (!is_device_path(node)) {
+                log_warning("x-systemd.device-timeout ignored for %s", what);
+                return 0;
+        }
 
         r = unit_name_from_path(node, ".device", &unit);
         if (r < 0)
