@@ -1431,16 +1431,10 @@ AM_CONDITIONAL(HAVE_GNUEFI, [test "x$have_gnuefi" = xyes])
 
 # ------------------------------------------------------------------------------
 have_tpm=no
-AC_ARG_ENABLE([tpm], AS_HELP_STRING([--enable-tpm], [enable optional TPM support]),
-                [case "${enableval}" in
-                        yes) have_tpm=yes ;;
-                        no) have_tpm=no ;;
-                        *) AC_MSG_ERROR(bad value ${enableval} for --enable-tpm) ;;
-                esac],
-                [have_tpm=no])
-
-if test "x${have_tpm}" != xno ; then
+AC_ARG_ENABLE(tpm, AS_HELP_STRING([--disable-tpm], [disable optional support]))
+if test "x${enable_tpm}" != xno ; then
         AC_DEFINE(SD_BOOT_LOG_TPM, 1, [Define if TPM should be used to log events and extend the registers])
+        have_tpm=yes
 fi
 
 AC_ARG_WITH(tpm-pcrindex,
