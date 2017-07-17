@@ -3103,6 +3103,7 @@ void exec_context_done(ExecContext *c) {
         c->utmp_id = mfree(c->utmp_id);
         c->selinux_context = mfree(c->selinux_context);
         c->apparmor_profile = mfree(c->apparmor_profile);
+        c->smack_process_label = mfree(c->smack_process_label);
 
         c->syscall_filter = set_free(c->syscall_filter);
         c->syscall_archs = set_free(c->syscall_archs);
@@ -3618,6 +3619,16 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f,
                         "%sSELinuxContext: %s%s\n",
                         prefix, c->selinux_context_ignore ? "-" : "", c->selinux_context);
+
+        if (c->apparmor_profile)
+                fprintf(f,
+                        "%sAppArmorProfile: %s%s\n",
+                        prefix, c->apparmor_profile_ignore ? "-" : "", c->apparmor_profile);
+
+        if (c->smack_process_label)
+                fprintf(f,
+                        "%sSmackProcessLabel: %s%s\n",
+                        prefix, c->smack_process_label_ignore ? "-" : "", c->smack_process_label);
 
         if (c->personality != PERSONALITY_INVALID)
                 fprintf(f,
