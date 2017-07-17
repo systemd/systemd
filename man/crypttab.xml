@@ -70,7 +70,10 @@
     <para>Empty lines and lines starting with the <literal>#</literal>
     character are ignored. Each of the remaining lines describes one
     encrypted block device, fields on the line are delimited by white
-    space. The first two fields are mandatory, the remaining two are
+    space.</para>
+
+    <para>Each line is in the form<programlisting><replaceable>name</replaceable> <replaceable>encrypted-device</replaceable> <replaceable>password</replaceable> <replaceable>options</replaceable></programlisting>
+    The first two fields are mandatory, the remaining two are
     optional.</para>
 
     <para>Setting up encrypted block devices using this file supports
