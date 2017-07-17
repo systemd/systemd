@@ -3701,6 +3701,8 @@ int config_parse_job_mode_isolate(
         return 0;
 }
 
+DEFINE_CONFIG_PARSE_ENUM(config_parse_runtime_preserve_mode, exec_preserve_mode, ExecPreserveMode, "Failed to parse runtime directory preserve mode");
+
 int config_parse_runtime_directory(
                 const char *unit,
                 const char *filename,
@@ -3750,7 +3752,7 @@ int config_parse_runtime_directory(
                         continue;
                 }
 
-                if (!filename_is_valid(k)) {
+                if (!path_is_safe(k) || path_is_absolute(k)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0,
                                    "Runtime directory is not valid, ignoring assignment: %s", rvalue);
                         continue;

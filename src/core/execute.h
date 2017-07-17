@@ -72,6 +72,14 @@ typedef enum ExecOutput {
         _EXEC_OUTPUT_INVALID = -1
 } ExecOutput;
 
+typedef enum ExecPreserveMode {
+        EXEC_PRESERVE_NO,
+        EXEC_PRESERVE_YES,
+        EXEC_PRESERVE_RESTART,
+        _EXEC_PRESERVE_MODE_MAX,
+        _EXEC_PRESERVE_MODE_INVALID = -1
+} ExecPreserveMode;
+
 struct ExecStatus {
         dual_timestamp start_timestamp;
         dual_timestamp exit_timestamp;
@@ -211,6 +219,7 @@ struct ExecContext {
 
         char **runtime_directory;
         mode_t runtime_directory_mode;
+        ExecPreserveMode runtime_directory_preserve_mode;
 
         bool memory_deny_write_execute;
         bool restrict_realtime;
@@ -330,3 +339,6 @@ ExecInput exec_input_from_string(const char *s) _pure_;
 
 const char* exec_utmp_mode_to_string(ExecUtmpMode i) _const_;
 ExecUtmpMode exec_utmp_mode_from_string(const char *s) _pure_;
+
+const char* exec_preserve_mode_to_string(ExecPreserveMode i) _const_;
+ExecPreserveMode exec_preserve_mode_from_string(const char *s) _pure_;

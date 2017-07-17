@@ -267,7 +267,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                               "Description", "Slice", "Type", "WorkingDirectory",
                               "RootDirectory", "SyslogIdentifier", "ProtectSystem",
                               "ProtectHome", "SELinuxContext", "Restart", "RootImage",
-                              "NotifyAccess"))
+                              "NotifyAccess", "RuntimeDirectoryPreserve"))
                 r = sd_bus_message_append(m, "v", "s", eq);
 
         else if (streq(field, "SyslogLevel")) {
@@ -547,6 +547,15 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         return bus_log_create_error(r);
 
                 r = sd_bus_message_close_container(m);
+
+        } else if (streq(field, "RuntimeDirectoryMode")) {
+                mode_t mode;
+
+                r = parse_mode(eq, &mode);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s value %s", field, eq);
+
+                r = sd_bus_message_append(m, "v", "u", mode);
 
         } else if (streq(field, "RuntimeDirectory")) {
                 const char *p;
