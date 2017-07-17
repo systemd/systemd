@@ -65,6 +65,7 @@ BuildPackages=
         libsmartcols-dev
         libtool
         libxkbcommon-dev
+        m4
         meson
         pkg-config
         python3
