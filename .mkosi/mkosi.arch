@@ -48,7 +48,7 @@ BuildPackages=
         kmod
         libcap
         libgcrypt
-        libidn2
+        libidn
         libmicrohttpd
         libseccomp
         libtool
@@ -63,6 +63,7 @@ BuildPackages=
         python-lxml
         qrencode
         xz
+# TODO use libidn once it's available in official repositories
 
 Packages=
-        libidn2
+        libidn
