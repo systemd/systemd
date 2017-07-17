@@ -20,25 +20,18 @@
 #include "sd-daemon.h"
 #include "sd-event.h"
 
-#include "capability-util.h"
 #include "networkd-conf.h"
 #include "networkd-manager.h"
 #include "signal-util.h"
-#include "user-util.h"
 
 int main(int argc, char *argv[]) {
         sd_event *event = NULL;
         _cleanup_manager_free_ Manager *m = NULL;
-        const char *user = "systemd-network";
-        uid_t uid;
-        gid_t gid;
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
-
-        umask(0022);
 
         if (argc != 1) {
                 log_error("This program takes no arguments.");
@@ -46,37 +39,13 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
-        r = get_user_creds(&user, &uid, &gid, NULL, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Cannot resolve user name %s: %m", user);
+        if (geteuid() == 0) {
+                log_error("This program must be run under an unprivileged user "
+                          "with the following capabilities: CAP_NET_ADMIN "
+                          "CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW");
+                r = -EINVAL;
                 goto out;
         }
-
-        /* Always create the directories people can create inotify
-         * watches in. */
-        r = mkdir_safe_label("/run/systemd/netif", 0755, uid, gid);
-        if (r < 0)
-                log_warning_errno(r, "Could not create runtime directory: %m");
-
-        r = mkdir_safe_label("/run/systemd/netif/links", 0755, uid, gid);
-        if (r < 0)
-                log_warning_errno(r, "Could not create runtime directory 'links': %m");
-
-        r = mkdir_safe_label("/run/systemd/netif/leases", 0755, uid, gid);
-        if (r < 0)
-                log_warning_errno(r, "Could not create runtime directory 'leases': %m");
-
-        r = mkdir_safe_label("/run/systemd/netif/lldp", 0755, uid, gid);
-        if (r < 0)
-                log_warning_errno(r, "Could not create runtime directory 'lldp': %m");
-
-        r = drop_privileges(uid, gid,
-                            (1ULL << CAP_NET_ADMIN) |
-                            (1ULL << CAP_NET_BIND_SERVICE) |
-                            (1ULL << CAP_NET_BROADCAST) |
-                            (1ULL << CAP_NET_RAW));
-        if (r < 0)
-                goto out;
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
