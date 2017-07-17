@@ -1658,7 +1658,10 @@
         or more directories by the specified names will be created
         below <filename>/run</filename> (for system services) or below
         <varname>$XDG_RUNTIME_DIR</varname> (for user services) when
-        the unit is started, and removed when the unit is stopped. The
+        the unit is started, and removed when the unit is stopped.
+        It is possible to preserve the directories if
+        <varname>RuntimeDirectoryPreserve=</varname> is configured to
+        <option>restart</option> or <option>yes</option>. The
         directories will have the access mode specified in
         <varname>RuntimeDirectoryMode=</varname>, and will be owned by
         the user and group specified in <varname>User=</varname> and
@@ -1683,6 +1686,21 @@
         <varname>RuntimeDirectory=</varname> as an octal number. Defaults to
         <constant>0755</constant>. See "Permissions" in
         <citerefentry project='man-pages'><refentrytitle>path_resolution</refentrytitle><manvolnum>7</manvolnum></citerefentry> for a discussion of the meaning of permission bits.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RuntimeDirectoryPreserve=</varname></term>
+
+        <listitem><para>Takes a boolean argument or <option>restart</option>.
+        If set to <option>no</option> (the default), the directories specified in <varname>RuntimeDirectory=</varname>
+        are always removed when the service stops. If set to <option>restart</option> the directories are preserved
+        when the service is both automatically and manually restarted. Here, the automatic restart means the operation
+        specified in <varname>Restart=</varname>, and manual restart means the one triggered by
+        <command>systemctl restart foo.service</command>. If set to <option>yes</option>, then the directories are not
+        removed when the service is stopped. Note that since the runtime directory <filename>/run</filename> is a mount
+        point of <literal>tmpfs</literal>, then for system services the directories specified in
+        <varname>RuntimeDirectory=</varname> are removed when the system is rebooted.
         </para></listitem>
       </varlistentry>
 

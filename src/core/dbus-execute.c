@@ -55,6 +55,8 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_exec_input, exec_input, ExecInp
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_exec_utmp_mode, exec_utmp_mode, ExecUtmpMode);
 
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_exec_preserve_mode, exec_preserve_mode, ExecPreserveMode);
+
 static BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_protect_home, protect_home, ProtectHome);
 static BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_protect_system, protect_system, ProtectSystem);
 
@@ -850,6 +852,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("Personality", "s", property_get_personality, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictAddressFamilies", "(bas)", property_get_address_families, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, runtime_directory_mode), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RuntimeDirectoryPreserve", "s", property_get_exec_preserve_mode, offsetof(ExecContext, runtime_directory_preserve_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeDirectory", "as", NULL, offsetof(ExecContext, runtime_directory), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MemoryDenyWriteExecute", "b", bus_property_get_bool, offsetof(ExecContext, memory_deny_write_execute), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictRealtime", "b", bus_property_get_bool, offsetof(ExecContext, restrict_realtime), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1674,6 +1677,41 @@ int bus_exec_context_set_transient_property(
                 if (mode != UNIT_CHECK) {
                         c->protect_home = ph;
                         unit_write_drop_in_private_format(u, mode, name, "%s=%s", name, s);
+                }
+
+                return 1;
+
+        } else if (streq(name, "RuntimeDirectoryPreserve")) {
+                const char *s;
+                ExecPreserveMode m;
+
+                r = sd_bus_message_read(message, "s", &s);
+                if (r < 0)
+                        return r;
+
+                m = exec_preserve_mode_from_string(s);
+                if (m < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid preserve mode");
+
+                if (mode != UNIT_CHECK) {
+                        c->runtime_directory_preserve_mode = m;
+
+                        unit_write_drop_in_private_format(u, mode, name, "RuntimeDirectoryPreserve=%s", exec_preserve_mode_to_string(m));
+                }
+
+                return 1;
+
+        } else if (streq(name, "RuntimeDirectoryMode")) {
+                mode_t m;
+
+                r = sd_bus_message_read(message, "u", &m);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        c->runtime_directory_mode = m;
+
+                        unit_write_drop_in_private_format(u, mode, name, "RuntimeDirectoryMode=%040o", m);
                 }
 
                 return 1;

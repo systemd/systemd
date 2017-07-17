@@ -3428,6 +3428,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
 
         fprintf(f, "%sRuntimeDirectoryMode: %04o\n", prefix, c->runtime_directory_mode);
 
+        fprintf(f, "%sRuntimeDirectoryPreserve: %s\n", prefix, exec_preserve_mode_to_string(c->runtime_directory_preserve_mode));
+
         STRV_FOREACH(d, c->runtime_directory)
                 fprintf(f, "%sRuntimeDirectory: %s\n", prefix, *d);
 
@@ -4160,3 +4162,11 @@ static const char* const exec_utmp_mode_table[_EXEC_UTMP_MODE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_utmp_mode, ExecUtmpMode);
+
+static const char* const exec_preserve_mode_table[_EXEC_PRESERVE_MODE_MAX] = {
+        [EXEC_PRESERVE_NO] = "no",
+        [EXEC_PRESERVE_YES] = "yes",
+        [EXEC_PRESERVE_RESTART] = "restart",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(exec_preserve_mode, ExecPreserveMode, EXEC_PRESERVE_YES);

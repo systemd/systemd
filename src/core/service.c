@@ -1480,6 +1480,18 @@ static bool service_shall_restart(Service *s) {
         }
 }
 
+static bool service_will_restart(Service *s) {
+        assert(s);
+
+        if (s->state == SERVICE_AUTO_RESTART)
+                return true;
+        if (!UNIT(s)->job)
+                return false;
+        if (UNIT(s)->job->type == JOB_START)
+                return true;
+        return false;
+}
+
 static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) {
         int r;
         assert(s);
@@ -1510,8 +1522,10 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         exec_runtime_destroy(s->exec_runtime);
         s->exec_runtime = exec_runtime_unref(s->exec_runtime);
 
-        /* Also, remove the runtime directory */
-        exec_context_destroy_runtime_directory(&s->exec_context, manager_get_runtime_prefix(UNIT(s)->manager));
+        if (s->exec_context.runtime_directory_preserve_mode == EXEC_PRESERVE_NO ||
+            (s->exec_context.runtime_directory_preserve_mode == EXEC_PRESERVE_RESTART && !service_will_restart(s)))
+                /* Also, remove the runtime directory */
+                exec_context_destroy_runtime_directory(&s->exec_context, manager_get_runtime_prefix(UNIT(s)->manager));
 
         /* Get rid of the IPC bits of the user */
         unit_unref_uid_gid(UNIT(s), true);
