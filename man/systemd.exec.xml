@@ -1654,29 +1654,31 @@
       <varlistentry>
         <term><varname>RuntimeDirectory=</varname></term>
 
-        <listitem><para>Takes a list of directory names. If set, one
-        or more directories by the specified names will be created
-        below <filename>/run</filename> (for system services) or below
-        <varname>$XDG_RUNTIME_DIR</varname> (for user services) when
-        the unit is started, and removed when the unit is stopped.
-        It is possible to preserve the directories if
-        <varname>RuntimeDirectoryPreserve=</varname> is configured to
-        <option>restart</option> or <option>yes</option>. The
-        directories will have the access mode specified in
-        <varname>RuntimeDirectoryMode=</varname>, and will be owned by
-        the user and group specified in <varname>User=</varname> and
-        <varname>Group=</varname>. Use this to manage one or more
-        runtime directories of the unit and bind their lifetime to the
-        daemon runtime. The specified directory names must be
-        relative, and may not include a <literal>/</literal>, i.e.
-        must refer to simple directories to create or remove. This is
-        particularly useful for unprivileged daemons that cannot
-        create runtime directories in <filename>/run</filename> due to
-        lack of privileges, and to make sure the runtime directory is
-        cleaned up automatically after use. For runtime directories
-        that require more complex or different configuration or
-        lifetime guarantees, please consider using
-        <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+        <listitem><para>Takes a whitespace-separated list of directory names. The specified directory names must be
+        relative, and may not include <literal>.</literal> or <literal>..</literal>. If set, one or more directories
+        including their parents by the specified names will be created below <filename>/run</filename> (for system
+        services) or below <varname>$XDG_RUNTIME_DIR</varname> (for user services) when the unit is started. The
+        lowest subdirectories are removed when the unit is stopped. It is possible to preserve the directories if
+        <varname>RuntimeDirectoryPreserve=</varname> is configured to <option>restart</option> or <option>yes</option>.
+        The lowest subdirectories will have the access mode specified in <varname>RuntimeDirectoryMode=</varname>,
+        and be owned by the user and group specified in <varname>User=</varname> and <varname>Group=</varname>.
+        This implies <varname>ReadWritePaths=</varname>, that is, the directories specified
+        in this option are accessible with the access mode specified in <varname>RuntimeDirectoryMode=</varname>
+        even if <varname>ProtectSystem=</varname> is set to <option>strict</option>.
+        Use this to manage one or more runtime directories of the unit and bind their
+        lifetime to the daemon runtime. This is particularly useful for unprivileged daemons that cannot create
+        runtime directories in <filename>/run</filename> due to lack of privileges, and to make sure the runtime
+        directory is cleaned up automatically after use. For runtime directories that require more complex or
+        different configuration or lifetime guarantees, please consider using
+        <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <para>Example: if a system service unit has the following,
+        <programlisting>RuntimeDirectory=foo/bar baz</programlisting>
+        the service manager creates <filename>/run/foo</filename> (if it does not exist), <filename>/run/foo/bar</filename>,
+        and <filename>/run/baz</filename>. The directories <filename>/run/foo/bar</filename> and <filename>/run/baz</filename>
+        except <filename>/run/foo</filename> are owned by the user and group specified in <varname>User=</varname> and
+        <varname>Group=</varname>, and removed when the service is stopped.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1685,7 +1687,8 @@
         <listitem><para>Specifies the access mode of the directories specified in
         <varname>RuntimeDirectory=</varname> as an octal number. Defaults to
         <constant>0755</constant>. See "Permissions" in
-        <citerefentry project='man-pages'><refentrytitle>path_resolution</refentrytitle><manvolnum>7</manvolnum></citerefentry> for a discussion of the meaning of permission bits.
+        <citerefentry project='man-pages'><refentrytitle>path_resolution</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for a discussion of the meaning of permission bits.
         </para></listitem>
       </varlistentry>
 

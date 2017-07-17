@@ -3752,7 +3752,7 @@ int config_parse_runtime_directory(
                         continue;
                 }
 
-                if (!filename_is_valid(k)) {
+                if (!path_is_safe(k) || path_is_absolute(k)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0,
                                    "Runtime directory is not valid, ignoring assignment: %s", rvalue);
                         continue;

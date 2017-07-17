@@ -1858,6 +1858,10 @@ static int setup_runtime_directory(
                 if (!p)
                         return -ENOMEM;
 
+                r = mkdir_parents_label(p, 0755);
+                if (r < 0)
+                        return r;
+
                 r = mkdir_p_label(p, context->runtime_directory_mode);
                 if (r < 0)
                         return r;
