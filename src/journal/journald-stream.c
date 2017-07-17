@@ -34,6 +34,7 @@
 #include "fileio.h"
 #include "io-util.h"
 #include "journald-console.h"
+#include "journald-context.h"
 #include "journald-kmsg.h"
 #include "journald-server.h"
 #include "journald-stream.h"
@@ -41,6 +42,7 @@
 #include "journald-wall.h"
 #include "mkdir.h"
 #include "parse-util.h"
+#include "process-util.h"
 #include "selinux-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
@@ -87,6 +89,8 @@ struct StdoutStream {
 
         char *state_file;
 
+        ClientContext *context;
+
         LIST_FIELDS(StdoutStream, stdout_stream);
         LIST_FIELDS(StdoutStream, stdout_stream_notify_queue);
 };
@@ -96,6 +100,10 @@ void stdout_stream_free(StdoutStream *s) {
                 return;
 
         if (s->server) {
+
+                if (s->context)
+                        client_context_release(s->server, s->context);
+
                 assert(s->server->n_stdout_streams > 0);
                 s->server->n_stdout_streams--;
                 LIST_REMOVE(stdout_stream, s->server->stdout_streams, s);
@@ -233,7 +241,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         char syslog_facility[sizeof("SYSLOG_FACILITY=")-1 + DECIMAL_STR_MAX(int) + 1];
         _cleanup_free_ char *message = NULL, *syslog_identifier = NULL;
         unsigned n = 0;
-        size_t label_len;
+        int r;
 
         assert(s);
         assert(p);
@@ -278,8 +286,15 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         if (message)
                 IOVEC_SET_STRING(iovec[n++], message);
 
-        label_len = s->label ? strlen(s->label) : 0;
-        server_dispatch_message(s->server, iovec, n, ELEMENTSOF(iovec), &s->ucred, NULL, s->label, label_len, s->unit_id, priority, 0);
+        if (s->context)
+                (void) client_context_maybe_refresh(s->server, s->context, NULL, NULL, 0, NULL, USEC_INFINITY);
+        else if (pid_is_valid(s->ucred.pid)) {
+                r = client_context_acquire(s->server, s->ucred.pid, &s->ucred, s->label, strlen_ptr(s->label), s->unit_id, &s->context);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to acquire client context, ignoring: %m");
+        }
+
+        server_dispatch_message(s->server, iovec, n, ELEMENTSOF(iovec), s->context, NULL, priority, 0);
         return 0;
 }
 

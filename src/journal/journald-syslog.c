@@ -325,11 +325,12 @@ void server_process_syslog_message(
         char syslog_priority[sizeof("PRIORITY=") + DECIMAL_STR_MAX(int)],
              syslog_facility[sizeof("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
         const char *message = NULL, *syslog_identifier = NULL, *syslog_pid = NULL;
-        struct iovec iovec[N_IOVEC_META_FIELDS + 6];
-        unsigned n = 0;
-        int priority = LOG_USER | LOG_INFO;
         _cleanup_free_ char *identifier = NULL, *pid = NULL;
+        struct iovec iovec[N_IOVEC_META_FIELDS + 6];
+        int priority = LOG_USER | LOG_INFO, r;
+        ClientContext *context = NULL;
         const char *orig;
+        unsigned n = 0;
 
         assert(s);
         assert(buf);
@@ -376,7 +377,13 @@ void server_process_syslog_message(
         if (message)
                 IOVEC_SET_STRING(iovec[n++], message);
 
-        server_dispatch_message(s, iovec, n, ELEMENTSOF(iovec), ucred, tv, label, label_len, NULL, priority, 0);
+        if (ucred && pid_is_valid(ucred->pid)) {
+                r = client_context_get(s, ucred->pid, ucred, label, label_len, NULL, &context);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to retrieve credentials for PID " PID_FMT ", ignoring: %m", ucred->pid);
+        }
+
+        server_dispatch_message(s, iovec, n, ELEMENTSOF(iovec), context, tv, priority, 0);
 }
 
 int server_open_syslog_socket(Server *s) {
