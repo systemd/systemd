@@ -199,16 +199,16 @@ int machine_save(Machine *m) {
         if (m->n_netif > 0) {
                 unsigned i;
 
-                fputs("NETIF=", f);
+                fputs_unlocked("NETIF=", f);
 
                 for (i = 0; i < m->n_netif; i++) {
                         if (i != 0)
-                                fputc(' ', f);
+                                fputc_unlocked(' ', f);
 
                         fprintf(f, "%i", m->netif[i]);
                 }
 
-                fputc('\n', f);
+                fputc_unlocked('\n', f);
         }
 
         r = fflush_and_check(f);

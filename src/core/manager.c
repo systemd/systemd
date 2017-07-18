@@ -2592,15 +2592,15 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
         manager_serialize_uid_refs(m, f);
         manager_serialize_gid_refs(m, f);
 
-        fputc('\n', f);
+        fputc_unlocked('\n', f);
 
         HASHMAP_FOREACH_KEY(u, t, m->units, i) {
                 if (u->id != t)
                         continue;
 
                 /* Start marker */
-                fputs(u->id, f);
-                fputc('\n', f);
+                fputs_unlocked(u->id, f);
+                fputc_unlocked('\n', f);
 
                 r = unit_serialize(u, f, fds, !switching_root);
                 if (r < 0) {

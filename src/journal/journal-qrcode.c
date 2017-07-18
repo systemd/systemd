@@ -65,11 +65,11 @@ int print_qr_code(
         if (!f)
                 return -ENOMEM;
 
-        fputs("fss://", f);
+        fputs_unlocked("fss://", f);
 
         for (i = 0; i < seed_size; i++) {
                 if (i > 0 && i % 3 == 0)
-                        fputc('-', f);
+                        fputc_unlocked('-', f);
                 fprintf(f, "%02x", ((uint8_t*) seed)[i]);
         }
 

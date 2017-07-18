@@ -246,7 +246,7 @@ static int write_netlabel_rules(const char* srcdir) {
                 FOREACH_LINE(buf, policy,
                              log_error_errno(errno, "Failed to read line from %s: %m",
                                        entry->d_name)) {
-                        if (!fputs(buf, dst)) {
+                        if (!fputs_unlocked(buf, dst)) {
                                 if (r == 0)
                                         r = -EINVAL;
                                 log_error_errno(errno, "Failed to write line to /sys/fs/smackfs/netlabel");

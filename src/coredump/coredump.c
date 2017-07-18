@@ -564,7 +564,7 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
                 }
 
                 FOREACH_LINE(line, fdinfo, break) {
-                        fputs(line, stream);
+                        fputs_unlocked(line, stream);
                         if (!endswith(line, "\n"))
                                 fputc('\n', stream);
                 }

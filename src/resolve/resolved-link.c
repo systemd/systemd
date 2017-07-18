@@ -1050,7 +1050,7 @@ int link_save_user(Link *l) {
         if (r < 0)
                 goto fail;
 
-        fputs("# This is private data. Do not parse.\n", f);
+        fputs_unlocked("# This is private data. Do not parse.\n", f);
 
         v = resolve_support_to_string(l->llmnr_support);
         if (v)
@@ -1067,11 +1067,11 @@ int link_save_user(Link *l) {
         if (l->dns_servers) {
                 DnsServer *server;
 
-                fputs("SERVERS=", f);
+                fputs_unlocked("SERVERS=", f);
                 LIST_FOREACH(servers, server, l->dns_servers) {
 
                         if (server != l->dns_servers)
-                                fputc(' ', f);
+                                fputc_unlocked(' ', f);
 
                         v = dns_server_string(server);
                         if (!v) {
@@ -1079,26 +1079,26 @@ int link_save_user(Link *l) {
                                 goto fail;
                         }
 
-                        fputs(v, f);
+                        fputs_unlocked(v, f);
                 }
-                fputc('\n', f);
+                fputc_unlocked('\n', f);
         }
 
         if (l->search_domains) {
                 DnsSearchDomain *domain;
 
-                fputs("DOMAINS=", f);
+                fputs_unlocked("DOMAINS=", f);
                 LIST_FOREACH(domains, domain, l->search_domains) {
 
                         if (domain != l->search_domains)
-                                fputc(' ', f);
+                                fputc_unlocked(' ', f);
 
                         if (domain->route_only)
-                                fputc('~', f);
+                                fputc_unlocked('~', f);
 
-                        fputs(DNS_SEARCH_DOMAIN_NAME(domain), f);
+                        fputs_unlocked(DNS_SEARCH_DOMAIN_NAME(domain), f);
                 }
-                fputc('\n', f);
+                fputc_unlocked('\n', f);
         }
 
         if (!set_isempty(l->dnssec_negative_trust_anchors)) {
@@ -1106,16 +1106,16 @@ int link_save_user(Link *l) {
                 Iterator i;
                 char *nta;
 
-                fputs("NTAS=", f);
+                fputs_unlocked("NTAS=", f);
                 SET_FOREACH(nta, l->dnssec_negative_trust_anchors, i) {
 
                         if (space)
-                                fputc(' ', f);
+                                fputc_unlocked(' ', f);
 
-                        fputs(nta, f);
+                        fputs_unlocked(nta, f);
                         space = true;
                 }
-                fputc('\n', f);
+                fputc_unlocked('\n', f);
         }
 
         r = fflush_and_check(f);

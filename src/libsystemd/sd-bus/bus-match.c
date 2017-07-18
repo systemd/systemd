@@ -957,18 +957,18 @@ char *bus_match_to_string(struct bus_match_component *components, unsigned n_com
                 char buf[32];
 
                 if (i != 0)
-                        fputc(',', f);
+                        fputc_unlocked(',', f);
 
-                fputs(bus_match_node_type_to_string(components[i].type, buf, sizeof(buf)), f);
-                fputc('=', f);
-                fputc('\'', f);
+                fputs_unlocked(bus_match_node_type_to_string(components[i].type, buf, sizeof(buf)), f);
+                fputc_unlocked('=', f);
+                fputc_unlocked('\'', f);
 
                 if (components[i].type == BUS_MATCH_MESSAGE_TYPE)
-                        fputs(bus_message_type_to_string(components[i].value_u8), f);
+                        fputs_unlocked(bus_message_type_to_string(components[i].value_u8), f);
                 else
-                        fputs(components[i].value_str, f);
+                        fputs_unlocked(components[i].value_str, f);
 
-                fputc('\'', f);
+                fputc_unlocked('\'', f);
         }
 
         r = fflush_and_check(f);

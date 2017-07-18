@@ -3276,16 +3276,16 @@ static void print_link_hashmap(FILE *f, const char *prefix, Hashmap* h) {
         if (hashmap_isempty(h))
                 return;
 
-        fputs(prefix, f);
+        fputs_unlocked(prefix, f);
         HASHMAP_FOREACH(link, h, i) {
                 if (space)
-                        fputc(' ', f);
+                        fputc_unlocked(' ', f);
 
                 fprintf(f, "%i", link->ifindex);
                 space = true;
         }
 
-        fputc('\n', f);
+        fputc_unlocked('\n', f);
 }
 
 int link_save(Link *link) {
@@ -3343,7 +3343,7 @@ int link_save(Link *link) {
 
                 fprintf(f, "NETWORK_FILE=%s\n", link->network->filename);
 
-                fputs("DNS=", f);
+                fputs_unlocked("DNS=", f);
                 space = false;
 
                 for (j = 0; j < link->network->n_dns; j++) {
@@ -3357,8 +3357,8 @@ int link_save(Link *link) {
                         }
 
                         if (space)
-                                fputc(' ', f);
-                        fputs(b, f);
+                                fputc_unlocked(' ', f);
+                        fputs_unlocked(b, f);
                         space = true;
                 }
 
@@ -3369,7 +3369,7 @@ int link_save(Link *link) {
                         r = sd_dhcp_lease_get_dns(link->dhcp_lease, &addresses);
                         if (r > 0) {
                                 if (space)
-                                        fputc(' ', f);
+                                        fputc_unlocked(' ', f);
                                 serialize_in_addrs(f, addresses, r);
                                 space = true;
                         }
@@ -3381,7 +3381,7 @@ int link_save(Link *link) {
                         r = sd_dhcp6_lease_get_dns(dhcp6_lease, &in6_addrs);
                         if (r > 0) {
                                 if (space)
-                                        fputc(' ', f);
+                                        fputc_unlocked(' ', f);
                                 serialize_in6_addrs(f, in6_addrs, r);
                                 space = true;
                         }
@@ -3395,16 +3395,16 @@ int link_save(Link *link) {
 
                         SET_FOREACH(dd, link->ndisc_rdnss, i) {
                                 if (space)
-                                        fputc(' ', f);
+                                        fputc_unlocked(' ', f);
 
                                 serialize_in6_addrs(f, &dd->address, 1);
                                 space = true;
                         }
                 }
 
-                fputc('\n', f);
+                fputc_unlocked('\n', f);
 
-                fputs("NTP=", f);
+                fputs_unlocked("NTP=", f);
                 space = false;
                 fputstrv(f, link->network->ntp, NULL, &space);
 
@@ -3415,7 +3415,7 @@ int link_save(Link *link) {
                         r = sd_dhcp_lease_get_ntp(link->dhcp_lease, &addresses);
                         if (r > 0) {
                                 if (space)
-                                        fputc(' ', f);
+                                        fputc_unlocked(' ', f);
                                 serialize_in_addrs(f, addresses, r);
                                 space = true;
                         }
@@ -3429,7 +3429,7 @@ int link_save(Link *link) {
                                                          &in6_addrs);
                         if (r > 0) {
                                 if (space)
-                                        fputc(' ', f);
+                                        fputc_unlocked(' ', f);
                                 serialize_in6_addrs(f, in6_addrs, r);
                                 space = true;
                         }
@@ -3439,7 +3439,7 @@ int link_save(Link *link) {
                                 fputstrv(f, hosts, NULL, &space);
                 }
 
-                fputc('\n', f);
+                fputc_unlocked('\n', f);
 
                 if (link->network->dhcp_use_domains != DHCP_USE_DOMAINS_NO) {
                         if (link->dhcp_lease) {
@@ -3450,7 +3450,7 @@ int link_save(Link *link) {
                                 (void) sd_dhcp6_lease_get_domains(dhcp6_lease, &dhcp6_domains);
                 }
 
-                fputs("DOMAINS=", f);
+                fputs_unlocked("DOMAINS=", f);
                 space = false;
                 fputstrv(f, link->network->search_domains, NULL, &space);
 
@@ -3468,9 +3468,9 @@ int link_save(Link *link) {
                                 fputs_with_space(f, NDISC_DNSSL_DOMAIN(dd), NULL, &space);
                 }
 
-                fputc('\n', f);
+                fputc_unlocked('\n', f);
 
-                fputs("ROUTE_DOMAINS=", f);
+                fputs_unlocked("ROUTE_DOMAINS=", f);
                 space = false;
                 fputstrv(f, link->network->route_domains, NULL, &space);
 
@@ -3488,7 +3488,7 @@ int link_save(Link *link) {
                                 fputs_with_space(f, NDISC_DNSSL_DOMAIN(dd), NULL, &space);
                 }
 
-                fputc('\n', f);
+                fputc_unlocked('\n', f);
 
                 fprintf(f, "LLMNR=%s\n",
                         resolve_support_to_string(link->network->llmnr));
@@ -3502,14 +3502,14 @@ int link_save(Link *link) {
                 if (!set_isempty(link->network->dnssec_negative_trust_anchors)) {
                         const char *n;
 
-                        fputs("DNSSEC_NTA=", f);
+                        fputs_unlocked("DNSSEC_NTA=", f);
                         space = false;
                         SET_FOREACH(n, link->network->dnssec_negative_trust_anchors, i)
                                 fputs_with_space(f, n, NULL, &space);
-                        fputc('\n', f);
+                        fputc_unlocked('\n', f);
                 }
 
-                fputs("ADDRESSES=", f);
+                fputs_unlocked("ADDRESSES=", f);
                 space = false;
                 SET_FOREACH(a, link->addresses, i) {
                         _cleanup_free_ char *address_str = NULL;
@@ -3521,9 +3521,9 @@ int link_save(Link *link) {
                         fprintf(f, "%s%s/%u", space ? " " : "", address_str, a->prefixlen);
                         space = true;
                 }
-                fputc('\n', f);
+                fputc_unlocked('\n', f);
 
-                fputs("ROUTES=", f);
+                fputs_unlocked("ROUTES=", f);
                 space = false;
                 SET_FOREACH(route, link->routes, i) {
                         _cleanup_free_ char *route_str = NULL;
@@ -3537,7 +3537,7 @@ int link_save(Link *link) {
                         space = true;
                 }
 
-                fputc('\n', f);
+                fputc_unlocked('\n', f);
         }
 
         print_link_hashmap(f, "CARRIER_BOUND_TO=", link->bound_to_links);
@@ -3555,9 +3555,9 @@ int link_save(Link *link) {
 
                 r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
                 if (r >= 0) {
-                        fputs("DHCP4_ADDRESS=", f);
+                        fputs_unlocked("DHCP4_ADDRESS=", f);
                         serialize_in_addrs(f, &address, 1);
-                        fputc('\n', f);
+                        fputc_unlocked('\n', f);
                 }
 
                 r = dhcp_lease_save(link->dhcp_lease, link->lease_file);
@@ -3575,9 +3575,9 @@ int link_save(Link *link) {
 
                 r = sd_ipv4ll_get_address(link->ipv4ll, &address);
                 if (r >= 0) {
-                        fputs("IPV4LL_ADDRESS=", f);
+                        fputs_unlocked("IPV4LL_ADDRESS=", f);
                         serialize_in_addrs(f, &address, 1);
-                        fputc('\n', f);
+                        fputc_unlocked('\n', f);
                 }
         }
 

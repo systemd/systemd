@@ -866,12 +866,12 @@ static void print_string_set(FILE *f, const char *field, OrderedSet *s) {
         if (ordered_set_isempty(s))
                 return;
 
-        fputs(field, f);
+        fputs_unlocked(field, f);
 
         ORDERED_SET_FOREACH(p, s, i)
                 fputs_with_space(f, p, NULL, &space);
 
-        fputc('\n', f);
+        fputc_unlocked('\n', f);
 }
 
 static int manager_save(Manager *m) {

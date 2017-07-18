@@ -107,7 +107,7 @@ static int thread_callback(Dwfl_Thread *thread, void *userdata) {
                 return DWARF_CB_ABORT;
 
         if (c->n_thread != 0)
-                fputc('\n', c->f);
+                fputc_unlocked('\n', c->f);
 
         c->n_frame = 0;
 

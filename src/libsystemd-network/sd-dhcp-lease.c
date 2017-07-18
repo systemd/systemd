@@ -926,16 +926,16 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
 
         r = sd_dhcp_lease_get_dns(lease, &addresses);
         if (r > 0) {
-                fputs("DNS=", f);
+                fputs_unlocked("DNS=", f);
                 serialize_in_addrs(f, addresses, r);
-                fputs("\n", f);
+                fputs_unlocked("\n", f);
         }
 
         r = sd_dhcp_lease_get_ntp(lease, &addresses);
         if (r > 0) {
-                fputs("NTP=", f);
+                fputs_unlocked("NTP=", f);
                 serialize_in_addrs(f, addresses, r);
-                fputs("\n", f);
+                fputs_unlocked("\n", f);
         }
 
         r = sd_dhcp_lease_get_domainname(lease, &string);
@@ -944,9 +944,9 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
 
         r = sd_dhcp_lease_get_search_domains(lease, &search_domains);
         if (r > 0) {
-                fputs("DOMAIN_SEARCH_LIST=", f);
+                fputs_unlocked("DOMAIN_SEARCH_LIST=", f);
                 fputstrv(f, search_domains, NULL, NULL);
-                fputs("\n", f);
+                fputs_unlocked("\n", f);
         }
 
         r = sd_dhcp_lease_get_hostname(lease, &string);
