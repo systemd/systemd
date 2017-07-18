@@ -23,6 +23,7 @@
 #include "architecture.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "missing.h"
 #include "path-util.h"
 #include "string-util.h"
@@ -219,10 +220,10 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
         switch (type) {
 
         case SD_PATH_TEMPORARY:
-                return from_environment("TMPDIR", "/tmp", ret);
+                return tmp_dir(ret);
 
         case SD_PATH_TEMPORARY_LARGE:
-                return from_environment("TMPDIR", "/var/tmp", ret);
+                return var_tmp_dir(ret);
 
         case SD_PATH_SYSTEM_BINARIES:
                 *ret = "/usr/bin";
