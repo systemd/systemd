@@ -1112,6 +1112,7 @@ static void manager_clear_jobs_and_units(Manager *m) {
 Manager* manager_free(Manager *m) {
         UnitType c;
         int i;
+        ExecDirectoryType dt;
 
         if (!m)
                 return NULL;
@@ -1183,6 +1184,9 @@ Manager* manager_free(Manager *m) {
 
         hashmap_free(m->uid_refs);
         hashmap_free(m->gid_refs);
+
+        for (dt = 0; dt < _EXEC_DIRECTORY_MAX; dt++)
+                m->prefix[dt] = mfree(m->prefix[dt]);
 
         return mfree(m);
 }
