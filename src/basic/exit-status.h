@@ -83,6 +83,10 @@ enum {
         EXIT_CHOWN,
         EXIT_SMACK_PROCESS_LABEL,
         EXIT_KEYRING,
+        EXIT_STATE_DIRECTORY,
+        EXIT_CACHE_DIRECTORY,
+        EXIT_LOGS_DIRECTORY, /* 240 */
+        EXIT_CONFIGURATION_DIRECTORY,
 };
 
 typedef enum ExitStatusLevel {

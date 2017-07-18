@@ -548,7 +548,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 r = sd_bus_message_close_container(m);
 
-        } else if (streq(field, "RuntimeDirectoryMode")) {
+        } else if (STR_IN_SET(field, "RuntimeDirectoryMode", "StateDirectoryMode", "CacheDirectoryMode", "LogsDirectoryMode", "ConfigurationDirectoryMode")) {
                 mode_t mode;
 
                 r = parse_mode(eq, &mode);
@@ -557,7 +557,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 r = sd_bus_message_append(m, "v", "u", mode);
 
-        } else if (streq(field, "RuntimeDirectory")) {
+        } else if (STR_IN_SET(field, "RuntimeDirectory", "StateDirectory", "CacheDirectory", "LogsDirectory", "ConfigurationDirectory")) {
                 const char *p;
 
                 r = sd_bus_message_open_container(m, 'v', "as");

@@ -1682,11 +1682,32 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>StateDirectory=</varname></term>
+        <term><varname>CacheDirectory=</varname></term>
+        <term><varname>LogsDirectory=</varname></term>
+        <term><varname>ConfigurationDirectory=</varname></term>
+
+        <listitem><para>Takes a whitespace-separated list of directory names. If set, as similar to
+        <varname>RuntimeDirectory=</varname>, one or more directories including their parents by the specified names
+        will be created below <filename>/var/lib</filename>, <filename>/var/cache</filename>, <filename>/var/log</filename>,
+        or <filename>/etc</filename>, respectively, when the unit is started.
+        Unlike <varname>RuntimeDirectory=</varname>, the directories are not removed when the unit is stopped.
+        The lowest subdirectories will be owned by the user and group specified in <varname>User=</varname>
+        and <varname>Group=</varname>. The options imply <varname>ReadWritePaths=</varname>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RuntimeDirectoryMode=</varname></term>
+        <term><varname>StateDirectoryMode=</varname></term>
+        <term><varname>CacheDirectoryMode=</varname></term>
+        <term><varname>LogsDirectoryMode=</varname></term>
+        <term><varname>ConfigurationDirectoryMode=</varname></term>
 
         <listitem><para>Specifies the access mode of the directories specified in
-        <varname>RuntimeDirectory=</varname> as an octal number. Defaults to
-        <constant>0755</constant>. See "Permissions" in
+        <varname>RuntimeDirectory=</varname>, <varname>StateDirectory=</varname>, <varname>CacheDirectory=</varname>,
+        <varname>LogsDirectory=</varname>, or <varname>ConfigurationDirectory=</varname>, respectively, as an octal number.
+        Defaults to <constant>0755</constant>. See "Permissions" in
         <citerefentry project='man-pages'><refentrytitle>path_resolution</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for a discussion of the meaning of permission bits.
         </para></listitem>
@@ -1727,7 +1748,7 @@
         services, so that they cannot be used to circumvent the restrictions of this option. Specifically, it is
         recommended to combine this option with <varname>SystemCallArchitectures=native</varname> or similar. If
         running in user mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant> capability
-        (e.g. setting <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname> is implied.  </para></listitem>
+        (e.g. setting <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname> is implied.</para></listitem>
       </varlistentry>
 
       <varlistentry>

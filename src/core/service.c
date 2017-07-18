@@ -1342,7 +1342,11 @@ static int service_spawn(
                 }
         }
 
-        final_env = strv_env_merge(2, UNIT(s)->manager->environment, our_env, NULL);
+        r = manager_set_exec_params(UNIT(s)->manager, &exec_params);
+        if (r < 0)
+                return r;
+
+        final_env = strv_env_merge(2, exec_params.environment, our_env, NULL);
         if (!final_env)
                 return -ENOMEM;
 
@@ -1359,11 +1363,8 @@ static int service_spawn(
         exec_params.fd_names = fd_names;
         exec_params.n_storage_fds = n_storage_fds;
         exec_params.n_socket_fds = n_socket_fds;
-        exec_params.confirm_spawn = manager_get_confirm_spawn(UNIT(s)->manager);
-        exec_params.cgroup_supported = UNIT(s)->manager->cgroup_supported;
         exec_params.cgroup_path = path;
         exec_params.cgroup_delegate = s->cgroup_context.delegate;
-        exec_params.runtime_prefix = manager_get_runtime_prefix(UNIT(s)->manager);
         exec_params.watchdog_usec = s->watchdog_usec;
         exec_params.selinux_context_net = s->socket_fd_selinux_context_net;
         if (s->type == SERVICE_IDLE)
@@ -1525,7 +1526,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         if (s->exec_context.runtime_directory_preserve_mode == EXEC_PRESERVE_NO ||
             (s->exec_context.runtime_directory_preserve_mode == EXEC_PRESERVE_RESTART && !service_will_restart(s)))
                 /* Also, remove the runtime directory */
-                exec_context_destroy_runtime_directory(&s->exec_context, manager_get_runtime_prefix(UNIT(s)->manager));
+                exec_context_destroy_runtime_directory(&s->exec_context, UNIT(s)->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
 
         /* Get rid of the IPC bits of the user */
         unit_unref_uid_gid(UNIT(s), true);

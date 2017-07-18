@@ -770,12 +770,12 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 return r;
 
-        exec_params.environment = UNIT(m)->manager->environment;
-        exec_params.confirm_spawn = manager_get_confirm_spawn(UNIT(m)->manager);
-        exec_params.cgroup_supported = UNIT(m)->manager->cgroup_supported;
+        r = manager_set_exec_params(UNIT(m)->manager, &exec_params);
+        if (r < 0)
+                return r;
+
         exec_params.cgroup_path = UNIT(m)->cgroup_path;
         exec_params.cgroup_delegate = m->cgroup_context.delegate;
-        exec_params.runtime_prefix = manager_get_runtime_prefix(UNIT(m)->manager);
 
         r = exec_spawn(UNIT(m),
                        c,
@@ -808,7 +808,7 @@ static void mount_enter_dead(Mount *m, MountResult f) {
         exec_runtime_destroy(m->exec_runtime);
         m->exec_runtime = exec_runtime_unref(m->exec_runtime);
 
-        exec_context_destroy_runtime_directory(&m->exec_context, manager_get_runtime_prefix(UNIT(m)->manager));
+        exec_context_destroy_runtime_directory(&m->exec_context, UNIT(m)->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
 
         unit_unref_uid_gid(UNIT(m), true);
 

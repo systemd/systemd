@@ -1839,39 +1839,68 @@ static int setup_private_users(uid_t uid, gid_t gid) {
         return 0;
 }
 
-static int setup_runtime_directory(
+static int setup_exec_directory(
                 const ExecContext *context,
                 const ExecParameters *params,
                 uid_t uid,
-                gid_t gid) {
+                gid_t gid,
+                bool manager_is_system,
+                ExecDirectoryType type,
+                int *exit_status) {
 
+        static const int exit_status_table[_EXEC_DIRECTORY_MAX] = {
+                [EXEC_DIRECTORY_RUNTIME] = EXIT_RUNTIME_DIRECTORY,
+                [EXEC_DIRECTORY_STATE] = EXIT_STATE_DIRECTORY,
+                [EXEC_DIRECTORY_CACHE] = EXIT_CACHE_DIRECTORY,
+                [EXEC_DIRECTORY_LOGS] = EXIT_LOGS_DIRECTORY,
+                [EXEC_DIRECTORY_CONFIGURATION] = EXIT_CONFIGURATION_DIRECTORY,
+        };
         char **rt;
         int r;
 
         assert(context);
         assert(params);
+        assert(type >= 0 && type < _EXEC_DIRECTORY_MAX);
+        assert(exit_status);
 
-        STRV_FOREACH(rt, context->runtime_directory) {
+        if (!params->prefix[type])
+                return 0;
+
+        if (manager_is_system) {
+                if (!uid_is_valid(uid))
+                        uid = 0;
+                if (!gid_is_valid(gid))
+                        gid = 0;
+        }
+
+        STRV_FOREACH(rt, context->directories[type].paths) {
                 _cleanup_free_ char *p;
 
-                p = strjoin(params->runtime_prefix, "/", *rt);
-                if (!p)
-                        return -ENOMEM;
+                p = strjoin(params->prefix[type], "/", *rt);
+                if (!p) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
 
                 r = mkdir_parents_label(p, 0755);
                 if (r < 0)
-                        return r;
+                        goto fail;
 
-                r = mkdir_p_label(p, context->runtime_directory_mode);
+                r = mkdir_p_label(p, context->directories[type].mode);
                 if (r < 0)
-                        return r;
+                        goto fail;
 
-                r = chmod_and_chown(p, context->runtime_directory_mode, uid, gid);
+                r = chmod_and_chown(p, context->directories[type].mode, uid, gid);
                 if (r < 0)
-                        return r;
+                        goto fail;
         }
 
         return 0;
+
+fail:
+        *exit_status = exit_status_table[type];
+
+        return r;
 }
 
 static int setup_smack(
@@ -1917,29 +1946,40 @@ static int compile_read_write_paths(
 
         _cleanup_strv_free_ char **l = NULL;
         char **rt;
+        ExecDirectoryType i;
 
         /* Compile the list of writable paths. This is the combination of
          * the explicitly configured paths, plus all runtime directories. */
 
-        if (strv_isempty(context->read_write_paths) &&
-            strv_isempty(context->runtime_directory)) {
-                *ret = NULL; /* NOP if neither is set */
-                return 0;
+        if (strv_isempty(context->read_write_paths)) {
+                for (i = 0; i < _EXEC_DIRECTORY_MAX; i++)
+                        if (!strv_isempty(context->directories[i].paths))
+                                break;
+
+                if (i == _EXEC_DIRECTORY_MAX) {
+                        *ret = NULL; /* NOP if neither is set */
+                        return 0;
+                }
         }
 
         l = strv_copy(context->read_write_paths);
         if (!l)
                 return -ENOMEM;
 
-        STRV_FOREACH(rt, context->runtime_directory) {
-                char *s;
+        for (i = 0; i < _EXEC_DIRECTORY_MAX; i++) {
+                if (!params->prefix[i])
+                        continue;
 
-                s = strjoin(params->runtime_prefix, "/", *rt);
-                if (!s)
-                        return -ENOMEM;
+                STRV_FOREACH(rt, context->directories[i].paths) {
+                        char *s;
 
-                if (strv_consume(&l, s) < 0)
-                        return -ENOMEM;
+                        s = strjoin(params->prefix[i], "/", *rt);
+                        if (!s)
+                                return -ENOMEM;
+
+                        if (strv_consume(&l, s) < 0)
+                                return -ENOMEM;
+                }
         }
 
         *ret = l;
@@ -2269,6 +2309,7 @@ static int exec_child(
         gid_t gid = GID_INVALID;
         int i, r, ngids = 0;
         unsigned n_fds;
+        ExecDirectoryType dt;
 
         assert(unit);
         assert(command);
@@ -2556,12 +2597,10 @@ static int exec_child(
                 }
         }
 
-        if (!strv_isempty(context->runtime_directory) && params->runtime_prefix) {
-                r = setup_runtime_directory(context, params, uid, gid);
-                if (r < 0) {
-                        *exit_status = EXIT_RUNTIME_DIRECTORY;
+        for (dt = 0; dt < _EXEC_DIRECTORY_MAX; dt++) {
+                r = setup_exec_directory(context, params, uid, gid, MANAGER_IS_SYSTEM(unit->manager), dt, exit_status);
+                if (r < 0)
                         return r;
-                }
         }
 
         r = build_environment(
@@ -3049,6 +3088,8 @@ int exec_spawn(Unit *unit,
 }
 
 void exec_context_init(ExecContext *c) {
+        ExecDirectoryType i;
+
         assert(c);
 
         c->umask = 0022;
@@ -3059,13 +3100,15 @@ void exec_context_init(ExecContext *c) {
         c->ignore_sigpipe = true;
         c->timer_slack_nsec = NSEC_INFINITY;
         c->personality = PERSONALITY_INVALID;
-        c->runtime_directory_mode = 0755;
+        for (i = 0; i < _EXEC_DIRECTORY_MAX; i++)
+                c->directories[i].mode = 0755;
         c->capability_bounding_set = CAP_ALL;
         c->restrict_namespaces = NAMESPACE_FLAGS_ALL;
 }
 
 void exec_context_done(ExecContext *c) {
         unsigned l;
+        ExecDirectoryType i;
 
         assert(c);
 
@@ -3109,7 +3152,8 @@ void exec_context_done(ExecContext *c) {
         c->syscall_archs = set_free(c->syscall_archs);
         c->address_families = set_free(c->address_families);
 
-        c->runtime_directory = strv_free(c->runtime_directory);
+        for (i = 0; i < _EXEC_DIRECTORY_MAX; i++)
+                c->directories[i].paths = strv_free(c->directories[i].paths);
 }
 
 int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_prefix) {
@@ -3120,7 +3164,7 @@ int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_p
         if (!runtime_prefix)
                 return 0;
 
-        STRV_FOREACH(i, c->runtime_directory) {
+        STRV_FOREACH(i, c->directories[EXEC_DIRECTORY_RUNTIME].paths) {
                 _cleanup_free_ char *p;
 
                 p = strjoin(runtime_prefix, "/", *i);
@@ -3376,6 +3420,7 @@ static void strv_fprintf(FILE *f, char **l) {
 void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         char **e, **d;
         unsigned i;
+        ExecDirectoryType dt;
         int r;
 
         assert(c);
@@ -3431,12 +3476,14 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         STRV_FOREACH(e, c->pass_environment)
                 fprintf(f, "%sPassEnvironment: %s\n", prefix, *e);
 
-        fprintf(f, "%sRuntimeDirectoryMode: %04o\n", prefix, c->runtime_directory_mode);
-
         fprintf(f, "%sRuntimeDirectoryPreserve: %s\n", prefix, exec_preserve_mode_to_string(c->runtime_directory_preserve_mode));
 
-        STRV_FOREACH(d, c->runtime_directory)
-                fprintf(f, "%sRuntimeDirectory: %s\n", prefix, *d);
+        for (dt = 0; dt < _EXEC_DIRECTORY_MAX; dt++) {
+                fprintf(f, "%s%sMode: %04o\n", prefix, exec_directory_type_to_string(dt), c->directories[dt].mode);
+
+                STRV_FOREACH(d, c->directories[dt].paths)
+                        fprintf(f, "%s%s: %s\n", prefix, exec_directory_type_to_string(dt), *d);
+        }
 
         if (c->nice_set)
                 fprintf(f,
@@ -4185,3 +4232,13 @@ static const char* const exec_preserve_mode_table[_EXEC_PRESERVE_MODE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(exec_preserve_mode, ExecPreserveMode, EXEC_PRESERVE_YES);
+
+static const char* const exec_directory_type_table[_EXEC_DIRECTORY_MAX] = {
+        [EXEC_DIRECTORY_RUNTIME] = "RuntimeDirectory",
+        [EXEC_DIRECTORY_STATE] = "StateDirectory",
+        [EXEC_DIRECTORY_CACHE] = "CacheDirectory",
+        [EXEC_DIRECTORY_LOGS] = "LogsDirectory",
+        [EXEC_DIRECTORY_CONFIGURATION] = "ConfigurationDirectory",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(exec_directory_type, ExecDirectoryType);
