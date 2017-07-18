@@ -6,6 +6,7 @@
 *.log
 *.o
 *.plist
+*.py[co]
 *.stamp
 *.swp
 *.trs
@@ -39,6 +40,8 @@
 /exported-*
 /hostnamectl
 /image.raw
+/image.raw.cache-pre-dev
+/image.raw.cache-pre-inst
 /install-tree
 /journalctl
 /libtool
@@ -46,6 +49,8 @@
 /localectl
 /loginctl
 /machinectl
+/mkosi.builddir/
+/mkosi.cache/
 /mtd_probe
 /networkctl
 /scsi_id
@@ -182,7 +187,6 @@
 /test-daemon
 /test-date
 /test-device-nodes
-/test-dnssec-complex
 /test-dhcp-client
 /test-dhcp-option
 /test-dhcp-server
@@ -191,6 +195,7 @@
 /test-dns-domain
 /test-dns-packet
 /test-dnssec
+/test-dnssec-complex
 /test-efi-disk.img
 /test-ellipsize
 /test-engine
@@ -252,9 +257,9 @@
 /test-ndisc-rs
 /test-netlink
 /test-netlink-manual
-/test-networkd-conf
 /test-network
 /test-network-tables
+/test-networkd-conf
 /test-ns
 /test-nss
 /test-parse-util
@@ -280,10 +285,10 @@
 /test-seccomp
 /test-selinux
 /test-set
-/test-sizeof
 /test-sigbus
 /test-signal-util
 /test-siphash24
+/test-sizeof
 /test-sleep
 /test-socket-util
 /test-stat-util
@@ -316,7 +321,6 @@
 /v4l_id
 Makefile.in
 __pycache__/
-*.py[co]
 aclocal.m4
 config.h
 config.h.in
