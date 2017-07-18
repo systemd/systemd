@@ -3048,7 +3048,7 @@ _public_ int sd_bus_add_match(
         s->match_callback.callback = callback;
         s->match_callback.cookie = ++bus->match_cookie;
 
-        if (bus->bus_client) {
+        if (bus->bus_client && !bus->is_private) {
                 enum bus_match_scope scope;
 
                 scope = bus_match_get_scope(components, n_components);

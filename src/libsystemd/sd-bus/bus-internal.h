@@ -213,6 +213,7 @@ struct sd_bus {
         bool exited:1;
         bool exit_triggered:1;
         bool is_local:1;
+        bool is_private:1;
 
         int use_memfd;
 
