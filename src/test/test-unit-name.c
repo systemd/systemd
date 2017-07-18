@@ -30,9 +30,11 @@
 #include "macro.h"
 #include "manager.h"
 #include "path-util.h"
+#include "rm-rf.h"
 #include "specifier.h"
 #include "string-util.h"
 #include "test-helper.h"
+#include "tests.h"
 #include "unit-name.h"
 #include "unit-printf.h"
 #include "unit.h"
@@ -210,8 +212,8 @@ static int test_unit_printf(void) {
         assert_se(get_shell(&shell) >= 0);
 
         r = manager_new(UNIT_FILE_USER, true, &m);
-        if (r == -EPERM || r == -EACCES || r == -EADDRINUSE) {
-                puts("manager_new: Permission denied. Skipping test.");
+        if (MANAGER_SKIP_TEST(r)) {
+                log_notice_errno(r, "Skipping test: manager_new: %m");
                 return EXIT_TEST_SKIP;
         }
         assert_se(r == 0);
@@ -227,8 +229,6 @@ static int test_unit_printf(void) {
                 else                                                    \
                         assert_se(streq(t, expected));                     \
         }
-
-        assert_se(setenv("XDG_RUNTIME_DIR", "/run/user/1/", 1) == 0);
 
         assert_se(u = unit_new(m, sizeof(Service)));
         assert_se(unit_add_name(u, "blah.service") == 0);
@@ -463,7 +463,14 @@ static void test_unit_name_path_unescape(void) {
 }
 
 int main(int argc, char* argv[]) {
+        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         int rc = 0;
+
+        log_parse_environment();
+        log_open();
+
+        assert_se(runtime_dir = setup_fake_runtime_dir());
+
         test_unit_name_is_valid();
         test_unit_name_replace_instance();
         test_unit_name_from_path();
