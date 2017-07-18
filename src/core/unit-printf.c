@@ -145,15 +145,11 @@ static int specifier_cgroup_slice(char specifier, void *data, void *userdata, ch
 
 static int specifier_runtime(char specifier, void *data, void *userdata, char **ret) {
         Unit *u = userdata;
-        const char *e;
         char *n = NULL;
 
         assert(u);
 
-        e = manager_get_runtime_prefix(u->manager);
-        if (!e)
-                return -EOPNOTSUPP;
-        n = strdup(e);
+        n = strdup(u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
         if (!n)
                 return -ENOMEM;
 

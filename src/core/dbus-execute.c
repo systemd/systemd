@@ -851,9 +851,17 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("SystemCallErrorNumber", "i", property_get_syscall_errno, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Personality", "s", property_get_personality, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictAddressFamilies", "(bas)", property_get_address_families, 0, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("RuntimeDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, runtime_directory_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeDirectoryPreserve", "s", property_get_exec_preserve_mode, offsetof(ExecContext, runtime_directory_preserve_mode), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("RuntimeDirectory", "as", NULL, offsetof(ExecContext, runtime_directory), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RuntimeDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_RUNTIME].mode), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RuntimeDirectory", "as", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_RUNTIME].paths), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DataDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_STATE].mode), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DataDirectory", "as", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_STATE].paths), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CacheDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_CACHE].mode), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CacheDirectory", "as", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_CACHE].paths), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LogsDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS].mode), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LogsDirectory", "as", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS].paths), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ConfigurationDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_CONFIGURATION].mode), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ConfigurationDirectory", "as", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_CONFIGURATION].paths), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MemoryDenyWriteExecute", "b", bus_property_get_bool, offsetof(ExecContext, memory_deny_write_execute), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictRealtime", "b", bus_property_get_bool, offsetof(ExecContext, restrict_realtime), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictNamespaces", "t", bus_property_get_ulong, offsetof(ExecContext, restrict_namespaces), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1701,7 +1709,7 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-        } else if (streq(name, "RuntimeDirectoryMode")) {
+        } else if (STR_IN_SET(name, "RuntimeDirectoryMode", "StateDirectoryMode", "CacheDirectoryMode", "LogsDirectoryMode", "ConfigurationDirectoryMode")) {
                 mode_t m;
 
                 r = sd_bus_message_read(message, "u", &m);
@@ -1709,14 +1717,20 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (mode != UNIT_CHECK) {
-                        c->runtime_directory_mode = m;
+                        ExecDirectoryType i;
 
-                        unit_write_drop_in_private_format(u, mode, name, "RuntimeDirectoryMode=%040o", m);
+                        for (i = 0; i < _EXEC_DIRECTORY_MAX; i++)
+                                if (startswith(name, exec_directory_type_to_string(i))) {
+                                        c->directories[i].mode = m;
+                                        break;
+                                }
+
+                        unit_write_drop_in_private_format(u, mode, name, "%s=%040o", name, m);
                 }
 
                 return 1;
 
-        } else if (streq(name, "RuntimeDirectory")) {
+        } else if (STR_IN_SET(name, "RuntimeDirectory", "StateDirectory", "CacheDirectory", "LogsDirectory", "ConfigurationDirectory")) {
                 _cleanup_strv_free_ char **l = NULL;
                 char **p;
 
@@ -1726,22 +1740,32 @@ int bus_exec_context_set_transient_property(
 
                 STRV_FOREACH(p, l) {
                         if (!filename_is_valid(*p))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Runtime directory is not valid %s", *p);
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s is not valid %s", name, *p);
                 }
 
                 if (mode != UNIT_CHECK) {
                         _cleanup_free_ char *joined = NULL;
+                        char ***dirs = NULL;
+                        ExecDirectoryType i;
+
+                        for (i = 0; i < _EXEC_DIRECTORY_MAX; i++)
+                                if (streq(name, exec_directory_type_to_string(i))) {
+                                        dirs = &c->directories[i].paths;
+                                        break;
+                                }
+
+                        assert(dirs);
 
                         if (strv_isempty(l)) {
-                                c->runtime_directory = strv_free(c->runtime_directory);
+                                *dirs = strv_free(*dirs);
                                 unit_write_drop_in_private_format(u, mode, name, "%s=", name);
                         } else {
-                                r = strv_extend_strv(&c->runtime_directory, l, true);
+                                r = strv_extend_strv(dirs, l, true);
 
                                 if (r < 0)
                                         return -ENOMEM;
 
-                                joined = strv_join_quoted(c->runtime_directory);
+                                joined = strv_join_quoted(*dirs);
                                 if (!joined)
                                         return -ENOMEM;
 

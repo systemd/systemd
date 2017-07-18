@@ -316,6 +316,9 @@ struct Manager {
         const char *invocation_log_format_string;
 
         int first_boot; /* tri-state */
+
+        /* prefixes of e.g. RuntimeDirectory= */
+        char *prefix[_EXEC_DIRECTORY_MAX];
 };
 
 #define MANAGER_IS_SYSTEM(m) ((m)->unit_file_scope == UNIT_FILE_SYSTEM)
@@ -380,7 +383,7 @@ void manager_flip_auto_status(Manager *m, bool enable);
 
 Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path);
 
-const char *manager_get_runtime_prefix(Manager *m);
+int manager_set_exec_params(Manager *m, ExecParameters *p);
 
 ManagerState manager_state(Manager *m);
 

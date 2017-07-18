@@ -36,6 +36,7 @@
 
 #include "sd-daemon.h"
 #include "sd-messages.h"
+#include "sd-path.h"
 
 #include "alloc-util.h"
 #include "audit-fd.h"
@@ -52,6 +53,7 @@
 #include "dirent-util.h"
 #include "env-util.h"
 #include "escape.h"
+#include "execute.h"
 #include "exec-util.h"
 #include "exit-status.h"
 #include "fd-util.h"
@@ -556,6 +558,48 @@ static int manager_default_environment(Manager *m) {
         return 0;
 }
 
+static int manager_setup_prefix(Manager *m) {
+        struct table_entry {
+                uint64_t type;
+                const char *suffix;
+        };
+
+        static const struct table_entry paths_system[_EXEC_DIRECTORY_MAX] = {
+                [EXEC_DIRECTORY_RUNTIME] = { SD_PATH_SYSTEM_RUNTIME, NULL },
+                [EXEC_DIRECTORY_STATE] = { SD_PATH_SYSTEM_STATE_PRIVATE, NULL },
+                [EXEC_DIRECTORY_CACHE] = { SD_PATH_SYSTEM_STATE_CACHE, NULL },
+                [EXEC_DIRECTORY_LOGS] = { SD_PATH_SYSTEM_STATE_LOGS, NULL },
+                [EXEC_DIRECTORY_CONFIGURATION] = { SD_PATH_SYSTEM_CONFIGURATION, NULL },
+        };
+
+        static const struct table_entry paths_user[_EXEC_DIRECTORY_MAX] = {
+                [EXEC_DIRECTORY_RUNTIME] = { SD_PATH_USER_RUNTIME, NULL },
+                [EXEC_DIRECTORY_STATE] = { SD_PATH_USER_CONFIGURATION, NULL },
+                [EXEC_DIRECTORY_CACHE] = { SD_PATH_SYSTEM_STATE_CACHE, NULL },
+                [EXEC_DIRECTORY_LOGS] = { SD_PATH_SYSTEM_CONFIGURATION, "log" },
+                [EXEC_DIRECTORY_CONFIGURATION] = { SD_PATH_SYSTEM_CONFIGURATION, NULL },
+        };
+
+        const struct table_entry *p;
+        ExecDirectoryType i;
+        int r;
+
+        assert(m);
+
+        if (MANAGER_IS_SYSTEM(m))
+                p = paths_system;
+        else
+                p = paths_user;
+
+        for (i = 0; i < _EXEC_DIRECTORY_MAX; i++) {
+                r = sd_path_home(p[i].type, p[i].suffix, &m->prefix[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int manager_new(UnitFileScope scope, bool test_run, Manager **_m) {
         Manager *m;
         int r;
@@ -672,6 +716,10 @@ int manager_new(UnitFileScope scope, bool test_run, Manager **_m) {
 
         m->taint_usr = dir_is_empty("/usr") > 0;
 
+        r = manager_setup_prefix(m);
+        if (r < 0)
+                goto fail;
+
         *_m = m;
         return 0;
 
@@ -692,7 +740,6 @@ static int manager_setup_notify(Manager *m) {
                         .sa.sa_family = AF_UNIX,
                 };
                 static const int one = 1;
-                const char *e;
 
                 /* First free all secondary fields */
                 m->notify_socket = mfree(m->notify_socket);
@@ -704,13 +751,7 @@ static int manager_setup_notify(Manager *m) {
 
                 fd_inc_rcvbuf(fd, NOTIFY_RCVBUF_SIZE);
 
-                e = manager_get_runtime_prefix(m);
-                if (!e) {
-                        log_error("Failed to determine runtime prefix.");
-                        return -EINVAL;
-                }
-
-                m->notify_socket = strappend(e, "/systemd/notify");
+                m->notify_socket = strappend(m->prefix[EXEC_DIRECTORY_RUNTIME], "/systemd/notify");
                 if (!m->notify_socket)
                         return log_oom();
 
@@ -3309,12 +3350,16 @@ Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path) {
         return hashmap_get(m->units_requiring_mounts_for, streq(p, "/") ? "" : p);
 }
 
-const char *manager_get_runtime_prefix(Manager *m) {
+int manager_set_exec_params(Manager *m, ExecParameters *p) {
         assert(m);
+        assert(p);
 
-        return MANAGER_IS_SYSTEM(m) ?
-               "/run" :
-               getenv("XDG_RUNTIME_DIR");
+        p->environment = m->environment;
+        p->confirm_spawn = manager_get_confirm_spawn(m);
+        p->cgroup_supported = m->cgroup_supported;
+        p->prefix = m->prefix;
+
+        return 0;
 }
 
 int manager_update_failed_units(Manager *m, Unit *u, bool failed) {

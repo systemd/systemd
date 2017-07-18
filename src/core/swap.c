@@ -630,18 +630,18 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
 
         r = unit_setup_dynamic_creds(UNIT(s));
         if (r < 0)
-                return r;
+                goto fail;
 
         r = swap_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_usec));
         if (r < 0)
                 goto fail;
 
-        exec_params.environment = UNIT(s)->manager->environment;
-        exec_params.confirm_spawn = manager_get_confirm_spawn(UNIT(s)->manager);
-        exec_params.cgroup_supported = UNIT(s)->manager->cgroup_supported;
+        r = manager_set_exec_params(UNIT(s)->manager, &exec_params);
+        if (r < 0)
+                goto fail;
+
         exec_params.cgroup_path = UNIT(s)->cgroup_path;
         exec_params.cgroup_delegate = s->cgroup_context.delegate;
-        exec_params.runtime_prefix = manager_get_runtime_prefix(UNIT(s)->manager);
 
         r = exec_spawn(UNIT(s),
                        c,
@@ -664,6 +664,7 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
 
 fail:
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+
         return r;
 }
 
@@ -678,7 +679,7 @@ static void swap_enter_dead(Swap *s, SwapResult f) {
         exec_runtime_destroy(s->exec_runtime);
         s->exec_runtime = exec_runtime_unref(s->exec_runtime);
 
-        exec_context_destroy_runtime_directory(&s->exec_context, manager_get_runtime_prefix(UNIT(s)->manager));
+        exec_context_destroy_runtime_directory(&s->exec_context, UNIT(s)->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
 
         unit_unref_uid_gid(UNIT(s), true);
 
