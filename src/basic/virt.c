@@ -46,6 +46,7 @@ static int detect_vm_cpuid(void) {
         } cpuid_vendor_table[] = {
                 { "XenVMMXenVMM", VIRTUALIZATION_XEN       },
                 { "KVMKVMKVM",    VIRTUALIZATION_KVM       },
+                { "TCGTCGTCGTCG", VIRTUALIZATION_QEMU      },
                 /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
                 { "VMwareVMware", VIRTUALIZATION_VMWARE    },
                 /* https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/reference/tlfs */
