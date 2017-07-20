@@ -2697,6 +2697,11 @@ dist_tmpfiles_DATA = \
 	tmpfiles.d/systemd-nspawn.conf \
 	tmpfiles.d/journal-nocow.conf
 
+if ENABLE_NETWORKD
+dist_tmpfiles_DATA += \
+	tmpfiles.d/systemd-networkd.conf
+endif
+
 if HAVE_SYSV_COMPAT
 dist_tmpfiles_DATA += \
 	tmpfiles.d/legacy.conf
