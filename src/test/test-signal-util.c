@@ -50,12 +50,12 @@ static void test_block_signals(void) {
 
 static void test_ignore_signals(void) {
         assert_se(ignore_signals(SIGINT, -1) >= 0);
-        assert_se(kill(getpid(), SIGINT) >= 0);
+        assert_se(kill(getpid_cached(), SIGINT) >= 0);
         assert_se(ignore_signals(SIGUSR1, SIGUSR2, SIGTERM, SIGPIPE, -1) >= 0);
-        assert_se(kill(getpid(), SIGUSR1) >= 0);
-        assert_se(kill(getpid(), SIGUSR2) >= 0);
-        assert_se(kill(getpid(), SIGTERM) >= 0);
-        assert_se(kill(getpid(), SIGPIPE) >= 0);
+        assert_se(kill(getpid_cached(), SIGUSR1) >= 0);
+        assert_se(kill(getpid_cached(), SIGUSR2) >= 0);
+        assert_se(kill(getpid_cached(), SIGTERM) >= 0);
+        assert_se(kill(getpid_cached(), SIGPIPE) >= 0);
         assert_se(default_signals(SIGINT, SIGUSR1, SIGUSR2, SIGTERM, SIGPIPE, -1) >= 0);
 }
 

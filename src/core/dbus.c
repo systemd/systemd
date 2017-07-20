@@ -967,7 +967,7 @@ static int bus_init_private(Manager *m) {
         if (MANAGER_IS_SYSTEM(m)) {
 
                 /* We want the private bus only when running as init */
-                if (getpid() != 1)
+                if (getpid_cached() != 1)
                         return 0;
 
                 strcpy(sa.un.sun_path, "/run/systemd/private");

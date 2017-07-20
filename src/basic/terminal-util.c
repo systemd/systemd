@@ -1220,7 +1220,7 @@ bool colors_enabled(void) {
                 val = getenv_bool("SYSTEMD_COLORS");
                 if (val >= 0)
                         enabled = val;
-                else if (getpid() == 1)
+                else if (getpid_cached() == 1)
                         /* PID1 outputs to the console without holding it open all the time */
                         enabled = !getenv_terminal_is_dumb();
                 else

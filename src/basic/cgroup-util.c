@@ -255,7 +255,7 @@ int cg_kill(
                         return -ENOMEM;
         }
 
-        my_pid = getpid();
+        my_pid = getpid_cached();
 
         do {
                 _cleanup_fclose_ FILE *f = NULL;
@@ -399,7 +399,7 @@ int cg_migrate(
         if (!s)
                 return -ENOMEM;
 
-        my_pid = getpid();
+        my_pid = getpid_cached();
 
         do {
                 _cleanup_fclose_ FILE *f = NULL;
@@ -825,7 +825,7 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
                 return r;
 
         if (pid == 0)
-                pid = getpid();
+                pid = getpid_cached();
 
         xsprintf(c, PID_FMT "\n", pid);
 

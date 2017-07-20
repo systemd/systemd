@@ -41,6 +41,7 @@
 #include "login-util.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "process-util.h"
 #include "socket-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -372,7 +373,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (debug)
                 pam_syslog(handle, LOG_DEBUG, "Asking logind to create session: "
                            "uid="UID_FMT" pid="PID_FMT" service=%s type=%s class=%s desktop=%s seat=%s vtnr=%"PRIu32" tty=%s display=%s remote=%s remote_user=%s remote_host=%s",
-                           pw->pw_uid, getpid(),
+                           pw->pw_uid, getpid_cached(),
                            strempty(service),
                            type, class, strempty(desktop),
                            strempty(seat), vtnr, strempty(tty), strempty(display),
@@ -387,7 +388,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                                &reply,
                                "uusssssussbssa(sv)",
                                (uint32_t) pw->pw_uid,
-                               (uint32_t) getpid(),
+                               (uint32_t) getpid_cached(),
                                service,
                                type,
                                class,

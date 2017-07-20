@@ -87,7 +87,7 @@ int pager_open(bool no_pager, bool jump_to_end) {
         if (pipe(fd) < 0)
                 return log_error_errno(errno, "Failed to create pager pipe: %m");
 
-        parent_pid = getpid();
+        parent_pid = getpid_cached();
 
         pager_pid = fork();
         if (pager_pid < 0)

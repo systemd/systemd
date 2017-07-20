@@ -174,7 +174,7 @@ static void event_free(struct event *event) {
 
         if (udev_list_node_is_empty(&event->manager->events)) {
                 /* only clean up the queue from the process that created it */
-                if (event->manager->pid == getpid()) {
+                if (event->manager->pid == getpid_cached()) {
                         r = unlink("/run/udev/queue");
                         if (r < 0)
                                 log_warning_errno(errno, "could not unlink /run/udev/queue: %m");
@@ -593,9 +593,9 @@ static int event_queue_insert(Manager *manager, struct udev_device *dev) {
 
         /* only one process can add events to the queue */
         if (manager->pid == 0)
-                manager->pid = getpid();
+                manager->pid = getpid_cached();
 
-        assert(manager->pid == getpid());
+        assert(manager->pid == getpid_cached());
 
         event = new0(struct event, 1);
         if (!event)

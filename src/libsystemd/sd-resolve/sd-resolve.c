@@ -459,7 +459,7 @@ static bool resolve_pid_changed(sd_resolve *r) {
         /* We don't support people creating a resolver and keeping it
          * around after fork(). Let's complain. */
 
-        return r->original_pid != getpid();
+        return r->original_pid != getpid_cached();
 }
 
 _public_ int sd_resolve_new(sd_resolve **ret) {
@@ -473,7 +473,7 @@ _public_ int sd_resolve_new(sd_resolve **ret) {
                 return -ENOMEM;
 
         resolve->n_ref = 1;
-        resolve->original_pid = getpid();
+        resolve->original_pid = getpid_cached();
 
         for (i = 0; i < _FD_MAX; i++)
                 resolve->fds[i] = -1;

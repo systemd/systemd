@@ -1593,7 +1593,7 @@ int unit_search_main_pid(Unit *u, pid_t *ret) {
         if (r < 0)
                 return r;
 
-        mypid = getpid();
+        mypid = getpid_cached();
         while (cg_read_pid(f, &npid) > 0)  {
                 pid_t ppid;
 

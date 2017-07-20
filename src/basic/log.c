@@ -84,7 +84,7 @@ void log_close_console(void) {
         if (console_fd < 0)
                 return;
 
-        if (getpid() == 1) {
+        if (getpid_cached() == 1) {
                 if (console_fd >= 3)
                         safe_close(console_fd);
 
@@ -140,7 +140,7 @@ static int create_log_socket(int type) {
         /* We need a blocking fd here since we'd otherwise lose
         messages way too early. However, let's not hang forever in the
         unlikely case of a deadlock. */
-        if (getpid() == 1)
+        if (getpid_cached() == 1)
                 timeval_store(&tv, 10 * USEC_PER_MSEC);
         else
                 timeval_store(&tv, 10 * USEC_PER_SEC);
@@ -248,7 +248,7 @@ int log_open(void) {
         }
 
         if (!IN_SET(log_target, LOG_TARGET_AUTO, LOG_TARGET_SAFE) ||
-            getpid() == 1 ||
+            getpid_cached() == 1 ||
             isatty(STDERR_FILENO) <= 0) {
 
                 if (IN_SET(log_target, LOG_TARGET_AUTO,
@@ -370,7 +370,7 @@ static int write_to_console(
 
         if (writev(console_fd, iovec, n) < 0) {
 
-                if (errno == EIO && getpid() == 1) {
+                if (errno == EIO && getpid_cached() == 1) {
 
                         /* If somebody tried to kick us from our
                          * console tty (via vhangup() or suchlike),
@@ -423,7 +423,7 @@ static int write_to_syslog(
         if (strftime(header_time, sizeof(header_time), "%h %e %T ", tm) <= 0)
                 return -EINVAL;
 
-        xsprintf(header_pid, "["PID_FMT"]: ", getpid());
+        xsprintf(header_pid, "["PID_FMT"]: ", getpid_cached());
 
         IOVEC_SET_STRING(iovec[0], header_priority);
         IOVEC_SET_STRING(iovec[1], header_time);
@@ -468,7 +468,7 @@ static int write_to_kmsg(
                 return 0;
 
         xsprintf(header_priority, "<%i>", level);
-        xsprintf(header_pid, "["PID_FMT"]: ", getpid());
+        xsprintf(header_pid, "["PID_FMT"]: ", getpid_cached());
 
         IOVEC_SET_STRING(iovec[0], header_priority);
         IOVEC_SET_STRING(iovec[1], program_invocation_short_name);
@@ -1189,7 +1189,7 @@ int log_syntax_internal(
         va_end(ap);
 
         if (unit)
-                unit_fmt = getpid() == 1 ? "UNIT=%s" : "USER_UNIT=%s";
+                unit_fmt = getpid_cached() == 1 ? "UNIT=%s" : "USER_UNIT=%s";
 
         return log_struct_internal(
                         LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, level),

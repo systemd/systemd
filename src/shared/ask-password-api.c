@@ -49,6 +49,7 @@
 #include "macro.h"
 #include "missing.h"
 #include "mkdir.h"
+#include "process-util.h"
 #include "random-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
@@ -519,7 +520,7 @@ int ask_password_agent(
                 "AcceptCached=%i\n"
                 "Echo=%i\n"
                 "NotAfter="USEC_FMT"\n",
-                getpid(),
+                getpid_cached(),
                 socket_name,
                 (flags & ASK_PASSWORD_ACCEPT_CACHED) ? 1 : 0,
                 (flags & ASK_PASSWORD_ECHO) ? 1 : 0,

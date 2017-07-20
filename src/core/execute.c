@@ -1099,7 +1099,7 @@ static int setup_pam(
 
         assert_se(sigprocmask_many(SIG_BLOCK, &old_ss, SIGTERM, -1) >= 0);
 
-        parent_pid = getpid();
+        parent_pid = getpid_cached();
 
         pam_pid = fork();
         if (pam_pid < 0) {
@@ -1506,7 +1506,7 @@ static int build_environment(
         if (n_fds > 0) {
                 _cleanup_free_ char *joined = NULL;
 
-                if (asprintf(&x, "LISTEN_PID="PID_FMT, getpid()) < 0)
+                if (asprintf(&x, "LISTEN_PID="PID_FMT, getpid_cached()) < 0)
                         return -ENOMEM;
                 our_env[n_env++] = x;
 
@@ -1525,7 +1525,7 @@ static int build_environment(
         }
 
         if ((p->flags & EXEC_SET_WATCHDOG) && p->watchdog_usec > 0) {
-                if (asprintf(&x, "WATCHDOG_PID="PID_FMT, getpid()) < 0)
+                if (asprintf(&x, "WATCHDOG_PID="PID_FMT, getpid_cached()) < 0)
                         return -ENOMEM;
                 our_env[n_env++] = x;
 
@@ -2564,7 +2564,7 @@ static int exec_child(
                 }
 
         if (context->utmp_id)
-                utmp_put_init_process(context->utmp_id, getpid(), getsid(0),
+                utmp_put_init_process(context->utmp_id, getpid_cached(), getsid(0),
                                       context->tty_path,
                                       context->utmp_mode == EXEC_UTMP_INIT  ? INIT_PROCESS :
                                       context->utmp_mode == EXEC_UTMP_LOGIN ? LOGIN_PROCESS :

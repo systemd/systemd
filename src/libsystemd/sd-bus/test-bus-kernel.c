@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
 
-        assert_se(asprintf(&name, "deine-mutter-%u", (unsigned) getpid()) >= 0);
+        assert_se(asprintf(&name, "deine-mutter-%u", (unsigned) getpid_cached()) >= 0);
 
         bus_ref = bus_kernel_create_bus(name, false, &bus_name);
         if (bus_ref == -ENOENT)

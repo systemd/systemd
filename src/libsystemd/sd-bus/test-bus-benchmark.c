@@ -276,7 +276,7 @@ int main(int argc, char *argv[]) {
         assert_se(arg_loop_usec > 0);
 
         if (type == TYPE_KDBUS) {
-                assert_se(asprintf(&name, "deine-mutter-%u", (unsigned) getpid()) >= 0);
+                assert_se(asprintf(&name, "deine-mutter-%u", (unsigned) getpid_cached()) >= 0);
 
                 bus_ref = bus_kernel_create_bus(name, false, &bus_name);
                 if (bus_ref == -ENOENT)

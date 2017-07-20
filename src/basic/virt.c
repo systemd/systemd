@@ -422,7 +422,7 @@ int detect_container(void) {
                 goto finish;
         }
 
-        if (getpid() == 1) {
+        if (getpid_cached() == 1) {
                 /* If we are PID 1 we can just check our own environment variable, and that's authoritative. */
 
                 e = getenv("container");
