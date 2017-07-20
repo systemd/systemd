@@ -11,7 +11,7 @@
  *
  */
 
-#ifdef SD_BOOT_LOG_TPM
+#ifdef ENABLE_TPM
 
 #include <efi.h>
 #include <efilib.h>

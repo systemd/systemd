@@ -155,7 +155,7 @@ $KERNEL_APPEND \
 run_nspawn() {
     [[ -d /run/systemd/system ]] || return 1
 
-    local _nspawn_cmd="../../systemd-nspawn --register=no --kill-signal=SIGKILL --directory=$TESTDIR/nspawn-root $ROOTLIBDIR/systemd $KERNEL_APPEND"
+    local _nspawn_cmd="$BUILD_DIR/systemd-nspawn --register=no --kill-signal=SIGKILL --directory=$TESTDIR/nspawn-root $ROOTLIBDIR/systemd $KERNEL_APPEND"
     if [[ "$NSPAWN_TIMEOUT" != "infinity" ]]; then
         _nspawn_cmd="timeout --foreground $NSPAWN_TIMEOUT $_nspawn_cmd"
     fi
@@ -317,7 +317,7 @@ install_dmevent() {
 
 install_systemd() {
     # install compiled files
-    (cd $TEST_BASE_DIR/..; set -x; make DESTDIR=$initdir install)
+    (set -x; DESTDIR=$initdir ninja -C $BUILD_DIR install)
     # remove unneeded documentation
     rm -fr $initdir/usr/share/{man,doc}
     # we strip binaries since debug symbols increase binaries size a lot
@@ -396,7 +396,7 @@ EOF
 install_execs() {
     ddebug "install any Execs from the service files"
     (
-    export PKG_CONFIG_PATH=$TEST_BASE_DIR/../src/core/
+    export PKG_CONFIG_PATH=$BUILD_DIR/src/core/
     systemdsystemunitdir=$(pkg-config --variable=systemdsystemunitdir systemd)
     systemduserunitdir=$(pkg-config --variable=systemduserunitdir systemd)
     egrep -ho '^Exec[^ ]*=[^ ]+' $initdir/{$systemdsystemunitdir,$systemduserunitdir}/*.service \

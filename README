@@ -8,9 +8,6 @@ WEB SITE:
 
 GIT:
         git@github.com:systemd/systemd.git
-        https://github.com/systemd/systemd.git
-
-GITWEB:
         https://github.com/systemd/systemd
 
 MAILING LIST:
@@ -145,7 +142,13 @@ REQUIREMENTS:
         libpython (optional)
         libidn2 or libidn (optional)
         elfutils >= 158 (optional)
-        make, gcc, and similar tools
+        pkg-config
+        gperf >= 3.1
+        docbook-xsl (optional, required for documentation)
+        xsltproc    (optional, required for documentation)
+        python-lxml (optional, required to build the indices)
+        python, meson, ninja
+        gcc, awk, sed, grep, m4, and similar tools
 
         During runtime, you need the following additional
         dependencies:
@@ -156,18 +159,6 @@ REQUIREMENTS:
                 policy directory (--with-dbuspolicydir=/etc/dbus-1/system.d).
         dracut (optional)
         PolicyKit (optional)
-
-        Two build systems are supported: meson + ninja-build and autools + make.
-
-        The following tools are needed with both systems:
-
-        pkg-config
-        gperf >= 3.1
-        docbook-xsl (optional, required for documentation)
-        xsltproc    (optional, required for documentation)
-        python-lxml (optional, required to build the indices)
-
-        When building with meson, python and ninja-build are required.
 
         To build in directory build/:
           meson build/ && ninja -C build
@@ -185,19 +176,7 @@ REQUIREMENTS:
           sudo ninja install
           DESTDIR=... ninja install
 
-        When building with autotools, the following tools are needed:
-
-        automake
-        autoconf
-        libtool
-        intltool
-        python (optional)
-
-        The build system is initialized with ./autogen.sh and the usual
-          ./configure && make
-        should be used.
-
-        A tar ball can be created with:
+        A tarball can be created with:
           git archive --format=tar --prefix=systemd-222/ v222 | xz > systemd-222.tar.xz
 
         When systemd-hostnamed is used, it is strongly recommended to

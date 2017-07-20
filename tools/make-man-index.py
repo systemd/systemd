@@ -22,7 +22,7 @@
 import collections
 import sys
 import re
-from xml_helper import *
+from xml_helper import xml_parse, xml_print, tree
 
 MDASH = ' — ' if sys.version_info.major >= 3 else ' -- '
 
