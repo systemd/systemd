@@ -2836,7 +2836,7 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
         }
 
         if (!ucred || ucred->pid != inner_child_pid) {
-                log_warning("Received notify message without valid credentials. Ignoring.");
+                log_debug("Received notify message without valid credentials. Ignoring.");
                 return 0;
         }
 
