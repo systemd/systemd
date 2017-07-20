@@ -157,7 +157,7 @@ static int service_set_main_pid(Service *s, pid_t pid) {
         if (pid <= 1)
                 return -EINVAL;
 
-        if (pid == getpid())
+        if (pid == getpid_cached())
                 return -EINVAL;
 
         if (s->main_pid == pid && s->main_pid_known)
@@ -171,7 +171,7 @@ static int service_set_main_pid(Service *s, pid_t pid) {
         s->main_pid = pid;
         s->main_pid_known = true;
 
-        if (get_process_ppid(pid, &ppid) >= 0 && ppid != getpid()) {
+        if (get_process_ppid(pid, &ppid) >= 0 && ppid != getpid_cached()) {
                 log_unit_warning(UNIT(s), "Supervising process "PID_FMT" which is not our child. We'll most likely not notice when it exits.", pid);
                 s->main_pid_alien = true;
         } else
@@ -1283,7 +1283,7 @@ static int service_spawn(
                         return -ENOMEM;
 
         if (MANAGER_IS_USER(UNIT(s)->manager))
-                if (asprintf(our_env + n_env++, "MANAGERPID="PID_FMT, getpid()) < 0)
+                if (asprintf(our_env + n_env++, "MANAGERPID="PID_FMT, getpid_cached()) < 0)
                         return -ENOMEM;
 
         if (s->socket_fd >= 0) {
@@ -3284,7 +3284,7 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
                         log_unit_warning(u, "Failed to parse MAINPID= field in notification message: %s", e);
                 else if (pid == s->control_pid)
                         log_unit_warning(u, "A control process cannot also be the main process");
-                else if (pid == getpid() || pid == 1)
+                else if (pid == getpid_cached() || pid == 1)
                         log_unit_warning(u, "Service manager can't be main process, ignoring sd_notify() MAINPID= field");
                 else {
                         service_set_main_pid(s, pid);

@@ -811,7 +811,7 @@ int main(int argc, char **argv) {
                 goto cleanup;
 
         log_debug("%s running as pid "PID_FMT,
-                  program_invocation_short_name, getpid());
+                  program_invocation_short_name, getpid_cached());
 
         use_journal = optind >= argc;
         if (use_journal) {

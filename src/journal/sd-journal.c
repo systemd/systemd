@@ -69,7 +69,7 @@ static bool journal_pid_changed(sd_journal *j) {
         /* We don't support people creating a journal object and
          * keeping it around over a fork(). Let's complain. */
 
-        return j->original_pid != getpid();
+        return j->original_pid != getpid_cached();
 }
 
 static int journal_put_error(sd_journal *j, int r, const char *path) {
@@ -1715,7 +1715,7 @@ static sd_journal *journal_new(int flags, const char *path) {
         if (!j)
                 return NULL;
 
-        j->original_pid = getpid();
+        j->original_pid = getpid_cached();
         j->toplevel_fd = -1;
         j->inotify_fd = -1;
         j->flags = flags;

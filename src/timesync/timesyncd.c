@@ -25,6 +25,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "network-util.h"
+#include "process-util.h"
 #include "signal-util.h"
 #include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
@@ -138,7 +139,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        log_debug("systemd-timesyncd running as pid " PID_FMT, getpid());
+        log_debug("systemd-timesyncd running as pid " PID_FMT, getpid_cached());
         sd_notify(false,
                   "READY=1\n"
                   "STATUS=Daemon is running");

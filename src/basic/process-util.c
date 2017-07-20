@@ -814,7 +814,7 @@ bool is_main_thread(void) {
         static thread_local int cached = 0;
 
         if (_unlikely_(cached == 0))
-                cached = getpid() == gettid() ? 1 : -1;
+                cached = getpid_cached() == gettid() ? 1 : -1;
 
         return cached > 0;
 }
@@ -878,7 +878,7 @@ const char* personality_to_string(unsigned long p) {
 
 void valgrind_summary_hack(void) {
 #ifdef HAVE_VALGRIND_VALGRIND_H
-        if (getpid() == 1 && RUNNING_ON_VALGRIND) {
+        if (getpid_cached() == 1 && RUNNING_ON_VALGRIND) {
                 pid_t pid;
                 pid = raw_clone(SIGCHLD);
                 if (pid < 0)

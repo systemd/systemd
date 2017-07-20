@@ -70,7 +70,7 @@ _public_ int sd_listen_fds(int unset_environment) {
                 goto finish;
 
         /* Is this for us? */
-        if (getpid() != pid) {
+        if (getpid_cached() != pid) {
                 r = 0;
                 goto finish;
         }
@@ -518,7 +518,7 @@ _public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char
 
         msghdr.msg_namelen = SOCKADDR_UN_LEN(sockaddr.un);
 
-        have_pid = pid != 0 && pid != getpid();
+        have_pid = pid != 0 && pid != getpid_cached();
 
         if (n_fds > 0 || have_pid) {
                 /* CMSG_SPACE(0) may return value different than zero, which results in miscalculated controllen. */
@@ -659,7 +659,7 @@ _public_ int sd_watchdog_enabled(int unset_environment, uint64_t *usec) {
                         goto finish;
 
                 /* Is this for us? */
-                if (getpid() != pid) {
+                if (getpid_cached() != pid) {
                         r = 0;
                         goto finish;
                 }

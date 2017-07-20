@@ -44,7 +44,7 @@ static int sd_netlink_new(sd_netlink **ret) {
         rtnl->n_ref = REFCNT_INIT;
         rtnl->fd = -1;
         rtnl->sockaddr.nl.nl_family = AF_NETLINK;
-        rtnl->original_pid = getpid();
+        rtnl->original_pid = getpid_cached();
 
         LIST_HEAD_INIT(rtnl->match_callbacks);
 
@@ -99,7 +99,7 @@ static bool rtnl_pid_changed(sd_netlink *rtnl) {
         /* We don't support people creating an rtnl connection and
          * keeping it around over a fork(). Let's complain. */
 
-        return rtnl->original_pid != getpid();
+        return rtnl->original_pid != getpid_cached();
 }
 
 int sd_netlink_open_fd(sd_netlink **ret, int fd) {

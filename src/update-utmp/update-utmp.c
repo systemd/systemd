@@ -33,6 +33,7 @@
 #include "format-util.h"
 #include "log.h"
 #include "macro.h"
+#include "process-util.h"
 #include "special.h"
 #include "strv.h"
 #include "unit-name.h"
@@ -258,7 +259,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        log_debug("systemd-update-utmp running as pid "PID_FMT, getpid());
+        log_debug("systemd-update-utmp running as pid "PID_FMT, getpid_cached());
 
         if (streq(argv[1], "reboot"))
                 r = on_reboot(&c);
@@ -271,7 +272,7 @@ int main(int argc, char *argv[]) {
                 r = -EINVAL;
         }
 
-        log_debug("systemd-update-utmp stopped as pid "PID_FMT, getpid());
+        log_debug("systemd-update-utmp stopped as pid "PID_FMT, getpid_cached());
 
 finish:
 #ifdef HAVE_AUDIT

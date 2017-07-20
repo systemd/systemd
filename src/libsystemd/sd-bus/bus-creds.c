@@ -165,7 +165,7 @@ _public_ int sd_bus_creds_new_from_pid(sd_bus_creds **ret, pid_t pid, uint64_t m
         assert_return(ret, -EINVAL);
 
         if (pid == 0)
-                pid = getpid();
+                pid = getpid_cached();
 
         c = bus_creds_new();
         if (!c)

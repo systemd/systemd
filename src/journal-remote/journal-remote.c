@@ -86,7 +86,7 @@ static int spawn_child(const char* child, char** argv) {
         if (pipe(fd) < 0)
                 return log_error_errno(errno, "Failed to create pager pipe: %m");
 
-        parent_pid = getpid();
+        parent_pid = getpid_cached();
 
         child_pid = fork();
         if (child_pid < 0) {
@@ -1564,7 +1564,7 @@ int main(int argc, char **argv) {
                 log_debug("Watchdog is %sd.", enable_disable(r > 0));
 
         log_debug("%s running as pid "PID_FMT,
-                  program_invocation_short_name, getpid());
+                  program_invocation_short_name, getpid_cached());
         sd_notify(false,
                   "READY=1\n"
                   "STATUS=Processing requests...");

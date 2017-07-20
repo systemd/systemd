@@ -590,7 +590,7 @@ static void automount_enter_waiting(Automount *a) {
         }
 
         xsprintf(options, "fd=%i,pgrp="PID_FMT",minproto=5,maxproto=5,direct", p[1], getpgrp());
-        xsprintf(name, "systemd-"PID_FMT, getpid());
+        xsprintf(name, "systemd-"PID_FMT, getpid_cached());
         if (mount(name, a->where, "autofs", 0, options) < 0) {
                 r = -errno;
                 goto fail;

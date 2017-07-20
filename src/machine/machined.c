@@ -34,6 +34,7 @@
 #include "label.h"
 #include "machine-image.h"
 #include "machined.h"
+#include "process-util.h"
 #include "signal-util.h"
 
 Manager *manager_new(void) {
@@ -398,7 +399,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        log_debug("systemd-machined running as pid "PID_FMT, getpid());
+        log_debug("systemd-machined running as pid "PID_FMT, getpid_cached());
 
         sd_notify(false,
                   "READY=1\n"
@@ -406,7 +407,7 @@ int main(int argc, char *argv[]) {
 
         r = manager_run(m);
 
-        log_debug("systemd-machined stopped as pid "PID_FMT, getpid());
+        log_debug("systemd-machined stopped as pid "PID_FMT, getpid_cached());
 
 finish:
         manager_free(m);

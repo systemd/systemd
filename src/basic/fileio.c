@@ -41,6 +41,7 @@
 #include "missing.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "random-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -1399,7 +1400,7 @@ int open_serialization_fd(const char *ident) {
         if (fd < 0) {
                 const char *path;
 
-                path = getpid() == 1 ? "/run/systemd" : "/tmp";
+                path = getpid_cached() == 1 ? "/run/systemd" : "/tmp";
                 fd = open_tmpfile_unlinkable(path, O_RDWR|O_CLOEXEC);
                 if (fd < 0)
                         return fd;

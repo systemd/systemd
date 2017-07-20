@@ -48,6 +48,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
+#include "process-util.h"
 #include "selinux-util.h"
 #include "smack-util.h"
 #include "stat-util.h"
@@ -164,7 +165,7 @@ static int condition_test_user(Condition *c) {
         if (streq(username, c->parameter))
                 return 1;
 
-        if (getpid() == 1)
+        if (getpid_cached() == 1)
                 return streq(c->parameter, "root");
 
         u = c->parameter;
@@ -188,7 +189,7 @@ static int condition_test_group(Condition *c) {
                 return in_gid(id);
 
         /* Avoid any NSS lookups if we are PID1 */
-        if (getpid() == 1)
+        if (getpid_cached() == 1)
                 return streq(c->parameter, "root");
 
         return in_group(c->parameter) > 0;

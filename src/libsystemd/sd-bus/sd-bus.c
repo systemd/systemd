@@ -187,7 +187,7 @@ _public_ int sd_bus_new(sd_bus **ret) {
         r->creds_mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_UNIQUE_NAME;
         r->hello_flags |= KDBUS_HELLO_ACCEPT_FD;
         r->attach_flags |= KDBUS_ATTACH_NAMES;
-        r->original_pid = getpid();
+        r->original_pid = getpid_cached();
 
         assert_se(pthread_mutex_init(&r->memfd_cache_mutex, NULL) == 0);
 
@@ -3131,7 +3131,7 @@ bool bus_pid_changed(sd_bus *bus) {
         /* We don't support people creating a bus connection and
          * keeping it around over a fork(). Let's complain. */
 
-        return bus->original_pid != getpid();
+        return bus->original_pid != getpid_cached();
 }
 
 static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {

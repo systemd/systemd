@@ -1095,7 +1095,7 @@ void server_driver_message(Server *s, const char *message_id, const char *format
         /* Error handling below */
         va_end(ap);
 
-        ucred.pid = getpid();
+        ucred.pid = getpid_cached();
         ucred.uid = getuid();
         ucred.gid = getgid();
 

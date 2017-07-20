@@ -170,7 +170,7 @@ int main(int argc, char *argv[]) {
         if (argc == 3)
                 (void) safe_atozu(argv[2], &arg_start);
         else
-                arg_start = getpid();
+                arg_start = getpid_cached();
 
         NULSTR_FOREACH(i, "zeros\0simple\0random\0") {
 #ifdef HAVE_XZ

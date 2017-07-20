@@ -99,7 +99,7 @@ static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned 
                  * let's fix it as good as we can, and retry */
 
                 u = *ucred;
-                u.pid = getpid();
+                u.pid = getpid_cached();
                 memcpy(CMSG_DATA(cmsg), &u, sizeof(struct ucred));
 
                 if (sendmsg(s->syslog_fd, &msghdr, MSG_NOSIGNAL) >= 0)

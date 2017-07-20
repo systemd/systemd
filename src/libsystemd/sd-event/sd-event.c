@@ -436,7 +436,7 @@ _public_ int sd_event_new(sd_event** ret) {
         e->watchdog_fd = e->epoll_fd = e->realtime.fd = e->boottime.fd = e->monotonic.fd = e->realtime_alarm.fd = e->boottime_alarm.fd = -1;
         e->realtime.next = e->boottime.next = e->monotonic.next = e->realtime_alarm.next = e->boottime_alarm.next = USEC_INFINITY;
         e->realtime.wakeup = e->boottime.wakeup = e->monotonic.wakeup = e->realtime_alarm.wakeup = e->boottime_alarm.wakeup = WAKEUP_CLOCK_DATA;
-        e->original_pid = getpid();
+        e->original_pid = getpid_cached();
         e->perturb = USEC_INFINITY;
 
         r = prioq_ensure_allocated(&e->pending, pending_prioq_compare);
@@ -493,7 +493,7 @@ static bool event_pid_changed(sd_event *e) {
         /* We don't support people creating an event loop and keeping
          * it around over a fork(). Let's complain. */
 
-        return e->original_pid != getpid();
+        return e->original_pid != getpid_cached();
 }
 
 static void source_io_unregister(sd_event_source *s) {

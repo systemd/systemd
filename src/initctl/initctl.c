@@ -388,7 +388,7 @@ int main(int argc, char *argv[]) {
         if (server_init(&server, (unsigned) n) < 0)
                 return EXIT_FAILURE;
 
-        log_debug("systemd-initctl running as pid "PID_FMT, getpid());
+        log_debug("systemd-initctl running as pid "PID_FMT, getpid_cached());
 
         sd_notify(false,
                   "READY=1\n"
@@ -415,7 +415,7 @@ int main(int argc, char *argv[]) {
 
         r = EXIT_SUCCESS;
 
-        log_debug("systemd-initctl stopped as pid "PID_FMT, getpid());
+        log_debug("systemd-initctl stopped as pid "PID_FMT, getpid_cached());
 
 fail:
         sd_notify(false,

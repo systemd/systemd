@@ -180,7 +180,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (getpid() != 1) {
+        if (getpid_cached() != 1) {
                 log_error("Not executed by init (PID 1).");
                 r = -EPERM;
                 goto error;

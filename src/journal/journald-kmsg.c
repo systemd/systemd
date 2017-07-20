@@ -106,7 +106,7 @@ static bool is_us(const char *pid) {
         if (parse_pid(pid, &t) < 0)
                 return false;
 
-        return t == getpid();
+        return t == getpid_cached();
 }
 
 static void dev_kmsg_record(Server *s, const char *p, size_t l) {
