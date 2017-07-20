@@ -558,7 +558,7 @@ bool nulstr_contains(const char *nulstr, const char *needle) {
 char* strshorten(char *s, size_t l) {
         assert(s);
 
-        if (l < strlen(s))
+        if (strnlen(s, l+1) > l)
                 s[l] = 0;
 
         return s;
