@@ -709,6 +709,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnIBM*:pn18666TU:pvr*
 
 # IdeaPad
 evdev:name:Ideapad extra buttons:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*
+ KEYBOARD_KEY_0d=rfkill                                 # airplane mode switch (toggle all wireless devices)
+ KEYBOARD_KEY_08=f20                                    # micmute
  KEYBOARD_KEY_42=f23
  KEYBOARD_KEY_43=f22
 
