@@ -25,9 +25,10 @@
 [ -z "$BUILDDIR" ] && BUILDDIR=build
 
 export LC_CTYPE=C.UTF-8
-test -f "$BUILDDIR"/build.ninja || meson "$BUILDDIR"
+
+[ -f "$BUILDDIR"/build.ninja ] || meson "$BUILDDIR"
 ninja -C "$BUILDDIR" all
-ninja -C "$BUILDDIR" test
+[ "$WITH_TESTS" = 0 ] || ninja -C "$BUILDDIR" test
 ninja -C "$BUILDDIR" install
 
 mkdir -p "$DESTDIR"/etc
