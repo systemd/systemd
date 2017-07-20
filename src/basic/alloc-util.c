@@ -25,16 +25,31 @@
 #include "util.h"
 
 void* memdup(const void *p, size_t l) {
-        void *r;
+        void *ret;
 
-        assert(p);
+        assert(l == 0 || p);
 
-        r = malloc(l);
-        if (!r)
+        ret = malloc(l);
+        if (!ret)
                 return NULL;
 
-        memcpy(r, p, l);
-        return r;
+        memcpy(ret, p, l);
+        return ret;
+}
+
+void* memdup_suffix0(const void*p, size_t l) {
+        void *ret;
+
+        assert(l == 0 || p);
+
+        /* The same as memdup() but place a safety NUL byte after the allocated memory */
+
+        ret = malloc(l + 1);
+        if (!ret)
+                return NULL;
+
+        *((uint8_t*) mempcpy(ret, p, l)) = 0;
+        return ret;
 }
 
 void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size) {

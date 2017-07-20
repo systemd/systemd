@@ -95,12 +95,11 @@ static int parse_field(const void *data, size_t length, const char *field, char 
                 return 0;
 
         nl = length - fl;
-        buf = new(char, nl+1);
+
+
+        buf = newdup_suffix0(char, (const char*) data + fl, nl);
         if (!buf)
                 return log_oom();
-
-        memcpy(buf, (const char*) data + fl, nl);
-        buf[nl] = 0;
 
         free(*target);
         *target = buf;
