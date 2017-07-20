@@ -410,6 +410,61 @@ static void test_rename_process(void) {
         test_rename_process_one("1234567", 1); /* should always fit */
 }
 
+static void test_getpid_cached(void) {
+        siginfo_t si;
+        pid_t a, b, c, d, e, f, child;
+
+        a = raw_getpid();
+        b = getpid_cached();
+        c = getpid();
+
+        assert_se(a == b && a == c);
+
+        child = fork();
+        assert_se(child >= 0);
+
+        if (child == 0) {
+                /* In child */
+                a = raw_getpid();
+                b = getpid_cached();
+                c = getpid();
+
+                assert_se(a == b && a == c);
+                _exit(0);
+        }
+
+        d = raw_getpid();
+        e = getpid_cached();
+        f = getpid();
+
+        assert_se(a == d && a == e && a == f);
+
+        assert_se(wait_for_terminate(child, &si) >= 0);
+        assert_se(si.si_status == 0);
+        assert_se(si.si_code == CLD_EXITED);
+}
+
+#define MEASURE_ITERATIONS (10000000LLU)
+
+static void test_getpid_measure(void) {
+        unsigned long long i;
+        usec_t t, q;
+
+        t = now(CLOCK_MONOTONIC);
+        for (i = 0; i < MEASURE_ITERATIONS; i++)
+                (void) getpid();
+        q = now(CLOCK_MONOTONIC) - t;
+
+        log_info(" glibc getpid(): %llu/s\n", (unsigned long long) (MEASURE_ITERATIONS*USEC_PER_SEC/q));
+
+        t = now(CLOCK_MONOTONIC);
+        for (i = 0; i < MEASURE_ITERATIONS; i++)
+                (void) getpid_cached();
+        q = now(CLOCK_MONOTONIC) - t;
+
+        log_info("getpid_cached(): %llu/s\n", (unsigned long long) (MEASURE_ITERATIONS*USEC_PER_SEC/q));
+}
+
 int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
@@ -434,6 +489,8 @@ int main(int argc, char *argv[]) {
         test_personality();
         test_get_process_cmdline_harder();
         test_rename_process();
+        test_getpid_cached();
+        test_getpid_measure();
 
         return 0;
 }

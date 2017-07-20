@@ -922,6 +922,68 @@ int ioprio_parse_priority(const char *s, int *ret) {
         return 0;
 }
 
+/* The cached PID, possible values:
+ *
+ *     == UNSET [0]  → cache not initialized yet
+ *     == BUSY [-1]  → some thread is initializing it at the moment
+ *     any other     → the cached PID
+ */
+
+#define CACHED_PID_UNSET ((pid_t) 0)
+#define CACHED_PID_BUSY ((pid_t) -1)
+
+static pid_t cached_pid = CACHED_PID_UNSET;
+
+static void reset_cached_pid(void) {
+        /* Invoked in the child after a fork(), i.e. at the first moment the PID changed */
+        cached_pid = CACHED_PID_UNSET;
+}
+
+/* We use glibc __register_atfork() + __dso_handle directly here, as they are not included in the glibc
+ * headers. __register_atfork() is mostly equivalent to pthread_atfork(), but doesn't require us to link against
+ * libpthread, as it is part of glibc anyway. */
+extern int __register_atfork(void (*prepare) (void), void (*parent) (void), void (*child) (void), void * __dso_handle);
+extern void* __dso_handle __attribute__ ((__weak__));
+
+pid_t getpid_cached(void) {
+        pid_t current_value;
+
+        /* getpid_cached() is much like getpid(), but caches the value in local memory, to avoid having to invoke a
+         * system call each time. This restores glibc behaviour from before 2.24, when getpid() was unconditionally
+         * cached. Starting with 2.24 getpid() started to become prohibitively expensive when used for detecting when
+         * objects were used across fork()s. With this caching the old behaviour is somewhat restored.
+         *
+         * https://bugzilla.redhat.com/show_bug.cgi?id=1443976
+         * https://sourceware.org/git/gitweb.cgi?p=glibc.git;h=1d2bc2eae969543b89850e35e532f3144122d80a
+         */
+
+        current_value = __sync_val_compare_and_swap(&cached_pid, CACHED_PID_UNSET, CACHED_PID_BUSY);
+
+        switch (current_value) {
+
+        case CACHED_PID_UNSET: { /* Not initialized yet, then do so now */
+                pid_t new_pid;
+
+                new_pid = getpid();
+
+                if (__register_atfork(NULL, NULL, reset_cached_pid, __dso_handle) != 0) {
+                        /* OOM? Let's try again later */
+                        cached_pid = CACHED_PID_UNSET;
+                        return new_pid;
+                }
+
+                cached_pid = new_pid;
+                return new_pid;
+        }
+
+        case CACHED_PID_BUSY: /* Somebody else is currently initializing */
+                return getpid();
+
+        default: /* Properly initialized */
+                return current_value;
+        }
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

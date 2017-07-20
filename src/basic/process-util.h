@@ -119,3 +119,5 @@ static inline bool ioprio_priority_is_valid(int i) {
 }
 
 int ioprio_parse_priority(const char *s, int *ret);
+
+pid_t getpid_cached(void);
