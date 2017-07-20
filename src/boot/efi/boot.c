@@ -1611,6 +1611,72 @@ static VOID config_entry_add_linux( Config *config, EFI_LOADED_IMAGE *loaded_ima
         }
 }
 
+#ifdef SD_BOOT_LOG_TPM
+static EFI_STATUS measure_loaded_image(EFI_LOADED_IMAGE *loaded_image, const ConfigEntry *entry) {
+        UINTN i, j;
+        UINTN options_length, initrd_path_len, initrd_buffer_len;
+        CHAR16 *begin, *end, *options, *initrd_path;
+        CHAR8 *initrd_buffer;
+        EFI_STATUS err;
+        EFI_FILE* root_dir;
+
+        err = EFI_SUCCESS;
+
+        root_dir = LibOpenRoot(entry->device);
+        /* bail if we could not determine root dir,
+           this should not happen as we likely used it in main */
+        if (!root_dir)
+                return EFI_LOAD_ERROR;
+
+        options = loaded_image->LoadOptions;
+
+        options_length = StrLen(options);
+        for (i = 0; i < options_length; i++) {
+                if (StrnCmp(L"initrd=", &options[i], 7) == 0) {
+                        begin = &options[i + 7];
+                        /* look for the end of the option */
+                        for (j = i + 7; j < options_length && options[j] != L' '; j++) {}
+                        end = &options[j];
+                        initrd_path_len = (end - begin) * sizeof(CHAR16);
+
+                        initrd_path = AllocateZeroPool(initrd_path_len + sizeof(CHAR16));
+                        CopyMem(initrd_path, begin, initrd_path_len);
+
+                        initrd_buffer = NULL;
+
+                        initrd_buffer_len = file_read(root_dir, initrd_path, 0, 0, &initrd_buffer);
+                        /* only measure initrd if it was read successfully */
+                        if (initrd_buffer_len > 0 && initrd_buffer)
+                                err = tpm_log_event(SD_TPM_PCR,
+                                                    (EFI_PHYSICAL_ADDRESS) initrd_buffer,
+                                                    initrd_buffer_len, initrd_path);
+
+                        FreePool(initrd_path);
+
+                        if (initrd_buffer)
+                                FreePool(initrd_buffer);
+
+                        if (EFI_ERROR(err))
+                                return err;
+
+                        /* skip "initrd=" + path */
+                        i += 7 + (end - begin);
+                }
+        }
+
+        uefi_call_wrapper(root_dir->Close, 1, root_dir);
+
+        /* Try to log any options to the TPM, especially to catch manually edited options */
+        err = tpm_log_event(SD_TPM_PCR,
+                            (EFI_PHYSICAL_ADDRESS) loaded_image->LoadOptions,
+                            loaded_image->LoadOptionsSize, loaded_image->LoadOptions);
+        if (EFI_ERROR(err))
+                return err;
+
+        return EFI_SUCCESS;
+}
+#endif
+
 static EFI_STATUS image_start(EFI_HANDLE parent_image, const Config *config, const ConfigEntry *entry) {
         EFI_HANDLE image;
         EFI_DEVICE_PATH *path;
@@ -1651,12 +1717,9 @@ static EFI_STATUS image_start(EFI_HANDLE parent_image, const Config *config, con
                 loaded_image->LoadOptionsSize = (StrLen(loaded_image->LoadOptions)+1) * sizeof(CHAR16);
 
 #ifdef SD_BOOT_LOG_TPM
-                /* Try to log any options to the TPM, especially to catch manually edited options */
-                err = tpm_log_event(SD_TPM_PCR,
-                                    (EFI_PHYSICAL_ADDRESS) loaded_image->LoadOptions,
-                                    loaded_image->LoadOptionsSize, loaded_image->LoadOptions);
+                err = measure_loaded_image(loaded_image, entry);
                 if (EFI_ERROR(err)) {
-                        Print(L"Unable to add image options measurement: %r", err);
+                        Print(L"Unable to add TPM measurement: %r", err);
                         uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
                         return err;
                 }
