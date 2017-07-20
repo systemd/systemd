@@ -6081,6 +6081,46 @@ EXTRA_DIST += \
 	test/test-exec-deserialization.py
 
 # ------------------------------------------------------------------------------
+if ENABLE_JOURNALD_DBUS
+systemd_journald_dbus_SOURCES = \
+	src/journal/journald-dbus.c
+
+systemd_journald_dbus_LDADD = \
+	libsystemd-shared.la
+
+rootlibexec_PROGRAMS += \
+	systemd-journald-dbus
+
+nodist_systemunit_DATA += \
+	units/systemd-journald-dbus.service
+
+dist_systemunit_DATA_busnames += \
+	units/org.freedesktop.journal1.busname
+
+dist_dbuspolicy_DATA += \
+	src/journal/org.freedesktop.journal1.conf
+
+dist_dbussystemservice_DATA += \
+	src/journal/org.freedesktop.journal1.service
+
+polkitpolicy_files += \
+	src/journal/org.freedesktop.journal1.policy
+
+SYSTEM_UNIT_ALIASES += \
+	systemd-journald-dbus.service dbus-org.freedesktop.journal1.service
+
+BUSNAMES_TARGET_WANTS += \
+	org.freedesktop.journal1.busname
+
+endif
+
+polkitpolicy_in_files += \
+	src/journal/org.freedesktop.journal1.policy.in
+
+EXTRA_DIST += \
+	units/systemd-journald-dbus.service.in
+
+# ------------------------------------------------------------------------------
 if ENABLE_LOGIND
 systemd_logind_SOURCES = \
 	src/login/logind.c \
