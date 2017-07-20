@@ -390,7 +390,7 @@ static void test_condition_test_user(void) {
         assert_se(condition);
         r = condition_test(condition);
         log_info("ConditionUser=@system → %i", r);
-        if (geteuid() == 0)
+        if (getuid() < SYSTEM_UID_MAX || geteuid() < SYSTEM_UID_MAX)
                 assert_se(r > 0);
         else
                 assert_se(r == 0);
