@@ -215,7 +215,7 @@ char *strnappend(const char *s, const char *suffix, size_t b) {
 }
 
 char *strappend(const char *s, const char *suffix) {
-        return strnappend(s, suffix, suffix ? strlen(suffix) : 0);
+        return strnappend(s, suffix, strlen_ptr(suffix));
 }
 
 char *strjoin_real(const char *x, ...) {
@@ -707,7 +707,7 @@ char *strextend(char **x, ...) {
 
         assert(x);
 
-        l = f = *x ? strlen(*x) : 0;
+        l = f = strlen_ptr(*x);
 
         va_start(ap, x);
         for (;;) {

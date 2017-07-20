@@ -336,6 +336,12 @@ static void test_first_word(void) {
         assert_se(!first_word("Hellooo", "Hello"));
 }
 
+static void test_strlen_ptr(void) {
+        assert_se(strlen_ptr("foo") == 3);
+        assert_se(strlen_ptr("") == 0);
+        assert_se(strlen_ptr(NULL) == 0);
+}
+
 int main(int argc, char *argv[]) {
         test_string_erase();
         test_ascii_strcasecmp_n();
@@ -358,6 +364,7 @@ int main(int argc, char *argv[]) {
         test_in_charset();
         test_split_pair();
         test_first_word();
+        test_strlen_ptr();
 
         return 0;
 }

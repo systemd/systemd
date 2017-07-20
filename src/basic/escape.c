@@ -314,7 +314,7 @@ int cunescape_length_with_prefix(const char *s, size_t length, const char *prefi
 
         /* Undoes C style string escaping, and optionally prefixes it. */
 
-        pl = prefix ? strlen(prefix) : 0;
+        pl = strlen_ptr(prefix);
 
         r = new(char, pl+length+1);
         if (!r)
