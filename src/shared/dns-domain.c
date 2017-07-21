@@ -1274,15 +1274,38 @@ int dns_name_apply_idna(const char *name, char **ret) {
 
 #if defined(HAVE_LIBIDN2)
         int r;
+        _cleanup_free_ char *t = NULL;
 
         assert(name);
         assert(ret);
 
-        r = idn2_lookup_u8((uint8_t*) name, (uint8_t**) ret,
+        r = idn2_lookup_u8((uint8_t*) name, (uint8_t**) &t,
                            IDN2_NFC_INPUT | IDN2_NONTRANSITIONAL);
-        if (r == IDN2_OK)
+        log_debug("idn2_lookup_u8: %s → %s", name, t);
+        if (r == IDN2_OK) {
+                if (!startswith(name, "xn--")) {
+                        _cleanup_free_ char *s = NULL;
+
+                        r = idn2_to_unicode_8z8z(t, &s, 0);
+                        if (r != IDN2_OK) {
+                                log_debug("idn2_to_unicode_8z8z(\"%s\") failed: %d/%s",
+                                          t, r, idn2_strerror(r));
+                                return 0;
+                        }
+
+                        if (!streq_ptr(name, s)) {
+                                log_debug("idn2 roundtrip failed: \"%s\" → \"%s\" → \"%s\", ignoring.",
+                                          name, t, s);
+                                return 0;
+                        }
+                }
+
+                *ret = t;
+                t = NULL;
                 return 1; /* *ret has been written */
-        log_debug("idn2_lookup_u8(\"%s\") failed: %s", name, idn2_strerror(r));
+        }
+
+        log_debug("idn2_lookup_u8(\"%s\") failed: %d/%s", name, r, idn2_strerror(r));
         if (r == IDN2_2HYPHEN)
                 /* The name has two hypens — forbidden by IDNA2008 in some cases */
                 return 0;
