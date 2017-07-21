@@ -271,7 +271,8 @@
           <listitem>
             <para>Enables DHCPv4 and/or DHCPv6 client support. Accepts
             <literal>yes</literal>, <literal>no</literal>,
-            <literal>ipv4</literal>, or <literal>ipv6</literal>.</para>
+            <literal>ipv4</literal>, or <literal>ipv6</literal>. Defaults
+            to <literal>no</literal>.</para>
 
             <para>Note that DHCPv6 will by default be triggered by Router
             Advertisement, if that is enabled, regardless of this parameter.
