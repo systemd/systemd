@@ -853,14 +853,24 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("RestrictAddressFamilies", "(bas)", property_get_address_families, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeDirectoryPreserve", "s", property_get_exec_preserve_mode, offsetof(ExecContext, runtime_directory_preserve_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_RUNTIME].mode), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RuntimeDirectoryUser", "s", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_RUNTIME].user), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RuntimeDirectoryGroup", "s", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_RUNTIME].group), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeDirectory", "as", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_RUNTIME].paths), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StateDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_STATE].mode), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("StateDirectoryUser", "s", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_STATE].user), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("StateDirectoryGroup", "s", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_STATE].group), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StateDirectory", "as", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_STATE].paths), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CacheDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_CACHE].mode), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CacheDirectoryUser", "s", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_CACHE].user), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CacheDirectoryGroup", "s", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_CACHE].group), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CacheDirectory", "as", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_CACHE].paths), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogsDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS].mode), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LogsDirectoryUser", "s", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS].user), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LogsDirectoryGroup", "s", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS].group), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogsDirectory", "as", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS].paths), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ConfigurationDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_CONFIGURATION].mode), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ConfigurationDirectoryUser", "s", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_CONFIGURATION].user), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ConfigurationDirectoryGroup", "s", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_CONFIGURATION].group), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ConfigurationDirectory", "as", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_CONFIGURATION].paths), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MemoryDenyWriteExecute", "b", bus_property_get_bool, offsetof(ExecContext, memory_deny_write_execute), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictRealtime", "b", bus_property_get_bool, offsetof(ExecContext, restrict_realtime), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -985,7 +995,9 @@ int bus_exec_context_set_transient_property(
         assert(name);
         assert(message);
 
-        if (streq(name, "User")) {
+        if (STR_IN_SET(name,
+                       "User", "RuntimeDirectoryUser", "StateDirectoryUser", "CacheDirectoryUser",
+                       "LogsDirectoryUser", "ConfigurationDirectoryUser")) {
                 const char *uu;
 
                 r = sd_bus_message_read(message, "s", &uu);
@@ -996,18 +1008,33 @@ int bus_exec_context_set_transient_property(
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid user name: %s", uu);
 
                 if (mode != UNIT_CHECK) {
+                        ExecDirectoryType i;
+                        char **p = NULL;
+
+                        if (streq(name, "User"))
+                                p = &c->user;
+                        else
+                                for (i = 0; i < _EXEC_DIRECTORY_MAX; i++)
+                                        if (startswith(name, exec_directory_type_to_string(i))){
+                                                p = &c->directories[i].user;
+                                                break;
+                                        }
+
+                        assert(p);
 
                         if (isempty(uu))
-                                c->user = mfree(c->user);
-                        else if (free_and_strdup(&c->user, uu) < 0)
+                                *p = mfree(*p);
+                        else if (free_and_strdup(p, uu) < 0)
                                 return -ENOMEM;
 
-                        unit_write_drop_in_private_format(u, mode, name, "User=%s", uu);
+                        unit_write_drop_in_private_format(u, mode, name, "%s=%s", name, uu);
                 }
 
                 return 1;
 
-        } else if (streq(name, "Group")) {
+        } else if (STR_IN_SET(name,
+                              "Group", "RuntimeDirectoryGroup", "StateDirectoryGroup", "CacheDirectoryGroup",
+                              "LogsDirectoryGroup", "ConfigurationDirectoryGroup")) {
                 const char *gg;
 
                 r = sd_bus_message_read(message, "s", &gg);
@@ -1018,13 +1045,26 @@ int bus_exec_context_set_transient_property(
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid group name: %s", gg);
 
                 if (mode != UNIT_CHECK) {
+                        ExecDirectoryType i;
+                        char **p = NULL;
+
+                        if (streq(name, "Group"))
+                                p = &c->group;
+                        else
+                                for (i = 0; i < _EXEC_DIRECTORY_MAX; i++)
+                                        if (startswith(name, exec_directory_type_to_string(i))){
+                                                p = &c->directories[i].group;
+                                                break;
+                                        }
+
+                        assert(p);
 
                         if (isempty(gg))
-                                c->group = mfree(c->group);
-                        else if (free_and_strdup(&c->group, gg) < 0)
+                                *p = mfree(*p);
+                        else if (free_and_strdup(p, gg) < 0)
                                 return -ENOMEM;
 
-                        unit_write_drop_in_private_format(u, mode, name, "Group=%s", gg);
+                        unit_write_drop_in_private_format(u, mode, name, "%s=%s", name, gg);
                 }
 
                 return 1;

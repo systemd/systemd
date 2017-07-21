@@ -1661,7 +1661,8 @@
         lowest subdirectories are removed when the unit is stopped. It is possible to preserve the directories if
         <varname>RuntimeDirectoryPreserve=</varname> is configured to <option>restart</option> or <option>yes</option>.
         The lowest subdirectories will have the access mode specified in <varname>RuntimeDirectoryMode=</varname>,
-        and be owned by the user and group specified in <varname>User=</varname> and <varname>Group=</varname>.
+        and be owned by the user and group specified in <varname>RuntimeDirectoryUser=</varname> and
+        <varname>RuntimeDirectoryGroup=</varname>.
         This implies <varname>ReadWritePaths=</varname>, that is, the directories specified
         in this option are accessible with the access mode specified in <varname>RuntimeDirectoryMode=</varname>
         even if <varname>ProtectSystem=</varname> is set to <option>strict</option>.
@@ -1692,8 +1693,9 @@
         will be created below <filename>/var/lib</filename>, <filename>/var/cache</filename>, <filename>/var/log</filename>,
         or <filename>/etc</filename>, respectively, when the unit is started.
         Unlike <varname>RuntimeDirectory=</varname>, the directories are not removed when the unit is stopped.
-        The lowest subdirectories will be owned by the user and group specified in <varname>User=</varname>
-        and <varname>Group=</varname>. The options imply <varname>ReadWritePaths=</varname>.
+        The lowest subdirectories will be owned by the user and group specified in the corresponding options, e.g.,
+        <varname>StateDirectoryUser=</varname> and <varname>StateDirectoryGroup=</varname>.
+        The options imply <varname>ReadWritePaths=</varname>.
         </para></listitem>
       </varlistentry>
 
@@ -1711,6 +1713,25 @@
         <citerefentry project='man-pages'><refentrytitle>path_resolution</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for a discussion of the meaning of permission bits.
         </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RuntimeDirectoryUser=</varname></term>
+        <term><varname>RuntimeDirectoryGroup=</varname></term>
+        <term><varname>StateDirectoryUser=</varname></term>
+        <term><varname>StateDirectoryGroup=</varname></term>
+        <term><varname>CacheDirectoryUser=</varname></term>
+        <term><varname>CacheDirectoryGroup=</varname></term>
+        <term><varname>LogsDirectoryUser=</varname></term>
+        <term><varname>LogsDirectoryGroup=</varname></term>
+        <term><varname>ConfigurationDirectoryUser=</varname></term>
+        <term><varname>ConfigurationDirectoryGroup=</varname></term>
+
+        <listitem><para>Set the UNIX user or group that the directories specified in <varname>RuntimeDirectory=</varname>,
+        <varname>StateDirectory=</varname>, <varname>CacheDirectory=</varname>, <varname>LogsDirectory=</varname>,
+        <varname>ConfigurationDirectory=</varname> are obtained by, respectively. Takes a single
+        user or group name, or a numeric ID as argument. If not set, the user or group specified in <varname>Users=</varname>,
+        or <varname>Group=</varname> is used, respectively. </para></listitem>
       </varlistentry>
 
       <varlistentry>

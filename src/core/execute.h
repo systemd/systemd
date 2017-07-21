@@ -121,6 +121,8 @@ typedef enum ExecDirectoryType {
 typedef struct ExecDirectory {
         char **paths;
         mode_t mode;
+        char *user;
+        char *group;
 } ExecDirectory;
 
 struct ExecContext {

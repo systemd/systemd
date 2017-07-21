@@ -1842,11 +1842,12 @@ static int setup_private_users(uid_t uid, gid_t gid) {
 static int setup_exec_directory(
                 const ExecContext *context,
                 const ExecParameters *params,
-                uid_t uid,
-                gid_t gid,
+                uid_t _uid,
+                gid_t _gid,
                 bool manager_is_system,
                 ExecDirectoryType type,
-                int *exit_status) {
+                int *exit_status,
+                char **error_message) {
 
         static const int exit_status_table[_EXEC_DIRECTORY_MAX] = {
                 [EXEC_DIRECTORY_RUNTIME] = EXIT_RUNTIME_DIRECTORY,
@@ -1855,6 +1856,10 @@ static int setup_exec_directory(
                 [EXEC_DIRECTORY_LOGS] = EXIT_LOGS_DIRECTORY,
                 [EXEC_DIRECTORY_CONFIGURATION] = EXIT_CONFIGURATION_DIRECTORY,
         };
+
+        uid_t uid = UID_INVALID;
+        gid_t gid = GID_INVALID;
+        const char *name;
         char **rt;
         int r;
 
@@ -1865,6 +1870,33 @@ static int setup_exec_directory(
 
         if (!params->prefix[type])
                 return 0;
+
+        if (context->directories[type].user) {
+                name = context->directories[type].user;
+                r = get_user_creds_clean(&name, &uid, NULL, NULL, NULL);
+                if (r < 0) {
+                        *exit_status = EXIT_USER;
+                        (void) asprintf(error_message, "Failed to determine %sUser credentials", exec_directory_type_to_string(type));
+                        return r;
+                }
+        }
+
+        if (context->directories[type].group) {
+                name = context->directories[type].group;
+                r = get_group_creds(&name, &gid);
+                if (r < 0) {
+                        *exit_status = EXIT_GROUP;
+                        (void) asprintf(error_message, "Failed to determine %sUser credentials", exec_directory_type_to_string(type));
+                        return r;
+                }
+        }
+
+        /* If *DirectoryUser= is not specified, then use user specified in User=.
+         * If *DirectoryGroup= is not specified, then use group specified in Group=. */
+        if (!uid_is_valid(uid))
+                uid = _uid;
+        if (!uid_is_valid(gid))
+                gid = _gid;
 
         if (manager_is_system) {
                 if (!uid_is_valid(uid))
@@ -2598,7 +2630,7 @@ static int exec_child(
         }
 
         for (dt = 0; dt < _EXEC_DIRECTORY_MAX; dt++) {
-                r = setup_exec_directory(context, params, uid, gid, MANAGER_IS_SYSTEM(unit->manager), dt, exit_status);
+                r = setup_exec_directory(context, params, uid, gid, MANAGER_IS_SYSTEM(unit->manager), dt, exit_status, error_message);
                 if (r < 0)
                         return r;
         }
