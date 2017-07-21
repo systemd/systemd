@@ -955,7 +955,7 @@ static int process_introspect(
                 if (!streq_ptr(previous_interface, c->interface)) {
 
                         if (previous_interface)
-                                fputs(" </interface>\n", intro.f);
+                                fputs_unlocked(" </interface>\n", intro.f);
 
                         fprintf(intro.f, " <interface name=\"%s\">\n", c->interface);
                 }
@@ -968,7 +968,7 @@ static int process_introspect(
         }
 
         if (previous_interface)
-                fputs(" </interface>\n", intro.f);
+                fputs_unlocked(" </interface>\n", intro.f);
 
         if (empty) {
                 /* Nothing?, let's see if we exist at all, and if not

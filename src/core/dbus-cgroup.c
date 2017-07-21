@@ -625,7 +625,7 @@ int bus_cgroup_set_property(
                         if (!f)
                                 return -ENOMEM;
 
-                        fputs("IODeviceWeight=\n", f);
+                        fputs_unlocked("IODeviceWeight=\n", f);
                         LIST_FOREACH(device_weights, a, c->io_device_weights)
                                 fprintf(f, "IODeviceWeight=%s %" PRIu64 "\n", a->path, a->weight);
 
@@ -774,12 +774,12 @@ int bus_cgroup_set_property(
                                 return -ENOMEM;
 
                         if (read) {
-                                fputs("BlockIOReadBandwidth=\n", f);
+                                fputs_unlocked("BlockIOReadBandwidth=\n", f);
                                 LIST_FOREACH(device_bandwidths, a, c->blockio_device_bandwidths)
                                         if (a->rbps != CGROUP_LIMIT_MAX)
                                                 fprintf(f, "BlockIOReadBandwidth=%s %" PRIu64 "\n", a->path, a->rbps);
                         } else {
-                                fputs("BlockIOWriteBandwidth=\n", f);
+                                fputs_unlocked("BlockIOWriteBandwidth=\n", f);
                                 LIST_FOREACH(device_bandwidths, a, c->blockio_device_bandwidths)
                                         if (a->wbps != CGROUP_LIMIT_MAX)
                                                 fprintf(f, "BlockIOWriteBandwidth=%s %" PRIu64 "\n", a->path, a->wbps);
@@ -857,7 +857,7 @@ int bus_cgroup_set_property(
                         if (!f)
                                 return -ENOMEM;
 
-                        fputs("BlockIODeviceWeight=\n", f);
+                        fputs_unlocked("BlockIODeviceWeight=\n", f);
                         LIST_FOREACH(device_weights, a, c->blockio_device_weights)
                                 fprintf(f, "BlockIODeviceWeight=%s %" PRIu64 "\n", a->path, a->weight);
 
@@ -1086,7 +1086,7 @@ int bus_cgroup_set_property(
                         if (!f)
                                 return -ENOMEM;
 
-                        fputs("DeviceAllow=\n", f);
+                        fputs_unlocked("DeviceAllow=\n", f);
                         LIST_FOREACH(device_allow, a, c->device_allow)
                                 fprintf(f, "DeviceAllow=%s %s%s%s\n", a->path, a->r ? "r" : "", a->w ? "w" : "", a->m ? "m" : "");
 

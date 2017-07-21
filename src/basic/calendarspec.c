@@ -257,19 +257,19 @@ static void format_weekdays(FILE *f, const CalendarSpec *c) {
 
                         if (l < 0) {
                                 if (need_comma)
-                                        fputc(',', f);
+                                        fputc_unlocked(',', f);
                                 else
                                         need_comma = true;
 
-                                fputs(days[x], f);
+                                fputs_unlocked(days[x], f);
                                 l = x;
                         }
 
                 } else if (l >= 0) {
 
                         if (x > l + 1) {
-                                fputs(x > l + 2 ? ".." : ",", f);
-                                fputs(days[x-1], f);
+                                fputs_unlocked(x > l + 2 ? ".." : ",", f);
+                                fputs_unlocked(days[x-1], f);
                         }
 
                         l = -1;
@@ -277,8 +277,8 @@ static void format_weekdays(FILE *f, const CalendarSpec *c) {
         }
 
         if (l >= 0 && x > l + 1) {
-                fputs(x > l + 2 ? ".." : ",", f);
-                fputs(days[x-1], f);
+                fputs_unlocked(x > l + 2 ? ".." : ",", f);
+                fputs_unlocked(days[x-1], f);
         }
 }
 
@@ -288,12 +288,12 @@ static void format_chain(FILE *f, int space, const CalendarComponent *c, bool us
         assert(f);
 
         if (!c) {
-                fputc('*', f);
+                fputc_unlocked('*', f);
                 return;
         }
 
         if (usec && c->start == 0 && c->repeat == USEC_PER_SEC && !c->next) {
-                fputc('*', f);
+                fputc_unlocked('*', f);
                 return;
         }
 
@@ -314,7 +314,7 @@ static void format_chain(FILE *f, int space, const CalendarComponent *c, bool us
                 fprintf(f, ".%06i", c->repeat % d);
 
         if (c->next) {
-                fputc(',', f);
+                fputc_unlocked(',', f);
                 format_chain(f, space, c->next, usec);
         }
 }
@@ -334,23 +334,23 @@ int calendar_spec_to_string(const CalendarSpec *c, char **p) {
 
         if (c->weekdays_bits > 0 && c->weekdays_bits <= BITS_WEEKDAYS) {
                 format_weekdays(f, c);
-                fputc(' ', f);
+                fputc_unlocked(' ', f);
         }
 
         format_chain(f, 4, c->year, false);
-        fputc('-', f);
+        fputc_unlocked('-', f);
         format_chain(f, 2, c->month, false);
-        fputc(c->end_of_month ? '~' : '-', f);
+        fputc_unlocked(c->end_of_month ? '~' : '-', f);
         format_chain(f, 2, c->day, false);
-        fputc(' ', f);
+        fputc_unlocked(' ', f);
         format_chain(f, 2, c->hour, false);
-        fputc(':', f);
+        fputc_unlocked(':', f);
         format_chain(f, 2, c->minute, false);
-        fputc(':', f);
+        fputc_unlocked(':', f);
         format_chain(f, 2, c->microsecond, true);
 
         if (c->utc)
-                fputs(" UTC", f);
+                fputs_unlocked(" UTC", f);
         else if (IN_SET(c->dst, 0, 1)) {
 
                 /* If daylight saving is explicitly on or off, let's show the used timezone. */
@@ -358,8 +358,8 @@ int calendar_spec_to_string(const CalendarSpec *c, char **p) {
                 tzset();
 
                 if (!isempty(tzname[c->dst])) {
-                        fputc(' ', f);
-                        fputs(tzname[c->dst], f);
+                        fputc_unlocked(' ', f);
+                        fputs_unlocked(tzname[c->dst], f);
                 }
         }
 

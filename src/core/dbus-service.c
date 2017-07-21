@@ -308,7 +308,7 @@ static int bus_service_set_transient_property(
                         if (!f)
                                 return -ENOMEM;
 
-                        fputs("ExecStart=\n", f);
+                        fputs_unlocked("ExecStart=\n", f);
 
                         LIST_FOREACH(command, c, s->exec_command[SERVICE_EXEC_START]) {
                                 _cleanup_free_ char *a;
