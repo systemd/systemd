@@ -26,12 +26,56 @@
 #include "signal-util.h"
 #include "user-util.h"
 
+static int check_privileges(void) {
+        uint64_t required_caps, current_caps;
+        int r;
+
+        required_caps = (1ULL << CAP_NET_ADMIN) |
+                (1ULL << CAP_NET_BIND_SERVICE) |
+                (1ULL << CAP_NET_BROADCAST) |
+                (1ULL << CAP_NET_RAW);
+
+        if (geteuid() == 0 || getegid() == 0) {
+                const char *user = "systemd-network";
+                uid_t uid;
+                gid_t gid;
+
+                r = get_user_creds(&user, &uid, &gid, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Cannot resolve user name %s: %m", user);
+
+                r = drop_privileges(uid, gid, required_caps);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to drop privileges: %m");
+
+                return 0;
+        }
+
+        r = get_effective_caps(&current_caps);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get current capabilities: %m");
+
+        if ((current_caps & required_caps) != required_caps) {
+                log_error("Missing required capabilities. This process requires "
+                          "CAP_NET_ADMIN, CAP_NET_BIND_SERVICE, CAP_NET_BROADCAST, and CAP_NET_RAW");
+                return -EPERM;
+        }
+
+        if (current_caps != required_caps) {
+                log_warning("This process has unnecessary capabilities. Try to drop them.");
+
+                /* Try to drop unnecessary caps */
+                r = capability_bounding_set_drop(required_caps, true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to drop capabilities: %m");
+        }
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         sd_event *event = NULL;
         _cleanup_manager_free_ Manager *m = NULL;
-        const char *user = "systemd-network";
-        uid_t uid;
-        gid_t gid;
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
@@ -46,37 +90,23 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
-        r = get_user_creds(&user, &uid, &gid, NULL, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Cannot resolve user name %s: %m", user);
+        r = check_privileges();
+        if (r < 0)
                 goto out;
-        }
 
         /* Always create the directories people can create inotify
          * watches in. */
-        r = mkdir_safe_label("/run/systemd/netif", 0755, uid, gid);
-        if (r < 0)
-                log_warning_errno(r, "Could not create runtime directory: %m");
-
-        r = mkdir_safe_label("/run/systemd/netif/links", 0755, uid, gid);
-        if (r < 0)
-                log_warning_errno(r, "Could not create runtime directory 'links': %m");
-
-        r = mkdir_safe_label("/run/systemd/netif/leases", 0755, uid, gid);
+        r = mkdir_p_label("/run/systemd/netif/leases", 0755);
         if (r < 0)
                 log_warning_errno(r, "Could not create runtime directory 'leases': %m");
 
-        r = mkdir_safe_label("/run/systemd/netif/lldp", 0755, uid, gid);
+        r = mkdir_p_label("/run/systemd/netif/links", 0755);
+        if (r < 0)
+                log_warning_errno(r, "Could not create runtime directory 'links': %m");
+
+        r = mkdir_p_label("/run/systemd/netif/lldp", 0755);
         if (r < 0)
                 log_warning_errno(r, "Could not create runtime directory 'lldp': %m");
-
-        r = drop_privileges(uid, gid,
-                            (1ULL << CAP_NET_ADMIN) |
-                            (1ULL << CAP_NET_BIND_SERVICE) |
-                            (1ULL << CAP_NET_BROADCAST) |
-                            (1ULL << CAP_NET_RAW));
-        if (r < 0)
-                goto out;
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
