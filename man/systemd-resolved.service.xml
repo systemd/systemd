@@ -138,7 +138,7 @@
       LLMNR.</para></listitem>
 
       <listitem><para>Multi-label names are routed to all local
-      interfaces that have a DNS sever configured, plus the globally
+      interfaces that have a DNS server configured, plus the globally
       configured DNS server if there is one. Address lookups from the
       link-local address range are never routed to
       DNS.</para></listitem>
