@@ -25,13 +25,57 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "network-util.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
 #include "user-util.h"
 
-static int load_clock_timestamp(uid_t uid, gid_t gid) {
+static int check_privileges(void) {
+        uint64_t required_caps, current_caps;
+        int r;
+
+        required_caps = (1ULL << CAP_SYS_TIME);
+
+        if (geteuid() == 0 || getegid() == 0) {
+                const char *user = "systemd-timesync";
+                uid_t uid;
+                gid_t gid;
+
+                r = get_user_creds(&user, &uid, &gid, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Cannot resolve user name %s: %m", user);
+
+                r = drop_privileges(uid, gid, required_caps);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to drop privileges: %m");
+
+                return 0;
+        }
+
+        r = get_effective_caps(&current_caps);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get current capabilities: %m");
+
+        if ((current_caps & required_caps) != required_caps) {
+                log_error("Missing required capabilities. This process requires CAP_SYS_TIME");
+                return -EPERM;
+        }
+
+        if (current_caps != required_caps) {
+                log_warning("This process has unnecessary capabilities. Try to drop them.");
+
+                /* Try to drop unnecessary caps */
+                r = capability_bounding_set_drop(required_caps, true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to drop capabilities: %m");
+        }
+
+        return 0;
+}
+
+static int load_clock_timestamp(void) {
         _cleanup_close_ int fd = -1;
         usec_t min = TIME_EPOCH * USEC_PER_SEC;
         usec_t ct;
@@ -44,7 +88,7 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
          * systems lacking a battery backed RTC. We also will adjust
          * the time to at least the build time of systemd. */
 
-        fd = open("/var/lib/systemd/clock", O_RDWR|O_CLOEXEC, 0644);
+        fd = open("/var/lib/systemd/timesync/clock", O_RDWR|O_CLOEXEC, 0644);
         if (fd >= 0) {
                 struct stat st;
                 usec_t stamp;
@@ -57,14 +101,9 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
                                 min = stamp;
                 }
 
-                /* Try to fix the access mode, so that we can still
-                   touch the file after dropping priviliges */
-                (void) fchmod(fd, 0644);
-                (void) fchown(fd, uid, gid);
-
         } else
                 /* create stamp file with the compiled-in date */
-                (void) touch_file("/var/lib/systemd/clock", true, min, uid, gid, 0644);
+                (void) touch_file("/var/lib/systemd/timesync/clock", false, min, UID_INVALID, GID_INVALID, MODE_INVALID);
 
         ct = now(CLOCK_REALTIME);
         if (ct < min) {
@@ -83,9 +122,6 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
 
 int main(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
-        const char *user = "systemd-timesync";
-        uid_t uid;
-        gid_t gid;
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
@@ -101,17 +137,11 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = get_user_creds(&user, &uid, &gid, NULL, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Cannot resolve user name %s: %m", user);
-                goto finish;
-        }
-
-        r = load_clock_timestamp(uid, gid);
+        r = check_privileges();
         if (r < 0)
                 goto finish;
 
-        r = drop_privileges(uid, gid, (1ULL << CAP_SYS_TIME));
+        r = load_clock_timestamp();
         if (r < 0)
                 goto finish;
 
@@ -158,7 +188,7 @@ int main(int argc, char *argv[]) {
 
         /* if we got an authoritative time, store it in the file system */
         if (m->sync)
-                (void) touch("/var/lib/systemd/clock");
+                (void) touch("/var/lib/systemd/timesync/clock");
 
         sd_event_get_exit_code(m->event, &r);
 
