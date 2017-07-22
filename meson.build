@@ -26,6 +26,14 @@ m4_defines = []
 
 #####################################################################
 
+# Try to install the git pre-commit hook
+git_hook = run_command(join_paths(meson.source_root(), 'tools/add-git-hook.sh'))
+if git_hook.returncode() == 0
+        message(git_hook.stdout().strip())
+endif
+
+#####################################################################
+
 rootprefixdir = get_option('rootprefix')
 if get_option('split-usr')
         conf.set('HAVE_SPLIT_USR', true)
