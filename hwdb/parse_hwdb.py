@@ -168,6 +168,20 @@ def check_one_default(prop, settings):
     if len(defaults) > 1:
         error('More than one star entry: {!r}', prop)
 
+def check_one_mount_matrix(prop, value):
+    numbers = [s for s in value if s not in {';', ','}]
+    if len(numbers) != 9:
+        error('Wrong accel matrix: {!r}', prop)
+    try:
+        numbers = [abs(float(number)) for number in numbers]
+    except ValueError:
+        error('Wrong accel matrix: {!r}', prop)
+    bad_x, bad_y, bad_z = max(numbers[0:3]) == 0, max(numbers[3:6]) == 0, max(numbers[6:9]) == 0
+    if bad_x or bad_y or bad_z:
+        error('Mount matrix is all zero in {} row: {!r}',
+              'x' if bad_x else ('y' if bad_y else 'z'),
+              prop)
+
 def check_one_keycode(prop, value):
     if value != '!' and ecodes is not None:
         key = 'KEY_' + value.upper()
@@ -194,6 +208,8 @@ def check_properties(groups):
             prop_names.add(parsed.NAME)
             if parsed.NAME == 'MOUSE_DPI':
                 check_one_default(prop, parsed.VALUE.SETTINGS)
+            elif parsed.NAME == 'ACCEL_MOUNT_MATRIX':
+                check_one_mount_matrix(prop, parsed.VALUE)
             elif parsed.NAME.startswith('KEYBOARD_KEY_'):
                 check_one_keycode(prop, parsed.VALUE)
 
