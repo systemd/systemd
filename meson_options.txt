@@ -170,6 +170,8 @@ option('seccomp', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'SECCOMP support')
 option('selinux', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'SELinux support')
+option('selinux-workaround', type : 'boolean',
+       description : 'Use open-coded check for SELinux')
 option('apparmor', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'AppArmor support')
 option('smack', type : 'boolean',
