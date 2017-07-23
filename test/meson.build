@@ -126,13 +126,6 @@ test_data_files = '''
         test-execute/exec-read-only-path-succeed.service
         test-execute/exec-privatedevices-yes-capability-sys-rawio.service
         test-execute/exec-privatedevices-no-capability-sys-rawio.service
-        bus-policy/hello.conf
-        bus-policy/methods.conf
-        bus-policy/ownerships.conf
-        bus-policy/signals.conf
-        bus-policy/check-own-rules.conf
-        bus-policy/many-rules.conf
-        bus-policy/test.conf
         hwdb/10-bad.hwdb
         journal-data/journal-1.txt
         journal-data/journal-2.txt

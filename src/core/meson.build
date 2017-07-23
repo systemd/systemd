@@ -15,8 +15,6 @@ libcore_la_sources = '''
         service.h
         socket.c
         socket.h
-        bus-policy.c
-        bus-policy.h
         target.c
         target.h
         device.c
