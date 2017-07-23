@@ -34,6 +34,28 @@
 #include "user-util.h"
 #include "util.h"
 
+int get_effective_caps(uint64_t *caps) {
+        _cleanup_cap_free_ cap_t cap;
+        cap_flag_value_t fv;
+        unsigned long i;
+        uint64_t flags = 0;
+
+        assert(caps);
+
+        cap = cap_get_proc();
+        if (!cap)
+                return -errno;
+
+        for (i = 0; i <= cap_last_cap(); i++)
+                if (cap_get_flag(cap, i, CAP_EFFECTIVE, &fv) < 0)
+                        return -errno;
+                else if (fv == CAP_SET)
+                        flags |= (UINT64_C(1) << i);
+
+        *caps = flags;
+        return 0;
+}
+
 int have_effective_cap(int value) {
         _cleanup_cap_free_ cap_t cap;
         cap_flag_value_t fv;

@@ -30,6 +30,7 @@
 #define CAP_ALL (uint64_t) -1
 
 unsigned long cap_last_cap(void);
+int get_effective_caps(uint64_t *caps);
 int have_effective_cap(int value);
 bool ambient_capability_is_supported(void);
 int capability_bounding_set_drop(uint64_t keep, bool right_now);
