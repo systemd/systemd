@@ -139,6 +139,7 @@ basic_sources_plain = files('''
         rm-rf.c
         rm-rf.h
         securebits.h
+        selinux-use.c
         selinux-util.c
         selinux-util.h
         set.h
