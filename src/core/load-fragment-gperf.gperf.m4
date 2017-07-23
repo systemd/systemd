@@ -363,15 +363,6 @@ EXEC_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
 m4_dnl
-BusName.Name,                    config_parse_string,                0,                             offsetof(BusName, name)
-BusName.Activating,              config_parse_bool,                  0,                             offsetof(BusName, activating)
-BusName.Service,                 config_parse_busname_service,       0,                             0
-BusName.AllowUser,               config_parse_bus_policy,            0,                             0
-BusName.AllowGroup,              config_parse_bus_policy,            0,                             0
-BusName.AllowWorld,              config_parse_bus_policy_world,      0,                             offsetof(BusName, policy_world)
-BusName.SELinuxContext,          config_parse_exec_selinux_context,  0,                             0
-BusName.AcceptFileDescriptors,   config_parse_bool,                  0,                             offsetof(BusName, accept_fd)
-m4_dnl
 Mount.What,                      config_parse_unit_string_printf,    0,                             offsetof(Mount, parameters_fragment.what)
 Mount.Where,                     config_parse_path,                  0,                             offsetof(Mount, where)
 Mount.Options,                   config_parse_unit_string_printf,    0,                             offsetof(Mount, parameters_fragment.options)

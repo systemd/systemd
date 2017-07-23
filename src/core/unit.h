@@ -276,7 +276,6 @@ typedef enum UnitSetPropertiesMode {
 } UnitSetPropertiesMode;
 
 #include "automount.h"
-#include "busname.h"
 #include "device.h"
 #include "path.h"
 #include "scope.h"
@@ -471,7 +470,6 @@ extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
 
 DEFINE_CAST(SERVICE, Service);
 DEFINE_CAST(SOCKET, Socket);
-DEFINE_CAST(BUSNAME, BusName);
 DEFINE_CAST(TARGET, Target);
 DEFINE_CAST(DEVICE, Device);
 DEFINE_CAST(MOUNT, Mount);

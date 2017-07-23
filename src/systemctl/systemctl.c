@@ -7259,11 +7259,6 @@ static void help_states(void) {
                 puts(automount_state_to_string(i));
 
         if (!arg_no_legend)
-                puts("\nAvailable busname unit substates:");
-        for (i = 0; i < _BUSNAME_STATE_MAX; i++)
-                puts(busname_state_to_string(i));
-
-        if (!arg_no_legend)
                 puts("\nAvailable device unit substates:");
         for (i = 0; i < _DEVICE_STATE_MAX; i++)
                 puts(device_state_to_string(i));

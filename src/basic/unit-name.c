@@ -608,7 +608,6 @@ const char* unit_dbus_interface_from_type(UnitType t) {
         static const char *const table[_UNIT_TYPE_MAX] = {
                 [UNIT_SERVICE] = "org.freedesktop.systemd1.Service",
                 [UNIT_SOCKET] = "org.freedesktop.systemd1.Socket",
-                [UNIT_BUSNAME] = "org.freedesktop.systemd1.BusName",
                 [UNIT_TARGET] = "org.freedesktop.systemd1.Target",
                 [UNIT_DEVICE] = "org.freedesktop.systemd1.Device",
                 [UNIT_MOUNT] = "org.freedesktop.systemd1.Mount",
@@ -839,7 +838,6 @@ bool slice_name_is_valid(const char *name) {
 static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = "service",
         [UNIT_SOCKET] = "socket",
-        [UNIT_BUSNAME] = "busname",
         [UNIT_TARGET] = "target",
         [UNIT_DEVICE] = "device",
         [UNIT_MOUNT] = "mount",
@@ -883,19 +881,6 @@ static const char* const automount_state_table[_AUTOMOUNT_STATE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(automount_state, AutomountState);
-
-static const char* const busname_state_table[_BUSNAME_STATE_MAX] = {
-        [BUSNAME_DEAD] = "dead",
-        [BUSNAME_MAKING] = "making",
-        [BUSNAME_REGISTERED] = "registered",
-        [BUSNAME_LISTENING] = "listening",
-        [BUSNAME_RUNNING] = "running",
-        [BUSNAME_SIGTERM] = "sigterm",
-        [BUSNAME_SIGKILL] = "sigkill",
-        [BUSNAME_FAILED] = "failed",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(busname_state, BusNameState);
 
 static const char* const device_state_table[_DEVICE_STATE_MAX] = {
         [DEVICE_DEAD] = "dead",

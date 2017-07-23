@@ -15,11 +15,6 @@ After=systemd-networkd.service network.target
 Before=network-online.target nss-lookup.target
 Wants=nss-lookup.target
 
-# On kdbus systems we pull in the busname explicitly, because it
-# carries policy that allows the daemon to acquire its name.
-Wants=org.freedesktop.resolve1.busname
-After=org.freedesktop.resolve1.busname
-
 [Service]
 Type=notify
 Restart=always
