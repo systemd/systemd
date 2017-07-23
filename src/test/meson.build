@@ -756,21 +756,10 @@ tests += [
          [],
          []],
 
-        [['src/libsystemd/sd-bus/test-bus-kernel.c'],
-         [],
-         []],
-
-        [['src/libsystemd/sd-bus/test-bus-kernel-bloom.c'],
-         [],
-         []],
-
         [['src/libsystemd/sd-bus/test-bus-benchmark.c'],
          [],
-         [threads]],
-
-        [['src/libsystemd/sd-bus/test-bus-zero-copy.c'],
-         [],
-         []],
+         [threads],
+         '', 'manual'],
 
         [['src/libsystemd/sd-bus/test-bus-introspect.c'],
          [],

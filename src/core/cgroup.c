@@ -931,8 +931,6 @@ static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
                                 whitelist_device(path, x, y);
 
                         whitelist_major(path, "pts", 'c', "rw");
-                        whitelist_major(path, "kdbus", 'c', "rw");
-                        whitelist_major(path, "kdbus/*", 'c', "rw");
                 }
 
                 LIST_FOREACH(device_allow, a, c->device_allow) {

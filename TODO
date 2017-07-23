@@ -435,25 +435,18 @@ Features:
 * sd-bus:
   - EBADSLT handling
   - GetAllProperties() on a non-existing object does not result in a failure currently
-  - kdbus: process fd=-1 for incoming msgs
   - port to sd-resolve for connecting to TCP dbus servers
-  - kdbus: maybe add controlling tty metadata fields
   - see if we can introduce a new sd_bus_get_owner_machine_id() call to retrieve the machine ID of the machine of the bus itself
-  - when kdbus does not take our message without memfds, try again with memfds
   - see if we can drop more message validation on the sending side
   - add API to clone sd_bus_message objects
   - make AddMatch calls on dbus1 transports async?
-  - kdbus: matches against source or destination pids for an "strace -p"-like feel. Problem: The PID info needs to be available in userspace too...
   - longer term: priority inheritance
   - dbus spec updates:
-       - kdbus mapping
        - NameLost/NameAcquired obsolete
        - GVariant
        - path escaping
   - update systemd.special(7) to mention that dbus.socket is only about the compatibility socket now
   - test bloom filter generation indexes
-  - kdbus: introduce a concept of "send-only" connections
-  - kdbus: add counter for refused unicast messages that is passed out via the RECV ioctl. SImilar to the counter for dropped multicast messages we already have.
 
 * sd-event
   - allow multiple signal handlers per signal?

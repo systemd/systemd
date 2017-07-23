@@ -1582,7 +1582,7 @@ int main(int argc, char *argv[]) {
          * /proc/$PID/fd is available. */
         if (getpid_cached() == 1) {
 
-                /* Load the kernel modules early, so that we kdbus.ko is loaded before kdbusfs shall be mounted */
+                /* Load the kernel modules early. */
                 if (!skip_setup)
                         kmod_setup();
 

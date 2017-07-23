@@ -62,22 +62,9 @@ static void message_free_part(sd_bus_message *m, struct bus_body_part *part) {
         assert(m);
         assert(part);
 
-        if (part->memfd >= 0) {
-                /* If we can reuse the memfd, try that. For that it
-                 * can't be sealed yet. */
-
-                if (!part->sealed) {
-                        assert(part->memfd_offset == 0);
-                        assert(part->data == part->mmap_begin);
-                        bus_kernel_push_memfd(m->bus, part->memfd, part->data, part->mapped, part->allocated);
-                } else {
-                        if (part->mapped > 0)
-                                assert_se(munmap(part->mmap_begin, part->mapped) == 0);
-
-                        safe_close(part->memfd);
-                }
-
-        } else if (part->munmap_this)
+        if (part->memfd >= 0)
+                close_and_munmap(part->memfd, part->mmap_begin, part->mapped);
+        else if (part->munmap_this)
                 munmap(part->mmap_begin, part->mapped);
         else if (part->free_this)
                 free(part->data);
@@ -128,12 +115,6 @@ static void message_free(sd_bus_message *m) {
                 free(m->header);
 
         message_reset_parts(m);
-
-        if (m->release_kdbus)
-                bus_kernel_cmd_free(m->bus, (uint8_t *) m->kdbus - (uint8_t *) m->bus->kdbus_buffer);
-
-        if (m->free_kdbus)
-                free(m->kdbus);
 
         sd_bus_unref(m->bus);
 
@@ -1215,7 +1196,6 @@ static int part_make_space(
                 void **q) {
 
         void *n;
-        int r;
 
         assert(m);
         assert(part);
@@ -1224,61 +1204,19 @@ static int part_make_space(
         if (m->poisoned)
                 return -ENOMEM;
 
-        if (!part->data && part->memfd < 0) {
-                part->memfd = bus_kernel_pop_memfd(m->bus, &part->data, &part->mapped, &part->allocated);
-                part->mmap_begin = part->data;
-        }
+        if (part->allocated == 0 || sz > part->allocated) {
+                size_t new_allocated;
 
-        if (part->memfd >= 0) {
-
-                if (part->allocated == 0 || sz > part->allocated) {
-                        uint64_t new_allocated;
-
-                        new_allocated = PAGE_ALIGN(sz > 0 ? 2 * sz : 1);
-                        r = memfd_set_size(part->memfd, new_allocated);
-                        if (r < 0) {
-                                m->poisoned = true;
-                                return r;
-                        }
-
-                        part->allocated = new_allocated;
+                new_allocated = sz > 0 ? 2 * sz : 64;
+                n = realloc(part->data, new_allocated);
+                if (!n) {
+                        m->poisoned = true;
+                        return -ENOMEM;
                 }
 
-                if (!part->data || sz > part->mapped) {
-                        size_t psz;
-
-                        psz = PAGE_ALIGN(sz > 0 ? sz : 1);
-                        if (part->mapped <= 0)
-                                n = mmap(NULL, psz, PROT_READ|PROT_WRITE, MAP_SHARED, part->memfd, 0);
-                        else
-                                n = mremap(part->mmap_begin, part->mapped, psz, MREMAP_MAYMOVE);
-
-                        if (n == MAP_FAILED) {
-                                m->poisoned = true;
-                                return -errno;
-                        }
-
-                        part->mmap_begin = part->data = n;
-                        part->mapped = psz;
-                        part->memfd_offset = 0;
-                }
-
-                part->munmap_this = true;
-        } else {
-                if (part->allocated == 0 || sz > part->allocated) {
-                        size_t new_allocated;
-
-                        new_allocated = sz > 0 ? 2 * sz : 64;
-                        n = realloc(part->data, new_allocated);
-                        if (!n) {
-                                m->poisoned = true;
-                                return -ENOMEM;
-                        }
-
-                        part->data = n;
-                        part->allocated = new_allocated;
-                        part->free_this = true;
-                }
+                part->data = n;
+                part->allocated = new_allocated;
+                part->free_this = true;
         }
 
         if (q)
@@ -5368,7 +5306,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
 
                         r = message_peek_field_string(m, service_name_is_valid, &ri, item_size, &m->sender);
 
-                        if (r >= 0 && m->sender[0] == ':' && m->bus->bus_client && !m->bus->is_kernel) {
+                        if (r >= 0 && m->sender[0] == ':' && m->bus->bus_client) {
                                 m->creds.unique_name = (char*) m->sender;
                                 m->creds.mask |= SD_BUS_CREDS_UNIQUE_NAME & m->bus->creds_mask;
                         }

@@ -533,19 +533,12 @@ _public_ int sd_bus_query_sender_creds(sd_bus_message *call, uint64_t mask, sd_b
                  * to get it from the sender or peer. */
 
                 if (call->sender)
-                        /* There's a sender, but the creds are
-                         * missing. This means we are talking via
-                         * dbus1, or are getting a message that was
-                         * sent to us via kdbus, but was converted
-                         * from a dbus1 message by the bus-proxy and
-                         * thus also lacks the creds. */
+                        /* There's a sender, but the creds are missing. */
                         return sd_bus_get_name_creds(call->bus, call->sender, mask, creds);
                 else
-                        /* There's no sender, hence we are on a dbus1
-                         * direct connection. For direct connections
+                        /* There's no sender. For direct connections
                          * the credentials of the AF_UNIX peer matter,
-                         * which may be queried via
-                         * sd_bus_get_owner_creds(). */
+                         * which may be queried via sd_bus_get_owner_creds(). */
                         return sd_bus_get_owner_creds(call->bus, mask, creds);
         }
 
@@ -579,9 +572,6 @@ _public_ int sd_bus_query_sender_privilege(sd_bus_message *call, int capability)
                  * here. */
                 assert_return((sd_bus_creds_get_augmented_mask(creds) & SD_BUS_CREDS_EFFECTIVE_CAPS) == 0, -EPERM);
 
-                /* Note that not even on kdbus we might have the caps
-                 * field, due to faked identities, or namespace
-                 * translation issues. */
                 r = sd_bus_creds_has_effective_cap(creds, capability);
                 if (r > 0)
                         return 1;

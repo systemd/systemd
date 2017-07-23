@@ -614,7 +614,7 @@ static int service_setup_bus_name(Service *s) {
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to add dependency on " SPECIAL_DBUS_SOCKET ": %m");
 
-        /* Regardless if kdbus is used or not, we always want to be ordered against dbus.socket if both are in the transaction. */
+        /* We always want to be ordered against dbus.socket if both are in the transaction. */
         r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_DBUS_SOCKET, NULL, true);
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to add dependency on " SPECIAL_DBUS_SOCKET ": %m");

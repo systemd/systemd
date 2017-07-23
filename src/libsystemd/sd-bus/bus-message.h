@@ -92,9 +92,7 @@ struct sd_bus_message {
         bool dont_send:1;
         bool allow_fds:1;
         bool free_header:1;
-        bool free_kdbus:1;
         bool free_fds:1;
-        bool release_kdbus:1;
         bool poisoned:1;
 
         /* The first and last bytes of the message */
@@ -127,8 +125,6 @@ struct sd_bus_message {
         struct iovec *iovec;
         struct iovec iovec_fixed[2];
         unsigned n_iovec;
-
-        struct kdbus_msg *kdbus;
 
         char *peeked_signature;
 

@@ -41,7 +41,6 @@ libsystemd_internal_sources = files('''
         sd-bus/bus-track.h
         sd-bus/bus-type.c
         sd-bus/bus-type.h
-        sd-bus/kdbus.h
         sd-bus/sd-bus.c
         sd-daemon/sd-daemon.c
         sd-device/device-enumerator-private.h

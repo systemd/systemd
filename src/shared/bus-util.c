@@ -592,28 +592,8 @@ int bus_connect_system_systemd(sd_bus **_bus) {
         if (geteuid() != 0)
                 return sd_bus_default_system(_bus);
 
-        /* If we are root and kdbus is not available, then let's talk
-         * directly to the system instance, instead of going via the
-         * bus */
-
-        r = sd_bus_new(&bus);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_set_address(bus, KERNEL_SYSTEM_BUS_ADDRESS);
-        if (r < 0)
-                return r;
-
-        bus->bus_client = true;
-
-        r = sd_bus_start(bus);
-        if (r >= 0) {
-                *_bus = bus;
-                bus = NULL;
-                return 0;
-        }
-
-        bus = sd_bus_unref(bus);
+        /* If we are root then let's talk directly to the system
+         * instance, instead of going via the bus */
 
         r = sd_bus_new(&bus);
         if (r < 0)
@@ -643,27 +623,7 @@ int bus_connect_user_systemd(sd_bus **_bus) {
         const char *e;
         int r;
 
-        /* Try via kdbus first, and then directly */
-
         assert(_bus);
-
-        r = sd_bus_new(&bus);
-        if (r < 0)
-                return r;
-
-        if (asprintf(&bus->address, KERNEL_USER_BUS_ADDRESS_FMT, getuid()) < 0)
-                return -ENOMEM;
-
-        bus->bus_client = true;
-
-        r = sd_bus_start(bus);
-        if (r >= 0) {
-                *_bus = bus;
-                bus = NULL;
-                return 0;
-        }
-
-        bus = sd_bus_unref(bus);
 
         e = secure_getenv("XDG_RUNTIME_DIR");
         if (!e)
