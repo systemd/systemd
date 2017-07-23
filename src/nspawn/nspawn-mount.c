@@ -456,9 +456,6 @@ int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
         if (rmdir(full) < 0)
                 return log_error_errno(errno, "Failed to remove %s: %m", full);
 
-        x = prefix_roota(top, "/fs/kdbus");
-        (void) mkdir_p(x, 0755);
-
         /* Create mountpoint for cgroups. Otherwise we are not allowed since we
          * remount /sys read-only.
          */
