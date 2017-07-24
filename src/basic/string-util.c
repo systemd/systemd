@@ -542,7 +542,7 @@ char *ellipsize(const char *s, size_t length, unsigned percent) {
         return ellipsize_mem(s, strlen(s), length, percent);
 }
 
-bool nulstr_contains(const char*nulstr, const char *needle) {
+bool nulstr_contains(const char *nulstr, const char *needle) {
         const char *i;
 
         if (!nulstr)
