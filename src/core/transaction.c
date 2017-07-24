@@ -338,6 +338,26 @@ _pure_ static bool unit_matters_to_anchor(Unit *u, Job *j) {
         return false;
 }
 
+static char* merge_unit_ids(const char* unit_log_field, char **pairs) {
+        char **unit_id, **job_type, *ans = NULL;
+        size_t alloc = 0, size = 0, next;
+
+        STRV_FOREACH_PAIR(unit_id, job_type, pairs) {
+                next = strlen(unit_log_field) + strlen(*unit_id);
+                if (!GREEDY_REALLOC(ans, alloc, size + next + 1)) {
+                        free(ans);
+                        return NULL;
+                }
+
+                sprintf(ans + size, "%s%s", unit_log_field, *unit_id);
+                if (*(unit_id+1))
+                        ans[size + next] =  '\n';
+                size += next + 1;
+        }
+
+        return ans;
+}
+
 static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsigned generation, sd_bus_error *e) {
         Iterator i;
         Unit *u;
@@ -352,7 +372,9 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
 
         /* Have we seen this before? */
         if (j->generation == generation) {
-                Job *k, *delete;
+                Job *k, *delete = NULL;
+                _cleanup_free_ char **array = NULL, *unit_ids = NULL;
+                char **unit_id, **job_type;
 
                 /* If the marker is NULL we have been here already and
                  * decided the job was loop-free from here. Hence
@@ -360,46 +382,46 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                 if (!j->marker)
                         return 0;
 
-                /* So, the marker is not NULL and we already have been
-                 * here. We have a cycle. Let's try to break it. We go
-                 * backwards in our path and try to find a suitable
-                 * job to remove. We use the marker to find our way
-                 * back, since smart how we are we stored our way back
-                 * in there. */
-                log_unit_warning(j->unit,
-                                 "Found ordering cycle on %s/%s",
-                                 j->unit->id, job_type_to_string(j->type));
+                /* So, the marker is not NULL and we already have been here. We have
+                 * a cycle. Let's try to break it. We go backwards in our path and
+                 * try to find a suitable job to remove. We use the marker to find
+                 * our way back, since smart how we are we stored our way back in
+                 * there. */
 
-                delete = NULL;
                 for (k = from; k; k = ((k->generation == generation && k->marker != k) ? k->marker : NULL)) {
 
-                        /* logging for j not k here to provide consistent narrative */
-                        log_unit_warning(j->unit,
-                                         "Found dependency on %s/%s",
-                                         k->unit->id, job_type_to_string(k->type));
+                        /* For logging below */
+                        if (strv_push_pair(&array, k->unit->id, (char*) job_type_to_string(k->type)) < 0)
+                                log_oom();
 
                         if (!delete && hashmap_get(tr->jobs, k->unit) && !unit_matters_to_anchor(k->unit, k))
-                                /* Ok, we can drop this one, so let's
-                                 * do so. */
+                                /* Ok, we can drop this one, so let's do so. */
                                 delete = k;
 
-                        /* Check if this in fact was the beginning of
-                         * the cycle */
+                        /* Check if this in fact was the beginning of the cycle */
                         if (k == j)
                                 break;
                 }
 
+                unit_ids = merge_unit_ids(j->manager->unit_log_field, array); /* ignore error */
+
+                STRV_FOREACH_PAIR(unit_id, job_type, array)
+                        /* logging for j not k here to provide a consistent narrative */
+                        log_struct(LOG_WARNING,
+                                   "MESSAGE=%s: Found %s on %s/%s",
+                                   j->unit->id,
+                                   unit_id == array ? "ordering cycle" : "dependency",
+                                   *unit_id, *job_type,
+                                   unit_ids, NULL);
 
                 if (delete) {
                         const char *status;
-                        /* logging for j not k here to provide consistent narrative */
-                        log_unit_warning(j->unit,
-                                         "Breaking ordering cycle by deleting job %s/%s",
-                                         delete->unit->id, job_type_to_string(delete->type));
-                        log_unit_error(delete->unit,
-                                       "Job %s/%s deleted to break ordering cycle starting with %s/%s",
-                                       delete->unit->id, job_type_to_string(delete->type),
-                                       j->unit->id, job_type_to_string(j->type));
+                        /* logging for j not k here to provide a consistent narrative */
+                        log_struct(LOG_ERR,
+                                   "MESSAGE=%s: Job %s/%s deleted to break ordering cycle starting with %s/%s",
+                                   j->unit->id, delete->unit->id, job_type_to_string(delete->type),
+                                   j->unit->id, job_type_to_string(j->type),
+                                   unit_ids, NULL);
 
                         if (log_get_show_color())
                                 status = ANSI_HIGHLIGHT_RED " SKIP " ANSI_NORMAL;
@@ -412,7 +434,10 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                         return -EAGAIN;
                 }
 
-                log_error("Unable to break cycle");
+                log_struct(LOG_ERR,
+                           "MESSAGE=%s: Unable to break cycle starting with %s/%s",
+                           j->unit->id, j->unit->id, job_type_to_string(j->type),
+                           unit_ids, NULL);
 
                 return sd_bus_error_setf(e, BUS_ERROR_TRANSACTION_ORDER_IS_CYCLIC,
                                          "Transaction order is cyclic. See system logs for details.");

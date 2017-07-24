@@ -1098,7 +1098,6 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
 
 /* Common implementation for multiple backends */
 int unit_load_fragment_and_dropin(Unit *u) {
-        Unit *t;
         int r;
 
         assert(u);
@@ -1111,18 +1110,15 @@ int unit_load_fragment_and_dropin(Unit *u) {
         if (u->load_state == UNIT_STUB)
                 return -ENOENT;
 
-        /* If the unit is an alias and the final unit has already been
-         * loaded, there's no point in reloading the dropins one more time. */
-        t = unit_follow_merge(u);
-        if (t != u && t->load_state != UNIT_STUB)
-                return 0;
-
-        return unit_load_dropin(t);
+        /* Load drop-in directory data. If u is an alias, we might be reloading the
+         * target unit needlessly. But we cannot be sure which drops-ins have already
+         * been loaded and which not, at least without doing complicated book-keeping,
+         * so let's always reread all drop-ins. */
+        return unit_load_dropin(unit_follow_merge(u));
 }
 
 /* Common implementation for multiple backends */
 int unit_load_fragment_and_dropin_optional(Unit *u) {
-        Unit *t;
         int r;
 
         assert(u);
@@ -1138,13 +1134,8 @@ int unit_load_fragment_and_dropin_optional(Unit *u) {
         if (u->load_state == UNIT_STUB)
                 u->load_state = UNIT_LOADED;
 
-        /* If the unit is an alias and the final unit has already been
-         * loaded, there's no point in reloading the dropins one more time. */
-        t = unit_follow_merge(u);
-        if (t != u && t->load_state != UNIT_STUB)
-                return 0;
-
-        return unit_load_dropin(t);
+        /* Load drop-in directory data */
+        return unit_load_dropin(unit_follow_merge(u));
 }
 
 int unit_add_default_target_dependency(Unit *u, Unit *target) {
