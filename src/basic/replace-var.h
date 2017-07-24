@@ -19,4 +19,4 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-char *replace_var(const char *text, char *(*lookup)(const char *variable, void*userdata), void *userdata);
+char *replace_var(const char *text, char *(*lookup)(const char *variable, void *userdata), void *userdata);

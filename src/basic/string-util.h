@@ -158,7 +158,7 @@ bool string_has_cc(const char *p, const char *ok) _pure_;
 char *ellipsize_mem(const char *s, size_t old_length_bytes, size_t new_length_columns, unsigned percent);
 char *ellipsize(const char *s, size_t length, unsigned percent);
 
-bool nulstr_contains(const char*nulstr, const char *needle);
+bool nulstr_contains(const char *nulstr, const char *needle);
 
 char* strshorten(char *s, size_t l);
 
