@@ -159,12 +159,6 @@ sensor:modalias:acpi:BMA250*:dmi:*:bvrTREK.G.WI71C.JGBMRBA*:*:svnInsyde:pnST7041
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
-# Winbook
-#########################################
-sensor:modalias:acpi:BMA250*:dmi:*svn*WinBook*:*pn*TW100*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 0
-
-#########################################
 # Cytrix (Mytrix)
 #########################################
 sensor:modalias:acpi:*KIOX000A*:dmi:*svn*CytrixTechnology:*pn*Complex11t*
