@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+<head>
+<title>runit - runlevels</title>
+</head>
+<body>
+<a href="http://smarden.org/pape/">G. Pape</a><br>
+<a href="index.html">runit</a><br>
+<hr>
+<h1>runit - runlevels</h1>
+<hr>
+<a href="#prepare">Prepare runit for using runlevels</a><br>
+<a href="#switch">Switching runlevels</a><br>
+<a href="#create">Creating runlevels</a>
+<hr>
+<a name="prepare"><h3>Prepare runit</h3></a>
+If not yet done, configure your system to use
+<a href="runit.8.html">runit</a> as process no 1 by following the
+<a href="replaceinit.html">instructions</a>.
+<p>
+Create the following directories and symbolic links:
+<pre>
+ # mkdir -p /etc/runit/runsvdir/default
+ # mkdir -p /etc/runit/runsvdir/single
+ # ln -s /etc/sv/getty-5 /etc/runit/runsvdir/single/
+ # ln -s default /etc/runit/runsvdir/current
+</pre>
+Copy the contents of <tt>/service/</tt> to
+<tt>/etc/runit/runsvdir/current/</tt> and replace <tt>/service/</tt>
+with a symbolic link:
+<pre>
+ # cp -pR /service/* /etc/runit/runsvdir/current/
+ # mv -f /service /service.old && \
+     ln -s /etc/runit/runsvdir/current /service
+</pre>
+You have now created two runlevels: <tt>default</tt> and <tt>single</tt>.
+The <tt>current</tt> runlevel is <tt>default</tt>.
+It is safe to remove <tt>/service.old/</tt> if you don't need it anymore.
+<p>
+Finally edit <tt>/etc/runit/2</tt> to set the <tt>default</tt> runlevel when
+stage 2 starts:
+<pre>
+ $ cat /etc/runit/2 
+ #!/bin/sh
+ PATH=/command:/usr/local/bin:/usr/local/sbin:/bin:/sbin:/usr/bin:/usr/sbin:/usr/X11R6/bin
+ 
+ <b>runsvchdir default &gt;/dev/null</b>
+ 
+ exec env - PATH=$PATH \
+ runsvdir /service 'log: ...........................................................................................................................................................................................................................................................................................................................................................................................................'
+</pre>
+<hr>
+<a name="switch"><h3>Switching runlevels</h3></a>
+Switching runlevels with <i>runit</i> is done by switching the directory the
+<a href="runsvdir.8.html">runsvdir</a> program is running in.
+This is done by the <a href="runsvchdir.8.html">runsvchdir</a> program, e.g.
+to switch to the <tt>single</tt> user runlevel, do:
+<pre>
+ # runsvchdir single
+</pre>
+To switch back to the <tt>default</tt> runlevel, do:
+<pre>
+ # runsvchdir default
+</pre>
+See <a href="runsvdir.8.html">the runsvdir program</a> for a description of
+what happens when <i>runsvdir</i> sees the directory changed.
+Note that there is no guarantee that all services from the <tt>previous</tt>
+runlevel will stop, the <a href="runsv.8.html">runsv</a> processes have sent
+the service daemons a SIGTERM and wait for them to terminate.
+You can check the status of the <tt>previous</tt> runlevel through
+<tt>/etc/runit/runsvdir/previous/</tt>.
+<hr>
+<a name="create"><h3>Creating new runlevels</h3></a>
+To create a new runlevel, simply create a new directory in
+<tt>/etc/runit/runsvdir/</tt>.
+The name of the directory is the name of the new runlevel.
+The name must not start with a dot and must not be <tt>current</tt>,
+<tt>current.new</tt>, or <tt>previous</tt>, e.g.:
+<pre>
+ # mkdir /etc/runit/runsvdir/maintenance
+</pre>
+Add the services you want to run in the runlevel <tt>maintenance</tt> to the
+newly created directory, e.g.:
+<pre>
+ # ln -s /etc/sv/getty-5 /etc/runit/runsvdir/maintenance/
+ # ln -s /etc/sv/ssh /etc/runit/runsvdir/maintenance/
+ # ln -s /etc/sv/dnscache /etc/runit/runsvdir/maintenance/
+</pre>
+If you want to switch to the runlevel <tt>maintenance</tt>, do:
+<pre>
+ # runsvchdir maintenance
+</pre>
+<hr>
+<address><a href="mailto:pape@smarden.org">
+Gerrit Pape &lt;pape@smarden.org&gt;
+</a></address>
+</body>
+</html>

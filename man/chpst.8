@@ -1,0 +1,265 @@
+.TH chpst 8
+.SH NAME
+chpst \- runs a program with a changed process state
+.SH SYNOPSIS
+.B chpst
+[\-vP012]
+[\-u
+.IR user ]
+[\-U
+.IR user ]
+[\-b
+.IR argv0 ]
+[-e
+.IR dir ]
+[\-/
+.IR root ]
+[\-n
+.IR inc ]
+[-l|-L
+.IR lock ]
+[-m
+.IR bytes ]
+[-d
+.IR bytes ]
+[-o
+.IR n ]
+[-p
+.IR n ]
+[-f
+.IR bytes ]
+[-c
+.IR bytes ]
+.I prog
+.SH DESCRIPTION
+.I prog
+consists of one or more arguments.
+.P
+.B chpst
+changes the process state according to the given options, and runs
+.IR prog .
+.SH OPTIONS
+.TP
+.B \-u \fI[:]user[:group]
+setuidgid.
+Set uid and gid to the
+.IR user 's
+uid and gid, as found in
+.IR /etc/passwd .
+If
+.I user
+is followed by a colon and a
+.IR group ,
+set the gid to
+.IR group 's
+gid, as found in
+.IR /etc/group ,
+instead of
+.IR user 's
+gid.
+If
+.I group
+consists of a colon-separated list of group names,
+.B chpst
+sets the group ids of all listed groups.
+If
+.I user
+is prefixed with a colon, the
+.I user
+and all
+.I group
+arguments are interpreted as uid and gids respectivly, and not looked up in
+the password or group file.
+All initial supplementary groups are removed.
+.TP
+.B \-U \fI[:]user[:group]
+envuidgid.
+Set the environment variables $UID and $GID to the
+.IR user 's
+uid and gid, as found in
+.IR /etc/passwd .
+If
+.I user
+is followed by a colon and a
+.IR group ,
+set $GID to the
+.IR group 's
+gid, as found in
+.IR /etc/group ,
+instead of
+.IR user 's
+gid.
+If
+.I user
+is prefixed with a colon, the
+.I user
+and
+.I group
+arguments are interpreted as uid and gid respectivly, and not looked up in
+the password or group file.
+.TP
+.B \-b \fIargv0
+argv0.
+Run
+.I prog
+with
+.I argv0
+as the 0th argument.
+.TP
+.B \-e \fIdir
+envdir.
+Set various environment variables as specified by files in the directory
+.IR dir :
+If
+.I dir
+contains a file named
+.I k
+whose first line is
+.IR v ,
+.B chpst
+removes the environment variable
+.I k
+if it exists, and then adds the environment variable
+.I k
+with the value
+.IR v .
+The name
+.I k
+must not contain =.
+Spaces and tabs at the end of
+.I v
+are removed, and nulls in
+.I v
+are changed to newlines.
+If the file
+.I k
+is empty (0 bytes long),
+.B chpst
+removes the environment variable
+.I k
+if it exists, without adding a new variable.
+.TP
+.B \-/ \fIroot
+chroot.
+Change the root directory to
+.I root
+before starting
+.IR prog .
+.TP
+.B \-n \fIinc
+nice.
+Add
+.I inc
+to the
+.BR nice (2)
+value before starting
+.IR prog .
+.I inc
+must be an integer, and may start with a minus or plus.
+.TP
+.B \-l \fIlock
+lock.
+Open the file
+.I lock
+for writing, and obtain an exclusive lock on it.
+.I lock
+will be created if it does not exist.
+If
+.I lock
+is locked by another process, wait until a new lock can be obtained.
+.TP
+.B \-L \fIlock
+The same as \-l, but fail immediately if
+.I lock
+is locked by another process.
+.TP
+.B \-m \fIbytes
+limit memory.
+Limit the data segment, stack segment, locked physical pages, and total of
+all segment per process to
+.I bytes
+bytes each.
+.TP
+.B \-d \fIbytes
+limit data segment.
+Limit the data segment per process to
+.I bytes
+bytes.
+.TP
+.B \-o \fIn
+limit open files.
+Limit the number of open file descriptors per process to
+.IR n .
+.TP
+.B \-p \fIn
+limit processes.
+Limit the number of processes per uid to
+.IR n .
+.TP
+.B \-f \fIbytes
+limit output size.
+Limit the output file size to
+.I bytes
+bytes.
+.TP
+.B \-c \fIbytes
+limit core size.
+Limit the core file size to
+.I bytes
+bytes.
+.TP
+.B \-v
+verbose.
+Print verbose messages to standard error.
+This includes warnings about limits unsupported by the system.
+.TP
+.B \-P
+pgrphack.
+Run
+.I prog
+in a new process group.
+.TP
+.B \-0
+Close standard input before starting
+.IR prog .
+.TP
+.B \-1
+Close standard output before starting
+.IR prog .
+.TP
+.B \-2
+Close standard error before starting
+.IR prog .
+.SH EXIT CODES
+.B chpst
+exits 100 when called with wrong options.
+It prints an error message and exits 111 if it has trouble changing the
+process state.
+Otherwise its exit code is the same as that of
+.IR prog .
+.SH EMULATION
+If
+.B chpst
+is called as
+.BR envdir ,
+.BR envuidgid ,
+.BR pgrphack ,
+.BR setlock ,
+.BR setuidgid ,
+or
+.BR softlimit ,
+it emulates the functionality of these programs from the daemontools package
+respectively.
+.SH SEE ALSO
+sv(8),
+runsv(8),
+setsid(2),
+runit(8),
+runit-init(8),
+runsvdir(8),
+runsvchdir(8)
+.P
+ http://smarden.org/runit/
+ http://cr.yp.to/daemontools.html
+.SH AUTHOR
+Gerrit Pape <pape@smarden.org>

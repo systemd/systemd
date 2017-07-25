@@ -1,0 +1,9 @@
+#!/bin/sh
+
+PATH=`pwd`:$PATH
+
+for i in ${1+"$@"}; do
+  echo "Checking $i..."
+  env - PATH="$PATH" ctmp="`pwd`/check-tmp" $i.check 2>&1 |cat -v >$i.local
+  ./check-diff $i || ( cat $i.local; echo "$i failed."; exit 1 ) || exit 1
+done

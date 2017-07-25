@@ -1,0 +1,60 @@
+
+
+
+<html>
+<head>
+<title>runit-init(8) manual page</title>
+</head>
+<body bgcolor='white'>
+<a href='http://smarden.org/pape/'>G. Pape</a><br><a href='index.html'>runit</A><hr><p>
+
+<h2><a name='sect0'>Name</a></h2>
+init - a UNIX process no 1 
+<h2><a name='sect1'>Synopsis</a></h2>
+<b>init</b> [ 0 | 6 ] 
+<h2><a name='sect2'>Description</a></h2>
+<b>runit-init</b>
+is the first process the kernel starts. If <b>runit-init</b> is started as process
+no 1, it runs and replaces itself with <i><b>runit</b>(8)</i>. <p>
+If <b>runit-init</b> is started
+while the system is up, it must be either called as <b>init 0</b> or <b>init 6:</b> 
+<dl>
+
+<dt><b>init
+0</b> </dt>
+<dd>tells the Unix process no 1 to shutdown and halt the system. To signal
+<i><b>runit</b>(8)</i> the system halt request, <b>runit-init</b> removes all permissions of
+the file <i>/etc/runit/reboot</i> (chmod 0), and sets the execute by owner permission
+of the file <i>/etc/runit/stopit</i> (chmod 100). Then a CONT signal is sent to
+<i><b>runit</b>(8)</i>. </dd>
+
+<dt><b>init 6</b> </dt>
+<dd>tells the Unix process no 1 to shutdown and reboot the
+system. To signal <i><b>runit</b>(8)</i> the system reboot request, <b>runit-init</b> sets the
+execute by owner permission of the files <i>/etc/runit/reboot</i> and <i>/etc/runit/stopit</i>
+(chmod 100). Then a CONT signal is sent to <i><b>runit</b>(8)</i>. </dd>
+</dl>
+
+<h2><a name='sect3'>Exit Codes</a></h2>
+<b>runit-init</b>
+returns 111 on error, 0 in all other cases. 
+<h2><a name='sect4'>See Also</a></h2>
+<i>runit(8)</i>, <i>runsvdir(8)</i>,
+<i>runsvchdir(8)</i>, <i>sv(8)</i>, <i>runsv(8)</i>, <i>chpst(8)</i>, <i>utmpset(8)</i>, <i>svlogd(8)</i> <p>
+<i>http://smarden.org/runit/</i>
+
+<h2><a name='sect5'>Author</a></h2>
+Gerrit Pape &lt;pape@smarden.org&gt; <p>
+
+<hr><p>
+<a name='toc'><b>Table of Contents</b></a><p>
+<ul>
+<li><a name='toc0' href='#sect0'>Name</a></li>
+<li><a name='toc1' href='#sect1'>Synopsis</a></li>
+<li><a name='toc2' href='#sect2'>Description</a></li>
+<li><a name='toc3' href='#sect3'>Exit Codes</a></li>
+<li><a name='toc4' href='#sect4'>See Also</a></li>
+<li><a name='toc5' href='#sect5'>Author</a></li>
+</ul>
+</body>
+</html>

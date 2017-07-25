@@ -1,0 +1,15 @@
+#!/bin/sh
+exec 2>&1
+
+PATH=/command:/sbin:/bin:/usr/sbin:/usr/bin
+
+echo 'Waiting for services to stop...'
+sv -w196 force-stop /service/*
+sv exit /service/*
+
+echo 'Shutdown...'
+if test -x /etc/runit/reboot; then
+  exec reboot
+else
+  exec halt
+fi

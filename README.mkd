@@ -1,0 +1,64 @@
+# runit - a UNIX init scheme with service supervision
+
+runit is a cross-platform Unix init scheme with service supervision, a
+replacement for sysvinit, and other init schemes. It runs on GNU/Linux, \*BSD,
+MacOSX, Solaris, and can easily be adapted to other Unix operating systems. If
+runit runs for you on any other operating system, please let me know.
+
+
+#### NOTE: This git repository is a copy of the source which is downloadable form http://smarden.org/runit/index.html
+
+## Overview
+
+The program runit is intended to run as Unix process no 1, it is automatically started by the runit-init /sbin/init-replacement if this is started by the kernel.
+runit performs the system's booting, running and shutting down in three stages:
+
+*Stage 1:*
+runit starts /etc/runit/1 and waits for it to terminate. The system's one time initialization tasks are done here. /etc/runit/1 has full control over /dev/console to be able to start an emergency shell in case the one time initialization tasks fail.
+
+*Stage 2:*
+runit starts /etc/runit/2 which should not return until the system is going to halt or reboot; if it crashes, it will be restarted. Normally, /etc/runit/2 runs runsvdir. In Stage 2 runit optionally handles the INT signal (ctrl-alt-del keyboard request on Linux/i386).
+
+*Stage 3:*
+If runit is told to halt or reboot the system, or Stage 2 returns without errors, it terminates Stage 2 if it is running, and runs /etc/runit/3. The systems tasks to shutdown and halt or reboot are done here.
+
+These are working examples for Debian sarge: [etc/debian/1](/etc/runit/1), [etc/debian/2](/etc/runit/2), [etc/debian/3](/etc/runit/3).
+
+The program runit-init is intended to replace /sbin/init. The command init 0 tells runit to halt the system, and init 6 to reboot. Runlevels are handled through the runsvdir and runsvchdir programs. Service dependencies are resolved automatically.
+
+runit is optimized for reliability and small size. The amount of code in process no 1 should be minimal.
+
+## Installation
+
+runit installs into /package. If you don't have a /package directory, create it now:
+```
+ mkdir -p /package
+ chmod 1755 /package
+```
+
+Download runit-2.1.2.tar.gz into /package and unpack the archive
+
+```
+ cd /package
+ gunzip runit-2.1.2.tar
+ tar -xpf runit-2.1.2.tar
+ rm runit-2.1.2.tar
+ cd admin/runit-2.1.2
+```
+
+On MacOSX, do
+```
+ echo 'cc -Xlinker -x' >src/conf-ld
+ cp src/Makefile src/Makefile.old
+ sed -e 's/ -static//' <src/Makefile.old >src/Makefile
+```
+
+Now compile and install the runit programs
+```
+ package/install
+```
+
+If you want to make the man pages available in the /usr/local/man/ hierarchy, do:
+```
+ package/install-man
+```

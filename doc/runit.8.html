@@ -1,0 +1,74 @@
+
+
+
+<html>
+<head>
+<title>runit(8) manual page</title>
+</head>
+<body bgcolor='white'>
+<a href='http://smarden.org/pape/'>G. Pape</a><br><a href='index.html'>runit</A><hr><p>
+
+<h2><a name='sect0'>Name</a></h2>
+runit - a UNIX process no 1 
+<h2><a name='sect1'>Synopsis</a></h2>
+<b>runit</b> 
+<h2><a name='sect2'>Description</a></h2>
+<b>runit</b> must be run
+as Unix process no 1. It performs the system&rsquo;s booting, running, and shutdown
+in three stages: 
+<h2><a name='sect3'>Stage 1</a></h2>
+<b>runit</b> runs <i>/etc/runit/1</i> and waits for it to terminate.
+The system&rsquo;s one time tasks are done here. <i>/etc/runit/1</i> has full control
+of <i>/dev/console</i> to be able to start an emergency shell if the one time
+initialization tasks fail. If <i>/etc/runit/1</i> crashes, or exits 100, <b>runit</b>
+will skip stage 2 and enter stage 3. 
+<h2><a name='sect4'>Stage 2</a></h2>
+<b>runit</b> runs <i>/etc/runit/2</i>, which
+should not return until system shutdown; if it crashes, or exits 111, it
+will be restarted. Normally <i>/etc/runit/2</i> starts <i><b>runsvdir</b>(8)</i>. <b>runit</b> is able
+to handle the ctrl-alt-del keyboard request in stage 2, see below. 
+<h2><a name='sect5'>Stage 3</a></h2>
+If
+<b>runit</b> is told to shutdown the system, or stage 2 returns, it terminates
+stage 2 if it is running, and runs <i>/etc/runit/3</i>. The systems tasks to shutdown
+and possibly halt or reboot the system are done here. If stage 3 returns,
+<b>runit</b> checks if the file <i>/etc/runit/reboot</i> exists and has the execute by
+owner permission set. If so, the system is rebooted, it&rsquo;s halted otherwise.
+
+<h2><a name='sect6'>Ctrl-alt-del</a></h2>
+If <b>runit</b> receives the ctrl-alt-del keyboard request and the file
+<i>/etc/runit/ctrlaltdel</i> exists and has the execute by owner permission set,
+<b>runit</b> runs <i>/etc/runit/ctrlaltdel</i>, waits for it to terminate, and then sends
+itself a CONT signal. 
+<h2><a name='sect7'>Signals</a></h2>
+<b>runit</b> only accepts signals in stage 2. <p>
+If <b>runit</b>
+receives a CONT signal and the file <i>/etc/runit/stopit</i> exists and has the
+execute by owner permission set, <b>runit</b> is told to shutdown the system. <p>
+if
+<b>runit</b> receives an INT signal, a ctrl-alt-del keyboard request is triggered.
+
+<h2><a name='sect8'>See Also</a></h2>
+<i>runit-init(8)</i>, <i>runsvdir(8)</i>, <i>runsvchdir(8)</i>, <i>sv(8)</i>, <i>runsv(8)</i>, <i>chpst(8)</i>,
+<i>utmpset(8)</i>, <i>svlogd(8)</i> <p>
+<i>http://smarden.org/runit/</i> 
+<h2><a name='sect9'>Author</a></h2>
+Gerrit Pape &lt;pape@smarden.org&gt;
+<p>
+
+<hr><p>
+<a name='toc'><b>Table of Contents</b></a><p>
+<ul>
+<li><a name='toc0' href='#sect0'>Name</a></li>
+<li><a name='toc1' href='#sect1'>Synopsis</a></li>
+<li><a name='toc2' href='#sect2'>Description</a></li>
+<li><a name='toc3' href='#sect3'>Stage 1</a></li>
+<li><a name='toc4' href='#sect4'>Stage 2</a></li>
+<li><a name='toc5' href='#sect5'>Stage 3</a></li>
+<li><a name='toc6' href='#sect6'>Ctrl-alt-del</a></li>
+<li><a name='toc7' href='#sect7'>Signals</a></li>
+<li><a name='toc8' href='#sect8'>See Also</a></li>
+<li><a name='toc9' href='#sect9'>Author</a></li>
+</ul>
+</body>
+</html>

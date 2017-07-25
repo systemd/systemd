@@ -1,0 +1,102 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+<head>
+<title>runit - use with traditional init</title>
+</head>
+<body>
+<a href="http://smarden.org/pape/">G. Pape</a><br>
+<a href="index.html">runit</a><br>
+<hr>
+<h1>runit - use with traditional init</h1>
+<hr>
+It's possible to use <i>runit</i>'s service supervision without replacing
+the <i>init</i> scheme of the system.
+Simply run the <i>stage 2</i> of <i>runit</i> as a service with your
+current <i>init</i>.
+<p>
+Normally this is done by either adding an entry for
+<tt>/sbin/runsvdir-start</tt> to <tt>/etc/inittab</tt>, or by adding
+<tt>/sbin/runsvdir-start</tt> as command to </tt>/etc/rc.local</tt>, or by
+adding <tt>/sbin/runsvdir-start</tt> to the system's <tt>StartupItems</tt>.
+<p>
+In any case, you first need to copy the <i>stage 2</i> script to
+<tt>/sbin/runsvdir-start</tt>, and create the services directory
+<tt>/service/</tt>:
+<pre>
+ # install -m0750 /package/admin/runit/etc/2 /sbin/runsvdir-start
+ # mkdir -p /service
+</pre>
+<hr>
+<a href="#sysv">How to use with sysvinit and inittab</a><br>
+<a href="#upstart">How to use with sysvinit and upstart</a><br>
+<a href="#bsd">How to use with *BSD init</a><br>
+<a href="#macosx">How to use with MacOSX init</a>
+<hr>
+<a name="sysv"><h2>Using with sysvinit and inittab</h2></a>
+If your system uses a sysvinit alike init scheme with a <tt>/etc/inittab</tt>
+file, do:
+<pre>
+ # cat &gt;&gt;/etc/inittab &lt;&lt;EOT
+ SV:123456:respawn:/sbin/runsvdir-start
+ EOT
+</pre>
+and tell <i>init</i> to re-read its configuration, e.g.:
+<pre>
+ # init q
+</pre>
+<hr>
+<a name="upstart"><h2>Using with sysvinit and upstart</h2></a>
+If your system uses a sysvinit alike init scheme that utilizes upstart
+instead of inittab, and which has start and stop scripts located in
+<tt>/etc/init/</tt>, do:
+<pre>
+ # cat >/etc/init/runsvdir.conf <<\EOT
+ # for runit - manage /usr/sbin/runsvdir-start
+ start on runlevel 2
+ start on runlevel 3
+ start on runlevel 4
+ start on runlevel 5
+ stop on shutdown
+ respawn
+ exec /usr/sbin/runsvdir-start
+ EOT
+</pre>
+and tell init to start the new service, e.g.:
+<pre>
+ # start runsvdir
+</pre>
+<hr>
+<a name="bsd"><h2>Using with *BSD init</h2></a>
+If your system uses a BSD alike init scheme with a <tt>/etc/rc.local</tt>
+script, do:
+<pre>
+ # cat &gt;&gt;/etc/rc.local &lt;&lt;EOT
+ csh -cf '/sbin/runsvdir-start &amp;'
+ EOT
+</pre>
+and reboot your system.
+<hr>
+<a name="macosx"><h2>Using with MacOSX init</h2></a>
+On MacOSX 10.2 create an entry for <i>runit</i> in
+<tt>/System/Library/StartupItems/</tt>:
+<pre>
+ # cd /System/Library/StartupItems
+ # mkdir -p runit
+ # cp -p /package/admin/runit/etc/macosx/StartupItems/* runit/
+</pre>
+and reboot your system.
+<p>
+On MacOSX 10.4 create an entry for <i>runit</i> in
+<tt>/Library/LaunchDaemons/</tt>, and tell <i>launchd</i> to start the new 
+service:
+<pre>
+ # cp /package/admin/runit/etc/macosx/org.smarden.runit.plist \
+     /Library/LaunchDaemons/
+ # launchctl load /Library/LaunchDaemons/org.smarden.runit.plist
+</pre>
+<hr>
+<address><a href="mailto:pape@smarden.org">
+Gerrit Pape &lt;pape@smarden.org&gt;
+</a></address>
+</body>
+</html>

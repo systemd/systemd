@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /sbin/getty 38400 tty5 linux

@@ -1,0 +1,17 @@
+#!/bin/sh
+# system one time tasks
+
+PATH=/command:/sbin:/bin:/usr/sbin:/usr/bin
+trap : 2
+trap : 3
+
+sh /etc/rc autoboot
+if test $? -ne 0; then
+  # /etc/rc crashed, start emergency shell.
+  echo '/etc/rc failed. Press <enter> for emergency shell...'
+  read input
+  sh -l
+  exec reboot
+fi
+touch /etc/runit/stopit
+chmod 0 /etc/runit/stopit

@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+
+umask 022
+test -d package || sh -cx '! : Wrong working directory.'
+test -d compile || sh -cx '! : Wrong working directory.'
+
+echo 'Checking commands in ./command...'
+sh -cxe 'cd compile; exec make check'

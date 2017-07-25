@@ -1,7 +1,0 @@
-[Unit]
-Description=Test RestrictNamespaces=~mnt
-
-[Service]
-RestrictNamespaces=~mnt
-ExecStart=/bin/sh -x -c 'unshare -m'
-Type=oneshot

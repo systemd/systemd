@@ -1,0 +1,88 @@
+.TH runit 8
+.SH NAME
+runit \- a UNIX process no 1
+.SH SYNOPSIS
+.B runit
+.SH DESCRIPTION
+.B runit
+must be run as Unix process no 1.
+It performs the system's booting, running, and shutdown in three stages:
+.SH STAGE 1
+.B runit
+runs
+.I /etc/runit/1
+and waits for it to terminate.
+The system's one time tasks are done here.
+.I /etc/runit/1
+has full control of
+.I /dev/console
+to be able to start an emergency shell if the one time initialization tasks
+fail. If
+.I /etc/runit/1
+crashes, or exits 100,
+.B runit
+will skip stage 2 and enter stage 3.
+.SH STAGE 2
+.B runit
+runs
+.IR /etc/runit/2 ,
+which should not return until system shutdown; if it crashes, or exits 111,
+it will be restarted.
+Normally
+.I /etc/runit/2
+starts
+.BR runsvdir (8).
+.B runit
+is able to handle the ctrl-alt-del keyboard request in stage 2, see below.
+.SH STAGE 3
+If
+.B runit
+is told to shutdown the system, or stage 2 returns, it terminates stage 2 if
+it is running, and runs
+.IR /etc/runit/3 .
+The systems tasks to shutdown and possibly halt or reboot the system are
+done here.
+If stage 3 returns,
+.B runit
+checks if the file
+.I /etc/runit/reboot
+exists and has the execute by owner permission set.
+If so, the system is rebooted, it's halted otherwise.
+.SH CTRL-ALT-DEL
+If
+.B runit
+receives the ctrl-alt-del keyboard request and the file
+.I /etc/runit/ctrlaltdel
+exists and has the execute by owner permission set,
+.B runit
+runs
+.IR /etc/runit/ctrlaltdel ,
+waits for it to terminate, and then sends itself a CONT signal.
+.SH SIGNALS
+.B runit
+only accepts signals in stage 2.
+.P
+If
+.B runit
+receives a CONT signal and the file
+.I /etc/runit/stopit
+exists and has the execute by owner permission set,
+.B runit
+is told to shutdown the system.
+.P
+if
+.B runit
+receives an INT signal, a ctrl-alt-del keyboard request is triggered.
+.SH SEE ALSO
+runit-init(8),
+runsvdir(8),
+runsvchdir(8),
+sv(8),
+runsv(8),
+chpst(8),
+utmpset(8),
+svlogd(8)
+.P
+http://smarden.org/runit/
+.SH AUTHOR
+Gerrit Pape <pape@smarden.org>

@@ -1,0 +1,36 @@
+#!/bin/sh
+rm -rf "${ctmp}"
+
+chpst
+echo $?
+chpst -V
+echo $?
+
+# -u
+# -U
+
+mkdir "${ctmp}"
+echo 1 >"${ctmp}"/test
+chpst -e"${ctmp}" env |sed -ne '/^test=1$/p'
+echo $?
+rm -rf "${ctmp}"
+
+chpst -l"${ctmp}" true
+echo $?
+rm -f "${ctmp}"
+
+chpst -L"${ctmp}" true
+echo $?
+rm -f "${ctmp}"
+
+# -m
+# -o
+# -p
+# -f
+# -c
+
+chpst -P true
+echo $?
+
+chpst -012 true
+echo $?

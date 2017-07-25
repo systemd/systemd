@@ -1,0 +1,55 @@
+.TH runsvchdir 8
+.SH NAME
+runsvchdir \- change services directory of runsvdir(8)
+.SH SYNOPSIS
+.B runsvchdir
+.I dir
+.SH DESCRIPTION
+.I dir
+is a services directory for the use with
+.BR runsvdir (8).
+If
+.I dir
+does not start with a slash, it is searched in /etc/runit/runsvdir/.
+.I dir
+must not start with a dot.
+.P
+.B runsvchdir
+switches to the directory
+.IR /etc/runit/runsvdir/ ,
+copies
+.I current
+to
+.IR previous ,
+and replaces
+.I current
+with a symlink pointing to
+.IR dir .
+.P
+Normally 
+.I /service
+is a symlink to
+.IR current ,
+and
+.BR runsvdir (8)
+is running
+.IR /service/ .
+.SH EXIT CODES
+.B runsvchdir
+prints an error message and exits 111 on error.
+.B runsvchdir
+exits 0 on success.
+.SH FILES
+ /etc/runit/runsvdir/previous
+ /etc/runit/runsvdir/current
+ /etc/runit/runsvdir/current.new
+.SH SEE ALSO
+runsvdir(8),
+runit(8),
+runit-init(8),
+sv(8),
+runsv(8)
+.P
+http://smarden.org/runit/
+.SH AUTHOR
+Gerrit Pape <pape@smarden.org>

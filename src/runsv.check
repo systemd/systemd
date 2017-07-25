@@ -1,0 +1,59 @@
+#!/bin/sh
+rm -rf "${ctmp}"
+
+runsv
+echo $?
+
+mkdir "${ctmp}"
+echo '#!/bin/sh' >"${ctmp}"/run
+echo 'echo starting' >>"${ctmp}"/run
+echo 'exec sleep 14' >>"${ctmp}"/run
+chmod 700 "${ctmp}"/run
+runsv "${ctmp}" &
+sleep 1
+test -r "${ctmp}"/supervise/stat || sleep 2
+cat "${ctmp}"/supervise/stat
+mkdir -p "${ctmp}"/control
+echo '#!/bin/sh' >"${ctmp}"/control/t
+echo 'echo term' >>"${ctmp}"/control/t
+echo 'exit 1' >>"${ctmp}"/control/t
+chmod 700 "${ctmp}"/control/t
+echo t >"${ctmp}"/supervise/control
+sleep 2
+echo x >"${ctmp}"/supervise/control
+wait
+echo $?
+
+mkdir "${ctmp}"/log
+echo '#!/bin/sh' >"${ctmp}"/log/run
+echo 'exec cat >foo' >>"${ctmp}"/log/run
+chmod 700 "${ctmp}"/log/run
+runsv "${ctmp}" &
+sleep 1
+test -r "${ctmp}"/log/supervise/stat || sleep 2
+mkdir -p "${ctmp}"/control
+echo '#!/bin/sh' >"${ctmp}"/control/i
+echo 'echo no interrupt' >>"${ctmp}"/control/i
+echo 'exit 0' >>"${ctmp}"/control/i
+chmod 700 "${ctmp}"/control/i
+echo i >"${ctmp}"/supervise/control
+sleep 1
+echo x >"${ctmp}"/supervise/control
+wait
+echo $?
+cat "${ctmp}"/log/foo
+
+rm -rf "${ctmp}"/supervise
+rm -rf "${ctmp}"/log/supervise
+rm -f "${ctmp}"/log/foo
+ln -s foo "${ctmp}"/supervise
+ln -s bar "${ctmp}"/log/supervise
+runsv "${ctmp}" &
+sleep 1
+test -r "${ctmp}"/supervise/stat || sleep 2
+test -r "${ctmp}"/log/supervise/stat || sleep 2
+echo x >"${ctmp}"/foo/control
+wait
+echo $?
+cat "${ctmp}"/log/foo
+rm -rf "${ctmp}"

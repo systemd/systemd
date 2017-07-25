@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>org.smarden.runit</string>
+	<key>ServiceDescription</key>
+	<string>runsvdir - starts and monitors a collection of runsv(8) processes</string>
+	<key>QueueDirectories</key>
+	<array>
+		<string>/service</string>
+	</array>
+	<key>OnDemand</key>
+	<false/>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/sbin/runsvdir-start</string>
+	</array>
+</dict>
+</plist>

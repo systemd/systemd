@@ -1,0 +1,35 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+<head>
+<title>runit - use dietlibc</title>
+</head>
+<body>
+<a href="http://smarden.org/pape/">G. Pape</a><br>
+<a href="index.html">runit</a><br>
+<hr>
+<h1>runit - use dietlibc</h1>
+<hr>
+To recompile the <i>runit</i> programs with the
+<a href="http://www.fefe.de/dietlibc/">diet libc</a>, check that you have
+the recent version of
+<a href="http://www.fefe.de/dietlibc/">dietlibc</a> installed.
+<p>
+Change to the package directory of <i>runit</i>
+<pre>
+ # cd /package/admin/runit/
+</pre>
+Change the <tt>conf-cc</tt> and <tt>conf-ld</tt> to use <tt>diet</tt>
+<pre>
+ # echo 'diet -Os gcc -O2 -Wall' &gt;src/conf-cc
+ # echo 'diet -Os gcc -s -Os -pipe' &gt;src/conf-ld
+</pre>
+Rebuild and install the <i>runit</i> programs
+<pre>
+ # package/install
+</pre>
+<hr>
+<address><a href="mailto:pape@smarden.org">
+Gerrit Pape &lt;pape@smarden.org&gt;
+</a></address>
+</body>
+</html>

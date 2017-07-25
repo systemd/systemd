@@ -1,0 +1,11 @@
+{
+  Description     = "runit service supervision";
+  Provides        = ("runit");
+  Requires        = ("Disks");
+  OrderPreference = "None";
+  Messages =
+  {
+    start = "Starting runit service supervision";
+    stop  = "Stopping runit service supervision";
+  };
+}

@@ -1,0 +1,5 @@
+#!/bin/sh
+while read i; do
+  read j 0<&7 || exit 1
+  test "$i" = "$j" || exit 1
+done 7<$1.dist <$1.local

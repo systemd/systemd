@@ -1,9 +1,0 @@
-[Unit]
-Description=Test Path Unit=
-
-[Path]
-PathExists=/tmp/test-path_unit
-Unit=path-mycustomunit.service
-
-[Install]
-WantedBy=multi-user.target

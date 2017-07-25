@@ -1,0 +1,63 @@
+.TH utmpset 8
+.SH NAME
+utmpset \- logout a line from utmp and wtmp file
+.SH SYNOPSIS
+.B utmpset
+[
+.B \-w
+]
+.I line
+.SH DESCRIPTION
+The
+.B utmpset
+program modifies the user accounting database
+.BR utmp (5)
+and optionally
+.BR wtmp (5)
+to indicate that the user on the terminal
+.I line
+has logged out.
+.P
+Ordinary
+.BR init (8)
+processes handle utmp file records for local login accounting.
+The
+.BR runit (8)
+program doesn't include code to update the utmp file, the
+.BR getty (8)
+processes are handled the same as all other services.
+.P
+To enable local login accounting, add
+.B utmpset
+to the
+.BR getty (8)
+.I finish
+scripts, e.g.:
+.P
+ $ cat /service/getty-5/finish
+ #!/bin/sh
+ exec utmpset \-w tty5
+ $
+.SH OPTIONS
+.TP
+.B \-w
+wtmp. Additionally to the utmp file, write an empty record for
+.I line
+to the wtmp file.
+.SH EXIT CODES
+.B utmpset
+returns 111 on error, 1 on wrong usage, 0 in all other cases.
+.SH SEE ALSO
+sv(8),
+runsv(8),
+runit(8),
+runit-init(8)
+runsvdir(8),
+runsvchdir(8),
+chpst(8),
+svlogd(8),
+getty(8)
+.P
+http://smarden.org/runit/
+.SH AUTHOR
+Gerrit Pape <pape@smarden.org>

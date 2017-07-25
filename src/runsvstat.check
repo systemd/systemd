@@ -1,0 +1,26 @@
+#!/bin/sh
+rm -rf "${ctmp}"
+
+runsvstat
+echo $?
+runsvstat -V
+echo $?
+
+mkdir "${ctmp}"
+echo '#!/bin/sh' >"${ctmp}"/run
+echo 'echo starting' >>"${ctmp}"/run
+echo 'exec sleep 14' >>"${ctmp}"/run
+chmod 700 "${ctmp}"/run
+chpst -2 runsvstat "${ctmp}"
+echo $?
+runsv "${ctmp}" &
+sleep 1
+test -r "${ctmp}"/supervise/stat || sleep 2
+chpst -1 runsvstat "${ctmp}"
+echo $?
+runsvctrl exit "${ctmp}"
+wait
+echo $?
+chpst -2 runsvstat "${ctmp}"
+echo $?
+rm -rf "${ctmp}"

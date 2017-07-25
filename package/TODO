@@ -1,0 +1,8 @@
+rewrite doc/benefits.html
+rewrite doc/index.html
+add doc/uselsb.html
+have sv replace runsvctrl, runsvstat, svwaitdown, svwaitup
+rewrite doc/dependencies.html: weak/string deps
+runsv: provide ./run's return code to ./finish, count startups of ./run and
+  provide number to ./run
+chpst: -u user[:group0[:group1 ...]]

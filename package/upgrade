@@ -1,0 +1,29 @@
+#!/bin/sh
+set -e
+
+umask 022
+test -d package || sh -cx '! : Wrong working directory.'
+test -d src || sh -cx '! : Wrong working directory.'
+
+here=`env - PATH=$PATH pwd`
+parent=`dirname $here`
+
+echo 'Creating symlink runit -> runit-2.1.2...'
+rm -f runit
+ln -s runit-2.1.2 runit
+mv -f runit ..
+
+echo 'Making command links in /command...'
+mkdir -p /command
+for i in `cat package/commands`; do
+  rm -f /command/$i'{new}'
+  ln -s $parent/runit/command/$i /command/$i'{new}'
+  mv -f /command/$i'{new}' /command/$i
+done
+echo 'Making compatibility links in /usr/local/bin...'
+mkdir -p /usr/local/bin
+for i in `cat package/commands`; do
+  rm -f /usr/local/bin/$i'{new}'
+  ln -s /command/$i /usr/local/bin/$i'{new}'
+  mv -f /usr/local/bin/$i'{new}' /usr/local/bin/$i
+done

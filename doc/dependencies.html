@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+<head>
+<title>runit -service dependencies</title>
+</head>
+<body>
+<a href="http://smarden.org/pape/">G. Pape</a><br>
+<a href="index.html">runit</a><br>
+<hr>
+<h1>runit - service dependencies</h1>
+<hr>
+<i>runit</i>'s service supervision resolves dependencies for service daemons
+designed to be run by a supervisor process automatically.
+The service daemon (or the corresponding <tt>run</tt> scripts) should behave
+as follows:
+<ul>
+  <li>before providing the service, check if all services it depends on are
+  available.
+  If not, exit with an error, the supervisor will then try again.
+  <li>write all logs through <i>runit</i>'s logging facility.
+  The <a href="runsv.8.html">runsv</a> program takes care that all logs for
+  the service are written safely to disk.
+  Therefore there's no need to depend on a system logging service.
+  <li>optionally when the service is told to become down, take down other
+  services that depend on this one after disabling the service.
+</ul>
+If you want to run service daemons that do not support service supervision
+as described above, please refer to
+<a href="http://smarden.org/pape/djb/daemontools/noinit.html">this page</a>
+about service dependencies I wrote some time ago.
+<hr>
+<address><a href="mailto:pape@smarden.org">
+Gerrit Pape &lt;pape@smarden.org&gt;
+</a></address>
+</body>
+</html>

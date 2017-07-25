@@ -1,0 +1,264 @@
+
+
+
+<html>
+<head>
+<title>svlogd(8) manual page</title>
+</head>
+<body bgcolor='white'>
+<a href='http://smarden.org/pape/'>G. Pape</a><br><a href='index.html'>runit</A><hr><p>
+
+<h2><a name='sect0'>Name</a></h2>
+svlogd - runit&rsquo;s service logging daemon 
+<h2><a name='sect1'>Synopsis</a></h2>
+<b>svlogd</b> [-tttv] [-r <i>c]</i> [-R
+<i>xyz]</i> [-l <i>len]</i> [-b <i>buflen]</i> <i>logs</i> 
+<h2><a name='sect2'>Description</a></h2>
+<i>logs</i> consists of one or more arguments,
+each specifying a directory. <p>
+<b>svlogd</b> continuously reads log data from its
+standard input, optionally filters log messages, and writes the data to
+one or more automatically rotated <i>logs</i>. <p>
+Recent log files can automatically
+be processed by an arbitrary processor program when they are rotated, and
+<b>svlogd</b> can be told to alert selected log messages to standard error, and
+through udp. <p>
+<b>svlogd</b> runs until it sees end-of-file on standard input or is
+sent a TERM signal, see below. 
+<h3><a name='sect3'>Log Directory</a></h3>
+A log directory <i>log</i> contains
+some number of old log files, and the current log file <i>current</i>. Old log
+files have a file name starting with <i>@</i> followed by a precise timestamp
+(see the daemontools&rsquo; <b>tai64n</b> program), indicating when <i>current</i> was rotated
+and renamed to this file. <p>
+A log directory additionally contains the lock
+file <i>lock</i>, maybe <i>state</i> and <i>newstate</i>, and optionally the file <i>config</i>. <b>svlogd</b>
+creates necessary files if they don&rsquo;t exist. <p>
+If <b>svlogd</b> has trouble opening
+a log directory, it prints a warning, and ignores this log directory. If
+<b>svlogd</b> is unable to open all log directories given at the command line,
+it exits with an error. This can happen on start-up or after receiving a
+HUP signal. 
+<h3><a name='sect4'>Log File Rotation</a></h3>
+<b>svlogd</b> appends selected log messages to the
+<i>current</i> log file. If <i>current</i> has <i>size</i> bytes or more (or there is a new-line
+within the last <i>len</i> of <i>size</i> bytes), or is older than a specified amount
+of <i>time</i>, <i>current</i> is rotated: <p>
+<b>svlogd</b> closes <i>current</i>, changes permission
+of <i>current</i> to 0755, renames <i>current</i> to @<i>timestamp.s,</i> and starts with a new
+empty <i>current</i>. If <b>svlogd</b> sees <i>num</i> or more old log files in the log directory,
+it removes the oldest one. Note that this doesn&rsquo;t decrease the number of
+log files if there are already more than <i>num</i> log files, this must be done
+manually, e.g. for keeping 10 log files: <p>
+ ls -1 \@* |sort |sed -ne &rsquo;10,$p&rsquo; |xargs
+rm<br>
+ 
+<h3><a name='sect5'>Processor</a></h3>
+If <b>svlogd</b> is told to process recent log files, it saves <i>current</i>
+to @<i>timestamp.u,</i> feeds @<i>timestamp.u</i> through &lsquo;&lsquo;sh -c "<i>processor</i>"&rsquo;&rsquo; and writes the
+output to @<i>timestamp.t.</i> If the <i>processor</i> finishes successfully, @<i>timestamp.t</i>
+is renamed to @<i>timestamp.s,</i> and @<i>timestamp.u</i> is deleted; otherwise @<i>timestamp.t</i>
+is deleted and the <i>processor</i> is started again. <b>svlogd</b> also saves any output
+that the <i>processor</i> writes to file descriptor 5, and makes that output available
+on file descriptor 4 when running <i>processor</i> on the next log file rotation.
+<p>
+A <i>processor</i> is run in the background. If <b>svlogd</b> sees a previously started
+<i>processor</i> still running when trying to start a new one for the same <i>log</i>,
+it blocks until the currently running <i>processor</i> has finished successfully.
+Only the HUP signal works in that situation. Note that this may block any
+program feeding its log data to <b>svlogd.</b> 
+<p> 
+<h3><a name='sect6'>Config</a></h3>
+On startup, and after receiving
+a HUP signal, <b>svlogd</b> checks for each log directory <i>log</i> if the configuration
+file <i>log/config</i> exists, and if so, reads the file line by line and adjusts
+configuration for <i>log</i> as follows: <p>
+If the line is empty, or starts with
+a &lsquo;&lsquo;#&rsquo;&rsquo;, it is ignored. A line of the form 
+<dl>
+
+<dt>s<i>size</i> </dt>
+<dd>sets the maximum file size
+of <i>current</i> when <b>svlogd</b> should rotate the current log file to <i>size</i> bytes.
+Default is 1000000. If <i>size</i> is zero, <b>svlogd</b> doesn&rsquo;t rotate log files. You
+should set <i>size</i> to at least (2 * <i>len</i>). </dd>
+
+<dt>n<i>num</i> </dt>
+<dd>sets the number of old log files
+<b>svlogd</b> should maintain to <i>num</i>. If <b>svlogd</b> sees more that <i>num</i> old log files
+in <i>log</i> after log file rotation, it deletes the oldest one. Default is 10.
+If <i>num</i> is zero, <b>svlogd</b> doesn&rsquo;t remove old log files. </dd>
+
+<dt>N<i>min</i> </dt>
+<dd>sets the minimum
+number of old log files <b>svlogd</b> should maintain to <i>min</i>. <i>min</i> must be less
+than <i>num</i>. If <i>min</i> is set, and <b>svlogd</b> cannot write to <i>current</i> because the
+filesystem is full, and it sees more than <i>min</i> old log files, it deletes
+the oldest one. </dd>
+
+<dt>t<i>timeout</i> </dt>
+<dd>sets the maximum age of the <i>current</i> log file when
+<b>svlogd</b> should rotate the current log file to <i>timeout</i> seconds. If <i>current</i>
+is <i>timeout</i> seconds old, and is not empty, <b>svlogd</b> forces log file rotation.
+</dd>
+
+<dt>!<i>processor</i> </dt>
+<dd>tells <b>svlogd</b> to feed each recent log file through <i>processor</i>
+(see above) on log file rotation. By default log files are not processed.
+</dd>
+
+<dt>u<i>a.b.c.d[:port]</i> </dt>
+<dd>tells <b>svlogd</b> to transmit the first <i>len</i> characters of selected
+log messages to the IP address <i>a.b.c.d</i>, port number <i>port</i>. If <i>port</i> isn&rsquo;t set,
+the default port for syslog is used (514). <i>len</i> can be set through the -l
+option, see below. If <b>svlogd</b> has trouble sending udp packets, it writes
+error messages to the log directory. Attention: logging through udp is unreliable,
+and should be used in private networks only. </dd>
+
+<dt>U<i>a.b.c.d[:port]</i> </dt>
+<dd>is the same as
+the <i>u</i> line above, but the log messages are no longer written to the log
+directory, but transmitted through udp only. Error messages from <b>svlogd</b>
+concerning sending udp packages still go to the log directory. </dd>
+
+<dt>p<i>prefix</i> </dt>
+<dd>tells
+<b>svlogd</b> to prefix each line to be written to the log directory, to standard
+error, or through UDP, with <i>prefix</i>. </dd>
+</dl>
+<p>
+If a line starts with a <i>-</i>, <i>+</i>, <i>e</i>, or <i>E</i>,
+<b>svlogd</b> matches the first <i>len</i> characters of each log message against <i>pattern</i>
+and acts accordingly: 
+<dl>
+
+<dt>-<i>pattern</i> </dt>
+<dd>the log message is deselected. </dd>
+
+<dt>+<i>pattern</i> </dt>
+<dd>the
+log message is selected. </dd>
+
+<dt>e<i>pattern</i> </dt>
+<dd>the log message is selected to be printed
+to standard error. </dd>
+
+<dt>E<i>pattern</i> </dt>
+<dd>the log message is deselected to be printed
+to standard error. </dd>
+</dl>
+<p>
+Initially each line is selected to be written to <i>log/current</i>.
+Deselected log messages are discarded from <i>log</i>. Initially each line is deselected
+to be written to standard err. Log messages selected for standard error
+are written to standard error. 
+<h2><a name='sect7'>Pattern Matching</a></h2>
+<b>svlogd</b> matches a log message
+against the string <i>pattern</i> as follows: <p>
+<i>pattern</i> is applied to the log message
+one character by one, starting with the first. A character not a star (&lsquo;&lsquo;*&rsquo;&rsquo;)
+and not a plus (&lsquo;&lsquo;+&rsquo;&rsquo;) matches itself. A plus matches the next character in
+<i>pattern</i> in the log message one or more times. A star before the end of <i>pattern</i>
+matches any string in the log message that does not include the next character
+in <i>pattern</i>. A star at the end of <i>pattern</i> matches any string. <p>
+Timestamps optionally
+added by <b>svlogd</b> are not considered part of the log message. <p>
+An <b>svlogd</b> pattern
+is not a regular expression. For example consider a log message like this
+<p>
+ 2005-12-18_09:13:50.97618 tcpsvd: info: pid 1977 from 10.4.1.14<br>
+ <p>
+The following pattern doesn&rsquo;t match <p>
+ -*pid*<br>
+ <p>
+because the first star matches up to the first p in tcpsvd, and then the
+match fails because i is not s. To match this log message, you can use a
+pattern like this instead <p>
+ -*: *: pid *<br>
+ 
+<h2><a name='sect8'>Options</a></h2>
+
+<dl>
+
+<dt><b>-t</b> </dt>
+<dd>timestamp. Prefix each selected line with a precise timestamp
+(see the daemontools&rsquo; <b>tai64n</b> program) when writing to <i>log</i> or to standard
+error. </dd>
+
+<dt><b>-tt</b> </dt>
+<dd>timestamp. Prefix each selected line with a human readable, sortable
+UTC timestamp of the form YYYY-MM-DD_HH:MM:SS.xxxxx when writing to <i>log</i> or
+to standard error. </dd>
+
+<dt><b>-ttt</b> </dt>
+<dd>timestamp. Prefix each selected line with a human
+readable, sortable UTC timestamp of the form YYYY-MM-DDTHH:MM:SS.xxxxx when
+writing to <i>log</i> or to standard error. </dd>
+
+<dt><b>-r <i>c</b> </i></dt>
+<dd>replace. <i>c</i> must be a single character.
+Replace non-printable characters in log messages with <i>c</i>. Characters are replaced
+before pattern matching is applied. </dd>
+
+<dt><b>-R <i>xyz</b> </i></dt>
+<dd>replace charset. Additionally to
+non-printable characters, replace all characters found in <i>xyz</i> with <i>c</i> (default
+&lsquo;&lsquo;_&rsquo;&rsquo;). </dd>
+
+<dt><b>-l <i>len</b> </i></dt>
+<dd>line length. Pattern matching applies to the first <i>len</i> characters
+of a log message only. Default is 1000. </dd>
+
+<dt><b>-b <i>buflen</b> </i></dt>
+<dd>buffer size. Set the size
+of the buffer <b>svlogd</b> uses when reading from standard input and writing
+to <i>logs</i> to <i>buflen</i>. Default is 1024. <i>buflen</i> must be greater than <i>len</i>. For <b>svlogd</b>
+instances that process a lot of data in short time, the buffer size should
+be increased to improve performance. </dd>
+
+<dt><b>-v</b> </dt>
+<dd>verbose. Print verbose messages to
+standard error. </dd>
+</dl>
+
+<h2><a name='sect9'>Signals</a></h2>
+If <b>svlogd</b> is sent a HUP signal, it closes and reopens
+all <i>logs</i>, and updates their configuration according to <i>log/config</i>. If <b>svlogd</b>
+has trouble opening a log directory, it prints a warning, and discards
+this log directory. If <b>svlogd</b> is unable to open all log directories given
+at the command line, it exits with an error. <p>
+If <b>svlogd</b> is sent a TERM signal,
+or if it sees end-of-file on standard input, it stops reading standard input,
+processes the data in the buffer, waits for all <i>processor</i> subprocesses
+to finish if any, and exits 0 as soon as possible. <p>
+If <b>svlogd</b> is sent an
+ALRM signal, it forces log file rotation for all <i>logs</i> with a non empty
+<i>current</i> log file. 
+<h2><a name='sect10'>See Also</a></h2>
+<i>sv(8)</i>, <i>runsv(8)</i>, <i>chpst(8)</i>, <i>runit(8)</i>, <i>runit-init(8)</i>,
+<i>runsvdir(8)</i>, <i>runsvchdir(8)</i> <p>
+<i>http://smarden.org/runit/</i> 
+<h2><a name='sect11'>Author</a></h2>
+Gerrit Pape &lt;pape@smarden.org&gt;
+<p>
+
+<hr><p>
+<a name='toc'><b>Table of Contents</b></a><p>
+<ul>
+<li><a name='toc0' href='#sect0'>Name</a></li>
+<li><a name='toc1' href='#sect1'>Synopsis</a></li>
+<li><a name='toc2' href='#sect2'>Description</a></li>
+<ul>
+<li><a name='toc3' href='#sect3'>Log Directory</a></li>
+<li><a name='toc4' href='#sect4'>Log File Rotation</a></li>
+<li><a name='toc5' href='#sect5'>Processor</a></li>
+<li><a name='toc6' href='#sect6'>Config</a></li>
+</ul>
+<li><a name='toc7' href='#sect7'>Pattern Matching</a></li>
+<li><a name='toc8' href='#sect8'>Options</a></li>
+<li><a name='toc9' href='#sect9'>Signals</a></li>
+<li><a name='toc10' href='#sect10'>See Also</a></li>
+<li><a name='toc11' href='#sect11'>Author</a></li>
+</ul>
+</body>
+</html>

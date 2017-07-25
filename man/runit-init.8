@@ -1,0 +1,63 @@
+.TH runit-init 8
+.SH NAME
+init \- a UNIX process no 1
+.SH SYNOPSIS
+.B init
+[ 0 | 6 ]
+.SH DESCRIPTION
+.B runit-init
+is the first process the kernel starts.
+If
+.B runit-init
+is started as process no 1, it runs and replaces itself with
+.BR runit (8).
+.P
+If
+.B runit-init
+is started while the system is up, it must be either called as
+.B init 0
+or
+.B init 6\fR:
+.TP
+.B init 0
+tells the Unix process no 1 to shutdown and halt the system.
+To signal
+.BR runit (8)
+the system halt request,
+.B runit-init
+removes all permissions of the file
+.I /etc/runit/reboot
+(chmod 0), and sets the execute by owner permission of the file
+.I /etc/runit/stopit
+(chmod 100).
+Then a CONT signal is sent to
+.BR runit (8).
+.TP
+.B init 6
+tells the Unix process no 1 to shutdown and reboot the system.
+To signal
+.BR runit (8)
+the system reboot request,
+.B runit-init
+sets the execute by owner permission of the files
+.I /etc/runit/reboot
+and
+.I /etc/runit/stopit
+(chmod 100). Then a CONT signal is sent to
+.BR runit (8).
+.SH EXIT CODES
+.B runit-init
+returns 111 on error, 0 in all other cases.
+.SH SEE ALSO
+runit(8),
+runsvdir(8),
+runsvchdir(8),
+sv(8),
+runsv(8),
+chpst(8),
+utmpset(8),
+svlogd(8)
+.P
+http://smarden.org/runit/
+.SH AUTHOR
+Gerrit Pape <pape@smarden.org>

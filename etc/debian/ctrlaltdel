@@ -1,0 +1,9 @@
+#!/bin/sh
+
+PATH=/bin:/usr/bin
+MSG="System is going down in 14 seconds..."
+
+# echo 'disabled.' ; exit
+touch /etc/runit/stopit
+chmod 100 /etc/runit/stopit && echo "$MSG" | wall
+/bin/sleep 14
