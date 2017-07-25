@@ -1,0 +1,102 @@
+.TH runsvdir 8
+.SH NAME
+runsvdir \- starts and monitors a collection of runsv(8) processes
+.SH SYNOPSIS
+.B runsvdir
+[\-P]
+.I dir
+[
+.I log
+]
+.SH DESCRIPTION
+.I dir
+must be a directory.
+.I log
+is a space holder for a readproctitle log, and must be at least seven
+characters long or absent.
+.P
+.B runsvdir
+starts a
+.BR runsv (8)
+process for each subdirectory, or symlink to a directory, in the services
+directory
+.IR dir ,
+up to a limit of 1000 subdirectories,
+and restarts a
+.BR runsv (8)
+process if it terminates.
+.B runsvdir
+skips subdirectory names starting with dots.
+.BR runsv (8)
+must be in
+.BR runsvdir 's
+PATH.
+.P
+At least every five seconds
+.B runsvdir
+checks whether the time of last modification, the inode, or the device, of
+the services directory
+.I dir
+has changed.
+If so, it re-scans the service directory, and if it sees a new subdirectory,
+or new symlink to a directory, in
+.IR dir ,
+it starts a new
+.BR runsv (8)
+process;
+if
+.B runsvdir
+sees a subdirectory being removed that was previously there, it sends the
+corresponding
+.BR runsv (8)
+process a TERM signal, stops monitoring this process, and so does not
+restart the
+.BR runsv (8)
+process if it exits.
+.P
+If the
+.I log
+argument is given to
+.BR runsvdir ,
+all output to standard error is redirected to this
+.IR log ,
+which is similar to the daemontools'
+.B readproctitle
+log.
+To see the most recent error messages, use a process-listing tool such as
+.BR ps (1).
+.B runsvdir
+writes a dot to the readproctitle log every 15 minutes so that old error
+messages expire.
+.SH OPTIONS
+.TP
+.B \-P
+use
+.BR setsid (2)
+to run each
+.BR runsv (8)
+process in a new session and separate process group.
+.SH SIGNALS
+If
+.B runsvdir
+receives a TERM signal, it exits with 0 immediately.
+.P
+If
+.B runsvdir
+receives a HUP signal, it sends a TERM signal to each
+.BR runsv (8)
+process it is monitoring and then exits with 111.
+.SH SEE ALSO
+sv(8),
+runsv(8),
+runsvchdir(8),
+runit(8),
+runit-init(8),
+chpst(8),
+svlogd(8),
+utmpset(8),
+setsid(2)
+.P
+http://smarden.org/runit/
+.SH AUTHOR
+Gerrit Pape <pape@smarden.org>

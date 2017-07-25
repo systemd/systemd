@@ -1,0 +1,5 @@
+#!/bin/sh
+utmpset
+echo $?
+utmpset -V
+echo $?

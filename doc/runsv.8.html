@@ -1,0 +1,157 @@
+
+
+
+<html>
+<head>
+<title>runsv(8) manual page</title>
+</head>
+<body bgcolor='white'>
+<a href='http://smarden.org/pape/'>G. Pape</a><br><a href='index.html'>runit</A><hr><p>
+
+<h2><a name='sect0'>Name</a></h2>
+runsv - starts and monitors a service and optionally an appendant log
+service 
+<h2><a name='sect1'>Synopsis</a></h2>
+<b>runsv</b> <i>service</i> 
+<h2><a name='sect2'>Description</a></h2>
+<i>service</i> must be a directory. <p>
+<b>runsv</b>
+switches to the directory <i>service</i> and starts ./run. If ./run exits and ./finish
+exists, <b>runsv</b> starts ./finish. If ./finish doesn&rsquo;t exist or ./finish exits,
+<b>runsv</b> restarts ./run. <p>
+If ./run or ./finish exit immediately, <b>runsv</b> waits a
+second before starting ./finish or restarting ./run. <p>
+Two arguments are given
+to ./finish. The first one is ./run&rsquo;s exit code, or -1 if ./run didn&rsquo;t exit normally.
+The second one is the least significant byte of the exit status as determined
+by <i><b>waitpid</b>(2)</i>; for instance it is 0 if ./run exited normally, and the signal
+number if ./run was terminated by a signal. If <b>runsv</b> cannot start ./run for
+some reason, the exit code is 111 and the status is 0. <p>
+If the file <i>service</i>/down
+exists, <b>runsv</b> does not start ./run immediately. The control interface (see
+below) can be used to start the service and to give other commands to <b>runsv</b>.
+<p>
+If the directory <i>service</i>/log exists, <b>runsv</b> creates a pipe, redirects <i>service</i>/run&rsquo;s
+and <i>service</i>/finish&rsquo;s standard output to the pipe, switches to the directory
+<i>service</i>/log and starts ./run (and ./finish) exactly as described above for
+the <i>service</i> directory. The standard input of the log service is redirected
+to read from the pipe. <p>
+<b>runsv</b> maintains status information in a binary format
+(compatible to the daemontools&rsquo; <b>supervise</b> program) in <i>service</i>/supervise/status
+and <i>service</i>/log/supervise/status, and in a human-readable format in <i>service</i>/supervise/stat,
+<i>service</i>/log/supervise/stat, <i>service</i>/supervise/pid, <i>service</i>/log/supervise/pid.
+
+<h2><a name='sect3'>Control</a></h2>
+The named pipes <i>service</i>/supervise/control, and (optionally) <i>service</i>/log/supervise/control
+are provided to give commands to <b>runsv</b>. You can use <i><b>sv</b>(8)</i> to control the
+service or just write one of the following characters to the named pipe:
+
+<dl>
+
+<dt><b>u</b> </dt>
+<dd>Up. If the service is not running, start it. If the service stops, restart
+it. </dd>
+
+<dt><b>d</b> </dt>
+<dd>Down. If the service is running, send it a TERM signal, and then a
+CONT signal. If ./run exits, start ./finish if it exists. After it stops, do
+not restart service. </dd>
+
+<dt><b>o</b> </dt>
+<dd>Once. If the service is not running, start it. Do not
+restart it if it stops. </dd>
+
+<dt><b>p</b> </dt>
+<dd>Pause. If the service is running, send it a STOP
+signal. </dd>
+
+<dt><b>c</b> </dt>
+<dd>Continue. If the service is running, send it a CONT signal. </dd>
+
+<dt><b>h</b> </dt>
+<dd>Hangup.
+If the service is running, send it a HUP signal. </dd>
+
+<dt><b>a</b> </dt>
+<dd>Alarm. If the service
+is running, send it a ALRM signal. </dd>
+
+<dt><b>i</b> </dt>
+<dd>Interrupt. If the service is running,
+send it a INT signal. </dd>
+
+<dt><b>q</b> </dt>
+<dd>Quit. If the service is running, send it a QUIT signal. </dd>
+
+<dt><b>1</b> </dt>
+<dd>User-defined 1. If the service is running, send it a USR1 signal. </dd>
+
+<dt><b>2</b> </dt>
+<dd>User-defined 2. If the service is running, send it a USR2 signal. </dd>
+
+<dt><b>t</b> </dt>
+<dd>Terminate. If the service
+is running, send it a TERM signal. </dd>
+
+<dt><b>k</b> </dt>
+<dd>Kill. If the service is running, send
+it a KILL signal. </dd>
+
+<dt><b>x</b> </dt>
+<dd>Exit. If the service is running, send it a TERM signal,
+and then a CONT signal. Do not restart the service. If the service is down,
+and no log service exists, <b>runsv</b> exits. If the service is down and a log
+service exists, <b>runsv</b> closes the standard input of the log service, and
+waits for it to terminate. If the log service is down, <b>runsv</b> exits. This
+command is ignored if it is given to <i>service</i>/log/supervise/control. </dd>
+</dl>
+<p>
+Example:
+to send a TERM signal to the socklog-unix service, either do   # sv term
+/service/socklog-unix<br>
+  or<br>
+   # printf t &gt;/service/socklog-unix/supervise/control<br>
+ <p>
+<i><b>printf</b>(1)</i> usually blocks if no <b>runsv</b> process is running in the service
+directory. 
+<h2><a name='sect4'>Customize Control</a></h2>
+For each control character <i>c</i> sent to the control
+pipe, <b>runsv</b> first checks if <i>service</i>/control/<i>c</i> exists and is executable.
+If so, it starts <i>service</i>/control/<i>c</i> and waits for it to terminate, before
+interpreting the command. If the program exits with return code 0, <b>runsv</b>
+refrains from sending the service the corresponding signal. The command
+<i>o</i> is always considered as command <i>u</i>. On command <i>d</i> first <i>service</i>/control/<i>t</i>
+is checked, and then <i>service</i>/control/<i>d</i>. On command <i>x</i> first <i>service</i>/control/<i>t</i>
+is checked, and then <i>service</i>/control/<i>x</i>. The control of the optional log
+service cannot be customized. 
+<h2><a name='sect5'>Signals</a></h2>
+If <b>runsv</b> receives a TERM signal, it
+acts as if the character x was written to the control pipe. 
+<h2><a name='sect6'>Exit Codes</a></h2>
+<b>runsv</b>
+exits 111 on an error on startup or if another <b>runsv</b> is running in <i>service</i>.
+<p>
+<b>runsv</b> exits 0 if it was told to exit. 
+<h2><a name='sect7'>See Also</a></h2>
+<i>sv(8)</i>, <i>chpst(8)</i>, <i>svlogd(8)</i>,
+<i>runit(8)</i>, <i>runit-init(8)</i>, <i>runsvdir(8)</i>, <i>runsvchdir(8)</i>, <i>utmpset(8)</i> <p>
+<i>http://smarden.org/runit/</i>
+
+<h2><a name='sect8'>Author</a></h2>
+Gerrit Pape &lt;pape@smarden.org&gt; <p>
+
+<hr><p>
+<a name='toc'><b>Table of Contents</b></a><p>
+<ul>
+<li><a name='toc0' href='#sect0'>Name</a></li>
+<li><a name='toc1' href='#sect1'>Synopsis</a></li>
+<li><a name='toc2' href='#sect2'>Description</a></li>
+<li><a name='toc3' href='#sect3'>Control</a></li>
+<li><a name='toc4' href='#sect4'>Customize Control</a></li>
+<li><a name='toc5' href='#sect5'>Signals</a></li>
+<li><a name='toc6' href='#sect6'>Exit Codes</a></li>
+<li><a name='toc7' href='#sect7'>See Also</a></li>
+<li><a name='toc8' href='#sect8'>Author</a></li>
+</ul>
+</body>
+</html>

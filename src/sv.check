@@ -1,0 +1,27 @@
+#!/bin/sh
+rm -rf "${ctmp}"
+trap 'rm -rf "${ctmp}"' EXIT
+
+sv
+echo $?
+sv -V
+echo $?
+
+mkdir "${ctmp}"
+cat >"${ctmp}"/run <<-\EOT
+	#!/bin/sh
+	echo starting
+	exec sleep 14
+	EOT
+chmod 700 "${ctmp}"/run
+runsv "${ctmp}" &
+sleep 1
+test -r "${ctmp}"/supervise/stat || sleep 2
+sv down "${ctmp}"
+echo $?
+sleep 1
+cat "${ctmp}"/supervise/stat
+sv exit "${ctmp}"
+echo $?
+wait
+echo $?

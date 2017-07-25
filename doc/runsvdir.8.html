@@ -1,0 +1,73 @@
+
+
+
+<html>
+<head>
+<title>runsvdir(8) manual page</title>
+</head>
+<body bgcolor='white'>
+<a href='http://smarden.org/pape/'>G. Pape</a><br><a href='index.html'>runit</A><hr><p>
+
+<h2><a name='sect0'>Name</a></h2>
+runsvdir - starts and monitors a collection of <i>runsv(8)</i> processes 
+<h2><a name='sect1'>Synopsis</a></h2>
+<b>runsvdir</b>
+[-P] <i>dir</i> [ <i>log</i> ] 
+<h2><a name='sect2'>Description</a></h2>
+<i>dir</i> must be a directory. <i>log</i> is a space holder
+for a readproctitle log, and must be at least seven characters long or
+absent. <p>
+<b>runsvdir</b> starts a <i><b>runsv</b>(8)</i> process for each subdirectory, or symlink
+to a directory, in the services directory <i>dir</i>, up to a limit of 1000 subdirectories,
+and restarts a <i><b>runsv</b>(8)</i> process if it terminates. <b>runsvdir</b> skips subdirectory
+names starting with dots. <i><b>runsv</b>(8)</i> must be in <b>runsvdir</b>&rsquo;s PATH. <p>
+At least every
+five seconds <b>runsvdir</b> checks whether the time of last modification, the
+inode, or the device, of the services directory <i>dir</i> has changed. If so,
+it re-scans the service directory, and if it sees a new subdirectory, or
+new symlink to a directory, in <i>dir</i>, it starts a new <i><b>runsv</b>(8)</i> process; if
+<b>runsvdir</b> sees a subdirectory being removed that was previously there, it
+sends the corresponding <i><b>runsv</b>(8)</i> process a TERM signal, stops monitoring
+this process, and so does not restart the <i><b>runsv</b>(8)</i> process if it exits.
+<p>
+If the <i>log</i> argument is given to <b>runsvdir</b>, all output to standard error
+is redirected to this <i>log</i>, which is similar to the daemontools&rsquo; <b>readproctitle</b>
+log. To see the most recent error messages, use a process-listing tool such
+as <i><b>ps</b>(1)</i>. <b>runsvdir</b> writes a dot to the readproctitle log every 15 minutes
+so that old error messages expire. 
+<h2><a name='sect3'>Options</a></h2>
+
+<dl>
+
+<dt><b>-P</b> </dt>
+<dd>use <i><b>setsid</b>(2)</i> to run each <i><b>runsv</b>(8)</i>
+process in a new session and separate process group. </dd>
+</dl>
+
+<h2><a name='sect4'>Signals</a></h2>
+If <b>runsvdir</b>
+receives a TERM signal, it exits with 0 immediately. <p>
+If <b>runsvdir</b> receives
+a HUP signal, it sends a TERM signal to each <i><b>runsv</b>(8)</i> process it is monitoring
+and then exits with 111. 
+<h2><a name='sect5'>See Also</a></h2>
+<i>sv(8)</i>, <i>runsv(8)</i>, <i>runsvchdir(8)</i>, <i>runit(8)</i>,
+<i>runit-init(8)</i>, <i>chpst(8)</i>, <i>svlogd(8)</i>, <i>utmpset(8)</i>, <i>setsid(2)</i> <p>
+<i>http://smarden.org/runit/</i>
+
+<h2><a name='sect6'>Author</a></h2>
+Gerrit Pape &lt;pape@smarden.org&gt; <p>
+
+<hr><p>
+<a name='toc'><b>Table of Contents</b></a><p>
+<ul>
+<li><a name='toc0' href='#sect0'>Name</a></li>
+<li><a name='toc1' href='#sect1'>Synopsis</a></li>
+<li><a name='toc2' href='#sect2'>Description</a></li>
+<li><a name='toc3' href='#sect3'>Options</a></li>
+<li><a name='toc4' href='#sect4'>Signals</a></li>
+<li><a name='toc5' href='#sect5'>See Also</a></li>
+<li><a name='toc6' href='#sect6'>Author</a></li>
+</ul>
+</body>
+</html>

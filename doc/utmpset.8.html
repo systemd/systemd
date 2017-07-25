@@ -1,0 +1,63 @@
+
+
+
+<html>
+<head>
+<title>utmpset(8) manual page</title>
+</head>
+<body bgcolor='white'>
+<a href='http://smarden.org/pape/'>G. Pape</a><br><a href='index.html'>runit</A><hr><p>
+
+<h2><a name='sect0'>Name</a></h2>
+utmpset - logout a line from utmp and wtmp file 
+<h2><a name='sect1'>Synopsis</a></h2>
+<b>utmpset</b> [ <b>-w</b>
+] <i>line</i> 
+<h2><a name='sect2'>Description</a></h2>
+The <b>utmpset</b> program modifies the user accounting database
+<i><b>utmp</b>(5)</i> and optionally <i><b>wtmp</b>(5)</i> to indicate that the user on the terminal
+<i>line</i> has logged out. <p>
+Ordinary <i><b>init</b>(8)</i> processes handle utmp file records
+for local login accounting. The <i><b>runit</b>(8)</i> program doesn&rsquo;t include code to
+update the utmp file, the <i><b>getty</b>(8)</i> processes are handled the same as all
+other services. <p>
+To enable local login accounting, add <b>utmpset</b> to the <i><b>getty</b>(8)</i>
+<i>finish</i> scripts, e.g.: <p>
+ $ cat /service/getty-5/finish<br>
+  #!/bin/sh<br>
+  exec utmpset -w tty5<br>
+  $<br>
+ 
+<h2><a name='sect3'>Options</a></h2>
+
+<dl>
+
+<dt><b>-w</b> </dt>
+<dd>wtmp. Additionally to the utmp file, write an empty record for
+<i>line</i> to the wtmp file. </dd>
+</dl>
+
+<h2><a name='sect4'>Exit Codes</a></h2>
+<b>utmpset</b> returns 111 on error, 1 on wrong
+usage, 0 in all other cases. 
+<h2><a name='sect5'>See Also</a></h2>
+<i>sv(8)</i>, <i>runsv(8)</i>, <i>runit(8)</i>, <i>runit-init(8)</i>
+<i>runsvdir(8)</i>, <i>runsvchdir(8)</i>, <i>chpst(8)</i>, <i>svlogd(8)</i>, <i>getty(8)</i> <p>
+<i>http://smarden.org/runit/</i>
+
+<h2><a name='sect6'>Author</a></h2>
+Gerrit Pape &lt;pape@smarden.org&gt; <p>
+
+<hr><p>
+<a name='toc'><b>Table of Contents</b></a><p>
+<ul>
+<li><a name='toc0' href='#sect0'>Name</a></li>
+<li><a name='toc1' href='#sect1'>Synopsis</a></li>
+<li><a name='toc2' href='#sect2'>Description</a></li>
+<li><a name='toc3' href='#sect3'>Options</a></li>
+<li><a name='toc4' href='#sect4'>Exit Codes</a></li>
+<li><a name='toc5' href='#sect5'>See Also</a></li>
+<li><a name='toc6' href='#sect6'>Author</a></li>
+</ul>
+</body>
+</html>

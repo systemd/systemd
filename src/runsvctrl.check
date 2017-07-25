@@ -1,0 +1,23 @@
+#!/bin/sh
+rm -rf "${ctmp}"
+
+runsvctrl
+echo $?
+
+mkdir "${ctmp}"
+echo '#!/bin/sh' >"${ctmp}"/run
+echo 'echo starting' >>"${ctmp}"/run
+echo 'exec sleep 14' >>"${ctmp}"/run
+chmod 700 "${ctmp}"/run
+runsv "${ctmp}" &
+sleep 1
+test -r "${ctmp}"/supervise/stat || sleep 2
+runsvctrl down "${ctmp}"
+echo $?
+sleep 1
+cat "${ctmp}"/supervise/stat
+runsvctrl exit "${ctmp}"
+echo $?
+wait
+echo $?
+rm -rf "${ctmp}"

@@ -1,0 +1,26 @@
+#!/bin/sh
+set -e
+
+umask 022
+test -d package || sh -cx '! : Wrong working directory.'
+test -d man || sh -cx '! : Wrong working directory.'
+
+here=`env - PATH=$PATH pwd`
+parent=`dirname $here`
+
+echo 'Compressing manpages...'
+for i in man/*.[1-8]; do
+  gzip -c $i >${i}.gz
+done
+
+echo 'Making manpage links in /usr/local/man...'
+cd man
+for i in 8; do
+  mkdir -p /usr/local/man/man$i
+  for j in *.$i; do
+    rm -f /usr/local/man/man$i/$j.gz'{new}'
+    ln -s $parent/runit/man/$j.gz /usr/local/man/man$i/$j.gz'{new}'
+    mv -f /usr/local/man/man$i/$j.gz'{new}' /usr/local/man/man$i/$j.gz
+  done
+done
+cd ..

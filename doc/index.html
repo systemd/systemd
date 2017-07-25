@@ -1,0 +1,261 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+<head>
+<title>runit - a UNIX init scheme with service supervision</title>
+</head>
+<body>
+<a href="http://smarden.org/pape/">G. Pape</a>
+<hr>
+<h1>runit - a UNIX init scheme with service supervision</h1>
+<hr>
+<a href="install.html">How to install runit</a><br>
+<a href="upgrade.html">Upgrading from previous versions of runit</a>
+<p>
+<a href="benefits.html">Benefits</a><br>
+<a href="replaceinit.html">How to replace init</a><br>
+<a href="useinit.html">How to use runit with current init</a><br>
+<a href="usedietlibc.html">How to use dietlibc</a><br>
+<a href="faq.html">Frequently asked questions</a><br>
+<p>
+<a href="runlevels.html">Runlevels</a><br>
+<a href="dependencies.html">Service dependencies</a><br>
+<a href="runscripts.html">A collection of run scripts</a><br>
+<p>
+<a href="runit.8.html">The <tt>runit</tt> program</a><br>
+<a href="runit-init.8.html">The <tt>runit-init</tt> program</a><br>
+<br>
+<a href="sv.8.html">The <tt>sv</tt> program</a><br>
+<br>
+<a href="runsvdir.8.html">The <tt>runsvdir</tt> program</a><br>
+<a href="runsvchdir.8.html">The <tt>runsvchdir</tt> program</a><br>
+<a href="runsv.8.html">The <tt>runsv</tt> program</a><br>
+<br>
+<a href="svlogd.8.html">The <tt>svlogd</tt> program</a><br>
+<br>
+<a href="chpst.8.html">The <tt>chpst</tt> program</a><br>
+<a href="utmpset.8.html">The <tt>utmpset</tt> program</a><br>
+<hr>
+<i>runit</i> is a
+cross-platform Unix init scheme with service supervision, a replacement for
+<a href="ftp://ftp.cistron.nl/pub/people/miquels/sysvinit/">sysvinit</a>,
+and other init schemes.
+It runs on <b>GNU/Linux</b>, <b>*BSD</b>, <b>MacOSX</b>, <b>Solaris</b>,
+and can easily be adapted to other Unix operating systems.
+If <i>runit</i> runs for you on any other operating system, please
+<a href="mailto:supervision@list.skarnet.org">let me know</a>.
+<hr>
+<i>runit</i> is discussed on the
+<a href="http://skarnet.org/lists/#supervision">
+&lt;supervision@list.skarnet.org&gt;</a>
+mailing list.
+Please contact this list and not me privately.
+<p>
+To subscribe send an empty email to
+<a href="mailto:supervision-subscribe@list.skarnet.org">
+&lt;supervision-subscribe@list.skarnet.org&gt;</a>.
+<p>
+Mailing list archives are available at
+<a href="http://skarnet.org/lists/archive.cgi?2">skarnet.org</a>, and
+<a href="http://news.gmane.org/gmane.comp.sysutils.supervision.general">
+gmane.org</a>.
+<hr>
+The program <a href="runit.8.html">runit</a> is intended to run as Unix
+process no 1, it is automatically started by the
+<a href="runit-init.8.html">runit-init</a> <tt>/sbin/init</tt>-replacement
+if this is started by the kernel.
+<p>
+<a href="runit.8.html">runit</a> performs the system's <i>booting</i>,
+<i>running</i> and <i>shutting down</i> in <b>three stages</b>:
+<ul>
+  <li><b>Stage 1:</b><br>
+  <i>runit</i> starts <tt>/etc/runit/1</tt> and waits for it to
+  terminate.
+  The system's one time initialization tasks are done here.
+  <tt>/etc/runit/1</tt> has full control over <tt>/dev/console</tt> to be
+  able to start an emergency shell in case the one time initialization
+  tasks fail.
+  <li><b>Stage 2:</b><br>
+  <i>runit</i> starts <tt>/etc/runit/2</tt> which should not return
+  until the system is going to halt or reboot; if it crashes, it will be
+  restarted.
+  Normally, <tt>/etc/runit/2</tt> runs
+  <a href="runsvdir.8.html">runsvdir</a>.
+  In Stage 2 <i>runit</i> optionally handles the INT signal (ctrl-alt-del
+  keyboard request on Linux/i386).
+  <li><b>Stage 3:</b><br>
+  If <i>runit</i> is told to halt or reboot the system, or Stage 2 returns
+  without errors, it terminates Stage 2 if it is running, and runs
+  <tt>/etc/runit/3</tt>.
+  The systems tasks to shutdown and halt or reboot are done here.
+</ul>
+These are working examples for Debian sarge:
+<a href="debian/1">/etc/runit/1</a>,
+<a href="debian/2">/etc/runit/2</a>,
+<a href="debian/3">/etc/runit/3</a>.
+<p>
+The program <a href="runit-init.8.html">runit-init</a> is intended to
+replace <tt>/sbin/init</tt>.
+The command <b><tt>init 0</tt></b> tells <i>runit</i> to halt the system,
+and <b><tt>init 6</tt></b> to reboot.
+<a href="runlevels.html">Runlevels</a> are handled through the
+<a href="runsvdir.8.html">runsvdir</a> and
+<a href="runsvchdir.8.html">runsvchdir</a> programs.
+Service <a href="dependencies.html">dependencies</a> are resolved
+automatically.
+<p>
+<i>runit</i> is optimized for reliability and small size.
+The amount of code in process no 1 should be minimal.
+<hr>
+See <a href="install.html">How to install runit</a> for installing
+<i>runit</i>, and <a href="replaceinit.html">How to replace init</a> for
+configuring <i>runit</i> to run as process no 1.
+See <a href="useinit.html">How to use with current init</a> if you want to
+use <i>runit</i> without replacing the current init scheme.
+Please read the list of
+<a href="faq.html">Frequently asked questions with answers</a>.
+<hr>
+If <i>runit</i> on Linux is compiled and linked with the
+<a href="http://www.fefe.de/dietlibc/">dietlibc</a>, it yields in a
+statically linked <tt>runit</tt> binary of 8.5k size and this
+<tt>ps axuw</tt> output on my system:
+<pre>
+ USER       PID %CPU %MEM   VSZ  RSS TTY      STAT START   TIME COMMAND
+ root         1  0.0  0.0    20   16 ?        S     2002   0:02 runit
+</pre>
+I recommend doing this; for instructions, see
+<a href="usedietlibc.html">How to use dietlibc</a>.
+<hr>
+The following distributions are known to include or package <i>runit</i>:
+<ul>
+<li><a href="http://packages.qa.debian.org/runit">
+Debian GNU/Linux</a> (as alternative init scheme)
+<li><a href="http://www.freshports.org/sysutils/runit/">
+FreeBSD</a>
+<li><a href="http://www.openbsd.org/cgi-bin/cvsweb/ports/sysutils/runit/">
+OpenBSD</a>
+<li><a href="http://pkgsrc.se/wip/runit/">
+NetBSD</a>
+<li><a href="http://packages.ubuntu.com/runit">
+Ubuntu</a> (as alternative init scheme)
+<li><a href="http://packages.gentoo.org/package/sys-process/runit">
+Gentoo</a>
+<li><a href="https://code.google.com/p/runit-for-lfs/">
+Linux from Scratch</a>
+<li><a href="http://www.finnix.org/">
+Finnix</a>
+<li><a href="http://www.smeserver.org/">
+SME server</a>
+<li><a href="http://linux-vserver.org/Running_runit-supervised_services_inside_a_vserver">
+Linux-VServer</a>
+<li><a href="http://www.t2-project.org/">
+T2</a>
+<li><a href="http://www.gobolinux.org/">
+GoboLinux</a>
+<li><a href="http://www.dragora.org/">
+Dragora GNU/Linux</a> (as default init scheme)
+<li><a href="https://wiki.archlinux.org/index.php/Runit">
+ArchLinux</a>
+<li><a href="http://www.opensde.org/">
+OpenSDE</a>
+<li><a href="http://zinux.cynicbytrade.com/">
+Zinux Linux</a> (as default init scheme)
+<li><a href="http://deepofix.org/">
+deepOfix Mail Server</a> (as default init scheme)
+</ul>
+If you know of more distributions, please
+<a href="mailto:supervision@list.skarnet.org">let me know</a>.
+<hr>
+<b><i>runit</i> in use</b>:
+I replaced <i>sysvinit</i> successfully with <i>runit</i> on several server
+systems and a laptop running Debian/GNU Linux sarge, woody, and potato.
+Here is an example:
+<pre>
+ # strings /proc/1/exe |grep Id
+ &#36;Id: runit.c,v 1.7 2002/02/13 09:59:52 pape Exp &#36;
+ # uptime
+  11:59:13 up 365 days, 23:22,  3 users,  load average: 0.01, 0.02, 0.00
+ # ps axuw |head -n20
+ USER       PID %CPU %MEM   VSZ  RSS TTY      STAT START   TIME COMMAND
+ root         1  0.0  0.0    20   16 ?        S     2002   0:07 runit
+ root         2  0.0  0.0     0    0 ?        SW    2002   0:00 [keventd]
+ root         3  0.0  0.0     0    0 ?        SWN   2002   0:51 [ksoftirqd_CPU0]
+ root         4  0.0  0.0     0    0 ?        SW    2002 144:38 [kswapd]
+ root         5  0.0  0.0     0    0 ?        SW    2002   0:08 [bdflush]
+ root         6  0.0  0.0     0    0 ?        SW    2002   7:24 [kupdated]
+ root       168  0.0  0.0  1652  168 ?        S     2002   0:27 /usr/sbin/cron
+ root       174  0.0  0.0    36   24 ?        S     2002   1:06 runsvdir /var/service log: ...............................................................................................
+ root       176  0.0  0.0    20   20 ?        S     2002   0:00 runsv qmail-send
+ root       177  0.0  0.0    20   20 ?        S     2002   0:00 runsv getty-5
+ root       178  0.0  0.0    20   20 ?        S     2002   0:00 runsv getty-4
+ root       179  0.0  0.0    20   20 ?        S     2002   0:00 runsv getty-3
+ root       180  0.0  0.0    20   20 ?        S     2002   0:00 runsv getty-2
+ root       182  0.0  0.0    20   20 ?        S     2002   0:00 runsv socklog-unix
+ root       183  0.0  0.0  1256    4 tty5     S     2002   0:00 /sbin/getty 38400 tty5 linux
+ root       184  0.0  0.0  1256    4 tty3     S     2002   0:00 getty 38400 tty3 linux
+ root       185  0.0  0.0    20   20 ?        S     2002   0:00 runsv socklog-klog
+ root       186  0.0  0.0    20   20 ?        S     2002   0:00 runsv ssh
+ root       187  0.0  0.0  1256    4 tty4     S     2002   0:00 getty 38400 tty4 linux
+ # pstree
+ runit-+-bdflush
+       |-cron
+       |-gcache
+       |-keventd
+       |-ksoftirqd_CPU0
+       |-kswapd
+       |-kupdated
+       `-runsvdir-+-runsv-+-multilog
+                  |       `-qmail-send-+-qmail-clean
+                  |                    |-qmail-lspawn
+                  |                    `-qmail-rspawn---qmail-remote
+                  |-4*[runsv---getty]
+                  |-2*[runsv-+-multilog]
+                  |          `-socklog]
+                  |-runsv-+-multilog
+                  |       `-sshd-+-sshd---sshd---bash---bash---pstree
+                  |              `-sshd---sshd---rsync
+                  |-runsv---clockspeed
+                  |-runsv-+-dnscache
+                  |       `-multilog
+                  |-runsv---apache-ssl-+-9*[apache-ssl]
+                  |                    |-gcache
+                  |                    `-4*[multilog]
+                  |-7*[runsv-+-multilog]
+                  |          `-tcpserver]
+                  |-4*[runsv-+-multilog]
+                  |          `-tinydns]
+                  |-runsv---uncat
+                  |-2*[runsv-+-multilog]
+                  |          `-tcpsvd]
+                  |-runsv-+-svlogd
+                  |       `-tcpsvd-+-smtpfront-qmail
+                  |                `-smtpfront-qmail---qmail-queue
+                  `-runsv-+-svlogd
+                          `-tcpsvd---bincimap-up---bincimapd
+</pre>
+<hr>
+See <a href="http://smarden.org/runit/">http://smarden.org/runit/</a>
+for recent informations.
+<hr>
+Related links:
+<ul>
+<li><a href="http://www.fefe.de/minit/">
+minit</a> - a small yet feature-complete init
+<li><a href="http://multivac.cwru.edu/svscan-1/">
+svscan as process 1</a> - by Paul Jarc
+<li><a href="ftp://ftp.cistron.nl/pub/people/miquels/sysvinit/">
+sysvinit</a> - source code
+<li><a href="http://www.freebsd.org/cgi/cvsweb.cgi/src/sbin/init/">
+FreeBSD's init</a> - CVS repository
+<li><a href="http://cvsweb.netbsd.org/bsdweb.cgi/src/sbin/init/">
+NetBSD's init</a> - CVS repository
+<li><a href="http://www.openbsd.org/cgi-bin/cvsweb/src/sbin/init/">
+OpenBSD's init</a> - CVS repository
+<li><a href="http://www.atnf.csiro.au/~rgooch/linux/boot-scripts/">
+Linux Boot Scripts</a> - by Richard Gooch
+</ul>
+<hr>
+<address><a href="mailto:pape@smarden.org">
+Gerrit Pape &lt;pape@smarden.org&gt;
+</a></address>
+</body>
+</html>

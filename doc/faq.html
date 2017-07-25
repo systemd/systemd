@@ -1,0 +1,438 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+<head>
+<title>runit - Frequently asked questions</title>
+</head>
+<body>
+<a href="http://smarden.org/pape/">G. Pape</a><br>
+<a href="index.html">runit</a><br>
+<hr>
+<h1>runit - Frequently asked questions</h1>
+<hr>
+<a href="#what">
+What's runit, why is it that different
+</a><br>
+<a href="#help">
+I need some help with runit, what should I do
+</a><br>
+<!--
+<a href="#service">
+What is a service, what a service daemon
+</a><br>
+-->
+<a href="#license">
+What's the license, is runit free software
+</a><br>
+<p>
+<a href="#run">
+How do I run a service under runit service supervision
+</a><br>
+<a href="#create">
+How do I create a new service directory
+</a><br>
+<!--
+<a href="#log">
+What is a log service
+</a><br>
+-->
+<a href="#createlog">
+How do I create a new service directory with an appendant log service
+</a><br>
+<a href="#tell">
+How do I tell runit about a new service
+</a><br>
+<a href="#control">
+How do I start, stop, or restart a service
+</a><br>
+<a href="#signal">
+How can I send signals to a service daemon
+</a><br>
+<a href="#status"> 
+How can I query the status of a service
+</a><br>
+<a href="#remove">
+How do I remove a service
+</a><br>
+<p>
+<a href="#depends">
+How do I make a service depend on another service
+</a><br>
+<!--
+<a href="#strongdepends">
+How can I make a service affect a dependant service
+</a><br>
+-->
+<p>
+<a href="#runlevels">
+What about runlevels
+</a><br>
+<a href="#lsb">
+What about LSB init scripts compliance
+</a><br>
+<p>
+<a href="#user">
+Is it possible to allow a user other than root to control a service
+</a><br>
+<a href="#userservices">
+Does runit support user-specific services?
+</a><br>
+<a href="#readonlyfs">
+Does runit work on a read-only filesystem
+</a><br>
+
+<hr>
+<a name="what"><h3>
+What's runit, why is it that different
+</h3></a>
+What is this runit init scheme about? 
+Why is it that different from sysvinit and other init schemes?
+<p>
+Answer:
+Please see the <a href="index.html">introduction</a>, and web page about
+runit's <a href="benefits.html">benefits</a>.
+
+<hr>
+<a name="help"><h3>
+I need some help with runit, what should I do
+</h3></a>
+I have a question, runit is doing something wrong, or I'm doing something
+wrong, what should I do?
+<p>
+Answer:
+First see the documentation, especially this list of
+<a href="faq.html">frequently asked questions</a>, and the man pages
+if you have a question about a specific runit program.
+If that still doesn't answer your question, try to search the
+<a href="http://news.gmane.org/gmane.comp.sysutils.supervision.general">
+supervision mailing list archive</a>.
+Finally, if this fails, feel free to post your question to the
+<a href="http://skarnet.org/lists/">supervision mailing list</a>.
+
+<!--
+<hr>
+<a name="service"><h3>
+What is a service, what a service daemon
+</h3></a>
+The runit documentation talks about services and service daemons.
+What actually is a service, and what a service daemon?
+<p>
+Answer:
+-->
+
+<hr>
+<a name="license"><h3>
+What's the license, is runit free software
+</h3></a>
+I would like to distribute runit, in source and binary form.
+Am I allowed to do so?
+<p>
+Answer:
+runit is free software, it's licensed under a three-clause BSD alike
+license.
+See the file <tt>package/COPYING</tt> in the runit tarball.
+
+<hr>
+<a name="run"><h3>
+How do I run a service under runit service supervision
+</h3></a>
+I want a service to be run under runit service supervision, so that it's
+automatically started on system boot, and supervised while system uptime.
+How does that work?
+<p>
+Answer:
+runit doesn't use the usual <tt>/etc/init.d/</tt> init script interface,
+but uses a directory per service.
+To integrate a service into the runit init scheme,
+<a href="#create">create a service directory</a> for the service, and
+<a href="#tell">tell runit</a> about it.
+
+<hr>
+<a name="create"><h3>
+How do I create a new service directory
+</h3></a>
+How do I create a service directory for the use with runit?
+<p>
+Answer:
+Service directories usually are placed into the <tt>/etc/sv/</tt>
+directory.
+Create a new directory for your service in <tt>/etc/sv/</tt>, put a
+<tt>./run</tt> script into it, and make the script executable.
+Note that for the use with runit,
+<a href="#service">service daemons</a> must not put themself into the
+background, but must run in the foreground.
+Here's a simple example for a <tt>getty</tt> service:
+<pre>
+ $ cat /etc/sv/getty-2/run
+ #!/bin/sh
+ exec getty 38400 tty2 linux
+ $ 
+</pre>
+Note the <tt>exec</tt> in the last line, it tells the shell that
+interprets the script to replace itself with the service daemon
+<tt>getty</tt>; this is necessary to make
+<a href="#control">controlling the service</a> work properly.
+
+<!--
+<hr>
+<a name="log"><h3>
+What is a log service
+</h3></a>
+Additionally to supervising a service runit can supervise an appendant
+log service.
+What does that mean?
+<p>
+Answer:
+-->
+
+<hr>
+<a name="createlog"><h3>
+How do I create a new service directory with an appendant log service
+</h3></a>
+How do I create a service directory with an appendant log service for the
+use with runit?
+<p>
+Answer:
+First <a href="#create">create the service directory</a> for the service.
+Then create a subdirectory <tt>./log</tt> in the service directory, again
+put a <tt>./run</tt> script into it, and make the script executable.
+The <tt>./run</tt> script must run a service logging daemon, normally
+this is the <a href="svlogd.8.html">svlogd</a> program.
+See the <a href="runsv.8.html">runsv</a> man page for details.
+Here's an example of a <tt>./log/run</tt> script:
+<pre>
+ $ cat /etc/sv/socklog-klog/log/run
+ #!/bin/sh
+ exec chpst -ulog svlogd -tt ./main
+ $ 
+</pre>
+
+<hr>
+<a name="tell"><h3>
+How do I tell runit about a new service
+</h3></a>
+I created a service directory for a service that should run under runit
+service supervision.
+How do I tell runit about the new service directory, so that it picks
+up and runs the service by default?
+<p>
+Answer:
+Create a symbolic link in <tt>/service/</tt> pointing to the service
+directory, runit will pick up the service within the next five seconds,
+and automatically start it on system boot.
+E.g.:
+<pre>
+ # ln -s /etc/sv/getty-2 /service/
+</pre>
+
+<hr>
+<a name="control"><h3>
+How do I start, stop, or restart a service
+</h3></a>
+I want to stop a service temporarily, and probably restart is later, or
+I want to have it restarted immediately.
+How can I control a service running under runit service supervision?
+<p>
+Answer:
+Use the <a href="sv.8.html">sv</a> program.
+E.g., to restart the <tt>socklog-unix</tt> service, do:
+<pre>
+ # sv restart socklog-unix
+</pre>
+
+<hr>
+<a name="signal"><h3>
+How can I send signals to a service daemon
+</h3></a>
+I want to send a service daemon the HUP signal, to have it re-read its
+configuration, or I want to send it the INT signal.
+How can a send signals to a service daemon?
+<p>
+Answer:
+Use the <a href="sv.8.html">sv</a> program.
+E.g., to send the <tt>dhcp</tt> service the HUP signal, do:
+<pre>
+ # sv hup dhcp
+</pre>
+
+<hr>
+<a name="status"><h3>
+How can I query the status of a service
+</a></h3>
+I want to now the status of a service, whether it is up and available,
+or down as requested, or so.
+How can I find out this information?
+<p>
+Answer:
+User the <a href="sv.8.html">sv</a> program.
+E.g., to query or check the status of the <tt>socklog-unix</tt> service,
+do:
+<pre>
+ # sv status socklog-unix
+</pre>
+or
+<pre>
+ # sv check socklog-unix
+</pre>
+
+<hr>
+<a name="remove"><h3>
+How do I remove a service
+</h3></a>
+I want to remove a service that currently runs under runit service
+supervision.
+How do I tell runit?
+<p>
+Answer:
+Remove the symbolic link in <tt>/service/</tt> pointing to the service
+directory, runit recognizes the removed service within the next five
+seconds, then stops the service, the optional log service, and finally the
+supervisor process.
+E.g.:
+<pre>
+ # rm /service/getty-2
+</pre>
+
+<hr>
+<a name="depends"><h3>
+How do I make a service depend on another service
+</a></h3>
+I have a service that needs another service to be available before it can
+start.
+How can I tell runit about this dependency?
+<p>
+Answer:
+Make sure in the <tt>./run</tt> script of the dependant service that the
+service it depends on is available before the service daemon starts.
+The <a href="sv.8.html">sv</a> program can be used for that.
+E.g. the <tt>cron</tt> service wants the <tt>socklog-unix</tt> system
+logging service to be available before starting the <tt>cron</tt> service
+daemon, so no logs get lost:
+<pre>
+ $ cat /etc/sv/cron/run
+ #!/bin/sh
+ sv start socklog-unix || exit 1
+ exec cron -f
+ $ 
+</pre>
+See also the <a href="dependencies.html">documentation</a>.
+
+<!--
+<hr>
+<a name="strongdepends"><h3>
+How can I make a service affect a dependant service
+</a></h3>
+<a href="#depends">This dependency</a> is not enough.
+I have a service that needs to be stopped or restarted, whenever a service
+it depends on stops or restarts.
+How can I tell runit about that a service affects a dependant service in
+such a way?
+<p>
+Answer:
+First think about whether you really need this, it almost never should be
+necessary.
+If you really need this,
+-->
+
+<hr>
+<a name="runlevels"><h3>
+What about runlevels
+</a></h3>
+Other init schemes support runlevels, what about runit?
+<p>
+Answer:
+runit supports runlevels, even more flexible than traditional init schemes.
+See <a href="runlevels.html">the documentation</a>.
+
+<hr>
+<a name="lsb"><h3>
+What about LSB init scripts compliance
+</a></h3>
+I know about the <a href="sv.8.html">sv</a> program to control a service,
+but have applications that rely on the <tt>/etc/init.d/</tt> scripts
+interface as defined through LSB.
+Do I need to change the application to work with runit?
+<p>
+Answer:
+You don't need to change the application.
+The <a href="sv.8.html">sv</a> program supports the <tt>/etc/init.d/</tt>
+script interface
+<a href="http://refspecs.freestandards.org/LSB_2.1.0/LSB-generic/LSB-generic/iniscrptact.html">
+as defined through LSB</a>.
+To make this script interface work for a service, create a symbolic link
+in <tt>/etc/init.d/</tt>, named as the service daemon, pointing to the
+<a href="sv.8.html">sv</a> program, e.g. for the <tt>cron</tt> service:
+<pre>
+ # ln -s /bin/sv /etc/init.d/cron
+ # /etc/init.d/cron restart
+ ok: run: cron: (pid 5869) 0s
+ # 
+</pre>
+
+<hr>
+<a name="user"><h3>
+Is it possible to allow a user other than root to control a service
+</a></h3>
+Using the <a href="sv.8.html">sv</a> program to control a service, or query
+its status informations, only works as root.
+Is it possible to allow non-root users to control a service too?
+<p>
+Answer:
+Yes, you simply need to adjust file system permissions for the
+<tt>./supervise/</tt> subdirectory in the service directory.
+E.g.: to allow the user <tt>burdon</tt> to control the service
+<tt>dhcp</tt>, change to the <tt>dhcp</tt> service directory, and do
+<pre>
+ # chmod 755 ./supervise
+ # chown burdon ./supervise/ok ./supervise/control ./supervise/status
+</pre>
+This works similarly with groups, of course.
+
+<hr>
+<a name="userservices"><h3>
+Does runit support user-specific services?
+</a></h3>
+It's very nice to simply
+<a href="#tell">create symbolic links</a> to add system-wide services.
+Does this work for user-specific services too?
+<p>
+Answer:
+Yes.
+E.g.: to provide the user <tt>floyd</tt> with facility to manage services
+through <tt>~/service/</tt>, <a href="#createlog">create a service</a>
+<tt>runsvdir-floyd</tt> with the following run script and a usual log/run
+script, and <a href="#tell">tell runit</a> about the service
+<pre>
+ #!/bin/sh
+ exec 2>&1
+ exec chpst -ufloyd runsvdir /home/floyd/service
+</pre>
+Now <tt>floyd</tt> can create services on his own, and manage them through
+symbolic links in <tt>~/service/</tt> to have them run under his user id.
+
+<hr>
+<a name="readonlyfs"><h3>
+Does runit work on a read-only filesystem
+</a></h3>
+On my system <tt>/etc/</tt> is mounted read-only by default.
+runit uses many files in <tt>/etc/</tt> it needs to write to, like
+<tt>/etc/runit/stopit</tt>, and the <tt>./supervise/</tt>
+subdirectories in the service directories.
+How can I make runit work on my system?
+<p>
+Answer:
+Use symbolic links, runit deals with them well, even with dangling
+symlinks.
+E.g., make a ramdisk available at a moint point, say <tt>/var/run/</tt>,
+and create symbolic links for the files and directories that runit needs
+to write access to pointing into <tt>/var/run/</tt>:
+<pre>
+ # ln -s /var/run/runit.stopit /etc/runit/stopit
+ # ln -s /var/run/sv.getty-2 /etc/sv/getty-2/supervise
+</pre>
+
+<hr>
+<address><a href="mailto:pape@smarden.org">
+Gerrit Pape &lt;pape@smarden.org&gt;
+</a></address>
+</body>
+</html>

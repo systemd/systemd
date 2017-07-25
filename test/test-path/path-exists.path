@@ -1,8 +1,0 @@
-[Unit]
-Description=Test PathExists
-
-[Path]
-PathExists=/tmp/test-path_exists
-
-[Install]
-WantedBy=multi-user.target

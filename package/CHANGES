@@ -1,0 +1,688 @@
+2.1.2
+Sun, 10 Aug 2014 18:01:54 +0000
+  * doc/index.html: reorder, cleanup links to distributions; add Linux
+    from Scratch, Finnix, VServer.
+  * sv.c: properly format status command's output on failure cases.
+  * sv.c: support optional LSB init script actions reload and
+    try-restart.
+  * man/sv.8: "sv exit" does not send a TERM signal to the log service
+    (thx Jonathan Nieder).
+  * fmt_ptime.c: 64 bits time_t fix for svlogd (tnx Jérémie
+    Courrèges-Anglas).
+  * sv.c: fix typo that may lead to wrong output from sv when reporting
+    status of multiple service directories.
+  * doc/index.html: add deepOfix Mail Server to list of distributions
+    that include runit (thx Debayan Banerjee).
+  * doc/useinit.html: update description on how to use with upstart
+    (thx Gabriel de Perthuis).
+  * doc/index.html: add Dragora GNU/Linux to list of distributions that
+    use runit as default init scheme (thx Matias A. Fonzo).
+  * doc/index.html: add ArchLinux to list of distributions that include
+    runit (thx Kevin Berry).
+
+2.1.1
+Sun, 04 Oct 2009 20:28:38 +0000
+  * doc/upgrade.html: fix typo.
+  * sv.c: on 'down', send runsv the 'down' command properly if not yet
+    done (e.g. when taken up with 'once').
+
+2.1.0
+Thu, 24 Sep 2009 22:49:33 +0000
+  * pathexec_env.c, pathexec.h: add function pathexec_env_run().
+  * chpst.c, man/chpst.8: new option -b argv0: run prog with different
+    0th argument.
+  * sv.c: fix exit code of status command in lsb mode (thx Mathieu
+    Poumeyrol)
+  * chpst.c, svwaitdown.c, svwaitup.c: fix checks for return value of
+    open_* functions (thx David Reiss).
+  * runsv.c: exit with error if [log/]supervise/control exists, but is
+    not a fifo (thx Charlie Brady).
+  * man/sv.8: clarify which return values apply to the LSB init script
+    interface.
+
+2.0.0
+Sun, 15 Jun 2008 15:31:05 +0000
+
+1.9.0
+Mon, 05 May 2008 22:00:13 +0000
+  * doc/upgrade.html: typo.
+  * sv.c: service name is also relative to the current directory if it
+    ends with a slash.
+  * change default directory for services from /var/service/ to /service/.
+  * runsv.c: create temporary new status files for log/supervise/ actually
+    in log/supervise/.
+  * doc/benefits.html: minor additions.
+
+1.8.0
+Fri, 21 Sep 2007 00:33:56 +0000
+  * man/svlogd.8: add hint on how to manually remove log files after the
+    number of log files svlogd should maintain has been reduced; add hint
+    about increasing the buffer size if lots of data is to be processed
+    in short time.
+  * chpst.c, uidgid.c: improve error reporting if getpwnam() or getgrnam()
+    fails; cleanup.
+  * svlogd.c: don't statically bind local udp socket, but request new
+    source port for each log message sent through udp.
+  * runit.c: fix typo in error messages (thx Matthew R. Dempsky); minor
+    rewording.
+  * doc/useinit.html: add instructions on how to use with upstart (thx
+    Lloyd Zusman).
+  * chpst.c: add explicit braces to avoid ambiguous 'else'.
+  * uw_tmp.h1: fallback to UTMP_FILE if _PATH_UTMP is not defined as seen
+    on AIX 5.2 ML1, AIX 5.3 ML5 (thx Daniel Clark).
+  * sv.c: fix race on check for down if pid is 0 and state is run or finish.
+  * runit.c: speed up collecting zombies.
+  * runit.c: force check for zombies after a 14 second timeout without
+    signals (CHLD, CONT, INT).
+  * doc/index.html: typo.
+  * doc/*.html: remove $Id$.
+
+1.7.2
+Tue, 21 Nov 2006 15:13:47 +0000
+  * doc/index.html: add list of distributions that are known to include
+    or package runit; some reordering.
+  * doc/replaceinit.html: point to faq.html#create, faq.html#tell (thx
+    David Kaufman).
+  * doc/runscripts.html: point to faq.html#createlog.
+  * runit.c: fix arguments to wait_pid() after fork for reboot_system()
+    (thx Jan Kampe).
+  * man/runsv.8: suggest printf t instead of echo -n t.
+  * runsv.c: really don't act on commands in state finish; minor.
+
+1.7.1
+Sat, 04 Nov 2006 19:23:29 +0000
+  * chpst.c, uidgid.c, uidgid.h: support numerical uid gid through
+    chpst -[u|U] :uid:gid...
+  * man/chpst.8: adapt; clarify that users and groups are looked up in
+    /etc/passwd and /etc/group only.
+  * sv.c: properly wait for a service to be restarted on 'restart';
+    support checks through -v for pause, cont, kill.
+  * doc/runscripts.html: add contributed run scripts (thx Kevin, marlowe,
+    ed neville, xavier dutoit).
+
+1.7.0
+Sat, 07 Oct 2006 18:24:17 +0000
+  * svlogd.c, fmt_ptime.*, man/svlogd.8: new option -ttt: prefix log
+    messages with sortable UTC timestamp YYYY-MM-DDTHH:MM:SS.xxxxx.
+  * runsv.c, runsv.8: give two arguments to ./finish: exit code and exit
+    status of ./run (mostly copied from pipe-tools' npt-supervise, thx
+    Laurent Bercot).
+  * runit.c: don't make console the controlling terminal for process 1,
+    but for stage 1 only; fork before initiating system halt or reboot,
+    the linux kernel calls do_exit(0) in kernel/sys.c (thx Jan Kampe).
+
+1.6.0
+Thu, 29 Jun 2006 07:52:35 +0000
+  * svlogd.c: cleanup *.t files possibly leftover by processor when
+    interrupted by signal, also on startup (thx Andras Korn,
+    http://bugs.debian.org/369840); 1st rename .t to .s, then remove .u.
+  * man/svlogd.8: adapt.
+  * svlogd.c: prepend optional timestamp to log messages sent through UDP,
+    as done for messages written to dir and to stderr.
+  * uidgid.c: properly fixup user/group argument on getpwnam() error.
+  * doc/benefits.html: typo; wording.
+
+1.5.1
+Wed, 10 May 2006 20:55:35 +0000
+  * runsv.c: delay restart of log service at least 1 sec, just as the main
+    service.
+  * runsvdir.c: don't double-copy filedescriptor.
+  * package/README, package/COPYING: 2006.
+  * man/runsvctrl.8, man/runsvstat.8, man/svwaitup.8, man/svwaitdown.8,
+    doc/runsvctrl.html, doc/runsvstat.html, doc/svwaitdown.html,
+    doc/svwaitup.html: remove; obsolete.
+
+1.5.0
+Sun, 16 Apr 2006 12:26:50 +0000
+  * man/runsvdir.8: document that the services directory is re-scanned if
+    the time of last modification, the inode, or the device has changed.
+  * sv.c: don't report success on 'sv start' if the service is in state
+    finish (thx Matthew R. Dempsky).
+  * svlogd.c: new config line p: optionally prefix each line written to
+    logs, stderr, or through udp; no longer skip empty lines (just
+    containing '\n'), old behavior can be restored with '-' in config.
+  * man/svlogd.8: document new p config line; adapt.
+
+1.4.1
+Mon, 20 Mar 2006 18:54:41 +0000
+  * doc/faq.html: typos; add usercontrol, userservices; minor.
+  * src/uidgid.h: use uid_t, git_t (fix setting of multiple groups with
+    dietlibc, thx Tino Keitel, http://bugs.debian.org/356016)
+
+runit 1.4.0
+Mon, 06 Mar 2006 12:45:08 +0000
+  * doc/faq.html: new.
+  * doc/benefits.html: use sv program instead of runsvstat, runsvctrl;
+    minor.
+  * doc/replaceinit.html, doc/runlevels.html: put getty service directory
+    into /etc/sv/.
+  * doc/runscripts.html: use sv program instead of svwaitup.
+  * etc/*/3, etc/macosx/StartupItems/runit: use sv program instead of
+    svwaitdown.
+  * man/runsv.8: use sv program instead of runsvctrl.
+  * man/sv.8: minor.
+  * Makefile, package/commands: no longer build/install runsvctrl,
+    runsvstat, svwaitdown, svwaitup.
+  * man/runsvctrl.8, man/runsvstat.8, man/svwaitdown.8, man/svwaitup.8:
+    remove; obsolete.
+  * doc/index.html: add faq; remove runsvctrl, runsvstat, svwaitdown,
+    svwaitup.
+  * sv: fix usage output.
+  * chpst: new option -d, limit data segment per process; don't use nested
+    functions.
+
+runit 1.3.3
+Mon, 02 Jan 2006 20:35:34 +0000
+  * chpst.c: adjust nice value and set limits before dropping permissions.
+  * sv.c: new additional command 'check'; with -v check for CONT through
+    ./check if service is up.
+  * man/sv.8: adapt.
+
+runit 1.3.2
+Sun, 18 Dec 2005 11:22:04 +0000
+  * svlogd.c: don't print extra newlines to the log if additionally writing
+    to the network through udp (thx Andras Korn,
+    http://bugs.debian.org/339030).
+  * runsvdir.c: also process svdir changes if mtime of svdir has changed into
+    the past (thx Martin Dickopp).
+  * doc/index.html: update description; Please contact this list and not me
+    privately.
+  * doc/replaceinit.html, doc/runscripts.html: minor.
+  * man/chpst.8: -U doesn't support a list of groups.
+  * man/svlogd.8: update PATTERN MATCHING section, add example (based on
+    sugesstions from Joshua N Pritikin).
+  * man/*8: update SEE ALSO sections: runsvctrl, runsvstat, svwaitdown,
+    svwaitup will become obsolete; remove references to man pages for
+    programs from the daemontools package.
+
+runit 1.3.1
+Wed, 24 Aug 2005 20:14:17 +0000
+  * doc/runscripts.html: typo; openssh needs absolute path (thx Kevin Berry);
+    exec into dhcpcd.
+  * uidgid.c, uidgid.h, chpst.c: support colon-separated list of groups.
+  * sv.c: utilize optional ./check script in service directory to check for
+    availablity of service.
+  * runsv.c: wait_pid() might be interupted.
+  * man/chpst.8, man/sv.8: adapt.
+
+runit 1.3.0
+Sun, 24 Jul 2005 16:50:55 +0000
+  * man/runsv.8: typo; no longer document the e control character; clarify
+    custom control on d and x.
+  * doc/useinit.html: how to use runit with macosx 10.4 (thx Lars Uffmann).
+  * etc/macosx/org.smarden.runit.plist: new; launchd plist file for
+    runsvdir-start (thx Lars Uffmann).
+  * doc/runscripts.html: don't use absolute pathnames for programs in $PATH;
+    add contributed run scripts (thx Sascha Huedepohl); typos.
+  * runsvchdir.c, runsvstat.c: optimize output buffer handling.
+  * runsvctrl.c: write x control character to runsv on e.
+  * svlogd.c: write to log dir after possibly writing through udp (fixes
+    line break issue).
+  * runsv.c, runsv.check: optimize output buffer handling; porperly run
+    custom t, d, x, k, when stopping service; no longer support e control
+    character.
+  * sv.c: new sv program to control services, optionally can be linked to
+    /etc/init.d/ as lsb "init script" command line interface.
+  * Makefile, TARGETS: adapt.
+  * chpst.c: fix pointer types.
+  * man/sv.8: new.
+  * package/TODO: new.
+
+runit 1.2.3
+Mon, 18 Apr 2005 17:08:35 +0000
+  * doc/runscripts.html: add contributed run scripts (thx Kevin Berry);
+    remove mysql run scripts.
+  * svlogd.dist, svwaitdown.dist, svwaitup.dist: fix program selftest's
+    false alarms (thx Ian Stokes-Rees).
+
+runit 1.2.2
+Sun, 03 Apr 2005 09:21:52 +0000
+  * doc/index.html, doc/replaceinit.html: no longer refer to sysvinit's
+    shutdown program.
+  * man/svlogd.8: svlogd doesn't decrease the number of log files in a log
+    directory; with n0 don't remove any log files.
+  * svlogd.c: properly prefix log messages written to standard error with
+    optional timestamp.
+  * runsvctrl.c, svwaitdown.c, svwaitup.c: supervise not running -> runsv
+    not running.
+  * package/README: 2005.
+
+runit 1.2.1
+Sat, 15 Jan 2005 11:57:46 +0000
+  * chpst.c: typo.
+  * svwaitdown.c: minimum timeout is 1 second; service directories no longer
+    must start with /.
+  * svwaitup.c: minimum uptime of services is 1 second; service directories
+    no longer must start with /; print number of seconds a service is up if
+    verbose.
+  * man/svwaitdown.8, man/svwaitup.8: adapt.
+  * doc/runscripts.html: add contributed run scripts (thx Stefan Karrmann,
+    Kevin Berry, Karl Chen).
+  * runsv.c: typos; bugfix: run optional control/x when receiving SIGTERM
+    (thx Vladimir Smelhaus); minor.
+  * man/runsvctrl.8: minor.
+  * package/COPYING: adapt, 2005.
+
+runit 1.2.0
+Fri, 17 Dec 2004 21:08:50 +0000
+  * doc/upgrade.html: typo.
+  * runsv.c: support custom control commands through control/ directory,
+    optionally switch off sending signal; don't update timestamp in status
+    when running ./finish; only sleep for a second if ./run has been
+    restarted within a second, and after updating status to down, normally
+    up, want up.
+  * man/runsv.8: document custom control commands.
+  * runsv.check, runsv.dist: check custom control commands.
+  * doc/runscripts.html: add contributed run scripts (thx Stefan Karrmann,
+    Kevin Berry).
+
+runit 1.1.0
+Sat, 06 Nov 2004 17:21:11 +0000
+  * svlogd.c: new config option t timeout (thx Enrico Scholz); config
+    options e and E select and deselect lines for stderr respectively (thx
+    Vladimir Smelhaus); new config option N.
+  * man/svlogd.8: adapt.
+  * runsv.c: on commands down and exit send CONT after TERM.
+  * man/runsv.8: adapt.
+  * etc/2: use -P option to runsvdir.
+  * src/svlogd.check: add check for t config option.
+  * chpst.c: new option -n: adjust nice level.
+  * man/chpst.8: adapt.
+
+runit 1.0.5
+Tue, 21 Sep 2004 18:18:14 +0000
+  * svlogd.c: fix line buffer handling for pattern matching (thx Enrico
+    Scholz); properly retry writing to current on error; minor.
+  * doc/index.html: wording; add link to useinit.html; remove link to runit
+    on linuxfromscratch.
+  * doc/runscripts.html: add hint, some getties need to be run in a new
+    session/process group (thx Dan Melomedman).
+  * man/svlogd.8: minor fixes.
+  * man/svwaitdown.8: remove hint about -x option.
+  * package/check, package/compile, package/install, package/install-man,
+    package/upgrade: use set -e instead of #!/bin/sh -e.
+  * runsvdir.c: new option -P, run each runsv process in a new session and
+    process group (thx Charlie Brady).
+  * man/runsvdir.8: adapt; typo.
+
+runit 1.0.4
+Sun, 01 Aug 2004 18:29:36 +0000
+  * doc/runlevels.html, doc/upgrade.html, doc/useinit.html, man/runsvdir.8,
+    man/runsvchdir.8: minor changes in wording, notations.
+  * runsvdir.c: check services dir again after one second until it's
+    unchanged (thx Eric Lammerts); sleep one second before scanning if
+    services dir mtime is now; loop while chdir to starting dir fails;
+    rename log, loglen to rplog, rploglen.
+  * etc/macosx/StartupItems/runit: use -x option to svwaitdown; timeout 14.
+
+runit 1.0.3
+Sat, 26 Jun 2004 14:50:41 +0000
+  * chpst.c, man/chpst.8: new option -/ chroot.
+  * runit.c, man/runit.8: if stage 1 crashes or exits 100, stage 2 will be
+    skipped; if stage 2 crashes or exits 111, it will be restarted.
+  * package/check, package/compile, package/install-man, package/upgrade:
+    minor cleanup.
+  * doc/runscripts.html: add, adapt various run scripts (thx).
+
+runit 1.0.2
+Mon, 29 Mar 2004 17:52:50 +0000
+  * man/svlogd.8: timestamps are not considered when matching patterns (thx
+    Andras KORN).
+  * runsv.c: on exit run the finish scripts when taking the service down
+    (thx X.).
+  * runsv.c, runsvctrl.c: handle sig_quit (thx Wayne Marshall).
+  * svlogd.c: don't crash on zero byte long config file (thx Alex Efros).
+  * man/*: minor cleanup.
+  * doc/index.html: add link to runit on linuxfromscratch doc (thx Richard
+    A Downing FBCS).
+
+runit 1.0.1
+Sun, 07 Mar 2004 10:40:40 +0000
+  * doc/usedietlibc.html: minor.
+  * fmt_ptime.c: create timestamps in UTC, not localtime.
+  * chpst.c: -e dir: silently ignore directories, print warning if verbose.
+  * runsv.c: allow also log/supervise to be a dangling symlink; more
+    meaningful error message if opening lock or locking fails.
+  * check-diff, check-dist, check-local, package/check: new; run checks on
+    programs.
+  * package/install: run package/check.
+  * chpst.check, runit-init.check, runit.check, runsv.check,
+    runsvchdir.check, runsvctrl.check, runsvdir.check, runsvstat.check,
+    svlogd.check, svwaitdown.check, svwaitup.check, utmpset.check: new;
+    check program.
+  * chpst.dist, runit-init.dist, runit.dist, runsv.dist, runsvchdir.dist,
+    runsvctrl.dist, runsvdir.dist, runsvstat.dist, svlogd.dist,
+    svwaitdown.dist, svwaitup.dist, utmpset.dist: new; dist check program
+    output.
+
+runit 1.0.0
+Tue, 10 Feb 2004 13:37:28 +0000
+  * doc/benefits.html, doc/dependencies.html, doc/index.html,
+    doc/replaceinit.html, doc/runlevels.html, doc/upgrade.html,
+    doc/useinit.html: cleanup; minor.
+  * man/utmpset.8: run utmpset in finish script, not run script.
+  * man/runsvdir.8: minor.
+
+runit 0.13.1
+Mon, 19 Jan 2004 18:32:58 +0000
+  * doc/upgrade.html: typo.
+  * svlogd.c: bugfix: properly print new-line character to the log on end
+    of line (thx Pawel Chmielowski).
+  * trysocketlib.c: new; check for libraries needed for socket() on some
+    systems (fixes link failure on solaris, thx Uffe Jakobsen).
+  * Makefile: adapt.
+  * print-cc.sh, print-ld.sh: head -1 -> head -n1.
+
+runit 0.13.0
+Mon, 12 Jan 2004 14:39:38 +0000
+  * doc/runscripts.html: use html named entities (thx Taj Khattra); add
+    more contributed run scripts (thx Marek Bartnikowski, Thomas Schwinge).
+  * svlogd.c: support sending log entries to remote host through udp,
+    configurable through u and U lines in log dir config file; minor.
+  * man/svlogd.8: adapt; document -tt option.
+  * package/compile, package/install-man, package/upgrade: exit 1 on
+    sub-shell failures.
+  * man/runsv.8: fix typos (thx Christian Hammers).
+
+runit 0.12.1
+Tue, 18 Nov 2003 15:42:44 +0000
+  * doc/runscripts: add pppd run script (with chpst) next to the ppp one.
+  * man/chpst.8: typo.
+  * etc/debian/3: test -r -> test -x (thx Alejandro Mery).
+  * runsv.c: don't start new processes while collecting children.
+
+runit 0.12.0
+Wed, 29 Oct 2003 18:27:48 +0000
+  * runsv.c: don't use EOVERFLOW as it is not standard (thx Christoph
+    Scheurer).
+  * reboot_system.h1, reboot_system.h2, tryreboot.c: new; test if reboot()
+    function takes one or two arguments (solaris).
+  * runit.c: fallthrough stage 3: re-get stderr; sync() before reboot().
+  * uw_tmp.h1, uw_tmp.h2, tryuwtmp.c, tryuwtmpx.c: new; test for utmpx or
+    utmp support.
+  * utmpset.c: support systems with utmp or utmpx (solaris).
+  * Makefile: adapt.
+  * supports the solaris platform (thx Uffe Jakobsen).
+  * doc/benefits.html, doc/index.html, doc/replaceinit.html,
+    doc/runlevels.html, doc/useinit.html: default service directory is
+    /var/service; minor.
+  * etc/2, etc/debian/3, etc/freebsd/3, etc/macosx/StartupItems/runit,
+    etc/openbsd/3, man/runsv.8, man/runsvchdir.8, man/runsvdir.8: default
+    service directory is /var/service.
+  * doc/runscripts.html: add more contributed run scripts (thx Tomasz
+    Nidecki).
+
+runit 0.11.2
+Tue, 23 Sep 2003 10:15:32 +0200
+  * doc/useinit.html, etc/macosx/StartupItems/runit: don't use /etc/runit/2
+    when using runit service supervision with traditional init, use
+    /sbin/runsvdir-start instead.
+  * fmt_ptime.c: calculate UTC localtime correctly.
+  * runsv.c: support ./supervise as symbolic link, on dangling symlink create
+    link target.
+
+runit 0.11.1
+Thu,  4 Sep 2003 11:51:02 +0200
+  * src/Makefile: add dependency to sysdeps to target fmt_ptime.o (thx Thomas
+    Schwinge).
+  * svlogd.c: barf if all log directories given at the command line fail.
+  * man/svlogd.8: adapt.
+  * doc/runscripts.html: adaptions (thx Erich Schubert, Lang Martin).
+
+runit 0.11.0
+Fri, 08 Aug 2003 12:37:14 +0200
+  * uidgid.c, uidgid.h: new; get uid/gid by name.
+  * chpst: new; run program with a changed process state (includes envdir,
+    envuidgid, pgrphack, setlock, setuidgid, softlimit functionality).
+  * setuidgid.c: remove; obsolete (replaced by chpst).
+
+runit 0.10.0
+Sun, 22 Jun 2003 20:44:58 +0200
+  * doc/index.html, doc/install.html, doc/replaceinit.html, doc/useinit.html:
+    how to install and configure runit on MacOSX.
+  * svlogd.c: typo; fix incorrect handling of processor's state file; minor
+    code cleanup; correctly calculate size for all types of timestamps.
+  * runit-init.c: exit 0 on wrong usage.
+  * package/versions: new.
+
+runit 0.9.5
+Tue, 17 Jun 2003 10:48:10 +0200
+  * runit.c: use select() on systems that don't provide poll().
+  * svlogd.c: reset match flag in lineflush() in all cases.
+  * Makefile: build setuidgid in default target.
+  * doc/useinit.html: add instruction to create /etc/runit/2 first.
+  * doc/install.html: minor.
+
+runit 0.9.4
+Wed, 04 Jun 2003 13:56:33 +0200
+  * svlogd.c: default log file size is 1M; print verbose message only if
+    -v is set.
+  * man/svlogd.8: document -v option; minor.
+  * etc/freebsd/3, etc/openbsd/3: check if magic files in /etc/runit/ are
+    executable, not readable.
+  * etc/*/getty-tty*/run: remove utmpset from script.
+  * etc/*/getty-tty*/finish: new: run utmpset.
+  * doc/replaceinit.html: adapt.
+  * setuidgid.c: new: daemontools' setuidgid drop in replacement (not
+    installed by default).
+  * Makefile: build setuidgid.
+  * doc/index.html: update.
+
+runit 0.9.3
+Sun, 04 May 2003 11:30:58 +0200
+  * Makefile: actually build runsvstat, runsvctrl before installing them,
+    fixes build failure (thx Lukas Beeler).
+  * runsvctrl.c, runsvstat.c: use _exit().
+
+runit 0.9.2
+Sat, 03 May 2003 17:40:23 +0200
+  * doc/runscripts.html: changes from Jesse Cablek.
+  * doc/dependencies.html, doc/useinit.html: new.
+  * doc/index.html: adapt; reorder programs; runsvstat, runsvctrl installed
+    by default.
+  * doc/install.html: remove dependency on daemontools; create /package.
+  * doc/replaceinit.html, man/runsv.8: typos.
+  * man/svwaitdown.8, man/svwaitup.8: refer to runit and supervise.
+  * svlogd.c: fix counter var namespace.
+  * package/commands: add runsvctrl, runsvstat.
+
+runit 0.9.1
+Wed, 30 Apr 2003 22:10:57 +0200
+  * svlogd.c: reset match flag on deselection, fixes pattern matching.
+ 
+runit 0.9.0
+Fri, 25 Apr 2003 09:22:03 +0200
+  * runsvdir.c: don't propagate sig_term to runsv processes when receiving
+    sig_term; send sig_term to all runsv processes and exit 111 when
+    receiving sig_hangup.
+  * runit.c: print warning for each state that exits non-zero; restart
+    stage 2 if it exits non-zero.
+  * svlogd.c: code cleanup.
+  * svwaitdown.c: send command 'd' (and 'x' if -x is set) to each service if
+    it's not in state 'want down'.
+  * svwaitup.c: minor code cleanup.
+  * man/runsvdir.8, man/svwaitdown.8: adapt.
+  * doc/runscripts.html: add contributed run scripts (thx!).
+  * doc/upgrade.html, doc/index.html: adapt.
+
+runit 0.8.4
+Sun, 20 Apr 2003 19:31:24 +0200
+  * svlogd.c: new; runit's service logging daemon.
+  * fmt_ptime.h, fmt_ptime.c, pmatch.h, pmatch.c: new.
+  * man/svlogd.8, doc/svlogd.8.html: new.
+  * man/runsv.8, man/runsvstat.8, man/utmpset.8: minor cleanup.
+
+runit 0.8.1
+Wed, 12 Mar 2003 15:10:04 +0100
+  * runsvdir.c, runsv.c: close-on-exec file descriptors of current dir and
+    lock files (thx Lukas Beeler).
+  * doc/runscripts.html: add contributed run scripts (thx Robin S. Socha, 
+    Claus Alboege, Paul Jarc, clemens fischer, Jesse Cablek).
+
+runit 0.8.0
+Tue, 25 Feb 2003 16:17:34 +0100
+  * doc/benefits.html: new.
+  * doc/index.html, doc/upgrade.html: adapt.
+  * etc/*/1, etc/*/3, etc/*/ctrlaltdel: set permissions on the magic files
+    instead of creating and removing them (can make them symbolic links
+    now); set PATH.
+  * runit.h: new; centralize runit's compiled in magic file names.
+  * runit.c: check permissions of magic files instead of sole existence;
+    conditionally call reboot(RB_AUTOBOOT), reboot(RB_POWER_OFF),
+    reboot(RB_HALT_SYSTEM) if possible; code cleanup.
+  * runit-init.c: set permissions on magic files instead of creating or
+    removing them; code cleanup.
+  * runsvdir.c: detect and tolerate system time warp; code cleanup.
+  * runsv.c, runsvchdir.c, runsvctrl.c, runsvstat.c, svwaitdown.c,
+    svwaitup.c, utmpset.c: code cleanup.
+  * man/runit.8, man/runit-init.8: adapt.
+
+runit 0.7.2
+Fri, 10 Jan 2003 21:34:13 +0100
+  * runsv.c: close finish script file descriptor.
+  * runsv.c: close logpipe[] instead of sending sigterm to logservice when
+    told to exit, loggers should exit when they see EOF on stdin (thx Paul
+    Jarc).
+  * etc/*/1, etc/*/3: remove explicit 'exit'.
+  * error.h: include <errno.h> (upcoming glibc changes).
+
+runit 0.7.1
+Wed, 23 Oct 2002 11:40:24 +0200
+  * man/runsv.8, doc/runlevels.html: typos.
+  * runsvctrl.c, runsvstat.c: exit 111 on error.
+  * runsvdir.c: continue reading directory when stat() on entry fails.
+  * doc/runsvstat.8.html,doc/runsvctrl.8.html: new.
+  * runsvstat, runsvctrl: new; optional svc, svstat replacements.
+  * doc/index.html: adapt; new example.
+
+runit 0.7.0
+Mon, 07 Oct 2002 11:26:27 +0200
+  * runsvdir.c: check service directory's inode and device in addition
+    to mtime; sleep at least 1 second before restarting runsv processes.
+  * runsv.c: use status[19] for state information; control pipe supports e.
+  * runsvstat.c: new option -l: only show log service if -l is given; use
+    status[19] for state.
+  * runsvchdir: new; change directory runsvdir is running in (switch
+    runlevels).
+  * man/runsvchdir.8, doc/runsvchdir.8.html: new.
+  * svwaitdown.c: -k option: only kill service that still are up on timeout.
+
+runit 0.6.0
+Fri, 27 Sep 2002 16:34:57 +0200
+  * man/runsv.8, man/runsvdir.8: new.
+  * doc: use runsvdir/runsv instead of svscanboot/supervise.
+  * svwaitdown.c, svwaitup.c, man/svwaitdown.8, man/svwaitup.8: services
+    must start with slash.
+  * svwaitdown: new option -x: wait for runsv to exit instead for the
+    service to be down; new option -k: SIGKILL still running services if
+    timeout is reached.
+  * stage 3: use new svwaitdown options.
+
+runit 0.5.3
+Mon, 23 Sep 2002 16:25:07 +0200
+  * runsv, runsvdir: new; svscan/supervise replacement.
+  * etc/runit/2: use runsvdir instead of svscanboot.
+  * runsvstat.c: new; svstat for runsv.
+  * runsvctrl.c: new; svc for runsv.
+  * runsvdir.c, runsv.c: code cleanup.
+  * utmpset.c: setlock utmp and wtmp file.
+
+runit 0.5.0
+Wed, 28 Aug 2002 11:18:28 +0200
+  * utmpset: avoids libutil; compiles with dietlibc; built by default.
+  * doc/usedietlibc.html: fix description.
+  * getty-*/run: add utmpset.
+
+runit 0.4.1
+Mon, 24 Jun 2002 15:53:11 +0200
+  * utmpset.c: new option -w: additionally write wtmp record.
+
+runit 0.4.0
+Sun, 19 May 2002 12:28:29 +0200
+  * src/: include public domain sources to build byte.a, unix.a, time.a:
+    runit builds without having daemontools' sources installed.
+  * utmpset.c: new utmpset program.
+  * doc/utmpset.html: new.
+
+runit 0.3.2
+Wed, 13 Feb 2002 10:56:17 +0100
+  * runit.c: support ctrl-alt-del also on Linux/i386, dietlibc.
+  * runscripts.html: more samples. (thx Alessandro Bono)
+
+runit 0.3.1
+Sun,  3 Feb 2002 16:30:55 +0100
+  * src: cleanup.
+
+runit 0.3.0
+Tue, 29 Jan 2002 19:38:33 +0100
+  * doc: adapted.
+  * runit.8: changes documented.
+  * runscripts.html: more examples.
+
+runit 0.2.9
+Thu, 17 Jan 2002 19:00:44 +0100
+  * reportedly runs on FreeBSD 4.3 (thx clemensF)
+  * svwaitdown: max timeout is 6000, really. (thx ska)
+  * runit.c: stage 1 gets no new session and full control of console; an
+    emergency shell or login program (if present) can be executed.
+  * openbsd, freebsd: support for 'single user' emergency shell in stage 1
+  * runit.c: skip stage 2 if stage 1 crashes.
+
+runit 0.2.7
+Tue,  1 Jan 2002 16:20:14 +0100
+  * tested on fresh freebsd 4.4 installation in vmware
+  * new etc/freebsd: stages and getty service
+  * doc: replaceinit: how to replace bsd init (freebsd)
+  * svwaitup: minor code cleanup
+  * doc: /service/getty-5/ as default getty service.
+  * doc: index: related links added.
+  * package: install-man added for installing manpages in /usr/local/man/
+
+runit 0.2.6
+Sun, 30 Dec 2001 17:29:29 +0100
+  * runs on openbsd 2.9
+  * runit: console init and reinit
+  * runit: sig_pause() on end.
+  * new: etc/openbsd: stages and getty service
+  * doc: replaceinit: how to replace bsd init
+
+runit 0.2.3
+Thu, 27 Dec 2001 14:41:56 +0100
+  * doc: runscripts.html integrated
+
+runit 0.2.2
+Sun, 23 Dec 2001 18:12:29 +0100
+  * runit: checks for pid == 1
+  * new: svwaitdown, svwaitup, svwaitdown.8, svwaitup.8
+  * stage3: uses svwaitdown
+  * doc: runscripts.html added
+
+runit 0.2.0
+Mon, 26 Nov 2001 12:29:44 +0100
+  * runit-halt, runit-reboot removed, integrated into runit-init
+  * tested with dietlibc
+  * doc: usedietlibs.html added.
+  * BSD license.
+
+runit 0.1.2
+Thu, 22 Nov 2001 18:29:05 +0100
+  * collects all terminated children in all stages
+  * sends sigkill to whole process group if stage2 crashes and waits
+    5 seconds before restarting
+  * ctraltdel not automatically shuts down, now respects /etc/runit/stopit
+  * /etc/runit/ctrlaltdel touches /etc/runit/stopit
+  * on shutdown request: send sigterm to stage 2, wait max 5 second, send
+    sigkill if still running, leave stage 2, enter stage 3
+
+runit 0.1.1
+Tue, 20 Nov 2001 11:56:58 +0100
+  * package moved to smarden.org
+
+runit 0.1.0
+Fri, 16 Nov 2001 14:01:27 +0100
+  * documention
+  * debian package
+
+runit 0.0.4
+Sun, 11 Nov 2001 19:07:49 +0100
+  * initial release

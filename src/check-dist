@@ -1,0 +1,8 @@
+#!/bin/sh
+
+PATH=`pwd`:$PATH
+
+for i in `cat ../package/commands`; do
+  echo "Creating new $i.dist..."
+  env - PATH="$PATH" ctmp="`pwd`/check-tmp" $i.check 2>&1 |cat -v >$i.dist
+done

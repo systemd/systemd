@@ -1,6 +1,0 @@
-[Unit]
-Description=C
-Requires=a.service
-
-[Service]
-ExecStart=/bin/true

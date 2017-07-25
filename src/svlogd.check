@@ -1,0 +1,27 @@
+#!/bin/sh
+rm -rf "${ctmp}"
+
+svlogd
+echo $?
+svlogd -V
+echo $?
+
+mkdir "${ctmp}"
+echo foo |svlogd "${ctmp}"
+echo $?
+cat "${ctmp}"/current
+
+( echo bar; echo baz ) |svlogd "${ctmp}"
+echo $?
+cat "${ctmp}"/current
+
+( echo foo; echo bar; echo baz ) |svlogd -r: -R fb "${ctmp}"
+echo $?
+cat "${ctmp}"/current
+
+echo t2 >"${ctmp}"/config
+( echo foo; sleep 3 ) |svlogd "${ctmp}"
+echo $?
+cat "${ctmp}"/current
+
+rm -rf "${ctmp}"

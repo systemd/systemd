@@ -1,0 +1,2 @@
+#!/bin/sh
+exec utmpset -w tty5

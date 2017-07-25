@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /usr/libexec/getty Pc ttyC4

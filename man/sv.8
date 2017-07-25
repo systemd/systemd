@@ -1,0 +1,285 @@
+.TH sv 8
+.SH NAME
+sv \- control and manage services monitored by
+.BR runsv (8)
+.SH SYNOPSIS
+.B sv
+[\-v] [\-w
+.I sec\fR]
+.I command
+.I services
+.P
+.BI /etc/init.d/ service
+[\-w
+.I sec\fR]
+.I command
+.SH DESCRIPTION
+The
+.B sv
+program reports the current status and controls the state of services
+monitored by the
+.BR runsv (8)
+supervisor.
+.P
+.I services
+consists of one or more arguments, each argument naming a directory
+.I service
+used by
+.BR runsv (8).
+If
+.I service
+doesn't start with a dot or slash and doesn't end with a slash, it is
+searched in the default services directory
+.IR /service/ ,
+otherwise relative to the current directory.
+.P
+.I command
+is one of up, down, status, once, pause, cont, hup, alarm, interrupt, 1, 2,
+term, kill, or exit, or start, stop, restart, shutdown, force-stop,
+force-reload, force-restart, force-shutdown.
+.P
+The
+.B sv
+program can be sym-linked to
+.I /etc/init.d/
+to provide an LSB init script interface.
+The
+.I service
+to be controlled then is specified by the base name of the ``init script''.
+.SH COMMANDS
+.TP
+.B status
+Report the current status of the service, and the appendant log service if
+available, to standard output.
+.TP
+.B up
+If the service is not running, start it.
+If the service stops, restart it.
+.TP
+.B down
+If the service is running, send it the TERM signal, and the CONT signal.
+If ./run exits, start ./finish if it exists.
+After it stops, do not restart service.
+.TP
+.B once
+If the service is not running, start it.
+Do not restart it if it stops.
+.TP
+.B pause cont hup alarm interrupt quit 1 2 term kill
+If the service is running, send it the STOP, CONT, HUP, ALRM, INT, QUIT,
+USR1, USR2, TERM, or KILL signal respectively.
+.TP
+.B exit
+If the service is running, send it the TERM signal, and the CONT signal.
+Do not restart the service.
+If the service is down, and no log service exists,
+.BR runsv (8)
+exits.
+If the service is down and a log service exists,
+.BR runsv (8)
+closes the standard input of the log service and waits for it to terminate.
+If the log service is down,
+.BR runsv (8)
+exits.
+This command is ignored if it is given to an appendant log service.
+.P
+.BR sv
+actually looks only at the first character of these
+.IR command s.
+.SS Commands compatible to LSB init script actions
+.TP
+.B status
+Same as
+.IR status .
+.TP
+.B start
+Same as
+.IR up ,
+but wait up to 7 seconds for the command to take effect.
+Then report the status or timeout.
+If the script
+.I ./check
+exists in the service directory,
+.B sv
+runs this script to check whether the service is up and available;
+it's considered to be available if
+.I ./check
+exits with 0.
+.TP
+.B stop
+Same as
+.IR down ,
+but wait up to 7 seconds for the service to become down.
+Then report the status or timeout.
+.TP
+.B reload
+Same as
+.IR hup ,
+and additionally report the status afterwards.
+.TP
+.B restart
+Send the commands
+.IR term ,
+.IR cont ,
+and
+.I up
+to the service, and wait up to 7 seconds for the service to restart.
+Then report the status or timeout.
+If the script
+.I ./check
+exists in the service directory,
+.B sv
+runs this script to check whether the service is up and available again;
+it's considered to be available if
+.I ./check
+exits with 0.
+.TP
+.B shutdown
+Same as
+.IR exit ,
+but wait up to 7 seconds for the
+.BR runsv (8)
+process to terminate.
+Then report the status or timeout.
+.TP
+.B force-stop
+Same as
+.IR down ,
+but wait up to 7 seconds for the service to become down.
+Then report the status, and on timeout send the service the
+.I kill
+command.
+.TP
+.B force-reload
+Send the service the
+.I term
+and
+.I cont
+commands, and wait up to 7 seconds for the service to restart.
+Then report the status, and on timeout send the service the
+.I kill
+command.
+.TP
+.B force-restart
+Send the service the
+.IR term ,
+.I cont
+and
+.I up
+commands, and wait up to 7 seconds for the service to restart.
+Then report the status, and on timeout send the service the
+.I kill
+command.
+If the script
+.I ./check
+exists in the service directory,
+.B sv
+runs this script to check whether the service is up and available again;
+it's considered to be available if
+.I ./check
+exits with 0.
+.TP
+.B force-shutdown
+Same as
+.IR exit ,
+but wait up to 7 seconds for the
+.BR runsv (8)
+process to terminate.
+Then report the status, and on timeout send the service the
+.I kill
+command.
+.TP
+.B try-restart
+if the service is running, send it the
+.I term
+and
+.I cont
+commands, and wait up to 7 seconds for the service to restart.
+Then report the status or timeout.
+
+.SS Additional Commands
+.TP
+.B check
+Check for the service to be in the state that's been requested.
+Wait up to 7 seconds for the service to reach the requested state, then
+report the status or timeout.
+If the requested state of the service is
+.IR up ,
+and the script
+.I ./check
+exists in the service directory,
+.B sv
+runs this script to check whether the service is up and running; it's
+considered to be up if
+.I ./check
+exits with 0.
+.SH OPTIONS
+.TP
+.B \-v
+If the
+.I command
+is up, down, term, once, cont, or exit, then wait up to 7 seconds for the
+command to take effect.
+Then report the status or timeout.
+.TP
+.B \-w \fIsec
+Override the default timeout of 7 seconds with
+.I sec
+seconds.
+This option implies
+.IR \-v .
+.SH ENVIRONMENT
+.TP
+.B SVDIR
+The environment variable $SVDIR overrides the default services directory
+.IR /service/ .
+.TP
+.B SVWAIT
+The environment variable $SVWAIT overrides the default 7 seconds to wait
+for a command to take effect.
+It is overridden by the \-w option.
+.SH EXIT CODES
+.B sv
+exits 0, if the
+.I command
+was successfully sent to all
+.IR services ,
+and, if it was told to wait, the
+.I command
+has taken effect to all services.
+.P
+For each
+.I service
+that caused an error (e.g. the directory is not controlled by a
+.BR runsv (8)
+process, or
+.B sv
+timed out while waiting),
+.B sv
+increases the exit code by one and exits non zero.
+The maximum is 99.
+.B sv
+exits 100 on error.
+.P
+If
+.B sv
+is called with a base name other than
+.BR sv :
+it exits 1 on timeout or trouble sending the command; if the
+.I command
+is
+.BR status ,
+it exits 3 if the service is down, and 4 if the status is unknown;
+it exits 2 on wrong usage, and 151 on error.
+.SH SEE ALSO
+runsv(8),
+chpst(8),
+svlogd(8),
+runsvdir(8),
+runsvchdir(8),
+runit(8),
+runit-init(8)
+.P
+http://smarden.org/runit/
+.SH AUTHOR
+Gerrit Pape <pape@smarden.org>

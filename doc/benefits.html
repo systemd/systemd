@@ -1,0 +1,187 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+<head>
+<title>runit - benefits</title>
+</head>
+<body>
+<a href="http://smarden.org/pape/">G. Pape</a><br>
+<a href="index.html">runit</a><br>
+<hr>
+<h1>runit - benefits</h1>
+<hr>
+<a href="#supervision">Service supervision</a><br>
+<a href="#state">Clean process state</a><br>
+<a href="#log">Reliable logging facility</a><br>
+<a href="#fast">Fast system boot up and shutdown</a><br>
+<a href="#portability">Portability</a><br>
+<a href="#packaging">Packaging friendly</a><br>
+<a href="#smallcode">Small code size</a>
+<hr>
+<a name="supervision"><h3>Service supervision</h3></a>
+Each service is associated with a <i>service directory</i>, and each
+service daemon runs as a child process of a supervising
+<a href="runsv.8.html">runsv</a> process running in this directory.
+The <a href="runsv.8.html">runsv</a> program provides a reliable interface
+for signalling the service daemon and controlling the service and
+supervisor.
+Normally the <a href="sv.8.html">sv</a> program is used to send commands
+through this interface, and to query status informations about the service.
+<p>
+The <a href="runsv.8.html">runsv</a> program supervises the corresponding
+service daemon.
+By default a service is defined to be up, that means, if the service daemon
+dies, it will be restarted.
+Of course you can <a href="sv.8.html">tell runsv</a> otherwise.
+<p>
+This reliable interface to control daemons and supervisors obsoletes
+pid-guessing programs, such as <tt>pidof</tt>, <tt>killall</tt>,
+<tt>start-stop-daemon</tt>, which, due to guessing, are prone to failures
+by design.
+It also obsoletes so called <tt>pid-files</tt>, no need for each and every
+service daemon to include code to daemonize, to write the new process id
+into a file, and to take care that the file is removed properly on shutdown,
+which might be very difficult in case of a crash.
+<hr>
+<a name="state"><h3>Clean process state</h3></a>
+<i>runit</i> guarantees each service a clean process state, no matter if the
+service is activated for the first time or automatically at boot time,
+reactivated, or simply restarted.
+This means that the service always is started with the same environment,
+resource limits, open file descriptors, and controlling terminals.
+<p>
+You don't necessarily have that with <i>sysv init</i> scripts for example.
+It requires a carefully written init script that reliably cleans up and sets
+the process state before starting the service daemon.
+This adds even more complexity to the init script in comparison with a run
+script used by <i>runit</i>.
+Many of today's init scripts don't provide a clean process state, here is
+an example on what could happen:
+<pre>
+ # /etc/init.d/foo-daemon start
+ Starting foo daemon: food.
+ #
+</pre>
+Fine.
+Everything works, nothing to worry about.
+After rebooting the system this shows up on the screen:
+<pre>
+ ...
+ Starting foo daemon: food: command not found
+ failed.
+ ...
+</pre>
+The <tt>food</tt> program is installed in <tt>/opt/foo/bin/</tt>.
+When starting the service for the first time using the init script, the
+<tt>PATH</tt> environment variable contained <tt>/opt/foo/bin</tt>.
+After reboot <tt>init</tt> started the service using the init script, but
+with a different value for the <tt>PATH</tt> variable, not containing
+<tt>/opt/foo/bin</tt>.
+Of course the init script should have set <tt>PATH</tt> before starting the
+daemon; the problem is that it worked in the first place, and that the error
+didn't show up until system reboot.
+<p>
+With bad init scripts miraculous things could also happen when just doing
+<pre>
+ # /etc/init.d/foo-daemon restart
+</pre>
+at the command line.
+<p>
+The clean process state includes open file descriptors, obsoleting the
+widely used hack in many service daemons to force-close all file descriptors
+that might be open, up to the limit of available file descriptors for the
+daemon process (often results in 1024 unnecessary close() system calls in a
+great number of service daemon implementations).
+<hr>
+<a name="log"><h3>Reliable logging facility</h3></a>
+The <a href="runsv.8.html">runsv</a> program provides a reliable logging
+facility for the service daemon.
+If configured, <a href="runsv.8.html">runsv</a> creates a pipe, starts and
+supervises an additional log service, redirects the log daemon's standard
+input to read from the pipe, and redirects the service daemon's standard
+output to write to the pipe.
+Restarting the service does not require restarting the log service, and vice
+versa.
+A good choice for a log daemon is <i>runit</i>'s service logging daemon
+<a href="svlogd.8.html">svlogd</a>.
+<p>
+The service daemon and the log daemon can run with different process states,
+and under different user id's.
+<i>runit</i> supports easy and reliable logging for service daemons running
+chroot'ed.
+<p>
+If <a href="runsv.8.html">runsv</a> is told to shutdown a service, e.g. at
+system shutdown, it ensures that the log service stays up as long as the
+corresponding service daemon is running and possibly writing to the log.
+<hr>
+<a name="fast"><h3>Fast system boot up and shutdown</h3></a>
+After the system's one time tasks (stage 1) are done, the system services
+are started up in parallel.
+The operating system's process scheduler takes care of having the services
+available as soon as possible.
+<p>
+On system shutdown, stage 3 uses <a href="runsv.8.html">runsv</a>'s control
+interface to wait until each service daemon is terminated and all logs are
+written.
+Again, services are taken down in parallel.
+As soon as all services are down, system halt or system reboot is initiated.
+<hr>
+<a name="portability"><h3>Portability</h3></a>
+<i>runit</i> comes ready-to-run for Debian GNU/Linux and BSD systems, and
+can easily be configured to run on other UNIX systems.
+The UNIX system's one time initialization tasks and tasks to shutdown the
+system must be identified and <i>runit</i>'s stages 1 and 3 configured
+accordingly.
+<p>
+Stages 1 and 3 handle one time tasks.
+They only run for short and exit soon.
+Stage 2 handles the system's uptime tasks (via the
+<a href="runsvdir.8.html">runsvdir</a> program) and is running the whole
+system's uptime.
+<p>
+<i>runit</i>'s stage 2 is portable across UNIX systems.
+<i>runit</i> is well suited for server systems and embedded systems, and
+also does its job well on desktop systems.
+<hr>
+<a name="packaging"><h3>Packaging friendly</h3></a>
+<i>runit</i>'s stages 1 and 3 are distribution specific.
+They normally are shell scripts, and an operating system distribution with
+software package management should adapt these scripts if they need support
+for their package management.
+The
+<a href="http://packages.debian.org/unstable/admin/runit-run.html">
+runit-run</a>
+Debian package is an attempt to integrate <i>runit</i> into
+<a href="http://www.debian.org/">Debian GNU/Linux</a> as an alternative to
+the default
+<a href="http://packages.debian.org/unstable/base/sysvinit.html">
+sysvinit</a>.
+<p>
+Stage 2 is packaging friendly:
+all a software package that provides a service needs to do is to include
+a <i>service directory</i> in the package, and to provide a symbolic link
+to this directory in <tt>/service/</tt>.
+The service will be started within five seconds, and automatically at boot
+time.
+The package's install and update scripts can use the reliable control
+interface to stop, start, restart, or send signals to the service.
+On package removal, the symbolic link simply is removed.
+The service will be taken down automatically.
+<hr>
+<a name="smallcode"><h3>Small code size</h3></a>
+One of the <i>runit</i> project's principles is to keep the code size
+small.
+As of version 1.0.0 of <i>runit</i>, the <tt>runit.c</tt> source contains
+330 lines of code; the <tt>runsvdir.c</tt> source is  274 lines of code, the
+<tt>runsv.c</tt> source 509.
+This minimizes the possibility of bugs introduced by programmer's fault,
+and makes it more easy for security related people to proofread the source
+code.
+<p>
+The <i>runit</i> core programs have a very small memory footprint and do not
+allocate memory dynamically.
+<hr>
+<address><a href="mailto:pape@smarden.org">
+Gerrit Pape &lt;pape@smarden.org&gt;
+</a></address>
+</body>
+</html>

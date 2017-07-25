@@ -1,0 +1,61 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+<head>
+<title>runit - installation</title>
+</head>
+<body>
+<a href="http://smarden.org/pape/">G. Pape</a><br>
+<a href="index.html">runit</a><br>
+<hr>
+<h1>runit - installation</h1>
+<hr>
+<i>runit</i> installs into
+<a href="http://cr.yp.to/slashpackage.html">/package</a>.
+If you don't have a <tt>/package</tt> directory, create it now:
+<pre>
+ # mkdir -p /package
+ # chmod 1755 /package
+</pre>
+Download
+<a href="runit-2.1.2.tar.gz">runit-2.1.2.tar.gz</a> into <tt>/package</tt>
+and unpack the archive
+<pre>
+ # cd /package
+ # gunzip runit-2.1.2.tar
+ # tar -xpf runit-2.1.2.tar
+ # rm runit-2.1.2.tar
+ # cd admin/runit-2.1.2
+</pre>
+On MacOSX, do
+<pre>
+ # echo 'cc -Xlinker -x' &gt;src/conf-ld
+ # cp src/Makefile src/Makefile.old
+ # sed -e 's/ -static//' &lt;src/Makefile.old &gt;src/Makefile
+</pre>
+Now compile and install the <i>runit</i> programs
+<pre>
+ # package/install
+</pre>
+If you want to make the man pages available in the <tt>/usr/local/man/</tt>
+hierarchy, do:
+<pre>
+ # package/install-man
+</pre>
+To report success:
+<pre>
+ # mail pape-runit-2.1.2@smarden.org &lt;compile/sysdeps
+</pre>
+If you use <i>runit</i> regularly, please
+<a href="http://smarden.org/pape/#contribution">contribute</a> to the project.
+<p>
+Refer to <a href="replaceinit.html">replacing init</a> for
+replacing <i>init</i> with <i>runit</i>, or to
+<a href="useinit.html">use with traditional init</a> for running
+<i>runit</i>'s service supervision with your system's current <i>init</i>
+scheme.
+<hr>
+<address><a href="mailto:pape@smarden.org">
+Gerrit Pape &lt;pape@smarden.org&gt;
+</a></address>
+</body>
+</html>

@@ -1,0 +1,105 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+<head>
+<title>runit - upgrading from previous versions</title>
+</head>
+<body>
+<a href="http://smarden.org/pape/">G. Pape</a><br>
+<a href="index.html">runit</a><br>
+<hr>
+<h1>runit - upgrading from previous versions</h1>
+<hr>
+<h3>2.0.0 to 2.1.2</h3>
+The <a href="chpst.8.html">chpst</a> program learned a new option -b to run
+a program with a different name as the 0th argument.
+<h3>1.9.0 to 2.0.0</h3>
+No further action from you is required.
+<h3>1.8.0 to 1.9.0</h3>
+The default directory for services is now <tt>/service/</tt>, and no longer
+<tt>/var/service/</tt>.
+To be consistent with the new default location, create a symlink when
+upgrading
+<pre>
+ # ln -s /var/service /
+</pre>
+When installing runit on a system that should comply with the Filesystem
+Hierarchy Standard (FHS), neither <tt>/service/</tt> nor
+<tt>/var/service/</tt> should be chosen, but <tt>/etc/service/</tt>.
+It is recommended to create a compatibility symlink <tt>/service</tt>
+pointing to <tt>/etc/service</tt> in this case.
+<h3>1.7.x to 1.8.0</h3>
+The <a href="runit.8.html">runit</a> program, the process no 1, has been
+fixed to reap dead processes that re-parented to process no 1 (zombies)
+more thoroughly.
+Instructions on how to run <tt>runit</tt> with upstart as init scheme have
+been added, <a href="svlogd.8.html">svlogd</a> has been changed to use a
+new source port for each log message sent through udp, and this release
+includes a build fix for AIX.
+<h3>1.6.0 to 1.7.x</h3>
+With this version the <a href="runsv.8.html">runsv</a> program starts to
+run the ./finish script with two arguments, the exit code and the exit
+status of the just finished ./run script.
+The timestamp <a href="svlogd.8.html">svlogd</a> optionally prepends to log
+messages can be specified to be in iso 8601 alike format.
+See the man pages for details.
+<h3>1.5.x to 1.6.0</h3>
+<a href="svlogd.8.html">svlogd</a> has been changed to prepend the optional
+timestamp also to log messages sent to the network through UDP, just as it
+does for log messages written to a log directory or standard error.
+<h3>1.4.0 or 1.4.1 to 1.5.x</h3>
+The <a href="svlogd.8.html">svlogd</a> program supports a new configuration
+option p to optionally prefix each line written to logs, standard error, or
+through UDP with a string, and no longer strips empty lines from the logs.
+<h3>1.3.x to 1.4.0 or 1.4.1</h3>
+With this version the <tt>runsvctrl</tt>, <tt>runsvstat</tt>,
+<tt>svwaitdown</tt>, and <tt>svwaitup</tt> programs no longer are being
+installed, the functionality of these programs has been incorporated into
+the <a href="sv.8.html">sv</a> program.
+The documentation now suggest to put service directories by default into
+the <tt>/etc/sv/</tt> directory, and a list of frequently asked questions
+with answers has been added.
+The <a href="chpst.8.html">chpst</a> program understands a new option -d
+to limit memory of the data segment per process.
+<h3>1.2.x to 1.3.x</h3>
+This release introduces a first test version of the <a href="sv.8.html">sv</a>
+program, which can be used to control the state and query the status of
+services monitored by <a href="runsv.8.html">runsv</a>.
+Optionally it can be sym-linked into <tt>/etc/init.d/</tt> to provide an
+interface to LSB init script actions for services controlled by runit.
+See the <a href="sv.8.html">man page</a> for details.
+Thanks to Lars Uffmann, instructions on how to run runit under launchd on
+MacOSX 10.4 have been added.
+<h3>1.1.0 to 1.2.x</h3>
+With this version the <a href="runsv.8.html">runsv</a> program makes
+controlling the service through commands normally sent by
+<a href="runsvctrl.8.html">runsvctrl</a> configurable;
+arbitrary actions through external programs can optionally be specified, and
+signalling of the service disabled if desired.
+See the <a href="runsv.8.html">man page</a> for details.
+<p>
+<a href="runsv.8.html">runsv</a> now reports the seconds since <tt>./run</tt>
+has been started when running the <tt>./finish</tt> script, instead of the
+seconds since <tt>./finish</tt> has been started.
+It no longer reports immediately failing <tt>./run</tt> scripts as ``running''
+for up to one second, but as ``down, normally up, want up''.
+<h3>1.0.x to 1.1.0</h3>
+The <a href="svlogd.8.html">svlogd</a> program now interprets the ``e'' and
+``E'' configuration options so that they can be combined to select or
+deselect log messages to be written to standard error, similar to the ``+''
+and ``-'' options for the rotated log.
+It also provides the new ``t'' and ``N'' configuration options, see the
+<a href="svlogd.8.html">man page</a> for details.
+The <a href="chpst.8.html">chpst</a> program supports adjusting the nice
+level through the new -n command line option.
+<p>
+Starting with this version, <tt>/etc/runit/2</tt> by default runs the
+<a href="runsvdir.8.html">runsvdir</a> program with the -P option.
+To adapt edit <tt>/etc/runit/2</tt> and change the invocation of
+<a href="runsvdir.8.html">runsvdir</a> accordingly, see
+<a href="../etc/2"">here</a>.
+<hr>
+<address><a href="mailto:pape@smarden.org">
+Gerrit Pape &lt;pape@smarden.org&gt;
+</a></address>
+</body>
+</html>
