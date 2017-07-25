@@ -81,6 +81,7 @@ polkitpkladir = join_paths(localstatedir, 'lib/polkit-1/localauthority/10-vendor
 varlogdir = join_paths(localstatedir, 'log')
 xinitrcdir = join_paths(sysconfdir, 'X11/xinit/xinitrc.d')
 rpmmacrosdir = get_option('rpmmacrosdir')
+modprobedir = join_paths(rootlibdir, 'modprobe.d')
 
 # Our own paths
 pkgdatadir = join_paths(datadir, 'systemd')
@@ -2303,6 +2304,8 @@ install_data('xorg/50-systemd-user.sh',
              install_dir : xinitrcdir)
 install_data('system-preset/90-systemd.preset',
              install_dir : systempresetdir)
+install_data('modprobe.d/systemd.conf',
+             install_dir : modprobedir)
 install_data('README',
              'NEWS',
              'CODING_STYLE',
@@ -2389,6 +2392,7 @@ status = [
         'PAM modules dir:                   @0@'.format(pamlibdir),
         'PAM configuration dir:             @0@'.format(pamconfdir),
         'RPM macros dir:                    @0@'.format(rpmmacrosdir),
+        'modprobe.d dir:                    @0@'.format(modprobedir),
         'D-Bus policy dir:                  @0@'.format(dbuspolicydir),
         'D-Bus session dir:                 @0@'.format(dbussessionservicedir),
         'D-Bus system dir:                  @0@'.format(dbussystemservicedir),
