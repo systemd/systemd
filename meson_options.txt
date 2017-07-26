@@ -69,7 +69,7 @@ option('timedated', type : 'boolean',
        description : 'install the systemd-timedated daemon')
 option('timesyncd', type : 'boolean',
        description : 'install the systemd-timesyncd daemon')
-option('remote', type : 'boolean',
+option('remote', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'support for "journal over the network"')
 option('myhostname', type : 'boolean',
        description : 'nss-myhostname support')
@@ -87,7 +87,7 @@ option('sysusers', type : 'boolean',
        description : 'support for the sysusers configuration')
 option('tmpfiles', type : 'boolean',
        description : 'support for tmpfiles.d')
-option('importd', type : 'boolean',
+option('importd', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'install the systemd-importd daemon')
 option('hwdb', type : 'boolean',
        description : 'support for the hardware database')
