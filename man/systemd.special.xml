@@ -329,9 +329,9 @@
         <term><filename>kbrequest.target</filename></term>
         <listitem>
           <para>systemd starts this target whenever Alt+ArrowUp is
-          pressed on the console. This is a good candidate to be
-          aliased (symlinked) to
-          <filename>rescue.target</filename>.</para>
+          pressed on the console. Note that any user with physical access
+          to the machine will be able to do this, without authentication,
+          so this should be used carefully.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
