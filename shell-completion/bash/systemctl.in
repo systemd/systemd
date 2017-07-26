@@ -68,7 +68,7 @@ __filter_units_by_properties () {
         done
         for ((i=0; i < ${#units[*]}; i++)); do
                 for ((j=0; j < ${#conditions[*]}; j++)); do
-                        if [[ "${props[ i * ${#conditions[*]} + j]}" != "${conditions[j]}" ]]; then
+                        if [[ "${props[i * ${#conditions[*]} + j]}" != "${conditions[j]}" ]]; then
                                 break
                         fi
                 done
@@ -87,19 +87,19 @@ __get_active_units   () { __systemctl $1 list-units       \
         | { while read -r a b; do echo " $a"; done; }; }
 __get_startable_units () {
         # find startable inactive units
-        __filter_units_by_properties $mode ActiveState,CanStart inactive,yes $(
-            { __systemctl $mode list-unit-files --state enabled,enabled-runtime,linked,linked-runtime,static,indirect,disabled,generated,transient | \
+        __filter_units_by_properties $1 ActiveState,CanStart inactive,yes $(
+            { __systemctl $1 list-unit-files --state enabled,enabled-runtime,linked,linked-runtime,static,indirect,disabled,generated,transient | \
                       { while read -r a b; do [[ $a =~ @\. ]] || echo " $a"; done; }
-              __systemctl $mode list-units --state inactive,failed | \
+              __systemctl $1 list-units --state inactive,failed | \
                       { while read -r a b c; do [[ $b == "loaded" ]] && echo " $a"; done; }
             } | sort -u )
 }
 __get_restartable_units () {
         # filter out masked and not-found
-        __filter_units_by_property $mode CanStart yes $(
-            __systemctl $mode list-unit-files --state enabled,disabled,static | \
+        __filter_units_by_property $1 CanStart yes $(
+            __systemctl $1 list-unit-files --state enabled,disabled,static | \
                     { while read -r a b; do [[ $a =~ @\. ]] || echo " $a"; done; }
-            __systemctl $mode list-units | \
+            __systemctl $1 list-units | \
                     { while read -r a b; do echo " $a"; done; } )
 }
 __get_failed_units   () { __systemctl $1 list-units       \
