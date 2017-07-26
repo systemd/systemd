@@ -2531,6 +2531,9 @@ foreach tuple : [
 endforeach
 
 status += [
+        '',
         'enabled features: @0@'.format(', '.join(found)),
-        'disabled features: @0@'.format(', '.join(missing))]
+        '',
+        'disabled features: @0@'.format(', '.join(missing)),
+        '']
 message('\n         '.join(status))
