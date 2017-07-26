@@ -503,7 +503,7 @@ static int mount_verify(Mount *m) {
         if (UNIT(m)->load_state != UNIT_LOADED)
                 return 0;
 
-        if (!m->from_fragment && !m->from_proc_self_mountinfo)
+        if (!m->from_fragment && !m->from_proc_self_mountinfo && !UNIT(m)->perpetual)
                 return -ENOENT;
 
         r = unit_name_from_path(m->where, ".mount", &e);
