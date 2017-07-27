@@ -4743,7 +4743,7 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
 
         case SD_BUS_TYPE_ARRAY:
 
-                if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "EnvironmentFiles")) {
+                if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "EnvironmentFile")) {
                         const char *path;
                         int ignore;
 
