@@ -22,7 +22,6 @@ endforeach
 
 m4_files = [['etc.conf',             ''],
             ['systemd.conf',         ''],
-            ['systemd-remote.conf',  'ENABLE_REMOTE'],
             ['var.conf',             ''],
            ]
 
