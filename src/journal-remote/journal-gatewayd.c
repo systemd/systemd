@@ -1053,10 +1053,10 @@ int main(int argc, char *argv[]) {
                                 {MHD_OPTION_HTTPS_MEM_KEY, 0, arg_key_pem};
                         opts[opts_pos++] = (struct MHD_OptionItem)
                                 {MHD_OPTION_HTTPS_MEM_CERT, 0, arg_cert_pem};
-                        flags |= MHD_USE_SSL;
+                        flags |= MHD_USE_TLS;
                 }
                 if (arg_trust_pem) {
-                        assert(flags & MHD_USE_SSL);
+                        assert(flags & MHD_USE_TLS);
                         opts[opts_pos++] = (struct MHD_OptionItem)
                                 {MHD_OPTION_HTTPS_MEM_TRUST, 0, arg_trust_pem};
                 }

@@ -671,7 +671,7 @@ static int setup_microhttpd_server(RemoteServer *s,
                 opts[opts_pos++] = (struct MHD_OptionItem)
                         {MHD_OPTION_HTTPS_MEM_CERT, 0, (char*) cert};
 
-                flags |= MHD_USE_SSL;
+                flags |= MHD_USE_TLS;
 
                 if (trust)
                         opts[opts_pos++] = (struct MHD_OptionItem)

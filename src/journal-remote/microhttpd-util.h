@@ -41,6 +41,11 @@
 #  define MHD_USE_EPOLL MHD_USE_EPOLL_LINUX_ONLY
 #endif
 
+/* Renamed in µhttpd 0.9.52 */
+#ifndef MHD_USE_SSL
+#  define MHD_USE_TLS MHD_USE_SSL
+#endif
+
 /* Both the old and new names are defines, check for the new one. */
 
 /* Renamed in µhttpd 0.9.53 */
