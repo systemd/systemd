@@ -64,7 +64,7 @@ BuildPackages=
         python-lxml
         qrencode
         xz
-# TODO use libidn once it's available in official repositories
+# TODO use libidn2 once it's available in official repositories
 
 Packages=
         libidn
