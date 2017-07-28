@@ -1041,7 +1041,7 @@ int main(int argc, char *argv[]) {
                         MHD_USE_DEBUG |
                         MHD_USE_DUAL_STACK |
                         MHD_USE_ITC |
-                        MHD_USE_POLL |
+                        MHD_USE_POLL_INTERNAL_THREAD |
                         MHD_USE_THREAD_PER_CONNECTION;
 
                 if (n > 0)
