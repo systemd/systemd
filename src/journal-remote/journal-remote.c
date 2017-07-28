@@ -644,6 +644,7 @@ static int setup_microhttpd_server(RemoteServer *s,
                 { MHD_OPTION_END},
                 { MHD_OPTION_END},
                 { MHD_OPTION_END},
+                { MHD_OPTION_END},
                 { MHD_OPTION_END}};
         int opts_pos = 4;
         int flags =
@@ -662,6 +663,15 @@ static int setup_microhttpd_server(RemoteServer *s,
         r = fd_nonblock(fd, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to make fd:%d nonblocking: %m", fd);
+
+/* MHD_OPTION_STRICT_FOR_CLIENT is introduced in microhttpd 0.9.54,
+ *  and MHD_USE_PEDANTIC_CHECKS will be deprecated in future. */
+#ifdef MHD_USE_PEDANTIC_CHECKS
+        opts[opts_pos++] = (struct MHD_OptionItem)
+                {MHD_OPTION_STRICT_FOR_CLIENT, 1};
+#else
+        flags |= MHD_USE_PEDANTIC_CHECKS;
+#endif
 
         if (key) {
                 assert(cert);
