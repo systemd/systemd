@@ -22,4 +22,3 @@
 #include "sd-bus.h"
 
 int bus_container_connect_socket(sd_bus *b);
-int bus_container_connect_kernel(sd_bus *b);

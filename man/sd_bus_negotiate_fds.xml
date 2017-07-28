@@ -93,12 +93,6 @@
     default, file descriptor passing is negotiated for all
     connections.</para>
 
-    <para>Note that when bus activation is used, it is highly
-    recommended to set the <option>AcceptFileDescriptors=</option>
-    setting in the <filename>.busname</filename> unit file to the same
-    setting as negotiated by the program ultimately activated. By
-    default, file descriptor passing is enabled for both.</para>
-
     <para><function>sd_bus_negotiate_timestamp()</function> controls whether implicit sender
     timestamps shall be attached automatically to all incoming messages. Takes a bus object and a
     boolean, which, when true, enables timestamping, and, when false, disables it.  Use
@@ -178,8 +172,7 @@
       <citerefentry><refentrytitle>sd_bus_message_get_monotonic_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_message_get_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_message_get_seqnum</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_bus_message_get_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.busname</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>sd_bus_message_get_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 

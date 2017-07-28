@@ -35,7 +35,6 @@
 static usec_t arg_loop_usec = 100 * USEC_PER_MSEC;
 
 typedef enum Type {
-        TYPE_KDBUS,
         TYPE_LEGACY,
         TYPE_DIRECT,
 } Type;
@@ -190,9 +189,6 @@ static void client_chart(Type type, const char *address, const char *server_name
         assert_se(r >= 0);
 
         switch (type) {
-        case TYPE_KDBUS:
-                printf("SIZE\tCOPY\tMEMFD\n");
-                break;
         case TYPE_LEGACY:
                 printf("SIZE\tLEGACY\n");
                 break;
@@ -203,24 +199,9 @@ static void client_chart(Type type, const char *address, const char *server_name
 
         for (csize = 1; csize <= MAX_SIZE; csize *= 2) {
                 usec_t t;
-                unsigned n_copying, n_memfd;
+                unsigned n_memfd;
 
                 printf("%zu\t", csize);
-
-                if (type == TYPE_KDBUS) {
-                        b->use_memfd = 0;
-
-                        t = now(CLOCK_MONOTONIC);
-                        for (n_copying = 0;; n_copying++) {
-                                transaction(b, csize, server_name);
-                                if (now(CLOCK_MONOTONIC) >= t + arg_loop_usec)
-                                        break;
-                        }
-
-                        printf("%u\t", (unsigned) ((n_copying * USEC_PER_SEC) / arg_loop_usec));
-
-                        b->use_memfd = -1;
-                }
 
                 t = now(CLOCK_MONOTONIC);
                 for (n_memfd = 0;; n_memfd++) {
@@ -245,7 +226,7 @@ int main(int argc, char *argv[]) {
                 MODE_BISECT,
                 MODE_CHART,
         } mode = MODE_BISECT;
-        Type type = TYPE_KDBUS;
+        Type type = TYPE_LEGACY;
         int i, pair[2] = { -1, -1 };
         _cleanup_free_ char *name = NULL, *bus_name = NULL, *address = NULL, *server_name = NULL;
         _cleanup_close_ int bus_ref = -1;
@@ -271,22 +252,9 @@ int main(int argc, char *argv[]) {
                 assert_se(parse_sec(argv[i], &arg_loop_usec) >= 0);
         }
 
-        assert_se(!MODE_BISECT || TYPE_KDBUS);
-
         assert_se(arg_loop_usec > 0);
 
-        if (type == TYPE_KDBUS) {
-                assert_se(asprintf(&name, "deine-mutter-%u", (unsigned) getpid_cached()) >= 0);
-
-                bus_ref = bus_kernel_create_bus(name, false, &bus_name);
-                if (bus_ref == -ENOENT)
-                        exit(EXIT_TEST_SKIP);
-
-                assert_se(bus_ref >= 0);
-
-                address = strappend("kernel:path=", bus_name);
-                assert_se(address);
-        } else if (type == TYPE_LEGACY) {
+        if (type == TYPE_LEGACY) {
                 const char *e;
 
                 e = secure_getenv("DBUS_SESSION_BUS_ADDRESS");

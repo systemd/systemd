@@ -16,11 +16,6 @@ Before=network.target multi-user.target shutdown.target
 Conflicts=shutdown.target
 Wants=network.target
 
-# On kdbus systems we pull in the busname explicitly, because it
-# carries policy that allows the daemon to acquire its name.
-Wants=org.freedesktop.network1.busname
-After=org.freedesktop.network1.busname
-
 [Service]
 Type=notify
 Restart=on-failure

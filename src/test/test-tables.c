@@ -19,7 +19,6 @@
 
 #include "architecture.h"
 #include "automount.h"
-#include "busname.h"
 #include "cgroup.h"
 #include "compress.h"
 #include "condition.h"
@@ -54,9 +53,6 @@ int main(int argc, char **argv) {
         test_table(architecture, ARCHITECTURE);
         test_table(automount_result, AUTOMOUNT_RESULT);
         test_table(automount_state, AUTOMOUNT_STATE);
-        test_table(bus_policy_access, BUS_POLICY_ACCESS);
-        test_table(busname_result, BUSNAME_RESULT);
-        test_table(busname_state, BUSNAME_STATE);
         test_table(cgroup_device_policy, CGROUP_DEVICE_POLICY);
         test_table(condition_type, CONDITION_TYPE);
         test_table(assert_type, CONDITION_TYPE);
