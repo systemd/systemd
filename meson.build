@@ -845,6 +845,23 @@ else
         libqrencode = []
 endif
 
+want_gcrypt = get_option('gcrypt')
+if want_gcrypt != 'false'
+        libgcrypt = cc.find_library('gcrypt', required : want_gcrypt == 'true')
+        libgpg_error = cc.find_library('gpg-error', required : want_gcrypt == 'true')
+
+        have_deps = libgcrypt.found() and libgpg_error.found()
+        conf.set('HAVE_GCRYPT', have_deps)
+        if not have_deps
+                # link to neither of the libs if one is not found
+                libgcrypt = []
+                libgpg_error = []
+        endif
+else
+        libgcrypt = []
+        libgpg_error = []
+endif
+
 want_gnutls = get_option('gnutls')
 if want_gnutls != 'false'
         libgnutls = dependency('gnutls',
@@ -900,6 +917,16 @@ else
         liblz4 = []
 endif
 
+want_xkbcommon = get_option('xkbcommon')
+if want_xkbcommon != 'false'
+        libxkbcommon = dependency('xkbcommon',
+                                  version : '>= 0.3.0',
+                                  required : want_xkbcommon == 'true')
+        conf.set('HAVE_XKBCOMMON', libxkbcommon.found())
+else
+        libxkbcommon = []
+endif
+
 want_glib = get_option('glib')
 if want_glib != 'false'
         libglib =    dependency('glib-2.0',
@@ -918,16 +945,6 @@ else
         libgio = []
 endif
 
-want_xkbcommon = get_option('xkbcommon')
-if want_xkbcommon != 'false'
-        libxkbcommon = dependency('xkbcommon',
-                                  version : '>= 0.3.0',
-                                  required : want_xkbcommon == 'true')
-        conf.set('HAVE_XKBCOMMON', libxkbcommon.found())
-else
-        libxkbcommon = []
-endif
-
 want_dbus = get_option('dbus')
 if want_dbus != 'false'
         libdbus = dependency('dbus-1',
@@ -936,23 +953,6 @@ if want_dbus != 'false'
         conf.set('HAVE_DBUS', libdbus.found())
 else
         libdbus = []
-endif
-
-want_gcrypt = get_option('gcrypt')
-if want_gcrypt != 'false'
-        libgcrypt = cc.find_library('gcrypt', required : want_gcrypt == 'true')
-        libgpg_error = cc.find_library('gpg-error', required : want_gcrypt == 'true')
-
-        have_deps = libgcrypt.found() and libgpg_error.found()
-        conf.set('HAVE_GCRYPT', have_deps)
-        if not have_deps
-                # link to neither of the libs if one is not found
-                libgcrypt = []
-                libgpg_error = []
-        endif
-else
-        libgcrypt = []
-        libgpg_error = []
 endif
 
 default_dnssec = get_option('default-dnssec')
@@ -2531,6 +2531,9 @@ foreach tuple : [
 endforeach
 
 status += [
+        '',
         'enabled features: @0@'.format(', '.join(found)),
-        'disabled features: @0@'.format(', '.join(missing))]
+        '',
+        'disabled features: @0@'.format(', '.join(missing)),
+        '']
 message('\n         '.join(status))
