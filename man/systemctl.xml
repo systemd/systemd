@@ -819,9 +819,11 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
           <term><command>isolate <replaceable>NAME</replaceable></command></term>
 
           <listitem>
-            <para>Start the unit specified on the command line and its
-            dependencies and stop all others. If a unit name with no
-            extension is given, an extension of
+            <para>Start the unit specified on the command line and its dependencies
+            and stop all others, unless they have
+            <option>IgnoreOnIsolate=yes</option> (see
+            <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+            If a unit name with no extension is given, an extension of
             <literal>.target</literal> will be assumed.</para>
 
             <para>This is similar to changing the runlevel in a

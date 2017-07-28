@@ -305,8 +305,12 @@
           really just halts the system rather than powering it
           down.</para>
 
-          <para>Applications wanting to halt the system should start
-          this unit.</para>
+          <para>Applications wanting to halt the system should not start this unit
+          directly, but should instead execute <command>systemctl halt</command>
+          (possibly with the <option>--no-block</option> option) or call
+          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+          <command>org.freedesktop.systemd1.Manager.Halt</command> D-Bus method
+          directly.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -325,9 +329,9 @@
         <term><filename>kbrequest.target</filename></term>
         <listitem>
           <para>systemd starts this target whenever Alt+ArrowUp is
-          pressed on the console. This is a good candidate to be
-          aliased (symlinked) to
-          <filename>rescue.target</filename>.</para>
+          pressed on the console. Note that any user with physical access
+          to the machine will be able to do this, without authentication,
+          so this should be used carefully.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -336,8 +340,12 @@
           <para>A special target unit for shutting down and rebooting
           the system via kexec.</para>
 
-          <para>Applications wanting to reboot the system with kexec
-          should start this unit.</para>
+          <para>Applications wanting to reboot the system should not start this unit
+          directly, but should instead execute <command>systemctl kexec</command>
+          (possibly with the <option>--no-block</option> option) or call
+          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+          <command>org.freedesktop.systemd1.Manager.KExec</command> D-Bus method
+          directly.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -430,8 +438,12 @@
           <para>A special target unit for shutting down and powering
           off the system.</para>
 
-          <para>Applications wanting to power off the system should
-          start this unit.</para>
+          <para>Applications wanting to reboot the system should not start this unit
+          directly, but should instead execute <command>systemctl poweroff</command>
+          (possibly with the <option>--no-block</option> option) or call
+          <citerefentry><refentrytitle>systemd-logind</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+          <command>org.freedesktop.login1.Manager.PowerOff</command> D-Bus method
+          directly.</para>
 
           <para><filename>runlevel0.target</filename> is an alias for
           this target unit, for compatibility with SysV.</para>
@@ -443,8 +455,12 @@
           <para>A special target unit for shutting down and rebooting
           the system.</para>
 
-          <para>Applications wanting to reboot the system should start
-          this unit.</para>
+          <para>Applications wanting to reboot the system should not start this unit
+          directly, but should instead execute <command>systemctl reboot</command>
+          (possibly with the <option>--no-block</option> option) or call
+          <citerefentry><refentrytitle>systemd-logind</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+          <command>org.freedesktop.login1.Manager.Reboot</command> D-Bus method
+          directly.</para>
 
           <para><filename>runlevel6.target</filename> is an alias for
           this target unit, for compatibility with SysV.</para>
