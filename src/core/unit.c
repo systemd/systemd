@@ -3111,6 +3111,27 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
         return 0;
 }
 
+void unit_deserialize_skip(FILE *f) {
+        assert(f);
+
+        /* Skip serialized data for this unit. We don't know what it is. */
+
+        for (;;) {
+                char line[LINE_MAX], *l;
+
+                if (!fgets(line, sizeof line, f))
+                        return;
+
+                char_array_0(line);
+                l = strstrip(line);
+
+                /* End marker */
+                if (isempty(l))
+                        return;
+        }
+}
+
+
 int unit_add_node_link(Unit *u, const char *what, bool wants, UnitDependency dep) {
         Unit *device;
         _cleanup_free_ char *e = NULL;
