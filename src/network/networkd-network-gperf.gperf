@@ -101,6 +101,7 @@ DHCP.UseMTU,                            config_parse_bool,                      
 DHCP.UseHostname,                       config_parse_bool,                              0,                             offsetof(Network, dhcp_use_hostname)
 DHCP.UseDomains,                        config_parse_dhcp_use_domains,                  0,                             offsetof(Network, dhcp_use_domains)
 DHCP.UseRoutes,                         config_parse_bool,                              0,                             offsetof(Network, dhcp_use_routes)
+DHCP.Anonymize,                         config_parse_bool,                              0,                             offsetof(Network, dhcp_anonymize)
 DHCP.SendHostname,                      config_parse_bool,                              0,                             offsetof(Network, dhcp_send_hostname)
 DHCP.Hostname,                          config_parse_hostname,                          0,                             offsetof(Network, dhcp_hostname)
 DHCP.RequestBroadcast,                  config_parse_bool,                              0,                             offsetof(Network, dhcp_broadcast)
