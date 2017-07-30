@@ -2,6 +2,7 @@
 # -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
 # ex: ts=8 sw=4 sts=4 et filetype=sh
 TEST_DESCRIPTION="cryptsetup systemd setup"
+TEST_NO_NSPAWN=1
 
 . $TEST_BASE_DIR/test-functions
 
@@ -23,15 +24,6 @@ check_result_qemu() {
     return $ret
 }
 
-
-test_run() {
-    if run_qemu; then
-        check_result_qemu || return 1
-    else
-        dwarn "can't run QEMU, skipping"
-    fi
-    return 0
-}
 
 test_setup() {
     create_empty_image
