@@ -56,7 +56,7 @@ static bool arg_tcrypt_veracrypt = false;
 static char **arg_tcrypt_keyfiles = NULL;
 static uint64_t arg_offset = 0;
 static uint64_t arg_skip = 0;
-static usec_t arg_timeout = 0;
+static usec_t arg_timeout = USEC_INFINITY;
 
 /* Options Debian's crypttab knows we don't:
 
@@ -670,10 +670,10 @@ int main(int argc, char *argv[]) {
                 if (arg_discards)
                         flags |= CRYPT_ACTIVATE_ALLOW_DISCARDS;
 
-                if (arg_timeout > 0)
-                        until = now(CLOCK_MONOTONIC) + arg_timeout;
-                else
+                if (arg_timeout == USEC_INFINITY)
                         until = 0;
+                else
+                        until = now(CLOCK_MONOTONIC) + arg_timeout;
 
                 arg_key_size = (arg_key_size > 0 ? arg_key_size : (256 / 8));
 
