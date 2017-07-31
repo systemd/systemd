@@ -138,17 +138,21 @@ static int wait_for_initialized(
         for (;;) {
                 _cleanup_udev_device_unref_ struct udev_device *t = NULL;
 
-                r = fd_wait_for_event(watch_fd, POLLIN, USEC_INFINITY);
+                r = fd_wait_for_event(watch_fd, POLLIN, EXIT_USEC);
                 if (r == -EINTR)
                         continue;
                 if (r < 0)
                         return log_error_errno(r, "Failed to watch udev monitor: %m");
+                if (r == 0) {
+                        log_error("Timed out wating for udev monitor.");
+                        return -ETIMEDOUT;
+                }
 
                 t = udev_monitor_receive_device(monitor);
                 if (!t)
                         continue;
 
-                if (streq_ptr(udev_device_get_sysname(device), sysname)) {
+                if (streq_ptr(udev_device_get_sysname(t), sysname)) {
                         *ret = udev_device_ref(t);
                         return 0;
                 }
