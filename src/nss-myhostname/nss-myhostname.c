@@ -211,7 +211,7 @@ static enum nss_status fill_in_hostent(
                         c++;
 
         l_canonical = strlen(canonical);
-        l_additional = additional ? strlen(additional) : 0;
+        l_additional = strlen_ptr(additional);
         ms = ALIGN(l_canonical+1)+
                 (additional ? ALIGN(l_additional+1) : 0) +
                 sizeof(char*) +

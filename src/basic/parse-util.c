@@ -59,7 +59,7 @@ int parse_pid(const char *s, pid_t* ret_pid) {
         if ((unsigned long) pid != ul)
                 return -ERANGE;
 
-        if (pid <= 0)
+        if (!pid_is_valid(pid))
                 return -ERANGE;
 
         *ret_pid = pid;

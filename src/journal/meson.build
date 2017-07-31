@@ -59,24 +59,26 @@ journal_internal_sources += [audit_type_to_name]
 ############################################################
 
 libjournal_core_sources = files('''
-        journald-kmsg.c
-        journald-kmsg.h
-        journald-syslog.c
-        journald-syslog.h
-        journald-stream.c
-        journald-stream.h
-        journald-server.c
-        journald-server.h
-        journald-console.c
-        journald-console.h
-        journald-wall.c
-        journald-wall.h
-        journald-native.c
-        journald-native.h
         journald-audit.c
         journald-audit.h
+        journald-console.c
+        journald-console.h
+        journald-context.c
+        journald-context.h
+        journald-kmsg.c
+        journald-kmsg.h
+        journald-native.c
+        journald-native.h
         journald-rate-limit.c
         journald-rate-limit.h
+        journald-server.c
+        journald-server.h
+        journald-stream.c
+        journald-stream.h
+        journald-syslog.c
+        journald-syslog.h
+        journald-wall.c
+        journald-wall.h
         journal-internal.h
 '''.split())
 

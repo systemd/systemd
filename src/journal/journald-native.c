@@ -37,6 +37,7 @@
 #include "memfd-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "selinux-util.h"
 #include "socket-util.h"
 #include "string-util.h"
@@ -142,6 +143,7 @@ static void server_process_entry_meta(
 static int server_process_entry(
                 Server *s,
                 const void *buffer, size_t *remaining,
+                ClientContext *context,
                 const struct ucred *ucred,
                 const struct timeval *tv,
                 const char *label, size_t label_len) {
@@ -303,7 +305,7 @@ static int server_process_entry(
                         server_forward_wall(s, priority, identifier, message, ucred);
         }
 
-        server_dispatch_message(s, iovec, n, m, ucred, tv, label, label_len, NULL, priority, object_pid);
+        server_dispatch_message(s, iovec, n, m, context, tv, priority, object_pid);
 
 finish:
         for (j = 0; j < n; j++)  {
@@ -329,16 +331,23 @@ void server_process_native_message(
                 const struct timeval *tv,
                 const char *label, size_t label_len) {
 
-        int r;
         size_t remaining = buffer_size;
+        ClientContext *context;
+        int r;
 
         assert(s);
         assert(buffer || buffer_size == 0);
 
+        if (ucred && pid_is_valid(ucred->pid)) {
+                r = client_context_get(s, ucred->pid, ucred, label, label_len, NULL, &context);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to retrieve credentials for PID " PID_FMT ", ignoring: %m", ucred->pid);
+        }
+
         do {
                 r = server_process_entry(s,
                                          (const uint8_t*) buffer + (buffer_size - remaining), &remaining,
-                                         ucred, tv, label, label_len);
+                                         context, ucred, tv, label, label_len);
         } while (r == 0);
 }
 

@@ -388,7 +388,7 @@ int is_kernel_thread(pid_t pid) {
         bool eof;
         FILE *f;
 
-        if (pid == 0 || pid == 1) /* pid 1, and we ourselves certainly aren't a kernel thread */
+        if (pid == 0 || pid == 1 || pid == getpid_cached()) /* pid 1, and we ourselves certainly aren't a kernel thread */
                 return 0;
 
         assert(pid > 1);
@@ -471,6 +471,9 @@ static int get_process_id(pid_t pid, const char *field, uid_t *uid) {
         assert(field);
         assert(uid);
 
+        if (pid < 0)
+                return -EINVAL;
+
         p = procfs_file_alloca(pid, "status");
         f = fopen(p, "re");
         if (!f) {
@@ -498,10 +501,22 @@ static int get_process_id(pid_t pid, const char *field, uid_t *uid) {
 }
 
 int get_process_uid(pid_t pid, uid_t *uid) {
+
+        if (pid == 0 || pid == getpid_cached()) {
+                *uid = getuid();
+                return 0;
+        }
+
         return get_process_id(pid, "Uid:", uid);
 }
 
 int get_process_gid(pid_t pid, gid_t *gid) {
+
+        if (pid == 0 || pid == getpid_cached()) {
+                *gid = getgid();
+                return 0;
+        }
+
         assert_cc(sizeof(uid_t) == sizeof(gid_t));
         return get_process_id(pid, "Gid:", gid);
 }
@@ -577,7 +592,7 @@ int get_process_ppid(pid_t pid, pid_t *_ppid) {
         assert(pid >= 0);
         assert(_ppid);
 
-        if (pid == 0) {
+        if (pid == 0 || pid == getpid_cached()) {
                 *_ppid = getppid();
                 return 0;
         }
@@ -775,6 +790,9 @@ bool pid_is_unwaited(pid_t pid) {
         if (pid <= 1) /* If we or PID 1 would be dead and have been waited for, this code would not be running */
                 return true;
 
+        if (pid == getpid_cached())
+                return true;
+
         if (kill(pid, 0) >= 0)
                 return true;
 
@@ -792,6 +810,9 @@ bool pid_is_alive(pid_t pid) {
         if (pid <= 1) /* If we or PID 1 would be a zombie, this code would not be running */
                 return true;
 
+        if (pid == getpid_cached())
+                return true;
+
         r = get_process_state(pid);
         if (r == -ESRCH || r == 'Z')
                 return false;
@@ -803,7 +824,10 @@ int pid_from_same_root_fs(pid_t pid) {
         const char *root;
 
         if (pid < 0)
-                return 0;
+                return false;
+
+        if (pid == 0 || pid == getpid_cached())
+                return true;
 
         root = procfs_file_alloca(pid, "root");
 

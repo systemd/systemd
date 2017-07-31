@@ -28,9 +28,11 @@ typedef struct Server Server;
 
 #include "hashmap.h"
 #include "journal-file.h"
+#include "journald-context.h"
 #include "journald-rate-limit.h"
 #include "journald-stream.h"
 #include "list.h"
+#include "prioq.h"
 
 typedef enum Storage {
         STORAGE_AUTO,
@@ -166,6 +168,13 @@ struct Server {
         usec_t watchdog_usec;
 
         usec_t last_realtime_clock;
+
+        /* Caching of client metadata */
+        Hashmap *client_contexts;
+        Prioq *client_contexts_lru;
+
+        ClientContext *my_context; /* the context of journald itself */
+        ClientContext *pid1_context; /* the context of PID 1 */
 };
 
 #define SERVER_MACHINE_ID(s) ((s)->machine_id_field + strlen("_MACHINE_ID="))
@@ -176,7 +185,7 @@ struct Server {
 #define N_IOVEC_OBJECT_FIELDS 14
 #define N_IOVEC_PAYLOAD_FIELDS 15
 
-void server_dispatch_message(Server *s, struct iovec *iovec, unsigned n, unsigned m, const struct ucred *ucred, const struct timeval *tv, const char *label, size_t label_len, const char *unit_id, int priority, pid_t object_pid);
+void server_dispatch_message(Server *s, struct iovec *iovec, unsigned n, unsigned m, ClientContext *c, const struct timeval *tv, int priority, pid_t object_pid);
 void server_driver_message(Server *s, const char *message_id, const char *format, ...) _printf_(3,0) _sentinel_;
 
 /* gperf lookup function */

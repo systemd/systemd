@@ -38,7 +38,7 @@ static bool arg_path = false;
 
 static void help(void) {
         printf("%s [OPTIONS...] [NAME...]\n\n"
-               "Escape strings for usage in system unit names.\n\n"
+               "Escape strings for usage in systemd unit names.\n\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
                "     --suffix=SUFFIX      Unit suffix to append to escaped strings\n"

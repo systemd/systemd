@@ -216,6 +216,13 @@ int journal_rate_limit_test(JournalRateLimit *r, const char *id, int priority, u
 
         assert(id);
 
+        /* Returns:
+         *
+         * 0     → the log message shall be suppressed,
+         * 1 + n → the log message shall be permitted, and n messages were dropped from the peer before
+         * < 0   → error
+         */
+
         if (!r)
                 return 1;
 
