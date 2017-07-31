@@ -295,7 +295,8 @@
         transactions from replacing these jobs (or even being enqueued
         while the irreversible jobs are still pending). Irreversible
         jobs can still be cancelled using the <command>cancel</command>
-        command.</para>
+        command. This job mode should be used on any transaction which
+        pulls in <filename>shutdown.target</filename>.</para>
 
         <para><literal>isolate</literal> is only valid for start
         operations and causes all other units to be stopped when the
