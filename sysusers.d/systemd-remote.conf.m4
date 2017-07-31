@@ -6,7 +6,6 @@
 #  (at your option) any later version.
 
 m4_ifdef(`HAVE_MICROHTTPD',
-u systemd-journal-gateway - "systemd Journal Gateway"
 u systemd-journal-remote  - "systemd Journal Remote"
 )m4_dnl
 m4_ifdef(`HAVE_LIBCURL',

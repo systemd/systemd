@@ -41,6 +41,16 @@
 #  define MHD_USE_EPOLL MHD_USE_EPOLL_LINUX_ONLY
 #endif
 
+/* Renamed in µhttpd 0.9.52 */
+#ifndef MHD_USE_SSL
+#  define MHD_USE_TLS MHD_USE_SSL
+#endif
+
+/* Renamed in µhttpd 0.9.53 */
+#ifndef MHD_USE_POLL_INTERNALLY
+#  define MHD_USE_POLL_INTERNAL_THREAD MHD_USE_POLL_INTERNALLY
+#endif
+
 /* Both the old and new names are defines, check for the new one. */
 
 /* Renamed in µhttpd 0.9.53 */

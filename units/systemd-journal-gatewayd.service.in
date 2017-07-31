@@ -15,6 +15,7 @@ ExecStart=@rootlibexecdir@/systemd-journal-gatewayd
 User=systemd-journal-gateway
 Group=systemd-journal-gateway
 SupplementaryGroups=systemd-journal
+DynamicUser=yes
 PrivateTmp=yes
 PrivateDevices=yes
 PrivateNetwork=yes
