@@ -1169,7 +1169,7 @@ int config_parse_capability_set(
                 rvalue++;
         }
 
-        if (strcmp(lvalue, "CapabilityBoundingSet") == 0)
+        if (streq(lvalue, "CapabilityBoundingSet"))
                 initial = CAP_ALL; /* initialized to all bits on */
         /* else "AmbientCapabilities" initialized to all bits off */
 
