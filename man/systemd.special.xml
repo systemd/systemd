@@ -238,8 +238,7 @@
           <filename>poweroff.target</filename> on non-container
           systems, and also works in containers.</para>
 
-          <para>systemd will start this unit when it receives a
-          request to shut down over D-Bus or a
+          <para>systemd will start this unit when it receives the
           <constant>SIGTERM</constant> or <constant>SIGINT</constant>
           signal when running as user service daemon.</para>
 
