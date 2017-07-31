@@ -100,6 +100,7 @@ static const MountEntry protect_kernel_tunables_table[] = {
         { "/sys/kernel/debug",   READONLY,     true  },
         { "/sys/kernel/tracing", READONLY,     true  },
         { "/sys/fs/cgroup",      READWRITE,    false }, /* READONLY is set by ProtectControlGroups= option */
+        { "/sys/fs/selinux",     READWRITE,    true  },
 };
 
 /* ProtectKernelModules= option */
