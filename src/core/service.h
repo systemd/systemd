@@ -193,6 +193,9 @@ struct Service {
         int stdin_fd;
         int stdout_fd;
         int stderr_fd;
+
+        unsigned n_restarts;
+        bool flush_n_restarts;
 };
 
 extern const UnitVTable service_vtable;

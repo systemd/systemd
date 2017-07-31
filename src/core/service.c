@@ -21,6 +21,8 @@
 #include <signal.h>
 #include <unistd.h>
 
+#include "sd-messages.h"
+
 #include "alloc-util.h"
 #include "async.h"
 #include "bus-error.h"
@@ -1514,7 +1516,10 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                         goto fail;
 
                 service_set_state(s, SERVICE_AUTO_RESTART);
-        }
+        } else
+                /* If we shan't restart, then flush out the restart counter. But don't do that immediately, so that the
+                 * user can still introspect the counter. Do so on the next start. */
+                s->flush_n_restarts = true;
 
         /* The next restart might not be a manual stop, hence reset the flag indicating manual stops */
         s->forbid_restart = false;
@@ -1932,11 +1937,26 @@ static void service_enter_restart(Service *s) {
         if (r < 0)
                 goto fail;
 
+        /* Count the jobs we enqueue for restarting. This counter is maintained as long as the unit isn't fully
+         * stopped, i.e. as long as it remains up or remains in auto-start states. The use can reset the counter
+         * explicitly however via the usual "systemctl reset-failure" logic. */
+        s->n_restarts ++;
+        s->flush_n_restarts = false;
+
+        log_struct(LOG_INFO,
+                   "MESSAGE_ID=" SD_MESSAGE_UNIT_RESTART_SCHEDULED_STR,
+                   LOG_UNIT_ID(UNIT(s)),
+                   LOG_UNIT_MESSAGE(UNIT(s), "Scheduled restart job, restart counter is at %u.", s->n_restarts),
+                   "N_RESTARTS=%u", s->n_restarts,
+                   NULL);
+
+        /* Notify clients about changed restart counter */
+        unit_add_to_dbus_queue(UNIT(s));
+
         /* Note that we stay in the SERVICE_AUTO_RESTART state here,
          * it will be canceled as part of the service_stop() call that
          * is executed as part of JOB_RESTART. */
 
-        log_unit_debug(UNIT(s), "Scheduled restart job.");
         return;
 
 fail:
@@ -2119,6 +2139,12 @@ static int service_start(Unit *u) {
         s->watchdog_override_enable = false;
         s->watchdog_override_usec = 0;
 
+        /* This is not an automatic restart? Flush the restart counter then */
+        if (s->flush_n_restarts) {
+                s->n_restarts = 0;
+                s->flush_n_restarts = false;
+        }
+
         service_enter_start_pre(s);
         return 1;
 }
@@ -2270,6 +2296,9 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         unit_serialize_item(u, f, "main-pid-known", yes_no(s->main_pid_known));
         unit_serialize_item(u, f, "bus-name-good", yes_no(s->bus_name_good));
         unit_serialize_item(u, f, "bus-name-owner", s->bus_name_owner);
+
+        unit_serialize_item_format(u, f, "n-restarts", "%u", s->n_restarts);
+        unit_serialize_item(u, f, "n-restarts", yes_no(s->flush_n_restarts));
 
         r = unit_serialize_item_escaped(u, f, "status-text", s->status_text);
         if (r < 0)
@@ -2636,6 +2665,18 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 r = service_deserialize_exec_command(u, key, value);
                 if (r < 0)
                         log_unit_debug_errno(u, r, "Failed to parse serialized command \"%s\": %m", value);
+
+        } else if (streq(key, "n-restarts")) {
+                r = safe_atou(value, &s->n_restarts);
+                if (r < 0)
+                        log_unit_debug_errno(u, r, "Failed to parse serialized restart counter '%s': %m", value);
+
+        } else if (streq(key, "flush-n-restarts")) {
+                r = parse_boolean(value);
+                if (r < 0)
+                        log_unit_debug_errno(u, r, "Failed to parse serialized flush restart counter setting '%s': %m", value);
+                else
+                        s->flush_n_restarts = r;
         } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 
@@ -3548,6 +3589,8 @@ static void service_reset_failed(Unit *u) {
 
         s->result = SERVICE_SUCCESS;
         s->reload_result = SERVICE_SUCCESS;
+        s->n_restarts = 0;
+        s->flush_n_restarts = false;
 }
 
 static int service_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
