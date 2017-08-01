@@ -1888,6 +1888,11 @@ static int setup_exec_directory(
                 if (r < 0)
                         goto fail;
 
+                /* Don't change the owner of the configuration directory, as in the common case it is not written to by
+                 * a service, and shall not be writable. */
+                if (type == EXEC_DIRECTORY_CONFIGURATION)
+                        continue;
+
                 r = chmod_and_chown(p, context->directories[type].mode, uid, gid);
                 if (r < 0)
                         goto fail;
