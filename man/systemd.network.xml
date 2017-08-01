@@ -749,6 +749,14 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>Scope=</varname></term>
+          <listitem>
+            <para>The scope of the address, which can be <literal>global</literal>,
+            <literal>link</literal> or <literal>host</literal> or an unsigned integer ranges 0 to 255.
+            Defaults to <literal>global</literal>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>HomeAddress=</varname></term>
           <listitem>
             <para>Takes a boolean argument. Designates this address the "home address" as defined in

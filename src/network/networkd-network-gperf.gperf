@@ -80,6 +80,7 @@ Address.DuplicateAddressDetection,      config_parse_address_flags,             
 Address.ManageTemporaryAddress,         config_parse_address_flags,                     0,                             0
 Address.PrefixRoute,                    config_parse_address_flags,                     0,                             0
 Address.AutoJoin,                       config_parse_address_flags,                     0,                             0
+Address.Scope,                          config_parse_address_scope,                     0,                             0
 IPv6AddressLabel.Prefix,                config_parse_address_label_prefix,              0,                             0
 IPv6AddressLabel.Label,                 config_parse_address_label,                     0,                             0
 Route.Gateway,                          config_parse_gateway,                           0,                             0

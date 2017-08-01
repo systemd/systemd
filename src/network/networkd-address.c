@@ -927,6 +927,49 @@ int config_parse_address_flags(const char *unit,
         return 0;
 }
 
+int config_parse_address_scope(const char *unit,
+                               const char *filename,
+                               unsigned line,
+                               const char *section,
+                               unsigned section_line,
+                               const char *lvalue,
+                               int ltype,
+                               const char *rvalue,
+                               void *data,
+                               void *userdata) {
+        Network *network = userdata;
+        _cleanup_address_free_ Address *n = NULL;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = address_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return r;
+
+        if (streq(rvalue, "host"))
+                n->scope = RT_SCOPE_HOST;
+        else if (streq(rvalue, "link"))
+                n->scope = RT_SCOPE_LINK;
+        else if (streq(rvalue, "global"))
+                n->scope = RT_SCOPE_UNIVERSE;
+        else {
+                r = safe_atou8(rvalue , &n->scope);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Could not parse address scope \"%s\", ignoring assignment: %m", rvalue);
+                        return 0;
+                }
+        }
+
+        n = NULL;
+
+        return 0;
+}
+
 bool address_is_ready(const Address *a) {
         assert(a);
 
@@ -1179,4 +1222,4 @@ int config_parse_prefix_lifetime(const char *unit,
         p = NULL;
 
         return 0;
-};
+}
