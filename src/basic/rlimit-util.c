@@ -30,6 +30,12 @@
 #include "string-table.h"
 #include "time-util.h"
 
+#define MAX_NICE 20
+
+static inline int rlimit_to_nice(int prio) {
+        return (MAX_NICE - prio + 1);
+}
+
 int setrlimit_closest(int resource, const struct rlimit *rlim) {
         struct rlimit highest, fixed;
 
@@ -50,6 +56,39 @@ int setrlimit_closest(int resource, const struct rlimit *rlim) {
         fixed.rlim_max = MIN(rlim->rlim_max, highest.rlim_max);
 
         if (setrlimit(resource, &fixed) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int setpriority_closest(int nice) {
+        int current, limit;
+        struct rlimit highest;
+
+        // Try to set requested nice level
+        if (setpriority(PRIO_PROCESS, 0, nice) == 0)
+                return 0;
+
+        // Permission failed
+        if (!IN_SET(errno, EPERM, EACCES))
+                return -errno;
+
+        errno = 0;
+        current = getpriority(PRIO_PROCESS, 0);
+        if (errno)
+                return -errno;
+
+        if (getrlimit(RLIMIT_NICE, &highest) < 0)
+                return -errno;
+
+        limit = rlimit_to_nice(highest.rlim_cur);
+
+        // We are already nicer than limit allows us
+        if (current < limit)
+                return 0;
+
+        // Push to the allowed limit
+        if (setpriority(PRIO_PROCESS, 0, limit) < 0)
                 return -errno;
 
         return 0;
