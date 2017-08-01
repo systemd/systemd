@@ -1218,7 +1218,6 @@ static int service_spawn(
         _cleanup_strv_free_ char **final_env = NULL, **our_env = NULL, **fd_names = NULL;
         _cleanup_free_ int *fds = NULL;
         unsigned n_storage_fds = 0, n_socket_fds = 0, n_env = 0;
-        const char *path;
         pid_t pid;
 
         ExecParameters exec_params = {
@@ -1345,16 +1344,16 @@ static int service_spawn(
         }
 
         manager_set_exec_params(UNIT(s)->manager, &exec_params);
+        unit_set_exec_params(UNIT(s), &exec_params);
 
         final_env = strv_env_merge(2, exec_params.environment, our_env, NULL);
         if (!final_env)
                 return -ENOMEM;
 
         if ((flags & EXEC_IS_CONTROL) && UNIT(s)->cgroup_path) {
-                path = strjoina(UNIT(s)->cgroup_path, "/control");
-                (void) cg_create(SYSTEMD_CGROUP_CONTROLLER, path);
-        } else
-                path = UNIT(s)->cgroup_path;
+                exec_params.cgroup_path = strjoina(UNIT(s)->cgroup_path, "/control");
+                (void) cg_create(SYSTEMD_CGROUP_CONTROLLER, exec_params.cgroup_path);
+        }
 
         /* System services should get a new keyring by default. */
         SET_FLAG(exec_params.flags, EXEC_NEW_KEYRING, MANAGER_IS_SYSTEM(UNIT(s)->manager));
@@ -1363,15 +1362,12 @@ static int service_spawn(
         SET_FLAG(exec_params.flags, EXEC_NSS_BYPASS_BUS,
                  MANAGER_IS_SYSTEM(UNIT(s)->manager) && unit_has_name(UNIT(s), SPECIAL_DBUS_SERVICE));
 
-        SET_FLAG(exec_params.flags, EXEC_CGROUP_DELEGATE, s->cgroup_context.delegate);
-
         exec_params.argv = c->argv;
         exec_params.environment = final_env;
         exec_params.fds = fds;
         exec_params.fd_names = fd_names;
         exec_params.n_storage_fds = n_storage_fds;
         exec_params.n_socket_fds = n_socket_fds;
-        exec_params.cgroup_path = path;
         exec_params.watchdog_usec = s->watchdog_usec;
         exec_params.selinux_context_net = s->socket_fd_selinux_context_net;
         if (s->type == SERVICE_IDLE)
