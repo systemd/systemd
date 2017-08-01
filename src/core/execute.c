@@ -1843,7 +1843,6 @@ static int setup_exec_directory(
                 const ExecParameters *params,
                 uid_t uid,
                 gid_t gid,
-                bool manager_is_system,
                 ExecDirectoryType type,
                 int *exit_status) {
 
@@ -1865,7 +1864,7 @@ static int setup_exec_directory(
         if (!params->prefix[type])
                 return 0;
 
-        if (manager_is_system) {
+        if (params->flags & EXEC_CHOWN_DIRECTORIES) {
                 if (!uid_is_valid(uid))
                         uid = 0;
                 if (!gid_is_valid(gid))
@@ -2601,7 +2600,7 @@ static int exec_child(
         }
 
         for (dt = 0; dt < _EXEC_DIRECTORY_MAX; dt++) {
-                r = setup_exec_directory(context, params, uid, gid, MANAGER_IS_SYSTEM(unit->manager), dt, exit_status);
+                r = setup_exec_directory(context, params, uid, gid, dt, exit_status);
                 if (r < 0)
                         return r;
         }

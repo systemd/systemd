@@ -3422,7 +3422,7 @@ int manager_set_exec_params(Manager *m, ExecParameters *p) {
         p->cgroup_supported = m->cgroup_supported;
         p->prefix = m->prefix;
 
-        SET_FLAG(p->flags, EXEC_PASS_LOG_UNIT, MANAGER_IS_SYSTEM(m));
+        SET_FLAG(p->flags, EXEC_PASS_LOG_UNIT|EXEC_CHOWN_DIRECTORIES, MANAGER_IS_SYSTEM(m));
 
         return 0;
 }
