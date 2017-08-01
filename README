@@ -291,9 +291,12 @@ WARNINGS:
         https://www.freedesktop.org/wiki/Software/systemd/separate-usr-is-broken
 
         To run systemd under valgrind, compile with VALGRIND defined
-        (e.g. ./configure CPPFLAGS='... -DVALGRIND=1'). Otherwise,
-        false positives will be triggered by code which violates
-        some rules but is actually safe.
+        (e.g. CPPFLAGS='... -DVALGRIND=1' meson <options>) and have valgrind
+        development headers installed (i.e. valgrind-devel or
+        equivalent). Otherwise, false positives will be triggered by code which
+        violates some rules but is actually safe. Note that valgrind generates
+        nice output only on exit(), hence on shutdown we don't execve()
+        systemd-shutdown.
 
 ENGINEERING AND CONSULTING SERVICES:
         Kinvolk (https://kinvolk.io) offers professional engineering
