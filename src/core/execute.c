@@ -1903,14 +1903,10 @@ static int setup_smack(
                 const ExecContext *context,
                 const ExecCommand *command) {
 
-#ifdef HAVE_SMACK
         int r;
 
         assert(context);
         assert(command);
-
-        if (!mac_smack_use())
-                return 0;
 
         if (context->smack_process_label) {
                 r = mac_smack_apply_pid(0, context->smack_process_label);
@@ -1929,7 +1925,6 @@ static int setup_smack(
                 if (r < 0)
                         return r;
         }
-#endif
 #endif
 
         return 0;
@@ -2300,7 +2295,8 @@ static int exec_child(
         const char *home = NULL, *shell = NULL;
         dev_t journal_stream_dev = 0;
         ino_t journal_stream_ino = 0;
-        bool needs_mount_namespace;
+        bool needs_exec_restrictions, needs_mount_namespace,
+                needs_selinux = false, needs_smack = false, needs_apparmor = false;
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
         int i, r, ngids = 0;
@@ -2642,7 +2638,9 @@ static int exec_child(
                 return r;
         }
 
-        if ((params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged) {
+        needs_exec_restrictions = (params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged;
+
+        if (needs_exec_restrictions) {
                 if (context->pam_name && username) {
                         r = setup_pam(context->pam_name, username, uid, gid, context->tty_path, &accum_env, fds, n_fds);
                         if (r < 0) {
@@ -2650,6 +2648,23 @@ static int exec_child(
                                 return r;
                         }
                 }
+
+                /* MAC enablement checks need to be done before a new mount ns is created, as they rely on /sys being
+                 * present. The actual MAC context application will happen later, as late as possible, to avoid
+                 * impacting our own code paths. */
+
+#ifdef HAVE_SELINUX
+                needs_selinux = mac_selinux_use();
+#endif
+
+#ifdef HAVE_SMACK
+                needs_smack = mac_smack_use();
+#endif
+
+#ifdef HAVE_APPARMOR
+                needs_apparmor = context->apparmor_profile && mac_apparmor_use();
+#endif
+
         }
 
         if (context->private_network && runtime && runtime->netns_storage_socket[0] >= 0) {
@@ -2675,7 +2690,7 @@ static int exec_child(
                 return r;
 
         /* Drop groups as early as possbile */
-        if ((params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged) {
+        if (needs_exec_restrictions) {
                 r = enforce_groups(context, gid, supplementary_gids, ngids);
                 if (r < 0) {
                         *exit_status = EXIT_GROUP;
@@ -2684,12 +2699,7 @@ static int exec_child(
         }
 
 #ifdef HAVE_SELINUX
-        if ((params->flags & EXEC_APPLY_PERMISSIONS) &&
-            mac_selinux_use() &&
-            params->selinux_context_net &&
-            socket_fd >= 0 &&
-            !command->privileged) {
-
+        if (needs_exec_restrictions && needs_selinux && params->selinux_context_net && socket_fd >= 0) {
                 r = mac_selinux_get_child_mls_label(socket_fd, command->path, context->selinux_context, &mac_selinux_context_net);
                 if (r < 0) {
                         *exit_status = EXIT_SELINUX_CONTEXT;
@@ -2722,7 +2732,7 @@ static int exec_child(
                 return r;
         }
 
-        if ((params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged) {
+        if (needs_exec_restrictions) {
 
                 int secure_bits = context->secure_bits;
 
@@ -2800,7 +2810,7 @@ static int exec_child(
                  * are restricted. */
 
 #ifdef HAVE_SELINUX
-                if (mac_selinux_use()) {
+                if (needs_selinux) {
                         char *exec_context = mac_selinux_context_net ?: context->selinux_context;
 
                         if (exec_context) {
@@ -2814,15 +2824,19 @@ static int exec_child(
                 }
 #endif
 
-                r = setup_smack(context, command);
-                if (r < 0) {
-                        *exit_status = EXIT_SMACK_PROCESS_LABEL;
-                        *error_message = strdup("Failed to set SMACK process label");
-                        return r;
+#ifdef HAVE_SMACK
+                if (needs_smack) {
+                        r = setup_smack(context, command);
+                        if (r < 0) {
+                                *exit_status = EXIT_SMACK_PROCESS_LABEL;
+                                *error_message = strdup("Failed to set SMACK process label");
+                                return r;
+                        }
                 }
+#endif
 
 #ifdef HAVE_APPARMOR
-                if (context->apparmor_profile && mac_apparmor_use()) {
+                if (needs_apparmor) {
                         r = aa_change_onexec(context->apparmor_profile);
                         if (r < 0 && !context->apparmor_profile_ignore) {
                                 *exit_status = EXIT_APPARMOR_PROFILE;
