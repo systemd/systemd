@@ -1365,6 +1365,8 @@ static int service_spawn(
         SET_FLAG(exec_params.flags, EXEC_NSS_BYPASS_BUS,
                  MANAGER_IS_SYSTEM(UNIT(s)->manager) && unit_has_name(UNIT(s), SPECIAL_DBUS_SERVICE));
 
+        SET_FLAG(exec_params.flags, EXEC_CGROUP_DELEGATE, s->cgroup_context.delegate);
+
         exec_params.argv = c->argv;
         exec_params.environment = final_env;
         exec_params.fds = fds;
@@ -1372,7 +1374,6 @@ static int service_spawn(
         exec_params.n_storage_fds = n_storage_fds;
         exec_params.n_socket_fds = n_socket_fds;
         exec_params.cgroup_path = path;
-        exec_params.cgroup_delegate = s->cgroup_context.delegate;
         exec_params.watchdog_usec = s->watchdog_usec;
         exec_params.selinux_context_net = s->socket_fd_selinux_context_net;
         if (s->type == SERVICE_IDLE)

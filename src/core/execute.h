@@ -262,12 +262,13 @@ typedef enum ExecFlags {
         EXEC_PASS_LOG_UNIT     = 1U << 4, /* Whether to pass the unit name to the service's journal stream connection */
         EXEC_CHOWN_DIRECTORIES = 1U << 5, /* chown() the runtime/state/cache/log directories to the user we run as, under all conditions */
         EXEC_NSS_BYPASS_BUS    = 1U << 6, /* Set the SYSTEMD_NSS_BYPASS_BUS environment variable, to disable nss-systemd for dbus */
+        EXEC_CGROUP_DELEGATE   = 1U << 7,
 
         /* The following are not used by execute.c, but by consumers internally */
-        EXEC_PASS_FDS          = 1U << 7,
-        EXEC_IS_CONTROL        = 1U << 8,
-        EXEC_SETENV_RESULT     = 1U << 9,
-        EXEC_SET_WATCHDOG      = 1U << 10,
+        EXEC_PASS_FDS          = 1U << 8,
+        EXEC_IS_CONTROL        = 1U << 9,
+        EXEC_SETENV_RESULT     = 1U << 10,
+        EXEC_SET_WATCHDOG      = 1U << 11,
 } ExecFlags;
 
 struct ExecParameters {
@@ -282,7 +283,6 @@ struct ExecParameters {
         ExecFlags flags;
         bool selinux_context_net:1;
 
-        bool cgroup_delegate:1;
         CGroupMask cgroup_supported;
         const char *cgroup_path;
 

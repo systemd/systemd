@@ -641,7 +641,7 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
                 goto fail;
 
         exec_params.cgroup_path = UNIT(s)->cgroup_path;
-        exec_params.cgroup_delegate = s->cgroup_context.delegate;
+        SET_FLAG(exec_params.flags, EXEC_CGROUP_DELEGATE, s->cgroup_context.delegate);
 
         r = exec_spawn(UNIT(s),
                        c,
