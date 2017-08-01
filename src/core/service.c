@@ -1360,6 +1360,11 @@ static int service_spawn(
 
         /* System services should get a new keyring by default. */
         SET_FLAG(exec_params.flags, EXEC_NEW_KEYRING, MANAGER_IS_SYSTEM(UNIT(s)->manager));
+
+        /* System D-Bus needs nss-systemd disabled, so that we don't deadlock */
+        SET_FLAG(exec_params.flags, EXEC_NSS_BYPASS_BUS,
+                 MANAGER_IS_SYSTEM(UNIT(s)->manager) && unit_has_name(UNIT(s), SPECIAL_DBUS_SERVICE));
+
         exec_params.argv = c->argv;
         exec_params.environment = final_env;
         exec_params.fds = fds;
