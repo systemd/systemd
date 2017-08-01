@@ -652,6 +652,12 @@ static void test_dns_name_apply_idna(void) {
         test_dns_name_apply_idna_one("föö.bär.", ret, "xn--f-1gaa.xn--br-via");
         test_dns_name_apply_idna_one("xn--f-1gaa.xn--br-via", ret, "xn--f-1gaa.xn--br-via");
 
+        test_dns_name_apply_idna_one("_443._tcp.fedoraproject.org", ret2,
+                                     "_443._tcp.fedoraproject.org");
+        test_dns_name_apply_idna_one("_443", ret2, "_443");
+        test_dns_name_apply_idna_one("gateway", ret, "gateway");
+        test_dns_name_apply_idna_one("_gateway", ret2, "_gateway");
+
         test_dns_name_apply_idna_one("r3---sn-ab5l6ne7.googlevideo.com", ret2,
                                      ret2 ? "r3---sn-ab5l6ne7.googlevideo.com" : "");
 }

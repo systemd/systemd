@@ -86,7 +86,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                         return NSS_STATUS_NOTFOUND;
                 }
 
-                canonical = "gateway";
+                canonical = "_gateway";
 
         } else {
                 hn = gethostname_malloc();
@@ -356,7 +356,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                         return NSS_STATUS_NOTFOUND;
                 }
 
-                canonical = "gateway";
+                canonical = "_gateway";
 
         } else {
                 hn = gethostname_malloc();
@@ -467,7 +467,7 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
                         continue;
 
                 if (memcmp(addr, &a->address, FAMILY_ADDRESS_SIZE(af)) == 0) {
-                        canonical = "gateway";
+                        canonical = "_gateway";
                         goto found;
                 }
         }
