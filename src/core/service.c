@@ -1358,7 +1358,8 @@ static int service_spawn(
         } else
                 path = UNIT(s)->cgroup_path;
 
-        exec_params.flags |= MANAGER_IS_SYSTEM(UNIT(s)->manager) ? EXEC_NEW_KEYRING : 0;
+        /* System services should get a new keyring by default. */
+        SET_FLAG(exec_params.flags, EXEC_NEW_KEYRING, MANAGER_IS_SYSTEM(UNIT(s)->manager));
         exec_params.argv = c->argv;
         exec_params.environment = final_env;
         exec_params.fds = fds;
