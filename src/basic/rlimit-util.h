@@ -11,6 +11,7 @@ int rlimit_from_string_harder(const char *s) _pure_;
 
 int setrlimit_closest(int resource, const struct rlimit *rlim);
 int setrlimit_closest_all(const struct rlimit * const *rlim, int *which_failed);
+int setpriority_closest(int nice);
 
 int rlimit_parse_one(int resource, const char *val, rlim_t *ret);
 int rlimit_parse(int resource, const char *val, struct rlimit *ret);

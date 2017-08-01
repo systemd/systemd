@@ -13,6 +13,10 @@
 #include "string-table.h"
 #include "time-util.h"
 
+static int rlimit_to_nice(rlim_t prio) {
+        return (PRIO_MAX - prio + 1);
+}
+
 int setrlimit_closest(int resource, const struct rlimit *rlim) {
         struct rlimit highest, fixed;
 
@@ -72,6 +76,52 @@ int setrlimit_closest_all(const struct rlimit *const *rlim, int *which_failed) {
 
         if (which_failed)
                 *which_failed = -1;
+
+        return 0;
+}
+
+int setpriority_closest(int priority) {
+        int current, limit, saved_errno;
+        struct rlimit highest;
+
+        /* Try to set requested nice level */
+        if (setpriority(PRIO_PROCESS, 0, priority) == 0)
+                return 0;
+
+        /* Permission failed */
+        saved_errno = -errno;
+        if (!IN_SET(errno, EPERM, EACCES))
+                return saved_errno;
+
+        errno = 0;
+        current = getpriority(PRIO_PROCESS, 0);
+        if (errno != 0)
+                return -errno;
+
+        if (priority == current)
+                return 0;
+
+       /* Hmm, we'd expect that raising the nice level from our status quo would
+        * always work. If it doesn't, then the whole setpriority() systemcall is
+        * blocked to us, hence let's propagate EPERM right-away */
+        if (priority > current)
+                return saved_errno;
+
+        if (getrlimit(RLIMIT_NICE, &highest) < 0)
+                return -errno;
+
+        limit = rlimit_to_nice(highest.rlim_cur);
+
+        /* We are already less nice than limit allows us */
+        if (current < limit) {
+                log_debug("Cannot raise nice level, permissions and the resource limit do not allow it.");
+                return 0;
+        }
+
+        /* Push to the allowed limit */
+        if (setpriority(PRIO_PROCESS, 0, limit) < 0)
+                return -errno;
+        log_debug("Cannot set requested nice level (%i), used next best (%i).", priority, limit);
 
         return 0;
 }

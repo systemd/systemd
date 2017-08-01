@@ -3079,11 +3079,11 @@ static int exec_child(
                 }
         }
 
-        if (context->nice_set)
-                if (setpriority(PRIO_PROCESS, 0, context->nice) < 0) {
-                        *exit_status = EXIT_NICE;
-                        return log_unit_error_errno(unit, errno, "Failed to set up process scheduling priority (nice level): %m");
-                }
+        if (context->nice_set) {
+                r = setpriority_closest(context->nice);
+                if (r < 0)
+                        return log_unit_error_errno(unit, r, "Failed to set up process scheduling priority (nice level): %m");
+        }
 
         if (context->cpu_sched_set) {
                 struct sched_param param = {
