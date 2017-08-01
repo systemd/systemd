@@ -22,6 +22,7 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -1525,6 +1526,62 @@ int pidfd_get_pid(int fd, pid_t *ret) {
         p[strcspn(p, WHITESPACE)] = 0;
 
         return parse_pid(p, ret);
+}
+
+static int rlimit_to_nice(rlim_t limit) {
+        if (limit <= 1)
+                return PRIO_MAX-1; /* i.e. 19 */
+
+        if (limit >= -PRIO_MIN + PRIO_MAX)
+                return PRIO_MIN; /* i.e. -20 */
+
+        return PRIO_MAX - (int) limit;
+}
+
+int setpriority_closest(int priority) {
+        int current, limit, saved_errno;
+        struct rlimit highest;
+
+        /* Try to set requested nice level */
+        if (setpriority(PRIO_PROCESS, 0, priority) >= 0)
+                return 1;
+
+        /* Permission failed */
+        saved_errno = -errno;
+        if (!ERRNO_IS_PRIVILEGE(saved_errno))
+                return saved_errno;
+
+        errno = 0;
+        current = getpriority(PRIO_PROCESS, 0);
+        if (errno != 0)
+                return -errno;
+
+        if (priority == current)
+                return 1;
+
+       /* Hmm, we'd expect that raising the nice level from our status quo would always work. If it doesn't,
+        * then the whole setpriority() system call is blocked to us, hence let's propagate the error
+        * right-away */
+        if (priority > current)
+                return saved_errno;
+
+        if (getrlimit(RLIMIT_NICE, &highest) < 0)
+                return -errno;
+
+        limit = rlimit_to_nice(highest.rlim_cur);
+
+        /* We are already less nice than limit allows us */
+        if (current < limit) {
+                log_debug("Cannot raise nice level, permissions and the resource limit do not allow it.");
+                return 0;
+        }
+
+        /* Push to the allowed limit */
+        if (setpriority(PRIO_PROCESS, 0, limit) < 0)
+                return -errno;
+
+        log_debug("Cannot set requested nice level (%i), used next best (%i).", priority, limit);
+        return 0;
 }
 
 static const char *const ioprio_class_table[] = {
