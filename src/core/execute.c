@@ -2039,7 +2039,7 @@ static int apply_mount_namespace(
         if (!context->dynamic_user && root_dir)
                 ns_info.ignore_protect_paths = true;
 
-        apply_restrictions = (params->flags & EXEC_APPLY_PERMISSIONS) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
+        apply_restrictions = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
 
         r = setup_namespace(root_dir, root_image,
                             &ns_info, rw,
@@ -2302,7 +2302,7 @@ static int exec_child(
         const char *home = NULL, *shell = NULL;
         dev_t journal_stream_dev = 0;
         ino_t journal_stream_ino = 0;
-        bool needs_exec_restrictions, needs_mount_namespace;
+        bool needs_sandboxing, needs_mount_namespace;
 #ifdef HAVE_SELINUX
         bool needs_selinux = false;
 #endif
@@ -2653,9 +2653,9 @@ static int exec_child(
                 return r;
         }
 
-        needs_exec_restrictions = (params->flags & EXEC_APPLY_PERMISSIONS) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
+        needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
 
-        if (needs_exec_restrictions) {
+        if (needs_sandboxing) {
                 if (context->pam_name && username) {
                         r = setup_pam(context->pam_name, username, uid, gid, context->tty_path, &accum_env, fds, n_fds);
                         if (r < 0) {
@@ -2705,7 +2705,7 @@ static int exec_child(
                 return r;
 
         /* Drop groups as early as possbile */
-        if (needs_exec_restrictions) {
+        if (needs_sandboxing) {
                 r = enforce_groups(context, gid, supplementary_gids, ngids);
                 if (r < 0) {
                         *exit_status = EXIT_GROUP;
@@ -2714,7 +2714,7 @@ static int exec_child(
         }
 
 #ifdef HAVE_SELINUX
-        if (needs_exec_restrictions && needs_selinux && params->selinux_context_net && socket_fd >= 0) {
+        if (needs_sandboxing && needs_selinux && params->selinux_context_net && socket_fd >= 0) {
                 r = mac_selinux_get_child_mls_label(socket_fd, command->path, context->selinux_context, &mac_selinux_context_net);
                 if (r < 0) {
                         *exit_status = EXIT_SELINUX_CONTEXT;
@@ -2723,7 +2723,7 @@ static int exec_child(
         }
 #endif
 
-        if ((params->flags & EXEC_APPLY_PERMISSIONS) && context->private_users) {
+        if ((params->flags & EXEC_APPLY_SANDBOXING) && context->private_users) {
                 r = setup_private_users(uid, gid);
                 if (r < 0) {
                         *exit_status = EXIT_USER;
@@ -2747,7 +2747,7 @@ static int exec_child(
                 return r;
         }
 
-        if (needs_exec_restrictions) {
+        if (needs_sandboxing) {
 
                 int secure_bits = context->secure_bits;
 

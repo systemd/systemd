@@ -742,7 +742,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
         pid_t pid;
         int r;
         ExecParameters exec_params = {
-                .flags      = EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
+                .flags      = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
                 .stdin_fd   = -1,
                 .stdout_fd  = -1,
                 .stderr_fd  = -1,
