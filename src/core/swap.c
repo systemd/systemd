@@ -636,9 +636,7 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 goto fail;
 
-        r = manager_set_exec_params(UNIT(s)->manager, &exec_params);
-        if (r < 0)
-                goto fail;
+        manager_set_exec_params(UNIT(s)->manager, &exec_params);
 
         exec_params.cgroup_path = UNIT(s)->cgroup_path;
         SET_FLAG(exec_params.flags, EXEC_CGROUP_DELEGATE, s->cgroup_context.delegate);

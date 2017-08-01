@@ -770,9 +770,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 return r;
 
-        r = manager_set_exec_params(UNIT(m)->manager, &exec_params);
-        if (r < 0)
-                return r;
+        manager_set_exec_params(UNIT(m)->manager, &exec_params);
 
         exec_params.cgroup_path = UNIT(m)->cgroup_path;
         SET_FLAG(exec_params.flags, EXEC_CGROUP_DELEGATE, m->cgroup_context.delegate);

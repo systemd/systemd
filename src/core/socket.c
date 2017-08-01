@@ -1790,9 +1790,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 return r;
 
-        r = manager_set_exec_params(UNIT(s)->manager, &exec_params);
-        if (r < 0)
-                return r;
+        manager_set_exec_params(UNIT(s)->manager, &exec_params);
 
         exec_params.argv = c->argv;
         exec_params.cgroup_path = UNIT(s)->cgroup_path;
