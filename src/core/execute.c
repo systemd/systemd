@@ -2711,23 +2711,23 @@ static int exec_child(
                         *exit_status = EXIT_GROUP;
                         return r;
                 }
-        }
 
 #ifdef HAVE_SELINUX
-        if (needs_sandboxing && needs_selinux && params->selinux_context_net && socket_fd >= 0) {
-                r = mac_selinux_get_child_mls_label(socket_fd, command->path, context->selinux_context, &mac_selinux_context_net);
-                if (r < 0) {
-                        *exit_status = EXIT_SELINUX_CONTEXT;
-                        return r;
+                if (needs_selinux && params->selinux_context_net && socket_fd >= 0) {
+                        r = mac_selinux_get_child_mls_label(socket_fd, command->path, context->selinux_context, &mac_selinux_context_net);
+                        if (r < 0) {
+                                *exit_status = EXIT_SELINUX_CONTEXT;
+                                return r;
+                        }
                 }
-        }
 #endif
 
-        if ((params->flags & EXEC_APPLY_SANDBOXING) && context->private_users) {
-                r = setup_private_users(uid, gid);
-                if (r < 0) {
-                        *exit_status = EXIT_USER;
-                        return r;
+                if (context->private_users) {
+                        r = setup_private_users(uid, gid);
+                        if (r < 0) {
+                                *exit_status = EXIT_USER;
+                                return r;
+                        }
                 }
         }
 
