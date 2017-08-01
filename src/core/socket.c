@@ -2776,7 +2776,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         if (s->control_command) {
                 exec_status_exit(&s->control_command->exec_status, &s->exec_context, pid, code, status);
 
-                if (s->control_command->ignore)
+                if (s->control_command->flags & EXEC_COMMAND_IGNORE_FAILURE)
                         f = SOCKET_SUCCESS;
         }
 

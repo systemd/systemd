@@ -2913,7 +2913,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                         s->main_command->exec_status = s->main_exec_status;
 
-                        if (s->main_command->ignore)
+                        if (s->main_command->flags & EXEC_COMMAND_IGNORE_FAILURE)
                                 f = SERVICE_SUCCESS;
                 } else if (s->exec_command[SERVICE_EXEC_START]) {
 
@@ -2921,7 +2921,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                          * ignore the return value if this was
                          * configured for the starter process */
 
-                        if (s->exec_command[SERVICE_EXEC_START]->ignore)
+                        if (s->exec_command[SERVICE_EXEC_START]->flags & EXEC_COMMAND_IGNORE_FAILURE)
                                 f = SERVICE_SUCCESS;
                 }
 
@@ -3026,7 +3026,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 if (s->control_command) {
                         exec_status_exit(&s->control_command->exec_status, &s->exec_context, pid, code, status);
 
-                        if (s->control_command->ignore)
+                        if (s->control_command->flags & EXEC_COMMAND_IGNORE_FAILURE)
                                 f = SERVICE_SUCCESS;
                 }
 

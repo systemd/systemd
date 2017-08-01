@@ -88,13 +88,17 @@ struct ExecStatus {
         int status;   /* as in sigingo_t::si_status */
 };
 
+typedef enum ExecCommandFlags {
+        EXEC_COMMAND_IGNORE_FAILURE = 1,
+        EXEC_COMMAND_FULLY_PRIVILEGED = 2,
+} ExecCommandFlags;
+
 struct ExecCommand {
         char *path;
         char **argv;
         ExecStatus exec_status;
+        ExecCommandFlags flags;
         LIST_FIELDS(ExecCommand, command); /* useful for chaining commands */
-        bool ignore:1;
-        bool privileged:1;
 };
 
 struct ExecRuntime {

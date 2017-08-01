@@ -752,8 +752,9 @@ int config_parse_exec(
 
                 nce->argv = n;
                 nce->path = path;
-                nce->ignore = ignore;
-                nce->privileged = privileged;
+                nce->flags =
+                        (ignore ? EXEC_COMMAND_IGNORE_FAILURE : 0) |
+                        (privileged ? EXEC_COMMAND_FULLY_PRIVILEGED : 0);
 
                 exec_command_append_list(e, nce);
 

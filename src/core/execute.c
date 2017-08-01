@@ -2033,7 +2033,7 @@ static int apply_mount_namespace(
         if (!context->dynamic_user && root_dir)
                 ns_info.ignore_protect_paths = true;
 
-        apply_restrictions = (params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged;
+        apply_restrictions = (params->flags & EXEC_APPLY_PERMISSIONS) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
 
         r = setup_namespace(root_dir, root_image,
                             &ns_info, rw,
@@ -2647,7 +2647,7 @@ static int exec_child(
                 return r;
         }
 
-        needs_exec_restrictions = (params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged;
+        needs_exec_restrictions = (params->flags & EXEC_APPLY_PERMISSIONS) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
 
         if (needs_exec_restrictions) {
                 if (context->pam_name && username) {
@@ -3068,7 +3068,7 @@ int exec_spawn(Unit *unit,
                                                                   error_message),
                                                  "EXECUTABLE=%s", command->path,
                                                  NULL);
-                        else if (r == -ENOENT && command->ignore)
+                        else if (r == -ENOENT && (command->flags & EXEC_COMMAND_IGNORE_FAILURE))
                                 log_struct_errno(LOG_INFO, r,
                                                  "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
                                                  LOG_UNIT_ID(unit),

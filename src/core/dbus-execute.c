@@ -904,7 +904,7 @@ static int append_exec_command(sd_bus_message *reply, ExecCommand *c) {
                 return r;
 
         r = sd_bus_message_append(reply, "bttttuii",
-                                  c->ignore,
+                                  !!(c->flags & EXEC_COMMAND_IGNORE_FAILURE),
                                   c->exec_status.start_timestamp.realtime,
                                   c->exec_status.start_timestamp.monotonic,
                                   c->exec_status.exit_timestamp.realtime,
