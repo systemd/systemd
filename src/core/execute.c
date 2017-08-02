@@ -2295,8 +2295,16 @@ static int exec_child(
         const char *home = NULL, *shell = NULL;
         dev_t journal_stream_dev = 0;
         ino_t journal_stream_ino = 0;
-        bool needs_exec_restrictions, needs_mount_namespace,
-                needs_selinux = false, needs_smack = false, needs_apparmor = false;
+        bool needs_exec_restrictions, needs_mount_namespace;
+#ifdef HAVE_SELINUX
+        bool needs_selinux = false;
+#endif
+#ifdef HAVE_SMACK
+        bool needs_smack = false;
+#endif
+#ifdef HAVE_APPARMOR
+        bool needs_apparmor = false;
+#endif
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
         int i, r, ngids = 0;
