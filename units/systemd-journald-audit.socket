@@ -12,6 +12,7 @@ DefaultDependencies=no
 Before=sockets.target
 ConditionSecurity=audit
 ConditionCapability=CAP_AUDIT_READ
+ConditionVirtualization=!private-users
 
 [Socket]
 Service=systemd-journald.service
