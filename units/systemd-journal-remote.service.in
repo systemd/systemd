@@ -28,7 +28,7 @@ RestrictRealtime=yes
 RestrictNamespaces=yes
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 SystemCallArchitectures=native
-ReadWritePaths=/var/log/journal/remote
+LogsDirectory=journal/remote
 
 [Install]
 Also=systemd-journal-remote.socket
