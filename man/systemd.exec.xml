@@ -1079,12 +1079,10 @@
         services which shall be able to install mount points in the main mount namespace. The new <filename>/dev</filename>
         will be mounted read-only and 'noexec'. The latter may break old programs which try to set up executable memory by
         using <citerefentry><refentrytitle>mmap</refentrytitle><manvolnum>2</manvolnum></citerefentry> of
-        <filename>/dev/zero</filename> instead of using <constant>MAP_ANON</constant>. This setting is implied if
-        <varname>DynamicUser=</varname> is set. For this setting the same restrictions regarding mount propagation and
-        privileges apply as for <varname>ReadOnlyPaths=</varname> and related calls, see above.
+        <filename>/dev/zero</filename> instead of using <constant>MAP_ANON</constant>. For this setting the same restrictions
+        regarding mount propagation and privileges apply as for <varname>ReadOnlyPaths=</varname> and related calls, see above.
         If turned on and if running in user mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant>
-        capability (e.g. setting <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname>
-        is implied.
+        capability (e.g. setting <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname> is implied.
         </para>
 
         <para>Note that the implementation of this setting might be impossible (for example if mount namespaces
