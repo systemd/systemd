@@ -246,7 +246,7 @@
           reclaimed as long as memory can be reclaimed from unprotected units.</para>
 
           <para>Takes a memory size in bytes. If the value is suffixed with K, M, G or T, the specified memory size is
-          parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. Alternatively, a
+          parsed as Kibibytes, Mebibytes, Gibibytes, or Tebibytes (with the base 1024), respectively. Alternatively, a
           percentage value may be specified, which is taken relative to the installed physical memory on the
           system. This controls the <literal>memory.low</literal> control group attribute. For details about this
           control group attribute, see <ulink
@@ -268,7 +268,7 @@
           aggressively in such cases. This is the main mechanism to control memory usage of a unit.</para>
 
           <para>Takes a memory size in bytes. If the value is suffixed with K, M, G or T, the specified memory size is
-          parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. Alternatively, a
+          parsed as Kibibytes, Mebibytes, Gibibytes, or Tebibytes (with the base 1024), respectively. Alternatively, a
           percentage value may be specified, which is taken relative to the installed physical memory on the
           system. If assigned the
           special value <literal>infinity</literal>, no memory limit is applied. This controls the
@@ -292,7 +292,7 @@
           last line of defense.</para>
 
           <para>Takes a memory size in bytes. If the value is suffixed with K, M, G or T, the specified memory size is
-          parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. Alternatively, a
+          parsed as Kibibytes, Mebibytes, Gibibytes, or Tebibytes (with the base 1024), respectively. Alternatively, a
           percentage value may be specified, which is taken relative to the installed physical memory on the system. If
           assigned the special value <literal>infinity</literal>, no memory limit is applied. This controls the
           <literal>memory.max</literal> control group attribute. For details about this control group attribute, see
@@ -311,7 +311,7 @@
           <para>Specify the absolute limit on swap usage of the executed processes in this unit.</para>
 
           <para>Takes a swap size in bytes. If the value is suffixed with K, M, G or T, the specified swap size is
-          parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. If assigned the
+          parsed as Kibibytes, Mebibytes, Gibibytes, or Tebibytes (with the base 1024), respectively. If assigned the
           special value <literal>infinity</literal>, no swap limit is applied. This controls the
           <literal>memory.swap.max</literal> control group attribute. For details about this control group attribute,
           see <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
@@ -637,8 +637,8 @@
         <listitem>
           <para>Specify the limit on maximum memory usage of the executed processes. The limit specifies how much
           process and kernel memory can be used by tasks in this unit. Takes a memory size in bytes. If the value is
-          suffixed with K, M, G or T, the specified memory size is parsed as Kilobytes, Megabytes, Gigabytes, or
-          Terabytes (with the base 1024), respectively. Alternatively, a percentage value may be specified, which is
+          suffixed with K, M, G or T, the specified memory size is parsed as Kibibytes, Mebibytes, Gibibytes, or
+          Tebibytes (with the base 1024), respectively. Alternatively, a percentage value may be specified, which is
           taken relative to the installed physical memory on the system. If assigned the special value
           <literal>infinity</literal>, no memory limit is applied. This controls the
           <literal>memory.limit_in_bytes</literal> control group attribute. For details about this control group
