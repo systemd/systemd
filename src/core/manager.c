@@ -2012,7 +2012,7 @@ static int manager_dispatch_sigchld(Manager *m) {
         return 0;
 }
 
-static int manager_start_target(Manager *m, const char *name, JobMode mode) {
+static void manager_start_target(Manager *m, const char *name, JobMode mode) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
@@ -2021,8 +2021,6 @@ static int manager_start_target(Manager *m, const char *name, JobMode mode) {
         r = manager_add_job_by_name(m, JOB_START, name, mode, &error, NULL);
         if (r < 0)
                 log_error("Failed to enqueue %s job: %s", name, bus_error_message(&error, r));
-
-        return r;
 }
 
 static void manager_handle_ctrl_alt_del(Manager *m) {
@@ -2092,17 +2090,10 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         /* Fall through */
 
                 case SIGINT:
-                        if (MANAGER_IS_SYSTEM(m)) {
+                        if (MANAGER_IS_SYSTEM(m))
                                 manager_handle_ctrl_alt_del(m);
-                                break;
-                        }
-
-                        /* Run the exit target if there is one, if not, just exit. */
-                        if (manager_start_target(m, SPECIAL_EXIT_TARGET, JOB_REPLACE) < 0) {
-                                m->exit_code = MANAGER_EXIT;
-                                return 0;
-                        }
-
+                        else
+                                manager_start_target(m, SPECIAL_EXIT_TARGET, JOB_REPLACE);
                         break;
 
                 case SIGWINCH:
