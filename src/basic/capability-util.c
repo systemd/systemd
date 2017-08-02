@@ -95,6 +95,23 @@ unsigned long cap_last_cap(void) {
         return p;
 }
 
+bool ambient_capability_is_supported(void) {
+        static bool checked = false;
+        static bool supported;
+
+        if (checked)
+                return supported;
+
+        if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_SETPCAP, 0, 0) < 0)
+                supported = false;
+        else
+                supported = true;
+
+        checked = true;
+
+        return supported;
+}
+
 int capability_update_inherited_set(cap_t caps, uint64_t set) {
         unsigned long i;
 
