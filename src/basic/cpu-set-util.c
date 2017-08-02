@@ -112,3 +112,49 @@ int parse_cpu_set_and_warn(
 
         return (int) ncpus;
 }
+
+int parse_cpu_set(
+                const char *rvalue,
+                cpu_set_t **cpu_set) {
+
+        _cleanup_cpu_free_ cpu_set_t *c = NULL;
+        unsigned ncpus = 0;
+
+        assert(rvalue);
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                unsigned cpu, cpu_lower, cpu_upper;
+                int r;
+
+                r = extract_first_word(&rvalue, &word, WHITESPACE ",", EXTRACT_QUOTES);
+                if (r == -ENOMEM)
+                        return r;
+                if (r <= 0)
+                        break;
+
+                if (!c) {
+                        c = cpu_set_malloc(&ncpus);
+                        if (!c)
+                                return -ENOMEM;
+                }
+
+                r = parse_range(word, &cpu_lower, &cpu_upper);
+                if (r < 0)
+                        return r;
+                if (cpu_lower >= ncpus || cpu_upper >= ncpus)
+                        return -EINVAL;
+
+                if (cpu_lower <= cpu_upper)
+                        for (cpu = cpu_lower; cpu <= cpu_upper; cpu++)
+                                CPU_SET_S(cpu, CPU_ALLOC_SIZE(ncpus), c);
+        }
+
+        /* On success, sets *cpu_set and returns ncpus for the system. */
+        if (c) {
+                *cpu_set = c;
+                c = NULL;
+        }
+
+        return (int) ncpus;
+}
