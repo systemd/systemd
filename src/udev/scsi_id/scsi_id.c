@@ -336,7 +336,7 @@ static int set_options(struct udev *udev,
          * file) we have to reset this back to 1.
          */
         optind = 1;
-        while ((option = getopt_long(argc, argv, "d:f:gp:uvVxh", options, NULL)) >= 0)
+        while ((option = getopt_long(argc, argv, "d:f:gp:uvVxhbs:", options, NULL)) >= 0)
                 switch (option) {
                 case 'b':
                         all_good = false;
