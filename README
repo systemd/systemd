@@ -110,11 +110,10 @@ REQUIREMENTS:
         It's a good idea to disable the implicit creation of networking bonding
         devices by the kernel networking bonding module, so that the
         automatically created "bond0" interface doesn't conflict with any such
-        device created by systemd-networkd (or other tools). Please make sure
-        that the kernel module bonding.ko is shipped with max_bonds=0 set by
-        default. Ideally there would be a kernel compile-time option for this,
-        but there currently isn't. The next best thing is to make this change
-        through a modprobe.d drop-in.
+        device created by systemd-networkd (or other tools). Ideally there
+        would be a kernel compile-time option for this, but there currently
+        isn't. The next best thing is to make this change through a modprobe.d
+        drop-in. This is shipped by default, see modprobe.d/systemd.conf.
 
         Note that kernel auditing is broken when used with systemd's
         container code. When using systemd in conjunction with
