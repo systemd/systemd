@@ -20,6 +20,7 @@
 ***/
 
 #include <alloca.h>
+#include <sched.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -108,6 +109,14 @@ int pid_compare_func(const void *a, const void *b);
 
 static inline bool nice_is_valid(int n) {
         return n >= PRIO_MIN && n < PRIO_MAX;
+}
+
+static inline bool sched_policy_is_valid(int i) {
+        return IN_SET(i, SCHED_OTHER, SCHED_BATCH, SCHED_IDLE, SCHED_FIFO, SCHED_RR);
+}
+
+static inline bool sched_priority_is_valid(int i) {
+        return i >= 0 && i <= sched_get_priority_max(SCHED_RR);
 }
 
 static inline bool ioprio_class_is_valid(int i) {
