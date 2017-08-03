@@ -39,10 +39,12 @@
 #include "bus-label.h"
 #include "bus-message.h"
 #include "bus-util.h"
+#include "cgroup-util.h"
 #include "def.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "missing.h"
+#include "mount-util.h"
 #include "nsflags.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
@@ -746,7 +748,31 @@ int bus_print_property(const char *name, sd_bus_message *property, bool value, b
                         }
 
                         print_property(name, "%s", result);
-                } else
+
+                } else if (streq(name, "MountFlags")) {
+                        const char *result = NULL;
+
+                        result = mount_propagation_flags_to_string(u);
+                        if (!result)
+                                return -EINVAL;
+
+                        print_property(name, "%s", result);
+
+                } else if ((STR_IN_SET(name, "CPUWeight", "StartupCPUWeight", "IOWeight", "StartupIOWeight") && u == CGROUP_WEIGHT_INVALID) ||
+                           (STR_IN_SET(name, "CPUShares", "StartupCPUShares") && u == CGROUP_CPU_SHARES_INVALID) ||
+                           (STR_IN_SET(name, "BlockIOWeight", "StartupBlockIOWeight") && u == CGROUP_BLKIO_WEIGHT_INVALID) ||
+                           (STR_IN_SET(name, "MemoryCurrent", "TasksCurrent") && u == (uint64_t) -1) ||
+                           (endswith(name, "NSec") && u == (uint64_t) -1))
+
+                        print_property(name, "%s", "[not set]");
+
+                else if ((STR_IN_SET(name, "MemoryLow", "MemoryHigh", "MemoryMax", "MemorySwapMax", "MemoryLimit") && u == CGROUP_LIMIT_MAX) ||
+                         (STR_IN_SET(name, "TasksMax", "DefaultTasksMax") && u == (uint64_t) -1) ||
+                         (startswith(name, "Limit") && u == (uint64_t) -1) ||
+                         (startswith(name, "DefaultLimit") && u == (uint64_t) -1))
+
+                        print_property(name, "%s", "infinity");
+                else
                         print_property(name, "%"PRIu64, u);
 
                 return 1;
