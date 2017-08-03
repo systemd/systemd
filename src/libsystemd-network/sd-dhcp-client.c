@@ -615,11 +615,18 @@ static int client_message_init(
            it MUST include that list in any subsequent DHCPREQUEST
            messages.
          */
-        r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, 0,
-                               SD_DHCP_OPTION_PARAMETER_REQUEST_LIST,
-                               client->req_opts_size, client->req_opts);
-        if (r < 0)
-                return r;
+
+        /* RFC7844 section 3:
+           MAY contain the Parameter Request List option. */
+        /* NOTE: in case that there would be an option to do not send
+         * any PRL at all, the size should be checked before sending */
+        if (client->req_opts_size > 0) {
+                r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, 0,
+                                       SD_DHCP_OPTION_PARAMETER_REQUEST_LIST,
+                                       client->req_opts_size, client->req_opts);
+                if (r < 0)
+                        return r;
+        }
 
         /* RFC2131 section 3.5:
            The client SHOULD include the ’maximum DHCP message size’ option to

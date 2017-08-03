@@ -624,7 +624,12 @@ int dhcp4_configure(Link *link) {
                         return r;
         }
 
-        if (link->network->dhcp_use_routes) {
+        /* NOTE: when using Anonymity Profiles, routes PRL options are sent
+         * by default, so they should not be added again here. */
+        /* NOTE: even if this variable is called "use", it also "sends" PRL
+         * options, maybe there should be a different configuration variable
+         * to send or not route options?. */
+        if (link->network->dhcp_use_routes && !link->network->dhcp_anonymize) {
                 r = sd_dhcp_client_set_request_option(link->dhcp_client,
                                                       SD_DHCP_OPTION_STATIC_ROUTE);
                 if (r < 0)
