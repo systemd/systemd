@@ -193,7 +193,7 @@
           <varlistentry>
             <term>COREFILE</term>
             <listitem><para>Information whether the coredump was stored, and whether
-            it is still accessible: <literal>none</literal> means the the core was
+            it is still accessible: <literal>none</literal> means the core was
             not stored, <literal>-</literal> means that it was not available (for
             example because the process was not terminated by a signal),
             <literal>present</literal> means that the core file is accessible by the
