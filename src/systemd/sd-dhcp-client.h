@@ -58,9 +58,17 @@ enum {
         SD_DHCP_OPTION_INTERFACE_MTU_AGING_TIMEOUT = 24,
         SD_DHCP_OPTION_INTERFACE_MTU               = 26,
         SD_DHCP_OPTION_BROADCAST                   = 28,
+       /* Windows 10 option to send when Anonymize=true */
+        SD_DHCP_OPTION_ROUTER_DISCOVER             = 31,
         SD_DHCP_OPTION_STATIC_ROUTE                = 33,
         SD_DHCP_OPTION_NTP_SERVER                  = 42,
         SD_DHCP_OPTION_VENDOR_SPECIFIC             = 43,
+       /* Windows 10 option to send when Anonymize=true */
+        SD_DHCP_OPTION_NETBIOS_NAMESERVER          = 44,
+       /* Windows 10 option to send when Anonymize=true */
+        SD_DHCP_OPTION_NETBIOS_NODETYPE            = 46,
+       /* Windows 10 option to send when Anonymize=true */
+        SD_DHCP_OPTION_NETBIOS_SCOPE               = 47,
         SD_DHCP_OPTION_REQUESTED_IP_ADDRESS        = 50,
         SD_DHCP_OPTION_IP_ADDRESS_LEASE_TIME       = 51,
         SD_DHCP_OPTION_OVERLOAD                    = 52,
@@ -79,6 +87,10 @@ enum {
         SD_DHCP_OPTION_DOMAIN_SEARCH_LIST          = 119,
         SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE      = 121,
         SD_DHCP_OPTION_PRIVATE_BASE                = 224,
+       /* Windows 10 option to send when Anonymize=true */
+        SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE = 249,
+       /* Windows 10 option to send when Anonymize=true */
+        SD_DHCP_OPTION_PRIVATE_PROXY_AUTODISCOVERY = 252,
         SD_DHCP_OPTION_PRIVATE_LAST                = 254,
         SD_DHCP_OPTION_END                         = 255,
 };
