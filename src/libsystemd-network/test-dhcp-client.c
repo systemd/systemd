@@ -56,7 +56,8 @@ static void test_request_basic(sd_event *e) {
         if (verbose)
                 printf("* %s\n", __FUNCTION__);
 
-        r = sd_dhcp_client_new(&client);
+        /* Initialize client without Anonymize settings. */
+        r = sd_dhcp_client_new(&client, false);
 
         assert_se(r >= 0);
         assert_se(client);
@@ -78,6 +79,8 @@ static void test_request_basic(sd_event *e) {
                                         SD_DHCP_OPTION_SUBNET_MASK) == -EEXIST);
         assert_se(sd_dhcp_client_set_request_option(client,
                                         SD_DHCP_OPTION_ROUTER) == -EEXIST);
+        /* This PRL option is not set when using Anonymize, but in this test
+         * Anonymize settings are not being used. */
         assert_se(sd_dhcp_client_set_request_option(client,
                                         SD_DHCP_OPTION_HOST_NAME) == -EEXIST);
         assert_se(sd_dhcp_client_set_request_option(client,
@@ -97,10 +100,15 @@ static void test_request_basic(sd_event *e) {
                                         SD_DHCP_OPTION_PARAMETER_REQUEST_LIST)
                         == -EINVAL);
 
-        assert_se(sd_dhcp_client_set_request_option(client, 33) == 0);
-        assert_se(sd_dhcp_client_set_request_option(client, 33) == -EEXIST);
-        assert_se(sd_dhcp_client_set_request_option(client, 44) == 0);
-        assert_se(sd_dhcp_client_set_request_option(client, 33) == -EEXIST);
+        /* RFC7844: option 33 (SD_DHCP_OPTION_STATIC_ROUTE) is set in the
+         * default PRL when using Anonymize, so it is changed to other option
+         * that is not set by default, to check that it succed setting it.
+         * Ooptions not set by default (using or not anonymize) are option 17
+         * (SD_DHCP_OPTION_ROOT_PATH) and 42 (SD_DHCP_OPTION_NTP_SERVER) */
+        assert_se(sd_dhcp_client_set_request_option(client, 17) == 0);
+        assert_se(sd_dhcp_client_set_request_option(client, 17) == -EEXIST);
+        assert_se(sd_dhcp_client_set_request_option(client, 42) == 0);
+        assert_se(sd_dhcp_client_set_request_option(client, 17) == -EEXIST);
 
         sd_dhcp_client_unref(client);
 }
@@ -236,7 +244,7 @@ static void test_discover_message(sd_event *e) {
         if (verbose)
                 printf("* %s\n", __FUNCTION__);
 
-        r = sd_dhcp_client_new(&client);
+        r = sd_dhcp_client_new(&client, false);
         assert_se(r >= 0);
         assert_se(client);
 
@@ -451,7 +459,7 @@ static void test_addr_acq(sd_event *e) {
         if (verbose)
                 printf("* %s\n", __FUNCTION__);
 
-        r = sd_dhcp_client_new(&client);
+        r = sd_dhcp_client_new(&client, false);
         assert_se(r >= 0);
         assert_se(client);
 

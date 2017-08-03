@@ -583,7 +583,7 @@ int dhcp4_configure(Link *link) {
         assert(link->network->dhcp & ADDRESS_FAMILY_IPV4);
 
         if (!link->dhcp_client) {
-                r = sd_dhcp_client_new(&link->dhcp_client);
+                r = sd_dhcp_client_new(&link->dhcp_client, link->network->dhcp_anonymize);
                 if (r < 0)
                         return r;
         }

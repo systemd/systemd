@@ -62,6 +62,7 @@ struct sd_dhcp_client {
         uint8_t *req_opts;
         size_t req_opts_allocated;
         size_t req_opts_size;
+        bool anonymize;
         be32_t last_addr;
         uint8_t mac_addr[MAX_MAC_ADDR_LEN];
         size_t mac_addr_len;
@@ -114,6 +115,32 @@ static const uint8_t default_req_opts[] = {
         SD_DHCP_OPTION_HOST_NAME,
         SD_DHCP_OPTION_DOMAIN_NAME,
         SD_DHCP_OPTION_DOMAIN_NAME_SERVER,
+};
+
+/* RFC7844 section 3:
+   MAY contain the Parameter Request List option.
+   RFC7844 section 3.6:
+   The client intending to protect its privacy SHOULD only request a
+   minimal number of options in the PRL and SHOULD also randomly shuffle
+   the ordering of option codes in the PRL.  If this random ordering
+   cannot be implemented, the client MAY order the option codes in the
+   PRL by option code number (lowest to highest).
+*/
+/* NOTE: using PRL options that Windows 10 RFC7844 implementation uses */
+static const uint8_t default_req_opts_anonymize[] = {
+       SD_DHCP_OPTION_SUBNET_MASK,                     /* 1 */
+       SD_DHCP_OPTION_ROUTER,                          /* 3 */
+       SD_DHCP_OPTION_DOMAIN_NAME_SERVER,              /* 6 */
+       SD_DHCP_OPTION_DOMAIN_NAME,                     /* 15 */
+       SD_DHCP_OPTION_ROUTER_DISCOVER,                 /* 31 */
+       SD_DHCP_OPTION_STATIC_ROUTE,                    /* 33 */
+       SD_DHCP_OPTION_VENDOR_SPECIFIC,                 /* 43 */
+       SD_DHCP_OPTION_NETBIOS_NAMESERVER,              /* 44 */
+       SD_DHCP_OPTION_NETBIOS_NODETYPE,                /* 46 */
+       SD_DHCP_OPTION_NETBIOS_SCOPE,                   /* 47 */
+       SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE,          /* 121 */
+       SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE,  /* 249 */
+       SD_DHCP_OPTION_PRIVATE_PROXY_AUTODISCOVERY,     /* 252 */
 };
 
 static int client_receive_message_raw(
@@ -1875,7 +1902,7 @@ sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client) {
         return mfree(client);
 }
 
-int sd_dhcp_client_new(sd_dhcp_client **ret) {
+int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
         _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
 
         assert_return(ret, -EINVAL);
@@ -1892,8 +1919,15 @@ int sd_dhcp_client_new(sd_dhcp_client **ret) {
         client->mtu = DHCP_DEFAULT_MIN_SIZE;
         client->port = DHCP_PORT_CLIENT;
 
-        client->req_opts_size = ELEMENTSOF(default_req_opts);
-        client->req_opts = memdup(default_req_opts, client->req_opts_size);
+        client->anonymize = !!anonymize;
+        /* NOTE: this could be moved to a function. */
+        if (anonymize) {
+                client->req_opts_size = ELEMENTSOF(default_req_opts_anonymize);
+                client->req_opts = memdup(default_req_opts_anonymize, client->req_opts_size);
+        } else {
+                client->req_opts_size = ELEMENTSOF(default_req_opts);
+                client->req_opts = memdup(default_req_opts, client->req_opts_size);
+        }
         if (!client->req_opts)
                 return -ENOMEM;
 
