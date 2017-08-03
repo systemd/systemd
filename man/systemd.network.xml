@@ -362,7 +362,7 @@
             DNS validation support on the link. When set to
             <literal>allow-downgrade</literal>, compatibility with
             non-DNSSEC capable networks is increased, by automatically
-            turning off DNSEC in this case. This option defines a
+            turning off DNSSEC in this case. This option defines a
             per-interface setting for
             <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s
             global <varname>DNSSEC=</varname> option. Defaults to
@@ -815,7 +815,7 @@
 
       <para>An <literal>[IPv6AddressLabel]</literal> section accepts the
       following keys. Specify several <literal>[IPv6AddressLabel]</literal>
-      sections to configure several addresse labels. IPv6 address labels are
+      sections to configure several address labels. IPv6 address labels are
       used for address selection. See <ulink url="https://tools.ietf.org/html/rfc3484">RFC 3484</ulink>.
       Precedence is managed by userspace, and only the label itself is stored in the kernel</para>
 
@@ -1329,7 +1329,7 @@
             <para>Sets the "cost" of sending packets of this interface.
             Each port in a bridge may have a different speed and the cost
             is used to decide which link to use. Faster interfaces
-            should have lower costs. It is an interger value between 1 and
+            should have lower costs. It is an integer value between 1 and
             65535.</para>
           </listitem>
         </varlistentry>
@@ -1339,7 +1339,7 @@
             <para>Sets the "priority" of sending packets on this interface.
             Each port in a bridge may have a different priority which is used
             to decide which link to use. Lower value means higher priority.
-            It is an interger value between 0 to 63. Networkd does not set any
+            It is an integer value between 0 to 63. Networkd does not set any
             default, meaning the kernel default value of 32 is used.</para>
           </listitem>
         </varlistentry>

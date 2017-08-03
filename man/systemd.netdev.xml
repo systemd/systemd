@@ -660,7 +660,7 @@
       <varlistentry>
         <term><varname>Id=</varname></term>
         <listitem>
-          <para>Specifies the Virtual Network Identifer (VNI) to use. Ranges [0-16777215].</para>
+          <para>Specifies the Virtual Network Identifier (VNI) to use. Ranges [0-16777215].</para>
         </listitem>
       </varlistentry>
       <varlistentry>
