@@ -1821,7 +1821,14 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
         if (r < 0)
                 return r;
 
-        if (client->last_addr)
+        /* RFC7844 section 3.3:
+           SHOULD perform a complete four-way handshake, starting with a
+           DHCPDISCOVER, to obtain a new address lease.  If the client can
+           ascertain that this is exactly the same network to which it was
+           previously connected, and if the link-layer address did not change,
+           the client MAY issue a DHCPREQUEST to try to reclaim the current
+           address. */
+        if (client->last_addr && !client->anonymize)
                 client->state = DHCP_STATE_INIT_REBOOT;
 
         r = client_start(client);
