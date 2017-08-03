@@ -108,14 +108,16 @@ static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
         if (r < 0)
                 return -errno;
 
-        link->ll.sll_family = AF_PACKET;
-        link->ll.sll_protocol = htobe16(ETH_P_IP);
-        link->ll.sll_ifindex = ifindex;
-        link->ll.sll_hatype = htobe16(arp_type);
-        link->ll.sll_halen = mac_addr_len;
+        link->ll = (struct sockaddr_ll) {
+                .sll_family = AF_PACKET,
+                .sll_protocol = htobe16(ETH_P_IP),
+                .sll_ifindex = ifindex,
+                .sll_hatype = htobe16(arp_type),
+                .sll_halen = mac_addr_len,
+        };
         memcpy(link->ll.sll_addr, bcast_addr, mac_addr_len);
 
-        r = bind(s, &link->sa, sizeof(link->ll));
+        r = bind(s, &link->sa, SOCKADDR_LL_LEN(link->ll));
         if (r < 0)
                 return -errno;
 
@@ -221,7 +223,7 @@ int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
         assert(packet);
         assert(len);
 
-        r = sendto(s, packet, len, 0, &link->sa, sizeof(link->ll));
+        r = sendto(s, packet, len, 0, &link->sa, SOCKADDR_LL_LEN(link->ll));
         if (r < 0)
                 return -errno;
 
