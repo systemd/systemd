@@ -355,10 +355,58 @@ static void test_get_process_cmdline_harder(void) {
         _exit(0);
 }
 
-static void test_rename_process_one(const char *p, int ret) {
+static void test_rename_process_now(const char *p, int ret) {
         _cleanup_free_ char *comm = NULL, *cmdline = NULL;
-        pid_t pid;
         int r;
+
+        r = rename_process(p);
+        assert_se(r == ret ||
+                  (ret == 0 && r >= 0) ||
+                  (ret > 0 && r > 0));
+
+        if (r < 0)
+                return;
+
+#ifdef HAVE_VALGRIND_VALGRIND_H
+        /* see above, valgrind is weird, we can't verify what we are doing here */
+        if (RUNNING_ON_VALGRIND)
+                return;
+#endif
+
+        assert_se(get_process_comm(0, &comm) >= 0);
+        log_info("comm = <%s>", comm);
+        assert_se(strneq(comm, p, 15));
+
+        assert_se(get_process_cmdline(0, 0, false, &cmdline) >= 0);
+        /* we cannot expect cmdline to be renamed properly without privileges */
+        if (geteuid() == 0) {
+                log_info("cmdline = <%s>", cmdline);
+                assert_se(strneq(p, cmdline, strlen("test-process-util")));
+                assert_se(startswith(p, cmdline));
+        } else
+                log_info("cmdline = <%s> (not verified)", cmdline);
+}
+
+static void test_rename_process_one(const char *p, int ret) {
+        siginfo_t si;
+        pid_t pid;
+
+        pid = fork();
+        assert_se(pid >= 0);
+
+        if (pid == 0) {
+                /* child */
+                test_rename_process_now(p, ret);
+                _exit(EXIT_SUCCESS);
+        }
+
+        assert_se(wait_for_terminate(pid, &si) >= 0);
+        assert_se(si.si_code == CLD_EXITED);
+        assert_se(si.si_status == EXIT_SUCCESS);
+}
+
+static void test_rename_process_multi(void) {
+        pid_t pid;
 
         pid = fork();
         assert_se(pid >= 0);
@@ -374,31 +422,13 @@ static void test_rename_process_one(const char *p, int ret) {
         }
 
         /* child */
-        r = rename_process(p);
-
-        assert_se(r == ret ||
-                  (ret == 0 && r >= 0) ||
-                  (ret > 0 && r > 0));
-
-        if (r < 0)
-                goto finish;
-
-#ifdef HAVE_VALGRIND_VALGRIND_H
-        /* see above, valgrind is weird, we can't verify what we are doing here */
-        if (RUNNING_ON_VALGRIND)
-                goto finish;
-#endif
-
-        assert_se(get_process_comm(0, &comm) >= 0);
-        log_info("comm = <%s>", comm);
-        assert_se(strneq(comm, p, 15));
-
-        assert_se(get_process_cmdline(0, 0, false, &cmdline) >= 0);
-        log_info("cmdline = <%s>", cmdline);
-        assert_se(strneq(p, cmdline, strlen("test-process-util")));
-        assert_se(startswith(p, cmdline));
-
-finish:
+        test_rename_process_now("one", 1);
+        test_rename_process_now("more", 0); /* longer than "one", hence truncated */
+        setresuid(99, 99, 99);
+        test_rename_process_now("time!", 0);
+        test_rename_process_now("0", 1); /* shorter than "one", should fit */
+        test_rename_process_one("", -EINVAL);
+        test_rename_process_one(NULL, -EINVAL);
         _exit(EXIT_SUCCESS);
 }
 
@@ -408,6 +438,7 @@ static void test_rename_process(void) {
         test_rename_process_one("foo", 1); /* should always fit */
         test_rename_process_one("this is a really really long process name, followed by some more words", 0); /* unlikely to fit */
         test_rename_process_one("1234567", 1); /* should always fit */
+        test_rename_process_multi(); /* multiple invocations and dropped privileges */
 }
 
 static void test_getpid_cached(void) {
