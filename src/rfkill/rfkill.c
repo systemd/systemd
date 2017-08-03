@@ -175,12 +175,16 @@ static int determine_state_file(
         assert(ret);
 
         r = wait_for_initialized(udev, d, &device);
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                /* If the device wasn't initialized,
+                 * fall back to the generic state file. */
+                path_id = NULL;
+        } else {
+                path_id = udev_device_get_property_value(device, "ID_PATH");
+        }
 
         assert_se(type = rfkill_type_to_string(event->type));
 
-        path_id = udev_device_get_property_value(device, "ID_PATH");
         if (path_id) {
                 _cleanup_free_ char *escaped_path_id = NULL;
 
