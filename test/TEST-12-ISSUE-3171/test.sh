@@ -2,17 +2,9 @@
 # -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
 # ex: ts=8 sw=4 sts=4 et filetype=sh
 TEST_DESCRIPTION="https://github.com/systemd/systemd/issues/3171"
+TEST_NO_QEMU=1
 
 . $TEST_BASE_DIR/test-functions
-
-test_run() {
-    if run_nspawn; then
-        check_result_nspawn || return 1
-    else
-        dwarn "can't run systemd-nspawn, skipping"
-    fi
-    return 0
-}
 
 test_setup() {
     create_empty_image
@@ -98,12 +90,6 @@ EOF
 
     ddebug "umount $TESTDIR/root"
     umount $TESTDIR/root
-}
-
-test_cleanup() {
-    umount $TESTDIR/root 2>/dev/null
-    [[ $LOOPDEV ]] && losetup -d $LOOPDEV
-    return 0
 }
 
 do_test "$@"

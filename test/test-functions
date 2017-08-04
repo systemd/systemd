@@ -375,6 +375,22 @@ check_result_nspawn() {
     return $ret
 }
 
+# can be overridden in specific test
+check_result_qemu() {
+    ret=1
+    mkdir -p $TESTDIR/root
+    mount ${LOOPDEV}p1 $TESTDIR/root
+    [[ -e $TESTDIR/root/testok ]] && ret=0
+    [[ -f $TESTDIR/root/failed ]] && cp -a $TESTDIR/root/failed $TESTDIR
+    cp -a $TESTDIR/root/var/log/journal $TESTDIR
+    umount $TESTDIR/root
+    [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
+    ls -l $TESTDIR/journal/*/*.journal
+    test -s $TESTDIR/failed && ret=$(($ret+1))
+    [ -n "$TIMED_OUT" ] && ret=$(($ret+1))
+    return $ret
+}
+
 strip_binaries() {
     if [[ "$STRIP_BINARIES" = "no" ]]; then
         ddebug "Don't strip binaries"
@@ -1358,6 +1374,31 @@ setup_suse() {
     ln -s ../usr/bin/systemctl $initdir/bin/systemctl
     ln -s ../usr/lib/systemd $initdir/lib/systemd
     inst_simple "/usr/lib/systemd/system/haveged.service"
+}
+
+# can be overridden in specific test
+test_cleanup() {
+    umount $TESTDIR/root 2>/dev/null || true
+    [[ $LOOPDEV ]] && losetup -d $LOOPDEV
+    return 0
+}
+
+test_run() {
+    if [ -z "$TEST_NO_QEMU" ]; then
+        if run_qemu; then
+            check_result_qemu || return 1
+        else
+            dwarn "can't run QEMU, skipping"
+        fi
+    fi
+    if [ -z "$TEST_NO_NSPAWN" ]; then
+        if run_nspawn; then
+            check_result_nspawn || return 1
+        else
+            dwarn "can't run systemd-nspawn, skipping"
+        fi
+    fi
+    return 0
 }
 
 do_test() {

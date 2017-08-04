@@ -3,21 +3,9 @@
 # ex: ts=8 sw=4 sts=4 et filetype=sh
 
 TEST_DESCRIPTION="Dropin tests"
+TEST_NO_QEMU=1
 
 . $TEST_BASE_DIR/test-functions
-
-
-test_run_nspawn() {
-        if ! run_nspawn; then
-                dwarn "can't run systemd-nspawn, skipping"
-                return 0
-        fi
-        check_result_nspawn
-}
-
-test_run() {
-        test_run_nspawn || return
-}
 
 test_setup() {
         # create the basic filesystem layout
