@@ -650,12 +650,16 @@ static int client_message_init(
            Maximum DHCP Message Size option is the total maximum packet size,
            including IP and UDP headers.)
          */
-        max_size = htobe16(size);
-        r = dhcp_option_append(&packet->dhcp, client->mtu, &optoffset, 0,
-                               SD_DHCP_OPTION_MAXIMUM_MESSAGE_SIZE,
-                               2, &max_size);
-        if (r < 0)
-                return r;
+        /* RFC7844 section 3:
+           SHOULD NOT contain any other option. */
+        if (!client->anonymize) {
+                max_size = htobe16(size);
+                r = dhcp_option_append(&packet->dhcp, client->mtu, &optoffset, 0,
+                                       SD_DHCP_OPTION_MAXIMUM_MESSAGE_SIZE,
+                                       2, &max_size);
+                if (r < 0)
+                        return r;
+        }
 
         *_optlen = optlen;
         *_optoffset = optoffset;
