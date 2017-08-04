@@ -113,6 +113,40 @@ static void test_request_basic(sd_event *e) {
         sd_dhcp_client_unref(client);
 }
 
+static void test_request_anonymize(sd_event *e) {
+        int r;
+
+        sd_dhcp_client *client;
+
+        if (verbose)
+                printf("* %s\n", __FUNCTION__);
+
+        /* Initialize client with Anonymize settings. */
+        r = sd_dhcp_client_new(&client, true);
+
+        assert_se(r >= 0);
+        assert_se(client);
+
+        r = sd_dhcp_client_attach_event(client, e, 0);
+        assert_se(r >= 0);
+
+        assert_se(sd_dhcp_client_set_request_option(client,
+                                        SD_DHCP_OPTION_NETBIOS_NAMESERVER) == -EEXIST);
+        /* This PRL option is not set when using Anonymize */
+        assert_se(sd_dhcp_client_set_request_option(client,
+                                        SD_DHCP_OPTION_HOST_NAME) == 0);
+        assert_se(sd_dhcp_client_set_request_option(client,
+                                        SD_DHCP_OPTION_PARAMETER_REQUEST_LIST)
+                        == -EINVAL);
+
+        /* RFC7844: option 101 (SD_DHCP_OPTION_NEW_TZDB_TIMEZONE) is not set in the
+         * default PRL when using Anonymize, */
+        assert_se(sd_dhcp_client_set_request_option(client, 101) == 0);
+        assert_se(sd_dhcp_client_set_request_option(client, 101) == -EEXIST);
+
+        sd_dhcp_client_unref(client);
+}
+
 static void test_checksum(void) {
         uint8_t buf[20] = {
                 0x45, 0x00, 0x02, 0x40, 0x00, 0x00, 0x00, 0x00,
@@ -505,6 +539,7 @@ int main(int argc, char *argv[]) {
         assert_se(sd_event_new(&e) >= 0);
 
         test_request_basic(e);
+        test_request_anonymize(e);
         test_checksum();
 
         test_discover_message(e);
