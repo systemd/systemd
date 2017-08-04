@@ -151,7 +151,7 @@ REQUIREMENTS:
         libidn2 or libidn (optional)
         elfutils >= 158 (optional)
         pkg-config
-        gperf >= 3.1
+        gperf
         docbook-xsl (optional, required for documentation)
         xsltproc    (optional, required for documentation)
         python-lxml (optional, required to build the indices)
