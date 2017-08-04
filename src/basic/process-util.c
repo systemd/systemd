@@ -312,18 +312,17 @@ int rename_process(const char name[]) {
         /* Third step, completely replace the argv[] array the kernel maintains for us. This requires privileges, but
          * has the advantage that the argv[] array is exactly what we want it to be, and not filled up with zeros at
          * the end. This is the best option for changing /proc/self/cmdline. */
-        if (mm_size < l+1) {
+
+        /* Let's not bother with this if we don't have euid == 0. Strictly speaking we should check for the
+         * CAP_SYS_RESOURCE capability which is independent of the euid. In our own code the capability generally is
+         * present only for euid == 0, hence let's use this as quick bypass check, to avoid calling mmap() if
+         * PR_SET_MM_ARG_{START,END} fails with EPERM later on anyway. After all geteuid() is dead cheap to call, but
+         * mmap() is not. */
+        if (geteuid() != 0)
+                log_debug("Skipping PR_SET_MM, as we don't have privileges.");
+        else if (mm_size < l+1) {
                 size_t nn_size;
                 char *nn;
-
-                /* Let's not bother with this if we don't have euid == 0. Strictly speaking if people do weird stuff
-                 * with capabilities this could work even for euid != 0, but our own code generally doesn't do that,
-                 * hence let's use this as quick bypass check, to avoid calling mmap() if PR_SET_MM_ARG_START fails
-                 * with EPERM later on anyway. After all geteuid() is dead cheap to call, but mmap() is not. */
-                if (geteuid() != 0) {
-                        log_debug("Skipping PR_SET_MM_ARG_START, as we don't have privileges.");
-                        goto use_saved_argv;
-                }
 
                 nn_size = PAGE_ALIGN(l+1);
                 nn = mmap(NULL, nn_size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
@@ -351,8 +350,13 @@ int rename_process(const char name[]) {
 
                 mm = nn;
                 mm_size = nn_size;
-        } else
+        } else {
                 strncpy(mm, name, mm_size);
+
+                /* Update the end pointer, continuing regardless of any failure. */
+                if (prctl(PR_SET_MM, PR_SET_MM_ARG_END, (unsigned long) mm + l + 1, 0, 0) < 0)
+                        log_debug_errno(errno, "PR_SET_MM_ARG_END failed, proceeding without: %m");
+        }
 
 use_saved_argv:
         /* Fourth step: in all cases we'll also update the original argv[], so that our own code gets it right too if
