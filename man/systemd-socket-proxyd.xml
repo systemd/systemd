@@ -118,6 +118,8 @@ WantedBy=sockets.target]]></programlisting>
         <programlisting><![CDATA[[Unit]
 Requires=nginx.service
 After=nginx.service
+Requires=proxy-to-nginx.socket
+After=proxy-to-nginx.service
 
 [Service]
 ExecStart=/usr/lib/systemd/systemd-socket-proxyd /tmp/nginx.sock
@@ -159,6 +161,8 @@ WantedBy=sockets.target]]></programlisting>
         <programlisting><![CDATA[[Unit]
 Requires=nginx.service
 After=nginx.service
+Requires=proxy-to-nginx.service
+After=proxy-to-nginx.service
 JoinsNamespaceOf=nginx.service
 
 [Service]
