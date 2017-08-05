@@ -1486,6 +1486,40 @@ int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name,
         return r;
 }
 
+int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error *e) {
+        int r;
+        Transaction *tr;
+
+        assert(m);
+        assert(unit);
+        assert(mode < _JOB_MODE_MAX);
+        assert(mode != JOB_ISOLATE); /* Isolate is only valid for start */
+
+        tr = transaction_new(mode == JOB_REPLACE_IRREVERSIBLY);
+        if (!tr)
+                return -ENOMEM;
+
+        /* We need an anchor job */
+        r = transaction_add_job_and_dependencies(tr, JOB_NOP, unit, NULL, false, false, true, true, e);
+        if (r < 0)
+                goto tr_abort;
+
+        /* Failure in adding individual dependencies is ignored, so this always succeeds. */
+        transaction_add_propagate_reload_jobs(tr, unit, tr->anchor_job, mode == JOB_IGNORE_DEPENDENCIES, e);
+
+        r = transaction_activate(tr, m, mode, e);
+        if (r < 0)
+                goto tr_abort;
+
+        transaction_free(tr);
+        return 0;
+
+tr_abort:
+        transaction_abort(tr);
+        transaction_free(tr);
+        return r;
+}
+
 Job *manager_get_job(Manager *m, uint32_t id) {
         assert(m);
 

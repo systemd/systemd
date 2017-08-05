@@ -139,7 +139,8 @@
         present it to the user. Note that a service that sends this
         notification must also send a <literal>READY=1</literal>
         notification when it completed reloading its
-        configuration.</para></listitem>
+        configuration. Reloads are propagated in the same way as they
+        are when initiated by the user.</para></listitem>
       </varlistentry>
 
       <varlistentry>

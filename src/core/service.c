@@ -1945,10 +1945,18 @@ fail:
 }
 
 static void service_enter_reload_by_notify(Service *s) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
         assert(s);
 
         service_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_start_usec));
         service_set_state(s, SERVICE_RELOAD);
+
+        /* service_enter_reload_by_notify is never called during a reload, thus no loops are possible. */
+        r = manager_propagate_reload(UNIT(s)->manager, UNIT(s), JOB_FAIL, &error);
+        if (r < 0)
+                log_unit_warning(UNIT(s), "Failed to schedule propagation of reload: %s", bus_error_message(&error, -r));
 }
 
 static void service_enter_reload(Service *s) {
