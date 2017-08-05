@@ -402,7 +402,7 @@ static void test_condition_test_group(void) {
         char* gid;
         char* groupname;
         gid_t *gids, max_gid;
-        int ngroups_max, r, i;
+        int ngroups_max, ngroups, r, i;
 
         assert_se(0 < asprintf(&gid, "%u", UINT32_C(0xFFFF)));
         condition = condition_new(CONDITION_GROUP, gid, false, false);
@@ -427,11 +427,11 @@ static void test_condition_test_group(void) {
 
         gids = alloca(sizeof(gid_t) * ngroups_max);
 
-        r = getgroups(ngroups_max, gids);
-        assert(r >= 0);
+        ngroups = getgroups(ngroups_max, gids);
+        assert(ngroups >= 0);
 
         max_gid = getgid();
-        for (i = 0; i < r; i++) {
+        for (i = 0; i < ngroups; i++) {
                 assert_se(0 < asprintf(&gid, "%u", gids[i]));
                 condition = condition_new(CONDITION_GROUP, gid, false, false);
                 assert_se(condition);
