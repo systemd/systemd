@@ -980,6 +980,9 @@ static bool device_has_info(sd_device *device) {
         if (device->watch_handle >= 0)
                 return true;
 
+        if (device->usec_initialized > 0)
+                return true;
+
         return false;
 }
 
