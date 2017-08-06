@@ -1328,6 +1328,14 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         if (r < 0)
                 return r;
 
+        if (m->first_boot && m->unit_file_scope == UNIT_FILE_SYSTEM) {
+                q = unit_file_preset_all(UNIT_FILE_SYSTEM, 0, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, NULL, 0);
+                if (q < 0)
+                        log_full_errno(q == -EEXIST ? LOG_NOTICE : LOG_WARNING, q, "Failed to populate /etc with preset unit settings, ignoring: %m");
+                else
+                        log_info("Populated /etc with preset unit settings.");
+        }
+
         lookup_paths_reduce(&m->lookup_paths);
         manager_build_unit_path_cache(m);
 
