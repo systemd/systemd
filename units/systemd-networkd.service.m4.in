@@ -22,7 +22,7 @@ Restart=on-failure
 RestartSec=0
 ExecStart=@rootlibexecdir@/systemd-networkd
 WatchdogSec=3min
-CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW CAP_SETUID CAP_SETGID CAP_SETPCAP
 ProtectSystem=strict
 ProtectHome=yes
 ProtectControlGroups=yes
@@ -32,7 +32,17 @@ RestrictRealtime=yes
 RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6 AF_PACKET
 SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @mount @obsolete @raw-io @reboot @swap
 SystemCallArchitectures=native
-ReadWritePaths=/run/systemd
+RuntimeDirectory=systemd/netif
+RuntimeDirectoryPreserve=yes
+RuntimeDirectoryUser=systemd-network
+RuntimeDirectoryGroup=systemd-network
+
+# For kernel-4.3 or later, we can also enable the following options
+# to drop more previleges
+#CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW
+#AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW
+#User=systemd-network
+#Group=systemd-network
 
 [Install]
 WantedBy=multi-user.target

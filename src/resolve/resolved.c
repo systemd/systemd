@@ -21,7 +21,6 @@
 #include "sd-event.h"
 
 #include "capability-util.h"
-#include "mkdir.h"
 #include "resolved-conf.h"
 #include "resolved-manager.h"
 #include "resolved-resolv-conf.h"
@@ -29,11 +28,55 @@
 #include "signal-util.h"
 #include "user-util.h"
 
+static int check_privileges(void) {
+        uint64_t required_caps, current_caps;
+        int r;
+
+        required_caps =
+                (UINT64_C(1) << CAP_NET_RAW) |          /* needed for SO_BINDTODEVICE */
+                (UINT64_C(1) << CAP_NET_BIND_SERVICE) | /* needed to bind on port 53 */
+                (UINT64_C(1) << CAP_SETPCAP);           /* needed in order to drop the caps later */
+
+        if (geteuid() == 0 || getegid() == 0) {
+                const char *user = "systemd-resolve";
+                uid_t uid;
+                gid_t gid;
+
+                r = get_user_creds(&user, &uid, &gid, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Cannot resolve user name %s: %m", user);
+
+                r = drop_privileges(uid, gid, required_caps);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to drop privileges: %m");
+
+                return 0;
+        }
+
+        r = get_effective_caps(&current_caps);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get current capabilities: %m");
+
+        if ((current_caps & required_caps) != required_caps) {
+                log_error("Missing required capabilities. This process requires "
+                          "CAP_NET_RAW, CAP_NET_BIND_SERVICE, and CAP_SETPCAP");
+                return -EPERM;
+        }
+
+        if (current_caps != required_caps) {
+                log_warning("This process has unnecessary capabilities. Try to drop them.");
+
+                /* Try to drop unnecessary caps */
+                r = capability_bounding_set_drop(required_caps, true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to drop capabilities: %m");
+        }
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
-        const char *user = "systemd-resolve";
-        uid_t uid;
-        gid_t gid;
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
@@ -54,24 +97,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = get_user_creds(&user, &uid, &gid, NULL, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Cannot resolve user name %s: %m", user);
-                goto finish;
-        }
-
-        /* Always create the directory where resolv.conf will live */
-        r = mkdir_safe_label("/run/systemd/resolve", 0755, uid, gid);
-        if (r < 0) {
-                log_error_errno(r, "Could not create runtime directory: %m");
-                goto finish;
-        }
-
-        /* Drop privileges, but keep three caps. Note that we drop those too, later on (see below) */
-        r = drop_privileges(uid, gid,
-                            (UINT64_C(1) << CAP_NET_RAW)|          /* needed for SO_BINDTODEVICE */
-                            (UINT64_C(1) << CAP_NET_BIND_SERVICE)| /* needed to bind on port 53 */
-                            (UINT64_C(1) << CAP_SETPCAP)           /* needed in order to drop the caps later */);
+        r = check_privileges();
         if (r < 0)
                 goto finish;
 
@@ -95,7 +121,7 @@ int main(int argc, char *argv[]) {
         /* Let's drop the remaining caps now */
         r = capability_bounding_set_drop(0, true);
         if (r < 0) {
-                log_error_errno(r, "Failed to drop remaining caps: %m");
+                log_error_errno(r, "Failed to drop capabilities: %m");
                 goto finish;
         }
 

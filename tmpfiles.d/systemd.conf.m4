@@ -20,6 +20,7 @@ m4_ifdef(`ENABLE_NETWORKD',
 d /run/systemd/netif 0755 systemd-network systemd-network -
 d /run/systemd/netif/links 0755 systemd-network systemd-network -
 d /run/systemd/netif/leases 0755 systemd-network systemd-network -
+d /run/systemd/netif/lldp 0755 systemd-network systemd-network -
 )m4_dnl
 
 d /run/log 0755 root root -
@@ -71,3 +72,6 @@ a+ /var/log/journal/%m/system.journal - - - - group:wheel:r--
 
 d /var/lib/systemd 0755 root root -
 d /var/lib/systemd/coredump 0755 root root 3d
+m4_ifdef(`ENABLE_TIMESYNCD',
+d /var/lib/systemd/timesync 0755 systemd-timesync systemd-timesync - -
+)m4_dnl

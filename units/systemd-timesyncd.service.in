@@ -11,8 +11,8 @@ Documentation=man:systemd-timesyncd.service(8)
 ConditionCapability=CAP_SYS_TIME
 ConditionVirtualization=!container
 DefaultDependencies=no
-RequiresMountsFor=/var/lib/systemd/clock
-After=systemd-remount-fs.service systemd-tmpfiles-setup.service systemd-sysusers.service
+RequiresMountsFor=/var/lib/systemd/timesync/clock
+After=systemd-remount-fs.service systemd-sysusers.service
 Before=time-sync.target sysinit.target shutdown.target
 Conflicts=shutdown.target
 Wants=time-sync.target
@@ -23,7 +23,7 @@ Restart=always
 RestartSec=0
 ExecStart=@rootlibexecdir@/systemd-timesyncd
 WatchdogSec=3min
-CapabilityBoundingSet=CAP_SYS_TIME CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER
+CapabilityBoundingSet=CAP_SYS_TIME CAP_SETUID CAP_SETGID CAP_SETPCAP
 PrivateTmp=yes
 PrivateDevices=yes
 ProtectSystem=strict
@@ -37,7 +37,16 @@ RestrictNamespaces=yes
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 SystemCallFilter=~@cpu-emulation @debug @keyring @module @mount @obsolete @raw-io @reboot @swap
 SystemCallArchitectures=native
-ReadWritePaths=/var/lib/systemd
+StateDirectory=systemd/timesync
+StateDirectoryUser=systemd-timesync
+StateDirectoryGroup=systemd-timesync
+
+# For kernel-4.3 or later, we can also enable the following options
+# to drop more previleges
+#CapabilityBoundingSet=CAP_SYS_TIME
+#AmbientCapabilities=CAP_SYS_TIME
+#User=systemd-timesync
+#Group=systemd-timesync
 
 [Install]
 WantedBy=sysinit.target
