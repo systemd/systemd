@@ -3524,23 +3524,23 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         if (c->ioprio_set) {
                 _cleanup_free_ char *class_str = NULL;
 
-                ioprio_class_to_string_alloc(IOPRIO_PRIO_CLASS(c->ioprio), &class_str);
-                fprintf(f,
-                        "%sIOSchedulingClass: %s\n"
-                        "%sIOPriority: %i\n",
-                        prefix, strna(class_str),
-                        prefix, (int) IOPRIO_PRIO_DATA(c->ioprio));
+                r = ioprio_class_to_string_alloc(IOPRIO_PRIO_CLASS(c->ioprio), &class_str);
+                if (r >= 0)
+                        fprintf(f, "%sIOSchedulingClass: %s\n", prefix, class_str);
+
+                fprintf(f, "%sIOPriority: %lu\n", prefix, IOPRIO_PRIO_DATA(c->ioprio));
         }
 
         if (c->cpu_sched_set) {
                 _cleanup_free_ char *policy_str = NULL;
 
-                sched_policy_to_string_alloc(c->cpu_sched_policy, &policy_str);
+                r = sched_policy_to_string_alloc(c->cpu_sched_policy, &policy_str);
+                if (r >= 0)
+                        fprintf(f, "%sCPUSchedulingPolicy: %s\n", prefix, policy_str);
+
                 fprintf(f,
-                        "%sCPUSchedulingPolicy: %s\n"
                         "%sCPUSchedulingPriority: %i\n"
                         "%sCPUSchedulingResetOnFork: %s\n",
-                        prefix, strna(policy_str),
                         prefix, c->cpu_sched_priority,
                         prefix, yes_no(c->cpu_sched_reset_on_fork));
         }
@@ -3590,14 +3590,13 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
 
                 _cleanup_free_ char *fac_str = NULL, *lvl_str = NULL;
 
-                log_facility_unshifted_to_string_alloc(c->syslog_priority >> 3, &fac_str);
-                log_level_to_string_alloc(LOG_PRI(c->syslog_priority), &lvl_str);
+                r = log_facility_unshifted_to_string_alloc(c->syslog_priority >> 3, &fac_str);
+                if (r >= 0)
+                        fprintf(f, "%sSyslogFacility: %s\n", prefix, fac_str);
 
-                fprintf(f,
-                        "%sSyslogFacility: %s\n"
-                        "%sSyslogLevel: %s\n",
-                        prefix, strna(fac_str),
-                        prefix, strna(lvl_str));
+                r = log_level_to_string_alloc(LOG_PRI(c->syslog_priority), &lvl_str);
+                if (r >= 0)
+                        fprintf(f, "%sSyslogLevel: %s\n", prefix, lvl_str);
         }
 
         if (c->secure_bits)
