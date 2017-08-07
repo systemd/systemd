@@ -664,7 +664,12 @@ static int setup_microhttpd_server(RemoteServer *s,
                 return log_error_errno(r, "Failed to make fd:%d nonblocking: %m", fd);
 
 /* MHD_OPTION_STRICT_FOR_CLIENT is introduced in microhttpd 0.9.54,
- *  and MHD_USE_PEDANTIC_CHECKS will be deprecated in future. */
+ * and MHD_USE_PEDANTIC_CHECKS will be deprecated in future.
+ * If MHD_USE_PEDANTIC_CHECKS is '#define'd, then it is deprecated
+ * and we should use MHD_OPTION_STRICT_FOR_CLIENT. On the other hand,
+ * if MHD_USE_PEDANTIC_CHECKS is not '#define'd, then it is not
+ * deprecated yet and there exists an enum element with the same name.
+ * So we can safely use it. */
 #ifdef MHD_USE_PEDANTIC_CHECKS
         opts[opts_pos++] = (struct MHD_OptionItem)
                 {MHD_OPTION_STRICT_FOR_CLIENT, 1};
