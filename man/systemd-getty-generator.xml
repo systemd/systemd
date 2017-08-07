@@ -55,12 +55,14 @@
 
     <para><filename>systemd-getty-generator</filename> is a generator
     that automatically instantiates
-    <filename>serial-getty@.service</filename> on the kernel console
-    <filename>/dev/console</filename> if that is not directed to the
-    virtual console subsystem. It will also instantiate
+    <filename>serial-getty@.service</filename> on the kernel
+    console(s), if they can function as ttys and are not provided by
+    the virtual console subsystem. It will also instantiate
     <filename>serial-getty@.service</filename> instances for
     virtualizer consoles, if execution in a virtualized environment is
-    detected. Finally, it will instantiate
+    detected. If execution in a container environment is detected, it
+    will instead enable <filename>console-getty.service</filename> for
+    <filename>/dev/console</filename>, and
     <filename>container-getty@.service</filename> instances for
     additional container pseudo TTYs as requested by the container
     manager (see <ulink
@@ -78,8 +80,8 @@
     <para><filename>systemd-getty-generator</filename> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
-    <para>Further information about configuration of gettys you may
-    find in
+    <para>Further information about configuration of gettys can be
+    found in
     <ulink url="http://0pointer.de/blog/projects/serial-console.html">systemd
     for Administrators, Part XVI: Gettys on Serial Consoles (and
     Elsewhere)</ulink>.</para>

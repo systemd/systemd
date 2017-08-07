@@ -7,7 +7,7 @@
 
 [Unit]
 Description=Console Getty
-Documentation=man:agetty(8)
+Documentation=man:agetty(8) man:systemd-getty-generator(8)
 After=systemd-user-sessions.service plymouth-quit-wait.service
 ConditionPathExists=/dev/console
 m4_ifdef(`HAVE_SYSV_COMPAT',
