@@ -1141,7 +1141,7 @@ _public_ int sd_bus_open_user(sd_bus **ret) {
 
         r = bus_set_address_user(b);
         if (r < 0)
-                return r;
+                goto fail;
 
         b->bus_client = true;
         b->is_user = true;
