@@ -858,6 +858,30 @@ static void transaction_unlink_job(Transaction *tr, Job *j, bool delete_dependen
         }
 }
 
+void transaction_add_propagate_reload_jobs(Transaction *tr, Unit *unit, Job *by, bool ignore_order, sd_bus_error *e) {
+        Iterator i;
+        Unit *dep;
+        JobType nt;
+        int r;
+
+        assert(tr);
+        assert(unit);
+
+        SET_FOREACH(dep, unit->dependencies[UNIT_PROPAGATES_RELOAD_TO], i) {
+                nt = job_type_collapse(JOB_TRY_RELOAD, dep);
+                if (nt == JOB_NOP)
+                        continue;
+
+                r = transaction_add_job_and_dependencies(tr, nt, dep, by, false, false, false, ignore_order, e);
+                if (r < 0) {
+                        log_unit_warning(dep,
+                                         "Cannot add dependency reload job, ignoring: %s",
+                                         bus_error_message(e, r));
+                        sd_bus_error_free(e);
+                }
+        }
+}
+
 int transaction_add_job_and_dependencies(
                 Transaction *tr,
                 JobType type,
@@ -1043,24 +1067,8 @@ int transaction_add_job_and_dependencies(
                                 }
                 }
 
-                if (type == JOB_RELOAD) {
-
-                        SET_FOREACH(dep, ret->unit->dependencies[UNIT_PROPAGATES_RELOAD_TO], i) {
-                                JobType nt;
-
-                                nt = job_type_collapse(JOB_TRY_RELOAD, dep);
-                                if (nt == JOB_NOP)
-                                        continue;
-
-                                r = transaction_add_job_and_dependencies(tr, nt, dep, ret, false, false, false, ignore_order, e);
-                                if (r < 0) {
-                                        log_unit_warning(dep,
-                                                         "Cannot add dependency reload job, ignoring: %s",
-                                                         bus_error_message(e, r));
-                                        sd_bus_error_free(e);
-                                }
-                        }
-                }
+                if (type == JOB_RELOAD)
+                        transaction_add_propagate_reload_jobs(tr, ret->unit, ret, ignore_order, e);
 
                 /* JOB_VERIFY_STARTED require no dependency handling */
         }
