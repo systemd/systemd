@@ -317,7 +317,12 @@ install_dmevent() {
 
 install_systemd() {
     # install compiled files
-    (set -x; DESTDIR=$initdir ninja -C $BUILD_DIR install)
+    local _ninja_bin=$(type -P ninja || type -P ninja-build)
+    if [[ -z "$_ninja_bin" ]]; then
+        dfatal "ninja was not found"
+        exit 1
+    fi
+    (set -x; DESTDIR=$initdir "$_ninja_bin" -C $BUILD_DIR install)
     # remove unneeded documentation
     rm -fr $initdir/usr/share/{man,doc}
     # we strip binaries since debug symbols increase binaries size a lot
