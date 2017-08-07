@@ -17,6 +17,11 @@ Before=getty.target
 IgnoreOnIsolate=yes
 ConditionPathExists=/dev/pts/%I
 
+# IgnoreOnIsolate is an issue: when someone isolates rescue.target,
+# tradition expects that we shut down all but the main console.
+Conflicts=rescue.service
+Before=rescue.service
+
 [Service]
 # The '-o' option value tells agetty to replace 'login' arguments with an
 # option to preserve environment (-p), followed by '--' for safety, and then
