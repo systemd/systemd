@@ -3610,25 +3610,19 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         (c->secure_bits & 1<<SECURE_NOROOT_LOCKED) ? "noroot-locked" : "");
 
         if (c->capability_bounding_set != CAP_ALL) {
-                unsigned long l;
-                fprintf(f, "%sCapabilityBoundingSet:", prefix);
+                _cleanup_free_ char *str = NULL;
 
-                for (l = 0; l <= cap_last_cap(); l++)
-                        if (c->capability_bounding_set & (UINT64_C(1) << l))
-                                fprintf(f, " %s", strna(capability_to_name(l)));
-
-                fputs("\n", f);
+                r = capability_set_to_string_alloc(c->capability_bounding_set, &str);
+                if (r >= 0)
+                        fprintf(f, "%sCapabilityBoundingSet: %s\n", prefix, str);
         }
 
         if (c->capability_ambient_set != 0) {
-                unsigned long l;
-                fprintf(f, "%sAmbientCapabilities:", prefix);
+                _cleanup_free_ char *str = NULL;
 
-                for (l = 0; l <= cap_last_cap(); l++)
-                        if (c->capability_ambient_set & (UINT64_C(1) << l))
-                                fprintf(f, " %s", strna(capability_to_name(l)));
-
-                fputs("\n", f);
+                r = capability_set_to_string_alloc(c->capability_ambient_set, &str);
+                if (r >= 0)
+                        fprintf(f, "%sAmbientCapabilities: %s\n", prefix, str);
         }
 
         if (c->user)

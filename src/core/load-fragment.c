@@ -1157,7 +1157,7 @@ int config_parse_capability_set(
         uint64_t *capability_set = data;
         uint64_t sum = 0, initial = 0;
         bool invert = false;
-        const char *p;
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -1173,28 +1173,12 @@ int config_parse_capability_set(
                 initial = CAP_ALL; /* initialized to all bits on */
         /* else "AmbientCapabilities" initialized to all bits off */
 
-        p = rvalue;
-        for (;;) {
-                _cleanup_free_ char *word = NULL;
-                int cap, r;
-
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
-                if (r == 0)
-                        break;
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse word, ignoring: %s", rvalue);
-                        break;
-                }
-
-                cap = capability_from_name(word);
-                if (cap < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse capability in bounding/ambient set, ignoring: %s", word);
-                        continue;
-                }
-
-                sum |= ((uint64_t) UINT64_C(1)) << (uint64_t) cap;
+        r = capability_set_from_string(rvalue, &sum);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse word: %s", rvalue);
+                return 0;
         }
 
         sum = invert ? ~sum : sum;
