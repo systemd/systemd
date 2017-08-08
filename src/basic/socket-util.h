@@ -27,6 +27,7 @@
 #include <sys/types.h>
 #include <sys/un.h>
 #include <linux/netlink.h>
+#include <linux/if_infiniband.h>
 #include <linux/if_packet.h>
 
 #include "macro.h"
@@ -42,6 +43,8 @@ union sockaddr_union {
         struct sockaddr_storage storage;
         struct sockaddr_ll ll;
         struct sockaddr_vm vm;
+        /* Ensure there is enough space to store Infiniband addresses */
+        uint8_t ll_buffer[offsetof(struct sockaddr_ll, sll_addr) + CONST_MAX(ETH_ALEN, INFINIBAND_ALEN)];
 };
 
 typedef struct SocketAddress {
@@ -146,6 +149,23 @@ int flush_accept(int fd);
         for ((cmsg) = CMSG_FIRSTHDR(mh); (cmsg); (cmsg) = CMSG_NXTHDR((mh), (cmsg)))
 
 struct cmsghdr* cmsg_find(struct msghdr *mh, int level, int type, socklen_t length);
+
+/*
+ * Certain hardware address types (e.g Infiniband) do not fit into sll_addr
+ * (8 bytes) and run over the structure. This macro returns the correct size that
+ * must be passed to kernel.
+ */
+#define SOCKADDR_LL_LEN(sa)                                             \
+        ({                                                              \
+                const struct sockaddr_ll *_sa = &(sa);                  \
+                size_t _mac_len = sizeof(_sa->sll_addr);                \
+                assert(_sa->sll_family == AF_PACKET);                   \
+                if (be16toh(_sa->sll_hatype) == ARPHRD_ETHER)           \
+                        _mac_len = MAX(_mac_len, (size_t) ETH_ALEN);    \
+                if (be16toh(_sa->sll_hatype) == ARPHRD_INFINIBAND)      \
+                        _mac_len = MAX(_mac_len, (size_t) INFINIBAND_ALEN); \
+                offsetof(struct sockaddr_ll, sll_addr) + _mac_len;      \
+        })
 
 /* Covers only file system and abstract AF_UNIX socket addresses, but not unnamed socket addresses. */
 #define SOCKADDR_UN_LEN(sa)                                             \
