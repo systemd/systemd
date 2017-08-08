@@ -29,6 +29,7 @@
 #include "alloc-util.h"
 #include "macro.h"
 #include "nsflags.h"
+#include "process-util.h"
 #include "seccomp-util.h"
 #include "string-util.h"
 #include "util.h"
@@ -1308,6 +1309,24 @@ int seccomp_restrict_archs(Set *archs) {
         }
 
         r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
+        if (r < 0)
+                return r;
+
+        return seccomp_load(seccomp);
+}
+
+int seccomp_lock_personality(unsigned long personality) {
+        _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
+        int r;
+
+        seccomp = seccomp_init(SCMP_ACT_ALLOW);
+        if (!seccomp)
+                return -ENOMEM;
+
+        r = seccomp_rule_add_exact(seccomp, SCMP_ACT_ERRNO(EPERM),
+                                   SCMP_SYS(personality),
+                                   1,
+                                   SCMP_A0(SCMP_CMP_NE, personality));
         if (r < 0)
                 return r;
 
