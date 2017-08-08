@@ -98,7 +98,8 @@
 
 # common keys
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pn*
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnGateway*:pnA0A1*:pvr*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnGateway*:pn*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPackard*Bell*:pn*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svneMachines:pneMachines*E725:pvr*
  KEYBOARD_KEY_86=wlan                                   # Fn+F3 or Fn+Q for comunication key
  KEYBOARD_KEY_a5=help                                   # Fn+F1
@@ -181,10 +182,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*1640:*
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAOA*:pvr*
  KEYBOARD_KEY_a9=!switchvideomode                       # Fn+F5
-
-# Easynote models
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPackard*Bell*:pnEasynote*:pvr*
- KEYBOARD_KEY_86=wlan                                   # Fn+F3 or Fn+Q for comunication key
 
 ###########################################################
 # Alienware
