@@ -430,6 +430,10 @@ mouse:usb:v046dp4041:name:Logitech MX Master:
 mouse:usb:v046dpc52e:name:Logitech USB Receiver:
  MOUSE_DPI=1000@200
 
+# Logitech G100s Optical Gaming Mouse
+mouse:usb:v046dpc247:name:Logitech G100s Optical Gaming Mouse:
+ MOUSE_DPI=*1000@500 1750@500 2500@500
+
 # Logitech G700 Laser Mouse (Wired)
 mouse:usb:v046dpc06b:name:Logitech G700 Laser Mouse:
 # Logitech G700 Laser Mouse (Wireless)
