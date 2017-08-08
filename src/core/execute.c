@@ -2304,13 +2304,13 @@ static int exec_child(
         ino_t journal_stream_ino = 0;
         bool needs_sandboxing, needs_mount_namespace;
 #ifdef HAVE_SELINUX
-        bool needs_selinux = false;
+        bool use_selinux = false;
 #endif
 #ifdef HAVE_SMACK
-        bool needs_smack = false;
+        bool use_smack = false;
 #endif
 #ifdef HAVE_APPARMOR
-        bool needs_apparmor = false;
+        bool use_apparmor = false;
 #endif
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
@@ -2669,15 +2669,15 @@ static int exec_child(
                  * impacting our own code paths. */
 
 #ifdef HAVE_SELINUX
-                needs_selinux = mac_selinux_use();
+                use_selinux = mac_selinux_use();
 #endif
 
 #ifdef HAVE_SMACK
-                needs_smack = mac_smack_use();
+                use_smack = mac_smack_use();
 #endif
 
 #ifdef HAVE_APPARMOR
-                needs_apparmor = context->apparmor_profile && mac_apparmor_use();
+                use_apparmor = mac_apparmor_use();
 #endif
 
         }
@@ -2713,7 +2713,7 @@ static int exec_child(
                 }
 
 #ifdef HAVE_SELINUX
-                if (needs_selinux && params->selinux_context_net && socket_fd >= 0) {
+                if (use_selinux && params->selinux_context_net && socket_fd >= 0) {
                         r = mac_selinux_get_child_mls_label(socket_fd, command->path, context->selinux_context, &mac_selinux_context_net);
                         if (r < 0) {
                                 *exit_status = EXIT_SELINUX_CONTEXT;
@@ -2825,7 +2825,7 @@ static int exec_child(
                  * are restricted. */
 
 #ifdef HAVE_SELINUX
-                if (needs_selinux) {
+                if (use_selinux) {
                         char *exec_context = mac_selinux_context_net ?: context->selinux_context;
 
                         if (exec_context) {
@@ -2840,7 +2840,7 @@ static int exec_child(
 #endif
 
 #ifdef HAVE_SMACK
-                if (needs_smack) {
+                if (use_smack) {
                         r = setup_smack(context, command);
                         if (r < 0) {
                                 *exit_status = EXIT_SMACK_PROCESS_LABEL;
@@ -2851,7 +2851,7 @@ static int exec_child(
 #endif
 
 #ifdef HAVE_APPARMOR
-                if (needs_apparmor) {
+                if (use_apparmor && context->apparmor_profile) {
                         r = aa_change_onexec(context->apparmor_profile);
                         if (r < 0 && !context->apparmor_profile_ignore) {
                                 *exit_status = EXIT_APPARMOR_PROFILE;
