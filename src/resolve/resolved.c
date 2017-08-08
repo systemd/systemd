@@ -21,19 +21,15 @@
 #include "sd-event.h"
 
 #include "capability-util.h"
-#include "mkdir.h"
+#include "privilege-util.h"
 #include "resolved-conf.h"
 #include "resolved-manager.h"
 #include "resolved-resolv-conf.h"
 #include "selinux-util.h"
 #include "signal-util.h"
-#include "user-util.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
-        const char *user = "systemd-resolve";
-        uid_t uid;
-        gid_t gid;
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
@@ -54,24 +50,10 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = get_user_creds(&user, &uid, &gid, NULL, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Cannot resolve user name %s: %m", user);
-                goto finish;
-        }
-
-        /* Always create the directory where resolv.conf will live */
-        r = mkdir_safe_label("/run/systemd/resolve", 0755, uid, gid);
-        if (r < 0) {
-                log_error_errno(r, "Could not create runtime directory: %m");
-                goto finish;
-        }
-
-        /* Drop privileges, but keep three caps. Note that we drop those too, later on (see below) */
-        r = drop_privileges(uid, gid,
-                            (UINT64_C(1) << CAP_NET_RAW)|          /* needed for SO_BINDTODEVICE */
-                            (UINT64_C(1) << CAP_NET_BIND_SERVICE)| /* needed to bind on port 53 */
-                            (UINT64_C(1) << CAP_SETPCAP)           /* needed in order to drop the caps later */);
+        r = check_privileges("systemd-resolve",
+                             (UINT64_C(1) << CAP_NET_RAW) |          /* needed for SO_BINDTODEVICE */
+                             (UINT64_C(1) << CAP_NET_BIND_SERVICE) | /* needed to bind on port 53 */
+                             (UINT64_C(1) << CAP_SETPCAP));           /* needed in order to drop the caps later */
         if (r < 0)
                 goto finish;
 
@@ -95,7 +77,7 @@ int main(int argc, char *argv[]) {
         /* Let's drop the remaining caps now */
         r = capability_bounding_set_drop(0, true);
         if (r < 0) {
-                log_error_errno(r, "Failed to drop remaining caps: %m");
+                log_error_errno(r, "Failed to drop capabilities: %m");
                 goto finish;
         }
 

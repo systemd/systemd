@@ -189,6 +189,7 @@ struct ExecContext {
 
         uint64_t capability_bounding_set;
         uint64_t capability_ambient_set;
+        bool ambient_capability_fallback;
         int secure_bits;
 
         int syslog_priority;
