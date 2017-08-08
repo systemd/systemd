@@ -1154,26 +1154,36 @@ int config_parse_capability_set(
                 void *data,
                 void *userdata) {
 
-        uint64_t *capability_set = data;
+        ExecContext *c = data;
+        uint64_t *capability_set;
+        bool *fallback = NULL;
         uint64_t sum = 0, initial = 0;
         bool invert = false;
-        const char *p;
+        const char *p = rvalue;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if (rvalue[0] == '~') {
-                invert = true;
-                rvalue++;
+        if (streq(lvalue, "CapabilityBoundingSet")) {
+                capability_set = &c->capability_bounding_set;
+                initial = CAP_ALL; /* initialized to all bits on */
+        } else {
+                capability_set = &c->capability_ambient_set;
+                fallback = &c->ambient_capability_fallback;
         }
 
-        if (streq(lvalue, "CapabilityBoundingSet"))
-                initial = CAP_ALL; /* initialized to all bits on */
-        /* else "AmbientCapabilities" initialized to all bits off */
+        for (;;) {
+                if (*p == '~')
+                        invert = true;
+                else if (*p == '-' && fallback)
+                        *fallback = true;
+                else
+                        break;
+                p++;
+        }
 
-        p = rvalue;
         for (;;) {
                 _cleanup_free_ char *word = NULL;
                 int cap, r;

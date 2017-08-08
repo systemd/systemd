@@ -954,6 +954,9 @@ static int enforce_groups(const ExecContext *context, gid_t gid,
                         return r;
         }
 
+        if (context->ambient_capability_fallback)
+                return 0;
+
         if (gid_is_valid(gid)) {
                 /* Then set our gids */
                 if (setresgid(gid, gid, gid) < 0)
@@ -965,6 +968,9 @@ static int enforce_groups(const ExecContext *context, gid_t gid,
 
 static int enforce_user(const ExecContext *context, uid_t uid) {
         assert(context);
+
+        if (context->ambient_capability_fallback)
+                return 0;
 
         if (!uid_is_valid(uid))
                 return 0;
@@ -3622,7 +3628,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
 
         if (c->capability_ambient_set != 0) {
                 unsigned long l;
-                fprintf(f, "%sAmbientCapabilities:", prefix);
+                fprintf(f, "%sAmbientCapabilities: %s",
+                        prefix, c->ambient_capability_fallback ? "-" : "");
 
                 for (l = 0; l <= cap_last_cap(); l++)
                         if (c->capability_ambient_set & (UINT64_C(1) << l))

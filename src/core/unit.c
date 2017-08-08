@@ -29,6 +29,7 @@
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
+#include "capability-util.h"
 #include "cgroup-util.h"
 #include "dbus-unit.h"
 #include "dbus.h"
@@ -3583,6 +3584,13 @@ int unit_patch_contexts(Unit *u) {
                         ec->protect_system = PROTECT_SYSTEM_STRICT;
                         if (ec->protect_home == PROTECT_HOME_NO)
                                 ec->protect_home = PROTECT_HOME_READ_ONLY;
+                }
+
+                if (ec->ambient_capability_fallback) {
+                        if (ambient_capability_is_supported())
+                                ec->ambient_capability_fallback = false;
+                        else
+                                ec->capability_ambient_set = 0;
                 }
         }
 
