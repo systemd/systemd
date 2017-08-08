@@ -64,7 +64,7 @@ int acquire_random_bytes(void *p, size_t n, bool high_quality_required) {
                         if ((size_t) r == n)
                                 return 0;
                         if (!high_quality_required) {
-                                /* Fill in the remaing bytes using pseudorandom values */
+                                /* Fill in the remaining bytes using pseudorandom values */
                                 pseudorandom_bytes((uint8_t*) p + r, n - r);
                                 return 0;
                         }
