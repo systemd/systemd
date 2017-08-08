@@ -842,7 +842,7 @@ int bus_print_property(const char *name, sd_bus_message *property, bool value, b
                                 if (first && !value)
                                         printf("%s=", name);
 
-                                /* This property has multiple space-seperated values, so
+                                /* This property has multiple space-separated values, so
                                  * neither spaces not newlines can be allowed in a value. */
                                 good = str[strcspn(str, " \n")] == '\0';
 

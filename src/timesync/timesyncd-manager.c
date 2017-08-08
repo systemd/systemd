@@ -1093,7 +1093,7 @@ static int manager_network_monitor_listen(Manager *m) {
 
         r = sd_network_monitor_new(&m->network_monitor, NULL);
         if (r == -ENOENT) {
-                log_info("Systemd does not appear to be running, not listening for systmed-networkd events.");
+                log_info("Systemd does not appear to be running, not listening for systemd-networkd events.");
                 return 0;
         }
         if (r < 0)
