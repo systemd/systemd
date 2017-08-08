@@ -157,7 +157,7 @@ static void test_login(void) {
                 if (r >= 0) {
                         assert_se(seat);
 
-                        log_info("sd_session_get_display(\"%s\") → \"%s\"", session, seat);
+                        log_info("sd_session_get_seat(\"%s\") → \"%s\"", session, seat);
 
                         r = sd_seat_can_multi_session(seat);
                         assert_se(r >= 0);
@@ -171,7 +171,7 @@ static void test_login(void) {
                         assert_se(r >= 0);
                         log_info("sd_session_can_graphical(\"%s\") → %s", seat, yes_no(r));
                 } else {
-                        log_info_errno(r, "sd_session_get_display(\"%s\"): %m", session);
+                        log_info_errno(r, "sd_session_get_seat(\"%s\"): %m", session);
                         assert_se(r == -ENODATA);
                 }
 
