@@ -21,8 +21,12 @@ Type=notify
 Restart=on-failure
 RestartSec=0
 ExecStart=@rootlibexecdir@/systemd-networkd
+User=systemd-network
+Group=systemd-network
+UMask=0022
 WatchdogSec=3min
-CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW
 ProtectSystem=strict
 ProtectHome=yes
 ProtectControlGroups=yes
@@ -33,6 +37,9 @@ RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6 AF_PACKET
 SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @mount @obsolete @raw-io @reboot @swap
 SystemCallArchitectures=native
 ReadWritePaths=/run/systemd
+RuntimeDirectory=/run/systemd/netif /run/systemd/netif/links /run/systemd/netif/leases /run/systemd/netif/lldp
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=always
 
 [Install]
 WantedBy=multi-user.target
