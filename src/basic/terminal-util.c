@@ -649,10 +649,7 @@ bool tty_is_vc(const char *tty) {
 bool tty_is_console(const char *tty) {
         assert(tty);
 
-        if (startswith(tty, "/dev/"))
-                tty += 5;
-
-        return streq(tty, "console");
+        return streq(skip_dev_prefix(tty), "console");
 }
 
 int vtnr_from_tty(const char *tty) {
@@ -660,8 +657,7 @@ int vtnr_from_tty(const char *tty) {
 
         assert(tty);
 
-        if (startswith(tty, "/dev/"))
-                tty += 5;
+        tty = skip_dev_prefix(tty);
 
         if (!startswith(tty, "tty") )
                 return -EINVAL;
@@ -775,8 +771,7 @@ bool tty_is_vc_resolve(const char *tty) {
 
         assert(tty);
 
-        if (startswith(tty, "/dev/"))
-                tty += 5;
+        tty = skip_dev_prefix(tty);
 
         if (streq(tty, "console")) {
                 tty = resolve_dev_console(&active);
@@ -918,11 +913,9 @@ int getttyname_malloc(int fd, char **ret) {
 
                 r = ttyname_r(fd, path, sizeof(path));
                 if (r == 0) {
-                        const char *p;
                         char *c;
 
-                        p = startswith(path, "/dev/");
-                        c = strdup(p ?: path);
+                        c = strdup(skip_dev_prefix(path));
                         if (!c)
                                 return -ENOMEM;
 

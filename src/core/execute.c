@@ -3400,8 +3400,7 @@ static bool tty_may_match_dev_console(const char *tty) {
         if (!tty)
                 return true;
 
-        if (startswith(tty, "/dev/"))
-                tty += 5;
+        tty = skip_dev_prefix(tty);
 
         /* trivial identity? */
         if (streq(tty, "console"))

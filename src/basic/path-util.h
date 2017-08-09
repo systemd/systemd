@@ -143,3 +143,13 @@ bool is_deviceallow_pattern(const char *path);
 int systemd_installation_has_version(const char *root, unsigned minimal_version);
 
 bool dot_or_dot_dot(const char *path);
+
+static inline const char *skip_dev_prefix(const char *p) {
+        const char *e;
+
+        /* Drop any /dev prefix if there is any */
+
+        e = path_startswith(p, "/dev/");
+
+        return e ?: p;
+}
