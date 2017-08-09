@@ -457,7 +457,7 @@ static int method_take_device(sd_bus_message *message, void *userdata, sd_bus_er
                 goto error;
 
         session_save(s);
-        return 0;
+        return 1;
 
 error:
         session_device_free(sd);
