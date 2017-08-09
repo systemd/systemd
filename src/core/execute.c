@@ -1312,8 +1312,9 @@ static bool skip_seccomp_unavailable(const Unit* u, const char* msg) {
         return true;
 }
 
-static int apply_syscall_filter(const Unit* u, const ExecContext *c) {
+static int apply_syscall_filter(const Unit* u, const ExecContext *c, bool needs_ambient_hack) {
         uint32_t negative_action, default_action, action;
+        int r;
 
         assert(u);
         assert(c);
@@ -1332,6 +1333,12 @@ static int apply_syscall_filter(const Unit* u, const ExecContext *c) {
         } else {
                 default_action = SCMP_ACT_ALLOW;
                 action = negative_action;
+        }
+
+        if (needs_ambient_hack) {
+                r = seccomp_filter_set_add(c->syscall_filter, c->syscall_whitelist, syscall_filter_sets + SYSCALL_FILTER_SET_SETUID);
+                if (r < 0)
+                        return r;
         }
 
         return seccomp_load_syscall_filter_set_raw(default_action, c->syscall_filter, action);
@@ -2004,7 +2011,7 @@ static int apply_mount_namespace(
                 .protect_kernel_modules = context->protect_kernel_modules,
                 .mount_apivfs = context->mount_apivfs,
         };
-        bool apply_restrictions;
+        bool needs_sandboxing;
         int r;
 
         assert(context);
@@ -2039,18 +2046,18 @@ static int apply_mount_namespace(
         if (!context->dynamic_user && root_dir)
                 ns_info.ignore_protect_paths = true;
 
-        apply_restrictions = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
+        needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
 
         r = setup_namespace(root_dir, root_image,
                             &ns_info, rw,
-                            apply_restrictions ? context->read_only_paths : NULL,
-                            apply_restrictions ? context->inaccessible_paths : NULL,
+                            needs_sandboxing ? context->read_only_paths : NULL,
+                            needs_sandboxing ? context->inaccessible_paths : NULL,
                             context->bind_mounts,
                             context->n_bind_mounts,
                             tmp,
                             var,
-                            apply_restrictions ? context->protect_home : PROTECT_HOME_NO,
-                            apply_restrictions ? context->protect_system : PROTECT_SYSTEM_NO,
+                            needs_sandboxing ? context->protect_home : PROTECT_HOME_NO,
+                            needs_sandboxing ? context->protect_system : PROTECT_SYSTEM_NO,
                             context->mount_flags,
                             DISSECT_IMAGE_DISCARD_ON_LOOP);
 
@@ -2302,7 +2309,10 @@ static int exec_child(
         const char *home = NULL, *shell = NULL;
         dev_t journal_stream_dev = 0;
         ino_t journal_stream_ino = 0;
-        bool needs_sandboxing, needs_mount_namespace;
+        bool needs_sandboxing,          /* Do we need to set up full sandboxing? (i.e. all namespacing, all MAC stuff, caps, yadda yadda */
+                needs_setuid,           /* Do we need to do the actual setresuid()/setresgid() calls? */
+                needs_mount_namespace,  /* Do we need to set up a mount namespace for this kernel? */
+                needs_ambient_hack;     /* Do we need to apply the ambient capabilities hack? */
 #ifdef HAVE_SELINUX
         bool use_selinux = false;
 #endif
@@ -2317,6 +2327,7 @@ static int exec_child(
         int i, r, ngids = 0;
         unsigned n_fds;
         ExecDirectoryType dt;
+        int secure_bits;
 
         assert(unit);
         assert(command);
@@ -2653,17 +2664,19 @@ static int exec_child(
                 return r;
         }
 
+        /* We need sandboxing if the caller asked us to apply it and the command isn't explicitly excepted from it */
         needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
 
-        if (needs_sandboxing) {
-                if (context->pam_name && username) {
-                        r = setup_pam(context->pam_name, username, uid, gid, context->tty_path, &accum_env, fds, n_fds);
-                        if (r < 0) {
-                                *exit_status = EXIT_PAM;
-                                return r;
-                        }
-                }
+        /* We need the ambient capability hack, if the caller asked us to apply it and the command is marked for it, and the kernel doesn't actually support ambient caps */
+        needs_ambient_hack = (params->flags & EXEC_APPLY_SANDBOXING) && (command->flags & EXEC_COMMAND_AMBIENT_MAGIC) && !ambient_capabilities_supported();
 
+        /* We need setresuid() if the caller asked us to apply sandboxing and the command isn't explicitly excepted from either whole sandboxing or just setresuid() itself, and the ambient hack is not desired */
+        if (needs_ambient_hack)
+                needs_setuid = false;
+        else
+                needs_setuid = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID));
+
+        if (needs_sandboxing) {
                 /* MAC enablement checks need to be done before a new mount ns is created, as they rely on /sys being
                  * present. The actual MAC context application will happen later, as late as possible, to avoid
                  * impacting our own code paths. */
@@ -2671,15 +2684,22 @@ static int exec_child(
 #ifdef HAVE_SELINUX
                 use_selinux = mac_selinux_use();
 #endif
-
 #ifdef HAVE_SMACK
                 use_smack = mac_smack_use();
 #endif
-
 #ifdef HAVE_APPARMOR
                 use_apparmor = mac_apparmor_use();
 #endif
+        }
 
+        if (needs_setuid) {
+                if (context->pam_name && username) {
+                        r = setup_pam(context->pam_name, username, uid, gid, context->tty_path, &accum_env, fds, n_fds);
+                        if (r < 0) {
+                                *exit_status = EXIT_PAM;
+                                return r;
+                        }
+                }
         }
 
         if (context->private_network && runtime && runtime->netns_storage_socket[0] >= 0) {
@@ -2705,13 +2725,15 @@ static int exec_child(
                 return r;
 
         /* Drop groups as early as possbile */
-        if (needs_sandboxing) {
+        if (needs_setuid) {
                 r = enforce_groups(context, gid, supplementary_gids, ngids);
                 if (r < 0) {
                         *exit_status = EXIT_GROUP;
                         return r;
                 }
+        }
 
+        if (needs_sandboxing) {
 #ifdef HAVE_SELINUX
                 if (use_selinux && params->selinux_context_net && socket_fd >= 0) {
                         r = mac_selinux_get_child_mls_label(socket_fd, command->path, context->selinux_context, &mac_selinux_context_net);
@@ -2731,12 +2753,9 @@ static int exec_child(
                 }
         }
 
-        /* We repeat the fd closing here, to make sure that
-         * nothing is leaked from the PAM modules. Note that
-         * we are more aggressive this time since socket_fd
-         * and the netns fds we don't need anymore. The custom
-         * endpoint fd was needed to upload the policy and can
-         * now be closed as well. */
+        /* We repeat the fd closing here, to make sure that nothing is leaked from the PAM modules. Note that we are
+         * more aggressive this time since socket_fd and the netns fds we don't need anymore. The custom endpoint fd
+         * was needed to upload the policy and can now be closed as well. */
         r = close_all_fds(fds, n_fds);
         if (r >= 0)
                 r = shift_fds(fds, n_fds);
@@ -2747,9 +2766,10 @@ static int exec_child(
                 return r;
         }
 
-        if (needs_sandboxing) {
+        secure_bits = context->secure_bits;
 
-                int secure_bits = context->secure_bits;
+        if (needs_sandboxing) {
+                uint64_t bset;
 
                 for (i = 0; i < _RLIMIT_MAX; i++) {
 
@@ -2771,8 +2791,17 @@ static int exec_child(
                         }
                 }
 
-                if (!cap_test_all(context->capability_bounding_set)) {
-                        r = capability_bounding_set_drop(context->capability_bounding_set, false);
+                bset = context->capability_bounding_set;
+                /* If the ambient caps hack is enabled (which means the kernel can't do them, and the user asked for
+                 * our magic fallback), then let's add some extra caps, so that the service can drop privs of its own,
+                 * instead of us doing that */
+                if (needs_ambient_hack)
+                        bset |= (UINT64_C(1) << CAP_SETPCAP) |
+                                (UINT64_C(1) << CAP_SETUID) |
+                                (UINT64_C(1) << CAP_SETGID);
+
+                if (!cap_test_all(bset)) {
+                        r = capability_bounding_set_drop(bset, false);
                         if (r < 0) {
                                 *exit_status = EXIT_CAPABILITIES;
                                 *error_message = strdup("Failed to drop capabilities");
@@ -2782,7 +2811,8 @@ static int exec_child(
 
                 /* This is done before enforce_user, but ambient set
                  * does not survive over setresuid() if keep_caps is not set. */
-                if (context->capability_ambient_set != 0) {
+                if (!needs_ambient_hack &&
+                    context->capability_ambient_set != 0) {
                         r = capability_ambient_set_apply(context->capability_ambient_set, true);
                         if (r < 0) {
                                 *exit_status = EXIT_CAPABILITIES;
@@ -2790,7 +2820,9 @@ static int exec_child(
                                 return r;
                         }
                 }
+        }
 
+        if (needs_setuid) {
                 if (context->user) {
                         r = enforce_user(context, uid);
                         if (r < 0) {
@@ -2798,7 +2830,9 @@ static int exec_child(
                                 (void) asprintf(error_message, "Failed to change UID to "UID_FMT, uid);
                                 return r;
                         }
-                        if (context->capability_ambient_set != 0) {
+
+                        if (!needs_ambient_hack &&
+                            context->capability_ambient_set != 0) {
 
                                 /* Fix the ambient capabilities after user change. */
                                 r = capability_ambient_set_apply(context->capability_ambient_set, false);
@@ -2818,7 +2852,9 @@ static int exec_child(
                                 secure_bits |= 1<<SECURE_KEEP_CAPS;
                         }
                 }
+        }
 
+        if (needs_sandboxing) {
                 /* Apply the MAC contexts late, but before seccomp syscall filtering, as those should really be last to
                  * influence our own codepaths as little as possible. Moreover, applying MAC contexts usually requires
                  * syscalls that are subject to seccomp filtering, hence should probably be applied before the syscalls
@@ -2863,10 +2899,8 @@ static int exec_child(
                 }
 #endif
 
-                /* PR_GET_SECUREBITS is not privileged, while
-                 * PR_SET_SECUREBITS is. So to suppress
-                 * potential EPERMs we'll try not to call
-                 * PR_SET_SECUREBITS unless necessary. */
+                /* PR_GET_SECUREBITS is not privileged, while PR_SET_SECUREBITS is. So to suppress potential EPERMs
+                 * we'll try not to call PR_SET_SECUREBITS unless necessary. */
                 if (prctl(PR_GET_SECUREBITS) != secure_bits)
                         if (prctl(PR_SET_SECUREBITS, secure_bits) < 0) {
                                 *exit_status = EXIT_SECUREBITS;
@@ -2940,7 +2974,7 @@ static int exec_child(
 
                 /* This really should remain the last step before the execve(), to make sure our own code is unaffected
                  * by the filter as little as possible. */
-                r = apply_syscall_filter(unit, context);
+                r = apply_syscall_filter(unit, context, needs_ambient_hack);
                 if (r < 0) {
                         *exit_status = EXIT_SECCOMP;
                         *error_message = strdup("Failed to apply syscall filters");

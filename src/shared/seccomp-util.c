@@ -1364,3 +1364,41 @@ int parse_syscall_archs(char **l, Set **archs) {
 
         return 0;
 }
+
+int seccomp_filter_set_add(Set *filter, bool add, const SyscallFilterSet *set) {
+        const char *i;
+        int r;
+
+        assert(set);
+
+        NULSTR_FOREACH(i, set->value) {
+
+                if (i[0] == '@') {
+                        const SyscallFilterSet *more;
+
+                        more = syscall_filter_set_find(i);
+                        if (!more)
+                                return -ENXIO;
+
+
+                        r = seccomp_filter_set_add(filter, add, more);
+                        if (r < 0)
+                                return r;
+                } else {
+                        int id;
+
+                        id = seccomp_syscall_resolve_name(i);
+                        if (id == __NR_SCMP_ERROR)
+                                return -ENXIO;
+
+                        if (add) {
+                                r = set_put(filter, INT_TO_PTR(id + 1));
+                                if (r < 0)
+                                        return r;
+                        } else
+                                (void) set_remove(filter, INT_TO_PTR(id + 1));
+                }
+        }
+
+        return 0;
+}

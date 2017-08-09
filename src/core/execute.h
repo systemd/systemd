@@ -91,6 +91,8 @@ struct ExecStatus {
 typedef enum ExecCommandFlags {
         EXEC_COMMAND_IGNORE_FAILURE = 1,
         EXEC_COMMAND_FULLY_PRIVILEGED = 2,
+        EXEC_COMMAND_NO_SETUID = 4,
+        EXEC_COMMAND_AMBIENT_MAGIC = 8,
 } ExecCommandFlags;
 
 struct ExecCommand {
