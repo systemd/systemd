@@ -27,6 +27,7 @@
 
 #include "alloc-util.h"
 #include "capability-util.h"
+#include "execute.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
@@ -655,38 +656,68 @@ static void test_config_parse_capability_set(void) {
                  void *data,
                  void *userdata) */
         int r;
-        uint64_t capability_bounding_set = 0;
+        ExecContext c = { .capability_bounding_set = 0,
+                          .capability_ambient_set = 0,
+                          .ambient_capability_fallback = false };
 
         r = config_parse_capability_set(NULL, "fake", 1, "section", 1,
                               "CapabilityBoundingSet", 0, "CAP_NET_RAW",
-                              &capability_bounding_set, NULL);
+                              &c, NULL);
         assert_se(r >= 0);
-        assert_se(capability_bounding_set == make_cap(CAP_NET_RAW));
+        assert_se(c.capability_bounding_set == make_cap(CAP_NET_RAW));
 
         r = config_parse_capability_set(NULL, "fake", 1, "section", 1,
                               "CapabilityBoundingSet", 0, "CAP_NET_ADMIN",
-                              &capability_bounding_set, NULL);
+                              &c, NULL);
         assert_se(r >= 0);
-        assert_se(capability_bounding_set == (make_cap(CAP_NET_RAW) | make_cap(CAP_NET_ADMIN)));
+        assert_se(c.capability_bounding_set == (make_cap(CAP_NET_RAW) | make_cap(CAP_NET_ADMIN)));
 
         r = config_parse_capability_set(NULL, "fake", 1, "section", 1,
                               "CapabilityBoundingSet", 0, "",
-                              &capability_bounding_set, NULL);
+                              &c, NULL);
         assert_se(r >= 0);
-        assert_se(capability_bounding_set == UINT64_C(0));
+        assert_se(c.capability_bounding_set == UINT64_C(0));
 
         r = config_parse_capability_set(NULL, "fake", 1, "section", 1,
                               "CapabilityBoundingSet", 0, "~",
-                              &capability_bounding_set, NULL);
+                              &c, NULL);
         assert_se(r >= 0);
-        assert_se(cap_test_all(capability_bounding_set));
+        assert_se(cap_test_all(c.capability_bounding_set));
 
-        capability_bounding_set = 0;
+        c.capability_bounding_set = 0;
         r = config_parse_capability_set(NULL, "fake", 1, "section", 1,
                               "CapabilityBoundingSet", 0, "  'CAP_NET_RAW' WAT_CAP??? CAP_NET_ADMIN CAP'_trailing_garbage",
-                              &capability_bounding_set, NULL);
+                              &c, NULL);
         assert_se(r >= 0);
-        assert_se(capability_bounding_set == (make_cap(CAP_NET_RAW) | make_cap(CAP_NET_ADMIN)));
+        assert_se(c.capability_bounding_set == (make_cap(CAP_NET_RAW) | make_cap(CAP_NET_ADMIN)));
+
+        r = config_parse_capability_set(NULL, "fake", 1, "section", 1,
+                              "AmbientCapabilities", 0, "",
+                              &c, NULL);
+        assert_se(r >= 0);
+        assert_se(c.capability_ambient_set == UINT64_C(0));
+        assert_se(!c.ambient_capability_fallback);
+
+        r = config_parse_capability_set(NULL, "fake", 1, "section", 1,
+                              "AmbientCapabilities", 0, "~",
+                              &c, NULL);
+        assert_se(r >= 0);
+        assert_se(cap_test_all(c.capability_ambient_set));
+        assert_se(!c.ambient_capability_fallback);
+
+        r = config_parse_capability_set(NULL, "fake", 1, "section", 1,
+                              "AmbientCapabilities", 0, "-",
+                              &c, NULL);
+        assert_se(r >= 0);
+        assert_se(c.capability_ambient_set == UINT64_C(0));
+        assert_se(c.ambient_capability_fallback);
+
+        r = config_parse_capability_set(NULL, "fake", 1, "section", 1,
+                              "AmbientCapabilities", 0, "-~",
+                              &c, NULL);
+        assert_se(r >= 0);
+        assert_se(cap_test_all(c.capability_ambient_set));
+        assert_se(c.ambient_capability_fallback);
 }
 
 static void test_config_parse_rlimit(void) {

@@ -937,7 +937,11 @@
         <listitem><para>Controls which capabilities to include in the ambient capability set for the executed
         process. Takes a whitespace-separated list of capability names, e.g. <constant>CAP_SYS_ADMIN</constant>,
         <constant>CAP_DAC_OVERRIDE</constant>, <constant>CAP_SYS_PTRACE</constant>. This option may appear more than
-        once in which case the ambient capability sets are merged.  If the list of capabilities is prefixed with
+        once in which case the ambient capability sets are merged. If the list of capabilities is prefixed by
+        <literal>-</literal> and the system does not support ambient capability, then listed capabilities will be ignored,
+        and the commands are executed by the user and group of the manager (root if managed by PID 1), i.e.,
+        <varname>User=</varname> and <varname>Group=</varname> are ignored for the commands executions. If the system supports
+        the ambient capability, then the prefix is simply ignored. If the list of capabilities is prefixed with
         <literal>~</literal>, all but the listed capabilities will be included, the effect of the assignment
         inverted. If the empty string is assigned to this option, the ambient capability set is reset to the empty
         capability set, and all prior settings have no effect.  If set to <literal>~</literal> (without any further

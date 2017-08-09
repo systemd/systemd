@@ -11,6 +11,9 @@ CHANGES WITH 235:
           that case users will be prevented from correctly managing bond0
           interface using networkd.
 
+        * clock file is now moved to /var/lib/systemd/timesync/clock.
+          Distributors should change the location of the file if it is packaged.
+
 CHANGES WITH 234:
 
         * Meson is now supported as build system in addition to Automake. It is

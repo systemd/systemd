@@ -69,6 +69,8 @@ shared_sources = '''
         pager.h
         path-lookup.c
         path-lookup.h
+        privilege-util.c
+        privilege-util.h
         ptyfwd.c
         ptyfwd.h
         resolve-util.c
