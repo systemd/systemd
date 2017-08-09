@@ -20,7 +20,10 @@
 #include <errno.h>
 #include <string.h>
 
+#include "alloc-util.h"
+#include "capability-util.h"
 #include "cap-list.h"
+#include "extract-word.h"
 #include "macro.h"
 #include "missing.h"
 #include "parse-util.h"
@@ -63,4 +66,66 @@ int capability_from_name(const char *name) {
 
 int capability_list_length(void) {
         return (int) ELEMENTSOF(capability_names);
+}
+
+int capability_set_to_string_alloc(uint64_t set, char **s) {
+        _cleanup_free_ char *str = NULL;
+        unsigned long i;
+        size_t allocated = 0, n = 0;
+
+        assert(s);
+
+        for (i = 0; i < cap_last_cap(); i++)
+                if (set & (UINT64_C(1) << i)) {
+                        const char *p;
+                        size_t add;
+
+                        p = capability_to_name(i);
+                        if (!p)
+                                return -EINVAL;
+
+                        add = strlen(p);
+
+                        if (!GREEDY_REALLOC0(str, allocated, n + add + 2))
+                                return -ENOMEM;
+
+                        strcpy(mempcpy(str + n, p, add), " ");
+                        n += add + 1;
+                }
+
+        if (n != 0)
+                str[n - 1] = '\0';
+
+        *s = str;
+        str = NULL;
+
+        return 0;
+}
+
+int capability_set_from_string(const char *s, uint64_t *set) {
+        uint64_t val = 0;
+        const char *p;
+
+        assert(set);
+
+        for (p = s;;) {
+                _cleanup_free_ char *word = NULL;
+                int r;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                if (r == -ENOMEM)
+                        return r;
+                if (r <= 0)
+                        break;
+
+                r = capability_from_name(word);
+                if (r < 0)
+                        continue;
+
+                val |= ((uint64_t) UINT64_C(1)) << (uint64_t) r;
+        }
+
+        *set = val;
+
+        return 0;
 }

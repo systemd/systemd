@@ -27,8 +27,10 @@
 #include "alloc-util.h"
 #include "bus-util.h"
 #include "capability-util.h"
+#include "cap-list.h"
 #include "dbus-execute.h"
 #include "env-util.h"
+#include "errno-list.h"
 #include "execute.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -43,6 +45,7 @@
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
+#include "securebits-util.h"
 #include "strv.h"
 #include "syslog-util.h"
 #include "unit-printf.h"
@@ -1028,6 +1031,41 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+
+        } else if (streq(name, "SupplementaryGroups")) {
+                _cleanup_strv_free_ char **l = NULL;
+                char **p;
+
+                r = sd_bus_message_read_strv(message, &l);
+                if (r < 0)
+                        return r;
+
+                STRV_FOREACH(p, l) {
+                        if (!isempty(*p) && !valid_user_group_name_or_id(*p))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid supplementary group names");
+                }
+
+                if (mode != UNIT_CHECK) {
+                        if (strv_length(l) == 0) {
+                                c->supplementary_groups = strv_free(c->supplementary_groups);
+                                unit_write_drop_in_private_format(u, mode, name, "%s=", name);
+                        } else {
+                                _cleanup_free_ char *joined = NULL;
+
+                                r = strv_extend_strv(&c->supplementary_groups, l, true);
+                                if (r < 0)
+                                        return -ENOMEM;
+
+                                joined = strv_join(c->supplementary_groups, " ");
+                                if (!joined)
+                                        return -ENOMEM;
+
+                                unit_write_drop_in_private_format(u, mode, name, "%s=%s", name, joined);
+                        }
+                }
+
+                return 1;
+
         } else if (streq(name, "SyslogIdentifier")) {
                 const char *id;
 
@@ -1075,6 +1113,361 @@ int bus_exec_context_set_transient_property(
                 if (mode != UNIT_CHECK) {
                         c->syslog_priority = (facility << 3) | LOG_PRI(c->syslog_priority);
                         unit_write_drop_in_private_format(u, mode, name, "SyslogFacility=%i", facility);
+                }
+
+                return 1;
+        } else if (streq(name, "SecureBits")) {
+                int n;
+
+                r = sd_bus_message_read(message, "i", &n);
+                if (r < 0)
+                        return r;
+
+                if (!secure_bits_is_valid(n))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid secure bits");
+
+                if (mode != UNIT_CHECK) {
+                        _cleanup_free_ char *str = NULL;
+
+                        c->secure_bits = n;
+                        r = secure_bits_to_string_alloc(n, &str);
+                        if (r < 0)
+                                return r;
+
+                        unit_write_drop_in_private_format(u, mode, name, "SecureBits=%s", str);
+                }
+
+                return 1;
+        } else if (STR_IN_SET(name, "CapabilityBoundingSet", "AmbientCapabilities")) {
+                uint64_t n;
+
+                r = sd_bus_message_read(message, "t", &n);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        _cleanup_free_ char *str = NULL;
+
+                        if (streq(name, "CapabilityBoundingSet"))
+                                c->capability_bounding_set = n;
+                        else /* "AmbientCapabilities" */
+                                c->capability_ambient_set = n;
+
+                        r = capability_set_to_string_alloc(n, &str);
+                        if (r < 0)
+                                return r;
+
+                        unit_write_drop_in_private_format(u, mode, name, "%s=%s", name, str);
+                }
+
+                return 1;
+
+        } else if (streq(name, "Personality")) {
+                const char *s;
+                unsigned long p;
+
+                r = sd_bus_message_read(message, "s", &s);
+                if (r < 0)
+                        return r;
+
+                p = personality_from_string(s);
+                if (p == PERSONALITY_INVALID)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid personality");
+
+                if (mode != UNIT_CHECK) {
+                        _cleanup_free_ char *str = NULL;
+
+                        c->personality = p;
+                        unit_write_drop_in_private_format(u, mode, name, "%s=%s", name, s);
+                }
+
+                return 1;
+
+#ifdef HAVE_SECCOMP
+
+        } else if (streq(name, "SystemCallFilter")) {
+                int whitelist;
+                _cleanup_strv_free_ char **l;
+
+                r = sd_bus_message_enter_container(message, 'r', "bas");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(message, "b", &whitelist);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read_strv(message, &l);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        _cleanup_free_ char *joined = NULL;
+
+                        if (strv_length(l) == 0) {
+                                c->syscall_whitelist = false;
+                                c->syscall_filter = set_free(c->syscall_filter);
+                        } else {
+                                char **s;
+
+                                c->syscall_whitelist = whitelist;
+
+                                r = set_ensure_allocated(&c->syscall_filter, NULL);
+                                if (r < 0)
+                                        return r;
+
+                                STRV_FOREACH(s, l) {
+                                        if (**s == '@') {
+                                                const SyscallFilterSet *set;
+                                                const char *i;
+
+                                                set = syscall_filter_set_find(*s);
+                                                if (!set)
+                                                        return -EINVAL;
+
+                                                NULSTR_FOREACH(i, set->value) {
+                                                        int id;
+
+                                                        id = seccomp_syscall_resolve_name(i);
+                                                        if (id == __NR_SCMP_ERROR)
+                                                                return -EINVAL;
+
+                                                        r = set_put(c->address_families, INT_TO_PTR(id + 1));
+                                                        if (r < 0)
+                                                                return r;
+                                                }
+
+                                        } else {
+                                                int id;
+
+                                                id = seccomp_syscall_resolve_name(*s);
+                                                if (id == __NR_SCMP_ERROR)
+                                                        return -EINVAL;
+
+                                                r = set_put(c->address_families, INT_TO_PTR(id + 1));
+                                                if (r < 0)
+                                                        return r;
+                                        }
+                                }
+                        }
+
+                        joined = strv_join(l, " ");
+                        if (!joined)
+                                return -ENOMEM;
+
+                        unit_write_drop_in_private_format(u, mode, name, "SystemCallFilter=%s%s", whitelist ? "" : "~", joined);
+                }
+
+                return 1;
+
+        } else if (streq(name, "SystemCallArchitectures")) {
+                _cleanup_strv_free_ char **l = NULL;
+
+                r = sd_bus_message_read_strv(message, &l);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        _cleanup_free_ char *joined = NULL;
+
+                        if (strv_length(l) == 0)
+                                c->syscall_archs = set_free(c->syscall_archs);
+                        else {
+                                char **s;
+
+                                r = set_ensure_allocated(&c->syscall_archs, NULL);
+                                if (r < 0)
+                                        return r;
+
+                                STRV_FOREACH(s, l) {
+                                        uint32_t a;
+
+                                        r = seccomp_arch_from_string(*s, &a);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = set_put(c->syscall_archs, UINT32_TO_PTR(a + 1));
+                                        if (r < 0)
+                                                return r;
+                                }
+
+                        }
+
+                        joined = strv_join(l, " ");
+                        if (!joined)
+                                return -ENOMEM;
+
+                        unit_write_drop_in_private_format(u, mode, name, "%s=%s", name, joined);
+                }
+
+                return 1;
+
+        } else if (streq(name, "SystemCallErrorNumber")) {
+                int32_t n;
+                const char *str;
+
+                r = sd_bus_message_read(message, "i", &n);
+                if (r < 0)
+                        return r;
+
+                str = errno_to_name(n);
+                if (!str)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid SystemCallErrorNumber");
+
+                if (mode != UNIT_CHECK) {
+                        c->syscall_errno = n;
+
+                        unit_write_drop_in_private_format(u, mode, name, "SystemCallErrorNumber=%s", str);
+                }
+
+                return 1;
+
+        } else if (streq(name, "RestrictAddressFamilies")) {
+                int whitelist;
+                _cleanup_strv_free_ char **l;
+
+                r = sd_bus_message_enter_container(message, 'r', "bas");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(message, "b", &whitelist);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read_strv(message, &l);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        _cleanup_free_ char *joined = NULL;
+
+                        if (strv_length(l) == 0) {
+                                c->address_families_whitelist = false;
+                                c->address_families = set_free(c->address_families);
+                        } else {
+                                char **s;
+
+                                c->address_families_whitelist = whitelist;
+
+                                r = set_ensure_allocated(&c->address_families, NULL);
+                                if (r < 0)
+                                        return r;
+
+                                STRV_FOREACH(s, l) {
+                                        int af;
+
+                                        af = af_from_name(*s);
+                                        if (af <= 0)
+                                                return -EINVAL;
+
+                                        r = set_put(c->address_families, INT_TO_PTR(af));
+                                        if (r < 0)
+                                                return r;
+                                }
+                        }
+
+                        joined = strv_join(l, " ");
+                        if (!joined)
+                                return -ENOMEM;
+
+                        unit_write_drop_in_private_format(u, mode, name, "RestrictAddressFamilies=%s%s", whitelist ? "" : "~", joined);
+                }
+
+                return 1;
+#endif
+
+        } else if (streq(name, "CPUSchedulingPolicy")) {
+                int32_t n;
+
+                r = sd_bus_message_read(message, "i", &n);
+                if (r < 0)
+                        return r;
+
+                if (!sched_policy_is_valid(n))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid CPU scheduling policy");
+
+                if (mode != UNIT_CHECK) {
+                        _cleanup_free_ char *str = NULL;
+
+                        c->cpu_sched_policy = n;
+                        r = sched_policy_to_string_alloc(n, &str);
+                        if (r < 0)
+                                return r;
+
+                        unit_write_drop_in_private_format(u, mode, name, "CPUSchedulingPolicy=%s", str);
+                }
+
+                return 1;
+
+        } else if (streq(name, "CPUSchedulingPriority")) {
+                int32_t n;
+
+                r = sd_bus_message_read(message, "i", &n);
+                if (r < 0)
+                        return r;
+
+                if (!ioprio_priority_is_valid(n))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid CPU scheduling priority");
+
+                if (mode != UNIT_CHECK) {
+                        c->cpu_sched_priority = n;
+                        unit_write_drop_in_private_format(u, mode, name, "CPUSchedulingPriority=%i", n);
+                }
+
+                return 1;
+
+        } else if (streq(name, "CPUAffinity")) {
+                const void *a;
+                size_t n = 0;
+
+                r = sd_bus_message_read_array(message, 'y', &a, &n);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        if (n == 0) {
+                                c->cpuset = mfree(c->cpuset);
+                                unit_write_drop_in_private_format(u, mode, name, "%s=", name);
+                        } else {
+                                _cleanup_free_ char *str = NULL;
+                                uint8_t *l;
+                                size_t allocated = 0, len = 0, i;
+
+                                c->cpuset = (cpu_set_t*) memdup(a, sizeof(cpu_set_t) * n);
+                                if (c->cpuset)
+                                        return -ENOMEM;
+
+                                l = (uint8_t*) a;
+                                for (i = 0; i < n; i++) {
+                                        _cleanup_free_ char *p = NULL;
+                                        size_t add;
+
+                                        r = asprintf(&p, "%hhi", l[i]);
+                                        if (r < 0)
+                                                return -ENOMEM;
+
+                                        add = strlen(p);
+
+                                        if (GREEDY_REALLOC(str, allocated, len + add + 2))
+                                                return -ENOMEM;
+
+                                        strcpy(mempcpy(str + len, p, add), " ");
+                                        len += add + 1;
+                                }
+
+                                if (len != 0)
+                                        str[len - 1] = '\0';
+
+                                unit_write_drop_in_private_format(u, mode, name, "%s=%s", name, str);
+                        }
                 }
 
                 return 1;
@@ -1297,11 +1690,12 @@ int bus_exec_context_set_transient_property(
                 return 1;
 
         } else if (STR_IN_SET(name,
-                              "IgnoreSIGPIPE", "TTYVHangup", "TTYReset",
+                              "IgnoreSIGPIPE", "TTYVHangup", "TTYReset", "TTYVTDisallocate",
                               "PrivateTmp", "PrivateDevices", "PrivateNetwork", "PrivateUsers",
                               "NoNewPrivileges", "SyslogLevelPrefix", "MemoryDenyWriteExecute",
                               "RestrictRealtime", "DynamicUser", "RemoveIPC", "ProtectKernelTunables",
-                              "ProtectKernelModules", "ProtectControlGroups", "MountAPIVFS")) {
+                              "ProtectKernelModules", "ProtectControlGroups", "MountAPIVFS",
+                              "CPUSchedulingResetOnFork", "NonBlocking")) {
                 int b;
 
                 r = sd_bus_message_read(message, "b", &b);
@@ -1315,6 +1709,8 @@ int bus_exec_context_set_transient_property(
                                 c->tty_vhangup = b;
                         else if (streq(name, "TTYReset"))
                                 c->tty_reset = b;
+                        else if (streq(name, "TTYVTDisallocate"))
+                                c->tty_vt_disallocate = b;
                         else if (streq(name, "PrivateTmp"))
                                 c->private_tmp = b;
                         else if (streq(name, "PrivateDevices"))
@@ -1343,6 +1739,10 @@ int bus_exec_context_set_transient_property(
                                 c->protect_control_groups = b;
                         else if (streq(name, "MountAPIVFS"))
                                 c->mount_apivfs = b;
+                        else if (streq(name, "CPUSchedulingResetOnFork"))
+                                c->cpu_sched_reset_on_fork = b;
+                        else if (streq(name, "NonBlocking"))
+                                c->non_blocking = b;
 
                         unit_write_drop_in_private_format(u, mode, name, "%s=%s", name, yes_no(b));
                 }
@@ -1709,7 +2109,7 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-        } else if (STR_IN_SET(name, "RuntimeDirectoryMode", "StateDirectoryMode", "CacheDirectoryMode", "LogsDirectoryMode", "ConfigurationDirectoryMode")) {
+        } else if (STR_IN_SET(name, "RuntimeDirectoryMode", "StateDirectoryMode", "CacheDirectoryMode", "LogsDirectoryMode", "ConfigurationDirectoryMode", "UMask")) {
                 mode_t m;
 
                 r = sd_bus_message_read(message, "u", &m);
@@ -1719,11 +2119,14 @@ int bus_exec_context_set_transient_property(
                 if (mode != UNIT_CHECK) {
                         ExecDirectoryType i;
 
-                        for (i = 0; i < _EXEC_DIRECTORY_MAX; i++)
-                                if (startswith(name, exec_directory_type_to_string(i))) {
-                                        c->directories[i].mode = m;
-                                        break;
-                                }
+                        if (streq(name, "UMask"))
+                                c->umask = m;
+                        else
+                                for (i = 0; i < _EXEC_DIRECTORY_MAX; i++)
+                                        if (startswith(name, exec_directory_type_to_string(i))) {
+                                                c->directories[i].mode = m;
+                                                break;
+                                        }
 
                         unit_write_drop_in_private_format(u, mode, name, "%s=%040o", name, m);
                 }
@@ -1777,7 +2180,6 @@ int bus_exec_context_set_transient_property(
 
         } else if (streq(name, "SELinuxContext")) {
                 const char *s;
-
                 r = sd_bus_message_read(message, "s", &s);
                 if (r < 0)
                         return r;
@@ -1792,6 +2194,45 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+
+        } else if (STR_IN_SET(name, "AppArmorProfile", "SmackProcessLabel")) {
+                int ignore;
+                const char *s;
+
+                r = sd_bus_message_enter_container(message, 'r', "bs");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(message, "bs", &ignore, &s);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        char **p;
+                        bool *b;
+
+                        if (streq(name, "AppArmorProfile")) {
+                                p = &c->apparmor_profile;
+                                b = &c->apparmor_profile_ignore;
+                        } else { /* "SmackProcessLabel" */
+                                p = &c->smack_process_label;
+                                b = &c->smack_process_label_ignore;
+                        }
+
+                        if (isempty(s)) {
+                                *p = mfree(*p);
+                                *b = false;
+                        } else {
+                                if (free_and_strdup(p, s) < 0)
+                                        return -ENOMEM;
+                                *b = ignore;
+                        }
+
+                        unit_write_drop_in_private_format(u, mode, name, "%s=%s%s", name, ignore ? "-" : "", strempty(s));
+                }
+
+                return 1;
+
         } else if (streq(name, "RestrictNamespaces")) {
                 uint64_t flags;
 

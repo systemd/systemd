@@ -90,6 +90,7 @@
 #include "seccomp-util.h"
 #endif
 #include "securebits.h"
+#include "securebits-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "smack-util.h"
@@ -3599,36 +3600,28 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         fprintf(f, "%sSyslogLevel: %s\n", prefix, lvl_str);
         }
 
-        if (c->secure_bits)
-                fprintf(f, "%sSecure Bits:%s%s%s%s%s%s\n",
-                        prefix,
-                        (c->secure_bits & 1<<SECURE_KEEP_CAPS) ? " keep-caps" : "",
-                        (c->secure_bits & 1<<SECURE_KEEP_CAPS_LOCKED) ? " keep-caps-locked" : "",
-                        (c->secure_bits & 1<<SECURE_NO_SETUID_FIXUP) ? " no-setuid-fixup" : "",
-                        (c->secure_bits & 1<<SECURE_NO_SETUID_FIXUP_LOCKED) ? " no-setuid-fixup-locked" : "",
-                        (c->secure_bits & 1<<SECURE_NOROOT) ? " noroot" : "",
-                        (c->secure_bits & 1<<SECURE_NOROOT_LOCKED) ? "noroot-locked" : "");
+        if (c->secure_bits) {
+                _cleanup_free_ char *str = NULL;
+
+                r = secure_bits_to_string_alloc(c->secure_bits, &str);
+                if (r >= 0)
+                        fprintf(f, "%sSecure Bits: %s\n", prefix, str);
+        }
 
         if (c->capability_bounding_set != CAP_ALL) {
-                unsigned long l;
-                fprintf(f, "%sCapabilityBoundingSet:", prefix);
+                _cleanup_free_ char *str = NULL;
 
-                for (l = 0; l <= cap_last_cap(); l++)
-                        if (c->capability_bounding_set & (UINT64_C(1) << l))
-                                fprintf(f, " %s", strna(capability_to_name(l)));
-
-                fputs("\n", f);
+                r = capability_set_to_string_alloc(c->capability_bounding_set, &str);
+                if (r >= 0)
+                        fprintf(f, "%sCapabilityBoundingSet: %s\n", prefix, str);
         }
 
         if (c->capability_ambient_set != 0) {
-                unsigned long l;
-                fprintf(f, "%sAmbientCapabilities:", prefix);
+                _cleanup_free_ char *str = NULL;
 
-                for (l = 0; l <= cap_last_cap(); l++)
-                        if (c->capability_ambient_set & (UINT64_C(1) << l))
-                                fprintf(f, " %s", strna(capability_to_name(l)));
-
-                fputs("\n", f);
+                r = capability_set_to_string_alloc(c->capability_ambient_set, &str);
+                if (r >= 0)
+                        fprintf(f, "%sAmbientCapabilities: %s\n", prefix, str);
         }
 
         if (c->user)

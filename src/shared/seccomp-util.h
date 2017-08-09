@@ -84,3 +84,5 @@ extern const uint32_t seccomp_local_archs[];
              (arch) = seccomp_local_archs[++_i])
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(scmp_filter_ctx, seccomp_release);
+
+int parse_syscall_archs(char **l, Set **archs);

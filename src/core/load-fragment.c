@@ -58,6 +58,7 @@
 #include "seccomp-util.h"
 #endif
 #include "securebits.h"
+#include "securebits-util.h"
 #include "signal-util.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -1094,7 +1095,6 @@ int config_parse_exec_secure_bits(const char *unit,
                                   void *userdata) {
 
         ExecContext *c = data;
-        const char *p;
         int r;
 
         assert(filename);
@@ -1108,38 +1108,18 @@ int config_parse_exec_secure_bits(const char *unit,
                 return 0;
         }
 
-        for (p = rvalue;;) {
-                _cleanup_free_ char *word = NULL;
-
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
-                if (r == 0)
-                        return 0;
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Invalid syntax, ignoring: %s", rvalue);
-                        return 0;
-                }
-
-                if (streq(word, "keep-caps"))
-                        c->secure_bits |= 1<<SECURE_KEEP_CAPS;
-                else if (streq(word, "keep-caps-locked"))
-                        c->secure_bits |= 1<<SECURE_KEEP_CAPS_LOCKED;
-                else if (streq(word, "no-setuid-fixup"))
-                        c->secure_bits |= 1<<SECURE_NO_SETUID_FIXUP;
-                else if (streq(word, "no-setuid-fixup-locked"))
-                        c->secure_bits |= 1<<SECURE_NO_SETUID_FIXUP_LOCKED;
-                else if (streq(word, "noroot"))
-                        c->secure_bits |= 1<<SECURE_NOROOT;
-                else if (streq(word, "noroot-locked"))
-                        c->secure_bits |= 1<<SECURE_NOROOT_LOCKED;
-                else {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
-                                   "Failed to parse secure bit \"%s\", ignoring.", word);
-                        return 0;
-                }
+        r = secure_bits_from_string(rvalue);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid syntax, ignoring: %s", rvalue);
+                return 0;
         }
+
+        c->secure_bits = r;
+
+        return 0;
 }
 
 int config_parse_capability_set(
@@ -1157,7 +1137,7 @@ int config_parse_capability_set(
         uint64_t *capability_set = data;
         uint64_t sum = 0, initial = 0;
         bool invert = false;
-        const char *p;
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -1173,28 +1153,12 @@ int config_parse_capability_set(
                 initial = CAP_ALL; /* initialized to all bits on */
         /* else "AmbientCapabilities" initialized to all bits off */
 
-        p = rvalue;
-        for (;;) {
-                _cleanup_free_ char *word = NULL;
-                int cap, r;
-
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
-                if (r == 0)
-                        break;
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse word, ignoring: %s", rvalue);
-                        break;
-                }
-
-                cap = capability_from_name(word);
-                if (cap < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse capability in bounding/ambient set, ignoring: %s", word);
-                        continue;
-                }
-
-                sum |= ((uint64_t) UINT64_C(1)) << (uint64_t) cap;
+        r = capability_set_from_string(rvalue, &sum);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse word: %s", rvalue);
+                return 0;
         }
 
         sum = invert ? ~sum : sum;

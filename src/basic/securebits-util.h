@@ -3,8 +3,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2010-2015 Lennart Poettering
-  Copyright 2015 Filipe Brandenburger
+  Copyright 2017 Yu Watanabe
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -20,14 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sched.h>
+#include "securebits.h"
 
-#include "macro.h"
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(cpu_set_t*, CPU_FREE);
-#define _cleanup_cpu_free_ _cleanup_(CPU_FREEp)
-
-cpu_set_t* cpu_set_malloc(unsigned *ncpus);
-
-int parse_cpu_set_and_warn(const char *rvalue, cpu_set_t **cpu_set, const char *unit, const char *filename, unsigned line, const char *lvalue);
-int parse_cpu_set(const char *rvalue, cpu_set_t **cpu_set);
+int secure_bits_to_string_alloc(int i, char **s);
+int secure_bits_from_string(const char *s);
+static inline bool secure_bits_is_valid(int i) {
+        return ((SECURE_ALL_BITS | SECURE_ALL_LOCKS) & i) == i;
+}
