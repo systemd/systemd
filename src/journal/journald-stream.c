@@ -34,6 +34,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "io-util.h"
+#include "journal-send.h"
 #include "journald-console.h"
 #include "journald-context.h"
 #include "journald-kmsg.h"
@@ -61,7 +62,9 @@ typedef enum StdoutStreamState {
         STDOUT_STREAM_FORWARD_TO_SYSLOG,
         STDOUT_STREAM_FORWARD_TO_KMSG,
         STDOUT_STREAM_FORWARD_TO_CONSOLE,
-        STDOUT_STREAM_RUNNING
+        STDOUT_STREAM_RUNNING,
+        STDOUT_STREAM_VERSION,
+        STDOUT_STREAM_DRAIN,
 } StdoutStreamState;
 
 /* The different types of log record terminators: a real \n was read, a NUL character was read, the maximum line length
@@ -83,6 +86,7 @@ struct StdoutStream {
         struct ucred ucred;
         char *label;
         char *identifier;
+        unsigned version;
         char *unit_id;
         int priority;
         bool level_prefix:1;
@@ -336,6 +340,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p, LineBreak line_brea
 
 static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
         int r;
+        unsigned version;
         char *orig;
 
         assert(s);
@@ -359,9 +364,22 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
                                 return log_oom();
                 }
 
-                s->state = STDOUT_STREAM_UNIT_ID;
+                s->state = STDOUT_STREAM_VERSION;
                 return 0;
 
+        case STDOUT_STREAM_VERSION:
+                r = safe_atou(p, &version);
+                if (r == 0) {
+                        s->version = version;
+                        s->state = STDOUT_STREAM_UNIT_ID;
+                        return 0;
+                }
+
+                /* line does not look like a version field, so fallthrough
+                 * and treat it as a UNIT_ID for backwards compatibility */
+                log_warning("No version line found. Assuming protocol v0.");
+
+                _fallthrough_;
         case STDOUT_STREAM_UNIT_ID:
                 if (s->ucred.uid == 0 &&
                     unit_name_is_valid(p, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE)) {
@@ -425,10 +443,25 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
                 }
 
                 s->forward_to_console = !!r;
+
+                if (s->version > 0) {
+                        s->state = STDOUT_STREAM_DRAIN;
+                        return 0;
+                }
+
                 s->state = STDOUT_STREAM_RUNNING;
 
                 /* Try to save the stream, so that journald can be restarted and we can recover */
                 (void) stdout_stream_save(s);
+                return 0;
+
+        case STDOUT_STREAM_DRAIN:
+                /* ignore unkown fields until the end of the header is detected (by a marker)
+                 * for forwards compatibility, allowing new fields to be added in the future */
+                if (streq(p, STDOUT_STREAM_HEADER_MARKER)) {
+                        (void) stdout_stream_save(s);
+                        s->state = STDOUT_STREAM_RUNNING;
+                }
                 return 0;
 
         case STDOUT_STREAM_RUNNING:
