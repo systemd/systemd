@@ -22,6 +22,7 @@
 %_unitdir @systemunitdir@
 %_userunitdir @userunitdir@
 %_presetdir @systempresetdir@
+%_userpresetdir @userpresetdir@
 %_udevhwdbdir @udevhwdbdir@
 %_udevrulesdir @udevrulesdir@
 %_journalcatalogdir @catalogdir@
