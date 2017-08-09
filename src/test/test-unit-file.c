@@ -848,6 +848,8 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        enter_cgroup_subroot();
+
         assert_se(runtime_dir = setup_fake_runtime_dir());
 
         r = test_unit_file_get_set();

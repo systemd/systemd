@@ -39,3 +39,5 @@
                -ENOENT,                                         \
                -ENOMEDIUM /* cannot determine cgroup */         \
                )
+
+void enter_cgroup_subroot(void);

@@ -37,6 +37,8 @@ int main(int argc, char *argv[]) {
         Job *j;
         int r;
 
+        enter_cgroup_subroot();
+
         /* prepare the test */
         assert_se(set_unit_path(get_testdata_dir("")) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());

@@ -526,6 +526,8 @@ int main(int argc, char *argv[]) {
                 return EXIT_TEST_SKIP;
         }
 
+        enter_cgroup_subroot();
+
         assert_se(setenv("XDG_RUNTIME_DIR", "/tmp/", 1) == 0);
         assert_se(set_unit_path(get_testdata_dir("/test-execute")) >= 0);
 
