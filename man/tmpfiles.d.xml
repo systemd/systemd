@@ -273,13 +273,14 @@ L     /tmp/foobar -    -    -    -   /dev/null</programlisting>
           <term><varname>L</varname></term>
           <term><varname>L+</varname></term>
           <listitem><para>Create a symlink if it does not exist
-          yet. If suffixed with <varname>+</varname> and a file
-          already exists where the symlink is to be created, it will
-          be removed and be replaced by the symlink. If the argument
-          is omitted, symlinks to files with the same name residing in
-          the directory <filename>/usr/share/factory/</filename> are
-          created. Note that permissions and ownership on symlinks
-          are ignored.</para></listitem>
+          yet. If suffixed with <varname>+</varname> and a file or
+          directory already exists where the symlink is to be created,
+          it will be removed and be replaced by the symlink. If the
+          argument is omitted, symlinks to files with the same name
+          residing in the directory
+          <filename>/usr/share/factory/</filename> are created. Note
+          that permissions and ownership on symlinks are ignored.
+          </para></listitem>
         </varlistentry>
 
         <varlistentry>
