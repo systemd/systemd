@@ -31,10 +31,13 @@
 
 int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, mkdir_func_t _mkdir) {
         struct stat st;
+        int r;
 
-        if (_mkdir(path, mode) >= 0)
-                if (chmod_and_chown(path, mode, uid, gid) < 0)
-                        return -errno;
+        if (_mkdir(path, mode) >= 0) {
+                r = chmod_and_chown(path, mode, uid, gid);
+                if (r < 0)
+                        return r;
+        }
 
         if (lstat(path, &st) < 0)
                 return -errno;
