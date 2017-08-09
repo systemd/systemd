@@ -144,7 +144,7 @@ static int wait_for_initialized(
                 if (r < 0)
                         return log_error_errno(r, "Failed to watch udev monitor: %m");
                 if (r == 0) {
-                        log_error("Timed out wating for udev monitor.");
+                        log_error("Timed out waiting for udev monitor.");
                         return -ETIMEDOUT;
                 }
 
