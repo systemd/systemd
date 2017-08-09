@@ -639,6 +639,25 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "sched_setattr\0"
                 "prlimit64\0"
         },
+        [SYSCALL_FILTER_SET_SETUID] = {
+                .name = "@setuid",
+                .help = "Operations for changing user/group credentials",
+                .value =
+                "setgid32\0"
+                "setgid\0"
+                "setgroups32\0"
+                "setgroups\0"
+                "setregid32\0"
+                "setregid\0"
+                "setresgid32\0"
+                "setresgid\0"
+                "setresuid32\0"
+                "setresuid\0"
+                "setreuid32\0"
+                "setreuid\0"
+                "setuid32\0"
+                "setuid\0"
+        },
         [SYSCALL_FILTER_SET_SWAP] = {
                 .name = "@swap",
                 .help = "Enable/disable swap devices",
