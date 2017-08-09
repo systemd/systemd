@@ -1696,7 +1696,7 @@ int bus_exec_context_set_transient_property(
                               "NoNewPrivileges", "SyslogLevelPrefix", "MemoryDenyWriteExecute",
                               "RestrictRealtime", "DynamicUser", "RemoveIPC", "ProtectKernelTunables",
                               "ProtectKernelModules", "ProtectControlGroups", "MountAPIVFS",
-                              "CPUSchedulingResetOnFork", "NonBlocking")) {
+                              "CPUSchedulingResetOnFork", "NonBlocking", "LockPersonality")) {
                 int b;
 
                 r = sd_bus_message_read(message, "b", &b);
@@ -1744,6 +1744,8 @@ int bus_exec_context_set_transient_property(
                                 c->cpu_sched_reset_on_fork = b;
                         else if (streq(name, "NonBlocking"))
                                 c->non_blocking = b;
+                        else if (streq(name, "LockPersonality"))
+                                c->lock_personality = b;
 
                         unit_write_drop_in_private_format(u, mode, name, "%s=%s", name, yes_no(b));
                 }
