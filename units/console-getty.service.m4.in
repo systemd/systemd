@@ -24,7 +24,6 @@ ConditionPathExists=/dev/console
 ExecStart=-/sbin/agetty -o '-p -- \\u' --noclear --keep-baud console 115200,38400,9600 $TERM
 Type=idle
 Restart=always
-RestartSec=0
 UtmpIdentifier=cons
 TTYPath=/dev/console
 TTYReset=yes
