@@ -2344,13 +2344,13 @@ if git.found()
                  ':/*.[ch]'])
         all_files = files(all_files.stdout().split())
 
-        run_target(
+        custom_target(
                 'tags',
-                input : all_files,
+                output : 'tags',
                 command : ['env', 'etags', '-o', '@0@/TAGS'.format(meson.source_root())] + all_files)
-        run_target(
+        custom_target(
                 'ctags',
-                input : all_files,
+                output : 'ctags',
                 command : ['env', 'ctags', '-o', '@0@/tags'.format(meson.source_root())] + all_files)
 endif
 
