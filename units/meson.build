@@ -99,6 +99,8 @@ units = [
          'sockets.target.wants/'],
         ['time-sync.target',                    ''],
         ['timers.target',                       ''],
+        ['tmp.mount',                           '',
+         'local-fs.target.wants/'],
         ['umount.target',                       ''],
         ['user.slice',                          ''],
         ['var-lib-machines.mount',              'ENABLE_MACHINED',
@@ -161,6 +163,9 @@ in_units = [
          'dbus-org.freedesktop.machine1.service'],
         ['systemd-modules-load.service',         'HAVE_KMOD',
          'sysinit.target.wants/'],
+        ['systemd-networkd.service',             'ENABLE_NETWORKD',
+         join_paths(pkgsysconfdir, 'system/dbus-org.freedesktop.network1.service') + ' ' +
+         join_paths(pkgsysconfdir, 'system/multi-user.target.wants/')],
         ['systemd-networkd-wait-online.service', 'ENABLE_NETWORKD',
          join_paths(pkgsysconfdir, 'system/network-online.target.wants/')],
         ['systemd-nspawn@.service',              ''],
@@ -171,6 +176,9 @@ in_units = [
         ['systemd-reboot.service',               ''],
         ['systemd-remount-fs.service',           '',
          'local-fs.target.wants/'],
+        ['systemd-resolved.service',             'ENABLE_RESOLVED',
+         join_paths(pkgsysconfdir, 'system/dbus-org.freedesktop.resolve1.service') + ' ' +
+         join_paths(pkgsysconfdir, 'system/multi-user.target.wants/')],
         ['systemd-rfkill.service',               'ENABLE_RFKILL'],
         ['systemd-suspend.service',              ''],
         ['systemd-sysctl.service',               '',
@@ -201,6 +209,7 @@ in_units = [
          'multi-user.target.wants/'],
         ['systemd-vconsole-setup.service',       'ENABLE_VCONSOLE'],
         ['systemd-volatile-root.service',        ''],
+        ['user@.service',                        ''],
 ]
 
 m4_units = [
@@ -208,20 +217,11 @@ m4_units = [
          'autovt@.service ' +
          join_paths(pkgsysconfdir, 'system/getty.target.wants/getty@tty1.service')],
         ['serial-getty@.service',              ''],
-        ['tmp.mount',                          '',
-         'local-fs.target.wants/'],
 ]
 
 m4_in_units = [
         ['console-getty.service',              ''],
         ['container-getty@.service',           ''],
-        ['systemd-networkd.service',           'ENABLE_NETWORKD',
-         join_paths(pkgsysconfdir, 'system/dbus-org.freedesktop.network1.service') + ' ' +
-         join_paths(pkgsysconfdir, 'system/multi-user.target.wants/')],
-        ['systemd-resolved.service',           'ENABLE_RESOLVED',
-         join_paths(pkgsysconfdir, 'system/dbus-org.freedesktop.resolve1.service') + ' ' +
-         join_paths(pkgsysconfdir, 'system/multi-user.target.wants/')],
-        ['user@.service',                      ''],
 ]
 
 foreach tuple : m4_in_units
