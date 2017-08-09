@@ -13,7 +13,6 @@ Requires=systemd-journal-remote.socket
 [Service]
 ExecStart=@rootlibexecdir@/systemd-journal-remote --listen-https=-3 --output=/var/log/journal/remote/
 User=systemd-journal-remote
-Group=systemd-journal-remote
 WatchdogSec=3min
 PrivateTmp=yes
 PrivateDevices=yes
@@ -28,7 +27,7 @@ RestrictRealtime=yes
 RestrictNamespaces=yes
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 SystemCallArchitectures=native
-ReadWritePaths=/var/log/journal/remote
+LogsDirectory=journal/remote
 
 [Install]
 Also=systemd-journal-remote.socket

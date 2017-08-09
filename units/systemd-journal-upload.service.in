@@ -28,7 +28,7 @@ RestrictRealtime=yes
 RestrictNamespaces=yes
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 SystemCallArchitectures=native
-ReadWritePaths=/var/lib/systemd/journal-upload
+StateDirectory=systemd/journal-upload
 
 # If there are many split up journal files we need a lot of fds to
 # access them all and combine
