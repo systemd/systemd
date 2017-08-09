@@ -904,6 +904,25 @@ const char* personality_to_string(unsigned long p) {
         return architecture_to_string(architecture);
 }
 
+int opinionated_personality(unsigned long *ret) {
+        int current;
+
+        /* Returns the current personality, or PERSONALITY_INVALID if we can't determine it. This function is a bit
+         * opinionated though, and ignores all the finer-grained bits and exotic personalities, only distinguishing the
+         * two most relevant personalities: PER_LINUX and PER_LINUX32. */
+
+        current = personality(PERSONALITY_INVALID);
+        if (current < 0)
+                return -errno;
+
+        if (((unsigned long) current & 0xffff) == PER_LINUX32)
+                *ret = PER_LINUX32;
+        else
+                *ret = PER_LINUX;
+
+        return 0;
+}
+
 void valgrind_summary_hack(void) {
 #ifdef HAVE_VALGRIND_VALGRIND_H
         if (getpid_cached() == 1 && RUNNING_ON_VALGRIND) {

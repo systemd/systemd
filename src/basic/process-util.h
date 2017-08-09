@@ -91,6 +91,8 @@ bool oom_score_adjust_is_valid(int oa);
 unsigned long personality_from_string(const char *p);
 const char *personality_to_string(unsigned long);
 
+int opinionated_personality(unsigned long *ret);
+
 int ioprio_class_to_string_alloc(int i, char **s);
 int ioprio_class_from_string(const char *s);
 

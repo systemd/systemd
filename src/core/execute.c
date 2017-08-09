@@ -1457,7 +1457,8 @@ static int apply_restrict_namespaces(Unit *u, const ExecContext *c) {
 }
 
 static int apply_lock_personality(const Unit* u, const ExecContext *c) {
-        unsigned long personality = c->personality;
+        unsigned long personality;
+        int r;
 
         assert(u);
         assert(c);
@@ -1468,9 +1469,15 @@ static int apply_lock_personality(const Unit* u, const ExecContext *c) {
         if (skip_seccomp_unavailable(u, "LockPersonality="))
                 return 0;
 
-        /* If personality is not specified, use the default (Linux) */
-        if (personality == PERSONALITY_INVALID)
-                personality = PER_LINUX;
+        personality = c->personality;
+
+        /* If personality is not specified, use either PER_LINUX or PER_LINUX32 depending on what is currently set. */
+        if (personality == PERSONALITY_INVALID) {
+
+                r = opinionated_personality(&personality);
+                if (r < 0)
+                        return r;
+        }
 
         return seccomp_lock_personality(personality);
 }
