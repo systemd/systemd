@@ -45,6 +45,8 @@ static int setup_test(Manager **m) {
 
         assert_se(m);
 
+        enter_cgroup_subroot();
+
         r = manager_new(UNIT_FILE_USER, true, &tmp);
         if (MANAGER_SKIP_TEST(r)) {
                 log_notice_errno(r, "Skipping test: manager_new: %m");
