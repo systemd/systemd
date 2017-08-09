@@ -1405,19 +1405,34 @@ int seccomp_filter_set_add(Set *filter, bool add, const SyscallFilterSet *set) {
 }
 
 int seccomp_lock_personality(unsigned long personality) {
-        _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
+        uint32_t arch;
         int r;
 
-        seccomp = seccomp_init(SCMP_ACT_ALLOW);
-        if (!seccomp)
-                return -ENOMEM;
+        if (personality >= PERSONALITY_INVALID)
+                return -EINVAL;
 
-        r = seccomp_rule_add_exact(seccomp, SCMP_ACT_ERRNO(EPERM),
-                                   SCMP_SYS(personality),
-                                   1,
-                                   SCMP_A0(SCMP_CMP_NE, personality));
-        if (r < 0)
-                return r;
+        SECCOMP_FOREACH_LOCAL_ARCH(arch) {
+                _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
 
-        return seccomp_load(seccomp);
+                r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ALLOW);
+                if (r < 0)
+                        return r;
+
+                r = seccomp_rule_add_exact(
+                                seccomp,
+                                SCMP_ACT_ERRNO(EPERM),
+                                SCMP_SYS(personality),
+                                1,
+                                SCMP_A0(SCMP_CMP_NE, personality));
+                if (r < 0)
+                        return r;
+
+                r = seccomp_load(seccomp);
+                if (IN_SET(r, -EPERM, -EACCES))
+                        return r;
+                if (r < 0)
+                        log_debug_errno(r, "Failed to enable personality lock for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+        }
+
+        return 0;
 }

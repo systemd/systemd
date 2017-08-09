@@ -48,7 +48,6 @@
 #  define SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN 0
 #endif
 
-
 static void test_seccomp_arch_to_string(void) {
         uint32_t a, b;
         const char *name;
