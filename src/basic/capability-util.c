@@ -370,3 +370,18 @@ int drop_capability(cap_value_t cv) {
 
         return 0;
 }
+
+bool ambient_capabilities_supported(void) {
+        static int cache = -1;
+
+        if (cache >= 0)
+                return cache;
+
+        /* If PR_CAP_AMBIENT returns something valid, or an unexpected error code we assume that ambient caps are
+         * available. */
+
+        cache = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_KILL, 0, 0) >= 0 ||
+                !IN_SET(errno, EINVAL, EOPNOTSUPP, ENOSYS);
+
+        return cache;
+}
