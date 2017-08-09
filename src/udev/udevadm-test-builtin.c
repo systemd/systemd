@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "path-util.h"
 #include "string-util.h"
 #include "udev.h"
 
@@ -80,7 +81,7 @@ static int adm_builtin(struct udev *udev, int argc, char *argv[]) {
         }
 
         /* add /sys if needed */
-        if (!startswith(syspath, "/sys"))
+        if (!path_startswith(syspath, "/sys"))
                 strscpyl(filename, sizeof(filename), "/sys", syspath, NULL);
         else
                 strscpy(filename, sizeof(filename), syspath);

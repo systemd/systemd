@@ -223,7 +223,7 @@ static int parse_argv(int argc, char *argv[]) {
                          * sysctl name available. */
                         sysctl_normalize(optarg);
 
-                        if (startswith(optarg, "/proc/sys"))
+                        if (path_startswith(optarg, "/proc/sys"))
                                 p = strdup(optarg);
                         else
                                 p = strappend("/proc/sys/", optarg);

@@ -1018,8 +1018,8 @@ int bus_cgroup_set_property(
 
                 while ((r = sd_bus_message_read(message, "(ss)", &path, &rwm)) > 0) {
 
-                        if ((!startswith(path, "/dev/") &&
-                             !startswith(path, "/run/systemd/inaccessible/") &&
+                        if ((!path_startswith(path, "/dev/") &&
+                             !path_startswith(path, "/run/systemd/inaccessible/") &&
                              !startswith(path, "block-") &&
                              !startswith(path, "char-")) ||
                             strpbrk(path, WHITESPACE))
