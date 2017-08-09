@@ -55,7 +55,7 @@ static void test_login(void) {
                 *type = NULL, *class = NULL, *state = NULL, *state2 = NULL,
                 *seat = NULL, *session = NULL,
                 *unit = NULL, *user_unit = NULL, *slice = NULL;
-        int r, k;
+        int r;
         uid_t u, u2;
         char *t, **seats, **sessions;
 
@@ -157,7 +157,7 @@ static void test_login(void) {
                 if (r >= 0) {
                         assert_se(seat);
 
-                        log_info("sd_session_get_display(\"%s\") → \"%s\"", session, seat);
+                        log_info("sd_session_get_seat(\"%s\") → \"%s\"", session, seat);
 
                         r = sd_seat_can_multi_session(seat);
                         assert_se(r >= 0);
@@ -171,7 +171,7 @@ static void test_login(void) {
                         assert_se(r >= 0);
                         log_info("sd_session_can_graphical(\"%s\") → %s", seat, yes_no(r));
                 } else {
-                        log_info_errno(r, "sd_session_get_display(\"%s\"): %m", session);
+                        log_info_errno(r, "sd_session_get_seat(\"%s\"): %m", session);
                         assert_se(r == -ENODATA);
                 }
 
@@ -186,12 +186,13 @@ static void test_login(void) {
 
                 assert_se(sd_uid_is_on_seat(u, 0, seat) > 0);
 
-                k = sd_uid_is_on_seat(u, 1, seat);
-                assert_se(k >= 0);
-                assert_se(!!k == !!r);
-
-                assert_se(sd_seat_get_active(seat, &session2, &u2) >= 0);
+                r = sd_seat_get_active(seat, &session2, &u2);
+                assert_se(r >= 0);
                 log_info("sd_seat_get_active(\"%s\", …) → \"%s\", "UID_FMT, seat, session2, u2);
+
+                r = sd_uid_is_on_seat(u, 1, seat);
+                assert_se(r >= 0);
+                assert_se(!!r == streq(session, session2));
 
                 r = sd_seat_get_sessions(seat, &sessions, &uids, &n);
                 assert_se(r >= 0);
