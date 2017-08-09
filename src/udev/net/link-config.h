@@ -72,6 +72,7 @@ struct link_config {
         int autonegotiation;
         WakeOnLan wol;
         NetDevPort port;
+        NetDevXcvr xcvr;
         NetDevFeature features[_NET_DEV_FEAT_MAX];
 
         LIST_FIELDS(link_config, links);
