@@ -41,9 +41,14 @@ DEFINE_STRING_TABLE_LOOKUP(duplex, Duplex);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_duplex, duplex, Duplex, "Failed to parse duplex setting");
 
 static const char* const wol_table[_WOL_MAX] = {
-        [WOL_PHY] = "phy",
-        [WOL_MAGIC] = "magic",
-        [WOL_OFF] = "off"
+        [WOL_PHY]         = "phy",
+        [WOL_UCAST]       = "unicast",
+        [WOL_MCAST]       = "multicast",
+        [WOL_BCAST]       = "broadcast",
+        [WOL_ARP]         = "arp",
+        [WOL_MAGIC]       = "magic",
+        [WOL_MAGICSECURE] = "secureon",
+        [WOL_OFF]         = "off"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(wol, WakeOnLan);
@@ -195,26 +200,56 @@ int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol) {
                 return -errno;
 
         switch (wol) {
-                case WOL_PHY:
-                        if (ecmd.wolopts != WAKE_PHY) {
-                                ecmd.wolopts = WAKE_PHY;
-                                need_update = true;
-                        }
-                        break;
-                case WOL_MAGIC:
-                        if (ecmd.wolopts != WAKE_MAGIC) {
-                                ecmd.wolopts = WAKE_MAGIC;
-                                need_update = true;
-                        }
-                        break;
-                case WOL_OFF:
-                        if (ecmd.wolopts != 0) {
-                                ecmd.wolopts = 0;
-                                need_update = true;
-                        }
-                        break;
-                default:
-                        break;
+        case WOL_PHY:
+                if (ecmd.wolopts != WAKE_PHY) {
+                        ecmd.wolopts = WAKE_PHY;
+                        need_update = true;
+                }
+                break;
+        case WOL_UCAST:
+                if (ecmd.wolopts != WAKE_UCAST) {
+                        ecmd.wolopts = WAKE_UCAST;
+                        need_update = true;
+                }
+                break;
+        case WOL_MCAST:
+                if (ecmd.wolopts != WAKE_MCAST) {
+                        ecmd.wolopts = WAKE_MCAST;
+                        need_update = true;
+                }
+                break;
+        case WOL_BCAST:
+                if (ecmd.wolopts != WAKE_BCAST) {
+                        ecmd.wolopts = WAKE_BCAST;
+                        need_update = true;
+                }
+                break;
+        case WOL_ARP:
+                if (ecmd.wolopts != WAKE_ARP) {
+                        ecmd.wolopts = WAKE_ARP;
+                        need_update = true;
+                }
+                break;
+        case WOL_MAGIC:
+                if (ecmd.wolopts != WAKE_MAGIC) {
+                        ecmd.wolopts = WAKE_MAGIC;
+                        need_update = true;
+                }
+                break;
+        case WOL_MAGICSECURE:
+                if (ecmd.wolopts != WAKE_MAGICSECURE) {
+                        ecmd.wolopts = WAKE_MAGICSECURE;
+                        need_update = true;
+                }
+                break;
+        case WOL_OFF:
+                if (ecmd.wolopts != 0) {
+                        ecmd.wolopts = 0;
+                        need_update = true;
+                }
+                break;
+        default:
+                break;
         }
 
         if (need_update) {

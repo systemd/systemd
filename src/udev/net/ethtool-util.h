@@ -37,7 +37,12 @@ typedef enum Duplex {
 
 typedef enum WakeOnLan {
         WOL_PHY,
+        WOL_UCAST,
+        WOL_MCAST,
+        WOL_BCAST,
+        WOL_ARP,
         WOL_MAGIC,
+        WOL_MAGICSECURE,
         WOL_OFF,
         _WOL_MAX,
         _WOL_INVALID = -1
