@@ -7,7 +7,8 @@
 
 [Unit]
 Description=Container Getty on /dev/pts/%I
-Documentation=man:agetty(8) man:machinectl(1)
+Documentation=man:agetty(8) man:systemd-getty-generator(8)
+Documentation=man:machinectl(1)
 After=systemd-user-sessions.service plymouth-quit-wait.service
 m4_ifdef(`HAVE_SYSV_COMPAT',
 After=rc-local.service
@@ -15,6 +16,11 @@ After=rc-local.service
 Before=getty.target
 IgnoreOnIsolate=yes
 ConditionPathExists=/dev/pts/%I
+
+# IgnoreOnIsolate is an issue: when someone isolates rescue.target,
+# tradition expects that we shut down all but the main console.
+Conflicts=rescue.service
+Before=rescue.service
 
 [Service]
 # The '-o' option value tells agetty to replace 'login' arguments with an

@@ -7,13 +7,15 @@
 
 [Unit]
 Description=Console Getty
-Documentation=man:agetty(8)
+Documentation=man:agetty(8) man:systemd-getty-generator(8)
 After=systemd-user-sessions.service plymouth-quit-wait.service
-ConditionPathExists=/dev/console
 m4_ifdef(`HAVE_SYSV_COMPAT',
 After=rc-local.service
 )m4_dnl
 Before=getty.target
+
+# OCI containers may be run without a console
+ConditionPathExists=/dev/console
 
 [Service]
 # The '-o' option value tells agetty to replace 'login' arguments with an
@@ -22,7 +24,6 @@ Before=getty.target
 ExecStart=-/sbin/agetty -o '-p -- \\u' --noclear --keep-baud console 115200,38400,9600 $TERM
 Type=idle
 Restart=always
-RestartSec=0
 UtmpIdentifier=cons
 TTYPath=/dev/console
 TTYReset=yes

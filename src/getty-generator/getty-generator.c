@@ -201,15 +201,15 @@ int main(int argc, char *argv[]) {
                                 return EXIT_FAILURE;
                         }
 
+                        /* We assume that gettys on virtual terminals are
+                         * started via manual configuration and do this magic
+                         * only for non-VC terminals. */
+
                         if (isempty(tty) || tty_is_vc(tty))
                                 continue;
 
                         if (verify_tty(tty) < 0)
                                 continue;
-
-                        /* We assume that gettys on virtual terminals are
-                         * started via manual configuration and do this magic
-                         * only for non-VC terminals. */
 
                         if (add_serial_getty(tty) < 0)
                                 return EXIT_FAILURE;
