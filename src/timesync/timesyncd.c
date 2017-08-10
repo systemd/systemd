@@ -111,9 +111,13 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        r = drop_privileges(uid, gid, (1ULL << CAP_SYS_TIME));
-        if (r < 0)
-                goto finish;
+        /* Drop privileges, but only if we have been started as root. If we are not running as root we assume all
+         * privileges are already dropped. */
+        if (geteuid() == 0) {
+                r = drop_privileges(uid, gid, (1ULL << CAP_SYS_TIME));
+                if (r < 0)
+                        goto finish;
+        }
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
