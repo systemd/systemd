@@ -367,8 +367,8 @@ evdev:name:AlpsPS/2 ALPS GlidePoint:dmi:*svnLENOVO:*pvrLenovoYoga500-14ISK*
 # Lenovo Flex 3 15-inch
 evdev:name:AlpsPS/2 ALPS GlidePoint*:dmi:bvn*:bvr*:bd*:svnLENOVO*:pvrFlex3-15*
  EVDEV_ABS_00=::38
- EVDEV_ABS_35=::38
  EVDEV_ABS_01=::28
+ EVDEV_ABS_35=::38
  EVDEV_ABS_36=::28
 
 #########################################
