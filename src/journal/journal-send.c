@@ -34,6 +34,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "io-util.h"
+#include "journal-send.h"
 #include "memfd-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
@@ -397,9 +398,11 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
                 .un.sun_family = AF_UNIX,
                 .un.sun_path = "/run/systemd/journal/stdout",
         };
+        static const char marker[] = STDOUT_STREAM_HEADER_MARKER;
+
         _cleanup_close_ int fd = -1;
         char *header;
-        size_t l;
+        size_t l, ml;
         int r;
 
         assert_return(priority >= 0, -EINVAL);
@@ -421,9 +424,12 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
         identifier = strempty(identifier);
 
         l = strlen(identifier);
-        header = alloca(l + 1 + 1 + 2 + 2 + 2 + 2 + 2);
+        ml = strlen(marker);
+        header = alloca(l + 1 + 2 + 1 + 2 + 2 + 2 + 2 + 2 + ml + 1);
 
         memcpy(header, identifier, l);
+        header[l++] = '\n';
+        header[l++] = '1'; /* protocol version */
         header[l++] = '\n';
         header[l++] = '\n'; /* unit id */
         header[l++] = '0' + priority;
@@ -436,8 +442,11 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
         header[l++] = '\n';
         header[l++] = '0';
         header[l++] = '\n';
+        memcpy(&header[l], marker, ml);
+        header[l + ml++] = '\n';
+        header[l + ml] = '\0';
 
-        r = loop_write(fd, header, l, false);
+        r = loop_write(fd, header, l + ml, false);
         if (r < 0)
                 return r;
 

@@ -65,6 +65,7 @@ typedef enum StdoutStreamState {
         STDOUT_STREAM_RUNNING,
         STDOUT_STREAM_VERSION,
         STDOUT_STREAM_DRAIN,
+        STDOUT_STREAM_NAME,
 } StdoutStreamState;
 
 /* The different types of log record terminators: a real \n was read, a NUL character was read, the maximum line length
@@ -87,6 +88,7 @@ struct StdoutStream {
         char *label;
         char *identifier;
         unsigned version;
+        char *stream_name;
         char *unit_id;
         int priority;
         bool level_prefix:1;
@@ -138,6 +140,7 @@ void stdout_stream_free(StdoutStream *s) {
         safe_close(s->fd);
         free(s->label);
         free(s->identifier);
+        free(s->stream_name);
         free(s->unit_id);
         free(s->state_file);
         free(s->buffer);
@@ -212,6 +215,18 @@ static int stdout_stream_save(StdoutStream *s) {
                 fprintf(f, "IDENTIFIER=%s\n", escaped);
         }
 
+        if (!isempty(s->stream_name)) {
+                _cleanup_free_ char *escaped;
+
+                escaped = cescape(s->stream_name);
+                if (!escaped) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                fprintf(f, "STDIO_STREAM=%s\n", escaped);
+        }
+
         if (!isempty(s->unit_id)) {
                 _cleanup_free_ char *escaped;
 
@@ -260,7 +275,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p, LineBreak line_brea
         int priority;
         char syslog_priority[] = "PRIORITY=\0";
         char syslog_facility[STRLEN("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int) + 1];
-        _cleanup_free_ char *message = NULL, *syslog_identifier = NULL;
+        _cleanup_free_ char *message = NULL, *syslog_identifier = NULL, *stream_name = NULL;
         size_t n = 0, m;
         int r;
 
@@ -298,11 +313,17 @@ static int stdout_stream_log(StdoutStream *s, const char *p, LineBreak line_brea
         if (s->server->forward_to_wall)
                 server_forward_wall(s->server, priority, s->identifier, p, &s->ucred);
 
-        m = N_IOVEC_META_FIELDS + 7 + client_context_extra_fields_n_iovec(s->context);
+        m = N_IOVEC_META_FIELDS + 8 + client_context_extra_fields_n_iovec(s->context);
         iovec = newa(struct iovec, m);
 
         iovec[n++] = IOVEC_MAKE_STRING("_TRANSPORT=stdout");
         iovec[n++] = IOVEC_MAKE_STRING(s->id_field);
+
+        if (s->stream_name) {
+                stream_name = strappend("_STDIO_STREAM=", s->stream_name);
+                if (stream_name)
+                        iovec[n++] = IOVEC_MAKE_STRING(stream_name);
+        }
 
         syslog_priority[STRLEN("PRIORITY=")] = '0' + LOG_PRI(priority);
         iovec[n++] = IOVEC_MAKE_STRING(syslog_priority);
@@ -445,22 +466,32 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
                 s->forward_to_console = !!r;
 
                 if (s->version > 0) {
-                        s->state = STDOUT_STREAM_DRAIN;
+                        s->state = STDOUT_STREAM_NAME;
                         return 0;
                 }
 
+                /* short circuit to RUNNING for v0 only. Ignoring unkown fields was added at v1 */
                 s->state = STDOUT_STREAM_RUNNING;
-
-                /* Try to save the stream, so that journald can be restarted and we can recover */
                 (void) stdout_stream_save(s);
+                return 0;
+
+        case STDOUT_STREAM_NAME:
+                if (!isempty(p)) {
+                        s->stream_name = strdup(p);
+                        if (!s->stream_name)
+                                return log_oom();
+                }
+
+                s->state = STDOUT_STREAM_DRAIN;
                 return 0;
 
         case STDOUT_STREAM_DRAIN:
                 /* ignore unkown fields until the end of the header is detected (by a marker)
                  * for forwards compatibility, allowing new fields to be added in the future */
                 if (streq(p, STDOUT_STREAM_HEADER_MARKER)) {
-                        (void) stdout_stream_save(s);
                         s->state = STDOUT_STREAM_RUNNING;
+                        /* Try to save the stream, so journald can be restarted and we can recover */
+                        (void) stdout_stream_save(s);
                 }
                 return 0;
 
@@ -699,6 +730,7 @@ static int stdout_stream_load(StdoutStream *stream, const char *fname) {
                            "FORWARD_TO_KMSG", &forward_to_kmsg,
                            "FORWARD_TO_CONSOLE", &forward_to_console,
                            "IDENTIFIER", &stream->identifier,
+                           "STDIO_STREAM", &stream->stream_name,
                            "UNIT", &stream->unit_id,
                            "STREAM_ID", &stream_id,
                            NULL);

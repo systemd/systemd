@@ -1647,9 +1647,10 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         the terminal, and will not fail or wait for other processes to release the terminal.</para>
 
         <para><option>journal</option> connects standard output with the journal which is accessible via
-        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.  Note that
-        everything that is written to syslog or kmsg (see below) is implicitly stored in the journal as well, the
-        specific two options listed below are hence supersets of this one.</para>
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. Log entries
+        will have the <varname>_STDIO_STREAM=stdout</varname> field in the journal. Note that everything that is written to
+        syslog or kmsg (see below) is implicitly stored in the journal as well, the specific two options listed below
+        are hence supersets of this one.</para>
 
         <para><option>syslog</option> connects standard output to the <citerefentry
         project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry> system syslog
@@ -1706,7 +1707,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         available options are identical to those of <varname>StandardOutput=</varname>, with some exceptions: if set to
         <option>inherit</option> the file descriptor used for standard output is duplicated for standard error, while
         <option>fd:<replaceable>name</replaceable></option> will use a default file descriptor name of
-        <literal>stderr</literal>.</para>
+        <literal>stderr</literal>, and if set to <option>journal</option> entries will have the <varname>_STDIO_STREAM=stderr
+        </varname> field in the journal.</para>
 
         <para>This setting defaults to the value set with <varname>DefaultStandardError=</varname> in
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, which

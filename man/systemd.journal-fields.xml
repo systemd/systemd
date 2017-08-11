@@ -345,6 +345,14 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>_STDIO_STREAM=</varname></term>
+        <listitem>
+          <para>Only applies to <literal>_TRANSPORT=stdout</literal> records: name of the stream that originated the
+          message. It is commonly used to differentiate messages coming from different streams of the same process.
+          E.g.: <literal>stdout</literal> vs <literal>stderr</literal>.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>_LINE_BREAK=</varname></term>
         <listitem>
           <para>Only applies to <literal>_TRANSPORT=stdout</literal> records: indicates that the log message in the

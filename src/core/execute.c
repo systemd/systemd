@@ -80,6 +80,7 @@
 #include "io-util.h"
 #include "ioprio.h"
 #include "label.h"
+#include "journal-send.h"
 #include "log.h"
 #include "macro.h"
 #include "missing.h"
@@ -335,6 +336,7 @@ static int connect_logger_as(
                 const ExecParameters *params,
                 ExecOutput output,
                 const char *ident,
+                const char *stream_name,
                 int nfd,
                 uid_t uid,
                 gid_t gid) {
@@ -364,19 +366,23 @@ static int connect_logger_as(
 
         dprintf(fd,
                 "%s\n"
+                "1\n" /* protocol version */
                 "%s\n"
                 "%i\n"
                 "%i\n"
                 "%i\n"
                 "%i\n"
-                "%i\n",
+                "%i\n"
+                "%s\n"
+                STDOUT_STREAM_HEADER_MARKER "\n",
                 context->syslog_identifier ?: ident,
                 params->flags & EXEC_PASS_LOG_UNIT ? unit->id : "",
                 context->syslog_priority,
                 !!context->syslog_level_prefix,
                 is_syslog_output(output),
                 is_kmsg_output(output),
-                is_terminal_output(output));
+                is_terminal_output(output),
+                stream_name);
 
         return move_fd(fd, nfd, false);
 }
@@ -576,6 +582,7 @@ static int setup_output(
         ExecOutput o;
         ExecInput i;
         int r;
+        const char *stream_name = fileno == STDERR_FILENO ? "stderr" : "stdout";
 
         assert(unit);
         assert(context);
@@ -585,7 +592,6 @@ static int setup_output(
         assert(journal_stream_ino);
 
         if (fileno == STDOUT_FILENO && params->stdout_fd >= 0) {
-
                 if (dup2(params->stdout_fd, STDOUT_FILENO) < 0)
                         return -errno;
 
@@ -618,7 +624,10 @@ static int setup_output(
                         return fileno;
 
                 /* Duplicate from stdout if possible */
-                if ((e == o && e != EXEC_OUTPUT_NAMED_FD) || e == EXEC_OUTPUT_INHERIT)
+                if ((e == o && e != EXEC_OUTPUT_NAMED_FD &&
+                     e != EXEC_OUTPUT_JOURNAL &&
+                     e != EXEC_OUTPUT_JOURNAL_AND_CONSOLE)
+                    || e == EXEC_OUTPUT_INHERIT)
                         return dup2(STDOUT_FILENO, fileno) < 0 ? -errno : fileno;
 
                 o = e;
@@ -658,7 +667,7 @@ static int setup_output(
         case EXEC_OUTPUT_KMSG_AND_CONSOLE:
         case EXEC_OUTPUT_JOURNAL:
         case EXEC_OUTPUT_JOURNAL_AND_CONSOLE:
-                r = connect_logger_as(unit, context, params, o, ident, fileno, uid, gid);
+                r = connect_logger_as(unit, context, params, o, ident, stream_name, fileno, uid, gid);
                 if (r < 0) {
                         log_unit_warning_errno(unit, r, "Failed to connect %s to the journal socket, ignoring: %m", fileno == STDOUT_FILENO ? "stdout" : "stderr");
                         r = open_null_as(O_WRONLY, fileno);
