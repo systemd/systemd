@@ -25,6 +25,16 @@
                        receive_member="ActivationRequest"/>
         </policy>
 
+        <policy group="wheel">
+                <allow send_destination="org.freedesktop.systemd1"/>
+                <allow receive_sender="org.freedesktop.systemd1"/>
+        </policy>
+
+        <policy group="sudo">
+                <allow send_destination="org.freedesktop.systemd1"/>
+                <allow receive_sender="org.freedesktop.systemd1"/>
+        </policy>
+
         <policy context="default">
                 <deny send_destination="org.freedesktop.systemd1"/>
 
@@ -131,8 +141,8 @@
                 <allow send_destination="org.freedesktop.systemd1"
                        send_interface="org.freedesktop.systemd1.Manager"
                        send_member="LookupDynamicUserByUID"/>
-
-                <!-- Managed via polkit or other criteria -->
+m4_ifdef(`HAVE_POLKIT',
+`                <!-- Managed via polkit or other criteria -->
 
                 <allow send_destination="org.freedesktop.systemd1"
                        send_interface="org.freedesktop.systemd1.Manager"
@@ -265,7 +275,7 @@
                 <allow send_destination="org.freedesktop.systemd1"
                        send_interface="org.freedesktop.systemd1.Job"
                        send_member="GetBefore"/>
-
+')
                 <allow receive_sender="org.freedesktop.systemd1"/>
         </policy>
 

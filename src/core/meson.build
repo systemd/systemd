@@ -181,8 +181,19 @@ foreach item : in_files
         endif
 endforeach
 
-install_data('org.freedesktop.systemd1.conf',
-             install_dir : dbuspolicydir)
+m4_files = ['org.freedesktop.systemd1.conf']
+
+foreach file : m4_files
+        custom_target(
+                'core_' + file,
+                input : file + '.m4',
+                output: file,
+                command : [m4, '-P'] + m4_defines + ['@INPUT@'],
+                capture : true,
+                install : true,
+                install_dir : dbuspolicydir)
+endforeach
+
 install_data('org.freedesktop.systemd1.service',
              install_dir : dbussystemservicedir)
 

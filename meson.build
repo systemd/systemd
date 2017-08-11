@@ -705,6 +705,7 @@ install_polkit = false
 install_polkit_pkla = false
 if want_polkit != 'false'
         conf.set('ENABLE_POLKIT', true)
+        m4_defines += ['-DHAVE_POLKIT']
         install_polkit = true
 
         libpolkit = dependency('polkit-gobject-1',

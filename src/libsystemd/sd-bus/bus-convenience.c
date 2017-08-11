@@ -586,6 +586,12 @@ _public_ int sd_bus_query_sender_privilege(sd_bus_message *call, int capability)
         /* Now, check the UID, but only if the capability check wasn't
          * sufficient */
         our_uid = getuid();
+
+        /* We want none root uid also send method call to systemd and
+         * we will control the access with dbus conf */
+        if (our_uid == 0)
+                return 1;
+
         if (our_uid != 0 || !know_caps || capability < 0) {
                 uid_t sender_uid;
 
