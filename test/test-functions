@@ -4,9 +4,9 @@
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 export PATH
 
-LOOKS_LIKE_DEBIAN=$(source /etc/os-release && [[ "$ID" = "debian" || "$ID_LIKE" = "debian" ]] && echo yes)
-LOOKS_LIKE_ARCH=$(source /etc/os-release && [[ "$ID" = "arch" ]] && echo yes)
-LOOKS_LIKE_SUSE=$(source /etc/os-release && [[ "$ID_LIKE" = "suse" ]] && echo yes)
+LOOKS_LIKE_DEBIAN=$(source /etc/os-release && [[ "$ID" = "debian" || "$ID_LIKE" = "debian" ]] && echo yes || true)
+LOOKS_LIKE_ARCH=$(source /etc/os-release && [[ "$ID" = "arch" ]] && echo yes || true)
+LOOKS_LIKE_SUSE=$(source /etc/os-release && [[ "$ID_LIKE" = "suse" ]] && echo yes || true)
 KERNEL_VER=${KERNEL_VER-$(uname -r)}
 KERNEL_MODS="/lib/modules/$KERNEL_VER/"
 QEMU_TIMEOUT="${QEMU_TIMEOUT:-infinity}"
@@ -22,6 +22,10 @@ fi
 
 BASICTOOLS="sh bash setsid loadkeys setfont login sulogin gzip sleep echo mount umount cryptsetup date dmsetup modprobe sed cmp tee rm"
 DEBUGTOOLS="df free ls stty cat ps ln ip route dmesg dhclient mkdir cp ping dhclient strace less grep id tty touch du sort hostname find"
+
+STATEDIR="${BUILD_DIR:-.}/test/$(basename $(dirname $(realpath $0)))"
+STATEFILE="$STATEDIR/.testdir"
+TESTLOG="$STATEDIR/test.log"
 
 function find_qemu_bin() {
     # SUSE and Red Hat call the binary qemu-kvm
@@ -423,7 +427,8 @@ install_execs() {
     egrep -ho '^Exec[^ ]*=[^ ]+' $initdir/{$systemdsystemunitdir,$systemduserunitdir}/*.service \
          | while read i; do
          i=${i##Exec*=}; i=${i##-}
-         inst $i
+         # some {rc,halt}.local scripts and programs are okay to not exist, the rest should
+         inst $i || [ "${i%.local}" != "$i" ] || [ "${i%systemd-update-done}" != "$i" ]
      done
     )
 }
@@ -458,15 +463,15 @@ install_ld_so_conf() {
 }
 
 install_config_files() {
-    inst /etc/sysconfig/init
+    inst /etc/sysconfig/init || true
     inst /etc/passwd
     inst /etc/shadow
     inst /etc/login.defs
     inst /etc/group
     inst /etc/shells
     inst /etc/nsswitch.conf
-    inst /etc/pam.conf
-    inst /etc/securetty
+    inst /etc/pam.conf || true
+    inst /etc/securetty || true
     inst /etc/os-release
     inst /etc/localtime
     # we want an empty environment
@@ -516,12 +521,12 @@ install_dbus() {
 
 install_pam() {
     (
-    [[ "$LOOKS_LIKE_DEBIAN" ]] && type -p dpkg-architecture &>/dev/null && find "/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)/security" -xtype f
-    find \
-        /etc/pam.d \
-        /etc/security \
-        /lib64/security \
-        /lib/security -xtype f \
+    if [[ "$LOOKS_LIKE_DEBIAN" ]] && type -p dpkg-architecture &>/dev/null; then
+        find "/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)/security" -xtype f
+    else
+        find /lib*/security -xtype f
+    fi
+    find /etc/pam.d /etc/security -xtype f
     ) | while read file; do
         inst $file
     done
@@ -626,7 +631,6 @@ inst_libs() {
 }
 
 import_testdir() {
-    STATEFILE=".testdir"
     [[ -e $STATEFILE ]] && . $STATEFILE
     if [[ -z "$TESTDIR" ]] || [[ ! -d "$TESTDIR" ]]; then
         TESTDIR=$(mktemp --tmpdir=/var/tmp -d -t systemd-test.XXXXXX)
@@ -920,7 +924,7 @@ inst_library() {
 
     # Create additional symlinks.  See rev_symlinks description.
     for _symlink in $(rev_lib_symlinks $_src) $(rev_lib_symlinks $_reallib); do
-        [[ ! -e $initdir/$_symlink ]] && {
+        [[ -e $initdir/$_symlink ]] || {
             ddebug "Creating extra symlink: $_symlink"
             inst_symlink $_symlink
         }
@@ -1384,7 +1388,7 @@ setup_suse() {
 # can be overridden in specific test
 test_cleanup() {
     umount $TESTDIR/root 2>/dev/null || true
-    [[ $LOOPDEV ]] && losetup -d $LOOPDEV
+    [[ $LOOPDEV ]] && losetup -d $LOOPDEV || true
     return 0
 }
 
@@ -1421,6 +1425,8 @@ do_test() {
         [[ -d $usrlibdir ]] && libdirs+=" $usrlibdir" && break
     done
 
+    mkdir -p "$STATEDIR"
+
     import_testdir
     import_initdir
 
@@ -1428,9 +1434,7 @@ do_test() {
         case $1 in
             --run)
                 echo "TEST RUN: $TEST_DESCRIPTION"
-                test_run
-                ret=$?
-                if [ $ret -eq 0 ]; then
+                if test_run; then
                     echo "TEST RUN: $TEST_DESCRIPTION [OK]"
                 else
                     echo "TEST RUN: $TEST_DESCRIPTION [FAILED]"
@@ -1439,30 +1443,30 @@ do_test() {
             --setup)
                 echo "TEST SETUP: $TEST_DESCRIPTION"
                 test_setup
-                exit $?;;
+                ;;
             --clean)
                 echo "TEST CLEANUP: $TEST_DESCRIPTION"
                 test_cleanup
                 rm -fr "$TESTDIR"
-                rm -f .testdir
-                exit $?;;
+                rm -f "$STATEFILE"
+                ;;
             --all)
+                ret=0
                 echo -n "TEST: $TEST_DESCRIPTION ";
                 (
                     test_setup && test_run
                     ret=$?
                     test_cleanup
                     rm -fr "$TESTDIR"
-                    rm -f .testdir
+                    rm -f "$STATEFILE"
                     exit $ret
-                ) </dev/null >test.log 2>&1
-                ret=$?
+                ) </dev/null >"$TESTLOG" 2>&1 || ret=$?
                 if [ $ret -eq 0 ]; then
-                    rm test.log
+                    rm "$TESTLOG"
                     echo "[OK]"
                 else
                     echo "[FAILED]"
-                    echo "see $(pwd)/test.log"
+                    echo "see $TESTLOG"
                 fi
                 exit $ret;;
             *) break ;;

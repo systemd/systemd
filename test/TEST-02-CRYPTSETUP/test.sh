@@ -1,6 +1,7 @@
 #!/bin/bash
 # -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
 # ex: ts=8 sw=4 sts=4 et filetype=sh
+set -e
 TEST_DESCRIPTION="cryptsetup systemd setup"
 TEST_NO_NSPAWN=1
 
@@ -78,9 +79,9 @@ EOF
 }
 
 test_cleanup() {
-    umount $TESTDIR/root/var 2>/dev/null
+    [ -d $TESTDIR/root/var ] && mountpoint $TESTDIR/root/var && umount $TESTDIR/root/var
     [[ -b /dev/mapper/varcrypt ]] && cryptsetup luksClose /dev/mapper/varcrypt
-    umount $TESTDIR/root 2>/dev/null
+    umount $TESTDIR/root 2>/dev/null || true
     [[ $LOOPDEV ]] && losetup -d $LOOPDEV
     return 0
 }
