@@ -1308,18 +1308,18 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
 
         case MOUNT_MOUNTING:
         case MOUNT_MOUNTING_DONE:
-                log_unit_warning(UNIT(m), "Mounting timed out. Stopping.");
+                log_unit_warning(UNIT(m), "Mounting timed out. Terminating.");
                 mount_enter_signal(m, MOUNT_MOUNTING_SIGTERM, MOUNT_FAILURE_TIMEOUT);
                 break;
 
         case MOUNT_REMOUNTING:
-                log_unit_warning(UNIT(m), "Remounting timed out. Stopping.");
+                log_unit_warning(UNIT(m), "Remounting timed out. Terminating remount process.");
                 m->reload_result = MOUNT_FAILURE_TIMEOUT;
-                mount_enter_mounted(m, MOUNT_SUCCESS);
+                mount_enter_signal(m, MOUNT_REMOUNTING_SIGTERM, MOUNT_SUCCESS);
                 break;
 
         case MOUNT_UNMOUNTING:
-                log_unit_warning(UNIT(m), "Unmounting timed out. Stopping.");
+                log_unit_warning(UNIT(m), "Unmounting timed out. Terminating.");
                 mount_enter_signal(m, MOUNT_UNMOUNTING_SIGTERM, MOUNT_FAILURE_TIMEOUT);
                 break;
 
@@ -1340,14 +1340,10 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
         case MOUNT_REMOUNTING_SIGTERM:
                 if (m->kill_context.send_sigkill) {
                         log_unit_warning(UNIT(m), "Remounting timed out. Killing.");
-                        mount_enter_signal(m, MOUNT_REMOUNTING_SIGKILL, MOUNT_FAILURE_TIMEOUT);
+                        mount_enter_signal(m, MOUNT_REMOUNTING_SIGKILL, MOUNT_SUCCESS);
                 } else {
                         log_unit_warning(UNIT(m), "Remounting timed out. Skipping SIGKILL. Ignoring.");
-
-                        if (m->from_proc_self_mountinfo)
-                                mount_enter_mounted(m, MOUNT_FAILURE_TIMEOUT);
-                        else
-                                mount_enter_dead(m, MOUNT_FAILURE_TIMEOUT);
+                        mount_enter_mounted(m, MOUNT_SUCCESS);
                 }
                 break;
 
@@ -1366,7 +1362,6 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
                 break;
 
         case MOUNT_MOUNTING_SIGKILL:
-        case MOUNT_REMOUNTING_SIGKILL:
         case MOUNT_UNMOUNTING_SIGKILL:
                 log_unit_warning(UNIT(m),"Mount process still around after SIGKILL. Ignoring.");
 
@@ -1374,6 +1369,11 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
                         mount_enter_mounted(m, MOUNT_FAILURE_TIMEOUT);
                 else
                         mount_enter_dead(m, MOUNT_FAILURE_TIMEOUT);
+                break;
+
+        case MOUNT_REMOUNTING_SIGKILL:
+                log_unit_warning(UNIT(m),"Remount process still around after SIGKILL. Ignoring.");
+                mount_enter_mounted(m, MOUNT_SUCCESS);
                 break;
 
         default:
