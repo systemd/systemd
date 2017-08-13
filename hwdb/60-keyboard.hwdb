@@ -1114,6 +1114,11 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*90X3A*:pvr*
  KEYBOARD_KEY_96=!kbdillumup                            # Fn+F8 keyboard backlight up
  KEYBOARD_KEY_d5=!wlan                                  # Fn+F12 Wi-Fi toggle
 
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*900X5*:pvr*
+ KEYBOARD_KEY_89=!brightnessdown                        # Fn+F2 Backlight down
+ KEYBOARD_KEY_d5=!wlan                                  # Fn+F12 Wi-Fi toggle
+ KEYBOARD_KEY_b1=screenlock                             # Fn+F10 Scren Lock
+
 # Series 7 Ultra
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*7[34]0U3E*:pvr*
  KEYBOARD_KEY_ce=!prog1                                 # Fn+F1 launch settings
