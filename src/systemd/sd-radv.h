@@ -57,6 +57,8 @@ int sd_radv_set_managed_information(sd_radv *ra, int managed);
 int sd_radv_set_other_information(sd_radv *ra, int other);
 int sd_radv_set_preference(sd_radv *ra, unsigned preference);
 int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p);
+int sd_radv_set_rdnss(sd_radv *ra, uint32_t lifetime,
+                      const struct in6_addr *dns, size_t n_dns);
 
 /* Advertised prefixes */
 int sd_radv_prefix_new(sd_radv_prefix **ret);
