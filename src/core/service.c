@@ -2051,7 +2051,7 @@ static void service_run_next_control(Service *s) {
 fail:
         log_unit_warning_errno(UNIT(s), r, "Failed to run next control task: %m");
 
-        if (IN_SET(s->state, SERVICE_START_PRE, SERVICE_STOP))
+        if (IN_SET(s->state, SERVICE_START_PRE, SERVICE_START_POST, SERVICE_STOP))
                 service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_RESOURCES);
         else if (s->state == SERVICE_STOP_POST)
                 service_enter_dead(s, SERVICE_FAILURE_RESOURCES, true);
