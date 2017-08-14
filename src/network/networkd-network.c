@@ -26,6 +26,7 @@
 #include "dns-domain.h"
 #include "fd-util.h"
 #include "hostname-util.h"
+#include "in-addr-util.h"
 #include "network-internal.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
@@ -1003,6 +1004,58 @@ int config_parse_dhcp_server_dns(
 
                 m[n->n_dhcp_server_dns++] = a;
                 n->dhcp_server_dns = m;
+        }
+
+        return 0;
+}
+
+int config_parse_radv_dns(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *n = data;
+        const char *p = rvalue;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        for (;;) {
+                _cleanup_free_ char *w = NULL;
+                union in_addr_union a;
+
+                r = extract_first_word(&p, &w, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract word, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        break;
+
+                if (in_addr_from_string(AF_INET6, w, &a) >= 0) {
+                        struct in6_addr *m;
+
+                        m = realloc(n->router_dns, (n->n_router_dns + 1) * sizeof(struct in6_addr));
+                        if (!m)
+                                return log_oom();
+
+                        m[n->n_router_dns++] = a.in6;
+                        n->router_dns = m;
+
+                } else
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse DNS server address, ignoring: %s", w);
+
         }
 
         return 0;
