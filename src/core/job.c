@@ -869,14 +869,13 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
         if (!already)
                 job_emit_status_message(u, t, result);
 
-        job_add_to_dbus_queue(j);
-
         /* Patch restart jobs so that they become normal start jobs */
         if (result == JOB_DONE && t == JOB_RESTART) {
 
                 job_change_type(j, JOB_START);
                 job_set_state(j, JOB_WAITING);
 
+                job_add_to_dbus_queue(j);
                 job_add_to_run_queue(j);
                 job_add_to_gc_queue(j);
 
