@@ -9,7 +9,7 @@
 Description=udev Kernel Device Manager
 Documentation=man:systemd-udevd.service(8) man:udev(7)
 DefaultDependencies=no
-After=systemd-sysusers.service
+After=systemd-sysusers.service systemd-hwdb-update.service
 Before=sysinit.target
 ConditionPathIsReadWrite=/sys
 
