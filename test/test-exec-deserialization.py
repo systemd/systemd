@@ -178,6 +178,37 @@ class ExecutionResumeTest(unittest.TestCase):
 
         self.assertTrue(not os.path.exists(self.output_file))
 
+    def test_issue_6533(self):
+        unit = "test-issue-6533.service"
+        unitfile_path = "/run/systemd/system/{}".format(unit)
+
+        content = '''
+        [Service]
+        ExecStart=/bin/sleep 5
+        '''
+
+        with open(unitfile_path, 'w') as f:
+            f.write(content)
+
+        self.reload()
+
+        subprocess.check_call(['systemctl', '--job-mode=replace', '--no-block', 'start', unit])
+        time.sleep(2)
+
+        content = '''
+        [Service]
+        ExecStart=/bin/sleep 5
+        ExecStart=/bin/true
+        '''
+
+        with open(unitfile_path, 'w') as f:
+            f.write(content)
+
+        self.reload()
+        time.sleep(5)
+
+        self.assertTrue(subprocess.call("journalctl -b _PID=1  | grep -q 'Freezing execution'", shell=True) != 0)
+
     def tearDown(self):
         for f in [self.output_file, self.unitfile_path]:
             try:
