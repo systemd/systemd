@@ -29,6 +29,7 @@
 #include "cgroup-util.h"
 #include "fd-util.h"
 #include "logind.h"
+#include "parse-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "udev-util.h"
@@ -380,12 +381,51 @@ bool manager_shall_kill(Manager *m, const char *user) {
         return m->kill_user_processes;
 }
 
+int config_parse_n_autovts(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        unsigned *n = data;
+        unsigned o;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = safe_atou(rvalue, &o);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse number of autovts, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (o > 15) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "A maximum of 15 autovts are supported, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        *n = o;
+        return 0;
+}
+
 static int vt_is_busy(unsigned int vtnr) {
         struct vt_stat vt_stat;
         int r = 0;
         _cleanup_close_ int fd;
 
         assert(vtnr >= 1);
+
+        /* VT_GETSTATE "cannot return state for more than 16 VTs, since v_state is short" */
+        assert(vtnr <= 15);
 
         /* We explicitly open /dev/tty1 here instead of /dev/tty0. If
          * we'd open the latter we'd open the foreground tty which
