@@ -9,4 +9,4 @@ echo "system logs, \"systemctl reboot\" to reboot, \"systemctl default\" or ^D t
 echo "into default mode."
 
 @SULOGIN@
-@SYSTEMCTL@ --job-mode=fail --no-block default
+@SYSTEMCTL@ --no-block default
