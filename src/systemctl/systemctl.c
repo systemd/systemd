@@ -3068,8 +3068,8 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         char **name;
         int r = 0;
 
-        if (arg_wait && !strstr(argv[0], "start")) {
-                log_error("--wait may only be used with a command that starts units.");
+        if (arg_wait && !STR_IN_SET(argv[0], "start", "restart")) {
+                log_error("--wait may only be used with the 'start' or 'restart' commands.");
                 return -EINVAL;
         }
 
