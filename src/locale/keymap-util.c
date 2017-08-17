@@ -382,7 +382,7 @@ int x11_write_data(Context *c) {
 
         fputs_unlocked("EndSection\n", f);
 
-        r = fflush_and_check(f);
+        r = fflush_sync_and_check(f);
         if (r < 0)
                 goto fail;
 

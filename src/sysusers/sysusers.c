@@ -233,8 +233,14 @@ static int make_backup(const char *target, const char *x) {
         if (futimens(fileno(dst), ts) < 0)
                 log_warning_errno(errno, "Failed to fix access and modification time of %s: %m", backup);
 
-        if (rename(temp, backup) < 0)
+        r = fflush_sync_and_check(dst);
+        if (r < 0)
                 goto fail;
+
+        if (rename(temp, backup) < 0) {
+                r = -errno;
+                goto fail;
+        }
 
         return 0;
 
@@ -532,7 +538,7 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
                         return errno ? -errno : -EIO;
         }
 
-        r = fflush_and_check(shadow);
+        r = fflush_sync_and_check(shadow);
         if (r < 0)
                 return r;
 
@@ -616,7 +622,7 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
                 group_changed = true;
         }
 
-        r = fflush_and_check(group);
+        r = fflush_sync_and_check(group);
         if (r < 0)
                 return r;
 
@@ -693,7 +699,7 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
                 group_changed = true;
         }
 
-        r = fflush_and_check(gshadow);
+        r = fflush_sync_and_check(gshadow);
         if (r < 0)
                 return r;
 

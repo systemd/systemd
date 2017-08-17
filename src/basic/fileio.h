@@ -29,10 +29,11 @@
 #include "time-util.h"
 
 typedef enum {
-        WRITE_STRING_FILE_CREATE = 1,
-        WRITE_STRING_FILE_ATOMIC = 2,
-        WRITE_STRING_FILE_AVOID_NEWLINE = 4,
-        WRITE_STRING_FILE_VERIFY_ON_FAILURE = 8,
+        WRITE_STRING_FILE_CREATE = 1<<0,
+        WRITE_STRING_FILE_ATOMIC = 1<<1,
+        WRITE_STRING_FILE_AVOID_NEWLINE = 1<<2,
+        WRITE_STRING_FILE_VERIFY_ON_FAILURE = 1<<3,
+        WRITE_STRING_FILE_SYNC = 1<<4,
 } WriteStringFileFlags;
 
 int write_string_stream_ts(FILE *f, const char *line, bool enforce_newline, struct timespec *ts);
@@ -77,6 +78,7 @@ int search_and_fopen_nulstr(const char *path, const char *mode, const char *root
                 } else
 
 int fflush_and_check(FILE *f);
+int fflush_sync_and_check(FILE *f);
 
 int fopen_temporary(const char *path, FILE **_f, char **_temp_path);
 int mkostemp_safe(char *pattern);
