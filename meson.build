@@ -1090,6 +1090,7 @@ includes = include_directories('src/basic',
                                'src/libsystemd/sd-netlink',
                                'src/libsystemd/sd-network',
                                'src/libsystemd-network',
+                               '.',
                               )
 
 add_project_arguments('-include', 'config.h', language : 'c')
