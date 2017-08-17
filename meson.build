@@ -2339,7 +2339,7 @@ endforeach
 if git.found()
         all_files = run_command(
                 git,
-                ['--git-dir=@0@/.git'.format(meson.source_root()),
+                ['--git-dir=@0@/.git'.format(meson.current_source_dir()),
                  'ls-files',
                  ':/*.[ch]'])
         all_files = files(all_files.stdout().split())
@@ -2347,11 +2347,11 @@ if git.found()
         custom_target(
                 'tags',
                 output : 'tags',
-                command : ['env', 'etags', '-o', '@0@/TAGS'.format(meson.source_root())] + all_files)
+                command : ['env', 'etags', '-o', '@0@/TAGS'.format(meson.current_source_dir())] + all_files)
         custom_target(
                 'ctags',
                 output : 'ctags',
-                command : ['env', 'ctags', '-o', '@0@/tags'.format(meson.source_root())] + all_files)
+                command : ['env', 'ctags', '-o', '@0@/tags'.format(meson.current_source_dir())] + all_files)
 endif
 
 if git.found()
@@ -2364,17 +2364,17 @@ endif
 if git.found()
         git_head = run_command(
                 git,
-                ['--git-dir=@0@/.git'.format(meson.source_root()),
+                ['--git-dir=@0@/.git'.format(meson.current_source_dir()),
                  'rev-parse', 'HEAD']).stdout().strip()
         git_head_short = run_command(
                 git,
-                ['--git-dir=@0@/.git'.format(meson.source_root()),
+                ['--git-dir=@0@/.git'.format(meson.current_source_dir()),
                  'rev-parse', '--short=7', 'HEAD']).stdout().strip()
 
         run_target(
                 'git-snapshot',
                 command : ['git', 'archive',
-                           '-o', '@0@/systemd-@1@.tar.gz'.format(meson.source_root(),
+                           '-o', '@0@/systemd-@1@.tar.gz'.format(meson.current_source_dir(),
                                                                  git_head_short),
                            '--prefix', 'systemd-@0@/'.format(git_head),
                            'HEAD'])
