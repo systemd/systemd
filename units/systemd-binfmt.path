@@ -1,0 +1,11 @@
+[Unit]
+Description=Path activation for additional binary formats
+Documentation=man:systemd-binfmt.service(8) man:binfmt.d(5)
+Documentation=https://www.kernel.org/doc/Documentation/binfmt_misc.txt
+
+[Path]
+DirectoryNotEmpty=/lib/binfmt.d
+DirectoryNotEmpty=/usr/lib/binfmt.d
+DirectoryNotEmpty=/usr/local/lib/binfmt.d
+DirectoryNotEmpty=/etc/binfmt.d
+DirectoryNotEmpty=/run/binfmt.d
