@@ -394,8 +394,6 @@ int x11_write_data(Context *c) {
         return 0;
 
 fail:
-        (void) unlink("/etc/X11/xorg.conf.d/00-keyboard.conf");
-
         if (temp_path)
                 (void) unlink(temp_path);
 
