@@ -841,6 +841,10 @@ static void test_config_parse_pass_environ(void) {
 
 }
 
+static void test_unit_dump_config_items(void) {
+        unit_dump_config_items(stdout);
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         int r;
@@ -863,6 +867,7 @@ int main(int argc, char *argv[]) {
         test_load_env_file_4();
         test_load_env_file_5();
         TEST_REQ_RUNNING_SYSTEMD(test_install_printf());
+        test_unit_dump_config_items();
 
         return r;
 }

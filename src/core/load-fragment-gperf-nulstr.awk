@@ -4,7 +4,7 @@ BEGIN{
         print "const char load_fragment_gperf_nulstr[] ="
 }
 keyword==1 {
-        print "\"" $$1 "\\0\""
+        print "\"" $1 "\\0\""
 }
 /%%/ {
         keyword=1
