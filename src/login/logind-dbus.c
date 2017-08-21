@@ -1399,16 +1399,12 @@ static int have_multiple_sessions(
 
 static int bus_manager_log_shutdown(
                 Manager *m,
-                InhibitWhat w,
                 const char *unit_name) {
 
         const char *p, *q;
 
         assert(m);
         assert(unit_name);
-
-        if (w != INHIBIT_SHUTDOWN)
-                return 0;
 
         if (streq(unit_name, SPECIAL_POWEROFF_TARGET)) {
                 p = "MESSAGE=System is powering down";
@@ -1484,21 +1480,6 @@ int manager_set_lid_switch_ignore(Manager *m, usec_t until) {
         return r;
 }
 
-static void reset_scheduled_shutdown(Manager *m) {
-        m->scheduled_shutdown_timeout_source = sd_event_source_unref(m->scheduled_shutdown_timeout_source);
-        m->wall_message_timeout_source = sd_event_source_unref(m->wall_message_timeout_source);
-        m->nologin_timeout_source = sd_event_source_unref(m->nologin_timeout_source);
-        m->scheduled_shutdown_type = mfree(m->scheduled_shutdown_type);
-        m->scheduled_shutdown_timeout = 0;
-        m->shutdown_dry_run = false;
-
-        if (m->unlink_nologin) {
-                (void) unlink("/run/nologin");
-                m->unlink_nologin = false;
-        }
-        (void) unlink("/run/systemd/shutdown/scheduled");
-}
-
 static int execute_shutdown_or_sleep(
                 Manager *m,
                 InhibitWhat w,
@@ -1515,32 +1496,28 @@ static int execute_shutdown_or_sleep(
         assert(w < _INHIBIT_WHAT_MAX);
         assert(unit_name);
 
-        bus_manager_log_shutdown(m, w, unit_name);
+        if (w == INHIBIT_SHUTDOWN)
+                bus_manager_log_shutdown(m, unit_name);
 
-        if (m->shutdown_dry_run) {
-                log_info("Running in dry run, suppressing action.");
-                reset_scheduled_shutdown(m);
-        } else {
-                r = sd_bus_call_method(
-                                m->bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "StartUnit",
-                                error,
-                                &reply,
-                                "ss", unit_name, "replace-irreversibly");
-                if (r < 0)
-                        return r;
+        r = sd_bus_call_method(
+                        m->bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "StartUnit",
+                        error,
+                        &reply,
+                        "ss", unit_name, "replace-irreversibly");
+        if (r < 0)
+                return r;
 
-                r = sd_bus_message_read(reply, "o", &p);
-                if (r < 0)
-                        return r;
+        r = sd_bus_message_read(reply, "o", &p);
+        if (r < 0)
+                return r;
 
-                c = strdup(p);
-                if (!c)
-                        return -ENOMEM;
-        }
+        c = strdup(p);
+        if (!c)
+                return -ENOMEM;
 
         m->action_unit = unit_name;
         free(m->action_job);
@@ -1924,6 +1901,21 @@ fail:
         return log_error_errno(r, "Failed to write information about scheduled shutdowns: %m");
 }
 
+static void reset_scheduled_shutdown(Manager *m) {
+        m->scheduled_shutdown_timeout_source = sd_event_source_unref(m->scheduled_shutdown_timeout_source);
+        m->wall_message_timeout_source = sd_event_source_unref(m->wall_message_timeout_source);
+        m->nologin_timeout_source = sd_event_source_unref(m->nologin_timeout_source);
+        m->scheduled_shutdown_type = mfree(m->scheduled_shutdown_type);
+        m->scheduled_shutdown_timeout = 0;
+        m->shutdown_dry_run = false;
+
+        if (m->unlink_nologin) {
+                (void) unlink("/run/nologin");
+                m->unlink_nologin = false;
+        }
+        (void) unlink("/run/systemd/shutdown/scheduled");
+}
+
 static int manager_scheduled_shutdown_handler(
                         sd_event_source *s,
                         uint64_t usec,
@@ -1952,7 +1944,20 @@ static int manager_scheduled_shutdown_handler(
                 return -EALREADY;
         }
 
-        r = execute_shutdown_or_sleep(m, INHIBIT_SHUTDOWN, target, &error);
+        if (m->shutdown_dry_run) {
+                /* We do not process delay inhibitors here.  Otherwise, we
+                 * would have to be considered "in progress" (like the check
+                 * above) for some seconds after our admin has seen the final
+                 * wall message. */
+
+                bus_manager_log_shutdown(m, target);
+                log_info("Running in dry run, suppressing action.");
+                reset_scheduled_shutdown(m);
+
+                return 0;
+        }
+
+        r = bus_manager_shutdown_or_sleep_now_or_later(m, target, INHIBIT_SHUTDOWN, &error);
         if (r < 0)
                 return log_error_errno(r, "Scheduled shutdown to %s failed: %m", target);
 
