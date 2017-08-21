@@ -1946,9 +1946,15 @@ static int manager_scheduled_shutdown_handler(
         else
                 target = SPECIAL_REBOOT_TARGET;
 
-        r = execute_shutdown_or_sleep(m, 0, target, &error);
+        /* Don't allow multiple jobs being executed at the same time */
+        if (m->action_what) {
+                log_error("Scheduled shutdown to %s failed: shutdown or sleep operation already in progress", target);
+                return -EALREADY;
+        }
+
+        r = execute_shutdown_or_sleep(m, INHIBIT_SHUTDOWN, target, &error);
         if (r < 0)
-                return log_error_errno(r, "Unable to execute transition to %s: %m", target);
+                return log_error_errno(r, "Scheduled shutdown to %s failed: %m", target);
 
         return 0;
 }
