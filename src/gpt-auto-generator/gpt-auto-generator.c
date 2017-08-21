@@ -563,8 +563,10 @@ static int add_esp(DissectedPartition *p, bool has_xbootldr) {
                         log_debug("Partition for %s does not appear to be the partition we are booted from.", p->node);
                         return 0;
                 }
-        } else
-                log_debug("Not an EFI boot, skipping ESP check.");
+        } else {
+                log_debug("Not an EFI boot, ignoring the ESP.");
+                return 0;
+        }
 
         return add_automount(id,
                              p->node,
