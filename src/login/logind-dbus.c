@@ -2051,12 +2051,9 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        if (!isempty(type)) {
-                r = update_schedule_file(m);
-                if (r < 0)
-                        return r;
-        } else
-                (void) unlink("/run/systemd/shutdown/scheduled");
+        r = update_schedule_file(m);
+        if (r < 0)
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
