@@ -43,12 +43,12 @@
 #define BRIDGE_VLAN_BITMAP_MAX 4096
 #define BRIDGE_VLAN_BITMAP_LEN (BRIDGE_VLAN_BITMAP_MAX / 32)
 
-typedef enum DCHPClientIdentifier {
+typedef enum DHCPClientIdentifier {
         DHCP_CLIENT_ID_MAC,
         DHCP_CLIENT_ID_DUID,
         _DHCP_CLIENT_ID_MAX,
         _DHCP_CLIENT_ID_INVALID = -1,
-} DCHPClientIdentifier;
+} DHCPClientIdentifier;
 
 typedef enum IPv6PrivacyExtensions {
         /* The values map to the kernel's /proc/sys/net/ipv6/conf/xxx/use_tempaddr values */
@@ -122,7 +122,7 @@ struct Network {
 
         /* DHCP Client Support */
         AddressFamilyBoolean dhcp;
-        DCHPClientIdentifier dhcp_client_identifier;
+        DHCPClientIdentifier dhcp_client_identifier;
         char *dhcp_vendor_class_identifier;
         char *dhcp_hostname;
         unsigned dhcp_route_metric;
