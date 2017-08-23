@@ -138,8 +138,7 @@ int manager_connect_bus(Manager *m) {
         r = sd_bus_default_system(&m->bus);
         if (r < 0) {
                 /* We failed to connect? Yuck, we must be in early
-                 * boot. Let's try in 5s again. As soon as we have
-                 * kdbus we can stop doing this... */
+                 * boot. Let's try in 5s again. */
 
                 log_debug_errno(r, "Failed to connect to bus, trying again in 5s: %m");
 
