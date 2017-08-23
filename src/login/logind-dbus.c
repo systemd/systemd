@@ -1496,6 +1496,7 @@ static void reset_scheduled_shutdown(Manager *m) {
                 (void) unlink("/run/nologin");
                 m->unlink_nologin = false;
         }
+        (void) unlink("/run/systemd/shutdown/scheduled");
 }
 
 static int execute_shutdown_or_sleep(
