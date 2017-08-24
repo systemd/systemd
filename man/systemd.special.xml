@@ -59,6 +59,7 @@
     <filename>exit.target</filename>,
     <filename>final.target</filename>,
     <filename>getty.target</filename>,
+    <filename>getty-pre.target</filename>,
     <filename>graphical.target</filename>,
     <filename>halt.target</filename>,
     <filename>hibernate.target</filename>,
@@ -263,6 +264,17 @@
         <listitem>
           <para>A special target unit that pulls in statically
           configured local TTY <filename>getty</filename> instances.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><filename>getty-pre.target</filename></term>
+        <listitem>
+          <para>A special passive target unit. Users of this target
+          are expected to pull it in the boot transaction via
+          a dependency (e.g. <varname>Wants=</varname>). Order your
+          unit before this unit if you want to make use of the console
+          just before <filename>getty</filename> is started.
           </para>
         </listitem>
       </varlistentry>
