@@ -17,6 +17,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <ftw.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -24,10 +25,13 @@
 #include <libkmod.h>
 #endif
 
+#include "alloc-util.h"
 #include "bus-util.h"
 #include "capability-util.h"
+#include "fileio.h"
 #include "kmod-setup.h"
 #include "macro.h"
+#include "string-util.h"
 
 #ifdef HAVE_KMOD
 static void systemd_kmod_log(
@@ -44,6 +48,41 @@ static void systemd_kmod_log(
         REENABLE_WARNING;
 }
 #endif
+
+static int has_virtio_rng_nftw_cb(
+                const char *fpath,
+                const struct stat *sb,
+                int tflag,
+                struct FTW *ftwbuf) {
+
+        _cleanup_free_ char *alias = NULL;
+        int r;
+
+        if ((FTW_D == tflag) && (ftwbuf->level > 2))
+                return FTW_SKIP_SUBTREE;
+
+        if (FTW_F != tflag)
+                return FTW_CONTINUE;
+
+        if (!endswith(fpath, "/modalias"))
+                return FTW_CONTINUE;
+
+        r = read_one_line_file(fpath, &alias);
+        if (r < 0)
+                return FTW_SKIP_SIBLINGS;
+
+        if (startswith(alias, "pci:v00001AF4d00001005"))
+                return FTW_STOP;
+
+        if (startswith(alias, "pci:v00001AF4d00001044"))
+                return FTW_STOP;
+
+        return FTW_SKIP_SIBLINGS;
+}
+
+static bool has_virtio_rng(void) {
+        return (nftw("/sys/devices/pci0000:00", has_virtio_rng_nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL) == FTW_STOP);
+}
 
 int kmod_setup(void) {
 #ifdef HAVE_KMOD
@@ -68,6 +107,8 @@ int kmod_setup(void) {
                 /* netfilter is needed by networkd, nspawn among others, and cannot be autoloaded */
                 { "ip_tables", "/proc/net/ip_tables_names", false,  false,   NULL      },
 #endif
+                /* virtio_rng would be loaded by udev later, but real entropy might be needed very early */
+                { "virtio_rng", NULL,                       false,  false,   has_virtio_rng },
         };
         struct kmod_ctx *ctx = NULL;
         unsigned int i;
