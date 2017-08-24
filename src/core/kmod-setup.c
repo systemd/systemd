@@ -28,6 +28,7 @@
 #include "capability-util.h"
 #include "kmod-setup.h"
 #include "macro.h"
+#include "virt.h"
 
 #ifdef HAVE_KMOD
 static void systemd_kmod_log(
@@ -44,6 +45,10 @@ static void systemd_kmod_log(
         REENABLE_WARNING;
 }
 #endif
+
+static bool vm_is_kvm_or_qemu(void) {
+        return IN_SET(detect_vm(), VIRTUALIZATION_KVM, VIRTUALIZATION_QEMU);
+}
 
 int kmod_setup(void) {
 #ifdef HAVE_KMOD
@@ -68,6 +73,8 @@ int kmod_setup(void) {
                 /* netfilter is needed by networkd, nspawn among others, and cannot be autoloaded */
                 { "ip_tables", "/proc/net/ip_tables_names", false,  false,   NULL      },
 #endif
+                /* virtio_rng would be loaded by udev later, but real entropy is needed very early */
+                { "virtio_rng", NULL,                       false,  false,   vm_is_kvm_or_qemu },
         };
         struct kmod_ctx *ctx = NULL;
         unsigned int i;
