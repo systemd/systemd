@@ -1534,7 +1534,7 @@ static int build_environment(
         /* If this is D-Bus, tell the nss-systemd module, since it relies on being able to use D-Bus look up dynamic
          * users via PID 1, possibly dead-locking the dbus daemon. This way it will not use D-Bus to resolve names, but
          * check the database directly. */
-        if (unit_has_name(u, SPECIAL_DBUS_SERVICE)) {
+        if (MANAGER_IS_SYSTEM(u->manager) && unit_has_name(u, SPECIAL_DBUS_SERVICE)) {
                 x = strdup("SYSTEMD_NSS_BYPASS_BUS=1");
                 if (!x)
                         return -ENOMEM;
