@@ -18,3 +18,7 @@ charset = utf-8
 [*.{c,h}]
 indent_style = space
 indent_size = 8
+
+[meson.build]
+indent_style = space
+indent_size = 8
