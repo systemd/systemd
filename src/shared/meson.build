@@ -136,6 +136,8 @@ libshared_deps = [threads,
                   liblz4,
                   libblkid]
 
+libshared_sym_path = '@0@/libshared.sym'.format(meson.current_source_dir())
+
 libshared = shared_library(
         libshared_name,
         shared_sources,
@@ -144,7 +146,8 @@ libshared = shared_library(
         libsystemd_internal_sources,
         libudev_sources,
         include_directories : includes,
-        link_args : ['-shared'],
+        link_args : ['-shared',
+                    '-Wl,--version-script=' + libshared_sym_path],
         c_args : ['-fvisibility=default'],
         dependencies : libshared_deps,
         install : true,
