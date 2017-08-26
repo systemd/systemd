@@ -15,6 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "path-util.h"
 #include "string-util.h"
 #include "udevadm-util.h"
 
@@ -28,7 +29,7 @@ struct udev_device *find_device(struct udev *udev,
         if (prefix && !startswith(id, prefix))
                 id = strjoina(prefix, id);
 
-        if (startswith(id, "/dev/")) {
+        if (path_startswith(id, "/dev/")) {
                 struct stat statbuf;
                 char type;
 
@@ -43,7 +44,7 @@ struct udev_device *find_device(struct udev *udev,
                         return NULL;
 
                 return udev_device_new_from_devnum(udev, type, statbuf.st_rdev);
-        } else if (startswith(id, "/sys/"))
+        } else if (path_startswith(id, "/sys/"))
                 return udev_device_new_from_syspath(udev, id);
         else
                 return NULL;

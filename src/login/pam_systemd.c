@@ -46,6 +46,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "util.h"
+#include "path-util.h"
 
 static int parse_argv(
                 pam_handle_t *handle,
@@ -335,7 +336,9 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 type ="tty";
                 class = "user";
                 tty = NULL;
-        }
+        } else
+                /* Chop off leading /dev prefix that some clients specify, but others do not. */
+                tty = skip_dev_prefix(tty);
 
         /* If this fails vtnr will be 0, that's intended */
         if (!isempty(cvtnr))

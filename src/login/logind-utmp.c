@@ -31,6 +31,7 @@
 #include "bus-util.h"
 #include "format-util.h"
 #include "logind.h"
+#include "path-util.h"
 #include "special.h"
 #include "strv.h"
 #include "unit-name.h"
@@ -60,15 +61,19 @@ _const_ static usec_t when_wall(usec_t n, usec_t elapse) {
 }
 
 bool logind_wall_tty_filter(const char *tty, void *userdata) {
-
         Manager *m = userdata;
+        const char *p;
 
         assert(m);
 
-        if (!startswith(tty, "/dev/") || !m->scheduled_shutdown_tty)
+        if (!m->scheduled_shutdown_tty)
                 return true;
 
-        return !streq(tty + 5, m->scheduled_shutdown_tty);
+        p = path_startswith(tty, "/dev/");
+        if (!p)
+                return true;
+
+        return !streq(p, m->scheduled_shutdown_tty);
 }
 
 static int warn_wall(Manager *m, usec_t n) {

@@ -949,7 +949,7 @@ static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
 
                         acc[k++] = 0;
 
-                        if (startswith(a->path, "/dev/"))
+                        if (path_startswith(a->path, "/dev/"))
                                 whitelist_device(path, a->path, acc);
                         else if ((val = startswith(a->path, "block-")))
                                 whitelist_major(path, val, 'b', acc);
