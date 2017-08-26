@@ -1218,7 +1218,6 @@ static int service_spawn(
         _cleanup_strv_free_ char **final_env = NULL, **our_env = NULL, **fd_names = NULL;
         _cleanup_free_ int *fds = NULL;
         unsigned n_storage_fds = 0, n_socket_fds = 0, n_env = 0;
-        const char *path;
         pid_t pid;
 
         ExecParameters exec_params = {
@@ -1237,7 +1236,7 @@ static int service_spawn(
         if (flags & EXEC_IS_CONTROL) {
                 /* If this is a control process, mask the permissions/chroot application if this is requested. */
                 if (s->permissions_start_only)
-                        exec_params.flags &= ~EXEC_APPLY_PERMISSIONS;
+                        exec_params.flags &= ~EXEC_APPLY_SANDBOXING;
                 if (s->root_directory_start_only)
                         exec_params.flags &= ~EXEC_APPLY_CHROOT;
         }
@@ -1344,29 +1343,31 @@ static int service_spawn(
                 }
         }
 
-        r = manager_set_exec_params(UNIT(s)->manager, &exec_params);
-        if (r < 0)
-                return r;
+        manager_set_exec_params(UNIT(s)->manager, &exec_params);
+        unit_set_exec_params(UNIT(s), &exec_params);
 
         final_env = strv_env_merge(2, exec_params.environment, our_env, NULL);
         if (!final_env)
                 return -ENOMEM;
 
         if ((flags & EXEC_IS_CONTROL) && UNIT(s)->cgroup_path) {
-                path = strjoina(UNIT(s)->cgroup_path, "/control");
-                (void) cg_create(SYSTEMD_CGROUP_CONTROLLER, path);
-        } else
-                path = UNIT(s)->cgroup_path;
+                exec_params.cgroup_path = strjoina(UNIT(s)->cgroup_path, "/control");
+                (void) cg_create(SYSTEMD_CGROUP_CONTROLLER, exec_params.cgroup_path);
+        }
 
-        exec_params.flags |= MANAGER_IS_SYSTEM(UNIT(s)->manager) ? EXEC_NEW_KEYRING : 0;
+        /* System services should get a new keyring by default. */
+        SET_FLAG(exec_params.flags, EXEC_NEW_KEYRING, MANAGER_IS_SYSTEM(UNIT(s)->manager));
+
+        /* System D-Bus needs nss-systemd disabled, so that we don't deadlock */
+        SET_FLAG(exec_params.flags, EXEC_NSS_BYPASS_BUS,
+                 MANAGER_IS_SYSTEM(UNIT(s)->manager) && unit_has_name(UNIT(s), SPECIAL_DBUS_SERVICE));
+
         exec_params.argv = c->argv;
         exec_params.environment = final_env;
         exec_params.fds = fds;
         exec_params.fd_names = fd_names;
         exec_params.n_storage_fds = n_storage_fds;
         exec_params.n_socket_fds = n_socket_fds;
-        exec_params.cgroup_path = path;
-        exec_params.cgroup_delegate = s->cgroup_context.delegate;
         exec_params.watchdog_usec = s->watchdog_usec;
         exec_params.selinux_context_net = s->socket_fd_selinux_context_net;
         if (s->type == SERVICE_IDLE)
@@ -1569,7 +1570,7 @@ static void service_enter_stop_post(Service *s, ServiceResult f) {
                 r = service_spawn(s,
                                   s->control_command,
                                   s->timeout_stop_usec,
-                                  EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_IS_CONTROL|EXEC_SETENV_RESULT,
+                                  EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_IS_CONTROL|EXEC_SETENV_RESULT,
                                   &s->control_pid);
                 if (r < 0)
                         goto fail;
@@ -1680,7 +1681,7 @@ static void service_enter_stop(Service *s, ServiceResult f) {
                 r = service_spawn(s,
                                   s->control_command,
                                   s->timeout_stop_usec,
-                                  EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_SETENV_RESULT,
+                                  EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_SETENV_RESULT,
                                   &s->control_pid);
                 if (r < 0)
                         goto fail;
@@ -1759,7 +1760,7 @@ static void service_enter_start_post(Service *s) {
                 r = service_spawn(s,
                                   s->control_command,
                                   s->timeout_start_usec,
-                                  EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL,
+                                  EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL,
                                   &s->control_pid);
                 if (r < 0)
                         goto fail;
@@ -1837,7 +1838,7 @@ static void service_enter_start(Service *s) {
         r = service_spawn(s,
                           c,
                           timeout,
-                          EXEC_PASS_FDS|EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_SET_WATCHDOG,
+                          EXEC_PASS_FDS|EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_SET_WATCHDOG,
                           &pid);
         if (r < 0)
                 goto fail;
@@ -1896,7 +1897,7 @@ static void service_enter_start_pre(Service *s) {
                 r = service_spawn(s,
                                   s->control_command,
                                   s->timeout_start_usec,
-                                  EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_APPLY_TTY_STDIN,
+                                  EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_APPLY_TTY_STDIN,
                                   &s->control_pid);
                 if (r < 0)
                         goto fail;
@@ -1994,7 +1995,7 @@ static void service_enter_reload(Service *s) {
                 r = service_spawn(s,
                                   s->control_command,
                                   s->timeout_start_usec,
-                                  EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL,
+                                  EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL,
                                   &s->control_pid);
                 if (r < 0)
                         goto fail;
@@ -2032,7 +2033,7 @@ static void service_run_next_control(Service *s) {
         r = service_spawn(s,
                           s->control_command,
                           timeout,
-                          EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|
+                          EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|
                           (IN_SET(s->control_command_id, SERVICE_EXEC_START_PRE, SERVICE_EXEC_STOP_POST) ? EXEC_APPLY_TTY_STDIN : 0)|
                           (IN_SET(s->control_command_id, SERVICE_EXEC_STOP, SERVICE_EXEC_STOP_POST) ? EXEC_SETENV_RESULT : 0),
                           &s->control_pid);
@@ -2070,7 +2071,7 @@ static void service_run_next_main(Service *s) {
         r = service_spawn(s,
                           s->main_command,
                           s->timeout_start_usec,
-                          EXEC_PASS_FDS|EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_SET_WATCHDOG,
+                          EXEC_PASS_FDS|EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_SET_WATCHDOG,
                           &pid);
         if (r < 0)
                 goto fail;
@@ -2913,7 +2914,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                         s->main_command->exec_status = s->main_exec_status;
 
-                        if (s->main_command->ignore)
+                        if (s->main_command->flags & EXEC_COMMAND_IGNORE_FAILURE)
                                 f = SERVICE_SUCCESS;
                 } else if (s->exec_command[SERVICE_EXEC_START]) {
 
@@ -2921,7 +2922,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                          * ignore the return value if this was
                          * configured for the starter process */
 
-                        if (s->exec_command[SERVICE_EXEC_START]->ignore)
+                        if (s->exec_command[SERVICE_EXEC_START]->flags & EXEC_COMMAND_IGNORE_FAILURE)
                                 f = SERVICE_SUCCESS;
                 }
 
@@ -3027,7 +3028,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 if (s->control_command) {
                         exec_status_exit(&s->control_command->exec_status, &s->exec_context, pid, code, status);
 
-                        if (s->control_command->ignore)
+                        if (s->control_command->flags & EXEC_COMMAND_IGNORE_FAILURE)
                                 f = SERVICE_SUCCESS;
                 }
 

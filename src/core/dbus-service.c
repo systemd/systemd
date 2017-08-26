@@ -280,7 +280,7 @@ static int bus_service_set_transient_property(
                                 c->argv = argv;
                                 argv = NULL;
 
-                                c->ignore = b;
+                                c->flags = b ? EXEC_COMMAND_IGNORE_FAILURE : 0;
 
                                 path_kill_slashes(c->path);
                                 exec_command_append_list(&s->exec_command[SERVICE_EXEC_START], c);
@@ -319,7 +319,7 @@ static int bus_service_set_transient_property(
                                         return -ENOMEM;
 
                                 fprintf(f, "ExecStart=%s@%s %s\n",
-                                        c->ignore ? "-" : "",
+                                        c->flags & EXEC_COMMAND_IGNORE_FAILURE ? "-" : "",
                                         c->path,
                                         a);
                         }

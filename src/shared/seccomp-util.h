@@ -58,6 +58,7 @@ enum {
         SYSCALL_FILTER_SET_RAW_IO,
         SYSCALL_FILTER_SET_REBOOT,
         SYSCALL_FILTER_SET_RESOURCES,
+        SYSCALL_FILTER_SET_SETUID,
         SYSCALL_FILTER_SET_SWAP,
         _SYSCALL_FILTER_SET_MAX
 };
@@ -65,6 +66,8 @@ enum {
 extern const SyscallFilterSet syscall_filter_sets[];
 
 const SyscallFilterSet *syscall_filter_set_find(const char *name);
+
+int seccomp_filter_set_add(Set *s, bool b, const SyscallFilterSet *set);
 
 int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilterSet *set, uint32_t action);
 int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Set* set, uint32_t action);

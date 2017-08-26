@@ -384,7 +384,7 @@ void manager_flip_auto_status(Manager *m, bool enable);
 
 Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path);
 
-int manager_set_exec_params(Manager *m, ExecParameters *p);
+void manager_set_exec_params(Manager *m, ExecParameters *p);
 
 ManagerState manager_state(Manager *m);
 

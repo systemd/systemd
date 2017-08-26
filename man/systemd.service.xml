@@ -290,13 +290,58 @@
         <varname>ExecStop=</varname> are not valid.)</para>
 
         <para>For each of the specified commands, the first argument must be an absolute path to an
-        executable. Optionally, if this file name is prefixed with <literal>@</literal>, the second token will be
-        passed as <literal>argv[0]</literal> to the executed process, followed by the further arguments specified.  If
-        the absolute filename is prefixed with <literal>-</literal>, an exit code of the command normally considered a
-        failure (i.e. non-zero exit status or abnormal exit due to signal) is ignored and considered success.  If the
-        absolute path is prefixed with <literal>+</literal> then it is executed with full
-        privileges. <literal>@</literal>, <literal>-</literal>, and <literal>+</literal> may be used together and they
-        can appear in any order.</para>
+        executable. Optionally, this file name may be prefixed with a number of special characters:</para>
+
+        <table>
+          <title>Special executable prefixes</title>
+
+          <tgroup cols='2'>
+            <colspec colname='prefix'/>
+            <colspec colname='meaning'/>
+
+            <thead>
+              <row>
+                <entry>Prefix</entry>
+                <entry>Effect</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry><literal>@</literal></entry>
+                <entry>If the executable path is prefixed with <literal>@</literal>, the second specified token will be passed as <literal>argv[0]</literal> to the executed process (instead of the actual filename), followed by the further arguments specified.</entry>
+              </row>
+
+              <row>
+                <entry><literal>-</literal></entry>
+                <entry>If the executable path is prefixed with <literal>-</literal>, an exit code of the command normally considered a failure (i.e. non-zero exit status or abnormal exit due to signal) is ignored and considered success.</entry>
+              </row>
+
+              <row>
+                <entry><literal>+</literal></entry>
+                <entry>If the executable path is prefixed with <literal>+</literal> then the process is executed with full privileges. In this mode privilege restrictions configured with <varname>User=</varname>, <varname>Group=</varname>, <varname>CapabilityBoundingSet=</varname> or the various file system namespacing options (such as <varname>PrivateDevices=</varname>, <varname>PrivateTmp=</varname>) are not applied to the invoked command line (but still affect any other <varname>ExecStart=</varname>, <varname>ExecStop=</varname>, … lines).</entry>
+              </row>
+
+              <row>
+                <entry><literal>!</literal></entry>
+
+                <entry>Similar to the <literal>+</literal> character discussed above this permits invoking command lines with elevated privileges. However, unlike <literal>+</literal> the <literal>!</literal> character exclusively alters the effect of <varname>User=</varname>, <varname>Group=</varname> and <varname>SupplementaryGroups=</varname>, i.e. only the stanzas the affect user and group credentials. Note that this setting may be combined with <varname>DynamicUser=</varname>, in which case a dynamic user/group pair is allocated before the command is invoked, but credential changing is left to the executed process itself.</entry>
+              </row>
+
+              <row>
+                <entry><literal>!!</literal></entry>
+
+                <entry>This prefix is very similar to <literal>!!</literal>, however it only has an effect on systems lacking support for ambient process capabilities, i.e. without support for <varname>AmbientCapabilities=</varname>. It's intended to be used for unit files that take benefit of ambient capabilities to run processes with minimal privileges wherever possible while remaining compatible with systems that lack ambient capabilities support. Note that when <literal>!!</literal> is used, and a system lacking ambient capability support is detected any configured <varname>SystemCallFilter=</varname> and <varname>CapabilityBoundingSet=</varname> stanzas are implicitly modified, in order to permit spawned processes to drop credentials and capabilites themselves, even if this is configured to not be allowed. Moreover, if this prefix is used and a system lacking ambient capability support is detected <varname>AmbientCapabilities=</varname> will be skipped and not be applied. On systems supporting ambient capabilities, <literal>!!</literal> has no effect and is redundant.</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+
+        <para><literal>@</literal>, <literal>-</literal>, and one of
+        <literal>+</literal>/<literal>!</literal>/<literal>!!</literal> may be used together and they can appear in any
+        order. However, only one of <literal>+</literal>, <literal>!</literal>, <literal>!!</literal> may be used a at
+        time. Note that these prefixes are also supported for the other command line settings,
+        i.e. <varname>ExecStartPre=</varname>, <varname>ExecStartPost=</varname>, <varname>ExecReload</varname>,
+        <varname>ExecStop=</varname> and <varname>ExecStopPost=</varname>.</para>
 
         <para>If more than one command is specified, the commands are
         invoked sequentially in the order they appear in the unit

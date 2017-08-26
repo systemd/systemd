@@ -1762,7 +1762,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
         pid_t pid;
         int r;
         ExecParameters exec_params = {
-                .flags      = EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
+                .flags      = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
                 .stdin_fd   = -1,
                 .stdout_fd  = -1,
                 .stderr_fd  = -1,
@@ -1790,13 +1790,10 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 return r;
 
-        r = manager_set_exec_params(UNIT(s)->manager, &exec_params);
-        if (r < 0)
-                return r;
+        manager_set_exec_params(UNIT(s)->manager, &exec_params);
+        unit_set_exec_params(UNIT(s), &exec_params);
 
         exec_params.argv = c->argv;
-        exec_params.cgroup_path = UNIT(s)->cgroup_path;
-        exec_params.cgroup_delegate = s->cgroup_context.delegate;
 
         r = exec_spawn(UNIT(s),
                        c,
@@ -2776,7 +2773,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         if (s->control_command) {
                 exec_status_exit(&s->control_command->exec_status, &s->exec_context, pid, code, status);
 
-                if (s->control_command->ignore)
+                if (s->control_command->flags & EXEC_COMMAND_IGNORE_FAILURE)
                         f = SOCKET_SUCCESS;
         }
 

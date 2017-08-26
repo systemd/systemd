@@ -608,7 +608,8 @@ int config_parse_exec(
         p = rvalue;
         do {
                 _cleanup_free_ char *path = NULL, *firstword = NULL;
-                bool separate_argv0 = false, ignore = false, privileged = false;
+                ExecCommandFlags flags = 0;
+                bool ignore = false, separate_argv0 = false;
                 _cleanup_free_ ExecCommand *nce = NULL;
                 _cleanup_strv_free_ char **n = NULL;
                 size_t nlen = 0, nbufsize = 0;
@@ -622,18 +623,31 @@ int config_parse_exec(
 
                 f = firstword;
                 for (;;) {
-                        /* We accept an absolute path as first argument.
-                         * If it's prefixed with - and the path doesn't exist,
-                         * we ignore it instead of erroring out;
-                         * if it's prefixed with @, we allow overriding of argv[0];
-                         * and if it's prefixed with +, it will be run with full privileges */
-                        if (*f == '-' && !ignore)
+                        /* We accept an absolute path as first argument.  If it's prefixed with - and the path doesn't
+                         * exist, we ignore it instead of erroring out; if it's prefixed with @, we allow overriding of
+                         * argv[0]; if it's prefixed with +, it will be run with full privileges and no sandboxing; if
+                         * it's prefixed with '!' we apply sandboxing, but do not change user/group credentials; if
+                         * it's prefixed with '!!', then we apply user/group credentials if the kernel supports ambient
+                         * capabilities -- if it doesn't we don't apply the credentials themselves, but do apply most
+                         * other sandboxing, with some special exceptions for changing UID.
+                         *
+                         * The idea is that '!!' may be used to write services that can take benefit of systemd's
+                         * UID/GID dropping if the kernel supports ambient creds, but provide an automatic fallback to
+                         * privilege dropping within the daemon if the kernel does not offer that. */
+
+                        if (*f == '-' && !(flags & EXEC_COMMAND_IGNORE_FAILURE)) {
+                                flags |= EXEC_COMMAND_IGNORE_FAILURE;
                                 ignore = true;
-                        else if (*f == '@' && !separate_argv0)
+                        } else if (*f == '@' && !separate_argv0)
                                 separate_argv0 = true;
-                        else if (*f == '+' && !privileged)
-                                privileged = true;
-                        else
+                        else if (*f == '+' && !(flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID|EXEC_COMMAND_AMBIENT_MAGIC)))
+                                flags |= EXEC_COMMAND_FULLY_PRIVILEGED;
+                        else if (*f == '!' && !(flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID|EXEC_COMMAND_AMBIENT_MAGIC)))
+                                flags |= EXEC_COMMAND_NO_SETUID;
+                        else if (*f == '!' && !(flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_AMBIENT_MAGIC))) {
+                                flags &= ~EXEC_COMMAND_NO_SETUID;
+                                flags |= EXEC_COMMAND_AMBIENT_MAGIC;
+                        } else
                                 break;
                         f++;
                 }
@@ -752,8 +766,7 @@ int config_parse_exec(
 
                 nce->argv = n;
                 nce->path = path;
-                nce->ignore = ignore;
-                nce->privileged = privileged;
+                nce->flags = flags;
 
                 exec_command_append_list(e, nce);
 

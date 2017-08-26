@@ -742,7 +742,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
         pid_t pid;
         int r;
         ExecParameters exec_params = {
-                .flags      = EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
+                .flags      = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
                 .stdin_fd   = -1,
                 .stdout_fd  = -1,
                 .stderr_fd  = -1,
@@ -770,12 +770,8 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 return r;
 
-        r = manager_set_exec_params(UNIT(m)->manager, &exec_params);
-        if (r < 0)
-                return r;
-
-        exec_params.cgroup_path = UNIT(m)->cgroup_path;
-        exec_params.cgroup_delegate = m->cgroup_context.delegate;
+        manager_set_exec_params(UNIT(m)->manager, &exec_params);
+        unit_set_exec_params(UNIT(m), &exec_params);
 
         r = exec_spawn(UNIT(m),
                        c,

@@ -151,7 +151,7 @@ int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
 }
 
 int capability_bounding_set_drop(uint64_t keep, bool right_now) {
-        _cleanup_cap_free_ cap_t after_cap = NULL;
+        _cleanup_cap_free_ cap_t before_cap = NULL, after_cap = NULL;
         cap_flag_value_t fv;
         unsigned long i;
         int r;
@@ -161,62 +161,68 @@ int capability_bounding_set_drop(uint64_t keep, bool right_now) {
          * executing init!), so get it back temporarily so that we can
          * call PR_CAPBSET_DROP. */
 
-        after_cap = cap_get_proc();
-        if (!after_cap)
+        before_cap = cap_get_proc();
+        if (!before_cap)
                 return -errno;
 
-        if (cap_get_flag(after_cap, CAP_SETPCAP, CAP_EFFECTIVE, &fv) < 0)
+        if (cap_get_flag(before_cap, CAP_SETPCAP, CAP_EFFECTIVE, &fv) < 0)
                 return -errno;
 
         if (fv != CAP_SET) {
                 _cleanup_cap_free_ cap_t temp_cap = NULL;
                 static const cap_value_t v = CAP_SETPCAP;
 
-                temp_cap = cap_dup(after_cap);
-                if (!temp_cap) {
-                        r = -errno;
-                        goto finish;
-                }
+                temp_cap = cap_dup(before_cap);
+                if (!temp_cap)
+                        return -errno;
 
-                if (cap_set_flag(temp_cap, CAP_EFFECTIVE, 1, &v, CAP_SET) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
+                if (cap_set_flag(temp_cap, CAP_EFFECTIVE, 1, &v, CAP_SET) < 0)
+                        return -errno;
 
-                if (cap_set_proc(temp_cap) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
+                if (cap_set_proc(temp_cap) < 0)
+                        log_debug_errno(errno, "Can't acquire effective CAP_SETPCAP bit, ignoring: %m");
+
+                /* If we didn't manage to acquire the CAP_SETPCAP bit, we continue anyway, after all this just means
+                 * we'll fail later, when we actually intend to drop some capabilities. */
         }
 
+        after_cap = cap_dup(before_cap);
+        if (!after_cap)
+                return -errno;
+
         for (i = 0; i <= cap_last_cap(); i++) {
+                cap_value_t v;
 
-                if (!(keep & (UINT64_C(1) << i))) {
-                        cap_value_t v;
+                if ((keep & (UINT64_C(1) << i)))
+                        continue;
 
-                        /* Drop it from the bounding set */
-                        if (prctl(PR_CAPBSET_DROP, i) < 0) {
+                /* Drop it from the bounding set */
+                if (prctl(PR_CAPBSET_DROP, i) < 0) {
+                        r = -errno;
+
+                        /* If dropping the capability failed, let's see if we didn't have it in the first place. If so,
+                         * continue anyway, as dropping a capability we didn't have in the first place doesn't really
+                         * matter anyway. */
+                        if (prctl(PR_CAPBSET_READ, i) != 0)
+                                goto finish;
+                }
+                v = (cap_value_t) i;
+
+                /* Also drop it from the inheritable set, so
+                 * that anything we exec() loses the
+                 * capability for good. */
+                if (cap_set_flag(after_cap, CAP_INHERITABLE, 1, &v, CAP_CLEAR) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                /* If we shall apply this right now drop it
+                 * also from our own capability sets. */
+                if (right_now) {
+                        if (cap_set_flag(after_cap, CAP_PERMITTED, 1, &v, CAP_CLEAR) < 0 ||
+                            cap_set_flag(after_cap, CAP_EFFECTIVE, 1, &v, CAP_CLEAR) < 0) {
                                 r = -errno;
                                 goto finish;
-                        }
-                        v = (cap_value_t) i;
-
-                        /* Also drop it from the inheritable set, so
-                         * that anything we exec() loses the
-                         * capability for good. */
-                        if (cap_set_flag(after_cap, CAP_INHERITABLE, 1, &v, CAP_CLEAR) < 0) {
-                                r = -errno;
-                                goto finish;
-                        }
-
-                        /* If we shall apply this right now drop it
-                         * also from our own capability sets. */
-                        if (right_now) {
-                                if (cap_set_flag(after_cap, CAP_PERMITTED, 1, &v, CAP_CLEAR) < 0 ||
-                                    cap_set_flag(after_cap, CAP_EFFECTIVE, 1, &v, CAP_CLEAR) < 0) {
-                                        r = -errno;
-                                        goto finish;
-                                }
                         }
                 }
         }
@@ -224,8 +230,11 @@ int capability_bounding_set_drop(uint64_t keep, bool right_now) {
         r = 0;
 
 finish:
-        if (cap_set_proc(after_cap) < 0)
-                return -errno;
+        if (cap_set_proc(after_cap) < 0) {
+                /* If there are no actual changes anyway then let's ignore this error. */
+                if (cap_compare(before_cap, after_cap) != 0)
+                        r = -errno;
+        }
 
         return r;
 }
@@ -360,4 +369,19 @@ int drop_capability(cap_value_t cv) {
                 return -errno;
 
         return 0;
+}
+
+bool ambient_capabilities_supported(void) {
+        static int cache = -1;
+
+        if (cache >= 0)
+                return cache;
+
+        /* If PR_CAP_AMBIENT returns something valid, or an unexpected error code we assume that ambient caps are
+         * available. */
+
+        cache = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_KILL, 0, 0) >= 0 ||
+                !IN_SET(errno, EINVAL, EOPNOTSUPP, ENOSYS);
+
+        return cache;
 }

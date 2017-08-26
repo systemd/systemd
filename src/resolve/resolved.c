@@ -67,13 +67,18 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        /* Drop privileges, but keep three caps. Note that we drop those too, later on (see below) */
-        r = drop_privileges(uid, gid,
-                            (UINT64_C(1) << CAP_NET_RAW)|          /* needed for SO_BINDTODEVICE */
-                            (UINT64_C(1) << CAP_NET_BIND_SERVICE)| /* needed to bind on port 53 */
-                            (UINT64_C(1) << CAP_SETPCAP)           /* needed in order to drop the caps later */);
-        if (r < 0)
-                goto finish;
+        /* Drop privileges, but only if we have been started as root. If we are not running as root we assume all
+         * privileges are already dropped. */
+        if (getuid() == 0) {
+
+                /* Drop privileges, but keep three caps. Note that we drop those too, later on (see below) */
+                r = drop_privileges(uid, gid,
+                                    (UINT64_C(1) << CAP_NET_RAW)|          /* needed for SO_BINDTODEVICE */
+                                    (UINT64_C(1) << CAP_NET_BIND_SERVICE)| /* needed to bind on port 53 */
+                                    (UINT64_C(1) << CAP_SETPCAP)           /* needed in order to drop the caps later */);
+                if (r < 0)
+                        goto finish;
+        }
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGUSR1, SIGUSR2, -1) >= 0);
 

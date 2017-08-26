@@ -205,6 +205,8 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        log_info("have ambient caps: %s", yes_no(ambient_capabilities_supported()));
+
         if (getuid() != 0)
                 return EXIT_TEST_SKIP;
 

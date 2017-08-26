@@ -639,6 +639,25 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "sched_setattr\0"
                 "prlimit64\0"
         },
+        [SYSCALL_FILTER_SET_SETUID] = {
+                .name = "@setuid",
+                .help = "Operations for changing user/group credentials",
+                .value =
+                "setgid32\0"
+                "setgid\0"
+                "setgroups32\0"
+                "setgroups\0"
+                "setregid32\0"
+                "setregid\0"
+                "setresgid32\0"
+                "setresgid\0"
+                "setresuid32\0"
+                "setresuid\0"
+                "setreuid32\0"
+                "setreuid\0"
+                "setuid32\0"
+                "setuid\0"
+        },
         [SYSCALL_FILTER_SET_SWAP] = {
                 .name = "@swap",
                 .help = "Enable/disable swap devices",
@@ -1342,6 +1361,44 @@ int parse_syscall_archs(char **l, Set **archs) {
 
         *archs = _archs;
         _archs = NULL;
+
+        return 0;
+}
+
+int seccomp_filter_set_add(Set *filter, bool add, const SyscallFilterSet *set) {
+        const char *i;
+        int r;
+
+        assert(set);
+
+        NULSTR_FOREACH(i, set->value) {
+
+                if (i[0] == '@') {
+                        const SyscallFilterSet *more;
+
+                        more = syscall_filter_set_find(i);
+                        if (!more)
+                                return -ENXIO;
+
+
+                        r = seccomp_filter_set_add(filter, add, more);
+                        if (r < 0)
+                                return r;
+                } else {
+                        int id;
+
+                        id = seccomp_syscall_resolve_name(i);
+                        if (id == __NR_SCMP_ERROR)
+                                return -ENXIO;
+
+                        if (add) {
+                                r = set_put(filter, INT_TO_PTR(id + 1));
+                                if (r < 0)
+                                        return r;
+                        } else
+                                (void) set_remove(filter, INT_TO_PTR(id + 1));
+                }
+        }
 
         return 0;
 }

@@ -93,7 +93,7 @@ static void check_execcommand(ExecCommand *c,
                 assert_se(streq_ptr(c->argv[1], argv1));
         if (n > 1)
                 assert_se(streq_ptr(c->argv[2], argv2));
-        assert_se(c->ignore == ignore);
+        assert_se(!!(c->flags & EXEC_COMMAND_IGNORE_FAILURE) == ignore);
 }
 
 static void test_config_parse_exec(void) {
