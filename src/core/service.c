@@ -1498,7 +1498,13 @@ static bool service_will_restart(Service *s) {
 
 static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) {
         int r;
+
         assert(s);
+
+        /* If there's a stop job queued before we enter the DEAD state, we shouldn't act on Restart=, in order to not
+         * undo what has already been enqueued. */
+        if (unit_stop_pending(UNIT(s)))
+                allow_restart = false;
 
         if (s->result == SERVICE_SUCCESS)
                 s->result = f;
