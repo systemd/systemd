@@ -463,10 +463,10 @@ L     /tmp/foobar -    -    -    -   /dev/null</programlisting>
 
       <para>For example:
       <programlisting># Make sure these are created by default so that nobody else can
-      d /tmp/.X11-unix 1777 root root 10d
+d /tmp/.X11-unix 1777 root root 10d
 
-      # Unlink the X11 lock files
-      r! /tmp/.X[0-9]*-lock</programlisting>
+# Unlink the X11 lock files
+r! /tmp/.X[0-9]*-lock</programlisting>
       The second line in contrast to the first one would break a
       running system, and will only be executed with
       <option>--boot</option>.</para>
