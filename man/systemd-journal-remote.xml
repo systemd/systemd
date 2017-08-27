@@ -106,6 +106,8 @@
 
     <variablelist>
       <varlistentry>
+        <term><arg choice="opt" rep="repeat">SOURCES</arg></term>
+
         <listitem><para>When <option>-</option> is given as a
         positional argument, events will be read from standard input.
         Other positional arguments will be treated as filenames
@@ -123,6 +125,20 @@
         <citerefentry><refentrytitle>systemd-journal-gatewayd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         instance, e.g. http://some.host:19531/ or
         https://some.host:19531/.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--getter='<replaceable>PROG</replaceable> <arg choice="opt" rep="repeat">OPTIONS</arg>'</option></term>
+
+        <listitem><para>Program to invoke to retrieve data. The journal
+        event stream must be generated on standard output.</para>
+
+        <para>Examples:</para>
+
+        <programlisting>--getter='curl "-HAccept: application/vnd.fdo.journal" https://some.host:19531/'</programlisting>
+
+        <programlisting>--getter='wget --header="Accept: application/vnd.fdo.journal" -O- https://some.host:19531/'</programlisting>
+        </listitem>
       </varlistentry>
     </variablelist>
 
@@ -225,8 +241,9 @@
     escaped hostname of the source endpoint of the connection, or the
     numerical address if the hostname cannot be determined.</para>
 
-    <para>In case of "active" sources, the output file name must
-    always be given explicitly.</para>
+    <para>In the case that "active" sources are given by the positional
+    arguments or <option>--getter=</option> option, the output file name
+    must always be given explicitly.</para>
   </refsect1>
 
   <refsect1>
@@ -265,20 +282,6 @@
         The default is <literal>no</literal>.</para></listitem>
       </varlistentry>
 
-      <varlistentry>
-        <term><option>--getter=<replaceable>PROG --option1 --option2</replaceable></option></term>
-
-        <listitem><para>Program to invoke to retrieve data. The journal
-        event stream must be generated on standard output.</para>
-
-        <para>Examples:</para>
-
-        <programlisting>--getter='curl "-HAccept: application/vnd.fdo.journal" https://some.host:19531/'</programlisting>
-
-        <programlisting>--getter='wget --header="Accept: application/vnd.fdo.journal" -O- https://some.host:19531/'</programlisting>
-        </listitem>
-      </varlistentry>
-
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
@@ -288,7 +291,7 @@
     <title>Examples</title>
     <para>Copy local journal events to a different journal directory:
     <programlisting>
-journalctl -o export | systemd-journal-remote -o /tmp/dir -
+journalctl -o export | systemd-journal-remote -o /tmp/dir/foo.journal -
     </programlisting>
     </para>
 
