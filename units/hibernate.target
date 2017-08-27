@@ -9,5 +9,6 @@
 Description=Hibernate
 Documentation=man:systemd.special(7)
 DefaultDependencies=no
-BindsTo=systemd-hibernate.service
+Requires=systemd-hibernate.service
 After=systemd-hibernate.service
+StopWhenUnneeded=yes

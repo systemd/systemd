@@ -9,5 +9,6 @@
 Description=Suspend
 Documentation=man:systemd.special(7)
 DefaultDependencies=no
-BindsTo=systemd-suspend.service
+Requires=systemd-suspend.service
 After=systemd-suspend.service
+StopWhenUnneeded=yes

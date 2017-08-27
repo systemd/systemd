@@ -9,5 +9,6 @@
 Description=Hybrid Suspend+Hibernate
 Documentation=man:systemd.special(7)
 DefaultDependencies=no
-BindsTo=systemd-hybrid-sleep.service
+Requires=systemd-hybrid-sleep.service
 After=systemd-hybrid-sleep.service
+StopWhenUnneeded=yes
