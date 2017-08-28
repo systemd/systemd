@@ -222,6 +222,18 @@ mouse:usb:v0403p97c1:name:Retrode SNES Mouse:
  MOUSE_DPI=235@126
 
 ##########################################
+# Generic
+##########################################
+
+# FM-901 Wireless Mouse
+mouse:usb:v1ea7p000b:name:2.4G RF Mouse:
+ MOUSE_DPI=*800@125 1600@125
+
+# WK-727
+mouse:usb:v04d9p0499:name:*
+ MOUSE_DPI=800@125
+
+##########################################
 # HandShoe Mouse
 ##########################################
 
@@ -250,6 +262,10 @@ mouse:usb:v0458p0133:name:Mouse Laser Mouse:
 mouse:usb:v093ap2510:name:PixArt USB Optical Mouse:
 mouse:usb:v093ap2510:name:PIXART USB OPTICAL MOUSE:
  MOUSE_DPI=1000@125
+
+# HP X1200 Optical Mouse
+mouse:usb:v03f0p0641:name:PixArt HP X1200 USB Optical Mouse:
+ MOUSE_DPI=1100@125
 
 ##########################################
 # IBM
@@ -306,6 +322,10 @@ mouse:usb:v046dpc03e:name:Logitech USB-PS/2 Optical Mouse:
 # Logitech TrackMan Marble Wheel USB
 mouse:usb:v046dpc401:name:Logitech USB-PS/2 Trackball:
  MOUSE_DPI=400@125
+
+# Logitech Cordless MouseMan Optical M-RM63
+mouse:usb:v046dpc501:name:Logitech USB Receiver:
+ MOUSE_DPI=800@63
 
 # Lenovo USB mouse model MO28UOL
 mouse:usb:v04b3p310c:name:USB Optical Mouse:
@@ -542,6 +562,14 @@ mouse:usb:v0e8fp00a7:name:DaKai 2.4G RX:
 # Oklick 406S Bluetooth Laser Mouse
 mouse:bluetooth:v056ep0061:name:Laser  BTmouse:
  MOUSE_DPI=*800@333 1600@333
+
+##########################################
+# P-Active
+##########################################
+
+# P-Active Wireless Mouse PA-27K2
+mouse:usb:v0425p0101:name:G-Tech CHINA    USB Wireless Mouse & KeyBoard V1.01  :
+ MOUSE_DPI=800@125
 
 ##########################################
 # Razer
