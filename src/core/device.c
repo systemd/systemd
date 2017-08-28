@@ -514,7 +514,7 @@ static void device_update_found_one(Device *d, bool add, DeviceFound found, bool
 }
 
 static int device_update_found_by_sysfs(Manager *m, const char *sysfs, bool add, DeviceFound found, bool now) {
-        Device *d, *l;
+        Device *d, *l, *n;
 
         assert(m);
         assert(sysfs);
@@ -523,7 +523,7 @@ static int device_update_found_by_sysfs(Manager *m, const char *sysfs, bool add,
                 return 0;
 
         l = hashmap_get(m->devices_by_sysfs, sysfs);
-        LIST_FOREACH(same_sysfs, d, l)
+        LIST_FOREACH_SAFE(same_sysfs, d, n, l)
                 device_update_found_one(d, add, found, now);
 
         return 0;
