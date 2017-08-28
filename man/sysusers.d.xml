@@ -47,6 +47,8 @@
   </refnamediv>
 
   <refsynopsisdiv>
+    <para><filename>/etc/sysusers.d/*.conf</filename></para>
+    <para><filename>/run/sysusers.d/*.conf</filename></para>
     <para><filename>/usr/lib/sysusers.d/*.conf</filename></para>
   </refsynopsisdiv>
 
