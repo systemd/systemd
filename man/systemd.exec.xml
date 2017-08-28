@@ -1570,7 +1570,7 @@
         does not have, however. On systems supporting multiple ABIs at the same time — such as x86/x86-64 — it is hence
         recommended to limit the set of permitted system call architectures so that secondary ABIs may not be used to
         circumvent the restrictions applied to the native ABI of the system. In particular, setting
-        <varname>SystemCallFilter=native</varname> is a good choice for disabling non-native ABIs.</para>
+        <varname>SystemCallArchitectures=native</varname> is a good choice for disabling non-native ABIs.</para>
 
         <para>System call architectures may also be restricted system-wide via the
         <varname>SystemCallArchitectures=</varname> option in the global configuration. See
