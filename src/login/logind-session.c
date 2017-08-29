@@ -1156,7 +1156,7 @@ void session_restore_vt(Session *s) {
 
         (void) ioctl(vt, KDSETMODE, KD_TEXT);
 
-        if (read_one_line_file("/sys/module/vt/parameters/default_utf8", &utf8) >= 0 && *utf8 == '0')
+        if (read_one_line_file("/sys/module/vt/parameters/default_utf8", &utf8) >= 0 && parse_boolean(utf8) == 0)
                 kb = K_XLATE;
         else
                 kb = K_UNICODE;
