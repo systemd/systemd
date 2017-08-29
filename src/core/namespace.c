@@ -1063,9 +1063,11 @@ int setup_namespace(
                 if (r < 0)
                         goto finish;
 
-                r = decrypted_image_relinquish(decrypted_image);
-                if (r < 0)
-                        goto finish;
+                if (decrypted_image) {
+                        r = decrypted_image_relinquish(decrypted_image);
+                        if (r < 0)
+                                goto finish;
+                }
 
                 loop_device_relinquish(loop_device);
 
