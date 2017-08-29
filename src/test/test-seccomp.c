@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <sys/eventfd.h>
 #include <sys/mman.h>
+#include <sys/personality.h>
 #include <sys/poll.h>
 #include <sys/shm.h>
 #include <sys/types.h>
@@ -46,7 +47,6 @@
 #else
 #  define SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN 0
 #endif
-
 
 static void test_seccomp_arch_to_string(void) {
         uint32_t a, b;
@@ -565,6 +565,70 @@ static void test_load_syscall_filter_set_raw(void) {
         assert_se(wait_for_terminate_and_warn("syscallrawseccomp", pid, true) == EXIT_SUCCESS);
 }
 
+static void test_lock_personality(void) {
+        unsigned long current;
+        pid_t pid;
+
+        if (!is_seccomp_available())
+                return;
+        if (geteuid() != 0)
+                return;
+
+        assert_se(opinionated_personality(&current) >= 0);
+
+        log_info("current personality=%lu", current);
+
+        pid = fork();
+        assert_se(pid >= 0);
+
+        if (pid == 0) {
+                assert_se(seccomp_lock_personality(current) >= 0);
+
+                assert_se((unsigned long) personality(current) == current);
+
+                errno = EUCLEAN;
+                assert_se(personality(PER_LINUX | ADDR_NO_RANDOMIZE) == -1 && errno == EPERM);
+
+                errno = EUCLEAN;
+                assert_se(personality(PER_LINUX | MMAP_PAGE_ZERO) == -1 && errno == EPERM);
+
+                errno = EUCLEAN;
+                assert_se(personality(PER_LINUX | ADDR_COMPAT_LAYOUT) == -1 && errno == EPERM);
+
+                errno = EUCLEAN;
+                assert_se(personality(PER_LINUX | READ_IMPLIES_EXEC) == -1 && errno == EPERM);
+
+                errno = EUCLEAN;
+                assert_se(personality(PER_LINUX_32BIT) == -1 && errno == EPERM);
+
+                errno = EUCLEAN;
+                assert_se(personality(PER_SVR4) == -1 && errno == EPERM);
+
+                errno = EUCLEAN;
+                assert_se(personality(PER_BSD) == -1 && errno == EPERM);
+
+                errno = EUCLEAN;
+                assert_se(personality(current == PER_LINUX ? PER_LINUX32 : PER_LINUX) == -1 && errno == EPERM);
+
+                errno = EUCLEAN;
+                assert_se(personality(PER_LINUX32_3GB) == -1 && errno == EPERM);
+
+                errno = EUCLEAN;
+                assert_se(personality(PER_UW7) == -1 && errno == EPERM);
+
+                errno = EUCLEAN;
+                assert_se(personality(0x42) == -1 && errno == EPERM);
+
+                errno = EUCLEAN;
+                assert_se(personality(PERSONALITY_INVALID) == -1 && errno == EPERM); /* maybe remove this later */
+
+                assert_se((unsigned long) personality(current) == current);
+                _exit(EXIT_SUCCESS);
+        }
+
+        assert_se(wait_for_terminate_and_warn("lockpersonalityseccomp", pid, true) == EXIT_SUCCESS);
+}
+
 int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
@@ -581,6 +645,7 @@ int main(int argc, char *argv[]) {
         test_memory_deny_write_execute_shmat();
         test_restrict_archs();
         test_load_syscall_filter_set_raw();
+        test_lock_personality();
 
         return 0;
 }

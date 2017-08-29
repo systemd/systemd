@@ -853,6 +853,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("SystemCallArchitectures", "as", property_get_syscall_archs, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SystemCallErrorNumber", "i", property_get_syscall_errno, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Personality", "s", property_get_personality, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LockPersonality", "b", bus_property_get_bool, offsetof(ExecContext, lock_personality), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictAddressFamilies", "(bas)", property_get_address_families, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeDirectoryPreserve", "s", property_get_exec_preserve_mode, offsetof(ExecContext, runtime_directory_preserve_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_RUNTIME].mode), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1695,7 +1696,7 @@ int bus_exec_context_set_transient_property(
                               "NoNewPrivileges", "SyslogLevelPrefix", "MemoryDenyWriteExecute",
                               "RestrictRealtime", "DynamicUser", "RemoveIPC", "ProtectKernelTunables",
                               "ProtectKernelModules", "ProtectControlGroups", "MountAPIVFS",
-                              "CPUSchedulingResetOnFork", "NonBlocking")) {
+                              "CPUSchedulingResetOnFork", "NonBlocking", "LockPersonality")) {
                 int b;
 
                 r = sd_bus_message_read(message, "b", &b);
@@ -1743,6 +1744,8 @@ int bus_exec_context_set_transient_property(
                                 c->cpu_sched_reset_on_fork = b;
                         else if (streq(name, "NonBlocking"))
                                 c->non_blocking = b;
+                        else if (streq(name, "LockPersonality"))
+                                c->lock_personality = b;
 
                         unit_write_drop_in_private_format(u, mode, name, "%s=%s", name, yes_no(b));
                 }
