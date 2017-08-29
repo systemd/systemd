@@ -1495,10 +1495,15 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_split_mode = JOURNAL_WRITE_SPLIT_NONE;
         }
 
-        if (arg_split_mode == JOURNAL_WRITE_SPLIT_NONE
-            && arg_output && is_dir(arg_output, true) > 0) {
-                log_error("For SplitMode=none, output must be a file.");
-                return -EINVAL;
+        if (arg_split_mode == JOURNAL_WRITE_SPLIT_NONE && arg_output) {
+                if (is_dir(arg_output, true) > 0) {
+                        log_error("For SplitMode=none, output must be a file.");
+                        return -EINVAL;
+                }
+                if (!endswith(arg_output, ".journal")) {
+                        log_error("For SplitMode=none, output file name must end with .journal.");
+                        return -EINVAL;
+                }
         }
 
         if (arg_split_mode == JOURNAL_WRITE_SPLIT_HOST
