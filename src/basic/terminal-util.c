@@ -264,10 +264,10 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
                 (void) ioctl(fd, KDSETMODE, KD_TEXT);
 
         /* Set default keyboard mode */
-        if (read_one_line_file("/sys/module/vt/parameters/default_utf8", &utf8) >= 0 && *utf8 == '1')
-                kb = K_UNICODE;
-        else
+        if (read_one_line_file("/sys/module/vt/parameters/default_utf8", &utf8) >= 0 && *utf8 == '0')
                 kb = K_XLATE;
+        else
+                kb = K_UNICODE;
         (void) ioctl(fd, KDSKBMODE, kb);
 
         if (tcgetattr(fd, &termios) < 0) {
