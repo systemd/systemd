@@ -364,18 +364,14 @@ static int trie_store(struct trie *trie, const char *filename) {
         t.strings_off = sizeof(struct trie_header_f);
         trie_store_nodes_size(&t, trie->root);
 
-        err = fopen_temporary(filename , &t.f, &filename_tmp);
+        err = fopen_temporary(filename, &t.f, &filename_tmp);
         if (err < 0)
                 return err;
         fchmod(fileno(t.f), 0444);
 
         /* write nodes */
-        err = fseeko(t.f, sizeof(struct trie_header_f), SEEK_SET);
-        if (err < 0) {
-                fclose(t.f);
-                unlink_noerrno(filename_tmp);
-                return -errno;
-        }
+        if (fseeko(t.f, sizeof(struct trie_header_f), SEEK_SET) < 0)
+                goto error_fclose;
         root_off = trie_store_nodes(&t, trie->root);
         h.nodes_root_off = htole64(root_off);
         pos = ftello(t.f);
@@ -388,21 +384,21 @@ static int trie_store(struct trie *trie, const char *filename) {
         /* write header */
         size = ftello(t.f);
         h.file_size = htole64(size);
-        err = fseeko(t.f, 0, SEEK_SET);
-        if (err < 0) {
-                fclose(t.f);
-                unlink_noerrno(filename_tmp);
-                return -errno;
-        }
+        if (fseeko(t.f, 0, SEEK_SET < 0))
+                goto error_fclose;
         fwrite(&h, sizeof(struct trie_header_f), 1, t.f);
-        err = ferror(t.f);
-        if (err)
-                err = -errno;
+
+        if (ferror(t.f))
+                goto error_fclose;
+        if (fflush(t.f) < 0)
+                goto error_fclose;
+        if (fsync(fileno(t.f)) < 0)
+                goto error_fclose;
+        if (rename(filename_tmp, filename) < 0)
+                goto error_fclose;
+
+        /* write succeeded */
         fclose(t.f);
-        if (err < 0 || rename(filename_tmp, filename) < 0) {
-                unlink_noerrno(filename_tmp);
-                return err < 0 ? err : -errno;
-        }
 
         log_debug("=== trie on-disk ===");
         log_debug("size:             %8"PRIi64" bytes", size);
@@ -417,6 +413,12 @@ static int trie_store(struct trie *trie, const char *filename) {
         log_debug("strings start:    %8"PRIu64, t.strings_off);
 
         return 0;
+
+ error_fclose:
+        err = -errno;
+        fclose(t.f);
+        unlink(filename_tmp);
+        return err;
 }
 
 static int insert_data(struct trie *trie, struct udev_list *match_list,

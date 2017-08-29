@@ -71,7 +71,7 @@ int write_string_stream_ts(FILE *f, const char *line, bool enforce_newline, stru
         return fflush_and_check(f);
 }
 
-static int write_string_file_atomic(const char *fn, const char *line, bool enforce_newline) {
+static int write_string_file_atomic(const char *fn, const char *line, bool enforce_newline, bool do_fsync) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
@@ -86,6 +86,9 @@ static int write_string_file_atomic(const char *fn, const char *line, bool enfor
         (void) fchmod_umask(fileno(f), 0644);
 
         r = write_string_stream(f, line, enforce_newline);
+        if (r >= 0 && do_fsync)
+                r = fflush_sync_and_check(f);
+
         if (r >= 0) {
                 if (rename(p, fn) < 0)
                         r = -errno;
@@ -104,10 +107,14 @@ int write_string_file_ts(const char *fn, const char *line, WriteStringFileFlags 
         assert(fn);
         assert(line);
 
+        /* We don't know how to verify whether the file contents was already on-disk. */
+        assert(!((flags & WRITE_STRING_FILE_VERIFY_ON_FAILURE) && (flags & WRITE_STRING_FILE_SYNC)));
+
         if (flags & WRITE_STRING_FILE_ATOMIC) {
                 assert(flags & WRITE_STRING_FILE_CREATE);
 
-                r = write_string_file_atomic(fn, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE));
+                r = write_string_file_atomic(fn, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE),
+                                                       flags & WRITE_STRING_FILE_SYNC);
                 if (r < 0)
                         goto fail;
 
@@ -143,6 +150,12 @@ int write_string_file_ts(const char *fn, const char *line, WriteStringFileFlags 
         r = write_string_stream_ts(f, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE), ts);
         if (r < 0)
                 goto fail;
+
+        if (flags & WRITE_STRING_FILE_SYNC) {
+                r = fflush_sync_and_check(f);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 
@@ -1122,6 +1135,21 @@ int fflush_and_check(FILE *f) {
 
         if (ferror(f))
                 return errno > 0 ? -errno : -EIO;
+
+        return 0;
+}
+
+int fflush_sync_and_check(FILE *f) {
+        int r;
+
+        assert(f);
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                return r;
+
+        if (fsync(fileno(f)) < 0)
+                return -errno;
 
         return 0;
 }

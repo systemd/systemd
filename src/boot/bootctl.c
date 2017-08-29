@@ -539,11 +539,17 @@ static int copy_file_with_version_check(const char *from, const char *to, bool f
 
         r = copy_bytes(fd_from, fd_to, (uint64_t) -1, COPY_REFLINK);
         if (r < 0) {
-                unlink(t);
-                return log_error_errno(errno, "Failed to copy data from \"%s\" to \"%s\": %m", from, t);
+                (void) unlink(t);
+                return log_error_errno(r, "Failed to copy data from \"%s\" to \"%s\": %m", from, t);
         }
 
         (void) copy_times(fd_from, fd_to);
+
+        r = fsync(fd_to);
+        if (r < 0) {
+                (void) unlink_noerrno(t);
+                return log_error_errno(errno, "Failed to copy data from \"%s\" to \"%s\": %m", from, t);
+        }
 
         r = renameat(AT_FDCWD, t, AT_FDCWD, to);
         if (r < 0) {
@@ -912,7 +918,7 @@ static int install_loader_config(const char *esp_path) {
 
         r = sd_id128_get_machine(&machine_id);
         if (r < 0)
-                return log_error_errno(r, "Failed to get machine did: %m");
+                return log_error_errno(r, "Failed to get machine id: %m");
 
         p = strjoina(esp_path, "/loader/loader.conf");
 
@@ -932,7 +938,7 @@ static int install_loader_config(const char *esp_path) {
         fprintf(f, "#timeout 3\n");
         fprintf(f, "default %s-*\n", sd_id128_to_string(machine_id, machine_string));
 
-        r = fflush_and_check(f);
+        r = fflush_sync_and_check(f);
         if (r < 0)
                 return log_error_errno(r, "Failed to write \"%s\": %m", p);
 
