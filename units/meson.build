@@ -88,7 +88,7 @@ units = [
          'sockets.target.wants/'],
         ['systemd-journald.socket',             '',
          'sockets.target.wants/'],
-        ['systemd-networkd.socket',             '',
+        ['systemd-networkd.socket',             'ENABLE_NETWORKD',
          join_paths(pkgsysconfdir, 'system/sockets.target.wants/')],
         ['systemd-rfkill.socket',               'ENABLE_RFKILL'],
         ['systemd-tmpfiles-clean.timer',        '',

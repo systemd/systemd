@@ -2201,18 +2201,17 @@ if conf.get('ENABLE_NETWORKD', false)
                    install_rpath : rootlibexecdir,
                    install : true,
                    install_dir : rootlibexecdir)
-endif
 
-exe = executable('networkctl',
-                 networkctl_sources,
-                 include_directories : includes,
-                 link_with : [libsystemd_network,
+        exe = executable('networkctl',
+                   networkctl_sources,
+                   include_directories : includes,
+                   link_with : [libsystemd_network,
                               libshared],
-                 install_rpath : rootlibexecdir,
-                 install : true,
-                 install_dir : rootbindir)
-public_programs += [exe]
-
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootbindir)
+        public_programs += [exe]
+endif
 ############################################################
 
 foreach tuple : tests
