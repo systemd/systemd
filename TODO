@@ -24,6 +24,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* StateDirectory= and friends should imply RequiresMountsFor=
+
+* set LockPersonality= on all our services
+
 * Add AddUser= setting to unit files, similar to DynamicUser=1 which however
   creates a static, persistent user rather than a dynamic, transient user. We
   can leverage code from sysusers.d for this.
