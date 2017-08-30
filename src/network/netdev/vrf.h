@@ -26,7 +26,7 @@ typedef struct Vrf Vrf;
 struct Vrf {
         NetDev meta;
 
-        uint32_t table_id;
+        uint32_t table;
 };
 
 DEFINE_NETDEV_CAST(VRF, Vrf);
