@@ -799,7 +799,7 @@ int bus_socket_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
                         .msg_iovlen = m->n_iovec,
                 };
 
-                if (m->n_fds > 0) {
+                if (m->n_fds > 0 && *idx == 0) {
                         struct cmsghdr *control;
 
                         mh.msg_control = control = alloca(CMSG_SPACE(sizeof(int) * m->n_fds));
