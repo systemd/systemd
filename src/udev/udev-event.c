@@ -346,10 +346,32 @@ size_t udev_event_apply_format(struct udev_event *event,
                         } else if (from[0] == '%') {
                                 /* substitute format char */
                                 unsigned int i;
+                                unsigned int num = 0;
+                                char from1 = from[1];
 
                                 if (from[1] == '%') {
                                         from++;
                                         goto copy;
+                                }
+
+                                /* extract possible format length and move from behind it*/
+                                if (isdigit(from1)) {
+                                        char *tail;
+
+                                        from++;
+                                        num = (int) strtoul(from, &tail, 10);
+                                        if (num > 0) {
+                                                log_debug("format length='%i'", num);
+                                                l = num+1;
+                                                s = l;
+                                                if (tail[0] != '%')
+                                                        from = strjoina("%", tail);
+                                                else
+                                                        from = tail;
+                                        } else {
+                                                log_error("format parsing error '%s'", from);
+                                                goto out;
+                                        }
                                 }
 
                                 for (i = 0; i < ELEMENTSOF(map); i++) {
