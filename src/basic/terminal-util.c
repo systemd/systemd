@@ -245,6 +245,8 @@ int ask_string(char **ret, const char *text, ...) {
 
 int reset_terminal_fd(int fd, bool switch_to_text) {
         struct termios termios;
+        _cleanup_free_ char *utf8 = NULL;
+        int kb;
         int r = 0;
 
         /* Set terminal to some sane defaults */
@@ -262,8 +264,12 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
         if (switch_to_text)
                 (void) ioctl(fd, KDSETMODE, KD_TEXT);
 
-        /* Enable console unicode mode */
-        (void) ioctl(fd, KDSKBMODE, K_UNICODE);
+        /* Set default keyboard mode */
+        if (read_one_line_file("/sys/module/vt/parameters/default_utf8", &utf8) >= 0 && parse_boolean(utf8) == 0)
+                kb = K_XLATE;
+        else
+                kb = K_UNICODE;
+        (void) ioctl(fd, KDSKBMODE, kb);
 
         if (tcgetattr(fd, &termios) < 0) {
                 r = -errno;
