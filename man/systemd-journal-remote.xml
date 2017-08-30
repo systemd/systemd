@@ -203,8 +203,7 @@
     <title>Sinks</title>
 
     <para>The location of the output journal can be specified
-    with <option>-o</option> or <option>--output=</option>. For "active"
-    sources, this option is required.
+    with <option>-o</option> or <option>--output=</option>.
     </para>
 
     <variablelist>
@@ -261,7 +260,8 @@
         is used, based on the hostname of the other endpoint of a
         connection.</para>
 
-        <para>In case of "active" sources, the output file name must
+        <para>In the case that "active" sources are given by the positional
+        arguments or <option>--getter=</option> option, the output file name must
         always be given explicitly and only <constant>none</constant>
         is allowed.</para></listitem>
       </varlistentry>
