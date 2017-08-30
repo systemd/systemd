@@ -66,7 +66,7 @@ static int arg_seal = false;
 static int http_socket = -1, https_socket = -1;
 static char** arg_gnutls_log = NULL;
 
-static JournalWriteSplitMode arg_split_mode = JOURNAL_WRITE_SPLIT_HOST;
+static JournalWriteSplitMode arg_split_mode = _JOURNAL_WRITE_SPLIT_INVALID;
 static char* arg_output = NULL;
 
 static char *arg_key = NULL;
@@ -1492,8 +1492,16 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
                 }
 
+                if (!IN_SET(arg_split_mode, JOURNAL_WRITE_SPLIT_NONE, _JOURNAL_WRITE_SPLIT_INVALID)) {
+                        log_error("For active sources, only --split-mode=none is allowed.");
+                        return -EINVAL;
+                }
+
                 arg_split_mode = JOURNAL_WRITE_SPLIT_NONE;
         }
+
+        if (arg_split_mode == _JOURNAL_WRITE_SPLIT_INVALID)
+                arg_split_mode = JOURNAL_WRITE_SPLIT_HOST;
 
         if (arg_split_mode == JOURNAL_WRITE_SPLIT_NONE && arg_output) {
                 if (is_dir(arg_output, true) > 0) {
