@@ -134,3 +134,4 @@ Bridge.MulticastSnooping,    config_parse_tristate,                0,           
 Bridge.VLANFiltering,        config_parse_tristate,                0,                             offsetof(Bridge, vlan_filtering)
 Bridge.STP,                  config_parse_tristate,                0,                             offsetof(Bridge, stp)
 VRF.TableId,                 config_parse_uint32,                  0,                             offsetof(Vrf, table_id)
+VRF.Table,                   config_parse_route_table,             0,                             offsetof(Vrf, table_id)
