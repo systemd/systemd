@@ -1128,8 +1128,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
             <para>Depending on whether <option>--system</option>, <option>--user</option>, <option>--runtime</option>,
             or <option>--global</option> is specified, this enables the unit for the system, for the calling user only,
-            for only this boot of the system, or for all future logins of all users, or only this boot.  Note that in
-            the last case, no systemd daemon configuration is reloaded.</para>
+            for only this boot of the system, or for all future logins of all users.  Note that in the last case, no
+            systemd daemon configuration is reloaded.</para>
 
             <para>Using <command>enable</command> on masked units is not supported and results in an error.</para>
           </listitem>
