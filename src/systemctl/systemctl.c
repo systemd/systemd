@@ -8562,6 +8562,10 @@ int main(int argc, char*argv[]) {
                 r = systemctl_main(argc, argv);
                 break;
 
+        /* Legacy command aliases set arg_action. They provide some fallbacks,
+         * e.g. to tell sysvinit to reboot after you have installed systemd
+         * binaries. */
+
         case ACTION_HALT:
         case ACTION_POWEROFF:
         case ACTION_REBOOT:
@@ -8574,8 +8578,6 @@ int main(int argc, char*argv[]) {
         case ACTION_RUNLEVEL4:
         case ACTION_RUNLEVEL5:
         case ACTION_RESCUE:
-        case ACTION_EMERGENCY:
-        case ACTION_DEFAULT:
                 r = start_with_fallback();
                 break;
 
@@ -8591,6 +8593,15 @@ int main(int argc, char*argv[]) {
         case ACTION_RUNLEVEL:
                 r = runlevel_main();
                 break;
+
+        case ACTION_EXIT:
+        case ACTION_SUSPEND:
+        case ACTION_HIBERNATE:
+        case ACTION_HYBRID_SLEEP:
+        case ACTION_EMERGENCY:
+        case ACTION_DEFAULT:
+                /* systemctl verbs with no equivalent in the legacy commands.
+                 * These cannot appear in arg_action.  Fall through. */
 
         case _ACTION_INVALID:
         default:
