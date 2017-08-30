@@ -88,7 +88,7 @@
 
     <variablelist>
       <varlistentry>
-        <term><filename>/var/lib/systemd/clock</filename></term>
+        <term><filename>/var/lib/systemd/timesync/clock</filename></term>
 
         <listitem>
           <para>This file contains the timestamp of the last successful

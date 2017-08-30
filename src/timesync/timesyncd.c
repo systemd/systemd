@@ -24,6 +24,7 @@
 #include "clock-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "mkdir.h"
 #include "network-util.h"
 #include "process-util.h"
 #include "signal-util.h"
@@ -44,7 +45,7 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
          * systems lacking a battery backed RTC. We also will adjust
          * the time to at least the build time of systemd. */
 
-        fd = open("/var/lib/systemd/clock", O_RDWR|O_CLOEXEC, 0644);
+        fd = open("/var/lib/systemd/timesync/clock", O_RDWR|O_CLOEXEC, 0644);
         if (fd >= 0) {
                 struct stat st;
                 usec_t stamp;
@@ -57,14 +58,24 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
                                 min = stamp;
                 }
 
-                /* Try to fix the access mode, so that we can still
-                   touch the file after dropping priviliges */
-                (void) fchmod(fd, 0644);
-                (void) fchown(fd, uid, gid);
+                if (geteuid() == 0) {
+                        /* Try to fix the access mode, so that we can still
+                           touch the file after dropping priviliges */
+                        r = fchmod(fd, 0644);
+                        if (r < 0)
+                                return log_error_errno(errno, "Failed to change file access mode: %m");
+                        r = fchown(fd, uid, gid);
+                                return log_error_errno(errno, "Failed to change file owner: %m");
+                }
 
-        } else
+        } else {
+                r = mkdir_safe_label("/var/lib/systemd/timesync", 0755, uid, gid);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create state directory: %m");
+
                 /* create stamp file with the compiled-in date */
-                (void) touch_file("/var/lib/systemd/clock", true, min, uid, gid, 0644);
+                (void) touch_file("/var/lib/systemd/timesync/clock", false, min, uid, gid, 0644);
+        }
 
         ct = now(CLOCK_REALTIME);
         if (ct < min) {
@@ -111,9 +122,13 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        r = drop_privileges(uid, gid, (1ULL << CAP_SYS_TIME));
-        if (r < 0)
-                goto finish;
+        /* Drop privileges, but only if we have been started as root. If we are not running as root we assume all
+         * privileges are already dropped. */
+        if (geteuid() == 0) {
+                r = drop_privileges(uid, gid, (1ULL << CAP_SYS_TIME));
+                if (r < 0)
+                        goto finish;
+        }
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
@@ -158,7 +173,7 @@ int main(int argc, char *argv[]) {
 
         /* if we got an authoritative time, store it in the file system */
         if (m->sync)
-                (void) touch("/var/lib/systemd/clock");
+                (void) touch("/var/lib/systemd/timesync/clock");
 
         sd_event_get_exit_code(m->event, &r);
 
