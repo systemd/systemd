@@ -39,6 +39,7 @@
 #include "bus-label.h"
 #include "bus-message.h"
 #include "bus-util.h"
+#include "cap-list.h"
 #include "cgroup-util.h"
 #include "def.h"
 #include "escape.h"
@@ -733,7 +734,7 @@ int bus_print_property(const char *name, sd_bus_message *property, bool value, b
                         print_property(name, "%s", format_timespan(timespan, sizeof(timespan), u, 0));
                 } else if (streq(name, "RestrictNamespaces")) {
                         _cleanup_free_ char *s = NULL;
-                        const char *result = NULL;
+                        const char *result;
 
                         if ((u & NAMESPACE_FLAGS_ALL) == 0)
                                 result = "yes";
@@ -750,13 +751,22 @@ int bus_print_property(const char *name, sd_bus_message *property, bool value, b
                         print_property(name, "%s", result);
 
                 } else if (streq(name, "MountFlags")) {
-                        const char *result = NULL;
+                        const char *result;
 
                         result = mount_propagation_flags_to_string(u);
                         if (!result)
                                 return -EINVAL;
 
                         print_property(name, "%s", result);
+
+                } else if (STR_IN_SET(name, "CapabilityBoundingSet", "AmbientCapabilities")) {
+                        _cleanup_free_ char *s = NULL;
+
+                        r = capability_set_to_string_alloc(u, &s);
+                        if (r < 0)
+                                return r;
+
+                        print_property(name, "%s", s);
 
                 } else if ((STR_IN_SET(name, "CPUWeight", "StartupCPUWeight", "IOWeight", "StartupIOWeight") && u == CGROUP_WEIGHT_INVALID) ||
                            (STR_IN_SET(name, "CPUShares", "StartupCPUShares") && u == CGROUP_CPU_SHARES_INVALID) ||
