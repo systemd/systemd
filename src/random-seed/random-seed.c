@@ -19,7 +19,9 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/random.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -33,9 +35,35 @@
 
 #define POOL_SIZE_MIN 512
 
+static ssize_t get_random(int fd, struct rand_pool_info **entropy) {
+        ssize_t len;
+        int r;
+
+        r = ioctl(fd, RNDGETENTCNT, &((*entropy)->entropy_count));
+        if (r < 0)
+                return -errno;
+
+        len = loop_read(fd, (*entropy)->buf, (*entropy)->buf_size, false);
+        if (len < 0)
+                return len;
+        (*entropy)->buf_size = len;
+
+        return sizeof(struct rand_pool_info) + len;
+}
+
+static ssize_t put_random(int fd, struct rand_pool_info *entropy) {
+        int r;
+
+        r = ioctl(fd, RNDADDENTROPY, entropy);
+        if (r < 0)
+                return -errno;
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_close_ int seed_fd = -1, random_fd = -1;
-        _cleanup_free_ void* buf = NULL;
+        _cleanup_free_ struct rand_pool_info *entropy = NULL;
         size_t buf_size = 0;
         ssize_t k;
         int r, open_rw_error;
@@ -66,11 +94,13 @@ int main(int argc, char *argv[]) {
         if (buf_size <= POOL_SIZE_MIN)
                 buf_size = POOL_SIZE_MIN;
 
-        buf = malloc(buf_size);
-        if (!buf) {
+        entropy = malloc(sizeof(struct rand_pool_info) + buf_size);
+        if (!entropy) {
                 r = log_oom();
                 goto finish;
         }
+        entropy->buf_size = buf_size;
+        buf_size += sizeof(struct rand_pool_info);
 
         r = mkdir_parents_label(RANDOM_SEED, 0755);
         if (r < 0) {
@@ -113,7 +143,7 @@ int main(int argc, char *argv[]) {
                         }
                 }
 
-                k = loop_read(seed_fd, buf, buf_size, false);
+                k = loop_read(seed_fd, entropy, buf_size, false);
                 if (k < 0)
                         r = log_error_errno(k, "Failed to read seed from " RANDOM_SEED ": %m");
                 else if (k == 0) {
@@ -122,7 +152,7 @@ int main(int argc, char *argv[]) {
                 } else {
                         (void) lseek(seed_fd, 0, SEEK_SET);
 
-                        r = loop_write(random_fd, buf, (size_t) k, false);
+                        r = put_random(random_fd, entropy);
                         if (r < 0)
                                 log_error_errno(r, "Failed to write seed to /dev/urandom: %m");
                 }
@@ -155,7 +185,7 @@ int main(int argc, char *argv[]) {
                 (void) fchmod(seed_fd, 0600);
                 (void) fchown(seed_fd, 0, 0);
 
-                k = loop_read(random_fd, buf, buf_size, false);
+                k = get_random(random_fd, &entropy);
                 if (k < 0) {
                         r = log_error_errno(k, "Failed to read new seed from /dev/urandom: %m");
                         goto finish;
@@ -166,7 +196,7 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                r = loop_write(seed_fd, buf, (size_t) k, false);
+                r = loop_write(seed_fd, entropy, k, false);
                 if (r < 0)
                         log_error_errno(r, "Failed to write new random seed file: %m");
         }
