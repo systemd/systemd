@@ -9,7 +9,6 @@
 Description=Process Core Dump
 Documentation=man:systemd-coredump(8)
 DefaultDependencies=no
-RequiresMountsFor=/var/lib/systemd/coredump
 Conflicts=shutdown.target
 After=systemd-remount-fs.service systemd-journald.socket
 Requires=systemd-journald.socket
