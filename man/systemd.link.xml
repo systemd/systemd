@@ -386,9 +386,40 @@
               </listitem>
             </varlistentry>
             <varlistentry>
+              <term><literal>unicast</literal></term>
+              <listitem>
+                <para>Wake on unicast messages.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>multicast</literal></term>
+              <listitem>
+                <para>Wake on multicast messages.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>broadcast</literal></term>
+              <listitem>
+                <para>Wake on broadcast messages.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>arp</literal></term>
+              <listitem>
+                <para>Wake on ARP.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
               <term><literal>magic</literal></term>
               <listitem>
                 <para>Wake on receipt of a magic packet.
+                </para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>secureon</literal></term>
+              <listitem>
+                <para>Enable secureon(tm) password for MagicPacket(tm).
                 </para>
               </listitem>
             </varlistentry>
