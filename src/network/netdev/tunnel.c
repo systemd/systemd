@@ -51,14 +51,16 @@ static int netdev_ipip_fill_message_create(NetDev *netdev, Link *link, sd_netlin
         int r;
 
         assert(netdev);
-        assert(link);
         assert(m);
         assert(t);
         assert(IN_SET(t->family, AF_INET, AF_UNSPEC));
 
-        r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
+        if (link) {
+                r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
+
+        }
 
         r = sd_netlink_message_append_in_addr(m, IFLA_IPTUN_LOCAL, &t->local.in);
         if (r < 0)
@@ -84,14 +86,16 @@ static int netdev_sit_fill_message_create(NetDev *netdev, Link *link, sd_netlink
         int r;
 
         assert(netdev);
-        assert(link);
         assert(m);
         assert(t);
         assert(IN_SET(t->family, AF_INET, AF_UNSPEC));
 
-        r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
+        if (link) {
+                r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
+
+        }
 
         r = sd_netlink_message_append_in_addr(m, IFLA_IPTUN_LOCAL, &t->local.in);
         if (r < 0)
@@ -125,12 +129,13 @@ static int netdev_gre_fill_message_create(NetDev *netdev, Link *link, sd_netlink
 
         assert(t);
         assert(IN_SET(t->family, AF_INET, AF_UNSPEC));
-        assert(link);
         assert(m);
 
-        r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link->ifindex);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_LINK attribute: %m");
+        if (link) {
+                r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link->ifindex);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_LINK attribute: %m");
+        }
 
         r = sd_netlink_message_append_in_addr(m, IFLA_GRE_LOCAL, &t->local.in);
         if (r < 0)
@@ -168,12 +173,13 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
 
         assert(t);
         assert(t->family == AF_INET6);
-        assert(link);
         assert(m);
 
-        r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link->ifindex);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_LINK attribute: %m");
+        if (link) {
+                r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link->ifindex);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_LINK attribute: %m");
+        }
 
         r = sd_netlink_message_append_in6_addr(m, IFLA_GRE_LOCAL, &t->local.in6);
         if (r < 0)
@@ -205,7 +211,6 @@ static int netdev_vti_fill_message_key(NetDev *netdev, Link *link, sd_netlink_me
         Tunnel *t;
         int r;
 
-        assert(link);
         assert(m);
 
         if (netdev->kind == NETDEV_KIND_VTI)
@@ -243,9 +248,11 @@ static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink
         assert(t);
         assert(t->family == AF_INET);
 
-        r = sd_netlink_message_append_u32(m, IFLA_VTI_LINK, link->ifindex);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
+        if (link) {
+                r = sd_netlink_message_append_u32(m, IFLA_VTI_LINK, link->ifindex);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
+        }
 
         r = netdev_vti_fill_message_key(netdev, link, m);
         if (r < 0)
@@ -267,14 +274,15 @@ static int netdev_vti6_fill_message_create(NetDev *netdev, Link *link, sd_netlin
         int r;
 
         assert(netdev);
-        assert(link);
         assert(m);
         assert(t);
         assert(t->family == AF_INET6);
 
-        r = sd_netlink_message_append_u32(m, IFLA_VTI_LINK, link->ifindex);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
+        if (link) {
+                r = sd_netlink_message_append_u32(m, IFLA_VTI_LINK, link->ifindex);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
+        }
 
         r = netdev_vti_fill_message_key(netdev, link, m);
         if (r < 0)
@@ -297,14 +305,15 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
         int r;
 
         assert(netdev);
-        assert(link);
         assert(m);
         assert(t);
         assert(t->family == AF_INET6);
 
-        r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
+        if (link) {
+                r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
+        }
 
         r = sd_netlink_message_append_in6_addr(m, IFLA_IPTUN_LOCAL, &t->local.in6);
         if (r < 0)
@@ -568,7 +577,7 @@ int config_parse_encap_limit(const char* unit,
                              const char *section,
                              unsigned section_line,
                              const char *lvalue,
-                              int ltype,
+                             int ltype,
                              const char *rvalue,
                              void *data,
                              void *userdata) {

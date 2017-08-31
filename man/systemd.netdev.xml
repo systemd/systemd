@@ -847,6 +847,14 @@
           </para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>Independent=</varname></term>
+        <listitem>
+          <para>A boolean. When true tunnel does not require .network file. Created as "tunnel@NONE".
+          Defaults to <literal>false</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
   <refsect1>
