@@ -13,6 +13,7 @@ units = [
         ['final.target',                        ''],
         ['getty.target',                        '',
          'multi-user.target.wants/'],
+        ['getty-pre.target',                    ''],
         ['graphical.target',                    '',
          'runlevel5.target default.target'],
         ['halt.target',                         ''],

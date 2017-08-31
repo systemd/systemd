@@ -10,7 +10,7 @@ Description=Serial Getty on %I
 Documentation=man:agetty(8) man:systemd-getty-generator(8)
 Documentation=http://0pointer.de/blog/projects/serial-console.html
 BindsTo=dev-%i.device
-After=dev-%i.device systemd-user-sessions.service plymouth-quit-wait.service
+After=dev-%i.device systemd-user-sessions.service plymouth-quit-wait.service getty-pre.target
 m4_ifdef(`HAVE_SYSV_COMPAT',
 After=rc-local.service
 )m4_dnl
