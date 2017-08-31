@@ -846,6 +846,8 @@ Unit* unit_follow_merge(Unit *u) {
 }
 
 int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
+        ExecDirectoryType dt;
+        char **dp;
         int r;
 
         assert(u);
@@ -867,6 +869,23 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                 r = unit_require_mounts_for(u, c->root_image);
                 if (r < 0)
                         return r;
+        }
+
+        for (dt = 0; dt < _EXEC_DIRECTORY_MAX; dt++) {
+                if (!u->manager->prefix[dt])
+                        continue;
+
+                STRV_FOREACH(dp, c->directories[dt].paths) {
+                        _cleanup_free_ char *p;
+
+                        p = strjoin(u->manager->prefix[dt], "/", *dp);
+                        if (!p)
+                                return -ENOMEM;
+
+                        r = unit_require_mounts_for(u, p);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         if (!MANAGER_IS_SYSTEM(u->manager))
