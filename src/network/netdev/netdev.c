@@ -601,6 +601,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         _cleanup_free_ NetDev *netdev_raw = NULL;
         _cleanup_fclose_ FILE *file = NULL;
         const char *dropin_dirname;
+        bool independent = false;
         int r;
 
         assert(manager);
@@ -704,11 +705,49 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         case NETDEV_CREATE_INDEPENDENT:
                 r = netdev_create(netdev, NULL, NULL);
                 if (r < 0)
-                        return 0;
+                        return r;
 
                 break;
         default:
                 break;
+        }
+
+        switch (netdev->kind) {
+        case NETDEV_KIND_IPIP:
+                independent = IPIP(netdev)->independent;
+                break;
+        case NETDEV_KIND_GRE:
+                independent = GRE(netdev)->independent;
+                break;
+        case NETDEV_KIND_GRETAP:
+                independent = GRETAP(netdev)->independent;
+                break;
+        case NETDEV_KIND_IP6GRE:
+                independent = IP6GRE(netdev)->independent;
+                break;
+        case NETDEV_KIND_IP6GRETAP:
+                independent = IP6GRETAP(netdev)->independent;
+                break;
+        case NETDEV_KIND_SIT:
+                independent = SIT(netdev)->independent;
+                break;
+        case NETDEV_KIND_VTI:
+                independent = VTI(netdev)->independent;
+                break;
+        case NETDEV_KIND_VTI6:
+                independent = VTI6(netdev)->independent;
+                break;
+        case NETDEV_KIND_IP6TNL:
+                independent = IP6TNL(netdev)->independent;
+                break;
+        default:
+                break;
+        }
+
+        if (independent) {
+                r = netdev_create(netdev, NULL, NULL);
+                if (r < 0)
+                        return r;
         }
 
         netdev = NULL;

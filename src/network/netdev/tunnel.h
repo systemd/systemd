@@ -60,6 +60,7 @@ typedef struct Tunnel {
 
         bool pmtudisc;
         bool copy_dscp;
+        bool independent;
 } Tunnel;
 
 DEFINE_NETDEV_CAST(IPIP, Tunnel);
