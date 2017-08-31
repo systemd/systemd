@@ -617,8 +617,20 @@ static int path_set_perms(Item *i, const char *path) {
          * O_PATH. */
 
         fd = open(path, O_NOFOLLOW|O_CLOEXEC|O_PATH);
-        if (fd < 0)
-                return log_error_errno(errno, "Adjusting owner and mode for %s failed: %m", path);
+        if (fd < 0) {
+                int level = LOG_ERR, r = -errno;
+
+                /* Option "e" operates only on existing objects. Do not
+                 * print errors about non-existent files or directories */
+                if (i->type == EMPTY_DIRECTORY && errno == ENOENT) {
+                        level = LOG_DEBUG;
+                        r = 0;
+                }
+
+                log_full_errno(level, errno, "Adjusting owner and mode for %s failed: %m", path);
+
+                return r;
+        }
 
         if (fstatat(fd, "", &st, AT_EMPTY_PATH) < 0)
                 return log_error_errno(errno, "Failed to fstat() file %s: %m", path);
