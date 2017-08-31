@@ -162,17 +162,20 @@ static int wait_for_initialized(
 static int determine_state_file(
                 struct udev *udev,
                 const struct rfkill_event *event,
-                struct udev_device *d,
                 char **ret) {
 
+        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
         _cleanup_udev_device_unref_ struct udev_device *device = NULL;
         const char *path_id, *type;
         char *state_file;
         int r;
 
         assert(event);
-        assert(d);
         assert(ret);
+
+        r = find_device(udev, event, &d);
+        if (r < 0)
+                return r;
 
         r = wait_for_initialized(udev, d, &device);
         if (r < 0)
@@ -204,7 +207,6 @@ static int load_state(
                 struct udev *udev,
                 const struct rfkill_event *event) {
 
-        _cleanup_udev_device_unref_ struct udev_device *device = NULL;
         _cleanup_free_ char *state_file = NULL, *value = NULL;
         struct rfkill_event we;
         ssize_t l;
@@ -217,11 +219,7 @@ static int load_state(
         if (shall_restore_state() == 0)
                 return 0;
 
-        r = find_device(udev, event, &device);
-        if (r < 0)
-                return r;
-
-        r = determine_state_file(udev, event, device, &state_file);
+        r = determine_state_file(udev, event, &state_file);
         if (r < 0)
                 return r;
 
@@ -266,7 +264,6 @@ static int save_state(
                 struct udev *udev,
                 const struct rfkill_event *event) {
 
-        _cleanup_udev_device_unref_ struct udev_device *device = NULL;
         _cleanup_free_ char *state_file = NULL;
         int r;
 
@@ -274,11 +271,7 @@ static int save_state(
         assert(udev);
         assert(event);
 
-        r = find_device(udev, event, &device);
-        if (r < 0)
-                return r;
-
-        r = determine_state_file(udev, event, device, &state_file);
+        r = determine_state_file(udev, event, &state_file);
         if (r < 0)
                 return r;
 
