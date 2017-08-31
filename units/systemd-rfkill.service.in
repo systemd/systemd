@@ -9,7 +9,6 @@
 Description=Load/Save RF Kill Switch Status
 Documentation=man:systemd-rfkill.service(8)
 DefaultDependencies=no
-RequiresMountsFor=/var/lib/systemd/rfkill
 BindsTo=sys-devices-virtual-misc-rfkill.device
 Conflicts=shutdown.target
 After=sys-devices-virtual-misc-rfkill.device systemd-remount-fs.service
@@ -19,3 +18,4 @@ Before=shutdown.target
 Type=notify
 ExecStart=@rootlibexecdir@/systemd-rfkill
 TimeoutSec=30s
+StateDirectory=systemd/rfkill
