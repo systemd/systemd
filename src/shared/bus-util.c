@@ -734,7 +734,7 @@ int bus_print_property(const char *name, sd_bus_message *property, bool value, b
                         print_property(name, "%s", format_timespan(timespan, sizeof(timespan), u, 0));
                 } else if (streq(name, "RestrictNamespaces")) {
                         _cleanup_free_ char *s = NULL;
-                        const char *result = NULL;
+                        const char *result;
 
                         if ((u & NAMESPACE_FLAGS_ALL) == 0)
                                 result = "yes";
@@ -751,7 +751,7 @@ int bus_print_property(const char *name, sd_bus_message *property, bool value, b
                         print_property(name, "%s", result);
 
                 } else if (streq(name, "MountFlags")) {
-                        const char *result = NULL;
+                        const char *result;
 
                         result = mount_propagation_flags_to_string(u);
                         if (!result)
