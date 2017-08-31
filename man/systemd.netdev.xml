@@ -1314,7 +1314,7 @@ Name=vrf-test
 Kind=vrf
 
 [VRF]
-TableId=42</programlisting>
+Table=42</programlisting>
     </example>
 
     <example>

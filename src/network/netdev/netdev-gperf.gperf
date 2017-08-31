@@ -133,4 +133,5 @@ Bridge.MulticastQuerier,     config_parse_tristate,                0,           
 Bridge.MulticastSnooping,    config_parse_tristate,                0,                             offsetof(Bridge, mcast_snooping)
 Bridge.VLANFiltering,        config_parse_tristate,                0,                             offsetof(Bridge, vlan_filtering)
 Bridge.STP,                  config_parse_tristate,                0,                             offsetof(Bridge, stp)
-VRF.TableId,                 config_parse_uint32,                  0,                             offsetof(Vrf, table_id)
+VRF.TableId,                 config_parse_uint32,                  0,                             offsetof(Vrf, table) /* deprecated */
+VRF.Table,                   config_parse_route_table,             0,                             offsetof(Vrf, table)
