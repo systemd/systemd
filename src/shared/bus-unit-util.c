@@ -1227,7 +1227,7 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet, const char* const*
                         log_error("Operation on or unit type of %s not supported on this system.", strna(d->name));
                 else if (streq(d->result, "collected"))
                         log_error("Queued job for %s was garbage collected.", strna(d->name));
-                else if (!streq(d->result, "done") && !streq(d->result, "skipped")) {
+                else if (!STR_IN_SET(d->result, "done", "skipped")) {
                         if (d->name) {
                                 _cleanup_free_ char *result = NULL;
                                 int q;
@@ -1254,7 +1254,7 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet, const char* const*
                 r = -EPROTO;
         else if (streq(d->result, "unsupported"))
                 r = -EOPNOTSUPP;
-        else if (!streq(d->result, "done") && !streq(d->result, "skipped"))
+        else if (!STR_IN_SET(d->result, "done", "skipped"))
                 r = -EIO;
 
         return r;
