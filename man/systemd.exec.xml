@@ -86,10 +86,11 @@
     <para>A few execution parameters result in additional, automatic
     dependencies to be added.</para>
 
-    <para>Units with <varname>WorkingDirectory=</varname>, <varname>RootDirectory=</varname> or
-    <varname>RootImage=</varname> set automatically gain dependencies of type <varname>Requires=</varname> and
-    <varname>After=</varname> on all mount units required to access the specified paths. This is equivalent to having
-    them listed explicitly in <varname>RequiresMountsFor=</varname>.</para>
+    <para>Units with <varname>WorkingDirectory=</varname>, <varname>RootDirectory=</varname>, <varname>RootImage=</varname>,
+    <varname>RuntimeDirectory=</varname>, <varname>StateDirectory=</varname>, <varname>CacheDirectory=</varname>,
+    <varname>LogsDirectory=</varname> or <varname>ConfigurationDirectory=</varname> set automatically gain dependencies
+    of type <varname>Requires=</varname> and <varname>After=</varname> on all mount units required to access the specified paths.
+    This is equivalent to having them listed explicitly in <varname>RequiresMountsFor=</varname>.</para>
 
     <para>Similar, units with <varname>PrivateTmp=</varname> enabled automatically get mount unit dependencies for all
     mounts required to access <filename>/tmp</filename> and <filename>/var/tmp</filename>. They will also gain an
