@@ -386,14 +386,13 @@ static int fd_copy_directory(
                         continue;
                 }
 
-                if (buf.st_dev != original_device)
-                        continue;
-
                 if (S_ISREG(buf.st_mode))
                         q = fd_copy_regular(dirfd(d), de->d_name, &buf, fdt, de->d_name, override_uid, override_gid, copy_flags);
-                else if (S_ISDIR(buf.st_mode))
+                else if (S_ISDIR(buf.st_mode)) {
+                        if (buf.st_dev != original_device)
+                                continue;
                         q = fd_copy_directory(dirfd(d), de->d_name, &buf, fdt, de->d_name, original_device, override_uid, override_gid, copy_flags);
-                else if (S_ISLNK(buf.st_mode))
+                } else if (S_ISLNK(buf.st_mode))
                         q = fd_copy_symlink(dirfd(d), de->d_name, &buf, fdt, de->d_name, override_uid, override_gid, copy_flags);
                 else if (S_ISFIFO(buf.st_mode))
                         q = fd_copy_fifo(dirfd(d), de->d_name, &buf, fdt, de->d_name, override_uid, override_gid, copy_flags);
