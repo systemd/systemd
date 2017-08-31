@@ -1127,6 +1127,9 @@ static int bus_job_get_service_result(BusWaitForJobs *d, char **result) {
         assert(d->name);
         assert(result);
 
+        if (!endswith(d->name, ".service"))
+                return -EINVAL;
+
         dbus_path = unit_dbus_path_from_name(d->name);
         if (!dbus_path)
                 return -ENOMEM;
@@ -1226,12 +1229,12 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet, const char* const*
                         log_error("Queued job for %s was garbage collected.", strna(d->name));
                 else if (!streq(d->result, "done") && !streq(d->result, "skipped")) {
                         if (d->name) {
-                                int q;
                                 _cleanup_free_ char *result = NULL;
+                                int q;
 
                                 q = bus_job_get_service_result(d, &result);
                                 if (q < 0)
-                                        log_debug_errno(q, "Failed to get Result property of service %s: %m", d->name);
+                                        log_debug_errno(q, "Failed to get Result property of unit %s: %m", d->name);
 
                                 log_job_error_with_service_result(d->name, result, extra_args);
                         } else
