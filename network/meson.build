@@ -2,6 +2,7 @@ if conf.get('ENABLE_NETWORKD', false)
         install_data('80-container-host0.network',
                      '80-container-ve.network',
                      '80-container-vz.network',
+                     '90-vrf.network',
                      install_dir : networkdir)
 
         meson.add_install_script('sh', '-c',
