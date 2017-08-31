@@ -132,6 +132,12 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
+        r = manager_rtnl_enumerate_rules(m);
+        if (r < 0) {
+                log_error_errno(r, "Could not enumerate rules: %m");
+                goto out;
+        }
+
         r = manager_start(m);
         if (r < 0) {
                 log_error_errno(r, "Could not start manager: %m");

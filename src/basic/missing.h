@@ -921,6 +921,33 @@ struct input_mask {
 #define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)
 #endif
 
+#if !HAVE_DECL_FRA_UID_RANGE
+#define FRA_UNSPEC 0
+#define FRA_DST 1
+#define FRA_SRC 2
+#define FRA_IIFNAME 3
+#define FRA_GOTO 4
+#define FRA_UNUSED2 5
+#define FRA_PRIORITY 6
+#define FRA_UNUSED3 7
+#define FRA_UNUSED4 8
+#define FRA_UNUSED5 9
+#define FRA_FWMARK 10
+#define FRA_FLOW 11
+#define FRA_TUN_ID 12
+#define FRA_SUPPRESS_IFGROUP 13
+#define FRA_SUPPRESS_PREFIXLEN 14
+#define FRA_TABLE 15
+#define FRA_FWMASK 16
+#define FRA_OIFNAME 17
+#define FRA_PAD 18
+#define FRA_L3MDEV 19
+#define FRA_UID_RANGE 20
+#define __FRA_MAX 12
+
+#define FRA_MAX (__FRA_MAX - 1)
+#endif
+
 #if !HAVE_DECL_IFLA_BRPORT_PROXYARP
 #define IFLA_BRPORT_PROXYARP 10
 #endif
@@ -1213,6 +1240,15 @@ struct ethtool_link_settings {
          * __u32 map_advertising[link_mode_masks_nwords];
          * __u32 map_lp_advertising[link_mode_masks_nwords];
          */
+};
+
+#endif
+
+#ifndef HAVE_STRUCT_FIB_RULE_UID_RANGE
+
+struct fib_rule_uid_range {
+        __u32 start;
+        __u32 end;
 };
 
 #endif

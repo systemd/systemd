@@ -894,6 +894,16 @@ int sd_netlink_add_match(sd_netlink *rtnl,
                         if (r < 0)
                                 return r;
                         break;
+                case RTM_NEWRULE:
+                case RTM_DELRULE:
+                        r = socket_broadcast_group_ref(rtnl, RTNLGRP_IPV4_RULE);
+                        if (r < 0)
+                                return r;
+
+                        r = socket_broadcast_group_ref(rtnl, RTNLGRP_IPV6_RULE);
+                        if (r < 0)
+                                return r;
+                        break;
                 default:
                         return -EOPNOTSUPP;
         }

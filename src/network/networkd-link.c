@@ -33,6 +33,7 @@
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
 #include "networkd-radv.h"
+#include "networkd-routing-policy-rule.h"
 #include "set.h"
 #include "socket-util.h"
 #include "stdio-util.h"
@@ -497,8 +498,8 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
 
 static void link_free(Link *link) {
         Address *address;
-        Iterator i;
         Link *carrier;
+        Iterator i;
 
         if (!link)
                 return;
@@ -1014,6 +1015,7 @@ static int link_set_bridge_fdb(Link *link) {
 }
 
 static int link_enter_set_addresses(Link *link) {
+        RoutingPolicyRule *rule, *rrule = NULL;
         AddressLabel *label;
         Address *ad;
         int r;
@@ -1049,6 +1051,26 @@ static int link_enter_set_addresses(Link *link) {
 
                 link->link_messages++;
         }
+
+        LIST_FOREACH(rules, rule, link->network->rules) {
+                r = routing_policy_rule_get(link->manager, rule->family, &rule->from, rule->from_prefixlen, &rule->to,
+                                            rule->to_prefixlen, rule->tos, rule->fwmark, rule->table, &rrule);
+                if (r == 1) {
+                        (void) routing_policy_rule_make_local(link->manager, rrule);
+                        continue;
+                }
+
+                r = routing_policy_rule_configure(rule, link, link_routing_policy_rule_handler, false);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Could not set routing policy rules: %m");
+                        link_enter_failed(link);
+                        return r;
+                }
+
+                link->link_messages++;
+        }
+
+        routing_policy_rule_purge(link->manager, link);
 
         /* now that we can figure out a default address for the dhcp server,
            start it */

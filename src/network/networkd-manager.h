@@ -65,6 +65,10 @@ struct Manager {
         DUID duid;
         char* dynamic_hostname;
         char* dynamic_timezone;
+
+        Set *rules;
+        Set *rules_foreign;
+        Set *rules_saved;
 };
 
 static inline const DUID* link_duid(const Link *link) {
@@ -88,9 +92,11 @@ bool manager_should_reload(Manager *m);
 int manager_rtnl_enumerate_links(Manager *m);
 int manager_rtnl_enumerate_addresses(Manager *m);
 int manager_rtnl_enumerate_routes(Manager *m);
+int manager_rtnl_enumerate_rules(Manager *m);
 
 int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, void *userdata);
 int manager_rtnl_process_route(sd_netlink *nl, sd_netlink_message *message, void *userdata);
+int manager_rtnl_process_rule(sd_netlink *nl, sd_netlink_message *message, void *userdata);
 
 int manager_send_changed(Manager *m, const char *property, ...) _sentinel_;
 void manager_dirty(Manager *m);
