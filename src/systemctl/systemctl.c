@@ -3104,7 +3104,7 @@ static int start_unit(int argc, char *argv[], void *userdata) {
                         one_name = NULL;
                 }
         } else {
-                assert(arg_action < ELEMENTSOF(action_table));
+                assert(arg_action >= 0 && arg_action < _ACTION_MAX);
                 assert(action_table[arg_action].target);
                 assert(action_table[arg_action].mode);
 
@@ -8175,7 +8175,7 @@ _pure_ static int action_to_runlevel(void) {
                 [ACTION_RESCUE] =    '1'
         };
 
-        assert(arg_action < _ACTION_MAX);
+        assert(arg_action >= 0 && arg_action < _ACTION_MAX);
 
         return table[arg_action];
 }
