@@ -71,8 +71,12 @@ static int link_set_dhcp_routes(Link *link) {
         int r, n, i;
 
         assert(link);
-        assert(link->dhcp_lease);
-        assert(link->network);
+
+        if (!link->dhcp_lease) /* link went down while we configured the IP addresses? */
+                return 0;
+
+        if (!link->network) /* link went down while we configured the IP addresses? */
+                return 0;
 
         if (!link->network->dhcp_use_routes)
                 return 0;
