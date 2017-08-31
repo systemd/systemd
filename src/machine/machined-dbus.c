@@ -199,7 +199,7 @@ static int method_get_machine_by_pid(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
 
-        if (pid < 0)
+        if (!pid_is_valid((pid_t) pid))
                 return -EINVAL;
 
         if (pid == 0) {

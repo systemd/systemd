@@ -446,7 +446,7 @@ static int method_get_unit_by_pid(sd_bus_message *message, void *userdata, sd_bu
         r = sd_bus_message_read(message, "u", &pid);
         if (r < 0)
                 return r;
-        if (pid < 0)
+        if (!pid_is_valid((pid_t) pid))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid PID " PID_FMT, pid);
 
         if (pid == 0) {
