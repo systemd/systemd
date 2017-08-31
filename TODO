@@ -27,8 +27,6 @@ Features:
 * systemd-run should have a way how to connect a pair of pipes to
   stdout/stderr/stdin of the invoked service
 
-* StateDirectory= and friends should imply RequiresMountsFor=
-
 * set LockPersonality= on all our services
 
 * Add AddUser= setting to unit files, similar to DynamicUser=1 which however
