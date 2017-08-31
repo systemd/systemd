@@ -39,6 +39,7 @@
 #include "bus-label.h"
 #include "bus-message.h"
 #include "bus-util.h"
+#include "cap-list.h"
 #include "cgroup-util.h"
 #include "def.h"
 #include "escape.h"
@@ -757,6 +758,15 @@ int bus_print_property(const char *name, sd_bus_message *property, bool value, b
                                 return -EINVAL;
 
                         print_property(name, "%s", result);
+
+                } else if (STR_IN_SET(name, "CapabilityBoundingSet", "AmbientCapabilities")) {
+                        _cleanup_free_ char *s = NULL;
+
+                        r = capability_set_to_string_alloc(u, &s);
+                        if (r < 0)
+                                return r;
+
+                        print_property(name, "%s", s);
 
                 } else if ((STR_IN_SET(name, "CPUWeight", "StartupCPUWeight", "IOWeight", "StartupIOWeight") && u == CGROUP_WEIGHT_INVALID) ||
                            (STR_IN_SET(name, "CPUShares", "StartupCPUShares") && u == CGROUP_CPU_SHARES_INVALID) ||
