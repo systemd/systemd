@@ -243,6 +243,18 @@ static bool is_terminal_output(ExecOutput o) {
                       EXEC_OUTPUT_JOURNAL_AND_CONSOLE);
 }
 
+static bool is_syslog_output(ExecOutput o) {
+        return IN_SET(o,
+                      EXEC_OUTPUT_SYSLOG,
+                      EXEC_OUTPUT_SYSLOG_AND_CONSOLE);
+}
+
+static bool is_kmsg_output(ExecOutput o) {
+        return IN_SET(o,
+                      EXEC_OUTPUT_KMSG,
+                      EXEC_OUTPUT_KMSG_AND_CONSOLE);
+}
+
 static bool exec_context_needs_term(const ExecContext *c) {
         assert(c);
 
@@ -363,8 +375,8 @@ static int connect_logger_as(
                 params->flags & EXEC_PASS_LOG_UNIT ? unit->id : "",
                 context->syslog_priority,
                 !!context->syslog_level_prefix,
-                output == EXEC_OUTPUT_SYSLOG || output == EXEC_OUTPUT_SYSLOG_AND_CONSOLE,
-                output == EXEC_OUTPUT_KMSG || output == EXEC_OUTPUT_KMSG_AND_CONSOLE,
+                is_syslog_output(output),
+                is_kmsg_output(output),
                 is_terminal_output(output));
 
         if (fd == nfd)
