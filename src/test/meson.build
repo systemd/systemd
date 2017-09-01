@@ -277,6 +277,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-in-addr-util.c'],
+         [],
+         []],
+
         [['src/test/test-barrier.c'],
          [],
          []],

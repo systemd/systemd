@@ -465,10 +465,33 @@ int in_addr_mask(int family, union in_addr_union *addr, unsigned char prefixlen)
         return -EAFNOSUPPORT;
 }
 
-int in_addr_prefix_from_string(const char *p, int family, union in_addr_union *ret_prefix, uint8_t *ret_prefixlen) {
+int in_addr_parse_prefixlen(int family, const char *p, unsigned char *ret) {
+        uint8_t u;
+        int r;
+
+        if (!IN_SET(family, AF_INET, AF_INET6))
+                return -EAFNOSUPPORT;
+
+        r = safe_atou8(p, &u);
+        if (r < 0)
+                return r;
+
+        if (u > FAMILY_ADDRESS_SIZE(family) * 8)
+                return -ERANGE;
+
+        *ret = u;
+        return 0;
+}
+
+int in_addr_prefix_from_string(
+                const char *p,
+                int family,
+                union in_addr_union *ret_prefix,
+                unsigned char *ret_prefixlen) {
+
         union in_addr_union buffer;
         const char *e, *l;
-        uint8_t k;
+        unsigned char k;
         int r;
 
         assert(p);
@@ -486,23 +509,58 @@ int in_addr_prefix_from_string(const char *p, int family, union in_addr_union *r
         if (r < 0)
                 return r;
 
-        k = FAMILY_ADDRESS_SIZE(family) * 8;
-
         if (e) {
-                uint8_t n;
-
-                r = safe_atou8(e + 1, &n);
+                r = in_addr_parse_prefixlen(family, e+1, &k);
                 if (r < 0)
                         return r;
+        } else
+                k = FAMILY_ADDRESS_SIZE(family) * 8;
 
-                if (n > k)
-                        return -ERANGE;
-
-                k = n;
-        }
-
-        *ret_prefix = buffer;
-        *ret_prefixlen = k;
+        if (ret_prefix)
+                *ret_prefix = buffer;
+        if (ret_prefixlen)
+                *ret_prefixlen = k;
 
         return 0;
+}
+
+int in_addr_prefix_from_string_auto(
+                const char *p,
+                int *ret_family,
+                union in_addr_union *ret_prefix,
+                unsigned char *ret_prefixlen) {
+
+        union in_addr_union buffer;
+        const char *e, *l;
+        unsigned char k;
+        int family, r;
+
+        assert(p);
+
+        e = strchr(p, '/');
+        if (e)
+                l = strndupa(p, e - p);
+        else
+                l = p;
+
+        r = in_addr_from_string_auto(l, &family, &buffer);
+        if (r < 0)
+                return r;
+
+        if (e) {
+                r = in_addr_parse_prefixlen(family, e+1, &k);
+                if (r < 0)
+                        return r;
+        } else
+                k = FAMILY_ADDRESS_SIZE(family) * 8;
+
+        if (ret_family)
+                *ret_family = family;
+        if (ret_prefix)
+                *ret_prefix = buffer;
+        if (ret_prefixlen)
+                *ret_prefixlen = k;
+
+        return 0;
+
 }
