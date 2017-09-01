@@ -308,22 +308,22 @@ int in_addr_from_string(int family, const char *s, union in_addr_union *ret) {
         return 0;
 }
 
-int in_addr_from_string_auto(const char *s, int *family, union in_addr_union *ret) {
+int in_addr_from_string_auto(const char *s, int *ret_family, union in_addr_union *ret) {
         int r;
 
         assert(s);
 
         r = in_addr_from_string(AF_INET, s, ret);
         if (r >= 0) {
-                if (family)
-                        *family = AF_INET;
+                if (ret_family)
+                        *ret_family = AF_INET;
                 return 0;
         }
 
         r = in_addr_from_string(AF_INET6, s, ret);
         if (r >= 0) {
-                if (family)
-                        *family = AF_INET6;
+                if (ret_family)
+                        *ret_family = AF_INET6;
                 return 0;
         }
 
