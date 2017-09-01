@@ -72,7 +72,7 @@ static int entry_fill_basics(
         }
         if (source) {
                 entry->ip.src = source->in;
-                in_addr_prefixlen_to_netmask(&entry->ip.smsk, source_prefixlen);
+                in4_addr_prefixlen_to_netmask(&entry->ip.smsk, source_prefixlen);
         }
 
         if (out_interface) {
@@ -84,7 +84,7 @@ static int entry_fill_basics(
         }
         if (destination) {
                 entry->ip.dst = destination->in;
-                in_addr_prefixlen_to_netmask(&entry->ip.dmsk, destination_prefixlen);
+                in4_addr_prefixlen_to_netmask(&entry->ip.dmsk, destination_prefixlen);
         }
 
         return 0;

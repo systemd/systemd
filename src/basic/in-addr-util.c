@@ -371,13 +371,13 @@ int in_addr_ifindex_from_string_auto(const char *s, int *family, union in_addr_u
         return r;
 }
 
-unsigned char in_addr_netmask_to_prefixlen(const struct in_addr *addr) {
+unsigned char in4_addr_netmask_to_prefixlen(const struct in_addr *addr) {
         assert(addr);
 
         return 32 - u32ctz(be32toh(addr->s_addr));
 }
 
-struct in_addr* in_addr_prefixlen_to_netmask(struct in_addr *addr, unsigned char prefixlen) {
+struct in_addr* in4_addr_prefixlen_to_netmask(struct in_addr *addr, unsigned char prefixlen) {
         assert(addr);
         assert(prefixlen <= 32);
 
@@ -390,7 +390,7 @@ struct in_addr* in_addr_prefixlen_to_netmask(struct in_addr *addr, unsigned char
         return addr;
 }
 
-int in_addr_default_prefixlen(const struct in_addr *addr, unsigned char *prefixlen) {
+int in4_addr_default_prefixlen(const struct in_addr *addr, unsigned char *prefixlen) {
         uint8_t msb_octet = *(uint8_t*) addr;
 
         /* addr may not be aligned, so make sure we only access it byte-wise */
@@ -414,18 +414,18 @@ int in_addr_default_prefixlen(const struct in_addr *addr, unsigned char *prefixl
         return 0;
 }
 
-int in_addr_default_subnet_mask(const struct in_addr *addr, struct in_addr *mask) {
+int in4_addr_default_subnet_mask(const struct in_addr *addr, struct in_addr *mask) {
         unsigned char prefixlen;
         int r;
 
         assert(addr);
         assert(mask);
 
-        r = in_addr_default_prefixlen(addr, &prefixlen);
+        r = in4_addr_default_prefixlen(addr, &prefixlen);
         if (r < 0)
                 return r;
 
-        in_addr_prefixlen_to_netmask(mask, prefixlen);
+        in4_addr_prefixlen_to_netmask(mask, prefixlen);
         return 0;
 }
 
@@ -435,7 +435,7 @@ int in_addr_mask(int family, union in_addr_union *addr, unsigned char prefixlen)
         if (family == AF_INET) {
                 struct in_addr mask;
 
-                if (!in_addr_prefixlen_to_netmask(&mask, prefixlen))
+                if (!in4_addr_prefixlen_to_netmask(&mask, prefixlen))
                         return -EINVAL;
 
                 addr->in.s_addr &= mask.s_addr;
