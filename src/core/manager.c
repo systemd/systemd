@@ -2012,7 +2012,7 @@ static int manager_dispatch_sigchld(Manager *m) {
         return 0;
 }
 
-static int manager_start_target(Manager *m, const char *name, JobMode mode) {
+static void manager_start_target(Manager *m, const char *name, JobMode mode) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
@@ -2021,8 +2021,6 @@ static int manager_start_target(Manager *m, const char *name, JobMode mode) {
         r = manager_add_job_by_name(m, JOB_START, name, mode, &error, NULL);
         if (r < 0)
                 log_error("Failed to enqueue %s job: %s", name, bus_error_message(&error, r));
-
-        return r;
 }
 
 static void manager_handle_ctrl_alt_del(Manager *m) {
@@ -2092,17 +2090,11 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         /* Fall through */
 
                 case SIGINT:
-                        if (MANAGER_IS_SYSTEM(m)) {
+                        if (MANAGER_IS_SYSTEM(m))
                                 manager_handle_ctrl_alt_del(m);
-                                break;
-                        }
-
-                        /* Run the exit target if there is one, if not, just exit. */
-                        if (manager_start_target(m, SPECIAL_EXIT_TARGET, JOB_REPLACE) < 0) {
-                                m->exit_code = MANAGER_EXIT;
-                                return 0;
-                        }
-
+                        else
+                                manager_start_target(m, SPECIAL_EXIT_TARGET,
+                                                        JOB_REPLACE_IRREVERSIBLY);
                         break;
 
                 case SIGWINCH:
@@ -2170,14 +2162,17 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                 default: {
 
                         /* Starting SIGRTMIN+0 */
-                        static const char * const target_table[] = {
-                                [0] = SPECIAL_DEFAULT_TARGET,
-                                [1] = SPECIAL_RESCUE_TARGET,
-                                [2] = SPECIAL_EMERGENCY_TARGET,
-                                [3] = SPECIAL_HALT_TARGET,
-                                [4] = SPECIAL_POWEROFF_TARGET,
-                                [5] = SPECIAL_REBOOT_TARGET,
-                                [6] = SPECIAL_KEXEC_TARGET
+                        static const struct {
+                                const char *target;
+                                JobMode mode;
+                        } target_table[] = {
+                                [0] = { SPECIAL_DEFAULT_TARGET,   JOB_ISOLATE },
+                                [1] = { SPECIAL_RESCUE_TARGET,    JOB_ISOLATE },
+                                [2] = { SPECIAL_EMERGENCY_TARGET, JOB_ISOLATE },
+                                [3] = { SPECIAL_HALT_TARGET,      JOB_REPLACE_IRREVERSIBLY },
+                                [4] = { SPECIAL_POWEROFF_TARGET,  JOB_REPLACE_IRREVERSIBLY },
+                                [5] = { SPECIAL_REBOOT_TARGET,    JOB_REPLACE_IRREVERSIBLY },
+                                [6] = { SPECIAL_KEXEC_TARGET,     JOB_REPLACE_IRREVERSIBLY }
                         };
 
                         /* Starting SIGRTMIN+13, so that target halt and system halt are 10 apart */
@@ -2191,8 +2186,8 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         if ((int) sfsi.ssi_signo >= SIGRTMIN+0 &&
                             (int) sfsi.ssi_signo < SIGRTMIN+(int) ELEMENTSOF(target_table)) {
                                 int idx = (int) sfsi.ssi_signo - SIGRTMIN;
-                                manager_start_target(m, target_table[idx],
-                                                     (idx == 1 || idx == 2) ? JOB_ISOLATE : JOB_REPLACE);
+                                manager_start_target(m, target_table[idx].target,
+                                                        target_table[idx].mode);
                                 break;
                         }
 

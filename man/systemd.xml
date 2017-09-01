@@ -561,7 +561,8 @@
         <para>systemd user managers will start the
         <filename>exit.target</filename> unit when this signal is
         received. This is mostly equivalent to <command>systemctl
-        --user start exit.target</command>.</para></listitem>
+        --user start exit.target
+        --job-mode=replace-irreversible</command>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -570,13 +571,13 @@
         <listitem><para>Upon receiving this signal the systemd system
         manager will start the
         <filename>ctrl-alt-del.target</filename> unit. This is mostly
-        equivalent to <command>systemctl start
-        ctl-alt-del.target</command>. If this signal is received more
-        than 7 times per 2s, an immediate reboot is triggered.
-        Note that pressing Ctrl-Alt-Del on the console will trigger
-        this signal. Hence, if a reboot is hanging, pressing
-        Ctrl-Alt-Del more than 7 times in 2s is a relatively safe way
-        to trigger an immediate reboot.</para>
+        equivalent to <command>systemctl start ctl-alt-del.target
+        --job-mode=replace-irreversible</command>. If this signal is
+        received more than 7 times per 2s, an immediate reboot is
+        triggered.  Note that pressing Ctrl-Alt-Del on the console
+        will trigger this signal. Hence, if a reboot is hanging,
+        pressing Ctrl-Alt-Del more than 7 times in 2s is a relatively
+        safe way to trigger an immediate reboot.</para>
 
         <para>systemd user managers treat this signal the same way as
         <constant>SIGTERM</constant>.</para></listitem>
@@ -634,7 +635,7 @@
 
         <listitem><para>Enters default mode, starts the
         <filename>default.target</filename> unit. This is mostly
-        equivalent to <command>systemctl start
+        equivalent to <command>systemctl isolate
         default.target</command>.</para></listitem>
       </varlistentry>
 
@@ -661,8 +662,9 @@
 
         <listitem><para>Halts the machine, starts the
         <filename>halt.target</filename> unit. This is mostly
-        equivalent to <command>systemctl start
-        halt.target</command>.</para></listitem>
+        equivalent to <command>systemctl start halt.target
+        --job-mode=replace-irreversible</command>.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -670,8 +672,9 @@
 
         <listitem><para>Powers off the machine, starts the
         <filename>poweroff.target</filename> unit. This is mostly
-        equivalent to <command>systemctl start
-        poweroff.target</command>.</para></listitem>
+        equivalent to <command>systemctl start poweroff.target
+        --job-mode=replace-irreversible</command>.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -679,8 +682,9 @@
 
         <listitem><para>Reboots the machine, starts the
         <filename>reboot.target</filename> unit. This is mostly
-        equivalent to <command>systemctl start
-        reboot.target</command>.</para></listitem>
+        equivalent to <command>systemctl start reboot.target
+        --job-mode=replace-irreversible</command>.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -688,8 +692,9 @@
 
         <listitem><para>Reboots the machine via kexec, starts the
         <filename>kexec.target</filename> unit. This is mostly
-        equivalent to <command>systemctl start
-        kexec.target</command>.</para></listitem>
+        equivalent to <command>systemctl start kexec.target
+        --job-mode=replace-irreversible</command>.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
