@@ -344,9 +344,8 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_mount_what = canonicalize_file_name(p);
                         if (!arg_mount_what)
                                 return log_error_errno(errno, "Failed to canonicalize path: %m");
-
                 } else {
-                        arg_mount_what = strdup(argv[optind+1]);
+                        arg_mount_what = strdup(argv[optind]);
                         if (!arg_mount_what)
                                 return log_oom();
 
