@@ -75,6 +75,10 @@ sensor:modalias:acpi:BOSC0200*:dmi:*:svnHampoo:pnD2D3_Vi8A1:*
 sensor:modalias:acpi:KIOX000A*:dmi:*:svncube:pni1-TF:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
+# Cube i7 Stylus
+sensor:modalias:acpi:KIOX000A*:dmi:*:svnCube:pni7Stylus:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+
 #########################################
 # Endless
 #########################################
