@@ -1657,7 +1657,7 @@
       <varlistentry>
         <term><varname>LockPersonality=</varname></term>
 
-        <listitem><para>Locks down the <citerefentry
+        <listitem><para>Takes a boolean argument. If set, locks down the <citerefentry
         project='man-pages'><refentrytitle>personality</refentrytitle><manvolnum>2</manvolnum></citerefentry> system
         call so that the kernel execution domain may not be changed from the default or the personality selected with
         <varname>Personality=</varname> directive. This may be useful to improve security, because odd personality
