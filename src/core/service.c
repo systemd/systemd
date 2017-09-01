@@ -3042,8 +3042,13 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                               "Control process exited, code=%s status=%i",
                               sigchld_code_to_string(code), status);
 
-                if (s->result == SERVICE_SUCCESS)
-                        s->result = f;
+                /* If we're about to enter a failed state, record why.
+                 * But reload failures are not fatal.  We record them
+                 * separately, below. */
+                if (s->state != SERVICE_RELOAD) {
+                        if (s->result == SERVICE_SUCCESS)
+                                s->result = f;
+                }
 
                 /* Immediately get rid of the cgroup, so that the
                  * kernel doesn't delay the cgroup empty messages for

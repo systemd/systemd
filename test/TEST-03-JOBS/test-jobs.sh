@@ -124,6 +124,7 @@ systemctl start fail-reload.service || exit 1
 
 # reload failure doesn't fail the service
 ! systemctl is-failed fail-reload.service || exit 1
+[ "$(systemctl show --property Result fail-reload.service)" = "Result=success" ] || exit 1
 
 cat <<EOF >  /run/systemd/system/fail-stop.service
 [Unit]
@@ -144,6 +145,12 @@ WARN="$(systemctl stop fail-stop.service 2>&1)" || exit 1
 
 # ... and the service is marked as failed.
 systemctl is-failed fail-stop.service || exit 1
+[ "$(systemctl show --property Result fail-stop.service)" = "Result=exit-code" ] || exit 1
+
+# restarting clears the failed state
+systemctl start fail-stop.service
+systemctl is-failed fail-stop.service && exit 1
+[ "$(systemctl show --property Result fail-stop.service)" = "Result=success" ] || exit 1
 
 # A sucessful start clears the failed state
 systemctl start fail-stop.service || exit 1
