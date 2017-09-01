@@ -153,6 +153,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
         CGroupBlockIODeviceBandwidth *b;
         CGroupBlockIODeviceWeight *w;
         CGroupDeviceAllow *a;
+        IPAddressAccessItem *iaai;
         char u[FORMAT_TIMESPAN_MAX];
 
         assert(c);
@@ -166,6 +167,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 "%sBlockIOAccounting=%s\n"
                 "%sMemoryAccounting=%s\n"
                 "%sTasksAccounting=%s\n"
+                "%sIPAccounting=%s\n"
                 "%sCPUWeight=%" PRIu64 "\n"
                 "%sStartupCPUWeight=%" PRIu64 "\n"
                 "%sCPUShares=%" PRIu64 "\n"
@@ -188,6 +190,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->blockio_accounting),
                 prefix, yes_no(c->memory_accounting),
                 prefix, yes_no(c->tasks_accounting),
+                prefix, yes_no(c->ip_accounting),
                 prefix, c->cpu_weight,
                 prefix, c->startup_cpu_weight,
                 prefix, c->cpu_shares,
@@ -256,6 +259,20 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                                 prefix,
                                 b->path,
                                 format_bytes(buf, sizeof(buf), b->wbps));
+        }
+
+        LIST_FOREACH(items, iaai, c->ip_address_allow) {
+                _cleanup_free_ char *k = NULL;
+
+                (void) in_addr_to_string(iaai->family, &iaai->address, &k);
+                fprintf(f, "%sIPAddressAllow=%s/%u\n", prefix, strnull(k), iaai->prefixlen);
+        }
+
+        LIST_FOREACH(items, iaai, c->ip_address_deny) {
+                _cleanup_free_ char *k = NULL;
+
+                (void) in_addr_to_string(iaai->family, &iaai->address, &k);
+                fprintf(f, "%sIPAddressDeny=%s/%u\n", prefix, strnull(k), iaai->prefixlen);
         }
 }
 
