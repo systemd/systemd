@@ -128,6 +128,7 @@ static Set* arg_syscall_archs = NULL;
 static FILE* arg_serialization = NULL;
 static bool arg_default_cpu_accounting = false;
 static bool arg_default_io_accounting = false;
+static bool arg_default_ip_accounting = false;
 static bool arg_default_blockio_accounting = false;
 static bool arg_default_memory_accounting = false;
 static bool arg_default_tasks_accounting = true;
@@ -748,6 +749,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultLimitRTTIME",        config_parse_limit,            RLIMIT_RTTIME, arg_default_rlimit         },
                 { "Manager", "DefaultCPUAccounting",      config_parse_bool,             0, &arg_default_cpu_accounting            },
                 { "Manager", "DefaultIOAccounting",       config_parse_bool,             0, &arg_default_io_accounting             },
+                { "Manager", "DefaultIPAccounting",       config_parse_bool,             0, &arg_default_ip_accounting             },
                 { "Manager", "DefaultBlockIOAccounting",  config_parse_bool,             0, &arg_default_blockio_accounting        },
                 { "Manager", "DefaultMemoryAccounting",   config_parse_bool,             0, &arg_default_memory_accounting         },
                 { "Manager", "DefaultTasksAccounting",    config_parse_bool,             0, &arg_default_tasks_accounting          },
@@ -792,6 +794,7 @@ static void manager_set_defaults(Manager *m) {
         m->default_start_limit_burst = arg_default_start_limit_burst;
         m->default_cpu_accounting = arg_default_cpu_accounting;
         m->default_io_accounting = arg_default_io_accounting;
+        m->default_ip_accounting = arg_default_ip_accounting;
         m->default_blockio_accounting = arg_default_blockio_accounting;
         m->default_memory_accounting = arg_default_memory_accounting;
         m->default_tasks_accounting = arg_default_tasks_accounting;

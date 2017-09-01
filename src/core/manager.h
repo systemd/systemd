@@ -272,6 +272,7 @@ struct Manager {
         bool default_io_accounting;
         bool default_blockio_accounting;
         bool default_tasks_accounting;
+        bool default_ip_accounting;
 
         uint64_t default_tasks_max;
         usec_t default_timer_accuracy_usec;
