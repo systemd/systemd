@@ -117,3 +117,6 @@ int ptsname_namespace(int pty, char **ret);
 
 int openpt_in_namespace(pid_t pid, int flags);
 int open_terminal_in_namespace(pid_t pid, const char *name, int mode);
+
+int vt_default_utf8(void);
+int vt_reset_keyboard(int fd);
