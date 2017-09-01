@@ -2076,10 +2076,11 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                 case JOB_STOP:
                 case JOB_RESTART:
                 case JOB_TRY_RESTART:
-
-                        if (UNIT_IS_INACTIVE_OR_FAILED(ns))
+                        if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
+                                if (ns == UNIT_FAILED)
+                                        u->job->unclean_stop = true;
                                 job_finish_and_invalidate(u->job, JOB_DONE, true, false);
-                        else if (u->job->state == JOB_RUNNING && ns != UNIT_DEACTIVATING) {
+                        } else if (u->job->state == JOB_RUNNING && ns != UNIT_DEACTIVATING) {
                                 unexpected = true;
                                 job_finish_and_invalidate(u->job, JOB_FAILED, true, false);
                         }

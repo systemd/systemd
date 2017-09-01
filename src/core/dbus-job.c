@@ -203,7 +203,7 @@ void bus_job_send_change_signal(Job *j) {
 }
 
 static int send_removed_signal(sd_bus *bus, void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m2 = NULL, *m = NULL;
         _cleanup_free_ char *p = NULL;
         Job *j = userdata;
         int r;
@@ -214,6 +214,28 @@ static int send_removed_signal(sd_bus *bus, void *userdata) {
         p = job_dbus_path(j);
         if (!p)
                 return -ENOMEM;
+
+        /* Send the most detailed version of the signal first.
+         * Clients may rely on this order, to support versions
+         * without the most detailed signal. */
+
+        r = sd_bus_message_new_signal(
+                        bus,
+                        &m2,
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "JobRemoved2");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m2, "uossb", j->id, p, j->unit->id,
+                                  job_result_to_string(j->result), j->unclean_stop);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_send(bus, m2, NULL);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_new_signal(
                         bus,
@@ -228,7 +250,11 @@ static int send_removed_signal(sd_bus *bus, void *userdata) {
         if (r < 0)
                 return r;
 
-        return sd_bus_send(bus, m, NULL);
+        r = sd_bus_send(bus, m, NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 void bus_job_send_removed_signal(Job *j) {

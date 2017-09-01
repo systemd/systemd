@@ -992,6 +992,7 @@ typedef struct BusWaitForJobs {
 
         char *name;
         char *result;
+        bool unclean_stop;
 
         sd_bus_slot *slot_job_removed;
         sd_bus_slot *slot_disconnected;
@@ -1006,11 +1007,53 @@ static int match_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *e
         return 0;
 }
 
+static void job_removed(BusWaitForJobs *d,
+                       const char *path,
+                       const char *unit,
+                       const char *result,
+                       bool unclean_stop) {
+        char *found;
+
+        found = set_remove(d->jobs, (char*) path);
+        if (!found)
+                return;
+
+        free(found);
+
+        if (!isempty(result))
+                d->result = strdup(result);
+
+        if (!isempty(unit))
+                d->name = strdup(unit);
+
+        d->unclean_stop = unclean_stop;
+}
+
+static int match_job_removed_v2(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        const char *path, *unit, *result;
+        BusWaitForJobs *d = userdata;
+        bool unclean_stop;
+        uint32_t id;
+        int r;
+
+        assert(m);
+        assert(d);
+
+        r = sd_bus_message_read(m, "uossb", &id, &path, &unit, &result, &unclean_stop);
+        if (r < 0) {
+                bus_log_parse_error(r);
+                return 0;
+        }
+
+        job_removed(d, path, unit, result, unclean_stop);
+
+        return 0;
+}
+
 static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         const char *path, *unit, *result;
         BusWaitForJobs *d = userdata;
         uint32_t id;
-        char *found;
         int r;
 
         assert(m);
@@ -1022,17 +1065,7 @@ static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *er
                 return 0;
         }
 
-        found = set_remove(d->jobs, (char*) path);
-        if (!found)
-                return 0;
-
-        free(found);
-
-        if (!isempty(result))
-                d->result = strdup(result);
-
-        if (!isempty(unit))
-                d->name = strdup(unit);
+        job_removed(d, path, unit, result, false);
 
         return 0;
 }
@@ -1070,6 +1103,23 @@ int bus_wait_for_jobs_new(sd_bus *bus, BusWaitForJobs **ret) {
         /* When we are a bus client we match by sender. Direct
          * connections OTOH have no initialized sender field, and
          * hence we ignore the sender then */
+        r = sd_bus_add_match(
+                        bus,
+                        &d->slot_job_removed,
+                        bus->bus_client ?
+                        "type='signal',"
+                        "sender='org.freedesktop.systemd1',"
+                        "interface='org.freedesktop.systemd1.Manager',"
+                        "member='JobRemoved2',"
+                        "path='/org/freedesktop/systemd1'" :
+                        "type='signal',"
+                        "interface='org.freedesktop.systemd1.Manager',"
+                        "member='JobRemoved2',"
+                        "path='/org/freedesktop/systemd1'",
+                        match_job_removed_v2, d);
+        if (r < 0)
+                return r;
+
         r = sd_bus_add_match(
                         bus,
                         &d->slot_job_removed,
@@ -1213,6 +1263,17 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet, const char* const*
         assert(d->result);
 
         if (!quiet) {
+                if (d->unclean_stop) {
+                        log_warning("Warning: %s stopped uncleanly. See \"journalctl -xe\" for details.",
+                                    strna(d->name));
+
+                        if (!STR_IN_SET(d->result, "done", "skipped")) {
+                                /* Without some sort of separator, the error message below
+                                 * would appear to be referring to the unclean stop. */
+                                log_error("Failed to start %s:", strna(d->name));
+                        }
+                }
+
                 if (streq(d->result, "canceled"))
                         log_error("Job for %s canceled.", strna(d->name));
                 else if (streq(d->result, "timeout"))

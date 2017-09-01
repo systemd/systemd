@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash -xe
 
 # Test merging of a --job-mode=ignore-dependencies job into a previously
 # installed job.
@@ -90,5 +90,70 @@ systemctl restart --no-block oneshot-wait2.service
 sleep 1
 LC_ALL=C systemctl list-jobs > /root/list-jobs.txt
 grep "oneshot-wait2.service.* [ ]*restart [ ]*running$" /root/list-jobs.txt || exit 1
+
+# Test different types of service failure
+cat <<EOF >  /run/systemd/system/fail-start.service
+[Unit]
+Description=Fail to start
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c false
+EOF
+
+! WARN="$(systemctl start fail-start.service 2>&1)" || exit 1
+[ "$WARN" != "" ] || exit 1
+systemctl is-failed fail-start.service || exit 1
+
+systemctl reset-failed fail-start.service || exit 1
+! systemctl is-failed fail-start.service || exit 1
+
+cat <<EOF >  /run/systemd/system/fail-reload.service
+[Unit]
+Description=Fail to reload
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/bin/sh -c true
+ExecReload=/bin/sh -c false
+EOF
+
+systemctl start fail-reload.service || exit 1
+
+! WARN="$(systemctl reload fail-reload.service 2>&1)" || exit 1
+[ "$WARN" != "" ] || exit 1
+
+# reload failure doesn't fail the service
+! systemctl is-failed fail-reload.service || exit 1
+
+cat <<EOF >  /run/systemd/system/fail-stop.service
+[Unit]
+Description=Fail to stop
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/bin/sh -c true
+ExecStop=/bin/sh -c false
+EOF
+
+systemctl start fail-stop.service || exit 1
+
+# When stop jobs have to resort to SIGKILL, they are not considered to fail.
+# However `systemctl` will warn...
+WARN="$(systemctl stop fail-stop.service 2>&1)" || exit 1
+[ "$WARN" != "" ] || exit 1
+
+# ... and the service is marked as failed.
+systemctl is-failed fail-stop.service || exit 1
+
+# A sucessful start clears the failed state
+systemctl start fail-stop.service || exit 1
+! systemctl is-failed fail-stop.service || exit 1
+
+# restart = stop+start.  We should get the same warning from the stop...
+WARN="$(systemctl restart fail-stop.service 2>&1)" || exit 1
+[ "$WARN" != "" ] || exit 1
+
+# ... but the failed state is cleared by the successful start
+! systemctl is-failed fail-stop.service || exit 1
 
 touch /testok
