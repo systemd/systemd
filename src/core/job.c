@@ -70,6 +70,7 @@ Job* job_new(Unit *unit, JobType type) {
 
         j->id = j->manager->current_job_id++;
         j->type = type;
+        j->type_dbus = type;
 
         /* We don't link it here, that's what job_dependency() is for */
 
@@ -1048,6 +1049,7 @@ int job_serialize(Job *j, FILE *f) {
 
         fprintf(f, "job-id=%u\n", j->id);
         fprintf(f, "job-type=%s\n", job_type_to_string(j->type));
+        fprintf(f, "job-type-dbus=%s\n", job_type_to_string(j->type));
         fprintf(f, "job-state=%s\n", job_state_to_string(j->state));
         fprintf(f, "job-irreversible=%s\n", yes_no(j->irreversible));
         fprintf(f, "job-sent-dbus-new-signal=%s\n", yes_no(j->sent_dbus_new_signal));
@@ -1107,8 +1109,24 @@ int job_deserialize(Job *j, FILE *f) {
                                 log_debug("Failed to parse job type %s", v);
                         else if (t >= _JOB_TYPE_MAX_IN_TRANSACTION)
                                 log_debug("Cannot deserialize job of type %s", v);
-                        else
+                        else {
                                 j->type = t;
+
+                                /* will be overwritten below, unless not present
+                                 * (systemd upgrade) */
+                                j->type_dbus = t;
+                        }
+
+                } else if (streq(l, "job-type-dbus")) {
+                        JobType t;
+
+                        t = job_type_from_string(v);
+                        if (t < 0)
+                                log_debug("Failed to parse job type %s", v);
+                        else if (t >= _JOB_TYPE_MAX_IN_TRANSACTION)
+                                log_debug("Cannot deserialize job with original type %s", v);
+                        else
+                                j->type_dbus = t;
 
                 } else if (streq(l, "job-state")) {
                         JobState s;

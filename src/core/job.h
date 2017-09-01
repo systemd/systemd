@@ -146,6 +146,7 @@ struct Job {
         uint32_t id;
 
         JobType type;
+        JobType type_dbus; /* original type, if different (JOB_RESTART) */
         JobState state;
 
         sd_event_source *timer_event_source;

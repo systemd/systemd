@@ -1207,7 +1207,7 @@ static int method_list_jobs(sd_bus_message *message, void *userdata, sd_bus_erro
                                 reply, "(usssoo)",
                                 j->id,
                                 j->unit->id,
-                                job_type_to_string(j->type),
+                                job_type_to_string(j->type_dbus),
                                 job_state_to_string(j->state),
                                 job_path,
                                 unit_path);

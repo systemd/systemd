@@ -137,7 +137,7 @@ const sd_bus_vtable bus_job_vtable[] = {
         SD_BUS_METHOD("GetBefore", NULL, "a(usssoo)", bus_job_method_get_waiting_jobs, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_PROPERTY("Id", "u", NULL, offsetof(Job, id), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Unit", "(so)", property_get_unit, 0, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("JobType", "s", property_get_type, offsetof(Job, type), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("JobType", "s", property_get_type, offsetof(Job, type_dbus), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("State", "s", property_get_state, offsetof(Job, state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_VTABLE_END
 };

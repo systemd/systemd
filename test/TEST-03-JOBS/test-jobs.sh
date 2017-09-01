@@ -77,4 +77,18 @@ END_SEC=$(date -u '+%s')
 ELAPSED=$(($END_SEC-$START_SEC))
 [[ "$ELAPSED" -ge 5 ]] && [[ "$ELAPSED" -le 7 ]] || exit 1
 
+cat <<EOF >  /run/systemd/system/oneshot-wait2.service
+[Unit]
+Description=Wait for 2 seconds
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -ec 'sleep 2'
+EOF
+
+# Restart jobs do not change their type to "start"
+systemctl restart --no-block oneshot-wait2.service
+sleep 1
+LC_ALL=C systemctl list-jobs > /root/list-jobs.txt
+grep "oneshot-wait2.service.* [ ]*restart [ ]*running$" /root/list-jobs.txt || exit 1
+
 touch /testok
