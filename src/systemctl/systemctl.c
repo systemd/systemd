@@ -6201,11 +6201,15 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                 sd_bus *bus;
 
                 if (STR_IN_SET(verb, "mask", "unmask")) {
-                        r = unit_exists(*names);
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                log_notice("Unit %s does not exist, proceeding anyway.", *names);
+                        char **name;
+
+                        STRV_FOREACH(name, names) {
+                                r = unit_exists(*name);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        log_notice("Unit %s does not exist, proceeding anyway.", *names);
+                        }
                 }
 
                 r = acquire_bus(BUS_MANAGER, &bus);
