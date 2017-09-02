@@ -766,7 +766,27 @@ static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
                 return 0;
         }
 
-        if (streq(action, "remove"))  {
+        if (streq(action, "change"))  {
+                _cleanup_free_ char *e = NULL;
+                Unit *u;
+
+                r = unit_name_from_path(sysfs, ".device", &e);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate unit name from device path: %m");
+
+                u = manager_get_unit(m, e);
+                if (!u) {
+                        log_error("Failed to get unit from sysfs name.");
+                        return 0;
+                }
+
+                r = manager_add_job(m, JOB_RELOAD, u, JOB_REPLACE, NULL, NULL);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to add job to manager : %m");
+                        return 0;
+                }
+
+        } else if (streq(action, "remove"))  {
                 r = swap_process_device_remove(m, dev);
                 if (r < 0)
                         log_error_errno(r, "Failed to process swap device remove event: %m");
