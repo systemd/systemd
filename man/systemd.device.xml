@@ -83,6 +83,12 @@
     the escaping logic used to convert a file system path to a unit
     name see
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para>Device units will be reloaded by systemd whenever the
+    corresponding device generates a <literal>changed</literal> event.
+    Other units can use <varname>ReloadPropagatedFrom=</varname> to react
+    to that event</para>
+
   </refsect1>
 
   <refsect1>
