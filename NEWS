@@ -4,7 +4,7 @@ CHANGES WITH 235:
 
         * modprobe.d drop-in is now shipped by default that sets bonding module
           option max_bonds=0. This overrides the kernel default, to avoid
-          conflicts and ambigiuty as to whether or not bond0 should be managed
+          conflicts and ambiguity as to whether or not bond0 should be managed
           by networkd or not. This resolves multiple bugs of bond0 properties
           not being applied, when bond0 is configured with
           networkd. Distributors may choose to not package this, however in
