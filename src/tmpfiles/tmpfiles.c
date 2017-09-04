@@ -1664,6 +1664,9 @@ static int process_item(Item *i) {
                 }
         }
 
+        if (chase_symlinks(i->path, NULL, CHASE_NO_AUTOFS, NULL) == -EREMOTE)
+                return t;
+
         r = arg_create ? create_item(i) : 0;
         q = arg_remove ? remove_item(i) : 0;
         p = arg_clean ? clean_item(i) : 0;
