@@ -403,6 +403,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "stat64\0"
                 "stat\0"
                 "statfs\0"
+                "statx\0"
                 "symlink\0"
                 "symlinkat\0"
                 "truncate64\0"
