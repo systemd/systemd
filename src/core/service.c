@@ -2305,7 +2305,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         unit_serialize_item(u, f, "bus-name-owner", s->bus_name_owner);
 
         unit_serialize_item_format(u, f, "n-restarts", "%u", s->n_restarts);
-        unit_serialize_item(u, f, "n-restarts", yes_no(s->flush_n_restarts));
+        unit_serialize_item(u, f, "flush-n-restarts", yes_no(s->flush_n_restarts));
 
         r = unit_serialize_item_escaped(u, f, "status-text", s->status_text);
         if (r < 0)
