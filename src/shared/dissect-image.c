@@ -838,15 +838,19 @@ static int decrypt_partition(
 
         r = crypt_init(&cd, m->node);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to initialize dm-crypt: %m");
 
         r = crypt_load(cd, CRYPT_LUKS1, NULL);
-        if (r < 0)
+        if (r < 0) {
+                log_debug_errno(r, "Failed to load LUKS metadata: %m");
                 goto fail;
+        }
 
         r = crypt_activate_by_passphrase(cd, name, CRYPT_ANY_SLOT, passphrase, strlen(passphrase),
                                          ((flags & DISSECT_IMAGE_READ_ONLY) ? CRYPT_ACTIVATE_READONLY : 0) |
                                          ((flags & DISSECT_IMAGE_DISCARD_ON_CRYPTO) ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0));
+        if (r < 0)
+                log_debug_errno(r, "Failed to activate LUKS device: %m");
         if (r == -EPERM) {
                 r = -EKEYREJECTED;
                 goto fail;

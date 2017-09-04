@@ -23,18 +23,23 @@ Slice=machine.slice
 Delegate=yes
 TasksMax=16384
 
-## Enforce a strict device policy, similar to the one nspawn configures
-## when it allocates its own scope unit. Make sure to keep these
-## policies in sync if you change them!
+# Enforce a strict device policy, similar to the one nspawn configures when it
+# allocates its own scope unit. Make sure to keep these policies in sync if you
+# change them!
 DevicePolicy=closed
 DeviceAllow=/dev/net/tun rwm
 DeviceAllow=char-pts rw
 
-# nspawn itself needs access to /dev/loop-control and /dev/loop, to
-# implement the --image= option. Add these here, too.
+# nspawn itself needs access to /dev/loop-control and /dev/loop, to implement
+# the --image= option. Add these here, too.
 DeviceAllow=/dev/loop-control rw
 DeviceAllow=block-loop rw
 DeviceAllow=block-blkext rw
+
+# nspawn can set up LUKS encrypted loopback files, in which case it needs
+# access to /dev/mapper/control and the block devices /dev/mapper/*.
+DeviceAllow=/dev/mapper/control rw
+DeviceAllow=block-device-mapper rw
 
 [Install]
 WantedBy=machines.target
