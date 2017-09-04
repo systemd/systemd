@@ -330,7 +330,7 @@
               <row>
                 <entry><literal>!!</literal></entry>
 
-                <entry>This prefix is very similar to <literal>!!</literal>, however it only has an effect on systems lacking support for ambient process capabilities, i.e. without support for <varname>AmbientCapabilities=</varname>. It's intended to be used for unit files that take benefit of ambient capabilities to run processes with minimal privileges wherever possible while remaining compatible with systems that lack ambient capabilities support. Note that when <literal>!!</literal> is used, and a system lacking ambient capability support is detected any configured <varname>SystemCallFilter=</varname> and <varname>CapabilityBoundingSet=</varname> stanzas are implicitly modified, in order to permit spawned processes to drop credentials and capabilites themselves, even if this is configured to not be allowed. Moreover, if this prefix is used and a system lacking ambient capability support is detected <varname>AmbientCapabilities=</varname> will be skipped and not be applied. On systems supporting ambient capabilities, <literal>!!</literal> has no effect and is redundant.</entry>
+                <entry>This prefix is very similar to <literal>!!</literal>, however it only has an effect on systems lacking support for ambient process capabilities, i.e. without support for <varname>AmbientCapabilities=</varname>. It's intended to be used for unit files that take benefit of ambient capabilities to run processes with minimal privileges wherever possible while remaining compatible with systems that lack ambient capabilities support. Note that when <literal>!!</literal> is used, and a system lacking ambient capability support is detected any configured <varname>SystemCallFilter=</varname> and <varname>CapabilityBoundingSet=</varname> stanzas are implicitly modified, in order to permit spawned processes to drop credentials and capabilities themselves, even if this is configured to not be allowed. Moreover, if this prefix is used and a system lacking ambient capability support is detected <varname>AmbientCapabilities=</varname> will be skipped and not be applied. On systems supporting ambient capabilities, <literal>!!</literal> has no effect and is redundant.</entry>
               </row>
             </tbody>
           </tgroup>
@@ -338,7 +338,7 @@
 
         <para><literal>@</literal>, <literal>-</literal>, and one of
         <literal>+</literal>/<literal>!</literal>/<literal>!!</literal> may be used together and they can appear in any
-        order. However, only one of <literal>+</literal>, <literal>!</literal>, <literal>!!</literal> may be used a at
+        order. However, only one of <literal>+</literal>, <literal>!</literal>, <literal>!!</literal> may be used at a
         time. Note that these prefixes are also supported for the other command line settings,
         i.e. <varname>ExecStartPre=</varname>, <varname>ExecStartPost=</varname>, <varname>ExecReload</varname>,
         <varname>ExecStop=</varname> and <varname>ExecStopPost=</varname>.</para>
