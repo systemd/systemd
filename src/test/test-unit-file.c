@@ -670,6 +670,12 @@ static void test_config_parse_capability_set(void) {
         assert_se(capability_bounding_set == (make_cap(CAP_NET_RAW) | make_cap(CAP_NET_ADMIN)));
 
         r = config_parse_capability_set(NULL, "fake", 1, "section", 1,
+                              "CapabilityBoundingSet", 0, "~CAP_NET_ADMIN",
+                              &capability_bounding_set, NULL);
+        assert_se(r >= 0);
+        assert_se(capability_bounding_set == make_cap(CAP_NET_RAW));
+
+        r = config_parse_capability_set(NULL, "fake", 1, "section", 1,
                               "CapabilityBoundingSet", 0, "",
                               &capability_bounding_set, NULL);
         assert_se(r >= 0);
