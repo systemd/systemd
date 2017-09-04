@@ -30,6 +30,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fstab-util.h"
+#include "mount-util.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -330,7 +331,12 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
                 }
 
-                if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                if (arg_mount_type && (fstype_is_api_vfs(arg_mount_type) || fstype_is_network(arg_mount_type))) {
+                        arg_mount_what = strdup(argv[optind]);
+                        if (!arg_mount_what)
+                                return log_oom();
+
+                } else if (arg_transport == BUS_TRANSPORT_LOCAL) {
                         _cleanup_free_ char *u = NULL, *p = NULL;
 
                         u = fstab_node_to_udev_node(argv[optind]);
@@ -344,9 +350,8 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_mount_what = canonicalize_file_name(p);
                         if (!arg_mount_what)
                                 return log_error_errno(errno, "Failed to canonicalize path: %m");
-
                 } else {
-                        arg_mount_what = strdup(argv[optind+1]);
+                        arg_mount_what = strdup(argv[optind]);
                         if (!arg_mount_what)
                                 return log_oom();
 
