@@ -201,6 +201,7 @@ struct Network {
         size_t mtu;
         int arp;
         bool unmanaged;
+        bool configure_without_carrier;
         uint32_t iaid;
         DUID duid;
 
