@@ -103,9 +103,12 @@ int cg_read_pid(FILE *f, pid_t *_pid) {
         return 1;
 }
 
-int cg_read_event(const char *controller, const char *path, const char *event,
-                  char **val)
-{
+int cg_read_event(
+                const char *controller,
+                const char *path,
+                const char *event,
+                char **val) {
+
         _cleanup_free_ char *events = NULL, *content = NULL;
         char *p, *line;
         int r;
