@@ -466,6 +466,8 @@ static const char* const device_action_table[_DEVICE_ACTION_MAX] = {
         [DEVICE_ACTION_MOVE] = "move",
         [DEVICE_ACTION_ONLINE] = "online",
         [DEVICE_ACTION_OFFLINE] = "offline",
+        [DEVICE_ACTION_BIND] = "bind",
+        [DEVICE_ACTION_UNBIND] = "unbind",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(device_action, DeviceAction);
