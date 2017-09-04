@@ -2480,7 +2480,6 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **un
 
         assert(lp);
         assert(unit_name);
-        assert(unit_path);
 
         STRV_FOREACH(p, lp->search_path) {
                 _cleanup_free_ char *path = NULL, *lpath = NULL;
@@ -2498,12 +2497,46 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **un
                 if (r < 0)
                         return log_error_errno(r, "Failed to access path '%s': %m", path);
 
-                *unit_path = lpath;
-                lpath = NULL;
+                if (unit_path) {
+                        *unit_path = lpath;
+                        lpath = NULL;
+                }
                 return 1;
         }
 
         return 0;
+}
+
+static int unit_find_template_path(
+                const char *unit_name,
+                LookupPaths *lp,
+                char **fragment_path,
+                char **template) {
+
+        _cleanup_free_ char *_template = NULL;
+        int r;
+
+        /* Returns 1 if a fragment was found, 0 if not found, negative on error. */
+
+        r = unit_file_find_path(lp, unit_name, fragment_path);
+        if (r != 0)
+                return r; /* error or found a real unit */
+
+        r = unit_name_template(unit_name, &_template);
+        if (r == -EINVAL)
+                return 0; /* not a template, does not exist */
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine template name: %m");
+
+        r = unit_file_find_path(lp, _template, fragment_path);
+        if (r < 0)
+                return r;
+
+        if (template) {
+                *template = _template;
+                _template = NULL;
+        }
+        return r;
 }
 
 static int unit_find_paths(
@@ -2561,29 +2594,18 @@ static int unit_find_paths(
                                 return log_error_errno(r, "Failed to get DropInPaths: %s", bus_error_message(&error, r));
                 }
         } else {
-                _cleanup_set_free_ Set *names;
+                _cleanup_set_free_ Set *names = NULL;
                 _cleanup_free_ char *template = NULL;
 
                 names = set_new(NULL);
                 if (!names)
                         return log_oom();
 
-                r = unit_file_find_path(lp, unit_name, &path);
+                r = unit_find_template_path(unit_name, lp, &path, &template);
                 if (r < 0)
                         return r;
 
-                if (r == 0) {
-                        r = unit_name_template(unit_name, &template);
-                        if (r < 0 && r != -EINVAL)
-                                return log_error_errno(r, "Failed to determine template name: %m");
-                        if (r >= 0) {
-                                r = unit_file_find_path(lp, template, &path);
-                                if (r < 0)
-                                        return r;
-                        }
-                }
-
-                if (path)
+                if (r > 0)
                         /* We found the unit file. If we followed symlinks, this name might be
                          * different then the unit_name with started with. Look for dropins matching
                          * that "final" name. */
@@ -6094,7 +6116,7 @@ static int normalize_names(char **names, bool warn_if_path) {
         return 0;
 }
 
-static int unit_exists(const char *unit) {
+static int unit_exists(LookupPaths *lp, const char *unit) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *path = NULL;
@@ -6106,6 +6128,9 @@ static int unit_exists(const char *unit) {
         UnitStatusInfo info = {};
         sd_bus *bus;
         int r;
+
+        if (unit_name_is_valid(unit, UNIT_NAME_TEMPLATE))
+                return unit_find_template_path(unit, lp, NULL, NULL);
 
         path = unit_dbus_path_from_name(unit);
         if (!path)
@@ -6211,11 +6236,20 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                 sd_bus *bus;
 
                 if (STR_IN_SET(verb, "mask", "unmask")) {
-                        r = unit_exists(*names);
+                        char **name;
+                        _cleanup_lookup_paths_free_ LookupPaths lp = {};
+
+                        r = lookup_paths_init(&lp, arg_scope, 0, arg_root);
                         if (r < 0)
                                 return r;
-                        if (r == 0)
-                                log_notice("Unit %s does not exist, proceeding anyway.", *names);
+
+                        STRV_FOREACH(name, names) {
+                                r = unit_exists(&lp, *name);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        log_notice("Unit %s does not exist, proceeding anyway.", *names);
+                        }
                 }
 
                 r = acquire_bus(BUS_MANAGER, &bus);
