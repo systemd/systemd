@@ -552,6 +552,32 @@ bool fstype_is_network(const char *fstype) {
         return nulstr_contains(table, fstype);
 }
 
+bool fstype_is_api_vfs(const char *fstype) {
+        static const char table[] =
+                "autofs\0"
+                "bpf\0"
+                "cgroup\0"
+                "cgroup2\0"
+                "configfs\0"
+                "cpuset\0"
+                "debugfs\0"
+                "devpts\0"
+                "devtmpfs\0"
+                "efivarfs\0"
+                "hugetlbfs\0"
+                "mqueue\0"
+                "proc\0"
+                "pstore\0"
+                "ramfs\0"
+                "securityfs\0"
+                "sysfs\0"
+                "tmpfs\0"
+                "tracefs\0"
+                ;
+
+        return nulstr_contains(table, fstype);
+}
+
 int repeat_unmount(const char *path, int flags) {
         bool done = false;
 
