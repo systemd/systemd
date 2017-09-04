@@ -616,6 +616,9 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
         m->default_timer_accuracy_usec = USEC_PER_MINUTE;
         m->default_tasks_accounting = true;
         m->default_tasks_max = UINT64_MAX;
+        m->default_timeout_start_usec = DEFAULT_TIMEOUT_USEC;
+        m->default_timeout_stop_usec = DEFAULT_TIMEOUT_USEC;
+        m->default_restart_usec = DEFAULT_RESTART_USEC;
 
 #ifdef ENABLE_EFI
         if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0)
