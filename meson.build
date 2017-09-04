@@ -285,7 +285,9 @@ endforeach
 foreach arg : ['unused-parameter',
                'missing-field-initializers',
                'unused-result',
-               'format-signedness']
+               'format-signedness',
+               'error=nonnull', # work-around for gcc 7.1 turning this on on its own
+              ]
         if cc.has_argument('-W' + arg)
                 add_project_arguments('-Wno-' + arg, language : 'c')
         endif
