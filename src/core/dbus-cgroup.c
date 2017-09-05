@@ -1288,6 +1288,8 @@ int bus_cgroup_set_property(
                 if (r < 0)
                         return r;
 
+                *list = ip_address_access_reduce(*list);
+
                 if (mode != UNIT_CHECK) {
                         _cleanup_free_ char *buf = NULL;
                         _cleanup_fclose_ FILE *f = NULL;

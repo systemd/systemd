@@ -34,3 +34,5 @@ struct IPAddressAccessItem {
 int config_parse_ip_address_access(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
 IPAddressAccessItem* ip_address_access_free_all(IPAddressAccessItem *first);
+
+IPAddressAccessItem* ip_address_access_reduce(IPAddressAccessItem *first);

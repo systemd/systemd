@@ -148,6 +148,8 @@ int config_parse_ip_address_access(
                 a = NULL;
         }
 
+        *list = ip_address_access_reduce(*list);
+
         return 0;
 }
 
@@ -162,4 +164,44 @@ IPAddressAccessItem* ip_address_access_free_all(IPAddressAccessItem *first) {
         }
 
         return NULL;
+}
+
+IPAddressAccessItem* ip_address_access_reduce(IPAddressAccessItem *first) {
+        IPAddressAccessItem *a, *b, *tmp;
+        int r;
+
+        /* Drops all entries from the list that are covered by another entry in full, thus removing all redundant
+         * entries. */
+
+        LIST_FOREACH_SAFE(items, a, tmp, first) {
+
+                /* Drop irrelevant bits */
+                (void) in_addr_mask(a->family, &a->address, a->prefixlen);
+
+                LIST_FOREACH(items, b, first) {
+
+                        if (a == b)
+                                continue;
+
+                        if (a->family != b->family)
+                                continue;
+
+                        if (b->prefixlen > a->prefixlen)
+                                continue;
+
+                        r = in_addr_prefix_covers(b->family,
+                                                  &b->address,
+                                                  b->prefixlen,
+                                                  &a->address);
+                        if (r <= 0)
+                                continue;
+
+                        /* b covers a fully, then let's drop a */
+
+                        LIST_REMOVE(items, first, a);
+                        free(a);
+                }
+        }
+
+        return first;
 }

@@ -465,6 +465,30 @@ int in_addr_mask(int family, union in_addr_union *addr, unsigned char prefixlen)
         return -EAFNOSUPPORT;
 }
 
+int in_addr_prefix_covers(int family,
+                          const union in_addr_union *prefix,
+                          unsigned char prefixlen,
+                          const union in_addr_union *address) {
+
+        union in_addr_union masked_prefix, masked_address;
+        int r;
+
+        assert(prefix);
+        assert(address);
+
+        masked_prefix = *prefix;
+        r = in_addr_mask(family, &masked_prefix, prefixlen);
+        if (r < 0)
+                return r;
+
+        masked_address = *address;
+        r = in_addr_mask(family, &masked_address, prefixlen);
+        if (r < 0)
+                return r;
+
+        return in_addr_equal(family, &masked_prefix, &masked_address);
+}
+
 int in_addr_parse_prefixlen(int family, const char *p, unsigned char *ret) {
         uint8_t u;
         int r;
