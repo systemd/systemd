@@ -615,7 +615,10 @@ static void test_dns_name_apply_idna_one(const char *s, int expected, const char
         log_debug("dns_name_apply_idna: \"%s\" → %d/\"%s\" (expected %d/\"%s\")",
                   s, r, strnull(buf), expected, strnull(result));
 
-        assert_se(r == expected);
+        /* Different libidn2 versions are more and less accepting
+         * of underscore-prefixed names. So let's list the lowest
+         * expected return value. */
+        assert_se(r >= expected);
         if (expected == 1)
                 assert_se(dns_name_equal(buf, result) == 1);
 }
