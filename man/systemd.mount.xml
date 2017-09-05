@@ -298,6 +298,23 @@
         details.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>_netdev</option></term>
+
+        <listitem><para>Normally the file system type is used to determine if a
+        mount is a "network mount", i.e. if it should only be started after the
+        network is available. Using this option overrides this detection and
+        specifies that the mount requires network.</para>
+
+        <para>Network mount units are ordered between <filename>remote-fs-pre.target</filename>
+        and <filename>remote-fs.target</filename>, instead of
+        <filename>local-fs-pre.target</filename> and <filename>local-fs.target</filename>.
+        They also pull in <filename>network-online.target</filename> and are ordered after
+        it and <filename>network.target</filename>.</para>
+        </listitem>
+      </varlistentry>
+
       <varlistentry>
         <term><option>noauto</option></term>
         <term><option>auto</option></term>

@@ -6,6 +6,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Encrypted Volumes (Pre)
+Description=Local Encrypted Volumes (Pre)
 Documentation=man:systemd.special(7)
 RefuseManualStart=yes
+Before=cryptsetup.target

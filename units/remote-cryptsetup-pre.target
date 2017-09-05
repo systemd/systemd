@@ -6,5 +6,10 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Local Encrypted Volumes
+Description=Remote Encrypted Volumes (Pre)
 Documentation=man:systemd.special(7)
+RefuseManualStart=yes
+Before=remote-cryptsetup.target
+
+After=network.target network-online.target
+Wants=network-online.target
