@@ -641,9 +641,11 @@ int dhcp4_configure(Link *link) {
                         return r;
         }
 
-        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_NEW_TZDB_TIMEZONE);
-        if (r < 0)
-                return r;
+        if (link->network->dhcp_use_timezone) {
+                r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_NEW_TZDB_TIMEZONE);
+                if (r < 0)
+                        return r;
+        }
 
         r = dhcp4_set_hostname(link);
         if (r < 0)
