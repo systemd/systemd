@@ -9,3 +9,4 @@
 Description=Encrypted Volumes (Pre)
 Documentation=man:systemd.special(7)
 RefuseManualStart=yes
+Before=cryptsetup.target
