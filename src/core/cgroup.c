@@ -1756,6 +1756,7 @@ static int on_cgroup_inotify_event(sd_event_source *s, int fd, uint32_t revents,
 
 int manager_setup_cgroup(Manager *m) {
         _cleanup_free_ char *path = NULL;
+        const char *scope_path;
         CGroupController c;
         int r, all_unified;
         char *e;
@@ -1813,73 +1814,66 @@ int manager_setup_cgroup(Manager *m) {
                         log_debug("Using cgroup controller " SYSTEMD_CGROUP_CONTROLLER_LEGACY ". File system hierarchy is at %s.", path);
         }
 
-        if (!m->test_run_flags) {
-                const char *scope_path;
+        /* 3. Install agent */
+        if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0) {
 
-                /* 3. Install agent */
-                if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0) {
+                /* In the unified hierarchy we can get
+                 * cgroup empty notifications via inotify. */
 
-                        /* In the unified hierarchy we can get
-                         * cgroup empty notifications via inotify. */
+                m->cgroup_inotify_event_source = sd_event_source_unref(m->cgroup_inotify_event_source);
+                safe_close(m->cgroup_inotify_fd);
 
-                        m->cgroup_inotify_event_source = sd_event_source_unref(m->cgroup_inotify_event_source);
-                        safe_close(m->cgroup_inotify_fd);
+                m->cgroup_inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+                if (m->cgroup_inotify_fd < 0)
+                        return log_error_errno(errno, "Failed to create control group inotify object: %m");
 
-                        m->cgroup_inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
-                        if (m->cgroup_inotify_fd < 0)
-                                return log_error_errno(errno, "Failed to create control group inotify object: %m");
-
-                        r = sd_event_add_io(m->event, &m->cgroup_inotify_event_source, m->cgroup_inotify_fd, EPOLLIN, on_cgroup_inotify_event, m);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to watch control group inotify object: %m");
-
-                        /* Process cgroup empty notifications early, but after service notifications and SIGCHLD. Also
-                         * see handling of cgroup agent notifications, for the classic cgroup hierarchy support. */
-                        r = sd_event_source_set_priority(m->cgroup_inotify_event_source, SD_EVENT_PRIORITY_NORMAL-5);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set priority of inotify event source: %m");
-
-                        (void) sd_event_source_set_description(m->cgroup_inotify_event_source, "cgroup-inotify");
-
-                } else if (MANAGER_IS_SYSTEM(m)) {
-
-                        /* On the legacy hierarchy we only get
-                         * notifications via cgroup agents. (Which
-                         * isn't really reliable, since it does not
-                         * generate events when control groups with
-                         * children run empty. */
-
-                        r = cg_install_release_agent(SYSTEMD_CGROUP_CONTROLLER, SYSTEMD_CGROUP_AGENT_PATH);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to install release agent, ignoring: %m");
-                        else if (r > 0)
-                                log_debug("Installed release agent.");
-                        else if (r == 0)
-                                log_debug("Release agent already installed.");
-                }
-
-                /* 4. Make sure we are in the special "init.scope" unit in the root slice. */
-                scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_SCOPE);
-                r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, scope_path, 0);
+                r = sd_event_add_io(m->event, &m->cgroup_inotify_event_source, m->cgroup_inotify_fd, EPOLLIN, on_cgroup_inotify_event, m);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to create %s control group: %m", scope_path);
+                        return log_error_errno(r, "Failed to watch control group inotify object: %m");
 
-                /* also, move all other userspace processes remaining
-                 * in the root cgroup into that scope. */
-                r = cg_migrate(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, SYSTEMD_CGROUP_CONTROLLER, scope_path, 0);
+                /* Process cgroup empty notifications early, but after service notifications and SIGCHLD. Also
+                 * see handling of cgroup agent notifications, for the classic cgroup hierarchy support. */
+                r = sd_event_source_set_priority(m->cgroup_inotify_event_source, SD_EVENT_PRIORITY_NORMAL-5);
                 if (r < 0)
-                        log_warning_errno(r, "Couldn't move remaining userspace processes, ignoring: %m");
+                        return log_error_errno(r, "Failed to set priority of inotify event source: %m");
 
-                /* 5. And pin it, so that it cannot be unmounted */
-                safe_close(m->pin_cgroupfs_fd);
-                m->pin_cgroupfs_fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY|O_NONBLOCK);
-                if (m->pin_cgroupfs_fd < 0)
-                        return log_error_errno(errno, "Failed to open pin file: %m");
+                (void) sd_event_source_set_description(m->cgroup_inotify_event_source, "cgroup-inotify");
 
-                /* 6.  Always enable hierarchical support if it exists... */
-                if (!all_unified)
-                        (void) cg_set_attribute("memory", "/", "memory.use_hierarchy", "1");
+        } else if (MANAGER_IS_SYSTEM(m) && m->test_run_flags == 0) {
+
+                /* On the legacy hierarchy we only get notifications via cgroup agents. (Which isn't really reliable,
+                 * since it does not generate events when control groups with children run empty. */
+
+                r = cg_install_release_agent(SYSTEMD_CGROUP_CONTROLLER, SYSTEMD_CGROUP_AGENT_PATH);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to install release agent, ignoring: %m");
+                else if (r > 0)
+                        log_debug("Installed release agent.");
+                else if (r == 0)
+                        log_debug("Release agent already installed.");
         }
+
+        /* 4. Make sure we are in the special "init.scope" unit in the root slice. */
+        scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_SCOPE);
+        r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, scope_path, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create %s control group: %m", scope_path);
+
+        /* also, move all other userspace processes remaining
+         * in the root cgroup into that scope. */
+        r = cg_migrate(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, SYSTEMD_CGROUP_CONTROLLER, scope_path, 0);
+        if (r < 0)
+                log_warning_errno(r, "Couldn't move remaining userspace processes, ignoring: %m");
+
+        /* 5. And pin it, so that it cannot be unmounted */
+        safe_close(m->pin_cgroupfs_fd);
+        m->pin_cgroupfs_fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY|O_NONBLOCK);
+        if (m->pin_cgroupfs_fd < 0)
+                return log_error_errno(errno, "Failed to open pin file: %m");
+
+        /* 6.  Always enable hierarchical support if it exists... */
+        if (!all_unified && m->test_run_flags == 0)
+                (void) cg_set_attribute("memory", "/", "memory.use_hierarchy", "1");
 
         /* 7. Figure out which controllers are supported */
         r = cg_mask_supported(&m->cgroup_supported);
