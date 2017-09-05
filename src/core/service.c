@@ -803,6 +803,8 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                         "%sFile Descriptor Store Current: %u\n",
                         prefix, s->n_fd_store_max,
                         prefix, s->n_fd_store);
+
+        cgroup_context_dump(&s->cgroup_context, f, prefix);
 }
 
 static int service_load_pid_file(Service *s, bool may_warn) {

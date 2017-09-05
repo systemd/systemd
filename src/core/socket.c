@@ -852,6 +852,8 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
 
                 exec_command_dump_list(s->exec_command[c], f, prefix2);
         }
+
+        cgroup_context_dump(&s->cgroup_context, f, prefix);
 }
 
 static int instance_from_socket(int fd, unsigned nr, char **instance) {
