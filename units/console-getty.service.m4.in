@@ -10,7 +10,7 @@ Description=Console Getty
 Documentation=man:agetty(8) man:systemd-getty-generator(8)
 After=systemd-user-sessions.service plymouth-quit-wait.service
 m4_ifdef(`HAVE_SYSV_COMPAT',
-After=rc-local.service
+After=rc-local.service getty-pre.target
 )m4_dnl
 Before=getty.target
 
