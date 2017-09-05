@@ -6,5 +6,5 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Local Encrypted Volumes
+Description=Remote Encrypted Volumes
 Documentation=man:systemd.special(7)

@@ -82,6 +82,8 @@
     <filename>poweroff.target</filename>,
     <filename>printer.target</filename>,
     <filename>reboot.target</filename>,
+    <filename>remote-cryptsetup-pre.target</filename>,
+    <filename>remote-cryptsetup.target</filename>,
     <filename>remote-fs-pre.target</filename>,
     <filename>remote-fs.target</filename>,
     <filename>rescue.target</filename>,
@@ -475,6 +477,27 @@
 
           <para><filename>runlevel6.target</filename> is an alias for
           this target unit, for compatibility with SysV.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><filename>remote-cryptsetup-pre.target</filename></term>
+        <listitem>
+          <para>This target unit is automatically ordered before all cryptsetup devices
+          marked with the <option>_netdev</option>. It can be used to execute additional
+          units before such devices are set up.</para>
+
+          <para>It is ordered after <filename>network.target</filename> and
+          <filename>network-online.target</filename>, and also pulls the latter in as a
+          <varname>Wants=</varname> dependency.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><filename>remote-cryptsetup.target</filename></term>
+        <listitem>
+          <para>Similar to <filename>cryptsetup.target</filename>, but for encrypted
+          devices which are accessed over the network. It is used for
+          <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          entries marked with <option>_netdev</option>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
