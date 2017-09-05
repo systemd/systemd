@@ -336,6 +336,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>mount.usr=</varname></term>
+        <term><varname>mount.usrfstype=</varname></term>
+        <term><varname>mount.usrflags=</varname></term>
+
+        <listitem>
+          <para>Configures the /usr file system (if required) and
+          its file system type and mount options. For details, see
+          <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>roothash=</varname></term>
         <term><varname>systemd.verity=</varname></term>
         <term><varname>rd.systemd.verity=</varname></term>
