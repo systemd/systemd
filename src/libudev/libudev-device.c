@@ -681,8 +681,8 @@ _public_ struct udev_list_entry *udev_device_get_properties_list_entry(struct ud
  * @udev_device: udev device
  *
  * This is only valid if the device was received through a monitor. Devices read from
- * sys do not have an action string. Usual actions are: add, remove, change, online,
- * offline.
+ * sys do not have an action string. Usual actions are: add, remove, change, move,
+ * online, offline.
  *
  * Returns: the kernel action value, or #NULL if there is no action value available.
  **/
