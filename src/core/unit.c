@@ -2818,6 +2818,7 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         unit_serialize_item(u, f, "cgroup-realized", yes_no(u->cgroup_realized));
         (void) unit_serialize_cgroup_mask(f, "cgroup-realized-mask", u->cgroup_realized_mask);
         (void) unit_serialize_cgroup_mask(f, "cgroup-enabled-mask", u->cgroup_enabled_mask);
+        unit_serialize_item_format(u, f, "cgroup-bpf-realized", "%i", u->cgroup_bpf_state);
 
         if (uid_is_valid(u->ref_uid))
                 unit_serialize_item_format(u, f, "ref-uid", UID_FMT, u->ref_uid);
@@ -3087,6 +3088,20 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         r = cg_mask_from_string(v, &u->cgroup_enabled_mask);
                         if (r < 0)
                                 log_unit_debug(u, "Failed to parse cgroup-enabled-mask %s, ignoring.", v);
+                        continue;
+
+                } else if (streq(l, "cgroup-bpf-realized")) {
+                        int i;
+
+                        r = safe_atoi(v, &i);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to parse cgroup BPF state %s, ignoring.", v);
+                        else
+                                u->cgroup_bpf_state =
+                                        i < 0 ? UNIT_CGROUP_BPF_INVALIDATED :
+                                        i > 0 ? UNIT_CGROUP_BPF_ON :
+                                        UNIT_CGROUP_BPF_OFF;
+
                         continue;
 
                 } else if (streq(l, "ref-uid")) {

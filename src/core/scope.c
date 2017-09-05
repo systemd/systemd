@@ -333,7 +333,8 @@ static int scope_start(Unit *u) {
                 return r;
 
         (void) unit_realize_cgroup(u);
-        (void) unit_reset_cpu_usage(u);
+        (void) unit_reset_cpu_accounting(u);
+        (void) unit_reset_ip_accounting(u);
 
         r = unit_attach_pids_to_cgroup(u);
         if (r < 0) {

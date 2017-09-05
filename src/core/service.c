@@ -1244,9 +1244,10 @@ static int service_spawn(
         }
 
         (void) unit_realize_cgroup(UNIT(s));
-        if (s->reset_cpu_usage) {
-                (void) unit_reset_cpu_usage(UNIT(s));
-                s->reset_cpu_usage = false;
+        if (s->reset_accounting) {
+                (void) unit_reset_cpu_accounting(UNIT(s));
+                (void) unit_reset_ip_accounting(UNIT(s));
+                s->reset_accounting = false;
         }
 
         r = unit_setup_exec_runtime(UNIT(s));
@@ -2138,7 +2139,7 @@ static int service_start(Unit *u) {
         s->main_pid_known = false;
         s->main_pid_alien = false;
         s->forbid_restart = false;
-        s->reset_cpu_usage = true;
+        s->reset_accounting = true;
 
         s->status_text = mfree(s->status_text);
         s->status_errno = 0;

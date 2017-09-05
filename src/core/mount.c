@@ -754,9 +754,10 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
         assert(_pid);
 
         (void) unit_realize_cgroup(UNIT(m));
-        if (m->reset_cpu_usage) {
-                (void) unit_reset_cpu_usage(UNIT(m));
-                m->reset_cpu_usage = false;
+        if (m->reset_accounting) {
+                (void) unit_reset_cpu_accounting(UNIT(m));
+                (void) unit_reset_ip_accounting(UNIT(m));
+                m->reset_accounting = false;
         }
 
         r = unit_setup_exec_runtime(UNIT(m));
@@ -1044,7 +1045,7 @@ static int mount_start(Unit *u) {
 
         m->result = MOUNT_SUCCESS;
         m->reload_result = MOUNT_SUCCESS;
-        m->reset_cpu_usage = true;
+        m->reset_accounting = true;
 
         mount_enter_mounting(m);
         return 1;

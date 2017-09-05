@@ -161,7 +161,7 @@ struct Socket {
 
         char *user, *group;
 
-        bool reset_cpu_usage:1;
+        bool reset_accounting:1;
 
         char *fdname;
 

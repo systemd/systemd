@@ -128,6 +128,16 @@ struct CGroupContext {
         bool delegate;
 };
 
+/* Used when querying IP accounting data */
+typedef enum CGroupIPAccountingMetric {
+        CGROUP_IP_INGRESS_BYTES,
+        CGROUP_IP_INGRESS_PACKETS,
+        CGROUP_IP_EGRESS_BYTES,
+        CGROUP_IP_EGRESS_PACKETS,
+        _CGROUP_IP_ACCOUNTING_METRIC_MAX,
+        _CGROUP_IP_ACCOUNTING_METRIC_INVALID = -1,
+} CGroupIPAccountingMetric;
+
 #include "unit.h"
 
 void cgroup_context_init(CGroupContext *c);
@@ -149,6 +159,8 @@ CGroupMask unit_get_subtree_mask(Unit *u);
 
 CGroupMask unit_get_target_mask(Unit *u);
 CGroupMask unit_get_enable_mask(Unit *u);
+
+bool unit_get_needs_bpf(Unit *u);
 
 void unit_update_cgroup_members_masks(Unit *u);
 
@@ -177,7 +189,10 @@ int unit_watch_all_pids(Unit *u);
 int unit_get_memory_current(Unit *u, uint64_t *ret);
 int unit_get_tasks_current(Unit *u, uint64_t *ret);
 int unit_get_cpu_usage(Unit *u, nsec_t *ret);
-int unit_reset_cpu_usage(Unit *u);
+int unit_get_ip_accounting(Unit *u, CGroupIPAccountingMetric metric, uint64_t *ret);
+
+int unit_reset_cpu_accounting(Unit *u);
+int unit_reset_ip_accounting(Unit *u);
 
 bool unit_cgroup_delegate(Unit *u);
 
@@ -185,6 +200,7 @@ int unit_notify_cgroup_empty(Unit *u);
 int manager_notify_cgroup_empty(Manager *m, const char *group);
 
 void unit_invalidate_cgroup(Unit *u, CGroupMask m);
+void unit_invalidate_cgroup_bpf(Unit *u);
 
 void manager_invalidate_startup_units(Manager *m);
 

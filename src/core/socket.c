@@ -1775,9 +1775,10 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
         assert(_pid);
 
         (void) unit_realize_cgroup(UNIT(s));
-        if (s->reset_cpu_usage) {
-                (void) unit_reset_cpu_usage(UNIT(s));
-                s->reset_cpu_usage = false;
+        if (s->reset_accounting) {
+                (void) unit_reset_cpu_accounting(UNIT(s));
+                (void) unit_reset_ip_accounting(UNIT(s));
+                s->reset_accounting = false;
         }
 
         r = unit_setup_exec_runtime(UNIT(s));
@@ -2373,7 +2374,7 @@ static int socket_start(Unit *u) {
                 return r;
 
         s->result = SOCKET_SUCCESS;
-        s->reset_cpu_usage = true;
+        s->reset_accounting = true;
 
         socket_enter_start_pre(s);
         return 1;
