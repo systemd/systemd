@@ -410,6 +410,17 @@ evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:*svnTOSHIBA:pnTECRAM11*
  EVDEV_ABS_01=51:681:14
 
 #########################################
+# Razer
+#########################################
+
+# Razer Blade Stealth (2016)
+evdev:name:Synaptics TM2438-005:dmi:*svnRazer:pnBladeStealth*
+ EVDEV_ABS_00=0:4064:29
+ EVDEV_ABS_01=0:2405:37
+ EVDEV_ABS_35=0:4064:29
+ EVDEV_ABS_36=0:2405:37
+
+#########################################
 # Waltop
 #########################################
 
