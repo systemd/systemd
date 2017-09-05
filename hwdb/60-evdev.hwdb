@@ -414,7 +414,7 @@ evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:*svnTOSHIBA:pnTECRAM11*
 #########################################
 
 # Razer Blade Stealth (2016)
-evdev:name:Synaptics TM2438-005:dmi:bvnRazer:bvr6.00:bd01/12/2017:svnRazer:pnBladeStealth:pvr2.04:rvnRazer:rnRazer:rvr:cvnRazer:ct9:cvr:*
+evdev:name:Synaptics TM2438-005:dmi:*svnRazer:pnBladeStealth*
  EVDEV_ABS_00=0:4064:29
  EVDEV_ABS_01=0:2405:37
  EVDEV_ABS_35=0:4064:29
