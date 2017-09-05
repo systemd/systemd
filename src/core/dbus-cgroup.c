@@ -17,6 +17,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <arpa/inet.h>
+
+#include "af-list.h"
 #include "alloc-util.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
@@ -206,6 +209,48 @@ static int property_get_device_allow(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_ip_address_access(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        IPAddressAccessItem** items = userdata, *i;
+        int r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(iayu)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(items, i, *items) {
+
+                r = sd_bus_message_open_container(reply, 'r', "iayu");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append(reply, "i", i->family);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append_array(reply, 'y', &i->address, FAMILY_ADDRESS_SIZE(i->family));
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append(reply, "u", (uint32_t) i->prefixlen);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_close_container(reply);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Delegate", "b", bus_property_get_bool, offsetof(CGroupContext, delegate), 0),
@@ -239,6 +284,9 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("DeviceAllow", "a(ss)", property_get_device_allow, 0, 0),
         SD_BUS_PROPERTY("TasksAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, tasks_accounting), 0),
         SD_BUS_PROPERTY("TasksMax", "t", NULL, offsetof(CGroupContext, tasks_max), 0),
+        SD_BUS_PROPERTY("IPAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, ip_accounting), 0),
+        SD_BUS_PROPERTY("IPAddressAllow", "a(iayu)", property_get_ip_address_access, offsetof(CGroupContext, ip_address_allow), 0),
+        SD_BUS_PROPERTY("IPAddressDeny", "a(iayu)", property_get_ip_address_access, offsetof(CGroupContext, ip_address_deny), 0),
         SD_BUS_VTABLE_END
 };
 
@@ -1133,6 +1181,7 @@ int bus_cgroup_set_property(
                 }
 
                 return 1;
+
         } else if (streq(name, "TasksMaxScale")) {
                 uint64_t limit;
                 uint32_t raw;
@@ -1150,6 +1199,126 @@ int bus_cgroup_set_property(
                         unit_invalidate_cgroup(u, CGROUP_MASK_PIDS);
                         unit_write_drop_in_private_format(u, mode, name, "TasksMax=%" PRIu32 "%%",
                                                           (uint32_t) (DIV_ROUND_UP((uint64_t) raw * 100U, (uint64_t) UINT32_MAX)));
+                }
+
+                return 1;
+
+        } else if (streq(name, "IPAccounting")) {
+                int b;
+
+                r = sd_bus_message_read(message, "b", &b);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        c->ip_accounting = b;
+
+                        unit_invalidate_cgroup_bpf(u);
+                        unit_write_drop_in_private(u, mode, name, b ? "IPAccounting=yes" : "IPAccounting=no");
+                }
+
+                return 1;
+
+        } else if (STR_IN_SET(name, "IPAddressAllow", "IPAddressDeny")) {
+                IPAddressAccessItem **list;
+                size_t n = 0;
+
+                list = streq(name, "IPAddressAllow") ? &c->ip_address_allow : &c->ip_address_deny;
+
+                r = sd_bus_message_enter_container(message, 'a', "(iayu)");
+                if (r < 0)
+                        return r;
+
+                for (;;) {
+                        const void *ap;
+                        int32_t family;
+                        uint32_t prefixlen;
+                        size_t an;
+
+                        r = sd_bus_message_enter_container(message, 'r', "iayu");
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        r = sd_bus_message_read(message, "i", &family);
+                        if (r < 0)
+                                return r;
+
+                        if (!IN_SET(family, AF_INET, AF_INET6))
+                                return sd_bus_error_set_errnof(error, EINVAL, "IPAddressAllow= expects IPv4 or IPv6 addresses only.");
+
+                        r = sd_bus_message_read_array(message, 'y', &ap, &an);
+                        if (r < 0)
+                                return r;
+
+                        if (an != FAMILY_ADDRESS_SIZE(family))
+                                return sd_bus_error_set_errnof(error, EINVAL, "IP address has wrong size for family (%s, expected %zu, got %zu)",
+                                                               af_to_name(family), FAMILY_ADDRESS_SIZE(family), an);
+
+                        r = sd_bus_message_read(message, "u", &prefixlen);
+                        if (r < 0)
+                                return r;
+
+                        if (prefixlen > FAMILY_ADDRESS_SIZE(family)*8)
+                                return sd_bus_error_set_errnof(error, EINVAL, "Prefix length too large for family.");
+
+                        if (mode != UNIT_CHECK) {
+                                IPAddressAccessItem *item;
+
+                                item = new0(IPAddressAccessItem, 1);
+                                if (!item)
+                                        return -ENOMEM;
+
+                                item->family = family;
+                                item->prefixlen = prefixlen;
+                                memcpy(&item->address, ap, an);
+
+                                LIST_PREPEND(items, *list, item);
+                        }
+
+                        r = sd_bus_message_exit_container(message);
+                        if (r < 0)
+                                return r;
+
+                        n++;
+                }
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        _cleanup_free_ char *buf = NULL;
+                        _cleanup_fclose_ FILE *f = NULL;
+                        IPAddressAccessItem *item;
+                        size_t size = 0;
+
+                        if (n == 0)
+                                *list = ip_address_access_free_all(*list);
+
+                        unit_invalidate_cgroup_bpf(u);
+                        f = open_memstream(&buf, &size);
+                        if (!f)
+                                return -ENOMEM;
+
+                        fputs_unlocked(name, f);
+                        fputs_unlocked("=\n", f);
+
+                        LIST_FOREACH(items, item, *list) {
+                                char buffer[CONST_MAX(INET_ADDRSTRLEN, INET6_ADDRSTRLEN)];
+
+                                errno = 0;
+                                if (!inet_ntop(item->family, &item->address, buffer, sizeof(buffer)))
+                                        return errno > 0 ? -errno : -EINVAL;
+
+                                fprintf(f, "%s=%s/%u\n", name, buffer, item->prefixlen);
+                        }
+
+                        r = fflush_and_check(f);
+                        if (r < 0)
+                                return r;
+                        unit_write_drop_in_private(u, mode, name, buf);
                 }
 
                 return 1;
