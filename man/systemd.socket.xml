@@ -803,8 +803,8 @@
         is used, only one AF_UNIX socket in the file system or one
         FIFO may be configured for the socket unit. Use this option to
         manage one or more symlinked alias names for a socket, binding
-        their lifecycle together. Defaults to the empty
-        list.</para></listitem>
+        their lifecycle together. If the empty string is assigned, the
+        list of paths is reset. Defaults to the empty list.</para></listitem>
       </varlistentry>
 
       <varlistentry>

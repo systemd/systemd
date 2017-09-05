@@ -283,6 +283,23 @@ int config_parse_unit_path_strv_printf(
         assert(rvalue);
         assert(u);
 
+        if (isempty(rvalue)) {
+                char **empty;
+
+                /* Empty assignment resets the list. As a special rule
+                 * we actually fill in a real empty array here rather
+                 * than NULL, since some code wants to know if
+                 * something was set at all... */
+                empty = new0(char*, 1);
+                if (!empty)
+                        return log_oom();
+
+                strv_free(*x);
+                *x = empty;
+
+                return 0;
+        }
+
         for (p = rvalue;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
