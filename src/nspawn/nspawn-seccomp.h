@@ -21,4 +21,6 @@
 
 #include <sys/types.h>
 
-int setup_seccomp(uint64_t cap_list_retain);
+#include "seccomp-util.h"
+
+int setup_seccomp(uint64_t cap_list_retain, Set *syscall_filter, bool iswhitelist);

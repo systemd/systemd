@@ -714,6 +714,28 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--syscall-filter</option></term>
+
+        <listitem><para>Takes a comma-separated list of system calls
+        that will be allowed in the container. If the first character
+        of the list is "<literal>~</literal>", the listed system calls
+        will be blocked. You can also filter using the predefined
+        system call sets, starting with a "<literal>@</literal>" character.
+        <command>systemd-nspawn</command> uses
+        <citerefentry project='man-pages'><refentrytitle>seccomp</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
+        to block a default set of system calls in the container.
+        This option allows to extend or restrict the default filter.
+        The custom filter overwrites the <option>--capability</option>
+        and <option>--drop-capability</option> options.
+        </para><para>
+        It works similar to the <literal>SystemCallFilter=</literal>
+        option in unit files. See <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.
+        </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--kill-signal=</option></term>
 
         <listitem><para>Specify the process signal to send to the

@@ -29,111 +29,155 @@
 #include "alloc-util.h"
 #include "log.h"
 #include "nspawn-seccomp.h"
+
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
-#endif
 #include "string-util.h"
+#include "strv.h"
+#endif
 
 #ifdef HAVE_SECCOMP
 
-static int seccomp_add_default_syscall_filter(
-                scmp_filter_ctx ctx,
-                uint32_t arch,
+static const SyscallFilterSet nspawn_default_blacklist = {
+        .name = "@nspawn_default_blacklist",
+        .help = "Syscall filter for systemd-nspawn",
+        .value =
+        "_sysctl\0"
+        "add_key\0"
+        "afs_syscall\0"
+        "bdflush\0"
+#ifdef __NR_bpf
+        "bpf\0"
+#endif
+        "break\0"
+        "create_module\0"
+        "ftime\0"
+        "get_kernel_syms\0"
+        "getpmsg\0"
+        "gtty\0"
+#ifdef __NR_kexec_file_load
+        "kexec_file_load\0"
+#endif
+        "kexec_load\0"
+        "keyctl\0"
+        "lock\0"
+        "lookup_dcookie\0"
+        "mpx\0"
+        "nfsservctl\0"
+        "open_by_handle_at\0"
+        "perf_event_open\0"
+        "prof\0"
+        "profil\0"
+        "putpmsg\0"
+        "query_module\0"
+        "quotactl\0"
+        "request_key\0"
+        "security\0"
+        "sgetmask\0"
+        "ssetmask\0"
+        "stty\0"
+        "swapoff\0"
+        "swapon\0"
+        "sysfs\0"
+        "tuxcall\0"
+        "ulimit\0"
+        "uselib\0"
+        "ustat\0"
+        "vserver\0"
+};
+
+static int seccomp_add_syscall_filter_capabilities(
+                Set *blacklist,
                 uint64_t cap_list_retain) {
 
-        static const struct {
+        struct {
                 uint64_t capability;
-                int syscall_num;
-        } blacklist[] = {
-                { 0,              SCMP_SYS(_sysctl)             }, /* obsolete syscall */
-                { 0,              SCMP_SYS(add_key)             }, /* keyring is not namespaced */
-                { 0,              SCMP_SYS(afs_syscall)         }, /* obsolete syscall */
-                { 0,              SCMP_SYS(bdflush)             },
-#ifdef __NR_bpf
-                { 0,              SCMP_SYS(bpf)                 },
-#endif
-                { 0,              SCMP_SYS(break)               }, /* obsolete syscall */
-                { 0,              SCMP_SYS(create_module)       }, /* obsolete syscall */
-                { 0,              SCMP_SYS(ftime)               }, /* obsolete syscall */
-                { 0,              SCMP_SYS(get_kernel_syms)     }, /* obsolete syscall */
-                { 0,              SCMP_SYS(getpmsg)             }, /* obsolete syscall */
-                { 0,              SCMP_SYS(gtty)                }, /* obsolete syscall */
-#ifdef __NR_kexec_file_load
-                { 0,              SCMP_SYS(kexec_file_load)     },
-#endif
-                { 0,              SCMP_SYS(kexec_load)          },
-                { 0,              SCMP_SYS(keyctl)              }, /* keyring is not namespaced */
-                { 0,              SCMP_SYS(lock)                }, /* obsolete syscall */
-                { 0,              SCMP_SYS(lookup_dcookie)      },
-                { 0,              SCMP_SYS(mpx)                 }, /* obsolete syscall */
-                { 0,              SCMP_SYS(nfsservctl)          }, /* obsolete syscall */
-                { 0,              SCMP_SYS(open_by_handle_at)   },
-                { 0,              SCMP_SYS(perf_event_open)     },
-                { 0,              SCMP_SYS(prof)                }, /* obsolete syscall */
-                { 0,              SCMP_SYS(profil)              }, /* obsolete syscall */
-                { 0,              SCMP_SYS(putpmsg)             }, /* obsolete syscall */
-                { 0,              SCMP_SYS(query_module)        }, /* obsolete syscall */
-                { 0,              SCMP_SYS(quotactl)            },
-                { 0,              SCMP_SYS(request_key)         }, /* keyring is not namespaced */
-                { 0,              SCMP_SYS(security)            }, /* obsolete syscall */
-                { 0,              SCMP_SYS(sgetmask)            }, /* obsolete syscall */
-                { 0,              SCMP_SYS(ssetmask)            }, /* obsolete syscall */
-                { 0,              SCMP_SYS(stty)                }, /* obsolete syscall */
-                { 0,              SCMP_SYS(swapoff)             },
-                { 0,              SCMP_SYS(swapon)              },
-                { 0,              SCMP_SYS(sysfs)               }, /* obsolete syscall */
-                { 0,              SCMP_SYS(tuxcall)             }, /* obsolete syscall */
-                { 0,              SCMP_SYS(ulimit)              }, /* obsolete syscall */
-                { 0,              SCMP_SYS(uselib)              }, /* obsolete syscall */
-                { 0,              SCMP_SYS(ustat)               }, /* obsolete syscall */
-                { 0,              SCMP_SYS(vserver)             }, /* obsolete syscall */
-                { CAP_SYSLOG,     SCMP_SYS(syslog)              },
-                { CAP_SYS_MODULE, SCMP_SYS(delete_module)       },
-                { CAP_SYS_MODULE, SCMP_SYS(finit_module)        },
-                { CAP_SYS_MODULE, SCMP_SYS(init_module)         },
-                { CAP_SYS_PACCT,  SCMP_SYS(acct)                },
-                { CAP_SYS_PTRACE, SCMP_SYS(process_vm_readv)    },
-                { CAP_SYS_PTRACE, SCMP_SYS(process_vm_writev)   },
-                { CAP_SYS_PTRACE, SCMP_SYS(ptrace)              },
-                { CAP_SYS_RAWIO,  SCMP_SYS(ioperm)              },
-                { CAP_SYS_RAWIO,  SCMP_SYS(iopl)                },
-                { CAP_SYS_RAWIO,  SCMP_SYS(pciconfig_iobase)    },
-                { CAP_SYS_RAWIO,  SCMP_SYS(pciconfig_read)      },
-                { CAP_SYS_RAWIO,  SCMP_SYS(pciconfig_write)     },
-#ifdef __NR_s390_pci_mmio_read
-                { CAP_SYS_RAWIO,  SCMP_SYS(s390_pci_mmio_read)  },
-#endif
-#ifdef __NR_s390_pci_mmio_write
-                { CAP_SYS_RAWIO,  SCMP_SYS(s390_pci_mmio_write) },
-#endif
-                { CAP_SYS_TIME,   SCMP_SYS(adjtimex)            },
-                { CAP_SYS_TIME,   SCMP_SYS(clock_adjtime)       },
-                { CAP_SYS_TIME,   SCMP_SYS(clock_settime)       },
-                { CAP_SYS_TIME,   SCMP_SYS(settimeofday)        },
-                { CAP_SYS_TIME,   SCMP_SYS(stime)               },
+                SyscallFilterSet set;
+        } cap_filter_sets[] = {
+                { CAP_SYS_MODULE,       syscall_filter_sets[SYSCALL_FILTER_SET_MODULE]},
+                { CAP_SYS_RAWIO,        syscall_filter_sets[SYSCALL_FILTER_SET_RAW_IO]},
+                { CAP_SYS_TIME,         syscall_filter_sets[SYSCALL_FILTER_SET_CLOCK]},
+                { CAP_SYSLOG,           { .value = "syslog\0"   }},
+                { CAP_SYS_PACCT,        { .value = "acct\0"     }},
+                { CAP_SYS_PTRACE,       { .value =
+                                        "process_vm_readv\0"
+                                        "process_vm_writev\0"
+                                        "ptrace\0"              }},
         };
+        int r;
         unsigned i;
-        int r, c = 0;
 
-        for (i = 0; i < ELEMENTSOF(blacklist); i++) {
-                if (blacklist[i].capability != 0 && (cap_list_retain & (1ULL << blacklist[i].capability)))
+        for (i = 0; i < ELEMENTSOF(cap_filter_sets); i++) {
+                /* skip if we need to retain the capability */
+                if (cap_list_retain & (1ULL << cap_filter_sets[i].capability))
                         continue;
 
-                r = seccomp_rule_add_exact(ctx, SCMP_ACT_ERRNO(EPERM), blacklist[i].syscall_num, 0);
-                if (r < 0) {
-                        /* If the system call is not known on this architecture, then that's fine, let's ignore it */
-                        _cleanup_free_ char *n = NULL;
-
-                        n = seccomp_syscall_resolve_num_arch(arch, blacklist[i].syscall_num);
-                        log_debug_errno(r, "Failed to add rule for system call %s, ignoring: %m", strna(n));
-                } else
-                        c++;
+                r = seccomp_filter_set_add(blacklist, true, &(cap_filter_sets[i].set));
+                if (r < 0)
+                        log_debug_errno(r, "Failed to add capability to blacklist, ignoring: %m");
         }
 
-        return c;
+        return 0;
 }
 
-int setup_seccomp(uint64_t cap_list_retain) {
+static int seccomp_setup_filter(
+                scmp_filter_ctx ctx,
+                Set *blacklist,
+                uint64_t cap_list_retain,
+                Set *syscall_filter,
+                bool iswhitelist
+                ) {
+        int r;
+
+        /* parse the default blacklist */
+        r = seccomp_filter_set_add(blacklist, true, &nspawn_default_blacklist);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to add default filter to blacklist: %m");
+
+        /* Filter out syscalls by capabilities but retain the ones on the list */
+        r = seccomp_add_syscall_filter_capabilities(blacklist, cap_list_retain);
+        if (r < 0)
+                return r;
+
+        /* apply the custom filter */
+        if (syscall_filter) {
+                Iterator i;
+                char *t;
+
+                SET_FOREACH(t, syscall_filter, i) {
+                        if (t[0] == '@') {
+                                const SyscallFilterSet *more;
+
+                                more = syscall_filter_set_find(t);
+                                if (!more)
+                                        return -EINVAL;
+
+                                r = seccomp_filter_set_add(blacklist, !iswhitelist, more);
+                                if (r < 0)
+                                        return r;
+                        } else {
+                                int id;
+
+                                id = seccomp_syscall_resolve_name(t);
+                                if (id == __NR_SCMP_ERROR)
+                                        return log_debug_errno(-ENXIO, "Couldn't resolve syscall %s() / %d: %m", t, PTR_TO_INT(id) - 1);
+
+                                if (!iswhitelist) {
+                                        r = set_put(blacklist, INT_TO_PTR(id + 1));
+                                        if (r < 0)
+                                                return r;
+                                        log_debug("Added syscall to default blacklist: %s()", t);
+                                } else
+                                        (void) set_remove(blacklist, INT_TO_PTR(id + 1));
+                                        log_debug("Removed syscall from default blacklist: %s()", t);
+                        }
+                }
+        }
+
+        return 0;
+}
+
+int setup_seccomp(uint64_t cap_list_retain, Set *syscall_filter, bool iswhitelist) {
         uint32_t arch;
         int r;
 
@@ -144,7 +188,10 @@ int setup_seccomp(uint64_t cap_list_retain) {
 
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
+                Set *blacklist = set_new(NULL);
                 int n;
+                Iterator i;
+                void *id;
 
                 log_debug("Operating on architecture: %s", seccomp_arch_to_string(arch));
 
@@ -152,9 +199,20 @@ int setup_seccomp(uint64_t cap_list_retain) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate seccomp object: %m");
 
-                n = seccomp_add_default_syscall_filter(seccomp, arch, cap_list_retain);
+                n = seccomp_setup_filter(seccomp, blacklist, cap_list_retain, syscall_filter, iswhitelist);
                 if (n < 0)
-                        return n;
+                        return log_error_errno(n, "Failed to set up filter: %m");
+
+                SET_FOREACH(id, blacklist, i) {
+                        r = seccomp_rule_add_exact(seccomp, SCMP_ACT_ERRNO(EPERM), PTR_TO_INT(id) - 1, 0);
+                        if (r < 0) {
+                                /* If the system call is not known on this architecture, then that's fine, let's ignore it */
+                                char *id_n = NULL;
+
+                                id_n = seccomp_syscall_resolve_num_arch(arch, PTR_TO_INT(id) - 1);
+                                log_debug_errno(r, "Failed to add rule for system call %s() / %d, ignoring: %m", strna(id_n), PTR_TO_INT(id) - 1);
+                        }
+                }
 
                 /*
                   Audit is broken in containers, much of the userspace audit hookup will fail if running inside a
@@ -191,7 +249,7 @@ int setup_seccomp(uint64_t cap_list_retain) {
 
 #else
 
-int setup_seccomp(uint64_t cap_list_retain) {
+int setup_seccomp(uint64_t cap_list_retain, Set *syscall_filter, bool iswhitelist) {
         return 0;
 }
 

@@ -1379,7 +1379,7 @@ int seccomp_filter_set_add(Set *filter, bool add, const SyscallFilterSet *set) {
 
                         more = syscall_filter_set_find(i);
                         if (!more)
-                                return -ENXIO;
+                                return log_debug_errno(-ENXIO, "Couldn't find filterset %s: %m", i);
 
 
                         r = seccomp_filter_set_add(filter, add, more);
@@ -1390,7 +1390,7 @@ int seccomp_filter_set_add(Set *filter, bool add, const SyscallFilterSet *set) {
 
                         id = seccomp_syscall_resolve_name(i);
                         if (id == __NR_SCMP_ERROR)
-                                return -ENXIO;
+                                return log_debug_errno(-ENXIO, "Couldn't resolve syscall %s / %d: %m", strna(i), PTR_TO_INT(id) - 1);
 
                         if (add) {
                                 r = set_put(filter, INT_TO_PTR(id + 1));
