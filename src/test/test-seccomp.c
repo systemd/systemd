@@ -582,45 +582,59 @@ static void test_lock_personality(void) {
         assert_se(pid >= 0);
 
         if (pid == 0) {
+                int ret;
+
                 assert_se(seccomp_lock_personality(current) >= 0);
 
                 assert_se((unsigned long) personality(current) == current);
 
                 errno = EUCLEAN;
-                assert_se(personality(PER_LINUX | ADDR_NO_RANDOMIZE) == -1 && errno == EPERM);
+                ret = personality(PER_LINUX | ADDR_NO_RANDOMIZE);
+                assert_se((ret == -1 && errno == EPERM) || (ret == -EPERM && errno == EUCLEAN));
 
                 errno = EUCLEAN;
-                assert_se(personality(PER_LINUX | MMAP_PAGE_ZERO) == -1 && errno == EPERM);
+                ret = personality(PER_LINUX | MMAP_PAGE_ZERO);
+                assert_se((ret == -1 && errno == EPERM) || (ret == -EPERM && errno == EUCLEAN));
 
                 errno = EUCLEAN;
-                assert_se(personality(PER_LINUX | ADDR_COMPAT_LAYOUT) == -1 && errno == EPERM);
+                ret = personality(PER_LINUX | ADDR_COMPAT_LAYOUT);
+                assert_se((ret == -1 && errno == EPERM) || (ret == -EPERM && errno == EUCLEAN));
 
                 errno = EUCLEAN;
-                assert_se(personality(PER_LINUX | READ_IMPLIES_EXEC) == -1 && errno == EPERM);
+                ret = personality(PER_LINUX | READ_IMPLIES_EXEC);
+                assert_se((ret == -1 && errno == EPERM) || (ret == -EPERM && errno == EUCLEAN));
 
                 errno = EUCLEAN;
-                assert_se(personality(PER_LINUX_32BIT) == -1 && errno == EPERM);
+                ret = personality(PER_LINUX_32BIT);
+                assert_se((ret == -1 && errno == EPERM) || (ret == -EPERM && errno == EUCLEAN));
 
                 errno = EUCLEAN;
-                assert_se(personality(PER_SVR4) == -1 && errno == EPERM);
+                ret = personality(PER_SVR4);
+                assert_se((ret == -1 && errno == EPERM) || (ret == -EPERM && errno == EUCLEAN));
 
                 errno = EUCLEAN;
-                assert_se(personality(PER_BSD) == -1 && errno == EPERM);
+                ret = personality(PER_BSD);
+                assert_se((ret == -1 && errno == EPERM) || (ret == -EPERM && errno == EUCLEAN));
 
                 errno = EUCLEAN;
-                assert_se(personality(current == PER_LINUX ? PER_LINUX32 : PER_LINUX) == -1 && errno == EPERM);
+                ret = personality(current == PER_LINUX ? PER_LINUX32 : PER_LINUX);
+                assert_se((ret == -1 && errno == EPERM) || (ret == -EPERM && errno == EUCLEAN));
 
                 errno = EUCLEAN;
-                assert_se(personality(PER_LINUX32_3GB) == -1 && errno == EPERM);
+                ret = personality(PER_LINUX32_3GB);
+                assert_se((ret == -1 && errno == EPERM) || (ret == -EPERM && errno == EUCLEAN));
 
                 errno = EUCLEAN;
-                assert_se(personality(PER_UW7) == -1 && errno == EPERM);
+                ret = personality(PER_UW7);
+                assert_se((ret == -1 && errno == EPERM) || (ret == -EPERM && errno == EUCLEAN));
 
                 errno = EUCLEAN;
-                assert_se(personality(0x42) == -1 && errno == EPERM);
+                ret = personality(0x42);
+                assert_se((ret == -1 && errno == EPERM) || (ret == -EPERM && errno == EUCLEAN));
 
                 errno = EUCLEAN;
-                assert_se(personality(PERSONALITY_INVALID) == -1 && errno == EPERM); /* maybe remove this later */
+                ret = personality(PERSONALITY_INVALID); /* maybe remove this later */
+                assert_se((ret == -1 && errno == EPERM) || (ret == -EPERM && errno == EUCLEAN));
 
                 assert_se((unsigned long) personality(current) == current);
                 _exit(EXIT_SUCCESS);
