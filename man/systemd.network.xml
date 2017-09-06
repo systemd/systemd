@@ -637,6 +637,13 @@
         </para></listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>IPv6PrefixDelegation=</varname></term>
+          <listitem><para>Whether to enable or disable Router Advertisement sending on a link.
+          Defaults to <literal>false</literal>. See the <literal>[IPv6PrefixDelegation]</literal>
+          and the <literal>[IPv6Prefix]</literal> sections for configuration options.
+          </para></listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Bridge=</varname></term>
           <listitem>
             <para>The name of the bridge to add the link to. See
@@ -1312,6 +1319,116 @@
   </refsect1>
 
   <refsect1>
+    <title>[IPv6PrefixDelegation] Section Options</title>
+    <para>The <literal>[IPv6PrefixDelegation]</literal> section contains
+    settings for sending IPv6 Router Advertisements and whether to act as
+    a router, if enabled via the <varname>IPv6PrefixDelegation=</varname>
+    option described above. IPv6 network prefixes are defined with one or
+    more <literal>[IPv6Prefix]</literal> sections.</para>
+
+    <variablelist class='network-directives'>
+
+      <varlistentry>
+        <term><varname>Managed=</varname></term>
+        <term><varname>OtherInformation=</varname></term>
+
+        <listitem><para>Controls whether a DHCPv6 server is used to acquire IPv6
+        addresses on the network link when <varname>Managed=</varname> boolean
+        is set to <literal>true</literal> or if only additional network
+        information can be obtained via DHCPv6 for the network link when
+        <varname>OtherInformation=</varname> boolean is set to
+        <literal>true</literal>. Both settings default to
+        <literal>false</literal>, which means that a DHCPv6 server is not being
+        used.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RouterLifetimeSec=</varname></term>
+
+        <listitem><para>Configures the IPv6 router lifetime in seconds. If set,
+        this host also announces itself in Router Advertisements as an IPv6
+        router for the network link. Defaults to unset, which means the host is
+        not acting as a router.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RouterPreference=</varname></term>
+
+        <listitem><para>Configures IPv6 router preference if
+        <varname>RouterLifetimeSec=</varname> is non-zero. Valid values are
+        <literal>high</literal>, <literal>medium</literal> and
+        <literal>low</literal>, with <literal>normal</literal> and
+        <literal>default</literal> added as synonyms for
+        <literal>medium</literal> just to make configuration easier. See
+        <ulink url="https://tools.ietf.org/html/rfc4191">RFC 4191</ulink>
+        for details. Defaults to <literal>medium</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DNS=</varname></term>
+
+        <listitem><para>A list of recursive DNS server IPv6 addresses
+        distributed via Router Advertisement messages.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DNSLifetimeSec=</varname></term>
+
+        <listitem><para>Lifetime in seconds for the DNS server addresses listed
+        in <varname>DNS=</varname>.</para></listitem>
+      </varlistentry>
+
+    </variablelist>
+    </refsect1>
+
+      <refsect1>
+    <title>[IPv6Prefix] Section Options</title>
+    <para>One or more <literal>[IPv6Prefix]</literal> sections contain the IPv6
+    prefixes that are announced via Router Advertisements. See
+    <ulink url="https://tools.ietf.org/html/rfc4861">RFC 4861</ulink>
+    for further details.</para>
+
+    <variablelist class='network-directives'>
+
+      <varlistentry>
+        <term><varname>AddressAutoconfiguration=</varname></term>
+        <term><varname>OnLink=</varname></term>
+
+        <listitem><para>Boolean values to specify whether IPv6 addresses can be
+        autoconfigured with this prefix and whether the prefix can be used for
+        onlink determination. Both settings default to <literal>true</literal>
+        in order to ease configuration.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Prefix=</varname></term>
+
+        <listitem><para>The IPv6 prefix that is to be distributed to hosts.
+        Similarly to configuring static IPv6 addresses, the setting is
+        configured as an IPv6 prefix and its prefix length, separated by a
+        <literal>/</literal> character. Use multiple
+        <literal>[IPv6Prefix]</literal> sections to configure multiple IPv6
+        prefixes since prefix lifetimes, address autoconfiguration and onlink
+        status may differ from one prefix to another.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>PreferredLifetimeSec=</varname></term>
+        <term><varname>ValidLifetimeSec=</varname></term>
+
+        <listitem><para>Preferred and valid lifetimes for the prefix measured in
+        seconds. <varname>PreferredLifetimeSec=</varname> defaults to 604800
+        seconds (one week) and <varname>ValidLifetimeSec=</varname> defaults
+        to 2592000 seconds (30 days).</para></listitem>
+      </varlistentry>
+
+    </variablelist>
+    </refsect1>
+
+    <refsect1>
     <title>[Bridge] Section Options</title>
       <para>The <literal>[Bridge]</literal> section accepts the
       following keys.</para>
