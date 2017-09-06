@@ -21,6 +21,7 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "bpf-firewall.h"
 #include "extract-word.h"
 #include "hostname-util.h"
 #include "ip-address-access.h"
@@ -149,6 +150,15 @@ int config_parse_ip_address_access(
         }
 
         *list = ip_address_access_reduce(*list);
+
+        if (*list) {
+                r = bpf_firewall_supported();
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        log_warning("File %s:%u configures an IP firewall (%s=%s), but the local system does not support BPF/cgroup based firewalling.\n"
+                                    "Proceeding WITHOUT firewalling in effect!", filename, line, lvalue, rvalue);
+        }
 
         return 0;
 }

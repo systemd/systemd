@@ -21,6 +21,7 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "bpf-firewall.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
 #include "cgroup.h"
@@ -1321,6 +1322,15 @@ int bus_cgroup_set_property(
                         if (r < 0)
                                 return r;
                         unit_write_drop_in_private(u, mode, name, buf);
+
+                        if (*list) {
+                                r = bpf_firewall_supported();
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        log_warning("Transient unit %s configures an IP firewall, but the local system does not support BPF/cgroup firewalling.\n"
+                                                    "Proceeding WITHOUT firewalling in effect!", u->id);
+                        }
                 }
 
                 return 1;
