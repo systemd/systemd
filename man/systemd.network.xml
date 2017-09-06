@@ -718,6 +718,14 @@
           </para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>ConfigureWithoutCarrier=</varname></term>
+        <listitem>
+          <para>A boolean. Allows networkd to configure a specific link even if it has no carrier.
+          Defaults to false.
+          </para>
+        </listitem>
+      </varlistentry>
       </variablelist>
 
   </refsect1>

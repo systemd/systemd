@@ -2138,7 +2138,7 @@ static int link_joined(Link *link) {
         /* Skip setting up addresses until it gets carrier,
            or it would try to set addresses twice,
            which is bad for non-idempotent steps. */
-        if (!link_has_carrier(link))
+        if (!link_has_carrier(link) && !link->network->configure_without_carrier)
                 return 0;
 
         return link_enter_set_addresses(link);
@@ -2647,7 +2647,7 @@ static int link_configure(Link *link) {
                         return r;
         }
 
-        if (link_has_carrier(link)) {
+        if (link_has_carrier(link) || link->network->configure_without_carrier) {
                 r = link_acquire_conf(link);
                 if (r < 0)
                         return r;
