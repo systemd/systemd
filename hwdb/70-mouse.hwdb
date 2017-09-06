@@ -198,6 +198,10 @@ mouse:usb:v413cp3012:name:Dell Dell USB Optical Mouse:
 mouse:usb:v046dpc063:name:DELL DELL USB Laser Mouse:
  MOUSE_DPI=1000@125
 
+# Dell MS116t
+mouse:usb:v413cp301a:name:PixArt Dell MS116 USB Optical Mouse:
+ MOUSE_DPI=1000@125
+
 ##########################################
 # Dynex
 #########################################
@@ -259,6 +263,7 @@ mouse:usb:v0458p0133:name:Mouse Laser Mouse:
  MOUSE_WHEEL_CLICK_ANGLE=15
 
 # HP X1000
+# Dell MS111-T
 mouse:usb:v093ap2510:name:PixArt USB Optical Mouse:
 mouse:usb:v093ap2510:name:PIXART USB OPTICAL MOUSE:
  MOUSE_DPI=1000@125
@@ -515,6 +520,10 @@ mouse:usb:v045ep0040:name:Microsoft Microsoft 3-Button Mouse with IntelliEye(TM)
 # Microsoft Wireless Mouse 5000
 mouse:usb:v045ep0745:name:Microsoft Microsoft® 2.4GHz Transceiver v6.0:
  MOUSE_DPI=800@142
+
+# Microsoft Comfort Mouse 4500
+mouse:usb:v045ep076c:name:Microsoft Microsoft® Comfort Mouse 4500:
+ MOUSE_DPI=1000@125
 
 # Microsoft Wireless Mobile Mouse 4000
 mouse:usb:v045ep0745:name:Microsoft Microsoft® Nano Transceiver v2.0:
