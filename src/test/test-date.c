@@ -90,6 +90,10 @@ int main(int argc, char *argv[]) {
         test_one("yesterday");
         test_one("today");
         test_one("tomorrow");
+        test_one_noutc("16:20 UTC");
+        test_one_noutc("16:20 Asia/Seoul");
+        test_one_noutc("tomorrow Asia/Seoul");
+        test_one_noutc("2012-12-30 18:42 Asia/Seoul");
         test_one_noutc("now");
         test_one_noutc("+2d");
         test_one_noutc("+2y 4d");
@@ -100,6 +104,9 @@ int main(int argc, char *argv[]) {
         test_should_fail("1969-12-31 UTC");
         test_should_fail("-100y");
         test_should_fail("today UTC UTC");
+        test_should_fail("now Asia/Seoul");
+        test_should_fail("+2d Asia/Seoul");
+        test_should_fail("@1395716396 Asia/Seoul");
 #if SIZEOF_TIME_T == 8
         test_should_pass("9999-12-30 23:59:59 UTC");
         test_should_fail("9999-12-31 00:00:00 UTC");
