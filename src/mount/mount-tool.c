@@ -1004,6 +1004,11 @@ static int action_umount(
 
                 p = canonicalize_file_name(a);
 
+                if (!p) {
+                        r2 = log_error_errno(errno, "Failed to canonicalize path %s: %m", argv[i]);
+                        continue;
+                }
+
                 if (stat(p, &st) < 0)
                         return log_error_errno(errno, "Can't stat %s: %m", p);
 
