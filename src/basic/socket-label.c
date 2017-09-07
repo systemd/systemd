@@ -83,7 +83,7 @@ int socket_address_listen(
                         return -errno;
         }
 
-        if (socket_address_family(a) == AF_INET || socket_address_family(a) == AF_INET6) {
+        if (IN_SET(socket_address_family(a), AF_INET, AF_INET6)) {
                 if (bind_to_device)
                         if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, bind_to_device, strlen(bind_to_device)+1) < 0)
                                 return -errno;
