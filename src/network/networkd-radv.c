@@ -75,5 +75,15 @@ int radv_configure(Link *link) {
                         return r;
         }
 
+        if (link->network->router_dns) {
+                r = sd_radv_set_rdnss(link->radv,
+                                      DIV_ROUND_UP(link->network->router_dns_lifetime_usec,
+                                                   USEC_PER_SEC),
+                                      link->network->router_dns,
+                                      link->network->n_router_dns);
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 }

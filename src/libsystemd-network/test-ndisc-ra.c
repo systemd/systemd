@@ -53,7 +53,7 @@ static uint8_t advertisement[] = {
         0x00, 0x09, 0x3a, 0x80,  0x00, 0x00, 0x00, 0x00,
         0x20, 0x01, 0x0d, 0xb8,  0xc0, 0x01, 0x0d, 0xad,
         0x00, 0x00, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00,
-        /* Recursive DNS Server Option - not yet supported */
+        /* Recursive DNS Server Option */
         0x19, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3c,
         0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
@@ -105,6 +105,11 @@ static struct {
           /* indicate that this prefix already exists */
           false },
 };
+
+static const struct in6_addr test_rdnss = { { { 0x20, 0x01, 0x0d, 0xb8,
+                                                0xde, 0xad, 0xbe, 0xef,
+                                                0x00, 0x00, 0x00, 0x00,
+                                                0x00, 0x00, 0x00, 0x01 } } };
 
 static int test_rs_hangcheck(sd_event_source *s, uint64_t usec,
                              void *userdata) {
@@ -207,6 +212,14 @@ static void test_radv(void) {
         assert_se(sd_radv_set_other_information(ra, true) >= 0);
         assert_se(sd_radv_set_other_information(ra, false) >= 0);
 
+        assert_se(sd_radv_set_rdnss(NULL, 0, NULL, 0) < 0);
+        assert_se(sd_radv_set_rdnss(ra, 0, NULL, 0) >= 0);
+        assert_se(sd_radv_set_rdnss(ra, 0, NULL, 128) < 0);
+        assert_se(sd_radv_set_rdnss(ra, 600, &test_rdnss, 0) >= 0);
+        assert_se(sd_radv_set_rdnss(ra, 600, &test_rdnss, 1) >= 0);
+        assert_se(sd_radv_set_rdnss(ra, 0, &test_rdnss, 1) >= 0);
+        assert_se(sd_radv_set_rdnss(ra, 0, NULL, 0) >= 0);
+
         ra = sd_radv_unref(ra);
         assert_se(!ra);
 }
@@ -238,7 +251,7 @@ int icmp6_receive(int fd, void *iov_base, size_t iov_len,
 
 static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         sd_radv *ra = userdata;
-        unsigned char buf[120];
+        unsigned char buf[144];
         size_t i;
 
         read(test_fd[0], &buf, sizeof(buf));
@@ -254,6 +267,9 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
         /* test only up to buf size, rest is not yet implemented */
         for (i = 0; i < sizeof(buf); i++) {
+                if (!(i % 8))
+                        printf("%3zd: ", i);
+
                 printf("0x%02x", buf[i]);
 
                 assert_se(buf[i] == advertisement[i]);
@@ -302,6 +318,7 @@ static void test_ra(void) {
         assert_se(sd_radv_set_hop_limit(ra, 64) >= 0);
         assert_se(sd_radv_set_managed_information(ra, true) >= 0);
         assert_se(sd_radv_set_other_information(ra, true) >= 0);
+        assert_se(sd_radv_set_rdnss(ra, 60, &test_rdnss, 1) >= 0);
 
         for (i = 0; i < ELEMENTSOF(prefix); i++) {
                 sd_radv_prefix *p;

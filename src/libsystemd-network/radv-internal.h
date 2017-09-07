@@ -35,11 +35,20 @@ assert_cc(SD_RADV_DEFAULT_MIN_TIMEOUT_USEC <= SD_RADV_DEFAULT_MAX_TIMEOUT_USEC)
 #define SD_RADV_MIN_DELAY_BETWEEN_RAS           3
 #define SD_RADV_MAX_RA_DELAY_TIME_USEC          (500*USEC_PER_MSEC)
 
+#define SD_RADV_OPT_RDNSS                       25
+
 enum RAdvState {
         SD_RADV_STATE_IDLE                      = 0,
         SD_RADV_STATE_ADVERTISING               = 1,
 };
 typedef enum RAdvState RAdvState;
+
+struct sd_radv_opt_dns {
+        uint8_t type;
+        uint8_t length;
+        uint16_t reserved;
+        be32_t lifetime;
+} _packed_;
 
 struct sd_radv {
         unsigned n_ref;
@@ -63,6 +72,9 @@ struct sd_radv {
 
         unsigned n_prefixes;
         LIST_HEAD(sd_radv_prefix, prefixes);
+
+        size_t n_rdnss;
+        struct sd_radv_opt_dns *rdnss;
 };
 
 struct sd_radv_prefix {
