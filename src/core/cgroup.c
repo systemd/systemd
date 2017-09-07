@@ -2088,10 +2088,17 @@ int manager_notify_cgroup_empty(Manager *m, const char *cgroup) {
 
 int unit_get_memory_current(Unit *u, uint64_t *ret) {
         _cleanup_free_ char *v = NULL;
+        CGroupContext *cc;
         int r;
 
         assert(u);
         assert(ret);
+
+        cc = unit_get_cgroup_context(u);
+        if (!cc)
+                return -ENODATA;
+        if (!cc->memory_accounting)
+                return -ENODATA;
 
         if (!u->cgroup_path)
                 return -ENODATA;
@@ -2116,10 +2123,17 @@ int unit_get_memory_current(Unit *u, uint64_t *ret) {
 
 int unit_get_tasks_current(Unit *u, uint64_t *ret) {
         _cleanup_free_ char *v = NULL;
+        CGroupContext *cc;
         int r;
 
         assert(u);
         assert(ret);
+
+        cc = unit_get_cgroup_context(u);
+        if (!cc)
+                return -ENODATA;
+        if (!cc->tasks_accounting)
+                return -ENODATA;
 
         if (!u->cgroup_path)
                 return -ENODATA;
@@ -2187,6 +2201,7 @@ static int unit_get_cpu_usage_raw(Unit *u, nsec_t *ret) {
 }
 
 int unit_get_cpu_usage(Unit *u, nsec_t *ret) {
+        CGroupContext *cc;
         nsec_t ns;
         int r;
 
@@ -2195,6 +2210,12 @@ int unit_get_cpu_usage(Unit *u, nsec_t *ret) {
         /* Retrieve the current CPU usage counter. This will subtract the CPU counter taken when the unit was
          * started. If the cgroup has been removed already, returns the last cached value. To cache the value, simply
          * call this function with a NULL return value. */
+
+        cc = unit_get_cgroup_context(u);
+        if (!cc)
+                return -ENODATA;
+        if (!cc->cpu_accounting)
+                return -ENODATA;
 
         r = unit_get_cpu_usage_raw(u, &ns);
         if (r == -ENODATA && u->cpu_usage_last != NSEC_INFINITY) {
@@ -2225,6 +2246,7 @@ int unit_get_ip_accounting(
                 CGroupIPAccountingMetric metric,
                 uint64_t *ret) {
 
+        CGroupContext *cc;
         uint64_t value;
         int fd, r;
 
@@ -2232,6 +2254,19 @@ int unit_get_ip_accounting(
         assert(metric >= 0);
         assert(metric < _CGROUP_IP_ACCOUNTING_METRIC_MAX);
         assert(ret);
+
+        /* IP accounting is currently not recursive, and hence we refuse to return any data for slice nodes. Slices are
+         * inner cgroup nodes and hence have no processes directly attached, hence their counters would be zero
+         * anyway. And if we block this now we can later open this up, if the kernel learns recursive BPF cgroup
+         * filters. */
+        if (u->type == UNIT_SLICE)
+                return -ENODATA;
+
+        cc = unit_get_cgroup_context(u);
+        if (!cc)
+                return -ENODATA;
+        if (!cc->ip_accounting)
+                return -ENODATA;
 
         fd = IN_SET(metric, CGROUP_IP_INGRESS_BYTES, CGROUP_IP_INGRESS_PACKETS) ?
                 u->ip_accounting_ingress_map_fd :
