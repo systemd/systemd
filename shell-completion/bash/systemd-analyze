@@ -40,7 +40,7 @@ _systemd_analyze() {
         )
 
         local -A VERBS=(
-                [STANDALONE]='time blame plot dump'
+                [STANDALONE]='time blame plot dump get-log-level get-log-target'
                 [CRITICAL_CHAIN]='critical-chain'
                 [DOT]='dot'
                 [LOG_LEVEL]='set-log-level'

@@ -28,6 +28,8 @@ _systemd_analyze_command(){
         'dump:Dump server status'
         'set-log-level:Set systemd log threshold'
         'set-log-target:Set systemd log target'
+        'get-log-level:Get systemd log threshold'
+        'get-log-target:Get systemd log target'
         'syscall-filter:List syscalls in seccomp filter'
         'verify:Check unit files for correctness'
     )

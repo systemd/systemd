@@ -11,6 +11,11 @@ CHANGES WITH 235:
           that case users will be prevented from correctly managing bond0
           interface using networkd.
 
+        * systemd-analyze gained new verbs "get-log-level" and "get-log-target"
+          which print the logging level and target of the system manager,
+          respectively. They complement the existing "set-log-level" and
+          "set-log-target" verbs, which can be used to change those values.
+
 CHANGES WITH 234:
 
         * Meson is now supported as build system in addition to Automake. It is
