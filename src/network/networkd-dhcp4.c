@@ -23,6 +23,7 @@
 #include "alloc-util.h"
 #include "dhcp-lease-internal.h"
 #include "hostname-util.h"
+#include "netdev/vrf.h"
 #include "network-internal.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -69,6 +70,7 @@ static int link_set_dhcp_routes(Link *link) {
         struct in_addr gateway, address;
         _cleanup_free_ sd_dhcp_route **static_routes = NULL;
         int r, n, i;
+        uint32_t table;
 
         assert(link);
 
@@ -80,6 +82,12 @@ static int link_set_dhcp_routes(Link *link) {
 
         if (!link->network->dhcp_use_routes)
                 return 0;
+
+        /* When the interface is part of an VRF use the VRFs routing table, unless
+         * there is a another table specified. */
+        table = link->network->dhcp_route_table;
+        if (!link->network->dhcp_route_table_set && link->network->vrf != NULL)
+                table = VRF(link->network->vrf)->table;
 
         r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
         if (r < 0)
@@ -113,7 +121,7 @@ static int link_set_dhcp_routes(Link *link) {
                 route_gw->scope = RT_SCOPE_LINK;
                 route_gw->protocol = RTPROT_DHCP;
                 route_gw->priority = link->network->dhcp_route_metric;
-                route_gw->table = link->network->dhcp_route_table;
+                route_gw->table = table;
 
                 r = route_configure(route_gw, link, dhcp4_route_handler);
                 if (r < 0)
@@ -125,7 +133,7 @@ static int link_set_dhcp_routes(Link *link) {
                 route->gw.in = gateway;
                 route->prefsrc.in = address;
                 route->priority = link->network->dhcp_route_metric;
-                route->table = link->network->dhcp_route_table;
+                route->table = table;
 
                 r = route_configure(route, link, dhcp4_route_handler);
                 if (r < 0) {
@@ -156,7 +164,7 @@ static int link_set_dhcp_routes(Link *link) {
                 assert_se(sd_dhcp_route_get_destination(static_routes[i], &route->dst.in) >= 0);
                 assert_se(sd_dhcp_route_get_destination_prefix_length(static_routes[i], &route->dst_prefixlen) >= 0);
                 route->priority = link->network->dhcp_route_metric;
-                route->table = link->network->dhcp_route_table;
+                route->table = table;
                 route->scope = route_scope_from_address(route, &address);
 
                 r = route_configure(route, link, dhcp4_route_handler);

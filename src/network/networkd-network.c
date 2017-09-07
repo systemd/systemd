@@ -212,6 +212,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         /* NOTE: this var might be overwrite by network_apply_anonymize_if_set */
         network->dhcp_client_identifier = DHCP_CLIENT_ID_DUID;
         network->dhcp_route_table = RT_TABLE_MAIN;
+        network->dhcp_route_table_set = false;
         /* NOTE: the following vars were not set to any default,
          * even if they are commented in the man?
          * These vars might be overwriten by network_apply_anonymize_if_set */
@@ -1339,6 +1340,7 @@ int config_parse_dhcp_route_table(const char *unit,
                                   const char *rvalue,
                                   void *data,
                                   void *userdata) {
+        Network *network = data;
         uint32_t rt;
         int r;
 
@@ -1354,7 +1356,8 @@ int config_parse_dhcp_route_table(const char *unit,
                 return 0;
         }
 
-        *((uint32_t *)data) = rt;
+        network->dhcp_route_table = rt;
+        network->dhcp_route_table_set = true;
 
         return 0;
 }
