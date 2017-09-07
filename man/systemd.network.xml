@@ -1444,10 +1444,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>Domains=</varname></term>
+
+        <listitem><para>A list of DNS search domains distributed via
+        Router Advertisement messages. Defaults to empty, i.e. no search
+        domains are sent.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DNSLifetimeSec=</varname></term>
 
         <listitem><para>Lifetime in seconds for the DNS server addresses listed
-        in <varname>DNS=</varname>.</para></listitem>
+        in <varname>DNS=</varname> and search domains listed in
+        <varname>Domains=</varname>.</para></listitem>
       </varlistentry>
 
     </variablelist>
