@@ -20,6 +20,7 @@
 #include <endian.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <grp.h>
 #include <pwd.h>
 #include <security/_pam_macros.h>
 #include <security/pam_ext.h>
@@ -43,8 +44,10 @@
 #include "parse-util.h"
 #include "process-util.h"
 #include "socket-util.h"
+#include "sd-login.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "user-util.h"
 #include "util.h"
 #include "path-util.h"
 
@@ -208,6 +211,49 @@ static int export_legacy_dbus_address(
 error:
         pam_syslog(handle, LOG_ERR, "Failed to set bus variable.");
         return r;
+}
+
+static int join_group(pam_handle_t *handle, const char *group_name) {
+        _cleanup_free_ gid_t *gids = NULL;
+        const struct group *grp;
+        int r, n;
+
+        grp = pam_modutil_getgrnam(handle, group_name);
+        if (!grp) {
+                pam_syslog(handle, LOG_DEBUG, "Ignoring group membership on '%s'; cannot resolve group: %m", group_name);
+                return PAM_SUCCESS;
+        }
+
+        r = getgroups(0, NULL);
+        if (r < 0) {
+                pam_syslog(handle, LOG_ERR, "Failed to retrieve auxiliary groups: %m");
+                return PAM_CRED_ERR;
+        }
+        n = r;
+
+        gids = calloc(n + 1, sizeof(*gids));
+        if (!gids) {
+                pam_syslog(handle, LOG_ERR, "Out of memory.");
+                return PAM_CRED_ERR;
+        }
+
+        r = getgroups(n, gids);
+        if (r != n) {
+                if (r < 0)
+                        pam_syslog(handle, LOG_ERR, "Failed to retrieve auxiliary groups: %m");
+                else
+                        pam_syslog(handle, LOG_ERR, "Size mismatch when fetching auxiliary groups: %d != %d", r, n);
+                return PAM_CRED_ERR;
+        }
+        gids[n] = grp->gr_gid;
+
+        r = maybe_setgroups(n + 1, gids);
+        if (r < 0) {
+                pam_syslog(handle, LOG_ERR, "Failed to set auxiliary groups: %d", r);
+                return PAM_CRED_ERR;
+        }
+
+        return 0;
 }
 
 _public_ PAM_EXTERN int pam_sm_open_session(
@@ -552,6 +598,52 @@ _public_ PAM_EXTERN int pam_sm_close_session(
          * not have any clue when that is completed. Given that one
          * cannot really have multiple PAM sessions open from the same
          * process this means we will leak one FD at max. */
+
+        return PAM_SUCCESS;
+}
+
+_public_ PAM_EXTERN int pam_sm_authenticate(
+                pam_handle_t *handle,
+                int flags,
+                int argc, const char **argv) {
+        return PAM_IGNORE;
+}
+
+_public_ PAM_EXTERN int pam_sm_setcred(
+                pam_handle_t *handle,
+                int flags,
+                int argc, const char **argv) {
+        _cleanup_free_ char *seat = NULL;
+        const char *username;
+        struct passwd *pw;
+        int r;
+
+        if (!logind_running() ||
+            !(flags & (PAM_ESTABLISH_CRED | PAM_REINITIALIZE_CRED)))
+                return PAM_SUCCESS;
+
+        r = get_user_data(handle, &username, &pw);
+        if (r != PAM_SUCCESS) {
+                pam_syslog(handle, LOG_ERR, "Failed to get user data.");
+                return r;
+        }
+
+        /*
+         * If a session has a seat assigned, we consider it a local session
+         * and grant access to several 'desktop features'. To authoritatively
+         * mark this process, we forcibly join the 'users' group.
+         */
+        r = sd_session_get_seat(NULL, &seat);
+        if (r >= 0) {
+                r = join_group(handle, "users");
+                if (r != PAM_SUCCESS) {
+                        pam_syslog(handle, LOG_ERR, "Failed to join group 'users'.");
+                        return r;
+                }
+        } else if (r != -ENODATA && r != -ENXIO) {
+                pam_syslog(handle, LOG_ERR, "Failed to retrieve session properties: %d", r);
+                return PAM_CRED_UNAVAIL;
+        }
 
         return PAM_SUCCESS;
 }
