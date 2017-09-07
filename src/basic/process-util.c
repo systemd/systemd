@@ -904,6 +904,28 @@ const char* personality_to_string(unsigned long p) {
         return architecture_to_string(architecture);
 }
 
+int safe_personality(unsigned long p) {
+        int ret;
+
+        /* So here's the deal, personality() is weirdly defined by glibc. In some cases it returns a failure via errno,
+         * and in others as negative return value containing an errno-like value. Let's work around this: this is a
+         * wrapper that uses errno if it is set, and uses the return value otherwise. And then it sets both errno and
+         * the return value indicating the same issue, so that we are definitely on the safe side.
+         *
+         * See https://github.com/systemd/systemd/issues/6737 */
+
+        errno = 0;
+        ret = personality(p);
+        if (ret < 0) {
+                if (errno != 0)
+                        return -errno;
+
+                errno = -ret;
+        }
+
+        return ret;
+}
+
 int opinionated_personality(unsigned long *ret) {
         int current;
 
@@ -911,9 +933,9 @@ int opinionated_personality(unsigned long *ret) {
          * opinionated though, and ignores all the finer-grained bits and exotic personalities, only distinguishing the
          * two most relevant personalities: PER_LINUX and PER_LINUX32. */
 
-        current = personality(PERSONALITY_INVALID);
+        current = safe_personality(PERSONALITY_INVALID);
         if (current < 0)
-                return -errno;
+                return current;
 
         if (((unsigned long) current & 0xffff) == PER_LINUX32)
                 *ret = PER_LINUX32;

@@ -2267,11 +2267,13 @@ static int inner_child(
         setup_hostname();
 
         if (arg_personality != PERSONALITY_INVALID) {
-                if (personality(arg_personality) < 0)
-                        return log_error_errno(errno, "personality() failed: %m");
+                r = safe_personality(arg_personality);
+                if (r < 0)
+                        return log_error_errno(r, "personality() failed: %m");
         } else if (secondary) {
-                if (personality(PER_LINUX32) < 0)
-                        return log_error_errno(errno, "personality() failed: %m");
+                r = safe_personality(PER_LINUX32);
+                if (r < 0)
+                        return log_error_errno(r, "personality() failed: %m");
         }
 
 #ifdef HAVE_SELINUX
