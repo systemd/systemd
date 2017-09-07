@@ -79,6 +79,46 @@ void network_config_section_free(NetworkConfigSection *cs) {
           free(cs);
 }
 
+/* Set defaults following RFC7844 */
+void network_apply_anonymize_if_set(Network *network) {
+        if (!network->dhcp_anonymize)
+                return;
+        /* RFC7844 3.7
+         SHOULD NOT send the Host Name option */
+        network->dhcp_send_hostname = false;
+        /* RFC7844 section 3.:
+         MAY contain the Client Identifier option
+         Section 3.5:
+         clients MUST use client identifiers based solely
+         on the link-layer address */
+        /* NOTE: Using MAC, as it does not reveal extra information,
+        * and some servers might not answer if this option is not sent */
+        network->dhcp_client_identifier = DHCP_CLIENT_ID_MAC;
+        /* RFC 7844 3.10:
+         SHOULD NOT use the Vendor Class Identifier option */
+        /* NOTE: it was not initiallized to any value in network_load_one. */
+        network->dhcp_vendor_class_identifier = false;
+        /* RFC7844 section 3.6.:
+         The client intending to protect its privacy SHOULD only request a
+         minimal number of options in the PRL and SHOULD also randomly shuffle
+         the ordering of option codes in the PRL.  If this random ordering
+         cannot be implemented, the client MAY order the option codes in the
+         PRL by option code number (lowest to highest).
+        */
+        /* NOTE: dhcp_use_mtu is false by default,
+        * though it was not initiallized to any value in network_load_one.
+        * Maybe there should be another var called *send*?
+        * (to use the MTU sent by the server but to do not send
+        * the option in the PRL). */
+        network->dhcp_use_mtu = false;
+        /* RFC7844 section 3.6.
+        * same comments as previous option */
+        network->dhcp_use_routes = false;
+        /* RFC7844 section 3.6.
+        * same comments as previous option */
+        network->dhcp_use_timezone = false;
+}
+
 static int network_load_one(Manager *manager, const char *filename) {
         _cleanup_network_free_ Network *network = NULL;
         _cleanup_fclose_ FILE *file = NULL;
@@ -161,11 +201,24 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->dhcp_use_ntp = true;
         network->dhcp_use_dns = true;
         network->dhcp_use_hostname = true;
+        /* NOTE: this var might be overwriten by network_apply_anonymize_if_set */
         network->dhcp_use_routes = true;
+        /* NOTE: this var might be overwriten by network_apply_anonymize_if_set */
         network->dhcp_send_hostname = true;
+        /* To enable/disable RFC7844 Anonymity Profiles */
+        network->dhcp_anonymize = false;
         network->dhcp_route_metric = DHCP_ROUTE_METRIC;
+        /* NOTE: this var might be overwrite by network_apply_anonymize_if_set */
         network->dhcp_client_identifier = DHCP_CLIENT_ID_DUID;
         network->dhcp_route_table = RT_TABLE_MAIN;
+        /* NOTE: the following vars were not set to any default,
+         * even if they are commented in the man?
+         * These vars might be overwriten by network_apply_anonymize_if_set */
+        network->dhcp_vendor_class_identifier = false;
+        /* NOTE: from man: UseMTU=... Defaults to false*/
+        network->dhcp_use_mtu = false;
+        /* NOTE: from man: UseTimezone=... Defaults to "no".*/
+        network->dhcp_use_timezone = false;
 
         network->dhcp_server_emit_dns = true;
         network->dhcp_server_emit_ntp = true;
@@ -219,6 +272,8 @@ static int network_load_one(Manager *manager, const char *filename) {
                               false, network);
         if (r < 0)
                 return r;
+
+        network_apply_anonymize_if_set(network);
 
         /* IPMasquerade=yes implies IPForward=yes */
         if (network->ip_masquerade)

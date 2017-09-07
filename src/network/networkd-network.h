@@ -128,6 +128,7 @@ struct Network {
         unsigned dhcp_route_metric;
         uint32_t dhcp_route_table;
         uint16_t dhcp_client_port;
+        bool dhcp_anonymize;
         bool dhcp_send_hostname;
         bool dhcp_broadcast;
         bool dhcp_critical;
@@ -251,6 +252,7 @@ int network_load(Manager *manager);
 int network_get_by_name(Manager *manager, const char *name, Network **ret);
 int network_get(Manager *manager, struct udev_device *device, const char *ifname, const struct ether_addr *mac, Network **ret);
 int network_apply(Network *network, Link *link);
+void network_apply_anonymize_if_set(Network *network);
 
 bool network_has_static_ipv6_addresses(Network *network);
 

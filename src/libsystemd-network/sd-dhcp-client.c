@@ -62,6 +62,7 @@ struct sd_dhcp_client {
         uint8_t *req_opts;
         size_t req_opts_allocated;
         size_t req_opts_size;
+        bool anonymize;
         be32_t last_addr;
         uint8_t mac_addr[MAX_MAC_ADDR_LEN];
         size_t mac_addr_len;
@@ -114,6 +115,32 @@ static const uint8_t default_req_opts[] = {
         SD_DHCP_OPTION_HOST_NAME,
         SD_DHCP_OPTION_DOMAIN_NAME,
         SD_DHCP_OPTION_DOMAIN_NAME_SERVER,
+};
+
+/* RFC7844 section 3:
+   MAY contain the Parameter Request List option.
+   RFC7844 section 3.6:
+   The client intending to protect its privacy SHOULD only request a
+   minimal number of options in the PRL and SHOULD also randomly shuffle
+   the ordering of option codes in the PRL.  If this random ordering
+   cannot be implemented, the client MAY order the option codes in the
+   PRL by option code number (lowest to highest).
+*/
+/* NOTE: using PRL options that Windows 10 RFC7844 implementation uses */
+static const uint8_t default_req_opts_anonymize[] = {
+       SD_DHCP_OPTION_SUBNET_MASK,                     /* 1 */
+       SD_DHCP_OPTION_ROUTER,                          /* 3 */
+       SD_DHCP_OPTION_DOMAIN_NAME_SERVER,              /* 6 */
+       SD_DHCP_OPTION_DOMAIN_NAME,                     /* 15 */
+       SD_DHCP_OPTION_ROUTER_DISCOVER,                 /* 31 */
+       SD_DHCP_OPTION_STATIC_ROUTE,                    /* 33 */
+       SD_DHCP_OPTION_VENDOR_SPECIFIC,                 /* 43 */
+       SD_DHCP_OPTION_NETBIOS_NAMESERVER,              /* 44 */
+       SD_DHCP_OPTION_NETBIOS_NODETYPE,                /* 46 */
+       SD_DHCP_OPTION_NETBIOS_SCOPE,                   /* 47 */
+       SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE,          /* 121 */
+       SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE,  /* 249 */
+       SD_DHCP_OPTION_PRIVATE_PROXY_AUTODISCOVERY,     /* 252 */
 };
 
 static int client_receive_message_raw(
@@ -588,11 +615,18 @@ static int client_message_init(
            it MUST include that list in any subsequent DHCPREQUEST
            messages.
          */
-        r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, 0,
-                               SD_DHCP_OPTION_PARAMETER_REQUEST_LIST,
-                               client->req_opts_size, client->req_opts);
-        if (r < 0)
-                return r;
+
+        /* RFC7844 section 3:
+           MAY contain the Parameter Request List option. */
+        /* NOTE: in case that there would be an option to do not send
+         * any PRL at all, the size should be checked before sending */
+        if (client->req_opts_size > 0) {
+                r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, 0,
+                                       SD_DHCP_OPTION_PARAMETER_REQUEST_LIST,
+                                       client->req_opts_size, client->req_opts);
+                if (r < 0)
+                        return r;
+        }
 
         /* RFC2131 section 3.5:
            The client SHOULD include the ’maximum DHCP message size’ option to
@@ -616,12 +650,16 @@ static int client_message_init(
            Maximum DHCP Message Size option is the total maximum packet size,
            including IP and UDP headers.)
          */
-        max_size = htobe16(size);
-        r = dhcp_option_append(&packet->dhcp, client->mtu, &optoffset, 0,
-                               SD_DHCP_OPTION_MAXIMUM_MESSAGE_SIZE,
-                               2, &max_size);
-        if (r < 0)
-                return r;
+        /* RFC7844 section 3:
+           SHOULD NOT contain any other option. */
+        if (!client->anonymize) {
+                max_size = htobe16(size);
+                r = dhcp_option_append(&packet->dhcp, client->mtu, &optoffset, 0,
+                                       SD_DHCP_OPTION_MAXIMUM_MESSAGE_SIZE,
+                                       2, &max_size);
+                if (r < 0)
+                        return r;
+        }
 
         *_optlen = optlen;
         *_optoffset = optoffset;
@@ -1783,7 +1821,14 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
         if (r < 0)
                 return r;
 
-        if (client->last_addr)
+        /* RFC7844 section 3.3:
+           SHOULD perform a complete four-way handshake, starting with a
+           DHCPDISCOVER, to obtain a new address lease.  If the client can
+           ascertain that this is exactly the same network to which it was
+           previously connected, and if the link-layer address did not change,
+           the client MAY issue a DHCPREQUEST to try to reclaim the current
+           address. */
+        if (client->last_addr && !client->anonymize)
                 client->state = DHCP_STATE_INIT_REBOOT;
 
         r = client_start(client);
@@ -1875,7 +1920,7 @@ sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client) {
         return mfree(client);
 }
 
-int sd_dhcp_client_new(sd_dhcp_client **ret) {
+int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
         _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
 
         assert_return(ret, -EINVAL);
@@ -1892,8 +1937,15 @@ int sd_dhcp_client_new(sd_dhcp_client **ret) {
         client->mtu = DHCP_DEFAULT_MIN_SIZE;
         client->port = DHCP_PORT_CLIENT;
 
-        client->req_opts_size = ELEMENTSOF(default_req_opts);
-        client->req_opts = memdup(default_req_opts, client->req_opts_size);
+        client->anonymize = !!anonymize;
+        /* NOTE: this could be moved to a function. */
+        if (anonymize) {
+                client->req_opts_size = ELEMENTSOF(default_req_opts_anonymize);
+                client->req_opts = memdup(default_req_opts_anonymize, client->req_opts_size);
+        } else {
+                client->req_opts_size = ELEMENTSOF(default_req_opts);
+                client->req_opts = memdup(default_req_opts, client->req_opts_size);
+        }
         if (!client->req_opts)
                 return -ENOMEM;
 
