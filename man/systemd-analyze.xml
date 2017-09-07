@@ -313,13 +313,13 @@
       <literal>avahi-daemon</literal></title>
 
       <programlisting>$ systemd-analyze dot 'avahi-daemon.*' | dot -Tsvg > avahi.svg
-      $ eog avahi.svg</programlisting>
+$ eog avahi.svg</programlisting>
     </example>
 
     <example>
       <title>Plots the dependencies between all known target units</title>
 
-      <programlisting>systemd-analyze dot --to-pattern='*.target' --from-pattern='*.target' | dot -Tsvg > targets.svg
+      <programlisting>$ systemd-analyze dot --to-pattern='*.target' --from-pattern='*.target' | dot -Tsvg > targets.svg
 $ eog targets.svg</programlisting>
     </example>
   </refsect1>
