@@ -34,6 +34,7 @@ typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 #include "install.h"
 #include "list.h"
 #include "unit-name.h"
+#include "cgroup.h"
 
 typedef enum KillOperation {
         KILL_TERMINATE,
@@ -223,6 +224,8 @@ struct Unit {
 
         BPFProgram *ip_bpf_ingress;
         BPFProgram *ip_bpf_egress;
+
+        uint64_t ip_accounting_extra[_CGROUP_IP_ACCOUNTING_METRIC_MAX];
 
         /* How to start OnFailure units */
         JobMode on_failure_job_mode;

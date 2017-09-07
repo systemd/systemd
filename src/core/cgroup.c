@@ -2224,6 +2224,7 @@ int unit_get_ip_accounting(
                 CGroupIPAccountingMetric metric,
                 uint64_t *ret) {
 
+        uint64_t value;
         int fd, r;
 
         assert(u);
@@ -2239,9 +2240,17 @@ int unit_get_ip_accounting(
                 return -ENODATA;
 
         if (IN_SET(metric, CGROUP_IP_INGRESS_BYTES, CGROUP_IP_EGRESS_BYTES))
-                r = bpf_firewall_read_accounting(fd, ret, NULL);
+                r = bpf_firewall_read_accounting(fd, &value, NULL);
         else
-                r = bpf_firewall_read_accounting(fd, NULL, ret);
+                r = bpf_firewall_read_accounting(fd, NULL, &value);
+        if (r < 0)
+                return r;
+
+        /* Add in additional metrics from a previous runtime. Note that when reexecing/reloading the daemon we compile
+         * all BPF programs and maps anew, but serialize the old counters. When deserializing we store them in the
+         * ip_accounting_extra[] field, and add them in here transparently. */
+
+        *ret = value + u->ip_accounting_extra[metric];
 
         return r;
 }
@@ -2274,6 +2283,8 @@ int unit_reset_ip_accounting(Unit *u) {
 
         if (u->ip_accounting_egress_map_fd >= 0)
                 q = bpf_firewall_reset_accounting(u->ip_accounting_egress_map_fd);
+
+        zero(u->ip_accounting_extra);
 
         return r < 0 ? r : q;
 }

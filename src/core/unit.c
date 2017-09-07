@@ -2770,7 +2770,15 @@ static int unit_serialize_cgroup_mask(FILE *f, const char *key, CGroupMask mask)
         return r;
 }
 
+static const char *ip_accounting_metric_field[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
+        [CGROUP_IP_INGRESS_BYTES] = "ip-accounting-ingress-bytes",
+        [CGROUP_IP_INGRESS_PACKETS] = "ip-accounting-ingress-packets",
+        [CGROUP_IP_EGRESS_BYTES] = "ip-accounting-egress-bytes",
+        [CGROUP_IP_EGRESS_PACKETS] = "ip-accounting-egress-packets",
+};
+
 int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
+        CGroupIPAccountingMetric m;
         int r;
 
         assert(u);
@@ -2830,6 +2838,14 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
                 unit_serialize_item_format(u, f, "invocation-id", SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(u->invocation_id));
 
         bus_track_serialize(u->bus_track, f, "ref");
+
+        for (m = 0; m < _CGROUP_IP_ACCOUNTING_METRIC_MAX; m++) {
+                uint64_t v;
+
+                r = unit_get_ip_accounting(u, m, &v);
+                if (r >= 0)
+                        unit_serialize_item_format(u, f, ip_accounting_metric_field[m], "%" PRIu64, v);
+        }
 
         if (serialize_jobs) {
                 if (u->job) {
@@ -2937,6 +2953,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
         for (;;) {
                 char line[LINE_MAX], *l, *v;
+                CGroupIPAccountingMetric m;
                 size_t k;
 
                 if (!fgets(line, sizeof(line), f)) {
@@ -3144,6 +3161,21 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                         log_unit_warning_errno(u, r, "Failed to set invocation ID for unit: %m");
                         }
 
+                        continue;
+                }
+
+                /* Check if this is an IP accounting metric serialization field */
+                for (m = 0; m < _CGROUP_IP_ACCOUNTING_METRIC_MAX; m++)
+                        if (streq(l, ip_accounting_metric_field[m]))
+                                break;
+                if (m < _CGROUP_IP_ACCOUNTING_METRIC_MAX) {
+                        uint64_t c;
+
+                        r = safe_atou64(v, &c);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to parse IP accounting value %s, ignoring.", v);
+                        else
+                                u->ip_accounting_extra[m] = c;
                         continue;
                 }
 
