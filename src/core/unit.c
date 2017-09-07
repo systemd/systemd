@@ -3205,6 +3205,11 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
         if (!dual_timestamp_is_set(&u->state_change_timestamp))
                 dual_timestamp_get(&u->state_change_timestamp);
 
+        /* Let's make sure that everything that is deserialized also gets any potential new cgroup settings applied
+         * after we are done. For that we invalidate anything already realized, so that we can realize it again. */
+        unit_invalidate_cgroup(u, _CGROUP_MASK_ALL);
+        unit_invalidate_cgroup_bpf(u);
+
         return 0;
 }
 

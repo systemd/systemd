@@ -1533,6 +1533,7 @@ static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
 }
 
 static void unit_add_to_cgroup_queue(Unit *u) {
+        assert(u);
 
         if (u->in_cgroup_queue)
                 return;
