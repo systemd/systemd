@@ -342,6 +342,16 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>GroupForwardMask=</varname></term>
+          <listitem>
+            <para>A 16-bit bitmask represented as an integer which allows forwarding of link
+            local frames with 802.1D reserved addresses (01:80:C2:00:00:0X). A logical AND
+            is performed between the specified bitmask and the exponentiation of 2^X, the
+            lower nibble of the last octet of the MAC address. For example, a value of 8
+            would allow forwarding of frames addressed to 01:80:C2:00:00:03 (802.1X PAE).</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>DefaultPVID=</varname></term>
           <listitem>
             <para>This specifies the default port VLAN ID of a newly attached bridge port.
