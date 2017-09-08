@@ -998,14 +998,19 @@ static int action_umount(
 
                 r = path_make_absolute_cwd(u, &a);
                 if (r < 0) {
-                        r2 = log_error_errno(r, "Failed to make path absolute: %m");
+                        r2 = log_error_errno(r, "Failed to make path %s absolute: %m", argv[i]);
                         continue;
                 }
 
                 p = canonicalize_file_name(a);
 
+                if (!p) {
+                        r2 = log_error_errno(errno, "Failed to canonicalize path %s: %m", argv[i]);
+                        continue;
+                }
+
                 if (stat(p, &st) < 0)
-                        return log_error_errno(errno, "Can't stat %s: %m", p);
+                        return log_error_errno(errno, "Can't stat %s (from %s): %m", p, argv[i]);
 
                 if (S_ISBLK(st.st_mode))
                         r = umount_by_device(bus, p);
@@ -1014,7 +1019,7 @@ static int action_umount(
                 else if (S_ISDIR(st.st_mode))
                         r = stop_mounts(bus, p);
                 else {
-                        log_error("Invalid file type: %s", p);
+                        log_error("Invalid file type: %s (from %s)", p, argv[i]);
                         r = -EINVAL;
                 }
 
