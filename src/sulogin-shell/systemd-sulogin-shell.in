@@ -5,8 +5,8 @@ if [ -x /bin/plymouth ]; then
 fi
 
 echo "You are in $1 mode. After logging in, type \"journalctl -xb\" to view"
-echo "system logs, \"systemctl reboot\" to reboot, \"systemctl default\" or ^D to boot"
-echo "into default mode."
+echo "system logs, \"systemctl reboot\" to reboot, \"systemctl start default.target\""
+echo "or \"exit\" to boot into default mode."
 
 @SULOGIN@
-@SYSTEMCTL@ --no-block default
+@SYSTEMCTL@ --no-block start default.target
