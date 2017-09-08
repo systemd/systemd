@@ -57,15 +57,19 @@ _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
         struct udev_hwdb *hwdb;
         int r;
 
-        assert_return(udev, NULL);
+        assert_return_errno(udev, NULL, EINVAL);
 
         r = sd_hwdb_new(&hwdb_internal);
-        if (r < 0)
+        if (r < 0) {
+                errno = -r;
                 return NULL;
+        }
 
         hwdb = new0(struct udev_hwdb, 1);
-        if (!hwdb)
+        if (!hwdb) {
+                errno = ENOMEM;
                 return NULL;
+        }
 
         hwdb->refcount = 1;
         hwdb->hwdb = hwdb_internal;
@@ -127,6 +131,7 @@ _public_ struct udev_hwdb *udev_hwdb_unref(struct udev_hwdb *hwdb) {
  */
 _public_ struct udev_list_entry *udev_hwdb_get_properties_list_entry(struct udev_hwdb *hwdb, const char *modalias, unsigned int flags) {
         const char *key, *value;
+        struct udev_list_entry *e;
 
         if (!hwdb || !modalias) {
                 errno = EINVAL;
@@ -142,5 +147,9 @@ _public_ struct udev_list_entry *udev_hwdb_get_properties_list_entry(struct udev
                 }
         }
 
-        return udev_list_get_entry(&hwdb->properties_list);
+        e = udev_list_get_entry(&hwdb->properties_list);
+        if (!e)
+                errno = ENODATA;
+
+        return e;
 }
