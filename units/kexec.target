@@ -11,6 +11,8 @@ Documentation=man:systemd.special(7)
 DefaultDependencies=no
 Requires=systemd-kexec.service
 After=systemd-kexec.service
+JobTimeoutSec=30min
+JobTimeoutAction=reboot-force
 AllowIsolate=yes
 
 [Install]
