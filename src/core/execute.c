@@ -2614,11 +2614,13 @@ static int exec_child(
                         return -errno;
                 }
 
-        if (context->personality != PERSONALITY_INVALID)
-                if (personality(context->personality) < 0) {
+        if (context->personality != PERSONALITY_INVALID) {
+                r = safe_personality(context->personality);
+                if (r < 0) {
                         *exit_status = EXIT_PERSONALITY;
-                        return -errno;
+                        return r;
                 }
+        }
 
         if (context->utmp_id)
                 utmp_put_init_process(context->utmp_id, getpid_cached(), getsid(0),
