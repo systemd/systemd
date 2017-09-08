@@ -2170,7 +2170,7 @@ int main(int argc, char *argv[]) {
                         if (d->is_root)
                                 continue;
 
-                        q = journal_directory_vacuum(d->path, arg_vacuum_size, arg_vacuum_n_files, arg_vacuum_time, NULL, true);
+                        q = journal_directory_vacuum(d->path, arg_vacuum_size, arg_vacuum_n_files, arg_vacuum_time, NULL, !arg_quiet);
                         if (q < 0) {
                                 log_error_errno(q, "Failed to vacuum %s: %m", d->path);
                                 r = q;
