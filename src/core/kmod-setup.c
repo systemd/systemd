@@ -47,7 +47,6 @@ static void systemd_kmod_log(
         log_internalv(LOG_DEBUG, 0, file, line, fn, format, args);
         REENABLE_WARNING;
 }
-#endif
 
 static int has_virtio_rng_nftw_cb(
                 const char *fpath,
@@ -83,6 +82,7 @@ static int has_virtio_rng_nftw_cb(
 static bool has_virtio_rng(void) {
         return (nftw("/sys/devices/pci0000:00", has_virtio_rng_nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL) == FTW_STOP);
 }
+#endif
 
 int kmod_setup(void) {
 #ifdef HAVE_KMOD
