@@ -921,15 +921,19 @@ static int manager_setup_user_lookup_fd(Manager *m) {
 
 static int manager_connect_bus(Manager *m, bool reexecuting) {
         bool try_bus_connect;
+        Unit *u = NULL;
 
         assert(m);
 
         if (m->test_run)
                 return 0;
 
+        u = manager_get_unit(m, SPECIAL_DBUS_SERVICE);
+
         try_bus_connect =
-                reexecuting ||
-                (MANAGER_IS_USER(m) && getenv("DBUS_SESSION_BUS_ADDRESS"));
+                (u && UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u))) &&
+                (reexecuting ||
+                 (MANAGER_IS_USER(m) && getenv("DBUS_SESSION_BUS_ADDRESS")));
 
         /* Try to connect to the buses, if possible. */
         return bus_init(m, try_bus_connect);
