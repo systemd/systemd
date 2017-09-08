@@ -6,6 +6,12 @@ _systemd_analyze_set-log-level() {
     _describe -t level 'logging level' _levels || compadd "$@"
 }
 
+_systemd_analyze_set-log-target() {
+    local -a _targets
+    _targets=(console journal kmsg journal-or-kmsg null)
+    _describe -t target 'logging target' _targets || compadd "$@"
+}
+
 _systemd_analyze_verify() {
     _sd_unit_files
 }
@@ -21,6 +27,9 @@ _systemd_analyze_command(){
         'dot:Dump dependency graph (in dot(1) format)'
         'dump:Dump server status'
         'set-log-level:Set systemd log threshold'
+        'set-log-target:Set systemd log target'
+        'get-log-level:Get systemd log threshold'
+        'get-log-target:Get systemd log target'
         'syscall-filter:List syscalls in seccomp filter'
         'verify:Check unit files for correctness'
     )

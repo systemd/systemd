@@ -40,10 +40,11 @@ _systemd_analyze() {
         )
 
         local -A VERBS=(
-                [STANDALONE]='time blame plot dump'
+                [STANDALONE]='time blame plot dump get-log-level get-log-target'
                 [CRITICAL_CHAIN]='critical-chain'
                 [DOT]='dot'
                 [LOG_LEVEL]='set-log-level'
+                [LOG_TARGET]='set-log-target'
                 [VERIFY]='verify'
                 [SECCOMP_FILTER]='syscall-filter'
         )
@@ -99,6 +100,13 @@ _systemd_analyze() {
                         comps='--help --version --system --user'
                 else
                         comps='debug info notice warning err crit alert emerg'
+                fi
+
+        elif __contains_word "$verb" ${VERBS[LOG_TARGET]}; then
+                if [[ $cur = -* ]]; then
+                        comps='--help --version --system --user'
+                else
+                        comps='console journal kmsg journal-or-kmsg null'
                 fi
 
         elif __contains_word "$verb" ${VERBS[SECCOMP_FILTER]}; then
