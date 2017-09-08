@@ -1780,7 +1780,7 @@ static int manager_dispatch_cgroups_agent_fd(sd_event_source *source, int fd, ui
         buf[n] = 0;
 
         manager_notify_cgroup_empty(m, buf);
-        bus_forward_agent_released(m, buf);
+        (void) bus_forward_agent_released(m, buf);
 
         return 0;
 }
