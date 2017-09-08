@@ -219,14 +219,31 @@
         <term><option>--pty</option></term>
         <term><option>-t</option></term>
 
-        <listitem><para>When invoking the command, the transient service connects its standard input and output to the
-        terminal <command>systemd-run</command> is invoked on, via a pseudo TTY device. This allows running binaries
-        that expect interactive user input as services, such as interactive command shells.</para>
+        <listitem><para>When invoking the command, the transient service connects its standard input, output and error
+        to the terminal <command>systemd-run</command> is invoked on, via a pseudo TTY device. This allows running
+        binaries that expect interactive user input/output as services, such as interactive command shells.</para>
 
         <para>Note that
         <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <command>shell</command> command is usually a better alternative for requesting a new, interactive login
-        session on the local host or a local container.</para></listitem>
+        session on the local host or a local container.</para>
+
+        <para>See below for details on how this switch combines with <option>--pipe</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--pipe</option></term>
+        <term><option>-P</option></term>
+
+        <listitem><para>If specified, standard input, output, and error of the transient service are inherited from the
+        <command>systemd-run</command> command itself. Use this option in order to use <command>systemd-run</command>
+        within shell pipelines. Note that this mode is not suitable for interactive command shells and similar, as the
+        service process will not be made TTY controller when invoked on a terminal. Use <option>--pty</option> instead
+        in that case.</para>
+
+        <para>When both <option>--pipe</option> and <option>--pty</option> are used in combination the more appropriate
+        option is automatically determined and used. Specifically, when invoked with standard input, output and error
+        connected to a TTY <option>--pty</option> is used, and otherwise <option>--pipe</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -61,7 +61,12 @@ static int arg_nice = 0;
 static bool arg_nice_set = false;
 static char **arg_environment = NULL;
 static char **arg_property = NULL;
-static bool arg_pty = false;
+static enum {
+        ARG_STDIO_NONE,      /* The default, as it is for normal services, stdin connected to /dev/null, and stdout+stderr to the journal */
+        ARG_STDIO_PTY,       /* Interactive behaviour, requested by --pty: we allocate a pty and connect it to the TTY we are invoked from */
+        ARG_STDIO_DIRECT,    /* Directly pass our stdin/stdout/stderr to the activated service, useful for usage in shell pipelines, requested by --pipe */
+        ARG_STDIO_AUTO,      /* If --pipe and --pty are used together we use --pty when invoked on a TTY, and --pipe otherwise */
+} arg_stdio = ARG_STDIO_NONE;
 static usec_t arg_on_active = 0;
 static usec_t arg_on_boot = 0;
 static usec_t arg_on_startup = 0;
@@ -106,7 +111,9 @@ static void help(void) {
                "     --gid=GROUP                  Run as system group\n"
                "     --nice=NICE                  Nice level\n"
                "  -E --setenv=NAME=VALUE          Set environment\n"
-               "  -t --pty                        Run service on pseudo tty\n"
+               "  -t --pty                        Run service on pseudo TTY as STDIN/STDOUT/\n"
+               "                                  STDERR\n"
+               "  -P --pipe                       Pass STDIN/STDOUT/STDERR directly to service\n"
                "  -q --quiet                      Suppress information messages during runtime\n\n"
                "Timer options:\n"
                "     --on-active=SECONDS          Run after SECONDS delay\n"
@@ -170,8 +177,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "nice",              required_argument, NULL, ARG_NICE             },
                 { "setenv",            required_argument, NULL, 'E'                  },
                 { "property",          required_argument, NULL, 'p'                  },
-                { "tty",               no_argument,       NULL, 't'                  }, /* deprecated */
+                { "tty",               no_argument,       NULL, 't'                  }, /* deprecated alias */
                 { "pty",               no_argument,       NULL, 't'                  },
+                { "pipe",              no_argument,       NULL, 'P'                  },
                 { "quiet",             no_argument,       NULL, 'q'                  },
                 { "on-active",         required_argument, NULL, ARG_ON_ACTIVE        },
                 { "on-boot",           required_argument, NULL, ARG_ON_BOOT          },
@@ -190,7 +198,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hrH:M:E:p:tq", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hrH:M:E:p:tPq", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -279,8 +287,18 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case 't':
-                        arg_pty = true;
+                case 't': /* --pty */
+                        if (IN_SET(arg_stdio, ARG_STDIO_DIRECT, ARG_STDIO_AUTO)) /* if --pipe is already used, upgrade to auto mode */
+                                arg_stdio = ARG_STDIO_AUTO;
+                        else
+                                arg_stdio = ARG_STDIO_PTY;
+                        break;
+
+                case 'P': /* --pipe */
+                        if (IN_SET(arg_stdio, ARG_STDIO_PTY, ARG_STDIO_AUTO)) /* If --pty is already used, upgrade to auto mode */
+                                arg_stdio = ARG_STDIO_AUTO;
+                        else
+                                arg_stdio = ARG_STDIO_DIRECT;
                         break;
 
                 case 'q':
@@ -373,6 +391,16 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
+
+        if (arg_stdio == ARG_STDIO_AUTO) {
+                /* If we both --pty and --pipe are specified we'll automatically pick --pty if we are connected fully
+                 * to a TTY and pick direct fd passing otherwise. This way, we automatically adapt to usage in a shell
+                 * pipeline, but we are neatly interactive with tty-level isolation otherwise. */
+                arg_stdio = isatty(STDIN_FILENO) && isatty(STDOUT_FILENO) && isatty(STDERR_FILENO) ?
+                        ARG_STDIO_PTY :
+                        ARG_STDIO_DIRECT;
+        }
+
         if ((optind >= argc) && (!arg_unit || !with_timer())) {
                 log_error("Command line to execute required.");
                 return -EINVAL;
@@ -393,18 +421,18 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if (arg_pty && (with_timer() || arg_scope)) {
-                log_error("--pty is not compatible in timer or --scope mode.");
+        if (arg_stdio != ARG_STDIO_NONE && (with_timer() || arg_scope)) {
+                log_error("--pty/--pipe is not compatible in timer or --scope mode.");
                 return -EINVAL;
         }
 
-        if (arg_pty && arg_transport == BUS_TRANSPORT_REMOTE) {
-                log_error("--pty is only supported when connecting to the local system or containers.");
+        if (arg_stdio != ARG_STDIO_NONE && arg_transport == BUS_TRANSPORT_REMOTE) {
+                log_error("--pty/--pipe is only supported when connecting to the local system or containers.");
                 return -EINVAL;
         }
 
-        if (arg_pty && arg_no_block) {
-                log_error("--pty is not compatible with --no-block.");
+        if (arg_stdio != ARG_STDIO_NONE && arg_no_block) {
+                log_error("--pty/--pipe is not compatible with --no-block.");
                 return -EINVAL;
         }
 
@@ -481,6 +509,7 @@ static int transient_kill_set_properties(sd_bus_message *m) {
 }
 
 static int transient_service_set_properties(sd_bus_message *m, char **argv, const char *pty_path) {
+        bool send_term = false;
         int r;
 
         assert(m);
@@ -497,7 +526,7 @@ static int transient_service_set_properties(sd_bus_message *m, char **argv, cons
         if (r < 0)
                 return r;
 
-        if (arg_wait || arg_pty) {
+        if (arg_wait || arg_stdio != ARG_STDIO_NONE) {
                 r = sd_bus_message_append(m, "(sv)", "AddRef", "b", 1);
                 if (r < 0)
                         return r;
@@ -534,8 +563,6 @@ static int transient_service_set_properties(sd_bus_message *m, char **argv, cons
         }
 
         if (pty_path) {
-                const char *e;
-
                 r = sd_bus_message_append(m,
                                           "(sv)(sv)(sv)(sv)",
                                           "StandardInput", "s", "tty",
@@ -544,6 +571,23 @@ static int transient_service_set_properties(sd_bus_message *m, char **argv, cons
                                           "TTYPath", "s", pty_path);
                 if (r < 0)
                         return r;
+
+                send_term = true;
+
+        } else if (arg_stdio == ARG_STDIO_DIRECT) {
+                r = sd_bus_message_append(m,
+                                          "(sv)(sv)(sv)",
+                                          "StandardInputFileDescriptor", "h", STDIN_FILENO,
+                                          "StandardOutputFileDescriptor", "h", STDOUT_FILENO,
+                                          "StandardErrorFileDescriptor", "h", STDERR_FILENO);
+                if (r < 0)
+                        return r;
+
+                send_term = isatty(STDIN_FILENO) || isatty(STDOUT_FILENO) || isatty(STDERR_FILENO);
+        }
+
+        if (send_term) {
+                const char *e;
 
                 e = getenv("TERM");
                 if (e) {
@@ -875,7 +919,7 @@ static int start_transient_service(
         assert(argv);
         assert(retval);
 
-        if (arg_pty) {
+        if (arg_stdio == ARG_STDIO_PTY) {
 
                 if (arg_transport == BUS_TRANSPORT_LOCAL) {
                         master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NDELAY);
@@ -1000,7 +1044,7 @@ static int start_transient_service(
         if (!arg_quiet)
                 log_info("Running as unit: %s", service);
 
-        if (arg_wait || master >= 0) {
+        if (arg_wait || arg_stdio != ARG_STDIO_NONE) {
                 _cleanup_(run_context_free) RunContext c = {};
                 _cleanup_free_ char *path = NULL;
                 const char *mt;
@@ -1440,7 +1484,7 @@ int main(int argc, char* argv[]) {
 
         /* If --wait is used connect via the bus, unconditionally, as ref/unref is not supported via the limited direct
          * connection */
-        if (arg_wait || arg_pty)
+        if (arg_wait || arg_stdio != ARG_STDIO_NONE)
                 r = bus_connect_transport(arg_transport, arg_host, arg_user, &bus);
         else
                 r = bus_connect_transport_systemd(arg_transport, arg_host, arg_user, &bus);
