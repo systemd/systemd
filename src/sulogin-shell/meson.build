@@ -1,7 +1,8 @@
-gen = configure_file(
-        input : 'systemd-sulogin-shell.in',
-        output : 'systemd-sulogin-shell',
-        configuration : substs)
-
-install_data(gen,
-             install_dir : rootlibexecdir)
+executable('systemd-sulogin-shell',
+           ['sulogin-shell.c'],
+           include_directories : includes,
+           link_with : [libshared],
+           dependencies : [],
+           install_rpath : rootlibexecdir,
+           install : true,
+           install_dir : rootlibexecdir)
