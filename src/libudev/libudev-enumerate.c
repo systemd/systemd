@@ -159,6 +159,8 @@ _public_ struct udev *udev_enumerate_get_udev(struct udev_enumerate *udev_enumer
  * Returns: a udev_list_entry.
  */
 _public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *udev_enumerate) {
+        struct udev_list_entry *e;
+
         assert_return_errno(udev_enumerate, NULL, EINVAL);
 
         if (!udev_enumerate->devices_uptodate) {
@@ -182,7 +184,11 @@ _public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enume
                 udev_enumerate->devices_uptodate = true;
         }
 
-        return udev_list_get_entry(&udev_enumerate->devices_list);
+        e = udev_list_get_entry(&udev_enumerate->devices_list);
+        if (!e)
+                errno = ENODATA;
+
+        return e;
 }
 
 /**

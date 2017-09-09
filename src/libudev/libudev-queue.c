@@ -60,12 +60,16 @@ _public_ struct udev_queue *udev_queue_new(struct udev *udev)
 {
         struct udev_queue *udev_queue;
 
-        if (udev == NULL)
+        if (udev == NULL) {
+                errno = EINVAL;
                 return NULL;
+        }
 
         udev_queue = new0(struct udev_queue, 1);
-        if (udev_queue == NULL)
+        if (udev_queue == NULL) {
+                errno = ENOMEM;
                 return NULL;
+        }
 
         udev_queue->refcount = 1;
         udev_queue->udev = udev;
@@ -124,8 +128,10 @@ _public_ struct udev_queue *udev_queue_unref(struct udev_queue *udev_queue)
  **/
 _public_ struct udev *udev_queue_get_udev(struct udev_queue *udev_queue)
 {
-        if (udev_queue == NULL)
+        if (udev_queue == NULL) {
+                errno = EINVAL;
                 return NULL;
+        }
         return udev_queue->udev;
 }
 
@@ -223,6 +229,7 @@ _public_ int udev_queue_get_seqnum_is_finished(struct udev_queue *udev_queue, un
  **/
 _public_ struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_queue *udev_queue)
 {
+        errno = ENODATA;
         return NULL;
 }
 

@@ -97,7 +97,7 @@ _public_ struct udev *udev_new(void) {
 
         udev = new0(struct udev, 1);
         if (!udev) {
-                errno = -ENOMEM;
+                errno = ENOMEM;
                 return NULL;
         }
         udev->refcount = 1;
