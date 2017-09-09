@@ -1228,6 +1228,22 @@ bool colors_enabled(void) {
         return enabled;
 }
 
+bool underline_enabled(void) {
+        static int enabled = -1;
+
+        if (enabled < 0) {
+
+                /* The Linux console doesn't support underlining, turn it off, but only there. */
+
+                if (!colors_enabled())
+                        enabled = false;
+                else
+                        enabled = !streq_ptr(getenv("TERM"), "linux");
+        }
+
+        return enabled;
+}
+
 int vt_default_utf8(void) {
         _cleanup_free_ char *b = NULL;
         int r;

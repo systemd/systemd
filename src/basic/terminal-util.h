@@ -86,6 +86,7 @@ void columns_lines_cache_reset(int _unused_ signum);
 bool on_tty(void);
 bool terminal_is_dumb(void);
 bool colors_enabled(void);
+bool underline_enabled(void);
 
 #define DEFINE_ANSI_FUNC(name, NAME)                            \
         static inline const char *ansi_##name(void) {           \
@@ -93,18 +94,27 @@ bool colors_enabled(void);
         }                                                       \
         struct __useless_struct_to_allow_trailing_semicolon__
 
-DEFINE_ANSI_FUNC(underline,                  UNDERLINE);
+#define DEFINE_ANSI_FUNC_UNDERLINE(name, NAME, REPLACEMENT)             \
+        static inline const char *ansi_##name(void) {                   \
+                return underline_enabled() ? ANSI_##NAME :              \
+                        colors_enabled() ? ANSI_##REPLACEMENT : "";     \
+        }                                                               \
+        struct __useless_struct_to_allow_trailing_semicolon__
+
+
 DEFINE_ANSI_FUNC(highlight,                  HIGHLIGHT);
-DEFINE_ANSI_FUNC(highlight_underline,        HIGHLIGHT_UNDERLINE);
 DEFINE_ANSI_FUNC(highlight_red,              HIGHLIGHT_RED);
 DEFINE_ANSI_FUNC(highlight_green,            HIGHLIGHT_GREEN);
 DEFINE_ANSI_FUNC(highlight_yellow,           HIGHLIGHT_YELLOW);
 DEFINE_ANSI_FUNC(highlight_blue,             HIGHLIGHT_BLUE);
-DEFINE_ANSI_FUNC(highlight_red_underline,    HIGHLIGHT_RED_UNDERLINE);
-DEFINE_ANSI_FUNC(highlight_green_underline,  HIGHLIGHT_GREEN_UNDERLINE);
-DEFINE_ANSI_FUNC(highlight_yellow_underline, HIGHLIGHT_YELLOW_UNDERLINE);
-DEFINE_ANSI_FUNC(highlight_blue_underline,   HIGHLIGHT_BLUE_UNDERLINE);
 DEFINE_ANSI_FUNC(normal,                     NORMAL);
+
+DEFINE_ANSI_FUNC_UNDERLINE(underline,                  UNDERLINE, NORMAL);
+DEFINE_ANSI_FUNC_UNDERLINE(highlight_underline,        HIGHLIGHT_UNDERLINE, HIGHLIGHT);
+DEFINE_ANSI_FUNC_UNDERLINE(highlight_red_underline,    HIGHLIGHT_RED_UNDERLINE, HIGHLIGHT_RED);
+DEFINE_ANSI_FUNC_UNDERLINE(highlight_green_underline,  HIGHLIGHT_GREEN_UNDERLINE, HIGHLIGHT_GREEN);
+DEFINE_ANSI_FUNC_UNDERLINE(highlight_yellow_underline, HIGHLIGHT_YELLOW_UNDERLINE, HIGHLIGHT_YELLOW);
+DEFINE_ANSI_FUNC_UNDERLINE(highlight_blue_underline,   HIGHLIGHT_BLUE_UNDERLINE, HIGHLIGHT_BLUE);
 
 int get_ctty_devnr(pid_t pid, dev_t *d);
 int get_ctty(pid_t, dev_t *_devnr, char **r);
