@@ -101,7 +101,7 @@
     systems that may be mounted with this command.</para>
 
     <para><command>systemd-umount</command> can be used to unmount a mount or automount point. It is the same
-    as <command>systemd-mount</command> <option>--unmount</option>.</para>
+    as <command>systemd-mount</command> <option>--umount</option>.</para>
   </refsect1>
 
   <refsect1>

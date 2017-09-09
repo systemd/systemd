@@ -92,7 +92,7 @@ int bus_forward_agent_released(Manager *m, const char *path) {
                                "Released",
                                "s", path);
         if (r < 0)
-                return log_warning_errno(r, "Failed to propagate agent release message: %m");
+                return log_debug_errno(r, "Failed to propagate agent release message: %m");
 
         return 1;
 }

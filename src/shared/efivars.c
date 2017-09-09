@@ -269,7 +269,7 @@ int efi_set_variable(
         _cleanup_close_ int fd = -1;
 
         assert(name);
-        assert(value);
+        assert(value || size == 0);
 
         if (asprintf(&p,
                      "/sys/firmware/efi/efivars/%s-%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
