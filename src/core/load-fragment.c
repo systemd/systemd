@@ -2174,16 +2174,17 @@ int config_parse_environ(const char *unit,
         }
 }
 
-int config_parse_pass_environ(const char *unit,
-                              const char *filename,
-                              unsigned line,
-                              const char *section,
-                              unsigned section_line,
-                              const char *lvalue,
-                              int ltype,
-                              const char *rvalue,
-                              void *data,
-                              void *userdata) {
+int config_parse_pass_environ(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         const char *whole_rvalue = rvalue;
         char*** passenv = data;
@@ -2231,6 +2232,85 @@ int config_parse_pass_environ(const char *unit,
 
         if (n) {
                 r = strv_extend_strv(passenv, n, true);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int config_parse_unset_environ(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_strv_free_ char **n = NULL;
+        const char *whole_rvalue = rvalue;
+        size_t nlen = 0, nbufsize = 0;
+        char*** unsetenv = data;
+        Unit *u = userdata;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                *unsetenv = strv_free(*unsetenv);
+                return 0;
+        }
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL, *k = NULL;
+
+                r = extract_first_word(&rvalue, &word, NULL, EXTRACT_QUOTES);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Trailing garbage in %s, ignoring: %s", lvalue, whole_rvalue);
+                        break;
+                }
+
+                if (u) {
+                        r = unit_full_printf(u, word, &k);
+                        if (r < 0) {
+                                log_syntax(unit, LOG_ERR, filename, line, r,
+                                           "Failed to resolve specifiers, ignoring: %s", word);
+                                continue;
+                        }
+                } else {
+                        k = word;
+                        word = NULL;
+                }
+
+                if (!env_assignment_is_valid(k) && !env_name_is_valid(k)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Invalid environment name or assignment %s, ignoring: %s", lvalue, k);
+                        continue;
+                }
+
+                if (!GREEDY_REALLOC(n, nbufsize, nlen + 2))
+                        return log_oom();
+
+                n[nlen++] = k;
+                n[nlen] = NULL;
+                k = NULL;
+        }
+
+        if (n) {
+                r = strv_extend_strv(unsetenv, n, true);
                 if (r < 0)
                         return r;
         }

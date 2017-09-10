@@ -758,6 +758,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(ExecContext, environment), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("EnvironmentFiles", "a(sb)", property_get_environment_files, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PassEnvironment", "as", NULL, offsetof(ExecContext, pass_environment), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("UnsetEnvironment", "as", NULL, offsetof(ExecContext, unset_environment), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("UMask", "u", bus_property_get_mode, offsetof(ExecContext, umask), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LimitCPU", "t", bus_property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_CPU]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LimitCPUSoft", "t", bus_property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_CPU]), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1849,6 +1850,47 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
+        } else if (streq(name, "UnsetEnvironment")) {
+
+                _cleanup_strv_free_ char **l = NULL, **q = NULL;
+
+                r = sd_bus_message_read_strv(message, &l);
+                if (r < 0)
+                        return r;
+
+                r = unit_full_printf_strv(u, l, &q);
+                if (r < 0)
+                        return r;
+
+                if (!strv_env_name_or_assignment_is_valid(q))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid UnsetEnvironment= list.");
+
+                if (mode != UNIT_CHECK) {
+                        if (strv_length(q) == 0) {
+                                c->unset_environment = strv_free(c->unset_environment);
+                                unit_write_drop_in_private_format(u, mode, name, "UnsetEnvironment=");
+                        } else {
+                                _cleanup_free_ char *joined = NULL;
+                                char **e;
+
+                                e = strv_env_merge(2, c->unset_environment, q);
+                                if (!e)
+                                        return -ENOMEM;
+
+                                strv_free(c->unset_environment);
+                                c->unset_environment = e;
+
+                                /* We write just the new settings out to file, with unresolved specifiers */
+                                joined = strv_join_quoted(l);
+                                if (!joined)
+                                        return -ENOMEM;
+
+                                unit_write_drop_in_private_format(u, mode, name, "UnsetEnvironment=%s", joined);
+                        }
+                }
+
+                return 1;
+
         } else if (streq(name, "TimerSlackNSec")) {
 
                 nsec_t n;
@@ -1965,7 +2007,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!strv_env_name_is_valid(l))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid PassEnvironment block.");
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid PassEnvironment= block.");
 
                 if (mode != UNIT_CHECK) {
                         if (strv_isempty(l)) {

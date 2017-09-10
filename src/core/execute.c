@@ -1673,8 +1673,10 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
                 x = strjoin(*i, "=", v);
                 if (!x)
                         return -ENOMEM;
+
                 if (!GREEDY_REALLOC(pass_env, n_bufsize, n_env + 2))
                         return -ENOMEM;
+
                 pass_env[n_env++] = x;
                 pass_env[n_env] = NULL;
                 x = NULL;
@@ -3031,6 +3033,19 @@ static int exec_child(
 #endif
         }
 
+        if (!strv_isempty(context->unset_environment)) {
+                char **ee = NULL;
+
+                ee = strv_env_delete(accum_env, 1, context->unset_environment);
+                if (!ee) {
+                        *exit_status = EXIT_MEMORY;
+                        return -ENOMEM;
+                }
+
+                strv_free(accum_env);
+                accum_env = ee;
+        }
+
         final_argv = replace_env_argv(argv, accum_env);
         if (!final_argv) {
                 *exit_status = EXIT_MEMORY;
@@ -3222,6 +3237,7 @@ void exec_context_done(ExecContext *c) {
         c->environment = strv_free(c->environment);
         c->environment_files = strv_free(c->environment_files);
         c->pass_environment = strv_free(c->pass_environment);
+        c->unset_environment = strv_free(c->unset_environment);
 
         for (l = 0; l < ELEMENTSOF(c->rlimit); l++)
                 c->rlimit[l] = mfree(c->rlimit[l]);
@@ -3581,6 +3597,9 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
 
         STRV_FOREACH(e, c->pass_environment)
                 fprintf(f, "%sPassEnvironment: %s\n", prefix, *e);
+
+        STRV_FOREACH(e, c->unset_environment)
+                fprintf(f, "%sUnsetEnvironment: %s\n", prefix, *e);
 
         fprintf(f, "%sRuntimeDirectoryPreserve: %s\n", prefix, exec_preserve_mode_to_string(c->runtime_directory_preserve_mode));
 

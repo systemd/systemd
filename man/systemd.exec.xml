@@ -423,23 +423,47 @@
       <varlistentry>
         <term><varname>PassEnvironment=</varname></term>
 
-        <listitem><para>Pass environment variables from the systemd system
-        manager to executed processes. Takes a space-separated list of variable
-        names. This option may be specified more than once, in which case all
-        listed variables will be set. If the empty string is assigned to this
-        option, the list of environment variables is reset, all prior
-        assignments have no effect. Variables that are not set in the system
-        manager will not be passed and will be silently ignored.</para>
+        <listitem><para>Pass environment variables set for the system service manager to executed processes. Takes a
+        space-separated list of variable names. This option may be specified more than once, in which case all listed
+        variables will be passed. If the empty string is assigned to this option, the list of environment variables to
+        pass is reset, all prior assignments have no effect. Variables specified that are not set for the system
+        manager will not be passed and will be silently ignored. Note that this option is only relevant for the system
+        service manager, as system services by default do not automatically inherit any environment variables set for
+        the service manager itself. However, in case of the user service manager all environment variables are passed
+        to the executed processes anyway, hence this option is without effect for the user service manager.</para>
 
-        <para>Variables passed from this setting are overridden by those passed
-        from <varname>Environment=</varname> or
-        <varname>EnvironmentFile=</varname>.</para>
+        <para>Variables set for invoked processes due to this setting are subject to being overridden by those
+        configured with <varname>Environment=</varname> or <varname>EnvironmentFile=</varname>.</para>
 
         <para>Example:
         <programlisting>PassEnvironment=VAR1 VAR2 VAR3</programlisting>
         passes three variables <literal>VAR1</literal>,
         <literal>VAR2</literal>, <literal>VAR3</literal>
         with the values set for those variables in PID1.</para>
+
+        <para>
+        See
+        <citerefentry project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details about environment variables.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>UnsetEnvironment=</varname></term>
+
+        <listitem><para>Explicitly unset environment variable assignments that would normally be passed from the
+        service manager to invoked processes of this unit. Takes a space-separated list of variable names or variable
+        assignments. This option may be specified more than once, in which case all listed variables/assignments will
+        be unset. If the empty string is assigned to this option, the list of environment variables/assignments to
+        unset is reset. If a variable assignment is specified (that is: a variable name, followed by
+        <literal>=</literal>, followed by its value), then any environment variable matching this precise assignment is
+        removed. If a variable name is specified (that is a variable name without any following <literal>=</literal> or
+        value), then any assignment matching the variable name, regardless of its value is removed. Note that the
+        effect of <varname>UnsetEnvironment=</varname> is applied as final step when the environment list passed to
+        executed processes is compiled. That means it may undo assignments from any configuration source, including
+        assignments made through <varname>Environment=</varname> or <varname>EnvironmentFile=</varname>, inherited from
+        the system manager's global set of environment variables, inherited via <varname>PassEnvironment=</varname>,
+        set by the service manager itself (such as <varname>$NOTIFY_SOCKET</varname> and such), or set by a PAM module
+        (in case <varname>PAMName=</varname> is used).</para>
 
         <para>
         See
@@ -1799,12 +1823,38 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
   <refsect1>
     <title>Environment variables in spawned processes</title>
 
-    <para>Processes started by the system are executed in a clean
-    environment in which select variables listed below are set. System
-    processes started by systemd do not inherit variables from PID 1,
-    but processes started by user systemd instances inherit all
-    environment variables from the user systemd instance.
-    </para>
+    <para>Processes started by the service manager are executed with an environment variable block assembled from
+    multiple sources. Processes started by the system service manager generally do not inherit environment variables
+    set for the service manager itself (but this may be altered via <varname>PassEnvironment=</varname>), but processes
+    started by the user service manager instances generally do inherit all environment variables set for the service
+    manager itself.</para>
+
+    <para>For each invoked process the list of environment variables set is compiled from the following sources:</para>
+
+    <itemizedlist>
+      <listitem><para>Variables globally configured for the service manager, using the
+      <varname>DefaultEnvironment=</varname> setting in
+      <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, the kernel command line option <varname>systemd.setenv=</varname> (see
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>) or via
+      <command>systemctl set-environment</command> (see <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>).</para></listitem>
+
+      <listitem><para>Variables defined by the service manager itself (see the list below)</para></listitem>
+
+      <listitem><para>Variables set in the service manager's own environment variable block (subject to <varname>PassEnvironment=</varname> for the system service manager)</para></listitem>
+
+      <listitem><para>Variables set via <varname>Environment=</varname> in the unit file</para></listitem>
+
+      <listitem><para>Variables read from files specified via <varname>EnvironmentFiles=</varname> in the unit file</para></listitem>
+
+      <listitem><para>Variables set by any PAM modules in case <varname>PAMName=</varname> is in effect, cf. <citerefentry project='man-pages'><refentrytitle>pam_env</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem>
+    </itemizedlist>
+
+    <para>If the same environment variables are set by multiple of these sources, the later source — according to the
+    order of the list above — wins. Note that as final step all variables listed in
+    <varname>UnsetEnvironment=</varname> are removed again from the compiled environment variable list, immediately
+    before it is passed to the executed process.</para>
+
+    <para>The following select environment variables are set by the service manager itself for each invoked process:</para>
 
     <variablelist class='environment-variables'>
       <varlistentry>
@@ -2120,18 +2170,6 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         </listitem>
       </varlistentry>
     </variablelist>
-
-    <para>Additional variables may be configured by the following
-    means: for processes spawned in specific units, use the
-    <varname>Environment=</varname>, <varname>EnvironmentFile=</varname>
-    and <varname>PassEnvironment=</varname> options above; to specify
-    variables globally, use <varname>DefaultEnvironment=</varname>
-    (see
-    <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
-    or the kernel option <varname>systemd.setenv=</varname> (see
-    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>).
-    Additional variables may also be set through PAM,
-    cf. <citerefentry project='man-pages'><refentrytitle>pam_env</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
   </refsect1>
 
   <refsect1>
