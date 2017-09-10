@@ -684,7 +684,6 @@ const SyscallFilterSet *syscall_filter_set_find(const char *name) {
 
 static int seccomp_add_syscall_filter_set(
                 scmp_filter_ctx seccomp,
-                uint32_t default_action,
                 const SyscallFilterSet *set,
                 uint32_t action) {
 
@@ -704,7 +703,7 @@ static int seccomp_add_syscall_filter_set(
                         if (!other)
                                 return -EINVAL;
 
-                        r = seccomp_add_syscall_filter_set(seccomp, default_action, other, action);
+                        r = seccomp_add_syscall_filter_set(seccomp, other, action);
                         if (r < 0)
                                 return r;
                 } else {
@@ -740,7 +739,7 @@ int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilter
                 if (r < 0)
                         return r;
 
-                r = seccomp_add_syscall_filter_set(seccomp, default_action, set, action);
+                r = seccomp_add_syscall_filter_set(seccomp, set, action);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to add filter set, ignoring: %m");
                         continue;
