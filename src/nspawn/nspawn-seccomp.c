@@ -45,72 +45,24 @@ static int seccomp_add_default_syscall_filter(
                 uint64_t capability;
                 const char* name;
         } blacklist[] = {
-                { 0,              "_sysctl"             }, /* obsolete syscall */
-                { 0,              "add_key"             }, /* keyring is not namespaced */
-                { 0,              "afs_syscall"         }, /* obsolete syscall */
-                { 0,              "bdflush"             },
-#ifdef __NR_bpf
+                { 0,              "@obsolete"           },
+                { 0,              "@keyring"            }, /* keyring is not namespaced */
                 { 0,              "bpf"                 },
-#endif
-                { 0,              "break"               }, /* obsolete syscall */
-                { 0,              "create_module"       }, /* obsolete syscall */
-                { 0,              "ftime"               }, /* obsolete syscall */
-                { 0,              "get_kernel_syms"     }, /* obsolete syscall */
-                { 0,              "getpmsg"             }, /* obsolete syscall */
-                { 0,              "gtty"                }, /* obsolete syscall */
-#ifdef __NR_kexec_file_load
                 { 0,              "kexec_file_load"     },
-#endif
                 { 0,              "kexec_load"          },
-                { 0,              "keyctl"              }, /* keyring is not namespaced */
-                { 0,              "lock"                }, /* obsolete syscall */
                 { 0,              "lookup_dcookie"      },
-                { 0,              "mpx"                 }, /* obsolete syscall */
-                { 0,              "nfsservctl"          }, /* obsolete syscall */
                 { 0,              "open_by_handle_at"   },
                 { 0,              "perf_event_open"     },
-                { 0,              "prof"                }, /* obsolete syscall */
-                { 0,              "profil"              }, /* obsolete syscall */
-                { 0,              "putpmsg"             }, /* obsolete syscall */
-                { 0,              "query_module"        }, /* obsolete syscall */
                 { 0,              "quotactl"            },
-                { 0,              "request_key"         }, /* keyring is not namespaced */
-                { 0,              "security"            }, /* obsolete syscall */
-                { 0,              "sgetmask"            }, /* obsolete syscall */
-                { 0,              "ssetmask"            }, /* obsolete syscall */
-                { 0,              "stty"                }, /* obsolete syscall */
-                { 0,              "swapoff"             },
-                { 0,              "swapon"              },
-                { 0,              "sysfs"               }, /* obsolete syscall */
-                { 0,              "tuxcall"             }, /* obsolete syscall */
-                { 0,              "ulimit"              }, /* obsolete syscall */
-                { 0,              "uselib"              }, /* obsolete syscall */
-                { 0,              "ustat"               }, /* obsolete syscall */
-                { 0,              "vserver"             }, /* obsolete syscall */
+                { 0,              "@swap"               },
                 { CAP_SYSLOG,     "syslog"              },
-                { CAP_SYS_MODULE, "delete_module"       },
-                { CAP_SYS_MODULE, "finit_module"        },
-                { CAP_SYS_MODULE, "init_module"         },
+                { CAP_SYS_MODULE, "@module"             },
                 { CAP_SYS_PACCT,  "acct"                },
                 { CAP_SYS_PTRACE, "process_vm_readv"    },
                 { CAP_SYS_PTRACE, "process_vm_writev"   },
                 { CAP_SYS_PTRACE, "ptrace"              },
-                { CAP_SYS_RAWIO,  "ioperm"              },
-                { CAP_SYS_RAWIO,  "iopl"                },
-                { CAP_SYS_RAWIO,  "pciconfig_iobase"    },
-                { CAP_SYS_RAWIO,  "pciconfig_read"      },
-                { CAP_SYS_RAWIO,  "pciconfig_write"     },
-#ifdef __NR_s390_pci_mmio_read
-                { CAP_SYS_RAWIO,  "s390_pci_mmio_read"  },
-#endif
-#ifdef __NR_s390_pci_mmio_write
-                { CAP_SYS_RAWIO,  "s390_pci_mmio_write" },
-#endif
-                { CAP_SYS_TIME,   "adjtimex"            },
-                { CAP_SYS_TIME,   "clock_adjtime"       },
-                { CAP_SYS_TIME,   "clock_settime"       },
-                { CAP_SYS_TIME,   "settimeofday"        },
-                { CAP_SYS_TIME,   "stime"               },
+                { CAP_SYS_RAWIO,  "@raw-io"             },
+                { CAP_SYS_TIME,   "@clock"              },
         };
 
         int r, c = 0;
