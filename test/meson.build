@@ -94,6 +94,7 @@ test_data_files = '''
         test-execute/exec-systemcallfilter-not-failing.service
         test-execute/exec-systemcallfilter-system-user.service
         test-execute/exec-systemcallfilter-system-user-nfsnobody.service
+        test-execute/exec-unset-environment.service
         test-execute/exec-user.service
         test-execute/exec-user-nfsnobody.service
         test-execute/exec-workingdirectory.service
