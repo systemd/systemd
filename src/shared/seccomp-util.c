@@ -682,13 +682,16 @@ const SyscallFilterSet *syscall_filter_set_find(const char *name) {
         return NULL;
 }
 
-static int seccomp_add_syscall_filter_set(scmp_filter_ctx seccomp, const SyscallFilterSet *set, uint32_t action);
+static int seccomp_add_syscall_filter_set(scmp_filter_ctx seccomp, const SyscallFilterSet *set, uint32_t action, char **exclude);
 
-int seccomp_add_syscall_filter_item(scmp_filter_ctx *seccomp, const char *name, uint32_t action) {
+int seccomp_add_syscall_filter_item(scmp_filter_ctx *seccomp, const char *name, uint32_t action, char **exclude) {
         int r;
 
         assert(seccomp);
         assert(name);
+
+        if (strv_contains(exclude, name))
+                return 0;
 
         if (name[0] == '@') {
                 const SyscallFilterSet *other;
@@ -697,7 +700,7 @@ int seccomp_add_syscall_filter_item(scmp_filter_ctx *seccomp, const char *name, 
                 if (!other)
                         return -EINVAL;
 
-                r = seccomp_add_syscall_filter_set(seccomp, other, action);
+                r = seccomp_add_syscall_filter_set(seccomp, other, action, exclude);
                 if (r < 0)
                         return r;
         } else {
@@ -719,7 +722,8 @@ int seccomp_add_syscall_filter_item(scmp_filter_ctx *seccomp, const char *name, 
 static int seccomp_add_syscall_filter_set(
                 scmp_filter_ctx seccomp,
                 const SyscallFilterSet *set,
-                uint32_t action) {
+                uint32_t action,
+                char **exclude) {
 
         const char *sys;
         int r;
@@ -728,7 +732,7 @@ static int seccomp_add_syscall_filter_set(
         assert(set);
 
         NULSTR_FOREACH(sys, set->value) {
-                r = seccomp_add_syscall_filter_item(seccomp, sys, action);
+                r = seccomp_add_syscall_filter_item(seccomp, sys, action, exclude);
                 if (r < 0)
                         return r;
         }
@@ -754,7 +758,7 @@ int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilter
                 if (r < 0)
                         return r;
 
-                r = seccomp_add_syscall_filter_set(seccomp, set, action);
+                r = seccomp_add_syscall_filter_set(seccomp, set, action, NULL);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to add filter set, ignoring: %m");
                         continue;

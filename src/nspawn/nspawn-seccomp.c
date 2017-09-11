@@ -33,13 +33,16 @@
 #include "seccomp-util.h"
 #endif
 #include "string-util.h"
+#include "strv.h"
 
 #ifdef HAVE_SECCOMP
 
 static int seccomp_add_default_syscall_filter(
                 scmp_filter_ctx ctx,
                 uint32_t arch,
-                uint64_t cap_list_retain) {
+                uint64_t cap_list_retain,
+                char **syscall_whitelist,
+                char **syscall_blacklist) {
 
         static const struct {
                 uint64_t capability;
@@ -67,12 +70,13 @@ static int seccomp_add_default_syscall_filter(
 
         int r, c = 0;
         size_t i;
+        char **p;
 
         for (i = 0; i < ELEMENTSOF(blacklist); i++) {
                 if (blacklist[i].capability != 0 && (cap_list_retain & (1ULL << blacklist[i].capability)))
                         continue;
 
-                r = seccomp_add_syscall_filter_item(ctx, blacklist[i].name, SCMP_ACT_ERRNO(EPERM));
+                r = seccomp_add_syscall_filter_item(ctx, blacklist[i].name, SCMP_ACT_ERRNO(EPERM), syscall_whitelist);
                 if (r < 0)
                         /* If the system call is not known on this architecture, then that's fine, let's ignore it */
                         log_debug_errno(r, "Failed to add rule for system call %s, ignoring: %m", blacklist[i].name);
@@ -80,15 +84,23 @@ static int seccomp_add_default_syscall_filter(
                         c++;
         }
 
+        STRV_FOREACH(p, syscall_blacklist) {
+                r = seccomp_add_syscall_filter_item(ctx, *p, SCMP_ACT_ERRNO(EPERM), syscall_whitelist);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to add rule for system call %s, ignoring: %m", *p);
+                else
+                        c++;
+        }
+
         return c;
 }
 
-int setup_seccomp(uint64_t cap_list_retain) {
+int setup_seccomp(uint64_t cap_list_retain, char **syscall_whitelist, char **syscall_blacklist) {
         uint32_t arch;
         int r;
 
         if (!is_seccomp_available()) {
-                log_debug("SECCOMP features not detected in the kernel, disabling SECCOMP audit filter");
+                log_debug("SECCOMP features not detected in the kernel, disabling SECCOMP filterering");
                 return 0;
         }
 
@@ -102,7 +114,7 @@ int setup_seccomp(uint64_t cap_list_retain) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate seccomp object: %m");
 
-                n = seccomp_add_default_syscall_filter(seccomp, arch, cap_list_retain);
+                n = seccomp_add_default_syscall_filter(seccomp, arch, cap_list_retain, syscall_whitelist, syscall_blacklist);
                 if (n < 0)
                         return n;
 
@@ -141,7 +153,7 @@ int setup_seccomp(uint64_t cap_list_retain) {
 
 #else
 
-int setup_seccomp(uint64_t cap_list_retain) {
+int setup_seccomp(uint64_t cap_list_retain, char **syscall_whitelist, char **syscall_blacklist) {
         return 0;
 }
 

@@ -208,6 +208,8 @@ static unsigned long arg_clone_ns_flags = CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS
 static MountSettingsMask arg_mount_settings = MOUNT_APPLY_APIVFS_RO;
 static void *arg_root_hash = NULL;
 static size_t arg_root_hash_size = 0;
+static char **arg_syscall_whitelist = NULL;
+static char **arg_syscall_blacklist = NULL;
 
 static void help(void) {
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
@@ -267,6 +269,8 @@ static void help(void) {
                "     --capability=CAP       In addition to the default, retain specified\n"
                "                            capability\n"
                "     --drop-capability=CAP  Drop the specified capability from the default set\n"
+               "     --system-call-filter=LIST|~LIST\n"
+               "                            Permit/prohibit specific system calls\n"
                "     --kill-signal=SIGNAL   Select signal to use for shutting down PID 1\n"
                "     --link-journal=MODE    Link up guest journal, one of no, auto, guest, \n"
                "                            host, try-guest, try-host\n"
@@ -431,6 +435,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PRIVATE_USERS_CHOWN,
                 ARG_NOTIFY_READY,
                 ARG_ROOT_HASH,
+                ARG_SYSTEM_CALL_FILTER,
         };
 
         static const struct option options[] = {
@@ -482,6 +487,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "pivot-root",            required_argument, NULL, ARG_PIVOT_ROOT          },
                 { "notify-ready",          required_argument, NULL, ARG_NOTIFY_READY        },
                 { "root-hash",             required_argument, NULL, ARG_ROOT_HASH           },
+                { "system-call-filter",    required_argument, NULL, ARG_SYSTEM_CALL_FILTER  },
                 {}
         };
 
@@ -1048,6 +1054,36 @@ static int parse_argv(int argc, char *argv[]) {
                         free(arg_root_hash);
                         arg_root_hash = k;
                         arg_root_hash_size = l;
+                        break;
+                }
+
+                case ARG_SYSTEM_CALL_FILTER: {
+                        bool negative;
+                        const char *items;
+
+                        negative = optarg[0] == '~';
+                        items = negative ? optarg + 1 : optarg;
+
+                        for (;;) {
+                                _cleanup_free_ char *word = NULL;
+
+                                r = extract_first_word(&items, &word, NULL, 0);
+                                if (r == 0)
+                                        break;
+                                if (r == -ENOMEM)
+                                        return log_oom();
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse system call filter: %m");
+
+                                if (negative)
+                                        r = strv_extend(&arg_syscall_blacklist, word);
+                                else
+                                        r = strv_extend(&arg_syscall_whitelist, word);
+                                if (r < 0)
+                                        return log_oom();
+                        }
+
+                        arg_settings_mask |= SETTING_SYSCALL_FILTER;
                         break;
                 }
 
@@ -2606,7 +2642,7 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        r = setup_seccomp(arg_caps_retain);
+        r = setup_seccomp(arg_caps_retain, arg_syscall_whitelist, arg_syscall_blacklist);
         if (r < 0)
                 return r;
 
@@ -3110,6 +3146,21 @@ static int load_settings(void) {
 
         if ((arg_settings_mask & SETTING_NOTIFY_READY) == 0)
                 arg_notify_ready = settings->notify_ready;
+
+        if ((arg_settings_mask & SETTING_SYSCALL_FILTER) == 0) {
+
+                if (!arg_settings_trusted && !strv_isempty(arg_syscall_whitelist))
+                        log_warning("Ignoring SystemCallFilter= settings, file %s is not trusted.", p);
+                else {
+                        strv_free(arg_syscall_whitelist);
+                        strv_free(arg_syscall_blacklist);
+
+                        arg_syscall_whitelist = settings->syscall_whitelist;
+                        arg_syscall_blacklist = settings->syscall_blacklist;
+
+                        settings->syscall_whitelist = settings->syscall_blacklist = NULL;
+                }
+        }
 
         return 0;
 }
