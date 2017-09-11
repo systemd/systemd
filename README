@@ -131,9 +131,8 @@ REQUIREMENTS:
 
         glibc >= 2.16
         libcap
-        libmount >= 2.27.1 (from util-linux)
-                (util-linux < 2.29 *must* be built with --enable-libmount-force-mountinfo,
-                 and later versions without --enable-libmount-support-mtab.)
+        libmount >= 2.30 (from util-linux)
+                (util-linux *must* be built without --enable-libmount-support-mtab)
         libseccomp >= 2.3.1 (optional)
         libblkid >= 2.24 (from util-linux) (optional)
         libkmod >= 15 (optional)

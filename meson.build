@@ -656,7 +656,7 @@ if not libcap.found()
 endif
 
 libmount = dependency('mount',
-                      version : '>= 2.27')
+                      version : '>= 2.30')
 
 want_seccomp = get_option('seccomp')
 if want_seccomp != 'false'
