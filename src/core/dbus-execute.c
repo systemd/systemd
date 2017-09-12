@@ -2000,13 +2000,17 @@ int bus_exec_context_set_transient_property(
 
         } else if (streq(name, "PassEnvironment")) {
 
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_strv_free_ char **l = NULL, **q = NULL;
 
                 r = sd_bus_message_read_strv(message, &l);
                 if (r < 0)
                         return r;
 
-                if (!strv_env_name_is_valid(l))
+                r = unit_full_printf_strv(u, l, &q);
+                if (r < 0)
+                        return r;
+
+                if (!strv_env_name_is_valid(q))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid PassEnvironment= block.");
 
                 if (mode != UNIT_CHECK) {
@@ -2016,11 +2020,12 @@ int bus_exec_context_set_transient_property(
                         } else {
                                 _cleanup_free_ char *joined = NULL;
 
-                                r = strv_extend_strv(&c->pass_environment, l, true);
+                                r = strv_extend_strv(&c->pass_environment, q, true);
                                 if (r < 0)
                                         return r;
 
-                                joined = strv_join_quoted(c->pass_environment);
+                                /* We write just the new settings out to file, with unresolved specifiers. */
+                                joined = strv_join_quoted(l);
                                 if (!joined)
                                         return -ENOMEM;
 

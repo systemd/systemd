@@ -2189,9 +2189,10 @@ int config_parse_pass_environ(
                 void *userdata) {
 
         const char *whole_rvalue = rvalue;
-        char*** passenv = data;
         _cleanup_strv_free_ char **n = NULL;
         size_t nlen = 0, nbufsize = 0;
+        char*** passenv = data;
+        Unit *u = userdata;
         int r;
 
         assert(filename);
@@ -2206,7 +2207,7 @@ int config_parse_pass_environ(
         }
 
         for (;;) {
-                _cleanup_free_ char *word = NULL;
+                _cleanup_free_ char *word = NULL, *k = NULL;
 
                 r = extract_first_word(&rvalue, &word, NULL, EXTRACT_QUOTES);
                 if (r == 0)
@@ -2219,17 +2220,30 @@ int config_parse_pass_environ(
                         break;
                 }
 
-                if (!env_name_is_valid(word)) {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Invalid environment name for %s, ignoring: %s", lvalue, word);
+                if (u) {
+                        r = unit_full_printf(u, word, &k);
+                        if (r < 0) {
+                                log_syntax(unit, LOG_ERR, filename, line, r,
+                                           "Failed to resolve specifiers, ignoring: %s", word);
+                                continue;
+                        }
+                } else {
+                        k = word;
+                        word = NULL;
+                }
+
+                if (!env_name_is_valid(k)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Invalid environment name for %s, ignoring: %s", lvalue, k);
                         continue;
                 }
 
                 if (!GREEDY_REALLOC(n, nbufsize, nlen + 2))
                         return log_oom();
-                n[nlen++] = word;
+
+                n[nlen++] = k;
                 n[nlen] = NULL;
-                word = NULL;
+                k = NULL;
         }
 
         if (n) {
