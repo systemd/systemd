@@ -1817,12 +1817,12 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (!strv_env_is_valid(l))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment block.");
-
                 r = unit_full_printf_strv(u, l, &q);
                 if (r < 0)
                         return r;
+
+                if (!strv_env_is_valid(q))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment block.");
 
                 if (mode != UNIT_CHECK) {
                         if (strv_length(q) == 0) {
@@ -1840,7 +1840,7 @@ int bus_exec_context_set_transient_property(
                                 c->environment = e;
 
                                 /* We write just the new settings out to file, with unresolved specifiers */
-                                joined = strv_join_quoted(q);
+                                joined = strv_join_quoted(l);
                                 if (!joined)
                                         return -ENOMEM;
 
