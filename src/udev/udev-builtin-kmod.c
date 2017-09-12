@@ -27,12 +27,49 @@
 #include "string-util.h"
 #include "udev.h"
 
+/* this is used without locking because this builtin is accessed only by a single thread;
+ * the udevd Manager workers are fork()ed processes that each get their own copy of this builtin
+ */
 static struct kmod_ctx *ctx = NULL;
+
+_printf_(6,0) static void udev_kmod_log(void *data, int priority, const char *file, int line, const char *fn, const char *format, va_list args) {
+        log_internalv(priority, 0, file, line, fn, format, args);
+}
+
+static int builtin_kmod_init(struct udev *udev);
+static void builtin_kmod_exit(struct udev *udev);
+
+static int builtin_kmod_validate(struct udev *udev) {
+        int r;
+
+        r = kmod_validate_resources(ctx);
+        switch (r) {
+        case KMOD_RESOURCES_MUST_RELOAD:
+                log_debug("Reload module index");
+                kmod_unload_resources(ctx);
+                return kmod_load_resources(ctx);
+        default:
+                log_error("unknown response from kmod_validate_resources : %d", r);
+                /* fall through */
+        case KMOD_RESOURCES_MUST_RECREATE:
+                log_debug("Recreate module index");
+                builtin_kmod_exit(udev);
+                return builtin_kmod_init(udev);
+        case KMOD_RESOURCES_OK:
+                break;
+        }
+
+        return EXIT_SUCCESS;
+}
 
 static int load_module(struct udev *udev, const char *alias) {
         struct kmod_list *list = NULL;
         struct kmod_list *l;
         int err;
+
+        err = builtin_kmod_validate(udev);
+        if (err)
+                return err;
 
         err = kmod_module_new_from_lookup(ctx, alias, &list);
         if (err < 0)
@@ -59,16 +96,9 @@ static int load_module(struct udev *udev, const char *alias) {
         return err;
 }
 
-_printf_(6,0) static void udev_kmod_log(void *data, int priority, const char *file, int line, const char *fn, const char *format, va_list args) {
-        log_internalv(priority, 0, file, line, fn, format, args);
-}
-
 static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool test) {
         struct udev *udev = udev_device_get_udev(dev);
         int i;
-
-        if (!ctx)
-                return 0;
 
         if (argc < 3 || !streq(argv[1], "load")) {
                 log_error("expect: %s load <module>", argv[0]);
@@ -85,8 +115,7 @@ static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool te
 
 /* called at udev startup and reload */
 static int builtin_kmod_init(struct udev *udev) {
-        if (ctx)
-                return 0;
+        assert(!ctx);
 
         ctx = kmod_new(NULL, NULL);
         if (!ctx)
@@ -104,20 +133,11 @@ static void builtin_kmod_exit(struct udev *udev) {
         ctx = kmod_unref(ctx);
 }
 
-/* called every couple of seconds during event activity; 'true' if config has changed */
-static bool builtin_kmod_validate(struct udev *udev) {
-        log_debug("Validate module index");
-        if (!ctx)
-                return false;
-        return (kmod_validate_resources(ctx) != KMOD_RESOURCES_OK);
-}
-
 const struct udev_builtin udev_builtin_kmod = {
         .name = "kmod",
         .cmd = builtin_kmod,
         .init = builtin_kmod_init,
         .exit = builtin_kmod_exit,
-        .validate = builtin_kmod_validate,
         .help = "Kernel module loader",
         .run_once = false,
 };

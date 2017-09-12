@@ -171,7 +171,6 @@ struct udev_builtin {
         const char *help;
         int (*init)(struct udev *udev);
         void (*exit)(struct udev *udev);
-        bool (*validate)(struct udev *udev);
         bool run_once;
 };
 #ifdef HAVE_BLKID
@@ -196,7 +195,6 @@ const char *udev_builtin_name(enum udev_builtin_cmd cmd);
 bool udev_builtin_run_once(enum udev_builtin_cmd cmd);
 int udev_builtin_run(struct udev_device *dev, enum udev_builtin_cmd cmd, const char *command, bool test);
 void udev_builtin_list(struct udev *udev);
-bool udev_builtin_validate(struct udev *udev);
 int udev_builtin_add_property(struct udev_device *dev, bool test, const char *key, const char *val);
 int udev_builtin_hwdb_lookup(struct udev_device *dev, const char *prefix, const char *modalias,
                              const char *filter, bool test);

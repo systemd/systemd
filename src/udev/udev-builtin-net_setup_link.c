@@ -22,13 +22,31 @@
 #include "log.h"
 #include "udev.h"
 
+/* this is used without locking because this builtin is accessed only by a single thread;
+ * the udevd Manager workers are fork()ed processes that each get their own copy of this builtin
+ */
 static link_config_ctx *ctx = NULL;
+
+static int builtin_net_setup_link_init(struct udev *udev);
+static void builtin_net_setup_link_exit(struct udev *udev);
+
+static int builtin_net_validate(struct udev *udev) {
+        if (link_config_should_reload(ctx)) {
+                builtin_net_setup_link_exit(udev);
+                return builtin_net_setup_link_init(udev);
+        }
+        return EXIT_SUCCESS;
+}
 
 static int builtin_net_setup_link(struct udev_device *dev, int argc, char **argv, bool test) {
         _cleanup_free_ char *driver = NULL;
         const char *name = NULL;
         link_config *link;
         int r;
+
+        r = builtin_net_validate(udev_device_get_udev(dev));
+        if (r)
+                return r;
 
         if (argc > 1) {
                 log_error("This program takes no arguments.");
@@ -67,16 +85,18 @@ static int builtin_net_setup_link(struct udev_device *dev, int argc, char **argv
 static int builtin_net_setup_link_init(struct udev *udev) {
         int r;
 
-        if (ctx)
-                return 0;
+        assert(!ctx);
 
         r = link_config_ctx_new(&ctx);
         if (r < 0)
                 return r;
 
         r = link_config_load(ctx);
-        if (r < 0)
+        if (r < 0) {
+                link_config_ctx_free(ctx);
+                ctx = NULL;
                 return r;
+        }
 
         log_debug("Created link configuration context.");
         return 0;
@@ -88,20 +108,11 @@ static void builtin_net_setup_link_exit(struct udev *udev) {
         log_debug("Unloaded link configuration context.");
 }
 
-static bool builtin_net_setup_link_validate(struct udev *udev) {
-        log_debug("Check if link configuration needs reloading.");
-        if (!ctx)
-                return false;
-
-        return link_config_should_reload(ctx);
-}
-
 const struct udev_builtin udev_builtin_net_setup_link = {
         .name = "net_setup_link",
         .cmd = builtin_net_setup_link,
         .init = builtin_net_setup_link_init,
         .exit = builtin_net_setup_link_exit,
-        .validate = builtin_net_setup_link_validate,
         .help = "Configure network link",
         .run_once = false,
 };

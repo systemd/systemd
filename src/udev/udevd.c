@@ -775,6 +775,7 @@ static void manager_reload(Manager *manager) {
         manager_kill_workers(manager);
         manager->rules = udev_rules_unref(manager->rules);
         udev_builtin_exit(manager->udev);
+        udev_builtin_init(manager->udev);
 
         sd_notifyf(false,
                    "READY=1\n"
@@ -795,14 +796,11 @@ static void event_queue_start(Manager *manager) {
         /* check for changed config, every 3 seconds at most */
         if (manager->last_usec == 0 ||
             (usec - manager->last_usec) > 3 * USEC_PER_SEC) {
-                if (udev_rules_check_timestamp(manager->rules) ||
-                    udev_builtin_validate(manager->udev))
+                if (udev_rules_check_timestamp(manager->rules))
                         manager_reload(manager);
 
                 manager->last_usec = usec;
         }
-
-        udev_builtin_init(manager->udev);
 
         if (!manager->rules) {
                 manager->rules = udev_rules_new(manager->udev, arg_resolve_names);
