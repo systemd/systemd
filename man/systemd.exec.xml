@@ -1955,15 +1955,60 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
         <listitem><para>Only defined for the service unit type, this environment variable is passed to all
         <varname>ExecStop=</varname> and <varname>ExecStopPost=</varname> processes, and encodes the service
-        "result". Currently, the following values are defined: <literal>protocol</literal> (in case of a protocol
-        violation; if a service did not take the steps required by its unit configuration), <literal>timeout</literal>
-        (in case of an operation timeout), <literal>exit-code</literal> (if a service process exited with a non-zero
-        exit code; see <varname>$EXIT_CODE</varname> below for the actual exit code returned), <literal>signal</literal>
-        (if a service process was terminated abnormally by a signal; see <varname>$EXIT_CODE</varname> below for the
-        actual signal used for the termination), <literal>core-dump</literal> (if a service process terminated
-        abnormally and dumped core), <literal>watchdog</literal> (if the watchdog keep-alive ping was enabled for the
-        service but it missed the deadline), or <literal>resources</literal> (a catch-all condition in case a system
-        operation failed).</para>
+        "result". Currently, the following values are defined:</para>
+
+        <table>
+          <title>Defined <varname>$SERVICE_RESULT</varname> values</title>
+          <tgroup cols='2'>
+            <colspec colname='result'/>
+            <colspec colname='meaning'/>
+            <thead>
+              <row>
+                <entry>Value</entry>
+                <entry>Meaning</entry>
+              </row>
+            </thead>
+
+            <tbody>
+              <row>
+                <entry><literal>success</literal></entry>
+                <entry>In case the service ran successfully and exited cleanly</entry>
+              </row>
+              <row>
+                <entry><literal>protocol</literal></entry>
+                <entry>In case of a protocol violation: the service did not take the steps required by its unit configuration (specifically what is configured in its <varname>Type=</varname> setting)</entry>
+              </row>
+              <row>
+                <entry><literal>timeout</literal></entry>
+                <entry>In case of an operation timeout</entry>
+              </row>
+              <row>
+                <entry><literal>exit-code</literal></entry>
+                <entry>If a service process exited with a non-zero exit code; see <varname>$EXIT_CODE</varname> below for the actual exit code returned.</entry>
+              </row>
+              <row>
+                <entry><literal>signal</literal></entry>
+                <entry>If a service process was terminated abnormally by a signal, without dumping core; see <varname>$EXIT_CODE</varname> below for the actual signal causing the termination</entry>
+              </row>
+              <row>
+                <entry><literal>core-dump</literal></entry>
+                <entry>If a service process terminated abnormally with a signal and dumped core, also see <varname>$EXIT_CODE</varname> for the signal causing the termination</entry>
+              </row>
+              <row>
+                <entry><literal>watchdog</literal></entry>
+                <entry>If the watchdog keep-alive ping was enabled for the service but it missed the deadline.</entry>
+              </row>
+              <row>
+                <entry><literal>start-limit-hit</literal></entry>
+                <entry>In case a start limit was applied to the unit and it was hit and the unit hence failed to start. See <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> for details.</entry>
+              </row>
+              <row>
+                <entry><literal>resources</literal></entry>
+                <entry>A catch-all condition in case a system operation failed.</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
 
         <para>This environment variable is useful to monitor failure or successful termination of a service. Even
         though this variable is available in both <varname>ExecStop=</varname> and <varname>ExecStopPost=</varname>, it
@@ -2002,6 +2047,11 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
             <tbody>
               <row>
+                <entry valign="top"><literal>success</literal></entry>
+                <entry valign="top"><literal>exited</literal></entry>
+                <entry><literal>0</literal></entry>
+              </row>
+              <row>
                 <entry morerows="1" valign="top"><literal>protocol</literal></entry>
                 <entry valign="top">not set</entry>
                 <entry>not set</entry>
@@ -2010,7 +2060,6 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
                 <entry><literal>exited</literal></entry>
                 <entry><literal>0</literal></entry>
               </row>
-
               <row>
                 <entry morerows="1" valign="top"><literal>timeout</literal></entry>
                 <entry valign="top"><literal>killed</literal></entry>
@@ -2021,26 +2070,22 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
                 <entry><literal>0</literal>, <literal>1</literal>, <literal>2</literal>, <literal
                 >3</literal>, …, <literal>255</literal></entry>
               </row>
-
               <row>
                 <entry valign="top"><literal>exit-code</literal></entry>
                 <entry valign="top"><literal>exited</literal></entry>
-                <entry><literal>0</literal>, <literal>1</literal>, <literal>2</literal>, <literal
+                <entry><literal>1</literal>, <literal>2</literal>, <literal
                 >3</literal>, …, <literal>255</literal></entry>
               </row>
-
               <row>
                 <entry valign="top"><literal>signal</literal></entry>
                 <entry valign="top"><literal>killed</literal></entry>
                 <entry><literal>HUP</literal>, <literal>INT</literal>, <literal>KILL</literal>, …</entry>
               </row>
-
               <row>
                 <entry valign="top"><literal>core-dump</literal></entry>
                 <entry valign="top"><literal>dumped</literal></entry>
                 <entry><literal>ABRT</literal>, <literal>SEGV</literal>, <literal>QUIT</literal>, …</entry>
               </row>
-
               <row>
                 <entry morerows="2" valign="top"><literal>watchdog</literal></entry>
                 <entry><literal>dumped</literal></entry>
@@ -2055,15 +2100,18 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
                 <entry><literal>0</literal>, <literal>1</literal>, <literal>2</literal>, <literal
                 >3</literal>, …, <literal>255</literal></entry>
               </row>
-
+              <row>
+                <entry><literal>start-limit-hit</literal></entry>
+                <entry>not set</entry>
+                <entry>not set</entry>
+              </row>
               <row>
                 <entry><literal>resources</literal></entry>
                 <entry>any of the above</entry>
                 <entry>any of the above</entry>
               </row>
-
               <row>
-                <entry namest="results" nameend="code">Note: the process may be also terminated by a signal not sent by systemd. In particular the process may send an arbitrary signal to itself in a handler for any of the non-maskable signals. Nevertheless, in the <literal>timeout</literal> and <literal>watchdog</literal> rows above only the signals that systemd sends have been included.</entry>
+                <entry namest="results" nameend="status">Note: the process may be also terminated by a signal not sent by systemd. In particular the process may send an arbitrary signal to itself in a handler for any of the non-maskable signals. Nevertheless, in the <literal>timeout</literal> and <literal>watchdog</literal> rows above only the signals that systemd sends have been included. Moreover, using <varname>SuccessExitStatus=</varname> additional exit statuses may be declared to indicate clean termination, which is not reflected by this table.</entry>
               </row>
             </tbody>
           </tgroup>
