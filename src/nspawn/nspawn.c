@@ -58,6 +58,7 @@
 #include "dev-setup.h"
 #include "dissect-image.h"
 #include "env-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
@@ -208,6 +209,8 @@ static unsigned long arg_clone_ns_flags = CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS
 static MountSettingsMask arg_mount_settings = MOUNT_APPLY_APIVFS_RO;
 static void *arg_root_hash = NULL;
 static size_t arg_root_hash_size = 0;
+static Set *arg_syscall_filter = NULL;
+static bool arg_syscall_filter_iswhitelist = false;
 
 static void help(void) {
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
@@ -267,6 +270,8 @@ static void help(void) {
                "     --capability=CAP       In addition to the default, retain specified\n"
                "                            capability\n"
                "     --drop-capability=CAP  Drop the specified capability from the default set\n"
+               "     --syscall-filter=[~]SYSCALLS\n"
+               "                            Include/exclude syscalls from the seccomp filter\n"
                "     --kill-signal=SIGNAL   Select signal to use for shutting down PID 1\n"
                "     --link-journal=MODE    Link up guest journal, one of no, auto, guest, \n"
                "                            host, try-guest, try-host\n"
@@ -431,6 +436,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PRIVATE_USERS_CHOWN,
                 ARG_NOTIFY_READY,
                 ARG_ROOT_HASH,
+                ARG_SYSCALL_FILTER,
         };
 
         static const struct option options[] = {
@@ -482,6 +488,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "pivot-root",            required_argument, NULL, ARG_PIVOT_ROOT          },
                 { "notify-ready",          required_argument, NULL, ARG_NOTIFY_READY        },
                 { "root-hash",             required_argument, NULL, ARG_ROOT_HASH           },
+                { "syscall-filter",        required_argument, NULL, ARG_SYSCALL_FILTER      },
                 {}
         };
 
@@ -1048,6 +1055,52 @@ static int parse_argv(int argc, char *argv[]) {
                         free(arg_root_hash);
                         arg_root_hash = k;
                         arg_root_hash_size = l;
+                        break;
+                }
+
+                case ARG_SYSCALL_FILTER: {
+                        bool invert = false;
+
+                        if (isempty(optarg)) {
+                                arg_syscall_filter = set_free(arg_syscall_filter);
+                        }
+
+                        if (optarg[0] == '~') {
+                                invert = true;
+                                optarg++;
+                        }
+
+                        if (!arg_syscall_filter) {
+                                arg_syscall_filter = set_new(NULL);
+                                if (!arg_syscall_filter)
+                                        return log_oom();
+
+                                if (invert)
+                                        arg_syscall_filter_iswhitelist = false;
+                                else {
+                                        arg_syscall_filter_iswhitelist = true;
+                                }
+                        }
+
+                        p = optarg;
+                        for (;;) {
+                                char *t = NULL;
+
+                                r = extract_first_word(&p, &t, ",", 0);
+                                if (r == 0)
+                                        break;
+                                if (r == -ENOMEM)
+                                        return log_oom();
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse syscall whitelist: %s", optarg);
+
+                                r = set_put(arg_syscall_filter, t);
+                                if (r == 0)
+                                        continue;
+                                if (r < 0)
+                                        return log_oom();
+                        }
+
                         break;
                 }
 
@@ -2606,7 +2659,7 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        r = setup_seccomp(arg_caps_retain);
+        r = setup_seccomp(arg_caps_retain, arg_syscall_filter, arg_syscall_filter_iswhitelist);
         if (r < 0)
                 return r;
 
@@ -3950,6 +4003,7 @@ finish:
         custom_mount_free_all(arg_custom_mounts, arg_n_custom_mounts);
         expose_port_free_all(arg_expose_ports);
         free(arg_root_hash);
+        arg_syscall_filter = set_free(arg_syscall_filter);
 
         return r < 0 ? EXIT_FAILURE : ret;
 }
