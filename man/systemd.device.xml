@@ -86,7 +86,7 @@
   </refsect1>
 
   <refsect1>
-    <title>Automatic Dependencies</title>
+    <title>Implicit Dependencies</title>
 
     <para>Many unit types automatically acquire dependencies on device
     units of devices they require. For example,
@@ -95,6 +95,12 @@
     <varname>BindToDevice=</varname>. Similar, swap and mount units
     acquire dependencies on the units encapsulating their backing
     block devices.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Default Dependencies</title>
+
+    <para>There are no default dependencies for device units.</para>
   </refsect1>
 
   <refsect1>

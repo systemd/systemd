@@ -97,16 +97,7 @@
     <filename>foo@.service</filename> must exist from which services
     are instantiated for each incoming connection.</para>
 
-    <para>Unless <varname>DefaultDependencies=</varname> in the <literal>[Unit]</literal> section is set to
-    <option>false</option>, socket units will implicitly have dependencies of type <varname>Requires=</varname> and
-    <varname>After=</varname> on <filename>sysinit.target</filename> as well as dependencies of type
-    <varname>Conflicts=</varname> and <varname>Before=</varname> on <filename>shutdown.target</filename>. These ensure
-    that socket units pull in basic system initialization, and are terminated cleanly prior to system shutdown. Only
-    sockets involved with early boot or late system shutdown should disable this option.</para>
-
-    <para>Socket units will have a <varname>Before=</varname>
-    dependency on the service which they trigger added implicitly. No
-    implicit <varname>WantedBy=</varname> or
+    <para>No implicit <varname>WantedBy=</varname> or
     <varname>RequiredBy=</varname> dependency from the socket to the
     service is added. This means that the service may be started
     without the socket, in which case it must be able to open sockets
@@ -130,37 +121,53 @@
   </refsect1>
 
   <refsect1>
-    <title>Automatic Dependencies</title>
+    <title>Implicit Dependencies</title>
 
-    <para>Socket units automatically gain a <varname>Before=</varname>
-    dependency on the service units they activate.</para>
+    <para>The following dependencies are implicitly added:</para>
 
-    <para>Socket units referring to file system paths (such as AF_UNIX
-    sockets or FIFOs) implicitly gain <varname>Requires=</varname> and
-    <varname>After=</varname> dependencies on all mount units
-    necessary to access those paths.</para>
+    <itemizedlist>
+      <listitem><para>Socket units automatically gain a <varname>Before=</varname>
+      dependency on the service units they activate.</para></listitem>
 
-    <para>Socket units using the <varname>BindToDevice=</varname>
-    setting automatically gain a <varname>BindsTo=</varname> and
-    <varname>After=</varname> dependency on the device unit
-    encapsulating the specified network interface.</para>
+      <listitem><para>Socket units referring to file system paths (such as AF_UNIX
+      sockets or FIFOs) implicitly gain <varname>Requires=</varname> and
+      <varname>After=</varname> dependencies on all mount units
+      necessary to access those paths.</para></listitem>
 
-    <para>If <varname>DefaultDependencies=yes</varname> is set (the
-    default), socket units automatically gain a
-    <varname>Before=</varname> dependency on
-    <filename>sockets.target</filename>. They also gain a pair of
-    <varname>After=</varname> and <varname>Requires=</varname>
-    dependency on <filename>sysinit.target</filename>, and a pair of
-    <varname>Before=</varname> and <varname>Conflicts=</varname>
-    dependencies on <filename>shutdown.target</filename>. These
-    dependencies ensure that the socket unit is started before normal
-    services at boot, and is stopped on shutdown.</para>
+      <listitem><para>Socket units using the <varname>BindToDevice=</varname>
+      setting automatically gain a <varname>BindsTo=</varname> and
+      <varname>After=</varname> dependency on the device unit
+      encapsulating the specified network interface.</para></listitem>
+    </itemizedlist>
 
     <para>Additional implicit dependencies may be added as result of
     execution and resource control parameters as documented in
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     and
     <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Default Dependencies</title>
+
+    <para>The following dependencies are added unless
+    <varname>DefaultDependencies=no</varname> is set:</para>
+
+    <itemizedlist>
+      <listitem><para>Socket units automatically gain a
+      <varname>Before=</varname> dependency on
+      <filename>sockets.target</filename>.</para></listitem>
+
+      <listitem><para>Socket units automatically gain a pair of
+      <varname>After=</varname> and <varname>Requires=</varname>
+      dependency on <filename>sysinit.target</filename>, and a pair of
+      <varname>Before=</varname> and <varname>Conflicts=</varname>
+      dependencies on <filename>shutdown.target</filename>. These
+      dependencies ensure that the socket unit is started before normal
+      services at boot, and is stopped on shutdown. Only sockets
+      involved with early boot or late system shutdown should disable
+      <varname>DefaultDependencies=</varname> option.</para></listitem>
+    </itemizedlist>
   </refsect1>
 
   <refsect1>
@@ -358,7 +365,7 @@
         specified network interfaces. This controls the
         SO_BINDTODEVICE socket option (see <citerefentry
         project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for details). If this option is used, an automatic dependency
+        for details). If this option is used, an implicit dependency
         from this socket unit on the network interface device unit
         (<citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         is created. Note that setting this parameter might result in

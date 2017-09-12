@@ -93,11 +93,18 @@
   </refsect1>
 
   <refsect1>
-    <title>Automatic Dependencies</title>
+    <title>Implicit Dependencies</title>
 
-    <para>Units with the <varname>Slice=</varname> setting set automatically acquire <varname>Requires=</varname> and
-    <varname>After=</varname> dependencies on the specified slice unit.</para>
+    <para>The following dependencies are implicitly added:</para>
+
+    <itemizedlist>
+      <listitem><para>Units with the <varname>Slice=</varname> setting set automatically acquire
+      <varname>Requires=</varname> and <varname>After=</varname> dependencies on the specified
+      slice unit.</para></listitem>
+    </itemizedlist>
   </refsect1>
+
+  <!-- We don't have any default dependency here. -->
 
   <refsect1>
     <title>Unified and Legacy Control Group Hierarchies</title>
@@ -578,7 +585,7 @@
           <para>Special care should be taken when relying on the default slice assignment in templated service units
           that have <varname>DefaultDependencies=no</varname> set, see
           <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>, section
-          "Automatic Dependencies" for details.</para>
+          "Default Dependencies" for details.</para>
 
         </listitem>
       </varlistentry>

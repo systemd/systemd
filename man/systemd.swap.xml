@@ -87,23 +87,34 @@
   </refsect1>
 
   <refsect1>
-    <title>Automatic Dependencies</title>
+    <title>Implicit Dependencies</title>
 
-    <para>All swap units automatically get the
-    <varname>BindsTo=</varname> and <varname>After=</varname>
-    dependencies on the device units or the mount units of the files
-    they are activated from.</para>
+    <para>The following dependencies are implicitly added:</para>
 
-    <para>Swap units with <varname>DefaultDependencies=</varname> set to its default <option>yes</option> value in the
-    <literal>[Unit]</literal> section enabled implicitly acquire a <varname>Conflicts=</varname> and a
-    <varname>Before=</varname> dependency on <filename>umount.target</filename> so that they are deactivated at
-    shutdown as well as a <varname>Before=swap.target</varname> dependency.</para>
+    <itemizedlist>
+      <listitem><para>All swap units automatically get the
+      <varname>BindsTo=</varname> and <varname>After=</varname>
+      dependencies on the device units or the mount units of the files
+      they are activated from.</para></listitem>
+    </itemizedlist>
 
     <para>Additional implicit dependencies may be added as result of
     execution and resource control parameters as documented in
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     and
     <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Default Dependencies</title>
+
+    <para>The following dependencies are added unless <varname>DefaultDependencies=no</varname> is set:</para>
+
+    <itemizedlist>
+      <listitem><para>Swap units automatically acquire a <varname>Conflicts=</varname> and a
+      <varname>Before=</varname> dependency on <filename>umount.target</filename> so that they are deactivated at
+      shutdown as well as a <varname>Before=swap.target</varname> dependency.</para></listitem>
+    </itemizedlist>
   </refsect1>
 
   <refsect1>

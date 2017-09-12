@@ -82,20 +82,34 @@
   </refsect1>
 
   <refsect1>
-    <title>Automatic Dependencies</title>
+    <title>Implicit Dependencies</title>
 
-    <para>Timer units automatically gain a <varname>Before=</varname>
-    dependency on the service they are supposed to activate.</para>
+    <para>The following dependencies are implicitly added:</para>
 
-    <para>Unless <varname>DefaultDependencies=</varname> in the <literal>[Unit]</literal> section is set to
-    <option>false</option>, all timer units will implicitly have dependencies of type <varname>Requires=</varname> and
-    <varname>After=</varname> on <filename>sysinit.target</filename>, a dependency of type <varname>Before=</varname>
-    on <filename>timers.target</filename>, as well as <varname>Conflicts=</varname> and <varname>Before=</varname> on
-    <filename>shutdown.target</filename> to ensure that they are stopped cleanly prior to system shutdown.  Timer units
-    with at least one <varname>OnCalendar=</varname> directive will have an additional <varname>After=</varname>
-    dependency on <filename>time-sync.target</filename> to avoid being started before the system clock has been
-    correctly set. Only timer units involved with early boot or late system shutdown should disable the
-    <varname>DefaultDependencies=</varname> option.</para>
+    <itemizedlist>
+      <listitem><para>Timer units automatically gain a <varname>Before=</varname>
+      dependency on the service they are supposed to activate.</para></listitem>
+    </itemizedlist>
+  </refsect1>
+
+  <refsect1>
+    <title>Default Dependencies</title>
+
+    <para>The following dependencies are added unless <varname>DefaultDependencies=no</varname> is set:</para>
+
+    <itemizedlist>
+      <listitem><para>Timer units will automatically have dependencies of type <varname>Requires=</varname> and
+      <varname>After=</varname> on <filename>sysinit.target</filename>, a dependency of type <varname>Before=</varname>
+      on <filename>timers.target</filename>, as well as <varname>Conflicts=</varname> and <varname>Before=</varname> on
+      <filename>shutdown.target</filename> to ensure that they are stopped cleanly prior to system shutdown. Only timer
+      units involved with early boot or late system shutdown should disable the
+      <varname>DefaultDependencies=</varname> option.</para></listitem>
+
+      <listitem><para>Timer units
+      with at least one <varname>OnCalendar=</varname> directive will have an additional <varname>After=</varname>
+      dependency on <filename>time-sync.target</filename> to avoid being started before the system clock has been
+      correctly set.</para></listitem>
+    </itemizedlist>
   </refsect1>
 
   <refsect1>

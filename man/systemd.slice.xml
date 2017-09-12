@@ -103,17 +103,29 @@
   </refsect1>
 
   <refsect1>
-    <title>Automatic Dependencies</title>
+    <title>Implicit Dependencies</title>
 
-    <para>Slice units automatically gain dependencies of type
-    <varname>After=</varname> and <varname>Requires=</varname> on
-    their immediate parent slice unit.</para>
+    <para>The following dependencies are implicitly added:</para>
 
-    <para>Unless <varname>DefaultDependencies=false</varname> is used in the <literal>[Unit]</literal> section, slice
-    units will implicitly have dependencies of type <varname>Conflicts=</varname> and <varname>Before=</varname> on
-    <filename>shutdown.target</filename>. These ensure that slice units are removed prior to system shutdown. Only
-    slice units involved with early boot or late system shutdown should disable this option.
-    </para>
+    <itemizedlist>
+      <listitem><para>Slice units automatically gain dependencies of type
+      <varname>After=</varname> and <varname>Requires=</varname> on
+      their immediate parent slice unit.</para></listitem>
+    </itemizedlist>
+  </refsect1>
+
+  <refsect1>
+    <title>Default Dependencies</title>
+
+    <para>The following dependencies are added unless <varname>DefaultDependencies=no</varname> is set:</para>
+
+    <itemizedlist>
+      <listitem><para>Slice units will automatically have dependencies of type <varname>Conflicts=</varname> and
+      <varname>Before=</varname> on
+      <filename>shutdown.target</filename>. These ensure that slice units are removed prior to system shutdown.
+      Only slice units involved with late system shutdown should disable
+      <varname>DefaultDependencies=</varname> option.</para></listitem>
+    </itemizedlist>
   </refsect1>
 
   <refsect1>
