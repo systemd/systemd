@@ -32,11 +32,12 @@
 #include "macro.h"
 #include "missing.h"
 #include "path-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
 
-static int files_add(Hashmap *h, const char *root, const char *path, const char *suffix) {
+static int files_add(Hashmap *h, const char *suffix, const char *root, unsigned flags, const char *path) {
         _cleanup_closedir_ DIR *dir = NULL;
         const char *dirpath;
         struct dirent *de;
@@ -58,6 +59,31 @@ static int files_add(Hashmap *h, const char *root, const char *path, const char 
 
                 if (!dirent_is_file_with_suffix(de, suffix))
                         continue;
+
+                if (flags & CONF_FILES_EXECUTABLE) {
+                        struct stat st;
+
+                        /* As requested: check if the file is marked exectuable. Note that we don't check access(X_OK)
+                         * here, as we care about whether the file is marked executable at all, and not whether it is
+                         * executable for us, because if such errors are stuff we should log about. */
+
+                        if (fstatat(dirfd(dir), de->d_name, &st, 0) < 0) {
+                                log_debug_errno(errno, "Failed to stat %s/%s, ignoring: %m", dirpath, de->d_name);
+                                continue;
+                        }
+
+                        /* We only want executable regular files (or symlinks to them), or symlinks to /dev/null */
+                        if (S_ISREG(st.st_mode)) {
+                                if ((st.st_mode & 0111) == 0) { /* not executable */
+                                        log_debug("Ignoring %s/%s, as it is not marked executable.", dirpath, de->d_name);
+                                        continue;
+                                }
+
+                        } else if (!null_or_empty(&st)) { /* /dev/null? */
+                                log_debug("Ignoring %s/%s, as it is not a regular file (or symlink to /dev/null).", dirpath, de->d_name);
+                                continue;
+                        }
+                }
 
                 p = strjoin(dirpath, "/", de->d_name);
                 if (!p)
@@ -87,7 +113,7 @@ static int base_cmp(const void *a, const void *b) {
         return strcmp(basename(s1), basename(s2));
 }
 
-static int conf_files_list_strv_internal(char ***strv, const char *suffix, const char *root, char **dirs) {
+static int conf_files_list_strv_internal(char ***strv, const char *suffix, const char *root, unsigned flags, char **dirs) {
         _cleanup_hashmap_free_ Hashmap *fh = NULL;
         char **files, **p;
         int r;
@@ -103,7 +129,7 @@ static int conf_files_list_strv_internal(char ***strv, const char *suffix, const
                 return -ENOMEM;
 
         STRV_FOREACH(p, dirs) {
-                r = files_add(fh, root, *p, suffix);
+                r = files_add(fh, suffix, root, flags, *p);
                 if (r == -ENOMEM)
                         return r;
                 if (r < 0)
@@ -120,7 +146,7 @@ static int conf_files_list_strv_internal(char ***strv, const char *suffix, const
         return 0;
 }
 
-int conf_files_list_strv(char ***strv, const char *suffix, const char *root, const char* const* dirs) {
+int conf_files_list_strv(char ***strv, const char *suffix, const char *root, unsigned flags, const char* const* dirs) {
         _cleanup_strv_free_ char **copy = NULL;
 
         assert(strv);
@@ -129,10 +155,10 @@ int conf_files_list_strv(char ***strv, const char *suffix, const char *root, con
         if (!copy)
                 return -ENOMEM;
 
-        return conf_files_list_strv_internal(strv, suffix, root, copy);
+        return conf_files_list_strv_internal(strv, suffix, root, flags, copy);
 }
 
-int conf_files_list(char ***strv, const char *suffix, const char *root, const char *dir, ...) {
+int conf_files_list(char ***strv, const char *suffix, const char *root, unsigned flags, const char *dir, ...) {
         _cleanup_strv_free_ char **dirs = NULL;
         va_list ap;
 
@@ -145,10 +171,10 @@ int conf_files_list(char ***strv, const char *suffix, const char *root, const ch
         if (!dirs)
                 return -ENOMEM;
 
-        return conf_files_list_strv_internal(strv, suffix, root, dirs);
+        return conf_files_list_strv_internal(strv, suffix, root, flags, dirs);
 }
 
-int conf_files_list_nulstr(char ***strv, const char *suffix, const char *root, const char *d) {
+int conf_files_list_nulstr(char ***strv, const char *suffix, const char *root, unsigned flags, const char *d) {
         _cleanup_strv_free_ char **dirs = NULL;
 
         assert(strv);
@@ -157,5 +183,5 @@ int conf_files_list_nulstr(char ***strv, const char *suffix, const char *root, c
         if (!dirs)
                 return -ENOMEM;
 
-        return conf_files_list_strv_internal(strv, suffix, root, dirs);
+        return conf_files_list_strv_internal(strv, suffix, root, flags, dirs);
 }

@@ -1533,7 +1533,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names) {
 
         udev_rules_check_timestamp(rules);
 
-        r = conf_files_list_strv(&files, ".rules", NULL, rules_dirs);
+        r = conf_files_list_strv(&files, ".rules", NULL, 0, rules_dirs);
         if (r < 0) {
                 log_error_errno(r, "failed to enumerate rules files: %m");
                 return udev_rules_unref(rules);

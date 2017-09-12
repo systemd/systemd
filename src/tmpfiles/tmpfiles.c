@@ -2300,7 +2300,7 @@ int main(int argc, char *argv[]) {
                 _cleanup_strv_free_ char **files = NULL;
                 char **f;
 
-                r = conf_files_list_nulstr(&files, ".conf", arg_root, conf_file_dirs);
+                r = conf_files_list_nulstr(&files, ".conf", arg_root, 0, conf_file_dirs);
                 if (r < 0) {
                         log_error_errno(r, "Failed to enumerate tmpfiles.d files: %m");
                         goto finish;

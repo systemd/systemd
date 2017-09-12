@@ -479,7 +479,7 @@ int catalog_update(const char* database, const char* root, const char* const* di
                 goto finish;
         }
 
-        r = conf_files_list_strv(&files, ".catalog", root, dirs);
+        r = conf_files_list_strv(&files, ".catalog", root, 0, dirs);
         if (r < 0) {
                 log_error_errno(r, "Failed to get catalog files: %m");
                 goto finish;

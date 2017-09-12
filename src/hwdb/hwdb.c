@@ -653,7 +653,7 @@ static int hwdb_update(int argc, char *argv[], void *userdata) {
 
         trie->nodes_count++;
 
-        r = conf_files_list_strv(&files, ".hwdb", arg_root, conf_file_dirs);
+        r = conf_files_list_strv(&files, ".hwdb", arg_root, 0, conf_file_dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate hwdb files: %m");
 

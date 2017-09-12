@@ -203,7 +203,7 @@ int unit_file_find_dropin_paths(
                 return 0;
         }
 
-        r = conf_files_list_strv(ret, file_suffix, NULL, (const char**) dirs);
+        r = conf_files_list_strv(ret, file_suffix, NULL, 0, (const char**) dirs);
         if (r < 0)
                 return log_warning_errno(r, "Failed to create the list of configuration files: %m");
 

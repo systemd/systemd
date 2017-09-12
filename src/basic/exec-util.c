@@ -111,7 +111,7 @@ static int do_execute(
 
         assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
 
-        r = conf_files_list_strv(&paths, NULL, NULL, (const char* const*) directories);
+        r = conf_files_list_strv(&paths, NULL, NULL, CONF_FILES_EXECUTABLE, (const char* const*) directories);
         if (r < 0)
                 return r;
 

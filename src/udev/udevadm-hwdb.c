@@ -627,7 +627,7 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
                 }
                 trie->nodes_count++;
 
-                err = conf_files_list_strv(&files, ".hwdb", root, conf_file_dirs);
+                err = conf_files_list_strv(&files, ".hwdb", root, 0, conf_file_dirs);
                 if (err < 0) {
                         log_error_errno(err, "failed to enumerate hwdb files: %m");
                         rc = EXIT_FAILURE;
