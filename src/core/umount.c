@@ -97,7 +97,7 @@ static int mount_points_list_get(MountPoint **head) {
                            "%ms"        /* (11) mount options */
                            "%*[^\n]",   /* some rubbish at the end */
                            &path, &type, &options);
-                if (k != 2) {
+                if (k != 3) {
                         if (k == EOF)
                                 break;
 
