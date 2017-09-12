@@ -2108,16 +2108,17 @@ int config_parse_unit_env_file(const char *unit,
         return 0;
 }
 
-int config_parse_environ(const char *unit,
-                         const char *filename,
-                         unsigned line,
-                         const char *section,
-                         unsigned section_line,
-                         const char *lvalue,
-                         int ltype,
-                         const char *rvalue,
-                         void *data,
-                         void *userdata) {
+int config_parse_environ(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         Unit *u = userdata;
         char ***env = data;
@@ -2153,7 +2154,7 @@ int config_parse_environ(const char *unit,
                         r = unit_full_printf(u, word, &k);
                         if (r < 0) {
                                 log_syntax(unit, LOG_ERR, filename, line, r,
-                                           "Failed to resolve specifiers, ignoring: %s", k);
+                                           "Failed to resolve specifiers, ignoring: %s", word);
                                 continue;
                         }
                 } else {
@@ -2170,6 +2171,7 @@ int config_parse_environ(const char *unit,
                 r = strv_env_replace(env, k);
                 if (r < 0)
                         return log_oom();
+
                 k = NULL;
         }
 }
