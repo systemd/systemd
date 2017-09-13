@@ -27,6 +27,7 @@
 #include "bus-error.h"
 #include "bus-kernel.h"
 #include "bus-match.h"
+#include "def.h"
 #include "hashmap.h"
 #include "list.h"
 #include "prioq.h"
@@ -316,7 +317,12 @@ struct sd_bus {
         LIST_HEAD(sd_bus_track, tracks);
 };
 
+/* For method calls we time-out at 25s, like in the D-Bus reference implementation */
 #define BUS_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))
+
+/* For the authentication phase we grant 90s, to provide extra room during boot, when RNGs and such are not filled up
+ * with enough entropy yet and might delay the boot */
+#define BUS_AUTH_TIMEOUT ((usec_t) DEFAULT_TIMEOUT_USEC)
 
 #define BUS_WQUEUE_MAX (192*1024)
 #define BUS_RQUEUE_MAX (192*1024)
