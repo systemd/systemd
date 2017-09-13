@@ -435,7 +435,7 @@ static int dns_trust_anchor_load_files(
         assert(suffix);
         assert(loader);
 
-        r = conf_files_list_nulstr(&files, suffix, NULL, trust_anchor_dirs);
+        r = conf_files_list_nulstr(&files, suffix, NULL, 0, trust_anchor_dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate %s trust anchor files: %m", suffix);
 

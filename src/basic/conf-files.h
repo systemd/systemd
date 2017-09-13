@@ -20,6 +20,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-int conf_files_list(char ***ret, const char *suffix, const char *root, const char *dir, ...);
-int conf_files_list_strv(char ***ret, const char *suffix, const char *root, const char* const* dirs);
-int conf_files_list_nulstr(char ***ret, const char *suffix, const char *root, const char *dirs);
+enum {
+        CONF_FILES_EXECUTABLE = 1,
+};
+
+int conf_files_list(char ***ret, const char *suffix, const char *root, unsigned flags, const char *dir, ...);
+int conf_files_list_strv(char ***ret, const char *suffix, const char *root, unsigned flags, const char* const* dirs);
+int conf_files_list_nulstr(char ***ret, const char *suffix, const char *root, unsigned flags, const char *dirs);

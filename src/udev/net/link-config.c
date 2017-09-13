@@ -213,7 +213,7 @@ int link_config_load(link_config_ctx *ctx) {
         /* update timestamp */
         paths_check_timestamp(link_dirs, &ctx->link_dirs_ts_usec, true);
 
-        r = conf_files_list_strv(&files, ".link", NULL, link_dirs);
+        r = conf_files_list_strv(&files, ".link", NULL, 0, link_dirs);
         if (r < 0)
                 return log_error_errno(r, "failed to enumerate link files: %m");
 

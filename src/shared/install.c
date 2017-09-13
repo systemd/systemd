@@ -2662,7 +2662,7 @@ static int read_presets(UnitFileScope scope, const char *root_dir, Presets *pres
         assert(presets);
 
         if (scope == UNIT_FILE_SYSTEM)
-                r = conf_files_list(&files, ".preset", root_dir,
+                r = conf_files_list(&files, ".preset", root_dir, 0,
                                     "/etc/systemd/system-preset",
                                     "/usr/local/lib/systemd/system-preset",
                                     "/usr/lib/systemd/system-preset",
@@ -2671,7 +2671,7 @@ static int read_presets(UnitFileScope scope, const char *root_dir, Presets *pres
 #endif
                                     NULL);
         else if (scope == UNIT_FILE_GLOBAL)
-                r = conf_files_list(&files, ".preset", root_dir,
+                r = conf_files_list(&files, ".preset", root_dir, 0,
                                     "/etc/systemd/user-preset",
                                     "/usr/local/lib/systemd/user-preset",
                                     "/usr/lib/systemd/user-preset",

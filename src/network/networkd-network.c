@@ -322,7 +322,7 @@ int network_load(Manager *manager) {
         while ((network = manager->networks))
                 network_free(network);
 
-        r = conf_files_list_strv(&files, ".network", NULL, network_dirs);
+        r = conf_files_list_strv(&files, ".network", NULL, 0, network_dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate network files: %m");
 
