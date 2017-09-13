@@ -57,8 +57,10 @@ static int files_add(Hashmap *h, const char *suffix, const char *root, unsigned 
         FOREACH_DIRENT(de, dir, return -errno) {
                 char *p;
 
-                if (!dirent_is_file_with_suffix(de, suffix))
+                if (!dirent_is_file_with_suffix(de, suffix)) {
+                        log_debug("Ignoring %s/%s, because it's not a regular file with suffix %s.", dirpath, de->d_name, strna(suffix));
                         continue;
+                }
 
                 if (flags & CONF_FILES_EXECUTABLE) {
                         struct stat st;
