@@ -545,6 +545,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "get_kernel_syms\0"
                 "getpmsg\0"
                 "gtty\0"
+                "idle\0"
                 "lock\0"
                 "mpx\0"
                 "prof\0"
