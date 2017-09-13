@@ -34,6 +34,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "btrfs-util.h"
 #include "build.h"
 #include "cgroup-util.h"
 #include "def.h"
@@ -718,4 +719,134 @@ int version(void) {
         puts(PACKAGE_STRING "\n"
              SYSTEMD_FEATURES);
         return 0;
+}
+
+int get_block_device(const char *path, dev_t *dev) {
+        struct stat st;
+        struct statfs sfs;
+
+        assert(path);
+        assert(dev);
+
+        /* Get's the block device directly backing a file system. If
+         * the block device is encrypted, returns the device mapper
+         * block device. */
+
+        if (lstat(path, &st))
+                return -errno;
+
+        if (major(st.st_dev) != 0) {
+                *dev = st.st_dev;
+                return 1;
+        }
+
+        if (statfs(path, &sfs) < 0)
+                return -errno;
+
+        if (F_TYPE_EQUAL(sfs.f_type, BTRFS_SUPER_MAGIC))
+                return btrfs_get_block_device(path, dev);
+
+        return 0;
+}
+
+int get_block_device_harder(const char *path, dev_t *dev) {
+        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_free_ char *p = NULL, *t = NULL;
+        struct dirent *de, *found = NULL;
+        const char *q;
+        unsigned maj, min;
+        dev_t dt;
+        int r;
+
+        assert(path);
+        assert(dev);
+
+        /* Gets the backing block device for a file system, and
+         * handles LUKS encrypted file systems, looking for its
+         * immediate parent, if there is one. */
+
+        r = get_block_device(path, &dt);
+        if (r <= 0)
+                return r;
+
+        if (asprintf(&p, "/sys/dev/block/%u:%u/slaves", major(dt), minor(dt)) < 0)
+                return -ENOMEM;
+
+        d = opendir(p);
+        if (!d) {
+                if (errno == ENOENT)
+                        goto fallback;
+
+                return -errno;
+        }
+
+        FOREACH_DIRENT_ALL(de, d, return -errno) {
+
+                if (dot_or_dot_dot(de->d_name))
+                        continue;
+
+                if (!IN_SET(de->d_type, DT_LNK, DT_UNKNOWN))
+                        continue;
+
+                if (found) {
+                        _cleanup_free_ char *u = NULL, *v = NULL, *a = NULL, *b = NULL;
+
+                        /* We found a device backed by multiple other devices. We don't really support automatic
+                         * discovery on such setups, with the exception of dm-verity partitions. In this case there are
+                         * two backing devices: the data partition and the hash partition. We are fine with such
+                         * setups, however, only if both partitions are on the same physical device. Hence, let's
+                         * verify this. */
+
+                        u = strjoin(p, "/", de->d_name, "/../dev");
+                        if (!u)
+                                return -ENOMEM;
+
+                        v = strjoin(p, "/", found->d_name, "/../dev");
+                        if (!v)
+                                return -ENOMEM;
+
+                        r = read_one_line_file(u, &a);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to read %s: %m", u);
+                                goto fallback;
+                        }
+
+                        r = read_one_line_file(v, &b);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to read %s: %m", v);
+                                goto fallback;
+                        }
+
+                        /* Check if the parent device is the same. If not, then the two backing devices are on
+                         * different physical devices, and we don't support that. */
+                        if (!streq(a, b))
+                                goto fallback;
+                }
+
+                found = de;
+        }
+
+        if (!found)
+                goto fallback;
+
+        q = strjoina(p, "/", found->d_name, "/dev");
+
+        r = read_one_line_file(q, &t);
+        if (r == -ENOENT)
+                goto fallback;
+        if (r < 0)
+                return r;
+
+        if (sscanf(t, "%u:%u", &maj, &min) != 2)
+                return -EINVAL;
+
+        if (maj == 0)
+                goto fallback;
+
+        *dev = makedev(maj, min);
+        return 1;
+
+fallback:
+        *dev = dt;
+        return 1;
 }
