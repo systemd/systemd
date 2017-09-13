@@ -1679,20 +1679,22 @@ int main(int argc, char *argv[]) {
         log_close();
 
         /* Remember open file descriptors for later deserialization */
-        r = fdset_new_fill(&fds);
-        if (r < 0) {
-                log_emergency_errno(r, "Failed to allocate fd set: %m");
-                error_message = "Failed to allocate fd set";
-                goto finish;
-        } else
-                fdset_cloexec(fds, true);
+        if (arg_action == ACTION_RUN) {
+                r = fdset_new_fill(&fds);
+                if (r < 0) {
+                        log_emergency_errno(r, "Failed to allocate fd set: %m");
+                        error_message = "Failed to allocate fd set";
+                        goto finish;
+                } else
+                        fdset_cloexec(fds, true);
 
-        if (arg_serialization)
-                assert_se(fdset_remove(fds, fileno(arg_serialization)) >= 0);
+                if (arg_serialization)
+                        assert_se(fdset_remove(fds, fileno(arg_serialization)) >= 0);
 
-        if (arg_system)
-                /* Become a session leader if we aren't one yet. */
-                setsid();
+                if (arg_system)
+                        /* Become a session leader if we aren't one yet. */
+                        setsid();
+        }
 
         /* Move out of the way, so that we won't block unmounts */
         assert_se(chdir("/") == 0);
@@ -1762,56 +1764,58 @@ int main(int argc, char *argv[]) {
                           arg_action == ACTION_TEST ? " test" : "", getuid(), t);
         }
 
-        if (arg_system && !skip_setup) {
-                if (arg_show_status > 0)
-                        status_welcome();
+        if (arg_action == ACTION_RUN) {
+                if (arg_system && !skip_setup) {
+                        if (arg_show_status > 0)
+                                status_welcome();
 
-                hostname_setup();
-                machine_id_setup(NULL, arg_machine_id, NULL);
-                loopback_setup();
-                bump_unix_max_dgram_qlen();
+                        hostname_setup();
+                        machine_id_setup(NULL, arg_machine_id, NULL);
+                        loopback_setup();
+                        bump_unix_max_dgram_qlen();
 
-                test_usr();
-        }
-
-        if (arg_system && arg_runtime_watchdog > 0 && arg_runtime_watchdog != USEC_INFINITY)
-                watchdog_set_timeout(&arg_runtime_watchdog);
-
-        if (arg_timer_slack_nsec != NSEC_INFINITY)
-                if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
-                        log_error_errno(errno, "Failed to adjust timer slack: %m");
-
-        if (arg_system && !cap_test_all(arg_capability_bounding_set)) {
-                r = capability_bounding_set_drop_usermode(arg_capability_bounding_set);
-                if (r < 0) {
-                        log_emergency_errno(r, "Failed to drop capability bounding set of usermode helpers: %m");
-                        error_message = "Failed to drop capability bounding set of usermode helpers";
-                        goto finish;
+                        test_usr();
                 }
-                r = capability_bounding_set_drop(arg_capability_bounding_set, true);
-                if (r < 0) {
-                        log_emergency_errno(r, "Failed to drop capability bounding set: %m");
-                        error_message = "Failed to drop capability bounding set";
-                        goto finish;
+
+                if (arg_system && arg_runtime_watchdog > 0 && arg_runtime_watchdog != USEC_INFINITY)
+                        watchdog_set_timeout(&arg_runtime_watchdog);
+
+                if (arg_timer_slack_nsec != NSEC_INFINITY)
+                        if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
+                                log_error_errno(errno, "Failed to adjust timer slack: %m");
+
+                if (arg_system && !cap_test_all(arg_capability_bounding_set)) {
+                        r = capability_bounding_set_drop_usermode(arg_capability_bounding_set);
+                        if (r < 0) {
+                                log_emergency_errno(r, "Failed to drop capability bounding set of usermode helpers: %m");
+                                error_message = "Failed to drop capability bounding set of usermode helpers";
+                                goto finish;
+                        }
+                        r = capability_bounding_set_drop(arg_capability_bounding_set, true);
+                        if (r < 0) {
+                                log_emergency_errno(r, "Failed to drop capability bounding set: %m");
+                                error_message = "Failed to drop capability bounding set";
+                                goto finish;
+                        }
                 }
-        }
 
-        if (arg_syscall_archs) {
-                r = enforce_syscall_archs(arg_syscall_archs);
-                if (r < 0) {
-                        error_message = "Failed to set syscall architectures";
-                        goto finish;
+                if (arg_syscall_archs) {
+                        r = enforce_syscall_archs(arg_syscall_archs);
+                        if (r < 0) {
+                                error_message = "Failed to set syscall architectures";
+                                goto finish;
+                        }
                 }
+
+                if (!arg_system)
+                        /* Become reaper of our children */
+                        if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0)
+                                log_warning_errno(errno, "Failed to make us a subreaper: %m");
+
+                if (arg_system)
+                        /* Bump up RLIMIT_NOFILE for systemd itself */
+                        (void) bump_rlimit_nofile(&saved_rlimit_nofile);
         }
-
-        if (!arg_system)
-                /* Become reaper of our children */
-                if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0)
-                        log_warning_errno(errno, "Failed to make us a subreaper: %m");
-
-        if (arg_system)
-                /* Bump up RLIMIT_NOFILE for systemd itself */
-                (void) bump_rlimit_nofile(&saved_rlimit_nofile);
 
         r = manager_new(arg_system ? UNIT_FILE_SYSTEM : UNIT_FILE_USER, arg_action == ACTION_TEST, &m);
         if (r < 0) {
