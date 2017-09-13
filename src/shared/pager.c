@@ -84,7 +84,7 @@ int pager_open(bool no_pager, bool jump_to_end) {
          * pager so that we get the value from the actual tty */
         (void) columns();
 
-        if (pipe(fd) < 0)
+        if (pipe2(fd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pager pipe: %m");
 
         parent_pid = getpid_cached();
