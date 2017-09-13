@@ -333,6 +333,32 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "vm86\0"
                 "vm86old\0"
         },
+        [SYSCALL_FILTER_SET_CREDENTIALS] = {
+                .name = "@credentials",
+                .help = "Query own process credentials",
+                .value =
+                "capget\0"
+                "getegid\0"
+                "getegid32\0"
+                "geteuid\0"
+                "geteuid32\0"
+                "getgid\0"
+                "getgid32\0"
+                "getgroups\0"
+                "getgroups32\0"
+                "getpgid\0"
+                "getpgrp\0"
+                "getpid\0"
+                "getppid\0"
+                "getresgid\0"
+                "getresgid32\0"
+                "getresuid\0"
+                "getresuid32\0"
+                "getsid\0"
+                "gettid\0"
+                "getuid\0"
+                "getuid32\0"
+        },
         [SYSCALL_FILTER_SET_DEBUG] = {
                 .name = "@debug",
                 .help = "Debugging, performance monitoring and tracing functionality",
@@ -486,6 +512,16 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "add_key\0"
                 "keyctl\0"
                 "request_key\0"
+        },
+        [SYSCALL_FILTER_SET_MEMLOCK] = {
+                .name = "@memlock",
+                .help = "Memory locking control",
+                .value =
+                "mlock\0"
+                "mlock2\0"
+                "mlockall\0"
+                "munlock\0"
+                "munlockall\0"
         },
         [SYSCALL_FILTER_SET_MODULE] = {
                 .name = "@module",
@@ -691,12 +727,47 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "setuid\0"
                 "setuid32\0"
         },
+        [SYSCALL_FILTER_SET_SIGNAL] = {
+                .name = "@signal",
+                .help = "Process signal handling",
+                .value =
+                "rt_sigaction\0"
+                "rt_sigpending\0"
+                "rt_sigprocmask\0"
+                "rt_sigsuspend\0"
+                "rt_sigtimedwait\0"
+                "sigaction\0"
+                "sigaltstack\0"
+                "signal\0"
+                "signalfd\0"
+                "signalfd4\0"
+                "sigpending\0"
+                "sigprocmask\0"
+                "sigsuspend\0"
+        },
         [SYSCALL_FILTER_SET_SWAP] = {
                 .name = "@swap",
                 .help = "Enable/disable swap devices",
                 .value =
                 "swapoff\0"
                 "swapon\0"
+        },
+        [SYSCALL_FILTER_SET_TIMER] = {
+                .name = "@timer",
+                .help = "Schedule operations by time",
+                .value =
+                "alarm\0"
+                "getitimer\0"
+                "setitimer\0"
+                "timer_create\0"
+                "timer_delete\0"
+                "timer_getoverrun\0"
+                "timer_gettime\0"
+                "timer_settime\0"
+                "timerfd_create\0"
+                "timerfd_gettime\0"
+                "timerfd_settime\0"
+                "times\0"
         },
 };
 
