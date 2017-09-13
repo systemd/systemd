@@ -589,7 +589,7 @@ static int check_fill_0x83_prespc3(struct udev *udev,
 {
         int i, j;
 
-        serial[0] = hex_str[id_search->id_type];
+        serial[0] = hex_str[SCSI_ID_NAA];
         /* serial has been memset to zero before */
         j = strlen(serial);        /* j = 1; */
 
@@ -738,7 +738,7 @@ static int do_scsi_page83_prespc3_inquiry(struct udev *udev,
         if (page_83[6] == 0)
                 return 2;
 
-        serial[0] = hex_str[id_search_list[0].id_type];
+        serial[0] = hex_str[SCSI_ID_NAA];
         /*
          * The first four bytes contain data, not a descriptor.
          */
