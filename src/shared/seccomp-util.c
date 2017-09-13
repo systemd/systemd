@@ -799,8 +799,10 @@ int seccomp_add_syscall_filter_item(scmp_filter_ctx *seccomp, const char *name, 
                 const SyscallFilterSet *other;
 
                 other = syscall_filter_set_find(name);
-                if (!other)
+                if (!other) {
+                        log_debug("Filter set %s is not known!", name);
                         return -EINVAL;
+                }
 
                 r = seccomp_add_syscall_filter_set(seccomp, other, action, exclude);
                 if (r < 0)
@@ -809,8 +811,10 @@ int seccomp_add_syscall_filter_item(scmp_filter_ctx *seccomp, const char *name, 
                 int id;
 
                 id = seccomp_syscall_resolve_name(name);
-                if (id == __NR_SCMP_ERROR)
+                if (id == __NR_SCMP_ERROR) {
+                        log_debug("System call %s is not known!", name);
                         return -EINVAL; /* Not known at all? Then that's a real error */
+                }
 
                 r = seccomp_rule_add_exact(seccomp, action, id, 0);
                 if (r < 0)
