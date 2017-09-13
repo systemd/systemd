@@ -517,22 +517,22 @@ static int loopback_points_list_detach(MountPoint **head, bool *changed) {
 
 static int dm_points_list_detach(MountPoint **head, bool *changed) {
         MountPoint *m, *n;
-        int n_failed = 0, k;
-        struct stat root_st;
+        int n_failed = 0, r;
+        dev_t rootdev;
 
         assert(head);
 
-        k = lstat("/", &root_st);
+        r = get_block_device("/", &rootdev);
+        if (r <= 0)
+                rootdev = 0;
 
         LIST_FOREACH_SAFE(mount_point, m, n, *head) {
-                int r;
 
-                if (k >= 0 &&
-                    major(root_st.st_dev) != 0 &&
-                    root_st.st_dev == m->devnum) {
-                        n_failed++;
-                        continue;
-                }
+                if (major(rootdev) != 0)
+                        if (rootdev == m->devnum) {
+                                n_failed ++;
+                                continue;
+                        }
 
                 log_info("Detaching DM %u:%u.", major(m->devnum), minor(m->devnum));
                 r = delete_dm(m->devnum);
