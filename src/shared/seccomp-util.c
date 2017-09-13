@@ -658,17 +658,19 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .name = "@resources",
                 .help = "Alter resource settings",
                 .value =
-                "sched_setparam\0"
-                "sched_setscheduler\0"
-                "sched_setaffinity\0"
-                "setpriority\0"
-                "setrlimit\0"
-                "set_mempolicy\0"
+                "ioprio_set\0"
+                "mbind\0"
                 "migrate_pages\0"
                 "move_pages\0"
-                "mbind\0"
-                "sched_setattr\0"
+                "nice\0"
                 "prlimit64\0"
+                "sched_setaffinity\0"
+                "sched_setattr\0"
+                "sched_setparam\0"
+                "sched_setscheduler\0"
+                "set_mempolicy\0"
+                "setpriority\0"
+                "setrlimit\0"
         },
         [SYSCALL_FILTER_SET_SETUID] = {
                 .name = "@setuid",
