@@ -58,7 +58,8 @@ typedef enum SettingsMask {
         SETTING_USERNS            = 1 << 13,
         SETTING_NOTIFY_READY      = 1 << 14,
         SETTING_PIVOT_ROOT        = 1 << 15,
-        _SETTINGS_MASK_ALL        = (1 << 16) -1
+        SETTING_SYSCALL_FILTER    = 1 << 16,
+        _SETTINGS_MASK_ALL        = (1 << 17) -1
 } SettingsMask;
 
 typedef struct Settings {
@@ -78,6 +79,8 @@ typedef struct Settings {
         UserNamespaceMode userns_mode;
         uid_t uid_shift, uid_range;
         bool notify_ready;
+        char **syscall_whitelist;
+        char **syscall_blacklist;
 
         /* [Image] */
         int read_only;
@@ -121,3 +124,4 @@ int config_parse_network_zone(const char *unit, const char *filename, unsigned l
 int config_parse_boot(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_pid2(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_private_users(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_syscall_filter(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);

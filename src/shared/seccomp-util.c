@@ -682,11 +682,48 @@ const SyscallFilterSet *syscall_filter_set_find(const char *name) {
         return NULL;
 }
 
+static int seccomp_add_syscall_filter_set(scmp_filter_ctx seccomp, const SyscallFilterSet *set, uint32_t action, char **exclude);
+
+int seccomp_add_syscall_filter_item(scmp_filter_ctx *seccomp, const char *name, uint32_t action, char **exclude) {
+        int r;
+
+        assert(seccomp);
+        assert(name);
+
+        if (strv_contains(exclude, name))
+                return 0;
+
+        if (name[0] == '@') {
+                const SyscallFilterSet *other;
+
+                other = syscall_filter_set_find(name);
+                if (!other)
+                        return -EINVAL;
+
+                r = seccomp_add_syscall_filter_set(seccomp, other, action, exclude);
+                if (r < 0)
+                        return r;
+        } else {
+                int id;
+
+                id = seccomp_syscall_resolve_name(name);
+                if (id == __NR_SCMP_ERROR)
+                        return -EINVAL; /* Not known at all? Then that's a real error */
+
+                r = seccomp_rule_add_exact(seccomp, action, id, 0);
+                if (r < 0)
+                        /* If the system call is not known on this architecture, then that's fine, let's ignore it */
+                        log_debug_errno(r, "Failed to add rule for system call %s() / %d, ignoring: %m", name, id);
+        }
+
+        return 0;
+}
+
 static int seccomp_add_syscall_filter_set(
                 scmp_filter_ctx seccomp,
-                uint32_t default_action,
                 const SyscallFilterSet *set,
-                uint32_t action) {
+                uint32_t action,
+                char **exclude) {
 
         const char *sys;
         int r;
@@ -695,28 +732,9 @@ static int seccomp_add_syscall_filter_set(
         assert(set);
 
         NULSTR_FOREACH(sys, set->value) {
-                int id;
-
-                if (sys[0] == '@') {
-                        const SyscallFilterSet *other;
-
-                        other = syscall_filter_set_find(sys);
-                        if (!other)
-                                return -EINVAL;
-
-                        r = seccomp_add_syscall_filter_set(seccomp, default_action, other, action);
-                        if (r < 0)
-                                return r;
-                } else {
-                        id = seccomp_syscall_resolve_name(sys);
-                        if (id == __NR_SCMP_ERROR)
-                                return -EINVAL; /* Not known at all? Then that's a real error */
-
-                        r = seccomp_rule_add_exact(seccomp, action, id, 0);
-                        if (r < 0)
-                                /* If the system call is not known on this architecture, then that's fine, let's ignore it */
-                                log_debug_errno(r, "Failed to add rule for system call %s() / %d, ignoring: %m", sys, id);
-                }
+                r = seccomp_add_syscall_filter_item(seccomp, sys, action, exclude);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -740,7 +758,7 @@ int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilter
                 if (r < 0)
                         return r;
 
-                r = seccomp_add_syscall_filter_set(seccomp, default_action, set, action);
+                r = seccomp_add_syscall_filter_set(seccomp, set, action, NULL);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to add filter set, ignoring: %m");
                         continue;
