@@ -298,10 +298,11 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .name = "@basic-io",
                 .help = "Basic IO",
                 .value =
+                "_llseek\0"
                 "close\0"
+                "dup\0"
                 "dup2\0"
                 "dup3\0"
-                "dup\0"
                 "lseek\0"
                 "pread64\0"
                 "preadv\0"
