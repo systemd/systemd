@@ -101,12 +101,12 @@
     <para>The file format is one line per user or group containing
     name, ID, GECOS field description and home directory:</para>
 
-    <programlisting># Type Name ID GECOS
-u httpd 440 "HTTP User"
-u authd /usr/bin/authd "Authorization user"
-g input - -
-m authd input
-u root 0 "Superuser" /root</programlisting>
+    <programlisting>#Type  Name   ID              GECOS                 Home directory
+u      httpd  440             "HTTP User"
+u      authd  /usr/bin/authd  "Authorization user"
+g      input  -               -
+m      authd  input
+u      root   0               "Superuser"           /root</programlisting>
 
     <para>Empty lines and lines beginning with the <literal>#</literal> character are ignored, and may be used for
     commenting.</para>
