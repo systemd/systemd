@@ -237,7 +237,8 @@ static int test_unit_printf(void) {
         /* general tests */
         expect(u, "%%", "%");
         expect(u, "%%s", "%s");
-        expect(u, "%", "");    // REALLY?
+        expect(u, "%,", "%,");
+        expect(u, "%", "%");
 
         /* normal unit */
         expect(u, "%n", "blah.service");

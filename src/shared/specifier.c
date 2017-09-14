@@ -107,6 +107,10 @@ int specifier_printf(const char *text, const Specifier table[], void *userdata, 
                         *(t++) = *f;
         }
 
+        /* if string ended with a stray %, also end with % */
+        if (percent)
+                *(t++) = '%';
+
         *t = 0;
         *_ret = ret;
         return 0;
