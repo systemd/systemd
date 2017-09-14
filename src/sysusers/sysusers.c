@@ -1811,6 +1811,16 @@ int main(int argc, char *argv[]) {
                 }
         }
 
+        /* Let's tell nss-systemd not to synthesize the "root" and "nobody" entries for it, so that our detection
+         * whether the names or UID/GID area already used otherwise doesn't get confused. After all, even though
+         * nss-systemd synthesizes these users/groups, they should still appear in /etc/passwd and /etc/group, as the
+         * synthesizing logic is merely supposed to be fallback for cases where we run with a completely unpopulated
+         * /etc. */
+        if (setenv("SYSTEMD_NSS_BYPASS_SYNTHETIC", "1", 1) < 0) {
+                r = log_error_errno(errno, "Failed to set SYSTEMD_NSS_BYPASS_SYNTHETIC environment variable: %m");
+                goto finish;
+        }
+
         if (!uid_range) {
                 /* Default to default range of 1..SYSTEMD_UID_MAX */
                 r = uid_range_add(&uid_range, &n_uid_range, 1, SYSTEM_UID_MAX);
