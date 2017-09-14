@@ -127,11 +127,15 @@
     <filename>quotaon.service</filename> are added.</para>
 
     <para>For mount units with <varname>DefaultDependencies=yes</varname> in the <literal>[Unit]</literal> section (the
-    default) a couple additional dependencies are added. Mount units referring to local file systems automatically gain
-    an <varname>After=</varname> dependency on <filename>local-fs-pre.target</filename>. Network mount units
-    automatically acquire <varname>After=</varname> dependencies on <filename>remote-fs-pre.target</filename>,
-    <filename>network.target</filename> and <filename>network-online.target</filename>. Towards the latter a
-    <varname>Wants=</varname> unit is added as well. Mount units referring to local and network file systems are
+    default) a few additional dependencies are added. Mount units referring to local file systems automatically gain
+    an <varname>After=</varname> dependency on <filename>local-fs-pre.target</filename> and, once they are mounted,
+    gain a <varname>Before=</varname> dependency on <filename>local-fs.target</filename>.  This last ensures they are not
+    unmounted too early. Similarly network mount units automatically acquire <varname>After=</varname> dependencies on
+    <filename>remote-fs-pre.target</filename>, <filename>network.target</filename> and
+    <filename>network-online.target</filename>, as well as a <varname>Before=</varname> dependency on
+    <filename>remote-fs.target</filename> after the filesystem is mounted.
+    A <varname>Wants=</varname> dependency on <filename>network-online.target</filename> is added as well.
+    Mount units referring to local and network file systems are
     distinguished by their file system type specification. In some cases this is not sufficient (for example network
     block device based mounts, such as iSCSI), in which case <option>_netdev</option> may be added to the mount option
     string of the unit, which forces systemd to consider the mount unit a network mount. Mount units (regardless if
