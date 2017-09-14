@@ -1332,7 +1332,10 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         if (r < 0)
                 return r;
 
-        if (m->first_boot && m->unit_file_scope == UNIT_FILE_SYSTEM) {
+        if (m->first_boot > 0 &&
+            m->unit_file_scope == UNIT_FILE_SYSTEM &&
+            !m->test_run) {
+
                 q = unit_file_preset_all(UNIT_FILE_SYSTEM, 0, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, NULL, 0);
                 if (q < 0)
                         log_full_errno(q == -EEXIST ? LOG_NOTICE : LOG_WARNING, q, "Failed to populate /etc with preset unit settings, ignoring: %m");
