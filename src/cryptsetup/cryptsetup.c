@@ -52,7 +52,9 @@ static bool arg_verify = false;
 static bool arg_discards = false;
 static bool arg_tcrypt_hidden = false;
 static bool arg_tcrypt_system = false;
+#ifdef CRYPT_TCRYPT_VERA_MODES
 static bool arg_tcrypt_veracrypt = false;
+#endif
 static char **arg_tcrypt_keyfiles = NULL;
 static uint64_t arg_offset = 0;
 static uint64_t arg_skip = 0;
