@@ -278,11 +278,19 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "execve\0"
                 "exit\0"
                 "exit_group\0"
+                "futex\0"
+                "get_robust_list\0"
+                "get_thread_area\0"
                 "getrlimit\0"      /* make sure processes can query stack size and such */
                 "gettimeofday\0"
+                "membarrier\0"
                 "nanosleep\0"
                 "pause\0"
+                "restart_syscall\0"
                 "rt_sigreturn\0"
+                "set_robust_list\0"
+                "set_thread_area\0"
+                "set_tid_address\0"
                 "sigreturn\0"
                 "time\0"
         },
@@ -290,10 +298,11 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .name = "@basic-io",
                 .help = "Basic IO",
                 .value =
+                "_llseek\0"
                 "close\0"
+                "dup\0"
                 "dup2\0"
                 "dup3\0"
-                "dup\0"
                 "lseek\0"
                 "pread64\0"
                 "preadv\0"
@@ -324,6 +333,32 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "vm86\0"
                 "vm86old\0"
         },
+        [SYSCALL_FILTER_SET_CREDENTIALS] = {
+                .name = "@credentials",
+                .help = "Query own process credentials",
+                .value =
+                "capget\0"
+                "getegid\0"
+                "getegid32\0"
+                "geteuid\0"
+                "geteuid32\0"
+                "getgid\0"
+                "getgid32\0"
+                "getgroups\0"
+                "getgroups32\0"
+                "getpgid\0"
+                "getpgrp\0"
+                "getpid\0"
+                "getppid\0"
+                "getresgid\0"
+                "getresgid32\0"
+                "getresuid\0"
+                "getresuid32\0"
+                "getsid\0"
+                "gettid\0"
+                "getuid\0"
+                "getuid32\0"
+        },
         [SYSCALL_FILTER_SET_DEBUG] = {
                 .name = "@debug",
                 .help = "Debugging, performance monitoring and tracing functionality",
@@ -353,24 +388,26 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "fchdir\0"
                 "fchmod\0"
                 "fchmodat\0"
-                "fcntl64\0"
                 "fcntl\0"
+                "fcntl64\0"
                 "fgetxattr\0"
                 "flistxattr\0"
+                "fremovexattr\0"
                 "fsetxattr\0"
-                "fstat64\0"
                 "fstat\0"
+                "fstat64\0"
                 "fstatat64\0"
-                "fstatfs64\0"
                 "fstatfs\0"
-                "ftruncate64\0"
+                "fstatfs64\0"
                 "ftruncate\0"
+                "ftruncate64\0"
                 "futimesat\0"
                 "getcwd\0"
-                "getdents64\0"
                 "getdents\0"
+                "getdents64\0"
                 "getxattr\0"
                 "inotify_add_watch\0"
+                "inotify_init\0"
                 "inotify_init1\0"
                 "inotify_rm_watch\0"
                 "lgetxattr\0"
@@ -380,36 +417,43 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "llistxattr\0"
                 "lremovexattr\0"
                 "lsetxattr\0"
-                "lstat64\0"
                 "lstat\0"
+                "lstat64\0"
                 "mkdir\0"
                 "mkdirat\0"
                 "mknod\0"
                 "mknodat\0"
-                "mmap2\0"
                 "mmap\0"
+                "mmap2\0"
                 "munmap\0"
                 "newfstatat\0"
+                "oldfstat\0"
+                "oldlstat\0"
+                "oldstat\0"
                 "open\0"
                 "openat\0"
                 "readlink\0"
                 "readlinkat\0"
                 "removexattr\0"
                 "rename\0"
-                "renameat2\0"
                 "renameat\0"
+                "renameat2\0"
                 "rmdir\0"
                 "setxattr\0"
-                "stat64\0"
                 "stat\0"
+                "stat64\0"
                 "statfs\0"
+                "statfs64\0"
+#ifdef __PNR_statx
                 "statx\0"
+#endif
                 "symlink\0"
                 "symlinkat\0"
-                "truncate64\0"
                 "truncate\0"
+                "truncate64\0"
                 "unlink\0"
                 "unlinkat\0"
+                "utime\0"
                 "utimensat\0"
                 "utimes\0"
         },
@@ -418,15 +462,15 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .help = "Event loop system calls",
                 .value =
                 "_newselect\0"
-                "epoll_create1\0"
                 "epoll_create\0"
+                "epoll_create1\0"
                 "epoll_ctl\0"
                 "epoll_ctl_old\0"
                 "epoll_pwait\0"
                 "epoll_wait\0"
                 "epoll_wait_old\0"
-                "eventfd2\0"
                 "eventfd\0"
+                "eventfd2\0"
                 "poll\0"
                 "ppoll\0"
                 "pselect6\0"
@@ -448,8 +492,8 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "msgget\0"
                 "msgrcv\0"
                 "msgsnd\0"
-                "pipe2\0"
                 "pipe\0"
+                "pipe2\0"
                 "process_vm_readv\0"
                 "process_vm_writev\0"
                 "semctl\0"
@@ -469,6 +513,16 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "keyctl\0"
                 "request_key\0"
         },
+        [SYSCALL_FILTER_SET_MEMLOCK] = {
+                .name = "@memlock",
+                .help = "Memory locking control",
+                .value =
+                "mlock\0"
+                "mlock2\0"
+                "mlockall\0"
+                "munlock\0"
+                "munlockall\0"
+        },
         [SYSCALL_FILTER_SET_MODULE] = {
                 .name = "@module",
                 .help = "Loading and unloading of kernel modules",
@@ -484,15 +538,15 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "chroot\0"
                 "mount\0"
                 "pivot_root\0"
-                "umount2\0"
                 "umount\0"
+                "umount2\0"
         },
         [SYSCALL_FILTER_SET_NETWORK_IO] = {
                 .name = "@network-io",
                 .help = "Network or Unix socket IO, should not be needed if not network facing",
                 .value =
-                "accept4\0"
                 "accept\0"
+                "accept4\0"
                 "bind\0"
                 "connect\0"
                 "getpeername\0"
@@ -527,6 +581,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "get_kernel_syms\0"
                 "getpmsg\0"
                 "gtty\0"
+                "idle\0"
                 "lock\0"
                 "mpx\0"
                 "prof\0"
@@ -551,38 +606,38 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "@clock\0"
                 "@module\0"
                 "@raw-io\0"
+                "_sysctl\0"
                 "acct\0"
                 "bpf\0"
                 "capset\0"
-                "chown32\0"
                 "chown\0"
+                "chown32\0"
                 "chroot\0"
-                "fchown32\0"
                 "fchown\0"
+                "fchown32\0"
                 "fchownat\0"
                 "kexec_file_load\0"
                 "kexec_load\0"
-                "lchown32\0"
                 "lchown\0"
+                "lchown32\0"
                 "nfsservctl\0"
                 "pivot_root\0"
                 "quotactl\0"
                 "reboot\0"
                 "setdomainname\0"
-                "setfsuid32\0"
                 "setfsuid\0"
-                "setgroups32\0"
+                "setfsuid32\0"
                 "setgroups\0"
+                "setgroups32\0"
                 "sethostname\0"
-                "setresuid32\0"
                 "setresuid\0"
-                "setreuid32\0"
+                "setresuid32\0"
                 "setreuid\0"
-                "setuid32\0"
+                "setreuid32\0"
                 "setuid\0"
+                "setuid32\0"
                 "swapoff\0"
                 "swapon\0"
-                "_sysctl\0"
                 "vhangup\0"
         },
         [SYSCALL_FILTER_SET_PROCESS] = {
@@ -593,13 +648,23 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "clone\0"
                 "execveat\0"
                 "fork\0"
+                "getpid\0"
+                "getppid\0"
+                "getrusage\0"
+                "gettid\0"
                 "kill\0"
                 "prctl\0"
+                "rt_sigqueueinfo\0"
+                "rt_tgsigqueueinfo\0"
                 "setns\0"
                 "tgkill\0"
+                "times\0"
                 "tkill\0"
                 "unshare\0"
                 "vfork\0"
+                "wait4\0"
+                "waitid\0"
+                "waitpid\0"
         },
         [SYSCALL_FILTER_SET_RAW_IO] = {
                 .name = "@raw-io",
@@ -629,36 +694,56 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .name = "@resources",
                 .help = "Alter resource settings",
                 .value =
-                "sched_setparam\0"
-                "sched_setscheduler\0"
-                "sched_setaffinity\0"
-                "setpriority\0"
-                "setrlimit\0"
-                "set_mempolicy\0"
+                "ioprio_set\0"
+                "mbind\0"
                 "migrate_pages\0"
                 "move_pages\0"
-                "mbind\0"
-                "sched_setattr\0"
+                "nice\0"
                 "prlimit64\0"
+                "sched_setaffinity\0"
+                "sched_setattr\0"
+                "sched_setparam\0"
+                "sched_setscheduler\0"
+                "set_mempolicy\0"
+                "setpriority\0"
+                "setrlimit\0"
         },
         [SYSCALL_FILTER_SET_SETUID] = {
                 .name = "@setuid",
                 .help = "Operations for changing user/group credentials",
                 .value =
-                "setgid32\0"
                 "setgid\0"
-                "setgroups32\0"
+                "setgid32\0"
                 "setgroups\0"
-                "setregid32\0"
+                "setgroups32\0"
                 "setregid\0"
-                "setresgid32\0"
+                "setregid32\0"
                 "setresgid\0"
-                "setresuid32\0"
+                "setresgid32\0"
                 "setresuid\0"
-                "setreuid32\0"
+                "setresuid32\0"
                 "setreuid\0"
-                "setuid32\0"
+                "setreuid32\0"
                 "setuid\0"
+                "setuid32\0"
+        },
+        [SYSCALL_FILTER_SET_SIGNAL] = {
+                .name = "@signal",
+                .help = "Process signal handling",
+                .value =
+                "rt_sigaction\0"
+                "rt_sigpending\0"
+                "rt_sigprocmask\0"
+                "rt_sigsuspend\0"
+                "rt_sigtimedwait\0"
+                "sigaction\0"
+                "sigaltstack\0"
+                "signal\0"
+                "signalfd\0"
+                "signalfd4\0"
+                "sigpending\0"
+                "sigprocmask\0"
+                "sigsuspend\0"
         },
         [SYSCALL_FILTER_SET_SWAP] = {
                 .name = "@swap",
@@ -666,6 +751,23 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .value =
                 "swapoff\0"
                 "swapon\0"
+        },
+        [SYSCALL_FILTER_SET_TIMER] = {
+                .name = "@timer",
+                .help = "Schedule operations by time",
+                .value =
+                "alarm\0"
+                "getitimer\0"
+                "setitimer\0"
+                "timer_create\0"
+                "timer_delete\0"
+                "timer_getoverrun\0"
+                "timer_gettime\0"
+                "timer_settime\0"
+                "timerfd_create\0"
+                "timerfd_gettime\0"
+                "timerfd_settime\0"
+                "times\0"
         },
 };
 
@@ -697,8 +799,10 @@ int seccomp_add_syscall_filter_item(scmp_filter_ctx *seccomp, const char *name, 
                 const SyscallFilterSet *other;
 
                 other = syscall_filter_set_find(name);
-                if (!other)
+                if (!other) {
+                        log_debug("Filter set %s is not known!", name);
                         return -EINVAL;
+                }
 
                 r = seccomp_add_syscall_filter_set(seccomp, other, action, exclude);
                 if (r < 0)
@@ -707,8 +811,10 @@ int seccomp_add_syscall_filter_item(scmp_filter_ctx *seccomp, const char *name, 
                 int id;
 
                 id = seccomp_syscall_resolve_name(name);
-                if (id == __NR_SCMP_ERROR)
+                if (id == __NR_SCMP_ERROR) {
+                        log_debug("System call %s is not known!", name);
                         return -EINVAL; /* Not known at all? Then that's a real error */
+                }
 
                 r = seccomp_rule_add_exact(seccomp, action, id, 0);
                 if (r < 0)

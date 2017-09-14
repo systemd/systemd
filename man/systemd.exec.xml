@@ -1486,6 +1486,10 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
                 <entry>System calls for CPU emulation functionality (<citerefentry project='man-pages'><refentrytitle>vm86</refentrytitle><manvolnum>2</manvolnum></citerefentry> and related calls)</entry>
               </row>
               <row>
+                <entry>@credentials</entry>
+                <entry>System calls for querying process credentials (<citerefentry project='man-pages'><refentrytitle>getuid</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>capget</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and related calls)</entry>
+              </row>
+              <row>
                 <entry>@debug</entry>
                 <entry>Debugging, performance monitoring and tracing functionality (<citerefentry project='man-pages'><refentrytitle>ptrace</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>perf_event_open</refentrytitle><manvolnum>2</manvolnum></citerefentry> and related calls)</entry>
               </row>
@@ -1504,6 +1508,10 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
               <row>
                 <entry>@keyring</entry>
                 <entry>Kernel keyring access (<citerefentry project='man-pages'><refentrytitle>keyctl</refentrytitle><manvolnum>2</manvolnum></citerefentry> and related calls)</entry>
+              </row>
+              <row>
+                <entry>@memlock</entry>
+                <entry>Locking of memory into RAM (<citerefentry project='man-pages'><refentrytitle>mlock</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>mlockall</refentrytitle><manvolnum>2</manvolnum></citerefentry> and related calls)</entry>
               </row>
               <row>
                 <entry>@module</entry>
@@ -1546,8 +1554,16 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
                 <entry>System calls for changing user ID and group ID credentials, (<citerefentry project='man-pages'><refentrytitle>setuid</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>setgid</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>setresuid</refentrytitle><manvolnum>2</manvolnum></citerefentry>, …)</entry>
               </row>
               <row>
+                <entry>@signal</entry>
+                <entry>System calls for manipulating and handling process signals (<citerefentry project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>sigprocmask</refentrytitle><manvolnum>2</manvolnum></citerefentry>, …)</entry>
+              </row>
+              <row>
                 <entry>@swap</entry>
                 <entry>System calls for enabling/disabling swap devices (<citerefentry project='man-pages'><refentrytitle>swapon</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>swapoff</refentrytitle><manvolnum>2</manvolnum></citerefentry>)</entry>
+              </row>
+              <row>
+                <entry>@timer</entry>
+                <entry>System calls for scheduling operations by time (<citerefentry project='man-pages'><refentrytitle>alarm</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>timer_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>, …)</entry>
               </row>
             </tbody>
           </tgroup>

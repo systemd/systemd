@@ -239,7 +239,7 @@
         <command>systemd-run</command> command itself. This allows <command>systemd-run</command>
         to be used within shell pipelines.
         Note that this mode is not suitable for interactive command shells and similar, as the
-        service process will become a TTY controller when invoked on a terminal. Use <option>--pty</option> instead
+        service process will not become a TTY controller when invoked on a terminal. Use <option>--pty</option> instead
         in that case.</para>
 
         <para>When both <option>--pipe</option> and <option>--pty</option> are used in combination the more appropriate

@@ -612,6 +612,36 @@ static void test_lock_personality(void) {
         assert_se(wait_for_terminate_and_warn("lockpersonalityseccomp", pid, true) == EXIT_SUCCESS);
 }
 
+static void test_filter_sets_ordered(void) {
+        size_t i;
+
+        /* Ensure "@default" always remains at the beginning of the list */
+        assert_se(SYSCALL_FILTER_SET_DEFAULT == 0);
+        assert_se(streq(syscall_filter_sets[0].name, "@default"));
+
+        for (i = 0; i < _SYSCALL_FILTER_SET_MAX; i++) {
+                const char *k, *p = NULL;
+
+                /* Make sure each group has a description */
+                assert_se(!isempty(syscall_filter_sets[0].help));
+
+                /* Make sure the groups are ordered alphabetically, except for the first entry */
+                assert_se(i < 2 || strcmp(syscall_filter_sets[i-1].name, syscall_filter_sets[i].name) < 0);
+
+                NULSTR_FOREACH(k, syscall_filter_sets[i].value) {
+
+                        /* Ensure each syscall list is in itself ordered, but groups before names */
+                        assert_se(!p ||
+                                  (*p == '@' && *k != '@') ||
+                                  (((*p == '@' && *k == '@') ||
+                                    (*p != '@' && *k != '@')) &&
+                                   strcmp(p, k) < 0));
+
+                        p = k;
+                }
+        }
+}
+
 int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
@@ -629,6 +659,7 @@ int main(int argc, char *argv[]) {
         test_restrict_archs();
         test_load_syscall_filter_set_raw();
         test_lock_personality();
+        test_filter_sets_ordered();
 
         return 0;
 }
