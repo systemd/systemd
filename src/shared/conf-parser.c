@@ -916,10 +916,14 @@ int config_parse_personality(
         assert(rvalue);
         assert(personality);
 
-        p = personality_from_string(rvalue);
-        if (p == PERSONALITY_INVALID) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse personality, ignoring: %s", rvalue);
-                return 0;
+        if (isempty(rvalue))
+                p = PERSONALITY_INVALID;
+        else {
+                p = personality_from_string(rvalue);
+                if (p == PERSONALITY_INVALID) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse personality, ignoring: %s", rvalue);
+                        return 0;
+                }
         }
 
         *personality = p;
