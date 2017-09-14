@@ -725,6 +725,11 @@ int config_parse_path(
         assert(rvalue);
         assert(data);
 
+        if (isempty(rvalue)) {
+                n = NULL;
+                goto finalize;
+        }
+
         if (!utf8_is_valid(rvalue)) {
                 log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, rvalue);
                 return fatal ? -ENOEXEC : 0;
@@ -743,6 +748,7 @@ int config_parse_path(
 
         path_kill_slashes(n);
 
+finalize:
         free(*s);
         *s = n;
 
