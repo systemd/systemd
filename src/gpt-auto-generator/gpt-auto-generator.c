@@ -99,6 +99,7 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, bool requir
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"
                 "TimeoutSec=0\n" /* the binary handles timeouts anyway */
+                "KeyringMode=shared\n" /* make sure we can share cached keys among instances */
                 "ExecStart=" SYSTEMD_CRYPTSETUP_PATH " attach '%s' '%s' '' '%s'\n"
                 "ExecStop=" SYSTEMD_CRYPTSETUP_PATH " detach '%s'\n",
                 d, d,
