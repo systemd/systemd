@@ -28,6 +28,7 @@ typedef struct LookupPaths LookupPaths;
 
 typedef enum LookupPathsFlags {
         LOOKUP_PATHS_EXCLUDE_GENERATED = 1,
+        LOOKUP_PATHS_TEMPORARY_GENERATED,
 } LookupPathsFlags;
 
 struct LookupPaths {
@@ -60,6 +61,9 @@ struct LookupPaths {
 
         /* The root directory prepended to all items above, or NULL */
         char *root_dir;
+
+        /* A temporary directory when running in test mode, to be nuked */
+        char *temporary_dir;
 };
 
 int lookup_paths_init(LookupPaths *p, UnitFileScope scope, LookupPathsFlags flags, const char *root_dir);
