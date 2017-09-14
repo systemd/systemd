@@ -47,6 +47,10 @@ static inline bool rtnl_message_type_is_addrlabel(uint16_t type) {
         return IN_SET(type, RTM_NEWADDRLABEL, RTM_DELADDRLABEL, RTM_GETADDRLABEL);
 }
 
+static inline bool rtnl_message_type_is_routing_policy_rule(uint16_t type) {
+        return IN_SET(type, RTM_NEWRULE, RTM_DELRULE, RTM_GETRULE);
+}
+
 int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name);
 int rtnl_set_link_properties(sd_netlink **rtnl, int ifindex, const char *alias, const struct ether_addr *mac, unsigned mtu);
 

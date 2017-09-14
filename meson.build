@@ -374,6 +374,7 @@ conf.set('SIZEOF_RLIM_T', cc.sizeof('rlim_t', prefix : '#include <sys/resource.h
 decl_headers = '''
 #include <uchar.h>
 #include <linux/ethtool.h>
+#include <linux/fib_rules.h>
 '''
 # FIXME: key_serial_t is only defined in keyutils.h, this is bound to fail
 
@@ -381,6 +382,7 @@ foreach decl : ['char16_t',
                 'char32_t',
                 'key_serial_t',
                 'struct ethtool_link_settings',
+                'struct fib_rule_uid_range',
                ]
 
         # We get -1 if the size cannot be determined
@@ -409,6 +411,7 @@ foreach decl : [['IFLA_INET6_ADDR_GEN_MODE',         'linux/if_link.h'],
                 ['IFLA_BR_VLAN_DEFAULT_PVID',        'linux/if_link.h'],
                 ['NDA_IFINDEX',                      'linux/neighbour.h'],
                 ['IFA_FLAGS',                        'linux/if_addr.h'],
+                ['FRA_UID_RANGE',                    'linux/fib_rules.h'],
                 ['LO_FLAGS_PARTSCAN',                'linux/loop.h'],
                ]
         prefix = decl.length() > 2 ? decl[2] : ''

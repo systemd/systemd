@@ -878,6 +878,55 @@
       </variablelist>
   </refsect1>
 
+ <refsect1>
+    <title>[RoutingPolicyRule] Section Options</title>
+
+      <para>An <literal>[RoutingPolicyRule]</literal> section accepts the
+      following keys. Specify several <literal>[RoutingPolicyRule]</literal>
+      sections to configure several rules.</para>
+
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>TypeOfService=</varname></term>
+          <listitem>
+            <para>Specifies the type of service to match a number between 0 to 255.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>From=</varname></term>
+          <listitem>
+            <para>Specifies the source address prefix to match. Possibly followed by a slash and the prefix length.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>To=</varname></term>
+          <listitem>
+            <para>Specifies the destination address prefix to match. Possibly followed by a slash and the prefix length.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>FirewallMark=</varname></term>
+          <listitem>
+            <para>Specifies the iptables firewall mark value to match (a number between 1 and 4294967295).</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Table=</varname></term>
+          <listitem>
+            <para>Specifies the routing table identifier to lookup if the rule
+            selector matches. The table identifier for a route (a number between 1 and 4294967295).</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Priority=</varname></term>
+          <listitem>
+            <para>Specifies the priority of this rule. <varname>Priority=</varname> is an unsigned
+            integer. Higher number means lower priority, and rules get processed in order of increasing number.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+  </refsect1>
+
   <refsect1>
     <title>[Route] Section Options</title>
       <para>The <literal>[Route]</literal> section accepts the

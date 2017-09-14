@@ -61,6 +61,8 @@ sources = files('''
         networkd-network.h
         networkd-route.c
         networkd-route.h
+        networkd-routing-policy-rule.c
+        networkd-routing-policy-rule.h
         networkd-util.c
         networkd-util.h
 '''.split())

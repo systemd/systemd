@@ -22,6 +22,7 @@
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <linux/can/netlink.h>
+#include <linux/fib_rules.h>
 #include <linux/in6.h>
 #include <linux/veth.h>
 #include <linux/if_bridge.h>
@@ -29,8 +30,11 @@
 #include <linux/if_addrlabel.h>
 #include <linux/if.h>
 #include <linux/ip.h>
+#include <linux/if_addr.h>
+#include <linux/if_bridge.h>
 #include <linux/if_link.h>
 #include <linux/if_tunnel.h>
+#include <linux/fib_rules.h>
 
 #include "macro.h"
 #include "missing.h"
@@ -597,6 +601,31 @@ static const NLTypeSystem rtnl_addrlabel_type_system = {
         .types = rtnl_addrlabel_types,
 };
 
+static const NLType rtnl_routing_policy_rule_types[] = {
+        [FRA_DST]                 = { .type = NETLINK_TYPE_IN_ADDR },
+        [FRA_SRC]                 = { .type = NETLINK_TYPE_IN_ADDR },
+        [FRA_IIFNAME]             = { .type = NETLINK_TYPE_STRING },
+        [RTA_OIF]                 = { .type = NETLINK_TYPE_U32 },
+        [RTA_GATEWAY]             = { .type = NETLINK_TYPE_IN_ADDR },
+        [FRA_PRIORITY]            = { .type = NETLINK_TYPE_U32 },
+        [FRA_FWMARK]              = { .type = NETLINK_TYPE_U32 },
+        [FRA_FLOW]                = { .type = NETLINK_TYPE_U32 },
+        [FRA_TUN_ID]              = { .type = NETLINK_TYPE_U32 },
+        [FRA_SUPPRESS_IFGROUP]    = { .type = NETLINK_TYPE_U32 },
+        [FRA_SUPPRESS_PREFIXLEN]  = { .type = NETLINK_TYPE_U32 },
+        [FRA_TABLE]               = { .type = NETLINK_TYPE_U32 },
+        [FRA_FWMASK]              = { .type = NETLINK_TYPE_U32 },
+        [FRA_OIFNAME]             = { .type = NETLINK_TYPE_STRING },
+        [FRA_PAD]                 = { .type = NETLINK_TYPE_U32 },
+        [FRA_L3MDEV]              = { .type = NETLINK_TYPE_U64 },
+        [FRA_UID_RANGE]           = { .size = sizeof(struct fib_rule_uid_range) },
+};
+
+static const NLTypeSystem rtnl_routing_policy_rule_type_system = {
+        .count = ELEMENTSOF(rtnl_routing_policy_rule_types),
+        .types = rtnl_routing_policy_rule_types,
+};
+
 static const NLType rtnl_types[] = {
         [NLMSG_DONE]       = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system, .size = 0 },
         [NLMSG_ERROR]      = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system, .size = sizeof(struct nlmsgerr) },
@@ -616,6 +645,9 @@ static const NLType rtnl_types[] = {
         [RTM_NEWADDRLABEL] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_addrlabel_type_system, .size = sizeof(struct ifaddrlblmsg) },
         [RTM_DELADDRLABEL] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_addrlabel_type_system, .size = sizeof(struct ifaddrlblmsg) },
         [RTM_GETADDRLABEL] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_addrlabel_type_system, .size = sizeof(struct ifaddrlblmsg) },
+        [RTM_NEWRULE]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_routing_policy_rule_type_system, .size = sizeof(struct rtmsg) },
+        [RTM_DELRULE]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_routing_policy_rule_type_system, .size = sizeof(struct rtmsg) },
+        [RTM_GETRULE]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_routing_policy_rule_type_system, .size = sizeof(struct rtmsg) },
 };
 
 const NLTypeSystem type_system_root = {
