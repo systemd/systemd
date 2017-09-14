@@ -8,6 +8,13 @@
 [Unit]
 Description=System Initialization
 Documentation=man:systemd.special(7)
-Conflicts=emergency.service emergency.target
-Wants=local-fs.target swap.target
-After=local-fs.target swap.target emergency.service emergency.target
+Wants=swap.target local-fs.target
+After=swap.target local-fs.target
+
+# local-fs.target uses OnFailure="emergency.target" to start an emergency
+# shell.  In that case we also need to cancel everything that relies on
+# local-fs.target.  Flooding the screen with yellow [DEPEND] failures would
+# be unhelpful.  Therefore we break the chain here.  We use a Wants
+# dependency instead of Requires, and use a Conflict with emergency.target,
+# so that we are cancelled without actually failing any more units.
+Conflicts=emergency.target
