@@ -70,7 +70,7 @@
     <citerefentry
     project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
     the units this generator creates are overridden, but additional
-    automatic dependencies might be created.</para>
+    implicit dependencies might be created.</para>
 
     <para>This generator will only look for root partitions on the
     same physical disk the EFI System Partition (ESP) is located on.

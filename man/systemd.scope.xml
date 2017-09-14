@@ -75,22 +75,31 @@
   </refsect1>
 
   <refsect1>
-    <title>Automatic Dependencies</title>
+    <title>Implicit Dependencies</title>
 
-    <para>Unless <varname>DefaultDependencies=false</varname>
-    is used, scope units will implicitly have dependencies of
-    type <varname>Conflicts=</varname> and
-    <varname>Before=</varname> on
-    <filename>shutdown.target</filename>. These ensure
-    that scope units are removed prior to system
-    shutdown. Only scope units involved with early boot or
-    late system shutdown should disable this option.
-    </para>
-
-    <para>Additional implicit dependencies may be added as result of
+    <para>Implicit dependencies may be added as result of
     resource control parameters as documented in
     <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+  </refsect1>
 
+  <refsect1>
+    <title>Default Dependencies</title>
+
+    <para>The following dependencies are added unless
+    <varname>DefaultDependencies=no</varname> is set:</para>
+
+    <itemizedlist>
+      <listitem><para>Scope units will automatically have dependencies of
+      type <varname>Conflicts=</varname> and
+      <varname>Before=</varname> on
+      <filename>shutdown.target</filename>. These ensure
+      that scope units are removed prior to system
+      shutdown. Only scope units involved with early boot or
+      late system shutdown should disable
+      <varname>DefaultDependencies=</varname> option.</para></listitem>
+    </itemizedlist>
+
+    <para></para>
   </refsect1>
 
   <refsect1>

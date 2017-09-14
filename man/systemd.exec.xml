@@ -81,26 +81,29 @@
   </refsect1>
 
   <refsect1>
-    <title>Automatic Dependencies</title>
+    <title>Implicit Dependencies</title>
 
-    <para>A few execution parameters result in additional, automatic
-    dependencies to be added.</para>
+    <para>A few execution parameters result in additional, automatic dependencies to be added:</para>
 
-    <para>Units with <varname>WorkingDirectory=</varname>, <varname>RootDirectory=</varname>, <varname>RootImage=</varname>,
-    <varname>RuntimeDirectory=</varname>, <varname>StateDirectory=</varname>, <varname>CacheDirectory=</varname>,
-    <varname>LogsDirectory=</varname> or <varname>ConfigurationDirectory=</varname> set automatically gain dependencies
-    of type <varname>Requires=</varname> and <varname>After=</varname> on all mount units required to access the specified paths.
-    This is equivalent to having them listed explicitly in <varname>RequiresMountsFor=</varname>.</para>
+    <itemizedlist>
+      <listitem><para>Units with <varname>WorkingDirectory=</varname>, <varname>RootDirectory=</varname>, <varname>RootImage=</varname>,
+      <varname>RuntimeDirectory=</varname>, <varname>StateDirectory=</varname>, <varname>CacheDirectory=</varname>,
+      <varname>LogsDirectory=</varname> or <varname>ConfigurationDirectory=</varname> set automatically gain dependencies
+      of type <varname>Requires=</varname> and <varname>After=</varname> on all mount units required to access the specified paths.
+      This is equivalent to having them listed explicitly in <varname>RequiresMountsFor=</varname>.</para></listitem>
 
-    <para>Similar, units with <varname>PrivateTmp=</varname> enabled automatically get mount unit dependencies for all
-    mounts required to access <filename>/tmp</filename> and <filename>/var/tmp</filename>. They will also gain an
-    automatic <varname>After=</varname> dependency on
-    <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+      <listitem><para>Similar, units with <varname>PrivateTmp=</varname> enabled automatically get mount unit dependencies for all
+      mounts required to access <filename>/tmp</filename> and <filename>/var/tmp</filename>. They will also gain an
+      automatic <varname>After=</varname> dependency on
+      <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
 
-    <para>Units whose standard output or error output is connected to <option>journal</option>, <option>syslog</option>
-    or <option>kmsg</option> (or their combinations with console output, see below) automatically acquire dependencies
-    of type <varname>After=</varname> on <filename>systemd-journald.socket</filename>.</para>
+      <listitem><para>Units whose standard output or error output is connected to <option>journal</option>, <option>syslog</option>
+      or <option>kmsg</option> (or their combinations with console output, see below) automatically acquire dependencies
+      of type <varname>After=</varname> on <filename>systemd-journald.socket</filename>.</para></listitem>
+    </itemizedlist>
   </refsect1>
+
+  <!-- We don't have any default dependency here. -->
 
   <refsect1>
     <title>Options</title>
@@ -615,7 +618,7 @@
 
         <para>If the standard output (or error output, see below) of a unit is connected to the journal, syslog or the
         kernel log buffer, the unit will implicitly gain a dependency of type <varname>After=</varname> on
-        <filename>systemd-journald.socket</filename> (also see the automatic dependencies section above).</para>
+        <filename>systemd-journald.socket</filename> (also see the "Implicit Dependencies" section above).</para>
 
         <para>This setting defaults to the value set with
         <option>DefaultStandardOutput=</option> in
