@@ -23,3 +23,4 @@ RestrictNamespaces=net
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @obsolete @raw-io @reboot @swap
 SystemCallArchitectures=native
+LockPersonality=yes

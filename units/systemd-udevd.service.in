@@ -28,3 +28,4 @@ MemoryDenyWriteExecute=yes
 RestrictRealtime=yes
 RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
 SystemCallArchitectures=native
+LockPersonality=yes

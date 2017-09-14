@@ -38,6 +38,7 @@ RestrictNamespaces=yes
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 SystemCallFilter=~@cpu-emulation @debug @keyring @module @mount @obsolete @raw-io @reboot @swap
 SystemCallArchitectures=native
+LockPersonality=yes
 StateDirectory=systemd/timesync
 
 [Install]

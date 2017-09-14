@@ -27,8 +27,6 @@ Features:
 * dissect: when we discover squashfs, don't claim we had a "writable" partition
   in systemd-dissect
 
-* set LockPersonality= on all our services
-
 * Add AddUser= setting to unit files, similar to DynamicUser=1 which however
   creates a static, persistent user rather than a dynamic, transient user. We
   can leverage code from sysusers.d for this.
