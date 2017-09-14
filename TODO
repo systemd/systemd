@@ -42,8 +42,6 @@ Features:
   diffs remain minimal (in particular: the OUI databases we import are not
   sorted, and not stable)
 
-* set SystemCallArchitectures=native on all our services
-
 * maybe add call sd_journal_set_block_timeout() or so to set SO_SNDTIMEO for
   the sd-journal logging socket, and, if the timeout is set to 0, sets
   O_NONBLOCK on it. That way people can control if and when to block for
@@ -92,8 +90,6 @@ Features:
 
 * maybe introduce gpt auto discovery for /var/tmp?
 
-* set ProtectSystem=strict for all our usual services.
-
 * fix PrivateNetwork= so that we fall back gracefully on kernels lacking
   namespacing support (similar for the other namespacing options)
 
@@ -137,8 +133,6 @@ Features:
 * in networkd, when matching device types, fix up DEVTYPE rubbish the kernel passes to us
 
 * enable LockMLOCK to take a percentage value relative to physical memory
-
-* switch to ProtectSystem=strict for all our long-running services where that's possible
 
 * Permit masking specific netlink APIs with RestrictAddressFamily=
 
