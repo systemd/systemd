@@ -1759,19 +1759,25 @@ int unit_reload(Unit *u) {
 
         unit_add_to_dbus_queue(u);
 
+        if (!UNIT_VTABLE(u)->reload) {
+                /* Unit doesn't have a reload function, but we need to propagate the reload anyway */
+                unit_notify(u, unit_active_state(u), unit_active_state(u), true);
+                return 0;
+        }
+
         return UNIT_VTABLE(u)->reload(u);
 }
 
 bool unit_can_reload(Unit *u) {
         assert(u);
 
-        if (!UNIT_VTABLE(u)->reload)
-                return false;
+        if (UNIT_VTABLE(u)->can_reload)
+                return UNIT_VTABLE(u)->can_reload(u);
 
-        if (!UNIT_VTABLE(u)->can_reload)
+        if (!set_isempty(u->dependencies[UNIT_PROPAGATES_RELOAD_TO]))
                 return true;
 
-        return UNIT_VTABLE(u)->can_reload(u);
+        return UNIT_VTABLE(u)->reload;
 }
 
 static void unit_check_unneeded(Unit *u) {
