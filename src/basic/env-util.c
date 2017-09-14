@@ -769,6 +769,16 @@ int getenv_bool(const char *p) {
         return parse_boolean(e);
 }
 
+int getenv_bool_secure(const char *p) {
+        const char *e;
+
+        e = secure_getenv(p);
+        if (!e)
+                return -ENXIO;
+
+        return parse_boolean(e);
+}
+
 int serialize_environment(FILE *f, char **environment) {
         char **e;
 

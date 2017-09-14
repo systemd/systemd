@@ -61,6 +61,7 @@ char *strv_env_get_n(char **l, const char *name, size_t k, unsigned flags) _pure
 char *strv_env_get(char **x, const char *n) _pure_;
 
 int getenv_bool(const char *p);
+int getenv_bool_secure(const char *p);
 
 int serialize_environment(FILE *f, char **environment);
 int deserialize_environment(char ***environment, const char *line);
