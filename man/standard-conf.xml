@@ -32,7 +32,6 @@
     <filename>/etc/</filename>, with the same filename as the vendor
     configuration file. If the vendor configuration file is included in
     the initrd image, the image has to be regenerated.</para>
-
   </refsection>
 
   <refsection id='main-conf'>

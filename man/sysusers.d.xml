@@ -63,7 +63,7 @@
   </refsect1>
 
   <refsect1>
-    <title>Configuration Format</title>
+    <title>Configuration Directories and Precedence</title>
 
     <para>Each configuration file shall be named in the style of
     <filename><replaceable>package</replaceable>.conf</filename> or
@@ -71,15 +71,42 @@
     The second variant should be used when it is desirable to make it
     easy to override just this part of configuration.</para>
 
+    <para>Files in <filename>/etc/sysusers.d</filename> override files
+    with the same name in <filename>/usr/lib/sysusers.d</filename> and
+    <filename>/run/sysusers.d</filename>. Files in
+    <filename>/run/sysusers.d</filename> override files with the same
+    name in <filename>/usr/lib/sysusers.d</filename>. Packages should
+    install their configuration files in
+    <filename>/usr/lib/sysusers.d</filename>. Files in
+    <filename>/etc/sysusers.d</filename> are reserved for the local
+    administrator, who may use this logic to override the
+    configuration files installed by vendor packages. All
+    configuration files are sorted by their filename in lexicographic
+    order, regardless of which of the directories they reside in. If
+    multiple files specify the same path, the entry in the file with
+    the lexicographically earliest name will be applied. All later
+    entries for the same user and group names will be logged as warnings.
+    </para>
+
+    <para>If the administrator wants to disable a configuration file
+    supplied by the vendor, the recommended way is to place a symlink
+    to <filename>/dev/null</filename> in
+    <filename>/etc/sysusers.d/</filename> bearing the same filename.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Configuration File Format</title>
+
     <para>The file format is one line per user or group containing
     name, ID, GECOS field description and home directory:</para>
 
-    <programlisting># Type Name ID GECOS
-u httpd 440 "HTTP User"
-u authd /usr/bin/authd "Authorization user"
-g input - -
-m authd input
-u root 0 "Superuser" /root</programlisting>
+    <programlisting>#Type  Name   ID              GECOS                 Home directory
+u      httpd  440             "HTTP User"
+u      authd  /usr/bin/authd  "Authorization user"
+g      input  -               -
+m      authd  input
+u      root   0               "Superuser"           /root</programlisting>
 
     <para>Empty lines and lines beginning with the <literal>#</literal> character are ignored, and may be used for
     commenting.</para>
@@ -198,10 +225,7 @@ u root 0 "Superuser" /root</programlisting>
       should otherwise be left unset, or be set to
       <literal>-</literal>.</para>
     </refsect2>
-
   </refsect1>
-
-  <xi:include href="standard-conf.xml" xpointer="confd" />
 
   <refsect1>
     <title>Idempotence</title>

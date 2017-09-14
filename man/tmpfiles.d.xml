@@ -76,7 +76,7 @@
   </refsect1>
 
   <refsect1>
-    <title>Configuration Format</title>
+    <title>Configuration Directories and Precedence</title>
 
     <para>Each configuration file shall be named in the style of
     <filename><replaceable>package</replaceable>.conf</filename> or
@@ -112,6 +112,10 @@
     to <filename>/dev/null</filename> in
     <filename>/etc/tmpfiles.d/</filename> bearing the same filename.
     </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Configuration File Format</title>
 
     <para>The configuration format is one line per path containing
     type, path, mode, ownership, age, and argument fields:</para>
