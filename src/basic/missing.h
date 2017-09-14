@@ -606,12 +606,11 @@ struct input_mask {
 #else
 #define __O_TMPFILE     020000000
 #endif
+#endif
 
 /* a horrid kludge trying to make sure that this will fail on old kernels */
 #ifndef O_TMPFILE
 #define O_TMPFILE (__O_TMPFILE | O_DIRECTORY)
-#endif
-
 #endif
 
 #if !HAVE_DECL_LO_FLAGS_PARTSCAN
