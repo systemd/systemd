@@ -641,7 +641,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 r = sd_bus_message_append(m, "v", "i", (int32_t) q);
 
-        } else if (STR_IN_SET(field, "Environment", "PassEnvironment")) {
+        } else if (STR_IN_SET(field, "Environment", "UnsetEnvironment", "PassEnvironment")) {
                 const char *p;
 
                 r = sd_bus_message_open_container(m, 'v', "as");
@@ -666,6 +666,11 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         if (streq(field, "Environment")) {
                                 if (!env_assignment_is_valid(word)) {
                                         log_error("Invalid environment assignment: %s", word);
+                                        return -EINVAL;
+                                }
+                        } else if (streq(field, "UnsetEnvironment")) {
+                                if (!env_assignment_is_valid(word) && !env_name_is_valid(word)) {
+                                        log_error("Invalid environment name or assignment: %s", word);
                                         return -EINVAL;
                                 }
                         } else {  /* PassEnvironment */
