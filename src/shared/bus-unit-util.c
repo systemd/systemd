@@ -273,7 +273,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                               "Description", "Slice", "Type", "WorkingDirectory",
                               "RootDirectory", "SyslogIdentifier", "ProtectSystem",
                               "ProtectHome", "SELinuxContext", "Restart", "RootImage",
-                              "NotifyAccess", "RuntimeDirectoryPreserve", "Personality"))
+                              "NotifyAccess", "RuntimeDirectoryPreserve", "Personality",
+                              "KeyringMode"))
                 r = sd_bus_message_append(m, "v", "s", eq);
 
         else if (STR_IN_SET(field, "AppArmorProfile", "SmackProcessLabel")) {

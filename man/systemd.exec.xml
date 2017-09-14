@@ -1721,6 +1721,26 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>KeyringMode=</varname></term>
+
+        <listitem><para>Controls how the kernel session keyring is set up for the service (see <citerefentry
+        project='man-pages'><refentrytitle>session-keyring</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details on the session keyring). Takes one of <option>inherit</option>, <option>private</option>,
+        <option>shared</option>. If set to <option>inherit</option> no special keyring setup is done, and the kernel's
+        default behaviour is applied. If <option>private</option> is used a new session keyring is allocated when a
+        service process is invoked, and it is not linked up with any user keyring. This is the recommended setting for
+        system services, as this ensures that multiple services running under the same system user ID (in particular
+        the root user) do not share their key material among each other. If <option>shared</option> is used a new
+        session keyring is allocated as for <option>private</option>, but the user keyring of the user configured with
+        <varname>User=</varname> is linked into it, so that keys assigned to the user may be requested by the unit's
+        processes. In this modes multiple units running processes under the same user ID may share key material. Unless
+        <option>inherit</option> is selected the unique invocation ID for the unit (see below) is added as a protected
+        key by the name <literal>invocation_id</literal> to the newly created session keyring. Defaults to
+        <option>private</option> for the system service manager and to <option>inherit</option> for the user service
+        manager.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RuntimeDirectory=</varname></term>
 
         <listitem><para>Takes a whitespace-separated list of directory names. The specified directory names must be
