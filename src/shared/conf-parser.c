@@ -755,16 +755,17 @@ finalize:
         return 0;
 }
 
-int config_parse_strv(const char *unit,
-                      const char *filename,
-                      unsigned line,
-                      const char *section,
-                      unsigned section_line,
-                      const char *lvalue,
-                      int ltype,
-                      const char *rvalue,
-                      void *data,
-                      void *userdata) {
+int config_parse_strv(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         char ***sv = data;
         int r;
@@ -775,19 +776,7 @@ int config_parse_strv(const char *unit,
         assert(data);
 
         if (isempty(rvalue)) {
-                char **empty;
-
-                /* Empty assignment resets the list. As a special rule
-                 * we actually fill in a real empty array here rather
-                 * than NULL, since some code wants to know if
-                 * something was set at all... */
-                empty = new0(char*, 1);
-                if (!empty)
-                        return log_oom();
-
-                strv_free(*sv);
-                *sv = empty;
-
+                *sv = strv_free(*sv);
                 return 0;
         }
 
@@ -809,6 +798,7 @@ int config_parse_strv(const char *unit,
                         free(word);
                         continue;
                 }
+
                 r = strv_consume(sv, word);
                 if (r < 0)
                         return log_oom();
@@ -926,10 +916,14 @@ int config_parse_personality(
         assert(rvalue);
         assert(personality);
 
-        p = personality_from_string(rvalue);
-        if (p == PERSONALITY_INVALID) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse personality, ignoring: %s", rvalue);
-                return 0;
+        if (isempty(rvalue))
+                p = PERSONALITY_INVALID;
+        else {
+                p = personality_from_string(rvalue);
+                if (p == PERSONALITY_INVALID) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse personality, ignoring: %s", rvalue);
+                        return 0;
+                }
         }
 
         *personality = p;
