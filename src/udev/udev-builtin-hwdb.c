@@ -30,17 +30,32 @@
 #include "udev-util.h"
 #include "udev.h"
 
+/* this is used without locking because this builtin is accessed only by a single thread;
+ * the udevd Manager workers are fork()ed processes that each get their own copy of this builtin
+ */
 static sd_hwdb *hwdb;
+
+static int builtin_hwdb_init(struct udev *udev);
+static void builtin_hwdb_exit(struct udev *udev);
+
+static int builtin_hwdb_validate(struct udev *udev) {
+        if (hwdb_validate(hwdb)) {
+                builtin_hwdb_exit(udev);
+                return builtin_hwdb_init(udev);
+        }
+        return EXIT_SUCCESS;
+}
 
 int udev_builtin_hwdb_lookup(struct udev_device *dev,
                              const char *prefix, const char *modalias,
                              const char *filter, bool test) {
         _cleanup_free_ char *lookup = NULL;
         const char *key, *value;
-        int n = 0;
+        int n;
 
-        if (!hwdb)
-                return -ENOENT;
+        n = builtin_hwdb_validate(udev_device_get_udev(dev));
+        if (n)
+                return n;
 
         if (prefix) {
                 lookup = strjoin(prefix, modalias);
@@ -141,9 +156,6 @@ static int builtin_hwdb(struct udev_device *dev, int argc, char *argv[], bool te
         const char *prefix = NULL;
         _cleanup_udev_device_unref_ struct udev_device *srcdev = NULL;
 
-        if (!hwdb)
-                return EXIT_FAILURE;
-
         for (;;) {
                 int option;
 
@@ -193,8 +205,7 @@ static int builtin_hwdb(struct udev_device *dev, int argc, char *argv[], bool te
 static int builtin_hwdb_init(struct udev *udev) {
         int r;
 
-        if (hwdb)
-                return 0;
+        assert(!hwdb);
 
         r = sd_hwdb_new(&hwdb);
         if (r < 0)
@@ -208,16 +219,10 @@ static void builtin_hwdb_exit(struct udev *udev) {
         hwdb = sd_hwdb_unref(hwdb);
 }
 
-/* called every couple of seconds during event activity; 'true' if config has changed */
-static bool builtin_hwdb_validate(struct udev *udev) {
-        return hwdb_validate(hwdb);
-}
-
 const struct udev_builtin udev_builtin_hwdb = {
         .name = "hwdb",
         .cmd = builtin_hwdb,
         .init = builtin_hwdb_init,
         .exit = builtin_hwdb_exit,
-        .validate = builtin_hwdb_validate,
         .help = "Hardware database",
 };

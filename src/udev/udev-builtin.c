@@ -72,15 +72,6 @@ void udev_builtin_exit(struct udev *udev) {
         initialized = false;
 }
 
-bool udev_builtin_validate(struct udev *udev) {
-        unsigned int i;
-
-        for (i = 0; i < ELEMENTSOF(builtins); i++)
-                if (builtins[i] && builtins[i]->validate && builtins[i]->validate(udev))
-                        return true;
-        return false;
-}
-
 void udev_builtin_list(struct udev *udev) {
         unsigned int i;
 
