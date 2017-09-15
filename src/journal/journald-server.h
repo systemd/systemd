@@ -177,6 +177,8 @@ struct Server {
         ClientContext *pid1_context; /* the context of PID 1 */
 };
 
+#define BUFFER_SIZE (64 * 1024)
+
 #define SERVER_MACHINE_ID(s) ((s)->machine_id_field + strlen("_MACHINE_ID="))
 
 #define N_IOVEC_META_FIELDS 22

@@ -1096,7 +1096,7 @@ int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void 
 
         /* Fix it up, if it is too small. We use the same fixed value as auditd here. Awful! */
         m = PAGE_ALIGN(MAX3((size_t) v + 1,
-                            (size_t) LINE_MAX,
+                            (size_t) BUFFER_SIZE,
                             ALIGN(sizeof(struct nlmsghdr)) + ALIGN((size_t) MAX_AUDIT_MESSAGE_LENGTH)) + 1);
 
         if (!GREEDY_REALLOC(s->buffer, s->buffer_size, m))

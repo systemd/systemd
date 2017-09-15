@@ -82,7 +82,7 @@ struct StdoutStream {
         bool fdstore:1;
         bool in_notify_queue:1;
 
-        char buffer[LINE_MAX+1];
+        char buffer[BUFFER_SIZE];
         size_t length;
 
         sd_event_source *event_source;
