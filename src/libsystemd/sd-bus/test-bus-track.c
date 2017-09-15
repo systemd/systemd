@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
         r = sd_event_default(&event);
         assert_se(r >= 0);
 
-        r = sd_bus_open_system(&a);
+        r = sd_bus_open_user(&a);
         if (IN_SET(r, -ECONNREFUSED, -ENOENT)) {
                 log_info("Failed to connect to bus, skipping tests.");
                 return EXIT_TEST_SKIP;
@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
         r = sd_bus_attach_event(a, event, SD_EVENT_PRIORITY_NORMAL);
         assert_se(r >= 0);
 
-        r = sd_bus_open_system(&b);
+        r = sd_bus_open_user(&b);
         assert_se(r >= 0);
 
         r = sd_bus_attach_event(b, event, SD_EVENT_PRIORITY_NORMAL);
