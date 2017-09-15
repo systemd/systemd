@@ -753,16 +753,6 @@
         considered clean service terminations.
         </para>
 
-        <para>Note that if a process has a signal handler installed
-        and exits by calling
-        <citerefentry><refentrytitle>_exit</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        in response to a signal, the information about the signal is
-        lost. Programs should instead perform cleanup and kill
-        themselves with the same signal instead. See
-        <ulink url="http://www.cons.org/cracauer/sigint.html">Proper
-        handling of SIGINT/SIGQUIT — How to be a proper
-        program</ulink>.</para>
-
         <para>This option may appear more than once, in which case the
         list of successful exit statuses is merged. If the empty
         string is assigned to this option, the list is reset, all
