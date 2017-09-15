@@ -64,13 +64,30 @@
     networks, see
     <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-    <para>Network configurations applied before networkd is started
-    are not removed, and static configuration applied by networkd is
-    not removed when networkd exits. Dynamic configuration applied by
-    networkd may also optionally be left in place on shutdown. This
-    ensures restarting networkd does not cut the network connection,
-    and, in particular, that it is safe to transition between the
-    initrd and the real root, and back.</para>
+    <para><command>systemd-networkd</command> will create network devices based
+    on the configuration in
+    <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    files, respecting the [Match] sections in those files.</para>
+
+    <para><command>systemd-networkd</command> will manage network addresses and
+    routes for any link for which it finds a <filename>.network</filename> file
+    with an appropriate [Match] section, see
+    <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    For those links, it will flush existing network addresses and routes when
+    bringing up the device. Any links not matched by one of the
+    <filename>.network</filename> files will be ignored. It is also possible to
+    explicitly tell <filename>systemd-networkd</filename> to ignore a link by
+    using <varname>Unmanaged=yes</varname> option, see
+    <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para>When <filename>systemd-networkd</filename> exits, it generally leaves
+    existing network devices and configuration intact. This makes it possible to
+    transition from the initrams and to restart the service without breaking
+    connectivity. This also means that when configuration is updated and
+    <filename>systemd-networkd</filename> is restarted, netdev interfaces for
+    which configuration was removed will not be dropped, and may need to be
+    cleaned up manually.</para>
   </refsect1>
 
   <refsect1><title>Configuration Files</title>
