@@ -16,6 +16,11 @@ CHANGES WITH 235:
           respectively. They complement the existing "set-log-level" and
           "set-log-target" verbs, which can be used to change those values.
 
+        * systemd-networkd .network DHCP setting UseMTU default has changed
+          from false to true. Meaning, DHCP server advertised mtu setting is
+          now applied by default. This resolves networking issues on low-mtu
+          networks.
+
 CHANGES WITH 234:
 
         * Meson is now supported as build system in addition to Automake. It is
