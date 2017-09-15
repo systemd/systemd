@@ -169,6 +169,8 @@ struct Server {
 
         usec_t last_realtime_clock;
 
+        size_t line_max;
+
         /* Caching of client metadata */
         Hashmap *client_contexts;
         Prioq *client_contexts_lru;
@@ -192,6 +194,7 @@ void server_driver_message(Server *s, const char *message_id, const char *format
 const struct ConfigPerfItem* journald_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
 int config_parse_storage(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_line_max(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
 const char *storage_to_string(Storage s) _const_;
 Storage storage_from_string(const char *s) _pure_;

@@ -63,6 +63,16 @@ typedef enum StdoutStreamState {
         STDOUT_STREAM_RUNNING
 } StdoutStreamState;
 
+/* The different types of log record terminators: a real \n was read, a NUL character was read, the maximum line length
+ * was reached, or the end of the stream was reached */
+
+typedef enum LineBreak {
+        LINE_BREAK_NEWLINE,
+        LINE_BREAK_NUL,
+        LINE_BREAK_LINE_MAX,
+        LINE_BREAK_EOF,
+} LineBreak;
+
 struct StdoutStream {
         Server *server;
         StdoutStreamState state;
@@ -82,8 +92,9 @@ struct StdoutStream {
         bool fdstore:1;
         bool in_notify_queue:1;
 
-        char buffer[LINE_MAX+1];
+        char *buffer;
         size_t length;
+        size_t allocated;
 
         sd_event_source *event_source;
 
@@ -93,6 +104,8 @@ struct StdoutStream {
 
         LIST_FIELDS(StdoutStream, stdout_stream);
         LIST_FIELDS(StdoutStream, stdout_stream_notify_queue);
+
+        char id_field[sizeof("_STREAM_ID=")-1 + SD_ID128_STRING_MAX];
 };
 
 void stdout_stream_free(StdoutStream *s) {
@@ -122,6 +135,7 @@ void stdout_stream_free(StdoutStream *s) {
         free(s->identifier);
         free(s->unit_id);
         free(s->state_file);
+        free(s->buffer);
 
         free(s);
 }
@@ -172,12 +186,14 @@ static int stdout_stream_save(StdoutStream *s) {
                 "LEVEL_PREFIX=%i\n"
                 "FORWARD_TO_SYSLOG=%i\n"
                 "FORWARD_TO_KMSG=%i\n"
-                "FORWARD_TO_CONSOLE=%i\n",
+                "FORWARD_TO_CONSOLE=%i\n"
+                "STREAM_ID=%s\n",
                 s->priority,
                 s->level_prefix,
                 s->forward_to_syslog,
                 s->forward_to_kmsg,
-                s->forward_to_console);
+                s->forward_to_console,
+                s->id_field + strlen("_STREAM_ID="));
 
         if (!isempty(s->identifier)) {
                 _cleanup_free_ char *escaped;
@@ -234,8 +250,8 @@ fail:
         return log_error_errno(r, "Failed to save stream data %s: %m", s->state_file);
 }
 
-static int stdout_stream_log(StdoutStream *s, const char *p) {
-        struct iovec iovec[N_IOVEC_META_FIELDS + 5];
+static int stdout_stream_log(StdoutStream *s, const char *p, LineBreak line_break) {
+        struct iovec iovec[N_IOVEC_META_FIELDS + 7];
         int priority;
         char syslog_priority[] = "PRIORITY=\0";
         char syslog_facility[sizeof("SYSLOG_FACILITY=")-1 + DECIMAL_STR_MAX(int) + 1];
@@ -268,6 +284,8 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
 
         IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=stdout");
 
+        IOVEC_SET_STRING(iovec[n++], s->id_field);
+
         syslog_priority[strlen("PRIORITY=")] = '0' + LOG_PRI(priority);
         IOVEC_SET_STRING(iovec[n++], syslog_priority);
 
@@ -280,6 +298,18 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
                 syslog_identifier = strappend("SYSLOG_IDENTIFIER=", s->identifier);
                 if (syslog_identifier)
                         IOVEC_SET_STRING(iovec[n++], syslog_identifier);
+        }
+
+        if (line_break != LINE_BREAK_NEWLINE) {
+                const char *c;
+
+                /* If this log message was generated due to an uncommon line break then mention this in the log
+                 * entry */
+
+                c =     line_break == LINE_BREAK_NUL ?      "_LINE_BREAK=nul" :
+                        line_break == LINE_BREAK_LINE_MAX ? "_LINE_BREAK=line-max" :
+                                                            "_LINE_BREAK=eof";
+                IOVEC_SET_STRING(iovec[n++], c);
         }
 
         message = strappend("MESSAGE=", p);
@@ -298,7 +328,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         return 0;
 }
 
-static int stdout_stream_line(StdoutStream *s, char *p) {
+static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
         int r;
         char *orig;
 
@@ -307,6 +337,12 @@ static int stdout_stream_line(StdoutStream *s, char *p) {
 
         orig = p;
         p = strstrip(p);
+
+        /* line breaks by NUL, line max length or EOF are not permissible during the negotiation part of the protocol */
+        if (line_break != LINE_BREAK_NEWLINE && s->state != STDOUT_STREAM_RUNNING) {
+                log_warning("Control protocol line not properly terminated.");
+                return -EINVAL;
+        }
 
         switch (s->state) {
 
@@ -390,7 +426,7 @@ static int stdout_stream_line(StdoutStream *s, char *p) {
                 return 0;
 
         case STDOUT_STREAM_RUNNING:
-                return stdout_stream_log(s, orig);
+                return stdout_stream_log(s, orig, line_break);
         }
 
         assert_not_reached("Unknown stream state");
@@ -409,21 +445,31 @@ static int stdout_stream_scan(StdoutStream *s, bool force_flush) {
         /* XXX: This function does nothing if (s->length == 0) */
 
         for (;;) {
-                char *end;
+                LineBreak line_break;
                 size_t skip;
+                char *end1, *end2;
 
-                end = memchr(p, '\n', remaining);
-                if (end)
-                        skip = end - p + 1;
-                else if (remaining >= sizeof(s->buffer) - 1) {
-                        end = p + sizeof(s->buffer) - 1;
+                end1 = memchr(p, '\n', remaining);
+                end2 = memchr(p, 0, end1 ? (size_t) (end1 - p) : remaining);
+
+                if (end2) {
+                        /* We found a NUL terminator */
+                        skip = end2 - p + 1;
+                        line_break = LINE_BREAK_NUL;
+                } else if (end1) {
+                        /* We found a \n terminator */
+                        *end1 = 0;
+                        skip = end1 - p + 1;
+                        line_break = LINE_BREAK_NEWLINE;
+                } else if (remaining >= s->server->line_max) {
+                        /* Force a line break after the maximum line length */
+                        *(p + s->server->line_max) = 0;
                         skip = remaining;
+                        line_break = LINE_BREAK_LINE_MAX;
                 } else
                         break;
 
-                *end = 0;
-
-                r = stdout_stream_line(s, p);
+                r = stdout_stream_line(s, p, line_break);
                 if (r < 0)
                         return r;
 
@@ -433,7 +479,7 @@ static int stdout_stream_scan(StdoutStream *s, bool force_flush) {
 
         if (force_flush && remaining > 0) {
                 p[remaining] = 0;
-                r = stdout_stream_line(s, p);
+                r = stdout_stream_line(s, p, LINE_BREAK_EOF);
                 if (r < 0)
                         return r;
 
@@ -451,6 +497,7 @@ static int stdout_stream_scan(StdoutStream *s, bool force_flush) {
 
 static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
         StdoutStream *s = userdata;
+        size_t limit;
         ssize_t l;
         int r;
 
@@ -461,9 +508,20 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
                 goto terminate;
         }
 
-        l = read(s->fd, s->buffer+s->length, sizeof(s->buffer)-1-s->length);
-        if (l < 0) {
+        /* If the buffer is full already (discounting the extra NUL we need), add room for another 1K */
+        if (s->length + 1 >= s->allocated) {
+                if (!GREEDY_REALLOC(s->buffer, s->allocated, s->length + 1 + 1024)) {
+                        log_oom();
+                        goto terminate;
+                }
+        }
 
+        /* Try to make use of the allocated buffer in full, but never read more than the configured line size. Also,
+         * always leave room for a terminating NUL we might need to add. */
+        limit = MIN(s->allocated - 1, s->server->line_max);
+
+        l = read(s->fd, s->buffer + s->length, limit - s->length);
+        if (l < 0) {
                 if (errno == EAGAIN)
                         return 0;
 
@@ -490,10 +548,15 @@ terminate:
 
 static int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
         _cleanup_(stdout_stream_freep) StdoutStream *stream = NULL;
+        sd_id128_t id;
         int r;
 
         assert(s);
         assert(fd >= 0);
+
+        r = sd_id128_randomize(&id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate stream ID: %m");
 
         stream = new0(StdoutStream, 1);
         if (!stream)
@@ -501,6 +564,8 @@ static int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
 
         stream->fd = -1;
         stream->priority = LOG_INFO;
+
+        xsprintf(stream->id_field, "_STREAM_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(id));
 
         r = getpeercred(fd, &stream->ucred);
         if (r < 0)
@@ -575,7 +640,8 @@ static int stdout_stream_load(StdoutStream *stream, const char *fname) {
                 *level_prefix = NULL,
                 *forward_to_syslog = NULL,
                 *forward_to_kmsg = NULL,
-                *forward_to_console = NULL;
+                *forward_to_console = NULL,
+                *stream_id = NULL;
         int r;
 
         assert(stream);
@@ -595,6 +661,7 @@ static int stdout_stream_load(StdoutStream *stream, const char *fname) {
                            "FORWARD_TO_CONSOLE", &forward_to_console,
                            "IDENTIFIER", &stream->identifier,
                            "UNIT", &stream->unit_id,
+                           "STREAM_ID", &stream_id,
                            NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to read: %s", stream->state_file);
@@ -629,6 +696,14 @@ static int stdout_stream_load(StdoutStream *stream, const char *fname) {
                 r = parse_boolean(forward_to_console);
                 if (r >= 0)
                         stream->forward_to_console = r;
+        }
+
+        if (stream_id) {
+                sd_id128_t id;
+
+                r = sd_id128_from_string(stream_id, &id);
+                if (r >= 0)
+                        xsprintf(stream->id_field, "_STREAM_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(id));
         }
 
         return 0;
