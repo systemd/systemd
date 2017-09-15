@@ -1160,13 +1160,13 @@ static int method_terminate_seat(sd_bus_message *message, void *userdata, sd_bus
 }
 
 static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         _cleanup_free_ char *cc = NULL;
         Manager *m = userdata;
         int r, b, interactive;
         struct passwd *pw;
         const char *path;
-        uint32_t uid;
-        bool self = false;
+        uint32_t uid, auth_uid;
 
         assert(message);
         assert(m);
@@ -1175,22 +1175,23 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID |
+                                               SD_BUS_CREDS_OWNER_UID|SD_BUS_CREDS_AUGMENT, &creds);
+        if (r < 0)
+                return r;
+
         if (!uid_is_valid(uid)) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-
-                /* Note that we get the owner UID of the session, not the actual client UID here! */
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_OWNER_UID|SD_BUS_CREDS_AUGMENT, &creds);
-                if (r < 0)
-                        return r;
-
+                /* Note that we get the owner UID of the session or user unit,
+                 * not the actual client UID here! */
                 r = sd_bus_creds_get_owner_uid(creds, &uid);
                 if (r < 0)
                         return r;
+        }
 
-                self = true;
-
-        } else if (!uid_is_valid(uid))
-                return -EINVAL;
+        /* owner_uid is racy, so for authorization we must use euid */
+        r = sd_bus_creds_get_euid(creds, &auth_uid);
+        if (r < 0)
+                return r;
 
         errno = 0;
         pw = getpwuid(uid);
@@ -1200,7 +1201,8 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
         r = bus_verify_polkit_async(
                         message,
                         CAP_SYS_ADMIN,
-                        self ? "org.freedesktop.login1.set-self-linger" : "org.freedesktop.login1.set-user-linger",
+                        uid == auth_uid ? "org.freedesktop.login1.set-self-linger" :
+                                          "org.freedesktop.login1.set-user-linger",
                         NULL,
                         interactive,
                         UID_INVALID,
