@@ -26,12 +26,14 @@
 
 #include "macro.h"
 #include "alloc-util.h"
+#include "dns-domain.h"
 #include "fd-util.h"
 #include "icmp6-util.h"
 #include "in-addr-util.h"
 #include "radv-internal.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "util.h"
 #include "random-util.h"
 
@@ -201,6 +203,12 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst,
         if (ra->rdnss) {
                 iov[msg.msg_iovlen].iov_base = ra->rdnss;
                 iov[msg.msg_iovlen].iov_len = ra->rdnss->length * 8;
+                msg.msg_iovlen++;
+        }
+
+        if (ra->dnssl) {
+                iov[msg.msg_iovlen].iov_base = ra->dnssl;
+                iov[msg.msg_iovlen].iov_len = ra->dnssl->length * 8;
                 msg.msg_iovlen++;
         }
 
@@ -586,6 +594,58 @@ _public_ int sd_radv_set_rdnss(sd_radv *ra, uint32_t lifetime,
         opt_rdnss = NULL;
 
         ra->n_rdnss = n_dns;
+
+        return 0;
+}
+
+_public_ int sd_radv_set_dnssl(sd_radv *ra, uint32_t lifetime,
+                               char **search_list) {
+        _cleanup_free_ struct sd_radv_opt_dns *opt_dnssl = NULL;
+        size_t len = 0;
+        char **s;
+        uint8_t *p;
+
+        assert_return(ra, -EINVAL);
+
+        if (!search_list || *search_list == NULL) {
+                ra->dnssl = mfree(ra->dnssl);
+
+                return 0;
+        }
+
+        STRV_FOREACH(s, search_list)
+                len += strlen(*s) + 2;
+
+        len = (sizeof(struct sd_radv_opt_dns) + len + 7) & ~0x7;
+
+        opt_dnssl = malloc0(len);
+        if (!opt_dnssl)
+                return -ENOMEM;
+
+        opt_dnssl->type = SD_RADV_OPT_DNSSL;
+        opt_dnssl->length = len / 8;
+        opt_dnssl->lifetime = htobe32(lifetime);
+
+        p = (uint8_t *)(opt_dnssl + 1);
+        len -= sizeof(struct sd_radv_opt_dns);
+
+        STRV_FOREACH(s, search_list) {
+                int r;
+
+                r = dns_name_to_wire_format(*s, p, len, false);
+                if (r < 0)
+                        return r;
+
+                if (len < (size_t)r)
+                        return -ENOBUFS;
+
+                p += r;
+                len -= r;
+        }
+
+        free(ra->dnssl);
+        ra->dnssl = opt_dnssl;
+        opt_dnssl = NULL;
 
         return 0;
 }

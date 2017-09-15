@@ -57,7 +57,7 @@ static uint8_t advertisement[] = {
         0x19, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3c,
         0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
-        /* DNS Search List Option - not yet supported */
+        /* DNS Search List Option */
         0x1f, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3c,
         0x03, 0x6c, 0x61, 0x62, 0x05, 0x69, 0x6e, 0x74,
         0x72, 0x61, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -110,6 +110,8 @@ static const struct in6_addr test_rdnss = { { { 0x20, 0x01, 0x0d, 0xb8,
                                                 0xde, 0xad, 0xbe, 0xef,
                                                 0x00, 0x00, 0x00, 0x00,
                                                 0x00, 0x00, 0x00, 0x01 } } };
+static const char *test_dnssl[] = { "lab.intra",
+                                    NULL };
 
 static int test_rs_hangcheck(sd_event_source *s, uint64_t usec,
                              void *userdata) {
@@ -220,6 +222,11 @@ static void test_radv(void) {
         assert_se(sd_radv_set_rdnss(ra, 0, &test_rdnss, 1) >= 0);
         assert_se(sd_radv_set_rdnss(ra, 0, NULL, 0) >= 0);
 
+        assert_se(sd_radv_set_dnssl(ra, 0, NULL) >= 0);
+        assert_se(sd_radv_set_dnssl(ra, 600, NULL) >= 0);
+        assert_se(sd_radv_set_dnssl(ra, 0, (char **)test_dnssl) >= 0);
+        assert_se(sd_radv_set_dnssl(ra, 600, (char **)test_dnssl) >= 0);
+
         ra = sd_radv_unref(ra);
         assert_se(!ra);
 }
@@ -251,7 +258,7 @@ int icmp6_receive(int fd, void *iov_base, size_t iov_len,
 
 static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         sd_radv *ra = userdata;
-        unsigned char buf[144];
+        unsigned char buf[168];
         size_t i;
 
         read(test_fd[0], &buf, sizeof(buf));
@@ -319,6 +326,7 @@ static void test_ra(void) {
         assert_se(sd_radv_set_managed_information(ra, true) >= 0);
         assert_se(sd_radv_set_other_information(ra, true) >= 0);
         assert_se(sd_radv_set_rdnss(ra, 60, &test_rdnss, 1) >= 0);
+        assert_se(sd_radv_set_dnssl(ra, 60, (char **)test_dnssl) >= 0);
 
         for (i = 0; i < ELEMENTSOF(prefix); i++) {
                 sd_radv_prefix *p;

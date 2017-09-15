@@ -36,6 +36,7 @@ assert_cc(SD_RADV_DEFAULT_MIN_TIMEOUT_USEC <= SD_RADV_DEFAULT_MAX_TIMEOUT_USEC)
 #define SD_RADV_MAX_RA_DELAY_TIME_USEC          (500*USEC_PER_MSEC)
 
 #define SD_RADV_OPT_RDNSS                       25
+#define SD_RADV_OPT_DNSSL                       31
 
 enum RAdvState {
         SD_RADV_STATE_IDLE                      = 0,
@@ -75,6 +76,7 @@ struct sd_radv {
 
         size_t n_rdnss;
         struct sd_radv_opt_dns *rdnss;
+        struct sd_radv_opt_dns *dnssl;
 };
 
 struct sd_radv_prefix {

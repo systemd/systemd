@@ -35,6 +35,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "util.h"
 
 static void network_config_hash_func(const void *p, struct siphash *state) {
@@ -1122,6 +1123,55 @@ int config_parse_radv_dns(
                 } else
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse DNS server address, ignoring: %s", w);
 
+        }
+
+        return 0;
+}
+
+int config_parse_radv_search_domains(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *n = data;
+        const char *p = rvalue;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        for (;;) {
+                _cleanup_free_ char *w = NULL;
+                _cleanup_free_ char *idna = NULL;
+
+                r = extract_first_word(&p, &w, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract word, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        break;
+
+                r = dns_name_apply_idna(w, &idna);
+                if (r > 0) {
+                        r = strv_push(&n->router_search_domains, idna);
+                        if (r >= 0)
+                                idna = NULL;
+                } else if (r == 0) {
+                        r = strv_push(&n->router_search_domains, w);
+                        if (r >= 0)
+                                w = NULL;
+                }
         }
 
         return 0;

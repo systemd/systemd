@@ -85,5 +85,14 @@ int radv_configure(Link *link) {
                         return r;
         }
 
+        if (link->network->router_search_domains) {
+                r = sd_radv_set_dnssl(link->radv,
+                                      DIV_ROUND_UP(link->network->router_dns_lifetime_usec,
+                                                   USEC_PER_SEC),
+                                      link->network->router_search_domains);
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 }
