@@ -1127,8 +1127,7 @@ Manager* manager_free(Manager *m) {
                 if (unit_vtable[c]->shutdown)
                         unit_vtable[c]->shutdown(m);
 
-        /* If we reexecute ourselves, we keep the root cgroup
-         * around */
+        /* If we reexecute ourselves, we keep the root cgroup around */
         manager_shutdown_cgroup(m, m->exit_code != MANAGER_REEXECUTE);
 
         lookup_paths_flush_generator(&m->lookup_paths);
@@ -1311,7 +1310,11 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         assert(m);
 
-        r = lookup_paths_init(&m->lookup_paths, m->unit_file_scope, 0, NULL);
+        /* If we are running in test mode, we still want to run the generators,
+         * but we should not touch the real generator directories. */
+        r = lookup_paths_init(&m->lookup_paths, m->unit_file_scope,
+                              m->test_run ? LOOKUP_PATHS_TEMPORARY_GENERATED : 0,
+                              NULL);
         if (r < 0)
                 return r;
 
@@ -1319,12 +1322,11 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         if (r < 0)
                 return r;
 
-        /* Make sure the transient directory always exists, so that it remains in the search path */
-        if (!m->test_run) {
-                r = mkdir_p_label(m->lookup_paths.transient, 0755);
-                if (r < 0)
-                        return r;
-        }
+        /* Make sure the transient directory always exists, so that it remains
+         * in the search path */
+        r = mkdir_p_label(m->lookup_paths.transient, 0755);
+        if (r < 0)
+                return r;
 
         dual_timestamp_get(&m->generators_start_timestamp);
         r = manager_run_generators(m);
@@ -1332,7 +1334,10 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         if (r < 0)
                 return r;
 
-        if (m->first_boot && m->unit_file_scope == UNIT_FILE_SYSTEM) {
+        if (m->first_boot > 0 &&
+            m->unit_file_scope == UNIT_FILE_SYSTEM &&
+            !m->test_run) {
+
                 q = unit_file_preset_all(UNIT_FILE_SYSTEM, 0, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, NULL, 0);
                 if (q < 0)
                         log_full_errno(q == -EEXIST ? LOG_NOTICE : LOG_WARNING, q, "Failed to populate /etc with preset unit settings, ignoring: %m");
@@ -3143,9 +3148,6 @@ static int manager_run_environment_generators(Manager *m) {
         const char **paths;
         void* args[] = {&tmp, &tmp, &m->environment};
 
-        if (m->test_run)
-                return 0;
-
         paths = MANAGER_IS_SYSTEM(m) ? system_env_generator_binary_paths : user_env_generator_binary_paths;
 
         if (!generator_path_any(paths))
@@ -3160,9 +3162,6 @@ static int manager_run_generators(Manager *m) {
         int r;
 
         assert(m);
-
-        if (m->test_run)
-                return 0;
 
         paths = generator_binary_paths(m->unit_file_scope);
         if (!paths)
