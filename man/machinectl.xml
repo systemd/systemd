@@ -819,7 +819,7 @@
         qcow2 or raw disk image, possibly compressed with xz, gzip or
         bzip2. If the second argument (the resulting image name) is
         not specified, it is automatically derived from the file
-        name. If the file name is passed as <literal>-</literal>, the
+        name. If the filename is passed as <literal>-</literal>, the
         image is read from standard input, in which case the second
         argument is mandatory.</para>
 
