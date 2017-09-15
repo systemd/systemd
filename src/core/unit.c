@@ -162,8 +162,12 @@ static void unit_init(Unit *u) {
         }
 
         ec = unit_get_exec_context(u);
-        if (ec)
+        if (ec) {
                 exec_context_init(ec);
+
+                ec->keyring_mode = MANAGER_IS_SYSTEM(u->manager) ?
+                        EXEC_KEYRING_PRIVATE : EXEC_KEYRING_INHERIT;
+        }
 
         kc = unit_get_kill_context(u);
         if (kc)

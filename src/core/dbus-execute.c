@@ -53,12 +53,11 @@
 #include "utf8.h"
 
 BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_exec_output, exec_output, ExecOutput);
-
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_exec_input, exec_input, ExecInput);
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_exec_utmp_mode, exec_utmp_mode, ExecUtmpMode);
-
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_exec_preserve_mode, exec_preserve_mode, ExecPreserveMode);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_exec_keyring_mode, exec_keyring_mode, ExecKeyringMode);
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_protect_home, protect_home, ProtectHome);
 static BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_protect_system, protect_system, ProtectSystem);
@@ -873,6 +872,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("BindPaths", "a(ssbt)", property_get_bind_paths, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("BindReadOnlyPaths", "a(ssbt)", property_get_bind_paths, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MountAPIVFS", "b", bus_property_get_bool, offsetof(ExecContext, mount_apivfs), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("KeyringMode", "s", property_get_exec_keyring_mode, offsetof(ExecContext, keyring_mode), SD_BUS_VTABLE_PROPERTY_CONST),
 
         /* Obsolete/redundant properties: */
         SD_BUS_PROPERTY("Capabilities", "s", property_get_empty_string, 0, SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
@@ -2135,6 +2135,27 @@ int bus_exec_context_set_transient_property(
                 if (mode != UNIT_CHECK) {
                         c->protect_home = ph;
                         unit_write_drop_in_private_format(u, mode, name, "%s=%s", name, s);
+                }
+
+                return 1;
+
+        } else if (streq(name, "KeyringMode")) {
+
+                const char *s;
+                ExecKeyringMode m;
+
+                r = sd_bus_message_read(message, "s", &s);
+                if (r < 0)
+                        return r;
+
+                m = exec_keyring_mode_from_string(s);
+                if (m < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid key ring mode");
+
+                if (mode != UNIT_CHECK) {
+                        c->keyring_mode = m;
+
+                        unit_write_drop_in_private_format(u, mode, name, "KeyringMode=%s", exec_keyring_mode_to_string(m));
                 }
 
                 return 1;

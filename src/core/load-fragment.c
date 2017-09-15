@@ -4163,6 +4163,8 @@ int config_parse_protect_system(
         return 0;
 }
 
+DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_keyring_mode, exec_keyring_mode, ExecKeyringMode, "Failed to parse keyring mode");
+
 #define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {

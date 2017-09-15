@@ -170,6 +170,7 @@ static int create_disk(
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"
                 "TimeoutSec=0\n" /* the binary handles timeouts anyway */
+                "KeyringMode=shared\n" /* make sure we can share cached keys among instances */
                 "ExecStart=" SYSTEMD_CRYPTSETUP_PATH " attach '%s' '%s' '%s' '%s'\n"
                 "ExecStop=" SYSTEMD_CRYPTSETUP_PATH " detach '%s'\n",
                 name, u, strempty(password), strempty(filtered),

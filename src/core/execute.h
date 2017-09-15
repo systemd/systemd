@@ -80,6 +80,14 @@ typedef enum ExecPreserveMode {
         _EXEC_PRESERVE_MODE_INVALID = -1
 } ExecPreserveMode;
 
+typedef enum ExecKeyringMode {
+        EXEC_KEYRING_INHERIT,
+        EXEC_KEYRING_PRIVATE,
+        EXEC_KEYRING_SHARED,
+        _EXEC_KEYRING_MODE_MAX,
+        _EXEC_KEYRING_MODE_INVALID = -1,
+} ExecKeyringMode;
+
 struct ExecStatus {
         dual_timestamp start_timestamp;
         dual_timestamp exit_timestamp;
@@ -188,6 +196,8 @@ struct ExecContext {
 
         bool smack_process_label_ignore;
         char *smack_process_label;
+
+        ExecKeyringMode keyring_mode;
 
         char **read_write_paths, **read_only_paths, **inaccessible_paths;
         unsigned long mount_flags;
@@ -367,6 +377,9 @@ ExecUtmpMode exec_utmp_mode_from_string(const char *s) _pure_;
 
 const char* exec_preserve_mode_to_string(ExecPreserveMode i) _const_;
 ExecPreserveMode exec_preserve_mode_from_string(const char *s) _pure_;
+
+const char* exec_keyring_mode_to_string(ExecKeyringMode i) _const_;
+ExecKeyringMode exec_keyring_mode_from_string(const char *s) _pure_;
 
 const char* exec_directory_type_to_string(ExecDirectoryType i) _const_;
 ExecDirectoryType exec_directory_type_from_string(const char *s) _pure_;

@@ -2163,10 +2163,17 @@ static int apply_working_directory(
         return 0;
 }
 
-static int setup_keyring(Unit *u, const ExecParameters *p, uid_t uid, gid_t gid) {
+static int setup_keyring(
+                Unit *u,
+                const ExecContext *context,
+                const ExecParameters *p,
+                uid_t uid, gid_t gid) {
+
         key_serial_t keyring;
+        int r;
 
         assert(u);
+        assert(context);
         assert(p);
 
         /* Let's set up a new per-service "session" kernel keyring for each system service. This has the benefit that
@@ -2177,6 +2184,9 @@ static int setup_keyring(Unit *u, const ExecParameters *p, uid_t uid, gid_t gid)
          * UIDs are not necessarily specific to a service but reused (at least in the case of UID 0). */
 
         if (!(p->flags & EXEC_NEW_KEYRING))
+                return 0;
+
+        if (context->keyring_mode == EXEC_KEYRING_INHERIT)
                 return 0;
 
         keyring = keyctl(KEYCTL_JOIN_SESSION_KEYRING, 0, 0, 0, 0);
@@ -2212,6 +2222,55 @@ static int setup_keyring(Unit *u, const ExecParameters *p, uid_t uid, gid_t gid)
         if (uid_is_valid(uid) || gid_is_valid(gid))
                 if (keyctl(KEYCTL_CHOWN, keyring, uid, gid, 0) < 0)
                         return log_error_errno(errno, "Failed to change ownership of session keyring: %m");
+
+        /* When requested link the user keyring into the session keyring. */
+        if (context->keyring_mode == EXEC_KEYRING_SHARED) {
+                uid_t saved_uid;
+                gid_t saved_gid;
+
+                /* Acquiring a reference to the user keyring is nasty. We briefly change identity in order to get things
+                 * set up properly by the kernel. If we don't do that then we can't create it atomically, and that
+                 * sucks for parallel execution. This mimics what pam_keyinit does, too.*/
+
+                saved_uid = getuid();
+                saved_gid = getgid();
+
+                if (gid_is_valid(gid) && gid != saved_gid) {
+                        if (setregid(gid, -1) < 0)
+                                return log_error_errno(errno, "Failed to change GID for user keyring: %m");
+                }
+
+                if (uid_is_valid(uid) && uid != saved_uid) {
+                        if (setreuid(uid, -1) < 0) {
+                                (void) setregid(saved_gid, -1);
+                                return log_error_errno(errno, "Failed to change UID for user keyring: %m");
+                        }
+                }
+
+                if (keyctl(KEYCTL_LINK,
+                           KEY_SPEC_USER_KEYRING,
+                           KEY_SPEC_SESSION_KEYRING, 0, 0) < 0) {
+
+                        r = -errno;
+
+                        (void) setreuid(saved_uid, -1);
+                        (void) setregid(saved_gid, -1);
+
+                        return log_error_errno(r, "Failed to link user keyring into session keyring: %m");
+                }
+
+                if (uid_is_valid(uid) && uid != saved_uid) {
+                        if (setreuid(saved_uid, -1) < 0) {
+                                (void) setregid(saved_gid, -1);
+                                return log_error_errno(errno, "Failed to change UID back for user keyring: %m");
+                        }
+                }
+
+                if (gid_is_valid(gid) && gid != saved_gid) {
+                        if (setregid(saved_gid, -1) < 0)
+                                return log_error_errno(errno, "Failed to change GID back for user keyring: %m");
+                }
+       }
 
         return 0;
 }
@@ -2717,7 +2776,7 @@ static int exec_child(
 
         (void) umask(context->umask);
 
-        r = setup_keyring(unit, params, uid, gid);
+        r = setup_keyring(unit, context, params, uid, gid);
         if (r < 0) {
                 *exit_status = EXIT_KEYRING;
                 *error_message = strdup("Failed to set up kernel keyring");
@@ -3595,7 +3654,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sMountAPIVFS: %s\n"
                 "%sIgnoreSIGPIPE: %s\n"
                 "%sMemoryDenyWriteExecute: %s\n"
-                "%sRestrictRealtime: %s\n",
+                "%sRestrictRealtime: %s\n"
+                "%sKeyringMode: %s\n",
                 prefix, c->umask,
                 prefix, c->working_directory ? c->working_directory : "/",
                 prefix, c->root_directory ? c->root_directory : "/",
@@ -3612,7 +3672,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->mount_apivfs),
                 prefix, yes_no(c->ignore_sigpipe),
                 prefix, yes_no(c->memory_deny_write_execute),
-                prefix, yes_no(c->restrict_realtime));
+                prefix, yes_no(c->restrict_realtime),
+                prefix, exec_keyring_mode_to_string(c->keyring_mode));
 
         if (c->root_image)
                 fprintf(f, "%sRootImage: %s\n", prefix, c->root_image);
@@ -4392,3 +4453,11 @@ static const char* const exec_directory_type_table[_EXEC_DIRECTORY_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_directory_type, ExecDirectoryType);
+
+static const char* const exec_keyring_mode_table[_EXEC_KEYRING_MODE_MAX] = {
+        [EXEC_KEYRING_INHERIT] = "inherit",
+        [EXEC_KEYRING_PRIVATE] = "private",
+        [EXEC_KEYRING_SHARED] = "shared",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(exec_keyring_mode, ExecKeyringMode);
