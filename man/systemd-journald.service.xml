@@ -70,19 +70,18 @@
     <itemizedlist>
       <listitem><para>Kernel log messages, via kmsg</para></listitem>
 
-      <listitem><para>Simple system log messages, via the libc
-      <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      <listitem><para>Simple system log messages, via the <filename>libc</filename> <citerefentry
+      project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
       call</para></listitem>
 
       <listitem><para>Structured system log messages via the native
       Journal API, see
       <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>4</manvolnum></citerefentry></para></listitem>
 
-      <listitem><para>Standard output and standard error of system
-      services</para></listitem>
+      <listitem><para>Standard output and standard error of service units. For further details see
+      below.</para></listitem>
 
-      <listitem><para>Audit records, via the audit
-      subsystem</para></listitem>
+      <listitem><para>Audit records, originating from the kernel audit subsystem</para></listitem>
     </itemizedlist>
 
     <para>The daemon will implicitly collect numerous metadata fields
@@ -109,6 +108,46 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
     <para>See
     <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for information about the configuration of this service.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Stream logging</title>
+
+    <para>The systemd service manager invokes all service processes with standard output/error connected to the journal
+    by default. This behaviour may be altered via the
+    <varname>StandardOutput=</varname>/<varname>StandardError=</varname> unit file setting, see
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details. The
+    journal converts the logging byte stream received this way into individual log records, splitting the stream at
+    newline (<literal>\n</literal>, ASCII 10) and NUL bytes.</para>
+
+    <para>If <filename>systemd-journald.service</filename> is stopped, the stream connections associated with all
+    services are terminated. Further writes to such terminated streams by the service are likely to result in
+    <constant>EPIPE</constant> errors. In order to react gracefully to these errors it is recommended that programs
+    logging to standard output/error ignore such errors. If the the <constant>SIGPIPE</constant> UNIX signal handler is
+    not blocked or turned off, such write attempts might also result in such process signals being generated. For this
+    reason, the systemd service manager explicitly turns off the <constant>SIGPIPE</constant> signal for all invoked
+    processes by default (this may be changed for each unit individually via the <varname>IgnoreSIGPIPE=</varname>
+    option, see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details). After the standard output/standard error streams have been terminated they may not be recovered until the
+    services they are associated with are restarted. Note that if <filename>systemd-journald.service</filename> is
+    restarted using <command>systemctl restart</command> (or equivalent operation) instead of a pair of separate
+    <command>systemctl stop</command> and <command>systemctl start</command> commands (or equivalent operations) these
+    stream connections are not terminated and survive the restarting intact. It is thus recommended to use the former
+    rather than the latter to restart <filename>systemd-journald.service</filename>.</para>
+
+    <para>Note that the log record metadata for records transferred via such standard output/error streams reflect the
+    metadata of the peer the stream was originally created for. I the stream connection is passed on to other processes
+    (such as further child processes forked off the main service process), the log records will not reflect the
+    metadata of them but continue to reflect the metadata of the original process. This is different from the other
+    logging transports listed above, which are inherently record based and where the metadata always is associated with
+    the individual record.</para>
+
+    <para>In addition to the the implicit standard output/error logging of services, stream logging is also available
+    via the <citerefentry><refentrytitle>systemd-cat</refentrytitle><manvolnum>1</manvolnum></citerefentry> command
+    line tool.</para>
+
+    <para> Currently, the number of parallel log streams <filename>systemd-journald</filename> will accept is limited
+    to 4096.</para>
   </refsect1>
 
   <refsect1>
