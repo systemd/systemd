@@ -2012,6 +2012,12 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <varname>$JOURNAL_STREAM</varname> is set at all as services might invoke external processes replacing their
         standard output or standard error output, without unsetting the environment variable.</para>
 
+        <para>If both standard output and standard error of the executed processes are connected to the journal via a
+        stream socket, this environment variable will contain information about the standard error stream, as that's
+        usually the preferred destination for log data. (Note that typically the same stream is used for both standard
+        output and standard error, hence very likely the environment variable contains device and inode information
+        matching both stream file descriptors.)</para>
+
         <para>This environment variable is primarily useful to allow services to optionally upgrade their used log
         protocol to the native journal protocol (using
         <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry> and other

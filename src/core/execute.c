@@ -595,9 +595,13 @@ static int setup_output(
 
                         /* If we connected this fd to the journal via a stream, patch the device/inode into the passed
                          * parameters, but only then. This is useful so that we can set $JOURNAL_STREAM that permits
-                         * services to detect whether they are connected to the journal or not. */
+                         * services to detect whether they are connected to the journal or not.
+                         *
+                         * If both stdout and stderr are connected to a stream then let's make sure to store the data
+                         * about STDERR as that's usually the best way to do logging. */
 
-                        if (fstat(fileno, &st) >= 0) {
+                        if (fstat(fileno, &st) >= 0 &&
+                            (*journal_stream_ino == 0 || fileno == STDERR_FILENO)) {
                                 *journal_stream_dev = st.st_dev;
                                 *journal_stream_ino = st.st_ino;
                         }
