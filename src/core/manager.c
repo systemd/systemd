@@ -358,7 +358,7 @@ static int manager_setup_time_change(Manager *m) {
         assert(m);
         assert_cc(sizeof(time_t) == sizeof(TIME_T_MAX));
 
-        if (m->test_run)
+        if (m->test_run_flags)
                 return 0;
 
         /* Uses TFD_TIMER_CANCEL_ON_SET to get notifications whenever
@@ -390,7 +390,7 @@ static int enable_special_signals(Manager *m) {
 
         assert(m);
 
-        if (m->test_run)
+        if (m->test_run_flags)
                 return 0;
 
         /* Enable that we get SIGINT on control-alt-del. In containers
@@ -600,7 +600,7 @@ static int manager_setup_prefix(Manager *m) {
         return 0;
 }
 
-int manager_new(UnitFileScope scope, bool test_run, Manager **_m) {
+int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
         Manager *m;
         int r;
 
@@ -650,7 +650,7 @@ int manager_new(UnitFileScope scope, bool test_run, Manager **_m) {
         m->have_ask_password = -EINVAL; /* we don't know */
         m->first_boot = -1;
 
-        m->test_run = test_run;
+        m->test_run_flags = test_run_flags;
 
         /* Reboot immediately if the user hits C-A-D more often than 7x per 2s */
         RATELIMIT_INIT(m->ctrl_alt_del_ratelimit, 2 * USEC_PER_SEC, 7);
@@ -731,7 +731,7 @@ fail:
 static int manager_setup_notify(Manager *m) {
         int r;
 
-        if (m->test_run)
+        if (m->test_run_flags)
                 return 0;
 
         if (m->notify_fd < 0) {
@@ -811,7 +811,7 @@ static int manager_setup_cgroups_agent(Manager *m) {
          * to it. The system instance hence listens on this special socket, but the user instances listen on the system
          * bus for these messages. */
 
-        if (m->test_run)
+        if (m->test_run_flags)
                 return 0;
 
         if (!MANAGER_IS_SYSTEM(m))
@@ -925,7 +925,7 @@ static int manager_connect_bus(Manager *m, bool reexecuting) {
 
         assert(m);
 
-        if (m->test_run)
+        if (m->test_run_flags)
                 return 0;
 
         u = manager_get_unit(m, SPECIAL_DBUS_SERVICE);
@@ -1313,7 +1313,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         /* If we are running in test mode, we still want to run the generators,
          * but we should not touch the real generator directories. */
         r = lookup_paths_init(&m->lookup_paths, m->unit_file_scope,
-                              m->test_run ? LOOKUP_PATHS_TEMPORARY_GENERATED : 0,
+                              m->test_run_flags ? LOOKUP_PATHS_TEMPORARY_GENERATED : 0,
                               NULL);
         if (r < 0)
                 return r;
@@ -1336,7 +1336,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         if (m->first_boot > 0 &&
             m->unit_file_scope == UNIT_FILE_SYSTEM &&
-            !m->test_run) {
+            !m->test_run_flags) {
 
                 q = unit_file_preset_all(UNIT_FILE_SYSTEM, 0, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, NULL, 0);
                 if (q < 0)
@@ -3003,7 +3003,7 @@ static void manager_notify_finished(Manager *m) {
         char userspace[FORMAT_TIMESPAN_MAX], initrd[FORMAT_TIMESPAN_MAX], kernel[FORMAT_TIMESPAN_MAX], sum[FORMAT_TIMESPAN_MAX];
         usec_t firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec;
 
-        if (m->test_run)
+        if (m->test_run_flags)
                 return;
 
         if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0) {
@@ -3148,6 +3148,9 @@ static int manager_run_environment_generators(Manager *m) {
         const char **paths;
         void* args[] = {&tmp, &tmp, &m->environment};
 
+        if (m->test_run_flags && !(m->test_run_flags & MANAGER_TEST_RUN_ENV_GENERATORS))
+                return 0;
+
         paths = MANAGER_IS_SYSTEM(m) ? system_env_generator_binary_paths : user_env_generator_binary_paths;
 
         if (!generator_path_any(paths))
@@ -3162,6 +3165,9 @@ static int manager_run_generators(Manager *m) {
         int r;
 
         assert(m);
+
+        if (m->test_run_flags && !(m->test_run_flags & MANAGER_TEST_RUN_GENERATORS))
+                return 0;
 
         paths = generator_binary_paths(m->unit_file_scope);
         if (!paths)

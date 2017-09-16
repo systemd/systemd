@@ -264,7 +264,7 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man) {
 
         assert_se(set_unit_path(var) >= 0);
 
-        r = manager_new(scope, true, &m);
+        r = manager_new(scope, MANAGER_TEST_RUN_ENV_GENERATORS, &m);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize manager: %m");
 

@@ -74,6 +74,15 @@ typedef enum StatusType {
 #include "show-status.h"
 #include "unit-name.h"
 
+enum {
+        /* 0 = run normally */
+        MANAGER_TEST_RUN_MINIMAL = 1,        /* run test w/o generators */
+        MANAGER_TEST_RUN_ENV_GENERATORS = 2, /* also run env generators  */
+        MANAGER_TEST_RUN_GENERATORS = 4,     /* also run unit generators */
+        MANAGER_TEST_FULL = MANAGER_TEST_RUN_ENV_GENERATORS | MANAGER_TEST_RUN_GENERATORS,
+};
+assert_cc((MANAGER_TEST_FULL & UINT8_MAX) == MANAGER_TEST_FULL);
+
 struct Manager {
         /* Note that the set of units we know of is allowed to be
          * inconsistent. However the subset of it that is loaded may
@@ -238,7 +247,8 @@ struct Manager {
         bool dispatching_dbus_queue:1;
 
         bool taint_usr:1;
-        bool test_run:1;
+
+        unsigned test_run_flags:8;
 
         /* If non-zero, exit with the following value when the systemd
          * process terminate. Useful for containers: systemd-nspawn could get
@@ -326,7 +336,7 @@ struct Manager {
 
 #define MANAGER_IS_RELOADING(m) ((m)->n_reloading > 0)
 
-int manager_new(UnitFileScope scope, bool test_run, Manager **m);
+int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **m);
 Manager* manager_free(Manager *m);
 
 void manager_enumerate(Manager *m);
