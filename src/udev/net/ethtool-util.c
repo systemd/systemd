@@ -56,6 +56,25 @@ static const char* const netdev_feature_table[_NET_DEV_FEAT_MAX] = {
         [NET_DEV_FEAT_TSO6] = "tx-tcp6-segmentation",
 };
 
+static const char* const advertise_table[_NET_DEV_ADVERTISE_MAX] = {
+        [NET_DEV_ADVERTISE_10BASET_HALF]        = "10baset-half",
+        [NET_DEV_ADVERTISE_10BASET_FULL]        = "10baset-full",
+        [NET_DEV_ADVERTISE_100BASET_HALF]       = "100baset-half",
+        [NET_DEV_ADVERTISE_100BASET_FULL]       = "100baset-full",
+        [NET_DEV_ADVERTISE_1000BASET_HALF]      = "1000baset-half",
+        [NET_DEV_ADVERTISE_1000BASET_FULL]      = "1000baset-full",
+        [NET_DEV_ADVERTISE_10000BASET_FULL]     = "10000baset-full",
+        [NET_DEV_ADVERTISE_2500BASEX_FULL]      = "2500basex-full",
+        [NET_DEV_ADVERTISE_1000BASEKX_FULL]     = "1000basekx-full",
+        [NET_DEV_ADVERTISE_10000BASEKX4_FULL]   = "10000basekx4-full",
+        [NET_DEV_ADVERTISE_10000BASEKR_FULL]    = "10000basekr-full",
+        [NET_DEV_ADVERTISE_10000BASER_FEC]      = "10000baser-fec",
+        [NET_DEV_ADVERTISE_20000BASEMLD2_Full]  = "20000basemld2-full",
+        [NET_DEV_ADVERTISE_20000BASEKR2_Full]   = "20000basekr2-full",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(advertise, NetDevAdvertise);
+
 int ethtool_connect(int *ret) {
         int fd;
 
@@ -501,6 +520,8 @@ static int set_sset(int fd, struct ifreq *ifr, const struct ethtool_link_usettin
         ecmd.phy_address = u->base.phy_address;
         ecmd.autoneg = u->base.autoneg;
         ecmd.mdio_support = u->base.mdio_support;
+        ecmd.eth_tp_mdix = u->base.eth_tp_mdix;
+        ecmd.eth_tp_mdix_ctrl = u->base.eth_tp_mdix_ctrl;
 
         ifr->ifr_data = (void *) &ecmd;
 
@@ -517,7 +538,6 @@ static int set_sset(int fd, struct ifreq *ifr, const struct ethtool_link_usettin
  * link mode; if the link is down, the speed is 0, %SPEED_UNKNOWN or the highest
  * enabled speed and @duplex is %DUPLEX_UNKNOWN or the best enabled duplex mode.
  */
-
 int ethtool_set_glinksettings(int *fd, const char *ifname, struct link_config *link) {
         _cleanup_free_ struct ethtool_link_usettings *u = NULL;
         struct ifreq ifr = {};
@@ -553,6 +573,13 @@ int ethtool_set_glinksettings(int *fd, const char *ifname, struct link_config *l
                 u->base.port = link->port;
 
         u->base.autoneg = link->autonegotiation;
+
+        if (link->advertise) {
+                uint32_t advertise[ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32] = {};
+
+                advertise[0] = link->advertise;
+                memcpy(&u->link_modes.advertising, advertise, ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NBYTES);
+        }
 
         if (u->base.cmd == ETHTOOL_GLINKSETTINGS)
                 r = set_slinksettings(*fd, &ifr, u);
@@ -662,6 +689,59 @@ int ethtool_set_channels(int *fd, const char *ifname, netdev_channels *channels)
                 if (r < 0)
                         return -errno;
         }
+
+        return 0;
+}
+
+int config_parse_advertise(const char *unit,
+                           const char *filename,
+                           unsigned line,
+                           const char *section,
+                           unsigned section_line,
+                           const char *lvalue,
+                           int ltype,
+                           const char *rvalue,
+                           void *data,
+                           void *userdata) {
+        link_config *config = data;
+        NetDevAdvertise mode, a = 0;
+        const char *p;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                /* Empty string resets the value. */
+                config->advertise = 0;
+                return 0;
+        }
+
+        for (p = rvalue;;) {
+                _cleanup_free_ char *w = NULL;
+
+                r = extract_first_word(&p, &w, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to split advertise modes '%s', ignoring: %m", rvalue);
+                        break;
+                }
+                if (r == 0)
+                        break;
+
+                mode = advertise_from_string(w);
+                if (mode == _NET_DEV_ADVERTISE_INVALID) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse advertise mode, ignoring: %s", w);
+                        continue;
+                }
+                a |= mode;
+        }
+
+        config->advertise |= a;
 
         return 0;
 }

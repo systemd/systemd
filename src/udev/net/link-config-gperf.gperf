@@ -51,3 +51,4 @@ Link.RxChannels,                 config_parse_channel,       0,                 
 Link.TxChannels,                 config_parse_channel,       0,                             0
 Link.OtherChannels,              config_parse_channel,       0,                             0
 Link.CombinedChannels,           config_parse_channel,       0,                             0
+Link.Advertise,                  config_parse_advertise,     0,                             0
