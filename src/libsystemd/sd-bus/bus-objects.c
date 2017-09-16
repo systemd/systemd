@@ -829,6 +829,9 @@ static int property_get_all_callbacks_run(
                         return 0;
         }
 
+        if (!*found_object)
+                return 0;
+
         if (!found_interface) {
                 r = sd_bus_reply_method_errorf(
                                 m,
