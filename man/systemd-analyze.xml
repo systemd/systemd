@@ -297,11 +297,21 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--no-man</option></term>
+        <term><option>--man=no</option></term>
 
         <listitem><para>Do not invoke man to verify the existence of
         man pages listed in <varname>Documentation=</varname>.
         </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--generators</option></term>
+
+        <listitem><para>Invoke unit generators, see
+        <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        Some generators require root privileges. When run under a
+        normal users, enabling generators will generally result in
+        some warnings.</para></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />

@@ -79,6 +79,7 @@ static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static char *arg_host = NULL;
 static bool arg_user = false;
 static bool arg_man = true;
+static bool arg_generators = false;
 
 struct boot_times {
         usec_t firmware_time;
@@ -1413,6 +1414,7 @@ static void help(void) {
                "     --fuzz=SECONDS        Also print also services which finished SECONDS\n"
                "                           earlier than the latest in the branch\n"
                "     --man[=BOOL]          Do [not] check for existence of man pages\n\n"
+               "     --generators[=BOOL]   Do [not] run unit generators (requires privileges)\n\n"
                "Commands:\n"
                "  time                     Print time spent in the kernel\n"
                "  blame                    Print list of running units ordered by time to init\n"
@@ -1445,6 +1447,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FUZZ,
                 ARG_NO_PAGER,
                 ARG_MAN,
+                ARG_GENERATORS,
         };
 
         static const struct option options[] = {
@@ -1459,6 +1462,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "fuzz",         required_argument, NULL, ARG_FUZZ             },
                 { "no-pager",     no_argument,       NULL, ARG_NO_PAGER         },
                 { "man",          optional_argument, NULL, ARG_MAN              },
+                { "generators",   optional_argument, NULL, ARG_GENERATORS       },
                 { "host",         required_argument, NULL, 'H'                  },
                 { "machine",      required_argument, NULL, 'M'                  },
                 {}
@@ -1541,6 +1545,20 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_GENERATORS:
+                        if (optarg) {
+                                r = parse_boolean(optarg);
+                                if (r < 0) {
+                                        log_error("Failed to parse --generators= argument.");
+                                        return -EINVAL;
+                                }
+
+                                arg_generators = !!r;
+                        } else
+                                arg_generators = true;
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1566,7 +1584,8 @@ int main(int argc, char *argv[]) {
         if (streq_ptr(argv[optind], "verify"))
                 r = verify_units(argv+optind+1,
                                  arg_user ? UNIT_FILE_USER : UNIT_FILE_SYSTEM,
-                                 arg_man);
+                                 arg_man,
+                                 arg_generators);
         else {
                 _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
 
