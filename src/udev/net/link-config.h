@@ -54,6 +54,7 @@ struct link_config {
         size_t speed;
         Duplex duplex;
         int autonegotiation;
+        uint32_t advertise;
         WakeOnLan wol;
         NetDevPort port;
         int features[_NET_DEV_FEAT_MAX];

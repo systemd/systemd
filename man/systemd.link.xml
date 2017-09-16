@@ -370,8 +370,8 @@
           Takes a boolean value. Unset by default, which means that the kernel default
           will be used.</para>
 
-          <para>Note that if autonegotiation is enabled, speed and duplex settings are
-          read-only. If autonegotation is disabled, speed and duplex settings are writable
+          <para>Note that if autonegotiation is enabled, speed, duplex and advertise settings are
+          read-only. If autonegotation is disabled, speed, duplex and advertise settings are writable
           if the driver supports multiple link modes.</para>
         </listitem>
       </varlistentry>
@@ -476,6 +476,77 @@
               </listitem>
             </varlistentry>
           </variablelist>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Advertise=</varname></term>
+        <listitem>
+          <para>This sets what speeds and duplex modes of operation are advertised for auto-negotiation.
+          The supported values are:
+
+          <table>
+            <title>Supported advertise values</title>
+            <tgroup cols='3'>
+              <colspec colname='Advertise' />
+              <colspec colname='Speed' />
+              <colspec colname='Duplex Mode' />
+
+              <thead><row>
+                <entry>Advertise</entry>
+                <entry>Speed (Mbps)</entry>
+                <entry>Duplex Mode</entry>
+              </row></thead>
+              <tbody>
+
+                <row><entry><literal>10baset-half</literal></entry>
+                <entry>10</entry><entry>half</entry></row>
+
+                <row><entry><literal>10baset-full</literal></entry>
+                <entry>10</entry><entry>full</entry></row>
+
+                <row><entry><literal>100baset-half</literal></entry>
+                <entry>100</entry><entry>half</entry></row>
+
+                <row><entry><literal>100baset-full</literal></entry>
+                <entry>100</entry><entry>full</entry></row>
+
+                <row><entry><literal>1000baset-half</literal></entry>
+                <entry>1000</entry><entry>half</entry></row>
+
+                <row><entry><literal>1000baset-full</literal></entry>
+                <entry>1000</entry><entry>full</entry></row>
+
+                <row><entry><literal>10000baset-full</literal></entry>
+                <entry>10000</entry><entry>full</entry></row>
+
+                <row><entry><literal>2500basex-full</literal></entry>
+                <entry>2500</entry><entry>full</entry></row>
+
+                <row><entry><literal>1000basekx-full</literal></entry>
+                <entry>1000</entry><entry>full</entry></row>
+
+                <row><entry><literal>10000basekx4-full</literal></entry>
+                <entry>10000</entry><entry>full</entry></row>
+
+                <row><entry><literal>10000basekr-full</literal></entry>
+                <entry>10000</entry><entry>full</entry></row>
+
+                <row><entry><literal>10000baser-fec</literal></entry>
+                <entry>10000</entry><entry>full</entry></row>
+
+                <row><entry><literal>20000basemld2-full</literal></entry>
+                <entry>20000</entry><entry>full</entry></row>
+
+                <row><entry><literal>20000basekr2-full</literal></entry>
+                <entry>20000</entry><entry>full</entry></row>
+              </tbody>
+            </tgroup>
+          </table>
+
+          By default this is unset, i.e. all possible modes will be advertised.
+          This option may be specified more than once, in which case all specified speeds and modes are advertised.
+          If the empty string is assigned to this option, the list is reset, and all prior assignments have no effect.
+          </para>
         </listitem>
       </varlistentry>
       <varlistentry>
