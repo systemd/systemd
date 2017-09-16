@@ -38,7 +38,7 @@ static int node_vtable_get_userdata(
                 sd_bus_error *error) {
 
         sd_bus_slot *s;
-        void *u;
+        void *u, *found_u;
         int r;
 
         assert(bus);
@@ -50,7 +50,7 @@ static int node_vtable_get_userdata(
         if (c->find) {
                 bus->current_slot = sd_bus_slot_ref(s);
                 bus->current_userdata = u;
-                r = c->find(bus, path, c->interface, u, &u, error);
+                r = c->find(bus, path, c->interface, u, &found_u, error);
                 bus->current_userdata = NULL;
                 bus->current_slot = sd_bus_slot_unref(s);
 
@@ -60,10 +60,11 @@ static int node_vtable_get_userdata(
                         return -sd_bus_error_get_errno(error);
                 if (r == 0)
                         return r;
-        }
+        } else
+                found_u = u;
 
         if (userdata)
-                *userdata = u;
+                *userdata = found_u;
 
         return 1;
 }
