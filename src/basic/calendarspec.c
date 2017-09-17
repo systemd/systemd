@@ -928,19 +928,16 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
                         c->dst = j;
                 } else {
                         const char *last_space;
+
                         last_space = strrchr(p, ' ');
-
-                        if (last_space != NULL) {
-                                const char *timezone = last_space + 1;
-
-                                if (timezone_is_valid(timezone)) {
-                                        c->timezone = strdup(timezone);
-                                        if (!c->timezone) {
-                                                r = -ENOMEM;
-                                                goto fail;
-                                        }
-                                        p = strndupa(p, last_space - p);
+                        if (last_space != NULL && timezone_is_valid(last_space + 1)) {
+                                c->timezone = strdup(last_space + 1);
+                                if (!c->timezone) {
+                                        r = -ENOMEM;
+                                        goto fail;
                                 }
+
+                                p = strndupa(p, last_space - p);
                         }
                 }
         }

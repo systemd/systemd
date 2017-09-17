@@ -891,12 +891,8 @@ int parse_timestamp(const char *t, usec_t *usec) {
         pid_t pid;
 
         last_space = strrchr(t, ' ');
-
-        if (last_space != NULL) {
-                if (timezone_is_valid(last_space + 1)) {
-                        timezone = last_space + 1;
-                }
-        }
+        if (last_space != NULL && timezone_is_valid(last_space + 1))
+                timezone = last_space + 1;
 
         if (timezone == NULL || endswith_no_case(t, " UTC"))
                 return parse_timestamp_impl(t, usec, false);
