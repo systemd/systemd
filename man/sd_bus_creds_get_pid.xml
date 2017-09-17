@@ -394,16 +394,19 @@
 
     <para><function>sd_bus_creds_get_session()</function> will
     retrieve the identifier of the login session that the process is
-    a part of. See
-    <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>. For
-    processes that are not part of a session, returns -ENXIO.
-    </para>
+    a part of. Please note the login session may be limited to a stub
+    process or two.  User processes may instead be started from their
+    systemd user manager, e.g. GUI applications started using DBus
+    activation, as well as service processes which are shared between
+    multiple logins of the same user. For processes that are not part
+    of a session, returns -ENXIO.</para>
 
     <para><function>sd_bus_creds_get_owner_uid()</function> will
     retrieve the numeric UID (user identifier) of the user who owns
-    the login session that the process is a part of. See
+    the user unit or login session that the process is a part of. See
     <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-    For processes that are not part of a session, returns -ENXIO.
+    For processes that are not part of a user unit or session, returns
+    -ENXIO.
     </para>
 
     <para><function>sd_bus_creds_has_effective_cap()</function> will check whether the capability specified by
@@ -506,8 +509,10 @@
         <function>sd_bus_creds_get_user_slice()</function>, and
         <function>sd_bus_creds_get_session()</function> if the process is
         not part of a systemd system unit, systemd user unit, systemd
-        slice, or logind session. It will also be returned by
-        <function>sd_bus_creds_get_exe()</function> and
+        slice, or logind session. It will be returned by
+        <function>sd_bus_creds_get_owner_uid()</function> if the process is
+        not part of a systemd user unit or logind session. It will also be
+        returned by <function>sd_bus_creds_get_exe()</function> and
         <function>sd_bus_creds_get_cmdline()</function> for kernel
         threads (since these are not started from an executable binary,
         nor have a command line), and by

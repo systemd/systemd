@@ -21,10 +21,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_pid_get_session" conditional='HAVE_PAM'>
+<refentry id="sd_pid_get_owner_uid" conditional='HAVE_PAM'>
 
   <refentryinfo>
-    <title>sd_pid_get_session</title>
+    <title>sd_pid_get_owner_uid</title>
     <productname>systemd</productname>
 
     <authorgroup>
@@ -38,30 +38,30 @@
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>sd_pid_get_session</refentrytitle>
+    <refentrytitle>sd_pid_get_owner_uid</refentrytitle>
     <manvolnum>3</manvolnum>
   </refmeta>
 
   <refnamediv>
-    <refname>sd_pid_get_session</refname>
-    <refname>sd_pid_get_unit</refname>
-    <refname>sd_pid_get_user_unit</refname>
     <refname>sd_pid_get_owner_uid</refname>
+    <refname>sd_pid_get_session</refname>
+    <refname>sd_pid_get_user_unit</refname>
+    <refname>sd_pid_get_unit</refname>
     <refname>sd_pid_get_machine_name</refname>
     <refname>sd_pid_get_slice</refname>
     <refname>sd_pid_get_user_slice</refname>
     <refname>sd_pid_get_cgroup</refname>
-    <refname>sd_peer_get_session</refname>
-    <refname>sd_peer_get_unit</refname>
-    <refname>sd_peer_get_user_unit</refname>
     <refname>sd_peer_get_owner_uid</refname>
+    <refname>sd_peer_get_session</refname>
+    <refname>sd_peer_get_user_unit</refname>
+    <refname>sd_peer_get_unit</refname>
     <refname>sd_peer_get_machine_name</refname>
     <refname>sd_peer_get_slice</refname>
     <refname>sd_peer_get_user_slice</refname>
     <refname>sd_peer_get_cgroup</refname>
-    <refpurpose>Determine session, unit, owner of a session,
-    container/VM or slice of a specific PID or socket
-    peer</refpurpose>
+    <refpurpose>Determine the owner uid of the user unit or session,
+    or the session, user unit, system unit, container/VM or slice that
+    a specific PID or socket peer belongs to.</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -69,15 +69,15 @@
       <funcsynopsisinfo>#include &lt;systemd/sd-login.h&gt;</funcsynopsisinfo>
 
       <funcprototype>
-        <funcdef>int <function>sd_pid_get_session</function></funcdef>
+        <funcdef>int <function>sd_pid_get_owner_uid</function></funcdef>
         <paramdef>pid_t <parameter>pid</parameter></paramdef>
-        <paramdef>char **<parameter>session</parameter></paramdef>
+        <paramdef>uid_t *<parameter>uid</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
-        <funcdef>int <function>sd_pid_get_unit</function></funcdef>
+        <funcdef>int <function>sd_pid_get_session</function></funcdef>
         <paramdef>pid_t <parameter>pid</parameter></paramdef>
-        <paramdef>char **<parameter>unit</parameter></paramdef>
+        <paramdef>char **<parameter>session</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -87,9 +87,9 @@
       </funcprototype>
 
       <funcprototype>
-        <funcdef>int <function>sd_pid_get_owner_uid</function></funcdef>
+        <funcdef>int <function>sd_pid_get_unit</function></funcdef>
         <paramdef>pid_t <parameter>pid</parameter></paramdef>
-        <paramdef>uid_t *<parameter>uid</parameter></paramdef>
+        <paramdef>char **<parameter>unit</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -117,15 +117,15 @@
       </funcprototype>
 
       <funcprototype>
-        <funcdef>int <function>sd_peer_get_session</function></funcdef>
+        <funcdef>int <function>sd_peer_get_owner_uid</function></funcdef>
         <paramdef>int <parameter>fd</parameter></paramdef>
-        <paramdef>char **<parameter>session</parameter></paramdef>
+        <paramdef>uid_t *<parameter>uid</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
-        <funcdef>int <function>sd_peer_get_unit</function></funcdef>
+        <funcdef>int <function>sd_peer_get_session</function></funcdef>
         <paramdef>int <parameter>fd</parameter></paramdef>
-        <paramdef>char **<parameter>unit</parameter></paramdef>
+        <paramdef>char **<parameter>session</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -135,9 +135,9 @@
       </funcprototype>
 
       <funcprototype>
-        <funcdef>int <function>sd_peer_get_owner_uid</function></funcdef>
+        <funcdef>int <function>sd_peer_get_unit</function></funcdef>
         <paramdef>int <parameter>fd</parameter></paramdef>
-        <paramdef>uid_t *<parameter>uid</parameter></paramdef>
+        <paramdef>char **<parameter>unit</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -169,16 +169,34 @@
   <refsect1>
     <title>Description</title>
 
+    <para><function>sd_pid_get_owner_uid()</function> may be used to
+    determine the Unix UID (user identifier) which owns the login
+    session or systemd user unit of a process identified by the
+    specified PID. For processes which are not part of a login session
+    and not managed by a user manager, this function will fail with
+    <constant>-ENODATA</constant>.</para>
+
     <para><function>sd_pid_get_session()</function> may be used to
     determine the login session identifier of a process identified by
     the specified process identifier. The session identifier is a
-    short string, suitable for usage in file system paths. Note that
-    not all processes are part of a login session (e.g. system service
-    processes, user processes that are shared between multiple
-    sessions of the same user, or kernel threads). For processes not
-    being part of a login session, this function will fail with
-    <constant>-ENODATA</constant>. The returned string needs to be freed with the libc
-    <citerefentry
+    short string, suitable for usage in file system paths. Please
+    note the login session may be limited to a stub process or two.
+    User processes may instead be started from their systemd user
+    manager, e.g. GUI applications started using DBus activation, as
+    well as service processes which are shared between multiple logins
+    of the same user. For processes which are not part of a login
+    session, this function will fail with <constant>-ENODATA</constant>.
+    The returned string needs to be freed with the libc <citerefentry
+    project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    call after use.</para>
+
+    <para><function>sd_pid_get_user_unit()</function> may be used to
+    determine the systemd user unit (i.e. user service or scope unit)
+    identifier of a process identified by the specified PID. The
+    unit name is a short string, suitable for usage in file system
+    paths. For processes which are not managed by a user manager, this
+    function will fail with <constant>-ENODATA</constant>. The
+    returned string needs to be freed with the libc <citerefentry
     project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call after use.</para>
 
@@ -186,29 +204,13 @@
     determine the systemd system unit (i.e. system service or scope
     unit) identifier of a process identified by the specified PID. The
     unit name is a short string, suitable for usage in file system
-    paths. Note that not all processes are part of a system
-    unit/service (e.g. user processes, or kernel threads). For
-    processes not being part of a systemd system unit, this function
-    will fail with <constant>-ENODATA</constant>. (More specifically, this call will not
-    work for kernel threads.) The returned string needs to be freed
-    with the libc <citerefentry
+    paths.  Note that not all processes are part of a system
+    unit/service. For processes not being part of a systemd system
+    unit, this function will fail with <constant>-ENODATA</constant>.
+    (More specifically, this call will not work for kernel threads.)
+    The returned string needs to be freed with the libc <citerefentry
     project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call after use.</para>
-
-    <para><function>sd_pid_get_user_unit()</function> may be used to
-    determine the systemd user unit (i.e. user service or scope unit)
-    identifier of a process identified by the specified PID. This is
-    similar to <function>sd_pid_get_unit()</function>, but applies to
-    user units instead of system units.</para>
-
-    <para><function>sd_pid_get_owner_uid()</function> may be used to
-    determine the Unix UID (user identifier) of the owner of the
-    session of a process identified the specified PID. Note that this
-    function will succeed for user processes which are shared between
-    multiple login sessions of the same user, whereas
-    <function>sd_pid_get_session()</function> will fail. For processes
-    not being part of a login session and not being a shared process
-    of a user, this function will fail with <constant>-ENODATA</constant>.</para>
 
     <para><function>sd_pid_get_machine_name()</function> may be used
     to determine the name of the VM or container is a member of. The
@@ -216,7 +218,7 @@
     paths. The returned string needs to be freed with the libc
     <citerefentry
     project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    call after use. For processes not part of a VM or containers, this
+    call after use. For processes not part of a VM or container, this
     function fails with <constant>-ENODATA</constant>.</para>
 
     <para><function>sd_pid_get_slice()</function> may be used to
@@ -246,10 +248,10 @@
     functions is passed as 0, the operation is executed for the
     calling process.</para>
 
-    <para>The <function>sd_peer_get_session()</function>,
-    <function>sd_peer_get_unit()</function>,
+    <para>The <function>sd_peer_get_owner_uid()</function>,
+    <function>sd_peer_get_session()</function>,
     <function>sd_peer_get_user_unit()</function>,
-    <function>sd_peer_get_owner_uid()</function>,
+    <function>sd_peer_get_unit()</function>,
     <function>sd_peer_get_machine_name()</function>,
     <function>sd_peer_get_slice()</function>,
     <function>sd_peer_get_user_slice()</function> and
