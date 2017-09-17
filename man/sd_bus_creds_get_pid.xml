@@ -500,12 +500,11 @@
 
         <listitem><para>The given field is not specified for the described
         process or peer. This will be returned by
-        <function>sd_bus_get_unit()</function>,
-        <function>sd_bus_get_slice()</function>,
-        <function>sd_bus_get_user_unit()</function>,
-        <function>sd_bus_get_user_slice()</function>,
-        <function>sd_bus_get_session()</function>, and
-        <function>sd_bus_get_owner_uid()</function> if the process is
+        <function>sd_bus_creds_get_unit()</function>,
+        <function>sd_bus_creds_get_slice()</function>,
+        <function>sd_bus_creds_get_user_unit()</function>,
+        <function>sd_bus_creds_get_user_slice()</function>, and
+        <function>sd_bus_creds_get_session()</function> if the process is
         not part of a systemd system unit, systemd user unit, systemd
         slice, or logind session. It will also be returned by
         <function>sd_bus_creds_get_exe()</function> and
