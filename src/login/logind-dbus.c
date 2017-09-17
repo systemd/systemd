@@ -57,6 +57,9 @@ static int get_sender_session(Manager *m, sd_bus_message *message, sd_bus_error 
         Session *session;
         int r;
 
+        /* Get client login session.  This is not what you are looking for these days,
+         * as apps may instead belong to a user service unit.  This includes terminal
+         * emulators and hence command-line apps. */
         r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_SESSION|SD_BUS_CREDS_AUGMENT, &creds);
         if (r < 0)
                 return r;
@@ -364,6 +367,9 @@ static int method_get_session(sd_bus_message *message, void *userdata, sd_bus_er
         return sd_bus_reply_method_return(message, "o", p);
 }
 
+/* Get login session of a process.  This is not what you are looking for these days,
+ * as apps may instead belong to a user service unit.  This includes terminal
+ * emulators and hence command-line apps. */
 static int method_get_session_by_pid(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *p = NULL;
         Session *session = NULL;
