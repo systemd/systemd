@@ -120,11 +120,11 @@
         <listitem><para>A seat consists of all hardware devices assigned to a specific
         workplace. It consists of at least one graphics device, and usually also includes
         keyboard, mouse. It can also include video cameras, sound cards and more. Seats
-        are identified by seat names, which are short strings (&lt;= 64 chars), that start
-        with the four characters <literal>seat</literal> followed by at least one more
+        are identified by seat names, which are strings (&lt;= 255 characters), that start
+        with the four characters <literal>seat</literal> followed by at least one
         character from the range [a-zA-Z0-9], <literal>_</literal> and
-        <literal>-</literal>. They are suitable for inclusion in file names. Seat names
-        may or may not be stable and may be reused if a seat becomes available again.
+        <literal>-</literal>. They are suitable for use as file names. Seat names may or
+        may not be stable and may be reused if a seat becomes available again.
         </para></listitem>
       </varlistentry>
 
@@ -140,10 +140,10 @@
         <para>
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         ensures that audit sessions are identical to systemd sessions, and uses the audit
-        session ID as session ID in systemd (if auditing is enabled). The session
-        identifier too shall be considered a short string (&lt;= 64 chars) consisting only
-        of [a-zA-Z0-9], <literal>_</literal> and <literal>-</literal>, suitable for
-        inclusion in a file name. Session IDs are unique on the local machine and are
+        session ID as session ID in systemd (if auditing is enabled). In general the
+        session identifier is a short string consisting only of [a-zA-Z0-9],
+        <literal>_</literal> and <literal>-</literal>, suitable for use as a file name.
+        Session IDs are unique on the local machine and are
         never reused as long as the machine is online. A user (the way we know it on UNIX)
         corresponds to the person using a computer. A single user can have multiple
         sessions open at the same time. A user is identified by a numeric user id (UID) or
