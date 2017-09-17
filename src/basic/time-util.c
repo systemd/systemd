@@ -735,11 +735,9 @@ static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
         if (!localtime_or_gmtime_r(&x, &tm, utc))
                 return -EINVAL;
 
-        if (!with_tz) {
-                tm.tm_isdst = dst;
-                if (tzn)
-                        tm.tm_zone = tzn;
-        }
+        tm.tm_isdst = dst;
+        if (!with_tz && tzn)
+                tm.tm_zone = tzn;
 
         if (streq(t, "today")) {
                 tm.tm_sec = tm.tm_min = tm.tm_hour = 0;
