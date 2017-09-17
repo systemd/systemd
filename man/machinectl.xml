@@ -79,17 +79,18 @@
       OS kernel with the host OS, in order to run
       OS userspace instances on top the host OS.</para></listitem>
 
-      <listitem><para>The host system itself</para></listitem>
+      <listitem><para>The host system itself.</para></listitem>
     </itemizedlist>
 
     <para>Machines are identified by names that follow the same rules
-    as UNIX and DNS host names, for details, see below. Machines are
-    instantiated from disk or file system images that frequently — but not
-    necessarily — carry the same name as machines running from
-    them. Images in this sense are considered:</para>
+    as UNIX and DNS host names. For details, see below.</para>
+
+    <para>Machines are instantiated from disk or file system images that
+    frequently — but not necessarily — carry the same name as machines running
+    from them. Images in this sense may be:</para>
 
     <itemizedlist>
-      <listitem><para>Directory trees containing an OS, including its
+      <listitem><para>Directory trees containing an OS, including the
       top-level directories <filename>/usr</filename>,
       <filename>/etc</filename>, and so on.</para></listitem>
 
@@ -299,7 +300,16 @@
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />
-      <xi:include href="user-system-options.xml" xpointer="machine" />
+
+      <varlistentry>
+        <term><option>-M</option></term>
+        <term><option>--machine=</option></term>
+
+        <listitem><para>Connect to
+        <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        running in a local container, to perform the specified operation within
+        the container.</para></listitem>
+      </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
@@ -809,7 +819,7 @@
         qcow2 or raw disk image, possibly compressed with xz, gzip or
         bzip2. If the second argument (the resulting image name) is
         not specified, it is automatically derived from the file
-        name. If the file name is passed as <literal>-</literal>, the
+        name. If the filename is passed as <literal>-</literal>, the
         image is read from standard input, in which case the second
         argument is mandatory.</para>
 

@@ -506,7 +506,7 @@
           <filename>/proc/devices</filename>. The latter is useful to
           whitelist all current and future devices belonging to a
           specific device group at once. The device group is matched
-          according to file name globbing rules, you may hence use the
+          according to filename globbing rules, you may hence use the
           <literal>*</literal> and <literal>?</literal>
           wildcards. Examples: <filename>/dev/sda5</filename> is a
           path to a device node, referring to an ATA or SCSI block

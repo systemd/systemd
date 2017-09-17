@@ -262,7 +262,7 @@
       <varlistentry>
         <term><varname>PIDFile=</varname></term>
 
-        <listitem><para>Takes an absolute file name pointing to the
+        <listitem><para>Takes an absolute filename pointing to the
         PID file of this daemon. Use of this option is recommended for
         services where <varname>Type=</varname> is set to
         <option>forking</option>. systemd will read the PID of the
@@ -302,7 +302,7 @@
         <varname>ExecStop=</varname> are not valid.)</para>
 
         <para>For each of the specified commands, the first argument must be an absolute path to an
-        executable. Optionally, this file name may be prefixed with a number of special characters:</para>
+        executable. Optionally, this filename may be prefixed with a number of special characters:</para>
 
         <table>
           <title>Special executable prefixes</title>
@@ -752,16 +752,6 @@
         the termination signal <constant>SIGKILL</constant> are
         considered clean service terminations.
         </para>
-
-        <para>Note that if a process has a signal handler installed
-        and exits by calling
-        <citerefentry><refentrytitle>_exit</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        in response to a signal, the information about the signal is
-        lost. Programs should instead perform cleanup and kill
-        themselves with the same signal instead. See
-        <ulink url="http://www.cons.org/cracauer/sigint.html">Proper
-        handling of SIGINT/SIGQUIT — How to be a proper
-        program</ulink>.</para>
 
         <para>This option may appear more than once, in which case the
         list of successful exit statuses is merged. If the empty
