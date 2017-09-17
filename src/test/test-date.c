@@ -33,6 +33,12 @@ static void test_should_pass(const char *p) {
         log_info("\"%s\" → \"%s\"", p, buf);
 
         assert_se(parse_timestamp(buf, &q) >= 0);
+        if (q != t) {
+                char tmp[FORMAT_TIMESTAMP_MAX];
+
+                log_error("round-trip failed: \"%s\" → \"%s\"",
+                          buf, format_timestamp_us(tmp, sizeof(tmp), q));
+        }
         assert_se(q == t);
 
         assert_se(format_timestamp_relative(buf_relative, sizeof(buf_relative), t));
@@ -77,6 +83,10 @@ static void test_one_noutc(const char *p) {
 }
 
 int main(int argc, char *argv[]) {
+        log_set_max_level(LOG_DEBUG);
+        log_parse_environment();
+        log_open();
+
         test_one("17:41");
         test_one("18:42:44");
         test_one("18:42:44.0");
@@ -90,6 +100,10 @@ int main(int argc, char *argv[]) {
         test_one("yesterday");
         test_one("today");
         test_one("tomorrow");
+        test_one_noutc("16:20 UTC");
+        test_one_noutc("16:20 Asia/Seoul");
+        test_one_noutc("tomorrow Asia/Seoul");
+        test_one_noutc("2012-12-30 18:42 Asia/Seoul");
         test_one_noutc("now");
         test_one_noutc("+2d");
         test_one_noutc("+2y 4d");
@@ -100,6 +114,9 @@ int main(int argc, char *argv[]) {
         test_should_fail("1969-12-31 UTC");
         test_should_fail("-100y");
         test_should_fail("today UTC UTC");
+        test_should_fail("now Asia/Seoul");
+        test_should_fail("+2d Asia/Seoul");
+        test_should_fail("@1395716396 Asia/Seoul");
 #if SIZEOF_TIME_T == 8
         test_should_pass("9999-12-30 23:59:59 UTC");
         test_should_fail("9999-12-31 00:00:00 UTC");

@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <time.h>
 
 #include "alloc-util.h"
@@ -33,6 +34,7 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "string-util.h"
+#include "time-util.h"
 
 #define BITS_WEEKDAYS 127
 #define MIN_YEAR 1970
@@ -59,6 +61,7 @@ void calendar_spec_free(CalendarSpec *c) {
         free_chain(c->hour);
         free_chain(c->minute);
         free_chain(c->microsecond);
+        free(c->timezone);
 
         free(c);
 }
@@ -351,7 +354,10 @@ int calendar_spec_to_string(const CalendarSpec *c, char **p) {
 
         if (c->utc)
                 fputs_unlocked(" UTC", f);
-        else if (IN_SET(c->dst, 0, 1)) {
+        else if (c->timezone != NULL) {
+                fputc_unlocked(' ', f);
+                fputs_unlocked(c->timezone, f);
+        } else if (IN_SET(c->dst, 0, 1)) {
 
                 /* If daylight saving is explicitly on or off, let's show the used timezone. */
 
@@ -888,6 +894,7 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
         if (!c)
                 return -ENOMEM;
         c->dst = -1;
+        c->timezone = NULL;
 
         utc = endswith_no_case(p, " UTC");
         if (utc) {
@@ -919,6 +926,19 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
                 if (IN_SET(j, 0, 1)) {
                         p = strndupa(p, e - p - 1);
                         c->dst = j;
+                } else {
+                        const char *last_space;
+
+                        last_space = strrchr(p, ' ');
+                        if (last_space != NULL && timezone_is_valid(last_space + 1)) {
+                                c->timezone = strdup(last_space + 1);
+                                if (!c->timezone) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                p = strndupa(p, last_space - p);
+                        }
                 }
         }
 
@@ -1293,7 +1313,7 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
         }
 }
 
-int calendar_spec_next_usec(const CalendarSpec *spec, usec_t usec, usec_t *next) {
+static int calendar_spec_next_usec_impl(const CalendarSpec *spec, usec_t usec, usec_t *next) {
         struct tm tm;
         time_t t;
         int r;
@@ -1320,4 +1340,59 @@ int calendar_spec_next_usec(const CalendarSpec *spec, usec_t usec, usec_t *next)
 
         *next = (usec_t) t * USEC_PER_SEC + tm_usec;
         return 0;
+}
+
+typedef struct SpecNextResult {
+        usec_t next;
+        int return_value;
+} SpecNextResult;
+
+int calendar_spec_next_usec(const CalendarSpec *spec, usec_t usec, usec_t *next) {
+        pid_t pid;
+        SpecNextResult *shared;
+        SpecNextResult tmp;
+        int r;
+
+        if (isempty(spec->timezone))
+                return calendar_spec_next_usec_impl(spec, usec, next);
+
+        shared = mmap(NULL, sizeof *shared, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
+        if (shared == MAP_FAILED)
+                return negative_errno();
+
+        pid = fork();
+
+        if (pid == -1) {
+                int fork_errno = errno;
+                (void) munmap(shared, sizeof *shared);
+                return -fork_errno;
+        }
+
+        if (pid == 0) {
+                if (setenv("TZ", spec->timezone, 1) != 0) {
+                        shared->return_value = negative_errno();
+                        _exit(EXIT_FAILURE);
+                }
+
+                tzset();
+
+                shared->return_value = calendar_spec_next_usec_impl(spec, usec, &shared->next);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        r = wait_for_terminate(pid, NULL);
+        if (r < 0) {
+                (void) munmap(shared, sizeof *shared);
+                return r;
+        }
+
+        tmp = *shared;
+        if (munmap(shared, sizeof *shared) != 0)
+                return negative_errno();
+
+        if (tmp.return_value == 0)
+                *next = tmp.next;
+
+        return tmp.return_value;
 }

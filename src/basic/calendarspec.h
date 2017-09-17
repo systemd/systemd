@@ -40,6 +40,7 @@ typedef struct CalendarSpec {
         bool end_of_month;
         bool utc;
         int dst;
+        char *timezone;
 
         CalendarComponent *year;
         CalendarComponent *month;
