@@ -2270,7 +2270,7 @@ static int setup_keyring(
                         if (setregid(saved_gid, -1) < 0)
                                 return log_error_errno(errno, "Failed to change GID back for user keyring: %m");
                 }
-       }
+        }
 
         return 0;
 }

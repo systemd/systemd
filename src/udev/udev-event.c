@@ -362,7 +362,7 @@ size_t udev_event_apply_format(struct udev_event *event,
                         }
 copy:
                         /* copy char */
-                        if (l == 0)
+                        if (l < 2) /* need space for this char and the terminating NUL */
                                 goto out;
                         s[0] = from[0];
                         from++;
@@ -377,12 +377,12 @@ subst:
                         unsigned int i;
 
                         from++;
-                        for (i = 0; from[i] != '}'; i++) {
+                        for (i = 0; from[i] != '}'; i++)
                                 if (from[i] == '\0') {
                                         log_error("missing closing brace for format '%s'", src);
                                         goto out;
                                 }
-                        }
+
                         if (i >= sizeof(attrbuf))
                                 goto out;
                         memcpy(attrbuf, from, i);
@@ -407,6 +407,7 @@ subst:
         }
 
 out:
+        assert(l >= 1);
         s[0] = '\0';
         return l;
 }

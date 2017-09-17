@@ -2150,7 +2150,7 @@ int bus_exec_context_set_transient_property(
 
                 m = exec_keyring_mode_from_string(s);
                 if (m < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid key ring mode");
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid keyring mode");
 
                 if (mode != UNIT_CHECK) {
                         c->keyring_mode = m;
