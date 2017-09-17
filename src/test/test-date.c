@@ -33,6 +33,12 @@ static void test_should_pass(const char *p) {
         log_info("\"%s\" → \"%s\"", p, buf);
 
         assert_se(parse_timestamp(buf, &q) >= 0);
+        if (q != t) {
+                char tmp[FORMAT_TIMESTAMP_MAX];
+
+                log_error("round-trip failed: \"%s\" → \"%s\"",
+                          buf, format_timestamp_us(tmp, sizeof(tmp), q));
+        }
         assert_se(q == t);
 
         assert_se(format_timestamp_relative(buf_relative, sizeof(buf_relative), t));
@@ -77,6 +83,10 @@ static void test_one_noutc(const char *p) {
 }
 
 int main(int argc, char *argv[]) {
+        log_set_max_level(LOG_DEBUG);
+        log_parse_environment();
+        log_open();
+
         test_one("17:41");
         test_one("18:42:44");
         test_one("18:42:44.0");
