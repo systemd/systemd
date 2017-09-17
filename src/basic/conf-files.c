@@ -74,16 +74,21 @@ static int files_add(Hashmap *h, const char *suffix, const char *root, unsigned 
                                 continue;
                         }
 
-                        /* We only want executable regular files (or symlinks to them), or symlinks to /dev/null */
-                        if (S_ISREG(st.st_mode)) {
-                                if ((st.st_mode & 0111) == 0) { /* not executable */
-                                        log_debug("Ignoring %s/%s, as it is not marked executable.", dirpath, de->d_name);
+                        if (!null_or_empty(&st)) {
+                                /* A mask is a symlink to /dev/null or an empty file. It does not even
+                                 * have to be executable. Other entries must be regular executable files
+                                 * or symlinks to them. */
+                                if (S_ISREG(st.st_mode)) {
+                                        if ((st.st_mode & 0111) == 0) { /* not executable */
+                                                log_debug("Ignoring %s/%s, as it is not marked executable.",
+                                                          dirpath, de->d_name);
+                                                continue;
+                                        }
+                                } else {
+                                        log_debug("Ignoring %s/%s, as it is neither a regular file nor a mask.",
+                                                  dirpath, de->d_name);
                                         continue;
                                 }
-
-                        } else if (!null_or_empty(&st)) { /* /dev/null? */
-                                log_debug("Ignoring %s/%s, as it is not a regular file (or symlink to /dev/null).", dirpath, de->d_name);
-                                continue;
                         }
                 }
 
