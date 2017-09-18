@@ -682,11 +682,11 @@ d /var/tmp/abrt 0755 abrt abrt -
 r! /var/cache/dnf/*/*/download_lock.pid
 r! /var/cache/dnf/*/*/metadata_lock.pid
 r! /var/lib/dnf/rpmdb_lock.pid
-e  /var/chache/dnf/ - - - 30d
+e  /var/cache/dnf/ - - - 30d
 </programlisting>
 
      <para>The lock files will be removed during boot. Any files and directories in
-     <filename>/var/chache/dnf/</filename> will be removed after they have not been
+     <filename>/var/cache/dnf/</filename> will be removed after they have not been
      accessed in 30 days.</para>
     </example>
 
