@@ -129,6 +129,7 @@ _public_ sd_radv *sd_radv_unref(sd_radv *ra) {
         }
 
         free(ra->rdnss);
+        free(ra->dnssl);
 
         radv_reset(ra);
 
