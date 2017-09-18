@@ -39,6 +39,7 @@ Link.WakeOnLan,                  config_parse_wol,           0,                 
 Link.Port,                       config_parse_port,          0,                             offsetof(link_config, port)
 Link.GenericSegmentationOffload, config_parse_tristate,      0,                             offsetof(link_config, features[NET_DEV_FEAT_GSO])
 Link.TCPSegmentationOffload,     config_parse_tristate,      0,                             offsetof(link_config, features[NET_DEV_FEAT_TSO])
+Link.TCP6SegmentationOffload,    config_parse_tristate,      0,                             offsetof(link_config, features[NET_DEV_FEAT_TSO6])
 Link.UDPSegmentationOffload,     config_parse_tristate,      0,                             offsetof(link_config, features[NET_DEV_FEAT_UFO])
 Link.GenericReceiveOffload,      config_parse_tristate,      0,                             offsetof(link_config, features[NET_DEV_FEAT_GRO])
 Link.LargeReceiveOffload,        config_parse_tristate,      0,                             offsetof(link_config, features[NET_DEV_FEAT_LRO])
