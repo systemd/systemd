@@ -11,6 +11,7 @@ want_html = want_html != 'false' and xsltproc.found()
 xsltproc_flags = [
         '--nonet',
         '--xinclude',
+        '--maxdepth', '9000',
         '--stringparam', 'man.output.quietly', '1',
         '--stringparam', 'funcsynopsis.style', 'ansi',
         '--stringparam', 'man.authors.section.enabled', '0',
