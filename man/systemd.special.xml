@@ -603,9 +603,9 @@
         <listitem>
           <para>A special target unit that sets up all slice units (see
           <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-          details) that shall be active after boot. By default the generic <filename>user.slice</filename>,
-          <filename>system.slice</filename>, <filename>machines.slice</filename> slice units, as well as the root
-          slice unit <filename>-.slice</filename> are pulled in and ordered before this unit (see below).</para>
+          details) that shall be active after boot. By default the generic <filename>system.slice</filename>
+          slice unit, as well as the root slice unit <filename>-.slice</filename>, is pulled in and ordered before
+          this unit (see below).</para>
 
           <para>It's a good idea to add <varname>WantedBy=slices.target</varname> lines to the <literal>[Install]</literal>
           section of all slices units that may be installed dynamically.</para>
@@ -1036,7 +1036,8 @@ PartOf=graphical-session.target
         <listitem>
           <para>By default, all user processes and services started on
           behalf of the user, including the per-user systemd instance
-          are found in this slice.</para>
+          are found in this slice.  This is pulled in by
+          <filename>systemd-logind.service</filename></para>
         </listitem>
       </varlistentry>
 
@@ -1045,8 +1046,8 @@ PartOf=graphical-session.target
         <listitem>
           <para>By default, all virtual machines and containers
           registered with <command>systemd-machined</command> are
-          found in this slice.
-          </para>
+          found in this slice.  This is pulled in by
+          <filename>systemd-machined.service</filename></para>
         </listitem>
       </varlistentry>
     </variablelist>
