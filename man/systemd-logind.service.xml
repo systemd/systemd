@@ -63,13 +63,13 @@
       <listitem><para>Keeping track of users and sessions, their processes and their idle state. This is implemented by
       allocating a systemd slice unit for each user below <filename>user.slice</filename>, and a scope unit below it
       for each concurrent session of a user. Also, a per-user service manager is started as system service instance of
-      <filename>user@.service</filename> for each user logged in.</para></listitem>
+      <filename>user@.service</filename> for each logged in user.</para></listitem>
 
-      <listitem><para>Generating and managing session IDs. If auditing is available and an audit session ID is set for
-      a session already, the session ID is initialized from it. Otherwise, an independent session counter is
+      <listitem><para>Generating and managing session IDs. If auditing is available and an audit session ID is already set for
+      a session, then this ID is reused as the session ID. Otherwise, an independent session counter is
       used.</para></listitem>
 
-      <listitem><para>Providing PolicyKit-based access for users to
+      <listitem><para>Providing PolicyKit-based access for users for
       operations such as system shutdown or sleep</para></listitem>
 
       <listitem><para>Implementing a shutdown/sleep inhibition logic

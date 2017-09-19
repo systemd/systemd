@@ -165,13 +165,17 @@
     not set, a suitable default for the default system D-Bus instance
     will be used.</para>
 
-    <para><function>sd_bus_open_system_remote()</function> connects to
-    the system bus on the specified <parameter>host</parameter> using
-    <citerefentry
-    project='die-net'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry>. <parameter>host</parameter>
-    consists of an optional user name followed by the
-    <literal>@</literal> symbol, and the hostname.
-    </para>
+    <para><function>sd_bus_open_system_remote()</function> connects to the system bus on
+    the specified host using
+    <citerefentry project='die-net'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+    <parameter>host</parameter> consists of an optional user name followed by the
+    <literal>@</literal> symbol, and the hostname, optionally followed by a
+    <literal>:</literal> and a machine name. If the machine name is given, a connection
+    is created to the system bus in the specified container on the remote machine, and
+    otherwise a connection to the system bus on the specified host is created.</para>
+
+    <para>Note that entering a container is a privileged operation, and will likely only
+    work for the root user on the remote machine.</para>
 
     <para><function>sd_bus_open_system_machine()</function> connects
     to the system bus in the specified <parameter>machine</parameter>,
