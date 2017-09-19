@@ -37,7 +37,7 @@ static int test_bus_open(void) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        r = sd_bus_open_system(&bus);
+        r = sd_bus_open_user(&bus);
         if (r == -ECONNREFUSED || r == -ENOENT)
                 return r;
 
@@ -51,7 +51,7 @@ static void test_bus_new_method_call(void) {
         sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-        assert_se(sd_bus_open_system(&bus) >= 0);
+        assert_se(sd_bus_open_user(&bus) >= 0);
 
         assert_se(sd_bus_message_new_method_call(bus, &m, "a.service.name", "/an/object/path", "an.interface.name", "AMethodName") >= 0);
 
@@ -65,7 +65,7 @@ static void test_bus_new_signal(void) {
         sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-        assert_se(sd_bus_open_system(&bus) >= 0);
+        assert_se(sd_bus_open_user(&bus) >= 0);
 
         assert_se(sd_bus_message_new_signal(bus, &m, "/an/object/path", "an.interface.name", "Name") >= 0);
 

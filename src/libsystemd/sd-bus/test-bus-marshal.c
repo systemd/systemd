@@ -137,7 +137,7 @@ int main(int argc, char *argv[]) {
         double dbl;
         uint64_t u64;
 
-        r = sd_bus_default_system(&bus);
+        r = sd_bus_default_user(&bus);
         if (r < 0)
                 return EXIT_TEST_SKIP;
 

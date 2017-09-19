@@ -94,7 +94,7 @@ int main(int argc, char *argv[]) {
         sd_bus_slot slots[19];
         int r;
 
-        r = sd_bus_open_system(&bus);
+        r = sd_bus_open_user(&bus);
         if (r < 0)
                 return EXIT_TEST_SKIP;
 

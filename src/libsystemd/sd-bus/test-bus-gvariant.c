@@ -137,7 +137,7 @@ static void test_marshal(void) {
         size_t sz;
         int r;
 
-        r = sd_bus_open_system(&bus);
+        r = sd_bus_open_user(&bus);
         if (r < 0)
                 exit(EXIT_TEST_SKIP);
 
