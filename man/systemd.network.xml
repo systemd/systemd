@@ -1015,6 +1015,19 @@
             </para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>Type=</varname></term>
+          <listitem>
+            <para>The Type identifier for special route types, which can be
+            <literal>unicast</literal> route to a destination network address which describes the path to the destination,
+            <literal>blackhole</literal> packets are discarded silently,
+            <literal>unreachable</literal> packets are discarded and the ICMP message host unreachable is generated,
+            <literal>prohibit</literal> packets are discarded and the ICMP message communication administratively
+            prohibited is generated. Defaults to <literal>unicast</literal>.
+            </para>
+          </listitem>
+        </varlistentry>
+
       </variablelist>
   </refsect1>
 
