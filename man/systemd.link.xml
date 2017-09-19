@@ -491,6 +491,14 @@
           Defaults to "unset".</para>
         </listitem>
       </varlistentry>
+       <varlistentry>
+      <term><varname>TCP6SegmentationOffload=</varname></term>
+        <listitem>
+          <para>The TCP6 Segmentation Offload (tx-tcp6-segmentation) when true enables
+          TCP6 segmentation offload. Takes a boolean value.
+          Defaults to "unset".</para>
+        </listitem>
+      </varlistentry>
       <varlistentry>
         <term><varname>GenericSegmentationOffload=</varname></term>
         <listitem>
