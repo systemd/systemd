@@ -222,8 +222,7 @@ static int network_load_one(Manager *manager, const char *filename) {
          * even if they are commented in the man?
          * These vars might be overwriten by network_apply_anonymize_if_set */
         network->dhcp_vendor_class_identifier = false;
-        /* NOTE: from man: UseMTU=... Defaults to false*/
-        network->dhcp_use_mtu = false;
+        network->dhcp_use_mtu = true;
         /* NOTE: from man: UseTimezone=... Defaults to "no".*/
         network->dhcp_use_timezone = false;
 
