@@ -883,16 +883,16 @@ typedef struct ParseTimestampResult {
 } ParseTimestampResult;
 
 int parse_timestamp(const char *t, usec_t *usec) {
-        char *last_space, *timezone = NULL;
+        char *last_space, *t_timezone = NULL;
         ParseTimestampResult *shared, tmp;
         int r;
         pid_t pid;
 
         last_space = strrchr(t, ' ');
         if (last_space != NULL && timezone_is_valid(last_space + 1))
-                timezone = last_space + 1;
+                t_timezone = last_space + 1;
 
-        if (timezone == NULL || endswith_no_case(t, " UTC"))
+        if (t_timezone == NULL || endswith_no_case(t, " UTC"))
                 return parse_timestamp_impl(t, usec, false);
 
         t = strndupa(t, last_space - t);
@@ -910,7 +910,7 @@ int parse_timestamp(const char *t, usec_t *usec) {
         }
 
         if (pid == 0) {
-                if (setenv("TZ", timezone, 1) != 0) {
+                if (setenv("TZ", t_timezone, 1) != 0) {
                         shared->return_value = negative_errno();
                         _exit(EXIT_FAILURE);
                 }
