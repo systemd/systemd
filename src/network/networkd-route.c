@@ -70,6 +70,7 @@ int route_new(Route **ret) {
         route->family = AF_UNSPEC;
         route->scope = RT_SCOPE_UNIVERSE;
         route->protocol = RTPROT_UNSPEC;
+        route->type = RTN_UNICAST;
         route->table = RT_TABLE_MAIN;
         route->lifetime = USEC_INFINITY;
 
@@ -372,7 +373,8 @@ int route_update(Route *route,
                  const union in_addr_union *gw,
                  const union in_addr_union *prefsrc,
                  unsigned char scope,
-                 unsigned char protocol) {
+                 unsigned char protocol,
+                 unsigned char type) {
 
         assert(route);
         assert(src);
@@ -385,6 +387,7 @@ int route_update(Route *route,
         route->prefsrc = *prefsrc;
         route->scope = scope;
         route->protocol = protocol;
+        route->type = type;
 
         return 0;
 }
@@ -458,9 +461,15 @@ int route_remove(Route *route, Link *link,
         if (r < 0)
                 return log_error_errno(r, "Could not append RTA_PRIORITY attribute: %m");
 
-        r = sd_netlink_message_append_u32(req, RTA_OIF, link->ifindex);
+        r = sd_rtnl_message_route_set_type(req, route->type);
         if (r < 0)
-                return log_error_errno(r, "Could not append RTA_OIF attribute: %m");
+                return log_error_errno(r, "Could not set route type: %m");
+
+        if (!IN_SET(route->type, RTN_UNREACHABLE, RTN_PROHIBIT, RTN_BLACKHOLE)) {
+                r = sd_netlink_message_append_u32(req, RTA_OIF, link->ifindex);
+                if (r < 0)
+                        return log_error_errno(r, "Could not append RTA_OIF attribute: %m");
+        }
 
         r = sd_netlink_call_async(link->manager->rtnl, req, callback, link, 0, NULL);
         if (r < 0)
@@ -612,9 +621,15 @@ int route_configure(
         if (r < 0)
                 return log_error_errno(r, "Could not append RTA_PREF attribute: %m");
 
-        r = sd_netlink_message_append_u32(req, RTA_OIF, link->ifindex);
+        r = sd_rtnl_message_route_set_type(req, route->type);
         if (r < 0)
-                return log_error_errno(r, "Could not append RTA_OIF attribute: %m");
+                return log_error_errno(r, "Could not set route type: %m");
+
+        if (!IN_SET(route->type, RTN_UNREACHABLE, RTN_PROHIBIT, RTN_BLACKHOLE)) {
+                r = sd_netlink_message_append_u32(req, RTA_OIF, link->ifindex);
+                if (r < 0)
+                        return log_error_errno(r, "Could not append RTA_OIF attribute: %m");
+        }
 
         r = sd_netlink_message_open_container(req, RTA_METRICS);
         if (r < 0)
@@ -1017,6 +1032,42 @@ int config_parse_route_protocol(const char *unit,
                         log_syntax(unit, LOG_ERR, filename, line, r, "Could not parse route protocol \"%s\", ignoring assignment: %m", rvalue);
                         return 0;
                 }
+        }
+
+        n = NULL;
+
+        return 0;
+}
+
+int config_parse_route_type(const char *unit,
+                            const char *filename,
+                            unsigned line,
+                            const char *section,
+                            unsigned section_line,
+                            const char *lvalue,
+                            int ltype,
+                            const char *rvalue,
+                            void *data,
+                            void *userdata) {
+        Network *network = userdata;
+        _cleanup_route_free_ Route *n = NULL;
+        int r;
+
+        r = route_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return r;
+
+        if (streq(rvalue, "unicast"))
+                n->type = RTN_UNICAST;
+        else if (streq(rvalue, "blackhole"))
+                n->type = RTN_BLACKHOLE;
+        else if (streq(rvalue, "unreachable"))
+                n->type = RTN_UNREACHABLE;
+        else if (streq(rvalue, "prohibit"))
+                n->type = RTN_PROHIBIT;
+        else {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Could not parse route type \"%s\", ignoring assignment: %m", rvalue);
+                return 0;
         }
 
         n = NULL;

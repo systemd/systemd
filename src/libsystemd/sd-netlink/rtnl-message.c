@@ -155,6 +155,35 @@ int sd_rtnl_message_route_set_family(sd_netlink_message *m, int family) {
         return 0;
 }
 
+int sd_rtnl_message_route_get_type(sd_netlink_message *m, unsigned char *type) {
+        struct rtmsg *rtm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(type, -EINVAL);
+
+        rtm = NLMSG_DATA(m->hdr);
+
+        *type = rtm->rtm_type;
+
+        return 0;
+}
+
+int sd_rtnl_message_route_set_type(sd_netlink_message *m, unsigned char type) {
+        struct rtmsg *rtm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
+
+        rtm = NLMSG_DATA(m->hdr);
+
+        rtm->rtm_type = type;
+
+        return 0;
+}
+
 int sd_rtnl_message_route_get_protocol(sd_netlink_message *m, unsigned char *protocol) {
         struct rtmsg *rtm;
 

@@ -296,7 +296,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
         Link *link = NULL;
         uint16_t type;
         uint32_t ifindex, priority = 0;
-        unsigned char protocol, scope, tos, table;
+        unsigned char protocol, scope, tos, table, rt_type;
         int family;
         unsigned char dst_prefixlen, src_prefixlen;
         union in_addr_union dst = {}, gw = {}, src = {}, prefsrc = {};
@@ -441,6 +441,12 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
                 return 0;
         }
 
+        r = sd_rtnl_message_route_get_type(message, &rt_type);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "rtnl: received route with invalid type, ignoring: %m");
+                return 0;
+        }
+
         r = sd_rtnl_message_route_get_table(message, &table);
         if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: received route with invalid table, ignoring: %m");
@@ -464,7 +470,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
                                 return 0;
                 }
 
-                route_update(route, &src, src_prefixlen, &gw, &prefsrc, scope, protocol);
+                route_update(route, &src, src_prefixlen, &gw, &prefsrc, scope, rt_type, protocol);
 
                 break;
 
