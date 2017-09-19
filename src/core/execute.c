@@ -2220,8 +2220,13 @@ static int setup_keyring(
 
         /* And now, make the keyring owned by the service's user */
         if (uid_is_valid(uid) || gid_is_valid(gid))
-                if (keyctl(KEYCTL_CHOWN, keyring, uid, gid, 0) < 0)
-                        return log_error_errno(errno, "Failed to change ownership of session keyring: %m");
+                if (keyctl(KEYCTL_CHOWN, keyring, uid, gid, 0) < 0) {
+                        if (errno == EACCES)
+                                log_debug_errno(errno, "Permission denied to change ownership of session keyring, ignoring.");
+                        else
+                                return log_error_errno(errno, "Failed to change ownership of session keyring: %m");
+                        return 0;
+                }
 
         /* When requested link the user keyring into the session keyring. */
         if (context->keyring_mode == EXEC_KEYRING_SHARED) {
