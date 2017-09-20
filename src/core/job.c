@@ -806,7 +806,8 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
         default:
                 log_struct(job_result_log_level[result],
                            LOG_MESSAGE("%s", buf),
-                           "RESULT=%s", job_result_to_string(result),
+                           "JOB_TYPE=%s", job_type_to_string(t),
+                           "JOB_RESULT=%s", job_result_to_string(result),
                            LOG_UNIT_ID(u),
                            LOG_UNIT_INVOCATION_ID(u),
                            NULL);
@@ -815,7 +816,8 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
 
         log_struct(job_result_log_level[result],
                    LOG_MESSAGE("%s", buf),
-                   "RESULT=%s", job_result_to_string(result),
+                   "JOB_TYPE=%s", job_type_to_string(t),
+                   "JOB_RESULT=%s", job_result_to_string(result),
                    LOG_UNIT_ID(u),
                    LOG_UNIT_INVOCATION_ID(u),
                    mid,
@@ -823,6 +825,7 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
 }
 
 static void job_emit_status_message(Unit *u, JobType t, JobResult result) {
+        assert(u);
 
         /* No message if the job did not actually do anything due to failed condition. */
         if (t == JOB_START && result == JOB_DONE && !u->condition_result)
@@ -905,7 +908,7 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
          * the unit itself. We don't treat JOB_CANCELED as failure in
          * this context. And JOB_FAILURE is already handled by the
          * unit itself. */
-        if (result == JOB_TIMEOUT || result == JOB_DEPENDENCY) {
+        if (IN_SET(result, JOB_TIMEOUT, JOB_DEPENDENCY)) {
                 log_struct(LOG_NOTICE,
                            "JOB_TYPE=%s", job_type_to_string(t),
                            "JOB_RESULT=%s", job_result_to_string(result),
