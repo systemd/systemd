@@ -849,11 +849,11 @@ parse_usec:
         }
 
 from_tm:
-        x = mktime_or_timegm(&tm, utc);
-        if (x < 0)
+        if (weekday >= 0 && tm.tm_wday != weekday)
                 return -EINVAL;
 
-        if (weekday >= 0 && tm.tm_wday != weekday)
+        x = mktime_or_timegm(&tm, utc);
+        if (x < 0)
                 return -EINVAL;
 
         ret = (usec_t) x * USEC_PER_SEC + x_usec;
