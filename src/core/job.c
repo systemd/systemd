@@ -808,6 +808,7 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
                            LOG_MESSAGE("%s", buf),
                            "RESULT=%s", job_result_to_string(result),
                            LOG_UNIT_ID(u),
+                           LOG_UNIT_INVOCATION_ID(u),
                            NULL);
                 return;
         }
@@ -816,6 +817,7 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
                    LOG_MESSAGE("%s", buf),
                    "RESULT=%s", job_result_to_string(result),
                    LOG_UNIT_ID(u),
+                   LOG_UNIT_INVOCATION_ID(u),
                    mid,
                    NULL);
 }

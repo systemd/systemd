@@ -1956,6 +1956,7 @@ static void service_enter_restart(Service *s) {
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_UNIT_RESTART_SCHEDULED_STR,
                    LOG_UNIT_ID(UNIT(s)),
+                   LOG_UNIT_INVOCATION_ID(UNIT(s)),
                    LOG_UNIT_MESSAGE(UNIT(s), "Scheduled restart job, restart counter is at %u.", s->n_restarts),
                    "N_RESTARTS=%u", s->n_restarts,
                    NULL);
@@ -2951,6 +2952,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                            "EXIT_CODE=%s", sigchld_code_to_string(code),
                            "EXIT_STATUS=%i", status,
                            LOG_UNIT_ID(u),
+                           LOG_UNIT_INVOCATION_ID(u),
                            NULL);
 
                 if (s->result == SERVICE_SUCCESS)

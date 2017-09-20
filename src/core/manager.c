@@ -631,13 +631,13 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
                 m->unit_log_format_string = "UNIT=%s";
 
                 m->invocation_log_field = "INVOCATION_ID=";
-                m->invocation_log_format_string = "INVOCATION_ID=" SD_ID128_FORMAT_STR;
+                m->invocation_log_format_string = "INVOCATION_ID=%s";
         } else {
                 m->unit_log_field = "USER_UNIT=";
                 m->unit_log_format_string = "USER_UNIT=%s";
 
                 m->invocation_log_field = "USER_INVOCATION_ID=";
-                m->invocation_log_format_string = "USER_INVOCATION_ID=" SD_ID128_FORMAT_STR;
+                m->invocation_log_format_string = "USER_INVOCATION_ID=%s";
         }
 
         m->idle_pipe[0] = m->idle_pipe[1] = m->idle_pipe[2] = m->idle_pipe[3] = -1;

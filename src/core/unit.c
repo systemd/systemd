@@ -1544,6 +1544,7 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
         log_struct(LOG_INFO,
                    LOG_MESSAGE("%s", buf),
                    LOG_UNIT_ID(u),
+                   LOG_UNIT_INVOCATION_ID(u),
                    mid,
                    NULL);
 }
@@ -4242,6 +4243,7 @@ void unit_warn_if_dir_nonempty(Unit *u, const char* where) {
         log_struct(LOG_NOTICE,
                    "MESSAGE_ID=" SD_MESSAGE_OVERMOUNTING_STR,
                    LOG_UNIT_ID(u),
+                   LOG_UNIT_INVOCATION_ID(u),
                    LOG_UNIT_MESSAGE(u, "Directory %s to mount over is not empty, mounting anyway.", where),
                    "WHERE=%s", where,
                    NULL);
@@ -4264,6 +4266,7 @@ int unit_fail_if_symlink(Unit *u, const char* where) {
         log_struct(LOG_ERR,
                    "MESSAGE_ID=" SD_MESSAGE_OVERMOUNTING_STR,
                    LOG_UNIT_ID(u),
+                   LOG_UNIT_INVOCATION_ID(u),
                    LOG_UNIT_MESSAGE(u, "Mount on symlink %s not allowed.", where),
                    "WHERE=%s", where,
                    NULL);
