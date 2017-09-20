@@ -895,8 +895,6 @@ int parse_timestamp(const char *t, usec_t *usec) {
         if (tz == NULL || endswith_no_case(t, " UTC"))
                 return parse_timestamp_impl(t, usec, false);
 
-        t = strndupa(t, last_space - t);
-
         shared = mmap(NULL, sizeof *shared, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
         if (shared == MAP_FAILED)
                 return negative_errno();
@@ -910,6 +908,8 @@ int parse_timestamp(const char *t, usec_t *usec) {
         }
 
         if (pid == 0) {
+                bool with_tz = true;
+
                 if (setenv("TZ", tz, 1) != 0) {
                         shared->return_value = negative_errno();
                         _exit(EXIT_FAILURE);
@@ -917,7 +917,15 @@ int parse_timestamp(const char *t, usec_t *usec) {
 
                 tzset();
 
-                shared->return_value = parse_timestamp_impl(t, &shared->usec, true);
+                /* If there is a timezone that matches the tzname fields, leave the parsing to the implementation.
+                 * Otherwise just cut it off */
+                with_tz = !STR_IN_SET(tz, tzname[0], tzname[1]);
+
+                /*cut off the timezone if we dont need it*/
+                if (with_tz)
+                        t = strndupa(t, last_space - t);
+
+                shared->return_value = parse_timestamp_impl(t, &shared->usec, with_tz);
 
                 _exit(EXIT_SUCCESS);
         }
