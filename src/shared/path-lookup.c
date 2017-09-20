@@ -701,6 +701,7 @@ void lookup_paths_free(LookupPaths *p) {
         p->runtime_control = mfree(p->runtime_control);
 
         p->root_dir = mfree(p->root_dir);
+        p->temporary_dir = mfree(p->temporary_dir);
 }
 
 int lookup_paths_reduce(LookupPaths *p) {

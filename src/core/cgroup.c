@@ -1813,7 +1813,7 @@ int manager_setup_cgroup(Manager *m) {
                         log_debug("Using cgroup controller " SYSTEMD_CGROUP_CONTROLLER_LEGACY ". File system hierarchy is at %s.", path);
         }
 
-        if (!m->test_run) {
+        if (!m->test_run_flags) {
                 const char *scope_path;
 
                 /* 3. Install agent */

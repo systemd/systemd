@@ -39,7 +39,7 @@ static int test_cgroup_mask(void) {
         /* Prepare the manager. */
         assert_se(set_unit_path(get_testdata_dir("")) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
-        r = manager_new(UNIT_FILE_USER, true, &m);
+        r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
         if (r == -EPERM || r == -EACCES) {
                 puts("manager_new: Permission denied. Skipping test.");
                 return EXIT_TEST_SKIP;

@@ -1817,7 +1817,9 @@ int main(int argc, char *argv[]) {
                         (void) bump_rlimit_nofile(&saved_rlimit_nofile);
         }
 
-        r = manager_new(arg_system ? UNIT_FILE_SYSTEM : UNIT_FILE_USER, arg_action == ACTION_TEST, &m);
+        r = manager_new(arg_system ? UNIT_FILE_SYSTEM : UNIT_FILE_USER,
+                        arg_action == ACTION_TEST ? MANAGER_TEST_FULL : 0,
+                        &m);
         if (r < 0) {
                 log_emergency_errno(r, "Failed to allocate manager object: %m");
                 error_message = "Failed to allocate manager object";

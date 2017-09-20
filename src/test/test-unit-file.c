@@ -115,7 +115,7 @@ static void test_config_parse_exec(void) {
         Manager *m = NULL;
         Unit *u = NULL;
 
-        r = manager_new(UNIT_FILE_USER, true, &m);
+        r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
         if (MANAGER_SKIP_TEST(r)) {
                 log_notice_errno(r, "Skipping test: manager_new: %m");
                 return;

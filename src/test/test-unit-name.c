@@ -211,7 +211,7 @@ static int test_unit_printf(void) {
         assert_se(get_home_dir(&home) >= 0);
         assert_se(get_shell(&shell) >= 0);
 
-        r = manager_new(UNIT_FILE_USER, true, &m);
+        r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
         if (MANAGER_SKIP_TEST(r)) {
                 log_notice_errno(r, "Skipping test: manager_new: %m");
                 return EXIT_TEST_SKIP;
