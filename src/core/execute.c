@@ -2351,9 +2351,9 @@ static int send_user_lookup(
 
         if (writev(user_lookup_fd,
                (struct iovec[]) {
-                           { .iov_base = &uid, .iov_len = sizeof(uid) },
-                           { .iov_base = &gid, .iov_len = sizeof(gid) },
-                           { .iov_base = unit->id, .iov_len = strlen(unit->id) }}, 3) < 0)
+                           IOVEC_INIT(&uid, sizeof(uid)),
+                           IOVEC_INIT(&gid, sizeof(gid)),
+                           IOVEC_INIT_STRING(unit->id) }, 3) < 0)
                 return -errno;
 
         return 0;

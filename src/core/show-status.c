@@ -93,21 +93,21 @@ int status_vprintf(const char *status, bool ellipse, bool ephemeral, const char 
         }
 
         if (prev_ephemeral)
-                IOVEC_SET_STRING(iovec[n++], "\r" ANSI_ERASE_TO_END_OF_LINE);
+                iovec[n++] = IOVEC_MAKE_STRING("\r" ANSI_ERASE_TO_END_OF_LINE);
         prev_ephemeral = ephemeral;
 
         if (status) {
                 if (!isempty(status)) {
-                        IOVEC_SET_STRING(iovec[n++], "[");
-                        IOVEC_SET_STRING(iovec[n++], status);
-                        IOVEC_SET_STRING(iovec[n++], "] ");
+                        iovec[n++] = IOVEC_MAKE_STRING("[");
+                        iovec[n++] = IOVEC_MAKE_STRING(status);
+                        iovec[n++] = IOVEC_MAKE_STRING("] ");
                 } else
-                        IOVEC_SET_STRING(iovec[n++], status_indent);
+                        iovec[n++] = IOVEC_MAKE_STRING(status_indent);
         }
 
-        IOVEC_SET_STRING(iovec[n++], s);
+        iovec[n++] = IOVEC_MAKE_STRING(s);
         if (!ephemeral)
-                IOVEC_SET_STRING(iovec[n++], "\n");
+                iovec[n++] = IOVEC_MAKE_STRING("\n");
 
         if (writev(fd, iovec, n) < 0)
                 return -errno;

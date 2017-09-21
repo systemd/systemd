@@ -749,7 +749,7 @@ static int submit_coredump(
                 const char *coredump_filename;
 
                 coredump_filename = strjoina("COREDUMP_FILENAME=", filename);
-                IOVEC_SET_STRING(iovec[n_iovec++], coredump_filename);
+                iovec[n_iovec++] = IOVEC_MAKE_STRING(coredump_filename);
         } else if (arg_storage == COREDUMP_STORAGE_EXTERNAL)
                 log_info("The core will not be stored: size %"PRIu64" is greater than %"PRIu64" (the configured maximum)",
                          coredump_size, arg_external_size_max);
@@ -804,10 +804,10 @@ log:
                 return 0;
         }
 
-        IOVEC_SET_STRING(iovec[n_iovec++], core_message);
+        iovec[n_iovec++] = IOVEC_MAKE_STRING(core_message);
 
         if (truncated)
-                IOVEC_SET_STRING(iovec[n_iovec++], "COREDUMP_TRUNCATED=1");
+                iovec[n_iovec++] = IOVEC_MAKE_STRING("COREDUMP_TRUNCATED=1");
 
         /* Optionally store the entire coredump in the journal */
         if (arg_storage == COREDUMP_STORAGE_JOURNAL) {
@@ -817,11 +817,9 @@ log:
                         /* Store the coredump itself in the journal */
 
                         r = allocate_journal_field(coredump_fd, (size_t) coredump_size, &coredump_data, &sz);
-                        if (r >= 0) {
-                                iovec[n_iovec].iov_base = coredump_data;
-                                iovec[n_iovec].iov_len = sz;
-                                n_iovec++;
-                        } else
+                        if (r >= 0)
+                                iovec[n_iovec++] = IOVEC_MAKE(coredump_data, sz);
+                        else
                                 log_warning_errno(r, "Failed to attach the core to the journal entry: %m");
                 } else
                         log_info("The core will not be stored: size %"PRIu64" is greater than %"PRIu64" (the configured maximum)",
@@ -1070,7 +1068,7 @@ static char* set_iovec_field(struct iovec iovec[27], size_t *n_iovec, const char
 
         x = strappend(field, value);
         if (x)
-                IOVEC_SET_STRING(iovec[(*n_iovec)++], x);
+                iovec[(*n_iovec)++] = IOVEC_MAKE_STRING(x);
         return x;
 }
 
@@ -1162,7 +1160,7 @@ static int gather_pid_metadata(
         if (sd_pid_get_owner_uid(pid, &owner_uid) >= 0) {
                 r = asprintf(&t, "COREDUMP_OWNER_UID=" UID_FMT, owner_uid);
                 if (r > 0)
-                        IOVEC_SET_STRING(iovec[(*n_iovec)++], t);
+                        iovec[(*n_iovec)++] = IOVEC_MAKE_STRING(t);
         }
 
         if (sd_pid_get_slice(pid, &t) >= 0)
@@ -1218,7 +1216,7 @@ static int gather_pid_metadata(
 
         t = strjoin("COREDUMP_TIMESTAMP=", context[CONTEXT_TIMESTAMP], "000000", NULL);
         if (t)
-                IOVEC_SET_STRING(iovec[(*n_iovec)++], t);
+                iovec[(*n_iovec)++] = IOVEC_MAKE_STRING(t);
 
         if (safe_atoi(context[CONTEXT_SIGNAL], &signo) >= 0 && SIGNAL_VALID(signo))
                 set_iovec_field(iovec, n_iovec, "COREDUMP_SIGNAL_NAME=SIG", signal_to_string(signo));
@@ -1253,10 +1251,10 @@ static int process_kernel(int argc, char* argv[]) {
 
         n_iovec = n_to_free;
 
-        IOVEC_SET_STRING(iovec[n_iovec++], "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR);
+        iovec[n_iovec++] = IOVEC_MAKE_STRING("MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR);
 
         assert_cc(2 == LOG_CRIT);
-        IOVEC_SET_STRING(iovec[n_iovec++], "PRIORITY=2");
+        iovec[n_iovec++] = IOVEC_MAKE_STRING("PRIORITY=2");
 
         assert(n_iovec <= ELEMENTSOF(iovec));
 
@@ -1344,15 +1342,15 @@ static int process_backtrace(int argc, char *argv[]) {
                         r = log_oom();
                         goto finish;
                 }
-                IOVEC_SET_STRING(iovec[n_iovec++], message);
+                iovec[n_iovec++] = IOVEC_MAKE_STRING(message);
         } else {
                 for (i = 0; i < importer.iovw.count; i++)
                         iovec[n_iovec++] = importer.iovw.iovec[i];
         }
 
-        IOVEC_SET_STRING(iovec[n_iovec++], "MESSAGE_ID=" SD_MESSAGE_BACKTRACE_STR);
+        iovec[n_iovec++] = IOVEC_MAKE_STRING("MESSAGE_ID=" SD_MESSAGE_BACKTRACE_STR);
         assert_cc(2 == LOG_CRIT);
-        IOVEC_SET_STRING(iovec[n_iovec++], "PRIORITY=2");
+        iovec[n_iovec++] = IOVEC_MAKE_STRING("PRIORITY=2");
 
         assert(n_iovec <= n_allocated);
 

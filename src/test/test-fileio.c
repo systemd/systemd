@@ -609,9 +609,9 @@ static void test_writing_tmpfile(void) {
         int fd, r;
         struct iovec iov[3];
 
-        IOVEC_SET_STRING(iov[0], "abc\n");
-        IOVEC_SET_STRING(iov[1], ALPHANUMERICAL "\n");
-        IOVEC_SET_STRING(iov[2], "");
+        iov[0] = IOVEC_MAKE_STRING("abc\n");
+        iov[1] = IOVEC_MAKE_STRING(ALPHANUMERICAL "\n");
+        iov[2] = IOVEC_MAKE_STRING("");
 
         fd = mkostemp_safe(name);
         printf("tmpfile: %s", name);

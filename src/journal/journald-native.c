@@ -282,7 +282,7 @@ static int server_process_entry(
         }
 
         tn = n++;
-        IOVEC_SET_STRING(iovec[tn], "_TRANSPORT=journal");
+        iovec[tn] = IOVEC_MAKE_STRING("_TRANSPORT=journal");
         entry_size += strlen("_TRANSPORT=journal");
 
         if (entry_size + n + 1 > ENTRY_SIZE_MAX) { /* data + separators + trailer */
