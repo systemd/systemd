@@ -225,6 +225,10 @@ static void test_config_parse_iec_uint64(void) {
         assert_se(config_parse_iec_uint64(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4.5M", &offset, NULL) == 0);
 }
 
+#define x10(x) x x x x x x x x x x
+#define x100(x) x10(x10(x))
+#define x1000(x) x10(x100(x))
+
 static const char* const config_file[] = {
         "[Section]\n"
         "setting1=1\n",
@@ -251,6 +255,21 @@ static const char* const config_file[] = {
         "\\\\2\n",           /* note that C requires one level of escaping, so the
                               * parser gets "…1 BS BS BS NL BS BS 2 NL", which
                               * it translates into "…1 BS BS SP BS BS 2" */
+
+
+        "\n[Section]\n\n"
+        "setting1="          /* a line above LINE_MAX length */
+        x1000("ABCD")
+        "\n",
+
+        "[Section]\n"
+        "setting1="          /* a line above LINE_MAX length, with continuation */
+        x1000("ABCD") "\\\n"
+        "foobar",
+
+        "[Section]\n"
+        "setting1="          /* a line above the allowed limit: 9 + 1050000 + 1 */
+        x1000(x1000("x") x10("abcde")) "\n",
 };
 
 static void test_config_parse(unsigned i, const char *s) {
@@ -290,19 +309,36 @@ static void test_config_parse(unsigned i, const char *s) {
                          "Section\0",
                          config_item_table_lookup, items,
                          false, false, true, NULL);
-        assert_se(r == 0);
 
         switch (i) {
         case 0 ... 3:
+                assert_se(r == 0);
                 assert_se(streq(setting1, "1"));
                 break;
 
         case 4:
+                assert_se(r == 0);
                 assert_se(streq(setting1, "1 2 3"));
                 break;
 
         case 5:
+                assert_se(r == 0);
                 assert_se(streq(setting1, "1\\\\ \\\\2"));
+                break;
+
+        case 6:
+                assert_se(r == 0);
+                assert_se(streq(setting1, x1000("ABCD")));
+                break;
+
+        case 7:
+                assert_se(r == 0);
+                assert_se(streq(setting1, x1000("ABCD") " foobar"));
+                break;
+
+        case 8:
+                assert_se(r == -ENOBUFS);
+                assert_se(setting1 == NULL);
                 break;
         }
 }
