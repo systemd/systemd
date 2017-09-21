@@ -91,7 +91,7 @@ int bpf_program_load_kernel(BPFProgram *p, char *log_buf, size_t log_size) {
         return 0;
 }
 
-int bpf_program_cgroup_attach(BPFProgram *p, int type, const char *path) {
+int bpf_program_cgroup_attach(BPFProgram *p, int type, const char *path, uint32_t flags) {
         _cleanup_close_ int fd = -1;
         union bpf_attr attr;
 
@@ -107,6 +107,7 @@ int bpf_program_cgroup_attach(BPFProgram *p, int type, const char *path) {
                 .attach_type = type,
                 .target_fd = fd,
                 .attach_bpf_fd = p->kernel_fd,
+                .attach_flags = flags,
         };
 
         if (bpf(BPF_PROG_ATTACH, &attr, sizeof(attr)) < 0)

@@ -539,9 +539,17 @@ int bpf_firewall_compile(Unit *u) {
 
 int bpf_firewall_install(Unit *u) {
         _cleanup_free_ char *path = NULL;
+        CGroupContext *cc;
         int r;
 
         assert(u);
+
+        if (!u->cgroup_path)
+                return -EINVAL;
+
+        cc = unit_get_cgroup_context(u);
+        if (!cc)
+                return -EINVAL;
 
         r = bpf_firewall_supported();
         if (r < 0)
@@ -560,7 +568,7 @@ int bpf_firewall_install(Unit *u) {
                 if (r < 0)
                         return log_error_errno(r, "Kernel upload of egress BPF program failed: %m");
 
-                r = bpf_program_cgroup_attach(u->ip_bpf_egress, BPF_CGROUP_INET_EGRESS, path);
+                r = bpf_program_cgroup_attach(u->ip_bpf_egress, BPF_CGROUP_INET_EGRESS, path, cc->delegate ? BPF_F_ALLOW_OVERRIDE : 0);
                 if (r < 0)
                         return log_error_errno(r, "Attaching egress BPF program to cgroup %s failed: %m", path);
         } else {
@@ -575,7 +583,7 @@ int bpf_firewall_install(Unit *u) {
                 if (r < 0)
                         return log_error_errno(r, "Kernel upload of ingress BPF program failed: %m");
 
-                r = bpf_program_cgroup_attach(u->ip_bpf_ingress, BPF_CGROUP_INET_INGRESS, path);
+                r = bpf_program_cgroup_attach(u->ip_bpf_ingress, BPF_CGROUP_INET_INGRESS, path, cc->delegate ? BPF_F_ALLOW_OVERRIDE : 0);
                 if (r < 0)
                         return log_error_errno(r, "Attaching ingress BPF program to cgroup %s failed: %m", path);
         } else {

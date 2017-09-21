@@ -45,7 +45,7 @@ BPFProgram *bpf_program_unref(BPFProgram *p);
 int bpf_program_add_instructions(BPFProgram *p, const struct bpf_insn *insn, size_t count);
 int bpf_program_load_kernel(BPFProgram *p, char *log_buf, size_t log_size);
 
-int bpf_program_cgroup_attach(BPFProgram *p, int type, const char *path);
+int bpf_program_cgroup_attach(BPFProgram *p, int type, const char *path, uint32_t flags);
 int bpf_program_cgroup_detach(int type, const char *path);
 
 int bpf_map_new(enum bpf_map_type type, size_t key_size, size_t value_size, size_t max_entries, uint32_t flags);
