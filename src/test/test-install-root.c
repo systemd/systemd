@@ -446,7 +446,7 @@ static void test_template_enable(const char *root) {
         unit_file_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "template@.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "template@.service", &state) >= 0 && state == UNIT_FILE_INDIRECT);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "template@def.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "template@foo.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "template-symlink@foo.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
@@ -479,11 +479,11 @@ static void test_template_enable(const char *root) {
         unit_file_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "template@.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "template@.service", &state) >= 0 && state == UNIT_FILE_INDIRECT);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "template@def.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "template@foo.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "template@quux.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "template-symlink@.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "template-symlink@.service", &state) >= 0 && state == UNIT_FILE_INDIRECT);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "template-symlink@def.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "template-symlink@foo.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "template-symlink@quux.service", &state) >= 0 && state == UNIT_FILE_ENABLED);

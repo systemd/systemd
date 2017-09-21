@@ -727,6 +727,7 @@ static bool is_symlink_with_known_name(const UnitFileInstallInfo *i, const char 
 static int find_symlinks_fd(
                 const char *root_dir,
                 UnitFileInstallInfo *i,
+                bool match_aliases,
                 int fd,
                 const char *path,
                 const char *config_path,
@@ -773,7 +774,7 @@ static int find_symlinks_fd(
                         }
 
                         /* This will close nfd, regardless whether it succeeds or not */
-                        q = find_symlinks_fd(root_dir, i, nfd,
+                        q = find_symlinks_fd(root_dir, i, match_aliases, nfd,
                                              p, config_path, same_name_link);
                         if (q > 0)
                                 return 1;
@@ -841,6 +842,9 @@ static int find_symlinks_fd(
                         if (b)
                                 *same_name_link = true;
                         else if (found_path || found_dest) {
+                                if (!match_aliases)
+                                        return 1;
+
                                 /* Check if symlink name is in the set of names used by [Install] */
                                 q = is_symlink_with_known_name(i, de->d_name);
                                 log_info("is_symlink_with_known_name(%s, %s) → %d", i->name, de->d_name, q);
@@ -858,6 +862,7 @@ static int find_symlinks_fd(
 static int find_symlinks(
                 const char *root_dir,
                 UnitFileInstallInfo *i,
+                bool match_name,
                 const char *config_path,
                 bool *same_name_link) {
 
@@ -875,13 +880,14 @@ static int find_symlinks(
         }
 
         /* This takes possession of fd and closes it */
-        return find_symlinks_fd(root_dir, i, fd,
+        return find_symlinks_fd(root_dir, i, match_name, fd,
                                 config_path, config_path, same_name_link);
 }
 
 static int find_symlinks_in_scope(
                 const LookupPaths *paths,
                 UnitFileInstallInfo *i,
+                bool match_name,
                 UnitFileState *state) {
 
         bool same_name_link_runtime = false, same_name_link_config = false;
@@ -895,7 +901,7 @@ static int find_symlinks_in_scope(
         STRV_FOREACH(p, paths->search_path)  {
                 bool same_name_link = false;
 
-                r = find_symlinks(paths->root_dir, i, *p, &same_name_link);
+                r = find_symlinks(paths->root_dir, i, match_name, *p, &same_name_link);
                 if (r < 0)
                         return r;
                 if (r > 0) {
@@ -2640,10 +2646,20 @@ static int unit_file_lookup_state(
                 /* Check if any of the Alias= symlinks have been created.
                  * We ignore other aliases, and only check those that would
                  * be created by systemctl enable for this unit. */
-                r = find_symlinks_in_scope(paths, i, &state);
+                r = find_symlinks_in_scope(paths, i, true, &state);
                 if (r < 0)
                         return r;
-                if (r == 0) {
+                if (r > 0)
+                        break;
+
+                /* Check if the file is known under other names. If it is,
+                 * it might be in use. Report that as UNIT_FILE_INDIRECT. */
+                r = find_symlinks_in_scope(paths, i, false, &state);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        state = UNIT_FILE_INDIRECT;
+                else {
                         if (unit_file_install_info_has_rules(i))
                                 state = UNIT_FILE_DISABLED;
                         else if (unit_file_install_info_has_also(i))
