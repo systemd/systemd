@@ -83,6 +83,20 @@ typedef struct {
         size_t n_rules;
 } Presets;
 
+static inline bool unit_file_install_info_has_rules(UnitFileInstallInfo *i) {
+        assert(i);
+
+        return !strv_isempty(i->aliases) ||
+               !strv_isempty(i->wanted_by) ||
+               !strv_isempty(i->required_by);
+}
+
+static inline bool unit_file_install_info_has_also(UnitFileInstallInfo *i) {
+        assert(i);
+
+        return !strv_isempty(i->also);
+}
+
 static inline void presets_freep(Presets *p) {
         size_t i;
 
@@ -2593,9 +2607,9 @@ static int unit_file_lookup_state(
                 if (r < 0)
                         return r;
                 if (r == 0) {
-                        if (UNIT_FILE_INSTALL_INFO_HAS_RULES(i))
+                        if (unit_file_install_info_has_rules(i))
                                 state = UNIT_FILE_DISABLED;
-                        else if (UNIT_FILE_INSTALL_INFO_HAS_ALSO(i))
+                        else if (unit_file_install_info_has_also(i))
                                 state = UNIT_FILE_INDIRECT;
                         else
                                 state = UNIT_FILE_STATIC;
