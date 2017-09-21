@@ -699,9 +699,34 @@ static int remove_marked_symlinks(
         return r;
 }
 
+static bool is_symlink_with_known_name(const UnitFileInstallInfo *i, const char *name) {
+        int r;
+
+        if (streq(name, i->name))
+                return true;
+
+        if (strv_contains(i->aliases, name))
+                return true;
+
+        /* Look for template symlink matching DefaultInstance */
+        if (i->default_instance && unit_name_is_valid(i->name, UNIT_NAME_TEMPLATE)) {
+                _cleanup_free_ char *s = NULL;
+
+                r = unit_name_replace_instance(i->name, i->default_instance, &s);
+                if (r < 0) {
+                        if (r != -EINVAL)
+                                return r;
+
+                } else if (streq(name, s))
+                        return true;
+        }
+
+        return false;
+}
+
 static int find_symlinks_fd(
                 const char *root_dir,
-                const char *name,
+                UnitFileInstallInfo *i,
                 int fd,
                 const char *path,
                 const char *config_path,
@@ -711,7 +736,7 @@ static int find_symlinks_fd(
         struct dirent *de;
         int r = 0;
 
-        assert(name);
+        assert(i);
         assert(fd >= 0);
         assert(path);
         assert(config_path);
@@ -748,7 +773,8 @@ static int find_symlinks_fd(
                         }
 
                         /* This will close nfd, regardless whether it succeeds or not */
-                        q = find_symlinks_fd(root_dir, name, nfd, p, config_path, same_name_link);
+                        q = find_symlinks_fd(root_dir, i, nfd,
+                                             p, config_path, same_name_link);
                         if (q > 0)
                                 return 1;
                         if (r == 0)
@@ -788,24 +814,24 @@ static int find_symlinks_fd(
 
                         /* Check if the symlink itself matches what we
                          * are looking for */
-                        if (path_is_absolute(name))
-                                found_path = path_equal(p, name);
+                        if (path_is_absolute(i->name))
+                                found_path = path_equal(p, i->name);
                         else
-                                found_path = streq(de->d_name, name);
+                                found_path = streq(de->d_name, i->name);
 
                         /* Check if what the symlink points to
                          * matches what we are looking for */
-                        if (path_is_absolute(name))
-                                found_dest = path_equal(dest, name);
+                        if (path_is_absolute(i->name))
+                                found_dest = path_equal(dest, i->name);
                         else
-                                found_dest = streq(basename(dest), name);
+                                found_dest = streq(basename(dest), i->name);
 
                         if (found_path && found_dest) {
                                 _cleanup_free_ char *t = NULL;
 
                                 /* Filter out same name links in the main
                                  * config path */
-                                t = path_make_absolute(name, config_path);
+                                t = path_make_absolute(i->name, config_path);
                                 if (!t)
                                         return -ENOMEM;
 
@@ -814,8 +840,15 @@ static int find_symlinks_fd(
 
                         if (b)
                                 *same_name_link = true;
-                        else if (found_path || found_dest)
-                                return 1;
+                        else if (found_path || found_dest) {
+                                /* Check if symlink name is in the set of names used by [Install] */
+                                q = is_symlink_with_known_name(i, de->d_name);
+                                log_info("is_symlink_with_known_name(%s, %s) → %d", i->name, de->d_name, q);
+                                if (q < 0)
+                                        return q;
+                                if (q > 0)
+                                        return 1;
+                        }
                 }
         }
 
@@ -824,13 +857,13 @@ static int find_symlinks_fd(
 
 static int find_symlinks(
                 const char *root_dir,
-                const char *name,
+                UnitFileInstallInfo *i,
                 const char *config_path,
                 bool *same_name_link) {
 
         int fd;
 
-        assert(name);
+        assert(i);
         assert(config_path);
         assert(same_name_link);
 
@@ -842,12 +875,13 @@ static int find_symlinks(
         }
 
         /* This takes possession of fd and closes it */
-        return find_symlinks_fd(root_dir, name, fd, config_path, config_path, same_name_link);
+        return find_symlinks_fd(root_dir, i, fd,
+                                config_path, config_path, same_name_link);
 }
 
 static int find_symlinks_in_scope(
                 const LookupPaths *paths,
-                const char *name,
+                UnitFileInstallInfo *i,
                 UnitFileState *state) {
 
         bool same_name_link_runtime = false, same_name_link_config = false;
@@ -856,12 +890,12 @@ static int find_symlinks_in_scope(
         int r;
 
         assert(paths);
-        assert(name);
+        assert(i);
 
         STRV_FOREACH(p, paths->search_path)  {
                 bool same_name_link = false;
 
-                r = find_symlinks(paths->root_dir, name, *p, &same_name_link);
+                r = find_symlinks(paths->root_dir, i, *p, &same_name_link);
                 if (r < 0)
                         return r;
                 if (r > 0) {
@@ -910,7 +944,7 @@ static int find_symlinks_in_scope(
          * outside of runtime and configuration directory, then we consider it statically enabled. Note we do that only
          * for instance, not for regular names, as those are merely aliases, while instances explicitly instantiate
          * something, and hence are a much stronger concept. */
-        if (enabled_at_all && unit_name_is_valid(name, UNIT_NAME_INSTANCE)) {
+        if (enabled_at_all && unit_name_is_valid(i->name, UNIT_NAME_INSTANCE)) {
                 *state = UNIT_FILE_STATIC;
                 return 1;
         }
@@ -2603,7 +2637,10 @@ static int unit_file_lookup_state(
                         break;
                 }
 
-                r = find_symlinks_in_scope(paths, i->name, &state);
+                /* Check if any of the Alias= symlinks have been created.
+                 * We ignore other aliases, and only check those that would
+                 * be created by systemctl enable for this unit. */
+                r = find_symlinks_in_scope(paths, i, &state);
                 if (r < 0)
                         return r;
                 if (r == 0) {
