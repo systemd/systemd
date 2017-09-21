@@ -48,8 +48,7 @@
   </refnamediv>
 
   <refsynopsisdiv><para>
-    <!-- sort alphabetically, targets first -->
-    <filename>basic.target</filename>,
+    <!-- sort alphabetically, targets first --><filename>basic.target</filename>,
     <filename>bluetooth.target</filename>,
     <filename>cryptsetup-pre.target</filename>,
     <filename>cryptsetup.target</filename>,
@@ -107,13 +106,11 @@
     <filename>time-sync.target</filename>,
     <filename>timers.target</filename>,
     <filename>umount.target</filename>,
-    <!-- slices -->
-    <filename>-.slice</filename>,
+    <!-- slices --><filename>-.slice</filename>,
     <filename>system.slice</filename>,
     <filename>user.slice</filename>,
     <filename>machine.slice</filename>,
-    <!-- the rest -->
-    <filename>dbus.service</filename>,
+    <!-- the rest --><filename>dbus.service</filename>,
     <filename>dbus.socket</filename>,
     <filename>display-manager.service</filename>,
     <filename>system-update-cleanup.service</filename>
