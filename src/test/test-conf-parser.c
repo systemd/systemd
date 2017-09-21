@@ -18,6 +18,8 @@
 ***/
 
 #include "conf-parser.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "log.h"
 #include "macro.h"
 #include "string-util.h"
@@ -227,7 +229,91 @@ static void test_config_parse_iec_uint64(void) {
         assert_se(config_parse_iec_uint64(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4.5M", &offset, NULL) == 0);
 }
 
+static const char* const config_file[] = {
+        "[Section]\n"
+        "setting1=1\n",
+
+        "[Section]\n"
+        "setting1=1",        /* no terminating newline */
+
+        "\n\n\n\n[Section]\n\n\n"
+        "setting1=1",        /* some whitespace, no terminating newline */
+
+        "[Section]\n"
+        "[Section]\n"
+        "setting1=1\n"
+        "setting1=2\n"
+        "setting1=1\n",      /* repeated settings */
+
+        "[Section]\n"
+        "setting1=1\\\n"     /* normal continuation */
+        "2\\\n"
+        "3\n",
+
+        "[Section]\n"
+        "setting1=1\\\\\\\n" /* continuation with trailing escape symbols */
+        "\\\\2\n",           /* note that C requires one level of escaping, so the
+                              * parser gets "…1 BS BS BS NL BS BS 2 NL", which
+                              * it translates into "…1 BS BS SP BS BS 2" */
+};
+
+static void test_config_parse(unsigned i, const char *s) {
+        char name[] = "/tmp/test-conf-parser.XXXXXX";
+        int fd, r;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *setting1 = NULL;
+
+        const ConfigTableItem items[] = {
+                { "Section", "setting1",  config_parse_string,   0, &setting1},
+                {}
+        };
+
+        log_info("== %s[%i] ==", __func__, i);
+
+        fd = mkostemp_safe(name);
+        assert_se(fd >= 0);
+        assert_se((size_t) write(fd, s, strlen(s)) == strlen(s));
+
+        assert_se(lseek(fd, 0, SEEK_SET) == 0);
+        assert_se(f = fdopen(fd, "r"));
+
+        /*
+        int config_parse(const char *unit,
+                         const char *filename,
+                         FILE *f,
+                         const char *sections,
+                         ConfigItemLookup lookup,
+                         const void *table,
+                         bool relaxed,
+                         bool allow_include,
+                         bool warn,
+                         void *userdata)
+        */
+
+        r = config_parse(NULL, name, f,
+                         "Section\0",
+                         config_item_table_lookup, items,
+                         false, false, true, NULL);
+        assert_se(r == 0);
+
+        switch (i) {
+        case 0 ... 3:
+                assert_se(streq(setting1, "1"));
+                break;
+
+        case 4:
+                assert_se(streq(setting1, "1 2 3"));
+                break;
+
+        case 5:
+                assert_se(streq(setting1, "1\\\\ \\\\2"));
+                break;
+        }
+}
+
 int main(int argc, char **argv) {
+        unsigned i;
+
         log_parse_environment();
         log_open();
 
@@ -243,6 +329,9 @@ int main(int argc, char **argv) {
         test_config_parse_sec();
         test_config_parse_nsec();
         test_config_parse_iec_uint64();
+
+        for (i = 0; i < ELEMENTSOF(config_file); i++)
+                test_config_parse(i, config_file[i]);
 
         return 0;
 }
