@@ -2643,7 +2643,7 @@ static int exec_child(
         if (context->nice_set)
                 if (setpriority(PRIO_PROCESS, 0, context->nice) < 0) {
                         *exit_status = EXIT_NICE;
-                        *error_message = strdup("Failed to set up process scheduling priority (nice level");
+                        *error_message = strdup("Failed to set up process scheduling priority (nice level)");
                         return -errno;
                 }
 
