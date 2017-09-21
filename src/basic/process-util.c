@@ -1023,7 +1023,7 @@ pid_t getpid_cached(void) {
          * objects were used across fork()s. With this caching the old behaviour is somewhat restored.
          *
          * https://bugzilla.redhat.com/show_bug.cgi?id=1443976
-         * https://sourceware.org/git/gitweb.cgi?p=glibc.git;h=1d2bc2eae969543b89850e35e532f3144122d80a
+         * https://sourceware.org/git/gitweb.cgi?p=glibc.git;h=c579f48edba88380635ab98cb612030e3ed8691e
          */
 
         current_value = __sync_val_compare_and_swap(&cached_pid, CACHED_PID_UNSET, CACHED_PID_BUSY);
