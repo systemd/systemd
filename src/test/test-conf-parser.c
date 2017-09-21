@@ -27,12 +27,10 @@
 #include "util.h"
 
 static void test_config_parse_path_one(const char *rvalue, const char *expected) {
-        char *path = NULL;
+        _cleanup_free_ char *path = NULL;
 
         assert_se(config_parse_path("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &path, NULL) >= 0);
         assert_se(streq_ptr(expected, path));
-
-        free(path);
 }
 
 static void test_config_parse_log_level_one(const char *rvalue, int expected) {
@@ -78,12 +76,10 @@ static void test_config_parse_unsigned_one(const char *rvalue, unsigned expected
 }
 
 static void test_config_parse_strv_one(const char *rvalue, char **expected) {
-        char **strv = 0;
+        _cleanup_strv_free_ char **strv = NULL;
 
         assert_se(config_parse_strv("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &strv, NULL) >= 0);
         assert_se(strv_equal(expected, strv));
-
-        strv_free(strv);
 }
 
 static void test_config_parse_mode_one(const char *rvalue, mode_t expected) {
