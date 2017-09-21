@@ -110,9 +110,11 @@
     <filename>system.slice</filename>,
     <filename>user.slice</filename>,
     <filename>machine.slice</filename>,
-    <!-- the rest --><filename>dbus.service</filename>,
+    <!-- the rest --><filename>-.mount</filename>,
+    <filename>dbus.service</filename>,
     <filename>dbus.socket</filename>,
     <filename>display-manager.service</filename>,
+    <filename>init.scope</filename>,
     <filename>system-update-cleanup.service</filename>
   </para></refsynopsisdiv>
 
@@ -128,6 +130,15 @@
     <title>Special System Units</title>
 
     <variablelist>
+      <varlistentry>
+        <term><filename>-.mount</filename></term>
+        <listitem>
+          <para>The root mount point, i.e. the mount unit for the <filename>/</filename> path. This unit is
+          unconditionally active, during the entire time the system is up, as this mount point is where the basic
+          userspace is running from.</para>
+        </listitem>
+      </varlistentry>
+
       <varlistentry>
         <term><filename>basic.target</filename></term>
         <listitem>
@@ -321,6 +332,13 @@
           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
           <command>org.freedesktop.systemd1.Manager.Halt</command> D-Bus method
           directly.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><filename>init.scope</filename></term>
+        <listitem>
+          <para>This scope unit is where the system and service manager (PID 1) itself resides. It is active as long as
+          the system is running.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
