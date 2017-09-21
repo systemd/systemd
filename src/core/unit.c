@@ -39,6 +39,7 @@
 #include "fileio-label.h"
 #include "format-util.h"
 #include "id128-util.h"
+#include "io-util.h"
 #include "load-dropin.h"
 #include "load-fragment.h"
 #include "log.h"
@@ -2001,6 +2002,134 @@ void unit_trigger_notify(Unit *u) {
                         UNIT_VTABLE(other)->trigger_notify(other, u);
 }
 
+static int unit_log_resources(Unit *u) {
+
+        struct iovec iovec[1 + _CGROUP_IP_ACCOUNTING_METRIC_MAX + 4];
+        size_t n_message_parts = 0, n_iovec = 0;
+        char* message_parts[3 + 1], *t;
+        nsec_t nsec = NSEC_INFINITY;
+        CGroupIPAccountingMetric m;
+        size_t i;
+        int r;
+        const char* const ip_fields[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
+                [CGROUP_IP_INGRESS_BYTES]   = "IP_METRIC_INGRESS_BYTES",
+                [CGROUP_IP_INGRESS_PACKETS] = "IP_METRIC_INGRESS_PACKETS",
+                [CGROUP_IP_EGRESS_BYTES]    = "IP_METRIC_EGRESS_BYTES",
+                [CGROUP_IP_EGRESS_PACKETS]  = "IP_METRIC_EGRESS_PACKETS",
+        };
+
+        assert(u);
+
+        /* Invoked whenever a unit enters failed or dead state. Logs information about consumed resources if resource
+         * accounting was enabled for a unit. It does this in two ways: a friendly human readable string with reduced
+         * information and the complete data in structured fields. */
+
+        (void) unit_get_cpu_usage(u, &nsec);
+        if (nsec != NSEC_INFINITY) {
+                char buf[FORMAT_TIMESPAN_MAX] = "";
+
+                /* Format the CPU time for inclusion in the structured log message */
+                if (asprintf(&t, "CPU_USAGE_NSEC=%" PRIu64, nsec) < 0) {
+                        r = log_oom();
+                        goto finish;
+                }
+                iovec[n_iovec++] = IOVEC_MAKE_STRING(t);
+
+                /* Format the CPU time for inclusion in the human language message string */
+                format_timespan(buf, sizeof(buf), nsec / NSEC_PER_USEC, USEC_PER_MSEC);
+                t = strjoin(n_message_parts > 0 ? "consumed " : "Consumed ", buf, " CPU time");
+                if (!t) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                message_parts[n_message_parts++] = t;
+        }
+
+        for (m = 0; m < _CGROUP_IP_ACCOUNTING_METRIC_MAX; m++) {
+                char buf[FORMAT_BYTES_MAX] = "";
+                uint64_t value = UINT64_MAX;
+
+                assert(ip_fields[m]);
+
+                (void) unit_get_ip_accounting(u, m, &value);
+                if (value == UINT64_MAX)
+                        continue;
+
+                /* Format IP accounting data for inclusion in the structured log message */
+                if (asprintf(&t, "%s=%" PRIu64, ip_fields[m], value) < 0) {
+                        r = log_oom();
+                        goto finish;
+                }
+                iovec[n_iovec++] = IOVEC_MAKE_STRING(t);
+
+                /* Format the IP accounting data for inclusion in the human language message string, but only for the
+                 * bytes counters (and not for the packets counters) */
+                if (m == CGROUP_IP_INGRESS_BYTES)
+                        t = strjoin(n_message_parts > 0 ? "received " : "Received ",
+                                    format_bytes(buf, sizeof(buf), value),
+                                    " IP traffic");
+                else if (m == CGROUP_IP_EGRESS_BYTES)
+                        t = strjoin(n_message_parts > 0 ? "sent " : "Sent ",
+                                    format_bytes(buf, sizeof(buf), value),
+                                    " IP traffic");
+                else
+                        continue;
+                if (!t) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                message_parts[n_message_parts++] = t;
+        }
+
+        /* Is there any accounting data available at all? */
+        if (n_iovec == 0) {
+                r = 0;
+                goto finish;
+        }
+
+        if (n_message_parts == 0)
+                t = strjoina("MESSAGE=", u->id, ": Completed");
+        else {
+                _cleanup_free_ char *joined;
+
+                message_parts[n_message_parts] = NULL;
+
+                joined = strv_join(message_parts, ", ");
+                if (!joined) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                t = strjoina("MESSAGE=", u->id, ": ", joined);
+        }
+
+        /* The following four fields we allocate on the stack or are static strings, we hence don't want to free them,
+         * and hence don't increase n_iovec for them */
+        iovec[n_iovec] = IOVEC_MAKE_STRING(t);
+        iovec[n_iovec + 1] = IOVEC_MAKE_STRING("MESSAGE_ID=" SD_MESSAGE_UNIT_RESOURCES_STR);
+
+        t = strjoina(u->manager->unit_log_field, u->id);
+        iovec[n_iovec + 2] = IOVEC_MAKE_STRING(t);
+
+        t = strjoina(u->manager->invocation_log_field, u->invocation_id_string);
+        iovec[n_iovec + 3] = IOVEC_MAKE_STRING(t);
+
+        log_struct_iovec(LOG_INFO, iovec, n_iovec + 4);
+        r = 0;
+
+finish:
+        for (i = 0; i < n_message_parts; i++)
+                free(message_parts[i]);
+
+        for (i = 0; i < n_iovec; i++)
+                free(iovec[i].iov_base);
+
+        return r;
+
+}
+
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success) {
         Manager *m;
         bool unexpected;
@@ -2172,28 +2301,33 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                         manager_send_unit_plymouth(m, u);
 
         } else {
+                /* We don't care about D-Bus going down here, since we'll get an asynchronous notification for it
+                 * anyway. */
 
-                /* We don't care about D-Bus here, since we'll get an
-                 * asynchronous notification for it anyway. */
+                if (UNIT_IS_INACTIVE_OR_FAILED(ns) &&
+                    !UNIT_IS_INACTIVE_OR_FAILED(os)
+                    && !MANAGER_IS_RELOADING(m)) {
 
-                if (u->type == UNIT_SERVICE &&
-                    UNIT_IS_INACTIVE_OR_FAILED(ns) &&
-                    !UNIT_IS_INACTIVE_OR_FAILED(os) &&
-                    !MANAGER_IS_RELOADING(m)) {
+                        /* This unit just stopped/failed. */
+                        if (u->type == UNIT_SERVICE) {
 
-                        /* Hmm, if there was no start record written
-                         * write it now, so that we always have a nice
-                         * pair */
-                        if (!u->in_audit) {
-                                manager_send_unit_audit(m, u, AUDIT_SERVICE_START, ns == UNIT_INACTIVE);
+                                /* Hmm, if there was no start record written
+                                 * write it now, so that we always have a nice
+                                 * pair */
+                                if (!u->in_audit) {
+                                        manager_send_unit_audit(m, u, AUDIT_SERVICE_START, ns == UNIT_INACTIVE);
 
-                                if (ns == UNIT_INACTIVE)
-                                        manager_send_unit_audit(m, u, AUDIT_SERVICE_STOP, true);
-                        } else
-                                /* Write audit record if we have just finished shutting down */
-                                manager_send_unit_audit(m, u, AUDIT_SERVICE_STOP, ns == UNIT_INACTIVE);
+                                        if (ns == UNIT_INACTIVE)
+                                                manager_send_unit_audit(m, u, AUDIT_SERVICE_STOP, true);
+                                } else
+                                        /* Write audit record if we have just finished shutting down */
+                                        manager_send_unit_audit(m, u, AUDIT_SERVICE_STOP, ns == UNIT_INACTIVE);
 
-                        u->in_audit = false;
+                                u->in_audit = false;
+                        }
+
+                        /* Write a log message about consumed resources */
+                        unit_log_resources(u);
                 }
         }
 
