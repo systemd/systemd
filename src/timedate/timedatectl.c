@@ -103,13 +103,13 @@ static void print_status_info(const StatusInfo *i) {
 
         if (have_time) {
                 xstrftime(a, "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&sec, &tm));
-                printf("      Local time: %.*s\n", (int) sizeof(a), a);
+                printf("                      Local time: %.*s\n", (int) sizeof(a), a);
 
                 xstrftime(a, "%a %Y-%m-%d %H:%M:%S UTC", gmtime_r(&sec, &tm));
-                printf("  Universal time: %.*s\n", (int) sizeof(a), a);
+                printf("                  Universal time: %.*s\n", (int) sizeof(a), a);
         } else {
-                printf("      Local time: %s\n", "n/a");
-                printf("  Universal time: %s\n", "n/a");
+                printf("                      Local time: %s\n", "n/a");
+                printf("                  Universal time: %s\n", "n/a");
         }
 
         if (i->rtc_time > 0) {
@@ -117,9 +117,9 @@ static void print_status_info(const StatusInfo *i) {
 
                 rtc_sec = (time_t) (i->rtc_time / USEC_PER_SEC);
                 xstrftime(a, "%a %Y-%m-%d %H:%M:%S", gmtime_r(&rtc_sec, &tm));
-                printf("        RTC time: %.*s\n", (int) sizeof(a), a);
+                printf("                        RTC time: %.*s\n", (int) sizeof(a), a);
         } else
-                printf("        RTC time: %s\n", "n/a");
+                printf("                        RTC time: %s\n", "n/a");
 
         if (have_time)
                 xstrftime(a, "%Z, %z", localtime_r(&sec, &tm));
@@ -134,10 +134,10 @@ static void print_status_info(const StatusInfo *i) {
         else
                 tzset();
 
-        printf("       Time zone: %s (%.*s)\n"
-               " Network time on: %s\n"
-               "NTP synchronized: %s\n"
-               " RTC in local TZ: %s\n",
+        printf("                       Time zone: %s (%.*s)\n"
+               "       System clock synchronized: %s\n"
+               "systemd-timesyncd.service active: %s\n"
+               "                 RTC in local TZ: %s\n",
                strna(i->timezone), (int) sizeof(a), have_time ? a : "n/a",
                i->ntp_capable ? yes_no(i->ntp_enabled) : "n/a",
                yes_no(i->ntp_synced),
