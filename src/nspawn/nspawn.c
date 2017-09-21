@@ -1616,6 +1616,27 @@ static int setup_dev_console(const char *dest, const char *console) {
         return mount_verbose(LOG_ERR, console, to, NULL, MS_BIND, NULL);
 }
 
+static int setup_keyring(void) {
+        key_serial_t keyring;
+
+        /* Allocate a new session keyring for the container. This makes sure the keyring of the session systemd-nspawn
+         * was invoked from doesn't leak into the container. Note that by default we block keyctl() and request_key()
+         * anyway via seccomp so doing this operation isn't strictly necessary, but in case people explicitly whitelist
+         * these system calls let's make sure we don't leak anything into the container. */
+
+        keyring = keyctl(KEYCTL_JOIN_SESSION_KEYRING, 0, 0, 0, 0);
+        if (keyring == -1) {
+                if (errno == ENOSYS)
+                        log_debug_errno(errno, "Kernel keyring not supported, ignoring.");
+                else if (IN_SET(errno, EACCES, EPERM))
+                        log_debug_errno(errno, "Kernel keyring access prohibited, ignoring.");
+                else
+                        return log_error_errno(errno, "Setting up kernel keyring failed: %m");
+        }
+
+        return 0;
+}
+
 static int setup_kmsg(const char *dest, int kmsg_socket) {
         const char *from, *to;
         _cleanup_umask_ mode_t u;
@@ -2639,6 +2660,10 @@ static int outer_child(
                 return r;
 
         r = setup_dev_console(directory, console);
+        if (r < 0)
+                return r;
+
+        r = setup_keyring();
         if (r < 0)
                 return r;
 
