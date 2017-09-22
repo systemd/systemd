@@ -4429,14 +4429,10 @@ int unit_acquire_invocation_id(Unit *u) {
         return 0;
 }
 
-void unit_set_exec_params(Unit *s, ExecParameters *p) {
-        CGroupContext *c;
+void unit_set_exec_params(Unit *u, ExecParameters *p) {
+        assert(u);
+        assert(p);
 
-        assert(s);
-        assert(s);
-
-        p->cgroup_path = s->cgroup_path;
-
-        c = unit_get_cgroup_context(s);
-        SET_FLAG(p->flags, EXEC_CGROUP_DELEGATE, c && c->delegate);
+        p->cgroup_path = u->cgroup_path;
+        SET_FLAG(p->flags, EXEC_CGROUP_DELEGATE, unit_cgroup_delegate(u));
 }
