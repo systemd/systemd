@@ -287,12 +287,13 @@ int read_full_stream(FILE *f, char **contents, size_t *size) {
                         return -ENOMEM;
 
                 buf = t;
+                errno = 0;
                 k = fread(buf + l, 1, n - l, f);
                 if (k > 0)
                         l += k;
 
                 if (ferror(f))
-                        return -errno;
+                        return errno > 0 ? -errno : -EIO;
 
                 if (feof(f))
                         break;
