@@ -720,10 +720,12 @@ int udev_build_argv(struct udev *udev, char *cmd, int *argc, char *argv[]) {
 
         pos = cmd;
         while (pos != NULL && pos[0] != '\0') {
-                if (pos[0] == '\'') {
-                        /* do not separate quotes */
+                if (IN_SET(pos[0], '\'', '"')) {
+                        /* do not separate quotes or double quotes */
+                        char delim[2] = { pos[0], '\0' };
+
                         pos++;
-                        argv[i] = strsep(&pos, "\'");
+                        argv[i] = strsep(&pos, delim);
                         if (pos != NULL)
                                 while (pos[0] == ' ')
                                         pos++;

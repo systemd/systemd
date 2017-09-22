@@ -333,6 +333,30 @@ SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n 'foo3 foo4'   'foo5   foo6   foo7 foo
 EOF
         },
         {
+                desc            => "program arguments combined with escaped double quotes, part 1",
+                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
+                exp_name        => "foo2" ,
+                rules           => <<EOF
+SUBSYSTEMS=="scsi", PROGRAM=="/bin/sh -c 'printf %%s \\\"foo1 foo2\\\" | grep \\\"foo1 foo2\\\"'", KERNEL=="sda5", SYMLINK+="%c{2}"
+EOF
+        },
+        {
+                desc            => "program arguments combined with escaped double quotes, part 2",
+                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
+                exp_name        => "foo2" ,
+                rules           => <<EOF
+SUBSYSTEMS=="scsi", PROGRAM=="/bin/sh -c \\\"printf %%s 'foo1 foo2' | grep 'foo1 foo2'\\\"", KERNEL=="sda5", SYMLINK+="%c{2}"
+EOF
+        },
+        {
+                desc            => "program arguments combined with escaped double quotes, part 3",
+                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
+                exp_name        => "foo2" ,
+                rules           => <<EOF
+SUBSYSTEMS=="scsi", PROGRAM=="/bin/sh -c 'printf \\\"%%s %%s\\\" \\\"foo1 foo2\\\" \\\"foo3\\\"| grep \\\"foo1 foo2\\\"'", KERNEL=="sda5", SYMLINK+="%c{2}"
+EOF
+        },
+        {
                 desc            => "characters before the %c{N} substitution",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
                 exp_name        => "my-foo9" ,
