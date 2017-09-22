@@ -270,11 +270,11 @@ int read_full_stream(FILE *f, char **contents, size_t *size) {
                 if (st.st_size > READ_FULL_BYTES_MAX)
                         return -E2BIG;
 
-                /* Start with the right file size, but be prepared for
-                 * files from /proc which generally report a file size
-                 * of 0 */
+                /* Start with the right file size, but be prepared for files from /proc which generally report a file
+                 * size of 0. Note that we increase the size to read here by one, so that the first read attempt
+                 * already makes us notice the EOF. */
                 if (st.st_size > 0)
-                        n = st.st_size;
+                        n = st.st_size + 1;
         }
 
         l = 0;
