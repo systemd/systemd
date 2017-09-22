@@ -44,6 +44,11 @@
 #include "time-util.h"
 #include "utf8.h"
 
+/* The maximum number of line continuations (including implicit
+ * continuations when a line is longer than LINE_MAX characters).
+ * 512 * 2048 == 4MB */
+#define MAX_CONTINUATIONS 512
+
 int config_item_table_lookup(
                 const void *table,
                 const char *section,
@@ -294,7 +299,7 @@ int config_parse(const char *unit,
 
         _cleanup_free_ char *section = NULL, *continuation = NULL;
         _cleanup_fclose_ FILE *ours = NULL;
-        unsigned line = 0, section_line = 0;
+        unsigned line = 0, section_line = 0, n_continuations = 0;
         bool section_ignored = false, allow_bom = true;
         int r;
 
@@ -320,8 +325,14 @@ int config_parse(const char *unit,
                 bool escaped = false;
 
                 if (!fgets(buf, sizeof buf, f)) {
-                        if (feof(f))
-                                break;
+                        if (feof(f)) {
+                                if (!continuation)
+                                        break;
+
+                                p = c = continuation;
+                                continuation = NULL;
+                                goto do_parse;
+                        }
 
                         return log_error_errno(errno, "Failed to read configuration file '%s': %m", filename);
                 }
@@ -331,9 +342,36 @@ int config_parse(const char *unit,
                         l += strlen(UTF8_BYTE_ORDER_MARK);
                 allow_bom = false;
 
+                /* Check if the line was longer then the available space, or
+                 * if we hit EOF. We treat both cases as an implicit continuation
+                 * order, and will try to append the next line */
+                if (!strchr(l, '\n')) {
+                        if (++n_continuations > MAX_CONTINUATIONS) {
+                                if (warn)
+                                        log_error("%s:%u: line too long.", filename, line);
+                                return -ENOBUFS;
+                        }
+
+                        c = strappend(continuation, l);
+                        if (!c) {
+                                if (warn)
+                                        log_oom();
+                                return -ENOMEM;
+                        }
+
+                        free_and_replace(continuation, c);
+                        continue;
+                }
+
                 truncate_nl(l);
 
                 if (continuation) {
+                        if (++n_continuations > MAX_CONTINUATIONS) {
+                                if (warn)
+                                        log_error("%s:%u: line too long.", filename, line);
+                                return -ENOBUFS;
+                        }
+
                         c = strappend(continuation, l);
                         if (!c) {
                                 if (warn)
@@ -370,6 +408,7 @@ int config_parse(const char *unit,
                         continue;
                 }
 
+        do_parse:
                 r = parse_line(unit,
                                filename,
                                ++line,
@@ -384,6 +423,7 @@ int config_parse(const char *unit,
                                p,
                                userdata);
                 free(c);
+                n_continuations = 0;
 
                 if (r < 0) {
                         if (warn)
