@@ -902,7 +902,7 @@ int cg_set_group_access(
         if (r > 0 && streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
                 r = cg_set_group_access(SYSTEMD_CGROUP_CONTROLLER_LEGACY, path, mode, uid, gid);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to set group access on compat systemd cgroup %s: %m", path);
+                        log_debug_errno(r, "Failed to set group access on compatibility systemd cgroup %s, ignoring: %m", path);
         }
 
         return 0;
@@ -948,9 +948,11 @@ int cg_set_task_access(
         if (r < 0)
                 return r;
         if (r > 0 && streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
+                /* Always propagate access mode from unified to legacy controller */
+
                 r = cg_set_task_access(SYSTEMD_CGROUP_CONTROLLER_LEGACY, path, mode, uid, gid);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to set task access on compat systemd cgroup %s: %m", path);
+                        log_debug_errno(r, "Failed to set task access on compatibility systemd cgroup %s, ignoring: %m", path);
         }
 
         return 0;
