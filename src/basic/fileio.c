@@ -72,7 +72,10 @@ int write_string_stream_ts(
                         return -errno;
         }
 
-        return fflush_and_check(f);
+        if (flags & WRITE_STRING_FILE_SYNC)
+                return fflush_sync_and_check(f);
+        else
+                return fflush_and_check(f);
 }
 
 static int write_string_file_atomic(
@@ -95,16 +98,18 @@ static int write_string_file_atomic(
         (void) fchmod_umask(fileno(f), 0644);
 
         r = write_string_stream_ts(f, line, flags, ts);
-        if (r >= 0 && (flags & WRITE_STRING_FILE_SYNC))
-                r = fflush_sync_and_check(f);
-        if (r >= 0) {
-                if (rename(p, fn) < 0)
-                        r = -errno;
+        if (r < 0)
+                goto fail;
+
+        if (rename(p, fn) < 0) {
+                r = -errno;
+                goto fail;
         }
 
-        if (r < 0)
-                (void) unlink(p);
+        return 0;
 
+fail:
+        (void) unlink(p);
         return r;
 }
 
@@ -162,12 +167,6 @@ int write_string_file_ts(
         r = write_string_stream_ts(f, line, flags, ts);
         if (r < 0)
                 goto fail;
-
-        if (flags & WRITE_STRING_FILE_SYNC) {
-                r = fflush_sync_and_check(f);
-                if (r < 0)
-                        return r;
-        }
 
         return 0;
 
