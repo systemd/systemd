@@ -885,6 +885,7 @@ static int find_symlinks(
 }
 
 static int find_symlinks_in_scope(
+                UnitFileScope scope,
                 const LookupPaths *paths,
                 UnitFileInstallInfo *i,
                 bool match_name,
@@ -912,6 +913,12 @@ static int find_symlinks_in_scope(
                                 return r;
                         if (r > 0) {
                                 /* This is the best outcome, let's return it immediately. */
+                                *state = UNIT_FILE_ENABLED;
+                                return 1;
+                        }
+
+                        /* look for globally enablement of user units */
+                        if (scope == UNIT_FILE_USER && path_is_user_config_dir(*p)) {
                                 *state = UNIT_FILE_ENABLED;
                                 return 1;
                         }
@@ -2646,7 +2653,7 @@ static int unit_file_lookup_state(
                 /* Check if any of the Alias= symlinks have been created.
                  * We ignore other aliases, and only check those that would
                  * be created by systemctl enable for this unit. */
-                r = find_symlinks_in_scope(paths, i, true, &state);
+                r = find_symlinks_in_scope(scope, paths, i, true, &state);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -2654,7 +2661,7 @@ static int unit_file_lookup_state(
 
                 /* Check if the file is known under other names. If it is,
                  * it might be in use. Report that as UNIT_FILE_INDIRECT. */
-                r = find_symlinks_in_scope(paths, i, false, &state);
+                r = find_symlinks_in_scope(scope, paths, i, false, &state);
                 if (r < 0)
                         return r;
                 if (r > 0)
