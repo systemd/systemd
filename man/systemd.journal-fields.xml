@@ -333,6 +333,28 @@
           </variablelist>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>_STREAM_ID=</varname></term>
+        <listitem>
+          <para>Only applies to <literal>_TRANSPORT=stream</literal> records: specifies a randomized 128bit ID assigned
+          to the stream connection when it was first created. This ID is useful to reconstruct individual log streams
+          from the log records: all log records carrying the same stream ID originate from the same stream.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>_LINE_BREAK=</varname></term>
+        <listitem>
+          <para>Only applies to <literal>_TRANSPORT=stream</literal> records: indicates that the log message in the
+          standard output/error stream was not terminated with a normal newline character (<literal>\n</literal>,
+          i.e. ASCII 10). Specifically, when set this field is one of <option>nul</option> (in case the line was
+          terminated by a NUL byte), <option>line-max</option> (in case the maximum log line length was reached, as
+          configured with <varname>LineMax=</varname> in
+          <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>) or
+          <option>eof</option> (if this was the last log record of a stream and the stream ended without a final
+          newline character). Note that this record is not generated when a normal newline character was used for
+          marking the log line end.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

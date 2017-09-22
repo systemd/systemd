@@ -149,8 +149,9 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
     via the <citerefentry><refentrytitle>systemd-cat</refentrytitle><manvolnum>1</manvolnum></citerefentry> command
     line tool.</para>
 
-    <para> Currently, the number of parallel log streams <filename>systemd-journald</filename> will accept is limited
-    to 4096.</para>
+    <para>Currently, the number of parallel log streams <filename>systemd-journald</filename> will accept is limited to
+    4096. When this limit is reached further log streams may be established but will receieve
+    <constant>EPIPE</constant> right from the beginning.</para>
   </refsect1>
 
   <refsect1>

@@ -88,6 +88,10 @@
 /* The period to insert between posting changes for coalescing */
 #define POST_CHANGE_TIMER_INTERVAL_USEC (250*USEC_PER_MSEC)
 
+/* Pick a good default that is likely to fit into AF_UNIX and AF_INET SOCK_DGRAM datagrams, and even leaves some room
+ * for a bit of additional metadata. */
+#define DEFAULT_LINE_MAX (48*1024)
+
 static int determine_path_usage(Server *s, const char *path, uint64_t *ret_used, uint64_t *ret_free) {
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
@@ -1689,6 +1693,8 @@ int server_init(Server *s) {
         s->max_level_console = LOG_INFO;
         s->max_level_wall = LOG_EMERG;
 
+        s->line_max = DEFAULT_LINE_MAX;
+
         journal_reset_metrics(&s->system_storage.metrics);
         journal_reset_metrics(&s->runtime_storage.metrics);
 
@@ -1963,3 +1969,55 @@ static const char* const split_mode_table[_SPLIT_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(split_mode, SplitMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_split_mode, split_mode, SplitMode, "Failed to parse split mode setting");
+
+int config_parse_line_max(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        size_t *sz = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue))
+                /* Empty assignment means default */
+                *sz = DEFAULT_LINE_MAX;
+        else {
+                uint64_t v;
+
+                r = parse_size(rvalue, 1024, &v);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse LineMax= value, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                if (v < 79) {
+                        /* Why specify 79 here as minimum line length? Simply, because the most common traditional
+                         * terminal size is 80ch, and it might make sense to break one character before the natural
+                         * line break would occur on that. */
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "LineMax= too small, clamping to 79: %s", rvalue);
+                        *sz = 79;
+                } else if (v > (uint64_t) (SSIZE_MAX-1)) {
+                        /* So, why specify SSIZE_MAX-1 here? Because that's one below the largest size value read()
+                         * can return, and we need one extra byte for the trailing NUL byte. Of course IRL such large
+                         * memory allocations will fail anyway, hence this limit is mostly theoretical anyway, as we'll
+                         * fail much earlier anyway. */
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "LineMax= too large, clamping to %" PRIu64 ": %s", (uint64_t) (SSIZE_MAX-1), rvalue);
+                        *sz = SSIZE_MAX-1;
+                } else
+                        *sz = (size_t) v;
+        }
+
+        return 0;
+}

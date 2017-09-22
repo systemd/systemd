@@ -373,6 +373,24 @@
         <filename>/dev/console</filename>.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>LineMax=</varname></term>
+
+        <listitem><para>The maximum line length to permit when converting stream logs into record logs. When a systemd
+        unit's standard output/error are connected to the journal via a stream socket, the data read is split into
+        individual log records at newline (<literal>\n</literal>, ASCII 10) and NUL characters. If no such delimiter is
+        read for the specified number of bytes a hard log record boundary is artifically inserted, breaking up overly
+        long lines into multiple log records. Selecting overly large values increases the possible memory usage of the
+        Journal daemon for each stream client, as in the worst case the journal daemon needs to buffer the specified
+        number of bytes in memory before it can flush a new log record to disk. Also note that permitting overly large
+        line maximum line lengths affects compatibility with traditional log protocols as log records might not fit
+        anymore into a single <constant>AF_UNIX</constant> or <constant>AF_INET</constant> datagram. Takes a size in
+        bytes. If the value is suffixed with K, M, G or T, the specified size is parsed as Kilobytes, Megabytes,
+        Gigabytes, or Terabytes (with the base 1024), respectively. Defaults to 48K, which is relatively large but
+        still small enough so that log records likely fit into network datagrams along with extra room for
+        metadata. Note that values below 79 are not accepted and will be bumped to 79.</para></listitem>
+      </varlistentry>
+
     </variablelist>
 
   </refsect1>
