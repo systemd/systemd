@@ -84,3 +84,5 @@
         "/usr/local/lib/" n "\0"                \
         "/usr/lib/" n "\0"                      \
         _CONF_PATHS_SPLIT_USR(n)
+
+#define LONG_LINE_MAX (1U*1024U*1024U)
