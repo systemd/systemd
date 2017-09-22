@@ -1526,3 +1526,80 @@ int mkdtemp_malloc(const char *template, char **ret) {
         *ret = p;
         return 0;
 }
+
+int read_line(FILE *f, size_t limit, char **ret) {
+        _cleanup_free_ char *buffer = NULL;
+        size_t n = 0, allocated = 0, count = 0;
+        int r;
+
+        assert(f);
+
+        /* Something like a bounded version of getline().
+         *
+         * Considers EOF, \n and \0 end of line delimiters, and does not include these delimiters in the string
+         * returned.
+         *
+         * Returns the number of bytes read from the files (i.e. including delimiters — this hence usually differs from
+         * the number of characters in the returned string). When EOF is hit, 0 is returned.
+         *
+         * The input parameter limit is the maximum numbers of characters in the returned string, i.e. excluding
+         * delimiters. If the limit is hit we fail and return -ENOBUFS.
+         *
+         * If a line shall be skipped ret may be initialized as NULL. */
+
+        if (ret) {
+                if (!GREEDY_REALLOC(buffer, allocated, 1))
+                        return -ENOMEM;
+        }
+
+        flockfile(f);
+
+        for (;;) {
+                int c;
+
+                if (n >= limit) {
+                        funlockfile(f);
+                        return -ENOBUFS;
+                }
+
+                errno = 0;
+                c = fgetc_unlocked(f);
+                if (c == EOF) {
+                        /* if we read an error, and have no data to return, then propagate the error */
+                        if (ferror_unlocked(f) && n == 0) {
+                                r = errno > 0 ? -errno : -EIO;
+                                funlockfile(f);
+                                return r;
+                        }
+
+                        break;
+                }
+
+                count++;
+
+                if (IN_SET(c, '\n', 0)) /* Reached a delimiter */
+                        break;
+
+                if (ret) {
+                        if (!GREEDY_REALLOC(buffer, allocated, n + 2)) {
+                                funlockfile(f);
+                                return -ENOMEM;
+                        }
+
+                        buffer[n] = (char) c;
+                }
+
+                n++;
+        }
+
+        funlockfile(f);
+
+        if (ret) {
+                buffer[n] = 0;
+
+                *ret = buffer;
+                buffer = NULL;
+        }
+
+        return (int) count;
+}

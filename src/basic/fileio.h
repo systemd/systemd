@@ -101,3 +101,5 @@ int link_tmpfile(int fd, const char *path, const char *target);
 int read_nul_string(FILE *f, char **ret);
 
 int mkdtemp_malloc(const char *template, char **ret);
+
+int read_line(FILE *f, size_t limit, char **ret);

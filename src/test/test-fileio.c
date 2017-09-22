@@ -663,6 +663,49 @@ static void test_tempfn(void) {
         free(ret);
 }
 
+static void test_read_line(void) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *line = NULL;
+
+        char buffer[] =
+                "Some test data\n"
+                "With newlines, and a NUL byte\0"
+                "\n"
+                "an empty line\n"
+                "an ignored line\n"
+                "and a very long line that is supposed to be truncated, because it is so long\n";
+
+        f = fmemopen(buffer, sizeof(buffer), "re");
+        assert_se(f);
+
+        assert_se(read_line(f, (size_t) -1, &line) == 15 && streq(line, "Some test data"));
+        line = mfree(line);
+
+        assert_se(read_line(f, 1024, &line) == 30 && streq(line, "With newlines, and a NUL byte"));
+        line = mfree(line);
+
+        assert_se(read_line(f, 1024, &line) == 1 && streq(line, ""));
+        line = mfree(line);
+
+        assert_se(read_line(f, 1024, &line) == 14 && streq(line, "an empty line"));
+        line = mfree(line);
+
+        assert_se(read_line(f, (size_t) -1, NULL) == 16);
+
+        assert_se(read_line(f, 16, &line) == -ENOBUFS);
+        line = mfree(line);
+
+        /* read_line() stopped when it hit the limit, that means when we continue reading we'll read at the first
+         * character after the previous limit. Let's make use of tha to continue our test. */
+        assert_se(read_line(f, 1024, &line) == 61 && streq(line, "line that is supposed to be truncated, because it is so long"));
+        line = mfree(line);
+
+        assert_se(read_line(f, 1024, &line) == 1 && streq(line, ""));
+        line = mfree(line);
+
+        assert_se(read_line(f, 1024, &line) == 0 && streq(line, ""));
+}
+
 int main(int argc, char *argv[]) {
         log_set_max_level(LOG_DEBUG);
         log_parse_environment();
@@ -684,6 +727,7 @@ int main(int argc, char *argv[]) {
         test_search_and_fopen_nulstr();
         test_writing_tmpfile();
         test_tempfn();
+        test_read_line();
 
         return 0;
 }
