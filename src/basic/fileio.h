@@ -36,9 +36,9 @@ typedef enum {
         WRITE_STRING_FILE_SYNC = 1<<4,
 } WriteStringFileFlags;
 
-int write_string_stream_ts(FILE *f, const char *line, bool enforce_newline, struct timespec *ts);
-static inline int write_string_stream(FILE *f, const char *line, bool enforce_newline) {
-        return write_string_stream_ts(f, line, enforce_newline, NULL);
+int write_string_stream_ts(FILE *f, const char *line, WriteStringFileFlags flags, struct timespec *ts);
+static inline int write_string_stream(FILE *f, const char *line, WriteStringFileFlags flags) {
+        return write_string_stream_ts(f, line, flags, NULL);
 }
 int write_string_file_ts(const char *fn, const char *line, WriteStringFileFlags flags, struct timespec *ts);
 static inline int write_string_file(const char *fn, const char *line, WriteStringFileFlags flags) {
