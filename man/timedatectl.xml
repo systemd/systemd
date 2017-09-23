@@ -103,11 +103,11 @@
       <varlistentry>
         <term><command>status</command></term>
 
-        <listitem><para>Show current settings of the system clock and
-        RTC, including whether network time synchronization through
-        <filename>systemd-timesyncd.service</filename> is active.
-        Even if is off, a different service might still synchronize the
-        clock with the network.</para></listitem>
+        <listitem><para>Show current settings of the system clock and RTC,
+        including whether network time synchronization through
+        <filename>systemd-timesyncd.service</filename> is active. Even if it is
+        inactive, a different service might still synchronize the clock.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
