@@ -66,7 +66,7 @@ static void test_clock_is_localtime(void) {
                 log_info("%s", scenarios[i].contents);
                 rewind(f);
                 ftruncate(fd, 0);
-                assert_se(write_string_stream(f, scenarios[i].contents, false) == 0);
+                assert_se(write_string_stream(f, scenarios[i].contents, WRITE_STRING_FILE_AVOID_NEWLINE) == 0);
                 assert_se(clock_is_localtime(adjtime) == scenarios[i].expected_result);
         }
 

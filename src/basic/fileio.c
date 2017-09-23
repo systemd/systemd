@@ -52,13 +52,17 @@
 
 #define READ_FULL_BYTES_MAX (4U*1024U*1024U)
 
-int write_string_stream_ts(FILE *f, const char *line, bool enforce_newline, struct timespec *ts) {
+int write_string_stream_ts(
+                FILE *f,
+                const char *line,
+                WriteStringFileFlags flags,
+                struct timespec *ts) {
 
         assert(f);
         assert(line);
 
         fputs(line, f);
-        if (enforce_newline && !endswith(line, "\n"))
+        if (!(flags & WRITE_STRING_FILE_AVOID_NEWLINE) && !endswith(line, "\n"))
                 fputc('\n', f);
 
         if (ts) {
@@ -68,10 +72,18 @@ int write_string_stream_ts(FILE *f, const char *line, bool enforce_newline, stru
                         return -errno;
         }
 
-        return fflush_and_check(f);
+        if (flags & WRITE_STRING_FILE_SYNC)
+                return fflush_sync_and_check(f);
+        else
+                return fflush_and_check(f);
 }
 
-static int write_string_file_atomic(const char *fn, const char *line, bool enforce_newline, bool do_fsync) {
+static int write_string_file_atomic(
+                const char *fn,
+                const char *line,
+                WriteStringFileFlags flags,
+                struct timespec *ts) {
+
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
@@ -85,22 +97,28 @@ static int write_string_file_atomic(const char *fn, const char *line, bool enfor
 
         (void) fchmod_umask(fileno(f), 0644);
 
-        r = write_string_stream(f, line, enforce_newline);
-        if (r >= 0 && do_fsync)
-                r = fflush_sync_and_check(f);
+        r = write_string_stream_ts(f, line, flags, ts);
+        if (r < 0)
+                goto fail;
 
-        if (r >= 0) {
-                if (rename(p, fn) < 0)
-                        r = -errno;
+        if (rename(p, fn) < 0) {
+                r = -errno;
+                goto fail;
         }
 
-        if (r < 0)
-                (void) unlink(p);
+        return 0;
 
+fail:
+        (void) unlink(p);
         return r;
 }
 
-int write_string_file_ts(const char *fn, const char *line, WriteStringFileFlags flags, struct timespec *ts) {
+int write_string_file_ts(
+                const char *fn,
+                const char *line,
+                WriteStringFileFlags flags,
+                struct timespec *ts) {
+
         _cleanup_fclose_ FILE *f = NULL;
         int q, r;
 
@@ -113,8 +131,7 @@ int write_string_file_ts(const char *fn, const char *line, WriteStringFileFlags 
         if (flags & WRITE_STRING_FILE_ATOMIC) {
                 assert(flags & WRITE_STRING_FILE_CREATE);
 
-                r = write_string_file_atomic(fn, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE),
-                                                       flags & WRITE_STRING_FILE_SYNC);
+                r = write_string_file_atomic(fn, line, flags, ts);
                 if (r < 0)
                         goto fail;
 
@@ -147,15 +164,9 @@ int write_string_file_ts(const char *fn, const char *line, WriteStringFileFlags 
                 }
         }
 
-        r = write_string_stream_ts(f, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE), ts);
+        r = write_string_stream_ts(f, line, flags, ts);
         if (r < 0)
                 goto fail;
-
-        if (flags & WRITE_STRING_FILE_SYNC) {
-                r = fflush_sync_and_check(f);
-                if (r < 0)
-                        return r;
-        }
 
         return 0;
 
@@ -259,11 +270,11 @@ int read_full_stream(FILE *f, char **contents, size_t *size) {
                 if (st.st_size > READ_FULL_BYTES_MAX)
                         return -E2BIG;
 
-                /* Start with the right file size, but be prepared for
-                 * files from /proc which generally report a file size
-                 * of 0 */
+                /* Start with the right file size, but be prepared for files from /proc which generally report a file
+                 * size of 0. Note that we increase the size to read here by one, so that the first read attempt
+                 * already makes us notice the EOF. */
                 if (st.st_size > 0)
-                        n = st.st_size;
+                        n = st.st_size + 1;
         }
 
         l = 0;
@@ -276,12 +287,13 @@ int read_full_stream(FILE *f, char **contents, size_t *size) {
                         return -ENOMEM;
 
                 buf = t;
+                errno = 0;
                 k = fread(buf + l, 1, n - l, f);
                 if (k > 0)
                         l += k;
 
                 if (ferror(f))
-                        return -errno;
+                        return errno > 0 ? -errno : -EIO;
 
                 if (feof(f))
                         break;

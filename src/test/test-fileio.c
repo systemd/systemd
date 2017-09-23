@@ -233,7 +233,7 @@ static void test_merge_env_file(void) {
                                 "zzz=${one:+replacement}\n"
                                 "zzzz=${foobar:-${nothing}}\n"
                                 "zzzzz=${nothing:+${nothing}}\n"
-                                , false);
+                                , WRITE_STRING_FILE_AVOID_NEWLINE);
         assert(r >= 0);
 
         r = merge_env_file(&a, NULL, t);
@@ -302,7 +302,7 @@ static void test_merge_env_file_invalid(void) {
                                 ";comment2=comment2\n"
                                 "#\n"
                                 "\n\n"                  /* empty line */
-                                , false);
+                                , WRITE_STRING_FILE_AVOID_NEWLINE);
         assert(r >= 0);
 
         r = merge_env_file(&a, NULL, t);
@@ -414,12 +414,12 @@ static void test_write_string_stream(void) {
 
         f = fdopen(fd, "r");
         assert_se(f);
-        assert_se(write_string_stream(f, "boohoo", true) < 0);
+        assert_se(write_string_stream(f, "boohoo", 0) < 0);
 
         f = freopen(fn, "r+", f);
         assert_se(f);
 
-        assert_se(write_string_stream(f, "boohoo", true) == 0);
+        assert_se(write_string_stream(f, "boohoo", 0) == 0);
         rewind(f);
 
         assert_se(fgets(buf, sizeof(buf), f));
@@ -428,7 +428,7 @@ static void test_write_string_stream(void) {
         f = freopen(fn, "w+", f);
         assert_se(f);
 
-        assert_se(write_string_stream(f, "boohoo", false) == 0);
+        assert_se(write_string_stream(f, "boohoo", WRITE_STRING_FILE_AVOID_NEWLINE) == 0);
         rewind(f);
 
         assert_se(fgets(buf, sizeof(buf), f));
