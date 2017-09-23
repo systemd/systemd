@@ -1513,10 +1513,13 @@ int mkdtemp_malloc(const char *template, char **ret) {
         return 0;
 }
 
+static inline void funlockfilep(FILE **f) {
+        funlockfile(*f);
+}
+
 int read_line(FILE *f, size_t limit, char **ret) {
         _cleanup_free_ char *buffer = NULL;
         size_t n = 0, allocated = 0, count = 0;
-        int r;
 
         assert(f);
 
@@ -1538,47 +1541,41 @@ int read_line(FILE *f, size_t limit, char **ret) {
                         return -ENOMEM;
         }
 
-        flockfile(f);
+        {
+                _cleanup_(funlockfilep) FILE *flocked = f;
+                flockfile(f);
 
-        for (;;) {
-                int c;
+                for (;;) {
+                        int c;
 
-                if (n >= limit) {
-                        funlockfile(f);
-                        return -ENOBUFS;
-                }
+                        if (n >= limit)
+                                return -ENOBUFS;
 
-                errno = 0;
-                c = fgetc_unlocked(f);
-                if (c == EOF) {
-                        /* if we read an error, and have no data to return, then propagate the error */
-                        if (ferror_unlocked(f) && n == 0) {
-                                r = errno > 0 ? -errno : -EIO;
-                                funlockfile(f);
-                                return r;
+                        errno = 0;
+                        c = fgetc_unlocked(f);
+                        if (c == EOF) {
+                                /* if we read an error, and have no data to return, then propagate the error */
+                                if (ferror_unlocked(f) && n == 0)
+                                        return errno > 0 ? -errno : -EIO;
+
+                                break;
                         }
 
-                        break;
-                }
+                        count++;
 
-                count++;
+                        if (IN_SET(c, '\n', 0)) /* Reached a delimiter */
+                                break;
 
-                if (IN_SET(c, '\n', 0)) /* Reached a delimiter */
-                        break;
+                        if (ret) {
+                                if (!GREEDY_REALLOC(buffer, allocated, n + 2))
+                                        return -ENOMEM;
 
-                if (ret) {
-                        if (!GREEDY_REALLOC(buffer, allocated, n + 2)) {
-                                funlockfile(f);
-                                return -ENOMEM;
+                                buffer[n] = (char) c;
                         }
 
-                        buffer[n] = (char) c;
+                        n++;
                 }
-
-                n++;
         }
-
-        funlockfile(f);
 
         if (ret) {
                 buffer[n] = 0;
