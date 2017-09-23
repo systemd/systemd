@@ -104,13 +104,10 @@
         <term><command>status</command></term>
 
         <listitem><para>Show current settings of the system clock and
-        RTC, including whether network time synchronization is
-        on. Note that whether network time synchronization is on
-        simply reflects whether the
-        <filename>systemd-timesyncd.service</filename> unit is
-        enabled. Even if this command shows the status as off, a
-        different service might still synchronize the clock with the
-        network.</para></listitem>
+        RTC, including whether network time synchronization through
+        <filename>systemd-timesyncd.service</filename> is active.
+        Even if is off, a different service might still synchronize the
+        clock with the network.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -206,13 +203,13 @@
     <title>Examples</title>
     <para>Show current settings:
     <programlisting>$ timedatectl
-      Local time: Di 2015-04-07 16:26:56 CEST
-  Universal time: Di 2015-04-07 14:26:56 UTC
-        RTC time: Di 2015-04-07 14:26:56
-       Time zone: Europe/Berlin (CEST, +0200)
- Network time on: yes
-NTP synchronized: yes
- RTC in local TZ: no</programlisting>
+                      Local time: Thu 2017-09-21 16:08:56 CEST
+                  Universal time: Thu 2017-09-21 14:08:56 UTC
+                        RTC time: Thu 2017-09-21 14:08:56
+                       Time zone: Europe/Warsaw (CEST, +0200)
+       System clock synchronized: yes
+systemd-timesyncd.service active: yes
+                 RTC in local TZ: no</programlisting>
     </para>
 
     <para>Enable network time synchronization:

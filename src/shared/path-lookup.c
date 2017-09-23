@@ -115,6 +115,21 @@ static int user_data_dir(char **ret, const char *suffix) {
         return 1;
 }
 
+static const char* const user_data_unit_paths[] = {
+        "/usr/local/lib/systemd/user",
+        "/usr/local/share/systemd/user",
+        USER_DATA_UNIT_PATH,
+        "/usr/lib/systemd/user",
+        "/usr/share/systemd/user",
+        NULL
+};
+
+static const char* const user_config_unit_paths[] = {
+        USER_CONFIG_UNIT_PATH,
+        "/etc/systemd/user",
+        NULL
+};
+
 static char** user_dirs(
                 const char *persistent_config,
                 const char *runtime_config,
@@ -124,21 +139,6 @@ static char** user_dirs(
                 const char *transient,
                 const char *persistent_control,
                 const char *runtime_control) {
-
-        const char * const config_unit_paths[] = {
-                USER_CONFIG_UNIT_PATH,
-                "/etc/systemd/user",
-                NULL
-        };
-
-        const char * const data_unit_paths[] = {
-                "/usr/local/lib/systemd/user",
-                "/usr/local/share/systemd/user",
-                USER_DATA_UNIT_PATH,
-                "/usr/lib/systemd/user",
-                "/usr/share/systemd/user",
-                NULL
-        };
 
         _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
         _cleanup_free_ char *data_home = NULL;
@@ -196,7 +196,7 @@ static char** user_dirs(
         if (strv_extend(&res, persistent_config) < 0)
                 return NULL;
 
-        if (strv_extend_strv(&res, (char**) config_unit_paths, false) < 0)
+        if (strv_extend_strv(&res, (char**) user_config_unit_paths, false) < 0)
                 return NULL;
 
         if (strv_extend(&res, runtime_config) < 0)
@@ -211,7 +211,7 @@ static char** user_dirs(
         if (strv_extend_strv_concat(&res, data_dirs, "/systemd/user") < 0)
                 return NULL;
 
-        if (strv_extend_strv(&res, (char**) data_unit_paths, false) < 0)
+        if (strv_extend_strv(&res, (char**) user_data_unit_paths, false) < 0)
                 return NULL;
 
         if (strv_extend(&res, generator_late) < 0)
@@ -224,6 +224,18 @@ static char** user_dirs(
         res = NULL;
 
         return tmp;
+}
+
+bool path_is_user_data_dir(const char *path) {
+        assert(path);
+
+        return strv_contains((char**) user_data_unit_paths, path);
+}
+
+bool path_is_user_config_dir(const char *path) {
+        assert(path);
+
+        return strv_contains((char**) user_config_unit_paths, path);
 }
 
 static int acquire_generator_dirs(

@@ -132,20 +132,6 @@ struct UnitFileInstallInfo {
         bool auxiliary;
 };
 
-static inline bool UNIT_FILE_INSTALL_INFO_HAS_RULES(UnitFileInstallInfo *i) {
-        assert(i);
-
-        return !strv_isempty(i->aliases) ||
-               !strv_isempty(i->wanted_by) ||
-               !strv_isempty(i->required_by);
-}
-
-static inline bool UNIT_FILE_INSTALL_INFO_HAS_ALSO(UnitFileInstallInfo *i) {
-        assert(i);
-
-        return !strv_isempty(i->also);
-}
-
 bool unit_type_may_alias(UnitType type) _const_;
 bool unit_type_may_template(UnitType type) _const_;
 

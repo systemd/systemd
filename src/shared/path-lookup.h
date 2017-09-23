@@ -67,6 +67,8 @@ struct LookupPaths {
 };
 
 int lookup_paths_init(LookupPaths *p, UnitFileScope scope, LookupPathsFlags flags, const char *root_dir);
+bool path_is_user_data_dir(const char *path);
+bool path_is_user_config_dir(const char *path);
 
 int lookup_paths_reduce(LookupPaths *p);
 
