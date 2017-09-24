@@ -30,6 +30,7 @@
 
 #include "alloc-util.h"
 #include "ctype.h"
+#include "def.h"
 #include "env-util.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -188,7 +189,7 @@ fail:
 
 int read_one_line_file(const char *fn, char **line) {
         _cleanup_fclose_ FILE *f = NULL;
-        char t[LINE_MAX], *c;
+        int r;
 
         assert(fn);
         assert(line);
@@ -197,21 +198,8 @@ int read_one_line_file(const char *fn, char **line) {
         if (!f)
                 return -errno;
 
-        if (!fgets(t, sizeof(t), f)) {
-
-                if (ferror(f))
-                        return errno > 0 ? -errno : -EIO;
-
-                t[0] = 0;
-        }
-
-        c = strdup(t);
-        if (!c)
-                return -ENOMEM;
-        truncate_nl(c);
-
-        *line = c;
-        return 0;
+        r = read_line(f, LONG_LINE_MAX, line);
+        return r < 0 ? r : 0;
 }
 
 int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
@@ -1537,4 +1525,78 @@ int mkdtemp_malloc(const char *template, char **ret) {
 
         *ret = p;
         return 0;
+}
+
+static inline void funlockfilep(FILE **f) {
+        funlockfile(*f);
+}
+
+int read_line(FILE *f, size_t limit, char **ret) {
+        _cleanup_free_ char *buffer = NULL;
+        size_t n = 0, allocated = 0, count = 0;
+
+        assert(f);
+
+        /* Something like a bounded version of getline().
+         *
+         * Considers EOF, \n and \0 end of line delimiters, and does not include these delimiters in the string
+         * returned.
+         *
+         * Returns the number of bytes read from the files (i.e. including delimiters — this hence usually differs from
+         * the number of characters in the returned string). When EOF is hit, 0 is returned.
+         *
+         * The input parameter limit is the maximum numbers of characters in the returned string, i.e. excluding
+         * delimiters. If the limit is hit we fail and return -ENOBUFS.
+         *
+         * If a line shall be skipped ret may be initialized as NULL. */
+
+        if (ret) {
+                if (!GREEDY_REALLOC(buffer, allocated, 1))
+                        return -ENOMEM;
+        }
+
+        {
+                _cleanup_(funlockfilep) FILE *flocked = f;
+                flockfile(f);
+
+                for (;;) {
+                        int c;
+
+                        if (n >= limit)
+                                return -ENOBUFS;
+
+                        errno = 0;
+                        c = fgetc_unlocked(f);
+                        if (c == EOF) {
+                                /* if we read an error, and have no data to return, then propagate the error */
+                                if (ferror_unlocked(f) && n == 0)
+                                        return errno > 0 ? -errno : -EIO;
+
+                                break;
+                        }
+
+                        count++;
+
+                        if (IN_SET(c, '\n', 0)) /* Reached a delimiter */
+                                break;
+
+                        if (ret) {
+                                if (!GREEDY_REALLOC(buffer, allocated, n + 2))
+                                        return -ENOMEM;
+
+                                buffer[n] = (char) c;
+                        }
+
+                        n++;
+                }
+        }
+
+        if (ret) {
+                buffer[n] = 0;
+
+                *ret = buffer;
+                buffer = NULL;
+        }
+
+        return (int) count;
 }

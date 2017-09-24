@@ -24,6 +24,8 @@ Janitorial Clean-ups:
 
 Features:
 
+* replace all uses of fgets() + LINE_MAX by read_line()
+
 * dissect: when we discover squashfs, don't claim we had a "writable" partition
   in systemd-dissect
 
