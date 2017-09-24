@@ -209,7 +209,7 @@ static void test_parse_multiline_env_file(void) {
 static void test_merge_env_file(void) {
         char t[] = "/tmp/test-fileio-XXXXXX";
         int fd, r;
-        FILE *f;
+        _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **a = NULL;
         char **i;
 
@@ -278,7 +278,7 @@ static void test_merge_env_file(void) {
 static void test_merge_env_file_invalid(void) {
         char t[] = "/tmp/test-fileio-XXXXXX";
         int fd, r;
-        FILE *f;
+        _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **a = NULL;
         char **i;
 
