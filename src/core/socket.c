@@ -397,11 +397,11 @@ static int socket_add_extras(Socket *s) {
                 r = unit_add_exec_dependencies(u, &s->exec_context);
                 if (r < 0)
                         return r;
-
-                r = unit_set_default_slice(u);
-                if (r < 0)
-                        return r;
         }
+
+        r = unit_set_default_slice(u);
+        if (r < 0)
+                return r;
 
         r = socket_add_default_dependencies(s);
         if (r < 0)

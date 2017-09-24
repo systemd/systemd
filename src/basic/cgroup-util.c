@@ -902,7 +902,7 @@ int cg_set_group_access(
         if (r > 0 && streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
                 r = cg_set_group_access(SYSTEMD_CGROUP_CONTROLLER_LEGACY, path, mode, uid, gid);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to set group access on compat systemd cgroup %s: %m", path);
+                        log_debug_errno(r, "Failed to set group access on compatibility systemd cgroup %s, ignoring: %m", path);
         }
 
         return 0;
@@ -915,7 +915,7 @@ int cg_set_task_access(
                 uid_t uid,
                 gid_t gid) {
 
-        _cleanup_free_ char *fs = NULL, *procs = NULL;
+        _cleanup_free_ char *fs = NULL;
         int r;
 
         assert(path);
@@ -926,6 +926,7 @@ int cg_set_task_access(
         if (mode != MODE_INVALID)
                 mode &= 0666;
 
+        /* For both the legacy and unified hierarchies, "cgroup.procs" is the main entry point for PIDs */
         r = cg_get_path(controller, path, "cgroup.procs", &fs);
         if (r < 0)
                 return r;
@@ -938,19 +939,48 @@ int cg_set_task_access(
         if (r < 0)
                 return r;
         if (r == 0) {
-                /* Compatibility, Always keep values for "tasks" in sync with
-                 * "cgroup.procs" */
-                if (cg_get_path(controller, path, "tasks", &procs) >= 0)
-                        (void) chmod_and_chown(procs, mode, uid, gid);
+                const char *fn;
+
+                /* Compatibility: on cgroupsv1 always keep values for the legacy files "tasks" and
+                 * "cgroup.clone_children" in sync with "cgroup.procs". Since this is legacy stuff, we don't care if
+                 * this fails. */
+
+                FOREACH_STRING(fn,
+                               "tasks",
+                               "cgroup.clone_children") {
+
+                        fs = mfree(fs);
+
+                        r = cg_get_path(controller, path, fn, &fs);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to get path for %s of %s, ignoring: %m", fn, path);
+
+                        r = chmod_and_chown(fs, mode, uid, gid);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to to change ownership/access mode for %s of %s, ignoring: %m", fn, path);
+                }
+        } else {
+                /* On the unified controller, we want to permit subtree controllers too. */
+
+                fs = mfree(fs);
+                r = cg_get_path(controller, path, "cgroup.subtree_control", &fs);
+                if (r < 0)
+                        return r;
+
+                r = chmod_and_chown(fs, mode, uid, gid);
+                if (r < 0)
+                        return r;
         }
 
         r = cg_hybrid_unified();
         if (r < 0)
                 return r;
         if (r > 0 && streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
+                /* Always propagate access mode from unified to legacy controller */
+
                 r = cg_set_task_access(SYSTEMD_CGROUP_CONTROLLER_LEGACY, path, mode, uid, gid);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to set task access on compat systemd cgroup %s: %m", path);
+                        log_debug_errno(r, "Failed to set task access on compatibility systemd cgroup %s, ignoring: %m", path);
         }
 
         return 0;
