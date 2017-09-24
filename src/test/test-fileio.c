@@ -663,20 +663,16 @@ static void test_tempfn(void) {
         free(ret);
 }
 
-static void test_read_line(void) {
-        _cleanup_fclose_ FILE *f = NULL;
+static const char buffer[] =
+        "Some test data\n"
+        "With newlines, and a NUL byte\0"
+        "\n"
+        "an empty line\n"
+        "an ignored line\n"
+        "and a very long line that is supposed to be truncated, because it is so long\n";
+
+static void test_read_line_one_file(FILE *f) {
         _cleanup_free_ char *line = NULL;
-
-        char buffer[] =
-                "Some test data\n"
-                "With newlines, and a NUL byte\0"
-                "\n"
-                "an empty line\n"
-                "an ignored line\n"
-                "and a very long line that is supposed to be truncated, because it is so long\n";
-
-        f = fmemopen(buffer, sizeof(buffer), "re");
-        assert_se(f);
 
         assert_se(read_line(f, (size_t) -1, &line) == 15 && streq(line, "Some test data"));
         line = mfree(line);
@@ -706,6 +702,46 @@ static void test_read_line(void) {
         assert_se(read_line(f, 1024, &line) == 0 && streq(line, ""));
 }
 
+static void test_read_line(void) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *line = NULL;
+
+        f = fmemopen((void*) buffer, sizeof(buffer), "re");
+        assert_se(f);
+
+        test_read_line_one_file(f);
+}
+
+static void test_read_line2(void) {
+        char name[] = "/tmp/test-fileio.XXXXXX";
+        int fd;
+        _cleanup_fclose_ FILE *f = NULL;
+
+        fd = mkostemp_safe(name);
+        assert_se(fd >= 0);
+        assert_se((size_t) write(fd, buffer, sizeof(buffer)) == sizeof(buffer));
+
+        assert_se(lseek(fd, 0, SEEK_SET) == 0);
+        assert_se(f = fdopen(fd, "r"));
+
+        test_read_line_one_file(f);
+}
+
+static void test_read_line3(void) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *line = NULL;
+        int r;
+
+        f = fopen("/proc/cmdline", "re");
+        if (!f && IN_SET(errno, ENOENT, EPERM))
+                return;
+        assert_se(f);
+
+        r = read_line(f, LINE_MAX, &line);
+        assert_se((size_t) r == strlen(line) + 1);
+        assert_se(read_line(f, LINE_MAX, NULL) == 0);
+}
+
 int main(int argc, char *argv[]) {
         log_set_max_level(LOG_DEBUG);
         log_parse_environment();
@@ -728,6 +764,8 @@ int main(int argc, char *argv[]) {
         test_writing_tmpfile();
         test_tempfn();
         test_read_line();
+        test_read_line2();
+        test_read_line3();
 
         return 0;
 }
