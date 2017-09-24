@@ -781,7 +781,7 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
         case OBJECT_DATA: {
                 if ((le64toh(o->data.entry_offset) == 0) ^ (le64toh(o->data.n_entries) == 0)) {
                         log_debug("Bad n_entries: %"PRIu64": %"PRIu64,
-                                        o->data.n_entries, offset);
+                                        le64toh(o->data.n_entries), offset);
                         return -EBADMSG;
                 }
 
@@ -793,16 +793,16 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
                         return -EBADMSG;
                 }
 
-                if (!VALID64(o->data.next_hash_offset) ||
-                    !VALID64(o->data.next_field_offset) ||
-                    !VALID64(o->data.entry_offset) ||
-                    !VALID64(o->data.entry_array_offset)) {
+                if (!VALID64(le64toh(o->data.next_hash_offset)) ||
+                    !VALID64(le64toh(o->data.next_field_offset)) ||
+                    !VALID64(le64toh(o->data.entry_offset)) ||
+                    !VALID64(le64toh(o->data.entry_array_offset))) {
                         log_debug("Invalid offset, next_hash_offset="OFSfmt", next_field_offset="OFSfmt
                                 ", entry_offset="OFSfmt", entry_array_offset="OFSfmt": %"PRIu64,
-                              o->data.next_hash_offset,
-                              o->data.next_field_offset,
-                              o->data.entry_offset,
-                              o->data.entry_array_offset,
+                              le64toh(o->data.next_hash_offset),
+                              le64toh(o->data.next_field_offset),
+                              le64toh(o->data.entry_offset),
+                              le64toh(o->data.entry_array_offset),
                               offset);
                         return -EBADMSG;
                 }
@@ -820,13 +820,13 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
                         return -EBADMSG;
                 }
 
-                if (!VALID64(o->field.next_hash_offset) ||
-                    !VALID64(o->field.head_data_offset)) {
+                if (!VALID64(le64toh(o->field.next_hash_offset)) ||
+                    !VALID64(le64toh(o->field.head_data_offset))) {
                         log_debug(
                               "Invalid offset, next_hash_offset="OFSfmt
                               ", head_data_offset="OFSfmt": %"PRIu64,
-                              o->field.next_hash_offset,
-                              o->field.head_data_offset,
+                              le64toh(o->field.next_hash_offset),
+                              le64toh(o->field.head_data_offset),
                               offset);
                         return -EBADMSG;
                 }
@@ -900,10 +900,10 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
                         return -EBADMSG;
                 }
 
-                if (!VALID64(o->entry_array.next_entry_array_offset)) {
+                if (!VALID64(le64toh(o->entry_array.next_entry_array_offset))) {
                         log_debug(
                               "Invalid object entry array next_entry_array_offset: "OFSfmt": %"PRIu64,
-                              o->entry_array.next_entry_array_offset,
+                              le64toh(o->entry_array.next_entry_array_offset),
                               offset);
                         return -EBADMSG;
                 }
@@ -919,10 +919,10 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
                         return -EBADMSG;
                 }
 
-                if (!VALID_EPOCH(o->tag.epoch)) {
+                if (!VALID_EPOCH(le64toh(o->tag.epoch))) {
                         log_debug(
                               "Invalid object tag epoch: %"PRIu64": %"PRIu64,
-                              o->tag.epoch,
+                              le64toh(o->tag.epoch),
                               offset);
                         return -EBADMSG;
                 }
