@@ -186,6 +186,10 @@ static void ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *
                 return;
         }
 
+        /* The preferred lifetime is never greater than the valid lifetime */
+        if (lifetime_preferred > lifetime_valid)
+                return;
+
         r = address_new(&address);
         if (r < 0) {
                 log_link_error_errno(link, r, "Could not allocate address: %m");
