@@ -57,6 +57,15 @@ static const UnitActiveState state_translation_table[_SWAP_STATE_MAX] = {
 static int swap_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
 static int swap_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 
+static bool SWAP_STATE_WITH_PROCESS(SwapState state) {
+        return IN_SET(state,
+                      SWAP_ACTIVATING,
+                      SWAP_ACTIVATING_DONE,
+                      SWAP_DEACTIVATING,
+                      SWAP_DEACTIVATING_SIGTERM,
+                      SWAP_DEACTIVATING_SIGKILL);
+}
+
 static void swap_unset_proc_swaps(Swap *s) {
         assert(s);
 
@@ -485,12 +494,7 @@ static void swap_set_state(Swap *s, SwapState state) {
         old_state = s->state;
         s->state = state;
 
-        if (!IN_SET(state,
-                    SWAP_ACTIVATING,
-                    SWAP_ACTIVATING_DONE,
-                    SWAP_DEACTIVATING,
-                    SWAP_DEACTIVATING_SIGTERM,
-                    SWAP_DEACTIVATING_SIGKILL)) {
+        if (!SWAP_STATE_WITH_PROCESS(state)) {
                 s->timer_event_source = sd_event_source_unref(s->timer_event_source);
                 swap_unwatch_control_pid(s);
                 s->control_command = NULL;
@@ -530,12 +534,7 @@ static int swap_coldplug(Unit *u) {
 
         if (s->control_pid > 0 &&
             pid_is_unwaited(s->control_pid) &&
-            IN_SET(new_state,
-                   SWAP_ACTIVATING,
-                   SWAP_ACTIVATING_DONE,
-                   SWAP_DEACTIVATING,
-                   SWAP_DEACTIVATING_SIGTERM,
-                   SWAP_DEACTIVATING_SIGKILL)) {
+            SWAP_STATE_WITH_PROCESS(new_state)) {
 
                 r = unit_watch_pid(UNIT(s), s->control_pid);
                 if (r < 0)
