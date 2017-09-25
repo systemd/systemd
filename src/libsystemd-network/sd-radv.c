@@ -21,7 +21,6 @@
 #include <netinet/icmp6.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <linux/in6.h>
 
 #include "sd-radv.h"
 
