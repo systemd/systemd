@@ -120,7 +120,7 @@ char *strjoin_real(const char *x, ...) _sentinel_;
         ({                                                              \
                 const char *_appendees_[] = { a, __VA_ARGS__ };         \
                 char *_d_, *_p_;                                        \
-                int _len_ = 0;                                          \
+                size_t _len_ = 0;                                          \
                 unsigned _i_;                                           \
                 for (_i_ = 0; _i_ < ELEMENTSOF(_appendees_) && _appendees_[_i_]; _i_++) \
                         _len_ += strlen(_appendees_[_i_]);              \
