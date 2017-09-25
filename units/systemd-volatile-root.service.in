@@ -12,7 +12,6 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 After=sysroot.mount
 Before=initrd-root-fs.target shutdown.target
-Conflicts=shutdown.target
 AssertPathExists=/etc/initrd-release
 
 [Service]

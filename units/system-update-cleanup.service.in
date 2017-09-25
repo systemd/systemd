@@ -11,6 +11,7 @@ Documentation=man:systemd.special(5) man:systemd.offline-updates(7)
 After=system-update.target
 DefaultDependencies=no
 Conflicts=shutdown.target
+Before=shutdown.target
 
 # system-update-generator uses laccess("/system-update"), while a plain
 # ConditionPathExists=/system-update uses access("/system-update"), so
