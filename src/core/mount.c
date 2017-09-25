@@ -653,7 +653,6 @@ static void mount_set_state(Mount *m, MountState state) {
                 log_unit_debug(UNIT(m), "Changed %s -> %s", mount_state_to_string(old_state), mount_state_to_string(state));
 
         unit_notify(UNIT(m), state_translation_table[old_state], state_translation_table[state], m->reload_result == MOUNT_SUCCESS);
-        m->reload_result = MOUNT_SUCCESS;
 }
 
 static int mount_coldplug(Unit *u) {
@@ -964,11 +963,24 @@ fail:
         mount_enter_dead(m, MOUNT_FAILURE_RESOURCES);
 }
 
+static void mount_set_reload_result(Mount *m, MountResult result) {
+        assert(m);
+
+        /* Only store the first error we encounter */
+        if (m->reload_result != MOUNT_SUCCESS)
+                return;
+
+        m->reload_result = result;
+}
+
 static void mount_enter_remounting(Mount *m) {
         int r;
         MountParameters *p;
 
         assert(m);
+
+        /* Reset reload result when we are about to start a new remount operation */
+        m->reload_result = MOUNT_SUCCESS;
 
         m->control_command_id = MOUNT_EXEC_REMOUNT;
         m->control_command = m->exec_command + MOUNT_EXEC_REMOUNT;
@@ -1007,7 +1019,7 @@ static void mount_enter_remounting(Mount *m) {
 
 fail:
         log_unit_warning_errno(UNIT(m), r, "Failed to run 'remount' task: %m");
-        m->reload_result = MOUNT_FAILURE_RESOURCES;
+        mount_set_reload_result(m, MOUNT_FAILURE_RESOURCES);
         mount_enter_mounted(m, MOUNT_SUCCESS);
 }
 
@@ -1210,7 +1222,9 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         else
                 assert_not_reached("Unknown code");
 
-        if (m->result == MOUNT_SUCCESS)
+        if (IN_SET(m->state, MOUNT_REMOUNTING, MOUNT_REMOUNTING_SIGKILL, MOUNT_REMOUNTING_SIGTERM))
+                mount_set_reload_result(m, f);
+        else if (m->result == MOUNT_SUCCESS)
                 m->result = f;
 
         if (m->control_command) {
