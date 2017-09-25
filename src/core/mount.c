@@ -68,6 +68,18 @@ static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
 static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
 static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 
+static bool MOUNT_STATE_WITH_PROCESS(MountState state) {
+        return IN_SET(state,
+                      MOUNT_MOUNTING,
+                      MOUNT_MOUNTING_DONE,
+                      MOUNT_REMOUNTING,
+                      MOUNT_REMOUNTING_SIGTERM,
+                      MOUNT_REMOUNTING_SIGKILL,
+                      MOUNT_UNMOUNTING,
+                      MOUNT_UNMOUNTING_SIGTERM,
+                      MOUNT_UNMOUNTING_SIGKILL);
+}
+
 static bool mount_needs_network(const char *options, const char *fstype) {
         if (fstab_test_option(options, "_netdev\0"))
                 return true;
@@ -117,18 +129,6 @@ static bool mount_is_automount(const MountParameters *p) {
         return fstab_test_option(p->options,
                                  "comment=systemd.automount\0"
                                  "x-systemd.automount\0");
-}
-
-static bool mount_state_active(MountState state) {
-        return IN_SET(state,
-                      MOUNT_MOUNTING,
-                      MOUNT_MOUNTING_DONE,
-                      MOUNT_REMOUNTING,
-                      MOUNT_REMOUNTING_SIGTERM,
-                      MOUNT_REMOUNTING_SIGKILL,
-                      MOUNT_UNMOUNTING,
-                      MOUNT_UNMOUNTING_SIGTERM,
-                      MOUNT_UNMOUNTING_SIGKILL);
 }
 
 static bool mount_is_bound_to_device(const Mount *m) {
@@ -638,7 +638,7 @@ static void mount_set_state(Mount *m, MountState state) {
         old_state = m->state;
         m->state = state;
 
-        if (!mount_state_active(state)) {
+        if (!MOUNT_STATE_WITH_PROCESS(state)) {
                 m->timer_event_source = sd_event_source_unref(m->timer_event_source);
                 mount_unwatch_control_pid(m);
                 m->control_command = NULL;
@@ -669,7 +669,7 @@ static int mount_coldplug(Unit *u) {
 
         if (m->control_pid > 0 &&
             pid_is_unwaited(m->control_pid) &&
-            mount_state_active(new_state)) {
+            MOUNT_STATE_WITH_PROCESS(new_state)) {
 
                 r = unit_watch_pid(UNIT(m), m->control_pid);
                 if (r < 0)
