@@ -2131,6 +2131,10 @@ finish:
                 args[0] = "/sbin/init";
                 (void) execv(args[0], (char* const*) args);
 
+                manager_status_printf(NULL, STATUS_TYPE_EMERGENCY,
+                        ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL,
+                        "Failed to execute /sbin/init");
+
                 if (errno == ENOENT) {
                         log_warning("No /sbin/init, trying fallback");
 
@@ -2140,6 +2144,8 @@ finish:
                         log_error_errno(errno, "Failed to execute /bin/sh, giving up: %m");
                 } else
                         log_warning_errno(errno, "Failed to execute /sbin/init, giving up: %m");
+
+                error_message = "Failed to execute fallback shell";
         }
 
         arg_serialization = safe_fclose(arg_serialization);
@@ -2227,6 +2233,7 @@ finish:
                 execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);
                 log_error_errno(errno, "Failed to execute shutdown binary, %s: %m",
                           getpid_cached() == 1 ? "freezing" : "quitting");
+                error_message = "Failed to execute shutdown binary";
         }
 
         if (getpid_cached() == 1) {
