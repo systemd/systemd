@@ -170,8 +170,6 @@ typedef enum SwapState {
         SWAP_ACTIVATING_DONE,          /* /sbin/swapon is running, and the swap is done. */
         SWAP_ACTIVE,
         SWAP_DEACTIVATING,
-        SWAP_ACTIVATING_SIGTERM,
-        SWAP_ACTIVATING_SIGKILL,
         SWAP_DEACTIVATING_SIGTERM,
         SWAP_DEACTIVATING_SIGKILL,
         SWAP_FAILED,
