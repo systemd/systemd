@@ -24,6 +24,7 @@
 #include "capability-util.h"
 #include "fileio.h"
 #include "parse-util.h"
+#include "string-util.h"
 #include "util.h"
 
 /* verify the capability parser */
@@ -102,10 +103,24 @@ static void test_last_cap_probe(void) {
         assert_se(p == cap_last_cap());
 }
 
+static void test_capability_set_to_string_alloc(void) {
+        _cleanup_free_ char *t1 = NULL, *t2 = NULL, *t3 = NULL;
+
+        assert_se(capability_set_to_string_alloc(0u, &t1) == 0);
+        assert_se(streq(t1, ""));
+
+        assert_se(capability_set_to_string_alloc(1u<<CAP_DAC_OVERRIDE, &t2) == 0);
+        assert_se(streq(t2, "cap_dac_override"));
+
+        assert_se(capability_set_to_string_alloc(UINT64_C(1)<<CAP_CHOWN | UINT64_C(1)<<CAP_DAC_OVERRIDE | UINT64_C(1)<<CAP_DAC_READ_SEARCH | UINT64_C(1)<<CAP_FOWNER | UINT64_C(1)<<CAP_SETGID | UINT64_C(1)<<CAP_SETUID | UINT64_C(1)<<CAP_SYS_PTRACE | UINT64_C(1)<<CAP_SYS_ADMIN | UINT64_C(1)<<CAP_AUDIT_CONTROL | UINT64_C(1)<<CAP_MAC_OVERRIDE | UINT64_C(1)<<CAP_SYSLOG, &t3) == 0);
+        assert_se(streq(t3, "cap_chown cap_dac_override cap_dac_read_search cap_fowner cap_setgid cap_setuid cap_sys_ptrace cap_sys_admin cap_audit_control cap_mac_override cap_syslog"));
+}
+
 int main(int argc, char *argv[]) {
         test_cap_list();
         test_last_cap_file();
         test_last_cap_probe();
+        test_capability_set_to_string_alloc();
 
         return 0;
 }
