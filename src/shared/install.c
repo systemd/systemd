@@ -847,7 +847,6 @@ static int find_symlinks_fd(
 
                                 /* Check if symlink name is in the set of names used by [Install] */
                                 q = is_symlink_with_known_name(i, de->d_name);
-                                log_info("is_symlink_with_known_name(%s, %s) → %d", i->name, de->d_name, q);
                                 if (q < 0)
                                         return q;
                                 if (q > 0)
