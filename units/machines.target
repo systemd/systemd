@@ -8,9 +8,6 @@
 [Unit]
 Description=Containers
 Documentation=man:systemd.special(7)
-Requires=basic.target
-Conflicts=rescue.service rescue.target
-After=basic.target rescue.service rescue.target
 Before=multi-user.target
 
 [Install]
