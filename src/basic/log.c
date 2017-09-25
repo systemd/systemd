@@ -834,9 +834,8 @@ void log_assert_failed_return_realm(
 }
 
 int log_oom_internal(LogRealm realm, const char *file, int line, const char *func) {
-        log_internal_realm(LOG_REALM_PLUS_LEVEL(realm, LOG_ERR),
-                           ENOMEM, file, line, func, "Out of memory.");
-        return -ENOMEM;
+        return log_internal_realm(LOG_REALM_PLUS_LEVEL(realm, LOG_ERR),
+                                  ENOMEM, file, line, func, "Out of memory.");
 }
 
 int log_format_iovec(
