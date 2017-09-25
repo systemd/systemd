@@ -180,11 +180,21 @@ static void ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *
                 return;
         }
 
+        if (lifetime_valid == 0)
+                return;
+
         r = sd_ndisc_router_prefix_get_preferred_lifetime(rt, &lifetime_preferred);
         if (r < 0) {
                 log_link_error_errno(link, r, "Failed to get prefix preferred lifetime: %m");
                 return;
         }
+
+        if (lifetime_preferred == 0)
+                return;
+
+        /* The preferred lifetime is never greater than the valid lifetime */
+        if (lifetime_preferred > lifetime_valid)
+                return;
 
         r = address_new(&address);
         if (r < 0) {
