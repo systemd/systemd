@@ -150,7 +150,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         warning(offset, "Unused data (entry_offset==0)");
 
                 if ((le64toh(o->data.entry_offset) == 0) ^ (le64toh(o->data.n_entries) == 0)) {
-                        error(offset, "Bad n_entries: %"PRIu64, o->data.n_entries);
+                        error(offset, "Bad n_entries: %"PRIu64, le64toh(o->data.n_entries));
                         return -EBADMSG;
                 }
 
@@ -187,15 +187,15 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         return -EBADMSG;
                 }
 
-                if (!VALID64(o->data.next_hash_offset) ||
-                    !VALID64(o->data.next_field_offset) ||
-                    !VALID64(o->data.entry_offset) ||
-                    !VALID64(o->data.entry_array_offset)) {
+                if (!VALID64(le64toh(o->data.next_hash_offset)) ||
+                    !VALID64(le64toh(o->data.next_field_offset)) ||
+                    !VALID64(le64toh(o->data.entry_offset)) ||
+                    !VALID64(le64toh(o->data.entry_array_offset))) {
                         error(offset, "Invalid offset (next_hash_offset="OFSfmt", next_field_offset="OFSfmt", entry_offset="OFSfmt", entry_array_offset="OFSfmt,
-                              o->data.next_hash_offset,
-                              o->data.next_field_offset,
-                              o->data.entry_offset,
-                              o->data.entry_array_offset);
+                              le64toh(o->data.next_hash_offset),
+                              le64toh(o->data.next_field_offset),
+                              le64toh(o->data.entry_offset),
+                              le64toh(o->data.entry_array_offset));
                         return -EBADMSG;
                 }
 
@@ -211,12 +211,12 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         return -EBADMSG;
                 }
 
-                if (!VALID64(o->field.next_hash_offset) ||
-                    !VALID64(o->field.head_data_offset)) {
+                if (!VALID64(le64toh(o->field.next_hash_offset)) ||
+                    !VALID64(le64toh(o->field.head_data_offset))) {
                         error(offset,
                               "Invalid offset (next_hash_offset="OFSfmt", head_data_offset="OFSfmt,
-                              o->field.next_hash_offset,
-                              o->field.head_data_offset);
+                              le64toh(o->field.next_hash_offset),
+                              le64toh(o->field.head_data_offset));
                         return -EBADMSG;
                 }
                 break;
@@ -259,12 +259,12 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                 }
 
                 for (i = 0; i < journal_file_entry_n_items(o); i++) {
-                        if (o->entry.items[i].object_offset == 0 ||
-                            !VALID64(o->entry.items[i].object_offset)) {
+                        if (le64toh(o->entry.items[i].object_offset) == 0 ||
+                            !VALID64(le64toh(o->entry.items[i].object_offset))) {
                                 error(offset,
                                       "Invalid entry item (%"PRIu64"/%"PRIu64" offset: "OFSfmt,
                                       i, journal_file_entry_n_items(o),
-                                      o->entry.items[i].object_offset);
+                                      le64toh(o->entry.items[i].object_offset));
                                 return -EBADMSG;
                         }
                 }
@@ -325,10 +325,10 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         return -EBADMSG;
                 }
 
-                if (!VALID64(o->entry_array.next_entry_array_offset)) {
+                if (!VALID64(le64toh(o->entry_array.next_entry_array_offset))) {
                         error(offset,
                               "Invalid object entry array next_entry_array_offset: "OFSfmt,
-                              o->entry_array.next_entry_array_offset);
+                              le64toh(o->entry_array.next_entry_array_offset));
                         return -EBADMSG;
                 }
 
@@ -352,10 +352,10 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         return -EBADMSG;
                 }
 
-                if (!VALID_EPOCH(o->tag.epoch)) {
+                if (!VALID_EPOCH(le64toh(o->tag.epoch))) {
                         error(offset,
                               "Invalid object tag epoch: %"PRIu64,
-                              o->tag.epoch);
+                              le64toh(o->tag.epoch));
                         return -EBADMSG;
                 }
 
@@ -1109,7 +1109,7 @@ int journal_file_verify(
 
                                 debug(p, "Checking tag %"PRIu64"...", le64toh(o->tag.seqnum));
 
-                                rt = f->fss_start_usec + o->tag.epoch * f->fss_interval_usec;
+                                rt = f->fss_start_usec + le64toh(o->tag.epoch) * f->fss_interval_usec;
                                 if (entry_realtime_set && entry_realtime >= rt + f->fss_interval_usec) {
                                         error(p, "tag/entry realtime timestamp out of synchronization");
                                         r = -EBADMSG;
