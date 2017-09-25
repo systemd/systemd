@@ -12,6 +12,7 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 Conflicts=rescue.service
 Before=shutdown.target
+Before=rescue.service
 
 [Service]
 Environment=HOME=/root

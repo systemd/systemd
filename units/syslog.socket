@@ -18,6 +18,7 @@ Before=shutdown.target
 
 # Don't try to activate syslog.service if sysinit.target has failed.
 Conflicts=emergency.service
+Before=emergency.service
 
 [Socket]
 ListenDatagram=/run/systemd/journal/syslog
