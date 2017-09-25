@@ -1631,7 +1631,6 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
                         s->main_pid,
                         s->control_pid,
                         s->main_pid_alien);
-
         if (r < 0)
                 goto fail;
 
@@ -1786,13 +1785,39 @@ fail:
 }
 
 static void service_kill_control_processes(Service *s) {
-        char *p;
+        int r;
 
-        if (!UNIT(s)->cgroup_path)
-                return;
+        assert(s);
 
-        p = strjoina(UNIT(s)->cgroup_path, "/control");
-        cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, p, SIGKILL, CGROUP_SIGCONT|CGROUP_IGNORE_SELF|CGROUP_REMOVE, NULL, NULL, NULL);
+        if (s->control_pid > 0) {
+                r = kill_and_sigcont(s->control_pid, SIGKILL);
+                if (r < 0) {
+                        _cleanup_free_ char *comm = NULL;
+
+                        (void) get_process_comm(s->control_pid, &comm);
+
+                        log_unit_debug_errno(UNIT(s), r, "Failed to kill control process " PID_FMT " (%s), ignoring: %m",
+                                             s->control_pid, strna(comm));
+                }
+        }
+
+        if (UNIT(s)->cgroup_path) {
+                _cleanup_set_free_ Set *pid_set = NULL;
+                char *p;
+
+                if (s->control_pid > 0) {
+                        r = set_make(&pid_set, PID_TO_PTR(s->control_pid), NULL);
+                        if (r < 0) {
+                                log_oom();
+                                return;
+                        }
+                }
+
+                p = strjoina(UNIT(s)->cgroup_path, "/control");
+                r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, p, SIGKILL, CGROUP_SIGCONT|CGROUP_IGNORE_SELF|CGROUP_REMOVE, pid_set, NULL, NULL);
+                if (r < 0)
+                        log_unit_debug_errno(UNIT(s), r, "Failed to send SIGKILL to processes of control group %s: %m", p);
+        }
 }
 
 static void service_enter_start(Service *s) {
@@ -3411,9 +3436,7 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
                 }
 
                 if (!streq_ptr(s->status_text, t)) {
-
                         free_and_replace(s->status_text, t);
-
                         notify_dbus = true;
                 }
         }
@@ -3523,10 +3546,11 @@ static void service_bus_name_owner_change(
 
         } else if (new_owner &&
                    s->main_pid <= 0 &&
-                   (s->state == SERVICE_START ||
-                    s->state == SERVICE_START_POST ||
-                    s->state == SERVICE_RUNNING ||
-                    s->state == SERVICE_RELOAD)) {
+                   IN_SET(s->state,
+                          SERVICE_START,
+                          SERVICE_START_POST,
+                          SERVICE_RUNNING,
+                          SERVICE_RELOAD)) {
 
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 pid_t pid;
@@ -3608,6 +3632,8 @@ static void service_reset_failed(Unit *u) {
 
 static int service_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
         Service *s = SERVICE(u);
+
+        assert(s);
 
         return unit_kill_common(u, who, signo, s->main_pid, s->control_pid, error);
 }
