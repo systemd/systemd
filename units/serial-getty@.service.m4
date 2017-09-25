@@ -24,8 +24,8 @@ IgnoreOnIsolate=yes
 # IgnoreOnIsolate causes issues with sulogin, if someone isolates
 # rescue.target or starts rescue.service from multi-user.target or
 # graphical.target.
-Conflicts=rescue.service emergency.service
-Before=rescue.service emergency.service
+Conflicts=rescue.service
+Before=rescue.service
 
 [Service]
 # The '-o' option value tells agetty to replace 'login' arguments with an
