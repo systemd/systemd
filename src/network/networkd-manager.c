@@ -757,8 +757,11 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
         }
 
         r = sd_rtnl_message_get_family(message, &family);
-        if (r < 0 || !IN_SET(family, AF_INET, AF_INET6)) {
-                log_warning_errno(r, "rtnl: received address with invalid family type %u, ignoring.", type);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: could not get rule family: %m");
+                return 0;
+        } else if (!IN_SET(family, AF_INET, AF_INET6)) {
+                log_debug("rtnl: received address with invalid family %u, ignoring.", family);
                 return 0;
         }
 
@@ -798,7 +801,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
                 break;
 
         default:
-                log_debug("rtnl: ignoring unsupported rule family: %d", family);
+                assert_not_reached("Received unsupported rule family");
         }
 
         if (from_prefixlen == 0 && to_prefixlen == 0)
