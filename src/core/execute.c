@@ -2466,11 +2466,13 @@ static int exec_child(
         if (params->idle_pipe)
                 do_idle_pipe_dance(params->idle_pipe);
 
-        /* Close sockets very early to make sure we don't
-         * block init reexecution because it cannot bind its
-         * sockets */
+        /* Close fds we don't need very early to make sure we don't block init reexecution because it cannot bind its
+         * sockets. Among the fds we close are the logging fds, and we want to keep them closed, so that we don't have
+         * any fds open we don't really want open during the transition. In order to make logging work, we switch the
+         * log subsystem into open_when_needed mode, so that it reopens the logs on every single log call. */
 
         log_forget_fds();
+        log_set_open_when_needed(true);
 
         n_fds = n_storage_fds + n_socket_fds;
         r = close_remaining_fds(params, runtime, dcreds, user_lookup_fd, socket_fd, fds, n_fds);
