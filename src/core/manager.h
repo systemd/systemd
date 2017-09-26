@@ -121,6 +121,9 @@ struct Manager {
         /* Units that should be realized */
         LIST_HEAD(Unit, cgroup_realize_queue);
 
+        /* Units whose cgroup ran empty */
+        LIST_HEAD(Unit, cgroup_empty_queue);
+
         sd_event *event;
 
         /* We use two hash tables here, since the same PID might be
@@ -229,11 +232,13 @@ struct Manager {
         CGroupMask cgroup_supported;
         char *cgroup_root;
 
-        /* Notifications from cgroups, when the unified hierarchy is
-         * used is done via inotify. */
+        /* Notifications from cgroups, when the unified hierarchy is used is done via inotify. */
         int cgroup_inotify_fd;
         sd_event_source *cgroup_inotify_event_source;
         Hashmap *cgroup_inotify_wd_unit;
+
+        /* A defer event for handling cgroup empty events and processing them after SIGCHLD in all cases. */
+        sd_event_source *cgroup_empty_event_source;
 
         /* Make sure the user cannot accidentally unmount our cgroup
          * file system */

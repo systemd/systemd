@@ -1794,17 +1794,28 @@ int unit_watch_all_pids(Unit *u) {
         return unit_watch_pids_in_path(u, u->cgroup_path);
 }
 
-int unit_notify_cgroup_empty(Unit *u) {
+static int on_cgroup_empty_event(sd_event_source *s, void *userdata) {
+        Manager *m = userdata;
+        Unit *u;
         int r;
 
-        assert(u);
+        assert(s);
+        assert(m);
 
-        if (!u->cgroup_path)
+        u = m->cgroup_empty_queue;
+        if (!u)
                 return 0;
 
-        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path);
-        if (r <= 0)
-                return r;
+        assert(u->in_cgroup_empty_queue);
+        u->in_cgroup_empty_queue = false;
+        LIST_REMOVE(cgroup_empty_queue, m->cgroup_empty_queue, u);
+
+        if (m->cgroup_empty_queue) {
+                /* More stuff queued, let's make sure we remain enabled */
+                r = sd_event_source_set_enabled(s, SD_EVENT_ONESHOT);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to reenable cgroup empty event source: %m");
+        }
 
         unit_add_to_gc_queue(u);
 
@@ -1812,6 +1823,51 @@ int unit_notify_cgroup_empty(Unit *u) {
                 UNIT_VTABLE(u)->notify_cgroup_empty(u);
 
         return 0;
+}
+
+void unit_add_to_cgroup_empty_queue(Unit *u) {
+        int r;
+
+        assert(u);
+
+        /* Note that there are four different ways how cgroup empty events reach us:
+         *
+         * 1. On the unified hierarchy we get an inotify event on the cgroup
+         *
+         * 2. On the legacy hierarchy, when running in system mode, we get a datagram on the cgroup agent socket
+         *
+         * 3. On the legacy hierarchy, when running in user mode, we get a D-Bus signal on the system bus
+         *
+         * 4. On the legacy hierarchy, in service units we start watching all processes of the cgroup for SIGCHLD as
+         *    soon as we get one SIGCHLD, to deal with unreliable cgroup notifications.
+         *
+         * Regardless which way we got the notification, we'll verify it here, and then add it to a separate
+         * queue. This queue will be dispatched at a lower priority than the SIGCHLD handler, so that we always use
+         * SIGCHLD if we can get it first, and only use the cgroup empty notifications if there's no SIGCHLD pending
+         * (which might happen if the cgroup doesn't contain processes that are our own child, which is typically the
+         * case for scope units). */
+
+        if (u->in_cgroup_empty_queue)
+                return;
+
+        /* Let's verify that the cgroup is really empty */
+        if (!u->cgroup_path)
+                return;
+        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path);
+        if (r < 0) {
+                log_unit_debug_errno(u, r, "Failed to determine whether cgroup %s is empty: %m", u->cgroup_path);
+                return;
+        }
+        if (r == 0)
+                return;
+
+        LIST_PREPEND(cgroup_empty_queue, u->manager->cgroup_empty_queue, u);
+        u->in_cgroup_empty_queue = true;
+
+        /* Trigger the defer event */
+        r = sd_event_source_set_enabled(u->manager->cgroup_empty_event_source, SD_EVENT_ONESHOT);
+        if (r < 0)
+                log_debug_errno(r, "Failed to enable cgroup empty event source: %m");
 }
 
 static int on_cgroup_inotify_event(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -1853,7 +1909,7 @@ static int on_cgroup_inotify_event(sd_event_source *s, int fd, uint32_t revents,
                                  * this here safely. */
                                 continue;
 
-                        (void) unit_notify_cgroup_empty(u);
+                        unit_add_to_cgroup_empty_queue(u);
                 }
         }
 }
@@ -1918,11 +1974,26 @@ int manager_setup_cgroup(Manager *m) {
                         log_debug("Using cgroup controller " SYSTEMD_CGROUP_CONTROLLER_LEGACY ". File system hierarchy is at %s.", path);
         }
 
-        /* 3. Install agent */
+        /* 3. Allocate cgroup empty defer event source */
+        m->cgroup_empty_event_source = sd_event_source_unref(m->cgroup_empty_event_source);
+        r = sd_event_add_defer(m->event, &m->cgroup_empty_event_source, on_cgroup_empty_event, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create cgroup empty event source: %m");
+
+        r = sd_event_source_set_priority(m->cgroup_empty_event_source, SD_EVENT_PRIORITY_NORMAL-5);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set priority of cgroup empty event source: %m");
+
+        r = sd_event_source_set_enabled(m->cgroup_empty_event_source, SD_EVENT_OFF);
+        if (r < 0)
+                return log_error_errno(r, "Failed to disable cgroup empty event source: %m");
+
+        (void) sd_event_source_set_description(m->cgroup_empty_event_source, "cgroup-empty");
+
+        /* 4. Install notifier inotify object, or agent */
         if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0) {
 
-                /* In the unified hierarchy we can get
-                 * cgroup empty notifications via inotify. */
+                /* In the unified hierarchy we can get cgroup empty notifications via inotify. */
 
                 m->cgroup_inotify_event_source = sd_event_source_unref(m->cgroup_inotify_event_source);
                 safe_close(m->cgroup_inotify_fd);
@@ -1937,7 +2008,7 @@ int manager_setup_cgroup(Manager *m) {
 
                 /* Process cgroup empty notifications early, but after service notifications and SIGCHLD. Also
                  * see handling of cgroup agent notifications, for the classic cgroup hierarchy support. */
-                r = sd_event_source_set_priority(m->cgroup_inotify_event_source, SD_EVENT_PRIORITY_NORMAL-5);
+                r = sd_event_source_set_priority(m->cgroup_inotify_event_source, SD_EVENT_PRIORITY_NORMAL-4);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set priority of inotify event source: %m");
 
@@ -1957,33 +2028,31 @@ int manager_setup_cgroup(Manager *m) {
                         log_debug("Release agent already installed.");
         }
 
-        /* 4. Make sure we are in the special "init.scope" unit in the root slice. */
+        /* 5. Make sure we are in the special "init.scope" unit in the root slice. */
         scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_SCOPE);
         r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, scope_path, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to create %s control group: %m", scope_path);
 
-        /* also, move all other userspace processes remaining
-         * in the root cgroup into that scope. */
+        /* Also, move all other userspace processes remaining in the root cgroup into that scope. */
         r = cg_migrate(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, SYSTEMD_CGROUP_CONTROLLER, scope_path, 0);
         if (r < 0)
                 log_warning_errno(r, "Couldn't move remaining userspace processes, ignoring: %m");
 
-        /* 5. And pin it, so that it cannot be unmounted */
+        /* 6. And pin it, so that it cannot be unmounted */
         safe_close(m->pin_cgroupfs_fd);
         m->pin_cgroupfs_fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY|O_NONBLOCK);
         if (m->pin_cgroupfs_fd < 0)
                 return log_error_errno(errno, "Failed to open pin file: %m");
 
-        /* 6.  Always enable hierarchical support if it exists... */
+        /* 7. Always enable hierarchical support if it exists... */
         if (!all_unified && m->test_run_flags == 0)
                 (void) cg_set_attribute("memory", "/", "memory.use_hierarchy", "1");
 
-        /* 7. Figure out which controllers are supported */
+        /* 8. Figure out which controllers are supported, and log about it */
         r = cg_mask_supported(&m->cgroup_supported);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine supported controllers: %m");
-
         for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++)
                 log_debug("Controller '%s' supported: %s", cgroup_controller_to_string(c), yes_no(m->cgroup_supported & CGROUP_CONTROLLER_TO_MASK(c)));
 
@@ -1997,6 +2066,8 @@ void manager_shutdown_cgroup(Manager *m, bool delete) {
          * let's trim it. */
         if (delete && m->cgroup_root)
                 (void) cg_trim(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, false);
+
+        m->cgroup_empty_event_source = sd_event_source_unref(m->cgroup_empty_event_source);
 
         m->cgroup_inotify_wd_unit = hashmap_free(m->cgroup_inotify_wd_unit);
 
@@ -2079,13 +2150,17 @@ int manager_notify_cgroup_empty(Manager *m, const char *cgroup) {
         assert(m);
         assert(cgroup);
 
+        /* Called on the legacy hierarchy whenever we get an explicit cgroup notification from the cgroup agent process
+         * or from the --system instance */
+
         log_debug("Got cgroup empty notification for: %s", cgroup);
 
         u = manager_get_unit_by_cgroup(m, cgroup);
         if (!u)
                 return 0;
 
-        return unit_notify_cgroup_empty(u);
+        unit_add_to_cgroup_empty_queue(u);
+        return 1;
 }
 
 int unit_get_memory_current(Unit *u, uint64_t *ret) {

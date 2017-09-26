@@ -859,7 +859,7 @@ static int manager_setup_cgroups_agent(Manager *m) {
                  * SIGCHLD signals, so that a cgroup running empty is always just the last safety net of notification,
                  * and we collected the metadata the notification and SIGCHLD stuff offers first. Also see handling of
                  * cgroup inotify for the unified cgroup stuff. */
-                r = sd_event_source_set_priority(m->cgroups_agent_event_source, SD_EVENT_PRIORITY_NORMAL-5);
+                r = sd_event_source_set_priority(m->cgroups_agent_event_source, SD_EVENT_PRIORITY_NORMAL-4);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set priority of cgroups agent event source: %m");
 

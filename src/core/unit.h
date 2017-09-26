@@ -168,6 +168,9 @@ struct Unit {
         /* CGroup realize members queue */
         LIST_FIELDS(Unit, cgroup_realize_queue);
 
+        /* cgroup empty queue */
+        LIST_FIELDS(Unit, cgroup_empty_queue);
+
         /* PIDs we keep an eye on. Note that a unit might have many
          * more, but these are the ones we care enough about to
          * process SIGCHLD for */
@@ -264,6 +267,7 @@ struct Unit {
         bool in_cleanup_queue:1;
         bool in_gc_queue:1;
         bool in_cgroup_realize_queue:1;
+        bool in_cgroup_empty_queue:1;
 
         bool sent_dbus_new_signal:1;
 

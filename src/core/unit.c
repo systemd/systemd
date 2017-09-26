@@ -591,6 +591,9 @@ void unit_free(Unit *u) {
         if (u->in_cgroup_realize_queue)
                 LIST_REMOVE(cgroup_realize_queue, u->manager->cgroup_realize_queue, u);
 
+        if (u->in_cgroup_empty_queue)
+                LIST_REMOVE(cgroup_empty_queue, u->manager->cgroup_empty_queue, u);
+
         unit_release_cgroup(u);
 
         unit_unref_uid_gid(u, false);
