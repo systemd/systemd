@@ -588,8 +588,8 @@ void unit_free(Unit *u) {
         if (u->in_gc_queue)
                 LIST_REMOVE(gc_queue, u->manager->gc_unit_queue, u);
 
-        if (u->in_cgroup_queue)
-                LIST_REMOVE(cgroup_queue, u->manager->cgroup_queue, u);
+        if (u->in_cgroup_realize_queue)
+                LIST_REMOVE(cgroup_realize_queue, u->manager->cgroup_realize_queue, u);
 
         unit_release_cgroup(u);
 

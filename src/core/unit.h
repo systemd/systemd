@@ -166,7 +166,7 @@ struct Unit {
         LIST_FIELDS(Unit, gc_queue);
 
         /* CGroup realize members queue */
-        LIST_FIELDS(Unit, cgroup_queue);
+        LIST_FIELDS(Unit, cgroup_realize_queue);
 
         /* PIDs we keep an eye on. Note that a unit might have many
          * more, but these are the ones we care enough about to
@@ -263,7 +263,7 @@ struct Unit {
         bool in_dbus_queue:1;
         bool in_cleanup_queue:1;
         bool in_gc_queue:1;
-        bool in_cgroup_queue:1;
+        bool in_cgroup_realize_queue:1;
 
         bool sent_dbus_new_signal:1;
 

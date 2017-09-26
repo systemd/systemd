@@ -2367,7 +2367,7 @@ int manager_loop(Manager *m) {
                 if (manager_dispatch_cleanup_queue(m) > 0)
                         continue;
 
-                if (manager_dispatch_cgroup_queue(m) > 0)
+                if (manager_dispatch_cgroup_realize_queue(m) > 0)
                         continue;
 
                 if (manager_dispatch_dbus_queue(m) > 0)
