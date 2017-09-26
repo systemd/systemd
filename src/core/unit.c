@@ -314,22 +314,16 @@ int unit_choose_id(Unit *u, const char *name) {
 }
 
 int unit_set_description(Unit *u, const char *description) {
-        char *s;
+        int r;
 
         assert(u);
 
-        if (isempty(description))
-                s = NULL;
-        else {
-                s = strdup(description);
-                if (!s)
-                        return -ENOMEM;
-        }
+        r = free_and_strdup(&u->description, empty_to_null(description));
+        if (r < 0)
+                return r;
+        if (r > 0)
+                unit_add_to_dbus_queue(u);
 
-        free(u->description);
-        u->description = s;
-
-        unit_add_to_dbus_queue(u);
         return 0;
 }
 
