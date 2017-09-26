@@ -38,6 +38,7 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "in-addr-util.h"
 #include "io-util.h"
 #include "label.h"
@@ -1324,6 +1325,7 @@ static int mq_address_create(
 static int socket_symlink(Socket *s) {
         const char *p;
         char **i;
+        int r;
 
         assert(s);
 
@@ -1331,8 +1333,11 @@ static int socket_symlink(Socket *s) {
         if (!p)
                 return 0;
 
-        STRV_FOREACH(i, s->symlinks)
-                symlink_label(p, *i);
+        STRV_FOREACH(i, s->symlinks) {
+                r = symlink_idempotent(p, *i);
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(s), r, "Failed to create symlink %s → %s, ignoring: %m", p, *i);
+        }
 
         return 0;
 }
