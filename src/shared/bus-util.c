@@ -809,7 +809,17 @@ int bus_print_property(const char *name, sd_bus_message *property, bool value, b
 
                 if (strstr(name, "UMask") || strstr(name, "Mode"))
                         print_property(name, "%04o", u);
-                else
+                else if (streq(name, "UID")) {
+                        if (u == UID_INVALID)
+                                print_property(name, "%s", "[not set]");
+                        else
+                                print_property(name, "%"PRIu32, u);
+                } else if (streq(name, "GID")) {
+                        if (u == GID_INVALID)
+                                print_property(name, "%s", "[not set]");
+                        else
+                                print_property(name, "%"PRIu32, u);
+                } else
                         print_property(name, "%"PRIu32, u);
 
                 return 1;

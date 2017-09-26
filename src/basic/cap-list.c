@@ -86,15 +86,17 @@ int capability_set_to_string_alloc(uint64_t set, char **s) {
 
                         add = strlen(p);
 
-                        if (!GREEDY_REALLOC0(str, allocated, n + add + 2))
+                        if (!GREEDY_REALLOC(str, allocated, n + add + 2))
                                 return -ENOMEM;
 
                         strcpy(mempcpy(str + n, p, add), " ");
                         n += add + 1;
                 }
 
-        if (n != 0)
-                str[n - 1] = '\0';
+        if (!GREEDY_REALLOC(str, allocated, n + 1))
+                return -ENOMEM;
+
+        str[n > 0 ? n - 1 : 0] = '\0'; /* truncate the last space, if it's there */
 
         *s = str;
         str = NULL;
