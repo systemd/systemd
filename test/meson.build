@@ -179,3 +179,7 @@ custom_target(
 udev_test_pl = find_program('udev-test.pl')
 test('udev-test',
      udev_test_pl)
+
+hwdb_test_sh = find_program('hwdb-test.sh')
+test('hwdb-test',
+     hwdb_test_sh)

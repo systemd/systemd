@@ -21,7 +21,7 @@
 set -e
 
 ROOTDIR=$(dirname $(dirname $(readlink -f $0)))
-SYSTEMD_HWDB=${builddir:-.}/systemd-hwdb
+SYSTEMD_HWDB=./systemd-hwdb
 
 if [ ! -x "$SYSTEMD_HWDB" ]; then
     echo "$SYSTEMD_HWDB does not exist, please build first"
