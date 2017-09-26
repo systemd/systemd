@@ -26,12 +26,7 @@ import tempfile
 import shutil
 from glob import glob
 import collections
-
-try:
-    from configparser import RawConfigParser
-except ImportError:
-    # python 2
-    from ConfigParser import RawConfigParser
+from configparser import RawConfigParser
 
 sysv_generator = os.path.join(os.environ.get('builddir', '.'), 'systemd-sysv-generator')
 
