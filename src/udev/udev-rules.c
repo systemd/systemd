@@ -36,6 +36,7 @@
 #include "fs-util.h"
 #include "glob-util.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "strbuf.h"
@@ -1728,6 +1729,7 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
         struct token *rule;
         enum escape_type esc = ESCAPE_UNSET;
         bool can_set_name;
+        int r;
 
         if (rules->tokens == NULL)
                 return;
@@ -2038,37 +2040,25 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                         break;
                 }
                 case TK_M_IMPORT_CMDLINE: {
-                        _cleanup_fclose_ FILE *f = NULL;
+                        _cleanup_free_ char *value = NULL;
                         bool imported = false;
+                        const char *key;
 
-                        f = fopen("/proc/cmdline", "re");
-                        if (f != NULL) {
-                                char cmdline[4096];
+                        key = rules_str(rules, cur->key.value_off);
 
-                                if (fgets(cmdline, sizeof(cmdline), f) != NULL) {
-                                        const char *key = rules_str(rules, cur->key.value_off);
-                                        char *pos;
+                        r = proc_cmdline_get_key(key, PROC_CMDLINE_VALUE_OPTIONAL, &value);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to read %s from /proc/cmdline, ignoring: %m", key);
+                        else if (r > 0) {
+                                imported = true;
 
-                                        pos = strstr(cmdline, key);
-                                        if (pos != NULL) {
-                                                imported = true;
-                                                pos += strlen(key);
-                                                if (pos[0] == '\0' || isspace(pos[0]))
-                                                        /* we import simple flags as 'FLAG=1' */
-                                                        udev_device_add_property(event->dev, key, "1");
-                                                else if (pos[0] == '=') {
-                                                        const char *value;
-
-                                                        pos++;
-                                                        value = pos;
-                                                        while (pos[0] != '\0' && !isspace(pos[0]))
-                                                                pos++;
-                                                        pos[0] = '\0';
-                                                        udev_device_add_property(event->dev, key, value);
-                                                }
-                                        }
-                                }
+                                if (value)
+                                        udev_device_add_property(event->dev, key, value);
+                                else
+                                        /* we import simple flags as 'FLAG=1' */
+                                        udev_device_add_property(event->dev, key, "1");
                         }
+
                         if (!imported && cur->key.op != OP_NOMATCH)
                                 goto nomatch;
                         break;
@@ -2108,7 +2098,6 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                 case TK_A_OWNER: {
                         char owner[UTIL_NAME_SIZE];
                         const char *ow = owner;
-                        int r;
 
                         if (event->owner_final)
                                 break;
@@ -2130,7 +2119,6 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                 case TK_A_GROUP: {
                         char group[UTIL_NAME_SIZE];
                         const char *gr = group;
-                        int r;
 
                         if (event->group_final)
                                 break;
@@ -2381,7 +2369,6 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                 case TK_A_SYSCTL: {
                         char filename[UTIL_PATH_SIZE];
                         char value[UTIL_NAME_SIZE];
-                        int r;
 
                         udev_event_apply_format(event, rules_str(rules, cur->key.attr_off), filename, sizeof(filename), false);
                         sysctl_normalize(filename);
