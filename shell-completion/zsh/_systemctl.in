@@ -133,30 +133,30 @@ _filter_units_by_property() {
   echo -E - "${(@g:o:)${(k@)props[(Re)$property=$value]}#Id=}"
 }
 
-_systemctl_get_template_names() { echo -E - ${^${(M)${(f)"$(__systemctl list-unit-files)"}##*@.[^[:space:]]##}%%@.*}\@ }
+_systemctl_get_template_names() { echo -E - ${^${(M)${(f)"$(__systemctl list-unit-files "*$PREFIX*$SUFFIX*" )"}##*@.[^[:space:]]##}%%@.*}\@ }
 
 
-_systemctl_active_units()  {_sys_active_units=(  ${${(f)"$(__systemctl list-units)"}%% *} )}
+_systemctl_active_units()  {_sys_active_units=(  ${${(f)"$(__systemctl list-units "*$PREFIX*$SUFFIX*" )"}%% *} )}
 
 _systemctl_startable_units(){
     _sys_startable_units=( $( _filter_units_by_property ActiveState inactive $(
                           _filter_units_by_property CanStart yes $(
-                          __systemctl $mode list-unit-files --state enabled,disabled,static | \
+                          __systemctl $mode list-unit-files --state enabled,disabled,static "*$PREFIX*$SUFFIX*" | \
                                { while read -r a b; do [[ $a =~ @\. ]] || echo -E - " $a"; done; }
-                          __systemctl $mode list-units --state inactive,failed | \
+                          __systemctl $mode list-units --state inactive,failed "*$PREFIX*$SUFFIX*" | \
                                { while read -r a b; do echo -E - " $a"; done; } )) ) )
 }
 
 _systemctl_restartable_units(){
     _sys_restartable_units=( $(_filter_units_by_property CanStart yes $(
-                          __systemctl $mode list-unit-files --state enabled,disabled,static | \
+                          __systemctl $mode list-unit-files --state enabled,disabled,static "*$PREFIX*$SUFFIX*" | \
                                { while read -r a b; do [[ $a =~ @\. ]] || echo -E - " $a"; done; }
-                          __systemctl $mode list-units | \
+                          __systemctl $mode list-units "*$PREFIX*$SUFFIX*" | \
                                { while read -r a b; do echo -E - " $a"; done; } )) )
 }
 
-_systemctl_failed_units()  {_sys_failed_units=( ${${(f)"$(__systemctl list-units --state=failed)"}%% *} ) }
-_systemctl_unit_state() { typeset -gA _sys_unit_state; _sys_unit_state=( $(__systemctl list-unit-files) ) }
+_systemctl_failed_units()  {_sys_failed_units=( ${${(f)"$(__systemctl list-units --state=failed "*$PREFIX*$SUFFIX*" )"}%% *} ) }
+_systemctl_unit_state() { typeset -gA _sys_unit_state; _sys_unit_state=( $(__systemctl list-unit-files "*$PREFIX*$SUFFIX*" ) ) }
 
 local fun
 # Completion functions for ALL_UNITS
