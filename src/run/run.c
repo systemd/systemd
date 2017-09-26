@@ -816,6 +816,8 @@ typedef struct RunContext {
         uint64_t inactive_enter_usec;
         char *result;
         uint64_t cpu_usage_nsec;
+        uint64_t ip_ingress_bytes;
+        uint64_t ip_egress_bytes;
         uint32_t exit_code;
         uint32_t exit_status;
 } RunContext;
@@ -859,6 +861,8 @@ static int run_context_update(RunContext *c, const char *path) {
                 { "ExecMainCode",                     "i", NULL, offsetof(RunContext, exit_code)           },
                 { "ExecMainStatus",                   "i", NULL, offsetof(RunContext, exit_status)         },
                 { "CPUUsageNSec",                     "t", NULL, offsetof(RunContext, cpu_usage_nsec)      },
+                { "IPIngressBytes",                   "t", NULL, offsetof(RunContext, ip_ingress_bytes)    },
+                { "IPEgressBytes",                    "t", NULL, offsetof(RunContext, ip_egress_bytes)     },
                 {}
         };
 
@@ -1045,7 +1049,13 @@ static int start_transient_service(
                 log_info("Running as unit: %s", service);
 
         if (arg_wait || arg_stdio != ARG_STDIO_NONE) {
-                _cleanup_(run_context_free) RunContext c = {};
+                _cleanup_(run_context_free) RunContext c = {
+                        .cpu_usage_nsec = NSEC_INFINITY,
+                        .ip_ingress_bytes = UINT64_MAX,
+                        .ip_egress_bytes = UINT64_MAX,
+                        .inactive_exit_usec = USEC_INFINITY,
+                        .inactive_enter_usec = USEC_INFINITY,
+                };
                 _cleanup_free_ char *path = NULL;
                 const char *mt;
 
@@ -1125,9 +1135,18 @@ static int start_transient_service(
                                 log_info("Service runtime: %s", format_timespan(ts, sizeof(ts), c.inactive_enter_usec - c.inactive_exit_usec, USEC_PER_MSEC));
                         }
 
-                        if (c.cpu_usage_nsec > 0 && c.cpu_usage_nsec != NSEC_INFINITY) {
+                        if (c.cpu_usage_nsec != NSEC_INFINITY) {
                                 char ts[FORMAT_TIMESPAN_MAX];
                                 log_info("CPU time consumed: %s", format_timespan(ts, sizeof(ts), (c.cpu_usage_nsec + NSEC_PER_USEC - 1) / NSEC_PER_USEC, USEC_PER_MSEC));
+                        }
+
+                        if (c.ip_ingress_bytes != UINT64_MAX) {
+                                char bytes[FORMAT_BYTES_MAX];
+                                log_info("IP traffic received: %s", format_bytes(bytes, sizeof(bytes), c.ip_ingress_bytes));
+                        }
+                        if (c.ip_egress_bytes != UINT64_MAX) {
+                                char bytes[FORMAT_BYTES_MAX];
+                                log_info("IP traffic sent: %s", format_bytes(bytes, sizeof(bytes), c.ip_egress_bytes));
                         }
                 }
 
