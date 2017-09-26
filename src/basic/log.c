@@ -1022,7 +1022,7 @@ int log_struct_iovec_internal(
                 }
 
                 if (sendmsg(journal_fd, &mh, MSG_NOSIGNAL) >= 0)
-                        return -errno;
+                        return -error;
         }
 
         for (i = 0; i < n_input_iovec; i++) {
