@@ -165,3 +165,17 @@ endif
 sysv_generator_test_py = find_program('sysv-generator-test.py')
 test('sysv-generator-test',
      sysv_generator_test_py)
+
+############################################################
+
+# prepare test/sys tree
+sys_script_py = find_program('sys-script.py')
+custom_target(
+        'sys',
+        command : [sys_script_py, meson.current_build_dir()],
+        output : 'sys',
+        build_by_default : true)
+
+udev_test_pl = find_program('udev-test.pl')
+test('udev-test',
+     udev_test_pl)
