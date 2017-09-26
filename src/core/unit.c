@@ -4205,7 +4205,7 @@ int unit_kill_context(
                          * them. */
 
                         if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0 ||
-                            (detect_container() == 0 && !unit_cgroup_delegate(u)))
+                            (detect_container() == 0 && !UNIT_CGROUP_BOOL(u, delegate)))
                                 wait_for_exit = true;
 
                         if (send_sighup) {
@@ -4644,7 +4644,7 @@ void unit_set_exec_params(Unit *u, ExecParameters *p) {
         assert(p);
 
         p->cgroup_path = u->cgroup_path;
-        SET_FLAG(p->flags, EXEC_CGROUP_DELEGATE, unit_cgroup_delegate(u));
+        SET_FLAG(p->flags, EXEC_CGROUP_DELEGATE, UNIT_CGROUP_BOOL(u, delegate));
 }
 
 int unit_fork_helper_process(Unit *u, pid_t *ret) {

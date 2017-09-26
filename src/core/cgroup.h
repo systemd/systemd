@@ -194,7 +194,11 @@ int unit_get_ip_accounting(Unit *u, CGroupIPAccountingMetric metric, uint64_t *r
 int unit_reset_cpu_accounting(Unit *u);
 int unit_reset_ip_accounting(Unit *u);
 
-bool unit_cgroup_delegate(Unit *u);
+#define UNIT_CGROUP_BOOL(u, name)                       \
+        ({                                              \
+        CGroupContext *cc = unit_get_cgroup_context(u); \
+        cc ? cc->name : false;                          \
+        })
 
 int unit_notify_cgroup_empty(Unit *u);
 int manager_notify_cgroup_empty(Manager *m, const char *group);
