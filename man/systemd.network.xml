@@ -1163,6 +1163,9 @@
             <para>The table identifier for DHCP routes (a number between 1 and 4294967295, or 0 to unset).
             The table can be retrieved using <command>ip route show table <replaceable>num</replaceable></command>.
             </para>
+            <para>When used in combination with <varname>VRF=</varname> the
+            VRF's routing table is used unless this parameter is specified.
+            </para>
           </listitem>
         </varlistentry>
 
