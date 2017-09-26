@@ -1323,9 +1323,7 @@ static bool skip_seccomp_unavailable(const Unit* u, const char* msg) {
         if (is_seccomp_available())
                 return false;
 
-        log_open();
         log_unit_debug(u, "SECCOMP features not detected in the kernel, skipping %s", msg);
-        log_close();
         return true;
 }
 
@@ -2109,10 +2107,8 @@ static int apply_mount_namespace(
         /* If we couldn't set up the namespace this is probably due to a
          * missing capability. In this case, silently proceeed. */
         if (IN_SET(r, -EPERM, -EACCES)) {
-                log_open();
                 log_unit_debug_errno(u, r, "Failed to set up namespace, assuming containerized execution, ignoring: %m");
-                log_close();
-                r = 0;
+                return 0;
         }
 
         return r;
