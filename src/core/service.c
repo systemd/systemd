@@ -803,6 +803,8 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                         "%sFile Descriptor Store Current: %u\n",
                         prefix, s->n_fd_store_max,
                         prefix, s->n_fd_store);
+
+        cgroup_context_dump(&s->cgroup_context, f, prefix);
 }
 
 static int service_load_pid_file(Service *s, bool may_warn) {
@@ -1242,9 +1244,10 @@ static int service_spawn(
         }
 
         (void) unit_realize_cgroup(UNIT(s));
-        if (s->reset_cpu_usage) {
-                (void) unit_reset_cpu_usage(UNIT(s));
-                s->reset_cpu_usage = false;
+        if (s->reset_accounting) {
+                (void) unit_reset_cpu_accounting(UNIT(s));
+                (void) unit_reset_ip_accounting(UNIT(s));
+                s->reset_accounting = false;
         }
 
         r = unit_setup_exec_runtime(UNIT(s));
@@ -1953,6 +1956,7 @@ static void service_enter_restart(Service *s) {
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_UNIT_RESTART_SCHEDULED_STR,
                    LOG_UNIT_ID(UNIT(s)),
+                   LOG_UNIT_INVOCATION_ID(UNIT(s)),
                    LOG_UNIT_MESSAGE(UNIT(s), "Scheduled restart job, restart counter is at %u.", s->n_restarts),
                    "N_RESTARTS=%u", s->n_restarts,
                    NULL);
@@ -2136,7 +2140,7 @@ static int service_start(Unit *u) {
         s->main_pid_known = false;
         s->main_pid_alien = false;
         s->forbid_restart = false;
-        s->reset_cpu_usage = true;
+        s->reset_accounting = true;
 
         s->status_text = mfree(s->status_text);
         s->status_errno = 0;
@@ -2948,6 +2952,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                            "EXIT_CODE=%s", sigchld_code_to_string(code),
                            "EXIT_STATUS=%i", status,
                            LOG_UNIT_ID(u),
+                           LOG_UNIT_INVOCATION_ID(u),
                            NULL);
 
                 if (s->result == SERVICE_SUCCESS)

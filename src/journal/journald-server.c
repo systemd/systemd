@@ -724,14 +724,14 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                 char *k;                                                \
                 k = newa(char, strlen(field "=") + DECIMAL_STR_MAX(type) + 1); \
                 sprintf(k, field "=" format, value);                    \
-                IOVEC_SET_STRING(iovec[n++], k);                        \
+                iovec[n++] = IOVEC_MAKE_STRING(k);                      \
         }
 
 #define IOVEC_ADD_STRING_FIELD(iovec, n, value, field)                  \
         if (!isempty(value)) {                                          \
                 char *k;                                                \
                 k = strjoina(field "=", value);                         \
-                IOVEC_SET_STRING(iovec[n++], k);                        \
+                iovec[n++] = IOVEC_MAKE_STRING(k);                      \
         }
 
 #define IOVEC_ADD_ID128_FIELD(iovec, n, value, field)                   \
@@ -739,7 +739,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                 char *k;                                                \
                 k = newa(char, strlen(field "=") + SD_ID128_STRING_MAX); \
                 sd_id128_to_string(value, stpcpy(k, field "="));        \
-                IOVEC_SET_STRING(iovec[n++], k);                        \
+                iovec[n++] = IOVEC_MAKE_STRING(k);                      \
         }
 
 #define IOVEC_ADD_SIZED_FIELD(iovec, n, value, value_size, field)       \
@@ -747,7 +747,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                 char *k;                                                \
                 k = newa(char, strlen(field "=") + value_size + 1);     \
                 *((char*) mempcpy(stpcpy(k, field "="), value, value_size)) = 0; \
-                IOVEC_SET_STRING(iovec[n++], k);                        \
+                iovec[n++] = IOVEC_MAKE_STRING(k);                      \
         }                                                               \
 
 static void dispatch_message_real(
@@ -826,20 +826,20 @@ static void dispatch_message_real(
 
         if (tv) {
                 sprintf(source_time, "_SOURCE_REALTIME_TIMESTAMP=" USEC_FMT, timeval_load(tv));
-                IOVEC_SET_STRING(iovec[n++], source_time);
+                iovec[n++] = IOVEC_MAKE_STRING(source_time);
         }
 
         /* Note that strictly speaking storing the boot id here is
          * redundant since the entry includes this in-line
          * anyway. However, we need this indexed, too. */
         if (!isempty(s->boot_id_field))
-                IOVEC_SET_STRING(iovec[n++], s->boot_id_field);
+                iovec[n++] = IOVEC_MAKE_STRING(s->boot_id_field);
 
         if (!isempty(s->machine_id_field))
-                IOVEC_SET_STRING(iovec[n++], s->machine_id_field);
+                iovec[n++] = IOVEC_MAKE_STRING(s->machine_id_field);
 
         if (!isempty(s->hostname_field))
-                IOVEC_SET_STRING(iovec[n++], s->hostname_field);
+                iovec[n++] = IOVEC_MAKE_STRING(s->hostname_field);
 
         assert(n <= m);
 
@@ -870,15 +870,15 @@ void server_driver_message(Server *s, const char *message_id, const char *format
         assert(format);
 
         assert_cc(3 == LOG_FAC(LOG_DAEMON));
-        IOVEC_SET_STRING(iovec[n++], "SYSLOG_FACILITY=3");
-        IOVEC_SET_STRING(iovec[n++], "SYSLOG_IDENTIFIER=systemd-journald");
+        iovec[n++] = IOVEC_MAKE_STRING("SYSLOG_FACILITY=3");
+        iovec[n++] = IOVEC_MAKE_STRING("SYSLOG_IDENTIFIER=systemd-journald");
 
-        IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=driver");
+        iovec[n++] = IOVEC_MAKE_STRING("_TRANSPORT=driver");
         assert_cc(6 == LOG_INFO);
-        IOVEC_SET_STRING(iovec[n++], "PRIORITY=6");
+        iovec[n++] = IOVEC_MAKE_STRING("PRIORITY=6");
 
         if (message_id)
-                IOVEC_SET_STRING(iovec[n++], message_id);
+                iovec[n++] = IOVEC_MAKE_STRING(message_id);
         m = n;
 
         va_start(ap, format);
@@ -899,8 +899,8 @@ void server_driver_message(Server *s, const char *message_id, const char *format
                 xsprintf(buf, "MESSAGE=Entry printing failed: %s", strerror(-r));
 
                 n = 3;
-                IOVEC_SET_STRING(iovec[n++], "PRIORITY=4");
-                IOVEC_SET_STRING(iovec[n++], buf);
+                iovec[n++] = IOVEC_MAKE_STRING("PRIORITY=4");
+                iovec[n++] = IOVEC_MAKE_STRING(buf);
                 dispatch_message_real(s, iovec, n, ELEMENTSOF(iovec), s->my_context, NULL, LOG_INFO, 0);
         }
 }

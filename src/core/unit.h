@@ -28,11 +28,13 @@ typedef struct UnitVTable UnitVTable;
 typedef struct UnitRef UnitRef;
 typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 
+#include "bpf-program.h"
 #include "condition.h"
 #include "emergency-action.h"
 #include "install.h"
 #include "list.h"
 #include "unit-name.h"
+#include "cgroup.h"
 
 typedef enum KillOperation {
         KILL_TERMINATE,
@@ -69,6 +71,12 @@ struct UnitRef {
         Unit* unit;
         LIST_FIELDS(UnitRef, refs);
 };
+
+typedef enum UnitCGroupBPFState {
+        UNIT_CGROUP_BPF_OFF = 0,
+        UNIT_CGROUP_BPF_ON = 1,
+        UNIT_CGROUP_BPF_INVALIDATED = -1,
+} UnitCGroupBPFState;
 
 struct Unit {
         Manager *manager;
@@ -205,6 +213,20 @@ struct Unit {
         CGroupMask cgroup_members_mask;
         int cgroup_inotify_wd;
 
+        /* IP BPF Firewalling/accounting */
+        int ip_accounting_ingress_map_fd;
+        int ip_accounting_egress_map_fd;
+
+        int ipv4_allow_map_fd;
+        int ipv6_allow_map_fd;
+        int ipv4_deny_map_fd;
+        int ipv6_deny_map_fd;
+
+        BPFProgram *ip_bpf_ingress;
+        BPFProgram *ip_bpf_egress;
+
+        uint64_t ip_accounting_extra[_CGROUP_IP_ACCOUNTING_METRIC_MAX];
+
         /* How to start OnFailure units */
         JobMode on_failure_job_mode;
 
@@ -253,6 +275,8 @@ struct Unit {
         bool cgroup_realized:1;
         bool cgroup_members_mask_valid:1;
         bool cgroup_subtree_mask_valid:1;
+
+        UnitCGroupBPFState cgroup_bpf_state:2;
 
         bool start_limit_hit:1;
 
@@ -661,6 +685,8 @@ bool unit_shall_confirm_spawn(Unit *u);
 
 void unit_set_exec_params(Unit *s, ExecParameters *p);
 
+int unit_fork_helper_process(Unit *u, pid_t *ret);
+
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
 #define log_unit_full(unit, level, error, ...)                          \
@@ -684,3 +710,4 @@ void unit_set_exec_params(Unit *s, ExecParameters *p);
 
 #define LOG_UNIT_MESSAGE(unit, fmt, ...) "MESSAGE=%s: " fmt, (unit)->id, ##__VA_ARGS__
 #define LOG_UNIT_ID(unit) (unit)->manager->unit_log_format_string, (unit)->id
+#define LOG_UNIT_INVOCATION_ID(unit) (unit)->manager->invocation_log_format_string, (unit)->invocation_id_string

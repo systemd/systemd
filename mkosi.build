@@ -28,7 +28,7 @@ export LC_CTYPE=C.UTF-8
 
 [ -f "$BUILDDIR"/build.ninja ] || meson "$BUILDDIR"
 ninja -C "$BUILDDIR" all
-[ "$WITH_TESTS" = 0 ] || ninja -C "$BUILDDIR" test
+[ "$WITH_TESTS" = 0 ] || ninja -C "$BUILDDIR" test || ( RET="$?" ; cat "$BUILDDIR"/meson-logs/testlog.txt ; exit "$RET" )
 ninja -C "$BUILDDIR" install
 
 mkdir -p "$DESTDIR"/etc

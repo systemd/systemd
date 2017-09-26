@@ -35,9 +35,11 @@
 #include "dropin.h"
 #include "escape.h"
 #include "execute.h"
+#include "fd-util.h"
 #include "fileio-label.h"
 #include "format-util.h"
 #include "id128-util.h"
+#include "io-util.h"
 #include "load-dropin.h"
 #include "load-fragment.h"
 #include "log.h"
@@ -103,6 +105,13 @@ Unit *unit_new(Manager *m, size_t size) {
         u->ref_gid = GID_INVALID;
         u->cpu_usage_last = NSEC_INFINITY;
 
+        u->ip_accounting_ingress_map_fd = -1;
+        u->ip_accounting_egress_map_fd = -1;
+        u->ipv4_allow_map_fd = -1;
+        u->ipv6_allow_map_fd = -1;
+        u->ipv4_deny_map_fd = -1;
+        u->ipv6_deny_map_fd = -1;
+
         RATELIMIT_INIT(u->start_limit, m->default_start_limit_interval, m->default_start_limit_burst);
         RATELIMIT_INIT(u->auto_stop_ratelimit, 10 * USEC_PER_SEC, 16);
 
@@ -153,9 +162,11 @@ static void unit_init(Unit *u) {
 
                 cc->cpu_accounting = u->manager->default_cpu_accounting;
                 cc->io_accounting = u->manager->default_io_accounting;
+                cc->ip_accounting = u->manager->default_ip_accounting;
                 cc->blockio_accounting = u->manager->default_blockio_accounting;
                 cc->memory_accounting = u->manager->default_memory_accounting;
                 cc->tasks_accounting = u->manager->default_tasks_accounting;
+                cc->ip_accounting = u->manager->default_ip_accounting;
 
                 if (u->type != UNIT_SLICE)
                         cc->tasks_max = u->manager->default_tasks_max;
@@ -609,6 +620,17 @@ void unit_free(Unit *u) {
 
         while (u->refs)
                 unit_ref_unset(u->refs);
+
+        safe_close(u->ip_accounting_ingress_map_fd);
+        safe_close(u->ip_accounting_egress_map_fd);
+
+        safe_close(u->ipv4_allow_map_fd);
+        safe_close(u->ipv6_allow_map_fd);
+        safe_close(u->ipv4_deny_map_fd);
+        safe_close(u->ipv6_deny_map_fd);
+
+        bpf_program_unref(u->ip_bpf_ingress);
+        bpf_program_unref(u->ip_bpf_egress);
 
         free(u);
 }
@@ -1523,6 +1545,7 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
         log_struct(LOG_INFO,
                    LOG_MESSAGE("%s", buf),
                    LOG_UNIT_ID(u),
+                   LOG_UNIT_INVOCATION_ID(u),
                    mid,
                    NULL);
 }
@@ -1979,6 +2002,134 @@ void unit_trigger_notify(Unit *u) {
                         UNIT_VTABLE(other)->trigger_notify(other, u);
 }
 
+static int unit_log_resources(Unit *u) {
+
+        struct iovec iovec[1 + _CGROUP_IP_ACCOUNTING_METRIC_MAX + 4];
+        size_t n_message_parts = 0, n_iovec = 0;
+        char* message_parts[3 + 1], *t;
+        nsec_t nsec = NSEC_INFINITY;
+        CGroupIPAccountingMetric m;
+        size_t i;
+        int r;
+        const char* const ip_fields[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
+                [CGROUP_IP_INGRESS_BYTES]   = "IP_METRIC_INGRESS_BYTES",
+                [CGROUP_IP_INGRESS_PACKETS] = "IP_METRIC_INGRESS_PACKETS",
+                [CGROUP_IP_EGRESS_BYTES]    = "IP_METRIC_EGRESS_BYTES",
+                [CGROUP_IP_EGRESS_PACKETS]  = "IP_METRIC_EGRESS_PACKETS",
+        };
+
+        assert(u);
+
+        /* Invoked whenever a unit enters failed or dead state. Logs information about consumed resources if resource
+         * accounting was enabled for a unit. It does this in two ways: a friendly human readable string with reduced
+         * information and the complete data in structured fields. */
+
+        (void) unit_get_cpu_usage(u, &nsec);
+        if (nsec != NSEC_INFINITY) {
+                char buf[FORMAT_TIMESPAN_MAX] = "";
+
+                /* Format the CPU time for inclusion in the structured log message */
+                if (asprintf(&t, "CPU_USAGE_NSEC=%" PRIu64, nsec) < 0) {
+                        r = log_oom();
+                        goto finish;
+                }
+                iovec[n_iovec++] = IOVEC_MAKE_STRING(t);
+
+                /* Format the CPU time for inclusion in the human language message string */
+                format_timespan(buf, sizeof(buf), nsec / NSEC_PER_USEC, USEC_PER_MSEC);
+                t = strjoin(n_message_parts > 0 ? "consumed " : "Consumed ", buf, " CPU time");
+                if (!t) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                message_parts[n_message_parts++] = t;
+        }
+
+        for (m = 0; m < _CGROUP_IP_ACCOUNTING_METRIC_MAX; m++) {
+                char buf[FORMAT_BYTES_MAX] = "";
+                uint64_t value = UINT64_MAX;
+
+                assert(ip_fields[m]);
+
+                (void) unit_get_ip_accounting(u, m, &value);
+                if (value == UINT64_MAX)
+                        continue;
+
+                /* Format IP accounting data for inclusion in the structured log message */
+                if (asprintf(&t, "%s=%" PRIu64, ip_fields[m], value) < 0) {
+                        r = log_oom();
+                        goto finish;
+                }
+                iovec[n_iovec++] = IOVEC_MAKE_STRING(t);
+
+                /* Format the IP accounting data for inclusion in the human language message string, but only for the
+                 * bytes counters (and not for the packets counters) */
+                if (m == CGROUP_IP_INGRESS_BYTES)
+                        t = strjoin(n_message_parts > 0 ? "received " : "Received ",
+                                    format_bytes(buf, sizeof(buf), value),
+                                    " IP traffic");
+                else if (m == CGROUP_IP_EGRESS_BYTES)
+                        t = strjoin(n_message_parts > 0 ? "sent " : "Sent ",
+                                    format_bytes(buf, sizeof(buf), value),
+                                    " IP traffic");
+                else
+                        continue;
+                if (!t) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                message_parts[n_message_parts++] = t;
+        }
+
+        /* Is there any accounting data available at all? */
+        if (n_iovec == 0) {
+                r = 0;
+                goto finish;
+        }
+
+        if (n_message_parts == 0)
+                t = strjoina("MESSAGE=", u->id, ": Completed");
+        else {
+                _cleanup_free_ char *joined;
+
+                message_parts[n_message_parts] = NULL;
+
+                joined = strv_join(message_parts, ", ");
+                if (!joined) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                t = strjoina("MESSAGE=", u->id, ": ", joined);
+        }
+
+        /* The following four fields we allocate on the stack or are static strings, we hence don't want to free them,
+         * and hence don't increase n_iovec for them */
+        iovec[n_iovec] = IOVEC_MAKE_STRING(t);
+        iovec[n_iovec + 1] = IOVEC_MAKE_STRING("MESSAGE_ID=" SD_MESSAGE_UNIT_RESOURCES_STR);
+
+        t = strjoina(u->manager->unit_log_field, u->id);
+        iovec[n_iovec + 2] = IOVEC_MAKE_STRING(t);
+
+        t = strjoina(u->manager->invocation_log_field, u->invocation_id_string);
+        iovec[n_iovec + 3] = IOVEC_MAKE_STRING(t);
+
+        log_struct_iovec(LOG_INFO, iovec, n_iovec + 4);
+        r = 0;
+
+finish:
+        for (i = 0; i < n_message_parts; i++)
+                free(message_parts[i]);
+
+        for (i = 0; i < n_iovec; i++)
+                free(iovec[i].iov_base);
+
+        return r;
+
+}
+
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success) {
         Manager *m;
         bool unexpected;
@@ -2150,28 +2301,33 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                         manager_send_unit_plymouth(m, u);
 
         } else {
+                /* We don't care about D-Bus going down here, since we'll get an asynchronous notification for it
+                 * anyway. */
 
-                /* We don't care about D-Bus here, since we'll get an
-                 * asynchronous notification for it anyway. */
+                if (UNIT_IS_INACTIVE_OR_FAILED(ns) &&
+                    !UNIT_IS_INACTIVE_OR_FAILED(os)
+                    && !MANAGER_IS_RELOADING(m)) {
 
-                if (u->type == UNIT_SERVICE &&
-                    UNIT_IS_INACTIVE_OR_FAILED(ns) &&
-                    !UNIT_IS_INACTIVE_OR_FAILED(os) &&
-                    !MANAGER_IS_RELOADING(m)) {
+                        /* This unit just stopped/failed. */
+                        if (u->type == UNIT_SERVICE) {
 
-                        /* Hmm, if there was no start record written
-                         * write it now, so that we always have a nice
-                         * pair */
-                        if (!u->in_audit) {
-                                manager_send_unit_audit(m, u, AUDIT_SERVICE_START, ns == UNIT_INACTIVE);
+                                /* Hmm, if there was no start record written
+                                 * write it now, so that we always have a nice
+                                 * pair */
+                                if (!u->in_audit) {
+                                        manager_send_unit_audit(m, u, AUDIT_SERVICE_START, ns == UNIT_INACTIVE);
 
-                                if (ns == UNIT_INACTIVE)
-                                        manager_send_unit_audit(m, u, AUDIT_SERVICE_STOP, true);
-                        } else
-                                /* Write audit record if we have just finished shutting down */
-                                manager_send_unit_audit(m, u, AUDIT_SERVICE_STOP, ns == UNIT_INACTIVE);
+                                        if (ns == UNIT_INACTIVE)
+                                                manager_send_unit_audit(m, u, AUDIT_SERVICE_STOP, true);
+                                } else
+                                        /* Write audit record if we have just finished shutting down */
+                                        manager_send_unit_audit(m, u, AUDIT_SERVICE_STOP, ns == UNIT_INACTIVE);
 
-                        u->in_audit = false;
+                                u->in_audit = false;
+                        }
+
+                        /* Write a log message about consumed resources */
+                        unit_log_resources(u);
                 }
         }
 
@@ -2749,7 +2905,15 @@ static int unit_serialize_cgroup_mask(FILE *f, const char *key, CGroupMask mask)
         return r;
 }
 
+static const char *ip_accounting_metric_field[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
+        [CGROUP_IP_INGRESS_BYTES] = "ip-accounting-ingress-bytes",
+        [CGROUP_IP_INGRESS_PACKETS] = "ip-accounting-ingress-packets",
+        [CGROUP_IP_EGRESS_BYTES] = "ip-accounting-egress-bytes",
+        [CGROUP_IP_EGRESS_PACKETS] = "ip-accounting-egress-packets",
+};
+
 int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
+        CGroupIPAccountingMetric m;
         int r;
 
         assert(u);
@@ -2798,6 +2962,7 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         unit_serialize_item(u, f, "cgroup-realized", yes_no(u->cgroup_realized));
         (void) unit_serialize_cgroup_mask(f, "cgroup-realized-mask", u->cgroup_realized_mask);
         (void) unit_serialize_cgroup_mask(f, "cgroup-enabled-mask", u->cgroup_enabled_mask);
+        unit_serialize_item_format(u, f, "cgroup-bpf-realized", "%i", u->cgroup_bpf_state);
 
         if (uid_is_valid(u->ref_uid))
                 unit_serialize_item_format(u, f, "ref-uid", UID_FMT, u->ref_uid);
@@ -2808,6 +2973,14 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
                 unit_serialize_item_format(u, f, "invocation-id", SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(u->invocation_id));
 
         bus_track_serialize(u->bus_track, f, "ref");
+
+        for (m = 0; m < _CGROUP_IP_ACCOUNTING_METRIC_MAX; m++) {
+                uint64_t v;
+
+                r = unit_get_ip_accounting(u, m, &v);
+                if (r >= 0)
+                        unit_serialize_item_format(u, f, ip_accounting_metric_field[m], "%" PRIu64, v);
+        }
 
         if (serialize_jobs) {
                 if (u->job) {
@@ -2915,6 +3088,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
         for (;;) {
                 char line[LINE_MAX], *l, *v;
+                CGroupIPAccountingMetric m;
                 size_t k;
 
                 if (!fgets(line, sizeof(line), f)) {
@@ -3069,6 +3243,20 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 log_unit_debug(u, "Failed to parse cgroup-enabled-mask %s, ignoring.", v);
                         continue;
 
+                } else if (streq(l, "cgroup-bpf-realized")) {
+                        int i;
+
+                        r = safe_atoi(v, &i);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to parse cgroup BPF state %s, ignoring.", v);
+                        else
+                                u->cgroup_bpf_state =
+                                        i < 0 ? UNIT_CGROUP_BPF_INVALIDATED :
+                                        i > 0 ? UNIT_CGROUP_BPF_ON :
+                                        UNIT_CGROUP_BPF_OFF;
+
+                        continue;
+
                 } else if (streq(l, "ref-uid")) {
                         uid_t uid;
 
@@ -3111,6 +3299,21 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         continue;
                 }
 
+                /* Check if this is an IP accounting metric serialization field */
+                for (m = 0; m < _CGROUP_IP_ACCOUNTING_METRIC_MAX; m++)
+                        if (streq(l, ip_accounting_metric_field[m]))
+                                break;
+                if (m < _CGROUP_IP_ACCOUNTING_METRIC_MAX) {
+                        uint64_t c;
+
+                        r = safe_atou64(v, &c);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to parse IP accounting value %s, ignoring.", v);
+                        else
+                                u->ip_accounting_extra[m] = c;
+                        continue;
+                }
+
                 if (unit_can_serialize(u)) {
                         if (rt) {
                                 r = exec_runtime_deserialize_item(u, rt, l, v, fds);
@@ -3136,6 +3339,11 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
         if (!dual_timestamp_is_set(&u->state_change_timestamp))
                 dual_timestamp_get(&u->state_change_timestamp);
+
+        /* Let's make sure that everything that is deserialized also gets any potential new cgroup settings applied
+         * after we are done. For that we invalidate anything already realized, so that we can realize it again. */
+        unit_invalidate_cgroup(u, _CGROUP_MASK_ALL);
+        unit_invalidate_cgroup_bpf(u);
 
         return 0;
 }
@@ -4169,6 +4377,7 @@ void unit_warn_if_dir_nonempty(Unit *u, const char* where) {
         log_struct(LOG_NOTICE,
                    "MESSAGE_ID=" SD_MESSAGE_OVERMOUNTING_STR,
                    LOG_UNIT_ID(u),
+                   LOG_UNIT_INVOCATION_ID(u),
                    LOG_UNIT_MESSAGE(u, "Directory %s to mount over is not empty, mounting anyway.", where),
                    "WHERE=%s", where,
                    NULL);
@@ -4191,6 +4400,7 @@ int unit_fail_if_symlink(Unit *u, const char* where) {
         log_struct(LOG_ERR,
                    "MESSAGE_ID=" SD_MESSAGE_OVERMOUNTING_STR,
                    LOG_UNIT_ID(u),
+                   LOG_UNIT_INVOCATION_ID(u),
                    LOG_UNIT_MESSAGE(u, "Mount on symlink %s not allowed.", where),
                    "WHERE=%s", where,
                    NULL);
@@ -4435,4 +4645,44 @@ void unit_set_exec_params(Unit *u, ExecParameters *p) {
 
         p->cgroup_path = u->cgroup_path;
         SET_FLAG(p->flags, EXEC_CGROUP_DELEGATE, unit_cgroup_delegate(u));
+}
+
+int unit_fork_helper_process(Unit *u, pid_t *ret) {
+        pid_t pid;
+        int r;
+
+        assert(u);
+        assert(ret);
+
+        /* Forks off a helper process and makes sure it is a member of the unit's cgroup. Returns == 0 in the child,
+         * and > 0 in the parent. The pid parameter is always filled in with the child's PID. */
+
+        (void) unit_realize_cgroup(u);
+
+        pid = fork();
+        if (pid < 0)
+                return -errno;
+
+        if (pid == 0) {
+
+                (void) default_signals(SIGNALS_CRASH_HANDLER, SIGNALS_IGNORE, -1);
+                (void) ignore_signals(SIGPIPE, -1);
+
+                log_close();
+                log_open();
+
+                if (u->cgroup_path) {
+                        r = cg_attach_everywhere(u->manager->cgroup_supported, u->cgroup_path, 0, NULL, NULL);
+                        if (r < 0) {
+                                log_unit_error_errno(u, r, "Failed to join unit cgroup %s: %m", u->cgroup_path);
+                                _exit(EXIT_CGROUP);
+                        }
+                }
+
+                *ret = getpid_cached();
+                return 0;
+        }
+
+        *ret = pid;
+        return 1;
 }

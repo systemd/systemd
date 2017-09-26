@@ -53,22 +53,15 @@
   <refsect1>
     <title>Description</title>
 
-    <para>A unit configuration file whose name ends in
-    <literal>.slice</literal> encodes information about a slice which
-    is a concept for hierarchically managing resources of a group of
-    processes. This management is performed by creating a node in the
-    Linux Control Group (cgroup) tree. Units that manage processes
-    (primarily scope and service units) may be assigned to a specific
-    slice. For each slice, certain resource limits may be set that
-    apply to all processes of all units contained in that
-    slice. Slices are organized hierarchically in a tree. The name of
-    the slice encodes the location in the tree. The name consists of a
-    dash-separated series of names, which describes the path to the
-    slice from the root slice. The root slice is named,
-    <filename>-.slice</filename>. Example:
-    <filename>foo-bar.slice</filename> is a slice that is located
-    within <filename>foo.slice</filename>, which in turn is located in
-    the root slice <filename>-.slice</filename>.
+    <para>A unit configuration file whose name ends in <literal>.slice</literal> encodes information about a slice
+    unit. A slice unit is a concept for hierarchically managing resources of a group of processes. This management is
+    performed by creating a node in the Linux Control Group (cgroup) tree. Units that manage processes (primarily scope
+    and service units) may be assigned to a specific slice. For each slice, certain resource limits may be set that
+    apply to all processes of all units contained in that slice. Slices are organized hierarchically in a tree. The
+    name of the slice encodes the location in the tree. The name consists of a dash-separated series of names, which
+    describes the path to the slice from the root slice. The root slice is named <filename>-.slice</filename>. Example:
+    <filename>foo-bar.slice</filename> is a slice that is located within <filename>foo.slice</filename>, which in turn
+    is located in the root slice <filename>-.slice</filename>.
     </para>
 
     <para>Note that slice units cannot be templated, nor is possible to add multiple names to a slice unit by creating

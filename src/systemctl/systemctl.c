@@ -3878,6 +3878,9 @@ typedef struct UnitStatusInfo {
         uint64_t tasks_current;
         uint64_t tasks_max;
 
+        uint64_t ip_ingress_bytes;
+        uint64_t ip_egress_bytes;
+
         LIST_HEAD(ExecStatusInfo, exec);
 } UnitStatusInfo;
 
@@ -4194,6 +4197,14 @@ static void print_status_info(
         if (i->status_errno > 0)
                 printf("    Error: %i (%s)\n", i->status_errno, strerror(i->status_errno));
 
+        if (i->ip_ingress_bytes != (uint64_t) -1 && i->ip_egress_bytes != (uint64_t) -1) {
+                char buf_in[FORMAT_BYTES_MAX], buf_out[FORMAT_BYTES_MAX];
+
+                printf("       IP: %s in, %s out\n",
+                        format_bytes(buf_in, sizeof(buf_in), i->ip_ingress_bytes),
+                        format_bytes(buf_out, sizeof(buf_out), i->ip_egress_bytes));
+        }
+
         if (i->tasks_current != (uint64_t) -1) {
                 printf("    Tasks: %" PRIu64, i->tasks_current);
 
@@ -4484,6 +4495,10 @@ static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *
                         i->next_elapse_monotonic = u;
                 else if (streq(name, "NextElapseUSecRealtime"))
                         i->next_elapse_real = u;
+                else if (streq(name, "IPIngressBytes"))
+                        i->ip_ingress_bytes = u;
+                else if (streq(name, "IPEgressBytes"))
+                        i->ip_egress_bytes = u;
 
                 break;
         }
@@ -4998,6 +5013,8 @@ static int show_one(
                 .cpu_usage_nsec = (uint64_t) -1,
                 .tasks_current = (uint64_t) -1,
                 .tasks_max = (uint64_t) -1,
+                .ip_ingress_bytes = (uint64_t) -1,
+                .ip_egress_bytes = (uint64_t) -1,
         };
         int r;
 

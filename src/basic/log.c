@@ -351,22 +351,22 @@ static int write_to_console(
 
         if (log_target == LOG_TARGET_CONSOLE_PREFIXED) {
                 xsprintf(prefix, "<%i>", level);
-                IOVEC_SET_STRING(iovec[n++], prefix);
+                iovec[n++] = IOVEC_MAKE_STRING(prefix);
         }
 
         highlight = LOG_PRI(level) <= LOG_ERR && show_color;
 
         if (show_location) {
                 snprintf(location, sizeof(location), "(%s:%i) ", file, line);
-                IOVEC_SET_STRING(iovec[n++], location);
+                iovec[n++] = IOVEC_MAKE_STRING(location);
         }
 
         if (highlight)
-                IOVEC_SET_STRING(iovec[n++], ANSI_HIGHLIGHT_RED);
-        IOVEC_SET_STRING(iovec[n++], buffer);
+                iovec[n++] = IOVEC_MAKE_STRING(ANSI_HIGHLIGHT_RED);
+        iovec[n++] = IOVEC_MAKE_STRING(buffer);
         if (highlight)
-                IOVEC_SET_STRING(iovec[n++], ANSI_NORMAL);
-        IOVEC_SET_STRING(iovec[n++], "\n");
+                iovec[n++] = IOVEC_MAKE_STRING(ANSI_NORMAL);
+        iovec[n++] = IOVEC_MAKE_STRING("\n");
 
         if (writev(console_fd, iovec, n) < 0) {
 
@@ -425,11 +425,11 @@ static int write_to_syslog(
 
         xsprintf(header_pid, "["PID_FMT"]: ", getpid_cached());
 
-        IOVEC_SET_STRING(iovec[0], header_priority);
-        IOVEC_SET_STRING(iovec[1], header_time);
-        IOVEC_SET_STRING(iovec[2], program_invocation_short_name);
-        IOVEC_SET_STRING(iovec[3], header_pid);
-        IOVEC_SET_STRING(iovec[4], buffer);
+        iovec[0] = IOVEC_MAKE_STRING(header_priority);
+        iovec[1] = IOVEC_MAKE_STRING(header_time);
+        iovec[2] = IOVEC_MAKE_STRING(program_invocation_short_name);
+        iovec[3] = IOVEC_MAKE_STRING(header_pid);
+        iovec[4] = IOVEC_MAKE_STRING(buffer);
 
         /* When using syslog via SOCK_STREAM separate the messages by NUL chars */
         if (syslog_is_stream)
@@ -470,11 +470,11 @@ static int write_to_kmsg(
         xsprintf(header_priority, "<%i>", level);
         xsprintf(header_pid, "["PID_FMT"]: ", getpid_cached());
 
-        IOVEC_SET_STRING(iovec[0], header_priority);
-        IOVEC_SET_STRING(iovec[1], program_invocation_short_name);
-        IOVEC_SET_STRING(iovec[2], header_pid);
-        IOVEC_SET_STRING(iovec[3], buffer);
-        IOVEC_SET_STRING(iovec[4], "\n");
+        iovec[0] = IOVEC_MAKE_STRING(header_priority);
+        iovec[1] = IOVEC_MAKE_STRING(program_invocation_short_name);
+        iovec[2] = IOVEC_MAKE_STRING(header_pid);
+        iovec[3] = IOVEC_MAKE_STRING(buffer);
+        iovec[4] = IOVEC_MAKE_STRING("\n");
 
         if (writev(kmsg_fd, iovec, ELEMENTSOF(iovec)) < 0)
                 return -errno;
@@ -547,10 +547,10 @@ static int write_to_journal(
 
         log_do_header(header, sizeof(header), level, error, file, line, func, object_field, object, extra_field, extra);
 
-        IOVEC_SET_STRING(iovec[0], header);
-        IOVEC_SET_STRING(iovec[1], "MESSAGE=");
-        IOVEC_SET_STRING(iovec[2], buffer);
-        IOVEC_SET_STRING(iovec[3], "\n");
+        iovec[0] = IOVEC_MAKE_STRING(header);
+        iovec[1] = IOVEC_MAKE_STRING("MESSAGE=");
+        iovec[2] = IOVEC_MAKE_STRING(buffer);
+        iovec[3] = IOVEC_MAKE_STRING("\n");
 
         mh.msg_iov = iovec;
         mh.msg_iovlen = ELEMENTSOF(iovec);
@@ -872,7 +872,7 @@ int log_format_iovec(
                  * the next format string */
                 VA_FORMAT_ADVANCE(format, ap);
 
-                IOVEC_SET_STRING(iovec[(*n)++], m);
+                iovec[(*n)++] = IOVEC_MAKE_STRING(m);
 
                 if (newline_separator) {
                         iovec[*n].iov_base = (char*) &nl;
@@ -893,9 +893,9 @@ int log_struct_internal(
                 const char *func,
                 const char *format, ...) {
 
+        LogRealm realm = LOG_REALM_REMOVE_LEVEL(level);
         char buf[LINE_MAX];
         bool found = false;
-        LogRealm realm = LOG_REALM_REMOVE_LEVEL(level);
         PROTECT_ERRNO;
         va_list ap;
 
@@ -926,7 +926,7 @@ int log_struct_internal(
 
                 /* If the journal is available do structured logging */
                 log_do_header(header, sizeof(header), level, error, file, line, func, NULL, NULL, NULL, NULL);
-                IOVEC_SET_STRING(iovec[n++], header);
+                iovec[n++] = IOVEC_MAKE_STRING(header);
 
                 va_start(ap, format);
                 r = log_format_iovec(iovec, ELEMENTSOF(iovec), &n, true, error, format, ap);
@@ -973,6 +973,73 @@ int log_struct_internal(
                 return -error;
 
         return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, buf + 8);
+}
+
+int log_struct_iovec_internal(
+                int level,
+                int error,
+                const char *file,
+                int line,
+                const char *func,
+                const struct iovec input_iovec[],
+                size_t n_input_iovec) {
+
+        LogRealm realm = LOG_REALM_REMOVE_LEVEL(level);
+        PROTECT_ERRNO;
+        size_t i;
+        char *m;
+
+        if (error < 0)
+                error = -error;
+
+        if (_likely_(LOG_PRI(level) > log_max_level[realm]))
+                return -error;
+
+        if (log_target == LOG_TARGET_NULL)
+                return -error;
+
+        if ((level & LOG_FACMASK) == 0)
+                level = log_facility | LOG_PRI(level);
+
+        if (IN_SET(log_target, LOG_TARGET_AUTO,
+                               LOG_TARGET_JOURNAL_OR_KMSG,
+                               LOG_TARGET_JOURNAL) &&
+            journal_fd >= 0) {
+
+                struct iovec iovec[1 + n_input_iovec*2];
+                char header[LINE_MAX];
+                struct msghdr mh = {
+                        .msg_iov = iovec,
+                        .msg_iovlen = 1 + n_input_iovec*2,
+                };
+
+                log_do_header(header, sizeof(header), level, error, file, line, func, NULL, NULL, NULL, NULL);
+                iovec[0] = IOVEC_MAKE_STRING(header);
+
+                for (i = 0; i < n_input_iovec; i++) {
+                        iovec[1+i*2] = input_iovec[i];
+                        iovec[1+i*2+1] = IOVEC_MAKE_STRING("\n");
+                }
+
+                if (sendmsg(journal_fd, &mh, MSG_NOSIGNAL) >= 0)
+                        return -error;
+        }
+
+        for (i = 0; i < n_input_iovec; i++) {
+                if (input_iovec[i].iov_len < strlen("MESSAGE="))
+                        continue;
+
+                if (memcmp(input_iovec[i].iov_base, "MESSAGE=", strlen("MESSAGE=")) == 0)
+                        break;
+        }
+
+        if (_unlikely_(i >= n_input_iovec)) /* Couldn't find MESSAGE=? */
+                return -error;
+
+        m = strndupa(input_iovec[i].iov_base + strlen("MESSAGE="),
+                     input_iovec[i].iov_len - strlen("MESSAGE="));
+
+        return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, m);
 }
 
 int log_set_target_from_string(const char *e) {

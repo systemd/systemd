@@ -308,22 +308,22 @@ int in_addr_from_string(int family, const char *s, union in_addr_union *ret) {
         return 0;
 }
 
-int in_addr_from_string_auto(const char *s, int *family, union in_addr_union *ret) {
+int in_addr_from_string_auto(const char *s, int *ret_family, union in_addr_union *ret) {
         int r;
 
         assert(s);
 
         r = in_addr_from_string(AF_INET, s, ret);
         if (r >= 0) {
-                if (family)
-                        *family = AF_INET;
+                if (ret_family)
+                        *ret_family = AF_INET;
                 return 0;
         }
 
         r = in_addr_from_string(AF_INET6, s, ret);
         if (r >= 0) {
-                if (family)
-                        *family = AF_INET6;
+                if (ret_family)
+                        *ret_family = AF_INET6;
                 return 0;
         }
 
@@ -371,13 +371,13 @@ int in_addr_ifindex_from_string_auto(const char *s, int *family, union in_addr_u
         return r;
 }
 
-unsigned char in_addr_netmask_to_prefixlen(const struct in_addr *addr) {
+unsigned char in4_addr_netmask_to_prefixlen(const struct in_addr *addr) {
         assert(addr);
 
         return 32 - u32ctz(be32toh(addr->s_addr));
 }
 
-struct in_addr* in_addr_prefixlen_to_netmask(struct in_addr *addr, unsigned char prefixlen) {
+struct in_addr* in4_addr_prefixlen_to_netmask(struct in_addr *addr, unsigned char prefixlen) {
         assert(addr);
         assert(prefixlen <= 32);
 
@@ -390,7 +390,7 @@ struct in_addr* in_addr_prefixlen_to_netmask(struct in_addr *addr, unsigned char
         return addr;
 }
 
-int in_addr_default_prefixlen(const struct in_addr *addr, unsigned char *prefixlen) {
+int in4_addr_default_prefixlen(const struct in_addr *addr, unsigned char *prefixlen) {
         uint8_t msb_octet = *(uint8_t*) addr;
 
         /* addr may not be aligned, so make sure we only access it byte-wise */
@@ -414,18 +414,18 @@ int in_addr_default_prefixlen(const struct in_addr *addr, unsigned char *prefixl
         return 0;
 }
 
-int in_addr_default_subnet_mask(const struct in_addr *addr, struct in_addr *mask) {
+int in4_addr_default_subnet_mask(const struct in_addr *addr, struct in_addr *mask) {
         unsigned char prefixlen;
         int r;
 
         assert(addr);
         assert(mask);
 
-        r = in_addr_default_prefixlen(addr, &prefixlen);
+        r = in4_addr_default_prefixlen(addr, &prefixlen);
         if (r < 0)
                 return r;
 
-        in_addr_prefixlen_to_netmask(mask, prefixlen);
+        in4_addr_prefixlen_to_netmask(mask, prefixlen);
         return 0;
 }
 
@@ -435,7 +435,7 @@ int in_addr_mask(int family, union in_addr_union *addr, unsigned char prefixlen)
         if (family == AF_INET) {
                 struct in_addr mask;
 
-                if (!in_addr_prefixlen_to_netmask(&mask, prefixlen))
+                if (!in4_addr_prefixlen_to_netmask(&mask, prefixlen))
                         return -EINVAL;
 
                 addr->in.s_addr &= mask.s_addr;
@@ -465,10 +465,57 @@ int in_addr_mask(int family, union in_addr_union *addr, unsigned char prefixlen)
         return -EAFNOSUPPORT;
 }
 
-int in_addr_prefix_from_string(const char *p, int family, union in_addr_union *ret_prefix, uint8_t *ret_prefixlen) {
+int in_addr_prefix_covers(int family,
+                          const union in_addr_union *prefix,
+                          unsigned char prefixlen,
+                          const union in_addr_union *address) {
+
+        union in_addr_union masked_prefix, masked_address;
+        int r;
+
+        assert(prefix);
+        assert(address);
+
+        masked_prefix = *prefix;
+        r = in_addr_mask(family, &masked_prefix, prefixlen);
+        if (r < 0)
+                return r;
+
+        masked_address = *address;
+        r = in_addr_mask(family, &masked_address, prefixlen);
+        if (r < 0)
+                return r;
+
+        return in_addr_equal(family, &masked_prefix, &masked_address);
+}
+
+int in_addr_parse_prefixlen(int family, const char *p, unsigned char *ret) {
+        uint8_t u;
+        int r;
+
+        if (!IN_SET(family, AF_INET, AF_INET6))
+                return -EAFNOSUPPORT;
+
+        r = safe_atou8(p, &u);
+        if (r < 0)
+                return r;
+
+        if (u > FAMILY_ADDRESS_SIZE(family) * 8)
+                return -ERANGE;
+
+        *ret = u;
+        return 0;
+}
+
+int in_addr_prefix_from_string(
+                const char *p,
+                int family,
+                union in_addr_union *ret_prefix,
+                unsigned char *ret_prefixlen) {
+
         union in_addr_union buffer;
         const char *e, *l;
-        uint8_t k;
+        unsigned char k;
         int r;
 
         assert(p);
@@ -486,23 +533,58 @@ int in_addr_prefix_from_string(const char *p, int family, union in_addr_union *r
         if (r < 0)
                 return r;
 
-        k = FAMILY_ADDRESS_SIZE(family) * 8;
-
         if (e) {
-                uint8_t n;
-
-                r = safe_atou8(e + 1, &n);
+                r = in_addr_parse_prefixlen(family, e+1, &k);
                 if (r < 0)
                         return r;
+        } else
+                k = FAMILY_ADDRESS_SIZE(family) * 8;
 
-                if (n > k)
-                        return -ERANGE;
-
-                k = n;
-        }
-
-        *ret_prefix = buffer;
-        *ret_prefixlen = k;
+        if (ret_prefix)
+                *ret_prefix = buffer;
+        if (ret_prefixlen)
+                *ret_prefixlen = k;
 
         return 0;
+}
+
+int in_addr_prefix_from_string_auto(
+                const char *p,
+                int *ret_family,
+                union in_addr_union *ret_prefix,
+                unsigned char *ret_prefixlen) {
+
+        union in_addr_union buffer;
+        const char *e, *l;
+        unsigned char k;
+        int family, r;
+
+        assert(p);
+
+        e = strchr(p, '/');
+        if (e)
+                l = strndupa(p, e - p);
+        else
+                l = p;
+
+        r = in_addr_from_string_auto(l, &family, &buffer);
+        if (r < 0)
+                return r;
+
+        if (e) {
+                r = in_addr_parse_prefixlen(family, e+1, &k);
+                if (r < 0)
+                        return r;
+        } else
+                k = FAMILY_ADDRESS_SIZE(family) * 8;
+
+        if (ret_family)
+                *ret_family = family;
+        if (ret_prefix)
+                *ret_prefix = buffer;
+        if (ret_prefixlen)
+                *ret_prefixlen = k;
+
+        return 0;
+
 }

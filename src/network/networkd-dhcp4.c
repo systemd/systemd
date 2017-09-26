@@ -237,7 +237,7 @@ static int dhcp_lease_lost(Link *link) {
                 if (r >= 0) {
                         r = sd_dhcp_lease_get_netmask(link->dhcp_lease, &netmask);
                         if (r >= 0)
-                                prefixlen = in_addr_netmask_to_prefixlen(&netmask);
+                                prefixlen = in4_addr_netmask_to_prefixlen(&netmask);
 
                         address->family = AF_INET;
                         address->in_addr.in = addr;
@@ -316,7 +316,7 @@ static int dhcp4_update_address(Link *link,
         assert(netmask);
         assert(lifetime);
 
-        prefixlen = in_addr_netmask_to_prefixlen(netmask);
+        prefixlen = in4_addr_netmask_to_prefixlen(netmask);
 
         r = address_new(&addr);
         if (r < 0)
@@ -406,7 +406,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: No netmask: %m");
 
-        prefixlen = in_addr_netmask_to_prefixlen(&netmask);
+        prefixlen = in4_addr_netmask_to_prefixlen(&netmask);
 
         r = sd_dhcp_lease_get_router(lease, &gateway);
         if (r < 0 && r != -ENODATA)

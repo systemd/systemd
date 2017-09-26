@@ -20,6 +20,7 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "bpf-firewall.h"
 #include "bus-common-errors.h"
 #include "cgroup-util.h"
 #include "dbus-job.h"
@@ -1051,6 +1052,39 @@ int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bu
         return sd_bus_send(NULL, reply, NULL);
 }
 
+static int property_get_ip_counter(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        CGroupIPAccountingMetric metric;
+        uint64_t value = (uint64_t) -1;
+        Unit *u = userdata;
+
+        assert(bus);
+        assert(reply);
+        assert(property);
+        assert(u);
+
+        if (streq(property, "IPIngressBytes"))
+                metric = CGROUP_IP_INGRESS_BYTES;
+        else if (streq(property, "IPIngressPackets"))
+                metric = CGROUP_IP_INGRESS_PACKETS;
+        else if (streq(property, "IPEgressBytes"))
+                metric = CGROUP_IP_EGRESS_BYTES;
+        else {
+                assert(streq(property, "IPEgressPackets"));
+                metric = CGROUP_IP_EGRESS_PACKETS;
+        }
+
+        (void) unit_get_ip_accounting(u, metric, &value);
+        return sd_bus_message_append(reply, "t", value);
+}
+
 const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Slice", "s", property_get_slice, 0, 0),
@@ -1058,6 +1092,10 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_PROPERTY("MemoryCurrent", "t", property_get_current_memory, 0, 0),
         SD_BUS_PROPERTY("CPUUsageNSec", "t", property_get_cpu_usage, 0, 0),
         SD_BUS_PROPERTY("TasksCurrent", "t", property_get_current_tasks, 0, 0),
+        SD_BUS_PROPERTY("IPIngressBytes", "t", property_get_ip_counter, 0, 0),
+        SD_BUS_PROPERTY("IPIngressPackets", "t", property_get_ip_counter, 0, 0),
+        SD_BUS_PROPERTY("IPEgressBytes", "t", property_get_ip_counter, 0, 0),
+        SD_BUS_PROPERTY("IPEgressPackets", "t", property_get_ip_counter, 0, 0),
         SD_BUS_METHOD("GetProcesses", NULL, "a(sus)", bus_unit_method_get_processes, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
 };

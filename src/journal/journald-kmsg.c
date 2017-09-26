@@ -26,6 +26,7 @@
 #include "libudev.h"
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -45,11 +46,11 @@ void server_forward_kmsg(
         const char *message,
         const struct ucred *ucred) {
 
+        _cleanup_free_ char *ident_buf = NULL;
         struct iovec iovec[5];
         char header_priority[DECIMAL_STR_MAX(priority) + 3],
              header_pid[sizeof("[]: ")-1 + DECIMAL_STR_MAX(pid_t) + 1];
         int n = 0;
-        char *ident_buf = NULL;
 
         assert(s);
         assert(priority >= 0);
@@ -68,7 +69,7 @@ void server_forward_kmsg(
 
         /* First: priority field */
         xsprintf(header_priority, "<%i>", priority);
-        IOVEC_SET_STRING(iovec[n++], header_priority);
+        iovec[n++] = IOVEC_MAKE_STRING(header_priority);
 
         /* Second: identifier and PID */
         if (ucred) {
@@ -80,22 +81,20 @@ void server_forward_kmsg(
                 xsprintf(header_pid, "["PID_FMT"]: ", ucred->pid);
 
                 if (identifier)
-                        IOVEC_SET_STRING(iovec[n++], identifier);
+                        iovec[n++] = IOVEC_MAKE_STRING(identifier);
 
-                IOVEC_SET_STRING(iovec[n++], header_pid);
+                iovec[n++] = IOVEC_MAKE_STRING(header_pid);
         } else if (identifier) {
-                IOVEC_SET_STRING(iovec[n++], identifier);
-                IOVEC_SET_STRING(iovec[n++], ": ");
+                iovec[n++] = IOVEC_MAKE_STRING(identifier);
+                iovec[n++] = IOVEC_MAKE_STRING(": ");
         }
 
         /* Fourth: message */
-        IOVEC_SET_STRING(iovec[n++], message);
-        IOVEC_SET_STRING(iovec[n++], "\n");
+        iovec[n++] = IOVEC_MAKE_STRING(message);
+        iovec[n++] = IOVEC_MAKE_STRING("\n");
 
         if (writev(s->dev_kmsg_fd, iovec, n) < 0)
                 log_debug_errno(errno, "Failed to write to /dev/kmsg for logging: %m");
-
-        free(ident_buf);
 }
 
 static bool is_us(const char *pid) {
@@ -111,11 +110,11 @@ static bool is_us(const char *pid) {
 
 static void dev_kmsg_record(Server *s, const char *p, size_t l) {
         struct iovec iovec[N_IOVEC_META_FIELDS + 7 + N_IOVEC_KERNEL_FIELDS + 2 + N_IOVEC_UDEV_FIELDS];
-        char *message = NULL, *syslog_priority = NULL, *syslog_pid = NULL, *syslog_facility = NULL, *syslog_identifier = NULL, *source_time = NULL;
+        _cleanup_free_ char *message = NULL, *syslog_priority = NULL, *syslog_pid = NULL, *syslog_facility = NULL, *syslog_identifier = NULL, *source_time = NULL, *identifier = NULL, *pid = NULL;
         int priority, r;
         unsigned n = 0, z = 0, j;
         unsigned long long usec;
-        char *identifier = NULL, *pid = NULL, *e, *f, *k;
+        char *e, *f, *k;
         uint64_t serial;
         size_t pl;
         char *kernel_device = NULL;
@@ -216,7 +215,7 @@ static void dev_kmsg_record(Server *s, const char *p, size_t l) {
                 if (startswith(m, "_KERNEL_DEVICE="))
                         kernel_device = m + 15;
 
-                IOVEC_SET_STRING(iovec[n++], m);
+                iovec[n++] = IOVEC_MAKE_STRING(m);
                 z++;
 
                 l -= (e - k) + 1;
@@ -236,7 +235,7 @@ static void dev_kmsg_record(Server *s, const char *p, size_t l) {
                         if (g) {
                                 b = strappend("_UDEV_DEVNODE=", g);
                                 if (b) {
-                                        IOVEC_SET_STRING(iovec[n++], b);
+                                        iovec[n++] = IOVEC_MAKE_STRING(b);
                                         z++;
                                 }
                         }
@@ -245,7 +244,7 @@ static void dev_kmsg_record(Server *s, const char *p, size_t l) {
                         if (g) {
                                 b = strappend("_UDEV_SYSNAME=", g);
                                 if (b) {
-                                        IOVEC_SET_STRING(iovec[n++], b);
+                                        iovec[n++] = IOVEC_MAKE_STRING(b);
                                         z++;
                                 }
                         }
@@ -261,7 +260,7 @@ static void dev_kmsg_record(Server *s, const char *p, size_t l) {
                                 if (g) {
                                         b = strappend("_UDEV_DEVLINK=", g);
                                         if (b) {
-                                                IOVEC_SET_STRING(iovec[n++], b);
+                                                iovec[n++] = IOVEC_MAKE_STRING(b);
                                                 z++;
                                         }
                                 }
@@ -274,18 +273,18 @@ static void dev_kmsg_record(Server *s, const char *p, size_t l) {
         }
 
         if (asprintf(&source_time, "_SOURCE_MONOTONIC_TIMESTAMP=%llu", usec) >= 0)
-                IOVEC_SET_STRING(iovec[n++], source_time);
+                iovec[n++] = IOVEC_MAKE_STRING(source_time);
 
-        IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=kernel");
+        iovec[n++] = IOVEC_MAKE_STRING("_TRANSPORT=kernel");
 
         if (asprintf(&syslog_priority, "PRIORITY=%i", priority & LOG_PRIMASK) >= 0)
-                IOVEC_SET_STRING(iovec[n++], syslog_priority);
+                iovec[n++] = IOVEC_MAKE_STRING(syslog_priority);
 
         if (asprintf(&syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority)) >= 0)
-                IOVEC_SET_STRING(iovec[n++], syslog_facility);
+                iovec[n++] = IOVEC_MAKE_STRING(syslog_facility);
 
         if ((priority & LOG_FACMASK) == LOG_KERN)
-                IOVEC_SET_STRING(iovec[n++], "SYSLOG_IDENTIFIER=kernel");
+                iovec[n++] = IOVEC_MAKE_STRING("SYSLOG_IDENTIFIER=kernel");
         else {
                 pl -= syslog_parse_identifier((const char**) &p, &identifier, &pid);
 
@@ -297,33 +296,24 @@ static void dev_kmsg_record(Server *s, const char *p, size_t l) {
                 if (identifier) {
                         syslog_identifier = strappend("SYSLOG_IDENTIFIER=", identifier);
                         if (syslog_identifier)
-                                IOVEC_SET_STRING(iovec[n++], syslog_identifier);
+                                iovec[n++] = IOVEC_MAKE_STRING(syslog_identifier);
                 }
 
                 if (pid) {
                         syslog_pid = strappend("SYSLOG_PID=", pid);
                         if (syslog_pid)
-                                IOVEC_SET_STRING(iovec[n++], syslog_pid);
+                                iovec[n++] = IOVEC_MAKE_STRING(syslog_pid);
                 }
         }
 
         if (cunescape_length_with_prefix(p, pl, "MESSAGE=", UNESCAPE_RELAX, &message) >= 0)
-                IOVEC_SET_STRING(iovec[n++], message);
+                iovec[n++] = IOVEC_MAKE_STRING(message);
 
         server_dispatch_message(s, iovec, n, ELEMENTSOF(iovec), NULL, NULL, priority, 0);
 
 finish:
         for (j = 0; j < z; j++)
                 free(iovec[j].iov_base);
-
-        free(message);
-        free(syslog_priority);
-        free(syslog_identifier);
-        free(syslog_pid);
-        free(syslog_facility);
-        free(source_time);
-        free(identifier);
-        free(pid);
 }
 
 static int server_read_dev_kmsg(Server *s) {

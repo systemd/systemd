@@ -28,6 +28,8 @@
 #include "errno-list.h"
 #include "escape.h"
 #include "hashmap.h"
+#include "hostname-util.h"
+#include "in-addr-util.h"
 #include "list.h"
 #include "locale-util.h"
 #include "mount-util.h"
@@ -64,6 +66,31 @@ int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u) {
                         &u->job_id,
                         &u->job_type,
                         &u->job_path);
+}
+
+static int bus_append_ip_address_access(sd_bus_message *m, int family, const union in_addr_union *prefix, unsigned char prefixlen) {
+        int r;
+
+        assert(m);
+        assert(prefix);
+
+        r = sd_bus_message_open_container(m, 'r', "iayu");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "i", family);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append_array(m, 'y', prefix, FAMILY_ADDRESS_SIZE(family));
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "u", prefixlen);
+        if (r < 0)
+                return r;
+
+        return sd_bus_message_close_container(m);
 }
 
 int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignment) {
@@ -207,13 +234,13 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 r = sd_bus_message_append(m, "sv", sn, "t", l.rlim_cur);
 
         } else if (STR_IN_SET(field,
-                              "CPUAccounting", "MemoryAccounting", "IOAccounting", "BlockIOAccounting", "TasksAccounting",
-                              "SendSIGHUP", "SendSIGKILL", "WakeSystem", "DefaultDependencies",
-                              "IgnoreSIGPIPE", "TTYVHangup", "TTYReset", "TTYVTDisallocate", "RemainAfterExit",
-                              "PrivateTmp", "PrivateDevices", "PrivateNetwork", "PrivateUsers", "NoNewPrivileges",
-                              "SyslogLevelPrefix", "Delegate", "RemainAfterElapse", "MemoryDenyWriteExecute",
-                              "RestrictRealtime", "DynamicUser", "RemoveIPC", "ProtectKernelTunables",
-                              "ProtectKernelModules", "ProtectControlGroups", "MountAPIVFS",
+                              "CPUAccounting", "MemoryAccounting", "IOAccounting", "BlockIOAccounting",
+                              "TasksAccounting", "IPAccounting", "SendSIGHUP", "SendSIGKILL", "WakeSystem",
+                              "DefaultDependencies", "IgnoreSIGPIPE", "TTYVHangup", "TTYReset", "TTYVTDisallocate",
+                              "RemainAfterExit", "PrivateTmp", "PrivateDevices", "PrivateNetwork", "PrivateUsers",
+                              "NoNewPrivileges", "SyslogLevelPrefix", "Delegate", "RemainAfterElapse",
+                              "MemoryDenyWriteExecute", "RestrictRealtime", "DynamicUser", "RemoveIPC",
+                              "ProtectKernelTunables", "ProtectKernelModules", "ProtectControlGroups", "MountAPIVFS",
                               "CPUSchedulingResetOnFork", "LockPersonality")) {
 
                 r = parse_boolean(eq);
@@ -431,6 +458,98 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                                 return -EINVAL;
                         }
                         r = sd_bus_message_append(m, "v", "a(st)", 1, path, u);
+                }
+
+        } else if (STR_IN_SET(field, "IPAddressAllow", "IPAddressDeny")) {
+
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "v", "a(iayu)", 0);
+                else {
+                        unsigned char prefixlen;
+                        union in_addr_union prefix = {};
+                        int family;
+
+                        r = sd_bus_message_open_container(m, 'v', "a(iayu)");
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_open_container(m, 'a', "(iayu)");
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        if (streq(eq, "any")) {
+                                /* "any" is a shortcut for 0.0.0.0/0 and ::/0 */
+
+                                r = bus_append_ip_address_access(m, AF_INET, &prefix, 0);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+
+                                r = bus_append_ip_address_access(m, AF_INET6, &prefix, 0);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+
+                        } else if (is_localhost(eq)) {
+                                /* "localhost" is a shortcut for 127.0.0.0/8 and ::1/128 */
+
+                                prefix.in.s_addr = htobe32(0x7f000000);
+                                r = bus_append_ip_address_access(m, AF_INET, &prefix, 8);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+
+                                prefix.in6 = (struct in6_addr) IN6ADDR_LOOPBACK_INIT;
+                                r = bus_append_ip_address_access(m, AF_INET6, &prefix, 128);
+                                if (r < 0)
+                                        return r;
+
+                        } else if (streq(eq, "link-local")) {
+
+                                /* "link-local" is a shortcut for 169.254.0.0/16 and fe80::/64 */
+
+                                prefix.in.s_addr = htobe32((UINT32_C(169) << 24 | UINT32_C(254) << 16));
+                                r = bus_append_ip_address_access(m, AF_INET, &prefix, 16);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+
+                                prefix.in6 = (struct in6_addr) {
+                                        .__in6_u.__u6_addr32[0] = htobe32(0xfe800000)
+                                };
+                                r = bus_append_ip_address_access(m, AF_INET6, &prefix, 64);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+
+                        } else if (streq(eq, "multicast")) {
+
+                                /* "multicast" is a shortcut for 224.0.0.0/4 and ff00::/8 */
+
+                                prefix.in.s_addr = htobe32((UINT32_C(224) << 24));
+                                r = bus_append_ip_address_access(m, AF_INET, &prefix, 4);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+
+                                prefix.in6 = (struct in6_addr) {
+                                        .__in6_u.__u6_addr32[0] = htobe32(0xff000000)
+                                };
+                                r = bus_append_ip_address_access(m, AF_INET6, &prefix, 8);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+
+                        } else {
+                                r = in_addr_prefix_from_string_auto(eq, &family, &prefix, &prefixlen);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse IP address prefix: %s", eq);
+
+                                r = bus_append_ip_address_access(m, family, &prefix, prefixlen);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+                        }
+
+                        r = sd_bus_message_close_container(m);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_close_container(m);
+                        if (r < 0)
+                                return bus_log_create_error(r);
                 }
 
         } else if (streq(field, "CPUSchedulingPolicy")) {

@@ -26,6 +26,15 @@ Features:
 
 * replace all uses of fgets() + LINE_MAX by read_line()
 
+* fix logging in execute.c: extend log.c to have an optional mode where
+  log_open() is implicitly done before each log line and log_close() right
+  after. This way we don't have open fds around but logs will still
+  work. Because it is slow this mode should used exclusively in the execute.c
+  case.
+
+* set IPAddressDeny=any on all services that shouldn't do networking (possibly
+  combined with IPAddressAllow=localhost).
+
 * dissect: when we discover squashfs, don't claim we had a "writable" partition
   in systemd-dissect
 

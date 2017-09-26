@@ -2351,9 +2351,9 @@ static int send_user_lookup(
 
         if (writev(user_lookup_fd,
                (struct iovec[]) {
-                           { .iov_base = &uid, .iov_len = sizeof(uid) },
-                           { .iov_base = &gid, .iov_len = sizeof(gid) },
-                           { .iov_base = unit->id, .iov_len = strlen(unit->id) }}, 3) < 0)
+                           IOVEC_INIT(&uid, sizeof(uid)),
+                           IOVEC_INIT(&gid, sizeof(gid)),
+                           IOVEC_INIT_STRING(unit->id) }, 3) < 0)
                 return -errno;
 
         return 0;
@@ -3150,6 +3150,7 @@ static int exec_child(
                                    "EXECUTABLE=%s", command->path,
                                    LOG_UNIT_MESSAGE(unit, "Executing: %s", line),
                                    LOG_UNIT_ID(unit),
+                                   LOG_UNIT_INVOCATION_ID(unit),
                                    NULL);
                         log_close();
                 }
@@ -3223,6 +3224,7 @@ int exec_spawn(Unit *unit,
                    LOG_UNIT_MESSAGE(unit, "About to execute: %s", line),
                    "EXECUTABLE=%s", command->path,
                    LOG_UNIT_ID(unit),
+                   LOG_UNIT_INVOCATION_ID(unit),
                    NULL);
         pid = fork();
         if (pid < 0)
@@ -3254,6 +3256,7 @@ int exec_spawn(Unit *unit,
                                 log_struct_errno(LOG_ERR, r,
                                                  "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
                                                  LOG_UNIT_ID(unit),
+                                                 LOG_UNIT_INVOCATION_ID(unit),
                                                  LOG_UNIT_MESSAGE(unit, "%s: %m",
                                                                   error_message),
                                                  "EXECUTABLE=%s", command->path,
@@ -3262,6 +3265,7 @@ int exec_spawn(Unit *unit,
                                 log_struct_errno(LOG_INFO, r,
                                                  "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
                                                  LOG_UNIT_ID(unit),
+                                                 LOG_UNIT_INVOCATION_ID(unit),
                                                  LOG_UNIT_MESSAGE(unit, "Skipped spawning %s: %m",
                                                                   command->path),
                                                  "EXECUTABLE=%s", command->path,
@@ -3270,6 +3274,7 @@ int exec_spawn(Unit *unit,
                                 log_struct_errno(LOG_ERR, r,
                                                  "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
                                                  LOG_UNIT_ID(unit),
+                                                 LOG_UNIT_INVOCATION_ID(unit),
                                                  LOG_UNIT_MESSAGE(unit, "Failed at step %s spawning %s: %m",
                                                                   exit_status_to_string(exit_status, EXIT_STATUS_SYSTEMD),
                                                                   command->path),

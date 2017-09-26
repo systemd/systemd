@@ -42,7 +42,8 @@ int setrlimit_closest(int resource, const struct rlimit *rlim) {
 
         /* So we failed to set the desired setrlimit, then let's try
          * to get as close as we can */
-        assert_se(getrlimit(resource, &highest) == 0);
+        if (getrlimit(resource, &highest) < 0)
+                return -errno;
 
         fixed.rlim_cur = MIN(rlim->rlim_cur, highest.rlim_max);
         fixed.rlim_max = MIN(rlim->rlim_max, highest.rlim_max);

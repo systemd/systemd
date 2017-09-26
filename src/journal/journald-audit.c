@@ -383,26 +383,26 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
                 return;
         }
 
-        IOVEC_SET_STRING(iov[n_iov++], "_TRANSPORT=audit");
+        iov[n_iov++] = IOVEC_MAKE_STRING("_TRANSPORT=audit");
 
         sprintf(source_time_field, "_SOURCE_REALTIME_TIMESTAMP=%" PRIu64,
                 (usec_t) seconds * USEC_PER_SEC + (usec_t) msec * USEC_PER_MSEC);
-        IOVEC_SET_STRING(iov[n_iov++], source_time_field);
+        iov[n_iov++] = IOVEC_MAKE_STRING(source_time_field);
 
         sprintf(type_field, "_AUDIT_TYPE=%i", type);
-        IOVEC_SET_STRING(iov[n_iov++], type_field);
+        iov[n_iov++] = IOVEC_MAKE_STRING(type_field);
 
         sprintf(id_field, "_AUDIT_ID=%" PRIu64, id);
-        IOVEC_SET_STRING(iov[n_iov++], id_field);
+        iov[n_iov++] = IOVEC_MAKE_STRING(id_field);
 
         assert_cc(4 == LOG_FAC(LOG_AUTH));
-        IOVEC_SET_STRING(iov[n_iov++], "SYSLOG_FACILITY=4");
-        IOVEC_SET_STRING(iov[n_iov++], "SYSLOG_IDENTIFIER=audit");
+        iov[n_iov++] = IOVEC_MAKE_STRING("SYSLOG_FACILITY=4");
+        iov[n_iov++] = IOVEC_MAKE_STRING("SYSLOG_IDENTIFIER=audit");
 
         type_name = audit_type_name_alloca(type);
 
         m = strjoina("MESSAGE=", type_name, " ", p);
-        IOVEC_SET_STRING(iov[n_iov++], m);
+        iov[n_iov++] = IOVEC_MAKE_STRING(m);
 
         z = n_iov;
 

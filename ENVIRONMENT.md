@@ -64,3 +64,17 @@ installed systemd tests:
 
 * `$SYSTEMD_TEST_DATA` — override the location of test data. This is useful if
   a test executable is moved to an arbitrary location.
+
+nss-systemd:
+
+* `$SYSTEMD_NSS_BYPASS_SYNTHETIC=1` — if set, `nss-systemd` won't synthesize
+  user/group records for the `root` and `nobody` users if they are missing from
+  `/etc/passwd`.
+
+* `$SYSTEMD_NSS_DYNAMIC_BYPASS=1` — if set, `nss-systemd` won't return
+  user/group records for dynamically registered service users (i.e. users
+  registered through `DynamicUser=1`).
+
+* `$SYSTEMD_NSS_BYPASS_BUS=1` — if set, `nss-systemd` won't use D-Bus to do
+  dynamic user lookups. This is primarily useful to make `nss-systemd` work
+  safely from within `dbus-daemon`.

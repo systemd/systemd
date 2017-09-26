@@ -187,6 +187,15 @@ int log_format_iovec(
                 const char *format,
                 va_list ap) _printf_(6, 0);
 
+int log_struct_iovec_internal(
+                int level,
+                int error,
+                const char *file,
+                int line,
+                const char *func,
+                const struct iovec input_iovec[],
+                size_t n_input_iovec);
+
 /* This modifies the buffer passed! */
 int log_dump_internal(
                 int level,
@@ -269,6 +278,11 @@ void log_assert_failed_return_realm(
         log_struct_internal(LOG_REALM_PLUS_LEVEL(LOG_REALM, level), \
                             error, __FILE__, __LINE__, __func__, __VA_ARGS__)
 #define log_struct(level, ...) log_struct_errno(level, 0, __VA_ARGS__)
+
+#define log_struct_iovec_errno(level, error, iovec, n_iovec)            \
+        log_struct_iovec_internal(LOG_REALM_PLUS_LEVEL(LOG_REALM, level), \
+                                  error, __FILE__, __LINE__, __func__, iovec, n_iovec)
+#define log_struct_iovec(level, iovec, n_iovec) log_struct_iovec_errno(level, 0, iovec, n_iovec)
 
 /* This modifies the buffer passed! */
 #define log_dump(level, buffer) \

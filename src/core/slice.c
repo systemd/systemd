@@ -222,7 +222,8 @@ static int slice_start(Unit *u) {
                 return r;
 
         (void) unit_realize_cgroup(u);
-        (void) unit_reset_cpu_usage(u);
+        (void) unit_reset_cpu_accounting(u);
+        (void) unit_reset_ip_accounting(u);
 
         slice_set_state(t, SLICE_ACTIVE);
         return 1;

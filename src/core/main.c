@@ -128,6 +128,7 @@ static Set* arg_syscall_archs = NULL;
 static FILE* arg_serialization = NULL;
 static bool arg_default_cpu_accounting = false;
 static bool arg_default_io_accounting = false;
+static bool arg_default_ip_accounting = false;
 static bool arg_default_blockio_accounting = false;
 static bool arg_default_memory_accounting = false;
 static bool arg_default_tasks_accounting = true;
@@ -748,6 +749,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultLimitRTTIME",        config_parse_limit,            RLIMIT_RTTIME, arg_default_rlimit         },
                 { "Manager", "DefaultCPUAccounting",      config_parse_bool,             0, &arg_default_cpu_accounting            },
                 { "Manager", "DefaultIOAccounting",       config_parse_bool,             0, &arg_default_io_accounting             },
+                { "Manager", "DefaultIPAccounting",       config_parse_bool,             0, &arg_default_ip_accounting             },
                 { "Manager", "DefaultBlockIOAccounting",  config_parse_bool,             0, &arg_default_blockio_accounting        },
                 { "Manager", "DefaultMemoryAccounting",   config_parse_bool,             0, &arg_default_memory_accounting         },
                 { "Manager", "DefaultTasksAccounting",    config_parse_bool,             0, &arg_default_tasks_accounting          },
@@ -792,6 +794,7 @@ static void manager_set_defaults(Manager *m) {
         m->default_start_limit_burst = arg_default_start_limit_burst;
         m->default_cpu_accounting = arg_default_cpu_accounting;
         m->default_io_accounting = arg_default_io_accounting;
+        m->default_ip_accounting = arg_default_ip_accounting;
         m->default_blockio_accounting = arg_default_blockio_accounting;
         m->default_memory_accounting = arg_default_memory_accounting;
         m->default_tasks_accounting = arg_default_tasks_accounting;
@@ -1202,6 +1205,26 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
         return 0;
 }
 
+static int bump_rlimit_memlock(struct rlimit *saved_rlimit) {
+        int r;
+
+        assert(saved_rlimit);
+        assert(getuid() == 0);
+
+        /* BPF_MAP_TYPE_LPM_TRIE bpf maps are charged against RLIMIT_MEMLOCK, even though we have CAP_IPC_LOCK which
+         * should normally disable such checks. We need them to implement IPAccessAllow= and IPAccessDeny=, hence let's
+         * bump the value high enough for the root user. */
+
+        if (getrlimit(RLIMIT_MEMLOCK, saved_rlimit) < 0)
+                return log_warning_errno(errno, "Reading RLIMIT_MEMLOCK failed, ignoring: %m");
+
+        r = setrlimit_closest(RLIMIT_MEMLOCK, &RLIMIT_MAKE_CONST(1024ULL*1024ULL*16ULL));
+        if (r < 0)
+                return log_warning_errno(r, "Setting RLIMIT_MEMLOCK failed, ignoring: %m");
+
+        return 0;
+}
+
 static void test_usr(void) {
 
         /* Check that /usr is not a separate fs */
@@ -1385,7 +1408,7 @@ int main(int argc, char *argv[]) {
         bool queue_default_job = false;
         bool empty_etc = false;
         char *switch_root_dir = NULL, *switch_root_init = NULL;
-        struct rlimit saved_rlimit_nofile = RLIMIT_MAKE_CONST(0);
+        struct rlimit saved_rlimit_nofile = RLIMIT_MAKE_CONST(0), saved_rlimit_memlock = RLIMIT_MAKE_CONST((rlim_t) -1);
         const char *error_message = NULL;
 
 #ifdef HAVE_SYSV_COMPAT
@@ -1812,9 +1835,11 @@ int main(int argc, char *argv[]) {
                         if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0)
                                 log_warning_errno(errno, "Failed to make us a subreaper: %m");
 
-                if (arg_system)
+                if (arg_system) {
                         /* Bump up RLIMIT_NOFILE for systemd itself */
                         (void) bump_rlimit_nofile(&saved_rlimit_nofile);
+                        (void) bump_rlimit_memlock(&saved_rlimit_memlock);
+                }
         }
 
         r = manager_new(arg_system ? UNIT_FILE_SYSTEM : UNIT_FILE_USER,
@@ -2048,6 +2073,8 @@ finish:
                  * its child processes */
                 if (saved_rlimit_nofile.rlim_cur > 0)
                         (void) setrlimit(RLIMIT_NOFILE, &saved_rlimit_nofile);
+                if (saved_rlimit_memlock.rlim_cur != (rlim_t) -1)
+                        (void) setrlimit(RLIMIT_MEMLOCK, &saved_rlimit_memlock);
 
                 if (switch_root_dir) {
                         /* Kill all remaining processes from the

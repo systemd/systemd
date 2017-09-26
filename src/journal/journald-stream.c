@@ -282,22 +282,21 @@ static int stdout_stream_log(StdoutStream *s, const char *p, LineBreak line_brea
         if (s->server->forward_to_wall)
                 server_forward_wall(s->server, priority, s->identifier, p, &s->ucred);
 
-        IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=stdout");
-
-        IOVEC_SET_STRING(iovec[n++], s->id_field);
+        iovec[n++] = IOVEC_MAKE_STRING("_TRANSPORT=stdout");
+        iovec[n++] = IOVEC_MAKE_STRING(s->id_field);
 
         syslog_priority[strlen("PRIORITY=")] = '0' + LOG_PRI(priority);
-        IOVEC_SET_STRING(iovec[n++], syslog_priority);
+        iovec[n++] = IOVEC_MAKE_STRING(syslog_priority);
 
         if (priority & LOG_FACMASK) {
                 xsprintf(syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority));
-                IOVEC_SET_STRING(iovec[n++], syslog_facility);
+                iovec[n++] = IOVEC_MAKE_STRING(syslog_facility);
         }
 
         if (s->identifier) {
                 syslog_identifier = strappend("SYSLOG_IDENTIFIER=", s->identifier);
                 if (syslog_identifier)
-                        IOVEC_SET_STRING(iovec[n++], syslog_identifier);
+                        iovec[n++] = IOVEC_MAKE_STRING(syslog_identifier);
         }
 
         if (line_break != LINE_BREAK_NEWLINE) {
@@ -309,12 +308,12 @@ static int stdout_stream_log(StdoutStream *s, const char *p, LineBreak line_brea
                 c =     line_break == LINE_BREAK_NUL ?      "_LINE_BREAK=nul" :
                         line_break == LINE_BREAK_LINE_MAX ? "_LINE_BREAK=line-max" :
                                                             "_LINE_BREAK=eof";
-                IOVEC_SET_STRING(iovec[n++], c);
+                iovec[n++] = IOVEC_MAKE_STRING(c);
         }
 
         message = strappend("MESSAGE=", p);
         if (message)
-                IOVEC_SET_STRING(iovec[n++], message);
+                iovec[n++] = IOVEC_MAKE_STRING(message);
 
         if (s->context)
                 (void) client_context_maybe_refresh(s->server, s->context, NULL, NULL, 0, NULL, USEC_INFINITY);

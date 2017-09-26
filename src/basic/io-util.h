@@ -40,14 +40,6 @@ int fd_wait_for_event(int fd, int event, usec_t timeout);
 
 ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length);
 
-#define IOVEC_SET_STRING(i, s)                  \
-        do {                                    \
-                struct iovec *_i = &(i);        \
-                char *_s = (char *)(s);         \
-                _i->iov_base = _s;              \
-                _i->iov_len = strlen(_s);       \
-        } while (false)
-
 static inline size_t IOVEC_TOTAL_SIZE(const struct iovec *i, unsigned n) {
         unsigned j;
         size_t r = 0;
@@ -93,3 +85,8 @@ static inline bool FILE_SIZE_VALID_OR_INFINITY(uint64_t l) {
         return FILE_SIZE_VALID(l);
 
 }
+
+#define IOVEC_INIT(base, len) { .iov_base = (base), .iov_len = (len) }
+#define IOVEC_MAKE(base, len) (struct iovec) IOVEC_INIT(base, len)
+#define IOVEC_INIT_STRING(string) IOVEC_INIT((char*) string, strlen(string))
+#define IOVEC_MAKE_STRING(string) (struct iovec) IOVEC_INIT_STRING(string)

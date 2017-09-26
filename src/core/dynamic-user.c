@@ -23,13 +23,14 @@
 
 #include "dynamic-user.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
+#include "io-util.h"
 #include "parse-util.h"
 #include "random-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "user-util.h"
-#include "fileio.h"
 
 /* Takes a value generated randomly or by hashing and turns it into a UID in the right range */
 #define UID_CLAMP_INTO_RANGE(rnd) (((uid_t) (rnd) % (DYNAMIC_UID_MAX - DYNAMIC_UID_MIN + 1)) + DYNAMIC_UID_MIN)
@@ -245,8 +246,8 @@ static int pick_uid(const char *name, uid_t *ret_uid) {
                 /* Let's store the user name in the lock file, so that we can use it for looking up the username for a UID */
                 l = pwritev(lock_fd,
                             (struct iovec[2]) {
-                                    { .iov_base = (char*) name, .iov_len = strlen(name) },
-                                    { .iov_base = (char[1]) { '\n' }, .iov_len = 1 }
+                                    IOVEC_INIT_STRING(name),
+                                    IOVEC_INIT((char[1]) { '\n' }, 1),
                             }, 2, 0);
                 if (l < 0) {
                         (void) unlink(lock_path);
@@ -271,10 +272,7 @@ static int pick_uid(const char *name, uid_t *ret_uid) {
 
 static int dynamic_user_pop(DynamicUser *d, uid_t *ret_uid, int *ret_lock_fd) {
         uid_t uid = UID_INVALID;
-        struct iovec iov = {
-                .iov_base = &uid,
-                .iov_len = sizeof(uid),
-        };
+        struct iovec iov = IOVEC_INIT(&uid, sizeof(uid));
         union {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(int))];
@@ -314,10 +312,7 @@ static int dynamic_user_pop(DynamicUser *d, uid_t *ret_uid, int *ret_lock_fd) {
 }
 
 static int dynamic_user_push(DynamicUser *d, uid_t uid, int lock_fd) {
-        struct iovec iov = {
-                .iov_base = &uid,
-                .iov_len = sizeof(uid),
-        };
+        struct iovec iov = IOVEC_INIT(&uid, sizeof(uid));
         union {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(int))];

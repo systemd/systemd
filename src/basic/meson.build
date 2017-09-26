@@ -1,4 +1,6 @@
 basic_sources_plain = files('''
+        MurmurHash2.c
+        MurmurHash2.h
         af-list.c
         af-list.h
         alloc-util.c
@@ -16,6 +18,8 @@ basic_sources_plain = files('''
         bitmap.c
         bitmap.h
         blkid-util.h
+        bpf-program.c
+        bpf-program.h
         btrfs-ctree.h
         btrfs-util.c
         btrfs-util.h
@@ -24,10 +28,10 @@ basic_sources_plain = files('''
         bus-label.h
         calendarspec.c
         calendarspec.h
-        capability-util.c
-        capability-util.h
         cap-list.c
         cap-list.h
+        capability-util.c
+        capability-util.h
         cgroup-util.c
         cgroup-util.h
         chattr-util.c
@@ -61,10 +65,10 @@ basic_sources_plain = files('''
         extract-word.h
         fd-util.c
         fd-util.h
-        fileio.c
-        fileio.h
         fileio-label.c
         fileio-label.h
+        fileio.c
+        fileio.h
         format-util.h
         fs-util.c
         fs-util.h
@@ -82,9 +86,9 @@ basic_sources_plain = files('''
         hostname-util.h
         in-addr-util.c
         in-addr-util.h
-        ioprio.h
         io-util.c
         io-util.h
+        ioprio.h
         journal-importer.c
         journal-importer.h
         khash.c
@@ -106,13 +110,11 @@ basic_sources_plain = files('''
         mempool.c
         mempool.h
         missing_syscall.h
+        mkdir-label.c
         mkdir.c
         mkdir.h
-        mkdir-label.c
         mount-util.c
         mount-util.h
-        MurmurHash2.c
-        MurmurHash2.h
         nss-util.h
         ordered-set.c
         ordered-set.h
@@ -138,9 +140,9 @@ basic_sources_plain = files('''
         rlimit-util.h
         rm-rf.c
         rm-rf.h
-        securebits.h
         securebits-util.c
         securebits-util.h
+        securebits.h
         selinux-util.c
         selinux-util.h
         set.h
