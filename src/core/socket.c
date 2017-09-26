@@ -1175,7 +1175,7 @@ static int fifo_address_create(
 
         assert(path);
 
-        mkdir_parents_label(path, directory_mode);
+        (void) mkdir_parents_label(path, directory_mode);
 
         r = mac_selinux_create_file_prepare(path, S_IFIFO);
         if (r < 0)
@@ -1334,6 +1334,8 @@ static int socket_symlink(Socket *s) {
                 return 0;
 
         STRV_FOREACH(i, s->symlinks) {
+                (void) mkdir_parents_label(*i, s->directory_mode);
+
                 r = symlink_idempotent(p, *i);
                 if (r < 0)
                         log_unit_warning_errno(UNIT(s), r, "Failed to create symlink %s → %s, ignoring: %m", p, *i);
