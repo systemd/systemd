@@ -99,18 +99,6 @@ and storage by systemd-coredump(8). Only the first @SIZE_LIMIT@ bytes were
 saved. This core might still be usable, but various tools like gdb(1) will warn
 about the file being truncated.
 
--- fc2e22bc6ee647b6b90729ab34a250b1 de
-Subject: Speicherabbild für Prozess @COREDUMP_PID@ (@COREDUMP_COMM) generiert
-Defined-By: systemd
-Support: %SUPPORT_URL%
-Documentation: man:core(5)
-
-Prozess @COREDUMP_PID@ (@COREDUMP_COMM@) ist abgebrochen worden und
-ein Speicherabbild wurde generiert.
-
-Üblicherweise ist dies ein Hinweis auf einen Programmfehler und sollte
-als Fehler dem jeweiligen Hersteller gemeldet werden.
-
 -- 8d45620c1a4348dbb17410da57c60c66
 Subject: A new session @SESSION_ID@ has been created for user @USER_ID@
 Defined-By: systemd
