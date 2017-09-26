@@ -168,9 +168,6 @@ struct Unit {
         /* CGroup realize members queue */
         LIST_FIELDS(Unit, cgroup_queue);
 
-        /* Units with the same CGroup netclass */
-        LIST_FIELDS(Unit, cgroup_netclass);
-
         /* PIDs we keep an eye on. Note that a unit might have many
          * more, but these are the ones we care enough about to
          * process SIGCHLD for */
