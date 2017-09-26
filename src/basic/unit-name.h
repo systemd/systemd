@@ -89,8 +89,6 @@ typedef enum MountState {
         MOUNT_MOUNTED,
         MOUNT_REMOUNTING,
         MOUNT_UNMOUNTING,
-        MOUNT_MOUNTING_SIGTERM,
-        MOUNT_MOUNTING_SIGKILL,
         MOUNT_REMOUNTING_SIGTERM,
         MOUNT_REMOUNTING_SIGKILL,
         MOUNT_UNMOUNTING_SIGTERM,
@@ -172,8 +170,6 @@ typedef enum SwapState {
         SWAP_ACTIVATING_DONE,          /* /sbin/swapon is running, and the swap is done. */
         SWAP_ACTIVE,
         SWAP_DEACTIVATING,
-        SWAP_ACTIVATING_SIGTERM,
-        SWAP_ACTIVATING_SIGKILL,
         SWAP_DEACTIVATING_SIGTERM,
         SWAP_DEACTIVATING_SIGKILL,
         SWAP_FAILED,

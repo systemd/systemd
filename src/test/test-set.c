@@ -55,9 +55,54 @@ static void test_set_put(void) {
         assert_se(set_put(m, (void*) "22") == 0);
 }
 
+static void test_set_make(void) {
+        _cleanup_set_free_ Set *s = NULL;
+
+        assert_se(set_make(&s, NULL, UINT_TO_PTR(4), UINT_TO_PTR(6), UINT_TO_PTR(8), NULL) == 0);
+        assert_se(set_size(s) == 3);
+        assert_se(!set_contains(s, UINT_TO_PTR(0)));
+        assert_se(!set_contains(s, UINT_TO_PTR(1)));
+        assert_se(!set_contains(s, UINT_TO_PTR(2)));
+        assert_se(!set_contains(s, UINT_TO_PTR(3)));
+        assert_se(set_contains(s, UINT_TO_PTR(4)));
+        assert_se(!set_contains(s, UINT_TO_PTR(5)));
+        assert_se(set_contains(s, UINT_TO_PTR(6)));
+        assert_se(!set_contains(s, UINT_TO_PTR(7)));
+        assert_se(set_contains(s, UINT_TO_PTR(8)));
+        assert_se(!set_contains(s, UINT_TO_PTR(9)));
+        s = set_free(s);
+
+        assert_se(set_make(&s, NULL, NULL) == 0);
+        assert_se(set_size(s) == 0);
+        assert_se(!set_contains(s, UINT_TO_PTR(0)));
+        assert_se(!set_contains(s, UINT_TO_PTR(4)));
+        assert_se(!set_contains(s, UINT_TO_PTR(6)));
+        assert_se(!set_contains(s, UINT_TO_PTR(8)));
+        s = set_free(s);
+
+        assert_se(set_make(&s, NULL, UINT_TO_PTR(3), NULL) == 0);
+        assert_se(set_size(s) == 1);
+        assert_se(!set_contains(s, UINT_TO_PTR(0)));
+        assert_se(!set_contains(s, UINT_TO_PTR(1)));
+        assert_se(!set_contains(s, UINT_TO_PTR(2)));
+        assert_se(set_contains(s, UINT_TO_PTR(3)));
+        assert_se(!set_contains(s, UINT_TO_PTR(4)));
+
+        assert_se(set_make(&s, NULL, UINT_TO_PTR(2), UINT_TO_PTR(5), NULL) == 0);
+        assert_se(set_size(s) == 2);
+        assert_se(!set_contains(s, UINT_TO_PTR(0)));
+        assert_se(!set_contains(s, UINT_TO_PTR(1)));
+        assert_se(set_contains(s, UINT_TO_PTR(2)));
+        assert_se(!set_contains(s, UINT_TO_PTR(3)));
+        assert_se(!set_contains(s, UINT_TO_PTR(4)));
+        assert_se(set_contains(s, UINT_TO_PTR(5)));
+        assert_se(!set_contains(s, UINT_TO_PTR(6)));
+}
+
 int main(int argc, const char *argv[]) {
         test_set_steal_first();
         test_set_put();
+        test_set_make();
 
         return 0;
 }

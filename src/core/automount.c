@@ -529,7 +529,6 @@ static void automount_trigger_notify(Unit *u, Unit *other) {
         if (IN_SET(MOUNT(other)->state,
                    MOUNT_MOUNTING, MOUNT_MOUNTING_DONE,
                    MOUNT_MOUNTED, MOUNT_REMOUNTING,
-                   MOUNT_MOUNTING_SIGTERM, MOUNT_MOUNTING_SIGKILL,
                    MOUNT_REMOUNTING_SIGTERM, MOUNT_REMOUNTING_SIGKILL,
                    MOUNT_UNMOUNTING_SIGTERM, MOUNT_UNMOUNTING_SIGKILL,
                    MOUNT_FAILED)) {
@@ -543,7 +542,6 @@ static void automount_trigger_notify(Unit *u, Unit *other) {
         /* The mount is in some unhappy state now, let's unfreeze any waiting clients */
         if (IN_SET(MOUNT(other)->state,
                    MOUNT_DEAD, MOUNT_UNMOUNTING,
-                   MOUNT_MOUNTING_SIGTERM, MOUNT_MOUNTING_SIGKILL,
                    MOUNT_REMOUNTING_SIGTERM, MOUNT_REMOUNTING_SIGKILL,
                    MOUNT_UNMOUNTING_SIGTERM, MOUNT_UNMOUNTING_SIGKILL,
                    MOUNT_FAILED)) {
