@@ -2464,6 +2464,9 @@ static int exec_child(
         log_forget_fds();
         log_set_open_when_needed(true);
 
+        /* In case anything used libc syslog(), close this here, too */
+        closelog();
+
         n_fds = n_storage_fds + n_socket_fds;
         r = close_remaining_fds(params, runtime, dcreds, user_lookup_fd, socket_fd, fds, n_fds);
         if (r < 0) {
