@@ -26,14 +26,9 @@ import tempfile
 import shutil
 from glob import glob
 import collections
+from configparser import RawConfigParser
 
-try:
-    from configparser import RawConfigParser
-except ImportError:
-    # python 2
-    from ConfigParser import RawConfigParser
-
-sysv_generator = os.path.join(os.environ.get('builddir', '.'), 'systemd-sysv-generator')
+sysv_generator = './systemd-sysv-generator'
 
 class MultiDict(collections.OrderedDict):
     def __setitem__(self, key, value):
