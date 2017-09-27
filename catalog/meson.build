@@ -2,6 +2,7 @@ in_files = '''
         systemd.bg.catalog
         systemd.be.catalog
         systemd.be@latin.catalog
+        systemd.de.catalog
         systemd.fr.catalog
         systemd.it.catalog
         systemd.pl.catalog

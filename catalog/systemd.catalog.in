@@ -99,18 +99,6 @@ and storage by systemd-coredump(8). Only the first @SIZE_LIMIT@ bytes were
 saved. This core might still be usable, but various tools like gdb(1) will warn
 about the file being truncated.
 
--- fc2e22bc6ee647b6b90729ab34a250b1 de
-Subject: Speicherabbild für Prozess @COREDUMP_PID@ (@COREDUMP_COMM) generiert
-Defined-By: systemd
-Support: %SUPPORT_URL%
-Documentation: man:core(5)
-
-Prozess @COREDUMP_PID@ (@COREDUMP_COMM@) ist abgebrochen worden und
-ein Speicherabbild wurde generiert.
-
-Üblicherweise ist dies ein Hinweis auf einen Programmfehler und sollte
-als Fehler dem jeweiligen Hersteller gemeldet werden.
-
 -- 8d45620c1a4348dbb17410da57c60c66
 Subject: A new session @SESSION_ID@ has been created for user @USER_ID@
 Defined-By: systemd
@@ -354,3 +342,18 @@ Documentation: man:systemd-resolved.service(8)
 A DNSSEC trust anchor has been revoked. A new trust anchor has to be
 configured, or the operating system needs to be updated, to provide an updated
 DNSSEC trust anchor.
+
+-- 5eb03494b6584870a536b337290809b3
+Subject: Automatic restarting of a unit has been scheduled
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Automatic restarting of the unit @UNIT@ has been scheduled, as the result for
+the configured Restart= setting for the unit.
+
+-- ae8f7b866b0347b9af31fe1c80b127c0
+Subject: Resources consumed by unit runtime
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The unit @UNIT@ completed and consumed the indicated resources.

@@ -1247,7 +1247,7 @@ int bus_cgroup_set_property(
                                 return r;
 
                         if (!IN_SET(family, AF_INET, AF_INET6))
-                                return sd_bus_error_set_errnof(error, EINVAL, "IPAddressAllow= expects IPv4 or IPv6 addresses only.");
+                                return sd_bus_error_set_errnof(error, EINVAL, "%s= expects IPv4 or IPv6 addresses only.", name);
 
                         r = sd_bus_message_read_array(message, 'y', &ap, &an);
                         if (r < 0)
@@ -1262,7 +1262,7 @@ int bus_cgroup_set_property(
                                 return r;
 
                         if (prefixlen > FAMILY_ADDRESS_SIZE(family)*8)
-                                return sd_bus_error_set_errnof(error, EINVAL, "Prefix length too large for family.");
+                                return sd_bus_error_set_errnof(error, EINVAL, "Prefix length %" PRIu32 " too large for address family %s.", prefixlen, af_to_name(family));
 
                         if (mode != UNIT_CHECK) {
                                 IPAddressAccessItem *item;
