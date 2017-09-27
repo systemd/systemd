@@ -303,6 +303,7 @@ void log_received_signal(int level, const struct signalfd_siginfo *si);
 
 void log_set_upgrade_syslog_to_journal(bool b);
 void log_set_always_reopen_console(bool b);
+void log_set_open_when_needed(bool b);
 
 int log_syntax_internal(
                 const char *unit,
