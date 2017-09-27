@@ -228,6 +228,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->dhcp_use_mtu = false;
         /* NOTE: from man: UseTimezone=... Defaults to "no".*/
         network->dhcp_use_timezone = false;
+        network->rapid_commit = true;
 
         network->dhcp_server_emit_dns = true;
         network->dhcp_server_emit_ntp = true;

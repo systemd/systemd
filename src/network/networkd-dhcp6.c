@@ -471,10 +471,11 @@ static int dhcp6_set_hostname(sd_dhcp6_client *client, Link *link) {
 
 int dhcp6_configure(Link *link) {
         sd_dhcp6_client *client = NULL;
-        int r;
         const DUID *duid;
+        int r;
 
         assert(link);
+        assert(link->network);
 
         if (link->dhcp6_client)
                 return 0;
@@ -512,6 +513,12 @@ int dhcp6_configure(Link *link) {
         r = sd_dhcp6_client_set_ifindex(client, link->ifindex);
         if (r < 0)
                 goto error;
+
+        if (link->network->rapid_commit) {
+                r = sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_RAPID_COMMIT);
+                if (r < 0)
+                        goto error;
+        }
 
         r = sd_dhcp6_client_set_callback(client, dhcp6_handler, link);
         if (r < 0)
