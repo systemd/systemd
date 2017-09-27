@@ -743,20 +743,23 @@ void link_check_ready(Link *link) {
                     !link->ipv4ll_route)
                         return;
 
-        if (link_ipv6ll_enabled(link))
-                if (in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address) > 0)
+        if (!link->network->bridge) {
+
+                if (link_ipv6ll_enabled(link))
+                        if (in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address) > 0)
+                                return;
+
+                if ((link_dhcp4_enabled(link) && !link_dhcp6_enabled(link) &&
+                     !link->dhcp4_configured) ||
+                    (link_dhcp6_enabled(link) && !link_dhcp4_enabled(link) &&
+                     !link->dhcp6_configured) ||
+                    (link_dhcp4_enabled(link) && link_dhcp6_enabled(link) &&
+                     !link->dhcp4_configured && !link->dhcp6_configured))
                         return;
 
-        if ((link_dhcp4_enabled(link) && !link_dhcp6_enabled(link) &&
-             !link->dhcp4_configured) ||
-            (link_dhcp6_enabled(link) && !link_dhcp4_enabled(link) &&
-             !link->dhcp6_configured) ||
-            (link_dhcp4_enabled(link) && link_dhcp6_enabled(link) &&
-             !link->dhcp4_configured && !link->dhcp6_configured))
-                return;
-
-        if (link_ipv6_accept_ra_enabled(link) && !link->ndisc_configured)
-                return;
+                if (link_ipv6_accept_ra_enabled(link) && !link->ndisc_configured)
+                        return;
+        }
 
         SET_FOREACH(a, link->addresses, i)
                 if (!address_is_ready(a))
