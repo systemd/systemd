@@ -359,22 +359,25 @@ int touch(const char *path) {
 }
 
 int symlink_idempotent(const char *from, const char *to) {
-        _cleanup_free_ char *p = NULL;
         int r;
 
         assert(from);
         assert(to);
 
         if (symlink(from, to) < 0) {
+                _cleanup_free_ char *p = NULL;
+
                 if (errno != EEXIST)
                         return -errno;
 
                 r = readlink_malloc(to, &p);
-                if (r < 0)
+                if (r == -EINVAL) /* Not a symlink? In that case return the original error we encountered: -EEXIST */
+                        return -EEXIST;
+                if (r < 0) /* Any other error? In that case propagate it as is */
                         return r;
 
-                if (!streq(p, from))
-                        return -EINVAL;
+                if (!streq(p, from)) /* Not the symlink we want it to be? In that case, propagate the original -EEXIST */
+                        return -EEXIST;
         }
 
         return 0;

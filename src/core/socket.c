@@ -38,6 +38,7 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "in-addr-util.h"
 #include "io-util.h"
 #include "label.h"
@@ -1174,7 +1175,7 @@ static int fifo_address_create(
 
         assert(path);
 
-        mkdir_parents_label(path, directory_mode);
+        (void) mkdir_parents_label(path, directory_mode);
 
         r = mac_selinux_create_file_prepare(path, S_IFIFO);
         if (r < 0)
@@ -1324,6 +1325,7 @@ static int mq_address_create(
 static int socket_symlink(Socket *s) {
         const char *p;
         char **i;
+        int r;
 
         assert(s);
 
@@ -1331,8 +1333,23 @@ static int socket_symlink(Socket *s) {
         if (!p)
                 return 0;
 
-        STRV_FOREACH(i, s->symlinks)
-                symlink_label(p, *i);
+        STRV_FOREACH(i, s->symlinks) {
+                (void) mkdir_parents_label(*i, s->directory_mode);
+
+                r = symlink_idempotent(p, *i);
+
+                if (r == -EEXIST && s->remove_on_stop) {
+                        /* If there's already something where we want to create the symlink, and the destructive
+                         * RemoveOnStop= mode is set, then we might as well try to remove what already exists and try
+                         * again. */
+
+                        if (unlink(*i) >= 0)
+                                r = symlink_idempotent(p, *i);
+                }
+
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(s), r, "Failed to create symlink %s → %s, ignoring: %m", p, *i);
+        }
 
         return 0;
 }
