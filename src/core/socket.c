@@ -1337,6 +1337,16 @@ static int socket_symlink(Socket *s) {
                 (void) mkdir_parents_label(*i, s->directory_mode);
 
                 r = symlink_idempotent(p, *i);
+
+                if (r == -EEXIST && s->remove_on_stop) {
+                        /* If there's already something where we want to create the symlink, and the destructive
+                         * RemoveOnStop= mode is set, then we might as well try to remove what already exists and try
+                         * again. */
+
+                        if (unlink(*i) >= 0)
+                                r = symlink_idempotent(p, *i);
+                }
+
                 if (r < 0)
                         log_unit_warning_errno(UNIT(s), r, "Failed to create symlink %s → %s, ignoring: %m", p, *i);
         }
