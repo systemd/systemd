@@ -718,6 +718,7 @@ static void attr_subst_subdir(char *attr, size_t len) {
 static int get_key(struct udev *udev, char **line, char **key, enum operation_type *op, char **value) {
         char *linepos;
         char *temp;
+        unsigned i, j;
 
         linepos = *line;
         if (linepos == NULL || linepos[0] == '\0')
@@ -793,14 +794,25 @@ static int get_key(struct udev *udev, char **line, char **key, enum operation_ty
         *value = linepos;
 
         /* terminate */
-        temp = strchr(linepos, '"');
-        if (!temp)
-                return -1;
-        temp[0] = '\0';
-        temp++;
+        for (i = 0, j = 0; ; i++, j++) {
+
+                if (linepos[i] == '"')
+                        break;
+
+                if (linepos[i] == '\0')
+                        return -1;
+
+                /* double quotes can be escaped */
+                if (linepos[i] == '\\')
+                        if (linepos[i+1] == '"')
+                                i++;
+
+                linepos[j] = linepos[i];
+        }
+        linepos[j] = '\0';
 
         /* move line to next key */
-        *line = temp;
+        *line = linepos + i + 1;
         return 0;
 }
 
