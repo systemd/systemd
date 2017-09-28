@@ -2,14 +2,14 @@ systemd System and Service Manager
 
 CHANGES WITH 235:
 
-        * modprobe.d drop-in is now shipped by default that sets bonding module
-          option max_bonds=0. This overrides the kernel default, to avoid
-          conflicts and ambiguity as to whether or not bond0 should be managed
-          by networkd or not. This resolves multiple bugs of bond0 properties
-          not being applied, when bond0 is configured with
-          networkd. Distributors may choose to not package this, however in
-          that case users will be prevented from correctly managing bond0
-          interface using networkd.
+        * A new modprobe.d drop-in is now shipped by default that sets the
+          bonding module option max_bonds=0. This overrides the kernel default,
+          to avoid conflicts and ambiguity as to whether or not bond0 should be
+          managed by systemd-networkd or not. This resolves multiple issues
+          with bond0 properties not being applied, when bond0 is configured
+          with systemd-networkd. Distributors may choose to not package this,
+          however in that case users will be prevented from correctly managing
+          bond0 interface using systemd-networkd.
 
         * systemd-analyze gained new verbs "get-log-level" and "get-log-target"
           which print the logging level and target of the system manager,
@@ -17,9 +17,203 @@ CHANGES WITH 235:
           "set-log-target" verbs, which can be used to change those values.
 
         * systemd-networkd .network DHCP setting UseMTU default has changed
-          from false to true. Meaning, DHCP server advertised mtu setting is
+          from false to true. Meaning, DHCP server advertised MTU setting is
           now applied by default. This resolves networking issues on low-mtu
           networks.
+
+        * journald.conf gained a new boolean setting ReadKMsg= which defaults
+          to on. If turned off kernel log messages will not be read by
+          systemd-journald and not be included in the logs. It also gained a
+          new setting LineMax= for configuring the maximum line length to allow
+          when converting STDOUT/STDERR log streams into individual log
+          records. The new default for this value is 48K, up from the previous
+          hardcoded 4K.
+
+        * A new setting RuntimeDirectoryPreserve= for units has been added,
+          which allows more detailed control of what to do with a runtime
+          directory configured with RuntimeDirectory= (i.e. a directory below
+          /run or $XDG_RUNTIME_DIR) after a unit is stopped.
+
+        * The RuntimeDirectory= setting for units gained support for creating
+          deeper subdirectories below /run or $XDG_RUNTIME_DIR, instead of just
+          one top-level directory.
+
+        * Units gained new options StateDirectory=, CacheDirectory=,
+          LogsDirectory= and ConfigurationDirectory= which are closely related
+          to RuntimeDirectory= but manage per-service directories below
+          /var/lib, /var/cache, /var/log and /etc. By making use of this it is
+          possible to write unit files which when activated automatically gain
+          properly owned service specific directories in these locations, thus
+          making unit files self-contained and increasing compatibility with
+          stateless systems and factory reset where /etc or /var are
+          unpopulated at boot. Matching these new settings there's also
+          StateDirectoryMode=, CacheDirectoryMode=, LogsDirectoryMode=,
+          ConfigurationDirectoryMode= for configuring the access mode of these
+          directories.
+
+        * Automake support has been removed from this release. systemd is now
+          Meson-only.
+
+        * systemd-journald will now aggressively cache client metadata during
+          runtime, speeding up log write performance under pressure. This comes
+          at a small price though: as much of the metadata is read
+          asynchronously from /proc/ (and isn't implicitly attached to log
+          datagrams by the kernel, like UID/GID/PID/SELinux are) this means the
+          metadata stored alongside a log entry might be slightly
+          out-of-date. Previously it could only be slightly newer than the log
+          message. The time window is small however, and given that the kernel
+          is unlikely to be improved anytime soon in this regard, this appears
+          acceptable to us.
+
+        * nss-myhostname/systemd-resolved will now by default synthesize an
+          A/AAAA resource record for the "_gateway" hostname, pointing to the
+          current default IP gateway. Previously it did that for the "gateway"
+          name, hampering adoption, as some distributions wanted to leave that
+          host name open for local use. The old behaviour may still be
+          requested at build time.
+
+        * systemd-networkd's [Address] section in .network files gained a new
+          Scope= setting for configuring the IP address scope. The [Network]
+          section gained a new boolean setting ConfigureWithoutCarrier= that
+          tells systemd-networkd to ignore link sensing when configuring the
+          device. The [DHCP] section gained a new Anonymize= boolean option for
+          turning on a number of options suggested in RFC 7844. A new
+          [RoutingPolicyRule] section has been added for configuring the IP
+          routing policy. The [Route] section has gained support for a new
+          Type= setting which permits configuring
+          blackhole/unreachable/prohibit routes.
+
+        * The [VRF] section in .netdev files gained a new Table= setting for
+          configuring the routing table to use. The [Tunnel] section gained a
+          new Independent= boolean field for configuring tunnels independent of
+          an underlying network interface. The [Bridge] section gained a new
+          GroupForwardMask= option for configuration of propagation of link
+          local frames between bridge ports.
+
+        * The WakeOnLan= setting in .link files gained support for a number of
+          new modes. A new TCP6SegmentationOffload= setting has been added for
+          configuring TCP/IPv6 hardware segmentation offload.
+
+        * The IPv6 RA sender implementation may now optionally send out RDNSS
+          and RDNSSL records for supplying DNS configuration to peers.
+
+        * systemd-nspawn gained support for a new --system-call-filter= command
+          line option for adding/removing entries in the default system call
+          filter it applies. Moreover systemd-nspawn has been changed to
+          implement a system call whitelist instead of a blacklist.
+
+        * systemd-run gained support for a new --pipe command line option. If
+          used the STDIN/STDOUT/STDERR file descriptors passed to systemd-run
+          are directly passed on to the activated transient service
+          binary. This allows invoking arbitrary processes as systemd services
+          (for example to take benefit of dependency management, accounting
+          management, resource management or log management that is done
+          automatically for services) — while still allowing them to be
+          integrated in a classic UNIX shell pipeline.
+
+        * When a service sends RELOAD=1 via sd_notify() and reload propagation
+          using ReloadPropagationTo= is configured, a reload is now propagated
+          to configured units. (Previously this was only done on explicitly
+          requested reloads, using "systemctl reload" or an equivalent
+          command.)
+
+        * For each service unit a restart counter is now kept: it is increased
+          each time the service is restarted due to Restart=, and may be
+          queried using "systemctl show -p NRestarts …".
+
+        * New system call filter groups @setuid, @credentials, @memlock,
+          @signal and @timer have been added, for usage with SystemCallFilter=
+          in unit files and the new --system-call-filter= command line option
+          of systemd-nspawn (see above).
+
+        * ExecStart= lines in unit files gained two new modifiers: when a
+          command line is prefixed with "!" the command will be executed as
+          configured, except for the credentials applied by
+          setuid()/setgid()/setgroups(). It is very similar to the pre-existing
+          "+", but does still apply namespacing options unlike "+". There's
+          also "!!" now, which is mostly identical, but becomes a NOP on
+          systems that support ambient capabilities. This is useful to write
+          unit files that work with ambient capabilities where possible but
+          automatically fall back to traditional privilege dropping mechanisms
+          on systems where this is not supported.
+
+        * ListenNetlink= settings in socket units now support RDMA netlink
+          sockets.
+
+        * A new unit file setting LockPersonality= has been added which permits
+          locking down the chosen execution domain ("personality") of a service
+          during runtime.
+
+        * A new special target "getty-pre.target" has been added, which is
+          ordered before all text logins, and may be used to order services
+          before, that shall run before these textual logins acquire access to
+          the console.
+
+        * systemd will now attempt to load the virtio-rng.ko kernel module very
+          early on if a VM environment supporting this is detected. This should
+          improve entropy during early boot in virtualized environments.
+
+        * A _netdev option is now supported in /etc/crypttab that operates in a
+          similar way as the same option in /etc/fstab: it permits configuring
+          encrypted devices that need to be ordered after the network coming
+          up. Following this logic, two new special targets
+          remote-cryptsetup-pre.target and remote-cryptsetup.target have been
+          added that are to cryptsetup.target what
+          remote-fs.target/remote-fs-pre.target are to local-fs.target.
+
+        * Service units gained a new UnsetEnvironment= setting which permits
+          unsetting specific environment variables for specific services that
+          are normally passed to it (for example in order to mask out locale
+          settings for specific services that can't deal with it).
+
+        * Units acquired a new boolean option IPAccounting=. When turned on, IP
+          traffic accounting (packet count as well as byte count) is done for
+          the service, and shown as part of "systemctl status" or "systemd-run
+          --wait".
+
+        * Service units acquired two new options IPAddressAllow= and
+          IPAddressDeny=, taking a list of IPv4 or IPv6 addresses and masks,
+          for configuring a simple IP access control list for all sockets of
+          the unit. These options are available also on .slice and .socket
+          units, permitting flexible access list configuration for individual
+          services as well as groups of services (as defined by a slice unit),
+          including system-wide. Note that IP ACLs configured this way are
+          enforced on every single IPv4 and IPv6 socket created by any process
+          of the service unit, and apply to ingress as well as egress traffic.
+
+        * If CPUAccounting= or IPAccounting= is turned on for a unit a new,
+          recognizable log message is generated each time the unit is stopped,
+          containing information about the consumed resources of this
+          invocation.
+
+        * A new setting KeyringMode= has been added to unit files, which may be
+          used to control how the kernel keyring is set up for executed
+          processes.
+
+        * .timer units now accept calendar specifications in other timezones
+          than UTC or the local timezone.
+
+        Contributions from: Abdó Roig-Maranges, Alan Jenkins, Alexander
+        Kuleshov, Andreas Rammhold, Andrew Jeddeloh, Andrew Soutar, Ansgar
+        Burchardt, b1tninja, bengal, Benjamin Berg, Benjamin Robin, Charles
+        Huber, Christian Hesse, Daniel Berrange, Daniel Mack, Daniel Rusek,
+        dasj19, Davide Cavalca, Dimitri John Ledkov, Diogo Pereira, Djalal
+        Harouni, dkg, dmig, Dmitry Torokhov, ettavolt, Evgeny Vereshchagin,
+        Fabio Kung, Felipe Sateler, Franck Bui, g0tar, Hans de Goede, Harald
+        Hoyer, Insun Pyo, Ivan Kurnosov, Ivan Shapovalov, Jakub Wilk, Jan
+        Synacek, Jason Gunthorpe, Jeremy Bicha, Jérémy Rosen, John Lin,
+        jonasBoss, Jonathan Lebon, Jonathan Teh, Jon Ringle, Jörg Thalheim,
+        Jouke Witteveen, juga0, Justin Michaud, Kai-Heng Feng, Lennart
+        Poettering, Lion Yang, Luca Bruno, Lucas Werkmeister, Lukáš Nykrýn,
+        Marcel Hollerbach, Marcus Lundblad, Martin Pitt, Michael Biebl, Michael
+        Grzeschik, Michal Sekletar, Mike Gilbert, Neil Brown, Nicolas Iooss,
+        Patrik Flykt, pEJipE, Russell Stuart, S. Fan, Shengyao Xue, Stefan
+        Pietsch, Susant Sahani, Tejun Heo, Thomas Miller, Thomas Sailer, Tobias
+        Hunger, Tom Gundersen, Tommi Rantala, Topi Miettinen, Torstein Husebø,
+        userwithuid, Vito Caputo, vliaskov, WaLyong Cho, William Douglas, Xiang
+        Fan, Yu Watanabe, Zbigniew Jędrzejewski-Szmek
+
+        — Berlin, 2017-09-XX
 
 CHANGES WITH 234:
 
