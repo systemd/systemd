@@ -1225,6 +1225,9 @@
             <para>The table identifier for DHCP routes (a number between 1 and 4294967295, or 0 to unset).
             The table can be retrieved using <command>ip route show table <replaceable>num</replaceable></command>.
             </para>
+            <para>When used in combination with <varname>VRF=</varname> the
+            VRF's routing table is used unless this parameter is specified.
+            </para>
           </listitem>
         </varlistentry>
 
@@ -1824,8 +1827,9 @@ Bond=bond1
       <title>Virtual Routing and Forwarding (VRF)</title>
       <para>Add the <literal>bond1</literal> interface to the VRF master interface
       <literal>vrf1</literal>. This will redirect routes generated on this interface to be
-      within the routing table defined during VRF creation. Traffic won't be redirected
-      towards the VRFs routing table unless specific ip-rules are added.</para>
+      within the routing table defined during VRF creation. For kernels before 4.8 traffic
+      won't be redirected towards the VRFs routing table unless specific ip-rules are added.
+      </para>
       <programlisting># /etc/systemd/network/25-vrf.network
 [Match]
 Name=bond1

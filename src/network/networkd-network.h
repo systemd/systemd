@@ -139,6 +139,7 @@ struct Network {
         bool dhcp_use_routes;
         bool dhcp_use_timezone;
         bool dhcp_use_hostname;
+        bool dhcp_route_table_set;
         DHCPUseDomains dhcp_use_domains;
 
         /* DHCP Server Support */
