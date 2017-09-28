@@ -161,7 +161,7 @@ _public_ int sd_is_fifo(int fd, const char *path) {
 
                 if (stat(path, &st_path) < 0) {
 
-                        if (errno == ENOENT || errno == ENOTDIR)
+                        if (IN_SET(errno, ENOENT, ENOTDIR))
                                 return 0;
 
                         return -errno;
@@ -191,7 +191,7 @@ _public_ int sd_is_special(int fd, const char *path) {
 
                 if (stat(path, &st_path) < 0) {
 
-                        if (errno == ENOENT || errno == ENOTDIR)
+                        if (IN_SET(errno, ENOENT, ENOTDIR))
                                 return 0;
 
                         return -errno;
@@ -297,8 +297,7 @@ _public_ int sd_is_socket_inet(int fd, int family, int type, int listening, uint
         if (l < sizeof(sa_family_t))
                 return -EINVAL;
 
-        if (sockaddr.sa.sa_family != AF_INET &&
-            sockaddr.sa.sa_family != AF_INET6)
+        if (!IN_SET(sockaddr.sa.sa_family, AF_INET, AF_INET6))
                 return 0;
 
         if (family != 0)
@@ -492,7 +491,7 @@ _public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char
                 return 0;
 
         /* Must be an abstract socket, or an absolute path */
-        if ((e[0] != '@' && e[0] != '/') || e[1] == 0) {
+        if (!IN_SET(e[0], '@', '/') || e[1] == 0) {
                 r = -EINVAL;
                 goto finish;
         }

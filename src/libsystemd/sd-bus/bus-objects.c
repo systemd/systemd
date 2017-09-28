@@ -753,7 +753,7 @@ static int vtable_append_all_properties(
                 return 1;
 
         for (v = c->vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
-                if (v->type != _SD_BUS_VTABLE_PROPERTY && v->type != _SD_BUS_VTABLE_WRITABLE_PROPERTY)
+                if (!IN_SET(v->type, _SD_BUS_VTABLE_PROPERTY, _SD_BUS_VTABLE_WRITABLE_PROPERTY))
                         continue;
 
                 if (v->flags & SD_BUS_VTABLE_HIDDEN)
@@ -2000,7 +2000,7 @@ static int emit_properties_changed_on_interface(
                          * as changing in the message. */
 
                         for (v = c->vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
-                                if (v->type != _SD_BUS_VTABLE_PROPERTY && v->type != _SD_BUS_VTABLE_WRITABLE_PROPERTY)
+                                if (!IN_SET(v->type, _SD_BUS_VTABLE_PROPERTY, _SD_BUS_VTABLE_WRITABLE_PROPERTY))
                                         continue;
 
                                 if (v->flags & SD_BUS_VTABLE_HIDDEN)
@@ -2071,7 +2071,7 @@ static int emit_properties_changed_on_interface(
                                 const sd_bus_vtable *v;
 
                                 for (v = c->vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
-                                        if (v->type != _SD_BUS_VTABLE_PROPERTY && v->type != _SD_BUS_VTABLE_WRITABLE_PROPERTY)
+                                        if (!IN_SET(v->type, _SD_BUS_VTABLE_PROPERTY, _SD_BUS_VTABLE_WRITABLE_PROPERTY))
                                                 continue;
 
                                         if (v->flags & SD_BUS_VTABLE_HIDDEN)

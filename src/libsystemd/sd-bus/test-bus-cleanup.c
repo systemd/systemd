@@ -38,7 +38,7 @@ static int test_bus_open(void) {
         int r;
 
         r = sd_bus_open_user(&bus);
-        if (r == -ECONNREFUSED || r == -ENOENT)
+        if (IN_SET(r, -ECONNREFUSED, -ENOENT))
                 return r;
 
         assert_se(r >= 0);

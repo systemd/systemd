@@ -382,7 +382,7 @@ static int hello_callback(sd_bus_message *reply, void *userdata, sd_bus_error *e
         assert(reply);
         bus = reply->bus;
         assert(bus);
-        assert(bus->state == BUS_HELLO || bus->state == BUS_CLOSING);
+        assert(IN_SET(bus->state, BUS_HELLO, BUS_CLOSING));
 
         r = sd_bus_message_get_errno(reply);
         if (r > 0)
@@ -463,7 +463,7 @@ static int parse_address_key(const char **p, const char *key, char **value) {
         } else
                 a = *p;
 
-        while (*a != ';' && *a != ',' && *a != 0) {
+        while (!IN_SET(*a, ';', ',', 0)) {
                 char c;
 
                 if (*a == '%') {
@@ -532,7 +532,7 @@ static int parse_unix_address(sd_bus *b, const char **p, char **guid) {
         assert(*p);
         assert(guid);
 
-        while (**p != 0 && **p != ';') {
+        while (!IN_SET(**p, 0, ';')) {
                 r = parse_address_key(p, "guid", guid);
                 if (r < 0)
                         return r;
@@ -597,7 +597,7 @@ static int parse_tcp_address(sd_bus *b, const char **p, char **guid) {
         assert(*p);
         assert(guid);
 
-        while (**p != 0 && **p != ';') {
+        while (!IN_SET(**p, 0, ';')) {
                 r = parse_address_key(p, "guid", guid);
                 if (r < 0)
                         return r;
@@ -665,7 +665,7 @@ static int parse_exec_address(sd_bus *b, const char **p, char **guid) {
         assert(*p);
         assert(guid);
 
-        while (**p != 0 && **p != ';') {
+        while (!IN_SET(**p, 0, ';')) {
                 r = parse_address_key(p, "guid", guid);
                 if (r < 0)
                         goto fail;
@@ -755,7 +755,7 @@ static int parse_container_unix_address(sd_bus *b, const char **p, char **guid) 
         assert(*p);
         assert(guid);
 
-        while (**p != 0 && **p != ';') {
+        while (!IN_SET(**p, 0, ';')) {
                 r = parse_address_key(p, "guid", guid);
                 if (r < 0)
                         return r;
@@ -1319,10 +1319,7 @@ _public_ sd_bus* sd_bus_flush_close_unref(sd_bus *bus) {
 static void bus_enter_closing(sd_bus *bus) {
         assert(bus);
 
-        if (bus->state != BUS_OPENING &&
-            bus->state != BUS_AUTHENTICATING &&
-            bus->state != BUS_HELLO &&
-            bus->state != BUS_RUNNING)
+        if (!IN_SET(bus->state, BUS_OPENING, BUS_AUTHENTICATING, BUS_HELLO, BUS_RUNNING))
                 return;
 
         bus->state = BUS_CLOSING;
@@ -1486,7 +1483,7 @@ static int dispatch_wqueue(sd_bus *bus) {
         int r, ret = 0;
 
         assert(bus);
-        assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
+        assert(IN_SET(bus->state, BUS_RUNNING, BUS_HELLO));
 
         while (bus->wqueue_size > 0) {
 
@@ -1542,7 +1539,7 @@ static int dispatch_rqueue(sd_bus *bus, bool hint_priority, int64_t priority, sd
 
         assert(bus);
         assert(m);
-        assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
+        assert(IN_SET(bus->state, BUS_RUNNING, BUS_HELLO));
 
         /* Note that the priority logic is only available on kdbus,
          * where the rqueue is unused. We check the rqueue here
@@ -1611,7 +1608,7 @@ static int bus_send_internal(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie, 
         if (m->dont_send)
                 goto finish;
 
-        if ((bus->state == BUS_RUNNING || bus->state == BUS_HELLO) && bus->wqueue_size <= 0) {
+        if (IN_SET(bus->state, BUS_RUNNING, BUS_HELLO) && bus->wqueue_size <= 0) {
                 size_t idx = 0;
 
                 r = bus_write_message(bus, m, hint_sync_call, &idx);
@@ -1788,7 +1785,7 @@ int bus_ensure_running(sd_bus *bus) {
 
         assert(bus);
 
-        if (bus->state == BUS_UNSET || bus->state == BUS_CLOSED || bus->state == BUS_CLOSING)
+        if (IN_SET(bus->state, BUS_UNSET, BUS_CLOSED, BUS_CLOSING))
                 return -ENOTCONN;
         if (bus->state == BUS_RUNNING)
                 return 1;
@@ -1992,7 +1989,7 @@ _public_ int sd_bus_get_events(sd_bus *bus) {
 
                 flags |= POLLIN;
 
-        } else if (bus->state == BUS_RUNNING || bus->state == BUS_HELLO) {
+        } else if (IN_SET(bus->state, BUS_RUNNING, BUS_HELLO)) {
                 if (bus->rqueue_size <= 0)
                         flags |= POLLIN;
                 if (bus->wqueue_size > 0)
@@ -2027,7 +2024,7 @@ _public_ int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec) {
                 return 1;
         }
 
-        if (bus->state != BUS_RUNNING && bus->state != BUS_HELLO) {
+        if (!IN_SET(bus->state, BUS_RUNNING, BUS_HELLO)) {
                 *timeout_usec = (uint64_t) -1;
                 return 0;
         }
@@ -2124,8 +2121,7 @@ static int process_hello(sd_bus *bus, sd_bus_message *m) {
          * here (we leave that to the usual handling), we just verify
          * we don't let any earlier msg through. */
 
-        if (m->header->type != SD_BUS_MESSAGE_METHOD_RETURN &&
-            m->header->type != SD_BUS_MESSAGE_METHOD_ERROR)
+        if (!IN_SET(m->header->type, SD_BUS_MESSAGE_METHOD_RETURN, SD_BUS_MESSAGE_METHOD_ERROR))
                 return -EIO;
 
         if (m->reply_cookie != 1)
@@ -2144,8 +2140,7 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
         assert(bus);
         assert(m);
 
-        if (m->header->type != SD_BUS_MESSAGE_METHOD_RETURN &&
-            m->header->type != SD_BUS_MESSAGE_METHOD_ERROR)
+        if (!IN_SET(m->header->type, SD_BUS_MESSAGE_METHOD_RETURN, SD_BUS_MESSAGE_METHOD_ERROR))
                 return 0;
 
         if (m->destination && bus->unique_name && !streq_ptr(m->destination, bus->unique_name))
@@ -2414,7 +2409,7 @@ static int process_running(sd_bus *bus, bool hint_priority, int64_t priority, sd
         int r;
 
         assert(bus);
-        assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
+        assert(IN_SET(bus->state, BUS_RUNNING, BUS_HELLO));
 
         r = process_timeout(bus);
         if (r != 0)

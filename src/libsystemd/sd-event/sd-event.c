@@ -1597,7 +1597,7 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
         int r;
 
         assert_return(s, -EINVAL);
-        assert_return(m == SD_EVENT_OFF || m == SD_EVENT_ON || m == SD_EVENT_ONESHOT, -EINVAL);
+        assert_return(IN_SET(m, SD_EVENT_OFF, SD_EVENT_ON, SD_EVENT_ONESHOT), -EINVAL);
         assert_return(!event_pid_changed(s->event), -ECHILD);
 
         /* If we are dead anyway, we are fine with turning off
@@ -2050,7 +2050,7 @@ static int flush_timer(sd_event *e, int fd, uint32_t events, usec_t *next) {
 
         ss = read(fd, &x, sizeof(x));
         if (ss < 0) {
-                if (errno == EAGAIN || errno == EINTR)
+                if (IN_SET(errno, EAGAIN, EINTR))
                         return 0;
 
                 return -errno;
@@ -2139,10 +2139,7 @@ static int process_child(sd_event *e) {
                         return -errno;
 
                 if (s->child.siginfo.si_pid != 0) {
-                        bool zombie =
-                                s->child.siginfo.si_code == CLD_EXITED ||
-                                s->child.siginfo.si_code == CLD_KILLED ||
-                                s->child.siginfo.si_code == CLD_DUMPED;
+                        bool zombie = IN_SET(s->child.siginfo.si_code, CLD_EXITED, CLD_KILLED, CLD_DUMPED);
 
                         if (!zombie && (s->child.options & WEXITED)) {
                                 /* If the child isn't dead then let's
@@ -2193,7 +2190,7 @@ static int process_signal(sd_event *e, struct signal_data *d, uint32_t events) {
 
                 n = read(d->fd, &si, sizeof(si));
                 if (n < 0) {
-                        if (errno == EAGAIN || errno == EINTR)
+                        if (IN_SET(errno, EAGAIN, EINTR))
                                 return read_one;
 
                         return -errno;
@@ -2235,7 +2232,7 @@ static int source_dispatch(sd_event_source *s) {
          * the event. */
         saved_type = s->type;
 
-        if (s->type != SOURCE_DEFER && s->type != SOURCE_EXIT) {
+        if (!IN_SET(s->type, SOURCE_DEFER, SOURCE_EXIT)) {
                 r = source_set_pending(s, false);
                 if (r < 0)
                         return r;
@@ -2287,9 +2284,7 @@ static int source_dispatch(sd_event_source *s) {
         case SOURCE_CHILD: {
                 bool zombie;
 
-                zombie = s->child.siginfo.si_code == CLD_EXITED ||
-                         s->child.siginfo.si_code == CLD_KILLED ||
-                         s->child.siginfo.si_code == CLD_DUMPED;
+                zombie = IN_SET(s->child.siginfo.si_code, CLD_EXITED, CLD_KILLED, CLD_DUMPED);
 
                 r = s->child.callback(s, &s->child.siginfo, s->userdata);
 

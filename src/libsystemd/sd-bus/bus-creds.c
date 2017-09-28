@@ -816,7 +816,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                 if (!f) {
                         if (errno == ENOENT)
                                 return -ESRCH;
-                        else if (errno != EPERM && errno != EACCES)
+                        else if (!IN_SET(errno, EPERM, EACCES))
                                 return -errno;
                 } else {
                         char line[LINE_MAX];
@@ -974,7 +974,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                 p = procfs_file_alloca(pid, "attr/current");
                 r = read_one_line_file(p, &c->label);
                 if (r < 0) {
-                        if (r != -ENOENT && r != -EINVAL && r != -EPERM && r != -EACCES)
+                        if (!IN_SET(r, -ENOENT, -EINVAL, -EPERM, -EACCES))
                                 return r;
                 } else
                         c->mask |= SD_BUS_CREDS_SELINUX_CONTEXT;
@@ -983,7 +983,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
         if (missing & SD_BUS_CREDS_COMM) {
                 r = get_process_comm(pid, &c->comm);
                 if (r < 0) {
-                        if (r != -EPERM && r != -EACCES)
+                        if (!IN_SET(r, -EPERM, -EACCES))
                                 return r;
                 } else
                         c->mask |= SD_BUS_CREDS_COMM;
@@ -1002,7 +1002,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                         c->exe = NULL;
                         c->mask |= SD_BUS_CREDS_EXE;
                 } else if (r < 0) {
-                        if (r != -EPERM && r != -EACCES)
+                        if (!IN_SET(r, -EPERM, -EACCES))
                                 return r;
                 } else
                         c->mask |= SD_BUS_CREDS_EXE;
@@ -1016,7 +1016,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                 if (r == -ENOENT)
                         return -ESRCH;
                 if (r < 0) {
-                        if (r != -EPERM && r != -EACCES)
+                        if (!IN_SET(r, -EPERM, -EACCES))
                                 return r;
                 } else {
                         if (c->cmdline_size == 0)
@@ -1036,7 +1036,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                 if (r == -ENOENT)
                         return -ESRCH;
                 if (r < 0) {
-                        if (r != -EPERM && r != -EACCES)
+                        if (!IN_SET(r, -EPERM, -EACCES))
                                 return r;
                 } else
                         c->mask |= SD_BUS_CREDS_TID_COMM;
@@ -1047,7 +1047,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                 if (!c->cgroup) {
                         r = cg_pid_get_path(NULL, pid, &c->cgroup);
                         if (r < 0) {
-                                if (r != -EPERM && r != -EACCES)
+                                if (!IN_SET(r, -EPERM, -EACCES))
                                         return r;
                         }
                 }
@@ -1069,7 +1069,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                         c->audit_session_id = AUDIT_SESSION_INVALID;
                         c->mask |= SD_BUS_CREDS_AUDIT_SESSION_ID;
                 } else if (r < 0) {
-                        if (r != -EOPNOTSUPP && r != -ENOENT && r != -EPERM && r != -EACCES)
+                        if (!IN_SET(r, -EOPNOTSUPP, -ENOENT, -EPERM, -EACCES))
                                 return r;
                 } else
                         c->mask |= SD_BUS_CREDS_AUDIT_SESSION_ID;
@@ -1082,7 +1082,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                         c->audit_login_uid = UID_INVALID;
                         c->mask |= SD_BUS_CREDS_AUDIT_LOGIN_UID;
                 } else if (r < 0) {
-                        if (r != -EOPNOTSUPP && r != -ENOENT && r != -EPERM && r != -EACCES)
+                        if (!IN_SET(r, -EOPNOTSUPP, -ENOENT, -EPERM, -EACCES))
                                 return r;
                 } else
                         c->mask |= SD_BUS_CREDS_AUDIT_LOGIN_UID;
@@ -1095,7 +1095,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                         c->tty = NULL;
                         c->mask |= SD_BUS_CREDS_TTY;
                 } else if (r < 0) {
-                        if (r != -EPERM && r != -EACCES && r != -ENOENT)
+                        if (!IN_SET(r, -EPERM, -EACCES, -ENOENT))
                                 return r;
                 } else
                         c->mask |= SD_BUS_CREDS_TTY;

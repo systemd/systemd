@@ -122,7 +122,7 @@ int local_addresses(sd_netlink *context, int ifindex, int af, struct local_addre
                 if (r < 0)
                         return r;
 
-                if (ifindex == 0 && (a->scope == RT_SCOPE_HOST || a->scope == RT_SCOPE_NOWHERE))
+                if (ifindex == 0 && IN_SET(a->scope, RT_SCOPE_HOST, RT_SCOPE_NOWHERE))
                         continue;
 
                 switch (family) {

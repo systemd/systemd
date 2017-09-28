@@ -282,7 +282,7 @@ int sd_rtnl_message_new_route(sd_netlink *rtnl, sd_netlink_message **ret,
 
         assert_return(rtnl_message_type_is_route(nlmsg_type), -EINVAL);
         assert_return((nlmsg_type == RTM_GETROUTE && rtm_family == AF_UNSPEC) ||
-                      rtm_family == AF_INET || rtm_family == AF_INET6, -EINVAL);
+                      IN_SET(rtm_family, AF_INET, AF_INET6), -EINVAL);
         assert_return(ret, -EINVAL);
 
         r = message_new(rtnl, ret, nlmsg_type);
@@ -390,9 +390,7 @@ int sd_rtnl_message_new_neigh(sd_netlink *rtnl, sd_netlink_message **ret, uint16
         int r;
 
         assert_return(rtnl_message_type_is_neigh(nlmsg_type), -EINVAL);
-        assert_return(ndm_family == AF_INET  ||
-                      ndm_family == AF_INET6 ||
-                      ndm_family == PF_BRIDGE, -EINVAL);
+        assert_return(IN_SET(ndm_family, AF_INET, AF_INET6, PF_BRIDGE), -EINVAL);
         assert_return(ret, -EINVAL);
 
         r = message_new(rtnl, ret, nlmsg_type);
@@ -608,7 +606,7 @@ int sd_rtnl_message_new_addr(sd_netlink *rtnl, sd_netlink_message **ret,
         assert_return((nlmsg_type == RTM_GETADDR && index == 0) ||
                       index > 0, -EINVAL);
         assert_return((nlmsg_type == RTM_GETADDR && family == AF_UNSPEC) ||
-                      family == AF_INET || family == AF_INET6, -EINVAL);
+                      IN_SET(family, AF_INET, AF_INET6), -EINVAL);
         assert_return(ret, -EINVAL);
 
         r = message_new(rtnl, ret, nlmsg_type);

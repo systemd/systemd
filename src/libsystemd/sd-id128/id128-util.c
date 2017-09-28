@@ -75,7 +75,7 @@ bool id128_is_valid(const char *s) {
                 for (i = 0; i < l; i++) {
                         char c = s[i];
 
-                        if ((i == 8 || i == 13 || i == 18 || i == 23)) {
+                        if (IN_SET(i, 8, 13, 18, 23)) {
                                 if (c != '-')
                                         return false;
                         } else {
