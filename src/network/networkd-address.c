@@ -513,7 +513,10 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
                 in_addr.in.s_addr = in_addr.in.s_addr | htobe32(1);
 
                 /* .. and use last as broadcast address */
-                broadcast.s_addr = in_addr.in.s_addr | htobe32(0xFFFFFFFFUL >> original->prefixlen);
+                if (original->prefixlen > 30)
+                        broadcast.s_addr = 0;
+                else
+                        broadcast.s_addr = in_addr.in.s_addr | htobe32(0xFFFFFFFFUL >> original->prefixlen);
         } else if (original->family == AF_INET6)
                 in_addr.in6.s6_addr[15] |= 1;
 
@@ -628,9 +631,11 @@ int address_configure(
                         return log_error_errno(r, "Could not append IFA_ADDRESS attribute: %m");
         } else {
                 if (address->family == AF_INET) {
-                        r = sd_netlink_message_append_in_addr(req, IFA_BROADCAST, &address->broadcast);
-                        if (r < 0)
-                                return log_error_errno(r, "Could not append IFA_BROADCAST attribute: %m");
+                        if (address->prefixlen <= 30) {
+                                r = sd_netlink_message_append_in_addr(req, IFA_BROADCAST, &address->broadcast);
+                                if (r < 0)
+                                        return log_error_errno(r, "Could not append IFA_BROADCAST attribute: %m");
+                        }
                 }
         }
 
