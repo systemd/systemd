@@ -19,7 +19,7 @@ libudev_sym_path = '@0@/@1@'.format(meson.current_source_dir(), libudev_sym)
 libudev = shared_library(
         'udev',
         libudev_sources,
-        version : '1.6.6',
+        version : libudev_version,
         include_directories : includes,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libudev_sym_path],

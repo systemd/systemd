@@ -10,6 +10,9 @@ project('systemd', 'c',
         meson_version : '>= 0.40',
        )
 
+libsystemd_version = '0.19.0'
+libudev_version = '1.6.6'
+
 # We need the same data in three different formats, ugh!
 # Also, for hysterical reasons, we use different variable
 # names, sometimes. Not all variables are included in every
@@ -1126,7 +1129,7 @@ libsystemd = shared_library(
         'systemd',
         libsystemd_internal_sources,
         journal_internal_sources,
-        version : '0.19.0',
+        version : libsystemd_version,
         include_directories : includes,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libsystemd_sym_path],
