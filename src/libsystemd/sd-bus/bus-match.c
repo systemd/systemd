@@ -453,7 +453,7 @@ static int bus_match_add_compare_value(
         int r;
 
         assert(where);
-        assert(where->type == BUS_MATCH_ROOT || where->type == BUS_MATCH_VALUE);
+        assert(IN_SET(where->type, BUS_MATCH_ROOT, BUS_MATCH_VALUE));
         assert(BUS_MATCH_IS_COMPARE(t));
         assert(ret);
 
@@ -567,7 +567,7 @@ static int bus_match_find_compare_value(
         struct bus_match_node *c, *n;
 
         assert(where);
-        assert(where->type == BUS_MATCH_ROOT || where->type == BUS_MATCH_VALUE);
+        assert(IN_SET(where->type, BUS_MATCH_ROOT, BUS_MATCH_VALUE));
         assert(BUS_MATCH_IS_COMPARE(t));
         assert(ret);
 
@@ -601,7 +601,7 @@ static int bus_match_add_leaf(
         struct bus_match_node *n;
 
         assert(where);
-        assert(where->type == BUS_MATCH_ROOT || where->type == BUS_MATCH_VALUE);
+        assert(IN_SET(where->type, BUS_MATCH_ROOT, BUS_MATCH_VALUE));
         assert(callback);
 
         n = new0(struct bus_match_node, 1);
@@ -631,7 +631,7 @@ static int bus_match_find_leaf(
         struct bus_match_node *c;
 
         assert(where);
-        assert(where->type == BUS_MATCH_ROOT || where->type == BUS_MATCH_VALUE);
+        assert(IN_SET(where->type, BUS_MATCH_ROOT, BUS_MATCH_VALUE));
         assert(ret);
 
         for (c = where->child; c; c = c->next) {

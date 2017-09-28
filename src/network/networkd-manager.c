@@ -319,7 +319,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
         if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get message type: %m");
                 return 0;
-        } else if (type != RTM_NEWROUTE && type != RTM_DELROUTE) {
+        } else if (!IN_SET(type, RTM_NEWROUTE, RTM_DELROUTE)) {
                 log_warning("rtnl: received unexpected message type when processing route");
                 return 0;
         }
@@ -413,7 +413,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
                 break;
 
         default:
-                log_link_debug(link, "rtnl: ignoring unsupported address family: %d", family);
+                assert_not_reached("Received unsupported address family");
                 return 0;
         }
 
@@ -516,7 +516,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get message type: %m");
                 return 0;
-        } else if (type != RTM_NEWADDR && type != RTM_DELADDR) {
+        } else if (!IN_SET(type, RTM_NEWADDR, RTM_DELADDR)) {
                 log_warning("rtnl: received unexpected message type when processing address");
                 return 0;
         }
@@ -663,7 +663,7 @@ static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *messa
         if (r < 0) {
                 log_warning_errno(r, "rtnl: Could not get message type: %m");
                 return 0;
-        } else if (type != RTM_NEWLINK && type != RTM_DELLINK) {
+        } else if (!IN_SET(type, RTM_NEWLINK, RTM_DELLINK)) {
                 log_warning("rtnl: Received unexpected message type when processing link");
                 return 0;
         }
@@ -801,7 +801,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
                 break;
 
         default:
-                assert_not_reached("Received unsupported rule family");
+                assert_not_reached("Received unsupported address family");
         }
 
         if (from_prefixlen == 0 && to_prefixlen == 0)

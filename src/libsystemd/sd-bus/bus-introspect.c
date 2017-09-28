@@ -81,7 +81,7 @@ static void introspect_write_flags(struct introspect *i, int type, int flags) {
         if (type == _SD_BUS_VTABLE_METHOD && (flags & SD_BUS_VTABLE_METHOD_NO_REPLY))
                 fputs_unlocked("   <annotation name=\"org.freedesktop.DBus.Method.NoReply\" value=\"true\"/>\n", i->f);
 
-        if (type == _SD_BUS_VTABLE_PROPERTY || type == _SD_BUS_VTABLE_WRITABLE_PROPERTY) {
+        if (IN_SET(type, _SD_BUS_VTABLE_PROPERTY, _SD_BUS_VTABLE_WRITABLE_PROPERTY)) {
                 if (flags & SD_BUS_VTABLE_PROPERTY_EXPLICIT)
                         fputs_unlocked("   <annotation name=\"org.freedesktop.systemd1.Explicit\" value=\"true\"/>\n", i->f);
 
@@ -94,7 +94,7 @@ static void introspect_write_flags(struct introspect *i, int type, int flags) {
         }
 
         if (!i->trusted &&
-            (type == _SD_BUS_VTABLE_METHOD || type == _SD_BUS_VTABLE_WRITABLE_PROPERTY) &&
+            IN_SET(type, _SD_BUS_VTABLE_METHOD, _SD_BUS_VTABLE_WRITABLE_PROPERTY) &&
             !(flags & SD_BUS_VTABLE_UNPRIVILEGED))
                 fputs_unlocked("   <annotation name=\"org.freedesktop.systemd1.Privileged\" value=\"true\"/>\n", i->f);
 }

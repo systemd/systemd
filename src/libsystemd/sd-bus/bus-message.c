@@ -587,7 +587,7 @@ static sd_bus_message *message_new(sd_bus *bus, uint8_t type) {
         m->header->endian = BUS_NATIVE_ENDIAN;
         m->header->type = type;
         m->header->version = bus->message_version;
-        m->allow_fds = bus->can_fds || (bus->state != BUS_HELLO && bus->state != BUS_RUNNING);
+        m->allow_fds = bus->can_fds || !IN_SET(bus->state, BUS_HELLO, BUS_RUNNING);
         m->root_container.need_offsets = BUS_MESSAGE_IS_GVARIANT(m);
         m->bus = sd_bus_ref(bus);
 
@@ -1550,7 +1550,7 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
                 if (!a)
                         return -ENOMEM;
 
-                if (type == SD_BUS_TYPE_STRING || type == SD_BUS_TYPE_OBJECT_PATH) {
+                if (IN_SET(type, SD_BUS_TYPE_STRING, SD_BUS_TYPE_OBJECT_PATH)) {
                         *(uint32_t*) a = sz - 5;
                         memcpy((uint8_t*) a + 4, p, sz - 4);
 
@@ -2229,7 +2229,7 @@ _public_ int sd_bus_message_close_container(sd_bus_message *m) {
                 r = bus_message_close_array(m, c);
         else if (c->enclosing == SD_BUS_TYPE_VARIANT)
                 r = bus_message_close_variant(m, c);
-        else if (c->enclosing == SD_BUS_TYPE_STRUCT || c->enclosing == SD_BUS_TYPE_DICT_ENTRY)
+        else if (IN_SET(c->enclosing, SD_BUS_TYPE_STRUCT, SD_BUS_TYPE_DICT_ENTRY))
                 r = bus_message_close_struct(m, c, true);
         else
                 assert_not_reached("Unknown container type");
@@ -3171,9 +3171,7 @@ static int container_next_item(sd_bus_message *m, struct bus_container *c, size_
 
                 c->offset_index++;
 
-        } else if (c->enclosing == 0 ||
-                   c->enclosing == SD_BUS_TYPE_STRUCT ||
-                   c->enclosing == SD_BUS_TYPE_DICT_ENTRY) {
+        } else if (IN_SET(c->enclosing, 0, SD_BUS_TYPE_STRUCT, SD_BUS_TYPE_DICT_ENTRY)) {
 
                 int alignment;
                 size_t n, j;
@@ -5060,8 +5058,7 @@ static int message_skip_fields(
 
                         (*signature)++;
 
-                } else if (t == SD_BUS_TYPE_STRUCT ||
-                           t == SD_BUS_TYPE_DICT_ENTRY) {
+                } else if (IN_SET(t, SD_BUS_TYPE_STRUCT, SD_BUS_TYPE_DICT_ENTRY)) {
 
                         r = signature_element_length(*signature, &l);
                         if (r < 0)
@@ -5719,9 +5716,7 @@ _public_ int sd_bus_message_copy(sd_bus_message *m, sd_bus_message *source, int 
 
                 assert(r > 0);
 
-                if (type == SD_BUS_TYPE_OBJECT_PATH ||
-                    type == SD_BUS_TYPE_SIGNATURE ||
-                    type == SD_BUS_TYPE_STRING)
+                if (IN_SET(type, SD_BUS_TYPE_OBJECT_PATH, SD_BUS_TYPE_SIGNATURE, SD_BUS_TYPE_STRING))
                         r = sd_bus_message_append_basic(m, type, basic.string);
                 else
                         r = sd_bus_message_append_basic(m, type, &basic);
