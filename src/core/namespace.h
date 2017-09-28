@@ -69,6 +69,7 @@ int setup_namespace(
                 char **read_write_paths,
                 char **read_only_paths,
                 char **inaccessible_paths,
+                char **empty_directories,
                 const BindMount *bind_mounts,
                 unsigned n_bind_mounts,
                 const char *tmp_dir,

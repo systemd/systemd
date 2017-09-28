@@ -82,6 +82,7 @@ int main(int argc, char *argv[]) {
                             (char **) writable,
                             (char **) readonly,
                             (char **) inaccessible,
+                            NULL,
                             &(BindMount) { .source = (char*) "/usr/bin", .destination = (char*) "/etc/systemd", .read_only = true }, 1,
                             tmp_dir,
                             var_tmp_dir,

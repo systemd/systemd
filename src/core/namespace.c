@@ -59,6 +59,7 @@ typedef enum MountMode {
         PRIVATE_VAR_TMP,
         PRIVATE_DEV,
         BIND_DEV,
+        EMPTY_DIR,
         SYSFS,
         PROCFS,
         READONLY,
@@ -219,6 +220,28 @@ static int append_access_mounts(MountEntry **p, char **strv, MountMode mode) {
                         .mode = mode,
                         .ignore = ignore,
                         .has_prefix = !needs_prefix,
+                };
+        }
+
+        return 0;
+}
+
+static int append_empty_dir_mounts(MountEntry **p, char **strv) {
+        char **i;
+
+        assert(p);
+
+        /* Adds tmpfs mounts to provide readable but empty directories. This is primarily used to implement the
+         * "/private/" boundary directories for DynamicUser=1. */
+
+        STRV_FOREACH(i, strv) {
+
+                *((*p)++) = (MountEntry) {
+                        .path_const = *i,
+                        .mode = EMPTY_DIR,
+                        .ignore = false,
+                        .has_prefix = false,
+                        .read_only = true,
                 };
         }
 
@@ -673,6 +696,20 @@ static int mount_procfs(MountEntry *m) {
         return 1;
 }
 
+static int mount_empty_dir(MountEntry *m) {
+        assert(m);
+
+        /* First, get rid of everything that is below if there is anything. Then, overmount with our new empty dir */
+
+        (void) mkdir_p_label(mount_entry_path(m), 0755);
+        (void) umount_recursive(mount_entry_path(m), 0);
+
+        if (mount("tmpfs", mount_entry_path(m), "tmpfs", MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME, "mode=755") < 0)
+                return log_debug_errno(errno, "Failed to mount %s: %m", mount_entry_path(m));
+
+        return 1;
+}
+
 static int mount_entry_chase(
                 const char *root_directory,
                 MountEntry *m,
@@ -770,6 +807,9 @@ static int apply_mount(
                 what = mount_entry_source(m);
                 make = true;
                 break;
+
+        case EMPTY_DIR:
+                return mount_empty_dir(m);
 
         case PRIVATE_TMP:
                 what = tmp_dir;
@@ -880,6 +920,7 @@ static unsigned namespace_calculate_mounts(
                 char** read_write_paths,
                 char** read_only_paths,
                 char** inaccessible_paths,
+                char** empty_directories,
                 const BindMount *bind_mounts,
                 unsigned n_bind_mounts,
                 const char* tmp_dir,
@@ -906,6 +947,7 @@ static unsigned namespace_calculate_mounts(
                 strv_length(read_write_paths) +
                 strv_length(read_only_paths) +
                 strv_length(inaccessible_paths) +
+                strv_length(empty_directories) +
                 n_bind_mounts +
                 ns_info->private_dev +
                 (ns_info->protect_kernel_tunables ? ELEMENTSOF(protect_kernel_tunables_table) : 0) +
@@ -922,6 +964,7 @@ int setup_namespace(
                 char** read_write_paths,
                 char** read_only_paths,
                 char** inaccessible_paths,
+                char** empty_directories,
                 const BindMount *bind_mounts,
                 unsigned n_bind_mounts,
                 const char* tmp_dir,
@@ -993,6 +1036,7 @@ int setup_namespace(
                         read_write_paths,
                         read_only_paths,
                         inaccessible_paths,
+                        empty_directories,
                         bind_mounts, n_bind_mounts,
                         tmp_dir, var_tmp_dir,
                         protect_home, protect_system);
@@ -1012,6 +1056,10 @@ int setup_namespace(
                         goto finish;
 
                 r = append_access_mounts(&m, inaccessible_paths, INACCESSIBLE);
+                if (r < 0)
+                        goto finish;
+
+                r = append_empty_dir_mounts(&m, empty_directories);
                 if (r < 0)
                         goto finish;
 
