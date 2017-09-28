@@ -595,6 +595,7 @@ void bus_socket_setup(sd_bus *b) {
 
         b->message_version = 1;
         b->message_endian = 0;
+        b->is_private = streq(b->sockaddr.un.sun_path, "/run/systemd/private");
 }
 
 static void bus_get_peercred(sd_bus *b) {

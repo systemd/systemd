@@ -177,6 +177,10 @@ static bool value_node_test(
                                 return true;
                 }
 
+                /* Messages from private bus don't have sender set */
+                if (m->bus->is_private && streq(node->value.str, "org.freedesktop.systemd1"))
+                        return true;
+
                 return false;
 
         case BUS_MATCH_DESTINATION:
