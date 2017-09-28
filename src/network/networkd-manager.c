@@ -413,7 +413,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
                 break;
 
         default:
-                log_link_debug(link, "rtnl: ignoring unsupported address family: %d", family);
+                assert_not_reached("Received unsupported address family");
                 return 0;
         }
 
@@ -801,7 +801,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
                 break;
 
         default:
-                assert_not_reached("Received unsupported rule family");
+                assert_not_reached("Received unsupported address family");
         }
 
         if (from_prefixlen == 0 && to_prefixlen == 0)
