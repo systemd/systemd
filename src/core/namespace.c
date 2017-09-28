@@ -688,7 +688,9 @@ static int mount_entry_chase(
          * chase the symlinks on our own first. This is called for the destination path, as well as the source path (if
          * that applies). The result is stored in "location". */
 
-        r = chase_symlinks(path, root_directory, 0, &chased);
+        r = chase_symlinks(path, root_directory,
+                           IN_SET(m->mode, BIND_MOUNT, BIND_MOUNT_RECURSIVE, PRIVATE_TMP, PRIVATE_VAR_TMP, PRIVATE_DEV, BIND_DEV, EMPTY_DIR, SYSFS, PROCFS) ? CHASE_NONEXISTENT : 0,
+                           &chased);
         if (r == -ENOENT && m->ignore) {
                 log_debug_errno(r, "Path %s does not exist, ignoring.", path);
                 return 0;
@@ -710,8 +712,8 @@ static int apply_mount(
                 const char *tmp_dir,
                 const char *var_tmp_dir) {
 
+        bool rbind = true, make = false;
         const char *what;
-        bool rbind = true;
         int r;
 
         assert(m);
@@ -766,14 +768,17 @@ static int apply_mount(
                         return r;
 
                 what = mount_entry_source(m);
+                make = true;
                 break;
 
         case PRIVATE_TMP:
                 what = tmp_dir;
+                make = true;
                 break;
 
         case PRIVATE_VAR_TMP:
                 what = var_tmp_dir;
+                make = true;
                 break;
 
         case PRIVATE_DEV:
@@ -794,8 +799,36 @@ static int apply_mount(
 
         assert(what);
 
-        if (mount(what, mount_entry_path(m), NULL, MS_BIND|(rbind ? MS_REC : 0), NULL) < 0)
-                return log_debug_errno(errno, "Failed to mount %s to %s: %m", what, mount_entry_path(m));
+        if (mount(what, mount_entry_path(m), NULL, MS_BIND|(rbind ? MS_REC : 0), NULL) < 0) {
+                bool try_again = false;
+                r = -errno;
+
+                if (r == -ENOENT && make) {
+                        struct stat st;
+
+                        /* Hmm, either the source or the destination are missing. Let's see if we can create the destination, then try again */
+
+                        if (stat(what, &st) >= 0) {
+
+                                (void) mkdir_parents(mount_entry_path(m), 0755);
+
+                                if (S_ISDIR(st.st_mode))
+                                        try_again = mkdir(mount_entry_path(m), 0755) >= 0;
+                                else
+                                        try_again = touch(mount_entry_path(m)) >= 0;
+                        }
+                }
+
+                if (try_again) {
+                        if (mount(what, mount_entry_path(m), NULL, MS_BIND|(rbind ? MS_REC : 0), NULL) < 0)
+                                r = -errno;
+                        else
+                                r = 0;
+                }
+
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to mount %s to %s: %m", what, mount_entry_path(m));
+        }
 
         log_debug("Successfully mounted %s to %s", what, mount_entry_path(m));
         return 0;
