@@ -45,7 +45,7 @@ typedef void (*test_function_t)(Manager *m);
 static void check(Manager *m, Unit *unit, int status_expected, int code_expected) {
         Service *service = NULL;
         usec_t ts;
-        usec_t timeout = 2 * USEC_PER_SEC;
+        usec_t timeout = 2 * USEC_PER_MINUTE;
 
         assert_se(m);
         assert_se(unit);
@@ -317,6 +317,7 @@ static void test_exec_dynamic_user(Manager *m) {
         test(m, "exec-dynamicuser-fixeduser.service", 0, CLD_EXITED);
         test(m, "exec-dynamicuser-fixeduser-one-supplementarygroup.service", 0, CLD_EXITED);
         test(m, "exec-dynamicuser-supplementarygroups.service", 0, CLD_EXITED);
+        test(m, "exec-dynamicuser-state-dir.service", 0, CLD_EXITED);
 }
 
 static void test_exec_environment(Manager *m) {
@@ -500,7 +501,6 @@ int main(int argc, char *argv[]) {
                 test_exec_user,
                 test_exec_group,
                 test_exec_supplementary_groups,
-                test_exec_dynamic_user,
                 test_exec_environment,
                 test_exec_environmentfile,
                 test_exec_passenvironment,
@@ -517,6 +517,7 @@ int main(int argc, char *argv[]) {
         };
         static const test_function_t system_tests[] = {
                 test_exec_systemcall_system_mode_with_user,
+                test_exec_dynamic_user,
                 NULL,
         };
         int r;

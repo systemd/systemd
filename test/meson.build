@@ -64,6 +64,7 @@ test_data_files = '''
         test-execute/exec-dynamicuser-fixeduser.service
         test-execute/exec-dynamicuser-fixeduser-one-supplementarygroup.service
         test-execute/exec-dynamicuser-supplementarygroups.service
+        test-execute/exec-dynamicuser-state-dir.service
         test-execute/exec-ignoresigpipe-no.service
         test-execute/exec-ignoresigpipe-yes.service
         test-execute/exec-personality-x86-64.service
