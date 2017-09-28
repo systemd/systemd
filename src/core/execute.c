@@ -64,6 +64,7 @@
 #include "barrier.h"
 #include "cap-list.h"
 #include "capability-util.h"
+#include "chown-recursive.h"
 #include "def.h"
 #include "env-util.h"
 #include "errno-list.h"
@@ -76,6 +77,7 @@
 #include "glob-util.h"
 #include "io-util.h"
 #include "ioprio.h"
+#include "label.h"
 #include "log.h"
 #include "macro.h"
 #include "missing.h"
@@ -1934,16 +1936,23 @@ static int setup_exec_directory(
                 if (r < 0)
                         goto fail;
 
-                r = mkdir_p_label(p, context->directories[type].mode);
-                if (r < 0)
+                r = mkdir_label(p, context->directories[type].mode);
+                if (r < 0 && r != -EEXIST)
                         goto fail;
+
+                /* First lock down the access mode */
+                if (chmod(p, context->directories[type].mode) < 0) {
+                        r = -errno;
+                        goto fail;
+                }
 
                 /* Don't change the owner of the configuration directory, as in the common case it is not written to by
                  * a service, and shall not be writable. */
                 if (type == EXEC_DIRECTORY_CONFIGURATION)
                         continue;
 
-                r = chmod_and_chown(p, context->directories[type].mode, uid, gid);
+                /* Then, change the ownership of the whole tree, if necessary */
+                r = path_chown_recursive(p, uid, gid);
                 if (r < 0)
                         goto fail;
         }
@@ -1952,7 +1961,6 @@ static int setup_exec_directory(
 
 fail:
         *exit_status = exit_status_table[type];
-
         return r;
 }
 
