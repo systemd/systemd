@@ -314,22 +314,16 @@ int unit_choose_id(Unit *u, const char *name) {
 }
 
 int unit_set_description(Unit *u, const char *description) {
-        char *s;
+        int r;
 
         assert(u);
 
-        if (isempty(description))
-                s = NULL;
-        else {
-                s = strdup(description);
-                if (!s)
-                        return -ENOMEM;
-        }
+        r = free_and_strdup(&u->description, empty_to_null(description));
+        if (r < 0)
+                return r;
+        if (r > 0)
+                unit_add_to_dbus_queue(u);
 
-        free(u->description);
-        u->description = s;
-
-        unit_add_to_dbus_queue(u);
         return 0;
 }
 
@@ -588,8 +582,11 @@ void unit_free(Unit *u) {
         if (u->in_gc_queue)
                 LIST_REMOVE(gc_queue, u->manager->gc_unit_queue, u);
 
-        if (u->in_cgroup_queue)
-                LIST_REMOVE(cgroup_queue, u->manager->cgroup_queue, u);
+        if (u->in_cgroup_realize_queue)
+                LIST_REMOVE(cgroup_realize_queue, u->manager->cgroup_realize_queue, u);
+
+        if (u->in_cgroup_empty_queue)
+                LIST_REMOVE(cgroup_empty_queue, u->manager->cgroup_empty_queue, u);
 
         unit_release_cgroup(u);
 
@@ -2275,7 +2272,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                         check_unneeded_dependencies(u);
 
                 if (ns != os && ns == UNIT_FAILED) {
-                        log_unit_notice(u, "Unit entered failed state.");
+                        log_unit_debug(u, "Unit entered failed state.");
                         unit_start_on_failure(u);
                 }
         }

@@ -296,6 +296,9 @@ static void timer_enter_dead(Timer *t, TimerResult f) {
         if (t->result == TIMER_SUCCESS)
                 t->result = f;
 
+        if (t->result != TIMER_SUCCESS)
+                log_unit_warning(UNIT(t), "Failed with result '%s'.", timer_result_to_string(t->result));
+
         timer_set_state(t, t->result != TIMER_SUCCESS ? TIMER_FAILED : TIMER_DEAD);
 }
 

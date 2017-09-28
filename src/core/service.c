@@ -1512,12 +1512,13 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         if (s->result == SERVICE_SUCCESS)
                 s->result = f;
 
+        if (s->result != SERVICE_SUCCESS)
+                log_unit_warning(UNIT(s), "Failed with result '%s'.", service_result_to_string(s->result));
+
         service_set_state(s, s->result != SERVICE_SUCCESS ? SERVICE_FAILED : SERVICE_DEAD);
 
-        if (s->result != SERVICE_SUCCESS) {
-                log_unit_warning(UNIT(s), "Failed with result '%s'.", service_result_to_string(s->result));
+        if (s->result != SERVICE_SUCCESS)
                 emergency_action(UNIT(s)->manager, s->emergency_action, UNIT(s)->reboot_arg, "service failed");
-        }
 
         if (allow_restart && service_shall_restart(s)) {
 
@@ -3213,7 +3214,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         /* If the PID set is empty now, then let's finish this off
            (On unified we use proper notifications) */
         if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) == 0 && set_isempty(u->pids))
-                service_notify_cgroup_empty_event(u);
+                unit_add_to_cgroup_empty_queue(u);
 }
 
 static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata) {
