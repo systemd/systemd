@@ -24,6 +24,19 @@ Janitorial Clean-ups:
 
 Features:
 
+* maybe set a new set of env vars for services, based on RuntimeDirectory=,
+  StateDirectory=, LogsDirectory=, CacheDirectory= and ConfigurationDirectory=
+  automatically. For example, there could be $RUNTIME_DIRECTORY,
+  $STATE_DIRECTORY, $LOGS_DIRECTORY=, $CACHE_DIRECTORY and
+  $CONFIGURATION_DIRECTORY or so. This could be useful to write services that
+  can adapt to varying directories for these purposes. Special care has to be
+  taken if multiple dirs are configured. Maybe avoid setting the env vars in
+  that case?
+
+* In a similar vein, consider adding unit specifiers that resolve to the root
+  directory used for state, logs, cache and configuration
+  directory. i.e. similar to %t, but for the root of the other special dirs.
+
 * expose IO accounting data on the bus, show it in systemd-run --wait and log
   about it in the resource log message
 
@@ -32,10 +45,6 @@ Features:
 
 * show whether a service has out-of-date configuration in "systemctl status" by
   using mtime data of ConfigurationDirectory=.
-
-* Properly chmod() RuntimeDirectory=, StateDirectory=, LogsDirectory= and
-  CacheDirectory= when we start up and the directory isn't properly owned. In
-  particular to make DynamicUser= work
 
 * replace all uses of fgets() + LINE_MAX by read_line()
 
@@ -175,9 +184,6 @@ Features:
   /proc (such as the sysrq stuff) unavailable
 
 * DeviceAllow= should also generate seccomp filters for mknod()
-
-* Add DataDirectory=, CacheDirectory= and LogDirectory= to match
-  RuntimeDirectory=, and create it as necessary when starting a service, owned by the right user.
 
 * make sure the ratelimit object can deal with USEC_INFINITY as way to turn off things
 
