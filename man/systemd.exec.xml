@@ -220,10 +220,13 @@
         cannot leave files around after unit termination. Moreover <varname>ProtectSystem=strict</varname> and
         <varname>ProtectHome=read-only</varname> are implied, thus prohibiting the service to write to arbitrary file
         system locations. In order to allow the service to write to certain directories, they have to be whitelisted
-        using <varname>ReadWritePaths=</varname>, but care must be taken so that UID/GID recycling doesn't
-        create security issues involving files created by the service. Use <varname>RuntimeDirectory=</varname> (see
-        below) in order to assign a writable runtime directory to a service, owned by the dynamic user/group and
-        removed automatically when the unit is terminated. Defaults to off.</para></listitem>
+        using <varname>ReadWritePaths=</varname>, but care must be taken so that UID/GID recycling doesn't create
+        security issues involving files created by the service. Use <varname>RuntimeDirectory=</varname> (see below) in
+        order to assign a writable runtime directory to a service, owned by the dynamic user/group and removed
+        automatically when the unit is terminated. Use <varname>StateDirectory=</varname>,
+        <varname>CacheDirectory=</varname> and <varname>LogsDirectory=</varname> in order to assign a set of writable
+        directories for specific purposes to the service in a way that they are protected from vulnerabilities due to
+        UID reuse (see below). Defaults to off.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1753,23 +1756,58 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
       <varlistentry>
         <term><varname>RuntimeDirectory=</varname></term>
+        <term><varname>StateDirectory=</varname></term>
+        <term><varname>CacheDirectory=</varname></term>
+        <term><varname>LogsDirectory=</varname></term>
+        <term><varname>ConfigurationDirectory=</varname></term>
 
-        <listitem><para>Takes a whitespace-separated list of directory names. The specified directory names must be
-        relative, and may not include <literal>.</literal> or <literal>..</literal>. If set, one or more directories
-        including their parents by the specified names will be created below <filename>/run</filename> (for system
-        services) or below <varname>$XDG_RUNTIME_DIR</varname> (for user services) when the unit is started. The
-        lowest subdirectories are removed when the unit is stopped. It is possible to preserve the directories if
-        <varname>RuntimeDirectoryPreserve=</varname> is configured to <option>restart</option> or <option>yes</option>.
-        The lowest subdirectories will have the access mode specified in <varname>RuntimeDirectoryMode=</varname>,
-        and be owned by the user and group specified in <varname>User=</varname> and <varname>Group=</varname>.
-        This implies <varname>ReadWritePaths=</varname>, that is, the directories specified
-        in this option are accessible with the access mode specified in <varname>RuntimeDirectoryMode=</varname>
-        even if <varname>ProtectSystem=</varname> is set to <option>strict</option>.
-        Use this to manage one or more runtime directories of the unit and bind their
-        lifetime to the daemon runtime. This is particularly useful for unprivileged daemons that cannot create
+        <listitem><para>These options take a whitespace-separated list of directory names. The specified directory
+        names must be relative, and may not include <literal>.</literal> or <literal>..</literal>. If set, one or more
+        directories by the specified names will be created (including their parents) below <filename>/run</filename>
+        (or <varname>$XDG_RUNTIME_DIR</varname> for user services), <filename>/var/lib</filename> (or
+        <varname>$XDG_CONFIG_HOME</varname> for user services), <filename>/var/cache</filename> (or
+        <varname>$XDG_CACHE_HOME</varname> for user services), <filename>/var/log</filename> (or
+        <varname>$XDG_CONFIG_HOME</varname><filename>/log</filename> for user services), or <filename>/etc</filename>
+        (or <varname>$XDG_CONFIG_HOME</varname> for user services), respectively, when the unit is started.</para>
+
+        <para>In case of <varname>RuntimeDirectory=</varname> the lowest subdirectories are removed when the unit is
+        stopped. It is possible to preserve the specified directories in this case if
+        <varname>RuntimeDirectoryPreserve=</varname> is configured to <option>restart</option> or <option>yes</option>
+        (see below). The directories specified with <varname>StateDirectory=</varname>,
+        <varname>CacheDirectory=</varname>, <varname>LogsDirectory=</varname>,
+        <varname>ConfigurationDirectory=</varname> are not removed when the unit is stopped.</para>
+
+        <para>Except in case of <varname>ConfigurationDirectory=</varname>, the innermost specified directories will be
+        owned by the user and group specified in <varname>User=</varname> and <varname>Group=</varname>. If the
+        specified directories already exist and their owning user or group do not match the configured ones, all files
+        and directories below the specified directories as well as the directories themselves will have their file
+        ownership recursively changed to match what is configured. As an optimization, if the specified directories are
+        already owned by the right user and group, files and directories below of them are left as-is, even if they do
+        not match what is requested. The innermost specified directories will have their access mode adjusted to the
+        what is specified in <varname>RuntimeDirectoryMode=</varname>, <varname>StateDirectoryMode=</varname>,
+        <varname>CacheDirectoryMode=</varname>, <varname>LogsDirectoryMode=</varname> and
+        <varname>ConfigurationDirectoryMode=</varname>.</para>
+
+        <para>Except in case of <varname>ConfigurationDirectory=</varname>, these options imply
+        <varname>ReadWritePaths=</varname> for the specified paths. When combined with
+        <varname>RootDirectory=</varname> or <varname>RootImage=</varname> these paths always reside on the host and
+        are mounted from there into the unit's file system namespace. If <varname>DynamicUser=</varname> is used in
+        conjunction with <varname>RuntimeDirectory=</varname>, <varname>StateDirectory=</varname>,
+        <varname>CacheDirectory=</varname> and <varname>LogsDirectory=</varname>, the behaviour of these options is
+        slightly altered: the directories are created below <filename>/run/private</filename>,
+        <filename>/var/lib/private</filename>, <filename>/var/cache/private</filename> and
+        <filename>/var/log/private</filename>, respectively, which are host directories made inaccessible to
+        unprivileged users, which ensures that access to these directories cannot be gained through dynamic user ID
+        recycling. Symbolic links are created to hide this difference in behaviour. Both from perspective of the host
+        and from inside the unit, the relevant directories hence always appear directly below
+        <filename>/run</filename>, <filename>/var/lib</filename>, <filename>/var/cache</filename> and
+        <filename>/var/log</filename>.</para>
+
+        <para>Use <varname>RuntimeDirectory=</varname> to manage one or more runtime directories for the unit and bind
+        their lifetime to the daemon runtime. This is particularly useful for unprivileged daemons that cannot create
         runtime directories in <filename>/run</filename> due to lack of privileges, and to make sure the runtime
-        directory is cleaned up automatically after use. For runtime directories that require more complex or
-        different configuration or lifetime guarantees, please consider using
+        directory is cleaned up automatically after use. For runtime directories that require more complex or different
+        configuration or lifetime guarantees, please consider using
         <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
         <para>Example: if a system service unit has the following,
@@ -1779,22 +1817,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         except <filename>/run/foo</filename> are owned by the user and group specified in <varname>User=</varname> and
         <varname>Group=</varname>, and removed when the service is stopped.
         </para></listitem>
-      </varlistentry>
 
-      <varlistentry>
-        <term><varname>StateDirectory=</varname></term>
-        <term><varname>CacheDirectory=</varname></term>
-        <term><varname>LogsDirectory=</varname></term>
-        <term><varname>ConfigurationDirectory=</varname></term>
-
-        <listitem><para>Takes a whitespace-separated list of directory names. If set, as similar to
-        <varname>RuntimeDirectory=</varname>, one or more directories including their parents by the specified names
-        will be created below <filename>/var/lib</filename>, <filename>/var/cache</filename>, <filename>/var/log</filename>,
-        or <filename>/etc</filename>, respectively, when the unit is started.
-        Unlike <varname>RuntimeDirectory=</varname>, the directories are not removed when the unit is stopped.
-        The lowest subdirectories will be owned by the user and group specified in <varname>User=</varname>
-        and <varname>Group=</varname>. The options imply <varname>ReadWritePaths=</varname>.
-        </para></listitem>
       </varlistentry>
 
       <varlistentry>
