@@ -2193,7 +2193,7 @@ int bus_exec_context_set_transient_property(
                         if (streq(name, "UMask"))
                                 c->umask = m;
                         else
-                                for (i = 0; i < _EXEC_DIRECTORY_MAX; i++)
+                                for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++)
                                         if (startswith(name, exec_directory_type_to_string(i))) {
                                                 c->directories[i].mode = m;
                                                 break;
@@ -2222,7 +2222,7 @@ int bus_exec_context_set_transient_property(
                         char ***dirs = NULL;
                         ExecDirectoryType i;
 
-                        for (i = 0; i < _EXEC_DIRECTORY_MAX; i++)
+                        for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++)
                                 if (streq(name, exec_directory_type_to_string(i))) {
                                         dirs = &c->directories[i].paths;
                                         break;

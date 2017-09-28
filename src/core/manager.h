@@ -335,7 +335,7 @@ struct Manager {
         int first_boot; /* tri-state */
 
         /* prefixes of e.g. RuntimeDirectory= */
-        char *prefix[_EXEC_DIRECTORY_MAX];
+        char *prefix[_EXEC_DIRECTORY_TYPE_MAX];
 };
 
 #define MANAGER_IS_SYSTEM(m) ((m)->unit_file_scope == UNIT_FILE_SYSTEM)

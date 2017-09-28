@@ -128,8 +128,8 @@ typedef enum ExecDirectoryType {
         EXEC_DIRECTORY_CACHE,
         EXEC_DIRECTORY_LOGS,
         EXEC_DIRECTORY_CONFIGURATION,
-        _EXEC_DIRECTORY_MAX,
-        _EXEC_DIRECTORY_INVALID = -1,
+        _EXEC_DIRECTORY_TYPE_MAX,
+        _EXEC_DIRECTORY_TYPE_INVALID = -1,
 } ExecDirectoryType;
 
 typedef struct ExecDirectory {
@@ -251,7 +251,7 @@ struct ExecContext {
         bool address_families_whitelist:1;
 
         ExecPreserveMode runtime_directory_preserve_mode;
-        ExecDirectory directories[_EXEC_DIRECTORY_MAX];
+        ExecDirectory directories[_EXEC_DIRECTORY_TYPE_MAX];
 
         bool memory_deny_write_execute;
         bool restrict_realtime;

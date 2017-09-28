@@ -1898,7 +1898,7 @@ static int setup_exec_directory(
                 ExecDirectoryType type,
                 int *exit_status) {
 
-        static const int exit_status_table[_EXEC_DIRECTORY_MAX] = {
+        static const int exit_status_table[_EXEC_DIRECTORY_TYPE_MAX] = {
                 [EXEC_DIRECTORY_RUNTIME] = EXIT_RUNTIME_DIRECTORY,
                 [EXEC_DIRECTORY_STATE] = EXIT_STATE_DIRECTORY,
                 [EXEC_DIRECTORY_CACHE] = EXIT_CACHE_DIRECTORY,
@@ -1910,7 +1910,7 @@ static int setup_exec_directory(
 
         assert(context);
         assert(params);
-        assert(type >= 0 && type < _EXEC_DIRECTORY_MAX);
+        assert(type >= 0 && type < _EXEC_DIRECTORY_TYPE_MAX);
         assert(exit_status);
 
         if (!params->prefix[type])
@@ -2008,11 +2008,11 @@ static int compile_read_write_paths(
          * the explicitly configured paths, plus all runtime directories. */
 
         if (strv_isempty(context->read_write_paths)) {
-                for (i = 0; i < _EXEC_DIRECTORY_MAX; i++)
+                for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++)
                         if (!strv_isempty(context->directories[i].paths))
                                 break;
 
-                if (i == _EXEC_DIRECTORY_MAX) {
+                if (i == _EXEC_DIRECTORY_TYPE_MAX) {
                         *ret = NULL; /* NOP if neither is set */
                         return 0;
                 }
@@ -2022,7 +2022,7 @@ static int compile_read_write_paths(
         if (!l)
                 return -ENOMEM;
 
-        for (i = 0; i < _EXEC_DIRECTORY_MAX; i++) {
+        for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++) {
                 if (!params->prefix[i])
                         continue;
 
@@ -2707,7 +2707,7 @@ static int exec_child(
                 }
         }
 
-        for (dt = 0; dt < _EXEC_DIRECTORY_MAX; dt++) {
+        for (dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
                 r = setup_exec_directory(context, params, uid, gid, dt, exit_status);
                 if (r < 0)
                         return log_unit_error_errno(unit, r, "Failed to set up special execution directory in %s: %m", params->prefix[dt]);
@@ -3247,7 +3247,7 @@ void exec_context_init(ExecContext *c) {
         c->ignore_sigpipe = true;
         c->timer_slack_nsec = NSEC_INFINITY;
         c->personality = PERSONALITY_INVALID;
-        for (i = 0; i < _EXEC_DIRECTORY_MAX; i++)
+        for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++)
                 c->directories[i].mode = 0755;
         c->capability_bounding_set = CAP_ALL;
         c->restrict_namespaces = NAMESPACE_FLAGS_ALL;
@@ -3300,7 +3300,7 @@ void exec_context_done(ExecContext *c) {
         c->syscall_archs = set_free(c->syscall_archs);
         c->address_families = set_free(c->address_families);
 
-        for (i = 0; i < _EXEC_DIRECTORY_MAX; i++)
+        for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++)
                 c->directories[i].paths = strv_free(c->directories[i].paths);
 }
 
@@ -3630,7 +3630,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
 
         fprintf(f, "%sRuntimeDirectoryPreserve: %s\n", prefix, exec_preserve_mode_to_string(c->runtime_directory_preserve_mode));
 
-        for (dt = 0; dt < _EXEC_DIRECTORY_MAX; dt++) {
+        for (dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
                 fprintf(f, "%s%sMode: %04o\n", prefix, exec_directory_type_to_string(dt), c->directories[dt].mode);
 
                 STRV_FOREACH(d, c->directories[dt].paths)
@@ -4382,7 +4382,7 @@ static const char* const exec_preserve_mode_table[_EXEC_PRESERVE_MODE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(exec_preserve_mode, ExecPreserveMode, EXEC_PRESERVE_YES);
 
-static const char* const exec_directory_type_table[_EXEC_DIRECTORY_MAX] = {
+static const char* const exec_directory_type_table[_EXEC_DIRECTORY_TYPE_MAX] = {
         [EXEC_DIRECTORY_RUNTIME] = "RuntimeDirectory",
         [EXEC_DIRECTORY_STATE] = "StateDirectory",
         [EXEC_DIRECTORY_CACHE] = "CacheDirectory",

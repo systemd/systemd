@@ -893,7 +893,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                         return r;
         }
 
-        for (dt = 0; dt < _EXEC_DIRECTORY_MAX; dt++) {
+        for (dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
                 if (!u->manager->prefix[dt])
                         continue;
 

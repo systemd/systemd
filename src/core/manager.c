@@ -564,7 +564,7 @@ static int manager_setup_prefix(Manager *m) {
                 const char *suffix;
         };
 
-        static const struct table_entry paths_system[_EXEC_DIRECTORY_MAX] = {
+        static const struct table_entry paths_system[_EXEC_DIRECTORY_TYPE_MAX] = {
                 [EXEC_DIRECTORY_RUNTIME] = { SD_PATH_SYSTEM_RUNTIME, NULL },
                 [EXEC_DIRECTORY_STATE] = { SD_PATH_SYSTEM_STATE_PRIVATE, NULL },
                 [EXEC_DIRECTORY_CACHE] = { SD_PATH_SYSTEM_STATE_CACHE, NULL },
@@ -572,7 +572,7 @@ static int manager_setup_prefix(Manager *m) {
                 [EXEC_DIRECTORY_CONFIGURATION] = { SD_PATH_SYSTEM_CONFIGURATION, NULL },
         };
 
-        static const struct table_entry paths_user[_EXEC_DIRECTORY_MAX] = {
+        static const struct table_entry paths_user[_EXEC_DIRECTORY_TYPE_MAX] = {
                 [EXEC_DIRECTORY_RUNTIME] = { SD_PATH_USER_RUNTIME, NULL },
                 [EXEC_DIRECTORY_STATE] = { SD_PATH_USER_CONFIGURATION, NULL },
                 [EXEC_DIRECTORY_CACHE] = { SD_PATH_SYSTEM_STATE_CACHE, NULL },
@@ -591,7 +591,7 @@ static int manager_setup_prefix(Manager *m) {
         else
                 p = paths_user;
 
-        for (i = 0; i < _EXEC_DIRECTORY_MAX; i++) {
+        for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++) {
                 r = sd_path_home(p[i].type, p[i].suffix, &m->prefix[i]);
                 if (r < 0)
                         return r;
@@ -1191,7 +1191,7 @@ Manager* manager_free(Manager *m) {
         hashmap_free(m->uid_refs);
         hashmap_free(m->gid_refs);
 
-        for (dt = 0; dt < _EXEC_DIRECTORY_MAX; dt++)
+        for (dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++)
                 m->prefix[dt] = mfree(m->prefix[dt]);
 
         return mfree(m);
