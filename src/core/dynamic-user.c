@@ -306,8 +306,9 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                                     IOVEC_INIT((char[1]) { '\n' }, 1),
                             }, 2, 0);
                 if (l < 0) {
+                        r = -errno;
                         (void) unlink(lock_path);
-                        return -errno;
+                        return r;
                 }
 
                 (void) ftruncate(lock_fd, l);
