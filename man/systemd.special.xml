@@ -101,7 +101,6 @@
     <filename>suspend.target</filename>,
     <filename>swap.target</filename>,
     <filename>sysinit.target</filename>,
-    <filename>syslog.socket</filename>,
     <filename>system-update.target</filename>,
     <filename>time-sync.target</filename>,
     <filename>timers.target</filename>,
@@ -115,6 +114,7 @@
     <filename>dbus.socket</filename>,
     <filename>display-manager.service</filename>,
     <filename>init.scope</filename>,
+    <filename>syslog.socket</filename>,
     <filename>system-update-cleanup.service</filename>
   </para></refsynopsisdiv>
 
