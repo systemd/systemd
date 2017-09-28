@@ -618,6 +618,8 @@ static int mount_bind_dev(MountEntry *m) {
         /* Implements the little brother of mount_private_dev(): simply bind mounts the host's /dev into the service's
          * /dev. This is only used when RootDirectory= is set. */
 
+        (void) mkdir_p_label(mount_entry_path(m), 0755);
+
         r = path_is_mount_point(mount_entry_path(m), NULL, 0);
         if (r < 0)
                 return log_debug_errno(r, "Unable to determine whether /dev is already mounted: %m");
@@ -634,6 +636,8 @@ static int mount_sysfs(MountEntry *m) {
         int r;
 
         assert(m);
+
+        (void) mkdir_p_label(mount_entry_path(m), 0755);
 
         r = path_is_mount_point(mount_entry_path(m), NULL, 0);
         if (r < 0)
@@ -652,6 +656,8 @@ static int mount_procfs(MountEntry *m) {
         int r;
 
         assert(m);
+
+        (void) mkdir_p_label(mount_entry_path(m), 0755);
 
         r = path_is_mount_point(mount_entry_path(m), NULL, 0);
         if (r < 0)
