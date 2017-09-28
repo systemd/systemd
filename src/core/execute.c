@@ -2185,6 +2185,9 @@ static int setup_keyring(
         if (context->keyring_mode == EXEC_KEYRING_INHERIT)
                 return 0;
 
+        if (have_effective_cap(CAP_SYS_ADMIN) > 0 && (uid_is_valid(uid) || gid_is_valid(gid)))
+                return 0;
+
         keyring = keyctl(KEYCTL_JOIN_SESSION_KEYRING, 0, 0, 0, 0);
         if (keyring == -1) {
                 if (errno == ENOSYS)
