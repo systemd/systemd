@@ -895,10 +895,8 @@ static int address_label_handler(sd_netlink *rtnl, sd_netlink_message *m, void *
         else if (r >= 0)
                 manager_rtnl_process_address(rtnl, m, link->manager);
 
-        if (link->link_messages == 0) {
+        if (link->link_messages == 0)
                 log_link_debug(link, "Addresses label set");
-                link_enter_set_routes(link);
-        }
 
         return 1;
 }
