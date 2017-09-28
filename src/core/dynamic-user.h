@@ -45,7 +45,7 @@ struct DynamicUser {
 
 int dynamic_user_acquire(Manager *m, const char *name, DynamicUser **ret);
 
-int dynamic_user_realize(DynamicUser *d, uid_t *ret);
+int dynamic_user_realize(DynamicUser *d, char **suggested_paths, uid_t *ret);
 int dynamic_user_current(DynamicUser *d, uid_t *ret);
 
 DynamicUser* dynamic_user_ref(DynamicUser *d);
@@ -60,7 +60,7 @@ int dynamic_user_lookup_uid(Manager *m, uid_t uid, char **ret);
 int dynamic_user_lookup_name(Manager *m, const char *name, uid_t *ret);
 
 int dynamic_creds_acquire(DynamicCreds *creds, Manager *m, const char *user, const char *group);
-int dynamic_creds_realize(DynamicCreds *creds, uid_t *uid, gid_t *gid);
+int dynamic_creds_realize(DynamicCreds *creds, char **suggested_paths, uid_t *uid, gid_t *gid);
 
 void dynamic_creds_unref(DynamicCreds *creds);
 void dynamic_creds_destroy(DynamicCreds *creds);

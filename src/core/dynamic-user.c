@@ -182,33 +182,89 @@ static int make_uid_symlinks(uid_t uid, const char *name, bool b) {
         return r;
 }
 
-static int pick_uid(const char *name, uid_t *ret_uid) {
+static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
+
+        /* Find a suitable free UID. We use the following strategy to find a suitable UID:
+         *
+         * 1. Initially, we try to read the UID of a number of specified paths. If any of these UIDs works, we use
+         *    them. We use in order to increase the chance of UID reuse, if StateDirectory=, CacheDirectory= or
+         *    LogDirectory= are used, as reusing the UID these directories are owned by saves us from having to
+         *    recursively chown() them to new users.
+         *
+         * 2. If that didn't yield a currently unused UID, we hash the user name, and try to use that. This should be
+         *    pretty good, as the use ris by default derived from the unit name, and hence the same service and same
+         *    user should usually get the same UID as long as our hashing doesn't clash.
+         *
+         * 3. Finally, if that didn't work, we randomly pick UIDs, until we find one that is empty.
+         *
+         * Since the dynamic UID space is relatively small we'll stop trying after 100 iterations, giving up. */
+
+        enum {
+                PHASE_SUGGESTED,  /* the first phase, reusing directory ownership UIDs */
+                PHASE_HASHED,     /* the second phase, deriving a UID from the username by hashing */
+                PHASE_RANDOM,     /* the last phase, randomly picking UIDs */
+        } phase = PHASE_SUGGESTED;
 
         static const uint8_t hash_key[] = {
                 0x37, 0x53, 0x7e, 0x31, 0xcf, 0xce, 0x48, 0xf5,
                 0x8a, 0xbb, 0x39, 0x57, 0x8d, 0xd9, 0xec, 0x59
         };
 
-        unsigned n_tries = 100;
-        uid_t candidate;
+        unsigned n_tries = 100, current_suggested = 0;
         int r;
-
-        /* A static user by this name does not exist yet. Let's find a free ID then, and use that. We start with a UID
-         * generated as hash from the user name. */
-        candidate = UID_CLAMP_INTO_RANGE(siphash24(name, strlen(name), hash_key));
 
         (void) mkdir("/run/systemd/dynamic-uid", 0755);
 
         for (;;) {
                 char lock_path[strlen("/run/systemd/dynamic-uid/") + DECIMAL_STR_MAX(uid_t) + 1];
                 _cleanup_close_ int lock_fd = -1;
+                uid_t candidate;
                 ssize_t l;
 
                 if (--n_tries <= 0) /* Give up retrying eventually */
                         return -EBUSY;
 
+                switch (phase) {
+
+                case PHASE_SUGGESTED: {
+                        struct stat st;
+
+                        if (!suggested_paths || !suggested_paths[current_suggested]) {
+                                /* We reached the end of the suggested paths list, let's try by hashing the name */
+                                phase = PHASE_HASHED;
+                                continue;
+                        }
+
+                        if (stat(suggested_paths[current_suggested++], &st) < 0)
+                                continue; /* We can't read the UID of this path, but that doesn't matter, just try the next */
+
+                        candidate = st.st_uid;
+                        break;
+                }
+
+                case PHASE_HASHED:
+                        /* A static user by this name does not exist yet. Let's find a free ID then, and use that. We
+                         * start with a UID generated as hash from the user name. */
+                        candidate = UID_CLAMP_INTO_RANGE(siphash24(name, strlen(name), hash_key));
+
+                        /* If this one fails, we should proceed with random tries */
+                        phase = PHASE_RANDOM;
+                        break;
+
+                case PHASE_RANDOM:
+
+                        /* Pick another random UID, and see if that works for us. */
+                        random_bytes(&candidate, sizeof(candidate));
+                        candidate = UID_CLAMP_INTO_RANGE(candidate);
+                        break;
+
+                default:
+                        assert_not_reached("unknown phase");
+                }
+
+                /* Make sure whatever we picked here actually is in the right range */
                 if (!uid_is_dynamic(candidate))
-                        goto next;
+                        continue;
 
                 xsprintf(lock_path, "/run/systemd/dynamic-uid/" UID_FMT, candidate);
 
@@ -240,7 +296,7 @@ static int pick_uid(const char *name, uid_t *ret_uid) {
                 /* Some superficial check whether this UID/GID might already be taken by some static user */
                 if (getpwuid(candidate) || getgrgid((gid_t) candidate)) {
                         (void) unlink(lock_path);
-                        goto next;
+                        continue;
                 }
 
                 /* Let's store the user name in the lock file, so that we can use it for looking up the username for a UID */
@@ -264,9 +320,7 @@ static int pick_uid(const char *name, uid_t *ret_uid) {
                 return r;
 
         next:
-                /* Pick another random UID, and see if that works for us. */
-                random_bytes(&candidate, sizeof(candidate));
-                candidate = UID_CLAMP_INTO_RANGE(candidate);
+                ;
         }
 }
 
@@ -363,7 +417,7 @@ static void unlink_uid_lock(int lock_fd, uid_t uid, const char *name) {
         (void) make_uid_symlinks(uid, name, false); /* remove direct lookup symlinks */
 }
 
-int dynamic_user_realize(DynamicUser *d, uid_t *ret) {
+int dynamic_user_realize(DynamicUser *d, char **suggested_dirs, uid_t *ret) {
 
         _cleanup_close_ int etc_passwd_lock_fd = -1, uid_lock_fd = -1;
         uid_t uid = UID_INVALID;
@@ -421,7 +475,7 @@ int dynamic_user_realize(DynamicUser *d, uid_t *ret) {
                 if (uid == UID_INVALID) {
                         /* No static UID assigned yet, excellent. Let's pick a new dynamic one, and lock it. */
 
-                        uid_lock_fd = pick_uid(d->name, &uid);
+                        uid_lock_fd = pick_uid(suggested_dirs, d->name, &uid);
                         if (uid_lock_fd < 0)
                                 return uid_lock_fd;
                 }
@@ -744,7 +798,7 @@ int dynamic_creds_acquire(DynamicCreds *creds, Manager *m, const char *user, con
         return 0;
 }
 
-int dynamic_creds_realize(DynamicCreds *creds, uid_t *uid, gid_t *gid) {
+int dynamic_creds_realize(DynamicCreds *creds, char **suggested_paths, uid_t *uid, gid_t *gid) {
         uid_t u = UID_INVALID;
         gid_t g = GID_INVALID;
         int r;
@@ -756,13 +810,13 @@ int dynamic_creds_realize(DynamicCreds *creds, uid_t *uid, gid_t *gid) {
         /* Realize both the referenced user and group */
 
         if (creds->user) {
-                r = dynamic_user_realize(creds->user, &u);
+                r = dynamic_user_realize(creds->user, suggested_paths, &u);
                 if (r < 0)
                         return r;
         }
 
         if (creds->group && creds->group != creds->user) {
-                r = dynamic_user_realize(creds->group, &g);
+                r = dynamic_user_realize(creds->group, suggested_paths, &g);
                 if (r < 0)
                         return r;
         } else

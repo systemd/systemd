@@ -2617,6 +2617,49 @@ static int acquire_home(const ExecContext *c, uid_t uid, const char** home, char
         return 1;
 }
 
+static int compile_suggested_paths(const ExecContext *c, const ExecParameters *p, char ***ret) {
+        _cleanup_strv_free_ char ** list = NULL;
+        ExecDirectoryType t;
+        int r;
+
+        assert(c);
+        assert(p);
+        assert(ret);
+
+        assert(c->dynamic_user);
+
+        /* Compile a list of paths that it might make sense to read the owning UID from to use as initial candidate for
+         * dynamic UID allocation, in order to save us from doing costly recursive chown()s of the special
+         * directories. */
+
+        for (t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
+                char **i;
+
+                if (t == EXEC_DIRECTORY_CONFIGURATION)
+                        continue;
+
+                if (!p->prefix[t])
+                        continue;
+
+                STRV_FOREACH(i, c->directories[t].paths) {
+                        char *e;
+
+                        e = strjoin(p->prefix[t], "/private/", *i);
+                        if (!e)
+                                return -ENOMEM;
+
+                        r = strv_consume(&list, e);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        *ret = list;
+        list = NULL;
+
+        return 0;
+}
+
 static int exec_child(
                 Unit *unit,
                 ExecCommand *command,
@@ -2738,6 +2781,7 @@ static int exec_child(
         }
 
         if (context->dynamic_user && dcreds) {
+                _cleanup_strv_free_ char **suggested_paths = NULL;
 
                 /* Make sure we bypass our own NSS module for any NSS checks */
                 if (putenv((char*) "SYSTEMD_NSS_DYNAMIC_BYPASS=1") != 0) {
@@ -2745,7 +2789,13 @@ static int exec_child(
                         return log_unit_error_errno(unit, errno, "Failed to update environment: %m");
                 }
 
-                r = dynamic_creds_realize(dcreds, &uid, &gid);
+                r = compile_suggested_paths(context, params, &suggested_paths);
+                if (r < 0) {
+                        *exit_status = EXIT_MEMORY;
+                        return log_oom();
+                }
+
+                r = dynamic_creds_realize(dcreds, suggested_paths, &uid, &gid);
                 if (r < 0) {
                         *exit_status = EXIT_USER;
                         return log_unit_error_errno(unit, r, "Failed to update dynamic user credentials: %m");
