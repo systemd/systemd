@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
                 crypt_set_log_callback(cd, log_glue, NULL);
 
                 status = crypt_status(cd, argv[2]);
-                if (status == CRYPT_ACTIVE || status == CRYPT_BUSY) {
+                if (IN_SET(status, CRYPT_ACTIVE, CRYPT_BUSY)) {
                         log_info("Volume %s already active.", argv[2]);
                         r = 0;
                         goto finish;

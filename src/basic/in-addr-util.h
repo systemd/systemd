@@ -66,7 +66,7 @@ int in_addr_prefix_from_string(const char *p, int family, union in_addr_union *r
 int in_addr_prefix_from_string_auto(const char *p, int *ret_family, union in_addr_union *ret_prefix, unsigned char *ret_prefixlen);
 
 static inline size_t FAMILY_ADDRESS_SIZE(int family) {
-        assert(family == AF_INET || family == AF_INET6);
+        assert(IN_SET(family, AF_INET, AF_INET6));
         return family == AF_INET6 ? 16 : 4;
 }
 

@@ -528,7 +528,7 @@ int server_open_audit(Server *s) {
 
                 s->audit_fd = socket(AF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_AUDIT);
                 if (s->audit_fd < 0) {
-                        if (errno == EAFNOSUPPORT || errno == EPROTONOSUPPORT)
+                        if (IN_SET(errno, EAFNOSUPPORT, EPROTONOSUPPORT))
                                 log_debug("Audit not supported in the kernel.");
                         else
                                 log_warning_errno(errno, "Failed to create audit socket, ignoring: %m");

@@ -1528,8 +1528,7 @@ int dns_transaction_go(DnsTransaction *t) {
                   af_to_name_short(t->scope->family));
 
         if (!t->initial_jitter_scheduled &&
-            (t->scope->protocol == DNS_PROTOCOL_LLMNR ||
-             t->scope->protocol == DNS_PROTOCOL_MDNS)) {
+            IN_SET(t->scope->protocol, DNS_PROTOCOL_LLMNR, DNS_PROTOCOL_MDNS)) {
                 usec_t jitter, accuracy;
 
                 /* RFC 4795 Section 2.7 suggests all queries should be

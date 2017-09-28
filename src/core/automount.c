@@ -804,7 +804,7 @@ static int automount_start(Unit *u) {
         int r;
 
         assert(a);
-        assert(a->state == AUTOMOUNT_DEAD || a->state == AUTOMOUNT_FAILED);
+        assert(IN_SET(a->state, AUTOMOUNT_DEAD, AUTOMOUNT_FAILED));
 
         if (path_is_mount_point(a->where, NULL, 0) > 0) {
                 log_unit_error(u, "Path %s is already a mount point, refusing start.", a->where);
@@ -836,7 +836,7 @@ static int automount_stop(Unit *u) {
         Automount *a = AUTOMOUNT(u);
 
         assert(a);
-        assert(a->state == AUTOMOUNT_WAITING || a->state == AUTOMOUNT_RUNNING);
+        assert(IN_SET(a->state, AUTOMOUNT_WAITING, AUTOMOUNT_RUNNING));
 
         automount_enter_dead(a, AUTOMOUNT_SUCCESS);
         return 1;

@@ -102,7 +102,7 @@ static int prepare(char *dir, char *filename)
         if (lockf(fd,F_TLOCK,0) < 0) {
                 if (debug)
                         fprintf(stderr, "Lock taken, wait for %d seconds\n", UDEV_ALARM_TIMEOUT);
-                if (errno == EAGAIN || errno == EACCES) {
+                if (IN_SET(errno, EAGAIN, EACCES)) {
                         alarm(UDEV_ALARM_TIMEOUT);
                         lockf(fd, F_LOCK, 0);
                         if (debug)

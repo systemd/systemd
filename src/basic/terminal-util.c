@@ -476,7 +476,7 @@ int acquire_terminal(
 
                         l = read(notify, &buffer, sizeof(buffer));
                         if (l < 0) {
-                                if (errno == EINTR || errno == EAGAIN)
+                                if (IN_SET(errno, EINTR, EAGAIN))
                                         continue;
 
                                 r = -errno;

@@ -234,7 +234,7 @@ int utmp_put_init_process(const char *id, pid_t pid, pid_t sid, const char *line
         if (r < 0)
                 return r;
 
-        if (ut_type == LOGIN_PROCESS || ut_type == USER_PROCESS) {
+        if (IN_SET(ut_type, LOGIN_PROCESS, USER_PROCESS)) {
                 store.ut_type = LOGIN_PROCESS;
                 r = write_entry_both(&store);
                 if (r < 0)

@@ -931,7 +931,7 @@ static int parse_attribute_from_arg(Item *item) {
 
                 v = attributes[i].value;
 
-                SET_FLAG(value, v, (mode == MODE_ADD || mode == MODE_SET));
+                SET_FLAG(value, v, IN_SET(mode, MODE_ADD, MODE_SET));
 
                 mask |= v;
         }

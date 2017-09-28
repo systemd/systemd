@@ -240,21 +240,23 @@ static int synthesize_system_hostname_rr(Manager *m, const DnsResourceKey *key, 
                         /* If we have no local addresses then use ::1
                          * and 127.0.0.2 as local ones. */
 
-                        if (af == AF_INET || af == AF_UNSPEC)
+                        if (IN_SET(af, AF_INET, AF_UNSPEC))
                                 buffer[n++] = (struct local_address) {
                                         .family = AF_INET,
                                         .ifindex = dns_synthesize_ifindex(ifindex),
                                         .address.in.s_addr = htobe32(0x7F000002),
                                 };
 
-                        if (af == AF_INET6 || af == AF_UNSPEC)
+                        if (IN_SET(af, AF_INET6, AF_UNSPEC))
                                 buffer[n++] = (struct local_address) {
                                         .family = AF_INET6,
                                         .ifindex = dns_synthesize_ifindex(ifindex),
                                         .address.in6 = in6addr_loopback,
                                 };
 
-                        return answer_add_addresses_rr(answer, dns_resource_key_name(key), buffer, n);
+                        return answer_add_addresses_rr(answer,
+                                                       dns_resource_key_name(key),
+                                                       buffer, n);
                 }
         }
 

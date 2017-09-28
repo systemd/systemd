@@ -589,7 +589,7 @@ static int timer_start(Unit *u) {
         int r;
 
         assert(t);
-        assert(t->state == TIMER_DEAD || t->state == TIMER_FAILED);
+        assert(IN_SET(t->state, TIMER_DEAD, TIMER_FAILED));
 
         trigger = UNIT_TRIGGER(u);
         if (!trigger || trigger->load_state != UNIT_LOADED) {
@@ -649,7 +649,7 @@ static int timer_stop(Unit *u) {
         Timer *t = TIMER(u);
 
         assert(t);
-        assert(t->state == TIMER_WAITING || t->state == TIMER_RUNNING || t->state == TIMER_ELAPSED);
+        assert(IN_SET(t->state, TIMER_WAITING, TIMER_RUNNING, TIMER_ELAPSED));
 
         timer_enter_dead(t, TIMER_SUCCESS);
         return 1;
@@ -754,8 +754,7 @@ static void timer_trigger_notify(Unit *u, Unit *other) {
 
         /* Reenable all timers that depend on unit state */
         LIST_FOREACH(value, v, t->values)
-                if (v->base == TIMER_UNIT_ACTIVE ||
-                    v->base == TIMER_UNIT_INACTIVE)
+                if (IN_SET(v->base, TIMER_UNIT_ACTIVE, TIMER_UNIT_INACTIVE))
                         v->disabled = false;
 
         switch (t->state) {

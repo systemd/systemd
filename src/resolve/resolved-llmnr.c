@@ -345,7 +345,7 @@ static int on_llmnr_stream(sd_event_source *s, int fd, uint32_t revents, void *u
 
         cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (cfd < 0) {
-                if (errno == EAGAIN || errno == EINTR)
+                if (IN_SET(errno, EAGAIN, EINTR))
                         return 0;
 
                 return -errno;

@@ -322,8 +322,7 @@ bool journal_file_is_offlining(JournalFile *f) {
 
         __sync_synchronize();
 
-        if (f->offline_state == OFFLINE_DONE ||
-            f->offline_state == OFFLINE_JOINED)
+        if (IN_SET(f->offline_state, OFFLINE_DONE, OFFLINE_JOINED))
                 return false;
 
         return true;

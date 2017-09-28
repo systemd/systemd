@@ -358,7 +358,7 @@ resend:
 
         retval = ioctl(fd, SG_IO, io_buf);
         if (retval < 0) {
-                if ((errno == EINVAL || errno == ENOSYS) && dev_scsi->use_sg == 4) {
+                if (IN_SET(errno, EINVAL, ENOSYS) && dev_scsi->use_sg == 4) {
                         dev_scsi->use_sg = 3;
                         goto resend;
                 }

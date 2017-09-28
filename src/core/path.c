@@ -97,7 +97,7 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
 
                 r = inotify_add_watch(s->inotify_fd, s->path, flags);
                 if (r < 0) {
-                        if (errno == EACCES || errno == ENOENT) {
+                        if (IN_SET(errno, EACCES, ENOENT)) {
                                 if (cut)
                                         *cut = tmp;
                                 break;
@@ -168,14 +168,14 @@ int path_spec_fd_event(PathSpec *s, uint32_t revents) {
 
         l = read(s->inotify_fd, &buffer, sizeof(buffer));
         if (l < 0) {
-                if (errno == EAGAIN || errno == EINTR)
+                if (IN_SET(errno, EAGAIN, EINTR))
                         return 0;
 
                 return log_error_errno(errno, "Failed to read inotify event: %m");
         }
 
         FOREACH_INOTIFY_EVENT(e, buffer, l) {
-                if ((s->type == PATH_CHANGED || s->type == PATH_MODIFIED) &&
+                if (IN_SET(s->type, PATH_CHANGED, PATH_MODIFIED) &&
                     s->primary_wd == e->wd)
                         r = 1;
         }
@@ -224,7 +224,7 @@ static bool path_spec_check_good(PathSpec *s, bool initial) {
 static void path_spec_mkdir(PathSpec *s, mode_t mode) {
         int r;
 
-        if (s->type == PATH_EXISTS || s->type == PATH_EXISTS_GLOB)
+        if (IN_SET(s->type, PATH_EXISTS, PATH_EXISTS_GLOB))
                 return;
 
         r = mkdir_p_label(s->path, mode);
@@ -441,8 +441,7 @@ static int path_coldplug(Unit *u) {
 
         if (p->deserialized_state != p->state) {
 
-                if (p->deserialized_state == PATH_WAITING ||
-                    p->deserialized_state == PATH_RUNNING)
+                if (IN_SET(p->deserialized_state, PATH_WAITING, PATH_RUNNING))
                         path_enter_waiting(p, true, true);
                 else
                         path_set_state(p, p->deserialized_state);
@@ -566,7 +565,7 @@ static int path_start(Unit *u) {
         int r;
 
         assert(p);
-        assert(p->state == PATH_DEAD || p->state == PATH_FAILED);
+        assert(IN_SET(p->state, PATH_DEAD, PATH_FAILED));
 
         trigger = UNIT_TRIGGER(u);
         if (!trigger || trigger->load_state != UNIT_LOADED) {
@@ -596,7 +595,7 @@ static int path_stop(Unit *u) {
         Path *p = PATH(u);
 
         assert(p);
-        assert(p->state == PATH_WAITING || p->state == PATH_RUNNING);
+        assert(IN_SET(p->state, PATH_WAITING, PATH_RUNNING));
 
         path_enter_dead(p, PATH_SUCCESS);
         return 1;

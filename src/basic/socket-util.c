@@ -364,8 +364,7 @@ bool socket_address_can_accept(const SocketAddress *a) {
         assert(a);
 
         return
-                a->type == SOCK_STREAM ||
-                a->type == SOCK_SEQPACKET;
+                IN_SET(a->type, SOCK_STREAM, SOCK_SEQPACKET);
 }
 
 bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) {
@@ -1081,7 +1080,7 @@ ssize_t next_datagram_size_fd(int fd) {
 
         l = recv(fd, NULL, 0, MSG_PEEK|MSG_TRUNC);
         if (l < 0) {
-                if (errno == EOPNOTSUPP || errno == EFAULT)
+                if (IN_SET(errno, EOPNOTSUPP, EFAULT))
                         goto fallback;
 
                 return -errno;

@@ -3552,9 +3552,7 @@ bool unit_active_or_pending(Unit *u) {
                 return true;
 
         if (u->job &&
-            (u->job->type == JOB_START ||
-             u->job->type == JOB_RELOAD_OR_START ||
-             u->job->type == JOB_RESTART))
+            IN_SET(u->job->type, JOB_START, JOB_RELOAD_OR_START, JOB_RESTART))
                 return true;
 
         return false;

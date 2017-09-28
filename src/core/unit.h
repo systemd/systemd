@@ -46,19 +46,19 @@ typedef enum KillOperation {
 } KillOperation;
 
 static inline bool UNIT_IS_ACTIVE_OR_RELOADING(UnitActiveState t) {
-        return t == UNIT_ACTIVE || t == UNIT_RELOADING;
+        return IN_SET(t, UNIT_ACTIVE, UNIT_RELOADING);
 }
 
 static inline bool UNIT_IS_ACTIVE_OR_ACTIVATING(UnitActiveState t) {
-        return t == UNIT_ACTIVE || t == UNIT_ACTIVATING || t == UNIT_RELOADING;
+        return IN_SET(t, UNIT_ACTIVE, UNIT_ACTIVATING, UNIT_RELOADING);
 }
 
 static inline bool UNIT_IS_INACTIVE_OR_DEACTIVATING(UnitActiveState t) {
-        return t == UNIT_INACTIVE || t == UNIT_FAILED || t == UNIT_DEACTIVATING;
+        return IN_SET(t, UNIT_INACTIVE, UNIT_FAILED, UNIT_DEACTIVATING);
 }
 
 static inline bool UNIT_IS_INACTIVE_OR_FAILED(UnitActiveState t) {
-        return t == UNIT_INACTIVE || t == UNIT_FAILED;
+        return IN_SET(t, UNIT_INACTIVE, UNIT_FAILED);
 }
 
 #include "job.h"

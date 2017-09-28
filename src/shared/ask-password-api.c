@@ -320,7 +320,7 @@ int ask_password_tty(
 
                 n = read(ttyfd >= 0 ? ttyfd : STDIN_FILENO, &c, 1);
                 if (n < 0) {
-                        if (errno == EINTR || errno == EAGAIN)
+                        if (IN_SET(errno, EINTR, EAGAIN))
                                 continue;
 
                         r = -errno;
@@ -613,8 +613,7 @@ int ask_password_agent(
 
                 n = recvmsg(socket_fd, &msghdr, 0);
                 if (n < 0) {
-                        if (errno == EAGAIN ||
-                            errno == EINTR)
+                        if (IN_SET(errno, EAGAIN, EINTR))
                                 continue;
 
                         r = -errno;

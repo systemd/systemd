@@ -480,7 +480,7 @@ static int load_sysv(SysvStub *s) {
                         continue;
                 }
 
-                if ((state == LSB_DESCRIPTION || state == LSB) && streq(t, "### END INIT INFO")) {
+                if (IN_SET(state, LSB_DESCRIPTION, LSB) && streq(t, "### END INIT INFO")) {
                         state = NORMAL;
                         continue;
                 }
@@ -554,7 +554,7 @@ static int load_sysv(SysvStub *s) {
                                 chkconfig_description = d;
                         }
 
-                } else if (state == LSB || state == LSB_DESCRIPTION) {
+                } else if (IN_SET(state, LSB, LSB_DESCRIPTION)) {
 
                         if (startswith_no_case(t, "Provides:")) {
                                 state = LSB;

@@ -171,7 +171,7 @@ void barrier_set_role(Barrier *b, unsigned int role) {
         int fd;
 
         assert(b);
-        assert(role == BARRIER_PARENT || role == BARRIER_CHILD);
+        assert(IN_SET(role, BARRIER_PARENT, BARRIER_CHILD));
         /* make sure this is only called once */
         assert(b->pipe[0] >= 0 && b->pipe[1] >= 0);
 

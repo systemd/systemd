@@ -38,7 +38,7 @@ int reset_all_signal_handlers(void) {
         for (sig = 1; sig < _NSIG; sig++) {
 
                 /* These two cannot be caught... */
-                if (sig == SIGKILL || sig == SIGSTOP)
+                if (IN_SET(sig, SIGKILL, SIGSTOP))
                         continue;
 
                 /* On Linux the first two RT signals are reserved by

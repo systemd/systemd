@@ -136,7 +136,7 @@ static void reset_location(sd_journal *j) {
 
 static void init_location(Location *l, LocationType type, JournalFile *f, Object *o) {
         assert(l);
-        assert(type == LOCATION_DISCRETE || type == LOCATION_SEEK);
+        assert(IN_SET(type, LOCATION_DISCRETE, LOCATION_SEEK));
         assert(f);
         assert(o->object.type == OBJECT_ENTRY);
 
@@ -2436,7 +2436,7 @@ _public_ int sd_journal_process(sd_journal *j) {
 
                 l = read(j->inotify_fd, &buffer, sizeof(buffer));
                 if (l < 0) {
-                        if (errno == EAGAIN || errno == EINTR)
+                        if (IN_SET(errno, EAGAIN, EINTR))
                                 return got_something ? determine_change(j) : SD_JOURNAL_NOP;
 
                         return -errno;
