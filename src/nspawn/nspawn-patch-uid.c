@@ -347,6 +347,8 @@ static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift
         }
         if (r < 0)
                 goto finish;
+        if (r > 0)
+                changed = true;
 
         if (S_ISDIR(st->st_mode)) {
                 _cleanup_closedir_ DIR *d = NULL;
