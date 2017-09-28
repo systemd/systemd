@@ -24,6 +24,19 @@ Janitorial Clean-ups:
 
 Features:
 
+* expose IO accounting data on the bus, show it in systemd-run --wait and log
+  about it in the resource log message
+
+* add "systemctl purge" for flushing out configuration, state, logs, ... of a
+  unit when it is stopped
+
+* show whether a service has out-of-date configuration in "systemctl status" by
+  using mtime data of ConfigurationDirectory=.
+
+* Properly chmod() RuntimeDirectory=, StateDirectory=, LogsDirectory= and
+  CacheDirectory= when we start up and the directory isn't properly owned. In
+  particular to make DynamicUser= work
+
 * replace all uses of fgets() + LINE_MAX by read_line()
 
 * set IPAddressDeny=any on all services that shouldn't do networking (possibly
