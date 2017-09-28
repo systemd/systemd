@@ -1,5 +1,5 @@
 project('systemd', 'c',
-        version : '234',
+        version : '235',
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu99',
