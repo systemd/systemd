@@ -1422,7 +1422,7 @@ static int main_pid_good(Service *s) {
         return -EAGAIN;
 }
 
-_pure_ static int control_pid_good(Service *s) {
+static int control_pid_good(Service *s) {
         assert(s);
 
         /* Returns 0 if the control PID is dead, > 0 if it is good. We never actually return < 0 here, but in order to
