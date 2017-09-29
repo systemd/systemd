@@ -20,6 +20,7 @@
 #
 
 import os, sys
+import shutil
 
 def d(path, mode):
     os.mkdir(path, mode)
@@ -32,7 +33,6 @@ def f(path, mode, contents):
         f.write(contents)
     os.chmod(path, mode)
 
-
 if len(sys.argv) < 2:
     exit("Usage: {} <target dir>".format(sys.argv[0]))
 
@@ -41,6 +41,8 @@ if not os.path.isdir(sys.argv[1]):
 
 os.chdir(sys.argv[1])
 
+if os.path.exists('sys'):
+    shutil.rmtree('sys')
 d('sys', 0o755)
 d('sys/kernel', 0o775)
 f('sys/kernel/kexec_crash_loaded', 0o664, b'0\n')
