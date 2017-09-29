@@ -233,6 +233,9 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->dhcp_server_emit_router = true;
         network->dhcp_server_emit_timezone = true;
 
+        network->router_emit_dns = true;
+        network->router_emit_domains = true;
+
         network->use_bpdu = true;
         network->allow_port_to_be_root = true;
         network->unicast_flood = true;
