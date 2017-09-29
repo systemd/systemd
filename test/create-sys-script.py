@@ -36,6 +36,7 @@ OUTFILE_MODE = 0o775
 
 OUTFILE_FUNCS = r"""
 import os, sys
+import shutil
 
 def d(path, mode):
     os.mkdir(path, mode)
@@ -58,6 +59,8 @@ if not os.path.isdir(sys.argv[1]):
 
 os.chdir(sys.argv[1])
 
+if os.path.exists('sys'):
+    shutil.rmtree('sys')
 """
 
 
