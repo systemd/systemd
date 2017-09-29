@@ -8466,6 +8466,11 @@ static int halt_main(void) {
                 }
         }
 
+        /* In order to minimize the difference between operation with and
+         * without logind, we explicitly enable non-blocking mode for this,
+         * as logind's shutdown operations are always non-blocking. */
+        arg_no_block = true;
+
         if (!arg_dry_run && !arg_force)
                 return start_with_fallback();
 
