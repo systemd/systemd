@@ -32,7 +32,6 @@ def f(path, mode, contents):
         f.write(contents)
     os.chmod(path, mode)
 
-
 if len(sys.argv) < 2:
     exit("Usage: {} <target dir>".format(sys.argv[0]))
 
