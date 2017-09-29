@@ -669,8 +669,7 @@ static int path_dispatch_io(sd_event_source *source, int fd, uint32_t revents, v
 
         p = PATH(s->unit);
 
-        if (p->state != PATH_WAITING &&
-            p->state != PATH_RUNNING)
+        if (!IN_SET(p->state, PATH_WAITING, PATH_RUNNING))
                 return 0;
 
         /* log_debug("inotify wakeup on %s.", u->id); */

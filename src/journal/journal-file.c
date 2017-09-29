@@ -1650,8 +1650,7 @@ uint64_t journal_file_entry_array_n_items(Object *o) {
 uint64_t journal_file_hash_table_n_items(Object *o) {
         assert(o);
 
-        if (o->object.type != OBJECT_DATA_HASH_TABLE &&
-            o->object.type != OBJECT_FIELD_HASH_TABLE)
+        if (!IN_SET(o->object.type, OBJECT_DATA_HASH_TABLE, OBJECT_FIELD_HASH_TABLE))
                 return 0;
 
         return (le64toh(o->object.size) - offsetof(Object, hash_table.items)) / sizeof(HashItem);
@@ -3241,8 +3240,7 @@ int journal_file_open(
         assert(ret);
         assert(fd >= 0 || fname);
 
-        if ((flags & O_ACCMODE) != O_RDONLY &&
-            (flags & O_ACCMODE) != O_RDWR)
+        if (!IN_SET((flags & O_ACCMODE), O_RDONLY, O_RDWR))
                 return -EINVAL;
 
         if (fname) {

@@ -268,7 +268,7 @@ int socket_address_verify(const SocketAddress *a) {
                 if (a->sockaddr.in.sin_port == 0)
                         return -EINVAL;
 
-                if (a->type != SOCK_STREAM && a->type != SOCK_DGRAM)
+                if (!IN_SET(a->type, SOCK_STREAM, SOCK_DGRAM))
                         return -EINVAL;
 
                 return 0;
@@ -280,7 +280,7 @@ int socket_address_verify(const SocketAddress *a) {
                 if (a->sockaddr.in6.sin6_port == 0)
                         return -EINVAL;
 
-                if (a->type != SOCK_STREAM && a->type != SOCK_DGRAM)
+                if (!IN_SET(a->type, SOCK_STREAM, SOCK_DGRAM))
                         return -EINVAL;
 
                 return 0;
@@ -304,7 +304,7 @@ int socket_address_verify(const SocketAddress *a) {
                         }
                 }
 
-                if (a->type != SOCK_STREAM && a->type != SOCK_DGRAM && a->type != SOCK_SEQPACKET)
+                if (!IN_SET(a->type, SOCK_STREAM, SOCK_DGRAM, SOCK_SEQPACKET))
                         return -EINVAL;
 
                 return 0;
@@ -314,7 +314,7 @@ int socket_address_verify(const SocketAddress *a) {
                 if (a->size != sizeof(struct sockaddr_nl))
                         return -EINVAL;
 
-                if (a->type != SOCK_RAW && a->type != SOCK_DGRAM)
+                if (!IN_SET(a->type, SOCK_RAW, SOCK_DGRAM))
                         return -EINVAL;
 
                 return 0;
@@ -323,7 +323,7 @@ int socket_address_verify(const SocketAddress *a) {
                 if (a->size != sizeof(struct sockaddr_vm))
                         return -EINVAL;
 
-                if (a->type != SOCK_STREAM && a->type != SOCK_DGRAM)
+                if (!IN_SET(a->type, SOCK_STREAM, SOCK_DGRAM))
                         return -EINVAL;
 
                 return 0;

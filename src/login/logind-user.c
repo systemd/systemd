@@ -354,7 +354,7 @@ static int user_mkdir_runtime_path(User *u) {
 
                 r = mount("tmpfs", u->runtime_path, "tmpfs", MS_NODEV|MS_NOSUID, t);
                 if (r < 0) {
-                        if (errno != EPERM && errno != EACCES) {
+                        if (!IN_SET(errno, EPERM, EACCES)) {
                                 r = log_error_errno(errno, "Failed to mount per-user tmpfs directory %s: %m", u->runtime_path);
                                 goto fail;
                         }

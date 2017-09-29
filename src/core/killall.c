@@ -174,8 +174,7 @@ static int killall(int sig, Set *pids, bool send_sighup) {
                 pid_t pid;
                 int r;
 
-                if (d->d_type != DT_DIR &&
-                    d->d_type != DT_UNKNOWN)
+                if (!IN_SET(d->d_type, DT_DIR, DT_UNKNOWN))
                         continue;
 
                 if (parse_pid(d->d_name, &pid) < 0)

@@ -749,16 +749,7 @@ int config_parse_tunnel(const char *unit,
                 return 0;
         }
 
-        if (netdev->kind != NETDEV_KIND_IPIP &&
-            netdev->kind != NETDEV_KIND_SIT &&
-            netdev->kind != NETDEV_KIND_GRE &&
-            netdev->kind != NETDEV_KIND_GRETAP &&
-            netdev->kind != NETDEV_KIND_IP6GRE &&
-            netdev->kind != NETDEV_KIND_IP6GRETAP &&
-            netdev->kind != NETDEV_KIND_VTI &&
-            netdev->kind != NETDEV_KIND_VTI6 &&
-            netdev->kind != NETDEV_KIND_IP6TNL
-        ) {
+        if (!IN_SET(netdev->kind, NETDEV_KIND_IPIP, NETDEV_KIND_SIT, NETDEV_KIND_GRE, NETDEV_KIND_GRETAP, NETDEV_KIND_IP6GRE, NETDEV_KIND_IP6GRETAP, NETDEV_KIND_VTI, NETDEV_KIND_VTI6, NETDEV_KIND_IP6TNL)) {
                 log_syntax(unit, LOG_ERR, filename, line, 0,
                            "NetDev is not a tunnel, ignoring assignment: %s", rvalue);
                 return 0;

@@ -417,7 +417,7 @@ static int transfer_start(Transfer *t) {
                         }
                 }
 
-                if (pipefd[1] != STDOUT_FILENO && pipefd[1] != STDERR_FILENO)
+                if (!IN_SET(pipefd[1], STDOUT_FILENO, STDERR_FILENO))
                         pipefd[1] = safe_close(pipefd[1]);
 
                 if (t->stdin_fd >= 0) {

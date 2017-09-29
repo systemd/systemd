@@ -54,7 +54,7 @@ static void check(Manager *m, Unit *unit, int status_expected, int code_expected
         printf("%s\n", unit->id);
         exec_context_dump(&service->exec_context, stdout, "\t");
         ts = now(CLOCK_MONOTONIC);
-        while (service->state != SERVICE_DEAD && service->state != SERVICE_FAILED) {
+        while (!IN_SET(service->state, SERVICE_DEAD, SERVICE_FAILED)) {
                 int r;
                 usec_t n;
 

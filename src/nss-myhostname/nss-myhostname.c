@@ -337,7 +337,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
         if (af == AF_UNSPEC)
                 af = AF_INET;
 
-        if (af != AF_INET && af != AF_INET6) {
+        if (!IN_SET(af, AF_INET, AF_INET6)) {
                 *errnop = EAFNOSUPPORT;
                 *h_errnop = NO_DATA;
                 return NSS_STATUS_UNAVAIL;

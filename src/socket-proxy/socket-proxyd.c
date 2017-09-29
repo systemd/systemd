@@ -167,7 +167,7 @@ static int connection_shovel(
                         } else if (z == 0 || errno == EPIPE || errno == ECONNRESET) {
                                 *from_source = sd_event_source_unref(*from_source);
                                 *from = safe_close(*from);
-                        } else if (errno != EAGAIN && errno != EINTR)
+                        } else if (!IN_SET(errno, EAGAIN, EINTR))
                                 return log_error_errno(errno, "Failed to splice: %m");
                 }
 
@@ -179,7 +179,7 @@ static int connection_shovel(
                         } else if (z == 0 || errno == EPIPE || errno == ECONNRESET) {
                                 *to_source = sd_event_source_unref(*to_source);
                                 *to = safe_close(*to);
-                        } else if (errno != EAGAIN && errno != EINTR)
+                        } else if (!IN_SET(errno, EAGAIN, EINTR))
                                 return log_error_errno(errno, "Failed to splice: %m");
                 }
         } while (shoveled);

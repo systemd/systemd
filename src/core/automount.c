@@ -251,8 +251,7 @@ static void automount_set_state(Automount *a, AutomountState state) {
         if (state != AUTOMOUNT_RUNNING)
                 automount_stop_expire(a);
 
-        if (state != AUTOMOUNT_WAITING &&
-            state != AUTOMOUNT_RUNNING)
+        if (!IN_SET(state, AUTOMOUNT_WAITING, AUTOMOUNT_RUNNING))
                 unmount_autofs(a);
 
         if (state != old_state)

@@ -54,7 +54,7 @@ void probe_smart_media(int mtd_fd, mtd_info_t* info)
         block_size = info->erasesize;
         size_in_megs = info->size / (1024 * 1024);
 
-        if (sector_size != SM_SECTOR_SIZE && sector_size != SM_SMALL_PAGE)
+        if (!IN_SET(sector_size, SM_SECTOR_SIZE, SM_SMALL_PAGE))
                 goto exit;
 
         switch(size_in_megs) {

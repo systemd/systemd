@@ -2055,7 +2055,7 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
         r = unit_kill_context(
                         UNIT(s),
                         &s->kill_context,
-                        (state != SOCKET_STOP_PRE_SIGTERM && state != SOCKET_FINAL_SIGTERM) ?
+                        !IN_SET(state, SOCKET_STOP_PRE_SIGTERM, SOCKET_FINAL_SIGTERM) ?
                         KILL_KILL : KILL_TERMINATE,
                         -1,
                         s->control_pid,
@@ -2448,9 +2448,7 @@ static int socket_start(Unit *u) {
 
                 /* If the service is already active we cannot start the
                  * socket */
-                if (service->state != SERVICE_DEAD &&
-                    service->state != SERVICE_FAILED &&
-                    service->state != SERVICE_AUTO_RESTART) {
+                if (!IN_SET(service->state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_AUTO_RESTART)) {
                         log_unit_error(u, "Socket service %s already active, refusing.", UNIT(service)->id);
                         return -EBUSY;
                 }
