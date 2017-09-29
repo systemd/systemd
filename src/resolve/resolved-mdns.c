@@ -69,7 +69,7 @@ eaddrinuse:
 }
 
 static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *full_answer = NULL;
         _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
         DnsResourceKey *key = NULL;
         bool tentative = false;
@@ -82,17 +82,24 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to extract resource records from incoming packet: %m");
 
-        /* TODO: there might be more than one question in mDNS queries. */
         assert_return((dns_question_size(p->question) > 0), -EINVAL);
-        key = p->question->keys[0];
 
-        r = dns_zone_lookup(&s->zone, key, 0, &answer, &soa, &tentative);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to lookup key: %m");
-        if (r == 0)
+        DNS_QUESTION_FOREACH(key, p->question) {
+                _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+
+                r = dns_zone_lookup(&s->zone, key, 0, &answer, &soa, &tentative);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to lookup key: %m");
+
+                r = dns_answer_extend(&full_answer, answer);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to extend answer: %m");
+        }
+
+        if (dns_answer_isempty(full_answer))
                 return 0;
 
-        r = dns_scope_make_reply_packet(s, DNS_PACKET_ID(p), DNS_RCODE_SUCCESS, NULL, answer, NULL, false, &reply);
+        r = dns_scope_make_reply_packet(s, DNS_PACKET_ID(p), DNS_RCODE_SUCCESS, NULL, full_answer, NULL, false, &reply);
         if (r < 0)
                 return log_debug_errno(r, "Failed to build reply packet: %m");
 
