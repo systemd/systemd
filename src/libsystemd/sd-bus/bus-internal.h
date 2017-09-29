@@ -305,9 +305,6 @@ struct sd_bus {
 
         char *description;
 
-        size_t bloom_size;
-        unsigned bloom_n_hash;
-
         sd_bus_track *track_queue;
 
         LIST_HEAD(sd_bus_slot, slots);
