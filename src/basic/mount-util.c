@@ -578,6 +578,19 @@ bool fstype_is_api_vfs(const char *fstype) {
         return nulstr_contains(table, fstype);
 }
 
+bool fstype_is_ro(const char *fstype) {
+
+        /* All Linux file systems that are necessarily read-only */
+
+        static const char table[] =
+                "DM_verity_hash\0"
+                "iso9660\0"
+                "squashfs\0"
+                ;
+
+        return nulstr_contains(table, fstype);
+}
+
 int repeat_unmount(const char *path, int flags) {
         bool done = false;
 

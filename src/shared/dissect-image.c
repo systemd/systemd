@@ -591,6 +591,9 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
 
                 if (streq_ptr(p->fstype, "crypto_LUKS"))
                         m->encrypted = true;
+
+                if (p->fstype && fstype_is_ro(p->fstype))
+                        p->rw = false;
         }
 
         *ret = m;
