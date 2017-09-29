@@ -275,10 +275,13 @@ static int synthesize_system_hostname_ptr(Manager *m, int af, const union in_add
 
         if (af == AF_INET && address->in.s_addr == htobe32(0x7F000002)) {
 
-                /* Always map the IPv4 address 127.0.0.2 to the local
-                 * hostname, in addition to "localhost": */
+                /* Always map the IPv4 address 127.0.0.2 to the local hostname, in addition to "localhost": */
 
-                r = dns_answer_reserve(answer, 3);
+                r = dns_answer_reserve(answer, 4);
+                if (r < 0)
+                        return r;
+
+                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", m->full_hostname, dns_synthesize_ifindex(ifindex), DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
 
@@ -300,6 +303,12 @@ static int synthesize_system_hostname_ptr(Manager *m, int af, const union in_add
         n = local_addresses(m->rtnl, ifindex, af, &addresses);
         if (n <= 0)
                 return n;
+
+        r = answer_add_addresses_ptr(answer, m->full_hostname, addresses, n, af, address);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                added = true;
 
         r = answer_add_addresses_ptr(answer, m->llmnr_hostname, addresses, n, af, address);
         if (r < 0)
