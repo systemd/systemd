@@ -564,6 +564,7 @@ bool fstype_is_api_vfs(const char *fstype) {
                 "devpts\0"
                 "devtmpfs\0"
                 "efivarfs\0"
+                "fusectl\0"
                 "hugetlbfs\0"
                 "mqueue\0"
                 "proc\0"
