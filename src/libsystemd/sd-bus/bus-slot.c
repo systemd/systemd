@@ -93,7 +93,7 @@ void bus_slot_disconnect(sd_bus_slot *slot) {
         case BUS_MATCH_CALLBACK:
 
                 if (slot->match_added)
-                        bus_remove_match_internal(slot->bus, slot->match_callback.match_string, slot->match_callback.cookie);
+                        bus_remove_match_internal(slot->bus, slot->match_callback.match_string);
 
                 slot->bus->match_callbacks_modified = true;
                 bus_match_remove(&slot->bus->match_callbacks, &slot->match_callback);

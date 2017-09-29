@@ -53,7 +53,6 @@ struct filter_callback {
 struct match_callback {
         sd_bus_message_handler_t callback;
 
-        uint64_t cookie;
         unsigned last_iteration;
 
         char *match_string;
@@ -286,8 +285,6 @@ struct sd_bus {
 
         uint64_t hello_flags;
         uint64_t attach_flags;
-
-        uint64_t match_cookie;
 
         sd_event_source *input_io_event_source;
         sd_event_source *output_io_event_source;
