@@ -684,7 +684,7 @@ static int mount_partition(
                 p = where;
 
         /* If requested, turn on discard support. */
-        if (STR_IN_SET(fstype, "btrfs", "ext4", "vfat", "xfs") &&
+        if (fstype_can_discard(fstype) &&
             ((flags & DISSECT_IMAGE_DISCARD) ||
              ((flags & DISSECT_IMAGE_DISCARD_ON_LOOP) && is_loop_device(m->node))))
                 options = "discard";

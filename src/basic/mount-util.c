@@ -591,6 +591,18 @@ bool fstype_is_ro(const char *fstype) {
         return nulstr_contains(table, fstype);
 }
 
+bool fstype_can_discard(const char *fstype) {
+
+        static const char table[] =
+                "btrfs\0"
+                "ext4\0"
+                "vfat\0"
+                "xfs\0"
+                ;
+
+        return nulstr_contains(table, fstype);
+}
+
 int repeat_unmount(const char *path, int flags) {
         bool done = false;
 
