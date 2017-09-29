@@ -56,7 +56,7 @@
 #define log_debug_bus_message(m)                                         \
         do {                                                             \
                 sd_bus_message *_mm = (m);                               \
-                log_debug("Got message type=%s sender=%s destination=%s object=%s interface=%s member=%s cookie=%" PRIu64 " reply_cookie=%" PRIu64 " error=%s", \
+                log_debug("Got message type=%s sender=%s destination=%s object=%s interface=%s member=%s cookie=%" PRIu64 " reply_cookie=%" PRIu64 " error-name=%s error-message=%s", \
                           bus_message_type_to_string(_mm->header->type), \
                           strna(sd_bus_message_get_sender(_mm)),         \
                           strna(sd_bus_message_get_destination(_mm)),    \
@@ -65,6 +65,7 @@
                           strna(sd_bus_message_get_member(_mm)),         \
                           BUS_MESSAGE_COOKIE(_mm),                       \
                           _mm->reply_cookie,                             \
+                          strna(_mm->error.name),                        \
                           strna(_mm->error.message));                    \
         } while (false)
 
@@ -1465,7 +1466,7 @@ static int bus_write_message(sd_bus *bus, sd_bus_message *m, bool hint_sync_call
                 return r;
 
         if (*idx >= BUS_MESSAGE_SIZE(m))
-                log_debug("Sent message type=%s sender=%s destination=%s object=%s interface=%s member=%s cookie=%" PRIu64 " reply_cookie=%" PRIu64 " error=%s",
+                log_debug("Sent message type=%s sender=%s destination=%s object=%s interface=%s member=%s cookie=%" PRIu64 " reply_cookie=%" PRIu64 " error-name=%s error-message=%s",
                           bus_message_type_to_string(m->header->type),
                           strna(sd_bus_message_get_sender(m)),
                           strna(sd_bus_message_get_destination(m)),
@@ -1474,6 +1475,7 @@ static int bus_write_message(sd_bus *bus, sd_bus_message *m, bool hint_sync_call
                           strna(sd_bus_message_get_member(m)),
                           BUS_MESSAGE_COOKIE(m),
                           m->reply_cookie,
+                          strna(m->error.name),
                           strna(m->error.message));
 
         return r;
