@@ -21,8 +21,139 @@
 #include <arpa/inet.h>
 
 #include "networkd-address.h"
+#include "networkd-manager.h"
 #include "networkd-radv.h"
 #include "sd-radv.h"
+
+static int radv_get_ip6dns(Network *network, struct in6_addr **dns,
+                           size_t *n_dns) {
+        _cleanup_free_ struct in6_addr *addresses = NULL;
+        size_t i, n_addresses = 0, n_allocated = 0;
+
+        assert(network);
+        assert(dns);
+        assert(n_dns);
+
+        for (i = 0; i < network->n_dns; i++) {
+                union in_addr_union *addr;
+
+                if (network->dns[i].family != AF_INET6)
+                        continue;
+
+                addr = &network->dns[i].address;
+
+                if (in_addr_is_null(AF_INET6, addr) ||
+                    in_addr_is_link_local(AF_INET6, addr) ||
+                    in_addr_is_localhost(AF_INET6, addr))
+                        continue;
+
+                if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + 1))
+                        return -ENOMEM;
+
+                addresses[n_addresses++] = addr->in6;
+        }
+
+        if (addresses) {
+                *dns = addresses;
+                addresses = NULL;
+
+                *n_dns = n_addresses;
+        }
+
+        return n_addresses;
+}
+
+static int radv_set_dns(Link *link, Link *uplink) {
+        _cleanup_free_ struct in6_addr *dns = NULL;
+        size_t n_dns;
+        usec_t lifetime_usec;
+        int r;
+
+        if (!link->network->router_emit_dns)
+                return 0;
+
+        if (link->network->router_dns) {
+                dns = newdup(struct in6_addr, link->network->router_dns,
+                             link->network->n_router_dns);
+                if (dns == NULL)
+                        return -ENOMEM;
+
+                n_dns = link->network->n_router_dns;
+                lifetime_usec = link->network->router_dns_lifetime_usec;
+
+                goto set_dns;
+        }
+
+        lifetime_usec = SD_RADV_DEFAULT_DNS_LIFETIME_USEC;
+
+        r = radv_get_ip6dns(link->network, &dns, &n_dns);
+        if (r > 0)
+                goto set_dns;
+
+        if (uplink) {
+                r = radv_get_ip6dns(uplink->network, &dns, &n_dns);
+                if (r > 0)
+                        goto set_dns;
+        }
+
+        return 0;
+
+ set_dns:
+        return sd_radv_set_rdnss(link->radv,
+                                 DIV_ROUND_UP(lifetime_usec, USEC_PER_SEC),
+                                 dns, n_dns);
+}
+
+static int radv_set_domains(Link *link, Link *uplink) {
+        char **search_domains;
+        usec_t lifetime_usec;
+
+        if (!link->network->router_emit_domains)
+                return 0;
+
+        search_domains = link->network->router_search_domains;
+        lifetime_usec = link->network->router_dns_lifetime_usec;
+
+        if (search_domains)
+                goto set_domains;
+
+        lifetime_usec = SD_RADV_DEFAULT_DNS_LIFETIME_USEC;
+
+        search_domains = link->network->search_domains;
+        if (search_domains)
+                goto set_domains;
+
+        if (uplink) {
+                search_domains = uplink->network->search_domains;
+                if (search_domains)
+                        goto set_domains;
+        }
+
+        return 0;
+
+ set_domains:
+        return sd_radv_set_dnssl(link->radv,
+                                 DIV_ROUND_UP(lifetime_usec, USEC_PER_SEC),
+                                 search_domains);
+
+}
+
+int radv_emit_dns(Link *link) {
+        Link *uplink;
+        int r;
+
+        uplink = manager_find_uplink(link->manager, link);
+
+        r = radv_set_dns(link, uplink);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Could not set RA DNS: %m");
+
+        r = radv_set_domains(link, uplink);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Could not set RA Domains: %m");
+
+        return 0;
+}
 
 int radv_configure(Link *link) {
         int r;
@@ -75,24 +206,5 @@ int radv_configure(Link *link) {
                         return r;
         }
 
-        if (link->network->router_dns) {
-                r = sd_radv_set_rdnss(link->radv,
-                                      DIV_ROUND_UP(link->network->router_dns_lifetime_usec,
-                                                   USEC_PER_SEC),
-                                      link->network->router_dns,
-                                      link->network->n_router_dns);
-                if (r < 0)
-                        return r;
-        }
-
-        if (link->network->router_search_domains) {
-                r = sd_radv_set_dnssl(link->radv,
-                                      DIV_ROUND_UP(link->network->router_dns_lifetime_usec,
-                                                   USEC_PER_SEC),
-                                      link->network->router_search_domains);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
+        return radv_emit_dns(link);
 }
