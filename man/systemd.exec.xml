@@ -936,7 +936,18 @@
         <para>Note that for each unit making use of this option a PAM session handler process will be maintained as
         part of the unit and stays around as long as the unit is active, to ensure that appropriate actions can be
         taken when the unit and hence the PAM session terminates. This process is named <literal>(sd-pam)</literal> and
-        is an immediate child process of the unit's main process.</para></listitem>
+        is an immediate child process of the unit's main process.</para>
+
+        <para>Note that when this option is used for a unit it is very likely (depending on PAM configuration) that the
+        main unit process will be migrated to its own session scope unit when it is activated. This process will hence
+        be associated with two units: the unit it was originally started from (and for which
+        <varname>PAMName=</varname> was configured), and the session scope unit. Any child processes of that process
+        will however be associated with the session scope unit only. This has implications when used in combination
+        with <varname>NotifyAccess=</varname><option>all</option>, as these child processes will not be able to affect
+        changes in the original unit through notification messages. These messages will be considered belonging to the
+        session scope unit and not the original unit. It is hence not recommended to use <varname>PAMName=</varname> in
+        combination with <varname>NotifyAccess=</varname><option>all</option>.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
