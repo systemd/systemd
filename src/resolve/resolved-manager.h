@@ -126,6 +126,7 @@ struct Manager {
 
         sd_event_source *sigusr1_event_source;
         sd_event_source *sigusr2_event_source;
+        sd_event_source *sigrtmin1_event_source;
 
         unsigned n_transactions_total;
         unsigned n_dnssec_verdict[_DNSSEC_VERDICT_MAX];

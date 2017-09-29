@@ -209,6 +209,12 @@ CHANGES WITH 235:
           too. Note that while the other databases are world-readable
           (i.e. 0644), btmp is not and remains more restrictive.
 
+        * The systemd-resolve tool gained a new --reset-server-features
+          switch. When invoked like this systemd-resolved will forget
+          everything it learnt about the features supported by the configured
+          upstream DNS servers, and restarts the feature probing logic on the
+          next resolver look-up for them at the highest feature level again.
+
         Contributions from: Abdó Roig-Maranges, Alan Jenkins, Alexander
         Kuleshov, Andreas Rammhold, Andrew Jeddeloh, Andrew Soutar, Ansgar
         Burchardt, b1tninja, bengal, Benjamin Berg, Benjamin Robin, Charles

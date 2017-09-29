@@ -72,6 +72,7 @@ static enum {
         MODE_STATISTICS,
         MODE_RESET_STATISTICS,
         MODE_FLUSH_CACHES,
+        MODE_RESET_SERVER_FEATURES,
         MODE_STATUS,
 } arg_mode = MODE_RESOLVE_HOST;
 
@@ -1055,6 +1056,24 @@ static int flush_caches(sd_bus *bus) {
         return 0;
 }
 
+static int reset_server_features(sd_bus *bus) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.resolve1",
+                               "/org/freedesktop/resolve1",
+                               "org.freedesktop.resolve1.Manager",
+                               "ResetServerFeatures",
+                               &error,
+                               NULL,
+                               NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reset server features: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
 static int map_link_dns_servers(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
         char ***l = userdata;
         int r;
@@ -1588,6 +1607,8 @@ static void help(void) {
                "     --reset-statistics     Reset resolver statistics\n"
                "     --status               Show link and server status\n"
                "     --flush-caches         Flush all local DNS caches\n"
+               "     --reset-server-features\n"
+               "                            Forget learnt DNS server feature levels\n"
                , program_invocation_short_name);
 }
 
@@ -1607,30 +1628,32 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_RESET_STATISTICS,
                 ARG_STATUS,
                 ARG_FLUSH_CACHES,
+                ARG_RESET_SERVER_FEATURES,
                 ARG_NO_PAGER,
         };
 
         static const struct option options[] = {
-                { "help",             no_argument,       NULL, 'h'                  },
-                { "version",          no_argument,       NULL, ARG_VERSION          },
-                { "type",             required_argument, NULL, 't'                  },
-                { "class",            required_argument, NULL, 'c'                  },
-                { "legend",           required_argument, NULL, ARG_LEGEND           },
-                { "interface",        required_argument, NULL, 'i'                  },
-                { "protocol",         required_argument, NULL, 'p'                  },
-                { "cname",            required_argument, NULL, ARG_CNAME            },
-                { "service",          no_argument,       NULL, ARG_SERVICE          },
-                { "service-address",  required_argument, NULL, ARG_SERVICE_ADDRESS  },
-                { "service-txt",      required_argument, NULL, ARG_SERVICE_TXT      },
-                { "openpgp",          no_argument,       NULL, ARG_OPENPGP          },
-                { "tlsa",             optional_argument, NULL, ARG_TLSA             },
-                { "raw",              optional_argument, NULL, ARG_RAW              },
-                { "search",           required_argument, NULL, ARG_SEARCH           },
-                { "statistics",       no_argument,       NULL, ARG_STATISTICS,      },
-                { "reset-statistics", no_argument,       NULL, ARG_RESET_STATISTICS },
-                { "status",           no_argument,       NULL, ARG_STATUS           },
-                { "flush-caches",     no_argument,       NULL, ARG_FLUSH_CACHES     },
-                { "no-pager",         no_argument,       NULL, ARG_NO_PAGER         },
+                { "help",                  no_argument,       NULL, 'h'                       },
+                { "version",               no_argument,       NULL, ARG_VERSION               },
+                { "type",                  required_argument, NULL, 't'                       },
+                { "class",                 required_argument, NULL, 'c'                       },
+                { "legend",                required_argument, NULL, ARG_LEGEND                },
+                { "interface",             required_argument, NULL, 'i'                       },
+                { "protocol",              required_argument, NULL, 'p'                       },
+                { "cname",                 required_argument, NULL, ARG_CNAME                 },
+                { "service",               no_argument,       NULL, ARG_SERVICE               },
+                { "service-address",       required_argument, NULL, ARG_SERVICE_ADDRESS       },
+                { "service-txt",           required_argument, NULL, ARG_SERVICE_TXT           },
+                { "openpgp",               no_argument,       NULL, ARG_OPENPGP               },
+                { "tlsa",                  optional_argument, NULL, ARG_TLSA                  },
+                { "raw",                   optional_argument, NULL, ARG_RAW                   },
+                { "search",                required_argument, NULL, ARG_SEARCH                },
+                { "statistics",            no_argument,       NULL, ARG_STATISTICS,           },
+                { "reset-statistics",      no_argument,       NULL, ARG_RESET_STATISTICS      },
+                { "status",                no_argument,       NULL, ARG_STATUS                },
+                { "flush-caches",          no_argument,       NULL, ARG_FLUSH_CACHES          },
+                { "reset-server-features", no_argument,       NULL, ARG_RESET_SERVER_FEATURES },
+                { "no-pager",              no_argument,       NULL, ARG_NO_PAGER              },
                 {}
         };
 
@@ -1812,6 +1835,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_FLUSH_CACHES:
                         arg_mode = MODE_FLUSH_CACHES;
+                        break;
+
+                case ARG_RESET_SERVER_FEATURES:
+                        arg_mode = MODE_RESET_SERVER_FEATURES;
                         break;
 
                 case ARG_STATUS:
@@ -1997,6 +2024,16 @@ int main(int argc, char **argv) {
                 }
 
                 r = flush_caches(bus);
+                break;
+
+        case MODE_RESET_SERVER_FEATURES:
+                if (argc > optind) {
+                        log_error("Too many arguments.");
+                        r = -EINVAL;
+                        goto finish;
+                }
+
+                r = reset_server_features(bus);
                 break;
 
         case MODE_STATUS:
