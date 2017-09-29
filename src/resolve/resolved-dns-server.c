@@ -70,15 +70,12 @@ int dns_server_new(
 
         s->n_ref = 1;
         s->manager = m;
-        s->verified_feature_level = _DNS_SERVER_FEATURE_LEVEL_INVALID;
-        s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_BEST;
-        s->features_grace_period_usec = DNS_SERVER_FEATURE_GRACE_PERIOD_MIN_USEC;
-        s->received_udp_packet_max = DNS_PACKET_UNICAST_SIZE_MAX;
         s->type = type;
         s->family = family;
         s->address = *in_addr;
         s->ifindex = ifindex;
-        s->resend_timeout = DNS_TIMEOUT_MIN_USEC;
+
+        dns_server_reset_features(s);
 
         switch (type) {
 
@@ -826,6 +823,34 @@ void dns_server_flush_cache(DnsServer *s) {
                 return;
 
         dns_cache_flush(&scope->cache);
+}
+
+void dns_server_reset_features(DnsServer *s) {
+        assert(s);
+
+        s->max_rtt = 0;
+        s->resend_timeout = DNS_TIMEOUT_MIN_USEC;
+
+        s->verified_feature_level = _DNS_SERVER_FEATURE_LEVEL_INVALID;
+        s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_BEST;
+
+        s->received_udp_packet_max = DNS_PACKET_UNICAST_SIZE_MAX;
+
+        s->packet_bad_opt = false;
+        s->packet_rrsig_missing = false;
+
+        s->features_grace_period_usec = DNS_SERVER_FEATURE_GRACE_PERIOD_MIN_USEC;
+
+        s->warned_downgrade = false;
+
+        dns_server_reset_counters(s);
+}
+
+void dns_server_reset_features_all(DnsServer *s) {
+        DnsServer *i;
+
+        LIST_FOREACH(servers, i, s)
+                dns_server_reset_features(i);
 }
 
 static const char* const dns_server_type_table[_DNS_SERVER_TYPE_MAX] = {

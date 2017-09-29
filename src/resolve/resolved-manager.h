@@ -184,5 +184,6 @@ void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResource
 bool manager_routable(Manager *m, int family);
 
 void manager_flush_caches(Manager *m);
+void manager_reset_server_features(Manager *m);
 
 void manager_cleanup_saved_user(Manager *m);

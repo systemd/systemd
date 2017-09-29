@@ -88,6 +88,8 @@ struct Link {
 
         bool loaded;
         char *state_file;
+
+        bool unicast_relevant;
 };
 
 int link_new(Manager *m, Link **ret, int ifindex);

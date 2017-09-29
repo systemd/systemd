@@ -1396,6 +1396,19 @@ void manager_flush_caches(Manager *m) {
         log_info("Flushed all caches.");
 }
 
+void manager_reset_server_features(Manager *m) {
+        Iterator i;
+        Link *l;
+
+        dns_server_reset_features_all(m->dns_servers);
+        dns_server_reset_features_all(m->fallback_dns_servers);
+
+        HASHMAP_FOREACH(l, m->links, i)
+                dns_server_reset_features_all(l->dns_servers);
+
+        log_info("Resetting learnt feature levels on all servers.");
+}
+
 void manager_cleanup_saved_user(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
