@@ -79,6 +79,8 @@ struct Path {
         bool make_directory;
         mode_t directory_mode;
 
+        bool reload_on_trigger;
+
         PathResult result;
 };
 

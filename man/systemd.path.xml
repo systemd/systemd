@@ -197,6 +197,14 @@
         in question. Takes an access mode in octal notation. Defaults
         to <option>0755</option>.</para></listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>ReloadOnTrigger=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, request a
+        reload of target unit if it is already running when a triggering
+        path event is received. If false, the event is ignored if the
+        target unit is already running. Defaults to false.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
