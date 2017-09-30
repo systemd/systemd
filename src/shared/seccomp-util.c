@@ -317,6 +317,16 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "time\0"
                 "ugetrlimit\0"
         },
+        [SYSCALL_FILTER_SET_AIO] = {
+                .name = "@aio",
+                .help = "Asynchronous IO",
+                .value =
+                "io_cancel\0"
+                "io_destroy\0"
+                "io_getevents\0"
+                "io_setup\0"
+                "io_submit\0"
+        },
         [SYSCALL_FILTER_SET_BASIC_IO] = {
                 .name = "@basic-io",
                 .help = "Basic IO",
@@ -329,12 +339,26 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "lseek\0"
                 "pread64\0"
                 "preadv\0"
+                "preadv2\0"
                 "pwrite64\0"
                 "pwritev\0"
+                "pwritev2\0"
                 "read\0"
                 "readv\0"
                 "write\0"
                 "writev\0"
+        },
+        [SYSCALL_FILTER_SET_CHOWN] = {
+                .name = "@chown",
+                .help = "Change ownership of files and directories",
+                .value =
+                "chown\0"
+                "chown32\0"
+                "fchown\0"
+                "fchown32\0"
+                "fchownat\0"
+                "lchown\0"
+                "lchown32\0"
         },
         [SYSCALL_FILTER_SET_CLOCK] = {
                 .name = "@clock",
@@ -600,6 +624,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .name = "@privileged",
                 .help = "All system calls which need super-user capabilities",
                 .value =
+                "@chown\0"
                 "@clock\0"
                 "@module\0"
                 "@raw-io\0"
@@ -607,16 +632,9 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "acct\0"
                 "bpf\0"
                 "capset\0"
-                "chown\0"
-                "chown32\0"
                 "chroot\0"
-                "fchown\0"
-                "fchown32\0"
-                "fchownat\0"
                 "kexec_file_load\0"
                 "kexec_load\0"
-                "lchown\0"
-                "lchown32\0"
                 "nfsservctl\0"
                 "pivot_root\0"
                 "quotactl\0"
@@ -745,6 +763,17 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .value =
                 "swapoff\0"
                 "swapon\0"
+        },
+        [SYSCALL_FILTER_SET_SYNC] = {
+                .name = "@sync",
+                .help = "Synchronize files and memory to storage",
+                .value =
+                "fdatasync\0"
+                "fsync\0"
+                "msync\0"
+                "sync\0"
+                "sync_file_range\0"
+                "syncfs\0"
         },
         [SYSCALL_FILTER_SET_TIMER] = {
                 .name = "@timer",
