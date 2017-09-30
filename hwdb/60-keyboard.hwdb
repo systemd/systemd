@@ -1283,6 +1283,68 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnZepto:pnZnote*6615WD:*
  KEYBOARD_KEY_ae=!                                      # volume down
  KEYBOARD_KEY_b0=!                                      # volume up
 
+##########################################
+# Ideazon
+##########################################
+
+# Ideazon Zboard Merc
+evdev:input:b0003v1038p0210*
+ KEYBOARD_KEY_c0227=q
+ KEYBOARD_KEY_c0223=w
+ KEYBOARD_KEY_c0221=e
+ KEYBOARD_KEY_c0224=a
+ KEYBOARD_KEY_c0226=s
+ KEYBOARD_KEY_c0225=d
+ KEYBOARD_KEY_c0192=tab
+ KEYBOARD_KEY_c018a=leftalt
+ KEYBOARD_KEY_c022a=r
+ KEYBOARD_KEY_c0183=f10
+ KEYBOARD_KEY_70059=1
+ KEYBOARD_KEY_7005a=2
+ KEYBOARD_KEY_7005b=3
+ KEYBOARD_KEY_7005c=4
+ KEYBOARD_KEY_7005d=5
+ KEYBOARD_KEY_7005e=6
+ KEYBOARD_KEY_7005f=7
+ KEYBOARD_KEY_70060=8
+ KEYBOARD_KEY_70061=9
+ KEYBOARD_KEY_70062=0
+ KEYBOARD_KEY_70057=equal
+ KEYBOARD_KEY_70077=capslock
+ KEYBOARD_KEY_70054=leftshift
+ KEYBOARD_KEY_70063=leftctrl
+ KEYBOARD_KEY_7006b=t
+ KEYBOARD_KEY_70067=f
+ KEYBOARD_KEY_7006c=g
+ KEYBOARD_KEY_7006d=v
+ KEYBOARD_KEY_7006e=b
+ KEYBOARD_KEY_70074=p
+ KEYBOARD_KEY_7006f=c
+ KEYBOARD_KEY_70055=space
+ KEYBOARD_KEY_70076=f9
+ KEYBOARD_KEY_70046=f11
+ KEYBOARD_KEY_70079=f6
+
+# Ideazon Zboard Fang
+evdev:input:b0003v1038p0310*
+ KEYBOARD_KEY_70059=1
+ KEYBOARD_KEY_7005b=3
+ KEYBOARD_KEY_70040=equal
+ KEYBOARD_KEY_70042=l
+ KEYBOARD_KEY_7002b=tab
+ KEYBOARD_KEY_7005e=capslock
+ KEYBOARD_KEY_700e2=leftalt
+ KEYBOARD_KEY_700e1=leftshift
+ KEYBOARD_KEY_700e0=leftctrl
+ KEYBOARD_KEY_70038=z
+ KEYBOARD_KEY_7003e=t
+ KEYBOARD_KEY_70015=r
+ KEYBOARD_KEY_70010=g
+ KEYBOARD_KEY_70050=n
+ KEYBOARD_KEY_70030=f9
+ KEYBOARD_KEY_7002f=f11
+ KEYBOARD_KEY_70046=f6
+ 
 ###########################################################
 # Other
 ###########################################################
