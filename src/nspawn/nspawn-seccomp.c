@@ -136,7 +136,6 @@ static int seccomp_add_default_syscall_filter(
                 { 0,                  "syncfs"                 },
                 { 0,                  "sysinfo"                },
                 { 0,                  "tee"                    },
-                { 0,                  "ugetrlimit"             },
                 { 0,                  "umask"                  },
                 { 0,                  "uname"                  },
                 { 0,                  "userfaultfd"            },
