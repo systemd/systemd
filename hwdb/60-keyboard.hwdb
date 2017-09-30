@@ -889,8 +889,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMEDIONNB:pnA555*:pvr*
 
 # Microsoft Natural Ergonomic Keyboard 4000
 evdev:input:b0003v045Ep00DB*
- KEYBOARD_KEY_c022d=zoomin
- KEYBOARD_KEY_c022e=zoomout
+ KEYBOARD_KEY_c022d=up                                  # same function as arrow up key
+ KEYBOARD_KEY_c022e=down                                # same function as arrow down key
 
 ###########################################################
 # Micro Star
