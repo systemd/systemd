@@ -41,7 +41,9 @@ typedef struct SyscallFilterSet {
 enum {
         /* Please leave DEFAULT first, but sort the rest alphabetically */
         SYSCALL_FILTER_SET_DEFAULT,
+        SYSCALL_FILTER_SET_AIO,
         SYSCALL_FILTER_SET_BASIC_IO,
+        SYSCALL_FILTER_SET_CHOWN,
         SYSCALL_FILTER_SET_CLOCK,
         SYSCALL_FILTER_SET_CPU_EMULATION,
         SYSCALL_FILTER_SET_CREDENTIALS,
@@ -63,6 +65,7 @@ enum {
         SYSCALL_FILTER_SET_SETUID,
         SYSCALL_FILTER_SET_SIGNAL,
         SYSCALL_FILTER_SET_SWAP,
+        SYSCALL_FILTER_SET_SYNC,
         SYSCALL_FILTER_SET_TIMER,
         _SYSCALL_FILTER_SET_MAX
 };

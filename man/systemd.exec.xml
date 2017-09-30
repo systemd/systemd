@@ -1488,8 +1488,16 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
             </thead>
             <tbody>
               <row>
+                <entry>@aio</entry>
+                <entry>Asynchronous I/O (<citerefentry project='man-pages'><refentrytitle>io_setup</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>io_submit</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and related calls)</entry>
+              </row>
+              <row>
                 <entry>@basic-io</entry>
                 <entry>System calls for basic I/O: reading, writing, seeking, file descriptor duplication and closing (<citerefentry project='man-pages'><refentrytitle>read</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>write</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and related calls)</entry>
+              </row>
+              <row>
+                <entry>@chown</entry>
+                <entry>Changing file ownership (<citerefentry project='man-pages'><refentrytitle>chown</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>fchownat</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and related calls)</entry>
               </row>
               <row>
                 <entry>@clock</entry>
@@ -1574,6 +1582,10 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
               <row>
                 <entry>@swap</entry>
                 <entry>System calls for enabling/disabling swap devices (<citerefentry project='man-pages'><refentrytitle>swapon</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>swapoff</refentrytitle><manvolnum>2</manvolnum></citerefentry>)</entry>
+              </row>
+              <row>
+                <entry>@sync</entry>
+                <entry>Synchronizing files and memory to disk: (<citerefentry project='man-pages'><refentrytitle>fsync</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>msync</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and related calls)</entry>
               </row>
               <row>
                 <entry>@timer</entry>
