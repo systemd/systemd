@@ -1063,7 +1063,7 @@
           <listitem>
             <para>When true, the interface maximum transmission unit
             from the DHCP server will be used on the current link.
-            Defaults to true.</para>
+            Defaults to false.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
