@@ -1,7 +1,7 @@
 #  This file is part of systemd.
 #
 #  Copyright 2012 Lennart Poettering
-#  Copyright 2014-2016 Piotr Drąg
+#  Copyright 2014-2017 Piotr Drąg
 #
 #  systemd is free software; you can redistribute it and/or modify it
 #  under the terms of the GNU Lesser General Public License as published by
@@ -336,3 +336,18 @@ Documentation: man:systemd-resolved.service(8)
 Kotwica zaufania DNSSEC została unieważniona. Należy skonfigurować nową, albo
 system operacyjny musi zostać zaktualizowany, aby dostarczyć zaktualizowaną
 kotwicę zaufania DNSSEC.
+
+-- 5eb03494b6584870a536b337290809b3
+Subject: Zaplanowano automatyczne ponowne uruchamianie jednostki
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+W wyniki skonfigurowania ustawienia Restart= zaplanowano automatyczne ponowne
+uruchamianie jednostki @UNIT@.
+
+-- ae8f7b866b0347b9af31fe1c80b127c0
+Subject: Zasoby zużyte przez uruchomienie jednostki
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Jednostka @UNIT@ została ukończona, zużywając wskazane zasoby.
