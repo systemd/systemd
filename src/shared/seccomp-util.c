@@ -379,6 +379,25 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "mmap2\0"
                 "munmap\0"
         },
+        [SYSCALL_FILTER_SET_BASIC_PROCESS] = {
+                .name = "@basic-process",
+                .help = "Basic Process control and execution operations",
+                .value =
+                "arch_prctl\0"
+                "capget\0"      /* Able to query arbitrary processes */
+                "fork\0"
+                "getrusage\0"
+                "gettid\0"
+                "kill\0"
+                "prctl\0"
+                "tgkill\0"
+                "times\0"
+                "tkill\0"
+                "vfork\0"
+                "wait4\0"
+                "waitid\0"
+                "waitpid\0"
+        },
         [SYSCALL_FILTER_SET_BASIC_RW] = {
                 .name = "@basic-rw",
                 .help = "Basic Read Write",
@@ -676,26 +695,13 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .name = "@process",
                 .help = "Process control, execution, namespaceing operations",
                 .value =
-                "arch_prctl\0"
-                "capget\0"      /* Able to query arbitrary processes */
+                "@basic-process\0"
                 "clone\0"
                 "execveat\0"
-                "fork\0"
-                "getrusage\0"
-                "gettid\0"
-                "kill\0"
-                "prctl\0"
                 "rt_sigqueueinfo\0"
                 "rt_tgsigqueueinfo\0"
                 "setns\0"
-                "tgkill\0"
-                "times\0"
-                "tkill\0"
                 "unshare\0"
-                "vfork\0"
-                "wait4\0"
-                "waitid\0"
-                "waitpid\0"
         },
         [SYSCALL_FILTER_SET_RAW_IO] = {
                 .name = "@raw-io",

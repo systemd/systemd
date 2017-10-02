@@ -1497,6 +1497,10 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
                 <entry>System calls for basic memory mapping operations: mmap, mmap2, munmap (<citerefentry project='man-pages'><refentrytitle>mmap</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>munmap</refentrytitle><manvolnum>2</manvolnum></citerefentry>)</entry>
               </row>
               <row>
+                <entry>@basic-process</entry>
+                <entry>Basic process control and execution operations: (<citerefentry project='man-pages'><refentrytitle>fork</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and <citerefentry project='man-pages'><refentrytitle>wait</refentrytitle><manvolnum>2</manvolnum></citerefentry>)</entry>
+              </row>
+              <row>
                 <entry>@basic-rw</entry>
                 <entry>System calls for basic read, write and seek operations (<citerefentry project='man-pages'><refentrytitle>read</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>write</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and related calls)</entry>
               </row>
@@ -1558,7 +1562,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
               </row>
               <row>
                 <entry>@process</entry>
-                <entry>Process control, execution, namespaceing operations (<citerefentry project='man-pages'><refentrytitle>clone</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>, …</entry>
+                <entry>Process control, execution, namespaceing operations (<citerefentry project='man-pages'><refentrytitle>clone</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>, and <varname>@basic-process</varname> system calls.</entry>
               </row>
               <row>
                 <entry>@raw-io</entry>
