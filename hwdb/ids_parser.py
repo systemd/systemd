@@ -290,20 +290,25 @@ def oui(p1, p2, p3):
     print(f'Wrote {out.name}')
 
 if __name__ == '__main__':
-    p = usb_ids_grammar().parseFile(open('usb.ids'))
-    usb_vendor_model(p)
-    usb_classes(p)
+    args = sys.argv[1:]
 
-    p = pci_ids_grammar().parseFile(open('pci.ids'))
-    pci_vendor_model(p)
-    pci_classes(p)
+    if not args or 'usb' in args:
+        p = usb_ids_grammar().parseFile(open('usb.ids'))
+        usb_vendor_model(p)
+        usb_classes(p)
 
-    p = pci_ids_grammar().parseFile(open('sdio.ids'))
-    sdio_vendor_model(p)
-    sdio_classes(p)
+    if not args or 'pci' in args:
+        p = pci_ids_grammar().parseFile(open('pci.ids'))
+        pci_vendor_model(p)
+        pci_classes(p)
 
-    p = oui_grammar('small').parseFile(open('ma-small.txt'))
-    p2 = oui_grammar('medium').parseFile(open('ma-medium.txt'))
-    p3 = oui_grammar('large').parseFile(open('ma-large.txt'))
+    if not args or 'sdio' in args:
+        p = pci_ids_grammar().parseFile(open('sdio.ids'))
+        sdio_vendor_model(p)
+        sdio_classes(p)
 
-    oui(p, p2, p3)
+    if not args or 'oui' in args:
+        p = oui_grammar('small').parseFile(open('ma-small.txt'))
+        p2 = oui_grammar('medium').parseFile(open('ma-medium.txt'))
+        p3 = oui_grammar('large').parseFile(open('ma-large.txt'))
+        oui(p, p2, p3)
