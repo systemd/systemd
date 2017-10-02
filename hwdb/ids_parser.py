@@ -117,6 +117,12 @@ def header(file, *sources):
                                     '\n#   '.join(sources)),
           file=file)
 
+def add_item(items, key, value):
+    if key in items:
+        print(f'Ignoring duplicate entry: {key} = "{items[key]}", "{value}"')
+    else:
+        items[key] = value
+
 def usb_vendor_model(p):
     with open('20-usb-vendor-model.hwdb', 'wt') as out:
         header(out, 'http://www.linux-usb.org/usb.ids')
@@ -261,32 +267,38 @@ def sdio_classes(p):
 # Medium MA-M 28/20 bit (OUI prefix owned by IEEE)
 # Small  MA-S 36/12 bit (OUI prefix owned by IEEE)
 def oui(p1, p2, p3):
+    prefixes = set()
+    items = {}
+
+    for p, check in ((p1, False), (p2, False), (p3, True)):
+        for vendor_group in p.VENDORS:
+            prefix = vendor_group.prefix.upper()
+            if check:
+                if prefix in prefixes:
+                    continue
+            else:
+                prefixes.add(prefix)
+            start = vendor_group.start.upper()
+            end = vendor_group.end.upper()
+
+            if end and start != end:
+                print(f'{prefix:} {start} != {end}', file=sys.stderr)
+            text = vendor_group.text.strip()
+
+            key = prefix + start if end else prefix
+            add_item(items, key, text)
+
     with open('20-OUI.hwdb', 'wt') as out:
         header(out,
                'https://services13.ieee.org/RST/standards-ra-web/rest/assignments/download/?registry=MA-L&format=txt',
                'https://services13.ieee.org/RST/standards-ra-web/rest/assignments/download/?registry=MA-M&format=txt',
                'https://services13.ieee.org/RST/standards-ra-web/rest/assignments/download/?registry=MA-S&format=txt')
 
-        prefixes = set()
+        for pattern in sorted(items):
+            print(f'',
+                  f'OUI:{pattern}*',
+                  f' ID_OUI_FROM_DATABASE={items[pattern]}', sep='\n', file=out)
 
-        for p, check in ((p1, False), (p2, False), (p3, True)):
-            for vendor_group in p.VENDORS:
-                prefix = vendor_group.prefix.upper()
-                if check:
-                    if prefix in prefixes:
-                        continue
-                else:
-                    prefixes.add(prefix)
-                start = vendor_group.start.upper()
-                end = vendor_group.end.upper()
-
-                if end and start != end:
-                    print(f'{prefix:} {start} != {end}', file=sys.stderr)
-                text = vendor_group.text.strip()
-
-                print(f'',
-                      f'OUI:{prefix}{start if end else ""}*',
-                      f' ID_OUI_FROM_DATABASE={text}', sep='\n', file=out)
     print(f'Wrote {out.name}')
 
 if __name__ == '__main__':
