@@ -50,7 +50,6 @@ static int seccomp_add_default_syscall_filter(
         } whitelist[] = {
                 /* Let's use set names where we can */
                 { 0,                  "@basic-io"              },
-                { 0,                  "@credentials"           },
                 { 0,                  "@default"               },
                 { 0,                  "@file-system"           },
                 { 0,                  "@io-event"              },
@@ -71,6 +70,7 @@ static int seccomp_add_default_syscall_filter(
 
                 /* Plus a good set of additional syscalls which are not part of any of the groups above */
                 { 0,                  "brk"                    },
+                { 0,                  "capget"                 },
                 { 0,                  "capset"                 },
                 { 0,                  "chown"                  },
                 { 0,                  "chown32"                },

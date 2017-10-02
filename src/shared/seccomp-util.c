@@ -281,8 +281,28 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "futex\0"
                 "get_robust_list\0"
                 "get_thread_area\0"
+                "getegid\0"
+                "getegid32\0"
+                "geteuid\0"
+                "geteuid32\0"
+                "getgid\0"
+                "getgid32\0"
+                "getgroups\0"
+                "getgroups32\0"
+                "getpgid\0"
+                "getpgrp\0"
+                "getpid\0"
+                "getppid\0"
+                "getresgid\0"
+                "getresgid32\0"
+                "getresuid\0"
+                "getresuid32\0"
                 "getrlimit\0"      /* make sure processes can query stack size and such */
+                "getsid\0"
+                "gettid\0"
                 "gettimeofday\0"
+                "getuid\0"
+                "getuid32\0"
                 "membarrier\0"
                 "nanosleep\0"
                 "pause\0"
@@ -332,32 +352,6 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "switch_endian\0"
                 "vm86\0"
                 "vm86old\0"
-        },
-        [SYSCALL_FILTER_SET_CREDENTIALS] = {
-                .name = "@credentials",
-                .help = "Query own process credentials",
-                .value =
-                "capget\0"
-                "getegid\0"
-                "getegid32\0"
-                "geteuid\0"
-                "geteuid32\0"
-                "getgid\0"
-                "getgid32\0"
-                "getgroups\0"
-                "getgroups32\0"
-                "getpgid\0"
-                "getpgrp\0"
-                "getpid\0"
-                "getppid\0"
-                "getresgid\0"
-                "getresgid32\0"
-                "getresuid\0"
-                "getresuid32\0"
-                "getsid\0"
-                "gettid\0"
-                "getuid\0"
-                "getuid32\0"
         },
         [SYSCALL_FILTER_SET_DEBUG] = {
                 .name = "@debug",
@@ -645,11 +639,10 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .help = "Process control, execution, namespaceing operations",
                 .value =
                 "arch_prctl\0"
+                "capget\0"      /* Able to query arbitrary processes */
                 "clone\0"
                 "execveat\0"
                 "fork\0"
-                "getpid\0"
-                "getppid\0"
                 "getrusage\0"
                 "gettid\0"
                 "kill\0"
