@@ -3035,8 +3035,8 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                          * has been received */
                                         if (f != SERVICE_SUCCESS)
                                                 service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
-                                        else if (!s->remain_after_exit)
-                                                /* The service has never been active */
+                                        else if (!s->remain_after_exit || s->notify_access == NOTIFY_MAIN)
+                                                /* The service has never been and will never be active */
                                                 service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_PROTOCOL);
                                         break;
                                 }
