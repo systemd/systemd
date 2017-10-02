@@ -342,6 +342,25 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "statx\0"
 #endif
         },
+        [SYSCALL_FILTER_SET_BASIC_FILE_SYSTEM_VIA_FD] = {
+                .name = "@basic-file-system-via-fd",
+                .help = "@Basic File system operations that use a file descriptor",
+                .value =
+                "faccessat\0"
+                "fchdir\0"
+                "fcntl\0"
+                "fcntl64\0"
+                "flistxattr\0"
+                "fgetxattr\0"
+                "fstat\0"
+                "fstat64\0"
+                "fstatat64\0"
+                "fstatfs\0"
+                "fstatfs64\0"
+                "getdents\0"
+                "getdents64\0"
+                "readdir\0"
+        },
         [SYSCALL_FILTER_SET_BASIC_IO] = {
                 .name = "@basic-io",
                 .help = "Basic IO",
@@ -423,29 +442,17 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .help = "File system operations",
                 .value =
                 "@basic-file-system\0"
+                "@basic-file-system-via-fd\0"
                 "@basic-memory\0"
                 "@chmod\0"
                 "close\0"
                 "creat\0"
-                "faccessat\0"
                 "fallocate\0"
-                "fchdir\0"
-                "fcntl\0"
-                "fcntl64\0"
-                "fgetxattr\0"
-                "flistxattr\0"
                 "fremovexattr\0"
                 "fsetxattr\0"
-                "fstat\0"
-                "fstat64\0"
-                "fstatat64\0"
-                "fstatfs\0"
-                "fstatfs64\0"
                 "ftruncate\0"
                 "ftruncate64\0"
                 "futimesat\0"
-                "getdents\0"
-                "getdents64\0"
                 "inotify_add_watch\0"
                 "inotify_init\0"
                 "inotify_init1\0"

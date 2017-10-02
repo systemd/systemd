@@ -1485,6 +1485,10 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
                 <entry>Basic file system operations: get files and directories status, retrieve extended attributes, and check user's permission on files(<citerefentry project='man-pages'><refentrytitle>access</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>stat</refentrytitle><manvolnum>2</manvolnum></citerefentry>), and all system calls of <varname>@basic-directory</varname></entry>
               </row>
               <row>
+                <entry>@basic-file-system-via-fd</entry>
+                <entry>Basic file system operations that use file descriptors: get files and directories status, retrieve extended attributes, and check user's permission on files(<citerefentry project='man-pages'><refentrytitle>faccessat</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>fstat</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and related system calls)</entry>
+              </row>
+              <row>
                 <entry>@basic-io</entry>
                 <entry>System calls for basic I/O: all <varname>@basic-rw</varname> system calls, plus file descriptor duplication and closing (<citerefentry project='man-pages'><refentrytitle>dup</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>close</refentrytitle><manvolnum>2</manvolnum></citerefentry>)</entry>
               </row>
