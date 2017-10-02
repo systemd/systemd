@@ -1425,6 +1425,10 @@ static int main_pid_good(Service *s) {
 _pure_ static int control_pid_good(Service *s) {
         assert(s);
 
+        /* Returns 0 if the control PID is dead, > 0 if it is good. We never actually return < 0 here, but in order to
+         * make this function as similar as possible to main_pid_good() and cgroup_good(), we pretend that < 0 also
+         * means: we can't figure it out. */
+
         return s->control_pid > 0;
 }
 
@@ -1432,6 +1436,9 @@ static int cgroup_good(Service *s) {
         int r;
 
         assert(s);
+
+        /* Returns 0 if the cgroup is empty or doesn't exist, > 0 if it is exists and is populated, < 0 if we can't
+         * figure it out */
 
         if (!UNIT(s)->cgroup_path)
                 return 0;
