@@ -1409,12 +1409,12 @@ static int bus_manager_log_shutdown(
         if (streq(unit_name, SPECIAL_POWEROFF_TARGET)) {
                 p = "MESSAGE=System is powering down";
                 q = "SHUTDOWN=power-off";
-        } else if (streq(unit_name, SPECIAL_HALT_TARGET)) {
-                p = "MESSAGE=System is halting";
-                q = "SHUTDOWN=halt";
         } else if (streq(unit_name, SPECIAL_REBOOT_TARGET)) {
                 p = "MESSAGE=System is rebooting";
                 q = "SHUTDOWN=reboot";
+        } else if (streq(unit_name, SPECIAL_HALT_TARGET)) {
+                p = "MESSAGE=System is halting";
+                q = "SHUTDOWN=halt";
         } else if (streq(unit_name, SPECIAL_KEXEC_TARGET)) {
                 p = "MESSAGE=System is rebooting with kexec";
                 q = "SHUTDOWN=kexec";
@@ -1822,6 +1822,20 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
                         error);
 }
 
+static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+
+        return method_do_shutdown_or_sleep(
+                        m, message,
+                        SPECIAL_HALT_TARGET,
+                        INHIBIT_SHUTDOWN,
+                        "org.freedesktop.login1.halt",
+                        "org.freedesktop.login1.halt-multiple-sessions",
+                        "org.freedesktop.login1.halt-ignore-inhibit",
+                        NULL,
+                        error);
+}
+
 static int method_suspend(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
@@ -1911,9 +1925,12 @@ fail:
 }
 
 static void reset_scheduled_shutdown(Manager *m) {
+        assert(m);
+
         m->scheduled_shutdown_timeout_source = sd_event_source_unref(m->scheduled_shutdown_timeout_source);
         m->wall_message_timeout_source = sd_event_source_unref(m->wall_message_timeout_source);
         m->nologin_timeout_source = sd_event_source_unref(m->nologin_timeout_source);
+
         m->scheduled_shutdown_type = mfree(m->scheduled_shutdown_type);
         m->scheduled_shutdown_timeout = 0;
         m->shutdown_dry_run = false;
@@ -1922,6 +1939,7 @@ static void reset_scheduled_shutdown(Manager *m) {
                 (void) unlink("/run/nologin");
                 m->unlink_nologin = false;
         }
+
         (void) unlink("/run/systemd/shutdown/scheduled");
 }
 
@@ -1940,12 +1958,14 @@ static int manager_scheduled_shutdown_handler(
         if (isempty(m->scheduled_shutdown_type))
                 return 0;
 
-        if (streq(m->scheduled_shutdown_type, "halt"))
-                target = SPECIAL_HALT_TARGET;
-        else if (streq(m->scheduled_shutdown_type, "poweroff"))
+        if (streq(m->scheduled_shutdown_type, "poweroff"))
                 target = SPECIAL_POWEROFF_TARGET;
-        else
+        else if (streq(m->scheduled_shutdown_type, "reboot"))
                 target = SPECIAL_REBOOT_TARGET;
+        else if (streq(m->scheduled_shutdown_type, "halt"))
+                target = SPECIAL_HALT_TARGET;
+        else
+                assert_not_reached("unexpected shutdown type");
 
         /* Don't allow multiple jobs being executed at the same time */
         if (m->action_what) {
@@ -2002,7 +2022,11 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
                 m->shutdown_dry_run = true;
         }
 
-        if (streq(type, "reboot")) {
+        if (streq(type, "poweroff")) {
+                action = "org.freedesktop.login1.power-off";
+                action_multiple_sessions = "org.freedesktop.login1.power-off-multiple-sessions";
+                action_ignore_inhibit = "org.freedesktop.login1.power-off-ignore-inhibit";
+        } else if (streq(type, "reboot")) {
                 action = "org.freedesktop.login1.reboot";
                 action_multiple_sessions = "org.freedesktop.login1.reboot-multiple-sessions";
                 action_ignore_inhibit = "org.freedesktop.login1.reboot-ignore-inhibit";
@@ -2010,10 +2034,6 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
                 action = "org.freedesktop.login1.halt";
                 action_multiple_sessions = "org.freedesktop.login1.halt-multiple-sessions";
                 action_ignore_inhibit = "org.freedesktop.login1.halt-ignore-inhibit";
-        } else if (streq(type, "poweroff")) {
-                action = "org.freedesktop.login1.power-off";
-                action_multiple_sessions = "org.freedesktop.login1.power-off-multiple-sessions";
-                action_ignore_inhibit = "org.freedesktop.login1.power-off-ignore-inhibit";
         } else
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unsupported shutdown type");
 
@@ -2256,6 +2276,19 @@ static int method_can_reboot(sd_bus_message *message, void *userdata, sd_bus_err
                         "org.freedesktop.login1.reboot",
                         "org.freedesktop.login1.reboot-multiple-sessions",
                         "org.freedesktop.login1.reboot-ignore-inhibit",
+                        NULL,
+                        error);
+}
+
+static int method_can_halt(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+
+        return method_can_shutdown_or_sleep(
+                        m, message,
+                        INHIBIT_SHUTDOWN,
+                        "org.freedesktop.login1.halt",
+                        "org.freedesktop.login1.halt-multiple-sessions",
+                        "org.freedesktop.login1.halt-ignore-inhibit",
                         NULL,
                         error);
 }
@@ -2612,11 +2645,13 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("FlushDevices", "b", NULL, method_flush_devices, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("PowerOff", "b", NULL, method_poweroff, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Reboot", "b", NULL, method_reboot, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Halt", "b", NULL, method_halt, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Suspend", "b", NULL, method_suspend, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Hibernate", "b", NULL, method_hibernate, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("HybridSleep", "b", NULL, method_hybrid_sleep, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CanPowerOff", NULL, "s", method_can_poweroff, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CanReboot", NULL, "s", method_can_reboot, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("CanHalt", NULL, "s", method_can_halt, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CanSuspend", NULL, "s", method_can_suspend, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CanHibernate", NULL, "s", method_can_hibernate, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CanHybridSleep", NULL, "s", method_can_hybrid_sleep, SD_BUS_VTABLE_UNPRIVILEGED),
