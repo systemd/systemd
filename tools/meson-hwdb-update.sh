@@ -14,4 +14,4 @@ fi
 ./ids-update.pl
 ./acpi-update.py >20-acpi-vendor.hwdb.base
 patch -p0 -o- 20-acpi-vendor.hwdb.base <20-acpi-vendor.hwdb.patch >20-acpi-vendor.hwdb
-diff -u 20-acpi-vendor.hwdb.base 20-acpi-vendor.hwdb >20-acpi-vendor.hwdb.patch
+! diff -u 20-acpi-vendor.hwdb.base 20-acpi-vendor.hwdb >20-acpi-vendor.hwdb.patch
