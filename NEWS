@@ -190,6 +190,20 @@ CHANGES WITH 235:
           used to control how the kernel keyring is set up for executed
           processes.
 
+        * "systemctl poweroff", "systemctl reboot", "systemctl halt",
+          "systemctl kexec" and "systemctl exit" are now always asynchronous in
+          behaviour (that is: these commands return immediately after the
+          operation was enqueued instead of waiting until the operation was
+          completed). Previously, "systemctl poweroff" and "systemctl reboot"
+          were asynchronous on systems using systemd-logind (i.e. almost
+          always, and like they were on sysvinit), and the other three commands
+          were unconditionally synchronous. With this release this is cleaned
+          up, and callers will see the same asynchronous behaviour on all
+          systems for all five operations.
+
+        * systemd-logind gained new Halt() and CanHalt() bus calls for halting
+          the system.
+
         * .timer units now accept calendar specifications in other timezones
           than UTC or the local timezone.
 
@@ -213,7 +227,7 @@ CHANGES WITH 235:
         userwithuid, Vito Caputo, vliaskov, WaLyong Cho, William Douglas, Xiang
         Fan, Yu Watanabe, Zbigniew Jędrzejewski-Szmek
 
-        — Berlin, 2017-09-XX
+        — Berlin, 2017-10-XX
 
 CHANGES WITH 234:
 
