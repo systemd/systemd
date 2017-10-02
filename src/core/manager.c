@@ -575,9 +575,9 @@ static int manager_setup_prefix(Manager *m) {
         static const struct table_entry paths_user[_EXEC_DIRECTORY_TYPE_MAX] = {
                 [EXEC_DIRECTORY_RUNTIME] = { SD_PATH_USER_RUNTIME, NULL },
                 [EXEC_DIRECTORY_STATE] = { SD_PATH_USER_CONFIGURATION, NULL },
-                [EXEC_DIRECTORY_CACHE] = { SD_PATH_SYSTEM_STATE_CACHE, NULL },
-                [EXEC_DIRECTORY_LOGS] = { SD_PATH_SYSTEM_CONFIGURATION, "log" },
-                [EXEC_DIRECTORY_CONFIGURATION] = { SD_PATH_SYSTEM_CONFIGURATION, NULL },
+                [EXEC_DIRECTORY_CACHE] = { SD_PATH_USER_STATE_CACHE, NULL },
+                [EXEC_DIRECTORY_LOGS] = { SD_PATH_USER_CONFIGURATION, "log" },
+                [EXEC_DIRECTORY_CONFIGURATION] = { SD_PATH_USER_CONFIGURATION, NULL },
         };
 
         const struct table_entry *p;
