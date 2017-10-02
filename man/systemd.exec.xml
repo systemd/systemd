@@ -1489,10 +1489,6 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
                 <entry>System calls for CPU emulation functionality (<citerefentry project='man-pages'><refentrytitle>vm86</refentrytitle><manvolnum>2</manvolnum></citerefentry> and related calls)</entry>
               </row>
               <row>
-                <entry>@credentials</entry>
-                <entry>System calls for querying process credentials (<citerefentry project='man-pages'><refentrytitle>getuid</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>capget</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and related calls)</entry>
-              </row>
-              <row>
                 <entry>@debug</entry>
                 <entry>Debugging, performance monitoring and tracing functionality (<citerefentry project='man-pages'><refentrytitle>ptrace</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>perf_event_open</refentrytitle><manvolnum>2</manvolnum></citerefentry> and related calls)</entry>
               </row>
