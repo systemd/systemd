@@ -348,6 +348,14 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "write\0"
                 "writev\0"
         },
+        [SYSCALL_FILTER_SET_CHMOD] = {
+                .name = "@chmod",
+                .help = "Change permissions of a file",
+                .value =
+                "chmod\0"
+                "fchmod\0"
+                "fchmodat\0"
+        },
         [SYSCALL_FILTER_SET_CLOCK] = {
                 .name = "@clock",
                 .help = "Change the system time",
@@ -388,16 +396,14 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .help = "File system operations",
                 .value =
                 "@basic-memory\0"
+                "@chmod\0"
                 "access\0"
                 "chdir\0"
-                "chmod\0"
                 "close\0"
                 "creat\0"
                 "faccessat\0"
                 "fallocate\0"
                 "fchdir\0"
-                "fchmod\0"
-                "fchmodat\0"
                 "fcntl\0"
                 "fcntl64\0"
                 "fgetxattr\0"

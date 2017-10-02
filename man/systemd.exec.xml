@@ -1489,6 +1489,10 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
                 <entry>System calls for basic read, write and seek operations (<citerefentry project='man-pages'><refentrytitle>read</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>write</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and related calls)</entry>
               </row>
               <row>
+                <entry>@chmod</entry>
+                <entry>Change permissions of a file (<citerefentry project='man-pages'><refentrytitle>chmod</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and related calls)</entry>
+              </row>
+              <row>
                 <entry>@clock</entry>
                 <entry>System calls for changing the system clock (<citerefentry project='man-pages'><refentrytitle>adjtimex</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>settimeofday</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and related calls)</entry>
               </row>
