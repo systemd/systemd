@@ -187,7 +187,7 @@ static int shovel(PTYForward *f) {
 
                                 if (errno == EAGAIN)
                                         f->stdin_readable = false;
-                                else if (errno == EIO || errno == EPIPE || errno == ECONNRESET) {
+                                else if (IN_SET(errno, EIO, EPIPE, ECONNRESET)) {
                                         f->stdin_readable = false;
                                         f->stdin_hangup = true;
 
@@ -217,9 +217,9 @@ static int shovel(PTYForward *f) {
                         k = write(f->master, f->in_buffer, f->in_buffer_full);
                         if (k < 0) {
 
-                                if (errno == EAGAIN || errno == EIO)
+                                if (IN_SET(errno, EAGAIN, EIO))
                                         f->master_writable = false;
-                                else if (errno == EPIPE || errno == ECONNRESET) {
+                                else if (IN_SET(errno, EPIPE, ECONNRESET)) {
                                         f->master_writable = f->master_readable = false;
                                         f->master_hangup = true;
 
@@ -249,7 +249,7 @@ static int shovel(PTYForward *f) {
 
                                 if (errno == EAGAIN || (errno == EIO && ignore_vhangup(f)))
                                         f->master_readable = false;
-                                else if (errno == EPIPE || errno == ECONNRESET || errno == EIO) {
+                                else if (IN_SET(errno, EPIPE, ECONNRESET, EIO)) {
                                         f->master_readable = f->master_writable = false;
                                         f->master_hangup = true;
 
@@ -271,7 +271,7 @@ static int shovel(PTYForward *f) {
 
                                 if (errno == EAGAIN)
                                         f->stdout_writable = false;
-                                else if (errno == EIO || errno == EPIPE || errno == ECONNRESET) {
+                                else if (IN_SET(errno, EIO, EPIPE, ECONNRESET)) {
                                         f->stdout_writable = false;
                                         f->stdout_hangup = true;
                                         f->stdout_event_source = sd_event_source_unref(f->stdout_event_source);

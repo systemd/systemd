@@ -95,7 +95,7 @@ static int clean_sysvipc_shm(uid_t delete_uid, gid_t delete_gid) {
                 if (shmctl(shmid, IPC_RMID, NULL) < 0) {
 
                         /* Ignore entries that are already deleted */
-                        if (errno == EIDRM || errno == EINVAL)
+                        if (IN_SET(errno, EIDRM, EINVAL))
                                 continue;
 
                         ret = log_warning_errno(errno,
@@ -147,7 +147,7 @@ static int clean_sysvipc_sem(uid_t delete_uid, gid_t delete_gid) {
                 if (semctl(semid, 0, IPC_RMID) < 0) {
 
                         /* Ignore entries that are already deleted */
-                        if (errno == EIDRM || errno == EINVAL)
+                        if (IN_SET(errno, EIDRM, EINVAL))
                                 continue;
 
                         ret = log_warning_errno(errno,
@@ -200,7 +200,7 @@ static int clean_sysvipc_msg(uid_t delete_uid, gid_t delete_gid) {
                 if (msgctl(msgid, IPC_RMID, NULL) < 0) {
 
                         /* Ignore entries that are already deleted */
-                        if (errno == EIDRM || errno == EINVAL)
+                        if (IN_SET(errno, EIDRM, EINVAL))
                                 continue;
 
                         ret = log_warning_errno(errno,

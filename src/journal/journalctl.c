@@ -477,11 +477,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -EINVAL;
                         }
 
-                        if (arg_output == OUTPUT_EXPORT ||
-                            arg_output == OUTPUT_JSON ||
-                            arg_output == OUTPUT_JSON_PRETTY ||
-                            arg_output == OUTPUT_JSON_SSE ||
-                            arg_output == OUTPUT_CAT)
+                        if (IN_SET(arg_output, OUTPUT_EXPORT, OUTPUT_JSON, OUTPUT_JSON_PRETTY, OUTPUT_JSON_SSE, OUTPUT_CAT))
                                 arg_quiet = true;
 
                         break;

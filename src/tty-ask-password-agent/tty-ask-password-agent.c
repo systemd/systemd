@@ -165,7 +165,7 @@ static int ask_password_plymouth(
 
                 k = read(fd, buffer + p, sizeof(buffer) - p);
                 if (k < 0) {
-                        if (errno == EINTR || errno == EAGAIN)
+                        if (IN_SET(errno, EINTR, EAGAIN))
                                 continue;
 
                         r = -errno;
@@ -346,8 +346,7 @@ static int parse_password(const char *filename, char **wall) {
         } else {
                 _cleanup_strv_free_erase_ char **passwords = NULL;
 
-                assert(arg_action == ACTION_QUERY ||
-                       arg_action == ACTION_WATCH);
+                assert(IN_SET(arg_action, ACTION_QUERY, ACTION_WATCH));
 
                 if (access(socket_name, W_OK) < 0) {
                         if (arg_action == ACTION_QUERY)

@@ -302,7 +302,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         if (errno == ENOENT)
                 return 0;
 
-        if (errno != EMSGSIZE && errno != ENOBUFS)
+        if (!IN_SET(errno, EMSGSIZE, ENOBUFS))
                 return -errno;
 
         /* Message doesn't fit... Let's dump the data in a memfd or

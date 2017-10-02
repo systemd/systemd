@@ -321,8 +321,7 @@ static int transfer_on_pid(sd_event_source *s, const siginfo_t *si, void *userda
                         success = true;
                 }
 
-        } else if (si->si_code == CLD_KILLED ||
-                   si->si_code == CLD_DUMPED)
+        } else if (IN_SET(si->si_code, CLD_KILLED, CLD_DUMPED))
 
                 log_error("Import process terminated by signal %s.", signal_to_string(si->si_status));
         else
@@ -418,7 +417,7 @@ static int transfer_start(Transfer *t) {
                         }
                 }
 
-                if (pipefd[1] != STDOUT_FILENO && pipefd[1] != STDERR_FILENO)
+                if (!IN_SET(pipefd[1], STDOUT_FILENO, STDERR_FILENO))
                         pipefd[1] = safe_close(pipefd[1]);
 
                 if (t->stdin_fd >= 0) {
@@ -585,7 +584,7 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
 
         n = recvmsg(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         if (n < 0) {
-                if (errno == EAGAIN || errno == EINTR)
+                if (IN_SET(errno, EAGAIN, EINTR))
                         return 0;
 
                 return -errno;

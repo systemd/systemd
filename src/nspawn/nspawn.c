@@ -1766,8 +1766,7 @@ static int setup_journal(const char *directory) {
 
         r = readlink_and_make_absolute(p, &d);
         if (r >= 0) {
-                if ((arg_link_journal == LINK_GUEST ||
-                     arg_link_journal == LINK_AUTO) &&
+                if (IN_SET(arg_link_journal, LINK_GUEST, LINK_AUTO) &&
                     path_equal(d, q)) {
 
                         r = userns_mkdir(directory, p, 0755, 0, 0);
@@ -2882,7 +2881,7 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
 
         n = recvmsg(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         if (n < 0) {
-                if (errno == EAGAIN || errno == EINTR)
+                if (IN_SET(errno, EAGAIN, EINTR))
                         return 0;
 
                 return log_warning_errno(errno, "Couldn't read notification socket: %m");

@@ -25,8 +25,7 @@
 #include "util.h"
 
 const char *address_family_boolean_to_string(AddressFamilyBoolean b) {
-        if (b == ADDRESS_FAMILY_YES ||
-            b == ADDRESS_FAMILY_NO)
+        if (IN_SET(b, ADDRESS_FAMILY_YES, ADDRESS_FAMILY_NO))
                 return yes_no(b == ADDRESS_FAMILY_YES);
 
         if (b == ADDRESS_FAMILY_IPV4)

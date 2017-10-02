@@ -609,7 +609,7 @@ static int transaction_apply(Transaction *tr, Manager *m, JobMode mode) {
 
         /* Moves the transaction jobs to the set of active jobs */
 
-        if (mode == JOB_ISOLATE || mode == JOB_FLUSH) {
+        if (IN_SET(mode, JOB_ISOLATE, JOB_FLUSH)) {
 
                 /* When isolating first kill all installed jobs which
                  * aren't part of the new transaction */
@@ -968,7 +968,7 @@ int transaction_add_job_and_dependencies(
                 }
 
                 /* Finally, recursively add in all dependencies. */
-                if (type == JOB_START || type == JOB_RESTART) {
+                if (IN_SET(type, JOB_START, JOB_RESTART)) {
                         SET_FOREACH(dep, ret->unit->dependencies[UNIT_REQUIRES], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, true, false, false, ignore_order, e);
                                 if (r < 0) {
@@ -1033,7 +1033,7 @@ int transaction_add_job_and_dependencies(
 
                 }
 
-                if (type == JOB_STOP || type == JOB_RESTART) {
+                if (IN_SET(type, JOB_STOP, JOB_RESTART)) {
                         static const UnitDependency propagate_deps[] = {
                                 UNIT_REQUIRED_BY,
                                 UNIT_REQUISITE_OF,

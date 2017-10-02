@@ -154,9 +154,7 @@ static int get_line(JournalImporter *imp, char **line, size_t *size) {
 static int fill_fixed_size(JournalImporter *imp, void **data, size_t size) {
 
         assert(imp);
-        assert(imp->state == IMPORTER_STATE_DATA_START ||
-               imp->state == IMPORTER_STATE_DATA ||
-               imp->state == IMPORTER_STATE_DATA_FINISH);
+        assert(IN_SET(imp->state, IMPORTER_STATE_DATA_START, IMPORTER_STATE_DATA, IMPORTER_STATE_DATA_FINISH));
         assert(size <= DATA_SIZE_MAX);
         assert(imp->offset <= imp->filled);
         assert(imp->filled <= imp->size);

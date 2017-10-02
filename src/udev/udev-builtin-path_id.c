@@ -411,7 +411,7 @@ static struct udev_device *handle_scsi_default(struct udev_device *parent, char 
 
                 if (dent->d_name[0] == '.')
                         continue;
-                if (dent->d_type != DT_DIR && dent->d_type != DT_LNK)
+                if (!IN_SET(dent->d_type, DT_DIR, DT_LNK))
                         continue;
                 if (!startswith(dent->d_name, "host"))
                         continue;

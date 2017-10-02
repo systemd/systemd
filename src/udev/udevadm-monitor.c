@@ -33,7 +33,7 @@
 static bool udev_exit;
 
 static void sig_handler(int signum) {
-        if (signum == SIGINT || signum == SIGTERM)
+        if (IN_SET(signum, SIGINT, SIGTERM))
                 udev_exit = true;
 }
 

@@ -91,7 +91,7 @@ static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned 
                 return;
         }
 
-        if (ucred && (errno == ESRCH || errno == EPERM)) {
+        if (ucred && IN_SET(errno, ESRCH, EPERM)) {
                 struct ucred u;
 
                 /* Hmm, presumably the sender process vanished

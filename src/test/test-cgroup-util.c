@@ -192,8 +192,7 @@ static void test_proc(void) {
                 pid_t pid;
                 uid_t uid = UID_INVALID;
 
-                if (de->d_type != DT_DIR &&
-                    de->d_type != DT_UNKNOWN)
+                if (!IN_SET(de->d_type, DT_DIR, DT_UNKNOWN))
                         continue;
 
                 r = parse_pid(de->d_name, &pid);

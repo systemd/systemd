@@ -529,7 +529,7 @@ static int service_verify(Service *s) {
         if (s->bus_name && s->type != SERVICE_DBUS)
                 log_unit_warning(UNIT(s), "Service has a D-Bus service name specified, but is not of type dbus. Ignoring.");
 
-        if (s->exec_context.pam_name && !(s->kill_context.kill_mode == KILL_CONTROL_GROUP || s->kill_context.kill_mode == KILL_MIXED)) {
+        if (s->exec_context.pam_name && !IN_SET(s->kill_context.kill_mode, KILL_CONTROL_GROUP, KILL_MIXED)) {
                 log_unit_error(UNIT(s), "Service has PAM enabled. Kill mode must be set to 'control-group' or 'mixed'. Refusing.");
                 return -EINVAL;
         }
@@ -2230,7 +2230,7 @@ static int service_reload(Unit *u) {
 
         assert(s);
 
-        assert(s->state == SERVICE_RUNNING || s->state == SERVICE_EXITED);
+        assert(IN_SET(s->state, SERVICE_RUNNING, SERVICE_EXITED));
 
         service_enter_reload(s);
         return 1;
@@ -2761,7 +2761,7 @@ static int service_retry_pid_file(Service *s) {
         int r;
 
         assert(s->pid_file);
-        assert(s->state == SERVICE_START || s->state == SERVICE_START_POST);
+        assert(IN_SET(s->state, SERVICE_START, SERVICE_START_POST));
 
         r = service_load_pid_file(s, false);
         if (r < 0)
@@ -2832,7 +2832,7 @@ static int service_dispatch_io(sd_event_source *source, int fd, uint32_t events,
 
         assert(s);
         assert(fd >= 0);
-        assert(s->state == SERVICE_START || s->state == SERVICE_START_POST);
+        assert(IN_SET(s->state, SERVICE_START, SERVICE_START_POST));
         assert(s->pid_file_pathspec);
         assert(path_spec_owns_inotify_fd(s->pid_file_pathspec, fd));
 

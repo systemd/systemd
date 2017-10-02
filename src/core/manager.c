@@ -1442,7 +1442,7 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, sd_bus_e
                 return -ENOMEM;
 
         r = transaction_add_job_and_dependencies(tr, type, unit, NULL, true, false,
-                                                 mode == JOB_IGNORE_DEPENDENCIES || mode == JOB_IGNORE_REQUIREMENTS,
+                                                 IN_SET(mode, JOB_IGNORE_DEPENDENCIES, JOB_IGNORE_REQUIREMENTS),
                                                  mode == JOB_IGNORE_DEPENDENCIES, e);
         if (r < 0)
                 goto tr_abort;
@@ -1985,7 +1985,7 @@ static int manager_dispatch_sigchld(Manager *m) {
                 if (si.si_pid <= 0)
                         break;
 
-                if (si.si_code == CLD_EXITED || si.si_code == CLD_KILLED || si.si_code == CLD_DUMPED) {
+                if (IN_SET(si.si_code, CLD_EXITED, CLD_KILLED, CLD_DUMPED)) {
                         _cleanup_free_ char *name = NULL;
                         Unit *u1, *u2, *u3;
 
@@ -2513,9 +2513,7 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
         if (detect_container() > 0)
                 return;
 
-        if (u->type != UNIT_SERVICE &&
-            u->type != UNIT_MOUNT &&
-            u->type != UNIT_SWAP)
+        if (!IN_SET(u->type, UNIT_SERVICE, UNIT_MOUNT, UNIT_SWAP))
                 return;
 
         /* We set SOCK_NONBLOCK here so that we rather drop the

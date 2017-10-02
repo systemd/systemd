@@ -202,7 +202,7 @@ int rm_rf(const char *path, RemoveFlags flags) {
         fd = open(path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
         if (fd < 0) {
 
-                if (errno != ENOTDIR && errno != ELOOP)
+                if (!IN_SET(errno, ENOTDIR, ELOOP))
                         return -errno;
 
                 if (!(flags & REMOVE_PHYSICAL)) {

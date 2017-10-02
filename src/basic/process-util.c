@@ -688,8 +688,7 @@ int wait_for_terminate_and_warn(const char *name, pid_t pid, bool check_exit_cod
                         log_debug("%s succeeded.", name);
 
                 return status.si_status;
-        } else if (status.si_code == CLD_KILLED ||
-                   status.si_code == CLD_DUMPED) {
+        } else if (IN_SET(status.si_code, CLD_KILLED, CLD_DUMPED)) {
 
                 log_warning("%s terminated by signal %s.", name, signal_to_string(status.si_status));
                 return -EPROTO;

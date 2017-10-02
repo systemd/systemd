@@ -2055,7 +2055,7 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
         r = unit_kill_context(
                         UNIT(s),
                         &s->kill_context,
-                        (state != SOCKET_STOP_PRE_SIGTERM && state != SOCKET_FINAL_SIGTERM) ?
+                        !IN_SET(state, SOCKET_STOP_PRE_SIGTERM, SOCKET_FINAL_SIGTERM) ?
                         KILL_KILL : KILL_TERMINATE,
                         -1,
                         s->control_pid,
@@ -2083,7 +2083,7 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
 fail:
         log_unit_warning_errno(UNIT(s), r, "Failed to kill processes: %m");
 
-        if (state == SOCKET_STOP_PRE_SIGTERM || state == SOCKET_STOP_PRE_SIGKILL)
+        if (IN_SET(state, SOCKET_STOP_PRE_SIGTERM, SOCKET_STOP_PRE_SIGKILL))
                 socket_enter_stop_post(s, SOCKET_FAILURE_RESOURCES);
         else
                 socket_enter_dead(s, SOCKET_FAILURE_RESOURCES);
@@ -2448,15 +2448,13 @@ static int socket_start(Unit *u) {
 
                 /* If the service is already active we cannot start the
                  * socket */
-                if (service->state != SERVICE_DEAD &&
-                    service->state != SERVICE_FAILED &&
-                    service->state != SERVICE_AUTO_RESTART) {
+                if (!IN_SET(service->state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_AUTO_RESTART)) {
                         log_unit_error(u, "Socket service %s already active, refusing.", UNIT(service)->id);
                         return -EBUSY;
                 }
         }
 
-        assert(s->state == SOCKET_DEAD || s->state == SOCKET_FAILED);
+        assert(IN_SET(s->state, SOCKET_DEAD, SOCKET_FAILED));
 
         r = unit_start_limit_test(u);
         if (r < 0) {
@@ -2500,7 +2498,7 @@ static int socket_stop(Unit *u) {
                 return -EAGAIN;
         }
 
-        assert(s->state == SOCKET_LISTENING || s->state == SOCKET_RUNNING);
+        assert(IN_SET(s->state, SOCKET_LISTENING, SOCKET_RUNNING));
 
         socket_enter_stop_pre(s, SOCKET_SUCCESS);
         return 1;

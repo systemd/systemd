@@ -58,8 +58,7 @@ PullJob* pull_job_unref(PullJob *j) {
 static void pull_job_finish(PullJob *j, int ret) {
         assert(j);
 
-        if (j->state == PULL_JOB_DONE ||
-            j->state == PULL_JOB_FAILED)
+        if (IN_SET(j->state, PULL_JOB_DONE, PULL_JOB_FAILED))
                 return;
 
         if (ret == 0) {
@@ -442,7 +441,7 @@ static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb
         assert(contents);
         assert(j);
 
-        if (j->state == PULL_JOB_DONE || j->state == PULL_JOB_FAILED) {
+        if (IN_SET(j->state, PULL_JOB_DONE, PULL_JOB_FAILED)) {
                 r = -ESTALE;
                 goto fail;
         }

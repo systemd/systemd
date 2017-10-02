@@ -927,7 +927,7 @@ static bool hashmap_put_robin_hood(HashmapBase *h, unsigned idx,
 
         for (distance = 0; ; distance++) {
                 raw_dib = dibs[idx];
-                if (raw_dib == DIB_RAW_FREE || raw_dib == DIB_RAW_REHASH) {
+                if (IN_SET(raw_dib, DIB_RAW_FREE, DIB_RAW_REHASH)) {
                         if (raw_dib == DIB_RAW_REHASH)
                                 bucket_move_entry(h, swap, idx, IDX_TMP);
 

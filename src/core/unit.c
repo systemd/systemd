@@ -778,8 +778,7 @@ int unit_merge(Unit *u, Unit *other) {
         if (!unit_type_may_alias(u->type)) /* Merging only applies to unit names that support aliases */
                 return -EEXIST;
 
-        if (other->load_state != UNIT_STUB &&
-            other->load_state != UNIT_NOT_FOUND)
+        if (!IN_SET(other->load_state, UNIT_STUB, UNIT_NOT_FOUND))
                 return -EEXIST;
 
         if (other->job)
@@ -2221,7 +2220,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                         if (u->job->state == JOB_RUNNING) {
                                 if (ns == UNIT_ACTIVE)
                                         job_finish_and_invalidate(u->job, reload_success ? JOB_DONE : JOB_FAILED, true, false);
-                                else if (ns != UNIT_ACTIVATING && ns != UNIT_RELOADING) {
+                                else if (!IN_SET(ns, UNIT_ACTIVATING, UNIT_RELOADING)) {
                                         unexpected = true;
 
                                         if (UNIT_IS_INACTIVE_OR_FAILED(ns))
@@ -3552,9 +3551,7 @@ bool unit_active_or_pending(Unit *u) {
                 return true;
 
         if (u->job &&
-            (u->job->type == JOB_START ||
-             u->job->type == JOB_RELOAD_OR_START ||
-             u->job->type == JOB_RESTART))
+            IN_SET(u->job->type, JOB_START, JOB_RELOAD_OR_START, JOB_RESTART))
                 return true;
 
         return false;
