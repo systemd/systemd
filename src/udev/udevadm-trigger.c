@@ -146,7 +146,7 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
                         }
                         break;
                 case 'c':
-                        if (!nulstr_contains("add\0" "remove\0" "change\0", optarg)) {
+                        if (!STR_IN_SET(optarg, "add", "remove", "change")) {
                                 log_error("unknown action '%s'", optarg);
                                 return 2;
                         } else
