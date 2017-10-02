@@ -591,6 +591,9 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
 
                 if (streq_ptr(p->fstype, "crypto_LUKS"))
                         m->encrypted = true;
+
+                if (p->fstype && fstype_is_ro(p->fstype))
+                        p->rw = false;
         }
 
         *ret = m;
@@ -681,7 +684,7 @@ static int mount_partition(
                 p = where;
 
         /* If requested, turn on discard support. */
-        if (STR_IN_SET(fstype, "btrfs", "ext4", "vfat", "xfs") &&
+        if (fstype_can_discard(fstype) &&
             ((flags & DISSECT_IMAGE_DISCARD) ||
              ((flags & DISSECT_IMAGE_DISCARD_ON_LOOP) && is_loop_device(m->node))))
                 options = "discard";
