@@ -324,6 +324,14 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "dup2\0"
                 "dup3\0"
         },
+        [SYSCALL_FILTER_SET_BASIC_MEMORY] = {
+                .name = "@basic-memory",
+                .help = "Basic Memory Mapping",
+                .value =
+                "mmap\0"
+                "mmap2\0"
+                "munmap\0"
+        },
         [SYSCALL_FILTER_SET_BASIC_RW] = {
                 .name = "@basic-rw",
                 .help = "Basic Read Write",
@@ -378,6 +386,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .name = "@file-system",
                 .help = "File system operations",
                 .value =
+                "@basic-memory\0"
                 "access\0"
                 "chdir\0"
                 "chmod\0"
@@ -423,9 +432,6 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "mkdirat\0"
                 "mknod\0"
                 "mknodat\0"
-                "mmap\0"
-                "mmap2\0"
-                "munmap\0"
                 "newfstatat\0"
                 "oldfstat\0"
                 "oldlstat\0"

@@ -1481,6 +1481,10 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
                 <entry>System calls for basic I/O: all <varname>@basic-rw</varname> system calls, plus file descriptor duplication and closing (<citerefentry project='man-pages'><refentrytitle>dup</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>close</refentrytitle><manvolnum>2</manvolnum></citerefentry>)</entry>
               </row>
               <row>
+                <entry>@basic-memory</entry>
+                <entry>System calls for basic memory mapping operations: mmap, mmap2, munmap (<citerefentry project='man-pages'><refentrytitle>mmap</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>munmap</refentrytitle><manvolnum>2</manvolnum></citerefentry>)</entry>
+              </row>
+              <row>
                 <entry>@basic-rw</entry>
                 <entry>System calls for basic read, write and seek operations (<citerefentry project='man-pages'><refentrytitle>read</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>write</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and related calls)</entry>
               </row>
@@ -1498,7 +1502,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
               </row>
               <row>
                 <entry>@file-system</entry>
-                <entry>File system operations: opening, creating files and directories for read and write, renaming and removing them, reading file properties, or creating hard and symbolic links.</entry>
+                <entry>File system operations: opening, creating files and directories for read and write, renaming and removing them, reading file properties, or creating hard and symbolic links, and all system calls of <varname>@basic-memory</varname>.</entry>
               </row>
               <row>
                 <entry>@io-event</entry>
