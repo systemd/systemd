@@ -19915,7 +19915,7 @@ HUT 07  Keyboard
 	031  \ and | (Backslash and Bar)
 	032  # and ~ (Hash and Tilde, Non-US Keyboard near right shift)
 	033  ; and : (Semicolon and Colon)
-	034  ´ and " (Accent Acute and Double Quotes)
+	034  Â´ and " (Accent Acute and Double Quotes)
 	035  ` and ~ (Accent Grace and Tilde)
 	036  , and < (Comma and Less)
 	037  . and > (Period and Greater)
