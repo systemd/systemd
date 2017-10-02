@@ -124,52 +124,66 @@ def add_item(items, key, value):
         items[key] = value
 
 def usb_vendor_model(p):
+    items = {}
+
+    for vendor_group in p.VENDORS:
+        vendor = vendor_group.VENDOR.vendor.upper()
+        text = vendor_group.VENDOR.text.strip()
+        add_item(items, (vendor,), text)
+
+        for vendor_dev in vendor_group.VENDOR_DEV:
+            device = vendor_dev.device.upper()
+            text = vendor_dev.text.strip()
+            add_item(items, (vendor, device), text)
+
     with open('20-usb-vendor-model.hwdb', 'wt') as out:
         header(out, 'http://www.linux-usb.org/usb.ids')
 
-        for vendor_group in p.VENDORS:
-            vendor = vendor_group.VENDOR.vendor.upper()
-            text = vendor_group.VENDOR.text.strip()
-            print(f'',
-                  f'usb:v{vendor}*',
-                  f' ID_VENDOR_FROM_DATABASE={text}', sep='\n', file=out)
+        for key in sorted(items):
+            if len(key) == 1:
+                p, n = 'usb:v{}*', 'VENDOR'
+            else:
+                p, n = 'usb:v{}p{}*', 'MODEL',
+            print('', p.format(*key),
+                  f' ID_{n}_FROM_DATABASE={items[key]}', sep='\n', file=out)
 
-            for vendor_dev in vendor_group.VENDOR_DEV:
-                device = vendor_dev.device.upper()
-                text = vendor_dev.text.strip()
-                print(f'',
-                      f'usb:v{vendor}p{device}*',
-                      f' ID_MODEL_FROM_DATABASE={text}', sep='\n', file=out)
     print(f'Wrote {out.name}')
 
 def usb_classes(p):
+    items = {}
+
+    for klass_group in p.CLASSES:
+        klass = klass_group.KLASS.klass.upper()
+        text = klass_group.KLASS.text.strip()
+
+        if klass != '00' and not re.match(r'(\?|None|Unused)\s*$', text):
+            add_item(items, (klass,), text)
+
+        for subclass_group in klass_group.SUBCLASSES:
+            subclass = subclass_group.subclass.upper()
+            text = subclass_group.text.strip()
+            if subclass != '00' and not re.match(r'(\?|None|Unused)\s*$', text):
+                add_item(items, (klass, subclass), text)
+
+            for protocol_group in subclass_group.PROTOCOLS:
+                protocol = protocol_group.protocol.upper()
+                text = protocol_group.name.strip()
+                if klass != '00' and not re.match(r'(\?|None|Unused)\s*$', text):
+                    add_item(items, (klass, subclass, protocol), text)
+
     with open('20-usb-classes.hwdb', 'wt') as out:
         header(out, 'http://www.linux-usb.org/usb.ids')
 
-        for klass_group in p.CLASSES:
-            klass = klass_group.KLASS.klass.upper()
-            text = klass_group.KLASS.text.strip()
+        for key in sorted(items):
+            if len(key) == 1:
+                p, n = 'usb:v*p*d*dc{}*', 'CLASS'
+            elif len(key) == 2:
+                p, n = 'usb:v*p*d*dc{}dsc{}*', 'SUBCLASS'
+            else:
+                p, n = 'usb:v*p*d*dc{}dsc{}dp{}*', 'PROTOCOL'
+            print('', p.format(*key),
+                  f' ID_USB_{n}_FROM_DATABASE={items[key]}', sep='\n', file=out)
 
-            if klass != '00' and not re.match(r'(\?|None|Unused)\s*$', text):
-                print(f'',
-                      f'usb:v*p*d*dc{klass}*',
-                      f' ID_USB_CLASS_FROM_DATABASE={text}', sep='\n', file=out)
-
-            for subclass_group in klass_group.SUBCLASSES:
-                subclass = subclass_group.subclass.upper()
-                text = subclass_group.text.strip()
-                if subclass != '00' and not re.match(r'(\?|None|Unused)\s*$', text):
-                    print(f'',
-                          f'usb:v*p*d*dc{klass}dsc{subclass}*',
-                          f' ID_USB_SUBCLASS_FROM_DATABASE={text}', sep='\n', file=out)
-
-                for protocol_group in subclass_group.PROTOCOLS:
-                    protocol = protocol_group.protocol.upper()
-                    text = protocol_group.name.strip()
-                    if klass != '00' and not re.match(r'(\?|None|Unused)\s*$', text):
-                        print(f'',
-                              f'usb:v*p*d*dc{klass}dsc{subclass}dp{protocol}*',
-                              f' ID_USB_PROTOCOL_FROM_DATABASE={text}', sep='\n', file=out)
     print(f'Wrote {out.name}')
 
 def pci_vendor_model(p):
