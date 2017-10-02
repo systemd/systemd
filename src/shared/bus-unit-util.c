@@ -959,9 +959,10 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         _cleanup_free_ char *word = NULL;
 
                         r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                        if (r == -ENOMEM)
+                                return log_oom();
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse %s value %s", field, eq);
-
                         if (r == 0)
                                 break;
 

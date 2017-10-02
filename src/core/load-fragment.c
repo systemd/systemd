@@ -3718,8 +3718,6 @@ int config_parse_exec_directories(
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
                 r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
-                if (r == 0)
-                        return 0;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -3727,6 +3725,8 @@ int config_parse_exec_directories(
                                    "Invalid syntax, ignoring: %s", rvalue);
                         return 0;
                 }
+                if (r == 0)
+                        return 0;
 
                 r = unit_full_printf(u, word, &k);
                 if (r < 0) {
@@ -3737,7 +3737,7 @@ int config_parse_exec_directories(
 
                 if (!path_is_safe(k) || path_is_absolute(k)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0,
-                                   "%s is not valid, ignoring assignment: %s", lvalue, rvalue);
+                                   "%s= path is not valid, ignoring assignment: %s", lvalue, rvalue);
                         continue;
                 }
 
