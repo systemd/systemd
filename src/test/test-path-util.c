@@ -261,6 +261,7 @@ static void test_make_relative(void) {
 
         assert_se(path_make_relative("some/relative/path", "/some/path", &result) < 0);
         assert_se(path_make_relative("/some/path", "some/relative/path", &result) < 0);
+        assert_se(path_make_relative("/some/dotdot/../path", "/some/path", &result) < 0);
 
 #define test(from_dir, to_path, expected) {                \
                 _cleanup_free_ char *z = NULL;             \
@@ -274,6 +275,7 @@ static void test_make_relative(void) {
         test("/some/path", "/some/path/in/subdir", "in/subdir");
         test("/some/path", "/", "../..");
         test("/some/path", "/some/other/path", "../other/path");
+        test("/some/path/./dot", "/some/further/path", "../../further/path");
         test("//extra/////slashes///won't////fool///anybody//", "////extra///slashes////are/just///fine///", "../../../are/just/fine");
 }
 
