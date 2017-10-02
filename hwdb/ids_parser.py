@@ -231,35 +231,47 @@ def pci_classes(p):
     print(f'Wrote {out.name}')
 
 def sdio_vendor_model(p):
+    items = {}
+
+    for vendor_group in p.VENDORS:
+        vendor = vendor_group.VENDOR.vendor.upper()
+        text = vendor_group.VENDOR.text.strip()
+        add_item(items, (vendor,), text)
+
+        for device_group in vendor_group.DEVICES:
+            device = device_group.device.upper()
+            text = device_group.text.strip()
+            add_item(items, (vendor, device), text)
+
     with open('20-sdio-vendor-model.hwdb', 'wt') as out:
         header(out, 'hwdb/sdio.ids')
 
-        for vendor_group in p.VENDORS:
-            vendor = vendor_group.VENDOR.vendor.upper()
-            text = vendor_group.VENDOR.text.strip()
-            print(f'',
-                  f'sdio:c*v{vendor}*',
-                  f' ID_VENDOR_FROM_DATABASE={text}', sep='\n', file=out)
+        for key in sorted(items):
+            if len(key) == 1:
+                p, n = 'sdio:c*v{}*', 'VENDOR'
+            else:
+                p, n = 'sdio:c*v{}d{}*', 'MODEL'
+            print('', p.format(*key),
+                  f' ID_{n}_FROM_DATABASE={items[key]}', sep='\n', file=out)
 
-            for device_group in vendor_group.DEVICES:
-                device = device_group.device.upper()
-                text = device_group.text.strip()
-                print(f'',
-                      f'sdio:c*v{vendor}d{device}*',
-                      f' ID_MODEL_FROM_DATABASE={text}', sep='\n', file=out)
     print(f'Wrote {out.name}')
 
 def sdio_classes(p):
+    items = {}
+
+    for klass_group in p.CLASSES:
+        klass = klass_group.KLASS.klass.upper()
+        text = klass_group.KLASS.text.strip()
+        add_item(items, klass, text)
+
     with open('20-sdio-classes.hwdb', 'wt') as out:
         header(out, 'hwdb/sdio.ids')
 
-        for klass_group in p.CLASSES:
-            klass = klass_group.KLASS.klass.upper()
-            text = klass_group.KLASS.text.strip()
-
+        for klass in sorted(items):
             print(f'',
                   f'sdio:c{klass}v*d*',
-                  f' ID_SDIO_CLASS_FROM_DATABASE={text}', sep='\n', file=out)
+                  f' ID_SDIO_CLASS_FROM_DATABASE={items[klass]}', sep='\n', file=out)
+
     print(f'Wrote {out.name}')
 
 # MAC Address Block Large/Medium/Small
