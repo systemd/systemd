@@ -21,6 +21,7 @@
 #include <pwd.h>
 #include <sys/file.h>
 
+#include "clean-ipc.h"
 #include "dynamic-user.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -294,7 +295,9 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                 }
 
                 /* Some superficial check whether this UID/GID might already be taken by some static user */
-                if (getpwuid(candidate) || getgrgid((gid_t) candidate)) {
+                if (getpwuid(candidate) ||
+                    getgrgid((gid_t) candidate) ||
+                    search_ipc(candidate, (gid_t) candidate) != 0) {
                         (void) unlink(lock_path);
                         continue;
                 }
