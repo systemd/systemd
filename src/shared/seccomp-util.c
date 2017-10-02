@@ -308,6 +308,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "pause\0"
                 "restart_syscall\0"
                 "rt_sigreturn\0"
+                "sched_yield\0"
                 "set_robust_list\0"
                 "set_thread_area\0"
                 "set_tid_address\0"
