@@ -1478,7 +1478,11 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
             <tbody>
               <row>
                 <entry>@basic-io</entry>
-                <entry>System calls for basic I/O: reading, writing, seeking, file descriptor duplication and closing (<citerefentry project='man-pages'><refentrytitle>read</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>write</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and related calls)</entry>
+                <entry>System calls for basic I/O: all <varname>@basic-rw</varname> system calls, plus file descriptor duplication and closing (<citerefentry project='man-pages'><refentrytitle>dup</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>close</refentrytitle><manvolnum>2</manvolnum></citerefentry>)</entry>
+              </row>
+              <row>
+                <entry>@basic-rw</entry>
+                <entry>System calls for basic read, write and seek operations (<citerefentry project='man-pages'><refentrytitle>read</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>write</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and related calls)</entry>
               </row>
               <row>
                 <entry>@clock</entry>
