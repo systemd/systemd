@@ -1850,6 +1850,34 @@ static int method_suspend(sd_bus_message *message, void *userdata, sd_bus_error 
                         error);
 }
 
+static int method_hibernate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+
+        return method_do_shutdown_or_sleep(
+                        m, message,
+                        SPECIAL_HIBERNATE_TARGET,
+                        INHIBIT_SLEEP,
+                        "org.freedesktop.login1.hibernate",
+                        "org.freedesktop.login1.hibernate-multiple-sessions",
+                        "org.freedesktop.login1.hibernate-ignore-inhibit",
+                        "hibernate",
+                        error);
+}
+
+static int method_hybrid_sleep(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+
+        return method_do_shutdown_or_sleep(
+                        m, message,
+                        SPECIAL_HYBRID_SLEEP_TARGET,
+                        INHIBIT_SLEEP,
+                        "org.freedesktop.login1.hibernate",
+                        "org.freedesktop.login1.hibernate-multiple-sessions",
+                        "org.freedesktop.login1.hibernate-ignore-inhibit",
+                        "hybrid-sleep",
+                        error);
+}
+
 static int nologin_timeout_handler(
                         sd_event_source *s,
                         uint64_t usec,
@@ -2132,34 +2160,6 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
         }
 
         return sd_bus_reply_method_return(message, "b", cancelled);
-}
-
-static int method_hibernate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-
-        return method_do_shutdown_or_sleep(
-                        m, message,
-                        SPECIAL_HIBERNATE_TARGET,
-                        INHIBIT_SLEEP,
-                        "org.freedesktop.login1.hibernate",
-                        "org.freedesktop.login1.hibernate-multiple-sessions",
-                        "org.freedesktop.login1.hibernate-ignore-inhibit",
-                        "hibernate",
-                        error);
-}
-
-static int method_hybrid_sleep(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-
-        return method_do_shutdown_or_sleep(
-                        m, message,
-                        SPECIAL_HYBRID_SLEEP_TARGET,
-                        INHIBIT_SLEEP,
-                        "org.freedesktop.login1.hibernate",
-                        "org.freedesktop.login1.hibernate-multiple-sessions",
-                        "org.freedesktop.login1.hibernate-ignore-inhibit",
-                        "hybrid-sleep",
-                        error);
 }
 
 static int method_can_shutdown_or_sleep(
