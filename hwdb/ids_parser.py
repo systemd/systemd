@@ -173,61 +173,74 @@ def usb_classes(p):
     print(f'Wrote {out.name}')
 
 def pci_vendor_model(p):
+    items = {}
+
+    for vendor_group in p.VENDORS:
+        vendor = vendor_group.VENDOR.vendor.upper()
+        text = vendor_group.VENDOR.text.strip()
+        add_item(items, (vendor,), text)
+
+        for device_group in vendor_group.DEVICES:
+            device = device_group.device.upper()
+            text = device_group.text.strip()
+            add_item(items, (vendor, device), text)
+
+            for subvendor_group in device_group.SUBVENDORS:
+                sub_vendor = subvendor_group.a.upper()
+                sub_model = subvendor_group.b.upper()
+                sub_text = subvendor_group.name.strip()
+                if sub_text.startswith(text):
+                    sub_text = sub_text[len(text):].lstrip()
+                if sub_text:
+                    sub_text = f' ({sub_text})'
+                add_item(items, (vendor, device, sub_vendor, sub_model), text + sub_text)
+
     with open('20-pci-vendor-model.hwdb', 'wt') as out:
         header(out, 'http://pci-ids.ucw.cz/v2.2/pci.ids')
 
-        for vendor_group in p.VENDORS:
-            vendor = vendor_group.VENDOR.vendor.upper()
-            text = vendor_group.VENDOR.text.strip()
-            print(f'',
-                  f'pci:v0000{vendor}*',
-                  f' ID_VENDOR_FROM_DATABASE={text}', sep='\n', file=out)
+        for key in sorted(items):
+            if len(key) == 1:
+                p, n = 'pci:v0000{}*', 'VENDOR'
+            elif len(key) == 2:
+                p, n = 'pci:v0000{}d0000{}*', 'MODEL'
+            else:
+                p, n = 'pci:v0000{}d0000{}sv0000{}sd0000{}*', 'MODEL'
+            print('', p.format(*key),
+                  f' ID_{n}_FROM_DATABASE={items[key]}', sep='\n', file=out)
 
-            for device_group in vendor_group.DEVICES:
-                device = device_group.device.upper()
-                text = device_group.text.strip()
-                print(f'',
-                      f'pci:v0000{vendor}d0000{device}*',
-                      f' ID_MODEL_FROM_DATABASE={text}', sep='\n', file=out)
-
-                for subvendor_group in device_group.SUBVENDORS:
-                    sub_vendor = subvendor_group.a.upper()
-                    sub_model = subvendor_group.b.upper()
-                    sub_text = subvendor_group.name.strip()
-                    if sub_text.startswith(text):
-                        sub_text = sub_text[len(text):].lstrip()
-                    if sub_text:
-                        sub_text = f' ({sub_text})'
-                    print(f'',
-                          f'pci:v0000{vendor}d0000{device}sv0000{sub_vendor}sd0000{sub_model}*',
-                          f' ID_MODEL_FROM_DATABASE={text}{sub_text}', sep='\n', file=out)
     print(f'Wrote {out.name}')
 
 def pci_classes(p):
+    items = {}
+
+    for klass_group in p.CLASSES:
+        klass = klass_group.KLASS.klass.upper()
+        text = klass_group.KLASS.text.strip()
+        add_item(items, (klass,), text)
+
+        for subclass_group in klass_group.SUBCLASSES:
+            subclass = subclass_group.subclass.upper()
+            text = subclass_group.text.strip()
+            add_item(items, (klass, subclass), text)
+
+            for protocol_group in subclass_group.PROTOCOLS:
+                protocol = protocol_group.protocol.upper()
+                text = protocol_group.name.strip()
+                add_item(items, (klass, subclass, protocol), text)
+
     with open('20-pci-classes.hwdb', 'wt') as out:
         header(out, 'http://pci-ids.ucw.cz/v2.2/pci.ids')
 
-        for klass_group in p.CLASSES:
-            klass = klass_group.KLASS.klass.upper()
-            text = klass_group.KLASS.text.strip()
+        for key in sorted(items):
+            if len(key) == 1:
+                p, n = 'pci:v*d*sv*sd*bc{}*', 'CLASS'
+            elif len(key) == 2:
+                p, n = 'pci:v*d*sv*sd*bc{}sc{}*', 'SUBCLASS'
+            else:
+                p, n = 'pci:v*d*sv*sd*bc{}sc{}i{}*', 'INTERFACE'
+            print('', p.format(*key),
+                  f' ID_PCI_{n}_FROM_DATABASE={items[key]}', sep='\n', file=out)
 
-            print(f'',
-                  f'pci:v*d*sv*sd*bc{klass}*',
-                  f' ID_PCI_CLASS_FROM_DATABASE={text}', sep='\n', file=out)
-
-            for subclass_group in klass_group.SUBCLASSES:
-                subclass = subclass_group.subclass.upper()
-                text = subclass_group.text.strip()
-                print(f'',
-                      f'pci:v*d*sv*sd*bc{klass}sc{subclass}*',
-                      f' ID_PCI_SUBCLASS_FROM_DATABASE={text}', sep='\n', file=out)
-
-                for protocol_group in subclass_group.PROTOCOLS:
-                    protocol = protocol_group.protocol.upper()
-                    text = protocol_group.name.strip()
-                    print(f'',
-                          f'pci:v*d*sv*sd*bc{klass}sc{subclass}i{protocol}*',
-                          f' ID_PCI_INTERFACE_FROM_DATABASE={text}', sep='\n', file=out)
     print(f'Wrote {out.name}')
 
 def sdio_vendor_model(p):
