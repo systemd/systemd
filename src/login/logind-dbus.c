@@ -2037,6 +2037,7 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
         uint64_t elapse;
         char *type;
         int r;
+        bool dry_run = false;
 
         assert(m);
         assert(message);
@@ -2047,7 +2048,7 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
 
         if (startswith(type, "dry-")) {
                 type += 4;
-                m->shutdown_dry_run = true;
+                dry_run = true;
         }
 
         if (streq(type, "poweroff")) {
@@ -2090,6 +2091,8 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
                 m->scheduled_shutdown_timeout_source = sd_event_source_unref(m->scheduled_shutdown_timeout_source);
                 return log_oom();
         }
+
+        m->shutdown_dry_run = dry_run;
 
         if (m->nologin_timeout_source) {
                 r = sd_event_source_set_time(m->nologin_timeout_source, elapse);
