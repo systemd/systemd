@@ -40,5 +40,5 @@ test('parse-hwdb',
 ############################################################
 
 run_target(
-        'update',
+        'hwdb-update',
         command : [hwdb_update_sh, meson.current_source_dir()])
