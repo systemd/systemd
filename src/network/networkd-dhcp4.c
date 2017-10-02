@@ -94,8 +94,10 @@ static int link_set_dhcp_routes(Link *link) {
                 return log_link_warning_errno(link, r, "DHCP error: could not get address: %m");
 
         r = sd_dhcp_lease_get_router(link->dhcp_lease, &gateway);
-        if (r < 0 && r != -ENODATA)
-                return log_link_warning_errno(link, r, "DHCP error: could not get gateway: %m");
+        if (r == -ENODATA)
+                log_link_info_errno(link, r, "DHCP: No routes received from DHCP server: %m");
+        else if (r < 0)
+                log_link_warning_errno(link, r, "DHCP error: could not get gateway: %m");
 
         if (r >= 0) {
                 _cleanup_route_free_ Route *route = NULL;
@@ -147,9 +149,9 @@ static int link_set_dhcp_routes(Link *link) {
 
         n = sd_dhcp_lease_get_routes(link->dhcp_lease, &static_routes);
         if (n == -ENODATA)
-                return 0;
-        if (n < 0)
-                return log_link_warning_errno(link, n, "DHCP error: could not get routes: %m");
+                log_link_info_errno(link, n, "DHCP: No routes received from DHCP server: %m");
+        else if (n < 0)
+                log_link_warning_errno(link, n, "DHCP error: could not get routes: %m");
 
         for (i = 0; i < n; i++) {
                 _cleanup_route_free_ Route *route = NULL;
@@ -172,6 +174,11 @@ static int link_set_dhcp_routes(Link *link) {
                         return log_link_warning_errno(link, r, "Could not set host route: %m");
 
                 link->dhcp4_messages++;
+        }
+
+        if (link->dhcp4_messages == 0) {
+                link->dhcp4_configured = true;
+                link_check_ready(link);
         }
 
         return 0;
