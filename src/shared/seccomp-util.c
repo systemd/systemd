@@ -322,6 +322,26 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "chdir\0"
                 "getcwd\0"
         },
+        [SYSCALL_FILTER_SET_BASIC_FILE_SYSTEM] = {
+                .name = "@basic-file-system",
+                .help = "Basic File system operations",
+                .value =
+                "@basic-directory\0"
+                "access\0"
+                "getxattr\0"
+                "lgetxattr\0"
+                "listxattr\0"
+                "llistxattr\0"
+                "lstat\0"
+                "lstat64\0"
+                "stat\0"
+                "stat64\0"
+                "statfs\0"
+                "statfs64\0"
+#ifdef __PNR_statx
+                "statx\0"
+#endif
+        },
         [SYSCALL_FILTER_SET_BASIC_IO] = {
                 .name = "@basic-io",
                 .help = "Basic IO",
@@ -402,10 +422,9 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .name = "@file-system",
                 .help = "File system operations",
                 .value =
-                "@basic-directory\0"
+                "@basic-file-system\0"
                 "@basic-memory\0"
                 "@chmod\0"
-                "access\0"
                 "close\0"
                 "creat\0"
                 "faccessat\0"
@@ -427,20 +446,14 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "futimesat\0"
                 "getdents\0"
                 "getdents64\0"
-                "getxattr\0"
                 "inotify_add_watch\0"
                 "inotify_init\0"
                 "inotify_init1\0"
                 "inotify_rm_watch\0"
-                "lgetxattr\0"
                 "link\0"
                 "linkat\0"
-                "listxattr\0"
-                "llistxattr\0"
                 "lremovexattr\0"
                 "lsetxattr\0"
-                "lstat\0"
-                "lstat64\0"
                 "mkdir\0"
                 "mkdirat\0"
                 "mknod\0"
@@ -459,13 +472,6 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "renameat2\0"
                 "rmdir\0"
                 "setxattr\0"
-                "stat\0"
-                "stat64\0"
-                "statfs\0"
-                "statfs64\0"
-#ifdef __PNR_statx
-                "statx\0"
-#endif
                 "symlink\0"
                 "symlinkat\0"
                 "truncate\0"

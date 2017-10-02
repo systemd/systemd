@@ -42,6 +42,7 @@ enum {
         /* Please leave DEFAULT first, but sort the rest alphabetically */
         SYSCALL_FILTER_SET_DEFAULT,
         SYSCALL_FILTER_SET_BASIC_DIRECTORY,
+        SYSCALL_FILTER_SET_BASIC_FILE_SYSTEM,
         SYSCALL_FILTER_SET_BASIC_IO,
         SYSCALL_FILTER_SET_BASIC_MEMORY,
         SYSCALL_FILTER_SET_BASIC_RW,
