@@ -315,6 +315,13 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "sigreturn\0"
                 "time\0"
         },
+        [SYSCALL_FILTER_SET_BASIC_DIRECTORY] = {
+                .name = "@basic-directory",
+                .help = "Basic Directory",
+                .value =
+                "chdir\0"
+                "getcwd\0"
+        },
         [SYSCALL_FILTER_SET_BASIC_IO] = {
                 .name = "@basic-io",
                 .help = "Basic IO",
@@ -395,10 +402,10 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .name = "@file-system",
                 .help = "File system operations",
                 .value =
+                "@basic-directory\0"
                 "@basic-memory\0"
                 "@chmod\0"
                 "access\0"
-                "chdir\0"
                 "close\0"
                 "creat\0"
                 "faccessat\0"
@@ -418,7 +425,6 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "ftruncate\0"
                 "ftruncate64\0"
                 "futimesat\0"
-                "getcwd\0"
                 "getdents\0"
                 "getdents64\0"
                 "getxattr\0"

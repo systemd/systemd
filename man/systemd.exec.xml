@@ -1477,6 +1477,10 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
             </thead>
             <tbody>
               <row>
+                <entry>@basic-directory</entry>
+                <entry>System calls for basic directory operations: get current working directory and change working directory (<citerefentry project='man-pages'><refentrytitle>getcwd</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>chdir</refentrytitle><manvolnum>2</manvolnum></citerefentry>)</entry>
+              </row>
+              <row>
                 <entry>@basic-io</entry>
                 <entry>System calls for basic I/O: all <varname>@basic-rw</varname> system calls, plus file descriptor duplication and closing (<citerefentry project='man-pages'><refentrytitle>dup</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>close</refentrytitle><manvolnum>2</manvolnum></citerefentry>)</entry>
               </row>
