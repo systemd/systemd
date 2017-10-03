@@ -131,8 +131,7 @@ int path_make_relative(const char *from_dir, const char *to_path, char **_r) {
 
         /* Skip the common part. */
         for (;;) {
-                size_t a;
-                size_t b;
+                size_t a, b;
 
                 from_dir += strspn(from_dir, "/");
                 to_path += strspn(to_path, "/");
@@ -144,7 +143,6 @@ int path_make_relative(const char *from_dir, const char *to_path, char **_r) {
                         else
                                 /* from_dir is a parent directory of to_path. */
                                 r = strdup(to_path);
-
                         if (!r)
                                 return -ENOMEM;
 
@@ -175,21 +173,32 @@ int path_make_relative(const char *from_dir, const char *to_path, char **_r) {
 
         /* Count the number of necessary ".." elements. */
         for (n_parents = 0;;) {
+                size_t w;
+
                 from_dir += strspn(from_dir, "/");
 
                 if (!*from_dir)
                         break;
 
-                from_dir += strcspn(from_dir, "/");
-                n_parents++;
+                w = strcspn(from_dir, "/");
+
+                /* If this includes ".." we can't do a simple series of "..", refuse */
+                if (w == 2 && from_dir[0] == '.' && from_dir[1] == '.')
+                        return -EINVAL;
+
+                /* Count number of elements, except if they are "." */
+                if (w != 1 || from_dir[0] != '.')
+                        n_parents++;
+
+                from_dir += w;
         }
 
-        r = malloc(n_parents * 3 + strlen(to_path) + 1);
+        r = new(char, n_parents * 3 + strlen(to_path) + 1);
         if (!r)
                 return -ENOMEM;
 
-        for (p = r; n_parents > 0; n_parents--, p += 3)
-                memcpy(p, "../", 3);
+        for (p = r; n_parents > 0; n_parents--)
+                p = mempcpy(p, "../", 3);
 
         strcpy(p, to_path);
         path_kill_slashes(r);

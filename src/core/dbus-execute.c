@@ -2193,7 +2193,7 @@ int bus_exec_context_set_transient_property(
                         if (streq(name, "UMask"))
                                 c->umask = m;
                         else
-                                for (i = 0; i < _EXEC_DIRECTORY_MAX; i++)
+                                for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++)
                                         if (startswith(name, exec_directory_type_to_string(i))) {
                                                 c->directories[i].mode = m;
                                                 break;
@@ -2213,8 +2213,8 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 STRV_FOREACH(p, l) {
-                        if (!filename_is_valid(*p))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s is not valid %s", name, *p);
+                        if (!path_is_safe(*p) || path_is_absolute(*p))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= path is not valid: %s", name, *p);
                 }
 
                 if (mode != UNIT_CHECK) {
@@ -2222,7 +2222,7 @@ int bus_exec_context_set_transient_property(
                         char ***dirs = NULL;
                         ExecDirectoryType i;
 
-                        for (i = 0; i < _EXEC_DIRECTORY_MAX; i++)
+                        for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++)
                                 if (streq(name, exec_directory_type_to_string(i))) {
                                         dirs = &c->directories[i].paths;
                                         break;
@@ -2235,7 +2235,6 @@ int bus_exec_context_set_transient_property(
                                 unit_write_drop_in_private_format(u, mode, name, "%s=", name);
                         } else {
                                 r = strv_extend_strv(dirs, l, true);
-
                                 if (r < 0)
                                         return -ENOMEM;
 

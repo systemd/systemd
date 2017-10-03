@@ -31,6 +31,7 @@
 #include "dev-setup.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "label.h"
 #include "loop-util.h"
 #include "loopback-setup.h"
 #include "missing.h"
@@ -58,6 +59,7 @@ typedef enum MountMode {
         PRIVATE_VAR_TMP,
         PRIVATE_DEV,
         BIND_DEV,
+        EMPTY_DIR,
         SYSFS,
         PROCFS,
         READONLY,
@@ -218,6 +220,28 @@ static int append_access_mounts(MountEntry **p, char **strv, MountMode mode) {
                         .mode = mode,
                         .ignore = ignore,
                         .has_prefix = !needs_prefix,
+                };
+        }
+
+        return 0;
+}
+
+static int append_empty_dir_mounts(MountEntry **p, char **strv) {
+        char **i;
+
+        assert(p);
+
+        /* Adds tmpfs mounts to provide readable but empty directories. This is primarily used to implement the
+         * "/private/" boundary directories for DynamicUser=1. */
+
+        STRV_FOREACH(i, strv) {
+
+                *((*p)++) = (MountEntry) {
+                        .path_const = *i,
+                        .mode = EMPTY_DIR,
+                        .ignore = false,
+                        .has_prefix = false,
+                        .read_only = true,
                 };
         }
 
@@ -618,6 +642,8 @@ static int mount_bind_dev(MountEntry *m) {
         /* Implements the little brother of mount_private_dev(): simply bind mounts the host's /dev into the service's
          * /dev. This is only used when RootDirectory= is set. */
 
+        (void) mkdir_p_label(mount_entry_path(m), 0755);
+
         r = path_is_mount_point(mount_entry_path(m), NULL, 0);
         if (r < 0)
                 return log_debug_errno(r, "Unable to determine whether /dev is already mounted: %m");
@@ -634,6 +660,8 @@ static int mount_sysfs(MountEntry *m) {
         int r;
 
         assert(m);
+
+        (void) mkdir_p_label(mount_entry_path(m), 0755);
 
         r = path_is_mount_point(mount_entry_path(m), NULL, 0);
         if (r < 0)
@@ -653,6 +681,8 @@ static int mount_procfs(MountEntry *m) {
 
         assert(m);
 
+        (void) mkdir_p_label(mount_entry_path(m), 0755);
+
         r = path_is_mount_point(mount_entry_path(m), NULL, 0);
         if (r < 0)
                 return log_debug_errno(r, "Unable to determine whether /proc is already mounted: %m");
@@ -661,6 +691,20 @@ static int mount_procfs(MountEntry *m) {
 
         /* Mount a new instance, so that we get the one that matches our user namespace, if we are running in one */
         if (mount("proc", mount_entry_path(m), "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL) < 0)
+                return log_debug_errno(errno, "Failed to mount %s: %m", mount_entry_path(m));
+
+        return 1;
+}
+
+static int mount_empty_dir(MountEntry *m) {
+        assert(m);
+
+        /* First, get rid of everything that is below if there is anything. Then, overmount with our new empty dir */
+
+        (void) mkdir_p_label(mount_entry_path(m), 0755);
+        (void) umount_recursive(mount_entry_path(m), 0);
+
+        if (mount("tmpfs", mount_entry_path(m), "tmpfs", MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME, "mode=755") < 0)
                 return log_debug_errno(errno, "Failed to mount %s: %m", mount_entry_path(m));
 
         return 1;
@@ -681,7 +725,9 @@ static int mount_entry_chase(
          * chase the symlinks on our own first. This is called for the destination path, as well as the source path (if
          * that applies). The result is stored in "location". */
 
-        r = chase_symlinks(path, root_directory, 0, &chased);
+        r = chase_symlinks(path, root_directory,
+                           IN_SET(m->mode, BIND_MOUNT, BIND_MOUNT_RECURSIVE, PRIVATE_TMP, PRIVATE_VAR_TMP, PRIVATE_DEV, BIND_DEV, EMPTY_DIR, SYSFS, PROCFS) ? CHASE_NONEXISTENT : 0,
+                           &chased);
         if (r == -ENOENT && m->ignore) {
                 log_debug_errno(r, "Path %s does not exist, ignoring.", path);
                 return 0;
@@ -703,8 +749,8 @@ static int apply_mount(
                 const char *tmp_dir,
                 const char *var_tmp_dir) {
 
+        bool rbind = true, make = false;
         const char *what;
-        bool rbind = true;
         int r;
 
         assert(m);
@@ -759,14 +805,20 @@ static int apply_mount(
                         return r;
 
                 what = mount_entry_source(m);
+                make = true;
                 break;
+
+        case EMPTY_DIR:
+                return mount_empty_dir(m);
 
         case PRIVATE_TMP:
                 what = tmp_dir;
+                make = true;
                 break;
 
         case PRIVATE_VAR_TMP:
                 what = var_tmp_dir;
+                make = true;
                 break;
 
         case PRIVATE_DEV:
@@ -787,8 +839,36 @@ static int apply_mount(
 
         assert(what);
 
-        if (mount(what, mount_entry_path(m), NULL, MS_BIND|(rbind ? MS_REC : 0), NULL) < 0)
-                return log_debug_errno(errno, "Failed to mount %s to %s: %m", what, mount_entry_path(m));
+        if (mount(what, mount_entry_path(m), NULL, MS_BIND|(rbind ? MS_REC : 0), NULL) < 0) {
+                bool try_again = false;
+                r = -errno;
+
+                if (r == -ENOENT && make) {
+                        struct stat st;
+
+                        /* Hmm, either the source or the destination are missing. Let's see if we can create the destination, then try again */
+
+                        if (stat(what, &st) >= 0) {
+
+                                (void) mkdir_parents(mount_entry_path(m), 0755);
+
+                                if (S_ISDIR(st.st_mode))
+                                        try_again = mkdir(mount_entry_path(m), 0755) >= 0;
+                                else
+                                        try_again = touch(mount_entry_path(m)) >= 0;
+                        }
+                }
+
+                if (try_again) {
+                        if (mount(what, mount_entry_path(m), NULL, MS_BIND|(rbind ? MS_REC : 0), NULL) < 0)
+                                r = -errno;
+                        else
+                                r = 0;
+                }
+
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to mount %s to %s: %m", what, mount_entry_path(m));
+        }
 
         log_debug("Successfully mounted %s to %s", what, mount_entry_path(m));
         return 0;
@@ -840,6 +920,7 @@ static unsigned namespace_calculate_mounts(
                 char** read_write_paths,
                 char** read_only_paths,
                 char** inaccessible_paths,
+                char** empty_directories,
                 const BindMount *bind_mounts,
                 unsigned n_bind_mounts,
                 const char* tmp_dir,
@@ -866,6 +947,7 @@ static unsigned namespace_calculate_mounts(
                 strv_length(read_write_paths) +
                 strv_length(read_only_paths) +
                 strv_length(inaccessible_paths) +
+                strv_length(empty_directories) +
                 n_bind_mounts +
                 ns_info->private_dev +
                 (ns_info->protect_kernel_tunables ? ELEMENTSOF(protect_kernel_tunables_table) : 0) +
@@ -882,6 +964,7 @@ int setup_namespace(
                 char** read_write_paths,
                 char** read_only_paths,
                 char** inaccessible_paths,
+                char** empty_directories,
                 const BindMount *bind_mounts,
                 unsigned n_bind_mounts,
                 const char* tmp_dir,
@@ -898,6 +981,7 @@ int setup_namespace(
         MountEntry *m, *mounts = NULL;
         size_t root_hash_size = 0;
         bool make_slave = false;
+        const char *root;
         unsigned n_mounts;
         int r = 0;
 
@@ -929,28 +1013,36 @@ int setup_namespace(
                 r = dissected_image_decrypt(dissected_image, NULL, root_hash, root_hash_size, dissect_image_flags, &decrypted_image);
                 if (r < 0)
                         return r;
-
-                if (!root_directory) {
-                        /* Create a mount point for the image, if it's still missing. We use the same mount point for
-                         * all images, which is safe, since they all live in their own namespaces after all, and hence
-                         * won't see each other. */
-                        root_directory = "/run/systemd/unit-root";
-                        (void) mkdir(root_directory, 0700);
-                }
         }
 
+        if (root_directory)
+                root = root_directory;
+        else if (root_image || n_bind_mounts > 0) {
+
+                /* If we are booting from an image, create a mount point for the image, if it's still missing. We use
+                 * the same mount point for all images, which is safe, since they all live in their own namespaces
+                 * after all, and hence won't see each other. We also use such a root directory whenever there are bind
+                 * mounts configured, so that their source mounts are never obstructed by mounts we already applied
+                 * while we are applying them. */
+
+                root = "/run/systemd/unit-root";
+                (void) mkdir_label(root, 0700);
+        } else
+                root = NULL;
+
         n_mounts = namespace_calculate_mounts(
-                        root_directory,
+                        root,
                         ns_info,
                         read_write_paths,
                         read_only_paths,
                         inaccessible_paths,
+                        empty_directories,
                         bind_mounts, n_bind_mounts,
                         tmp_dir, var_tmp_dir,
                         protect_home, protect_system);
 
         /* Set mount slave mode */
-        if (root_directory || n_mounts > 0)
+        if (root || n_mounts > 0)
                 make_slave = true;
 
         if (n_mounts > 0) {
@@ -964,6 +1056,10 @@ int setup_namespace(
                         goto finish;
 
                 r = append_access_mounts(&m, inaccessible_paths, INACCESSIBLE);
+                if (r < 0)
+                        goto finish;
+
+                r = append_empty_dir_mounts(&m, empty_directories);
                 if (r < 0)
                         goto finish;
 
@@ -1019,7 +1115,7 @@ int setup_namespace(
                 if (r < 0)
                         goto finish;
 
-                if (namespace_info_mount_apivfs(root_directory, ns_info)) {
+                if (namespace_info_mount_apivfs(root, ns_info)) {
                         r = append_static_mounts(&m, apivfs_table, ELEMENTSOF(apivfs_table), ns_info->ignore_protect_paths);
                         if (r < 0)
                                 goto finish;
@@ -1028,14 +1124,14 @@ int setup_namespace(
                 assert(mounts + n_mounts == m);
 
                 /* Prepend the root directory where that's necessary */
-                r = prefix_where_needed(mounts, n_mounts, root_directory);
+                r = prefix_where_needed(mounts, n_mounts, root);
                 if (r < 0)
                         goto finish;
 
                 qsort(mounts, n_mounts, sizeof(MountEntry), mount_path_compare);
 
                 drop_duplicates(mounts, &n_mounts);
-                drop_outside_root(root_directory, mounts, &n_mounts);
+                drop_outside_root(root, mounts, &n_mounts);
                 drop_inaccessible(mounts, &n_mounts);
                 drop_nop(mounts, &n_mounts);
         }
@@ -1055,11 +1151,12 @@ int setup_namespace(
         }
 
         /* Try to set up the new root directory before mounting anything there */
-        if (root_directory)
-                (void) base_filesystem_create(root_directory, UID_INVALID, GID_INVALID);
+        if (root)
+                (void) base_filesystem_create(root, UID_INVALID, GID_INVALID);
 
         if (root_image) {
-                r = dissected_image_mount(dissected_image, root_directory, dissect_image_flags);
+                /* A root image is specified, mount it to the right place */
+                r = dissected_image_mount(dissected_image, root, dissect_image_flags);
                 if (r < 0)
                         goto finish;
 
@@ -1073,15 +1170,23 @@ int setup_namespace(
 
         } else if (root_directory) {
 
-                /* Turn directory into bind mount, if it isn't one yet */
-                r = path_is_mount_point(root_directory, NULL, AT_SYMLINK_FOLLOW);
+                /* A root directory is specified. Turn its directory into bind mount, if it isn't one yet. */
+                r = path_is_mount_point(root, NULL, AT_SYMLINK_FOLLOW);
                 if (r < 0)
                         goto finish;
                 if (r == 0) {
-                        if (mount(root_directory, root_directory, NULL, MS_BIND|MS_REC, NULL) < 0) {
+                        if (mount(root, root, NULL, MS_BIND|MS_REC, NULL) < 0) {
                                 r = -errno;
                                 goto finish;
                         }
+                }
+
+        } else if (root) {
+
+                /* Let's mount the main root directory to the root directory to use */
+                if (mount("/", root, NULL, MS_BIND|MS_REC, NULL) < 0) {
+                        r = -errno;
+                        goto finish;
                 }
         }
 
@@ -1100,7 +1205,7 @@ int setup_namespace(
 
                 /* First round, add in all special mounts we need */
                 for (m = mounts; m < mounts + n_mounts; ++m) {
-                        r = apply_mount(root_directory, m, tmp_dir, var_tmp_dir);
+                        r = apply_mount(root, m, tmp_dir, var_tmp_dir);
                         if (r < 0)
                                 goto finish;
                 }
@@ -1119,9 +1224,9 @@ int setup_namespace(
                 }
         }
 
-        if (root_directory) {
+        if (root) {
                 /* MS_MOVE does not work on MS_SHARED so the remount MS_SHARED will be done later */
-                r = mount_move_root(root_directory);
+                r = mount_move_root(root);
                 if (r < 0)
                         goto finish;
         }

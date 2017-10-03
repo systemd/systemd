@@ -64,6 +64,7 @@
 #include "barrier.h"
 #include "cap-list.h"
 #include "capability-util.h"
+#include "chown-recursive.h"
 #include "def.h"
 #include "env-util.h"
 #include "errno-list.h"
@@ -76,6 +77,7 @@
 #include "glob-util.h"
 #include "io-util.h"
 #include "ioprio.h"
+#include "label.h"
 #include "log.h"
 #include "macro.h"
 #include "missing.h"
@@ -1726,6 +1728,13 @@ static bool exec_needs_mount_namespace(
         if (context->mount_apivfs && (context->root_image || context->root_directory))
                 return true;
 
+        if (context->dynamic_user &&
+            (!strv_isempty(context->directories[EXEC_DIRECTORY_RUNTIME].paths) ||
+             !strv_isempty(context->directories[EXEC_DIRECTORY_STATE].paths) ||
+             !strv_isempty(context->directories[EXEC_DIRECTORY_CACHE].paths) ||
+             !strv_isempty(context->directories[EXEC_DIRECTORY_LOGS].paths)))
+                return true;
+
         return false;
 }
 
@@ -1896,7 +1905,7 @@ static int setup_exec_directory(
                 ExecDirectoryType type,
                 int *exit_status) {
 
-        static const int exit_status_table[_EXEC_DIRECTORY_MAX] = {
+        static const int exit_status_table[_EXEC_DIRECTORY_TYPE_MAX] = {
                 [EXEC_DIRECTORY_RUNTIME] = EXIT_RUNTIME_DIRECTORY,
                 [EXEC_DIRECTORY_STATE] = EXIT_STATE_DIRECTORY,
                 [EXEC_DIRECTORY_CACHE] = EXIT_CACHE_DIRECTORY,
@@ -1908,7 +1917,7 @@ static int setup_exec_directory(
 
         assert(context);
         assert(params);
-        assert(type >= 0 && type < _EXEC_DIRECTORY_MAX);
+        assert(type >= 0 && type < _EXEC_DIRECTORY_TYPE_MAX);
         assert(exit_status);
 
         if (!params->prefix[type])
@@ -1922,7 +1931,8 @@ static int setup_exec_directory(
         }
 
         STRV_FOREACH(rt, context->directories[type].paths) {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL, *pp = NULL;
+                const char *effective;
 
                 p = strjoin(params->prefix[type], "/", *rt);
                 if (!p) {
@@ -1934,16 +1944,94 @@ static int setup_exec_directory(
                 if (r < 0)
                         goto fail;
 
-                r = mkdir_p_label(p, context->directories[type].mode);
-                if (r < 0)
+                if (context->dynamic_user && type != EXEC_DIRECTORY_CONFIGURATION) {
+                        _cleanup_free_ char *private_root = NULL, *relative = NULL, *parent = NULL;
+
+                        /* So, here's one extra complication when dealing with DynamicUser=1 units. In that case we
+                         * want to avoid leaving a directory around fully accessible that is owned by a dynamic user
+                         * whose UID is later on reused. To lock this down we use the same trick used by container
+                         * managers to prohibit host users to get access to files of the same UID in containers: we
+                         * place everything inside a directory that has an access mode of 0700 and is owned root:root,
+                         * so that it acts as security boundary for unprivileged host code. We then use fs namespacing
+                         * to make this directory permeable for the service itself.
+                         *
+                         * Specifically: for a service which wants a special directory "foo/" we first create a
+                         * directory "private/" with access mode 0700 owned by root:root. Then we place "foo" inside of
+                         * that directory (i.e. "private/foo/"), and make "foo" a symlink to "private/foo". This way,
+                         * privileged host users can access "foo/" as usual, but unprivileged host users can't look
+                         * into it. Inside of the namespaceof the container "private/" is replaced by a more liberally
+                         * accessible tmpfs, into which the host's "private/foo/" is mounted under the same name, thus
+                         * disabling the access boundary for the service and making sure it only gets access to the
+                         * dirs it needs but no others. Tricky? Yes, absolutely, but it works!
+                         *
+                         * Note that we don't do this for EXEC_DIRECTORY_CONFIGURATION as that's assumed not to be
+                         * owned by the service itself. */
+
+                        private_root = strjoin(params->prefix[type], "/private");
+                        if (!private_root) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+
+                        /* First set up private root if it doesn't exist yet, with access mode 0700 and owned by root:root */
+                        r = mkdir_safe_label(private_root, 0700, 0, 0);
+                        if (r < 0)
+                                goto fail;
+
+                        pp = strjoin(private_root, "/", *rt);
+                        if (!pp) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+
+                        /* Create all directories between the configured directory and this private root, and mark them 0755 */
+                        r = mkdir_parents_label(pp, 0755);
+                        if (r < 0)
+                                goto fail;
+
+                        /* Finally, create the actual directory for the service */
+                        r = mkdir_label(pp, context->directories[type].mode);
+                        if (r < 0 && r != -EEXIST)
+                                goto fail;
+
+                        parent = dirname_malloc(p);
+                        if (!parent) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+
+                        r = path_make_relative(parent, pp, &relative);
+                        if (r < 0)
+                                goto fail;
+
+                        /* And link it up from the original place */
+                        r = symlink_idempotent(relative, p);
+                        if (r < 0)
+                                goto fail;
+
+                        effective = pp;
+
+                } else {
+                        r = mkdir_label(p, context->directories[type].mode);
+                        if (r < 0 && r != -EEXIST)
+                                goto fail;
+
+                        effective = p;
+                }
+
+                /* First lock down the access mode */
+                if (chmod(effective, context->directories[type].mode) < 0) {
+                        r = -errno;
                         goto fail;
+                }
 
                 /* Don't change the owner of the configuration directory, as in the common case it is not written to by
                  * a service, and shall not be writable. */
                 if (type == EXEC_DIRECTORY_CONFIGURATION)
                         continue;
 
-                r = chmod_and_chown(p, context->directories[type].mode, uid, gid);
+                /* Then, change the ownership of the whole tree, if necessary */
+                r = path_chown_recursive(effective, uid, gid);
                 if (r < 0)
                         goto fail;
         }
@@ -1952,7 +2040,6 @@ static int setup_exec_directory(
 
 fail:
         *exit_status = exit_status_table[type];
-
         return r;
 }
 
@@ -2000,11 +2087,11 @@ static int compile_read_write_paths(
          * the explicitly configured paths, plus all runtime directories. */
 
         if (strv_isempty(context->read_write_paths)) {
-                for (i = 0; i < _EXEC_DIRECTORY_MAX; i++)
+                for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++)
                         if (!strv_isempty(context->directories[i].paths))
                                 break;
 
-                if (i == _EXEC_DIRECTORY_MAX) {
+                if (i == _EXEC_DIRECTORY_TYPE_MAX) {
                         *ret = NULL; /* NOP if neither is set */
                         return 0;
                 }
@@ -2014,7 +2101,7 @@ static int compile_read_write_paths(
         if (!l)
                 return -ENOMEM;
 
-        for (i = 0; i < _EXEC_DIRECTORY_MAX; i++) {
+        for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++) {
                 if (!params->prefix[i])
                         continue;
 
@@ -2036,6 +2123,143 @@ static int compile_read_write_paths(
         return 0;
 }
 
+static int compile_bind_mounts(
+                const ExecContext *context,
+                const ExecParameters *params,
+                BindMount **ret_bind_mounts,
+                unsigned *ret_n_bind_mounts,
+                char ***ret_empty_directories) {
+
+        _cleanup_strv_free_ char **empty_directories = NULL;
+        BindMount *bind_mounts;
+        unsigned n, h = 0, i;
+        ExecDirectoryType t;
+        int r;
+
+        assert(context);
+        assert(params);
+        assert(ret_bind_mounts);
+        assert(ret_n_bind_mounts);
+        assert(ret_empty_directories);
+
+        n = context->n_bind_mounts;
+        for (t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
+                if (!params->prefix[t])
+                        continue;
+
+                n += strv_length(context->directories[t].paths);
+        }
+
+        if (n <= 0) {
+                *ret_bind_mounts = NULL;
+                *ret_n_bind_mounts = 0;
+                *ret_empty_directories = NULL;
+                return 0;
+        }
+
+        bind_mounts = new(BindMount, n);
+        if (!bind_mounts)
+                return -ENOMEM;
+
+        for (i = 0; context->n_bind_mounts; i++) {
+                BindMount *item = context->bind_mounts + i;
+                char *s, *d;
+
+                s = strdup(item->source);
+                if (!s) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                d = strdup(item->destination);
+                if (!d) {
+                        free(s);
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                bind_mounts[h++] = (BindMount) {
+                        .source = s,
+                        .destination = d,
+                        .read_only = item->read_only,
+                        .recursive = item->recursive,
+                        .ignore_enoent = item->ignore_enoent,
+                };
+        }
+
+        for (t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
+                char **suffix;
+
+                if (!params->prefix[t])
+                        continue;
+
+                if (strv_isempty(context->directories[t].paths))
+                        continue;
+
+                if (context->dynamic_user && t != EXEC_DIRECTORY_CONFIGURATION) {
+                        char *private_root;
+
+                        /* So this is for a dynamic user, and we need to make sure the process can access its own
+                         * directory. For that we overmount the usually inaccessible "private" subdirectory with a
+                         * tmpfs that makes it accessible and is empty except for the submounts we do this for. */
+
+                        private_root = strjoin(params->prefix[t], "/private");
+                        if (!private_root) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        r = strv_consume(&empty_directories, private_root);
+                        if (r < 0) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+                }
+
+                STRV_FOREACH(suffix, context->directories[t].paths) {
+                        char *s, *d;
+
+                        if (context->dynamic_user && t != EXEC_DIRECTORY_CONFIGURATION)
+                                s = strjoin(params->prefix[t], "/private/", *suffix);
+                        else
+                                s = strjoin(params->prefix[t], "/", *suffix);
+                        if (!s) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        d = strdup(s);
+                        if (!d) {
+                                free(s);
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        bind_mounts[h++] = (BindMount) {
+                                .source = s,
+                                .destination = d,
+                                .read_only = false,
+                                .recursive = true,
+                                .ignore_enoent = false,
+                        };
+                }
+        }
+
+        assert(h == n);
+
+        *ret_bind_mounts = bind_mounts;
+        *ret_n_bind_mounts = n;
+        *ret_empty_directories = empty_directories;
+
+        empty_directories = NULL;
+
+        return (int) n;
+
+finish:
+        bind_mount_free_many(bind_mounts, h);
+        return r;
+}
+
 static int apply_mount_namespace(
                 Unit *u,
                 ExecCommand *command,
@@ -2043,7 +2267,7 @@ static int apply_mount_namespace(
                 const ExecParameters *params,
                 ExecRuntime *runtime) {
 
-        _cleanup_strv_free_ char **rw = NULL;
+        _cleanup_strv_free_ char **rw = NULL, **empty_directories = NULL;
         char *tmp = NULL, *var = NULL;
         const char *root_dir = NULL, *root_image = NULL;
         NameSpaceInfo ns_info = {
@@ -2055,6 +2279,8 @@ static int apply_mount_namespace(
                 .mount_apivfs = context->mount_apivfs,
         };
         bool needs_sandboxing;
+        BindMount *bind_mounts = NULL;
+        unsigned n_bind_mounts = 0;
         int r;
 
         assert(context);
@@ -2081,6 +2307,10 @@ static int apply_mount_namespace(
                         root_dir = context->root_directory;
         }
 
+        r = compile_bind_mounts(context, params, &bind_mounts, &n_bind_mounts, &empty_directories);
+        if (r < 0)
+                return r;
+
         /*
          * If DynamicUser=no and RootDirectory= is set then lets pass a relaxed
          * sandbox info, otherwise enforce it, don't ignore protected paths and
@@ -2095,14 +2325,17 @@ static int apply_mount_namespace(
                             &ns_info, rw,
                             needs_sandboxing ? context->read_only_paths : NULL,
                             needs_sandboxing ? context->inaccessible_paths : NULL,
-                            context->bind_mounts,
-                            context->n_bind_mounts,
+                            empty_directories,
+                            bind_mounts,
+                            n_bind_mounts,
                             tmp,
                             var,
                             needs_sandboxing ? context->protect_home : PROTECT_HOME_NO,
                             needs_sandboxing ? context->protect_system : PROTECT_SYSTEM_NO,
                             context->mount_flags,
                             DISSECT_IMAGE_DISCARD_ON_LOOP);
+
+        bind_mount_free_many(bind_mounts, n_bind_mounts);
 
         /* If we couldn't set up the namespace this is probably due to a
          * missing capability. In this case, silently proceeed. */
@@ -2384,6 +2617,49 @@ static int acquire_home(const ExecContext *c, uid_t uid, const char** home, char
         return 1;
 }
 
+static int compile_suggested_paths(const ExecContext *c, const ExecParameters *p, char ***ret) {
+        _cleanup_strv_free_ char ** list = NULL;
+        ExecDirectoryType t;
+        int r;
+
+        assert(c);
+        assert(p);
+        assert(ret);
+
+        assert(c->dynamic_user);
+
+        /* Compile a list of paths that it might make sense to read the owning UID from to use as initial candidate for
+         * dynamic UID allocation, in order to save us from doing costly recursive chown()s of the special
+         * directories. */
+
+        for (t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
+                char **i;
+
+                if (t == EXEC_DIRECTORY_CONFIGURATION)
+                        continue;
+
+                if (!p->prefix[t])
+                        continue;
+
+                STRV_FOREACH(i, c->directories[t].paths) {
+                        char *e;
+
+                        e = strjoin(p->prefix[t], "/private/", *i);
+                        if (!e)
+                                return -ENOMEM;
+
+                        r = strv_consume(&list, e);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        *ret = list;
+        list = NULL;
+
+        return 0;
+}
+
 static int exec_child(
                 Unit *unit,
                 ExecCommand *command,
@@ -2505,6 +2781,7 @@ static int exec_child(
         }
 
         if (context->dynamic_user && dcreds) {
+                _cleanup_strv_free_ char **suggested_paths = NULL;
 
                 /* Make sure we bypass our own NSS module for any NSS checks */
                 if (putenv((char*) "SYSTEMD_NSS_DYNAMIC_BYPASS=1") != 0) {
@@ -2512,7 +2789,13 @@ static int exec_child(
                         return log_unit_error_errno(unit, errno, "Failed to update environment: %m");
                 }
 
-                r = dynamic_creds_realize(dcreds, &uid, &gid);
+                r = compile_suggested_paths(context, params, &suggested_paths);
+                if (r < 0) {
+                        *exit_status = EXIT_MEMORY;
+                        return log_oom();
+                }
+
+                r = dynamic_creds_realize(dcreds, suggested_paths, &uid, &gid);
                 if (r < 0) {
                         *exit_status = EXIT_USER;
                         return log_unit_error_errno(unit, r, "Failed to update dynamic user credentials: %m");
@@ -2699,7 +2982,7 @@ static int exec_child(
                 }
         }
 
-        for (dt = 0; dt < _EXEC_DIRECTORY_MAX; dt++) {
+        for (dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
                 r = setup_exec_directory(context, params, uid, gid, dt, exit_status);
                 if (r < 0)
                         return log_unit_error_errno(unit, r, "Failed to set up special execution directory in %s: %m", params->prefix[dt]);
@@ -3239,7 +3522,7 @@ void exec_context_init(ExecContext *c) {
         c->ignore_sigpipe = true;
         c->timer_slack_nsec = NSEC_INFINITY;
         c->personality = PERSONALITY_INVALID;
-        for (i = 0; i < _EXEC_DIRECTORY_MAX; i++)
+        for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++)
                 c->directories[i].mode = 0755;
         c->capability_bounding_set = CAP_ALL;
         c->restrict_namespaces = NAMESPACE_FLAGS_ALL;
@@ -3292,7 +3575,7 @@ void exec_context_done(ExecContext *c) {
         c->syscall_archs = set_free(c->syscall_archs);
         c->address_families = set_free(c->address_families);
 
-        for (i = 0; i < _EXEC_DIRECTORY_MAX; i++)
+        for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++)
                 c->directories[i].paths = strv_free(c->directories[i].paths);
 }
 
@@ -3311,9 +3594,20 @@ int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_p
                 if (!p)
                         return -ENOMEM;
 
-                /* We execute this synchronously, since we need to be
-                 * sure this is gone when we start the service
+                /* We execute this synchronously, since we need to be sure this is gone when we start the service
                  * next. */
+                (void) rm_rf(p, REMOVE_ROOT);
+
+                /* Also destroy any matching subdirectory below /private/. This is done to support DynamicUser=1
+                 * setups. Note that we don't conditionalize here on that though, as the namespace is same way, and it
+                 * makes us a bit more robust towards changing unit settings. Or to say this differently: in the worst
+                 * case this is a NOP. */
+
+                free(p);
+                p = strjoin(runtime_prefix, "/private/", *i);
+                if (!p)
+                        return -ENOMEM;
+
                 (void) rm_rf(p, REMOVE_ROOT);
         }
 
@@ -3622,7 +3916,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
 
         fprintf(f, "%sRuntimeDirectoryPreserve: %s\n", prefix, exec_preserve_mode_to_string(c->runtime_directory_preserve_mode));
 
-        for (dt = 0; dt < _EXEC_DIRECTORY_MAX; dt++) {
+        for (dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
                 fprintf(f, "%s%sMode: %04o\n", prefix, exec_directory_type_to_string(dt), c->directories[dt].mode);
 
                 STRV_FOREACH(d, c->directories[dt].paths)
@@ -4374,7 +4668,7 @@ static const char* const exec_preserve_mode_table[_EXEC_PRESERVE_MODE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(exec_preserve_mode, ExecPreserveMode, EXEC_PRESERVE_YES);
 
-static const char* const exec_directory_type_table[_EXEC_DIRECTORY_MAX] = {
+static const char* const exec_directory_type_table[_EXEC_DIRECTORY_TYPE_MAX] = {
         [EXEC_DIRECTORY_RUNTIME] = "RuntimeDirectory",
         [EXEC_DIRECTORY_STATE] = "StateDirectory",
         [EXEC_DIRECTORY_CACHE] = "CacheDirectory",
