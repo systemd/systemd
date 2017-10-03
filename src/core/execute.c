@@ -2691,7 +2691,7 @@ static int exec_child(
 #if HAVE_SELINUX
         bool use_selinux = false;
 #endif
-#if HAVE_SMACK
+#if ENABLE_SMACK
         bool use_smack = false;
 #endif
 #if HAVE_APPARMOR
@@ -3051,7 +3051,7 @@ static int exec_child(
 #if HAVE_SELINUX
                 use_selinux = mac_selinux_use();
 #endif
-#if HAVE_SMACK
+#if ENABLE_SMACK
                 use_smack = mac_smack_use();
 #endif
 #if HAVE_APPARMOR
@@ -3237,7 +3237,7 @@ static int exec_child(
                 }
 #endif
 
-#if HAVE_SMACK
+#if ENABLE_SMACK
                 if (use_smack) {
                         r = setup_smack(context, command);
                         if (r < 0) {

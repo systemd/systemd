@@ -131,7 +131,7 @@ m4_ifdef(`HAVE_SELINUX',
 m4_ifdef(`HAVE_APPARMOR',
 `$1.AppArmorProfile,             config_parse_exec_apparmor_profile, 0,                             offsetof($1, exec_context)',
 `$1.AppArmorProfile,             config_parse_warn_compat,           DISABLED_CONFIGURATION,        0')
-m4_ifdef(`HAVE_SMACK',
+m4_ifdef(`ENABLE_SMACK',
 `$1.SmackProcessLabel,           config_parse_exec_smack_process_label, 0,                          offsetof($1, exec_context)',
 `$1.SmackProcessLabel,           config_parse_warn_compat,           DISABLED_CONFIGURATION,        0')'
 )m4_dnl
@@ -356,7 +356,7 @@ Socket.FileDescriptorName,       config_parse_fdname,                0,         
 Socket.Service,                  config_parse_socket_service,        0,                             0
 Socket.TriggerLimitIntervalSec,  config_parse_sec,                   0,                             offsetof(Socket, trigger_limit.interval)
 Socket.TriggerLimitBurst,        config_parse_unsigned,              0,                             offsetof(Socket, trigger_limit.burst)
-m4_ifdef(`HAVE_SMACK',
+m4_ifdef(`ENABLE_SMACK',
 `Socket.SmackLabel,              config_parse_unit_string_printf,    0,                             offsetof(Socket, smack)
 Socket.SmackLabelIPIn,           config_parse_unit_string_printf,    0,                             offsetof(Socket, smack_ip_in)
 Socket.SmackLabelIPOut,          config_parse_unit_string_printf,    0,                             offsetof(Socket, smack_ip_out)',

@@ -49,7 +49,7 @@
 #define _IMA_FEATURE_ "-IMA"
 #endif
 
-#if HAVE_SMACK
+#if ENABLE_SMACK
 #define _SMACK_FEATURE_ "+SMACK"
 #else
 #define _SMACK_FEATURE_ "-SMACK"

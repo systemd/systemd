@@ -4504,7 +4504,7 @@ void unit_dump_config_items(FILE *f) {
                 const ConfigParserCallback callback;
                 const char *rvalue;
         } table[] = {
-#if !HAVE_SYSV_COMPAT || !HAVE_SECCOMP || !HAVE_PAM || !HAVE_SELINUX || !HAVE_SMACK || !HAVE_APPARMOR
+#if !HAVE_SYSV_COMPAT || !HAVE_SECCOMP || !HAVE_PAM || !HAVE_SELINUX || !ENABLE_SMACK || !HAVE_APPARMOR
                 { config_parse_warn_compat,           "NOTSUPPORTED" },
 #endif
                 { config_parse_int,                   "INTEGER" },
