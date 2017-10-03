@@ -186,6 +186,7 @@ static int answer_add_addresses_ptr(
                 unsigned n_addresses,
                 int af, const union in_addr_union *match) {
 
+        bool added = false;
         unsigned j;
         int r;
 
@@ -215,9 +216,11 @@ static int answer_add_addresses_ptr(
                 r = dns_answer_add(*answer, rr, addresses[j].ifindex, DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
+
+                added = true;
         }
 
-        return 0;
+        return added;
 }
 
 static int synthesize_system_hostname_rr(Manager *m, const DnsResourceKey *key, int ifindex, DnsAnswer **answer) {
@@ -265,6 +268,7 @@ static int synthesize_system_hostname_rr(Manager *m, const DnsResourceKey *key, 
 
 static int synthesize_system_hostname_ptr(Manager *m, int af, const union in_addr_union *address, int ifindex, DnsAnswer **answer) {
         _cleanup_free_ struct local_address *addresses = NULL;
+        bool added = false;
         int n, r;
 
         assert(m);
@@ -273,10 +277,13 @@ static int synthesize_system_hostname_ptr(Manager *m, int af, const union in_add
 
         if (af == AF_INET && address->in.s_addr == htobe32(0x7F000002)) {
 
-                /* Always map the IPv4 address 127.0.0.2 to the local
-                 * hostname, in addition to "localhost": */
+                /* Always map the IPv4 address 127.0.0.2 to the local hostname, in addition to "localhost": */
 
-                r = dns_answer_reserve(answer, 3);
+                r = dns_answer_reserve(answer, 4);
+                if (r < 0)
+                        return r;
+
+                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", m->full_hostname, dns_synthesize_ifindex(ifindex), DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
 
@@ -292,23 +299,37 @@ static int synthesize_system_hostname_ptr(Manager *m, int af, const union in_add
                 if (r < 0)
                         return r;
 
-                return 0;
+                return 1;
         }
 
         n = local_addresses(m->rtnl, ifindex, af, &addresses);
-        if (n < 0)
+        if (n <= 0)
                 return n;
+
+        r = answer_add_addresses_ptr(answer, m->full_hostname, addresses, n, af, address);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                added = true;
 
         r = answer_add_addresses_ptr(answer, m->llmnr_hostname, addresses, n, af, address);
         if (r < 0)
                 return r;
+        if (r > 0)
+                added = true;
 
-        return answer_add_addresses_ptr(answer, m->mdns_hostname, addresses, n, af, address);
+        r = answer_add_addresses_ptr(answer, m->mdns_hostname, addresses, n, af, address);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                added = true;
+
+        return added;
 }
 
 static int synthesize_gateway_rr(Manager *m, const DnsResourceKey *key, int ifindex, DnsAnswer **answer) {
         _cleanup_free_ struct local_address *addresses = NULL;
-        int n = 0, af;
+        int n = 0, af, r;
 
         assert(m);
         assert(key);
@@ -317,11 +338,15 @@ static int synthesize_gateway_rr(Manager *m, const DnsResourceKey *key, int ifin
         af = dns_type_to_af(key->type);
         if (af >= 0) {
                 n = local_gateways(m->rtnl, ifindex, af, &addresses);
-                if (n < 0)
-                        return n;
+                if (n <= 0)
+                        return n;  /* < 0 means: error; == 0 means we have no gateway */
         }
 
-        return answer_add_addresses_rr(answer, dns_resource_key_name(key), addresses, n);
+        r = answer_add_addresses_rr(answer, dns_resource_key_name(key), addresses, n);
+        if (r < 0)
+                return r;
+
+        return 1; /* > 0 means: we have some gateway */
 }
 
 static int synthesize_gateway_ptr(Manager *m, int af, const union in_addr_union *address, int ifindex, DnsAnswer **answer) {
@@ -333,7 +358,7 @@ static int synthesize_gateway_ptr(Manager *m, int af, const union in_addr_union 
         assert(answer);
 
         n = local_gateways(m->rtnl, ifindex, af, &addresses);
-        if (n < 0)
+        if (n <= 0)
                 return n;
 
         return answer_add_addresses_ptr(answer, "_gateway", addresses, n, af, address);
@@ -347,7 +372,7 @@ int dns_synthesize_answer(
 
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         DnsResourceKey *key;
-        bool found = false;
+        bool found = false, nxdomain = false;
         int r;
 
         assert(m);
@@ -381,6 +406,10 @@ int dns_synthesize_answer(
                         r = synthesize_gateway_rr(m, key, ifindex, &answer);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to synthesize gateway RRs: %m");
+                        if (r == 0) { /* if we have no gateway return NXDOMAIN */
+                                nxdomain = true;
+                                continue;
+                        }
 
                 } else if ((dns_name_endswith(name, "127.in-addr.arpa") > 0 && dns_name_equal(name, "2.0.0.127.in-addr.arpa") == 0) ||
                            dns_name_equal(name, "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0) {
@@ -390,26 +419,35 @@ int dns_synthesize_answer(
                                 return log_error_errno(r, "Failed to synthesize localhost PTR RRs: %m");
 
                 } else if (dns_name_address(name, &af, &address) > 0) {
+                        int v, w;
 
-                        r = synthesize_system_hostname_ptr(m, af, &address, ifindex, &answer);
-                        if (r < 0)
+                        v = synthesize_system_hostname_ptr(m, af, &address, ifindex, &answer);
+                        if (v < 0)
                                 return log_error_errno(r, "Failed to synthesize system hostname PTR RR: %m");
 
-                        r = synthesize_gateway_ptr(m, af, &address, ifindex, &answer);
-                        if (r < 0)
+                        w = synthesize_gateway_ptr(m, af, &address, ifindex, &answer);
+                        if (w < 0)
                                 return log_error_errno(r, "Failed to synthesize gateway hostname PTR RR: %m");
+
+                        if (v == 0 && w == 0) /* This IP address is neither a local one nor a gateway */
+                                continue;
+
                 } else
                         continue;
 
                 found = true;
         }
 
-        r = found;
+        if (found) {
 
-        if (ret) {
-                *ret = answer;
-                answer = NULL;
-        }
+                if (ret) {
+                        *ret = answer;
+                        answer = NULL;
+                }
 
-        return r;
+                return 1;
+        } else if (nxdomain)
+                return -ENXIO;
+
+        return 0;
 }

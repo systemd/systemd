@@ -623,7 +623,18 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
                         q->question_utf8,
                         q->ifindex,
                         &answer);
+        if (r == -ENXIO) {
+                /* If we get ENXIO this tells us to generate NXDOMAIN unconditionally. */
 
+                dns_query_reset_answer(q);
+                q->answer_rcode = DNS_RCODE_NXDOMAIN;
+                q->answer_protocol = dns_synthesize_protocol(q->flags);
+                q->answer_family = dns_synthesize_family(q->flags);
+                q->answer_authenticated = true;
+                *state = DNS_TRANSACTION_RCODE_FAILURE;
+
+                return 0;
+        }
         if (r <= 0)
                 return r;
 
