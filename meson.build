@@ -419,7 +419,7 @@ foreach decl : [['IFLA_INET6_ADDR_GEN_MODE',         'linux/if_link.h'],
                ]
         prefix = decl.length() > 2 ? decl[2] : ''
         have = cc.has_header_symbol(decl[1], decl[0], prefix : prefix)
-        conf.set10('HAVE_DECL_' + decl[0], have)
+        conf.set10('HAVE_' + decl[0], have)
 endforeach
 
 skip = false
@@ -452,15 +452,15 @@ foreach ident : [
 ]
 
         have = cc.has_function(ident[0], prefix : ident[1])
-        conf.set10('HAVE_DECL_' + ident[0].to_upper(), have)
+        conf.set10('HAVE_' + ident[0].to_upper(), have)
 endforeach
 
 if cc.has_function('getrandom', prefix : '''#include <sys/random.h>''')
         conf.set('USE_SYS_RANDOM_H', true)
-        conf.set10('HAVE_DECL_GETRANDOM', true)
+        conf.set10('HAVE_GETRANDOM', true)
 else
         have = cc.has_function('getrandom', prefix : '''#include <linux/random.h>''')
-        conf.set10('HAVE_DECL_GETRANDOM', have)
+        conf.set10('HAVE_GETRANDOM', have)
 endif
 
 #####################################################################

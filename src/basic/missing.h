@@ -613,7 +613,7 @@ struct input_mask {
 #define O_TMPFILE (__O_TMPFILE | O_DIRECTORY)
 #endif
 
-#if !HAVE_DECL_LO_FLAGS_PARTSCAN
+#if !HAVE_LO_FLAGS_PARTSCAN
 #define LO_FLAGS_PARTSCAN 8
 #endif
 
@@ -625,7 +625,7 @@ struct input_mask {
 #define LOOP_CTL_GET_FREE 0x4C82
 #endif
 
-#if !HAVE_DECL_IFLA_INET6_ADDR_GEN_MODE
+#if !HAVE_IFLA_INET6_ADDR_GEN_MODE
 #define IFLA_INET6_UNSPEC 0
 #define IFLA_INET6_FLAGS 1
 #define IFLA_INET6_CONF 2
@@ -643,11 +643,11 @@ struct input_mask {
 #define IN6_ADDR_GEN_MODE_NONE 1
 #endif
 
-#if !HAVE_DECL_IN6_ADDR_GEN_MODE_STABLE_PRIVACY
+#if !HAVE_IN6_ADDR_GEN_MODE_STABLE_PRIVACY
 #define IN6_ADDR_GEN_MODE_STABLE_PRIVACY 2
 #endif
 
-#if !HAVE_DECL_IFLA_MACVLAN_FLAGS
+#if !HAVE_IFLA_MACVLAN_FLAGS
 #define IFLA_MACVLAN_UNSPEC 0
 #define IFLA_MACVLAN_MODE 1
 #define IFLA_MACVLAN_FLAGS 2
@@ -656,7 +656,7 @@ struct input_mask {
 #define IFLA_MACVLAN_MAX (__IFLA_MACVLAN_MAX - 1)
 #endif
 
-#if !HAVE_DECL_IFLA_IPVLAN_MODE
+#if !HAVE_IFLA_IPVLAN_MODE
 #define IFLA_IPVLAN_UNSPEC 0
 #define IFLA_IPVLAN_MODE 1
 #define __IFLA_IPVLAN_MAX 2
@@ -668,7 +668,7 @@ struct input_mask {
 #define IPVLAN_MAX 2
 #endif
 
-#if !HAVE_DECL_IFLA_VTI_REMOTE
+#if !HAVE_IFLA_VTI_REMOTE
 #define IFLA_VTI_UNSPEC 0
 #define IFLA_VTI_LINK 1
 #define IFLA_VTI_IKEY 2
@@ -680,7 +680,7 @@ struct input_mask {
 #define IFLA_VTI_MAX (__IFLA_VTI_MAX - 1)
 #endif
 
-#if !HAVE_DECL_IFLA_PHYS_PORT_ID
+#if !HAVE_IFLA_PHYS_PORT_ID
 #define IFLA_EXT_MASK 29
 #undef IFLA_PROMISCUITY
 #define IFLA_PROMISCUITY 30
@@ -693,7 +693,7 @@ struct input_mask {
 #define IFLA_MAX (__IFLA_MAX - 1)
 #endif
 
-#if !HAVE_DECL_IFLA_BOND_AD_INFO
+#if !HAVE_IFLA_BOND_AD_INFO
 #define IFLA_BOND_UNSPEC 0
 #define IFLA_BOND_MODE 1
 #define IFLA_BOND_ACTIVE_SLAVE 2
@@ -723,7 +723,7 @@ struct input_mask {
 #define IFLA_BOND_MAX   (__IFLA_BOND_MAX - 1)
 #endif
 
-#if !HAVE_DECL_IFLA_VLAN_PROTOCOL
+#if !HAVE_IFLA_VLAN_PROTOCOL
 #define IFLA_VLAN_UNSPEC 0
 #define IFLA_VLAN_ID 1
 #define IFLA_VLAN_FLAGS 2
@@ -735,7 +735,7 @@ struct input_mask {
 #define IFLA_VLAN_MAX   (__IFLA_VLAN_MAX - 1)
 #endif
 
-#if !HAVE_DECL_IFLA_VXLAN_GPE
+#if !HAVE_IFLA_VXLAN_GPE
 #define IFLA_VXLAN_UNSPEC 0
 #define IFLA_VXLAN_ID 1
 #define IFLA_VXLAN_GROUP 2
@@ -770,7 +770,7 @@ struct input_mask {
 #define IFLA_VXLAN_MAX  (__IFLA_VXLAN_MAX - 1)
 #endif
 
-#if !HAVE_DECL_IFLA_GENEVE_LABEL
+#if !HAVE_IFLA_GENEVE_LABEL
 #define IFLA_GENEVE_UNSPEC 0
 #define IFLA_GENEVE_ID 1
 #define IFLA_GENEVE_REMOTE 2
@@ -789,7 +789,7 @@ struct input_mask {
 #define IFLA_GENEVE_MAX  (__IFLA_GENEVE_MAX - 1)
 #endif
 
-#if !HAVE_DECL_IFLA_IPTUN_ENCAP_DPORT
+#if !HAVE_IFLA_IPTUN_ENCAP_DPORT
 #define IFLA_IPTUN_UNSPEC 0
 #define IFLA_IPTUN_LINK 1
 #define IFLA_IPTUN_LOCAL 2
@@ -815,7 +815,7 @@ struct input_mask {
 #define IFLA_IPTUN_MAX  (__IFLA_IPTUN_MAX - 1)
 #endif
 
-#if !HAVE_DECL_IFLA_GRE_ENCAP_DPORT
+#if !HAVE_IFLA_GRE_ENCAP_DPORT
 #define IFLA_GRE_UNSPEC 0
 #define IFLA_GRE_LINK 1
 #define IFLA_GRE_IFLAGS 2
@@ -840,7 +840,7 @@ struct input_mask {
 #define IFLA_GRE_MAX  (__IFLA_GRE_MAX - 1)
 #endif
 
-#if !HAVE_DECL_IFLA_BRIDGE_VLAN_INFO
+#if !HAVE_IFLA_BRIDGE_VLAN_INFO
 #define IFLA_BRIDGE_FLAGS 0
 #define IFLA_BRIDGE_MODE 1
 #define IFLA_BRIDGE_VLAN_INFO 2
@@ -857,7 +857,7 @@ struct input_mask {
 #define BRIDGE_VLAN_INFO_RANGE_END (1<<4) /* VLAN is end of vlan range */
 #endif
 
-#if !HAVE_DECL_IFLA_BR_VLAN_DEFAULT_PVID
+#if !HAVE_IFLA_BR_VLAN_DEFAULT_PVID
 #define IFLA_BR_UNSPEC 0
 #define IFLA_BR_FORWARD_DELAY 1
 #define IFLA_BR_HELLO_TIME 2
@@ -903,7 +903,7 @@ struct input_mask {
 #define IFLA_BR_MAX (__IFLA_BR_MAX - 1)
 #endif
 
-#if !HAVE_DECL_IFLA_BRPORT_LEARNING_SYNC
+#if !HAVE_IFLA_BRPORT_LEARNING_SYNC
 #define IFLA_BRPORT_UNSPEC 0
 #define IFLA_BRPORT_STATE 1
 #define IFLA_BRPORT_PRIORITY 2
@@ -920,7 +920,7 @@ struct input_mask {
 #define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)
 #endif
 
-#if !HAVE_DECL_FRA_UID_RANGE
+#if !HAVE_FRA_UID_RANGE
 #define FRA_UNSPEC 0
 #define FRA_DST 1
 #define FRA_SRC 2
@@ -947,15 +947,15 @@ struct input_mask {
 #define FRA_MAX (__FRA_MAX - 1)
 #endif
 
-#if !HAVE_DECL_IFLA_BRPORT_PROXYARP
+#if !HAVE_IFLA_BRPORT_PROXYARP
 #define IFLA_BRPORT_PROXYARP 10
 #endif
 
-#if !HAVE_DECL_IFLA_VRF_TABLE
+#if !HAVE_IFLA_VRF_TABLE
 #define IFLA_VRF_TABLE 1
 #endif
 
-#if !HAVE_DECL_NDA_IFINDEX
+#if !HAVE_NDA_IFINDEX
 #define NDA_UNSPEC 0
 #define NDA_DST 1
 #define NDA_LLADDR 2
@@ -1039,7 +1039,7 @@ struct input_mask {
 #define LOOPBACK_IFINDEX 1
 #endif
 
-#if !HAVE_DECL_IFA_FLAGS
+#if !HAVE_IFA_FLAGS
 #define IFA_FLAGS 8
 #endif
 
