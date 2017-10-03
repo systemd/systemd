@@ -23,7 +23,7 @@
 
 <refentry id="runlevel"
     xmlns:xi="http://www.w3.org/2001/XInclude"
-    conditional="HAVE_UTMP">
+    conditional="ENABLE_UTMP">
 
   <refentryinfo>
     <title>runlevel</title>

@@ -61,7 +61,7 @@
 #define _SYSVINIT_FEATURE_ "-SYSVINIT"
 #endif
 
-#if HAVE_UTMP
+#if ENABLE_UTMP
 #define _UTMP_FEATURE_ "+UTMP"
 #else
 #define _UTMP_FEATURE_ "-UTMP"

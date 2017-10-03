@@ -1036,7 +1036,7 @@ else
 endif
 conf.set10('ENABLE_REMOTE', have)
 
-foreach pair : [['utmp',          'HAVE_UTMP'],
+foreach pair : [['utmp',          'ENABLE_UTMP'],
                 ['hibernate',     'ENABLE_HIBERNATE'],
                 ['environment-d', 'ENABLE_ENVIRONMENT_D'],
                 ['binfmt',        'ENABLE_BINFMT'],

@@ -19,7 +19,7 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
-<refentry id="systemd-update-utmp.service" conditional="HAVE_UTMP">
+<refentry id="systemd-update-utmp.service" conditional="ENABLE_UTMP">
 
   <refentryinfo>
     <title>systemd-update-utmp.service</title>
