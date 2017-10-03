@@ -43,7 +43,7 @@
 #define _APPARMOR_FEATURE_ "-APPARMOR"
 #endif
 
-#if HAVE_IMA
+#if ENABLE_IMA
 #define _IMA_FEATURE_ "+IMA"
 #else
 #define _IMA_FEATURE_ "-IMA"
