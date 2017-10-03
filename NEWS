@@ -121,8 +121,8 @@ CHANGES WITH 235:
           each time the service is restarted due to Restart=, and may be
           queried using "systemctl show -p NRestarts …".
 
-        * New system call filter groups @setuid, @credentials, @memlock,
-          @signal and @timer have been added, for usage with SystemCallFilter=
+        * New system call filter groups @setuid, @memlock, @signal and
+          @timer have been added, for usage with SystemCallFilter=
           in unit files and the new --system-call-filter= command line option
           of systemd-nspawn (see above).
 
