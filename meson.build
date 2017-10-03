@@ -545,6 +545,7 @@ endif
 foreach header : ['linux/btrfs.h',
                   'linux/memfd.h',
                   'linux/vm_sockets.h',
+                  'sys/auxv.h',
                   'valgrind/memcheck.h',
                   'valgrind/valgrind.h',
                  ]
