@@ -450,7 +450,7 @@ static int parse_argv(int argc, char **argv,
                 modules = strv_new(argv[1], NULL);
         else
                 modules = strv_new(
-#if HAVE_MYHOSTNAME
+#if ENABLE_MYHOSTNAME
                                 "myhostname",
 #endif
 #if ENABLE_RESOLVED

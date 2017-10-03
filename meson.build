@@ -1049,7 +1049,7 @@ foreach pair : [['utmp',          'ENABLE_UTMP'],
                 ['networkd',      'ENABLE_NETWORKD'],
                 ['timedated',     'ENABLE_TIMEDATED'],
                 ['timesyncd',     'ENABLE_TIMESYNCD'],
-                ['myhostname',    'HAVE_MYHOSTNAME'],
+                ['myhostname',    'ENABLE_MYHOSTNAME'],
                 ['firstboot',     'ENABLE_FIRSTBOOT'],
                 ['randomseed',    'ENABLE_RANDOMSEED'],
                 ['backlight',     'ENABLE_BACKLIGHT'],
@@ -1219,7 +1219,7 @@ test_dlopen = executable(
         link_with : [libbasic],
         dependencies : [libdl])
 
-foreach tuple : [['myhostname', 'HAVE_MYHOSTNAME'],
+foreach tuple : [['myhostname', 'ENABLE_MYHOSTNAME'],
                  ['systemd',    'ENABLE_NSS_SYSTEMD'],
                  ['mymachines', 'ENABLE_MACHINED'],
                  ['resolve',    'ENABLE_RESOLVED']]
@@ -2552,7 +2552,7 @@ foreach tuple : [
         ['blkid'],
         ['dbus'],
         ['glib'],
-        ['nss-myhostname',   conf.get('HAVE_MYHOSTNAME') == 1],
+        ['nss-myhostname',   conf.get('ENABLE_MYHOSTNAME') == 1],
         ['hwdb'],
         ['tpm'],
         ['man pages',        want_man],

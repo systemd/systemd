@@ -36,7 +36,7 @@ manpages = [
  ['modules-load.d', '5', [], 'HAVE_KMOD'],
  ['networkctl', '1', [], 'ENABLE_NETWORKD'],
  ['networkd.conf', '5', ['networkd.conf.d'], 'ENABLE_NETWORKD'],
- ['nss-myhostname', '8', ['libnss_myhostname.so.2'], 'HAVE_MYHOSTNAME'],
+ ['nss-myhostname', '8', ['libnss_myhostname.so.2'], 'ENABLE_MYHOSTNAME'],
  ['nss-mymachines', '8', ['libnss_mymachines.so.2'], 'ENABLE_MACHINED'],
  ['nss-resolve', '8', ['libnss_resolve.so.2'], 'ENABLE_RESOLVED'],
  ['nss-systemd', '8', ['libnss_systemd.so.2'], 'ENABLE_NSS_SYSTEMD'],
