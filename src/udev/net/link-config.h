@@ -84,7 +84,8 @@ int link_config_load(link_config_ctx *ctx);
 bool link_config_should_reload(link_config_ctx *ctx);
 
 int link_config_get(link_config_ctx *ctx, struct udev_device *device, struct link_config **ret);
-int link_config_apply(link_config_ctx *ctx, struct link_config *config, struct udev_device *device, const char **name);
+int link_config_apply(link_config_ctx *ctx, struct link_config *config, struct udev_device *device);
+const char* link_config_get_ifname(link_config_ctx *ctx, link_config *config, struct udev_device *device);
 
 int link_get_driver(link_config_ctx *ctx, struct udev_device *device, char **ret);
 

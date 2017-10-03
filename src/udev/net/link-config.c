@@ -359,48 +359,94 @@ static int get_mac(struct udev_device *device, bool want_random,
         return 0;
 }
 
-int link_config_apply(link_config_ctx *ctx, link_config *config,
-                      struct udev_device *device, const char **name) {
+const char* link_config_get_ifname(link_config_ctx *ctx, link_config *config,
+                                   struct udev_device *device) {
+        const char *name = NULL;
         bool respect_predictable = false;
+
+        assert(ctx);
+        assert(config);
+        assert(device);
+
+        if (ctx->enable_name_policy && config->name_policy) {
+                NamePolicy *policy;
+
+                for (policy = config->name_policy;
+                     !name && *policy != _NAMEPOLICY_INVALID; policy++) {
+                        switch (*policy) {
+                        case NAMEPOLICY_KERNEL:
+                                respect_predictable = true;
+                                break;
+                        case NAMEPOLICY_DATABASE:
+                                name = udev_device_get_property_value(device, "ID_NET_NAME_FROM_DATABASE");
+                                break;
+                        case NAMEPOLICY_ONBOARD:
+                                name = udev_device_get_property_value(device, "ID_NET_NAME_ONBOARD");
+                                break;
+                        case NAMEPOLICY_SLOT:
+                                name = udev_device_get_property_value(device, "ID_NET_NAME_SLOT");
+                                break;
+                        case NAMEPOLICY_PATH:
+                                name = udev_device_get_property_value(device, "ID_NET_NAME_PATH");
+                                break;
+                        case NAMEPOLICY_MAC:
+                                name = udev_device_get_property_value(device, "ID_NET_NAME_MAC");
+                                break;
+                        default:
+                                break;
+                        }
+                }
+        }
+
+        if (should_rename(device, respect_predictable)) {
+                /* if not set by policy, fall back manually set name */
+                if (!name)
+                        name = config->name;
+        } else
+                name = NULL;
+
+        return name;
+}
+
+int link_config_apply(link_config_ctx *ctx, link_config *config,
+                      struct udev_device *device) {
         struct ether_addr generated_mac;
         struct ether_addr *mac = NULL;
-        const char *new_name = NULL;
-        const char *old_name;
+        const char *name;
         unsigned speed;
         int r, ifindex;
 
         assert(ctx);
         assert(config);
         assert(device);
-        assert(name);
 
-        old_name = udev_device_get_sysname(device);
-        if (!old_name)
+        name = udev_device_get_sysname(device);
+        if (!name)
                 return -EINVAL;
 
-        r = ethtool_set_glinksettings(&ctx->ethtool_fd, old_name, config);
+        r = ethtool_set_glinksettings(&ctx->ethtool_fd, name, config);
         if (r < 0) {
 
                 if (config->port != _NET_DEV_PORT_INVALID)
-                        log_warning_errno(r,  "Could not set port (%s) of %s: %m", port_to_string(config->port), old_name);
+                        log_warning_errno(r,  "Could not set port (%s) of %s: %m", port_to_string(config->port), name);
 
                 speed = DIV_ROUND_UP(config->speed, 1000000);
                 if (r == -EOPNOTSUPP)
-                        r = ethtool_set_speed(&ctx->ethtool_fd, old_name, speed, config->duplex);
+                        r = ethtool_set_speed(&ctx->ethtool_fd, name, speed, config->duplex);
 
                 if (r < 0)
                         log_warning_errno(r, "Could not set speed or duplex of %s to %u Mbps (%s): %m",
-                                          old_name, speed, duplex_to_string(config->duplex));
+                                          name, speed, duplex_to_string(config->duplex));
         }
 
-        r = ethtool_set_wol(&ctx->ethtool_fd, old_name, config->wol);
+        r = ethtool_set_wol(&ctx->ethtool_fd, name, config->wol);
         if (r < 0)
                 log_warning_errno(r, "Could not set WakeOnLan of %s to %s: %m",
-                                  old_name, wol_to_string(config->wol));
+                                  name, wol_to_string(config->wol));
 
-        r = ethtool_set_features(&ctx->ethtool_fd, old_name, config->features);
+        r = ethtool_set_features(&ctx->ethtool_fd, name, config->features);
         if (r < 0)
-                log_warning_errno(r, "Could not set offload features of %s: %m", old_name);
+                log_warning_errno(r, "Could not set offload features of %s: %m", name);
 
         ifindex = udev_device_get_ifindex(device);
         if (ifindex <= 0) {
@@ -408,49 +454,12 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                 return -ENODEV;
         }
 
-        if (ctx->enable_name_policy && config->name_policy) {
-                NamePolicy *policy;
-
-                for (policy = config->name_policy;
-                     !new_name && *policy != _NAMEPOLICY_INVALID; policy++) {
-                        switch (*policy) {
-                                case NAMEPOLICY_KERNEL:
-                                        respect_predictable = true;
-                                        break;
-                                case NAMEPOLICY_DATABASE:
-                                        new_name = udev_device_get_property_value(device, "ID_NET_NAME_FROM_DATABASE");
-                                        break;
-                                case NAMEPOLICY_ONBOARD:
-                                        new_name = udev_device_get_property_value(device, "ID_NET_NAME_ONBOARD");
-                                        break;
-                                case NAMEPOLICY_SLOT:
-                                        new_name = udev_device_get_property_value(device, "ID_NET_NAME_SLOT");
-                                        break;
-                                case NAMEPOLICY_PATH:
-                                        new_name = udev_device_get_property_value(device, "ID_NET_NAME_PATH");
-                                        break;
-                                case NAMEPOLICY_MAC:
-                                        new_name = udev_device_get_property_value(device, "ID_NET_NAME_MAC");
-                                        break;
-                                default:
-                                        break;
-                        }
-                }
-        }
-
-        if (should_rename(device, respect_predictable)) {
-                /* if not set by policy, fall back manually set name */
-                if (!new_name)
-                        new_name = config->name;
-        } else
-                new_name = NULL;
-
         switch (config->mac_policy) {
                 case MACPOLICY_PERSISTENT:
                         if (mac_is_random(device)) {
                                 r = get_mac(device, false, &generated_mac);
                                 if (r == -ENOENT) {
-                                        log_warning_errno(r, "Could not generate persistent MAC address for %s: %m", old_name);
+                                        log_warning_errno(r, "Could not generate persistent MAC address for %s: %m", name);
                                         break;
                                 } else if (r < 0)
                                         return r;
@@ -461,7 +470,7 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                         if (!mac_is_random(device)) {
                                 r = get_mac(device, true, &generated_mac);
                                 if (r == -ENOENT) {
-                                        log_warning_errno(r, "Could not generate random MAC address for %s: %m", old_name);
+                                        log_warning_errno(r, "Could not generate random MAC address for %s: %m", name);
                                         break;
                                 } else if (r < 0)
                                         return r;
@@ -475,9 +484,7 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
 
         r = rtnl_set_link_properties(&ctx->rtnl, ifindex, config->alias, mac, config->mtu);
         if (r < 0)
-                return log_warning_errno(r, "Could not set Alias, MACAddress or MTU on %s: %m", old_name);
-
-        *name = new_name;
+                return log_warning_errno(r, "Could not set Alias, MACAddress or MTU on %s: %m", name);
 
         return 0;
 }
