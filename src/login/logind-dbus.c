@@ -344,7 +344,7 @@ static int method_get_session_by_pid(sd_bus_message *message, void *userdata, sd
         r = sd_bus_message_read(message, "u", &pid);
         if (r < 0)
                 return r;
-        if (!pid_is_valid((pid_t) pid))
+        if (pid < 0)
                 return -EINVAL;
 
         if (pid == 0) {
@@ -407,7 +407,7 @@ static int method_get_user_by_pid(sd_bus_message *message, void *userdata, sd_bu
         r = sd_bus_message_read(message, "u", &pid);
         if (r < 0)
                 return r;
-        if (!pid_is_valid((pid_t) pid))
+        if (pid < 0)
                 return -EINVAL;
 
         if (pid == 0) {

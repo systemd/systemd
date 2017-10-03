@@ -475,7 +475,7 @@ static int get_process_id(pid_t pid, const char *field, uid_t *uid) {
         assert(field);
         assert(uid);
 
-        if (!pid_is_valid(pid))
+        if (pid < 0)
                 return -EINVAL;
 
         p = procfs_file_alloca(pid, "status");
@@ -787,7 +787,7 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value) {
 bool pid_is_unwaited(pid_t pid) {
         /* Checks whether a PID is still valid at all, including a zombie */
 
-        if (!pid_is_valid(pid))
+        if (pid < 0)
                 return false;
 
         if (pid <= 1) /* If we or PID 1 would be dead and have been waited for, this code would not be running */
@@ -807,7 +807,7 @@ bool pid_is_alive(pid_t pid) {
 
         /* Checks whether a PID is still valid and not a zombie */
 
-        if (!pid_is_valid(pid))
+        if (pid < 0)
                 return false;
 
         if (pid <= 1) /* If we or PID 1 would be a zombie, this code would not be running */
@@ -826,7 +826,7 @@ bool pid_is_alive(pid_t pid) {
 int pid_from_same_root_fs(pid_t pid) {
         const char *root;
 
-        if (!pid_is_valid(pid))
+        if (pid < 0)
                 return false;
 
         if (pid == 0 || pid == getpid_cached())

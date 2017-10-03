@@ -3375,10 +3375,8 @@ static int logind_check_inhibitors(enum action a) {
                 if (!sv)
                         return log_oom();
 
-                if (!pid_is_valid((pid_t) pid)) {
-                        log_error("Invalid PID %" PRIu32 ".", pid);
-                        return -ERANGE;
-                }
+                if ((pid_t) pid < 0)
+                        return log_error_errno(ERANGE, "Bad PID %"PRIu32": %m", pid);
 
                 if (!strv_contains(sv,
                                    IN_SET(a,
