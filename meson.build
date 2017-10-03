@@ -242,7 +242,7 @@ if cxx.found()
 endif
 
 foreach arg : ['-Wextra',
-               '-Wundef',
+               '-Werror=undef',
                '-Wlogical-op',
                '-Wmissing-include-dirs',
                '-Wold-style-definition',
