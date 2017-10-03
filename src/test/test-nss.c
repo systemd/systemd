@@ -453,10 +453,10 @@ static int parse_argv(int argc, char **argv,
 #if HAVE_MYHOSTNAME
                                 "myhostname",
 #endif
-#if HAVE_RESOLVED
+#if ENABLE_RESOLVED
                                 "resolve",
 #endif
-#if HAVE_MACHINED
+#if ENABLE_MACHINED
                                 "mymachines",
 #endif
                                 "dns",
