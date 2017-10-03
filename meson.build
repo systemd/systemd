@@ -1036,42 +1036,41 @@ else
 endif
 conf.set10('ENABLE_REMOTE', have)
 
-foreach pair : [['utmp',          'ENABLE_UTMP'],
-                ['hibernate',     'ENABLE_HIBERNATE'],
-                ['environment-d', 'ENABLE_ENVIRONMENT_D'],
-                ['binfmt',        'ENABLE_BINFMT'],
-                ['coredump',      'ENABLE_COREDUMP'],
-                ['resolve',       'ENABLE_RESOLVE'],
-                ['logind',        'ENABLE_LOGIND'],
-                ['hostnamed',     'ENABLE_HOSTNAMED'],
-                ['localed',       'ENABLE_LOCALED'],
-                ['machined',      'ENABLE_MACHINED'],
-                ['networkd',      'ENABLE_NETWORKD'],
-                ['timedated',     'ENABLE_TIMEDATED'],
-                ['timesyncd',     'ENABLE_TIMESYNCD'],
-                ['myhostname',    'ENABLE_MYHOSTNAME'],
-                ['firstboot',     'ENABLE_FIRSTBOOT'],
-                ['randomseed',    'ENABLE_RANDOMSEED'],
-                ['backlight',     'ENABLE_BACKLIGHT'],
-                ['vconsole',      'ENABLE_VCONSOLE'],
-                ['quotacheck',    'ENABLE_QUOTACHECK'],
-                ['sysusers',      'ENABLE_SYSUSERS'],
-                ['tmpfiles',      'ENABLE_TMPFILES'],
-                ['hwdb',          'ENABLE_HWDB'],
-                ['rfkill',        'ENABLE_RFKILL'],
-                ['ldconfig',      'ENABLE_LDCONFIG'],
-                ['efi',           'ENABLE_EFI'],
-                ['tpm',           'ENABLE_TPM'],
-                ['ima',           'ENABLE_IMA'],
-                ['smack',         'ENABLE_SMACK'],
-                ['gshadow',       'ENABLE_GSHADOW'],
-                ['idn',           'ENABLE_IDN'],
-                ['nss-systemd',   'ENABLE_NSS_SYSTEMD'],
-               ]
-
-        have = get_option(pair[0])
-        conf.set10(pair[1], have)
-        m4_defines += have ? ['-D' + pair[1]] : []
+foreach term : ['utmp',
+                'hibernate',
+                'environment-d',
+                'binfmt',
+                'coredump',
+                'resolve',
+                'logind',
+                'hostnamed',
+                'localed',
+                'machined',
+                'networkd',
+                'timedated',
+                'timesyncd',
+                'myhostname',
+                'firstboot',
+                'randomseed',
+                'backlight',
+                'vconsole',
+                'quotacheck',
+                'sysusers',
+                'tmpfiles',
+                'hwdb',
+                'rfkill',
+                'ldconfig',
+                'efi',
+                'tpm',
+                'ima',
+                'smack',
+                'gshadow',
+                'idn',
+                'nss-systemd']
+        have = get_option(term)
+        name = 'ENABLE_' + term.underscorify().to_upper()
+        conf.set10(name, have)
+        m4_defines += have ? ['-D' + name] : []
 endforeach
 
 want_tests = get_option('tests')
