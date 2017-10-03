@@ -1041,7 +1041,7 @@ foreach pair : [['utmp',          'ENABLE_UTMP'],
                 ['environment-d', 'ENABLE_ENVIRONMENT_D'],
                 ['binfmt',        'ENABLE_BINFMT'],
                 ['coredump',      'ENABLE_COREDUMP'],
-                ['resolve',       'ENABLE_RESOLVED'],
+                ['resolve',       'ENABLE_RESOLVE'],
                 ['logind',        'ENABLE_LOGIND'],
                 ['hostnamed',     'ENABLE_HOSTNAMED'],
                 ['localed',       'ENABLE_LOCALED'],
@@ -1222,7 +1222,7 @@ test_dlopen = executable(
 foreach tuple : [['myhostname', 'ENABLE_MYHOSTNAME'],
                  ['systemd',    'ENABLE_NSS_SYSTEMD'],
                  ['mymachines', 'ENABLE_MACHINED'],
-                 ['resolve',    'ENABLE_RESOLVED']]
+                 ['resolve',    'ENABLE_RESOLVE']]
 
         condition = tuple[1] == '' or conf.get(tuple[1]) == 1
         if condition
@@ -1405,7 +1405,7 @@ if conf.get('HAVE_BLKID') == 1
         public_programs += [exe]
 endif
 
-if conf.get('ENABLE_RESOLVED') == 1
+if conf.get('ENABLE_RESOLVE') == 1
         executable('systemd-resolved',
                    systemd_resolved_sources,
                    gcrypt_util_sources,

@@ -180,7 +180,7 @@ in_units = [
         ['systemd-reboot.service',               ''],
         ['systemd-remount-fs.service',           '',
          'local-fs.target.wants/'],
-        ['systemd-resolved.service',             'ENABLE_RESOLVED',
+        ['systemd-resolved.service',             'ENABLE_RESOLVE',
          join_paths(pkgsysconfdir, 'system/dbus-org.freedesktop.resolve1.service') + ' ' +
          join_paths(pkgsysconfdir, 'system/multi-user.target.wants/')],
         ['systemd-rfkill.service',               'ENABLE_RFKILL'],

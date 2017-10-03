@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="resolved.conf" conditional='ENABLE_RESOLVED'
+<refentry id="resolved.conf" conditional='ENABLE_RESOLVE'
     xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>resolved.conf</title>
