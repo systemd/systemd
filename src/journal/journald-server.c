@@ -17,7 +17,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
 #include <selinux/selinux.h>
 #endif
 #include <sys/ioctl.h>
@@ -240,12 +240,12 @@ void server_space_usage_message(Server *s, JournalStorage *storage) {
 }
 
 static void server_add_acls(JournalFile *f, uid_t uid) {
-#ifdef HAVE_ACL
+#if HAVE_ACL
         int r;
 #endif
         assert(f);
 
-#ifdef HAVE_ACL
+#if HAVE_ACL
         if (uid <= SYSTEM_UID_MAX)
                 return;
 
@@ -1868,7 +1868,7 @@ int server_init(Server *s) {
 }
 
 void server_maybe_append_tags(Server *s) {
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
         JournalFile *f;
         Iterator i;
         usec_t n;

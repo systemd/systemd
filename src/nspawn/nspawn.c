@@ -17,7 +17,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#ifdef HAVE_BLKID
+#if HAVE_BLKID
 #include <blkid.h>
 #endif
 #include <errno.h>
@@ -26,7 +26,7 @@
 #include <linux/loop.h>
 #include <pwd.h>
 #include <sched.h>
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
 #include <selinux/selinux.h>
 #endif
 #include <signal.h>
@@ -1234,7 +1234,7 @@ static int verify_arguments(void) {
                 return -EINVAL;
         }
 
-#ifndef HAVE_LIBIPTC
+#if ! HAVE_LIBIPTC
         if (arg_expose_ports) {
                 log_error("--port= is not supported, compiled without libiptc support.");
                 return -EOPNOTSUPP;
@@ -1547,7 +1547,7 @@ static int setup_pts(const char *dest) {
         const char *p;
         int r;
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
         if (arg_selinux_apifs_context)
                 (void) asprintf(&options,
                                 "newinstance,ptmxmode=0666,mode=620,gid=" GID_FMT ",context=\"%s\"",
@@ -2332,7 +2332,7 @@ static int inner_child(
                         return log_error_errno(r, "personality() failed: %m");
         }
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
         if (arg_selinux_context)
                 if (setexeccon(arg_selinux_context) < 0)
                         return log_error_errno(errno, "setexeccon(\"%s\") failed: %m", arg_selinux_context);

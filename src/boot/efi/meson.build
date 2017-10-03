@@ -30,7 +30,7 @@ stub_sources = '''
         stub.c
 '''.split()
 
-if conf.get('ENABLE_EFI', false) and get_option('gnu-efi') != 'false'
+if conf.get('ENABLE_EFI') == 1 and get_option('gnu-efi') != 'false'
         efi_cc = get_option('efi-cc')
         efi_ld = get_option('efi-ld')
 
@@ -64,7 +64,7 @@ if have_gnu_efi
         efi_conf = configuration_data()
         efi_conf.set_quoted('PACKAGE_VERSION', meson.project_version())
         efi_conf.set_quoted('EFI_MACHINE_TYPE_NAME', EFI_MACHINE_TYPE_NAME)
-        efi_conf.set('ENABLE_TPM', get_option('tpm'))
+        efi_conf.set10('ENABLE_TPM', get_option('tpm'))
         efi_conf.set('SD_TPM_PCR', get_option('tpm-pcrindex'))
 
         efi_config_h = configure_file(

@@ -43,7 +43,7 @@
 #define SIGNALS_CRASH_HANDLER SIGSEGV,SIGILL,SIGFPE,SIGBUS,SIGQUIT,SIGABRT
 #define SIGNALS_IGNORE SIGPIPE
 
-#ifdef HAVE_SPLIT_USR
+#if HAVE_SPLIT_USR
 #define KBD_KEYMAP_DIRS                         \
         "/usr/share/keymaps/\0"                 \
         "/usr/share/kbd/keymaps/\0"             \
@@ -68,7 +68,7 @@
 #define NOTIFY_FD_MAX 768
 #define NOTIFY_BUFFER_MAX PIPE_BUF
 
-#ifdef HAVE_SPLIT_USR
+#if HAVE_SPLIT_USR
 #  define _CONF_PATHS_SPLIT_USR(n) "/lib/" n "\0"
 #else
 #  define _CONF_PATHS_SPLIT_USR(n)

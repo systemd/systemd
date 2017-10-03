@@ -23,7 +23,7 @@
 #include <sys/xattr.h>
 #include <unistd.h>
 
-#ifdef HAVE_ELFUTILS
+#if HAVE_ELFUTILS
 #include <dwarf.h>
 #include <elfutils/libdwfl.h>
 #endif
@@ -156,7 +156,7 @@ static inline uint64_t storage_size_max(void) {
 
 static int fix_acl(int fd, uid_t uid) {
 
-#ifdef HAVE_ACL
+#if HAVE_ACL
         _cleanup_(acl_freep) acl_t acl = NULL;
         acl_entry_t entry;
         acl_permset_t permset;
@@ -393,7 +393,7 @@ static int save_external_coredump(
                 goto fail;
         }
 
-#if defined(HAVE_XZ) || defined(HAVE_LZ4)
+#if HAVE_XZ || HAVE_LZ4
         /* If we will remove the coredump anyway, do not compress. */
         if (arg_compress && !maybe_remove_external_coredump(NULL, st.st_size)) {
 
@@ -765,7 +765,7 @@ static int submit_coredump(
         if (r < 0)
                 return log_error_errno(r, "Failed to drop privileges: %m");
 
-#ifdef HAVE_ELFUTILS
+#if HAVE_ELFUTILS
         /* Try to get a strack trace if we can */
         if (coredump_size <= arg_process_size_max) {
                 _cleanup_free_ char *stacktrace = NULL;

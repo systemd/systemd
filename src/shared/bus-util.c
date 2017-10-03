@@ -255,7 +255,7 @@ int bus_test_polkit(
                 return r;
         else if (r > 0)
                 return 1;
-#ifdef ENABLE_POLKIT
+#if ENABLE_POLKIT
         else {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *request = NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -334,7 +334,7 @@ int bus_test_polkit(
         return -EACCES;
 }
 
-#ifdef ENABLE_POLKIT
+#if ENABLE_POLKIT
 
 typedef struct AsyncPolkitQuery {
         sd_bus_message *request, *reply;
@@ -398,7 +398,7 @@ int bus_verify_polkit_async(
                 Hashmap **registry,
                 sd_bus_error *error) {
 
-#ifdef ENABLE_POLKIT
+#if ENABLE_POLKIT
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *pk = NULL;
         AsyncPolkitQuery *q;
         const char *sender, **k, **v;
@@ -416,7 +416,7 @@ int bus_verify_polkit_async(
         if (r != 0)
                 return r;
 
-#ifdef ENABLE_POLKIT
+#if ENABLE_POLKIT
         q = hashmap_get(*registry, call);
         if (q) {
                 int authorized, challenge;
@@ -463,7 +463,7 @@ int bus_verify_polkit_async(
         else if (r > 0)
                 return 1;
 
-#ifdef ENABLE_POLKIT
+#if ENABLE_POLKIT
         if (sd_bus_get_current_message(call->bus) != call)
                 return -EINVAL;
 
@@ -552,7 +552,7 @@ int bus_verify_polkit_async(
 }
 
 void bus_verify_polkit_async_registry_free(Hashmap *registry) {
-#ifdef ENABLE_POLKIT
+#if ENABLE_POLKIT
         AsyncPolkitQuery *q;
 
         while ((q = hashmap_steal_first(registry)))

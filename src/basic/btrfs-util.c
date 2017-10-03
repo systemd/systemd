@@ -32,7 +32,7 @@
 #include <sys/sysmacros.h>
 #include <unistd.h>
 
-#ifdef HAVE_LINUX_BTRFS_H
+#if HAVE_LINUX_BTRFS_H
 #include <linux/btrfs.h>
 #endif
 

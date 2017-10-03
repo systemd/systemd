@@ -47,7 +47,7 @@ static void test_dnssec_canonicalize(void) {
         test_dnssec_canonicalize_one("FOO..bar.", NULL, -EINVAL);
 }
 
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
 
 static void test_dnssec_verify_dns_key(void) {
 
@@ -332,7 +332,7 @@ int main(int argc, char*argv[]) {
 
         test_dnssec_canonicalize();
 
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
         test_dnssec_verify_dns_key();
         test_dnssec_verify_rrset();
         test_dnssec_verify_rrset2();

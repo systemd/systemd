@@ -33,7 +33,7 @@
 #define EFI_VARIABLE_BOOTSERVICE_ACCESS 0x0000000000000002
 #define EFI_VARIABLE_RUNTIME_ACCESS     0x0000000000000004
 
-#ifdef ENABLE_EFI
+#if ENABLE_EFI
 
 bool is_efi_boot(void);
 bool is_efi_secure_boot(void);

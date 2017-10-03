@@ -37,19 +37,19 @@
 #include <unistd.h>
 #include <utmpx.h>
 
-#ifdef HAVE_PAM
+#if HAVE_PAM
 #include <security/pam_appl.h>
 #endif
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
 #include <selinux/selinux.h>
 #endif
 
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
 #include <seccomp.h>
 #endif
 
-#ifdef HAVE_APPARMOR
+#if HAVE_APPARMOR
 #include <sys/apparmor.h>
 #endif
 
@@ -57,7 +57,7 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
-#ifdef HAVE_APPARMOR
+#if HAVE_APPARMOR
 #include "apparmor-util.h"
 #endif
 #include "async.h"
@@ -88,7 +88,7 @@
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
 #include "securebits.h"
@@ -1019,7 +1019,7 @@ static int enforce_user(const ExecContext *context, uid_t uid) {
         return 0;
 }
 
-#ifdef HAVE_PAM
+#if HAVE_PAM
 
 static int null_conv(
                 int num_msg,
@@ -1043,7 +1043,7 @@ static int setup_pam(
                 char ***env,
                 int fds[], unsigned n_fds) {
 
-#ifdef HAVE_PAM
+#if HAVE_PAM
 
         static const struct pam_conv conv = {
                 .conv = null_conv,
@@ -1318,7 +1318,7 @@ static bool context_has_no_new_privileges(const ExecContext *c) {
                 c->lock_personality;
 }
 
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
 
 static bool skip_seccomp_unavailable(const Unit* u, const char* msg) {
 
@@ -2688,13 +2688,13 @@ static int exec_child(
                 needs_setuid,           /* Do we need to do the actual setresuid()/setresgid() calls? */
                 needs_mount_namespace,  /* Do we need to set up a mount namespace for this kernel? */
                 needs_ambient_hack;     /* Do we need to apply the ambient capabilities hack? */
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
         bool use_selinux = false;
 #endif
-#ifdef HAVE_SMACK
+#if HAVE_SMACK
         bool use_smack = false;
 #endif
-#ifdef HAVE_APPARMOR
+#if HAVE_APPARMOR
         bool use_apparmor = false;
 #endif
         uid_t uid = UID_INVALID;
@@ -3048,13 +3048,13 @@ static int exec_child(
                  * present. The actual MAC context application will happen later, as late as possible, to avoid
                  * impacting our own code paths. */
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
                 use_selinux = mac_selinux_use();
 #endif
-#ifdef HAVE_SMACK
+#if HAVE_SMACK
                 use_smack = mac_smack_use();
 #endif
-#ifdef HAVE_APPARMOR
+#if HAVE_APPARMOR
                 use_apparmor = mac_apparmor_use();
 #endif
         }
@@ -3101,7 +3101,7 @@ static int exec_child(
         }
 
         if (needs_sandboxing) {
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
                 if (use_selinux && params->selinux_context_net && socket_fd >= 0) {
                         r = mac_selinux_get_child_mls_label(socket_fd, command->path, context->selinux_context, &mac_selinux_context_net);
                         if (r < 0) {
@@ -3223,7 +3223,7 @@ static int exec_child(
                  * syscalls that are subject to seccomp filtering, hence should probably be applied before the syscalls
                  * are restricted. */
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
                 if (use_selinux) {
                         char *exec_context = mac_selinux_context_net ?: context->selinux_context;
 
@@ -3237,7 +3237,7 @@ static int exec_child(
                 }
 #endif
 
-#ifdef HAVE_SMACK
+#if HAVE_SMACK
                 if (use_smack) {
                         r = setup_smack(context, command);
                         if (r < 0) {
@@ -3247,7 +3247,7 @@ static int exec_child(
                 }
 #endif
 
-#ifdef HAVE_APPARMOR
+#if HAVE_APPARMOR
                 if (use_apparmor && context->apparmor_profile) {
                         r = aa_change_onexec(context->apparmor_profile);
                         if (r < 0 && !context->apparmor_profile_ignore) {
@@ -3271,7 +3271,7 @@ static int exec_child(
                                 return log_unit_error_errno(unit, errno, "Failed to disable new privileges: %m");
                         }
 
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
                 r = apply_address_families(unit, context);
                 if (r < 0) {
                         *exit_status = EXIT_ADDRESS_FAMILIES;
@@ -4118,7 +4118,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->lock_personality));
 
         if (c->syscall_filter) {
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
                 Iterator j;
                 void *id;
                 bool first = true;
@@ -4131,7 +4131,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 if (!c->syscall_whitelist)
                         fputc('~', f);
 
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
                 SET_FOREACH(id, c->syscall_filter, j) {
                         _cleanup_free_ char *name = NULL;
 
@@ -4149,7 +4149,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         }
 
         if (c->syscall_archs) {
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
                 Iterator j;
                 void *id;
 #endif
@@ -4158,7 +4158,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         "%sSystemCallArchitectures:",
                         prefix);
 
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
                 SET_FOREACH(id, c->syscall_archs, j)
                         fprintf(f, " %s", strna(seccomp_arch_to_string(PTR_TO_UINT32(id) - 1)));
 #endif

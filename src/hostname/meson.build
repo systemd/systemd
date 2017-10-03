@@ -1,4 +1,4 @@
-if conf.get('ENABLE_HOSTNAMED', false)
+if conf.get('ENABLE_HOSTNAMED') == 1
         install_data('org.freedesktop.hostname1.conf',
                      install_dir : dbuspolicydir)
         install_data('org.freedesktop.hostname1.service',

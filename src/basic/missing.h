@@ -40,7 +40,7 @@
 #include <uchar.h>
 #include <unistd.h>
 
-#ifdef HAVE_AUDIT
+#if HAVE_AUDIT
 #include <libaudit.h>
 #endif
 
@@ -48,11 +48,11 @@
 #include <asm/sgidefs.h>
 #endif
 
-#ifdef HAVE_LINUX_BTRFS_H
+#if HAVE_LINUX_BTRFS_H
 #include <linux/btrfs.h>
 #endif
 
-#ifdef HAVE_LINUX_VM_SOCKETS_H
+#if HAVE_LINUX_VM_SOCKETS_H
 #include <linux/vm_sockets.h>
 #else
 #define VMADDR_CID_ANY -1U
@@ -204,7 +204,7 @@ struct sockaddr_vm {
 #define BTRFS_QGROUP_LEVEL_SHIFT 48
 #endif
 
-#ifndef HAVE_LINUX_BTRFS_H
+#if ! HAVE_LINUX_BTRFS_H
 struct btrfs_ioctl_vol_args {
         int64_t fd;
         char name[BTRFS_PATH_NAME_MAX + 1];
@@ -546,8 +546,8 @@ struct btrfs_ioctl_quota_ctl_args {
 #define MAX_HANDLE_SZ 128
 #endif
 
-#ifndef HAVE_SECURE_GETENV
-#  ifdef HAVE___SECURE_GETENV
+#if ! HAVE_SECURE_GETENV
+#  if HAVE___SECURE_GETENV
 #    define secure_getenv __secure_getenv
 #  else
 #    error "neither secure_getenv nor __secure_getenv are available"
@@ -1108,7 +1108,7 @@ struct input_mask {
 #define KEY_ALS_TOGGLE 0x230
 #endif
 
-#ifndef HAVE_KEY_SERIAL_T
+#if ! HAVE_KEY_SERIAL_T
 typedef int32_t key_serial_t;
 #endif
 
@@ -1204,11 +1204,11 @@ typedef int32_t key_serial_t;
 #ifndef IF_OPER_UP
 #define IF_OPER_UP 6
 
-#ifndef HAVE_CHAR32_T
+#if ! HAVE_CHAR32_T
 #define char32_t uint32_t
 #endif
 
-#ifndef HAVE_CHAR16_T
+#if ! HAVE_CHAR16_T
 #define char16_t uint16_t
 #endif
 
@@ -1220,7 +1220,7 @@ typedef int32_t key_serial_t;
 #define IFA_F_MCAUTOJOIN 0x400
 #endif
 
-#ifndef HAVE_STRUCT_ETHTOOL_LINK_SETTINGS
+#if ! HAVE_STRUCT_ETHTOOL_LINK_SETTINGS
 
 #define ETHTOOL_GLINKSETTINGS   0x0000004c /* Get ethtool_link_settings */
 #define ETHTOOL_SLINKSETTINGS   0x0000004d /* Set ethtool_link_settings */
@@ -1247,7 +1247,7 @@ struct ethtool_link_settings {
 
 #endif
 
-#ifndef HAVE_STRUCT_FIB_RULE_UID_RANGE
+#if ! HAVE_STRUCT_FIB_RULE_UID_RANGE
 
 struct fib_rule_uid_range {
         __u32 start;

@@ -1,4 +1,4 @@
-enable_tmpfiles = conf.get('ENABLE_TMPFILES', false)
+enable_tmpfiles = conf.get('ENABLE_TMPFILES') == 1
 
 tmpfiles = [['home.conf',            ''],
             ['journal-nocow.conf',   ''],
@@ -12,7 +12,7 @@ tmpfiles = [['home.conf',            ''],
 foreach pair : tmpfiles
         if not enable_tmpfiles
                 # do nothing
-        elif pair[1] == '' or conf.get(pair[1], false)
+        elif pair[1] == '' or conf.get(pair[1]) == 1
                 install_data(pair[0], install_dir : tmpfilesdir)
         else
                 message('Not installing tmpfiles.d/@0@ because @1@ is @2@'
@@ -28,7 +28,7 @@ m4_files = [['etc.conf',             ''],
 foreach pair : m4_files
         if not enable_tmpfiles
                 # do nothing
-        elif pair[1] == '' or conf.get(pair[1], false)
+        elif pair[1] == '' or conf.get(pair[1]) == 1
                 custom_target(
                         'tmpfiles.d_' + pair[0],
                          input : pair[0] + '.m4',

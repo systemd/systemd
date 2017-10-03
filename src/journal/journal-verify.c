@@ -834,13 +834,13 @@ int journal_file_verify(
         bool found_last = false;
         const char *tmp_dir = NULL;
 
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
         uint64_t last_tag = 0;
 #endif
         assert(f);
 
         if (key) {
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
                 r = journal_file_parse_verification_key(f, key);
                 if (r < 0) {
                         log_error("Failed to parse seed.");
@@ -1103,7 +1103,7 @@ int journal_file_verify(
                                 goto fail;
                         }
 
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
                         if (f->seal) {
                                 uint64_t q, rt;
 

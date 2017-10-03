@@ -323,7 +323,7 @@ static int add_swap(const char *path) {
         return generator_add_symlink(arg_dest, SPECIAL_SWAP_TARGET, "wants", name);
 }
 
-#ifdef ENABLE_EFI
+#if ENABLE_EFI
 static int add_automount(
                 const char *id,
                 const char *what,
@@ -612,7 +612,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
-#ifdef ENABLE_EFI
+#if ENABLE_EFI
 static int add_root_cryptsetup(void) {
 
         /* If a device /dev/gpt-auto-root-luks appears, then make it pull in systemd-cryptsetup-root.service, which
@@ -624,7 +624,7 @@ static int add_root_cryptsetup(void) {
 
 static int add_root_mount(void) {
 
-#ifdef ENABLE_EFI
+#if ENABLE_EFI
         int r;
 
         if (!is_efi_boot()) {

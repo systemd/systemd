@@ -1,4 +1,4 @@
-if conf.get('ENABLE_VCONSOLE', false)
+if conf.get('ENABLE_VCONSOLE') == 1
         vconsole_rules = configure_file(
                 input : '90-vconsole.rules.in',
                 output : '90-vconsole.rules',

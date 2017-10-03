@@ -22,7 +22,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifdef HAVE_GNUTLS
+#if HAVE_GNUTLS
 #include <gnutls/gnutls.h>
 #include <gnutls/x509.h>
 #endif
@@ -115,7 +115,7 @@ int mhd_respondf(struct MHD_Connection *connection,
         return mhd_respond_internal(connection, code, m, r, MHD_RESPMEM_MUST_FREE);
 }
 
-#ifdef HAVE_GNUTLS
+#if HAVE_GNUTLS
 
 static struct {
         const char *const names[4];

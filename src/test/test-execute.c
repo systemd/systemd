@@ -30,7 +30,7 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
 #include "stat-util.h"
@@ -243,7 +243,7 @@ static void test_exec_inaccessiblepaths_proc(Manager *m) {
 }
 
 static void test_exec_systemcallfilter(Manager *m) {
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
         if (!is_seccomp_available())
                 return;
         test(m, "exec-systemcallfilter-not-failing.service", 0, CLD_EXITED);
@@ -255,14 +255,14 @@ static void test_exec_systemcallfilter(Manager *m) {
 }
 
 static void test_exec_systemcallerrornumber(Manager *m) {
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
         if (is_seccomp_available())
                 test(m, "exec-systemcallerrornumber.service", 1, CLD_EXITED);
 #endif
 }
 
 static void test_exec_restrict_namespaces(Manager *m) {
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
         if (!is_seccomp_available())
                 return;
 
@@ -274,7 +274,7 @@ static void test_exec_restrict_namespaces(Manager *m) {
 }
 
 static void test_exec_systemcall_system_mode_with_user(Manager *m) {
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
         if (!is_seccomp_available())
                 return;
         if (getpwnam("nobody"))

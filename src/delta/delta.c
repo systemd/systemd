@@ -49,7 +49,7 @@ static const char prefixes[] =
         "/usr/local/share\0"
         "/usr/lib\0"
         "/usr/share\0"
-#ifdef HAVE_SPLIT_USR
+#if HAVE_SPLIT_USR
         "/lib\0"
 #endif
         ;
@@ -392,7 +392,7 @@ static int enumerate_dir(
 }
 
 static int should_skip_prefix(const char* p) {
-#ifdef HAVE_SPLIT_USR
+#if HAVE_SPLIT_USR
         int r;
         _cleanup_free_ char *target = NULL;
 

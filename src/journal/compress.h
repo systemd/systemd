@@ -34,7 +34,7 @@ int compress_blob_lz4(const void *src, uint64_t src_size,
 static inline int compress_blob(const void *src, uint64_t src_size,
                                 void *dst, size_t dst_alloc_size, size_t *dst_size) {
         int r;
-#ifdef HAVE_LZ4
+#if HAVE_LZ4
         r = compress_blob_lz4(src, src_size, dst, dst_alloc_size, dst_size);
         if (r == 0)
                 return OBJECT_COMPRESSED_LZ4;
@@ -74,7 +74,7 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes);
 int decompress_stream_xz(int fdf, int fdt, uint64_t max_size);
 int decompress_stream_lz4(int fdf, int fdt, uint64_t max_size);
 
-#ifdef HAVE_LZ4
+#if HAVE_LZ4
 #  define compress_stream compress_stream_lz4
 #  define COMPRESSED_EXT ".lz4"
 #else

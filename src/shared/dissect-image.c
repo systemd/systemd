@@ -17,7 +17,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#ifdef HAVE_LIBCRYPTSETUP
+#if HAVE_LIBCRYPTSETUP
 #include <libcryptsetup.h>
 #endif
 #include <sys/mount.h>
@@ -43,7 +43,7 @@
 #include "xattr-util.h"
 
 _unused_ static int probe_filesystem(const char *node, char **ret_fstype) {
-#ifdef HAVE_BLKID
+#if HAVE_BLKID
         _cleanup_blkid_free_probe_ blkid_probe b = NULL;
         const char *fstype;
         int r;
@@ -87,7 +87,7 @@ not_found:
 
 int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectImageFlags flags, DissectedImage **ret) {
 
-#ifdef HAVE_BLKID
+#if HAVE_BLKID
         sd_id128_t root_uuid = SD_ID128_NULL, verity_uuid = SD_ID128_NULL;
         _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
         bool is_gpt, is_mbr, generic_rw, multiple_generic = false;
@@ -737,7 +737,7 @@ int dissected_image_mount(DissectedImage *m, const char *where, DissectImageFlag
         return 0;
 }
 
-#ifdef HAVE_LIBCRYPTSETUP
+#if HAVE_LIBCRYPTSETUP
 typedef struct DecryptedPartition {
         struct crypt_device *device;
         char *name;
@@ -752,7 +752,7 @@ struct DecryptedImage {
 #endif
 
 DecryptedImage* decrypted_image_unref(DecryptedImage* d) {
-#ifdef HAVE_LIBCRYPTSETUP
+#if HAVE_LIBCRYPTSETUP
         size_t i;
         int r;
 
@@ -778,7 +778,7 @@ DecryptedImage* decrypted_image_unref(DecryptedImage* d) {
         return NULL;
 }
 
-#ifdef HAVE_LIBCRYPTSETUP
+#if HAVE_LIBCRYPTSETUP
 
 static int make_dm_name_and_node(const void *original_node, const char *suffix, char **ret_name, char **ret_node) {
         _cleanup_free_ char *name = NULL, *node = NULL;
@@ -952,7 +952,7 @@ int dissected_image_decrypt(
                 DecryptedImage **ret) {
 
         _cleanup_(decrypted_image_unrefp) DecryptedImage *d = NULL;
-#ifdef HAVE_LIBCRYPTSETUP
+#if HAVE_LIBCRYPTSETUP
         unsigned i;
         int r;
 #endif
@@ -976,7 +976,7 @@ int dissected_image_decrypt(
                 return 0;
         }
 
-#ifdef HAVE_LIBCRYPTSETUP
+#if HAVE_LIBCRYPTSETUP
         if (m->encrypted && !passphrase)
                 return -ENOKEY;
 
@@ -1058,7 +1058,7 @@ int dissected_image_decrypt_interactively(
         }
 }
 
-#ifdef HAVE_LIBCRYPTSETUP
+#if HAVE_LIBCRYPTSETUP
 static int deferred_remove(DecryptedPartition *p) {
 
         struct dm_ioctl dm = {
@@ -1092,7 +1092,7 @@ static int deferred_remove(DecryptedPartition *p) {
 
 int decrypted_image_relinquish(DecryptedImage *d) {
 
-#ifdef HAVE_LIBCRYPTSETUP
+#if HAVE_LIBCRYPTSETUP
         size_t i;
         int r;
 #endif
@@ -1102,7 +1102,7 @@ int decrypted_image_relinquish(DecryptedImage *d) {
         /* Turns on automatic removal after the last use ended for all DM devices of this image, and sets a boolean so
          * that we don't clean it up ourselves either anymore */
 
-#ifdef HAVE_LIBCRYPTSETUP
+#if HAVE_LIBCRYPTSETUP
         for (i = 0; i < d->n_decrypted; i++) {
                 DecryptedPartition *p = d->decrypted + i;
 

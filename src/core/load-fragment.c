@@ -22,7 +22,7 @@
 #include <fcntl.h>
 #include <linux/fs.h>
 #include <linux/oom.h>
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
 #include <seccomp.h>
 #endif
 #include <sched.h>
@@ -54,7 +54,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
 #include "securebits.h"
@@ -1246,7 +1246,7 @@ int config_parse_limit(
         return 0;
 }
 
-#ifdef HAVE_SYSV_COMPAT
+#if HAVE_SYSV_COMPAT
 int config_parse_sysv_priority(const char *unit,
                                const char *filename,
                                unsigned line,
@@ -2643,7 +2643,7 @@ int config_parse_documentation(const char *unit,
         return r;
 }
 
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
 
 static int syscall_filter_parse_one(
                 const char *unit,
@@ -4504,7 +4504,7 @@ void unit_dump_config_items(FILE *f) {
                 const ConfigParserCallback callback;
                 const char *rvalue;
         } table[] = {
-#if !defined(HAVE_SYSV_COMPAT) || !defined(HAVE_SECCOMP) || !defined(HAVE_PAM) || !defined(HAVE_SELINUX) || !defined(HAVE_SMACK) || !defined(HAVE_APPARMOR)
+#if !HAVE_SYSV_COMPAT || !HAVE_SECCOMP || !HAVE_PAM || !HAVE_SELINUX || !HAVE_SMACK || !HAVE_APPARMOR
                 { config_parse_warn_compat,           "NOTSUPPORTED" },
 #endif
                 { config_parse_int,                   "INTEGER" },
@@ -4537,7 +4537,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_exec,                  "PATH [ARGUMENT [...]]" },
                 { config_parse_service_type,          "SERVICETYPE" },
                 { config_parse_service_restart,       "SERVICERESTART" },
-#ifdef HAVE_SYSV_COMPAT
+#if HAVE_SYSV_COMPAT
                 { config_parse_sysv_priority,         "SYSVPRIORITY" },
 #endif
                 { config_parse_kill_mode,             "KILLMODE" },
@@ -4567,7 +4567,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_set_status,            "STATUS" },
                 { config_parse_service_sockets,       "SOCKETS" },
                 { config_parse_environ,               "ENVIRON" },
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
                 { config_parse_syscall_filter,        "SYSCALLS" },
                 { config_parse_syscall_archs,         "ARCHS" },
                 { config_parse_syscall_errno,         "ERRNO" },
@@ -4587,7 +4587,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_blockio_device_weight, "DEVICEWEIGHT" },
                 { config_parse_long,                  "LONG" },
                 { config_parse_socket_service,        "SERVICE" },
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
                 { config_parse_exec_selinux_context,  "LABEL" },
 #endif
                 { config_parse_job_mode,              "MODE" },

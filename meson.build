@@ -38,8 +38,8 @@ endif
 #####################################################################
 
 rootprefixdir = get_option('rootprefix')
+conf.set10('HAVE_SPLIT_USR', get_option('split-usr'))
 if get_option('split-usr')
-        conf.set('HAVE_SPLIT_USR', true)
         rootprefixdir = rootprefixdir != '' ? rootprefixdir : '/'
 else
         rootprefixdir = rootprefixdir != '' ? rootprefixdir : '/usr'
@@ -47,11 +47,10 @@ endif
 
 sysvinit_path = get_option('sysvinit-path')
 sysvrcnd_path = get_option('sysvrcnd-path')
-if sysvinit_path != '' or sysvrcnd_path != ''
-        conf.set('HAVE_SYSV_COMPAT', true,
-                 description : 'SysV init scripts and rcN.d links are supported')
-        m4_defines += ['-DHAVE_SYSV_COMPAT']
-endif
+have = sysvinit_path != '' or sysvrcnd_path != ''
+conf.set10('HAVE_SYSV_COMPAT', have,
+           description : 'SysV init scripts and rcN.d links are supported')
+m4_defines += have ? ['-DHAVE_SYSV_COMPAT'] : []
 
 # join_paths ignore the preceding arguments if an absolute component is
 # encountered, so this should canonicalize various paths when they are
@@ -390,7 +389,7 @@ foreach decl : ['char16_t',
 
         # We get -1 if the size cannot be determined
         have = cc.sizeof(decl, prefix : decl_headers) > 0
-        conf.set('HAVE_' + decl.underscorify().to_upper(), have)
+        conf.set10('HAVE_' + decl.underscorify().to_upper(), have)
 endforeach
 
 foreach decl : [['IFLA_INET6_ADDR_GEN_MODE',         'linux/if_link.h'],
@@ -422,12 +421,8 @@ foreach decl : [['IFLA_INET6_ADDR_GEN_MODE',         'linux/if_link.h'],
         conf.set10('HAVE_' + decl[0], have)
 endforeach
 
-skip = false
 foreach ident : ['secure_getenv', '__secure_getenv']
-        if not skip and cc.has_function(ident)
-                conf.set('HAVE_' + ident.to_upper(), true)
-                skip = true
-        endif
+        conf.set10('HAVE_' + ident.to_upper(), cc.has_function(ident))
 endforeach
 
 foreach ident : [
@@ -456,10 +451,11 @@ foreach ident : [
 endforeach
 
 if cc.has_function('getrandom', prefix : '''#include <sys/random.h>''')
-        conf.set('USE_SYS_RANDOM_H', true)
+        conf.set10('USE_SYS_RANDOM_H', true)
         conf.set10('HAVE_GETRANDOM', true)
 else
         have = cc.has_function('getrandom', prefix : '''#include <linux/random.h>''')
+        conf.set10('USE_SYS_RANDOM_H', false)
         conf.set10('HAVE_GETRANDOM', have)
 endif
 
@@ -550,8 +546,8 @@ foreach header : ['linux/btrfs.h',
                   'valgrind/valgrind.h',
                  ]
 
-        conf.set('HAVE_' + header.underscorify().to_upper(),
-                 cc.has_header(header))
+        conf.set10('HAVE_' + header.underscorify().to_upper(),
+                   cc.has_header(header))
 endforeach
 
 ############################################################
@@ -638,17 +634,21 @@ substs.set('SUSHELL', get_option('debug-shell'))
 substs.set('DEBUGTTY', get_option('debug-tty'))
 
 debug = get_option('debug')
+enable_debug_hashmap = false
+enable_debug_mmap_cache = false
 if debug != ''
         foreach name : debug.split(',')
                 if name == 'hashmap'
-                        conf.set('ENABLE_DEBUG_HASHMAP', true)
+                        enable_debug_hashmap = true
                 elif name == 'mmap-cache'
-                        conf.set('ENABLE_DEBUG_MMAP_CACHE', true)
+                        enable_debug_mmap_cache = true
                 else
                         message('unknown debug option "@0@", ignoring'.format(name))
                 endif
         endforeach
 endif
+conf.set10('ENABLE_DEBUG_HASHMAP', enable_debug_hashmap)
+conf.set10('ENABLE_DEBUG_MMAP_CACHE', enable_debug_mmap_cache)
 
 #####################################################################
 
@@ -672,38 +672,38 @@ if want_seccomp != 'false'
         libseccomp = dependency('libseccomp',
                                 version : '>= 2.3.1',
                                 required : want_seccomp == 'true')
-        if libseccomp.found()
-                conf.set('HAVE_SECCOMP', true)
-                m4_defines += ['-DHAVE_SECCOMP']
-        endif
+        have = libseccomp.found()
 else
+        have = false
         libseccomp = []
 endif
+conf.set10('HAVE_SECCOMP', have)
+m4_defines += have ? ['-DHAVE_SECCOMP'] : []
 
 want_selinux = get_option('selinux')
 if want_selinux != 'false'
         libselinux = dependency('libselinux',
                                 version : '>= 2.1.9',
                                 required : want_selinux == 'true')
-        if libselinux.found()
-                conf.set('HAVE_SELINUX', true)
-                m4_defines += ['-DHAVE_SELINUX']
-        endif
+        have = libselinux.found()
 else
+        have = false
         libselinux = []
 endif
+conf.set10('HAVE_SELINUX', have)
+m4_defines += have ? ['-DHAVE_SELINUX'] : []
 
 want_apparmor = get_option('apparmor')
 if want_apparmor != 'false'
         libapparmor = dependency('libapparmor',
                                  required : want_apparmor == 'true')
-        if libapparmor.found()
-                conf.set('HAVE_APPARMOR', true)
-                m4_defines += ['-DHAVE_APPARMOR']
-        endif
+        have = libapparmor.found()
 else
+        have = false
         libapparmor = []
 endif
+conf.set10('HAVE_APPARMOR', have)
+m4_defines += have ? ['-DHAVE_APPARMOR'] : []
 
 smack_run_label = get_option('smack-run-label')
 if smack_run_label != ''
@@ -715,7 +715,6 @@ want_polkit = get_option('polkit')
 install_polkit = false
 install_polkit_pkla = false
 if want_polkit != 'false'
-        conf.set('ENABLE_POLKIT', true)
         install_polkit = true
 
         libpolkit = dependency('polkit-gobject-1',
@@ -725,92 +724,101 @@ if want_polkit != 'false'
                 install_polkit_pkla = true
         endif
 endif
+conf.set10('ENABLE_POLKIT', install_polkit)
 
 want_acl = get_option('acl')
 if want_acl != 'false'
         libacl = cc.find_library('acl', required : want_acl == 'true')
-        if libacl.found()
-                conf.set('HAVE_ACL', true)
-                m4_defines += ['-DHAVE_ACL']
-        endif
+        have = libacl.found()
 else
+        have = false
         libacl = []
 endif
+conf.set10('HAVE_ACL', have)
+m4_defines += have ? ['-DHAVE_ACL'] : []
 
 want_audit = get_option('audit')
 if want_audit != 'false'
         libaudit = dependency('audit', required : want_audit == 'true')
-        conf.set('HAVE_AUDIT', libaudit.found())
+        have = libaudit.found()
 else
+        have = false
         libaudit = []
 endif
+conf.set10('HAVE_AUDIT', have)
 
 want_blkid = get_option('blkid')
 if want_blkid != 'false'
         libblkid = dependency('blkid', required : want_blkid == 'true')
-        conf.set('HAVE_BLKID', libblkid.found())
+        have = libblkid.found()
 else
+        have = false
         libblkid = []
 endif
+conf.set10('HAVE_BLKID', have)
 
 want_kmod = get_option('kmod')
 if want_kmod != 'false'
         libkmod = dependency('libkmod',
                              version : '>= 15',
                              required : want_kmod == 'true')
-        conf.set('HAVE_KMOD', libkmod.found())
+        have = libkmod.found()
 else
+        have = false
         libkmod = []
 endif
+conf.set10('HAVE_KMOD', have)
 
 want_pam = get_option('pam')
 if want_pam != 'false'
         libpam = cc.find_library('pam', required : want_pam == 'true')
         libpam_misc = cc.find_library('pam_misc', required : want_pam == 'true')
-        if libpam.found() and libpam_misc.found()
-                conf.set('HAVE_PAM', true)
-                m4_defines += ['-DHAVE_PAM']
-        endif
+        have = libpam.found() and libpam_misc.found()
 else
+        have = false
         libpam = []
         libpam_misc = []
 endif
+conf.set10('HAVE_PAM', have)
+m4_defines += have ? ['-DHAVE_PAM'] : []
 
 want_microhttpd = get_option('microhttpd')
 if want_microhttpd != 'false'
         libmicrohttpd = dependency('libmicrohttpd',
                                    version : '>= 0.9.33',
                                    required : want_microhttpd == 'true')
-        if libmicrohttpd.found()
-                conf.set('HAVE_MICROHTTPD', true)
-                m4_defines += ['-DHAVE_MICROHTTPD']
-        endif
+        have = libmicrohttpd.found()
 else
+        have = false
         libmicrohttpd = []
 endif
+conf.set10('HAVE_MICROHTTPD', have)
+m4_defines += have ? ['-DHAVE_MICROHTTPD'] : []
 
 want_libcryptsetup = get_option('libcryptsetup')
 if want_libcryptsetup != 'false'
         libcryptsetup = dependency('libcryptsetup',
                                    version : '>= 1.6.0',
                                    required : want_libcryptsetup == 'true')
-        conf.set('HAVE_LIBCRYPTSETUP', libcryptsetup.found())
+        have = libcryptsetup.found()
 else
+        have = false
         libcryptsetup = []
 endif
+conf.set10('HAVE_LIBCRYPTSETUP', have)
 
 want_libcurl = get_option('libcurl')
 if want_libcurl != 'false'
         libcurl = dependency('libcurl',
                              version : '>= 7.32.0',
                              required : want_libcurl == 'true')
-        if libcurl.found()
-                conf.set('HAVE_LIBCURL', true)
-                m4_defines += ['-DHAVE_LIBCURL']
-        endif
+        have = libcurl.found()
 else
+        have = false
         libcurl = []
 endif
+conf.set10('HAVE_LIBCURL', have)
+m4_defines += have ? ['-DHAVE_LIBCURL'] : []
 
 want_libidn = get_option('libidn')
 want_libidn2 = get_option('libidn2')
@@ -821,125 +829,140 @@ endif
 if want_libidn != 'false' and want_libidn2 != 'true'
         libidn = dependency('libidn',
                             required : want_libidn == 'true')
-        if libidn.found()
-                conf.set('HAVE_LIBIDN', true)
-                m4_defines += ['-DHAVE_LIBIDN']
-        endif
+        have = libidn.found()
 else
+        have = false
         libidn = []
 endif
-if not conf.get('HAVE_LIBIDN', false) and want_libidn2 != 'false'
+conf.set10('HAVE_LIBIDN', have)
+m4_defines += have ? ['-DHAVE_LIBIDN'] : []
+if not have and want_libidn2 != 'false'
         # libidn is used for both libidn and libidn2 objects
         libidn = dependency('libidn2',
                             required : want_libidn2 == 'true')
-        if libidn.found()
-                conf.set('HAVE_LIBIDN2', true)
-                m4_defines += ['-DHAVE_LIBIDN2']
-        endif
+        have = libidn.found()
+else
+        have = false
 endif
+conf.set10('HAVE_LIBIDN2', have)
+m4_defines += have ? ['-DHAVE_LIBIDN2'] : []
 
 want_libiptc = get_option('libiptc')
 if want_libiptc != 'false'
         libiptc = dependency('libiptc',
                              required : want_libiptc == 'true')
-        if libiptc.found()
-                conf.set('HAVE_LIBIPTC', true)
-                m4_defines += ['-DHAVE_LIBIPTC']
-        endif
+        have = libiptc.found()
 else
+        have = false
         libiptc = []
 endif
+conf.set10('HAVE_LIBIPTC', have)
+m4_defines += have ? ['-DHAVE_LIBIPTC'] : []
 
 want_qrencode = get_option('qrencode')
 if want_qrencode != 'false'
         libqrencode = dependency('libqrencode',
                                  required : want_qrencode == 'true')
-        conf.set('HAVE_QRENCODE', libqrencode.found())
+        have = libqrencode.found()
 else
+        have = false
         libqrencode = []
 endif
+conf.set10('HAVE_QRENCODE', have)
 
 want_gcrypt = get_option('gcrypt')
 if want_gcrypt != 'false'
         libgcrypt = cc.find_library('gcrypt', required : want_gcrypt == 'true')
         libgpg_error = cc.find_library('gpg-error', required : want_gcrypt == 'true')
-
-        have_deps = libgcrypt.found() and libgpg_error.found()
-        conf.set('HAVE_GCRYPT', have_deps)
-        if not have_deps
-                # link to neither of the libs if one is not found
-                libgcrypt = []
-                libgpg_error = []
-        endif
+        have = libgcrypt.found() and libgpg_error.found()
 else
+        have = false
+endif
+if not have
+        # link to neither of the libs if one is not found
         libgcrypt = []
         libgpg_error = []
 endif
+conf.set10('HAVE_GCRYPT', have)
 
 want_gnutls = get_option('gnutls')
 if want_gnutls != 'false'
         libgnutls = dependency('gnutls',
                                version : '>= 3.1.4',
                                required : want_gnutls == 'true')
-        conf.set('HAVE_GNUTLS', libgnutls.found())
+        have = libgnutls.found()
 else
+        have = false
         libgnutls = []
 endif
+conf.set10('HAVE_GNUTLS', have)
 
 want_elfutils = get_option('elfutils')
 if want_elfutils != 'false'
         libdw = dependency('libdw',
                            required : want_elfutils == 'true')
-        conf.set('HAVE_ELFUTILS', libdw.found())
+        have = libdw.found()
 else
+        have = false
         libdw = []
 endif
+conf.set10('HAVE_ELFUTILS', have)
 
 want_zlib = get_option('zlib')
 if want_zlib != 'false'
         libz = dependency('zlib',
                           required : want_zlib == 'true')
-        conf.set('HAVE_ZLIB', libz.found())
+        have = libz.found()
 else
+        have = false
         libz = []
 endif
+conf.set10('HAVE_ZLIB', have)
 
 want_bzip2 = get_option('bzip2')
 if want_bzip2 != 'false'
         libbzip2 = cc.find_library('bz2',
                                    required : want_bzip2 == 'true')
-        conf.set('HAVE_BZIP2', libbzip2.found())
+        have = libbzip2.found()
 else
+        have = false
         libbzip2 = []
 endif
+conf.set10('HAVE_BZIP2', have)
 
 want_xz = get_option('xz')
 if want_xz != 'false'
         libxz = dependency('liblzma',
                            required : want_xz == 'true')
-        conf.set('HAVE_XZ', libxz.found())
+        have = libxz.found()
 else
+        have = false
         libxz = []
 endif
+conf.set10('HAVE_XZ', have)
 
 want_lz4 = get_option('lz4')
 if want_lz4 != 'false'
         liblz4 = dependency('liblz4',
                             required : want_lz4 == 'true')
-        conf.set('HAVE_LZ4', liblz4.found())
+        have = liblz4.found()
 else
+        have = false
         liblz4 = []
 endif
+conf.set10('HAVE_LZ4', have)
 
 want_xkbcommon = get_option('xkbcommon')
 if want_xkbcommon != 'false'
         libxkbcommon = dependency('xkbcommon',
                                   version : '>= 0.3.0',
                                   required : want_xkbcommon == 'true')
-        conf.set('HAVE_XKBCOMMON', libxkbcommon.found())
+        have = libxkbcommon.found()
 else
+        have = false
         libxkbcommon = []
 endif
+conf.set10('HAVE_XKBCOMMON', have)
 
 want_glib = get_option('glib')
 if want_glib != 'false'
@@ -952,25 +975,28 @@ if want_glib != 'false'
         libgio =     dependency('gio-2.0',
                                 required : want_glib == 'true')
         have = libglib.found() and libgobject.found() and libgio.found()
-        conf.set('HAVE_GLIB', have)
 else
+        have = false
         libglib = []
         libgobject = []
         libgio = []
 endif
+conf.set10('HAVE_GLIB', have)
 
 want_dbus = get_option('dbus')
 if want_dbus != 'false'
         libdbus = dependency('dbus-1',
                              version : '>= 1.3.2',
                              required : want_dbus == 'true')
-        conf.set('HAVE_DBUS', libdbus.found())
+        have = libdbus.found()
 else
+        have = false
         libdbus = []
 endif
+conf.set10('HAVE_DBUS', have)
 
 default_dnssec = get_option('default-dnssec')
-if default_dnssec != 'no' and not conf.get('HAVE_GCRYPT', false)
+if default_dnssec != 'no' and conf.get('HAVE_GCRYPT') == 0
         message('default-dnssec cannot be set to yes or allow-downgrade when gcrypt is disabled. Setting default-dnssec to no.')
         default_dnssec = 'no'
 endif
@@ -980,21 +1006,23 @@ substs.set('DEFAULT_DNSSEC_MODE', default_dnssec)
 
 want_importd = get_option('importd')
 if want_importd != 'false'
-        have_deps = (conf.get('HAVE_LIBCURL', false) and
-                     conf.get('HAVE_ZLIB', false) and
-                     conf.get('HAVE_BZIP2', false) and
-                     conf.get('HAVE_XZ', false) and
-                     conf.get('HAVE_GCRYPT', false))
-        conf.set('ENABLE_IMPORTD', have_deps)
-        if want_importd == 'true' and not have_deps
+        have = (conf.get('HAVE_LIBCURL') == 1 and
+                conf.get('HAVE_ZLIB') == 1 and
+                conf.get('HAVE_BZIP2') == 1 and
+                conf.get('HAVE_XZ') == 1 and
+                conf.get('HAVE_GCRYPT') == 1)
+        if want_importd == 'true' and not have
                 error('importd support was requested, but dependencies are not available')
         endif
+else
+        have = false
 endif
+conf.set10('ENABLE_IMPORTD', have)
 
 want_remote = get_option('remote')
 if want_remote != 'false'
-        have_deps = [conf.get('HAVE_MICROHTTPD', false),
-                     conf.get('HAVE_LIBCURL', false)]
+        have_deps = [conf.get('HAVE_MICROHTTPD') == 1,
+                     conf.get('HAVE_LIBCURL') == 1]
         # sd-j-remote requires µhttpd, and sd-j-upload requires libcurl, so
         # it's possible to build one without the other. Complain only if
         # support was explictly requested. The auxiliary files like sysusers
@@ -1002,8 +1030,11 @@ if want_remote != 'false'
         if want_remote == 'true' and not (have_deps[0] and have_deps[1])
                 error('remote support was requested, but dependencies are not available')
         endif
-        conf.set('ENABLE_REMOTE', have_deps[0] or have_deps[1])
+        have = have_deps[0] or have_deps[1]
+else
+        have = false
 endif
+conf.set10('ENABLE_REMOTE', have)
 
 foreach pair : [['utmp',          'HAVE_UTMP'],
                 ['hibernate',     'ENABLE_HIBERNATE'],
@@ -1038,10 +1069,9 @@ foreach pair : [['utmp',          'HAVE_UTMP'],
                 ['nss-systemd',   'ENABLE_NSS_SYSTEMD'],
                ]
 
-        if get_option(pair[0])
-                conf.set(pair[1], true)
-                m4_defines += ['-D' + pair[1]]
-        endif
+        have = get_option(pair[0])
+        conf.set10(pair[1], have)
+        m4_defines += have ? ['-D' + pair[1]] : []
 endforeach
 
 want_tests = get_option('tests')
@@ -1072,11 +1102,14 @@ if get_option('efi')
                 gnu_efi_arch = ''
         endif
 
-        conf.set('ENABLE_EFI', true)
+        have = true
         conf.set_quoted('EFI_MACHINE_TYPE_NAME', EFI_MACHINE_TYPE_NAME)
 
         conf.set('SD_TPM_PCR', get_option('tpm-pcrindex').to_int())
+else
+        have = false
 endif
+conf.set10('ENABLE_EFI', have)
 
 #####################################################################
 
@@ -1191,7 +1224,7 @@ foreach tuple : [['myhostname', 'HAVE_MYHOSTNAME'],
                  ['mymachines', 'ENABLE_MACHINED'],
                  ['resolve',    'ENABLE_RESOLVED']]
 
-        condition = tuple[1] == '' or conf.get(tuple[1], false)
+        condition = tuple[1] == '' or conf.get(tuple[1]) == 1
         if condition
                 module = tuple[0]
 
@@ -1319,7 +1352,7 @@ executable('systemd-fstab-generator',
            install : true,
            install_dir : systemgeneratordir)
 
-if conf.get('ENABLE_ENVIRONMENT_D', false)
+if conf.get('ENABLE_ENVIRONMENT_D') == 1
         executable('30-systemd-environment-d-generator',
                    'src/environment-d-generator/environment-d-generator.c',
                    include_directories : includes,
@@ -1333,7 +1366,7 @@ if conf.get('ENABLE_ENVIRONMENT_D', false)
                                  join_paths(environmentdir, '99-environment.conf'))
 endif
 
-if conf.get('ENABLE_HIBERNATE', false)
+if conf.get('ENABLE_HIBERNATE') == 1
         executable('systemd-hibernate-resume-generator',
                    'src/hibernate-resume/hibernate-resume-generator.c',
                    include_directories : includes,
@@ -1351,7 +1384,7 @@ if conf.get('ENABLE_HIBERNATE', false)
                    install_dir : rootlibexecdir)
 endif
 
-if conf.get('HAVE_BLKID', false)
+if conf.get('HAVE_BLKID') == 1
         executable('systemd-gpt-auto-generator',
                    'src/gpt-auto-generator/gpt-auto-generator.c',
                    'src/basic/blkid-util.h',
@@ -1372,7 +1405,7 @@ if conf.get('HAVE_BLKID', false)
         public_programs += [exe]
 endif
 
-if conf.get('ENABLE_RESOLVED', false)
+if conf.get('ENABLE_RESOLVED') == 1
         executable('systemd-resolved',
                    systemd_resolved_sources,
                    gcrypt_util_sources,
@@ -1402,7 +1435,7 @@ if conf.get('ENABLE_RESOLVED', false)
         public_programs += [exe]
 endif
 
-if conf.get('ENABLE_LOGIND', false)
+if conf.get('ENABLE_LOGIND') == 1
         executable('systemd-logind',
                    systemd_logind_sources,
                    include_directories : includes,
@@ -1435,7 +1468,7 @@ if conf.get('ENABLE_LOGIND', false)
                          install_dir : rootbindir)
         public_programs += [exe]
 
-        if conf.get('HAVE_PAM', false)
+        if conf.get('HAVE_PAM') == 1
                 version_script_arg = join_paths(meson.current_source_dir(), pam_systemd_sym)
                 pam_systemd = shared_library(
                         'pam_systemd',
@@ -1459,7 +1492,7 @@ if conf.get('ENABLE_LOGIND', false)
         endif
 endif
 
-if conf.get('HAVE_PAM', false)
+if conf.get('HAVE_PAM') == 1
         executable('systemd-user-sessions',
                    'src/user-sessions/user-sessions.c',
                    include_directories : includes,
@@ -1469,7 +1502,7 @@ if conf.get('HAVE_PAM', false)
                    install_dir : rootlibexecdir)
 endif
 
-if conf.get('ENABLE_EFI', false) and conf.get('HAVE_BLKID', false)
+if conf.get('ENABLE_EFI') == 1 and conf.get('HAVE_BLKID') == 1
         exe = executable('bootctl',
                          'src/boot/bootctl.c',
                          include_directories : includes,
@@ -1501,7 +1534,7 @@ exe = executable('systemctl', 'src/systemctl/systemctl.c',
                  install_dir : rootbindir)
 public_programs += [exe]
 
-if conf.get('ENABLE_BACKLIGHT', false)
+if conf.get('ENABLE_BACKLIGHT') == 1
         executable('systemd-backlight',
                    'src/backlight/backlight.c',
                    include_directories : includes,
@@ -1511,7 +1544,7 @@ if conf.get('ENABLE_BACKLIGHT', false)
                    install_dir : rootlibexecdir)
 endif
 
-if conf.get('ENABLE_RFKILL', false)
+if conf.get('ENABLE_RFKILL') == 1
         executable('systemd-rfkill',
                    'src/rfkill/rfkill.c',
                    include_directories : includes,
@@ -1529,7 +1562,7 @@ executable('systemd-system-update-generator',
            install : true,
            install_dir : systemgeneratordir)
 
-if conf.get('HAVE_LIBCRYPTSETUP', false)
+if conf.get('HAVE_LIBCRYPTSETUP') == 1
         executable('systemd-cryptsetup',
                    'src/cryptsetup/cryptsetup.c',
                    include_directories : includes,
@@ -1567,7 +1600,7 @@ if conf.get('HAVE_LIBCRYPTSETUP', false)
                    install_dir : systemgeneratordir)
 endif
 
-if conf.get('HAVE_SYSV_COMPAT', false)
+if conf.get('HAVE_SYSV_COMPAT') == 1
         executable('systemd-sysv-generator',
                    'src/sysv-generator/sysv-generator.c',
                    include_directories : includes,
@@ -1585,7 +1618,7 @@ if conf.get('HAVE_SYSV_COMPAT', false)
                    install_dir : systemgeneratordir)
 endif
 
-if conf.get('ENABLE_HOSTNAMED', false)
+if conf.get('ENABLE_HOSTNAMED') == 1
         executable('systemd-hostnamed',
                    'src/hostname/hostnamed.c',
                    include_directories : includes,
@@ -1603,8 +1636,8 @@ if conf.get('ENABLE_HOSTNAMED', false)
         public_programs += [exe]
 endif
 
-if conf.get('ENABLE_LOCALED', false)
-        if conf.get('HAVE_XKBCOMMON', false)
+if conf.get('ENABLE_LOCALED') == 1
+        if conf.get('HAVE_XKBCOMMON') == 1
                 # logind will load libxkbcommon.so dynamically on its own
                 deps = [libdl]
         else
@@ -1629,7 +1662,7 @@ if conf.get('ENABLE_LOCALED', false)
         public_programs += [exe]
 endif
 
-if conf.get('ENABLE_TIMEDATED', false)
+if conf.get('ENABLE_TIMEDATED') == 1
         executable('systemd-timedated',
                    'src/timedate/timedated.c',
                    include_directories : includes,
@@ -1647,7 +1680,7 @@ if conf.get('ENABLE_TIMEDATED', false)
         public_programs += [exe]
 endif
 
-if conf.get('ENABLE_TIMESYNCD', false)
+if conf.get('ENABLE_TIMESYNCD') == 1
         executable('systemd-timesyncd',
                    systemd_timesyncd_sources,
                    include_directories : includes,
@@ -1659,7 +1692,7 @@ if conf.get('ENABLE_TIMESYNCD', false)
                    install_dir : rootlibexecdir)
 endif
 
-if conf.get('ENABLE_MACHINED', false)
+if conf.get('ENABLE_MACHINED') == 1
         executable('systemd-machined',
                    systemd_machined_sources,
                    include_directories : includes,
@@ -1682,7 +1715,7 @@ if conf.get('ENABLE_MACHINED', false)
         public_programs += [exe]
 endif
 
-if conf.get('ENABLE_IMPORTD', false)
+if conf.get('ENABLE_IMPORTD') == 1
         executable('systemd-importd',
                    systemd_importd_sources,
                    include_directories : includes,
@@ -1731,7 +1764,7 @@ if conf.get('ENABLE_IMPORTD', false)
         public_programs += [systemd_pull, systemd_import, systemd_export]
 endif
 
-if conf.get('ENABLE_REMOTE', false) and conf.get('HAVE_LIBCURL', false)
+if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_LIBCURL') == 1
         exe = executable('systemd-journal-upload',
                          systemd_journal_upload_sources,
                          include_directories : includes,
@@ -1747,7 +1780,7 @@ if conf.get('ENABLE_REMOTE', false) and conf.get('HAVE_LIBCURL', false)
         public_programs += [exe]
 endif
 
-if conf.get('ENABLE_REMOTE', false) and conf.get('HAVE_MICROHTTPD', false)
+if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
         s_j_remote = executable('systemd-journal-remote',
                                 systemd_journal_remote_sources,
                                 include_directories : includes,
@@ -1776,7 +1809,7 @@ if conf.get('ENABLE_REMOTE', false) and conf.get('HAVE_MICROHTTPD', false)
         public_programs += [s_j_remote, s_j_gatewayd]
 endif
 
-if conf.get('ENABLE_COREDUMP', false)
+if conf.get('ENABLE_COREDUMP') == 1
         executable('systemd-coredump',
                    systemd_coredump_sources,
                    include_directories : includes,
@@ -1802,7 +1835,7 @@ if conf.get('ENABLE_COREDUMP', false)
         public_programs += [exe]
 endif
 
-if conf.get('ENABLE_BINFMT', false)
+if conf.get('ENABLE_BINFMT') == 1
         exe = executable('systemd-binfmt',
                          'src/binfmt/binfmt.c',
                          include_directories : includes,
@@ -1818,7 +1851,7 @@ if conf.get('ENABLE_BINFMT', false)
                                  mkdir_p.format(join_paths(sysconfdir, 'binfmt.d')))
 endif
 
-if conf.get('ENABLE_VCONSOLE', false)
+if conf.get('ENABLE_VCONSOLE') == 1
         executable('systemd-vconsole-setup',
                    'src/vconsole/vconsole-setup.c',
                    include_directories : includes,
@@ -1828,7 +1861,7 @@ if conf.get('ENABLE_VCONSOLE', false)
                    install_dir : rootlibexecdir)
 endif
 
-if conf.get('ENABLE_RANDOMSEED', false)
+if conf.get('ENABLE_RANDOMSEED') == 1
         executable('systemd-random-seed',
                    'src/random-seed/random-seed.c',
                    include_directories : includes,
@@ -1838,7 +1871,7 @@ if conf.get('ENABLE_RANDOMSEED', false)
                    install_dir : rootlibexecdir)
 endif
 
-if conf.get('ENABLE_FIRSTBOOT', false)
+if conf.get('ENABLE_FIRSTBOOT') == 1
         executable('systemd-firstboot',
                    'src/firstboot/firstboot.c',
                    include_directories : includes,
@@ -2047,7 +2080,7 @@ exe = executable('busctl',
                  install : true)
 public_programs += [exe]
 
-if conf.get('ENABLE_SYSUSERS', false)
+if conf.get('ENABLE_SYSUSERS') == 1
         exe = executable('systemd-sysusers',
                          'src/sysusers/sysusers.c',
                          include_directories : includes,
@@ -2058,7 +2091,7 @@ if conf.get('ENABLE_SYSUSERS', false)
         public_programs += [exe]
 endif
 
-if conf.get('ENABLE_TMPFILES', false)
+if conf.get('ENABLE_TMPFILES') == 1
         exe = executable('systemd-tmpfiles',
                          'src/tmpfiles/tmpfiles.c',
                          include_directories : includes,
@@ -2070,7 +2103,7 @@ if conf.get('ENABLE_TMPFILES', false)
         public_programs += [exe]
 endif
 
-if conf.get('ENABLE_HWDB', false)
+if conf.get('ENABLE_HWDB') == 1
         exe = executable('systemd-hwdb',
                          'src/hwdb/hwdb.c',
                          'src/libsystemd/sd-hwdb/hwdb-internal.h',
@@ -2082,7 +2115,7 @@ if conf.get('ENABLE_HWDB', false)
         public_programs += [exe]
 endif
 
-if conf.get('ENABLE_QUOTACHECK', false)
+if conf.get('ENABLE_QUOTACHECK') == 1
         executable('systemd-quotacheck',
                    'src/quotacheck/quotacheck.c',
                    include_directories : includes,
@@ -2160,7 +2193,7 @@ executable('systemd-update-utmp',
            install : true,
            install_dir : rootlibexecdir)
 
-if conf.get('HAVE_KMOD', false)
+if conf.get('HAVE_KMOD') == 1
         executable('systemd-modules-load',
                    'src/modules-load/modules-load.c',
                    include_directories : includes,
@@ -2192,7 +2225,7 @@ exe = executable('systemd-nspawn',
                  install : true)
 public_programs += [exe]
 
-if conf.get('ENABLE_NETWORKD', false)
+if conf.get('ENABLE_NETWORKD') == 1
         executable('systemd-networkd',
                    systemd_networkd_sources,
                    include_directories : includes,
@@ -2242,7 +2275,7 @@ foreach tuple : tests
                 type = ''
         endif
 
-        if condition == '' or conf.get(condition, false)
+        if condition == '' or conf.get(condition) == 1
                 exe = executable(
                         name,
                         sources,
@@ -2448,7 +2481,7 @@ status += [
 # CPPFLAGS: ${OUR_CPPFLAGS} ${CPPFLAGS}
 # LDFLAGS:  ${OUR_LDFLAGS} ${LDFLAGS}
 
-if conf.get('ENABLE_EFI', false)
+if conf.get('ENABLE_EFI') == 1
         status += [
                 'efi arch:                          @0@'.format(efi_arch)]
 
@@ -2519,13 +2552,13 @@ foreach tuple : [
         ['blkid'],
         ['dbus'],
         ['glib'],
-        ['nss-myhostname',   conf.get('HAVE_MYHOSTNAME', false)],
+        ['nss-myhostname',   conf.get('HAVE_MYHOSTNAME') == 1],
         ['hwdb'],
         ['tpm'],
         ['man pages',        want_man],
         ['html pages',       want_html],
         ['man page indices', want_man and have_lxml],
-        ['split /usr',       conf.get('HAVE_SPLIT_USR', false)],
+        ['split /usr',       conf.get('HAVE_SPLIT_USR') == 1],
         ['SysV compat'],
         ['utmp'],
         ['ldconfig'],
@@ -2541,7 +2574,7 @@ foreach tuple : [
         if cond == ''
                 ident1 = 'HAVE_' + tuple[0].underscorify().to_upper()
                 ident2 = 'ENABLE_' + tuple[0].underscorify().to_upper()
-                cond = conf.get(ident1, false) or conf.get(ident2, false)
+                cond = conf.get(ident1, 0) == 1 or conf.get(ident2, 0) == 1
         endif
         if cond
                 found += [tuple[0]]

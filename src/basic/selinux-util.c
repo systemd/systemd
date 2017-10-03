@@ -26,7 +26,7 @@
 #include <sys/un.h>
 #include <syslog.h>
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
 #include <selinux/context.h>
 #include <selinux/label.h>
 #include <selinux/selinux.h>
@@ -40,7 +40,7 @@
 #include "time-util.h"
 #include "util.h"
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, freecon);
 DEFINE_TRIVIAL_CLEANUP_FUNC(context_t, context_free);
 
@@ -54,7 +54,7 @@ static struct selabel_handle *label_hnd = NULL;
 #endif
 
 bool mac_selinux_use(void) {
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
         if (cached_use < 0)
                 cached_use = is_selinux_enabled() > 0;
 
@@ -65,7 +65,7 @@ bool mac_selinux_use(void) {
 }
 
 void mac_selinux_retest(void) {
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
         cached_use = -1;
 #endif
 }
@@ -73,7 +73,7 @@ void mac_selinux_retest(void) {
 int mac_selinux_init(void) {
         int r = 0;
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
         usec_t before_timestamp, after_timestamp;
         struct mallinfo before_mallinfo, after_mallinfo;
 
@@ -110,7 +110,7 @@ int mac_selinux_init(void) {
 
 void mac_selinux_finish(void) {
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
         if (!label_hnd)
                 return;
 
@@ -121,7 +121,7 @@ void mac_selinux_finish(void) {
 
 int mac_selinux_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
         struct stat st;
         int r;
 
@@ -169,7 +169,7 @@ int mac_selinux_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
 
 int mac_selinux_apply(const char *path, const char *label) {
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
         if (!mac_selinux_use())
                 return 0;
 
@@ -188,7 +188,7 @@ int mac_selinux_apply(const char *path, const char *label) {
 int mac_selinux_get_create_label_from_exe(const char *exe, char **label) {
         int r = -EOPNOTSUPP;
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
         _cleanup_freecon_ char *mycon = NULL, *fcon = NULL;
         security_class_t sclass;
 
@@ -220,7 +220,7 @@ int mac_selinux_get_our_label(char **label) {
 
         assert(label);
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
         if (!mac_selinux_use())
                 return -EOPNOTSUPP;
 
@@ -235,7 +235,7 @@ int mac_selinux_get_our_label(char **label) {
 int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *exec_label, char **label) {
         int r = -EOPNOTSUPP;
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
         _cleanup_freecon_ char *mycon = NULL, *peercon = NULL, *fcon = NULL;
         _cleanup_context_free_ context_t pcon = NULL, bcon = NULL;
         security_class_t sclass;
@@ -296,7 +296,7 @@ int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *
 
 char* mac_selinux_free(char *label) {
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
         if (!label)
                 return NULL;
 
@@ -312,7 +312,7 @@ char* mac_selinux_free(char *label) {
 
 int mac_selinux_create_file_prepare(const char *path, mode_t mode) {
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
         _cleanup_freecon_ char *filecon = NULL;
         int r;
 
@@ -355,7 +355,7 @@ int mac_selinux_create_file_prepare(const char *path, mode_t mode) {
 
 void mac_selinux_create_file_clear(void) {
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
         PROTECT_ERRNO;
 
         if (!mac_selinux_use())
@@ -367,7 +367,7 @@ void mac_selinux_create_file_clear(void) {
 
 int mac_selinux_create_socket_prepare(const char *label) {
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
         if (!mac_selinux_use())
                 return 0;
 
@@ -386,7 +386,7 @@ int mac_selinux_create_socket_prepare(const char *label) {
 
 void mac_selinux_create_socket_clear(void) {
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
         PROTECT_ERRNO;
 
         if (!mac_selinux_use())
@@ -400,7 +400,7 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 
         /* Binds a socket and label its file system object according to the SELinux policy */
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
         _cleanup_freecon_ char *fcon = NULL;
         const struct sockaddr_un *un;
         bool context_changed = false;

@@ -3,7 +3,7 @@ file = configure_file(
         output : 'README',
         configuration : substs)
 
-if conf.get('HAVE_SYSV_COMPAT', false)
+if conf.get('HAVE_SYSV_COMPAT') == 1
         install_data(file,
                      install_dir : sysvinit_path)
 endif

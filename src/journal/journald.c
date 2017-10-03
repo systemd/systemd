@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
                         t = server.oldest_file_usec + server.max_retention_usec - n;
                 }
 
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
                 if (server.system_journal) {
                         usec_t u;
 

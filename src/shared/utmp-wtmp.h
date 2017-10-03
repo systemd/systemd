@@ -25,7 +25,7 @@
 #include "time-util.h"
 #include "util.h"
 
-#ifdef HAVE_UTMP
+#if HAVE_UTMP
 int utmp_get_runlevel(int *runlevel, int *previous);
 
 int utmp_put_shutdown(void);

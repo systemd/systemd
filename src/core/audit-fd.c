@@ -22,7 +22,7 @@
 
 #include "audit-fd.h"
 
-#ifdef HAVE_AUDIT
+#if HAVE_AUDIT
 
 #include <libaudit.h>
 #include <stdbool.h>

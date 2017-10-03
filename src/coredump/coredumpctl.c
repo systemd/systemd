@@ -799,7 +799,7 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
         }
 
         if (filename) {
-#if defined(HAVE_XZ) || defined(HAVE_LZ4)
+#if HAVE_XZ || HAVE_LZ4
                 _cleanup_close_ int fdf;
 
                 fdf = open(filename, O_RDONLY | O_CLOEXEC);

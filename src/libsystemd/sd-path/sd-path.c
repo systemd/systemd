@@ -493,7 +493,7 @@ static int get_search(uint64_t type, char ***list) {
                                                "/usr/local/bin",
                                                "/usr/sbin",
                                                "/usr/bin",
-#ifdef HAVE_SPLIT_USR
+#if HAVE_SPLIT_USR
                                                "/sbin",
                                                "/bin",
 #endif
@@ -507,7 +507,7 @@ static int get_search(uint64_t type, char ***list) {
                                                false,
                                                "/usr/local/lib",
                                                "/usr/lib",
-#ifdef HAVE_SPLIT_USR
+#if HAVE_SPLIT_USR
                                                "/lib",
 #endif
                                                NULL);
@@ -519,7 +519,7 @@ static int get_search(uint64_t type, char ***list) {
                                                "LD_LIBRARY_PATH",
                                                true,
                                                LIBDIR,
-#ifdef HAVE_SPLIT_USR
+#if HAVE_SPLIT_USR
                                                ROOTLIBDIR,
 #endif
                                                NULL);

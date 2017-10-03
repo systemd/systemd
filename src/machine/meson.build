@@ -21,7 +21,7 @@ libmachine_core = static_library(
         include_directories : includes,
         dependencies : [threads])
 
-if conf.get('ENABLE_MACHINED', false)
+if conf.get('ENABLE_MACHINED') == 1
         install_data('org.freedesktop.machine1.conf',
                      install_dir : dbuspolicydir)
         install_data('org.freedesktop.machine1.service',

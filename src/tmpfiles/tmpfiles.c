@@ -116,7 +116,7 @@ typedef struct Item {
         char *path;
         char *argument;
         char **xattrs;
-#ifdef HAVE_ACL
+#if HAVE_ACL
         acl_t acl_access;
         acl_t acl_default;
 #endif
@@ -744,7 +744,7 @@ static int path_set_xattrs(Item *i, const char *path) {
 }
 
 static int parse_acls_from_arg(Item *item) {
-#ifdef HAVE_ACL
+#if HAVE_ACL
         int r;
 
         assert(item);
@@ -762,7 +762,7 @@ static int parse_acls_from_arg(Item *item) {
         return 0;
 }
 
-#ifdef HAVE_ACL
+#if HAVE_ACL
 static int path_set_acl(const char *path, const char *pretty, acl_type_t type, acl_t acl, bool modify) {
         _cleanup_(acl_free_charpp) char *t = NULL;
         _cleanup_(acl_freep) acl_t dup = NULL;
@@ -810,7 +810,7 @@ static int path_set_acl(const char *path, const char *pretty, acl_type_t type, a
 
 static int path_set_acls(Item *item, const char *path) {
         int r = 0;
-#ifdef HAVE_ACL
+#if HAVE_ACL
         char fn[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         _cleanup_close_ int fd = -1;
         struct stat st;
@@ -1698,7 +1698,7 @@ static void item_free_contents(Item *i) {
         free(i->argument);
         strv_free(i->xattrs);
 
-#ifdef HAVE_ACL
+#if HAVE_ACL
         acl_free(i->acl_access);
         acl_free(i->acl_default);
 #endif

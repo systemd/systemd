@@ -11,7 +11,7 @@
  *
  */
 
-#ifdef ENABLE_TPM
+#if ENABLE_TPM
 
 #include <efi.h>
 #include <efilib.h>

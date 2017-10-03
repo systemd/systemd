@@ -17,7 +17,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
 #include <selinux/selinux.h>
 #endif
 
@@ -227,7 +227,7 @@ static int client_context_read_label(
                 free_and_replace(c->label, l);
                 c->label_size = label_size;
         }
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
         else {
                 char *con;
 

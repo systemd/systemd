@@ -19,7 +19,7 @@
 
 #include <sys/prctl.h>
 
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
 #include <seccomp.h>
 #endif
 
@@ -42,7 +42,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
 #include "securebits-util.h"
@@ -376,7 +376,7 @@ static int property_get_syscall_filter(
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
         Iterator i;
         void *id;
 #endif
@@ -393,7 +393,7 @@ static int property_get_syscall_filter(
         if (r < 0)
                 return r;
 
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
         SET_FOREACH(id, c->syscall_filter, i) {
                 char *name;
 
@@ -429,7 +429,7 @@ static int property_get_syscall_archs(
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
         Iterator i;
         void *id;
 #endif
@@ -438,7 +438,7 @@ static int property_get_syscall_archs(
         assert(reply);
         assert(c);
 
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
         SET_FOREACH(id, c->syscall_archs, i) {
                 const char *name;
 
@@ -1185,7 +1185,7 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
 
         } else if (streq(name, "SystemCallFilter")) {
                 int whitelist;

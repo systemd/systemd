@@ -450,13 +450,13 @@ static int parse_argv(int argc, char **argv,
                 modules = strv_new(argv[1], NULL);
         else
                 modules = strv_new(
-#ifdef HAVE_MYHOSTNAME
+#if HAVE_MYHOSTNAME
                                 "myhostname",
 #endif
-#ifdef HAVE_RESOLVED
+#if HAVE_RESOLVED
                                 "resolve",
 #endif
-#ifdef HAVE_MACHINED
+#if HAVE_MACHINED
                                 "mymachines",
 #endif
                                 "dns",

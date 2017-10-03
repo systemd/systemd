@@ -21,7 +21,7 @@
 #include <poll.h>
 #include <sys/ioctl.h>
 
-#ifdef HAVE_LIBIDN2
+#if HAVE_LIBIDN2
 #include <idn2.h>
 #endif
 
@@ -328,9 +328,9 @@ static int manager_network_monitor_listen(Manager *m) {
 
 static int determine_hostname(char **full_hostname, char **llmnr_hostname, char **mdns_hostname) {
         _cleanup_free_ char *h = NULL, *n = NULL;
-#if defined(HAVE_LIBIDN2)
+#if HAVE_LIBIDN2
         _cleanup_free_ char *utf8 = NULL;
-#elif defined(HAVE_LIBIDN)
+#elif HAVE_LIBIDN
         int k;
 #endif
         char label[DNS_LABEL_MAX];
@@ -356,7 +356,7 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
                 return -EINVAL;
         }
 
-#if defined(HAVE_LIBIDN2)
+#if HAVE_LIBIDN2
         r = idn2_to_unicode_8z8z(label, &utf8, 0);
         if (r != IDN2_OK)
                 return log_error("Failed to undo IDNA: %s", idn2_strerror(r));
@@ -364,7 +364,7 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
 
         r = strlen(utf8);
         decoded = utf8;
-#elif defined(HAVE_LIBIDN)
+#elif HAVE_LIBIDN
         k = dns_label_undo_idna(label, r, label, sizeof label);
         if (k < 0)
                 return log_error_errno(k, "Failed to undo IDNA: %m");

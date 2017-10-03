@@ -19,7 +19,7 @@
 
 #include <fcntl.h>
 #include <linux/magic.h>
-#ifdef HAVE_ACL
+#if HAVE_ACL
 #include <sys/acl.h>
 #endif
 #include <sys/stat.h>
@@ -37,7 +37,7 @@
 #include "strv.h"
 #include "user-util.h"
 
-#ifdef HAVE_ACL
+#if HAVE_ACL
 
 static int get_acl(int fd, const char *name, acl_type_t type, acl_t *ret) {
         char procfs_path[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];

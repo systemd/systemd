@@ -1,6 +1,6 @@
 in_files = ['basic.conf']
 
-enable_sysusers = conf.get('ENABLE_SYSUSERS', false)
+enable_sysusers = conf.get('ENABLE_SYSUSERS') == 1
 
 foreach file : in_files
         gen = configure_file(
@@ -15,7 +15,7 @@ endforeach
 
 m4_files = ['systemd.conf']
 
-if conf.get('ENABLE_REMOTE', false) and conf.get('HAVE_MICROHTTPD', false)
+if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
         m4_files += ['systemd-remote.conf']
 endif
 

@@ -42,7 +42,7 @@ if bashcompletiondir != 'no'
                 ]
 
         foreach item : items
-                if item[1] == '' or conf.get(item[1], false)
+                if item[1] == '' or conf.get(item[1]) == 1
                         install_data(item[0],
                                      install_dir : bashcompletiondir)
                 endif

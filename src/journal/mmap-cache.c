@@ -84,7 +84,7 @@ struct MMapCache {
 
 #define WINDOWS_MIN 64
 
-#ifdef ENABLE_DEBUG_MMAP_CACHE
+#if ENABLE_DEBUG_MMAP_CACHE
 /* Tiny windows increase mmap activity and the chance of exposing unsafe use. */
 # define WINDOW_SIZE (page_size())
 #else
@@ -225,7 +225,7 @@ static void context_detach_window(Context *c) {
 
         if (!w->contexts && !w->keep_always) {
                 /* Not used anymore? */
-#ifdef ENABLE_DEBUG_MMAP_CACHE
+#if ENABLE_DEBUG_MMAP_CACHE
                 /* Unmap unused windows immediately to expose use-after-unmap
                  * by SIGSEGV. */
                 window_free(w);

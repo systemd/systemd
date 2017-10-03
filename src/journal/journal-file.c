@@ -331,7 +331,7 @@ bool journal_file_is_offlining(JournalFile *f) {
 JournalFile* journal_file_close(JournalFile *f) {
         assert(f);
 
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
         /* Write the final tag */
         if (f->seal && f->writable) {
                 int r;
@@ -378,11 +378,11 @@ JournalFile* journal_file_close(JournalFile *f) {
 
         ordered_hashmap_free_free(f->chain_cache);
 
-#if defined(HAVE_XZ) || defined(HAVE_LZ4)
+#if HAVE_XZ || HAVE_LZ4
         free(f->compress_buffer);
 #endif
 
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
         if (f->fss_file)
                 munmap(f->fss_file, PAGE_ALIGN(f->fss_file_size));
         else
@@ -1401,7 +1401,7 @@ int journal_file_find_data_object_with_hash(
                         goto next;
 
                 if (o->object.flags & OBJECT_COMPRESSION_MASK) {
-#if defined(HAVE_XZ) || defined(HAVE_LZ4)
+#if HAVE_XZ || HAVE_LZ4
                         uint64_t l;
                         size_t rsize = 0;
 
@@ -1513,7 +1513,7 @@ static int journal_file_append_field(
         if (r < 0)
                 return r;
 
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
         r = journal_file_hmac_put_object(f, OBJECT_FIELD, o, p);
         if (r < 0)
                 return r;
@@ -1565,7 +1565,7 @@ static int journal_file_append_data(
 
         o->data.hash = htole64(hash);
 
-#if defined(HAVE_XZ) || defined(HAVE_LZ4)
+#if HAVE_XZ || HAVE_LZ4
         if (JOURNAL_FILE_COMPRESS(f) && size >= COMPRESSION_SIZE_THRESHOLD) {
                 size_t rsize = 0;
 
@@ -1590,7 +1590,7 @@ static int journal_file_append_data(
         if (r < 0)
                 return r;
 
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
         r = journal_file_hmac_put_object(f, OBJECT_DATA, o, p);
         if (r < 0)
                 return r;
@@ -1704,7 +1704,7 @@ static int link_entry_into_array(JournalFile *f,
         if (r < 0)
                 return r;
 
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
         r = journal_file_hmac_put_object(f, OBJECT_ENTRY_ARRAY, o, q);
         if (r < 0)
                 return r;
@@ -1854,7 +1854,7 @@ static int journal_file_append_entry_internal(
         o->entry.xor_hash = htole64(xor_hash);
         o->entry.boot_id = f->header->boot_id;
 
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
         r = journal_file_hmac_put_object(f, OBJECT_ENTRY, o, np);
         if (r < 0)
                 return r;
@@ -1990,7 +1990,7 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
                 ts = &_ts;
         }
 
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
         r = journal_file_maybe_append_tag(f, ts->realtime);
         if (r < 0)
                 return r;
@@ -3259,12 +3259,12 @@ int journal_file_open(
         f->flags = flags;
         f->prot = prot_from_flags(flags);
         f->writable = (flags & O_ACCMODE) != O_RDONLY;
-#if defined(HAVE_LZ4)
+#if HAVE_LZ4
         f->compress_lz4 = compress;
-#elif defined(HAVE_XZ)
+#elif HAVE_XZ
         f->compress_xz = compress;
 #endif
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
         f->seal = seal;
 #endif
 
@@ -3335,7 +3335,7 @@ int journal_file_open(
 
                 fd_setcrtime(f->fd, 0);
 
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
                 /* Try to load the FSPRG state, and if we can't, then
                  * just don't do sealing */
                 if (f->seal) {
@@ -3376,7 +3376,7 @@ int journal_file_open(
                         goto fail;
         }
 
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
         if (!newly_created && f->writable) {
                 r = journal_file_fss_load(f);
                 if (r < 0)
@@ -3396,7 +3396,7 @@ int journal_file_open(
                         goto fail;
         }
 
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
         r = journal_file_hmac_setup(f);
         if (r < 0)
                 goto fail;
@@ -3411,7 +3411,7 @@ int journal_file_open(
                 if (r < 0)
                         goto fail;
 
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
                 r = journal_file_append_first_tag(f);
                 if (r < 0)
                         goto fail;
@@ -3622,7 +3622,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                         return -E2BIG;
 
                 if (o->object.flags & OBJECT_COMPRESSION_MASK) {
-#if defined(HAVE_XZ) || defined(HAVE_LZ4)
+#if HAVE_XZ || HAVE_LZ4
                         size_t rsize = 0;
 
                         r = decompress_blob(o->object.flags & OBJECT_COMPRESSION_MASK,

@@ -31,7 +31,7 @@ typedef int (compress_t)(const void *src, uint64_t src_size, void *dst,
 typedef int (decompress_t)(const void *src, uint64_t src_size,
                            void **dst, size_t *dst_alloc_size, size_t* dst_size, size_t dst_max);
 
-#if defined(HAVE_XZ) || defined(HAVE_LZ4)
+#if HAVE_XZ || HAVE_LZ4
 
 static usec_t arg_duration;
 static size_t arg_start;
@@ -157,7 +157,7 @@ static void test_compress_decompress(const char* label, const char* type,
 #endif
 
 int main(int argc, char *argv[]) {
-#if defined(HAVE_XZ) || defined(HAVE_LZ4)
+#if HAVE_XZ || HAVE_LZ4
         const char *i;
         int r;
 
@@ -183,10 +183,10 @@ int main(int argc, char *argv[]) {
                 arg_start = getpid_cached();
 
         NULSTR_FOREACH(i, "zeros\0simple\0random\0") {
-#ifdef HAVE_XZ
+#if HAVE_XZ
                 test_compress_decompress("XZ", i, compress_blob_xz, decompress_blob_xz);
 #endif
-#ifdef HAVE_LZ4
+#if HAVE_LZ4
                 test_compress_decompress("LZ4", i, compress_blob_lz4, decompress_blob_lz4);
 #endif
         }

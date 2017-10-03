@@ -33,7 +33,7 @@
 #define IMA_POLICY_PATH "/etc/ima/ima-policy"
 
 int ima_setup(void) {
-#ifdef HAVE_IMA
+#if HAVE_IMA
         _cleanup_fclose_ FILE *input = NULL;
         _cleanup_close_ int imafd = -1;
         unsigned lineno = 0;

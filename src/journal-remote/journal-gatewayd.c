@@ -946,7 +946,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TRUST:
-#ifdef HAVE_GNUTLS
+#if HAVE_GNUTLS
                         if (arg_trust_pem) {
                                 log_error("CA certificate file specified twice");
                                 return -EINVAL;

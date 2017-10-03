@@ -133,7 +133,7 @@ test_data_files = '''
         journal-data/journal-2.txt
 '''.split()
 
-if conf.get('ENABLE_RESOLVED', false)
+if conf.get('ENABLE_RESOLVED') == 1
         test_data_files += '''
                 test-resolve/_openpgpkey.fedoraproject.org.pkts
                 test-resolve/fedoraproject.org.pkts
