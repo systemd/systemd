@@ -226,6 +226,9 @@ static bool link_ipv6_accept_ra_enabled(Link *link) {
         if (!link->network)
                 return false;
 
+        if (!link_ipv6ll_enabled(link))
+                return false;
+
         /* If unset use system default (enabled if local forwarding is disabled.
          * disabled if local forwarding is enabled).
          * If set, ignore or enforce RA independent of local forwarding state.
