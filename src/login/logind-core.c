@@ -287,7 +287,7 @@ int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session) {
 
         assert(m);
 
-        if (pid < 1)
+        if (!pid_is_valid(pid))
                 return -EINVAL;
 
         r = cg_pid_get_unit(pid, &unit);
@@ -311,7 +311,7 @@ int manager_get_user_by_pid(Manager *m, pid_t pid, User **user) {
         assert(m);
         assert(user);
 
-        if (pid < 1)
+        if (!pid_is_valid(pid))
                 return -EINVAL;
 
         r = cg_pid_get_slice(pid, &unit);
