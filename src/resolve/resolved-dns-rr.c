@@ -182,6 +182,19 @@ bool dns_resource_key_is_address(const DnsResourceKey *key) {
         return key->class == DNS_CLASS_IN && IN_SET(key->type, DNS_TYPE_A, DNS_TYPE_AAAA);
 }
 
+bool dns_resource_key_is_dnssd_ptr(const DnsResourceKey *key) {
+        assert(key);
+
+        /* Check if this is a PTR resource key used in
+           Service Instance Enumeration as described in RFC6763 p4.1. */
+
+        if (key->type != DNS_TYPE_PTR)
+                return false;
+
+        return dns_name_endswith(dns_resource_key_name(key), "_tcp.local") ||
+                dns_name_endswith(dns_resource_key_name(key), "_udp.local");
+}
+
 int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b) {
         int r;
 

@@ -680,3 +680,20 @@ bool dns_zone_is_empty(DnsZone *zone) {
 
         return hashmap_isempty(zone->by_key);
 }
+
+bool dns_zone_contains_name(DnsZone *z, const char *name) {
+        DnsZoneItem *i, *first;
+
+        first = hashmap_get(z->by_name, name);
+        if (!first)
+                return false;
+
+        LIST_FOREACH(by_name, i, first) {
+                if (!IN_SET(i->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
+                        continue;
+
+                return true;
+        }
+
+        return false;
+}

@@ -84,3 +84,4 @@ void dns_zone_item_probe_stop(DnsZoneItem *i);
 
 void dns_zone_dump(DnsZone *zone, FILE *f);
 bool dns_zone_is_empty(DnsZone *zone);
+bool dns_zone_contains_name(DnsZone *z, const char *name);

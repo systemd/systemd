@@ -29,6 +29,7 @@
 #include "random-util.h"
 #include "resolved-dnssd.h"
 #include "resolved-dns-scope.h"
+#include "resolved-dns-zone.h"
 #include "resolved-llmnr.h"
 #include "resolved-mdns.h"
 #include "socket-util.h"
@@ -1065,7 +1066,12 @@ static int on_announcement_timeout(sd_event_source *s, usec_t usec, void *userda
 int dns_scope_announce(DnsScope *scope, bool goodbye) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        LinkAddress *a;
+        _cleanup_set_free_ Set *types = NULL;
+        DnsTransaction *t;
+        DnsZoneItem *z;
+        unsigned size = 0;
+        Iterator iterator;
+        char *service_type;
         int r;
 
         if (!scope)
@@ -1074,18 +1080,79 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
         if (scope->protocol != DNS_PROTOCOL_MDNS)
                 return 0;
 
-        answer = dns_answer_new(scope->link->n_addresses * 2);
+        /* Check if we're done with probing. */
+        LIST_FOREACH(transactions_by_scope, t, scope->transactions)
+                if (DNS_TRANSACTION_IS_LIVE(t->state))
+                        return 0;
+
+        /* Calculate answer's size. */
+        HASHMAP_FOREACH(z, scope->zone.by_key, iterator) {
+                if (z->state != DNS_ZONE_ITEM_ESTABLISHED)
+                        continue;
+
+                if (z->rr->key->type == DNS_TYPE_PTR &&
+                    !dns_zone_contains_name(&scope->zone, z->rr->ptr.name)) {
+                        char key_str[DNS_RESOURCE_KEY_STRING_MAX];
+
+                        log_debug("Skip PTR RR <%s> since its counterparts seem to be withdrawn", dns_resource_key_to_string(z->rr->key, key_str, sizeof key_str));
+                        z->state = DNS_ZONE_ITEM_WITHDRAWN;
+                        continue;
+                }
+
+                /* Collect service types for _services._dns-sd._udp.local RRs in a set */
+                if (!scope->announced &&
+                    dns_resource_key_is_dnssd_ptr(z->rr->key)) {
+                        if (!set_contains(types, dns_resource_key_name(z->rr->key))) {
+                                r = set_ensure_allocated(&types, &dns_name_hash_ops);
+                                if (r < 0)
+                                        return log_debug_errno(r, "Failed to allocate set: %m");
+
+                                r = set_put(types, dns_resource_key_name(z->rr->key));
+                                if (r < 0)
+                                        return log_debug_errno(r, "Failed to add item to set: %m");
+                        }
+                }
+
+                size++;
+        }
+
+        answer = dns_answer_new(size + set_size(types));
         if (!answer)
                 return log_oom();
 
-        LIST_FOREACH(addresses, a, scope->link->addresses) {
-                r = dns_answer_add(answer, a->mdns_address_rr, 0, goodbye ? DNS_ANSWER_GOODBYE : DNS_ANSWER_CACHE_FLUSH);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to add address RR to answer: %m");
+        /* Second iteration, actually add RRs to the answer. */
+        HASHMAP_FOREACH(z, scope->zone.by_key, iterator) {
+                DnsAnswerFlags flags;
 
-                r = dns_answer_add(answer, a->mdns_ptr_rr, 0, goodbye ? DNS_ANSWER_GOODBYE : DNS_ANSWER_CACHE_FLUSH);
+                if (z->state != DNS_ZONE_ITEM_ESTABLISHED)
+                        continue;
+
+                if (dns_resource_key_is_dnssd_ptr(z->rr->key))
+                        flags = goodbye ? DNS_ANSWER_GOODBYE : 0;
+                else
+                        flags = goodbye ? (DNS_ANSWER_GOODBYE|DNS_ANSWER_CACHE_FLUSH) : DNS_ANSWER_CACHE_FLUSH;
+
+                r = dns_answer_add(answer, z->rr, 0 , flags);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to add PTR RR to answer: %m");
+                        return log_debug_errno(r, "Failed to add RR to announce: %m");
+        }
+
+        /* Since all the active services are in the zone make them discoverable now. */
+        SET_FOREACH(service_type, types, iterator) {
+                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr;
+
+                rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR,
+                                                  "_services._dns-sd._udp.local");
+                rr->ptr.name = strdup(service_type);
+                rr->ttl = MDNS_DEFAULT_TTL;
+
+                r = dns_zone_put(&scope->zone, scope, rr, false);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to add DNS-SD PTR record to MDNS zone: %m");
+
+                r = dns_answer_add(answer, rr, 0 , 0);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to add RR to announce: %m");
         }
 
         if (dns_answer_isempty(answer))
