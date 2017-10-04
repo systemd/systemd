@@ -129,7 +129,7 @@ static int parse_crtime(le64_t le, usec_t *usec) {
         assert(usec);
 
         u = le64toh(le);
-        if (u == 0 || u == (uint64_t) -1)
+        if (IN_SET(u, 0, (uint64_t) -1))
                 return -EIO;
 
         *usec = (usec_t) u;

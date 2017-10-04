@@ -37,7 +37,7 @@ int import_make_read_only_fd(int fd) {
         /* First, let's make this a read-only subvolume if it refers
          * to a subvolume */
         r = btrfs_subvol_set_read_only_fd(fd, true);
-        if (r == -ENOTTY || r == -ENOTDIR || r == -EINVAL) {
+        if (IN_SET(r, -ENOTTY, -ENOTDIR, -EINVAL)) {
                 struct stat st;
 
                 /* This doesn't refer to a subvolume, or the file

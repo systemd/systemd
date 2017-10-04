@@ -90,9 +90,7 @@ static bool hostname_valid_char(char c) {
                 (c >= 'a' && c <= 'z') ||
                 (c >= 'A' && c <= 'Z') ||
                 (c >= '0' && c <= '9') ||
-                c == '-' ||
-                c == '_' ||
-                c == '.';
+                IN_SET(c, '-', '_', '.');
 }
 
 /**
@@ -235,7 +233,7 @@ int read_hostname_config(const char *path, char **hostname) {
         /* may have comments, ignore them */
         FOREACH_LINE(l, f, return -errno) {
                 truncate_nl(l);
-                if (l[0] != '\0' && l[0] != '#') {
+                if (!IN_SET(l[0], '\0', '#')) {
                         /* found line with value */
                         name = hostname_cleanup(l);
                         name = strdup(name);

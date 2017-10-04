@@ -294,7 +294,7 @@ static void test_discover_message(sd_event *e) {
 
         res = sd_dhcp_client_start(client);
 
-        assert_se(res == 0 || res == -EINPROGRESS);
+        assert_se(IN_SET(res, 0, -EINPROGRESS));
 
         sd_event_run(e, (uint64_t) -1);
 
@@ -513,7 +513,7 @@ static void test_addr_acq(sd_event *e) {
                                     test_dhcp_hangcheck, NULL) >= 0);
 
         res = sd_dhcp_client_start(client);
-        assert_se(res == 0 || res == -EINPROGRESS);
+        assert_se(IN_SET(res, 0, -EINPROGRESS));
 
         assert_se(sd_event_loop(e) >= 0);
 

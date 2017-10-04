@@ -55,7 +55,7 @@ static int test_unit_file_get_set(void) {
 
         r = unit_file_get_list(UNIT_FILE_SYSTEM, NULL, h, NULL, NULL);
 
-        if (r == -EPERM || r == -EACCES) {
+        if (IN_SET(r, -EPERM, -EACCES)) {
                 log_notice_errno(r, "Skipping test: unit_file_get_list: %m");
                 return EXIT_TEST_SKIP;
         }

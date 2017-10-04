@@ -426,7 +426,7 @@ char *octescape(const char *s, size_t len) {
 
         for (f = s, t = r; f < s + len; f++) {
 
-                if (*f < ' ' || *f >= 127 || *f == '\\' || *f == '"') {
+                if (*f < ' ' || *f >= 127 || IN_SET(*f, '\\', '"')) {
                         *(t++) = '\\';
                         *(t++) = '0' + (*f >> 6);
                         *(t++) = '0' + ((*f >> 3) & 8);

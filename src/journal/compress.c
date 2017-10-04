@@ -280,7 +280,7 @@ int decompress_startswith_xz(const void *src, uint64_t src_size,
         for (;;) {
                 ret = lzma_code(&s, LZMA_FINISH);
 
-                if (ret != LZMA_STREAM_END && ret != LZMA_OK)
+                if (!IN_SET(ret, LZMA_OK, LZMA_STREAM_END))
                         return -EBADMSG;
 
                 if (*buffer_size - s.avail_out >= prefix_len + 1)
@@ -417,7 +417,7 @@ int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
                 }
 
                 ret = lzma_code(&s, action);
-                if (ret != LZMA_OK && ret != LZMA_STREAM_END) {
+                if (!IN_SET(ret, LZMA_OK, LZMA_STREAM_END)) {
                         log_error("Compression failed: code %u", ret);
                         return -EBADMSG;
                 }
@@ -579,7 +579,7 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
                 }
 
                 ret = lzma_code(&s, action);
-                if (ret != LZMA_OK && ret != LZMA_STREAM_END) {
+                if (!IN_SET(ret, LZMA_OK, LZMA_STREAM_END)) {
                         log_debug("Decompression failed: code %u", ret);
                         return -EBADMSG;
                 }

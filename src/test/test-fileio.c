@@ -393,7 +393,7 @@ static void test_capeff(void) {
                 r = get_process_capeff(0, &capeff);
                 log_info("capeff: '%s' (r=%d)", capeff, r);
 
-                if (r == -ENOENT || r == -EPERM)
+                if (IN_SET(r, -ENOENT, -EPERM))
                         return;
 
                 assert_se(r == 0);
@@ -479,15 +479,15 @@ static void test_write_string_file_verify(void) {
         assert_se((buf2 = strjoin(buf, "\n")));
 
         r = write_string_file("/proc/cmdline", buf, 0);
-        assert_se(r == -EACCES || r == -EIO);
+        assert_se(IN_SET(r, -EACCES, -EIO));
         r = write_string_file("/proc/cmdline", buf2, 0);
-        assert_se(r == -EACCES || r == -EIO);
+        assert_se(IN_SET(r, -EACCES, -EIO));
 
         assert_se(write_string_file("/proc/cmdline", buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE) == 0);
         assert_se(write_string_file("/proc/cmdline", buf2, WRITE_STRING_FILE_VERIFY_ON_FAILURE) == 0);
 
         r = write_string_file("/proc/cmdline", buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE|WRITE_STRING_FILE_AVOID_NEWLINE);
-        assert_se(r == -EACCES || r == -EIO);
+        assert_se(IN_SET(r, -EACCES, -EIO));
         assert_se(write_string_file("/proc/cmdline", buf2, WRITE_STRING_FILE_VERIFY_ON_FAILURE|WRITE_STRING_FILE_AVOID_NEWLINE) == 0);
 }
 

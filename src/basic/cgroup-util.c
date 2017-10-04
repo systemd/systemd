@@ -374,7 +374,7 @@ int cg_kill_recursive(
 
         if (flags & CGROUP_REMOVE) {
                 r = cg_rmdir(controller, path);
-                if (r < 0 && ret >= 0 && r != -ENOENT && r != -EBUSY)
+                if (r < 0 && ret >= 0 && !IN_SET(r, -ENOENT, -EBUSY))
                         return r;
         }
 
@@ -509,7 +509,7 @@ int cg_migrate_recursive(
 
         if (flags & CGROUP_REMOVE) {
                 r = cg_rmdir(cfrom, pfrom);
-                if (r < 0 && ret >= 0 && r != -ENOENT && r != -EBUSY)
+                if (r < 0 && ret >= 0 && !IN_SET(r, -ENOENT, -EBUSY))
                         return r;
         }
 
@@ -1883,9 +1883,7 @@ char *cg_escape(const char *p) {
         /* The return value of this function (unlike cg_unescape())
          * needs free()! */
 
-        if (p[0] == 0 ||
-            p[0] == '_' ||
-            p[0] == '.' ||
+        if (IN_SET(p[0], 0, '_', '.') ||
             streq(p, "notify_on_release") ||
             streq(p, "release_agent") ||
             streq(p, "tasks") ||
@@ -1951,7 +1949,7 @@ bool cg_controller_is_valid(const char *p) {
         if (s)
                 p = s;
 
-        if (*p == 0 || *p == '_')
+        if (IN_SET(*p, 0, '_'))
                 return false;
 
         for (t = p; *t; t++)
@@ -2003,7 +2001,7 @@ int cg_slice_to_path(const char *unit, char **ret) {
                 char n[dash - p + sizeof(".slice")];
 
                 /* Don't allow trailing or double dashes */
-                if (dash[1] == 0 || dash[1] == '-')
+                if (IN_SET(dash[1], 0, '-'))
                         return -EINVAL;
 
                 strcpy(stpncpy(n, p, dash - p), ".slice");

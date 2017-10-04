@@ -190,7 +190,7 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
                 return -EOPNOTSUPP;
 
         /* We only support the IN class */
-        if (key->class != DNS_CLASS_IN && key->class != DNS_CLASS_ANY)
+        if (!IN_SET(key->class, DNS_CLASS_IN, DNS_CLASS_ANY))
                 return -EOPNOTSUPP;
 
         if (hashmap_size(s->manager->dns_transactions) >= TRANSACTIONS_MAX)
@@ -1593,7 +1593,7 @@ int dns_transaction_go(DnsTransaction *t) {
                         log_debug("Sending query via TCP since it is too large.");
                 else if (r == -EAGAIN)
                         log_debug("Sending query via TCP since server doesn't support UDP.");
-                if (r == -EMSGSIZE || r == -EAGAIN)
+                if (IN_SET(r, -EMSGSIZE, -EAGAIN))
                         r = dns_transaction_open_tcp(t);
         }
 

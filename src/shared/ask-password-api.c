@@ -337,7 +337,7 @@ int ask_password_tty(
                                 backspace_chars(ttyfd, p);
                         p = 0;
 
-                } else if (c == '\b' || c == 127) {
+                } else if (IN_SET(c, '\b', 127)) {
 
                         if (p > 0) {
 

@@ -313,7 +313,7 @@ int image_find(const char *name, Image **ret) {
                 }
 
                 r = image_make(NULL, dirfd(d), path, name, ret);
-                if (r == 0 || r == -ENOENT) {
+                if (IN_SET(r, 0, -ENOENT)) {
                         _cleanup_free_ char *raw = NULL;
 
                         raw = strappend(name, ".raw");
@@ -321,7 +321,7 @@ int image_find(const char *name, Image **ret) {
                                 return -ENOMEM;
 
                         r = image_make(NULL, dirfd(d), path, raw, ret);
-                        if (r == 0 || r == -ENOENT)
+                        if (IN_SET(r, 0, -ENOENT))
                                 continue;
                 }
                 if (r < 0)
@@ -364,7 +364,7 @@ int image_discover(Hashmap *h) {
                                 continue;
 
                         r = image_make(NULL, dirfd(d), path, de->d_name, &image);
-                        if (r == 0 || r == -ENOENT)
+                        if (IN_SET(r, 0, -ENOENT))
                                 continue;
                         if (r < 0)
                                 return r;

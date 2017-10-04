@@ -383,8 +383,7 @@ int dns_synthesize_answer(
                 const char *name;
                 int af;
 
-                if (key->class != DNS_CLASS_IN &&
-                    key->class != DNS_CLASS_ANY)
+                if (!IN_SET(key->class, DNS_CLASS_IN, DNS_CLASS_ANY))
                         continue;
 
                 name = dns_resource_key_name(key);

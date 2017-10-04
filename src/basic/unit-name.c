@@ -305,7 +305,7 @@ static char *do_escape(const char *f, char *t) {
         for (; *f; f++) {
                 if (*f == '/')
                         *(t++) = '-';
-                else if (*f == '-' || *f == '\\' || !strchr(VALID_CHARS, *f))
+                else if (IN_SET(*f, '-', '\\') || !strchr(VALID_CHARS, *f))
                         t = do_escape_char(*f, t);
                 else
                         *(t++) = *f;

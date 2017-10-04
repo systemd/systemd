@@ -579,7 +579,7 @@ static int import_property_from_string(struct udev_device *dev, char *line) {
                 key++;
 
         /* comment or empty line */
-        if (key[0] == '#' || key[0] == '\0')
+        if (IN_SET(key[0], '#', '\0'))
                 return -1;
 
         /* split key/value */
@@ -613,7 +613,7 @@ static int import_property_from_string(struct udev_device *dev, char *line) {
                 return -1;
 
         /* unquote */
-        if (val[0] == '"' || val[0] == '\'') {
+        if (IN_SET(val[0], '"', '\'')) {
                 if (len == 1 || val[len-1] != val[0]) {
                         log_debug("inconsistent quoting: '%s', skip", line);
                         return -1;
@@ -741,7 +741,7 @@ static int get_key(struct udev *udev, char **line, char **key, enum operation_ty
                         break;
                 if (linepos[0] == '=')
                         break;
-                if ((linepos[0] == '+') || (linepos[0] == '-') || (linepos[0] == '!') || (linepos[0] == ':'))
+                if (IN_SET(linepos[0], '+', '-', '!', ':'))
                         if (linepos[1] == '=')
                                 break;
         }
@@ -1968,7 +1968,7 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                                 int count;
 
                                 util_remove_trailing_chars(result, '\n');
-                                if (esc == ESCAPE_UNSET || esc == ESCAPE_REPLACE) {
+                                if (IN_SET(esc, ESCAPE_UNSET, ESCAPE_REPLACE)) {
                                         count = util_replace_chars(result, UDEV_ALLOWED_CHARS_INPUT);
                                         if (count > 0)
                                                 log_debug("%i character(s) replaced" , count);
@@ -2219,7 +2219,7 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                         else
                                 label = rules_str(rules, cur->key.value_off);
 
-                        if (cur->key.op == OP_ASSIGN || cur->key.op == OP_ASSIGN_FINAL)
+                        if (IN_SET(cur->key.op, OP_ASSIGN, OP_ASSIGN_FINAL))
                                 udev_list_cleanup(&event->seclabel_list);
                         udev_list_entry_add(&event->seclabel_list, name, label);
                         log_debug("SECLABEL{%s}='%s' %s:%u",
@@ -2260,13 +2260,13 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                         const char *p;
 
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), tag, sizeof(tag), false);
-                        if (cur->key.op == OP_ASSIGN || cur->key.op == OP_ASSIGN_FINAL)
+                        if (IN_SET(cur->key.op, OP_ASSIGN, OP_ASSIGN_FINAL))
                                 udev_device_cleanup_tags_list(event->dev);
                         for (p = tag; *p != '\0'; p++) {
                                 if ((*p >= 'a' && *p <= 'z') ||
                                     (*p >= 'A' && *p <= 'Z') ||
                                     (*p >= '0' && *p <= '9') ||
-                                    *p == '-' || *p == '_')
+                                    IN_SET(*p, '-', '_'))
                                         continue;
                                 log_error("ignoring invalid tag name '%s'", tag);
                                 break;
@@ -2288,7 +2288,7 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                         if (cur->key.op == OP_ASSIGN_FINAL)
                                 event->name_final = true;
                         udev_event_apply_format(event, name, name_str, sizeof(name_str), false);
-                        if (esc == ESCAPE_UNSET || esc == ESCAPE_REPLACE) {
+                        if (IN_SET(esc, ESCAPE_UNSET, ESCAPE_REPLACE)) {
                                 count = util_replace_chars(name_str, "/");
                                 if (count > 0)
                                         log_debug("%i character(s) replaced", count);
@@ -2323,7 +2323,7 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                                 break;
                         if (cur->key.op == OP_ASSIGN_FINAL)
                                 event->devlink_final = true;
-                        if (cur->key.op == OP_ASSIGN || cur->key.op == OP_ASSIGN_FINAL)
+                        if (IN_SET(cur->key.op, OP_ASSIGN, OP_ASSIGN_FINAL))
                                 udev_device_cleanup_devlinks_list(event->dev);
 
                         /* allow  multiple symlinks separated by spaces */
@@ -2396,7 +2396,7 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                 case TK_A_RUN_PROGRAM: {
                         struct udev_list_entry *entry;
 
-                        if (cur->key.op == OP_ASSIGN || cur->key.op == OP_ASSIGN_FINAL)
+                        if (IN_SET(cur->key.op, OP_ASSIGN, OP_ASSIGN_FINAL))
                                 udev_list_cleanup(&event->run_list);
                         log_debug("RUN '%s' %s:%u",
                                   rules_str(rules, cur->key.value_off),

@@ -917,7 +917,7 @@ static int append_process(sd_bus_message *reply, const char *p, pid_t pid, Set *
         assert(pid > 0);
 
         r = set_put(pids, PID_TO_PTR(pid));
-        if (r == -EEXIST || r == 0)
+        if (IN_SET(r, 0, -EEXIST))
                 return 0;
         if (r < 0)
                 return r;

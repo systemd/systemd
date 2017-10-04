@@ -194,7 +194,7 @@ static void test_compress_stream(int compression,
 
         assert_se(lseek(dst, 1, SEEK_SET) == 1);
         r = decompress(dst, dst2, st.st_size);
-        assert_se(r == -EBADMSG || r == 0);
+        assert_se(IN_SET(r, 0, -EBADMSG));
 
         assert_se(lseek(dst, 0, SEEK_SET) == 0);
         assert_se(lseek(dst2, 0, SEEK_SET) == 0);

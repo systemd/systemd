@@ -892,7 +892,7 @@ bool ifname_valid(const char *p) {
                 if ((unsigned char) *p <= 32U)
                         return false;
 
-                if (*p == ':' || *p == '/')
+                if (IN_SET(*p, ':', '/'))
                         return false;
 
                 numeric = numeric && (*p >= '0' && *p <= '9');

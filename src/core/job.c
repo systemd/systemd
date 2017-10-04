@@ -681,7 +681,7 @@ _pure_ static const char *job_get_status_message_format(Unit *u, JobType t, JobR
         /* Return generic strings */
         if (t == JOB_START)
                 return generic_finished_start_job[result];
-        else if (t == JOB_STOP || t == JOB_RESTART)
+        else if (IN_SET(t, JOB_STOP, JOB_RESTART))
                 return generic_finished_stop_job[result];
         else if (t == JOB_RELOAD)
                 return generic_finished_reload_job[result];

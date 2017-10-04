@@ -683,7 +683,7 @@ void json_escape(
                 fputc('\"', f);
 
                 while (l > 0) {
-                        if (*p == '"' || *p == '\\') {
+                        if (IN_SET(*p, '"', '\\')) {
                                 fputc('\\', f);
                                 fputc(*p, f);
                         } else if (*p == '\n')

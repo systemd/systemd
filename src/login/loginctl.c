@@ -407,7 +407,7 @@ static int prop_map_first_of_struct(sd_bus *bus, const char *member, sd_bus_mess
         if (r < 0)
                 return r;
 
-        if (contents[0] == 's' || contents[0] == 'o') {
+        if (IN_SET(contents[0], 's', 'o')) {
                 const char *s;
                 char **p = (char **) userdata;
 

@@ -472,14 +472,14 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
                 while ((x = set_steal_first(todo))) {
 
                         r = set_consume(done, x);
-                        if (r == -EEXIST || r == 0)
+                        if (IN_SET(r, 0, -EEXIST))
                                 continue;
                         if (r < 0)
                                 return r;
 
                         /* Deal with mount points that are obstructed by a later mount */
                         r = path_is_mount_point(x, NULL, 0);
-                        if (r == -ENOENT || r == 0)
+                        if (IN_SET(r, 0, -ENOENT))
                                 continue;
                         if (r < 0)
                                 return r;

@@ -317,7 +317,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
                         (void) cache_space_refresh(s, &s->system_storage);
                         patch_min_use(&s->system_storage);
                 } else if (r < 0) {
-                        if (r != -ENOENT && r != -EROFS)
+                        if (!IN_SET(r, -ENOENT, -EROFS))
                                 log_warning_errno(r, "Failed to open system journal: %m");
 
                         r = 0;
@@ -1620,7 +1620,7 @@ static int server_connect_notify(Server *s) {
         if (!e)
                 return 0;
 
-        if ((e[0] != '@' && e[0] != '/') || e[1] == 0) {
+        if (!IN_SET(e[0], '@', '/') || e[1] == 0) {
                 log_error("NOTIFY_SOCKET set to an invalid value: %s", e);
                 return -EINVAL;
         }

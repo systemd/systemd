@@ -183,7 +183,7 @@ static int server_process_entry(
                         break;
                 }
 
-                if (*p == '.' || *p == '#') {
+                if (IN_SET(*p, '.', '#')) {
                         /* Ignore control commands for now, and
                          * comments too. */
                         *remaining -= (e - p) + 1;

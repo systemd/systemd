@@ -82,7 +82,7 @@ static void test_clock_is_localtime_system(void) {
                 log_info("/etc/adjtime exists, clock_is_localtime() == %i", r);
                 /* if /etc/adjtime exists we expect some answer, no error or
                  * crash */
-                assert_se(r == 0 || r == 1);
+                assert_se(IN_SET(r, 0, 1));
         } else
                 /* default is UTC if there is no /etc/adjtime */
                 assert_se(r == 0);

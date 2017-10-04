@@ -450,7 +450,7 @@ _pure_ static int compare_with_location(JournalFile *f, Location *l) {
         assert(f);
         assert(l);
         assert(f->location_type == LOCATION_SEEK);
-        assert(l->type == LOCATION_DISCRETE || l->type == LOCATION_SEEK);
+        assert(IN_SET(l->type, LOCATION_DISCRETE, LOCATION_SEEK));
 
         if (l->monotonic_set &&
             sd_id128_equal(f->current_boot_id, l->boot_id) &&

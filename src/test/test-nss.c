@@ -97,7 +97,7 @@ static int print_gaih_addrtuples(const struct gaih_addrtuple *tuples) {
 
                 memcpy(&u, it->addr, 16);
                 r = in_addr_to_string(it->family, &u, &a);
-                assert_se(r == 0 || r == -EAFNOSUPPORT);
+                assert_se(IN_SET(r, 0, -EAFNOSUPPORT));
                 if (r == -EAFNOSUPPORT)
                         assert_se((a = hexmem(it->addr, 16)));
 

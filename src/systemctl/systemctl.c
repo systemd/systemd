@@ -7815,7 +7815,7 @@ static int halt_parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         if (utmp_get_runlevel(&runlevel, NULL) >= 0)
-                if (runlevel == '0' || runlevel == '6')
+                if (IN_SET(runlevel, '0', '6'))
                         arg_force = 2;
 
         while ((c = getopt_long(argc, argv, "pfwdnih", options, NULL)) >= 0)

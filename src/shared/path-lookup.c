@@ -514,13 +514,13 @@ int lookup_paths_init(
                 /* Note: if XDG_RUNTIME_DIR is not set, this will fail completely with ENXIO */
                 r = acquire_generator_dirs(scope, tempdir,
                                            &generator, &generator_early, &generator_late);
-                if (r < 0 && r != -EOPNOTSUPP && r != -ENXIO)
+                if (r < 0 && !IN_SET(r, -EOPNOTSUPP, -ENXIO))
                         return r;
         }
 
         /* Note: if XDG_RUNTIME_DIR is not set, this will fail completely with ENXIO */
         r = acquire_transient_dir(scope, tempdir, &transient);
-        if (r < 0 && r != -EOPNOTSUPP && r != -ENXIO)
+        if (r < 0 && !IN_SET(r, -EOPNOTSUPP, -ENXIO))
                 return r;
 
         /* Note: when XDG_RUNTIME_DIR is not set this will not return -ENXIO, but simply set runtime_control to NULL */

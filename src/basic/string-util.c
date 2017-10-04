@@ -673,7 +673,7 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz) {
                 case STATE_BRACKET:
 
                         if (i >= *ibuf + isz || /* EOT */
-                            (!(*i >= '0' && *i <= '9') && *i != ';' && *i != 'm')) {
+                            (!(*i >= '0' && *i <= '9') && !IN_SET(*i, ';', 'm'))) {
                                 fputc_unlocked('\x1B', f);
                                 fputc_unlocked('[', f);
                                 state = STATE_OTHER;
