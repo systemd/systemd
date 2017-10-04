@@ -1212,7 +1212,7 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
         if (!S_ISDIR(st.st_mode))
                 return -EINVAL;
 
-        subvol_fd = openat(fd, subvolume, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+        subvol_fd = openat(fd, subvolume, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
         if (subvol_fd < 0)
                 return -errno;
 
@@ -1292,7 +1292,7 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
                                  * hence we need to open the
                                  * containing directory first */
 
-                                child_fd = openat(subvol_fd, ino_args.name, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+                                child_fd = openat(subvol_fd, ino_args.name, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
                                 if (child_fd < 0)
                                         return -errno;
 
@@ -1641,7 +1641,7 @@ static int subvol_snapshot_children(int old_fd, int new_fd, const char *subvolum
                         if (!c)
                                 return -ENOMEM;
 
-                        old_child_fd = openat(old_fd, c, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+                        old_child_fd = openat(old_fd, c, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
                         if (old_child_fd < 0)
                                 return -errno;
 
@@ -1649,7 +1649,7 @@ static int subvol_snapshot_children(int old_fd, int new_fd, const char *subvolum
                         if (!np)
                                 return -ENOMEM;
 
-                        new_child_fd = openat(new_fd, np, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+                        new_child_fd = openat(new_fd, np, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
                         if (new_child_fd < 0)
                                 return -errno;
 
@@ -1660,7 +1660,7 @@ static int subvol_snapshot_children(int old_fd, int new_fd, const char *subvolum
                                  * into place. */
 
                                 if (subvolume_fd < 0) {
-                                        subvolume_fd = openat(new_fd, subvolume, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+                                        subvolume_fd = openat(new_fd, subvolume, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
                                         if (subvolume_fd < 0)
                                                 return -errno;
                                 }
