@@ -276,3 +276,10 @@ int signal_from_string_try_harder(const char *s) {
 void nop_signal_handler(int sig) {
         /* nothing here */
 }
+
+int sigrtmin;
+int sigrtmax;
+_constructor_ static void init_sigrtmin(void) {
+        sigrtmin = SIGRTMIN;
+        sigrtmax = SIGRTMAX;
+}
