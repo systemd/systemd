@@ -632,7 +632,7 @@ int dns_scope_make_reply_packet(
             dns_answer_isempty(soa))
                 return -EINVAL;
 
-        r = dns_packet_new(&p, s->protocol, 0);
+        r = dns_packet_new(&p, s->protocol, 0, DNS_PACKET_SIZE_MAX);
         if (r < 0)
                 return r;
 
@@ -818,7 +818,7 @@ static int dns_scope_make_conflict_packet(
         assert(rr);
         assert(ret);
 
-        r = dns_packet_new(&p, s->protocol, 0);
+        r = dns_packet_new(&p, s->protocol, 0, DNS_PACKET_SIZE_MAX);
         if (r < 0)
                 return r;
 

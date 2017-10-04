@@ -723,7 +723,7 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         if (ms < 0)
                 return ms;
 
-        r = dns_packet_new(&p, protocol, ms);
+        r = dns_packet_new(&p, protocol, ms, DNS_PACKET_SIZE_MAX);
         if (r < 0)
                 return r;
 

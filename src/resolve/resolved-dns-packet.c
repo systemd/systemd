@@ -43,11 +43,20 @@ static void rewind_dns_packet(DnsPacketRewinder *rewinder) {
 #define INIT_REWINDER(rewinder, p) do { rewinder.packet = p; rewinder.saved_rindex = p->rindex; } while (0)
 #define CANCEL_REWINDER(rewinder) do { rewinder.packet = NULL; } while (0)
 
-int dns_packet_new(DnsPacket **ret, DnsProtocol protocol, size_t min_alloc_dsize) {
+int dns_packet_new(
+                DnsPacket **ret,
+                DnsProtocol protocol,
+                size_t min_alloc_dsize,
+                size_t max_size) {
+
         DnsPacket *p;
         size_t a;
 
         assert(ret);
+        assert(max_size >= DNS_PACKET_HEADER_SIZE);
+
+        if (max_size > DNS_PACKET_SIZE_MAX)
+                max_size = DNS_PACKET_SIZE_MAX;
 
         /* The caller may not check what is going to be truly allocated, so do not allow to
          * allocate a DNS packet bigger than DNS_PACKET_SIZE_MAX.
@@ -70,8 +79,8 @@ int dns_packet_new(DnsPacket **ret, DnsProtocol protocol, size_t min_alloc_dsize
         a = PAGE_ALIGN(ALIGN(sizeof(DnsPacket)) + a) - ALIGN(sizeof(DnsPacket));
 
         /* make sure we never allocate more than useful */
-        if (a > DNS_PACKET_SIZE_MAX)
-                a = DNS_PACKET_SIZE_MAX;
+        if (a > max_size)
+                a = max_size;
 
         p = malloc0(ALIGN(sizeof(DnsPacket)) + a);
         if (!p)
@@ -79,6 +88,7 @@ int dns_packet_new(DnsPacket **ret, DnsProtocol protocol, size_t min_alloc_dsize
 
         p->size = p->rindex = DNS_PACKET_HEADER_SIZE;
         p->allocated = a;
+        p->max_size = max_size;
         p->protocol = protocol;
         p->opt_start = p->opt_size = (size_t) -1;
         p->n_ref = 1;
@@ -144,7 +154,7 @@ int dns_packet_new_query(DnsPacket **ret, DnsProtocol protocol, size_t min_alloc
 
         assert(ret);
 
-        r = dns_packet_new(&p, protocol, min_alloc_dsize);
+        r = dns_packet_new(&p, protocol, min_alloc_dsize, DNS_PACKET_SIZE_MAX);
         if (r < 0)
                 return r;
 
@@ -313,11 +323,13 @@ static int dns_packet_extend(DnsPacket *p, size_t add, void **ret, size_t *start
         assert(p);
 
         if (p->size + add > p->allocated) {
-                size_t a;
+                size_t a, ms;
 
                 a = PAGE_ALIGN((p->size + add) * 2);
-                if (a > DNS_PACKET_SIZE_MAX)
-                        a = DNS_PACKET_SIZE_MAX;
+
+                ms = dns_packet_size_max(p);
+                if (a > ms)
+                        a = ms;
 
                 if (p->size + add > a)
                         return -EMSGSIZE;
