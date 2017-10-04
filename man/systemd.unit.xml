@@ -469,7 +469,7 @@
 
         <para>Note that this dependency type does not imply that the other unit always has to be in active state when
         this unit is running. Specifically: failing condition checks (such as <varname>ConditionPathExists=</varname>,
-        <varname>ConditionPathExists=</varname>, … — see below) do not cause the start job of a unit with a
+        <varname>ConditionPathIsSymbolicLink=</varname>, … — see below) do not cause the start job of a unit with a
         <varname>Requires=</varname> dependency on it to fail. Also, some unit types may deactivate on their own (for
         example, a service process may decide to exit cleanly, or a device may be unplugged by the user), which is not
         propagated to units having a <varname>Requires=</varname> dependency. Use the <varname>BindsTo=</varname>
