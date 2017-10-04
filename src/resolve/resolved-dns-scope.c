@@ -27,6 +27,7 @@
 #include "hostname-util.h"
 #include "missing.h"
 #include "random-util.h"
+#include "resolved-dnssd.h"
 #include "resolved-dns-scope.h"
 #include "resolved-llmnr.h"
 #include "resolved-mdns.h"
@@ -1119,6 +1120,61 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                         return log_debug_errno(r, "Failed to schedule second announcement: %m");
 
                 (void) sd_event_source_set_description(scope->announce_event_source, "mdns-announce");
+        }
+
+        return 0;
+}
+
+int dns_scope_add_dnssd_services(DnsScope *scope) {
+        Iterator i;
+        DnssdService *service;
+        int r;
+
+        assert(scope);
+
+        if (hashmap_size(scope->manager->dnssd_services) == 0)
+                return 0;
+
+        scope->announced = false;
+
+        HASHMAP_FOREACH(service, scope->manager->dnssd_services, i) {
+                r = dns_zone_put(&scope->zone, scope, service->ptr_rr, false);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to add PTR record to MDNS zone: %m");
+
+                r = dns_zone_put(&scope->zone, scope, service->srv_rr, true);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to add SRV record to MDNS zone: %m");
+
+                r = dns_zone_put(&scope->zone, scope, service->txt_rr, true);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to add TXT record to MDNS zone: %m");
+        }
+
+        return 0;
+}
+
+int dns_scope_remove_dnssd_services(DnsScope *scope) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        Iterator i;
+        DnssdService *service;
+        int r;
+
+        assert(scope);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_PTR,
+                                   "_services._dns-sd._udp.local");
+        if (!key)
+                return log_oom();
+
+        r = dns_zone_remove_rrs_by_key(&scope->zone, key);
+        if (r < 0)
+                return r;
+
+        HASHMAP_FOREACH(service, scope->manager->dnssd_services, i) {
+                dns_zone_remove_rr(&scope->zone, service->ptr_rr);
+                dns_zone_remove_rr(&scope->zone, service->srv_rr);
+                dns_zone_remove_rr(&scope->zone, service->txt_rr);
         }
 
         return 0;

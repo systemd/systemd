@@ -119,6 +119,22 @@ void dns_zone_remove_rr(DnsZone *z, DnsResourceRecord *rr) {
                 dns_zone_item_remove_and_free(z, i);
 }
 
+int dns_zone_remove_rrs_by_key(DnsZone *z, DnsResourceKey *key) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        DnsResourceRecord *rr;
+        bool tentative;
+        int r;
+
+        r = dns_zone_lookup(z, key, 0, &answer, &soa, &tentative);
+        if (r < 0)
+                return r;
+
+        DNS_ANSWER_FOREACH(rr, answer)
+                dns_zone_remove_rr(z, rr);
+
+        return 0;
+}
+
 static int dns_zone_init(DnsZone *z) {
         int r;
 

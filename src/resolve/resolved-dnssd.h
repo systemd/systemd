@@ -55,3 +55,4 @@ int dnssd_render_instance_name(DnssdService *s, char **ret_name);
 int dnssd_load(Manager *manager);
 int dnssd_txt_item_new_from_string(const char *key, const char *value, DnsTxtItem **ret_item);
 int dnssd_txt_item_new_from_data(const char *key, const void *value, const size_t size, DnsTxtItem **ret_item);
+int dnssd_update_rrs(DnssdService *s);

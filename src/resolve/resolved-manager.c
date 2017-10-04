@@ -1104,6 +1104,7 @@ int manager_find_ifindex(Manager *m, int family, const union in_addr_union *in_a
 void manager_refresh_rrs(Manager *m) {
         Iterator i;
         Link *l;
+        DnssdService *s;
 
         assert(m);
 
@@ -1111,6 +1112,11 @@ void manager_refresh_rrs(Manager *m) {
         m->llmnr_host_ipv6_key = dns_resource_key_unref(m->llmnr_host_ipv6_key);
         m->mdns_host_ipv4_key = dns_resource_key_unref(m->mdns_host_ipv4_key);
         m->mdns_host_ipv6_key = dns_resource_key_unref(m->mdns_host_ipv6_key);
+
+        if (m->mdns_support == RESOLVE_SUPPORT_YES)
+                HASHMAP_FOREACH(s, m->dnssd_services, i)
+                        if (dnssd_update_rrs(s) < 0)
+                                log_warning("Failed to refresh DNS-SD service '%s'", s->name);
 
         HASHMAP_FOREACH(l, m->links, i) {
                 link_add_rrs(l, true);

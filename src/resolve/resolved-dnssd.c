@@ -119,6 +119,10 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
 
         service->manager = manager;
 
+        r = dnssd_update_rrs(service);
+        if (r < 0)
+                return r;
+
         service = NULL;
 
         return 0;
@@ -190,6 +194,73 @@ int dnssd_load(Manager *manager) {
         }
 
         return 0;
+}
+
+int dnssd_update_rrs(DnssdService *s) {
+        _cleanup_free_ char *n = NULL;
+        _cleanup_free_ char *service_name = NULL;
+        _cleanup_free_ char *full_name = NULL;
+        int r;
+
+        assert(s);
+        assert(s->txt);
+        assert(s->manager);
+
+        s->ptr_rr = dns_resource_record_unref(s->ptr_rr);
+        s->srv_rr = dns_resource_record_unref(s->srv_rr);
+        s->txt_rr = dns_resource_record_unref(s->txt_rr);
+
+        r = dnssd_render_instance_name(s, &n);
+        if (r < 0)
+                return r;
+
+        r = dns_name_concat(s->type, "local", &service_name);
+        if (r < 0)
+                return r;
+        r = dns_name_concat(n, service_name, &full_name);
+        if (r < 0)
+                return r;
+
+        s->txt_rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_TXT,
+                                                 full_name);
+        if (!s->txt_rr)
+                goto oom;
+
+        s->txt_rr->ttl = MDNS_DEFAULT_TTL;
+        s->txt_rr->txt.items = dns_txt_item_copy(s->txt);
+        if (!s->txt_rr->txt.items)
+                goto oom;
+
+        s->ptr_rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR,
+                                                 service_name);
+        if (!s->ptr_rr)
+                goto oom;
+
+        s->ptr_rr->ttl = MDNS_DEFAULT_TTL;
+        s->ptr_rr->ptr.name = strdup(full_name);
+        if (!s->ptr_rr->ptr.name)
+                goto oom;
+
+        s->srv_rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SRV,
+                                                 full_name);
+        if (!s->srv_rr)
+                goto oom;
+
+        s->srv_rr->ttl = MDNS_DEFAULT_TTL;
+        s->srv_rr->srv.priority = s->priority;
+        s->srv_rr->srv.weight = s->weight;
+        s->srv_rr->srv.port = s->port;
+        s->srv_rr->srv.name = strdup(s->manager->mdns_hostname);
+        if (!s->srv_rr->srv.name)
+                goto oom;
+
+        return 0;
+
+oom:
+        s->txt_rr = dns_resource_record_unref(s->txt_rr);
+        s->ptr_rr = dns_resource_record_unref(s->ptr_rr);
+        s->srv_rr = dns_resource_record_unref(s->srv_rr);
+        return -ENOMEM;
 }
 
 int dnssd_txt_item_new_from_string(const char *key, const char *value, DnsTxtItem **ret_item) {

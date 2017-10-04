@@ -68,6 +68,7 @@ void dns_zone_flush(DnsZone *z);
 
 int dns_zone_put(DnsZone *z, DnsScope *s, DnsResourceRecord *rr, bool probe);
 void dns_zone_remove_rr(DnsZone *z, DnsResourceRecord *rr);
+int dns_zone_remove_rrs_by_key(DnsZone *z, DnsResourceKey *key);
 
 int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, int ifindex, DnsAnswer **answer, DnsAnswer **soa, bool *tentative);
 
