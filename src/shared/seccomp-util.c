@@ -699,8 +699,8 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .name = "@reboot",
                 .help = "Reboot and reboot preparation/kexec",
                 .value =
-                "kexec\0"
                 "kexec_file_load\0"
+                "kexec_load\0"
                 "reboot\0"
         },
         [SYSCALL_FILTER_SET_RESOURCES] = {
