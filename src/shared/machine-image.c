@@ -171,9 +171,8 @@ static int image_make(
 
         assert(filename);
 
-        /* We explicitly *do* follow symlinks here, since we want to
-         * allow symlinking trees into /var/lib/machines/, and treat
-         * them normally. */
+        /* We explicitly *do* follow symlinks here, since we want to allow symlinking trees, raw files and block
+         * devices into /var/lib/machines/, and treat them normally. */
 
         if (fstatat(dfd, filename, &st, 0) < 0)
                 return -errno;
@@ -284,6 +283,58 @@ static int image_make(
 
                 (*ret)->usage = (*ret)->usage_exclusive = st.st_blocks * 512;
                 (*ret)->limit = (*ret)->limit_exclusive = st.st_size;
+
+                return 1;
+
+        } else if (S_ISBLK(st.st_mode)) {
+                _cleanup_close_ int block_fd = -1;
+                uint64_t size = UINT64_MAX;
+
+                /* A block device */
+
+                if (!ret)
+                        return 1;
+
+                if (!pretty)
+                        pretty = filename;
+
+                block_fd = openat(dfd, filename, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+                if (block_fd < 0)
+                        log_debug_errno(errno, "Failed to open block device %s/%s, ignoring: %m", path, filename);
+                else {
+                        if (fstat(block_fd, &st) < 0)
+                                return -errno;
+                        if (!S_ISBLK(st.st_mode)) /* Verify that what we opened is actually what we think it is */
+                                return -ENOTTY;
+
+                        if (!read_only) {
+                                int state = 0;
+
+                                if (ioctl(block_fd, BLKROGET, &state) < 0)
+                                        log_debug_errno(errno, "Failed to issue BLKROGET on device %s/%s, ignoring: %m", path, filename);
+                                else if (state)
+                                        read_only = true;
+                        }
+
+                        if (ioctl(block_fd, BLKGETSIZE64, &size) < 0)
+                                log_debug_errno(errno, "Failed to issue BLKFLSBUF on device %s/%s, ignoring: %m", path, filename);
+
+                        block_fd = safe_close(block_fd);
+                }
+
+                r = image_new(IMAGE_BLOCK,
+                              pretty,
+                              path,
+                              filename,
+                              !(st.st_mode & 0222) || read_only,
+                              0,
+                              0,
+                              ret);
+                if (r < 0)
+                        return r;
+
+                if (size != 0 && size != UINT64_MAX)
+                        (*ret)->usage = (*ret)->usage_exclusive = (*ret)->limit = (*ret)->limit_exclusive = size;
 
                 return 1;
         }
@@ -446,6 +497,17 @@ int image_remove(Image *i) {
 
                 break;
 
+        case IMAGE_BLOCK:
+
+                /* If this is inside of /dev, then it's a real block device, hence let's not touch the device node
+                 * itself (but let's remove the stuff stored alongside it). If it's anywhere else, let's try to unlink
+                 * the thing (it's most likely a symlink after all). */
+
+                if (path_startswith(i->path, "/dev"))
+                        break;
+
+                /* fallthrough */
+
         case IMAGE_RAW:
                 if (unlink(i->path) < 0)
                         return -errno;
@@ -533,6 +595,15 @@ int image_rename(Image *i, const char *new_name) {
                 /* fall through */
 
         case IMAGE_SUBVOLUME:
+                new_path = file_in_same_dir(i->path, new_name);
+                break;
+
+        case IMAGE_BLOCK:
+
+                /* Refuse renaming raw block devices in /dev, the names are picked by udev after all. */
+                if (path_startswith(i->path, "/dev"))
+                        return -EROFS;
+
                 new_path = file_in_same_dir(i->path, new_name);
                 break;
 
@@ -659,6 +730,7 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
                 r = copy_file_atomic(i->path, new_path, read_only ? 0444 : 0644, FS_NOCOW_FL, COPY_REFLINK);
                 break;
 
+        case IMAGE_BLOCK:
         default:
                 return -EOPNOTSUPP;
         }
@@ -737,6 +809,26 @@ int image_read_only(Image *i, bool b) {
                 break;
         }
 
+        case IMAGE_BLOCK: {
+                _cleanup_close_ int fd = -1;
+                struct stat st;
+                int state = b;
+
+                fd = open(i->path, O_CLOEXEC|O_RDONLY|O_NONBLOCK|O_NOCTTY);
+                if (fd < 0)
+                        return -errno;
+
+                if (fstat(fd, &st) < 0)
+                        return -errno;
+                if (!S_ISBLK(st.st_mode))
+                        return -ENOTTY;
+
+                if (ioctl(fd, BLKROSET, &state) < 0)
+                        return -errno;
+
+                break;
+        }
+
         default:
                 return -EOPNOTSUPP;
         }
@@ -772,13 +864,24 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
                 return -EBUSY;
 
         if (stat(path, &st) >= 0) {
-                if (asprintf(&p, "/run/systemd/nspawn/locks/inode-%lu:%lu", (unsigned long) st.st_dev, (unsigned long) st.st_ino) < 0)
+                if (S_ISBLK(st.st_mode))
+                        r = asprintf(&p, "/run/systemd/nspawn/locks/block-%u:%u", major(st.st_rdev), minor(st.st_rdev));
+                else if (S_ISDIR(st.st_mode) || S_ISREG(st.st_mode))
+                        r = asprintf(&p, "/run/systemd/nspawn/locks/inode-%lu:%lu", (unsigned long) st.st_dev, (unsigned long) st.st_ino);
+                else
+                        return -ENOTTY;
+
+                if (r < 0)
                         return -ENOMEM;
         }
 
-        r = make_lock_file_for(path, operation, &t);
-        if (r < 0)
-                return r;
+        /* For block devices we don't need the "local" lock, as the major/minor lock above should be sufficient, since
+         * block devices are device local anyway. */
+        if (!path_startswith(path, "/dev")) {
+                r = make_lock_file_for(path, operation, &t);
+                if (r < 0)
+                        return r;
+        }
 
         if (p) {
                 mkdir_p("/run/systemd/nspawn/locks", 0700);
@@ -860,6 +963,7 @@ static const char* const image_type_table[_IMAGE_TYPE_MAX] = {
         [IMAGE_DIRECTORY] = "directory",
         [IMAGE_SUBVOLUME] = "subvolume",
         [IMAGE_RAW] = "raw",
+        [IMAGE_BLOCK] = "block",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(image_type, ImageType);

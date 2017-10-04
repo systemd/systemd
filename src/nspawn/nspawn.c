@@ -2089,7 +2089,7 @@ static int determine_names(void) {
                                 return -ENOENT;
                         }
 
-                        if (i->type == IMAGE_RAW)
+                        if (IN_SET(i->type, IMAGE_RAW, IMAGE_BLOCK))
                                 r = free_and_strdup(&arg_image, i->path);
                         else
                                 r = free_and_strdup(&arg_directory, i->path);
