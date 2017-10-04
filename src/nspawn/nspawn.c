@@ -3883,6 +3883,10 @@ int main(int argc, char *argv[]) {
                         log_error_errno(r, "--image= is not supported, compiled without blkid support.");
                         goto finish;
                 }
+                if (r == -EPROTONOSUPPORT) {
+                        log_error_errno(r, "Device is loopback block device with partition scanning turned off, please turn it on.");
+                        goto finish;
+                }
                 if (r < 0) {
                         log_error_errno(r, "Failed to dissect image: %m");
                         goto finish;

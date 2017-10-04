@@ -216,6 +216,10 @@ int main(int argc, char *argv[]) {
                 log_error_errno(r, "No suitable root partition found in image %s.", arg_image);
                 goto finish;
         }
+        if (r == -EPROTONOSUPPORT) {
+                log_error_errno(r, "Device %s is loopback block device with partition scanning turned off, please turn it on.", arg_image);
+                goto finish;
+        }
         if (r < 0) {
                 log_error_errno(r, "Failed to dissect image: %m");
                 goto finish;
