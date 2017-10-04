@@ -193,6 +193,15 @@ CHANGES WITH 235:
         * .timer units now accept calendar specifications in other timezones
           than UTC or the local timezone.
 
+        * The tmpfiles snippet var.conf has been changed to create
+          /var/log/btmp with access mode 0660 instead of 0600. It has been
+          owned by the "utmp" group already, and it appears to be generally
+          understood that members of "utmp" can modify/flush the
+          utmp/wtmp/lastlog/btmp databases. Previously this was implemented
+          correctly for all these database excepts btmp, which has been opened
+          up like this now too. Note that while the other databases are
+          world-readable (i.e. 0644), btmp is not and remains more restrictive.
+
         Contributions from: Abdó Roig-Maranges, Alan Jenkins, Alexander
         Kuleshov, Andreas Rammhold, Andrew Jeddeloh, Andrew Soutar, Ansgar
         Burchardt, b1tninja, bengal, Benjamin Berg, Benjamin Robin, Charles
