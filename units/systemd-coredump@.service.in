@@ -34,4 +34,5 @@ RestrictAddressFamilies=AF_UNIX
 SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @mount @obsolete @raw-io @reboot @swap
 SystemCallArchitectures=native
 LockPersonality=yes
+IPAddressDeny=any
 StateDirectory=systemd/coredump
