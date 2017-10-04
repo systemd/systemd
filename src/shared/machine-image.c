@@ -483,9 +483,15 @@ int image_remove(Image *i) {
         switch (i->type) {
 
         case IMAGE_SUBVOLUME:
-                r = btrfs_subvol_remove(i->path, BTRFS_REMOVE_RECURSIVE|BTRFS_REMOVE_QUOTA);
-                if (r < 0)
-                        return r;
+
+                /* Let's unlink first, maybe it is a symlink? If that works we are happy. Otherwise, let's get out the
+                 * big guns */
+                if (unlink(i->path) < 0) {
+                        r = btrfs_subvol_remove(i->path, BTRFS_REMOVE_RECURSIVE|BTRFS_REMOVE_QUOTA);
+                        if (r < 0)
+                                return r;
+                }
+
                 break;
 
         case IMAGE_DIRECTORY:
