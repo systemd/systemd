@@ -895,7 +895,7 @@ static int get_supplementary_groups(const ExecContext *c, const char *user,
                 keep_groups = true;
         }
 
-        if (!c->supplementary_groups)
+        if (strv_isempty(c->supplementary_groups))
                 return 0;
 
         /*
@@ -969,7 +969,7 @@ static int enforce_groups(const ExecContext *context, gid_t gid,
         assert(context);
 
         /* Handle SupplementaryGroups= even if it is empty */
-        if (context->supplementary_groups) {
+        if (!strv_isempty(context->supplementary_groups)) {
                 r = maybe_setgroups(ngids, supplementary_gids);
                 if (r < 0)
                         return r;
@@ -4052,7 +4052,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
 
         fprintf(f, "%sDynamicUser: %s\n", prefix, yes_no(c->dynamic_user));
 
-        if (strv_length(c->supplementary_groups) > 0) {
+        if (!strv_isempty(c->supplementary_groups)) {
                 fprintf(f, "%sSupplementaryGroups:", prefix);
                 strv_fprintf(f, c->supplementary_groups);
                 fputs("\n", f);
