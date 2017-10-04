@@ -216,7 +216,7 @@ int catalog_file_lang(const char* filename, char **lang) {
                 return 0;
 
         beg = end - 1;
-        while (beg > filename && *beg != '.' && *beg != '/' && end - beg < 32)
+        while (beg > filename && !IN_SET(*beg, '.', '/') && end - beg < 32)
                 beg--;
 
         if (*beg != '.' || end <= beg + 1)
@@ -312,7 +312,7 @@ int catalog_import_file(Hashmap *h, const char *path) {
                     line[0] == '-' &&
                     line[1] == '-' &&
                     line[2] == ' ' &&
-                    (line[2+1+32] == ' ' || line[2+1+32] == '\0')) {
+                    IN_SET(line[2+1+32], ' ', '\0')) {
 
                         bool with_language;
                         sd_id128_t jd;

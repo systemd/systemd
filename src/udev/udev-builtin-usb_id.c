@@ -307,7 +307,7 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool 
         dev_if_packed_info(dev_usb, packed_if_str, sizeof(packed_if_str));
 
         /* mass storage : SCSI or ATAPI */
-        if (protocol == 6 || protocol == 2) {
+        if (IN_SET(protocol, 6, 2)) {
                 struct udev_device *dev_scsi;
                 const char *scsi_model, *scsi_vendor, *scsi_type, *scsi_rev;
                 int host, bus, target, lun;

@@ -87,7 +87,7 @@ static int node_symlink(struct udev_device *dev, const char *node, const char *s
                 log_debug("creating symlink '%s' to '%s'", slink, target);
                 do {
                         err = mkdir_parents_label(slink, 0755);
-                        if (err != 0 && err != -ENOENT)
+                        if (!IN_SET(err, 0, -ENOENT))
                                 break;
                         mac_selinux_create_file_prepare(slink, S_IFLNK);
                         err = symlink(target, slink);
@@ -104,7 +104,7 @@ static int node_symlink(struct udev_device *dev, const char *node, const char *s
         unlink(slink_tmp);
         do {
                 err = mkdir_parents_label(slink_tmp, 0755);
-                if (err != 0 && err != -ENOENT)
+                if (!IN_SET(err, 0, -ENOENT))
                         break;
                 mac_selinux_create_file_prepare(slink_tmp, S_IFLNK);
                 err = symlink(target, slink_tmp);
@@ -209,7 +209,7 @@ static void link_update(struct udev_device *dev, const char *slink, bool add) {
                         int fd;
 
                         err = mkdir_parents(filename, 0755);
-                        if (err != 0 && err != -ENOENT)
+                        if (!IN_SET(err, 0, -ENOENT))
                                 break;
                         fd = open(filename, O_WRONLY|O_CREAT|O_CLOEXEC|O_TRUNC|O_NOFOLLOW, 0444);
                         if (fd >= 0)

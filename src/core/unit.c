@@ -3647,7 +3647,7 @@ int unit_kill_common(
                         return -ENOMEM;
 
                 q = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, signo, 0, pid_set, NULL, NULL);
-                if (q < 0 && q != -EAGAIN && q != -ESRCH && q != -ENOENT)
+                if (q < 0 && !IN_SET(q, -EAGAIN, -ESRCH, -ENOENT))
                         r = q;
                 else
                         killed = true;
@@ -4179,7 +4179,7 @@ int unit_kill_context(
                                       pid_set,
                                       log_func, u);
                 if (r < 0) {
-                        if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
+                        if (!IN_SET(r, -EAGAIN, -ESRCH, -ENOENT))
                                 log_unit_warning_errno(u, r, "Failed to kill control group %s, ignoring: %m", u->cgroup_path);
 
                 } else if (r > 0) {

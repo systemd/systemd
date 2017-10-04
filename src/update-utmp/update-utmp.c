@@ -183,7 +183,7 @@ static int on_runlevel(Context *c) {
         q = utmp_get_runlevel(&previous, NULL);
 
         if (q < 0) {
-                if (q != -ESRCH && q != -ENOENT)
+                if (!IN_SET(q, -ESRCH, -ENOENT))
                         return log_error_errno(q, "Failed to get current runlevel: %m");
 
                 previous = 0;
@@ -213,7 +213,7 @@ static int on_runlevel(Context *c) {
 #endif
 
         q = utmp_put_runlevel(runlevel, previous);
-        if (q < 0 && q != -ESRCH && q != -ENOENT) {
+        if (q < 0 && !IN_SET(q, -ESRCH, -ENOENT)) {
                 log_error_errno(q, "Failed to write utmp record: %m");
                 r = q;
         }
@@ -249,7 +249,7 @@ int main(int argc, char *argv[]) {
         /* If the kernel lacks netlink or audit support,
          * don't worry about it. */
         c.audit_fd = audit_open();
-        if (c.audit_fd < 0 && errno != EAFNOSUPPORT && errno != EPROTONOSUPPORT)
+        if (c.audit_fd < 0 && !IN_SET(errno, EAFNOSUPPORT, EPROTONOSUPPORT))
                 log_error_errno(errno, "Failed to connect to audit log: %m");
 #endif
         r = bus_connect_system_systemd(&c.bus);

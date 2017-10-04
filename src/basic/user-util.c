@@ -543,8 +543,7 @@ bool valid_user_group_name(const char *u) {
                 if (!(*i >= 'a' && *i <= 'z') &&
                     !(*i >= 'A' && *i <= 'Z') &&
                     !(*i >= '0' && *i <= '9') &&
-                    *i != '_' &&
-                    *i != '-')
+                    !IN_SET(*i, '_', '-'))
                         return false;
         }
 

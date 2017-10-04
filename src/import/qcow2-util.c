@@ -213,8 +213,7 @@ static int verify_header(const Header *header) {
         if (HEADER_MAGIC(header) != QCOW2_MAGIC)
                 return -EBADMSG;
 
-        if (HEADER_VERSION(header) != 2 &&
-            HEADER_VERSION(header) != 3)
+        if (!IN_SET(HEADER_VERSION(header), 2, 3))
                 return -EOPNOTSUPP;
 
         if (HEADER_CRYPT_METHOD(header) != 0)

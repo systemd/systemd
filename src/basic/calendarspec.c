@@ -421,11 +421,7 @@ static int parse_weekdays(const char **p, CalendarSpec *c) {
 
                         skip = strlen(day_nr[i].name);
 
-                        if ((*p)[skip] != '-' &&
-                            (*p)[skip] != '.' &&
-                            (*p)[skip] != ',' &&
-                            (*p)[skip] != ' ' &&
-                            (*p)[skip] != 0)
+                        if (!IN_SET((*p)[skip], 0, '-', '.', ',', ' '))
                                 return -EINVAL;
 
                         c->weekdays_bits |= 1 << day_nr[i].nr;
@@ -484,7 +480,7 @@ static int parse_weekdays(const char **p, CalendarSpec *c) {
                 }
 
                 /* Allow a trailing comma but not an open range */
-                if (**p == 0 || **p == ' ') {
+                if (IN_SET(**p, 0, ' ')) {
                         *p += strspn(*p, " ");
                         return l < 0 ? 0 : -EINVAL;
                 }
@@ -644,7 +640,7 @@ static int prepend_component(const char **p, bool usec, CalendarComponent **c) {
                         return -ERANGE;
         }
 
-        if (*e != 0 && *e != ' ' && *e != ',' && *e != '-' && *e != '~' && *e != ':')
+        if (!IN_SET(*e, 0, ' ', ',', '-', '~', ':'))
                 return -EINVAL;
 
         cc = new0(CalendarComponent, 1);
@@ -741,7 +737,7 @@ static int parse_date(const char **p, CalendarSpec *c) {
                 return r;
 
         /* Already the end? A ':' as separator? In that case this was a time, not a date */
-        if (*t == 0 || *t == ':') {
+        if (IN_SET(*t, 0, ':')) {
                 free_chain(first);
                 return 0;
         }
@@ -761,7 +757,7 @@ static int parse_date(const char **p, CalendarSpec *c) {
         }
 
         /* Got two parts, hence it's month and day */
-        if (*t == ' ' || *t == 0) {
+        if (IN_SET(*t, 0, ' ')) {
                 *p = t + strspn(t, " ");
                 c->month = first;
                 c->day = second;
@@ -789,7 +785,7 @@ static int parse_date(const char **p, CalendarSpec *c) {
         }
 
         /* Got three parts, hence it is year, month and day */
-        if (*t == ' ' || *t == 0) {
+        if (IN_SET(*t, 0, ' ')) {
                 *p = t + strspn(t, " ");
                 c->year = first;
                 c->month = second;

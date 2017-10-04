@@ -87,7 +87,7 @@ int manager_read_resolv_conf(Manager *m) {
                 char *l;
 
                 l = strstrip(line);
-                if (*l == '#' || *l == ';')
+                if (IN_SET(*l, '#', ';'))
                         continue;
 
                 a = first_word(l, "nameserver");

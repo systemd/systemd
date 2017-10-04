@@ -4219,8 +4219,7 @@ _public_ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char 
                 return 1;
         }
 
-        if (c->signature[c->index] == SD_BUS_TYPE_STRUCT_BEGIN ||
-            c->signature[c->index] == SD_BUS_TYPE_DICT_ENTRY_BEGIN) {
+        if (IN_SET(c->signature[c->index], SD_BUS_TYPE_STRUCT_BEGIN, SD_BUS_TYPE_DICT_ENTRY_BEGIN)) {
 
                 if (contents) {
                         size_t l;

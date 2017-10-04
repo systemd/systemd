@@ -1669,7 +1669,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                 v++;
 
                 l = strstrip(line);
-                if (*l == '#' || *l == 0)
+                if (IN_SET(*l, 0, '#'))
                         continue;
 
                 k = parse_line(fn, v, l);

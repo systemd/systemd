@@ -248,7 +248,7 @@ static int parse_boot_descriptor(const char *x, sd_id128_t *boot_id, int *offset
                 if (r >= 0)
                         x += 32;
 
-                if (*x != '-' && *x != '+' && *x != 0)
+                if (!IN_SET(*x, 0, '-', '+'))
                         return -EINVAL;
 
                 if (*x != 0) {
@@ -1572,7 +1572,7 @@ static int setup_keys(void) {
         struct stat st;
 
         r = stat("/var/log/journal", &st);
-        if (r < 0 && errno != ENOENT && errno != ENOTDIR)
+        if (r < 0 && !IN_SET(errno, ENOENT, ENOTDIR))
                 return log_error_errno(errno, "stat(\"%s\") failed: %m", "/var/log/journal");
 
         if (r < 0 || !S_ISDIR(st.st_mode)) {

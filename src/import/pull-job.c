@@ -108,7 +108,7 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
         if (curl_easy_getinfo(curl, CURLINFO_PRIVATE, (char **)&j) != CURLE_OK)
                 return;
 
-        if (!j || j->state == PULL_JOB_DONE || j->state == PULL_JOB_FAILED)
+        if (!j || IN_SET(j->state, PULL_JOB_DONE, PULL_JOB_FAILED))
                 return;
 
         if (result != CURLE_OK) {

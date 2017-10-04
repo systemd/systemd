@@ -383,7 +383,7 @@ static int get_gateway_description(
 
         assert(rtnl);
         assert(ifindex >= 0);
-        assert(family == AF_INET || family == AF_INET6);
+        assert(IN_SET(family, AF_INET, AF_INET6));
         assert(gateway);
         assert(gateway_description);
 

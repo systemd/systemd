@@ -39,7 +39,7 @@ static bool startswith_comma(const char *s, const char *prefix) {
         if (!s)
                 return false;
 
-        return *s == ',' || *s == '\0';
+        return IN_SET(*s, ',', '\0');
 }
 
 static const char* strnulldash(const char *s) {
@@ -177,7 +177,7 @@ static int x11_read_data(Context *c) {
                 char_array_0(line);
                 l = strstrip(line);
 
-                if (l[0] == 0 || l[0] == '#')
+                if (IN_SET(l[0], 0, '#'))
                         continue;
 
                 if (in_section && first_word(l, "Option")) {
@@ -425,7 +425,7 @@ static int read_next_mapping(const char* filename,
                 (*n)++;
 
                 l = strstrip(line);
-                if (l[0] == 0 || l[0] == '#')
+                if (IN_SET(l[0], 0, '#'))
                         continue;
 
                 r = strv_split_extract(&b, l, WHITESPACE, EXTRACT_QUOTES);

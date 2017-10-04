@@ -528,7 +528,7 @@ static int client_message_init(
         assert(ret);
         assert(_optlen);
         assert(_optoffset);
-        assert(type == DHCP_DISCOVER || type == DHCP_REQUEST);
+        assert(IN_SET(type, DHCP_DISCOVER, DHCP_REQUEST));
 
         optlen = DHCP_MIN_OPTIONS_SIZE;
         size = sizeof(DHCPPacket) + optlen;
@@ -707,8 +707,7 @@ static int client_send_discover(sd_dhcp_client *client) {
         int r;
 
         assert(client);
-        assert(client->state == DHCP_STATE_INIT ||
-               client->state == DHCP_STATE_SELECTING);
+        assert(IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_SELECTING));
 
         r = client_message_init(client, &discover, DHCP_DISCOVER,
                                 &optlen, &optoffset);
@@ -1688,7 +1687,7 @@ static int client_receive_message_udp(
 
         len = recv(fd, message, buflen, 0);
         if (len < 0) {
-                if (errno == EAGAIN || errno == EINTR)
+                if (IN_SET(errno, EAGAIN, EINTR))
                         return 0;
 
                 return log_dhcp_client_errno(client, errno,
@@ -1782,7 +1781,7 @@ static int client_receive_message_raw(
 
         len = recvmsg(fd, &msg, 0);
         if (len < 0) {
-                if (errno == EAGAIN || errno == EINTR)
+                if (IN_SET(errno, EAGAIN, EINTR))
                         return 0;
 
                 return log_dhcp_client_errno(client, errno,

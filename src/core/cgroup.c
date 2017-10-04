@@ -355,7 +355,7 @@ static int whitelist_major(const char *path, const char *name, char type, const 
 
         assert(path);
         assert(acc);
-        assert(type == 'b' || type == 'c');
+        assert(IN_SET(type, 'b', 'c'));
 
         f = fopen("/proc/devices", "re");
         if (!f)

@@ -1672,7 +1672,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (arg_action == ACTION_TEST || arg_action == ACTION_HELP) {
+        if (IN_SET(arg_action, ACTION_TEST, ACTION_HELP)) {
                 pager_open(arg_no_pager, false);
                 skip_setup = true;
         }
@@ -1696,7 +1696,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        assert_se(arg_action == ACTION_RUN || arg_action == ACTION_TEST);
+        assert_se(IN_SET(arg_action, ACTION_RUN, ACTION_TEST));
 
         /* Close logging fds, in order not to confuse fdset below */
         log_close();
@@ -1892,7 +1892,7 @@ int main(int argc, char *argv[]) {
                 r = manager_load_unit(m, arg_default_unit, NULL, &error, &target);
                 if (r < 0)
                         log_error("Failed to load default target: %s", bus_error_message(&error, r));
-                else if (target->load_state == UNIT_ERROR || target->load_state == UNIT_NOT_FOUND)
+                else if (IN_SET(target->load_state, UNIT_ERROR, UNIT_NOT_FOUND))
                         log_error_errno(target->load_error, "Failed to load default target: %m");
                 else if (target->load_state == UNIT_MASKED)
                         log_error("Default target masked.");
@@ -1905,7 +1905,7 @@ int main(int argc, char *argv[]) {
                                 log_emergency("Failed to load rescue target: %s", bus_error_message(&error, r));
                                 error_message = "Failed to load rescue target";
                                 goto finish;
-                        } else if (target->load_state == UNIT_ERROR || target->load_state == UNIT_NOT_FOUND) {
+                        } else if (IN_SET(target->load_state, UNIT_ERROR, UNIT_NOT_FOUND)) {
                                 log_emergency_errno(target->load_error, "Failed to load rescue target: %m");
                                 error_message = "Failed to load rescue target";
                                 goto finish;

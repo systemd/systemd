@@ -87,7 +87,7 @@ int config_parse_duid_rawdata(
                 }
 
                 len = strlen(cbyte);
-                if (len != 1 && len != 2) {
+                if (!IN_SET(len, 1, 2)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid length - DUID byte: %s, ignoring assignment: %s.", cbyte, rvalue);
                         return 0;
                 }

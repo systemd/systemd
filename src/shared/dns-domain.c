@@ -76,7 +76,7 @@ int dns_label_unescape(const char **name, char *dest, size_t sz) {
                                 /* Ending NUL */
                                 return -EINVAL;
 
-                        else if (*n == '\\' || *n == '.') {
+                        else if (IN_SET(*n, '\\', '.')) {
                                 /* Escaped backslash or dot */
 
                                 if (d)
@@ -164,7 +164,7 @@ int dns_label_unescape_suffix(const char *name, const char **label_terminal, cha
         }
 
         terminal = *label_terminal;
-        assert(*terminal == '.' || *terminal == 0);
+        assert(IN_SET(*terminal, 0, '.'));
 
         /* Skip current terminal character (and accept domain names ending it ".") */
         if (*terminal == 0)
@@ -228,7 +228,7 @@ int dns_label_escape(const char *p, size_t l, char *dest, size_t sz) {
         q = dest;
         while (l > 0) {
 
-                if (*p == '.' || *p == '\\') {
+                if (IN_SET(*p, '.', '\\')) {
 
                         /* Dot or backslash */
 
@@ -240,8 +240,7 @@ int dns_label_escape(const char *p, size_t l, char *dest, size_t sz) {
 
                         sz -= 2;
 
-                } else if (*p == '_' ||
-                           *p == '-' ||
+                } else if (IN_SET(*p, '_', '-') ||
                            (*p >= '0' && *p <= '9') ||
                            (*p >= 'a' && *p <= 'z') ||
                            (*p >= 'A' && *p <= 'Z')) {

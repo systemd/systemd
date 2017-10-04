@@ -132,7 +132,7 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
 
                                 r = btrfs_subvol_remove_fd(fd, de->d_name, BTRFS_REMOVE_RECURSIVE|BTRFS_REMOVE_QUOTA);
                                 if (r < 0) {
-                                        if (r != -ENOTTY && r != -EINVAL) {
+                                        if (!IN_SET(r, -ENOTTY, -EINVAL)) {
                                                 if (ret == 0)
                                                         ret = r;
 
@@ -193,7 +193,7 @@ int rm_rf(const char *path, RemoveFlags flags) {
                 if (r >= 0)
                         return r;
 
-                if (r != -ENOTTY && r != -EINVAL && r != -ENOTDIR)
+                if (!IN_SET(r, -ENOTTY, -EINVAL, -ENOTDIR))
                         return r;
 
                 /* Not btrfs or not a subvolume */

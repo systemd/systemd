@@ -617,7 +617,7 @@ int main(int argc, char *argv[])
                  */
 
                 word = identify.wyde[76];
-                if (word != 0x0000 && word != 0xffff) {
+                if (!IN_SET(word, 0x0000, 0xffff)) {
                         printf("ID_ATA_SATA=1\n");
                         /*
                          * If bit 2 of word 76 is set to one, then the device supports the Gen2
@@ -661,8 +661,7 @@ int main(int argc, char *argv[])
                 }
 
                 /* from Linux's include/linux/ata.h */
-                if (identify.wyde[0] == 0x848a ||
-                    identify.wyde[0] == 0x844a ||
+                if (IN_SET(identify.wyde[0], 0x848a, 0x844a) ||
                     (identify.wyde[83] & 0xc004) == 0x4004)
                         printf("ID_ATA_CFA=1\n");
         } else {

@@ -131,7 +131,7 @@ static int condition_test_kernel_command_line(Condition *c) {
                         const char *f;
 
                         f = startswith(word, c->parameter);
-                        found = f && (*f == '=' || *f == 0);
+                        found = f && IN_SET(*f, 0, '=');
                 }
 
                 if (found)

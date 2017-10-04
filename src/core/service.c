@@ -218,7 +218,7 @@ static void service_start_watchdog(Service *s) {
         assert(s);
 
         watchdog_usec = service_get_watchdog_usec(s);
-        if (watchdog_usec == 0 || watchdog_usec == USEC_INFINITY)
+        if (IN_SET(watchdog_usec, 0, USEC_INFINITY))
                 return;
 
         if (s->watchdog_event_source) {

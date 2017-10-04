@@ -1444,7 +1444,7 @@ static int socket_determine_selinux_label(Socket *s, char **ret) {
                         goto no_label;
 
                 r = mac_selinux_get_create_label_from_exe(c->path, ret);
-                if (r == -EPERM || r == -EOPNOTSUPP)
+                if (IN_SET(r, -EPERM, -EOPNOTSUPP))
                         goto no_label;
         }
 

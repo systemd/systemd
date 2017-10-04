@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
         int a, v;
 
         v = detect_virtualization();
-        if (v == -EPERM || v == -EACCES)
+        if (IN_SET(v, -EPERM, -EACCES))
                 return EXIT_TEST_SKIP;
 
         assert_se(v >= 0);

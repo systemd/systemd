@@ -49,7 +49,7 @@ static int map_simple_field(const char *field, const char **p, struct iovec **io
                 return -ENOMEM;
 
         memcpy(c, field, l);
-        for (e = *p; *e != ' ' && *e != 0; e++) {
+        for (e = *p; !IN_SET(*e, 0, ' '); e++) {
                 if (!GREEDY_REALLOC(c, allocated, l+2))
                         return -ENOMEM;
 
@@ -110,7 +110,7 @@ static int map_string_field_internal(const char *field, const char **p, struct i
                         return -ENOMEM;
 
                 memcpy(c, field, l);
-                for (e = *p; *e != ' ' && *e != 0; e += 2) {
+                for (e = *p; !IN_SET(*e, 0, ' '); e += 2) {
                         int a, b;
                         uint8_t x;
 
@@ -167,7 +167,7 @@ static int map_generic_field(const char *prefix, const char **p, struct iovec **
 
         for (e = *p; e < *p + 16; e++) {
 
-                if (*e == 0 || *e == ' ')
+                if (IN_SET(*e, 0, ' '))
                         return 0;
 
                 if (*e == '=')
@@ -176,7 +176,7 @@ static int map_generic_field(const char *prefix, const char **p, struct iovec **
                 if (!((*e >= 'a' && *e <= 'z') ||
                       (*e >= 'A' && *e <= 'Z') ||
                       (*e >= '0' && *e <= '9') ||
-                      *e == '_' || *e == '-'))
+                      IN_SET(*e, '_', '-')))
                         return 0;
         }
 

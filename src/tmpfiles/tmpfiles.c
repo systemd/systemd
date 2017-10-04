@@ -333,7 +333,7 @@ static int dir_is_mount_point(DIR *d, const char *subdir) {
 
         /* got only one handle; assume different mount points if one
          * of both queries was not supported by the filesystem */
-        if (r_p == -ENOSYS || r_p == -EOPNOTSUPP || r == -ENOSYS || r == -EOPNOTSUPP)
+        if (IN_SET(r_p, -ENOSYS, -EOPNOTSUPP) || IN_SET(r, -ENOSYS, -EOPNOTSUPP))
                 return true;
 
         /* return error */
@@ -501,7 +501,7 @@ static int dir_cleanup(
 
                         log_debug("Removing directory \"%s\".", sub_path);
                         if (unlinkat(dirfd(d), dent->d_name, AT_REMOVEDIR) < 0)
-                                if (errno != ENOENT && errno != ENOTEMPTY) {
+                                if (!IN_SET(errno, ENOENT, ENOTEMPTY)) {
                                         log_error_errno(errno, "rmdir(%s): %m", sub_path);
                                         r = -errno;
                                 }
@@ -984,7 +984,7 @@ static int path_set_attribute(Item *item, const char *path) {
 
         r = chattr_fd(fd, f, item->attribute_mask);
         if (r < 0)
-                log_full_errno(r == -ENOTTY || r == -EOPNOTSUPP ? LOG_DEBUG : LOG_WARNING,
+                log_full_errno(IN_SET(r, -ENOTTY, -EOPNOTSUPP) ? LOG_DEBUG : LOG_WARNING,
                                r,
                                "Cannot set file attribute for '%s', value=0x%08x, mask=0x%08x: %m",
                                path, item->attribute_value, item->attribute_mask);
@@ -1075,7 +1075,7 @@ static int item_do_children(Item *i, const char *path, action_t action) {
 
         d = opendir_nomod(path);
         if (!d)
-                return errno == ENOENT || errno == ENOTDIR ? 0 : -errno;
+                return IN_SET(errno, ENOENT, ENOTDIR) ? 0 : -errno;
 
         FOREACH_DIRENT_ALL(de, d, r = -errno) {
                 _cleanup_free_ char *p = NULL;
@@ -1253,7 +1253,7 @@ static int create_item(Item *i) {
                 if (r < 0) {
                         int k;
 
-                        if (r != -EEXIST && r != -EROFS)
+                        if (!IN_SET(r, -EEXIST, -EROFS))
                                 return log_error_errno(r, "Failed to create directory or subvolume \"%s\": %m", i->path);
 
                         k = is_dir(i->path, false);
@@ -2215,7 +2215,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                 v++;
 
                 l = strstrip(line);
-                if (*l == '#' || *l == 0)
+                if (IN_SET(*l, 0, '#'))
                         continue;
 
                 k = parse_line(fn, v, l);

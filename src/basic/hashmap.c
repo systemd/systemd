@@ -508,7 +508,7 @@ static void base_remove_entry(HashmapBase *h, unsigned idx) {
         /* Find the stop bucket ("right"). It is either free or has DIB == 0. */
         for (right = next_idx(h, left); ; right = next_idx(h, right)) {
                 raw_dib = dibs[right];
-                if (raw_dib == 0 || raw_dib == DIB_RAW_FREE)
+                if (IN_SET(raw_dib, 0, DIB_RAW_FREE))
                         break;
 
                 /* The buckets are not supposed to be all occupied and with DIB > 0.

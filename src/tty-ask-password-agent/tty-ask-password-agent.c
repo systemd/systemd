@@ -206,7 +206,7 @@ static int ask_password_plymouth(
                         r = -ENOENT;
                         goto finish;
 
-                } else if (buffer[0] == 2 || buffer[0] == 9) {
+                } else if (IN_SET(buffer[0], 2, 9)) {
                         uint32_t size;
                         char **l;
 

@@ -401,7 +401,7 @@ int route_remove(Route *route, Link *link,
         assert(link->manager);
         assert(link->manager->rtnl);
         assert(link->ifindex > 0);
-        assert(route->family == AF_INET || route->family == AF_INET6);
+        assert(IN_SET(route->family, AF_INET, AF_INET6));
 
         r = sd_rtnl_message_new_route(link->manager->rtnl, &req,
                                       RTM_DELROUTE, route->family,
@@ -528,7 +528,7 @@ int route_configure(
         assert(link->manager);
         assert(link->manager->rtnl);
         assert(link->ifindex > 0);
-        assert(route->family == AF_INET || route->family == AF_INET6);
+        assert(IN_SET(route->family, AF_INET, AF_INET6));
 
         if (route_get(link, route->family, &route->dst, route->dst_prefixlen, route->tos, route->priority, route->table, NULL) <= 0 &&
             set_size(link->routes) >= routes_max())

@@ -57,7 +57,7 @@ _unused_ static int probe_filesystem(const char *node, char **ret_fstype) {
 
         errno = 0;
         r = blkid_do_safeprobe(b);
-        if (r == -2 || r == 1) {
+        if (IN_SET(r, -2, 1)) {
                 log_debug("Failed to identify any partition type on partition %s", node);
                 goto not_found;
         }
@@ -156,7 +156,7 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
 
         errno = 0;
         r = blkid_do_safeprobe(b);
-        if (r == -2 || r == 1) {
+        if (IN_SET(r, -2, 1)) {
                 log_debug("Failed to identify any partition table.");
                 return -ENOPKG;
         }

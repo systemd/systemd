@@ -462,7 +462,7 @@ int main(int argc, char *argv[]) {
 
         if (status.si_code != CLD_EXITED || (status.si_status & ~1)) {
 
-                if (status.si_code == CLD_KILLED || status.si_code == CLD_DUMPED)
+                if (IN_SET(status.si_code, CLD_KILLED, CLD_DUMPED))
                         log_error("fsck terminated by signal %s.", signal_to_string(status.si_status));
                 else if (status.si_code == CLD_EXITED)
                         log_error("fsck failed with error code %i.", status.si_status);

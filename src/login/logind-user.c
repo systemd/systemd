@@ -547,7 +547,7 @@ static int user_remove_runtime_path(User *u) {
          * quite possible, if we lacked the permissions to mount
          * something */
         r = umount2(u->runtime_path, MNT_DETACH);
-        if (r < 0 && errno != EINVAL && errno != ENOENT)
+        if (r < 0 && !IN_SET(errno, EINVAL, ENOENT))
                 log_error_errno(errno, "Failed to unmount user runtime directory %s: %m", u->runtime_path);
 
         r = rm_rf(u->runtime_path, REMOVE_ROOT);

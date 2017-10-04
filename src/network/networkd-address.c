@@ -453,7 +453,7 @@ int address_remove(
         int r;
 
         assert(address);
-        assert(address->family == AF_INET || address->family == AF_INET6);
+        assert(IN_SET(address->family, AF_INET, AF_INET6));
         assert(link);
         assert(link->ifindex > 0);
         assert(link->manager);
@@ -553,7 +553,7 @@ int address_configure(
         int r;
 
         assert(address);
-        assert(address->family == AF_INET || address->family == AF_INET6);
+        assert(IN_SET(address->family, AF_INET, AF_INET6));
         assert(link);
         assert(link->ifindex > 0);
         assert(link->manager);

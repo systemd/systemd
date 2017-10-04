@@ -378,7 +378,7 @@ static int add_crypttab_devices(void) {
                 crypttab_line++;
 
                 l = strstrip(line);
-                if (*l == '#' || *l == 0)
+                if (IN_SET(*l, 0, '#'))
                         continue;
 
                 k = sscanf(l, "%ms %ms %ms %ms", &name, &device, &keyfile, &options);

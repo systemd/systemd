@@ -396,7 +396,7 @@ static int enable_special_signals(Manager *m) {
         /* Enable that we get SIGINT on control-alt-del. In containers
          * this will fail with EPERM (older) or EINVAL (newer), so
          * ignore that. */
-        if (reboot(RB_DISABLE_CAD) < 0 && errno != EPERM && errno != EINVAL)
+        if (reboot(RB_DISABLE_CAD) < 0 && !IN_SET(errno, EPERM, EINVAL))
                 log_warning_errno(errno, "Failed to enable ctrl-alt-del handling: %m");
 
         fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC);
@@ -985,10 +985,8 @@ static void unit_gc_sweep(Unit *u, unsigned gc_marker) {
 
         assert(u);
 
-        if (u->gc_marker == gc_marker + GC_OFFSET_GOOD ||
-            u->gc_marker == gc_marker + GC_OFFSET_BAD ||
-            u->gc_marker == gc_marker + GC_OFFSET_UNSURE ||
-            u->gc_marker == gc_marker + GC_OFFSET_IN_PATH)
+        if (IN_SET(u->gc_marker - gc_marker,
+                   GC_OFFSET_GOOD, GC_OFFSET_BAD, GC_OFFSET_UNSURE, GC_OFFSET_IN_PATH))
                 return;
 
         if (u->in_cleanup_queue)
@@ -1055,8 +1053,8 @@ static unsigned manager_dispatch_gc_unit_queue(Manager *m) {
 
                 n++;
 
-                if (u->gc_marker == gc_marker + GC_OFFSET_BAD ||
-                    u->gc_marker == gc_marker + GC_OFFSET_UNSURE) {
+                if (IN_SET(u->gc_marker - gc_marker,
+                           GC_OFFSET_BAD, GC_OFFSET_UNSURE)) {
                         if (u->id)
                                 log_unit_debug(u, "Collecting.");
                         u->gc_marker = gc_marker + GC_OFFSET_BAD;
@@ -3747,7 +3745,7 @@ int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint32_t re
 
         l = recv(fd, &buffer, sizeof(buffer), MSG_DONTWAIT);
         if (l < 0) {
-                if (errno == EINTR || errno == EAGAIN)
+                if (IN_SET(errno, EINTR, EAGAIN))
                         return 0;
 
                 return log_error_errno(errno, "Failed to read from user lookup fd: %m");

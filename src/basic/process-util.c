@@ -392,7 +392,7 @@ int is_kernel_thread(pid_t pid) {
         bool eof;
         FILE *f;
 
-        if (pid == 0 || pid == 1 || pid == getpid_cached()) /* pid 1, and we ourselves certainly aren't a kernel thread */
+        if (IN_SET(pid, 0, 1) || pid == getpid_cached()) /* pid 1, and we ourselves certainly aren't a kernel thread */
                 return 0;
 
         assert(pid > 1);
@@ -817,7 +817,7 @@ bool pid_is_alive(pid_t pid) {
                 return true;
 
         r = get_process_state(pid);
-        if (r == -ESRCH || r == 'Z')
+        if (IN_SET(r, -ESRCH, 'Z'))
                 return false;
 
         return true;

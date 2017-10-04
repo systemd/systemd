@@ -1458,8 +1458,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
                 return -EINVAL;
         }
 
-        if (arg_transport != BUS_TRANSPORT_LOCAL &&
-            arg_transport != BUS_TRANSPORT_MACHINE) {
+        if (!IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_MACHINE)) {
                 log_error("Login only supported on local machines.");
                 return -EOPNOTSUPP;
         }
@@ -1521,8 +1520,7 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
 
         assert(bus);
 
-        if (arg_transport != BUS_TRANSPORT_LOCAL &&
-            arg_transport != BUS_TRANSPORT_MACHINE) {
+        if (!IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_MACHINE)) {
                 log_error("Shell only supported on local machines.");
                 return -EOPNOTSUPP;
         }
