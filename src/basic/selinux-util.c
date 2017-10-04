@@ -47,28 +47,10 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(context_t, context_free);
 #define _cleanup_freecon_ _cleanup_(freeconp)
 #define _cleanup_context_free_ _cleanup_(context_freep)
 
-static int cached_use = -1;
 static struct selabel_handle *label_hnd = NULL;
 
 #define log_enforcing(...) log_full_errno(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG, errno, __VA_ARGS__)
 #endif
-
-bool mac_selinux_use(void) {
-#ifdef HAVE_SELINUX
-        if (cached_use < 0)
-                cached_use = is_selinux_enabled() > 0;
-
-        return cached_use;
-#else
-        return false;
-#endif
-}
-
-void mac_selinux_retest(void) {
-#ifdef HAVE_SELINUX
-        cached_use = -1;
-#endif
-}
 
 int mac_selinux_init(void) {
         int r = 0;

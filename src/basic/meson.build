@@ -143,6 +143,7 @@ basic_sources_plain = files('''
         securebits-util.c
         securebits-util.h
         securebits.h
+        selinux-use.c
         selinux-util.c
         selinux-util.h
         set.c

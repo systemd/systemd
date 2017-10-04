@@ -774,7 +774,6 @@ const char *mount_propagation_flags_to_string(unsigned long flags) {
         return NULL;
 }
 
-
 int mount_propagation_flags_from_string(const char *name, unsigned long *ret) {
 
         if (isempty(name))

@@ -692,6 +692,10 @@ else
         libselinux = []
 endif
 
+if conf.get('HAVE_SELINUX', false) and get_option('selinux-workaround')
+        conf.set('ENABLE_SELINUX_WORKAROUND', true)
+endif
+
 want_apparmor = get_option('apparmor')
 if want_apparmor != 'false'
         libapparmor = dependency('libapparmor',
