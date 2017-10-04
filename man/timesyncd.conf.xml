@@ -80,7 +80,9 @@
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         systemd-timesyncd will contact all configured system or
         per-interface servers in turn until one is found that
-        responds. This setting defaults to an empty
+        responds. When the empty string is assigned, the list of
+        NTP servers is reset, and all assignments prior to this one
+        will have no effect. This setting defaults to an empty
         list.</para></listitem>
       </varlistentry>
 
@@ -92,9 +94,11 @@
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         take precedence over this setting, as do any servers set via
         <varname>NTP=</varname> above. This setting is hence only used
-        if no other NTP server information is known. If this option is
-        not given, a compiled-in list of NTP servers is used
-        instead.</para></listitem>
+        if no other NTP server information is known. When the empty
+        string is assigned, the list of NTP servers is reset,
+        and all assignments prior to this one will have no effect.
+        If this option is not given, a compiled-in list of NTP servers
+        is used instead.</para></listitem>
       </varlistentry>
 
     </variablelist>
