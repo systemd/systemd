@@ -116,7 +116,7 @@ enum nss_status _nss_systemd_getpwnam_r(
 
         uint32_t translated;
         size_t l;
-        int r;
+        int bypass, r;
 
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
@@ -146,23 +146,17 @@ enum nss_status _nss_systemd_getpwnam_r(
         if (getenv_bool_secure("SYSTEMD_NSS_DYNAMIC_BYPASS") > 0)
                 goto not_found;
 
-        if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_BUS") > 0) {
-
-                /* Access the dynamic UID allocation directly if we are called from dbus-daemon, see above. */
-                r = direct_lookup_name(name, (uid_t*) &translated);
-                if (r == -ENOENT)
-                        goto not_found;
-                if (r < 0)
-                        goto fail;
-
-        } else {
+        bypass = getenv_bool_secure("SYSTEMD_NSS_BYPASS_BUS");
+        if (bypass <= 0) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
                 _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
 
                 r = sd_bus_open_system(&bus);
-                if (r < 0)
-                        goto fail;
+                if (r < 0) {
+                        bypass = 1;
+                        goto direct_lookup;
+                }
 
                 r = sd_bus_call_method(bus,
                                        "org.freedesktop.systemd1",
@@ -181,6 +175,16 @@ enum nss_status _nss_systemd_getpwnam_r(
                 }
 
                 r = sd_bus_message_read(reply, "u", &translated);
+                if (r < 0)
+                        goto fail;
+        }
+
+direct_lookup:
+        if (bypass > 0) {
+                /* Access the dynamic UID allocation directly if we are called from dbus-daemon, see above. */
+                r = direct_lookup_name(name, (uid_t*) &translated);
+                if (r == -ENOENT)
+                        goto not_found;
                 if (r < 0)
                         goto fail;
         }
@@ -225,7 +229,7 @@ enum nss_status _nss_systemd_getpwuid_r(
         _cleanup_free_ char *direct = NULL;
         const char *translated;
         size_t l;
-        int r;
+        int bypass, r;
 
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
@@ -252,20 +256,13 @@ enum nss_status _nss_systemd_getpwuid_r(
         if (getenv_bool_secure("SYSTEMD_NSS_DYNAMIC_BYPASS") > 0)
                 goto not_found;
 
-        if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_BUS") > 0) {
-
-                r = direct_lookup_uid(uid, &direct);
-                if (r == -ENOENT)
-                        goto not_found;
-                if (r < 0)
-                        goto fail;
-
-                translated = direct;
-
-        } else {
+        bypass = getenv_bool_secure("SYSTEMD_NSS_BYPASS_BUS");
+        if (bypass <= 0) {
                 r = sd_bus_open_system(&bus);
-                if (r < 0)
-                        goto fail;
+                if (r < 0) {
+                        bypass = 1;
+                        goto direct_lookup;
+                }
 
                 r = sd_bus_call_method(bus,
                                        "org.freedesktop.systemd1",
@@ -286,6 +283,18 @@ enum nss_status _nss_systemd_getpwuid_r(
                 r = sd_bus_message_read(reply, "s", &translated);
                 if (r < 0)
                         goto fail;
+        }
+
+direct_lookup:
+        if (bypass > 0) {
+                r = direct_lookup_uid(uid, &direct);
+                if (r == -ENOENT)
+                        goto not_found;
+                if (r < 0)
+                        goto fail;
+
+                translated = direct;
+
         }
 
         l = strlen(translated) + 1;
@@ -324,7 +333,7 @@ enum nss_status _nss_systemd_getgrnam_r(
 
         uint32_t translated;
         size_t l;
-        int r;
+        int bypass, r;
 
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
@@ -351,23 +360,17 @@ enum nss_status _nss_systemd_getgrnam_r(
         if (getenv_bool_secure("SYSTEMD_NSS_DYNAMIC_BYPASS") > 0)
                 goto not_found;
 
-        if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_BUS") > 0) {
-
-                /* Access the dynamic GID allocation directly if we are called from dbus-daemon, see above. */
-                r = direct_lookup_name(name, (uid_t*) &translated);
-                if (r == -ENOENT)
-                        goto not_found;
-                if (r < 0)
-                        goto fail;
-        } else {
-
+        bypass = getenv_bool_secure("SYSTEMD_NSS_BYPASS_BUS");
+        if (bypass <= 0) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
                 _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
 
                 r = sd_bus_open_system(&bus);
-                if (r < 0)
-                        goto fail;
+                if (r < 0) {
+                        bypass = 1;
+                        goto direct_lookup;
+                }
 
                 r = sd_bus_call_method(bus,
                                        "org.freedesktop.systemd1",
@@ -386,6 +389,16 @@ enum nss_status _nss_systemd_getgrnam_r(
                 }
 
                 r = sd_bus_message_read(reply, "u", &translated);
+                if (r < 0)
+                        goto fail;
+        }
+
+direct_lookup:
+        if (bypass > 0) {
+                /* Access the dynamic GID allocation directly if we are called from dbus-daemon, see above. */
+                r = direct_lookup_name(name, (uid_t*) &translated);
+                if (r == -ENOENT)
+                        goto not_found;
                 if (r < 0)
                         goto fail;
         }
@@ -428,7 +441,7 @@ enum nss_status _nss_systemd_getgrgid_r(
         _cleanup_free_ char *direct = NULL;
         const char *translated;
         size_t l;
-        int r;
+        int bypass, r;
 
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
@@ -455,19 +468,13 @@ enum nss_status _nss_systemd_getgrgid_r(
         if (getenv_bool_secure("SYSTEMD_NSS_DYNAMIC_BYPASS") > 0)
                 goto not_found;
 
-        if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_BUS") > 0) {
-
-                r = direct_lookup_uid(gid, &direct);
-                if (r == -ENOENT)
-                        goto not_found;
-                if (r < 0)
-                        goto fail;
-
-                translated = direct;
-        } else {
+        bypass = getenv_bool_secure("SYSTEMD_NSS_BYPASS_BUS");
+        if (bypass <= 0) {
                 r = sd_bus_open_system(&bus);
-                if (r < 0)
-                        goto fail;
+                if (r < 0) {
+                        bypass = 1;
+                        goto direct_lookup;
+                }
 
                 r = sd_bus_call_method(bus,
                                        "org.freedesktop.systemd1",
@@ -488,6 +495,18 @@ enum nss_status _nss_systemd_getgrgid_r(
                 r = sd_bus_message_read(reply, "s", &translated);
                 if (r < 0)
                         goto fail;
+        }
+
+direct_lookup:
+        if (bypass > 0) {
+
+                r = direct_lookup_uid(gid, &direct);
+                if (r == -ENOENT)
+                        goto not_found;
+                if (r < 0)
+                        goto fail;
+
+                translated = direct;
         }
 
         l = sizeof(char*) + strlen(translated) + 1;
