@@ -3376,7 +3376,7 @@ static int logind_check_inhibitors(enum action a) {
                         return log_oom();
 
                 if (!pid_is_valid((pid_t) pid)) {
-                        log_error("Invalid PID %" PRIu32 ".", pid);
+                        log_error("Invalid PID "PID_FMT".", (pid_t) pid);
                         return -ERANGE;
                 }
 
