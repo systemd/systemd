@@ -839,15 +839,15 @@ static int manager_connect_console(Manager *m) {
          * release events immediately.
          */
 
-        if (SIGRTMIN + 1 > SIGRTMAX) {
-                log_error("Not enough real-time signals available: %u-%u", SIGRTMIN, SIGRTMAX);
+        if (sigrtmin + 1 > sigrtmax) {
+                log_error("Not enough real-time signals available: %u-%u", sigrtmin, sigrtmax);
                 return -EINVAL;
         }
 
-        assert_se(ignore_signals(SIGRTMIN + 1, -1) >= 0);
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGRTMIN, -1) >= 0);
+        assert_se(ignore_signals(sigrtmin + 1, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, sigrtmin, -1) >= 0);
 
-        r = sd_event_add_signal(m->event, NULL, SIGRTMIN, manager_vt_switch, m);
+        r = sd_event_add_signal(m->event, NULL, sigrtmin, manager_vt_switch, m);
         if (r < 0)
                 return r;
 

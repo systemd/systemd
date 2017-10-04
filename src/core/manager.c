@@ -441,28 +441,28 @@ static int manager_setup_signals(Manager *m) {
                         SIGWINCH,    /* Kernel sends us this on kbrequest (alt-arrowup) */
                         SIGPWR,      /* Some kernel drivers and upsd send us this on power failure */
 
-                        SIGRTMIN+0,  /* systemd: start default.target */
-                        SIGRTMIN+1,  /* systemd: isolate rescue.target */
-                        SIGRTMIN+2,  /* systemd: isolate emergency.target */
-                        SIGRTMIN+3,  /* systemd: start halt.target */
-                        SIGRTMIN+4,  /* systemd: start poweroff.target */
-                        SIGRTMIN+5,  /* systemd: start reboot.target */
-                        SIGRTMIN+6,  /* systemd: start kexec.target */
+                        sigrtmin+0,  /* systemd: start default.target */
+                        sigrtmin+1,  /* systemd: isolate rescue.target */
+                        sigrtmin+2,  /* systemd: isolate emergency.target */
+                        sigrtmin+3,  /* systemd: start halt.target */
+                        sigrtmin+4,  /* systemd: start poweroff.target */
+                        sigrtmin+5,  /* systemd: start reboot.target */
+                        sigrtmin+6,  /* systemd: start kexec.target */
 
                         /* ... space for more special targets ... */
 
-                        SIGRTMIN+13, /* systemd: Immediate halt */
-                        SIGRTMIN+14, /* systemd: Immediate poweroff */
-                        SIGRTMIN+15, /* systemd: Immediate reboot */
-                        SIGRTMIN+16, /* systemd: Immediate kexec */
+                        sigrtmin+13, /* systemd: Immediate halt */
+                        sigrtmin+14, /* systemd: Immediate poweroff */
+                        sigrtmin+15, /* systemd: Immediate reboot */
+                        sigrtmin+16, /* systemd: Immediate kexec */
 
                         /* ... space for more immediate system state changes ... */
 
-                        SIGRTMIN+20, /* systemd: enable status messages */
-                        SIGRTMIN+21, /* systemd: disable status messages */
-                        SIGRTMIN+22, /* systemd: set log level to LOG_DEBUG */
-                        SIGRTMIN+23, /* systemd: set log level to LOG_INFO */
-                        SIGRTMIN+24, /* systemd: Immediate exit (--user only) */
+                        sigrtmin+20, /* systemd: enable status messages */
+                        sigrtmin+21, /* systemd: disable status messages */
+                        sigrtmin+22, /* systemd: set log level to LOG_DEBUG */
+                        sigrtmin+23, /* systemd: set log level to LOG_INFO */
+                        sigrtmin+24, /* systemd: Immediate exit (--user only) */
 
                         /* .. one free signal here ... */
 
@@ -475,10 +475,10 @@ static int manager_setup_signals(Manager *m) {
                          * net, the missing functionality on hppa
                          * shouldn't matter. */
 
-                        SIGRTMIN+26, /* systemd: set log target to journal-or-kmsg */
-                        SIGRTMIN+27, /* systemd: set log target to console */
-                        SIGRTMIN+28, /* systemd: set log target to kmsg */
-                        SIGRTMIN+29, /* systemd: set log target to syslog-or-kmsg (obsolete) */
+                        sigrtmin+26, /* systemd: set log target to journal-or-kmsg */
+                        sigrtmin+27, /* systemd: set log target to console */
+                        sigrtmin+28, /* systemd: set log target to kmsg */
+                        sigrtmin+29, /* systemd: set log target to syslog-or-kmsg (obsolete) */
 
                         /* ... one free signal here SIGRTMIN+30 ... */
 #endif
@@ -2193,21 +2193,21 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                                 [3] = MANAGER_KEXEC
                         };
 
-                        if ((int) sfsi.ssi_signo >= SIGRTMIN+0 &&
-                            (int) sfsi.ssi_signo < SIGRTMIN+(int) ELEMENTSOF(target_table)) {
-                                int idx = (int) sfsi.ssi_signo - SIGRTMIN;
+                        if ((int) sfsi.ssi_signo >= sigrtmin+0 &&
+                            (int) sfsi.ssi_signo < sigrtmin+(int) ELEMENTSOF(target_table)) {
+                                int idx = (int) sfsi.ssi_signo - sigrtmin;
                                 manager_start_target(m, target_table[idx].target,
                                                         target_table[idx].mode);
                                 break;
                         }
 
-                        if ((int) sfsi.ssi_signo >= SIGRTMIN+13 &&
-                            (int) sfsi.ssi_signo < SIGRTMIN+13+(int) ELEMENTSOF(code_table)) {
-                                m->exit_code = code_table[sfsi.ssi_signo - SIGRTMIN - 13];
+                        if ((int) sfsi.ssi_signo >= sigrtmin+13 &&
+                            (int) sfsi.ssi_signo < sigrtmin+13+(int) ELEMENTSOF(code_table)) {
+                                m->exit_code = code_table[sfsi.ssi_signo - sigrtmin - 13];
                                 break;
                         }
 
-                        switch (sfsi.ssi_signo - SIGRTMIN) {
+                        switch (sfsi.ssi_signo - sigrtmin) {
 
                         case 20:
                                 manager_set_show_status(m, SHOW_STATUS_YES);
