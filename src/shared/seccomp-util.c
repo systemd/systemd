@@ -306,6 +306,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "membarrier\0"
                 "nanosleep\0"
                 "pause\0"
+                "prlimit64\0"
                 "restart_syscall\0"
                 "rt_sigreturn\0"
                 "set_robust_list\0"
@@ -313,6 +314,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "set_tid_address\0"
                 "sigreturn\0"
                 "time\0"
+                "ugetrlimit\0"
         },
         [SYSCALL_FILTER_SET_BASIC_IO] = {
                 .name = "@basic-io",
@@ -692,7 +694,6 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "migrate_pages\0"
                 "move_pages\0"
                 "nice\0"
-                "prlimit64\0"
                 "sched_setaffinity\0"
                 "sched_setattr\0"
                 "sched_setparam\0"
