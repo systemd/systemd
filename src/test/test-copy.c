@@ -220,6 +220,14 @@ static void test_copy_bytes_regular_file(const char *src, bool try_reflink, uint
         else
                 assert_se(IN_SET(r, 0, 1));
 
+        assert_se(fstat(fd, &buf) == 0);
+        assert_se(fstat(fd2, &buf2) == 0);
+        assert_se((uint64_t) buf2.st_size == MIN((uint64_t) buf.st_size, max_bytes));
+
+        if (max_bytes < (uint64_t) -1)
+                /* Make sure the file is now higher than max_bytes */
+                assert_se(ftruncate(fd2, max_bytes + 1) == 0);
+
         assert_se(lseek(fd2, 0, SEEK_SET) == 0);
 
         r = copy_bytes(fd2, fd3, max_bytes, try_reflink ? COPY_REFLINK : 0);
@@ -233,12 +241,12 @@ static void test_copy_bytes_regular_file(const char *src, bool try_reflink, uint
                  * are copying is exactly max_bytes bytes. */
                 assert_se(r == 1);
 
-        assert_se(fstat(fd, &buf) == 0);
-        assert_se(fstat(fd2, &buf2) == 0);
         assert_se(fstat(fd3, &buf3) == 0);
 
-        assert_se((uint64_t) buf2.st_size == MIN((uint64_t) buf.st_size, max_bytes));
-        assert_se(buf3.st_size == buf2.st_size);
+        if (max_bytes == (uint64_t) -1)
+                assert_se(buf3.st_size == buf2.st_size);
+        else
+                assert_se((uint64_t) buf3.st_size == max_bytes);
 
         unlink(fn2);
         unlink(fn3);
