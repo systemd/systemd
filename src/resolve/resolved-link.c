@@ -505,10 +505,6 @@ static void link_read_settings(Link *l) {
 
         l->is_managed = true;
 
-        r = link_update_dns_servers(l);
-        if (r < 0)
-                log_warning_errno(r, "Failed to read DNS servers for interface %s, ignoring: %m", l->name);
-
         r = link_update_llmnr_support(l);
         if (r < 0)
                 log_warning_errno(r, "Failed to read LLMNR support for interface %s, ignoring: %m", l->name);
@@ -528,6 +524,10 @@ static void link_read_settings(Link *l) {
         r = link_update_search_domains(l);
         if (r < 0)
                 log_warning_errno(r, "Failed to read search domains for interface %s, ignoring: %m", l->name);
+
+        r = link_update_dns_servers(l);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read DNS servers for interface %s, ignoring: %m", l->name);
 }
 
 int link_update(Link *l) {
