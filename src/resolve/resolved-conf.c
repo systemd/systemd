@@ -22,10 +22,14 @@
 #include "conf-parser.h"
 #include "def.h"
 #include "extract-word.h"
+#include "hexdecoct.h"
 #include "parse-util.h"
 #include "resolved-conf.h"
+#include "resolved-dnssd.h"
+#include "specifier.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "utf8.h"
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_dns_stub_listener_mode, dns_stub_listener_mode, DnsStubListenerMode, "Failed to parse DNS stub listener mode setting");
 
@@ -224,6 +228,152 @@ int config_parse_search_domains(
         /* If we have a manual setting, then we stop reading
          * /etc/resolv.conf */
         m->read_resolv_conf = false;
+
+        return 0;
+}
+
+int config_parse_dnssd_service_name(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
+        static const Specifier specifier_table[] = {
+                { 'b', specifier_boot_id,         NULL },
+                { 'H', specifier_host_name, NULL },
+                { 'm', specifier_machine_id, NULL },
+                { 'v', specifier_kernel_release,  NULL },
+                {}
+        };
+        DnssdService *s = userdata;
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(s);
+
+        if (isempty(rvalue)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Service instance name can't be empty. Ignoring.");
+                return -EINVAL;
+        }
+
+        r = free_and_strdup(&s->name_template, rvalue);
+        if (r < 0)
+                return log_oom();
+
+        r = specifier_printf(s->name_template, specifier_table, NULL, &name);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to replace specifiers: %m");
+
+        if (!dns_service_name_is_valid(name)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Service instance name template renders to invalid name '%s'. Ignoring.", name);
+                return -EINVAL;
+        }
+
+        return 0;
+}
+
+int config_parse_dnssd_service_type(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
+        DnssdService *s = userdata;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(s);
+
+        if (isempty(rvalue)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Service type can't be empty. Ignoring.");
+                return -EINVAL;
+        }
+
+        if (!dnssd_srv_type_is_valid(rvalue)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Service type is invalid. Ignoring.");
+                return -EINVAL;
+        }
+
+        r = free_and_strdup(&s->type, rvalue);
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
+int config_parse_dnssd_txt(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
+        DnssdService *s = userdata;
+        DnsTxtItem *last = NULL;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(s);
+
+        /* TODO: Since RFC6763 allows more than one TXT RR per service
+         *       this s->txt field should be implemented as a list
+         *       of DnsTxtItem lists. */
+        s->txt = dns_txt_item_free_all(s->txt);
+
+        if (isempty(rvalue))
+                return 0;
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                _cleanup_free_ char *key = NULL;
+                _cleanup_free_ char *value = NULL;
+                _cleanup_free_ void *decoded = NULL;
+                size_t length = 0;
+                DnsTxtItem *i;
+                int r;
+
+                r = extract_first_word(&rvalue, &word, NULL,
+                                       EXTRACT_QUOTES|EXTRACT_CUNESCAPE|EXTRACT_CUNESCAPE_RELAX);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0)
+                        return log_syntax(unit, LOG_ERR, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+
+                r = split_pair(word, "=", &key, &value);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r == -EINVAL) {
+                        key = word;
+                        word = NULL;
+                }
+
+                if (!ascii_is_valid(key)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid syntax, ignoring: %s", key);
+                        return -EINVAL;
+                }
+
+                switch (ltype) {
+
+                case DNS_TXT_ITEM_DATA:
+                        if (value) {
+                                r = unbase64mem(value, strlen(value), &decoded, &length);
+                                if (r == -ENOMEM)
+                                        return log_oom();
+                                if (r < 0)
+                                        return log_syntax(unit, LOG_ERR, filename, line, r,
+                                                          "Invalid base64 encoding, ignoring: %s", value);
+                        }
+
+                        r = dnssd_txt_item_new_from_data(key, decoded, length, &i);
+                        if (r < 0)
+                                return log_oom();
+                        break;
+
+                case DNS_TXT_ITEM_TEXT:
+                        r = dnssd_txt_item_new_from_string(key, value, &i);
+                        if (r < 0)
+                                return log_oom();
+                        break;
+
+                default:
+                        assert_not_reached("Unknown type of Txt config");
+                }
+
+                LIST_INSERT_AFTER(items, s->txt, last, i);
+                last = i;
+        }
 
         return 0;
 }

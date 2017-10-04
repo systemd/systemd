@@ -102,6 +102,9 @@ struct Manager {
         int mdns_ipv4_fd;
         int mdns_ipv6_fd;
 
+        /* DNS-SD */
+        Hashmap *dnssd_services;
+
         sd_event_source *mdns_ipv4_event_source;
         sd_event_source *mdns_ipv6_event_source;
 
