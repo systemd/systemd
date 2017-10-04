@@ -24,7 +24,7 @@
 
 #include <sys/types.h>
 
-#if !HAVE_DECL_PIVOT_ROOT
+#if !HAVE_PIVOT_ROOT
 static inline int pivot_root(const char *new_root, const char *put_old) {
         return syscall(SYS_pivot_root, new_root, put_old);
 }
@@ -32,7 +32,7 @@ static inline int pivot_root(const char *new_root, const char *put_old) {
 
 /* ======================================================================= */
 
-#if !HAVE_DECL_MEMFD_CREATE
+#if !HAVE_MEMFD_CREATE
 #  ifndef __NR_memfd_create
 #    if defined __x86_64__
 #      define __NR_memfd_create 319
@@ -73,7 +73,7 @@ static inline int memfd_create(const char *name, unsigned int flags) {
 
 /* ======================================================================= */
 
-#if !HAVE_DECL_GETRANDOM
+#if !HAVE_GETRANDOM
 #  ifndef __NR_getrandom
 #    if defined __x86_64__
 #      define __NR_getrandom 318
@@ -120,7 +120,7 @@ static inline int getrandom(void *buffer, size_t count, unsigned flags) {
 
 /* ======================================================================= */
 
-#if !HAVE_DECL_GETTID
+#if !HAVE_GETTID
 static inline pid_t gettid(void) {
         return (pid_t) syscall(SYS_gettid);
 }
@@ -128,7 +128,7 @@ static inline pid_t gettid(void) {
 
 /* ======================================================================= */
 
-#if !HAVE_DECL_NAME_TO_HANDLE_AT
+#if !HAVE_NAME_TO_HANDLE_AT
 #  ifndef __NR_name_to_handle_at
 #    if defined(__x86_64__)
 #      define __NR_name_to_handle_at 303
@@ -163,7 +163,7 @@ static inline int name_to_handle_at(int fd, const char *name, struct file_handle
 
 /* ======================================================================= */
 
-#if !HAVE_DECL_SETNS
+#if !HAVE_SETNS
 #  ifndef __NR_setns
 #    if defined(__x86_64__)
 #      define __NR_setns 308
@@ -198,7 +198,7 @@ static inline pid_t raw_getpid(void) {
 
 /* ======================================================================= */
 
-#if !HAVE_DECL_RENAMEAT2
+#if !HAVE_RENAMEAT2
 #  ifndef __NR_renameat2
 #    if defined __x86_64__
 #      define __NR_renameat2 316
@@ -241,7 +241,7 @@ static inline int renameat2(int oldfd, const char *oldname, int newfd, const cha
 
 /* ======================================================================= */
 
-#if !HAVE_DECL_KCMP
+#if !HAVE_KCMP
 static inline int kcmp(pid_t pid1, pid_t pid2, int type, unsigned long idx1, unsigned long idx2) {
 #  ifdef __NR_kcmp
         return syscall(__NR_kcmp, pid1, pid2, type, idx1, idx2);
@@ -254,7 +254,7 @@ static inline int kcmp(pid_t pid1, pid_t pid2, int type, unsigned long idx1, uns
 
 /* ======================================================================= */
 
-#if !HAVE_DECL_KEYCTL
+#if !HAVE_KEYCTL
 static inline long keyctl(int cmd, unsigned long arg2, unsigned long arg3, unsigned long arg4,unsigned long arg5) {
 #  ifdef __NR_keyctl
         return syscall(__NR_keyctl, cmd, arg2, arg3, arg4, arg5);
@@ -285,7 +285,7 @@ static inline key_serial_t request_key(const char *type, const char *description
 
 /* ======================================================================= */
 
-#if !HAVE_DECL_COPY_FILE_RANGE
+#if !HAVE_COPY_FILE_RANGE
 #  ifndef __NR_copy_file_range
 #    if defined(__x86_64__)
 #      define __NR_copy_file_range 326
@@ -319,7 +319,7 @@ static inline ssize_t copy_file_range(int fd_in, loff_t *off_in,
 }
 #endif
 
-#if !HAVE_DECL_BPF
+#if !HAVE_BPF
 #  ifndef __NR_bpf
 #    if defined __i386__
 #      define __NR_bpf 357

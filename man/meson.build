@@ -51,7 +51,7 @@ foreach tuple : manpages
 
         mandirn = join_paths(get_option('mandir'), 'man' + section)
 
-        if condition == '' or conf.get(condition, false)
+        if condition == '' or conf.get(condition) == 1
                 p1 = custom_target(
                         man,
                         input : xml,

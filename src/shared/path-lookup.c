@@ -576,7 +576,7 @@ int lookup_paths_init(
                                         "/usr/local/lib/systemd/system",
                                         SYSTEM_DATA_UNIT_PATH,
                                         "/usr/lib/systemd/system",
-#ifdef HAVE_SPLIT_USR
+#if HAVE_SPLIT_USR
                                         "/lib/systemd/system",
 #endif
                                         STRV_IFNOTNULL(generator_late),

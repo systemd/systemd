@@ -24,7 +24,7 @@
 
 #include "libudev.h"
 
-#ifdef HAVE_ACL
+#if HAVE_ACL
 
 int devnode_acl(const char *path,
                 bool flush,

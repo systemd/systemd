@@ -146,21 +146,21 @@ int udev_ctrl_get_set_children_max(struct udev_ctrl_msg *ctrl_msg);
 
 /* built-in commands */
 enum udev_builtin_cmd {
-#ifdef HAVE_BLKID
+#if HAVE_BLKID
         UDEV_BUILTIN_BLKID,
 #endif
         UDEV_BUILTIN_BTRFS,
         UDEV_BUILTIN_HWDB,
         UDEV_BUILTIN_INPUT_ID,
         UDEV_BUILTIN_KEYBOARD,
-#ifdef HAVE_KMOD
+#if HAVE_KMOD
         UDEV_BUILTIN_KMOD,
 #endif
         UDEV_BUILTIN_NET_ID,
         UDEV_BUILTIN_NET_LINK,
         UDEV_BUILTIN_PATH_ID,
         UDEV_BUILTIN_USB_ID,
-#ifdef HAVE_ACL
+#if HAVE_ACL
         UDEV_BUILTIN_UACCESS,
 #endif
         UDEV_BUILTIN_MAX
@@ -174,14 +174,14 @@ struct udev_builtin {
         bool (*validate)(struct udev *udev);
         bool run_once;
 };
-#ifdef HAVE_BLKID
+#if HAVE_BLKID
 extern const struct udev_builtin udev_builtin_blkid;
 #endif
 extern const struct udev_builtin udev_builtin_btrfs;
 extern const struct udev_builtin udev_builtin_hwdb;
 extern const struct udev_builtin udev_builtin_input_id;
 extern const struct udev_builtin udev_builtin_keyboard;
-#ifdef HAVE_KMOD
+#if HAVE_KMOD
 extern const struct udev_builtin udev_builtin_kmod;
 #endif
 extern const struct udev_builtin udev_builtin_net_id;

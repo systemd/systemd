@@ -37,12 +37,12 @@ if bashcompletiondir != 'no'
                  ['loginctl',            'ENABLE_LOGIND'],
                  ['machinectl',          'ENABLE_MACHINED'],
                  ['networkctl',          'ENABLE_NETWORKD'],
-                 ['systemd-resolve',     'ENABLE_RESOLVED'],
+                 ['systemd-resolve',     'ENABLE_RESOLVE'],
                  ['timedatectl',         'ENABLE_TIMEDATED'],
                 ]
 
         foreach item : items
-                if item[1] == '' or conf.get(item[1], false)
+                if item[1] == '' or conf.get(item[1]) == 1
                         install_data(item[0],
                                      install_dir : bashcompletiondir)
                 endif

@@ -107,7 +107,7 @@ static void print_property(struct udev_device *dev, bool test, const char *name,
 
 static int find_gpt_root(struct udev_device *dev, blkid_probe pr, bool test) {
 
-#if defined(GPT_ROOT_NATIVE) && defined(ENABLE_EFI)
+#if defined(GPT_ROOT_NATIVE) && ENABLE_EFI
 
         _cleanup_free_ char *root_id = NULL;
         bool found_esp = false;

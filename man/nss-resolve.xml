@@ -22,7 +22,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="nss-resolve" conditional='ENABLE_RESOLVED'>
+<refentry id="nss-resolve" conditional='ENABLE_RESOLVE'>
 
   <refentryinfo>
     <title>nss-resolve</title>

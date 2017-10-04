@@ -20,7 +20,7 @@ journal_internal_sources = files('''
         sd-journal.c
 '''.split())
 
-if conf.get('HAVE_GCRYPT', false)
+if conf.get('HAVE_GCRYPT') == 1
         journal_internal_sources += files('''
                 journal-authenticate.c
                 journal-authenticate.h
@@ -36,7 +36,7 @@ endif
 audit_type_includes = [config_h,
                        missing_h,
                        'linux/audit.h']
-if conf.get('HAVE_AUDIT', false)
+if conf.get('HAVE_AUDIT') == 1
         audit_type_includes += 'libaudit.h'
 endif
 
@@ -97,7 +97,7 @@ systemd_cat_sources = files('cat.c')
 
 journalctl_sources = files('journalctl.c')
 
-if conf.get('HAVE_QRENCODE', false)
+if conf.get('HAVE_QRENCODE') == 1
         journalctl_sources += files('journal-qrcode.c',
                                     'journal-qrcode.h')
 endif

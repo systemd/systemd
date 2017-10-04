@@ -34,7 +34,7 @@
 #include <sys/wait.h>
 #include <syslog.h>
 #include <unistd.h>
-#ifdef HAVE_VALGRIND_VALGRIND_H
+#if HAVE_VALGRIND_VALGRIND_H
 #include <valgrind/valgrind.h>
 #endif
 
@@ -945,7 +945,7 @@ int opinionated_personality(unsigned long *ret) {
 }
 
 void valgrind_summary_hack(void) {
-#ifdef HAVE_VALGRIND_VALGRIND_H
+#if HAVE_VALGRIND_VALGRIND_H
         if (getpid_cached() == 1 && RUNNING_ON_VALGRIND) {
                 pid_t pid;
                 pid = raw_clone(SIGCHLD);

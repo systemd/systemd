@@ -22,7 +22,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="nss-myhostname" conditional='HAVE_MYHOSTNAME'>
+<refentry id="nss-myhostname" conditional='ENABLE_MYHOSTNAME'>
 
   <refentryinfo>
     <title>nss-myhostname</title>

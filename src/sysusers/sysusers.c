@@ -299,7 +299,7 @@ static int putgrent_with_members(const struct group *gr, FILE *group) {
         return 0;
 }
 
-#ifdef ENABLE_GSHADOW
+#if ENABLE_GSHADOW
 static int putsgent_with_members(const struct sgrp *sg, FILE *gshadow) {
         char **a;
 
@@ -636,7 +636,7 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
 }
 
 static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, char **tmpfile_path) {
-#ifdef ENABLE_GSHADOW
+#if ENABLE_GSHADOW
         _cleanup_fclose_ FILE *original = NULL, *gshadow = NULL;
         _cleanup_(unlink_and_freep) char *gshadow_tmp = NULL;
         bool group_changed = false;

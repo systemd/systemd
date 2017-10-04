@@ -105,7 +105,7 @@ static char **arg_file = NULL;
 static bool arg_file_stdin = false;
 static int arg_priorities = 0xFF;
 static char *arg_verify_key = NULL;
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
 static usec_t arg_interval = DEFAULT_FSS_INTERVAL_USEC;
 static bool arg_force = false;
 #endif
@@ -313,7 +313,7 @@ static void help(void) {
                "  -D --directory=PATH      Show journal files from directory\n"
                "     --file=PATH           Show journal file\n"
                "     --root=ROOT           Operate on files below a root directory\n"
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
                "     --interval=TIME       Time interval for changing the FSS sealing key\n"
                "     --verify-key=KEY      Specify FSS verification key\n"
                "     --force               Override of the FSS key pair with --setup-keys\n"
@@ -336,7 +336,7 @@ static void help(void) {
                "     --dump-catalog        Show entries in the message catalog\n"
                "     --update-catalog      Update the message catalog database\n"
                "     --new-id128           Generate a new 128-bit ID\n"
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
                "     --setup-keys          Generate a new FSS key pair\n"
 #endif
                , program_invocation_short_name);
@@ -669,7 +669,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = ACTION_VACUUM;
                         break;
 
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
                 case ARG_FORCE:
                         arg_force = true;
                         break;
@@ -1561,7 +1561,7 @@ static int add_syslog_identifier(sd_journal *j) {
 }
 
 static int setup_keys(void) {
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
         size_t mpk_size, seed_size, state_size, i;
         uint8_t *mpk, *seed, *state;
         int fd = -1, r;
@@ -1727,7 +1727,7 @@ static int setup_keys(void) {
                 } else
                         fprintf(stderr, "\nThe keys have been generated for host " SD_ID128_FORMAT_STR ".\n", SD_ID128_FORMAT_VAL(machine));
 
-#ifdef HAVE_QRENCODE
+#if HAVE_QRENCODE
                 /* If this is not an UTF-8 system don't print any QR codes */
                 if (is_locale_utf8()) {
                         fputs("\nTo transfer the verification key to your phone please scan the QR code below:\n\n", stderr);
@@ -1769,7 +1769,7 @@ static int verify(sd_journal *j) {
                 int k;
                 usec_t first = 0, validated = 0, last = 0;
 
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
                 if (!arg_verify_key && JOURNAL_HEADER_SEALED(f->header))
                         log_notice("Journal file %s has sealing enabled but verification key has not been passed using --verify-key=.", f->path);
 #endif

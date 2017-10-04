@@ -49,7 +49,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         log_warning("Invalid quotacheck.mode= parameter '%s'. Ignoring.", value);
         }
 
-#ifdef HAVE_SYSV_COMPAT
+#if HAVE_SYSV_COMPAT
         else if (streq(key, "forcequotacheck") && !value) {
                 log_warning("Please use 'quotacheck.mode=force' rather than 'forcequotacheck' on the kernel command line.");
                 arg_force = true;
@@ -61,7 +61,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
 static void test_files(void) {
 
-#ifdef HAVE_SYSV_COMPAT
+#if HAVE_SYSV_COMPAT
         if (access("/forcequotacheck", F_OK) >= 0) {
                 log_error("Please pass 'quotacheck.mode=force' on the kernel command line rather than creating /forcequotacheck on the root file system.");
                 arg_force = true;

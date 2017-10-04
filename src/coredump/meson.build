@@ -4,7 +4,7 @@ systemd_coredump_sources = files('''
         coredump-vacuum.h
 '''.split())
 
-if conf.get('HAVE_ELFUTILS', false)
+if conf.get('HAVE_ELFUTILS') == 1
         systemd_coredump_sources += files(['stacktrace.c',
                                            'stacktrace.h'])
 endif

@@ -19,121 +19,121 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#ifdef HAVE_PAM
+#if HAVE_PAM
 #define _PAM_FEATURE_ "+PAM"
 #else
 #define _PAM_FEATURE_ "-PAM"
 #endif
 
-#ifdef HAVE_AUDIT
+#if HAVE_AUDIT
 #define _AUDIT_FEATURE_ "+AUDIT"
 #else
 #define _AUDIT_FEATURE_ "-AUDIT"
 #endif
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
 #define _SELINUX_FEATURE_ "+SELINUX"
 #else
 #define _SELINUX_FEATURE_ "-SELINUX"
 #endif
 
-#ifdef HAVE_APPARMOR
+#if HAVE_APPARMOR
 #define _APPARMOR_FEATURE_ "+APPARMOR"
 #else
 #define _APPARMOR_FEATURE_ "-APPARMOR"
 #endif
 
-#ifdef HAVE_IMA
+#if ENABLE_IMA
 #define _IMA_FEATURE_ "+IMA"
 #else
 #define _IMA_FEATURE_ "-IMA"
 #endif
 
-#ifdef HAVE_SMACK
+#if ENABLE_SMACK
 #define _SMACK_FEATURE_ "+SMACK"
 #else
 #define _SMACK_FEATURE_ "-SMACK"
 #endif
 
-#ifdef HAVE_SYSV_COMPAT
+#if HAVE_SYSV_COMPAT
 #define _SYSVINIT_FEATURE_ "+SYSVINIT"
 #else
 #define _SYSVINIT_FEATURE_ "-SYSVINIT"
 #endif
 
-#ifdef HAVE_UTMP
+#if ENABLE_UTMP
 #define _UTMP_FEATURE_ "+UTMP"
 #else
 #define _UTMP_FEATURE_ "-UTMP"
 #endif
 
-#ifdef HAVE_LIBCRYPTSETUP
+#if HAVE_LIBCRYPTSETUP
 #define _LIBCRYPTSETUP_FEATURE_ "+LIBCRYPTSETUP"
 #else
 #define _LIBCRYPTSETUP_FEATURE_ "-LIBCRYPTSETUP"
 #endif
 
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
 #define _GCRYPT_FEATURE_ "+GCRYPT"
 #else
 #define _GCRYPT_FEATURE_ "-GCRYPT"
 #endif
 
-#ifdef HAVE_GNUTLS
+#if HAVE_GNUTLS
 #define _GNUTLS_FEATURE_ "+GNUTLS"
 #else
 #define _GNUTLS_FEATURE_ "-GNUTLS"
 #endif
 
-#ifdef HAVE_ACL
+#if HAVE_ACL
 #define _ACL_FEATURE_ "+ACL"
 #else
 #define _ACL_FEATURE_ "-ACL"
 #endif
 
-#ifdef HAVE_XZ
+#if HAVE_XZ
 #define _XZ_FEATURE_ "+XZ"
 #else
 #define _XZ_FEATURE_ "-XZ"
 #endif
 
-#ifdef HAVE_LZ4
+#if HAVE_LZ4
 #define _LZ4_FEATURE_ "+LZ4"
 #else
 #define _LZ4_FEATURE_ "-LZ4"
 #endif
 
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
 #define _SECCOMP_FEATURE_ "+SECCOMP"
 #else
 #define _SECCOMP_FEATURE_ "-SECCOMP"
 #endif
 
-#ifdef HAVE_BLKID
+#if HAVE_BLKID
 #define _BLKID_FEATURE_ "+BLKID"
 #else
 #define _BLKID_FEATURE_ "-BLKID"
 #endif
 
-#ifdef HAVE_ELFUTILS
+#if HAVE_ELFUTILS
 #define _ELFUTILS_FEATURE_ "+ELFUTILS"
 #else
 #define _ELFUTILS_FEATURE_ "-ELFUTILS"
 #endif
 
-#ifdef HAVE_KMOD
+#if HAVE_KMOD
 #define _KMOD_FEATURE_ "+KMOD"
 #else
 #define _KMOD_FEATURE_ "-KMOD"
 #endif
 
-#ifdef HAVE_LIBIDN2
+#if HAVE_LIBIDN2
 #define _IDN2_FEATURE_ "+IDN2"
 #else
 #define _IDN2_FEATURE_ "-IDN2"
 #endif
 
-#ifdef HAVE_LIBIDN
+#if HAVE_LIBIDN
 #define _IDN_FEATURE_ "+IDN"
 #else
 #define _IDN_FEATURE_ "-IDN"

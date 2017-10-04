@@ -36,7 +36,7 @@
 #include "log.h"
 #include "pager.h"
 #include "parse-util.h"
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
 #include "special.h"
@@ -1337,7 +1337,7 @@ static int get_log_target(sd_bus *bus, char **args) {
         return 0;
 }
 
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
 static void dump_syscall_filter(const SyscallFilterSet *set) {
         const char *syscall;
 

@@ -28,7 +28,7 @@
 #include "user-util.h"
 
 static int access_check_var_log_journal(sd_journal *j) {
-#ifdef HAVE_ACL
+#if HAVE_ACL
         _cleanup_strv_free_ char **g = NULL;
         const char* dir;
 #endif
@@ -48,7 +48,7 @@ static int access_check_var_log_journal(sd_journal *j) {
         if (r > 0)
                 return 0;
 
-#ifdef HAVE_ACL
+#if HAVE_ACL
         if (laccess("/run/log/journal", F_OK) >= 0)
                 dir = "/run/log/journal";
         else

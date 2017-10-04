@@ -1384,7 +1384,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (streq(optarg, "all"))
                                 arg_trust_all = true;
                         else {
-#ifdef HAVE_GNUTLS
+#if HAVE_GNUTLS
                                 arg_trust = strdup(optarg);
                                 if (!arg_trust)
                                         return log_oom();
@@ -1442,7 +1442,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_GNUTLS_LOG: {
-#ifdef HAVE_GNUTLS
+#if HAVE_GNUTLS
                         const char* p = optarg;
                         for (;;) {
                                 _cleanup_free_ char *word = NULL;

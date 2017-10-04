@@ -19,7 +19,7 @@
 
 #include <stdio.h>
 #include <linux/audit.h>
-#ifdef HAVE_AUDIT
+#if HAVE_AUDIT
 #  include <libaudit.h>
 #endif
 

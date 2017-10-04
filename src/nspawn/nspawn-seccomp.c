@@ -22,20 +22,20 @@
 #include <sys/capability.h>
 #include <sys/types.h>
 
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
 #include <seccomp.h>
 #endif
 
 #include "alloc-util.h"
 #include "log.h"
 #include "nspawn-seccomp.h"
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
 #include "string-util.h"
 #include "strv.h"
 
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
 
 static int seccomp_add_default_syscall_filter(
                 scmp_filter_ctx ctx,

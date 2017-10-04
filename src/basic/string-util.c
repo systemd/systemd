@@ -826,7 +826,7 @@ int free_and_strdup(char **p, const char *s) {
         return 1;
 }
 
-#if !HAVE_DECL_EXPLICIT_BZERO
+#if !HAVE_EXPLICIT_BZERO
 /*
  * Pointer to memset is volatile so that compiler must de-reference
  * the pointer and can't assume that it points to any function in

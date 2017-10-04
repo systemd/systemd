@@ -21,7 +21,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#ifdef HAVE_KMOD
+#if HAVE_KMOD
 #include <libkmod.h>
 #endif
 
@@ -33,7 +33,7 @@
 #include "macro.h"
 #include "string-util.h"
 
-#ifdef HAVE_KMOD
+#if HAVE_KMOD
 static void systemd_kmod_log(
                 void *data,
                 int priority,
@@ -85,7 +85,7 @@ static bool has_virtio_rng(void) {
 #endif
 
 int kmod_setup(void) {
-#ifdef HAVE_KMOD
+#if HAVE_KMOD
 
         static const struct {
                 const char *module;
@@ -103,7 +103,7 @@ int kmod_setup(void) {
                 /* this should never be a module */
                 { "unix",      "/proc/net/unix",            true,   true,    NULL      },
 
-#ifdef HAVE_LIBIPTC
+#if HAVE_LIBIPTC
                 /* netfilter is needed by networkd, nspawn among others, and cannot be autoloaded */
                 { "ip_tables", "/proc/net/ip_tables_names", false,  false,   NULL      },
 #endif

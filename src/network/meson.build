@@ -81,7 +81,7 @@ networkctl_sources = files('networkctl.c')
 
 network_include_dir = include_directories('.')
 
-if conf.get('ENABLE_NETWORKD', false)
+if conf.get('ENABLE_NETWORKD') == 1
         networkd_gperf_c = custom_target(
                 'networkd-gperf.c',
                 input : 'networkd-gperf.gperf',

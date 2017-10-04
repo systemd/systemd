@@ -42,7 +42,7 @@
 #include "util.h"
 #include "virt.h"
 
-#ifdef ENABLE_EFI
+#if ENABLE_EFI
 
 #define LOAD_OPTION_ACTIVE            0x00000001
 #define MEDIA_DEVICE_PATH                   0x04

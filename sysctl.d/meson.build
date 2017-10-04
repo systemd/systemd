@@ -4,7 +4,7 @@ install_data(
 
 in_files = []
 
-if conf.get('ENABLE_COREDUMP', false)
+if conf.get('ENABLE_COREDUMP') == 1
         in_files += ['50-coredump.conf']
 endif
 

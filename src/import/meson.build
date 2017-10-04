@@ -48,7 +48,7 @@ systemd_export_sources = files('''
         import-compress.h
 '''.split())
 
-if conf.get('ENABLE_IMPORTD', false)
+if conf.get('ENABLE_IMPORTD') == 1
         install_data('org.freedesktop.import1.conf',
                      install_dir : dbuspolicydir)
         install_data('org.freedesktop.import1.service',

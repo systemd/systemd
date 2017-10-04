@@ -598,7 +598,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 r = sd_bus_message_append(m, "v", "i", (int32_t) n);
 
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
 
         } else if (streq(field, "SystemCallFilter")) {
                 int whitelist;

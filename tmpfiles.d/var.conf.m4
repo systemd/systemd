@@ -12,7 +12,7 @@ q /var 0755 - - -
 L /var/run - - - - ../run
 
 d /var/log 0755 - - -
-m4_ifdef(`HAVE_UTMP',
+m4_ifdef(`ENABLE_UTMP',
 f /var/log/wtmp 0664 root utmp -
 f /var/log/btmp 0600 root utmp -
 f /var/log/lastlog 0664 root utmp -

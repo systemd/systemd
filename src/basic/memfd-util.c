@@ -21,7 +21,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#ifdef HAVE_LINUX_MEMFD_H
+#if HAVE_LINUX_MEMFD_H
 #include <linux/memfd.h>
 #endif
 #include <stdio.h>

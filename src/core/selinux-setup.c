@@ -21,7 +21,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
 #include <selinux/selinux.h>
 #endif
 
@@ -32,7 +32,7 @@
 #include "string-util.h"
 #include "util.h"
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
 _printf_(2,3)
 static int null_log(int type, const char *fmt, ...) {
         return 0;
@@ -41,7 +41,7 @@ static int null_log(int type, const char *fmt, ...) {
 
 int mac_selinux_setup(bool *loaded_policy) {
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
         int enforce = 0;
         usec_t before_load, after_load;
         char *con;

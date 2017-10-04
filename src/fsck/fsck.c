@@ -131,7 +131,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 }
         }
 
-#ifdef HAVE_SYSV_COMPAT
+#if HAVE_SYSV_COMPAT
         else if (streq(key, "fastboot") && !value) {
                 log_warning("Please pass 'fsck.mode=skip' rather than 'fastboot' on the kernel command line.");
                 arg_skip = true;
@@ -147,7 +147,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
 static void test_files(void) {
 
-#ifdef HAVE_SYSV_COMPAT
+#if HAVE_SYSV_COMPAT
         if (access("/fastboot", F_OK) >= 0) {
                 log_error("Please pass 'fsck.mode=skip' on the kernel command line rather than creating /fastboot on the root file system.");
                 arg_skip = true;

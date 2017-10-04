@@ -58,7 +58,7 @@ typedef struct Set Set;                       /* Stores just keys */
 typedef struct {
         unsigned idx;         /* index of an entry to be iterated next */
         const void *next_key; /* expected value of that entry's key pointer */
-#ifdef ENABLE_DEBUG_HASHMAP
+#if ENABLE_DEBUG_HASHMAP
         unsigned put_count;   /* hashmap's put_count recorded at start of iteration */
         unsigned rem_count;   /* hashmap's rem_count in previous iteration */
         unsigned prev_idx;    /* idx in previous iteration */
@@ -89,7 +89,7 @@ typedef struct {
                 (Hashmap*)(h), \
                 (void)0)
 
-#ifdef ENABLE_DEBUG_HASHMAP
+#if ENABLE_DEBUG_HASHMAP
 # define HASHMAP_DEBUG_PARAMS , const char *func, const char *file, int line
 # define HASHMAP_DEBUG_SRC_ARGS   , __func__, __FILE__, __LINE__
 # define HASHMAP_DEBUG_PASS_ARGS   , func, file, line

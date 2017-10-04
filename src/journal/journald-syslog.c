@@ -414,7 +414,7 @@ int server_open_syslog_socket(Server *s) {
         if (r < 0)
                 return log_error_errno(errno, "SO_PASSCRED failed: %m");
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
         if (mac_selinux_use()) {
                 r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
                 if (r < 0)

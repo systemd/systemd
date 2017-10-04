@@ -3219,7 +3219,7 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         return r;
 }
 
-#ifdef ENABLE_LOGIND
+#if ENABLE_LOGIND
 static int logind_set_wall_message(void) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
@@ -3255,7 +3255,7 @@ static int logind_set_wall_message(void) {
 /* Ask systemd-logind, which might grant access to unprivileged users
  * through PolicyKit */
 static int logind_reboot(enum action a) {
-#ifdef ENABLE_LOGIND
+#if ENABLE_LOGIND
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *method, *description;
         sd_bus *bus;
@@ -3318,7 +3318,7 @@ static int logind_reboot(enum action a) {
 }
 
 static int logind_check_inhibitors(enum action a) {
-#ifdef ENABLE_LOGIND
+#if ENABLE_LOGIND
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_strv_free_ char **sessions = NULL;
         const char *what, *who, *why, *mode;
@@ -3439,7 +3439,7 @@ static int logind_check_inhibitors(enum action a) {
 }
 
 static int logind_prepare_firmware_setup(void) {
-#ifdef ENABLE_LOGIND
+#if ENABLE_LOGIND
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
         int r;
@@ -5903,7 +5903,7 @@ static int import_environment(int argc, char *argv[], void *userdata) {
 static int enable_sysv_units(const char *verb, char **args) {
         int r = 0;
 
-#if defined(HAVE_SYSV_COMPAT)
+#if HAVE_SYSV_COMPAT
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
         unsigned f = 0;
 
@@ -8211,7 +8211,7 @@ static int parse_argv(int argc, char *argv[]) {
         return systemctl_parse_argv(argc, argv);
 }
 
-#ifdef HAVE_SYSV_COMPAT
+#if HAVE_SYSV_COMPAT
 _pure_ static int action_to_runlevel(void) {
 
         static const char table[_ACTION_MAX] = {
@@ -8232,7 +8232,7 @@ _pure_ static int action_to_runlevel(void) {
 #endif
 
 static int talk_initctl(void) {
-#ifdef HAVE_SYSV_COMPAT
+#if HAVE_SYSV_COMPAT
         struct init_request request = {
                 .magic = INIT_MAGIC,
                 .sleeptime  = 0,
@@ -8426,7 +8426,7 @@ static int halt_now(enum action a) {
 
 static int logind_schedule_shutdown(void) {
 
-#ifdef ENABLE_LOGIND
+#if ENABLE_LOGIND
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char date[FORMAT_TIMESTAMP_MAX];
         const char *action;
@@ -8555,7 +8555,7 @@ static int runlevel_main(void) {
 }
 
 static int logind_cancel_shutdown(void) {
-#ifdef ENABLE_LOGIND
+#if ENABLE_LOGIND
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
         int r;

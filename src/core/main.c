@@ -28,10 +28,10 @@
 #include <sys/reboot.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
 #include <seccomp.h>
 #endif
-#ifdef HAVE_VALGRIND_VALGRIND_H
+#if HAVE_VALGRIND_VALGRIND_H
 #include <valgrind/valgrind.h>
 #endif
 
@@ -74,7 +74,7 @@
 #include "process-util.h"
 #include "raw-clone.h"
 #include "rlimit-util.h"
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
 #include "selinux-setup.h"
@@ -717,7 +717,7 @@ static int parse_config_file(void) {
                 { "Manager", "RuntimeWatchdogSec",        config_parse_sec,              0, &arg_runtime_watchdog                  },
                 { "Manager", "ShutdownWatchdogSec",       config_parse_sec,              0, &arg_shutdown_watchdog                 },
                 { "Manager", "CapabilityBoundingSet",     config_parse_capability_set,   0, &arg_capability_bounding_set           },
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
                 { "Manager", "SystemCallArchitectures",   config_parse_syscall_archs,    0, &arg_syscall_archs                     },
 #endif
                 { "Manager", "TimerSlackNSec",            config_parse_nsec,             0, &arg_timer_slack_nsec                  },
@@ -1264,7 +1264,7 @@ oom:
 }
 
 static int enforce_syscall_archs(Set *archs) {
-#ifdef HAVE_SECCOMP
+#if HAVE_SECCOMP
         int r;
 
         if (!is_seccomp_available())
@@ -1411,7 +1411,7 @@ int main(int argc, char *argv[]) {
         struct rlimit saved_rlimit_nofile = RLIMIT_MAKE_CONST(0), saved_rlimit_memlock = RLIMIT_MAKE_CONST((rlim_t) -1);
         const char *error_message = NULL;
 
-#ifdef HAVE_SYSV_COMPAT
+#if HAVE_SYSV_COMPAT
         if (getpid_cached() != 1 && strstr(program_invocation_short_name, "init")) {
                 /* This is compatibility support for SysV, where
                  * calling init as a user is identical to telinit. */
@@ -2172,7 +2172,7 @@ finish:
         arg_serialization = safe_fclose(arg_serialization);
         fds = fdset_free(fds);
 
-#ifdef HAVE_VALGRIND_VALGRIND_H
+#if HAVE_VALGRIND_VALGRIND_H
         /* If we are PID 1 and running under valgrind, then let's exit
          * here explicitly. valgrind will only generate nice output on
          * exit(), not on exec(), hence let's do the former not the

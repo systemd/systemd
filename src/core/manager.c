@@ -30,7 +30,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#ifdef HAVE_AUDIT
+#if HAVE_AUDIT
 #include <libaudit.h>
 #endif
 
@@ -620,7 +620,7 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
         m->default_timeout_stop_usec = DEFAULT_TIMEOUT_USEC;
         m->default_restart_usec = DEFAULT_RESTART_USEC;
 
-#ifdef ENABLE_EFI
+#if ENABLE_EFI
         if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0)
                 boot_timestamps(&m->userspace_timestamp, &m->firmware_timestamp, &m->loader_timestamp);
 #endif
@@ -2455,7 +2455,7 @@ int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j) {
 
 void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
 
-#ifdef HAVE_AUDIT
+#if HAVE_AUDIT
         _cleanup_free_ char *p = NULL;
         const char *msg;
         int audit_fd, r;

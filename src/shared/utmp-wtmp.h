@@ -25,7 +25,7 @@
 #include "time-util.h"
 #include "util.h"
 
-#ifdef HAVE_UTMP
+#if ENABLE_UTMP
 int utmp_get_runlevel(int *runlevel, int *previous);
 
 int utmp_put_shutdown(void);
@@ -42,7 +42,7 @@ int utmp_wall(
         bool (*match_tty)(const char *tty, void *userdata),
         void *userdata);
 
-#else /* HAVE_UTMP */
+#else /* ENABLE_UTMP */
 
 static inline int utmp_get_runlevel(int *runlevel, int *previous) {
         return -ESRCH;
@@ -71,4 +71,4 @@ static inline int utmp_wall(
         return 0;
 }
 
-#endif /* HAVE_UTMP */
+#endif /* ENABLE_UTMP */

@@ -26,7 +26,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#ifdef HAVE_VALGRIND_VALGRIND_H
+#if HAVE_VALGRIND_VALGRIND_H
 #include <valgrind/valgrind.h>
 #endif
 
@@ -168,7 +168,7 @@ static void test_get_process_cmdline_harder(void) {
         if (geteuid() != 0)
                 return;
 
-#ifdef HAVE_VALGRIND_VALGRIND_H
+#if HAVE_VALGRIND_VALGRIND_H
         /* valgrind patches open(/proc//cmdline)
          * so, test_get_process_cmdline_harder fails always
          * See https://github.com/systemd/systemd/pull/3555#issuecomment-226564908 */
@@ -367,7 +367,7 @@ static void test_rename_process_now(const char *p, int ret) {
         if (r < 0)
                 return;
 
-#ifdef HAVE_VALGRIND_VALGRIND_H
+#if HAVE_VALGRIND_VALGRIND_H
         /* see above, valgrind is weird, we can't verify what we are doing here */
         if (RUNNING_ON_VALGRIND)
                 return;

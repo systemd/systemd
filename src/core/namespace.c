@@ -107,7 +107,7 @@ static const MountEntry protect_kernel_tunables_table[] = {
 
 /* ProtectKernelModules= option */
 static const MountEntry protect_kernel_modules_table[] = {
-#ifdef HAVE_SPLIT_USR
+#if HAVE_SPLIT_USR
         { "/lib/modules",        INACCESSIBLE, true  },
 #endif
         { "/usr/lib/modules",    INACCESSIBLE, true  },

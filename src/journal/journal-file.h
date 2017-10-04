@@ -21,7 +21,7 @@
 
 #include <inttypes.h>
 
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
 #include <gcrypt.h>
 #endif
 
@@ -121,12 +121,12 @@ typedef struct JournalFile {
         pthread_t offline_thread;
         volatile OfflineState offline_state;
 
-#if defined(HAVE_XZ) || defined(HAVE_LZ4)
+#if HAVE_XZ || HAVE_LZ4
         void *compress_buffer;
         size_t compress_buffer_size;
 #endif
 
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
         gcry_md_hd_t hmac;
         bool hmac_running;
 

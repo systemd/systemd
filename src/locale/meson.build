@@ -6,7 +6,7 @@ systemd_localed_sources = files('''
 
 localectl_sources = files('localectl.c')
 
-if conf.get('ENABLE_LOCALED', false)
+if conf.get('ENABLE_LOCALED') == 1
         install_data('org.freedesktop.locale1.conf',
                      install_dir : dbuspolicydir)
         install_data('org.freedesktop.locale1.service',
@@ -27,7 +27,7 @@ endif
 kbd_model_map = join_paths(meson.current_source_dir(),  'kbd-model-map')
 language_fallback_map = join_paths(meson.current_source_dir(), 'language-fallback-map')
 
-if conf.get('ENABLE_LOCALED', false)
+if conf.get('ENABLE_LOCALED') == 1
         install_data('kbd-model-map',
                      'language-fallback-map',
                      install_dir : pkgdatadir)

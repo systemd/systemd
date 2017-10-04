@@ -123,7 +123,7 @@ systemd_resolve_sources = (basic_dns_sources +
                            systemd_resolve_only_sources +
                            dns_type_headers)
 
-if conf.get('ENABLE_RESOLVED', false)
+if conf.get('ENABLE_RESOLVE') == 1
         install_data('org.freedesktop.resolve1.conf',
                      install_dir : dbuspolicydir)
         install_data('org.freedesktop.resolve1.service',
@@ -149,7 +149,7 @@ tests += [
          [libgcrypt,
           libgpg_error,
           libm],
-         'ENABLE_RESOLVED'],
+         'ENABLE_RESOLVE'],
 
         [['src/resolve/test-dns-packet.c',
           basic_dns_sources,
@@ -158,7 +158,7 @@ tests += [
          [libgcrypt,
           libgpg_error,
           libm],
-         'ENABLE_RESOLVED'],
+         'ENABLE_RESOLVE'],
 
         [['src/resolve/test-resolved-packet.c',
           basic_dns_sources,
@@ -167,7 +167,7 @@ tests += [
          [libgcrypt,
           libgpg_error,
           libm],
-         'ENABLE_RESOLVED'],
+         'ENABLE_RESOLVE'],
 
         [['src/resolve/test-dnssec.c',
           basic_dns_sources,
@@ -176,12 +176,12 @@ tests += [
          [libgcrypt,
           libgpg_error,
           libm],
-         'ENABLE_RESOLVED'],
+         'ENABLE_RESOLVE'],
 
         [['src/resolve/test-dnssec-complex.c',
           'src/resolve/dns-type.c',
           dns_type_headers],
          [],
          [],
-         'ENABLE_RESOLVED', 'manual'],
+         'ENABLE_RESOLVE', 'manual'],
 ]

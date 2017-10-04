@@ -21,7 +21,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#ifdef HAVE_AUDIT
+#if HAVE_AUDIT
 #include <libaudit.h>
 #endif
 
@@ -42,7 +42,7 @@
 
 typedef struct Context {
         sd_bus *bus;
-#ifdef HAVE_AUDIT
+#if HAVE_AUDIT
         int audit_fd;
 #endif
 } Context;
@@ -125,7 +125,7 @@ static int on_reboot(Context *c) {
         /* We finished start-up, so let's write the utmp
          * record and send the audit msg */
 
-#ifdef HAVE_AUDIT
+#if HAVE_AUDIT
         if (c->audit_fd >= 0)
                 if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_BOOT, "", "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 &&
                     errno != EPERM) {
@@ -154,7 +154,7 @@ static int on_shutdown(Context *c) {
         /* We started shut-down, so let's write the utmp
          * record and send the audit msg */
 
-#ifdef HAVE_AUDIT
+#if HAVE_AUDIT
         if (c->audit_fd >= 0)
                 if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_SHUTDOWN, "", "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 &&
                     errno != EPERM) {
@@ -198,7 +198,7 @@ static int on_runlevel(Context *c) {
         if (previous == runlevel)
                 return 0;
 
-#ifdef HAVE_AUDIT
+#if HAVE_AUDIT
         if (c->audit_fd >= 0) {
                 _cleanup_free_ char *s = NULL;
 
@@ -223,7 +223,7 @@ static int on_runlevel(Context *c) {
 
 int main(int argc, char *argv[]) {
         Context c = {
-#ifdef HAVE_AUDIT
+#if HAVE_AUDIT
                 .audit_fd = -1
 #endif
         };
@@ -245,7 +245,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-#ifdef HAVE_AUDIT
+#if HAVE_AUDIT
         /* If the kernel lacks netlink or audit support,
          * don't worry about it. */
         c.audit_fd = audit_open();
@@ -275,7 +275,7 @@ int main(int argc, char *argv[]) {
         log_debug("systemd-update-utmp stopped as pid "PID_FMT, getpid_cached());
 
 finish:
-#ifdef HAVE_AUDIT
+#if HAVE_AUDIT
         if (c.audit_fd >= 0)
                 audit_close(c.audit_fd);
 #endif

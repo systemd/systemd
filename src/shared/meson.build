@@ -104,19 +104,19 @@ shared_sources = '''
 test_tables_h = files('test-tables.h')
 shared_sources += [test_tables_h]
 
-if conf.get('HAVE_ACL', false)
+if conf.get('HAVE_ACL') == 1
         shared_sources += ['acl-util.c']
 endif
 
-if conf.get('HAVE_UTMP', false)
+if conf.get('ENABLE_UTMP') == 1
         shared_sources += ['utmp-wtmp.c']
 endif
 
-if conf.get('HAVE_SECCOMP', false)
+if conf.get('HAVE_SECCOMP') == 1
         shared_sources += ['seccomp-util.c']
 endif
 
-if conf.get('HAVE_LIBIPTC', false)
+if conf.get('HAVE_LIBIPTC') == 1
         shared_sources += ['firewall-util.c']
 endif
 

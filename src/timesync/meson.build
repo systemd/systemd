@@ -16,7 +16,7 @@ timesyncd_gperf_c = custom_target(
 
 systemd_timesyncd_sources += [timesyncd_gperf_c]
 
-if conf.get('ENABLE_TIMESYNCD', false)
+if conf.get('ENABLE_TIMESYNCD') == 1
         timesyncd_conf = configure_file(
                 input : 'timesyncd.conf.in',
                 output : 'timesyncd.conf',

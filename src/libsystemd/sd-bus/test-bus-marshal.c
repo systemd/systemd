@@ -20,11 +20,11 @@
 #include <math.h>
 #include <stdlib.h>
 
-#ifdef HAVE_GLIB
+#if HAVE_GLIB
 #include <gio/gio.h>
 #endif
 
-#ifdef HAVE_DBUS
+#if HAVE_DBUS
 #include <dbus/dbus.h>
 #endif
 
@@ -215,7 +215,7 @@ int main(int argc, char *argv[]) {
         log_info("message size = %zu, contents =\n%s", sz, h);
         free(h);
 
-#ifdef HAVE_GLIB
+#if HAVE_GLIB
         {
                 GDBusMessage *g;
                 char *p;
@@ -232,7 +232,7 @@ int main(int argc, char *argv[]) {
         }
 #endif
 
-#ifdef HAVE_DBUS
+#if HAVE_DBUS
         {
                 DBusMessage *w;
                 DBusError error;

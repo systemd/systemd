@@ -27,21 +27,21 @@
 static bool initialized;
 
 static const struct udev_builtin *builtins[] = {
-#ifdef HAVE_BLKID
+#if HAVE_BLKID
         [UDEV_BUILTIN_BLKID] = &udev_builtin_blkid,
 #endif
         [UDEV_BUILTIN_BTRFS] = &udev_builtin_btrfs,
         [UDEV_BUILTIN_HWDB] = &udev_builtin_hwdb,
         [UDEV_BUILTIN_INPUT_ID] = &udev_builtin_input_id,
         [UDEV_BUILTIN_KEYBOARD] = &udev_builtin_keyboard,
-#ifdef HAVE_KMOD
+#if HAVE_KMOD
         [UDEV_BUILTIN_KMOD] = &udev_builtin_kmod,
 #endif
         [UDEV_BUILTIN_NET_ID] = &udev_builtin_net_id,
         [UDEV_BUILTIN_NET_LINK] = &udev_builtin_net_setup_link,
         [UDEV_BUILTIN_PATH_ID] = &udev_builtin_path_id,
         [UDEV_BUILTIN_USB_ID] = &udev_builtin_usb_id,
-#ifdef HAVE_ACL
+#if HAVE_ACL
         [UDEV_BUILTIN_UACCESS] = &udev_builtin_uaccess,
 #endif
 };

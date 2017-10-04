@@ -20,7 +20,7 @@
 #include <stddef.h>
 #include <unistd.h>
 
-#ifdef HAVE_SELINUX
+#if HAVE_SELINUX
 #include <selinux/selinux.h>
 #endif
 

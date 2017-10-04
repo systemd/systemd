@@ -48,7 +48,7 @@
 #include "utf8.h"
 #include "util.h"
 
-#ifdef ENABLE_IDN
+#if ENABLE_IDN
 #  define IDN_FLAGS (NI_IDN|NI_IDN_USE_STD3_ASCII_RULES)
 #else
 #  define IDN_FLAGS 0

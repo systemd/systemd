@@ -36,7 +36,7 @@
 #include "string-util.h"
 #include "util.h"
 
-#ifdef HAVE_SMACK
+#if ENABLE_SMACK
 
 static int write_access2_rules(const char* srcdir) {
         _cleanup_close_ int load2_fd = -1, change_fd = -1;
@@ -316,7 +316,7 @@ static int write_onlycap_list(void) {
 
 int mac_smack_setup(bool *loaded_policy) {
 
-#ifdef HAVE_SMACK
+#if ENABLE_SMACK
 
         int r;
 

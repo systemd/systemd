@@ -13,7 +13,7 @@ L+ /etc/mtab - - - - ../proc/self/mounts
 m4_ifdef(`HAVE_SMACK_RUN_LABEL',
 t /etc/mtab - - - - security.SMACK64=_
 )m4_dnl
-m4_ifdef(`ENABLE_RESOLVED',
+m4_ifdef(`ENABLE_RESOLVE',
 L! /etc/resolv.conf - - - - ../usr/lib/systemd/resolv.conf
 )m4_dnl
 C /etc/nsswitch.conf - - - -

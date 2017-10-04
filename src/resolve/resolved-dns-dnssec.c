@@ -17,7 +17,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
 #include <gcrypt.h>
 #endif
 
@@ -125,7 +125,7 @@ int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max) {
         return (int) c;
 }
 
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
 
 static int rr_compare(const void *a, const void *b) {
         DnsResourceRecord **x = (DnsResourceRecord**) a, **y = (DnsResourceRecord**) b;

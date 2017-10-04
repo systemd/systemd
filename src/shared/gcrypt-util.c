@@ -19,7 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#ifdef HAVE_GCRYPT
+#if HAVE_GCRYPT
 #include <gcrypt.h>
 
 #include "gcrypt-util.h"

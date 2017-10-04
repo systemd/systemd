@@ -24,7 +24,7 @@
 
 #include "in-addr-util.h"
 
-#ifdef HAVE_LIBIPTC
+#if HAVE_LIBIPTC
 
 int fw_add_masquerade(
                 bool add,

@@ -33,7 +33,7 @@
 #define IMA_POLICY_PATH "/etc/ima/ima-policy"
 
 int ima_setup(void) {
-#ifdef HAVE_IMA
+#if ENABLE_IMA
         _cleanup_fclose_ FILE *input = NULL;
         _cleanup_close_ int imafd = -1;
         unsigned lineno = 0;
@@ -93,6 +93,6 @@ int ima_setup(void) {
 
 done:
         log_info("Successfully loaded the IMA custom policy "IMA_POLICY_PATH".");
-#endif /* HAVE_IMA */
+#endif /* ENABLE_IMA */
         return 0;
 }

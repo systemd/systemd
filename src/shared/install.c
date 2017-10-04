@@ -286,7 +286,7 @@ static int path_is_vendor(const LookupPaths *p, const char *path) {
         if (path_startswith(rpath, "/usr"))
                 return true;
 
-#ifdef HAVE_SPLIT_USR
+#if HAVE_SPLIT_USR
         if (path_startswith(rpath, "/lib"))
                 return true;
 #endif
@@ -2739,7 +2739,7 @@ static int read_presets(UnitFileScope scope, const char *root_dir, Presets *pres
                                     "/etc/systemd/system-preset",
                                     "/usr/local/lib/systemd/system-preset",
                                     "/usr/lib/systemd/system-preset",
-#ifdef HAVE_SPLIT_USR
+#if HAVE_SPLIT_USR
                                     "/lib/systemd/system-preset",
 #endif
                                     NULL);
