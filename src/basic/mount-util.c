@@ -526,82 +526,67 @@ int mount_move_root(const char *path) {
 }
 
 bool fstype_is_network(const char *fstype) {
-        static const char table[] =
-                "afs\0"
-                "cifs\0"
-                "smbfs\0"
-                "sshfs\0"
-                "ncpfs\0"
-                "ncp\0"
-                "nfs\0"
-                "nfs4\0"
-                "gfs\0"
-                "gfs2\0"
-                "glusterfs\0"
-                "pvfs2\0" /* OrangeFS */
-                "ocfs2\0"
-                "lustre\0"
-                ;
-
         const char *x;
 
         x = startswith(fstype, "fuse.");
         if (x)
                 fstype = x;
 
-        return nulstr_contains(table, fstype);
+        return STR_IN_SET(fstype,
+                          "afs",
+                          "cifs",
+                          "smbfs",
+                          "sshfs",
+                          "ncpfs",
+                          "ncp",
+                          "nfs",
+                          "nfs4",
+                          "gfs",
+                          "gfs2",
+                          "glusterfs",
+                          "pvfs2", /* OrangeFS */
+                          "ocfs2",
+                          "lustre");
 }
 
 bool fstype_is_api_vfs(const char *fstype) {
-        static const char table[] =
-                "autofs\0"
-                "bpf\0"
-                "cgroup\0"
-                "cgroup2\0"
-                "configfs\0"
-                "cpuset\0"
-                "debugfs\0"
-                "devpts\0"
-                "devtmpfs\0"
-                "efivarfs\0"
-                "fusectl\0"
-                "hugetlbfs\0"
-                "mqueue\0"
-                "proc\0"
-                "pstore\0"
-                "ramfs\0"
-                "securityfs\0"
-                "sysfs\0"
-                "tmpfs\0"
-                "tracefs\0"
-                ;
-
-        return nulstr_contains(table, fstype);
+        return STR_IN_SET(fstype,
+                          "autofs",
+                          "bpf",
+                          "cgroup",
+                          "cgroup2",
+                          "configfs",
+                          "cpuset",
+                          "debugfs",
+                          "devpts",
+                          "devtmpfs",
+                          "efivarfs",
+                          "fusectl",
+                          "hugetlbfs",
+                          "mqueue",
+                          "proc",
+                          "pstore",
+                          "ramfs",
+                          "securityfs",
+                          "sysfs",
+                          "tmpfs",
+                          "tracefs");
 }
 
 bool fstype_is_ro(const char *fstype) {
-
         /* All Linux file systems that are necessarily read-only */
-
-        static const char table[] =
-                "DM_verity_hash\0"
-                "iso9660\0"
-                "squashfs\0"
-                ;
-
-        return nulstr_contains(table, fstype);
+        return STR_IN_SET(fstype,
+                          "DM_verity_hash",
+                          "iso9660",
+                          "squashfs");
 }
 
 bool fstype_can_discard(const char *fstype) {
-
-        static const char table[] =
-                "btrfs\0"
-                "ext4\0"
-                "vfat\0"
-                "xfs\0"
-                ;
-
-        return nulstr_contains(table, fstype);
+        return STR_IN_SET(fstype,
+                          "btrfs",
+                          "ext4",
+                          "vfat",
+                          "xfs");
 }
 
 int repeat_unmount(const char *path, int flags) {
