@@ -11,7 +11,7 @@ if [ "$2" != "-n" ]; then
         curl -L -o pnp_id_registry.html 'http://www.uefi.org/uefi-pnp-export'
         curl -L -o acpi_id_registry.html 'http://www.uefi.org/uefi-acpi-export'
 fi
-./ids-update.pl
+./ids_parser.py
 ./acpi-update.py >20-acpi-vendor.hwdb.base
 patch -p0 -o- 20-acpi-vendor.hwdb.base <20-acpi-vendor.hwdb.patch >20-acpi-vendor.hwdb
 ! diff -u 20-acpi-vendor.hwdb.base 20-acpi-vendor.hwdb >20-acpi-vendor.hwdb.patch
