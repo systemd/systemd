@@ -662,6 +662,7 @@ manpages = [
  ['systemd.link', '5', [], ''],
  ['systemd.mount', '5', [], ''],
  ['systemd.netdev', '5', [], 'ENABLE_NETWORKD'],
+ ['systemd.dnssd', '5', [], 'ENABLE_RESOLVE'],
  ['systemd.network', '5', [], 'ENABLE_NETWORKD'],
  ['systemd.nspawn', '5', [], ''],
  ['systemd.offline-updates', '7', [], ''],
