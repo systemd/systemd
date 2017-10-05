@@ -11,8 +11,8 @@ Documentation=man:sulogin(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
 Conflicts=rescue.service
-Conflicts=syslog.socket
 Before=shutdown.target
+Before=rescue.service
 
 [Service]
 Environment=HOME=/root
