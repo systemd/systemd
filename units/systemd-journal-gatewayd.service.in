@@ -12,6 +12,7 @@ Requires=systemd-journal-gatewayd.socket
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-journal-gatewayd
+User=systemd-journal-gateway
 SupplementaryGroups=systemd-journal
 DynamicUser=yes
 PrivateDevices=yes
