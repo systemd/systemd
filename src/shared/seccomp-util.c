@@ -807,8 +807,8 @@ int seccomp_add_syscall_filter_item(scmp_filter_ctx *seccomp, const char *name, 
 
                 id = seccomp_syscall_resolve_name(name);
                 if (id == __NR_SCMP_ERROR) {
-                        log_debug("System call %s is not known!", name);
-                        return -EINVAL; /* Not known at all? Then that's a real error */
+                        log_debug("System call %s is not known, ignoring.", name);
+                        return 0;
                 }
 
                 r = seccomp_rule_add_exact(seccomp, action, id, 0);
@@ -1501,7 +1501,6 @@ int seccomp_filter_set_add(Set *filter, bool add, const SyscallFilterSet *set) {
                         if (!more)
                                 return -ENXIO;
 
-
                         r = seccomp_filter_set_add(filter, add, more);
                         if (r < 0)
                                 return r;
@@ -1509,8 +1508,10 @@ int seccomp_filter_set_add(Set *filter, bool add, const SyscallFilterSet *set) {
                         int id;
 
                         id = seccomp_syscall_resolve_name(i);
-                        if (id == __NR_SCMP_ERROR)
-                                return -ENXIO;
+                        if (id == __NR_SCMP_ERROR) {
+                                log_debug("Couldn't resolve system call, ignoring: %s", i);
+                                continue;
+                        }
 
                         if (add) {
                                 r = set_put(filter, INT_TO_PTR(id + 1));
