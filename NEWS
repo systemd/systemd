@@ -43,7 +43,10 @@ CHANGES WITH 235:
           unpopulated at boot. Matching these new settings there's also
           StateDirectoryMode=, CacheDirectoryMode=, LogsDirectoryMode=,
           ConfigurationDirectoryMode= for configuring the access mode of these
-          directories.
+          directories. These settings are particularly useful in combination
+          with DynamicUser=yes as they provide secure, properly-owned,
+          writable, and stateful locations for storage, excluded from the
+          sandbox that such services live in otherwise.
 
         * Automake support has been removed from this release. systemd is now
           Meson-only.
