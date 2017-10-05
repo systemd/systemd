@@ -213,7 +213,12 @@ CHANGES WITH 235:
           switch. When invoked like this systemd-resolved will forget
           everything it learnt about the features supported by the configured
           upstream DNS servers, and restarts the feature probing logic on the
-          next resolver look-up for them at the highest feature level again.
+          next resolver look-up for them at the highest feature level
+          again.
+
+        * The status dump systemd-resolved sends to the logs upon receiving
+          SIGUSR1 now also includes information about all DNS servers it is
+          configured to use, and the features levels it probed for them.
 
         Contributions from: Abdó Roig-Maranges, Alan Jenkins, Alexander
         Kuleshov, Andreas Rammhold, Andrew Jeddeloh, Andrew Soutar, Ansgar

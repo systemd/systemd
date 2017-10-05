@@ -203,8 +203,9 @@
         <term><constant>SIGUSR1</constant></term>
 
         <listitem><para>Upon reception of the <constant>SIGUSR1</constant> process signal
-        <command>systemd-resolved</command> will dump the contents of all DNS resource record caches it maintains into
-        the system logs.</para></listitem>
+        <command>systemd-resolved</command> will dump the contents of all DNS resource record caches it maintains, as
+        well as all feature level information it learnt about configured DNS servers into the system
+        logs.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -154,3 +154,5 @@ void dns_server_flush_cache(DnsServer *s);
 
 void dns_server_reset_features(DnsServer *s);
 void dns_server_reset_features_all(DnsServer *s);
+
+void dns_server_dump(DnsServer *s, FILE *f);

@@ -519,8 +519,11 @@ static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si
         _cleanup_free_ char *buffer = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         Manager *m = userdata;
+        DnsServer *server;
         size_t size = 0;
         DnsScope *scope;
+        Iterator i;
+        Link *l;
 
         assert(s);
         assert(si);
@@ -532,6 +535,14 @@ static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si
 
         LIST_FOREACH(scopes, scope, m->dns_scopes)
                 dns_scope_dump(scope, f);
+
+        LIST_FOREACH(servers, server, m->dns_servers)
+                dns_server_dump(server, f);
+        LIST_FOREACH(servers, server, m->fallback_dns_servers)
+                dns_server_dump(server, f);
+        HASHMAP_FOREACH(l, m->links, i)
+                LIST_FOREACH(servers, server, l->dns_servers)
+                        dns_server_dump(server, f);
 
         if (fflush_and_check(f) < 0)
                 return log_oom();

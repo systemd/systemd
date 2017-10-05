@@ -853,6 +853,57 @@ void dns_server_reset_features_all(DnsServer *s) {
                 dns_server_reset_features(i);
 }
 
+void dns_server_dump(DnsServer *s, FILE *f) {
+        assert(s);
+
+        if (!f)
+                f = stdout;
+
+        fputs("[Server ", f);
+        fputs(dns_server_string(s), f);
+        fputs(" type=", f);
+        fputs(dns_server_type_to_string(s->type), f);
+
+        if (s->type == DNS_SERVER_LINK) {
+                assert(s->link);
+
+                fputs(" interface=", f);
+                fputs(s->link->name, f);
+        }
+
+        fputs("]\n", f);
+
+        fputs("\tVerified feature level: ", f);
+        fputs(strna(dns_server_feature_level_to_string(s->verified_feature_level)), f);
+        fputc('\n', f);
+
+        fputs("\tPossible feature level: ", f);
+        fputs(strna(dns_server_feature_level_to_string(s->possible_feature_level)), f);
+        fputc('\n', f);
+
+        fputs("\tDNSSEC Mode: ", f);
+        fputs(strna(dnssec_mode_to_string(dns_server_get_dnssec_mode(s))), f);
+        fputc('\n', f);
+
+        fputs("\tCan do DNSSEC: ", f);
+        fputs(yes_no(dns_server_dnssec_supported(s)), f);
+        fputc('\n', f);
+
+        fprintf(f,
+                "\tMaximum UDP packet size received: %zu\n"
+                "\tFailed UDP attempts: %u\n"
+                "\tFailed TCP attempts: %u\n"
+                "\tSeen truncated packet: %s\n"
+                "\tSeen OPT RR getting lost: %s\n"
+                "\tSeen RRSIG RR missing: %s\n",
+                s->received_udp_packet_max,
+                s->n_failed_udp,
+                s->n_failed_tcp,
+                yes_no(s->packet_truncated),
+                yes_no(s->packet_bad_opt),
+                yes_no(s->packet_rrsig_missing));
+}
+
 static const char* const dns_server_type_table[_DNS_SERVER_TYPE_MAX] = {
         [DNS_SERVER_SYSTEM] = "system",
         [DNS_SERVER_FALLBACK] = "fallback",
