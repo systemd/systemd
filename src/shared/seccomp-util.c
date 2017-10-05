@@ -1187,7 +1187,6 @@ int seccomp_restrict_address_families(Set *address_families, bool whitelist) {
                                         if (r < 0)
                                                 break;
                                 }
-
                                 if (r < 0) {
                                         log_debug_errno(r, "Failed to add socket() rule for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
                                         continue;
@@ -1212,7 +1211,6 @@ int seccomp_restrict_address_families(Set *address_families, bool whitelist) {
                                 if (r < 0)
                                         break;
                         }
-
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to add socket() rule for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
                                 continue;
@@ -1453,7 +1451,13 @@ int seccomp_restrict_archs(Set *archs) {
         if (r < 0)
                 return r;
 
-        return seccomp_load(seccomp);
+        r = seccomp_load(seccomp);
+        if (IN_SET(r, -EPERM, -EACCES))
+                return r;
+        if (r < 0)
+                log_debug_errno(r, "Failed to restrict system call architectures, skipping: %m");
+
+        return 0;
 }
 
 int parse_syscall_archs(char **l, Set **archs) {
