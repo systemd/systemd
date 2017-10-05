@@ -175,7 +175,7 @@ CHANGES WITH 235:
           of the service unit, and apply to ingress as well as egress traffic.
 
         * If CPUAccounting= or IPAccounting= is turned on for a unit a new
-          standarized log message is generated each time the unit is stopped,
+          structured log message is generated each time the unit is stopped,
           containing information about the consumed resources of this
           invocation.
 
@@ -223,11 +223,11 @@ CHANGES WITH 235:
         Poettering, Lion Yang, Luca Bruno, Lucas Werkmeister, Lukáš Nykrýn,
         Marcel Hollerbach, Marcus Lundblad, Martin Pitt, Michael Biebl, Michael
         Grzeschik, Michal Sekletar, Mike Gilbert, Neil Brown, Nicolas Iooss,
-        Patrik Flykt, pEJipE, Russell Stuart, S. Fan, Shengyao Xue, Stefan
-        Pietsch, Susant Sahani, Tejun Heo, Thomas Miller, Thomas Sailer, Tobias
-        Hunger, Tom Gundersen, Tommi Rantala, Topi Miettinen, Torstein Husebø,
-        userwithuid, Vito Caputo, vliaskov, WaLyong Cho, William Douglas, Xiang
-        Fan, Yu Watanabe, Zbigniew Jędrzejewski-Szmek
+        Patrik Flykt, pEJipE, Piotr Drąg, Russell Stuart, S. Fan, Shengyao Xue,
+        Stefan Pietsch, Susant Sahani, Tejun Heo, Thomas Miller, Thomas Sailer,
+        Tobias Hunger, Tom Gundersen, Tommi Rantala, Topi Miettinen, Torstein
+        Husebø, userwithuid, Vasilis Liaskovitis, Vito Caputo, WaLyong Cho,
+        William Douglas, Xiang Fan, Yu Watanabe, Zbigniew Jędrzejewski-Szmek
 
         — Berlin, 2017-10-XX
 
