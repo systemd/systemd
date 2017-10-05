@@ -10,8 +10,8 @@ project('systemd', 'c',
         meson_version : '>= 0.40',
        )
 
-libsystemd_version = '0.19.0'
-libudev_version = '1.6.6'
+libsystemd_version = '0.19.1'
+libudev_version = '1.6.7'
 
 # We need the same data in three different formats, ugh!
 # Also, for hysterical reasons, we use different variable
