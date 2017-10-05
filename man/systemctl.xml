@@ -407,8 +407,7 @@
         <term><option>--no-wall</option></term>
 
         <listitem>
-          <para>Do not send wall message before halt, power-off,
-          reboot.</para>
+          <para>Do not send wall message before halt, power-off and reboot.</para>
         </listitem>
       </varlistentry>
 
@@ -525,7 +524,7 @@
           <option>--force</option> twice with any of these operations might result in data loss. Note that when
           <option>--force</option> is specified twice the selected operation is executed by
           <command>systemctl</command> itself, and the system manager is not contacted. This means the command should
-          succeed even when the system manager hangs or crashed.</para>
+          succeed even when the system manager has crashed.</para>
         </listitem>
       </varlistentry>
 
@@ -533,11 +532,9 @@
         <term><option>--message=</option></term>
 
         <listitem>
-          <para>When used with <command>halt</command>,
-          <command>poweroff</command>, <command>reboot</command> or
-          <command>kexec</command>, set a short message explaining the reason
-          for the operation. The message will be logged together with the
-          default shutdown message.</para>
+          <para>When used with <command>halt</command>, <command>poweroff</command> or <command>reboot</command>, set a
+          short message explaining the reason for the operation. The message will be logged together with the default
+          shutdown message.</para>
         </listitem>
       </varlistentry>
 
@@ -1690,8 +1687,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <term><command>default</command></term>
 
           <listitem>
-            <para>Enter default mode. This is mostly equivalent to
-            <command>isolate default.target</command>.</para>
+            <para>Enter default mode. This is equivalent to <command>systemctl isolate default.target</command>. This
+            operation is blocking by default, use <option>--no-block</option> to request asynchronous behavior.</para>
           </listitem>
         </varlistentry>
 
@@ -1699,72 +1696,77 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <term><command>rescue</command></term>
 
           <listitem>
-            <para>Enter rescue mode. This is mostly equivalent to
-            <command>isolate rescue.target</command>, but also prints a
-            wall message to all users.</para>
+            <para>Enter rescue mode. This is equivalent to <command>systemctl isolate rescue.target</command>. This
+            operation is blocking by default, use <option>--no-block</option> to request asynchronous behavior.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><command>emergency</command></term>
 
           <listitem>
-            <para>Enter emergency mode. This is mostly equivalent to
-            <command>isolate emergency.target</command>, but also prints
-            a wall message to all users.</para>
+            <para>Enter emergency mode. This is equivalent to <command>systemctl isolate
+            emergency.target</command>. This operation is blocking by default, use <option>--no-block</option> to
+            request asynchronous behavior.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><command>halt</command></term>
 
           <listitem>
-            <para>Shut down and halt the system. This is mostly equivalent to <command>start halt.target
-            --job-mode=replace-irreversibly</command>, but also prints a wall message to all users.  If combined with
-            <option>--force</option>, shutdown of all running services is skipped, however all processes are killed and
-            all file systems are unmounted or mounted read-only, immediately followed by the system halt.  If
-            <option>--force</option> is specified twice, the operation is immediately executed without terminating any
-            processes or unmounting any file systems. This may result in data loss. Note that when
-            <option>--force</option> is specified twice the halt operation is executed by
-            <command>systemctl</command> itself, and the system manager is not contacted. This means the command should
-            succeed even when the system manager hangs or crashed.</para>
+            <para>Shut down and halt the system. This is mostly equivalent to <command>systemctl start halt.target
+            --job-mode=replace-irreversibly --no-block</command>, but also prints a wall message to all users. This command is
+            asynchronous; it will return after the halt operation is enqueued, without waiting for it to complete. Note
+            that this operation will simply halt the OS kernel after shutting down, leaving the hardware powered
+            on. Use <command>systemctl poweroff</command> for powering off the system (see below).</para>
+
+            <para>If combined with <option>--force</option>, shutdown of all running services is skipped, however all
+            processes are killed and all file systems are unmounted or mounted read-only, immediately followed by the
+            system halt.  If <option>--force</option> is specified twice, the operation is immediately executed without
+            terminating any processes or unmounting any file systems. This may result in data loss. Note that when
+            <option>--force</option> is specified twice the halt operation is executed by <command>systemctl</command>
+            itself, and the system manager is not contacted. This means the command should succeed even when the system
+            manager has crashed.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><command>poweroff</command></term>
 
           <listitem>
-            <para>Shut down and power-off the system. This is mostly equivalent to <command>start poweroff.target
-            --job-mode=replace-irreversibly</command>, but also prints a wall message to all users. If combined with
-            <option>--force</option>, shutdown of all running services is skipped, however all processes are killed and
-            all file systems are unmounted or mounted read-only, immediately followed by the powering off. If
-            <option>--force</option> is specified twice, the operation is immediately executed without terminating any
-            processes or unmounting any file systems. This may result in data loss. Note that when
+            <para>Shut down and power-off the system. This is mostly equivalent to <command>systemctl start
+            poweroff.target --job-mode=replace-irreversibly --no-block</command>, but also prints a wall message to all
+            users. This command is asynchronous; it will return after the power-off operation is enqueued, without
+            waiting for it to complete.</para>
+
+            <para>If combined with <option>--force</option>, shutdown of all running services is skipped, however all
+            processes are killed and all file systems are unmounted or mounted read-only, immediately followed by the
+            powering off. If <option>--force</option> is specified twice, the operation is immediately executed without
+            terminating any processes or unmounting any file systems. This may result in data loss. Note that when
             <option>--force</option> is specified twice the power-off operation is executed by
             <command>systemctl</command> itself, and the system manager is not contacted. This means the command should
-            succeed even when the system manager hangs or crashed.</para>
+            succeed even when the system manager has crashed.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><command>reboot <optional><replaceable>arg</replaceable></optional></command></term>
 
           <listitem>
-            <para>Shut down and reboot the system. This is mostly equivalent to <command>start reboot.target
-            --job-mode=replace-irreversibly</command>, but also prints a wall message to all users. If combined with
-            <option>--force</option>, shutdown of all running services is skipped, however all processes are killed and
-            all file systems are unmounted or mounted read-only, immediately followed by the reboot. If
-            <option>--force</option> is specified twice, the operation is immediately executed without terminating any
-            processes or unmounting any file systems. This may result in data loss. Note that when
+            <para>Shut down and reboot the system. This is mostly equivalent to <command>systemctl start reboot.target
+            --job-mode=replace-irreversibly --no-block</command>, but also prints a wall message to all users. This
+            command is asynchronous; it will return after the reboot operation is enqueued, without waiting for it to
+            complete.</para>
+
+            <para>If combined with <option>--force</option>, shutdown of all running services is skipped, however all
+            processes are killed and all file systems are unmounted or mounted read-only, immediately followed by the
+            reboot. If <option>--force</option> is specified twice, the operation is immediately executed without
+            terminating any processes or unmounting any file systems. This may result in data loss. Note that when
             <option>--force</option> is specified twice the reboot operation is executed by
             <command>systemctl</command> itself, and the system manager is not contacted. This means the command should
-            succeed even when the system manager hangs or crashed.</para>
+            succeed even when the system manager has crashed.</para>
 
-            <para>If the optional argument
-            <replaceable>arg</replaceable> is given, it will be passed
-            as the optional argument to the
-            <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-            system call. The value is architecture and firmware
-            specific. As an example, <literal>recovery</literal> might
-            be used to trigger system recovery, and
-            <literal>fota</literal> might be used to trigger a
+            <para>If the optional argument <replaceable>arg</replaceable> is given, it will be passed as the optional
+            argument to the <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+            system call. The value is architecture and firmware specific. As an example, <literal>recovery</literal>
+            might be used to trigger system recovery, and <literal>fota</literal> might be used to trigger a
             <quote>firmware over the air</quote> update.</para>
           </listitem>
         </varlistentry>
@@ -1773,13 +1775,14 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <term><command>kexec</command></term>
 
           <listitem>
-            <para>Shut down and reboot the system via kexec. This is
-            mostly equivalent to <command>start kexec.target --job-mode=replace-irreversibly</command>,
-            but also prints a wall message to all users. If combined
-            with <option>--force</option>, shutdown of all running
-            services is skipped, however all processes are killed and
-            all file systems are unmounted or mounted read-only,
-            immediately followed by the reboot.</para>
+            <para>Shut down and reboot the system via <command>kexec</command>. This is equivalent to
+            <command>systemctl start kexec.target --job-mode=replace-irreversibly --no-block</command>. This command is
+            asynchronous; it will return after the reboot operation is enqueued, without waiting for it to
+            complete.</para>
+
+            <para>If combined with <option>--force</option>, shutdown of all running services is skipped, however all
+            processes are killed and all file systems are unmounted or mounted read-only, immediately followed by the
+            reboot.</para>
           </listitem>
         </varlistentry>
 
@@ -1787,14 +1790,13 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <term><command>exit <optional><replaceable>EXIT_CODE</replaceable></optional></command></term>
 
           <listitem>
-            <para>Ask the systemd manager to quit. This is only
-            supported for user service managers (i.e. in conjunction
-            with the <option>--user</option> option) or in containers
-            and is equivalent to <command>poweroff</command> otherwise.</para>
+            <para>Ask the service manager to quit. This is only supported for user service managers (i.e. in
+            conjunction with the <option>--user</option> option) or in containers and is equivalent to
+            <command>poweroff</command> otherwise. This command is asynchronous; it will return after the exit
+            operation is enqueued, without waiting for it to complete.</para>
 
-            <para>The systemd manager can exit with a non-zero exit
-            code if the optional argument
-            <replaceable>EXIT_CODE</replaceable> is given.</para>
+            <para>The service manager will exit with the the specified exit code, if
+            <replaceable>EXIT_CODE</replaceable> is passed.</para>
           </listitem>
         </varlistentry>
 
@@ -1818,9 +1820,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <term><command>suspend</command></term>
 
           <listitem>
-            <para>Suspend the system. This will trigger activation of
-            the special <filename>suspend.target</filename> target.
-            </para>
+            <para>Suspend the system. This will trigger activation of the special target unit
+            <filename>suspend.target</filename>. This command is asynchronous, and will return after the suspend
+            operation is successfully enqueued. It will not wait for the suspend/resume cycle to complete.</para>
           </listitem>
         </varlistentry>
 
@@ -1828,9 +1830,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <term><command>hibernate</command></term>
 
           <listitem>
-            <para>Hibernate the system. This will trigger activation of
-            the special <filename>hibernate.target</filename> target.
-            </para>
+            <para>Hibernate the system. This will trigger activation of the special target unit
+            <filename>hibernate.target</filename>. This command is asynchronous, and will return after the hibernation
+            operation is successfully enqueued. It will not wait for the hibernate/thaw cycle to complete.</para>
           </listitem>
         </varlistentry>
 
@@ -1838,9 +1840,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <term><command>hybrid-sleep</command></term>
 
           <listitem>
-            <para>Hibernate and suspend the system. This will trigger
-            activation of the special
-            <filename>hybrid-sleep.target</filename> target.</para>
+            <para>Hibernate and suspend the system. This will trigger activation of the special target unit
+            <filename>hybrid-sleep.target</filename>. This command is asynchronous, and will return after the hybrid
+            sleep operation is successfully enqueued. It will not wait for the sleep/wake-up cycle to complete.</para>
           </listitem>
         </varlistentry>
       </variablelist>

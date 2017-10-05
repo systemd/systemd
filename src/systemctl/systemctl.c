@@ -3267,14 +3267,19 @@ static int logind_reboot(enum action a) {
 
         switch (a) {
 
+        case ACTION_POWEROFF:
+                method = "PowerOff";
+                description = "power off system";
+                break;
+
         case ACTION_REBOOT:
                 method = "Reboot";
                 description = "reboot system";
                 break;
 
-        case ACTION_POWEROFF:
-                method = "PowerOff";
-                description = "power off system";
+        case ACTION_HALT:
+                method = "Halt";
+                description = "halt system";
                 break;
 
         case ACTION_SUSPEND:
@@ -3568,6 +3573,7 @@ static int start_special(int argc, char *argv[], void *userdata) {
                 if (IN_SET(a,
                            ACTION_POWEROFF,
                            ACTION_REBOOT,
+                           ACTION_HALT,
                            ACTION_SUSPEND,
                            ACTION_HIBERNATE,
                            ACTION_HYBRID_SLEEP)) {
@@ -3579,8 +3585,16 @@ static int start_special(int argc, char *argv[], void *userdata) {
                                 /* requested operation is not supported or already in progress */
                                 return r;
 
-                        /* On all other errors, try low-level operation */
-                }
+                        /* On all other errors, try low-level operation. In order to minimize the difference between
+                         * operation with and without logind, we explicitly enable non-blocking mode for this, as
+                         * logind's shutdown operations are always non-blocking. */
+
+                        arg_no_block = true;
+
+                } else if (IN_SET(a, ACTION_EXIT, ACTION_KEXEC))
+                        /* Since exit/kexec are so close in behaviour to power-off/reboot, let's also make them
+                         * asynchronous, in order to not confuse the user needlessly with unexpected behaviour. */
+                        arg_no_block = true;
 
                 r = start_unit(argc, argv, userdata);
         }
@@ -8503,7 +8517,7 @@ static int halt_main(void) {
                 /* Try logind if we are a normal user and no special
                  * mode applies. Maybe PolicyKit allows us to shutdown
                  * the machine. */
-                if (IN_SET(arg_action, ACTION_POWEROFF, ACTION_REBOOT)) {
+                if (IN_SET(arg_action, ACTION_POWEROFF, ACTION_REBOOT, ACTION_HALT)) {
                         r = logind_reboot(arg_action);
                         if (r >= 0)
                                 return r;

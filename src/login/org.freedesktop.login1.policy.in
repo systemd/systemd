@@ -218,6 +218,39 @@
                 <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.reboot</annotate>
         </action>
 
+        <action id="org.freedesktop.login1.halt">
+                <_description>Halt the system</_description>
+                <_message>Authentication is required for halting the system.</_message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.set-wall-message</annotate>
+        </action>
+
+        <action id="org.freedesktop.login1.halt-multiple-sessions">
+                <_description>Halt the system while other users are logged in</_description>
+                <_message>Authentication is required for halting the system while other users are logged in.</_message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.halt</annotate>
+        </action>
+
+        <action id="org.freedesktop.login1.halt-ignore-inhibit">
+                <_description>Halt the system while an application asked to inhibit it</_description>
+                <_message>Authentication is required for halting the system while an application asked to inhibit it.</_message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.halt</annotate>
+        </action>
+
         <action id="org.freedesktop.login1.suspend">
                 <_description>Suspend the system</_description>
                 <_message>Authentication is required for suspending the system.</_message>
