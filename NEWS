@@ -214,23 +214,24 @@ CHANGES WITH 235:
 
         Contributions from: Abdó Roig-Maranges, Alan Jenkins, Alexander
         Kuleshov, Andreas Rammhold, Andrew Jeddeloh, Andrew Soutar, Ansgar
-        Burchardt, b1tninja, bengal, Benjamin Berg, Benjamin Robin, Charles
-        Huber, Christian Hesse, Daniel Berrange, Daniel Mack, Daniel Rusek,
-        dasj19, Davide Cavalca, Dimitri John Ledkov, Diogo Pereira, Djalal
-        Harouni, dkg, dmig, Dmitry Torokhov, ettavolt, Evgeny Vereshchagin,
-        Fabio Kung, Felipe Sateler, Franck Bui, g0tar, Hans de Goede, Harald
-        Hoyer, Insun Pyo, Ivan Kurnosov, Ivan Shapovalov, Jakub Wilk, Jan
-        Synacek, Jason Gunthorpe, Jeremy Bicha, Jérémy Rosen, John Lin,
-        jonasBoss, Jonathan Lebon, Jonathan Teh, Jon Ringle, Jörg Thalheim,
-        Jouke Witteveen, juga0, Justin Michaud, Kai-Heng Feng, Lennart
-        Poettering, Lion Yang, Luca Bruno, Lucas Werkmeister, Lukáš Nykrýn,
-        Marcel Hollerbach, Marcus Lundblad, Martin Pitt, Michael Biebl, Michael
-        Grzeschik, Michal Sekletar, Mike Gilbert, Neil Brown, Nicolas Iooss,
-        Patrik Flykt, pEJipE, Piotr Drąg, Russell Stuart, S. Fan, Shengyao Xue,
-        Stefan Pietsch, Susant Sahani, Tejun Heo, Thomas Miller, Thomas Sailer,
-        Tobias Hunger, Tom Gundersen, Tommi Rantala, Topi Miettinen, Torstein
-        Husebø, userwithuid, Vasilis Liaskovitis, Vito Caputo, WaLyong Cho,
-        William Douglas, Xiang Fan, Yu Watanabe, Zbigniew Jędrzejewski-Szmek
+        Burchardt, Beniamino Galvani, Benjamin Berg, Benjamin Robin, Charles
+        Huber, Christian Hesse, Daniel Berrange, Daniel Kahn Gillmor, Daniel
+        Mack, Daniel Rusek, Daniel Șerbănescu, Davide Cavalca, Dimitri John
+        Ledkov, Diogo Pereira, Djalal Harouni, Dmitriy Geels, Dmitry Torokhov,
+        ettavolt, Evgeny Vereshchagin, Fabio Kung, Felipe Sateler, Franck Bui,
+        Hans de Goede, Harald Hoyer, Insun Pyo, Ivan Kurnosov, Ivan Shapovalov,
+        Jakub Wilk, Jan Synacek, Jason Gunthorpe, Jeremy Bicha, Jérémy Rosen,
+        John Lin, jonasBoss, Jonathan Lebon, Jonathan Teh, Jon Ringle, Jörg
+        Thalheim, Jouke Witteveen, juga0, Justin Capella, Justin Michaud,
+        Kai-Heng Feng, Lennart Poettering, Lion Yang, Luca Bruno, Lucas
+        Werkmeister, Lukáš Nykrýn, Marcel Hollerbach, Marcus Lundblad, Martin
+        Pitt, Michael Biebl, Michael Grzeschik, Michal Sekletar, Mike Gilbert,
+        Neil Brown, Nicolas Iooss, Patrik Flykt, pEJipE, Piotr Drąg, Russell
+        Stuart, S. Fan, Shengyao Xue, Stefan Pietsch, Susant Sahani, Tejun Heo,
+        Thomas Miller, Thomas Sailer, Tobias Hunger, Tomasz Pala, Tom
+        Gundersen, Tommi Rantala, Topi Miettinen, Torstein Husebø, userwithuid,
+        Vasilis Liaskovitis, Vito Caputo, WaLyong Cho, William Douglas, Xiang
+        Fan, Yu Watanabe, Zbigniew Jędrzejewski-Szmek
 
         — Berlin, 2017-10-XX
 
