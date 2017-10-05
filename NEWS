@@ -16,11 +16,6 @@ CHANGES WITH 235:
           respectively. They complement the existing "set-log-level" and
           "set-log-target" verbs, which can be used to change those values.
 
-        * systemd-networkd .network DHCP setting UseMTU default has changed
-          from false to true. Meaning, DHCP server advertised MTU setting is
-          now applied by default. This resolves networking issues on low-mtu
-          networks.
-
         * journald.conf gained a new boolean setting ReadKMsg= which defaults
           to on. If turned off kernel log messages will not be read by
           systemd-journald and not be included in the logs. It also gained a
