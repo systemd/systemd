@@ -306,6 +306,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "membarrier\0"
                 "nanosleep\0"
                 "pause\0"
+                "prlimit64\0"
                 "restart_syscall\0"
                 "rt_sigreturn\0"
                 "sched_yield\0"
@@ -314,6 +315,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "set_tid_address\0"
                 "sigreturn\0"
                 "time\0"
+                "ugetrlimit\0"
         },
         [SYSCALL_FILTER_SET_BASIC_IO] = {
                 .name = "@basic-io",
@@ -693,7 +695,6 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "migrate_pages\0"
                 "move_pages\0"
                 "nice\0"
-                "prlimit64\0"
                 "sched_setaffinity\0"
                 "sched_setattr\0"
                 "sched_setparam\0"
@@ -806,8 +807,8 @@ int seccomp_add_syscall_filter_item(scmp_filter_ctx *seccomp, const char *name, 
 
                 id = seccomp_syscall_resolve_name(name);
                 if (id == __NR_SCMP_ERROR) {
-                        log_debug("System call %s is not known!", name);
-                        return -EINVAL; /* Not known at all? Then that's a real error */
+                        log_debug("System call %s is not known, ignoring.", name);
+                        return 0;
                 }
 
                 r = seccomp_rule_add_exact(seccomp, action, id, 0);
@@ -1186,7 +1187,6 @@ int seccomp_restrict_address_families(Set *address_families, bool whitelist) {
                                         if (r < 0)
                                                 break;
                                 }
-
                                 if (r < 0) {
                                         log_debug_errno(r, "Failed to add socket() rule for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
                                         continue;
@@ -1211,7 +1211,6 @@ int seccomp_restrict_address_families(Set *address_families, bool whitelist) {
                                 if (r < 0)
                                         break;
                         }
-
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to add socket() rule for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
                                 continue;
@@ -1452,7 +1451,13 @@ int seccomp_restrict_archs(Set *archs) {
         if (r < 0)
                 return r;
 
-        return seccomp_load(seccomp);
+        r = seccomp_load(seccomp);
+        if (IN_SET(r, -EPERM, -EACCES))
+                return r;
+        if (r < 0)
+                log_debug_errno(r, "Failed to restrict system call architectures, skipping: %m");
+
+        return 0;
 }
 
 int parse_syscall_archs(char **l, Set **archs) {
@@ -1500,7 +1505,6 @@ int seccomp_filter_set_add(Set *filter, bool add, const SyscallFilterSet *set) {
                         if (!more)
                                 return -ENXIO;
 
-
                         r = seccomp_filter_set_add(filter, add, more);
                         if (r < 0)
                                 return r;
@@ -1508,8 +1512,10 @@ int seccomp_filter_set_add(Set *filter, bool add, const SyscallFilterSet *set) {
                         int id;
 
                         id = seccomp_syscall_resolve_name(i);
-                        if (id == __NR_SCMP_ERROR)
-                                return -ENXIO;
+                        if (id == __NR_SCMP_ERROR) {
+                                log_debug("Couldn't resolve system call, ignoring: %s", i);
+                                continue;
+                        }
 
                         if (add) {
                                 r = set_put(filter, INT_TO_PTR(id + 1));
@@ -1543,8 +1549,10 @@ int seccomp_lock_personality(unsigned long personality) {
                                 SCMP_SYS(personality),
                                 1,
                                 SCMP_A0(SCMP_CMP_NE, personality));
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to add scheduler rule for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+                        continue;
+                }
 
                 r = seccomp_load(seccomp);
                 if (IN_SET(r, -EPERM, -EACCES))
