@@ -244,7 +244,7 @@ struct Manager {
          * file system */
         int pin_cgroupfs_fd;
 
-        int gc_marker;
+        unsigned gc_marker;
 
         /* Flags */
         ManagerExitCode exit_code:5;
