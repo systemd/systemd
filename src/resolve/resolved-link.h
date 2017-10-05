@@ -72,6 +72,7 @@ struct Link {
         ResolveSupport llmnr_support;
         ResolveSupport mdns_support;
         DnssecMode dnssec_mode;
+        DnsServerFeatureLevel best_feature_level;
         Set *dnssec_negative_trust_anchors;
 
         DnsScope *unicast_scope;

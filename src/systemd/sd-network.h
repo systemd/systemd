@@ -127,6 +127,13 @@ int sd_network_link_get_mdns(int ifindex, char **mdns);
  */
 int sd_network_link_get_dnssec(int ifindex, char **dnssec);
 
+/* Indicates the best feature level the DNS server can handle for the link
+ * Possible feature modes: TCP, UDP, UDP+EDNS0, UDP+EDNS0+DO, UDP+EDNS0+DO+LARGE
+ * Possible return codes:
+ *   -ENODATA: networkd is not aware of the link
+ */
+int sd_network_link_get_best_feature_level(int ifindex, char **best_feature_level);
+
 /* Returns the list of per-interface DNSSEC negative trust anchors
  * Possible return codes:
  *   -ENODATA: networkd is not aware of the link, or has no such data

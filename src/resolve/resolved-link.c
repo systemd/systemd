@@ -365,6 +365,22 @@ clear:
         return r;
 }
 
+static int link_update_best_feature_level(Link *l) {
+        _cleanup_free_ char *s = NULL;
+        DnsServerFeatureLevel level = DNS_SERVER_FEATURE_LEVEL_BEST;
+        int r;
+
+        assert(l);
+
+        r = sd_network_link_get_best_feature_level(l->ifindex, &s);
+        if (0 == r) {
+                level = dns_server_feature_level_from_string(s);
+        }
+        l->best_feature_level = level;
+        r = (r == -ENODATA) ? 0 : r;
+        return r;
+}
+
 static int link_update_dnssec_negative_trust_anchors(Link *l) {
         _cleanup_strv_free_ char **ntas = NULL;
         _cleanup_set_free_free_ Set *ns = NULL;
@@ -505,10 +521,6 @@ static void link_read_settings(Link *l) {
 
         l->is_managed = true;
 
-        r = link_update_dns_servers(l);
-        if (r < 0)
-                log_warning_errno(r, "Failed to read DNS servers for interface %s, ignoring: %m", l->name);
-
         r = link_update_llmnr_support(l);
         if (r < 0)
                 log_warning_errno(r, "Failed to read LLMNR support for interface %s, ignoring: %m", l->name);
@@ -521,6 +533,10 @@ static void link_read_settings(Link *l) {
         if (r < 0)
                 log_warning_errno(r, "Failed to read DNSSEC mode for interface %s, ignoring: %m", l->name);
 
+        r = link_update_best_feature_level(l);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read BEST_FEATURE_LEVEL for interface %s, ignoring: %m", l->name);
+
         r = link_update_dnssec_negative_trust_anchors(l);
         if (r < 0)
                 log_warning_errno(r, "Failed to read DNSSEC negative trust anchors for interface %s, ignoring: %m", l->name);
@@ -528,6 +544,10 @@ static void link_read_settings(Link *l) {
         r = link_update_search_domains(l);
         if (r < 0)
                 log_warning_errno(r, "Failed to read search domains for interface %s, ignoring: %m", l->name);
+
+        r = link_update_dns_servers(l);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read DNS servers for interface %s, ignoring: %m", l->name);
 }
 
 int link_update(Link *l) {

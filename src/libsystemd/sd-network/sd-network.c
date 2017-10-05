@@ -183,6 +183,10 @@ _public_ int sd_network_link_get_dnssec(int ifindex, char **dnssec) {
         return network_link_get_string(ifindex, "DNSSEC", dnssec);
 }
 
+_public_ int sd_network_link_get_best_feature_level(int ifindex, char **best_feature_level) {
+        return network_link_get_string(ifindex, "BEST_FEATURE_LEVEL", best_feature_level);
+}
+
 _public_ int sd_network_link_get_dnssec_negative_trust_anchors(int ifindex, char ***nta) {
         return network_link_get_strv(ifindex, "DNSSEC_NTA", nta);
 }
