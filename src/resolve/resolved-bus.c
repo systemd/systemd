@@ -1569,6 +1569,17 @@ static int bus_method_flush_caches(sd_bus_message *message, void *userdata, sd_b
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int bus_method_reset_server_features(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+
+        assert(message);
+        assert(m);
+
+        manager_reset_server_features(m);
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("LLMNRHostname", "s", NULL, offsetof(Manager, llmnr_hostname), 0),
@@ -1587,6 +1598,7 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_METHOD("ResolveService", "isssit", "a(qqqsa(iiay)s)aayssst", bus_method_resolve_service, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ResetStatistics", NULL, NULL, bus_method_reset_statistics, 0),
         SD_BUS_METHOD("FlushCaches", NULL, NULL, bus_method_flush_caches, 0),
+        SD_BUS_METHOD("ResetServerFeatures", NULL, NULL, bus_method_reset_server_features, 0),
         SD_BUS_METHOD("GetLink", "i", "o", bus_method_get_link, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetLinkDNS", "ia(iay)", NULL, bus_method_set_link_dns_servers, 0),
         SD_BUS_METHOD("SetLinkDomains", "ia(sb)", NULL, bus_method_set_link_domains, 0),

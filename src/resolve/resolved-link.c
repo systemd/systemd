@@ -111,13 +111,30 @@ Link *link_free(Link *l) {
 }
 
 void link_allocate_scopes(Link *l) {
+        bool unicast_relevant;
         int r;
 
         assert(l);
 
-        if (link_relevant(l, AF_UNSPEC, false) &&
-            l->dns_servers) {
+        /* If a link that used to be relevant is no longer, or a link that did not use to be relevant now becomes
+         * relevant, let's reinit the learnt global DNS server information, since we might talk to different servers
+         * now, even if they have the same addresses as before. */
+
+        unicast_relevant = link_relevant(l, AF_UNSPEC, false);
+        if (unicast_relevant != l->unicast_relevant) {
+                l->unicast_relevant = unicast_relevant;
+
+                dns_server_reset_features_all(l->manager->fallback_dns_servers);
+                dns_server_reset_features_all(l->manager->dns_servers);
+        }
+
+        /* And now, allocate all scopes that makes sense now if we didn't have them yet, and drop those which we don't
+         * need anymore */
+
+        if (unicast_relevant && l->dns_servers) {
                 if (!l->unicast_scope) {
+                        dns_server_reset_features_all(l->dns_servers);
+
                         r = dns_scope_new(l->manager, &l->unicast_scope, l, DNS_PROTOCOL_DNS, AF_UNSPEC);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to allocate DNS scope: %m");

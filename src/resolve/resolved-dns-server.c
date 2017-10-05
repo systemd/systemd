@@ -70,15 +70,12 @@ int dns_server_new(
 
         s->n_ref = 1;
         s->manager = m;
-        s->verified_feature_level = _DNS_SERVER_FEATURE_LEVEL_INVALID;
-        s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_BEST;
-        s->features_grace_period_usec = DNS_SERVER_FEATURE_GRACE_PERIOD_MIN_USEC;
-        s->received_udp_packet_max = DNS_PACKET_UNICAST_SIZE_MAX;
         s->type = type;
         s->family = family;
         s->address = *in_addr;
         s->ifindex = ifindex;
-        s->resend_timeout = DNS_TIMEOUT_MIN_USEC;
+
+        dns_server_reset_features(s);
 
         switch (type) {
 
@@ -826,6 +823,85 @@ void dns_server_flush_cache(DnsServer *s) {
                 return;
 
         dns_cache_flush(&scope->cache);
+}
+
+void dns_server_reset_features(DnsServer *s) {
+        assert(s);
+
+        s->max_rtt = 0;
+        s->resend_timeout = DNS_TIMEOUT_MIN_USEC;
+
+        s->verified_feature_level = _DNS_SERVER_FEATURE_LEVEL_INVALID;
+        s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_BEST;
+
+        s->received_udp_packet_max = DNS_PACKET_UNICAST_SIZE_MAX;
+
+        s->packet_bad_opt = false;
+        s->packet_rrsig_missing = false;
+
+        s->features_grace_period_usec = DNS_SERVER_FEATURE_GRACE_PERIOD_MIN_USEC;
+
+        s->warned_downgrade = false;
+
+        dns_server_reset_counters(s);
+}
+
+void dns_server_reset_features_all(DnsServer *s) {
+        DnsServer *i;
+
+        LIST_FOREACH(servers, i, s)
+                dns_server_reset_features(i);
+}
+
+void dns_server_dump(DnsServer *s, FILE *f) {
+        assert(s);
+
+        if (!f)
+                f = stdout;
+
+        fputs("[Server ", f);
+        fputs(dns_server_string(s), f);
+        fputs(" type=", f);
+        fputs(dns_server_type_to_string(s->type), f);
+
+        if (s->type == DNS_SERVER_LINK) {
+                assert(s->link);
+
+                fputs(" interface=", f);
+                fputs(s->link->name, f);
+        }
+
+        fputs("]\n", f);
+
+        fputs("\tVerified feature level: ", f);
+        fputs(strna(dns_server_feature_level_to_string(s->verified_feature_level)), f);
+        fputc('\n', f);
+
+        fputs("\tPossible feature level: ", f);
+        fputs(strna(dns_server_feature_level_to_string(s->possible_feature_level)), f);
+        fputc('\n', f);
+
+        fputs("\tDNSSEC Mode: ", f);
+        fputs(strna(dnssec_mode_to_string(dns_server_get_dnssec_mode(s))), f);
+        fputc('\n', f);
+
+        fputs("\tCan do DNSSEC: ", f);
+        fputs(yes_no(dns_server_dnssec_supported(s)), f);
+        fputc('\n', f);
+
+        fprintf(f,
+                "\tMaximum UDP packet size received: %zu\n"
+                "\tFailed UDP attempts: %u\n"
+                "\tFailed TCP attempts: %u\n"
+                "\tSeen truncated packet: %s\n"
+                "\tSeen OPT RR getting lost: %s\n"
+                "\tSeen RRSIG RR missing: %s\n",
+                s->received_udp_packet_max,
+                s->n_failed_udp,
+                s->n_failed_tcp,
+                yes_no(s->packet_truncated),
+                yes_no(s->packet_bad_opt),
+                yes_no(s->packet_rrsig_missing));
 }
 
 static const char* const dns_server_type_table[_DNS_SERVER_TYPE_MAX] = {

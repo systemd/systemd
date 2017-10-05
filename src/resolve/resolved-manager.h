@@ -126,6 +126,7 @@ struct Manager {
 
         sd_event_source *sigusr1_event_source;
         sd_event_source *sigusr2_event_source;
+        sd_event_source *sigrtmin1_event_source;
 
         unsigned n_transactions_total;
         unsigned n_dnssec_verdict[_DNSSEC_VERDICT_MAX];
@@ -184,5 +185,6 @@ void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResource
 bool manager_routable(Manager *m, int family);
 
 void manager_flush_caches(Manager *m);
+void manager_reset_server_features(Manager *m);
 
 void manager_cleanup_saved_user(Manager *m);

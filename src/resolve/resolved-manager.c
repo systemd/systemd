@@ -519,8 +519,11 @@ static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si
         _cleanup_free_ char *buffer = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         Manager *m = userdata;
+        DnsServer *server;
         size_t size = 0;
         DnsScope *scope;
+        Iterator i;
+        Link *l;
 
         assert(s);
         assert(si);
@@ -532,6 +535,14 @@ static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si
 
         LIST_FOREACH(scopes, scope, m->dns_scopes)
                 dns_scope_dump(scope, f);
+
+        LIST_FOREACH(servers, server, m->dns_servers)
+                dns_server_dump(server, f);
+        LIST_FOREACH(servers, server, m->fallback_dns_servers)
+                dns_server_dump(server, f);
+        HASHMAP_FOREACH(l, m->links, i)
+                LIST_FOREACH(servers, server, l->dns_servers)
+                        dns_server_dump(server, f);
 
         if (fflush_and_check(f) < 0)
                 return log_oom();
@@ -549,6 +560,17 @@ static int manager_sigusr2(sd_event_source *s, const struct signalfd_siginfo *si
 
         manager_flush_caches(m);
 
+        return 0;
+}
+
+static int manager_sigrtmin1(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        Manager *m = userdata;
+
+        assert(s);
+        assert(si);
+        assert(m);
+
+        manager_reset_server_features(m);
         return 0;
 }
 
@@ -616,6 +638,7 @@ int manager_new(Manager **ret) {
 
         (void) sd_event_add_signal(m->event, &m->sigusr1_event_source, SIGUSR1, manager_sigusr1, m);
         (void) sd_event_add_signal(m->event, &m->sigusr2_event_source, SIGUSR2, manager_sigusr2, m);
+        (void) sd_event_add_signal(m->event, &m->sigrtmin1_event_source, SIGRTMIN+1, manager_sigrtmin1, m);
 
         manager_cleanup_saved_user(m);
 
@@ -679,6 +702,7 @@ Manager *manager_free(Manager *m) {
 
         sd_event_source_unref(m->sigusr1_event_source);
         sd_event_source_unref(m->sigusr2_event_source);
+        sd_event_source_unref(m->sigrtmin1_event_source);
 
         sd_event_unref(m->event);
 
@@ -1394,6 +1418,19 @@ void manager_flush_caches(Manager *m) {
                 dns_cache_flush(&scope->cache);
 
         log_info("Flushed all caches.");
+}
+
+void manager_reset_server_features(Manager *m) {
+        Iterator i;
+        Link *l;
+
+        dns_server_reset_features_all(m->dns_servers);
+        dns_server_reset_features_all(m->fallback_dns_servers);
+
+        HASHMAP_FOREACH(l, m->links, i)
+                dns_server_reset_features_all(l->dns_servers);
+
+        log_info("Resetting learnt feature levels on all servers.");
 }
 
 void manager_cleanup_saved_user(Manager *m) {

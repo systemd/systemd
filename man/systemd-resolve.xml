@@ -299,7 +299,18 @@
       <varlistentry>
         <term><option>--flush-caches</option></term>
 
-        <listitem><para>Flushes all DNS resource record caches the service maintains locally.</para></listitem>
+        <listitem><para>Flushes all DNS resource record caches the service maintains locally. This is mostly equivalent
+        to sending the <constant>SIGUSR2</constant> to the <command>systemd-resolved</command>
+        service.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--reset-server-features</option></term>
+
+        <listitem><para>Flushes all feature level information the resolver learnt about specific servers, and ensures
+        that the server feature probing logic is started from the beginning with the next look-up request. This is
+        mostly equivalent to sending the <constant>SIGRTMIN+1</constant> to the <command>systemd-resolved</command>
+        service.</para></listitem>
       </varlistentry>
 
       <varlistentry>

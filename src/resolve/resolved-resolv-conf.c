@@ -26,6 +26,7 @@
 #include "fileio.h"
 #include "ordered-set.h"
 #include "resolved-conf.h"
+#include "resolved-dns-server.h"
 #include "resolved-resolv-conf.h"
 #include "string-util.h"
 #include "strv.h"
@@ -135,6 +136,11 @@ int manager_read_resolv_conf(Manager *m) {
          * enough to flush the global unicast DNS cache. */
         if (m->unicast_scope)
                 dns_cache_flush(&m->unicast_scope->cache);
+
+        /* If /etc/resolv.conf changed, make sure to forget everything we learned about the DNS servers. After all we
+         * might now talk to a very different DNS server that just happens to have the same IP address as an old one
+         * (think 192.168.1.1). */
+        dns_server_reset_features_all(m->dns_servers);
 
         return 0;
 
