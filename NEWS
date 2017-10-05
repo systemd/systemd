@@ -12,22 +12,21 @@ CHANGES WITH 235:
           bond0 interface using systemd-networkd.
 
         * systemd-analyze gained new verbs "get-log-level" and "get-log-target"
-          which print the logging level and target of the system manager,
-          respectively. They complement the existing "set-log-level" and
-          "set-log-target" verbs, which can be used to change those values.
+          which print the logging level and target of the system manager. They
+          complement the existing "set-log-level" and "set-log-target" verbs
+          used to change those values.
 
         * journald.conf gained a new boolean setting ReadKMsg= which defaults
           to on. If turned off kernel log messages will not be read by
-          systemd-journald and not be included in the logs. It also gained a
-          new setting LineMax= for configuring the maximum line length to allow
-          when converting STDOUT/STDERR log streams into individual log
-          records. The new default for this value is 48K, up from the previous
-          hardcoded 4K.
+          systemd-journald or included in the logs. It also gained a new
+          setting LineMax= for configuring the maximum line length in
+          STDOUT/STDERR log streams. The new default for this value is 48K, up
+          from the previous hardcoded 2048.
 
-        * A new setting RuntimeDirectoryPreserve= for units has been added,
-          which allows more detailed control of what to do with a runtime
-          directory configured with RuntimeDirectory= (i.e. a directory below
-          /run or $XDG_RUNTIME_DIR) after a unit is stopped.
+        * A new unit setting RuntimeDirectoryPreserve= has been added, which
+          allows more detailed control of what to do with a runtime directory
+          configured with RuntimeDirectory= (i.e. a directory below /run or
+          $XDG_RUNTIME_DIR) after a unit is stopped.
 
         * The RuntimeDirectory= setting for units gained support for creating
           deeper subdirectories below /run or $XDG_RUNTIME_DIR, instead of just
@@ -36,7 +35,7 @@ CHANGES WITH 235:
         * Units gained new options StateDirectory=, CacheDirectory=,
           LogsDirectory= and ConfigurationDirectory= which are closely related
           to RuntimeDirectory= but manage per-service directories below
-          /var/lib, /var/cache, /var/log and /etc. By making use of this it is
+          /var/lib, /var/cache, /var/log and /etc. By making use of them it is
           possible to write unit files which when activated automatically gain
           properly owned service specific directories in these locations, thus
           making unit files self-contained and increasing compatibility with
@@ -90,20 +89,20 @@ CHANGES WITH 235:
           configuring TCP/IPv6 hardware segmentation offload.
 
         * The IPv6 RA sender implementation may now optionally send out RDNSS
-          and RDNSSL records for supplying DNS configuration to peers.
+          and RDNSSL records to supply DNS configuration to peers.
 
         * systemd-nspawn gained support for a new --system-call-filter= command
-          line option for adding/removing entries in the default system call
-          filter it applies. Moreover systemd-nspawn has been changed to
+          line option for adding and removing entries in the default system
+          call filter it applies. Moreover systemd-nspawn has been changed to
           implement a system call whitelist instead of a blacklist.
 
         * systemd-run gained support for a new --pipe command line option. If
           used the STDIN/STDOUT/STDERR file descriptors passed to systemd-run
           are directly passed on to the activated transient service
-          binary. This allows invoking arbitrary processes as systemd services
-          (for example to take benefit of dependency management, accounting
-          management, resource management or log management that is done
-          automatically for services) — while still allowing them to be
+          executable. This allows invoking arbitrary processes as systemd
+          services (for example to take benefit of dependency management,
+          accounting management, resource management or log management that is
+          done automatically for services) — while still allowing them to be
           integrated in a classic UNIX shell pipeline.
 
         * When a service sends RELOAD=1 via sd_notify() and reload propagation
@@ -141,8 +140,7 @@ CHANGES WITH 235:
 
         * A new special target "getty-pre.target" has been added, which is
           ordered before all text logins, and may be used to order services
-          before, that shall run before these textual logins acquire access to
-          the console.
+          before textual logins acquire access to the console.
 
         * systemd will now attempt to load the virtio-rng.ko kernel module very
           early on if a VM environment supporting this is detected. This should
@@ -150,15 +148,15 @@ CHANGES WITH 235:
 
         * A _netdev option is now supported in /etc/crypttab that operates in a
           similar way as the same option in /etc/fstab: it permits configuring
-          encrypted devices that need to be ordered after the network coming
-          up. Following this logic, two new special targets
+          encrypted devices that need to be ordered after the network is up.
+          Following this logic, two new special targets
           remote-cryptsetup-pre.target and remote-cryptsetup.target have been
-          added that are to cryptsetup.target what
-          remote-fs.target/remote-fs-pre.target are to local-fs.target.
+          added that are to cryptsetup.target what remote-fs.target and
+          remote-fs-pre.target are to local-fs.target.
 
         * Service units gained a new UnsetEnvironment= setting which permits
-          unsetting specific environment variables for specific services that
-          are normally passed to it (for example in order to mask out locale
+          unsetting specific environment variables for services that are
+          normally passed to it (for example in order to mask out locale
           settings for specific services that can't deal with it).
 
         * Units acquired a new boolean option IPAccounting=. When turned on, IP
@@ -176,8 +174,8 @@ CHANGES WITH 235:
           enforced on every single IPv4 and IPv6 socket created by any process
           of the service unit, and apply to ingress as well as egress traffic.
 
-        * If CPUAccounting= or IPAccounting= is turned on for a unit a new,
-          recognizable log message is generated each time the unit is stopped,
+        * If CPUAccounting= or IPAccounting= is turned on for a unit a new
+          standarized log message is generated each time the unit is stopped,
           containing information about the consumed resources of this
           invocation.
 
@@ -188,8 +186,8 @@ CHANGES WITH 235:
         * "systemctl poweroff", "systemctl reboot", "systemctl halt",
           "systemctl kexec" and "systemctl exit" are now always asynchronous in
           behaviour (that is: these commands return immediately after the
-          operation was enqueued instead of waiting until the operation was
-          completed). Previously, "systemctl poweroff" and "systemctl reboot"
+          operation was enqueued instead of waiting for the operation to
+          complete). Previously, "systemctl poweroff" and "systemctl reboot"
           were asynchronous on systems using systemd-logind (i.e. almost
           always, and like they were on sysvinit), and the other three commands
           were unconditionally synchronous. With this release this is cleaned
@@ -203,13 +201,13 @@ CHANGES WITH 235:
           than UTC or the local timezone.
 
         * The tmpfiles snippet var.conf has been changed to create
-          /var/log/btmp with access mode 0660 instead of 0600. It has been
-          owned by the "utmp" group already, and it appears to be generally
-          understood that members of "utmp" can modify/flush the
-          utmp/wtmp/lastlog/btmp databases. Previously this was implemented
-          correctly for all these database excepts btmp, which has been opened
-          up like this now too. Note that while the other databases are
-          world-readable (i.e. 0644), btmp is not and remains more restrictive.
+          /var/log/btmp with access mode 0660 instead of 0600. It was owned by
+          the "utmp" group already, and it appears to be generally understood
+          that members of "utmp" can modify/flush the utmp/wtmp/lastlog/btmp
+          databases. Previously this was implemented correctly for all these
+          databases excepts btmp, which has been opened up like this now
+          too. Note that while the other databases are world-readable
+          (i.e. 0644), btmp is not and remains more restrictive.
 
         Contributions from: Abdó Roig-Maranges, Alan Jenkins, Alexander
         Kuleshov, Andreas Rammhold, Andrew Jeddeloh, Andrew Soutar, Ansgar
