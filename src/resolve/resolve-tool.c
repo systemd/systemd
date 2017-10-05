@@ -357,7 +357,7 @@ static int output_rr_packet(const void *d, size_t l, int ifindex) {
         int r;
         char ifname[IF_NAMESIZE] = "";
 
-        r = dns_packet_new(&p, DNS_PROTOCOL_DNS, 0);
+        r = dns_packet_new(&p, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
         if (r < 0)
                 return log_oom();
 

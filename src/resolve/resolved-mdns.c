@@ -86,27 +86,21 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         key = p->question->keys[0];
 
         r = dns_zone_lookup(&s->zone, key, 0, &answer, &soa, &tentative);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to lookup key: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to lookup key: %m");
         if (r == 0)
                 return 0;
 
         r = dns_scope_make_reply_packet(s, DNS_PACKET_ID(p), DNS_RCODE_SUCCESS, NULL, answer, NULL, false, &reply);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to build reply packet: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to build reply packet: %m");
 
         if (!ratelimit_test(&s->ratelimit))
                 return 0;
 
         r = dns_scope_emit_udp(s, -1, reply);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to send reply packet: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to send reply packet: %m");
 
         return 0;
 }
