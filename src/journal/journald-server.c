@@ -1245,7 +1245,7 @@ static int setup_signals(Server *s) {
 
         assert(s);
 
-        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, SIGUSR1, SIGUSR2, SIGRTMIN+1, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, SIGUSR1, SIGUSR2, sigrtmin+1, -1) >= 0);
 
         r = sd_event_add_signal(s->event, &s->sigusr1_event_source, SIGUSR1, dispatch_sigusr1, s);
         if (r < 0)
@@ -1280,7 +1280,7 @@ static int setup_signals(Server *s) {
          * really written to disk. Clients can watch
          * /run/systemd/journal/synced with inotify until its mtime
          * changes to see when a sync happened. */
-        r = sd_event_add_signal(s->event, &s->sigrtmin1_event_source, SIGRTMIN+1, dispatch_sigrtmin1, s);
+        r = sd_event_add_signal(s->event, &s->sigrtmin1_event_source, sigrtmin+1, dispatch_sigrtmin1, s);
         if (r < 0)
                 return r;
 

@@ -20,6 +20,7 @@
 #include <signal.h>
 #include <unistd.h>
 
+#include "log.h"
 #include "macro.h"
 #include "signal-util.h"
 
@@ -59,9 +60,48 @@ static void test_ignore_signals(void) {
         assert_se(default_signals(SIGINT, SIGUSR1, SIGUSR2, SIGTERM, SIGPIPE, -1) >= 0);
 }
 
+static void test_sigrtmin(void) {
+        assert_se(sigrtmin == SIGRTMIN);
+}
+
+static void test_sigrtmax(void) {
+        assert_se(sigrtmax == SIGRTMAX);
+}
+
+static int test_sigrtmin_comparisons_orig(int i) {
+        /* The purpose of this function is to look at the disassembly
+         * to check if sigrtmin is handled at least semi-efficiently. */
+        return
+                i == SIGINT ||
+                i == SIGRTMIN+5 ||
+                i == SIGRTMIN+6 ||
+                i == SIGRTMIN+15 ||
+                i == SIGRTMIN+16;
+}
+
+static int test_sigrtmin_comparisons(int i) {
+        /* The purpose of this function is to look at the disassembly
+         * to check if sigrtmin is handled at least semi-efficiently. */
+        return
+                i == SIGINT ||
+                i == sigrtmin+5 ||
+                i == sigrtmin+6 ||
+                i == sigrtmin+15 ||
+                i == sigrtmin+16;
+}
+
 int main(int argc, char *argv[]) {
+        log_set_max_level(LOG_DEBUG);
+        log_parse_environment();
+        log_open();
+
         test_block_signals();
         test_ignore_signals();
+        test_sigrtmin();
+        test_sigrtmax();
+        log_debug("test_sigrtmin_comparisons → %d, %d",
+                  test_sigrtmin_comparisons_orig(argc),
+                  test_sigrtmin_comparisons(argc));
 
         return 0;
 }

@@ -97,14 +97,14 @@ int stub_pid1(sd_id128_t uuid) {
         assert_se(sigset_add_many(&waitmask,
                                   SIGCHLD,          /* posix: process died */
                                   SIGINT,           /* sysv: ctrl-alt-del */
-                                  SIGRTMIN+3,       /* systemd: halt */
-                                  SIGRTMIN+4,       /* systemd: poweroff */
-                                  SIGRTMIN+5,       /* systemd: reboot */
-                                  SIGRTMIN+6,       /* systemd: kexec */
-                                  SIGRTMIN+13,      /* systemd: halt */
-                                  SIGRTMIN+14,      /* systemd: poweroff */
-                                  SIGRTMIN+15,      /* systemd: reboot */
-                                  SIGRTMIN+16,      /* systemd: kexec */
+                                  sigrtmin+3,       /* systemd: halt */
+                                  sigrtmin+4,       /* systemd: poweroff */
+                                  sigrtmin+5,       /* systemd: reboot */
+                                  sigrtmin+6,       /* systemd: kexec */
+                                  sigrtmin+13,      /* systemd: halt */
+                                  sigrtmin+14,      /* systemd: poweroff */
+                                  sigrtmin+15,      /* systemd: reboot */
+                                  sigrtmin+16,      /* systemd: kexec */
                                   -1) >= 0);
 
         /* Note that we ignore SIGTERM (sysv's reexec), SIGHUP (reload), and all other signals here, since we don't
@@ -171,18 +171,18 @@ int stub_pid1(sd_id128_t uuid) {
                 /* Would love to use a switch() statement here, but SIGRTMIN is actually a function call, not a
                  * constant… */
 
-                if (si.si_signo == SIGRTMIN+3 ||
-                    si.si_signo == SIGRTMIN+4 ||
-                    si.si_signo == SIGRTMIN+13 ||
-                    si.si_signo == SIGRTMIN+14)
+                if (si.si_signo == sigrtmin+3 ||
+                    si.si_signo == sigrtmin+4 ||
+                    si.si_signo == sigrtmin+13 ||
+                    si.si_signo == sigrtmin+14)
 
                         state = STATE_POWEROFF;
 
                 else if (si.si_signo == SIGINT ||
-                         si.si_signo == SIGRTMIN+5 ||
-                         si.si_signo == SIGRTMIN+6 ||
-                         si.si_signo == SIGRTMIN+15 ||
-                         si.si_signo == SIGRTMIN+16)
+                         si.si_signo == sigrtmin+5 ||
+                         si.si_signo == sigrtmin+6 ||
+                         si.si_signo == sigrtmin+15 ||
+                         si.si_signo == sigrtmin+16)
 
                         state = STATE_REBOOT;
                 else

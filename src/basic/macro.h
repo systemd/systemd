@@ -36,6 +36,7 @@
 #define _destructor_ __attribute__ ((destructor))
 #define _pure_ __attribute__ ((pure))
 #define _const_ __attribute__ ((const))
+#define _constructor_ __attribute__ ((constructor))
 #define _deprecated_ __attribute__ ((deprecated))
 #define _packed_ __attribute__ ((packed))
 #define _malloc_ __attribute__ ((malloc))

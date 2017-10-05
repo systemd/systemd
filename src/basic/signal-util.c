@@ -232,8 +232,8 @@ const char *signal_to_string(int signo) {
         if (name)
                 return name;
 
-        if (signo >= SIGRTMIN && signo <= SIGRTMAX)
-                xsprintf(buf, "RTMIN+%d", signo - SIGRTMIN);
+        if (signo >= sigrtmin && signo <= sigrtmax)
+                xsprintf(buf, "RTMIN+%d", signo - sigrtmin);
         else
                 xsprintf(buf, "%d", signo);
 
@@ -251,7 +251,7 @@ int signal_from_string(const char *s) {
 
         if (startswith(s, "RTMIN+")) {
                 s += 6;
-                offset = SIGRTMIN;
+                offset = sigrtmin;
         }
         if (safe_atou(s, &u) >= 0) {
                 signo = (int) u + offset;
@@ -275,4 +275,11 @@ int signal_from_string_try_harder(const char *s) {
 
 void nop_signal_handler(int sig) {
         /* nothing here */
+}
+
+int sigrtmin;
+int sigrtmax;
+_constructor_ static void init_sigrtmin(void) {
+        sigrtmin = SIGRTMIN;
+        sigrtmax = SIGRTMAX;
 }

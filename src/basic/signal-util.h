@@ -54,3 +54,6 @@ static inline void block_signals_reset(sigset_t *ss) {
 static inline bool SIGNAL_VALID(int signo) {
         return signo > 0 && signo < _NSIG;
 }
+
+extern int sigrtmin;
+extern int sigrtmax;

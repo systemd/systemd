@@ -26,6 +26,7 @@
 #include "log.h"
 #include "scope.h"
 #include "special.h"
+#include "signal-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -162,7 +163,7 @@ static int scope_load_init_scope(Unit *u) {
         u->default_dependencies = false;
         u->ignore_on_isolate = true;
 
-        SCOPE(u)->kill_context.kill_signal = SIGRTMIN+14;
+        SCOPE(u)->kill_context.kill_signal = sigrtmin+14;
 
         /* Prettify things, if we can. */
         if (!u->description)

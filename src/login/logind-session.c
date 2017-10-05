@@ -41,6 +41,7 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "signal-util.h"
 #include "string-table.h"
 #include "terminal-util.h"
 #include "user-util.h"
@@ -1113,8 +1114,8 @@ int session_prepare_vt(Session *s) {
          * So we need a dummy handler here which just acknowledges *all* VT
          * switch requests. */
         mode.mode = VT_PROCESS;
-        mode.relsig = SIGRTMIN;
-        mode.acqsig = SIGRTMIN + 1;
+        mode.relsig = sigrtmin;
+        mode.acqsig = sigrtmin + 1;
         r = ioctl(vt, VT_SETMODE, &mode);
         if (r < 0) {
                 r = log_error_errno(errno,

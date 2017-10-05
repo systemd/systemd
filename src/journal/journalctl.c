@@ -65,6 +65,7 @@
 #include "rlimit-util.h"
 #include "set.h"
 #include "sigbus.h"
+#include "signal-util.h"
 #include "strv.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
@@ -1953,7 +1954,7 @@ static int rotate(void) {
 }
 
 static int sync_journal(void) {
-        return send_signal_and_wait(SIGRTMIN+1, "/run/systemd/journal/synced");
+        return send_signal_and_wait(sigrtmin+1, "/run/systemd/journal/synced");
 }
 
 int main(int argc, char *argv[]) {

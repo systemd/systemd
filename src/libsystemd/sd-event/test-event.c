@@ -221,8 +221,8 @@ static void test_basic(void) {
         assert_se(sd_event_source_set_prepare(z, prepare_handler) >= 0);
 
         /* Test for floating event sources */
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGRTMIN+1, -1) >= 0);
-        assert_se(sd_event_add_signal(e, NULL, SIGRTMIN+1, NULL, NULL) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, sigrtmin+1, -1) >= 0);
+        assert_se(sd_event_add_signal(e, NULL, sigrtmin+1, NULL, NULL) >= 0);
 
         assert_se(write(a[1], &ch, 1) >= 0);
         assert_se(write(b[1], &ch, 1) >= 0);
@@ -310,17 +310,17 @@ static void test_rtqueue(void) {
 
         assert_se(sd_event_default(&e) >= 0);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGRTMIN+2, SIGRTMIN+3, SIGUSR2, -1) >= 0);
-        assert_se(sd_event_add_signal(e, &u, SIGRTMIN+2, rtqueue_handler, NULL) >= 0);
-        assert_se(sd_event_add_signal(e, &v, SIGRTMIN+3, rtqueue_handler, NULL) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, sigrtmin+2, sigrtmin+3, SIGUSR2, -1) >= 0);
+        assert_se(sd_event_add_signal(e, &u, sigrtmin+2, rtqueue_handler, NULL) >= 0);
+        assert_se(sd_event_add_signal(e, &v, sigrtmin+3, rtqueue_handler, NULL) >= 0);
         assert_se(sd_event_add_signal(e, &s, SIGUSR2, rtqueue_handler, NULL) >= 0);
 
         assert_se(sd_event_source_set_priority(v, -10) >= 0);
 
-        assert(sigqueue(getpid_cached(), SIGRTMIN+2, (union sigval) { .sival_int = 1 }) >= 0);
-        assert(sigqueue(getpid_cached(), SIGRTMIN+3, (union sigval) { .sival_int = 2 }) >= 0);
+        assert(sigqueue(getpid_cached(), sigrtmin+2, (union sigval) { .sival_int = 1 }) >= 0);
+        assert(sigqueue(getpid_cached(), sigrtmin+3, (union sigval) { .sival_int = 2 }) >= 0);
         assert(sigqueue(getpid_cached(), SIGUSR2, (union sigval) { .sival_int = 3 }) >= 0);
-        assert(sigqueue(getpid_cached(), SIGRTMIN+3, (union sigval) { .sival_int = 4 }) >= 0);
+        assert(sigqueue(getpid_cached(), sigrtmin+3, (union sigval) { .sival_int = 4 }) >= 0);
         assert(sigqueue(getpid_cached(), SIGUSR2, (union sigval) { .sival_int = 5 }) >= 0);
 
         assert_se(n_rtqueue == 0);

@@ -1212,7 +1212,7 @@ static int reboot_machine(int argc, char *argv[], void *userdata) {
 
 static int poweroff_machine(int argc, char *argv[], void *userdata) {
         arg_kill_who = "leader";
-        arg_signal = SIGRTMIN+4; /* only systemd */
+        arg_signal = sigrtmin+4; /* only systemd */
 
         return kill_machine(argc, argv, userdata);
 }

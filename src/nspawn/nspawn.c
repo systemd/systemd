@@ -1242,7 +1242,7 @@ static int verify_arguments(void) {
 #endif
 
         if (arg_start_mode == START_BOOT && arg_kill_signal <= 0)
-                arg_kill_signal = SIGRTMIN+3;
+                arg_kill_signal = sigrtmin+3;
 
         return 0;
 }
