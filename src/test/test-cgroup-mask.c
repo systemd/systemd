@@ -34,7 +34,11 @@ static int test_cgroup_mask(void) {
         FDSet *fdset = NULL;
         int r;
 
-        enter_cgroup_subroot();
+        r = enter_cgroup_subroot();
+        if (r == -ENOMEDIUM) {
+                puts("Skipping test: cgroupfs not available");
+                return EXIT_TEST_SKIP;
+        }
 
         /* Prepare the manager. */
         assert_se(set_unit_path(get_testdata_dir("")) >= 0);

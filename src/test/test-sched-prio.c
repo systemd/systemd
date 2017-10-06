@@ -34,7 +34,11 @@ int main(int argc, char *argv[]) {
         FDSet *fdset = NULL;
         int r;
 
-        enter_cgroup_subroot();
+        r = enter_cgroup_subroot();
+        if (r == -ENOMEDIUM) {
+                log_notice_errno(r, "Skipping test: cgroupfs not available");
+                return EXIT_TEST_SKIP;
+        }
 
         /* prepare the test */
         assert_se(set_unit_path(get_testdata_dir("")) >= 0);

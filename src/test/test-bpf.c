@@ -49,7 +49,12 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        enter_cgroup_subroot();
+        r = enter_cgroup_subroot();
+        if (r == -ENOMEDIUM) {
+                log_notice("cgroupfs not available, skipping tests");
+                return EXIT_TEST_SKIP;
+        }
+
         assert_se(set_unit_path(get_testdata_dir("")) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
 

@@ -2456,8 +2456,11 @@ static int cg_unified_update(void) {
                                 return -ENOMEDIUM;
                         unified_cache = CGROUP_UNIFIED_NONE;
                 }
-        } else
+        } else {
+                log_debug("Unknown filesystem type %llx mounted on /sys/fs/cgroup.",
+                          (unsigned long long) fs.f_type);
                 return -ENOMEDIUM;
+        }
 
         return 0;
 }
