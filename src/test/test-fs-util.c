@@ -221,7 +221,7 @@ static void test_readlink_and_make_absolute(void) {
         char name_alias[] = "/tmp/test-readlink_and_make_absolute-alias";
         char *r = NULL;
 
-        assert_se(mkdir_safe(tempdir, 0755, getuid(), getgid()) >= 0);
+        assert_se(mkdir_safe(tempdir, 0755, getuid(), getgid(), false) >= 0);
         assert_se(touch(name) >= 0);
 
         assert_se(symlink(name, name_alias) >= 0);

@@ -25,8 +25,8 @@
 #include "label.h"
 #include "mkdir.h"
 
-int mkdir_safe_label(const char *path, mode_t mode, uid_t uid, gid_t gid) {
-        return mkdir_safe_internal(path, mode, uid, gid, mkdir_label);
+int mkdir_safe_label(const char *path, mode_t mode, uid_t uid, gid_t gid, bool follow_symlink) {
+        return mkdir_safe_internal(path, mode, uid, gid, follow_symlink, mkdir_label);
 }
 
 int mkdir_parents_label(const char *path, mode_t mode) {
