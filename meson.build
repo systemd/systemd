@@ -2540,7 +2540,7 @@ foreach tuple : [
         ['timesyncd'],
         ['localed'],
         ['networkd'],
-        ['resolved'],
+        ['resolve'],
         ['coredump'],
         ['polkit'],
         ['legacy pkla',      install_polkit_pkla],
