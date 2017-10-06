@@ -736,6 +736,8 @@ Features:
 
 * create /sbin/init symlinks from the build system
 
+* add a dependency on standard-conf.xml and other included files to man pages
+
 * MountFlags=shared acts as MountFlags=slave right now.
 
 * properly handle loop back mounts via fstab, especially regards to fsck/passno
