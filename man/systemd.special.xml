@@ -104,6 +104,7 @@
     <filename>system-update.target</filename>,
     <filename>time-sync.target</filename>,
     <filename>timers.target</filename>,
+    <filename>timers-delayed.target</filename>,
     <filename>umount.target</filename>,
     <!-- slices --><filename>-.slice</filename>,
     <filename>system.slice</filename>,
@@ -710,12 +711,27 @@
           <para>A special target unit that sets up all timer units
           (see
           <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for details) that shall be active after boot.</para>
+          for details) that shall be active at boot time.</para>
 
           <para>It is recommended that timer units installed by
           applications get pulled in via <varname>Wants=</varname>
           dependencies from this unit. This is best configured via
           <varname>WantedBy=timers.target</varname> in the timer
+          unit's <literal>[Install]</literal> section.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><filename>timers-delayed.target</filename></term>
+        <listitem>
+          <para>A special target unit that sets up all timer units
+          (see
+          <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for details) that shall be active after boot.</para>
+
+          <para>It is recommended that timer units that trigger long-running
+          services get pulled in via <varname>Wants=</varname>
+          dependencies from this unit. This is best configured via
+          <varname>WantedBy=timers-delayed.target</varname> in the timer
           unit's <literal>[Install]</literal> section.</para>
         </listitem>
       </varlistentry>
