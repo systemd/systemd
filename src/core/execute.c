@@ -3070,11 +3070,14 @@ static int exec_child(
         }
 
         if (context->private_network && runtime && runtime->netns_storage_socket[0] >= 0) {
-                r = setup_netns(runtime->netns_storage_socket);
-                if (r < 0) {
-                        *exit_status = EXIT_NETWORK;
-                        return log_unit_error_errno(unit, r, "Failed to set up network namespacing: %m");
-                }
+                if (ns_type_supported(NAMESPACE_NET)) {
+                        r = setup_netns(runtime->netns_storage_socket);
+                        if (r < 0) {
+                                *exit_status = EXIT_NETWORK;
+                                return log_unit_error_errno(unit, r, "Failed to set up network namespacing: %m");
+                        }
+                } else
+                        log_unit_warning(unit, "PrivateNetwork=yes is configured, but the kernel does not support network namespaces, ignoring.");
         }
 
         needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);

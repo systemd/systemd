@@ -115,9 +115,6 @@ Features:
 
 * maybe introduce gpt auto discovery for /var/tmp?
 
-* fix PrivateNetwork= so that we fall back gracefully on kernels lacking
-  namespacing support (similar for the other namespacing options)
-
 * maybe add gpt-partition-based user management: each user gets his own
   LUKS-encrypted GPT partition with a new GPT type. A small nss module
   enumerates users via udev partition enumeration. UIDs are assigned in a fixed
