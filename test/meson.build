@@ -163,9 +163,11 @@ endif
 
 ############################################################
 
-sysv_generator_test_py = find_program('sysv-generator-test.py')
-test('sysv-generator-test',
-     sysv_generator_test_py)
+if conf.get('HAVE_SYSV_COMPAT') == 1
+        sysv_generator_test_py = find_program('sysv-generator-test.py')
+        test('sysv-generator-test',
+             sysv_generator_test_py)
+endif
 
 ############################################################
 
@@ -181,6 +183,8 @@ udev_test_pl = find_program('udev-test.pl')
 test('udev-test',
      udev_test_pl)
 
-hwdb_test_sh = find_program('hwdb-test.sh')
-test('hwdb-test',
-     hwdb_test_sh)
+if conf.get('ENABLE_HWDB') == 1
+        hwdb_test_sh = find_program('hwdb-test.sh')
+        test('hwdb-test',
+             hwdb_test_sh)
+endif
