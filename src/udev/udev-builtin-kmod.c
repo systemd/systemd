@@ -24,13 +24,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "module-util.h"
 #include "string-util.h"
 #include "udev.h"
 
 static struct kmod_ctx *ctx = NULL;
 
 static int load_module(struct udev *udev, const char *alias) {
-        struct kmod_list *list = NULL;
+        _cleanup_(kmod_module_unref_listp) struct kmod_list *list = NULL;
         struct kmod_list *l;
         int err;
 
@@ -42,7 +43,9 @@ static int load_module(struct udev *udev, const char *alias) {
                 log_debug("No module matches '%s'", alias);
 
         kmod_list_foreach(l, list) {
-                struct kmod_module *mod = kmod_module_get_module(l);
+                _cleanup_(kmod_module_unrefp) struct kmod_module *mod = NULL;
+
+                mod = kmod_module_get_module(l);
 
                 err = kmod_module_probe_insert_module(mod, KMOD_PROBE_APPLY_BLACKLIST, NULL, NULL, NULL, NULL);
                 if (err == KMOD_PROBE_APPLY_BLACKLIST)
@@ -51,11 +54,8 @@ static int load_module(struct udev *udev, const char *alias) {
                         log_debug("Inserted '%s'", kmod_module_get_name(mod));
                 else
                         log_debug("Failed to insert '%s'", kmod_module_get_name(mod));
-
-                kmod_module_unref(mod);
         }
 
-        kmod_module_unref_list(list);
         return err;
 }
 
