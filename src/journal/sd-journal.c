@@ -819,15 +819,21 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
 }
 
 static int real_journal_next(sd_journal *j, direction_t direction) {
-        JournalFile *f, *new_file = NULL;
-        Iterator i;
+        JournalFile *new_file = NULL;
+        unsigned i, n_files;
+        const void **files;
         Object *o;
         int r;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
 
-        ORDERED_HASHMAP_FOREACH(f, j->files, i) {
+        r = iterated_cache_get(j->files_cache, NULL, &files, &n_files);
+        if (r < 0)
+                return r;
+
+        for (i = 0; i < n_files; i++) {
+                JournalFile *f = (JournalFile *)files[i];
                 bool found;
 
                 r = next_beyond_location(j, f, direction);
@@ -1736,9 +1742,13 @@ static sd_journal *journal_new(int flags, const char *path) {
         }
 
         j->files = ordered_hashmap_new(&string_hash_ops);
+        if (!j->files)
+                goto fail;
+
+        j->files_cache = ordered_hashmap_iterated_cache_new(j->files);
         j->directories_by_path = hashmap_new(&string_hash_ops);
         j->mmap = mmap_cache_new();
-        if (!j->files || !j->directories_by_path || !j->mmap)
+        if (!j->files_cache || !j->directories_by_path || !j->mmap)
                 goto fail;
 
         return j;
@@ -1984,6 +1994,7 @@ _public_ void sd_journal_close(sd_journal *j) {
         sd_journal_flush_matches(j);
 
         ordered_hashmap_free_with_destructor(j->files, journal_file_close);
+        iterated_cache_free(j->files_cache);
 
         while ((d = hashmap_first(j->directories_by_path)))
                 remove_directory(j, d);
