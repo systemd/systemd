@@ -119,8 +119,15 @@ static int load_module(struct kmod_ctx *ctx, const char *m) {
                                 log_info("Module '%s' is blacklisted", kmod_module_get_name(mod));
                         else {
                                 assert(err < 0);
-                                r = log_error_errno(err, "Failed to insert '%s': %m",
-                                                    kmod_module_get_name(mod));
+
+                                log_full_errno(err == ENODEV ? LOG_NOTICE :
+                                               err == ENOENT ? LOG_WARNING :
+                                                               LOG_ERR,
+                                               err,
+                                               "Failed to insert '%s': %m",
+                                               kmod_module_get_name(mod));
+                                if (!IN_SET(err, ENODEV, ENOENT))
+                                        r = err;
                         }
                 }
         }
