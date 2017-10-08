@@ -229,6 +229,7 @@ struct HashmapBase {
         unsigned n_direct_entries:3; /* Number of entries in direct storage.
                                       * Only valid if !has_indirect. */
         bool from_pool:1;            /* whether was allocated from mempool */
+        bool dirty:1;                /* whether dirtied since cache sync */
         HASHMAP_DEBUG_FIELDS         /* optional hashmap_debug_info */
 };
 
@@ -350,6 +351,11 @@ static unsigned base_bucket_hash(HashmapBase *h, const void *p) {
         return (unsigned) (hash % n_buckets(h));
 }
 #define bucket_hash(h, p) base_bucket_hash(HASHMAP_BASE(h), p)
+
+static inline void base_set_dirty(HashmapBase *h) {
+        h->dirty = true;
+}
+#define hashmap_set_dirty(h) base_set_dirty(HASHMAP_BASE(h))
 
 static void get_hash_key(uint8_t hash_key[HASH_KEY_SIZE], bool reuse_is_ok) {
         static uint8_t current[HASH_KEY_SIZE];
@@ -568,6 +574,7 @@ static void base_remove_entry(HashmapBase *h, unsigned idx) {
 
         bucket_mark_free(h, prev);
         n_entries_dec(h);
+        base_set_dirty(h);
 }
 #define remove_entry(h, idx) base_remove_entry(HASHMAP_BASE(h), idx)
 
@@ -897,6 +904,8 @@ void internal_hashmap_clear(HashmapBase *h) {
                 OrderedHashmap *lh = (OrderedHashmap*) h;
                 lh->iterate_list_head = lh->iterate_list_tail = IDX_NIL;
         }
+
+        base_set_dirty(h);
 }
 
 void internal_hashmap_clear_free(HashmapBase *h) {
@@ -1040,6 +1049,8 @@ static int hashmap_base_put_boldly(HashmapBase *h, unsigned idx,
 #if ENABLE_DEBUG_HASHMAP
         h->debug.max_entries = MAX(h->debug.max_entries, n_entries(h));
 #endif
+
+        base_set_dirty(h);
 
         return 1;
 }
@@ -1277,6 +1288,8 @@ int hashmap_replace(Hashmap *h, const void *key, void *value) {
 #endif
                 e->b.key = key;
                 e->value = value;
+                hashmap_set_dirty(h);
+
                 return 0;
         }
 
@@ -1299,6 +1312,8 @@ int hashmap_update(Hashmap *h, const void *key, void *value) {
 
         e = plain_bucket_at(h, idx);
         e->value = value;
+        hashmap_set_dirty(h);
+
         return 0;
 }
 
