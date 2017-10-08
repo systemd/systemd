@@ -41,7 +41,7 @@ static int load_module(const char *mod_name) {
 
         r = kmod_module_new_from_lookup(ctx, mod_name, &list);
         if (r < 0)
-                return -1;
+                return r;
 
         kmod_list_foreach(l, list) {
                 _cleanup_(kmod_module_unrefp) struct kmod_module *mod = NULL;
@@ -49,10 +49,8 @@ static int load_module(const char *mod_name) {
                 mod = kmod_module_get_module(l);
 
                 r = kmod_module_probe_insert_module(mod, 0, NULL, NULL, NULL, NULL);
-                if (r >= 0)
-                        r = 0;
-                else
-                        r = -1;
+                if (r > 0)
+                        r = -EINVAL;
         }
 
         return r;
