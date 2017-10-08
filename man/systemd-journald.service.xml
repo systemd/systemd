@@ -123,7 +123,7 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
     <para>If <filename>systemd-journald.service</filename> is stopped, the stream connections associated with all
     services are terminated. Further writes to those streams by the service will result in <constant>EPIPE</constant>
     errors. In order to react gracefully in this case it is recommended that programs logging to standard output/error
-    ignore such errors. If the the <constant>SIGPIPE</constant> UNIX signal handler is not blocked or turned off, such
+    ignore such errors. If the <constant>SIGPIPE</constant> UNIX signal handler is not blocked or turned off, such
     write attempts will also result in such process signals being generated, see
     <citerefentry><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>. To mitigate this issue,
     systemd service manager explicitly turns off the <constant>SIGPIPE</constant> signal for all invoked processes by
@@ -145,12 +145,12 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
     transports listed above, which are inherently record based and where the metadata is always associated with the
     individual record.</para>
 
-    <para>In addition to the the implicit standard output/error logging of services, stream logging is also available
+    <para>In addition to the implicit standard output/error logging of services, stream logging is also available
     via the <citerefentry><refentrytitle>systemd-cat</refentrytitle><manvolnum>1</manvolnum></citerefentry> command
     line tool.</para>
 
     <para>Currently, the number of parallel log streams <filename>systemd-journald</filename> will accept is limited to
-    4096. When this limit is reached further log streams may be established but will receieve
+    4096. When this limit is reached further log streams may be established but will receive
     <constant>EPIPE</constant> right from the beginning.</para>
   </refsect1>
 

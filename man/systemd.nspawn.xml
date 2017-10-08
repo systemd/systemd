@@ -275,7 +275,7 @@
         <term><varname>NotifyReady=</varname></term>
 
         <listitem><para>Configures support for notifications from the container's init process.  This is equivalent to
-        the <option>--notify-ready=</option> command line switch, and takes the same paramaters. See
+        the <option>--notify-ready=</option> command line switch, and takes the same parameters. See
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for details
         about the specific options supported.</para></listitem>
       </varlistentry>

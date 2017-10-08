@@ -295,7 +295,7 @@
     <varname>DefaultDependencies=</varname> in each unit types.</para>
 
     <para>For example, target units will complement all configured
-    dependencies of type type <varname>Wants=</varname> or
+    dependencies of type <varname>Wants=</varname> or
     <varname>Requires=</varname> with dependencies of type
     <varname>After=</varname>. See
     <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>
