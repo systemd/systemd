@@ -26,37 +26,32 @@
 #include "sd-netlink.h"
 
 #include "macro.h"
+#include "module-util.h"
 #include "util.h"
 
 static int load_module(const char *mod_name) {
-        struct kmod_ctx *ctx;
-        struct kmod_list *list = NULL, *l;
+        _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;
+        _cleanup_(kmod_module_unref_listp) struct kmod_list *list = NULL;
+        struct kmod_list *l;
         int r;
 
         ctx = kmod_new(NULL, NULL);
-        if (!ctx) {
-                kmod_unref(ctx);
-                return -ENOMEM;
-        }
+        if (!ctx)
+                return log_oom();
 
         r = kmod_module_new_from_lookup(ctx, mod_name, &list);
         if (r < 0)
-                return -1;
+                return r;
 
         kmod_list_foreach(l, list) {
-                struct kmod_module *mod = kmod_module_get_module(l);
+                _cleanup_(kmod_module_unrefp) struct kmod_module *mod = NULL;
+
+                mod = kmod_module_get_module(l);
 
                 r = kmod_module_probe_insert_module(mod, 0, NULL, NULL, NULL, NULL);
-                if (r >= 0)
-                        r = 0;
-                else
-                        r = -1;
-
-                kmod_module_unref(mod);
+                if (r > 0)
+                        r = -EINVAL;
         }
-
-        kmod_module_unref_list(list);
-        kmod_unref(ctx);
 
         return r;
 }
