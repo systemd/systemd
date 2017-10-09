@@ -377,3 +377,20 @@ Documentation: man:systemd-resolved.service(8)
 
 Открытый ключ (trust ahcnor) DNSSEC был отозван. Необходимо настроить новый
 открытый ключ, либо обновить систему, чтобы получить обновленный открытый ключ.
+
+# Subject: Automatic restarting of a unit has been scheduled
+-- 5eb03494b6584870a536b337290809b3
+Subject: Назначен автоматический перезапуск юнита
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Назначен автоматический перезапуск юнита @UNIT@, так как для него был задан 
+параметр Restart=.
+
+# Subject: Resources consumed by unit runtime
+-- ae8f7b866b0347b9af31fe1c80b127c0
+Subject: Потребленные юнитом ресурсы
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Юнит @UNIT@ завершен. Приводится статистика по потребленным им ресурсам.
