@@ -24,6 +24,17 @@ Janitorial Clean-ups:
 
 Features:
 
+* export UID ranges nspawns's --private-user and DynamicUser= uses in
+  the systemd.pc pkg-config file, the same way we already expose the system
+  user boundary there
+
+* Whenever we check a UID against the system UID range, also check for the
+  dynamic UID range
+
+* maybe hook of xfs/ext4 quotactl() with services? i.e. automatically manage
+  the quota of a the user indicated in User= via unit file settings, like the
+  other resource management concepts. Would mix nicely with DynamicUser=1
+
 * maybe set a new set of env vars for services, based on RuntimeDirectory=,
   StateDirectory=, LogsDirectory=, CacheDirectory= and ConfigurationDirectory=
   automatically. For example, there could be $RUNTIME_DIRECTORY,
