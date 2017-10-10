@@ -79,35 +79,61 @@ static int print_catalog(FILE *f, sd_journal *j) {
         return 0;
 }
 
-static int parse_field(const void *data, size_t length, const char *field, char **target, size_t *target_size) {
-        size_t fl, nl;
+static int parse_field(const void *data, size_t length, const char *field, size_t field_len, char **target, size_t *target_len) {
+        size_t nl;
         char *buf;
 
         assert(data);
         assert(field);
         assert(target);
 
-        fl = strlen(field);
-        if (length < fl)
+        if (length < field_len)
                 return 0;
 
-        if (memcmp(data, field, fl))
+        if (memcmp(data, field, field_len))
                 return 0;
 
-        nl = length - fl;
+        nl = length - field_len;
 
 
-        buf = newdup_suffix0(char, (const char*) data + fl, nl);
+        buf = newdup_suffix0(char, (const char*) data + field_len, nl);
         if (!buf)
                 return log_oom();
 
         free(*target);
         *target = buf;
 
-        if (target_size)
-                *target_size = nl;
+        if (target_len)
+                *target_len = nl;
 
         return 1;
+}
+
+typedef struct ParseFieldVec {
+        const char *field;
+        size_t field_len;
+        char **target;
+        size_t *target_len;
+} ParseFieldVec;
+
+#define PARSE_FIELD_VEC_ENTRY(_field, _target, _target_len) \
+        { .field = _field, .field_len = strlen(_field), .target = _target, .target_len = _target_len }
+
+static int parse_fieldv(const void *data, size_t length, const ParseFieldVec *fields, unsigned n_fields) {
+        unsigned i;
+
+        for (i = 0; i < n_fields; i++) {
+                const ParseFieldVec *f = &fields[i];
+                int r;
+
+                r = parse_field(data, length, f->field, f->field_len, f->target, f->target_len);
+                if (r < 0)
+                        return r;
+                else if (r > 0)
+                        break;
+        }
+
+        return 0;
 }
 
 static bool shall_print(const char *p, size_t l, OutputFlags flags) {
@@ -337,6 +363,17 @@ static int output_short(
         size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0, realtime_len = 0, monotonic_len = 0, priority_len = 0;
         int p = LOG_INFO;
         bool ellipsized = false;
+        const ParseFieldVec fields[] = {
+                PARSE_FIELD_VEC_ENTRY("_PID=", &pid, &pid_len),
+                PARSE_FIELD_VEC_ENTRY("_COMM=", &comm, &comm_len),
+                PARSE_FIELD_VEC_ENTRY("MESSAGE=", &message, &message_len),
+                PARSE_FIELD_VEC_ENTRY("PRIORITY=", &priority, &priority_len),
+                PARSE_FIELD_VEC_ENTRY("_HOSTNAME=", &hostname, &hostname_len),
+                PARSE_FIELD_VEC_ENTRY("SYSLOG_PID=", &fake_pid, &fake_pid_len),
+                PARSE_FIELD_VEC_ENTRY("SYSLOG_IDENTIFIER=", &identifier, &identifier_len),
+                PARSE_FIELD_VEC_ENTRY("_SOURCE_REALTIME_TIMESTAMP=", &realtime, &realtime_len),
+                PARSE_FIELD_VEC_ENTRY("_SOURCE_MONOTONIC_TIMESTAMP=", &monotonic, &monotonic_len),
+        };
 
         assert(f);
         assert(j);
@@ -351,55 +388,7 @@ static int output_short(
 
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
 
-                r = parse_field(data, length, "PRIORITY=", &priority, &priority_len);
-                if (r < 0)
-                        return r;
-                else if (r > 0)
-                        continue;
-
-                r = parse_field(data, length, "_HOSTNAME=", &hostname, &hostname_len);
-                if (r < 0)
-                        return r;
-                else if (r > 0)
-                        continue;
-
-                r = parse_field(data, length, "SYSLOG_IDENTIFIER=", &identifier, &identifier_len);
-                if (r < 0)
-                        return r;
-                else if (r > 0)
-                        continue;
-
-                r = parse_field(data, length, "_COMM=", &comm, &comm_len);
-                if (r < 0)
-                        return r;
-                else if (r > 0)
-                        continue;
-
-                r = parse_field(data, length, "_PID=", &pid, &pid_len);
-                if (r < 0)
-                        return r;
-                else if (r > 0)
-                        continue;
-
-                r = parse_field(data, length, "SYSLOG_PID=", &fake_pid, &fake_pid_len);
-                if (r < 0)
-                        return r;
-                else if (r > 0)
-                        continue;
-
-                r = parse_field(data, length, "_SOURCE_REALTIME_TIMESTAMP=", &realtime, &realtime_len);
-                if (r < 0)
-                        return r;
-                else if (r > 0)
-                        continue;
-
-                r = parse_field(data, length, "_SOURCE_MONOTONIC_TIMESTAMP=", &monotonic, &monotonic_len);
-                if (r < 0)
-                        return r;
-                else if (r > 0)
-                        continue;
-
-                r = parse_field(data, length, "MESSAGE=", &message, &message_len);
+                r = parse_fieldv(data, length, fields, ELEMENTSOF(fields));
                 if (r < 0)
                         return r;
         }
@@ -500,7 +489,7 @@ static int output_verbose(
         else {
                 _cleanup_free_ char *value = NULL;
 
-                r = parse_field(data, length, "_SOURCE_REALTIME_TIMESTAMP=", &value, NULL);
+                r = parse_field(data, length, "_SOURCE_REALTIME_TIMESTAMP=", strlen("_SOURCE_REALTIME_TIMESTAMP="), &value, NULL);
                 if (r < 0)
                         return r;
                 assert(r > 0);
