@@ -898,7 +898,7 @@ static int make_read_only(MountEntry *m, char **blacklist, FILE *proc_self_mount
         return r;
 }
 
-static bool namespace_info_mount_apivfs(const char *root_directory, const NameSpaceInfo *ns_info) {
+static bool namespace_info_mount_apivfs(const char *root_directory, const NamespaceInfo *ns_info) {
         assert(ns_info);
 
         /*
@@ -916,7 +916,7 @@ static bool namespace_info_mount_apivfs(const char *root_directory, const NameSp
 
 static unsigned namespace_calculate_mounts(
                 const char* root_directory,
-                const NameSpaceInfo *ns_info,
+                const NamespaceInfo *ns_info,
                 char** read_write_paths,
                 char** read_only_paths,
                 char** inaccessible_paths,
@@ -960,7 +960,7 @@ static unsigned namespace_calculate_mounts(
 int setup_namespace(
                 const char* root_directory,
                 const char* root_image,
-                const NameSpaceInfo *ns_info,
+                const NamespaceInfo *ns_info,
                 char** read_write_paths,
                 char** read_only_paths,
                 char** inaccessible_paths,

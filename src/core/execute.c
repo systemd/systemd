@@ -2270,7 +2270,7 @@ static int apply_mount_namespace(
         _cleanup_strv_free_ char **rw = NULL, **empty_directories = NULL;
         char *tmp = NULL, *var = NULL;
         const char *root_dir = NULL, *root_image = NULL;
-        NameSpaceInfo ns_info = {
+        NamespaceInfo ns_info = {
                 .ignore_protect_paths = false,
                 .private_dev = context->private_devices,
                 .protect_control_groups = context->protect_control_groups,
