@@ -959,6 +959,12 @@ bool dns_srv_type_is_valid(const char *name) {
         return c == 2; /* exactly two labels */
 }
 
+bool dnssd_srv_type_is_valid(const char *name) {
+        return dns_srv_type_is_valid(name) &&
+                ((dns_name_endswith(name, "_tcp") > 0) ||
+                 (dns_name_endswith(name, "_udp") > 0)); /* Specific to DNS-SD. RFC 6763, Section 7 */
+}
+
 bool dns_service_name_is_valid(const char *name) {
         size_t l;
 
