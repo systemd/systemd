@@ -69,7 +69,7 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
                 }
 
         } else {
-                r = mkdir_safe_label("/var/lib/systemd/timesync", 0755, uid, gid);
+                r = mkdir_safe_label("/var/lib/systemd/timesync", 0755, uid, gid, true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create state directory: %m");
 

@@ -14,11 +14,10 @@ After=network-online.target
 [Service]
 ExecStart=@rootlibexecdir@/systemd-journal-upload --save-state
 User=systemd-journal-upload
+DynamicUser=yes
 SupplementaryGroups=systemd-journal
 WatchdogSec=3min
-PrivateTmp=yes
 PrivateDevices=yes
-ProtectSystem=strict
 ProtectHome=yes
 ProtectControlGroups=yes
 ProtectKernelTunables=yes

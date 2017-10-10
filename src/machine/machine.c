@@ -128,7 +128,7 @@ int machine_save(Machine *m) {
         if (!m->started)
                 return 0;
 
-        r = mkdir_safe_label("/run/systemd/machines", 0755, 0, 0);
+        r = mkdir_safe_label("/run/systemd/machines", 0755, 0, 0, false);
         if (r < 0)
                 goto fail;
 

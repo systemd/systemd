@@ -8,6 +8,3 @@
 m4_ifdef(`HAVE_MICROHTTPD',
 u systemd-journal-remote  - "systemd Journal Remote"
 )m4_dnl
-m4_ifdef(`HAVE_LIBCURL',
-u systemd-journal-upload  - "systemd Journal Upload"
-)m4_dnl
