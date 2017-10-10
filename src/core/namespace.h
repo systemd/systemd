@@ -36,6 +36,18 @@ typedef enum ProtectHome {
         _PROTECT_HOME_INVALID = -1
 } ProtectHome;
 
+typedef enum NamespaceType {
+        NAMESPACE_MOUNT,
+        NAMESPACE_CGROUP,
+        NAMESPACE_UTS,
+        NAMESPACE_IPC,
+        NAMESPACE_USER,
+        NAMESPACE_PID,
+        NAMESPACE_NET,
+        _NAMESPACE_TYPE_MAX,
+        _NAMESPACE_TYPE_INVALID = -1,
+} NamespaceType;
+
 typedef enum ProtectSystem {
         PROTECT_SYSTEM_NO,
         PROTECT_SYSTEM_YES,
@@ -94,3 +106,8 @@ ProtectSystem protect_system_from_string(const char *s) _pure_;
 
 void bind_mount_free_many(BindMount *b, unsigned n);
 int bind_mount_add(BindMount **b, unsigned *n, const BindMount *item);
+
+const char* namespace_type_to_string(NamespaceType t) _const_;
+NamespaceType namespace_type_from_string(const char *s) _pure_;
+
+bool ns_type_supported(NamespaceType type);

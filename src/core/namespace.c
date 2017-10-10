@@ -1428,6 +1428,18 @@ fail:
         return r;
 }
 
+bool ns_type_supported(NamespaceType type) {
+        const char *t, *ns_proc;
+
+        if (type <= _NAMESPACE_TYPE_INVALID || type >= _NAMESPACE_TYPE_MAX)
+                return false;
+
+        t = namespace_type_to_string(type);
+        ns_proc = strjoina("/proc/self/ns/", t);
+
+        return access(ns_proc, F_OK) == 0;
+}
+
 static const char *const protect_home_table[_PROTECT_HOME_MAX] = {
         [PROTECT_HOME_NO] = "no",
         [PROTECT_HOME_YES] = "yes",
@@ -1444,3 +1456,15 @@ static const char *const protect_system_table[_PROTECT_SYSTEM_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(protect_system, ProtectSystem);
+
+static const char* const namespace_type_table[] = {
+        [NAMESPACE_MOUNT] = "mnt",
+        [NAMESPACE_CGROUP] = "cgroup",
+        [NAMESPACE_UTS] = "uts",
+        [NAMESPACE_IPC] = "ipc",
+        [NAMESPACE_USER] = "user",
+        [NAMESPACE_PID] = "pid",
+        [NAMESPACE_NET] = "net",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(namespace_type, NamespaceType);
