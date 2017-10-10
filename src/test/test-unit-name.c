@@ -465,12 +465,16 @@ static void test_unit_name_path_unescape(void) {
 
 int main(int argc, char* argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
-        int rc = 0;
+        int r, rc = 0;
 
         log_parse_environment();
         log_open();
 
-        enter_cgroup_subroot();
+        r = enter_cgroup_subroot();
+        if (r == -ENOMEDIUM) {
+                log_notice_errno(r, "Skipping test: cgroupfs not available");
+                return EXIT_TEST_SKIP;
+        }
 
         assert_se(runtime_dir = setup_fake_runtime_dir());
 

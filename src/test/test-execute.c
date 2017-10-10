@@ -528,11 +528,15 @@ int main(int argc, char *argv[]) {
 
         /* It is needed otherwise cgroup creation fails */
         if (getuid() != 0) {
-                printf("Skipping test: not root\n");
+                puts("Skipping test: not root");
                 return EXIT_TEST_SKIP;
         }
 
-        enter_cgroup_subroot();
+        r = enter_cgroup_subroot();
+        if (r == -ENOMEDIUM) {
+                puts("Skipping test: cgroupfs not available");
+                return EXIT_TEST_SKIP;
+        }
 
         assert_se(setenv("XDG_RUNTIME_DIR", "/tmp/", 1) == 0);
         assert_se(set_unit_path(get_testdata_dir("/test-execute")) >= 0);
