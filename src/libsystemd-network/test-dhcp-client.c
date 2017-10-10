@@ -102,8 +102,8 @@ static void test_request_basic(sd_event *e) {
 
         /* RFC7844: option 33 (SD_DHCP_OPTION_STATIC_ROUTE) is set in the
          * default PRL when using Anonymize, so it is changed to other option
-         * that is not set by default, to check that it succed setting it.
-         * Ooptions not set by default (using or not anonymize) are option 17
+         * that is not set by default, to check that it was set successfully.
+         * Options not set by default (using or not anonymize) are option 17
          * (SD_DHCP_OPTION_ROOT_PATH) and 42 (SD_DHCP_OPTION_NTP_SERVER) */
         assert_se(sd_dhcp_client_set_request_option(client, 17) == 0);
         assert_se(sd_dhcp_client_set_request_option(client, 17) == -EEXIST);
