@@ -2392,7 +2392,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
           <row>
             <entry>205</entry>
             <entry><constant>EXIT_LIMITS</constant></entry>
-            <entry>Failed to adjust resoure limits. See <varname>LimitCPU=</varname> and related settings above.</entry>
+            <entry>Failed to adjust resource limits. See <varname>LimitCPU=</varname> and related settings above.</entry>
           </row>
           <row>
             <entry>206</entry>
@@ -2497,7 +2497,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
           <row>
             <entry>227</entry>
             <entry><constant>EXIT_NO_NEW_PRIVILEGES</constant></entry>
-            <entry>Failed to disable new priviliges. See <varname>NoNewPrivileges=yes</varname> above.</entry>
+            <entry>Failed to disable new privileges. See <varname>NoNewPrivileges=yes</varname> above.</entry>
           </row>
           <row>
             <entry>228</entry>
@@ -2512,7 +2512,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
           <row>
             <entry>230</entry>
             <entry><constant>EXIT_PERSONALITY</constant></entry>
-            <entry>Failed to set up a execution domain (personality). See <varname>Personality=</varname> above.</entry>
+            <entry>Failed to set up an execution domain (personality). See <varname>Personality=</varname> above.</entry>
           </row>
           <row>
             <entry>231</entry>
@@ -2547,22 +2547,22 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
           <row>
             <entry>238</entry>
             <entry><constant>EXIT_STATE_DIRECTORY</constant></entry>
-            <entry>Failed to set up a the unit's state directory. See <varname>StateDirectory=</varname> above.</entry>
+            <entry>Failed to set up unit's state directory. See <varname>StateDirectory=</varname> above.</entry>
           </row>
           <row>
             <entry>239</entry>
             <entry><constant>EXIT_CACHE_DIRECTORY</constant></entry>
-            <entry>Failed to set up a the unit's cache directory. See <varname>CacheDirectory=</varname> above.</entry>
+            <entry>Failed to set up unit's cache directory. See <varname>CacheDirectory=</varname> above.</entry>
           </row>
           <row>
             <entry>240</entry>
             <entry><constant>EXIT_LOGS_DIRECTORY</constant></entry>
-            <entry>Failed to set up a the unit's logging directory. See <varname>LogsDirectory=</varname> above.</entry>
+            <entry>Failed to set up unit's logging directory. See <varname>LogsDirectory=</varname> above.</entry>
           </row>
           <row>
             <entry>241</entry>
             <entry><constant>EXIT_CONFIGURATION_DIRECTORY</constant></entry>
-            <entry>Failed to set up a the unit's configuration directory. See <varname>ConfigurationDirectory=</varname> above.</entry>
+            <entry>Failed to set up unit's configuration directory. See <varname>ConfigurationDirectory=</varname> above.</entry>
           </row>
         </tbody>
       </tgroup>

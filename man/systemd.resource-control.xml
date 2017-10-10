@@ -500,7 +500,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>IPAddressAllow=<replaceable>ADDDRESS[/PREFIXLENGTH]…</replaceable></varname></term>
+        <term><varname>IPAddressAllow=<replaceable>ADDRESS[/PREFIXLENGTH]…</replaceable></varname></term>
         <term><varname>IPAddressDeny=<replaceable>ADDRESS[/PREFIXLENGTH]…</replaceable></varname></term>
 
         <listitem>
