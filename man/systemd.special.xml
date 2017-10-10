@@ -1026,7 +1026,7 @@ PartOf=graphical-session.target
 
     <para>There are four <literal>.slice</literal> units which form the basis of the hierarchy for assignment of
     resources for services, users, and virtual machines or containers. See
-    <citerefentry><refentrytitle>-.slice</refentrytitle><manvolnum>7</manvolnum></citerefentry> for details about slice
+    <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>7</manvolnum></citerefentry> for details about slice
     units.</para>
 
     <variablelist>
