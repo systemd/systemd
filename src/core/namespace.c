@@ -898,7 +898,7 @@ static int make_read_only(MountEntry *m, char **blacklist, FILE *proc_self_mount
         return r;
 }
 
-static bool namespace_info_mount_apivfs(const char *root_directory, const NameSpaceInfo *ns_info) {
+static bool namespace_info_mount_apivfs(const char *root_directory, const NamespaceInfo *ns_info) {
         assert(ns_info);
 
         /*
@@ -916,7 +916,7 @@ static bool namespace_info_mount_apivfs(const char *root_directory, const NameSp
 
 static unsigned namespace_calculate_mounts(
                 const char* root_directory,
-                const NameSpaceInfo *ns_info,
+                const NamespaceInfo *ns_info,
                 char** read_write_paths,
                 char** read_only_paths,
                 char** inaccessible_paths,
@@ -960,7 +960,7 @@ static unsigned namespace_calculate_mounts(
 int setup_namespace(
                 const char* root_directory,
                 const char* root_image,
-                const NameSpaceInfo *ns_info,
+                const NamespaceInfo *ns_info,
                 char** read_write_paths,
                 char** read_only_paths,
                 char** inaccessible_paths,
@@ -1431,12 +1431,11 @@ fail:
 bool ns_type_supported(NamespaceType type) {
         const char *t, *ns_proc;
 
-        if (type <= _NAMESPACE_TYPE_INVALID || type >= _NAMESPACE_TYPE_MAX)
+        t = namespace_type_to_string(type);
+        if (!t) /* Don't know how to translate this? Then it's not supported */
                 return false;
 
-        t = namespace_type_to_string(type);
         ns_proc = strjoina("/proc/self/ns/", t);
-
         return access(ns_proc, F_OK) == 0;
 }
 

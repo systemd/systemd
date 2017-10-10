@@ -20,7 +20,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-typedef struct NameSpaceInfo NameSpaceInfo;
+typedef struct NamespaceInfo NamespaceInfo;
 typedef struct BindMount BindMount;
 
 #include <stdbool.h>
@@ -57,7 +57,7 @@ typedef enum ProtectSystem {
         _PROTECT_SYSTEM_INVALID = -1
 } ProtectSystem;
 
-struct NameSpaceInfo {
+struct NamespaceInfo {
         bool ignore_protect_paths:1;
         bool private_dev:1;
         bool protect_control_groups:1;
@@ -77,7 +77,7 @@ struct BindMount {
 int setup_namespace(
                 const char *root_directory,
                 const char *root_image,
-                const NameSpaceInfo *ns_info,
+                const NamespaceInfo *ns_info,
                 char **read_write_paths,
                 char **read_only_paths,
                 char **inaccessible_paths,
