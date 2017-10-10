@@ -1431,12 +1431,11 @@ fail:
 bool ns_type_supported(NamespaceType type) {
         const char *t, *ns_proc;
 
-        if (type <= _NAMESPACE_TYPE_INVALID || type >= _NAMESPACE_TYPE_MAX)
+        t = namespace_type_to_string(type);
+        if (!t) /* Don't know how to translate this? Then it's not supported */
                 return false;
 
-        t = namespace_type_to_string(type);
         ns_proc = strjoina("/proc/self/ns/", t);
-
         return access(ns_proc, F_OK) == 0;
 }
 
