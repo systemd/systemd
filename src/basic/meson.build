@@ -184,6 +184,8 @@ basic_sources_plain = files('''
         unaligned.h
         unit-name.c
         unit-name.h
+        unit-def.c
+        unit-def.h
         user-util.c
         user-util.h
         utf8.c
