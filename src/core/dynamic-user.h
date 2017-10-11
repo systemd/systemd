@@ -43,15 +43,6 @@ struct DynamicUser {
         char name[];
 };
 
-int dynamic_user_acquire(Manager *m, const char *name, DynamicUser **ret);
-
-int dynamic_user_realize(DynamicUser *d, char **suggested_paths, uid_t *ret);
-int dynamic_user_current(DynamicUser *d, uid_t *ret);
-
-DynamicUser* dynamic_user_ref(DynamicUser *d);
-DynamicUser* dynamic_user_unref(DynamicUser *d);
-DynamicUser* dynamic_user_destroy(DynamicUser *d);
-
 int dynamic_user_serialize(Manager *m, FILE *f, FDSet *fds);
 void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds);
 void dynamic_user_vacuum(Manager *m, bool close_user);

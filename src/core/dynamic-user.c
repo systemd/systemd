@@ -82,7 +82,7 @@ static int dynamic_user_add(Manager *m, const char *name, int storage_socket[2],
         return 0;
 }
 
-int dynamic_user_acquire(Manager *m, const char *name, DynamicUser** ret) {
+static int dynamic_user_acquire(Manager *m, const char *name, DynamicUser** ret) {
         _cleanup_close_pair_ int storage_socket[2] = { -1, -1 };
         DynamicUser *d;
         int r;
@@ -421,7 +421,7 @@ static void unlink_uid_lock(int lock_fd, uid_t uid, const char *name) {
         (void) make_uid_symlinks(uid, name, false); /* remove direct lookup symlinks */
 }
 
-int dynamic_user_realize(DynamicUser *d, char **suggested_dirs, uid_t *ret) {
+static int dynamic_user_realize(DynamicUser *d, char **suggested_dirs, uid_t *ret) {
 
         _cleanup_close_ int etc_passwd_lock_fd = -1, uid_lock_fd = -1;
         uid_t uid = UID_INVALID;
@@ -526,7 +526,7 @@ finish:
         return r;
 }
 
-int dynamic_user_current(DynamicUser *d, uid_t *ret) {
+static int dynamic_user_current(DynamicUser *d, uid_t *ret) {
         _cleanup_close_ int lock_fd = -1;
         uid_t uid;
         int r;
@@ -555,7 +555,7 @@ finish:
         return r;
 }
 
-DynamicUser* dynamic_user_ref(DynamicUser *d) {
+static DynamicUser* dynamic_user_ref(DynamicUser *d) {
         if (!d)
                 return NULL;
 
@@ -565,7 +565,7 @@ DynamicUser* dynamic_user_ref(DynamicUser *d) {
         return d;
 }
 
-DynamicUser* dynamic_user_unref(DynamicUser *d) {
+static DynamicUser* dynamic_user_unref(DynamicUser *d) {
         if (!d)
                 return NULL;
 
@@ -608,7 +608,7 @@ finish:
         return r;
 }
 
-DynamicUser* dynamic_user_destroy(DynamicUser *d) {
+static DynamicUser* dynamic_user_destroy(DynamicUser *d) {
         if (!d)
                 return NULL;
 
