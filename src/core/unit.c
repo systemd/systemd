@@ -3485,7 +3485,8 @@ bool unit_need_daemon_reload(Unit *u) {
         if (fragment_mtime_newer(u->source_path, u->source_mtime, false))
                 return true;
 
-        (void) unit_find_dropin_paths(u, &t);
+        if (u->load_state == UNIT_LOADED)
+                (void) unit_find_dropin_paths(u, &t);
         if (!strv_equal(u->dropin_paths, t))
                 return true;
 
