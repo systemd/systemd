@@ -1471,7 +1471,7 @@ int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet, Un
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        unit_file_dump_changes(0, NULL, *changes, *n_changes, false);
+        unit_file_dump_changes(0, NULL, *changes, *n_changes, quiet);
         return 0;
 }
 
