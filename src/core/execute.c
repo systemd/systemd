@@ -2161,7 +2161,7 @@ static int compile_bind_mounts(
         if (!bind_mounts)
                 return -ENOMEM;
 
-        for (i = 0; context->n_bind_mounts; i++) {
+        for (i = 0; i < context->n_bind_mounts; i++) {
                 BindMount *item = context->bind_mounts + i;
                 char *s, *d;
 
