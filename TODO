@@ -44,10 +44,6 @@ Features:
   taken if multiple dirs are configured. Maybe avoid setting the env vars in
   that case?
 
-* In a similar vein, consider adding unit specifiers that resolve to the root
-  directory used for state, logs, cache and configuration
-  directory. i.e. similar to %t, but for the root of the other special dirs.
-
 * expose IO accounting data on the bus, show it in systemd-run --wait and log
   about it in the resource log message
 
