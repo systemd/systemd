@@ -962,14 +962,11 @@ static int get_supplementary_groups(const ExecContext *c, const char *user,
         return 0;
 }
 
-static int enforce_groups(const ExecContext *context, gid_t gid,
-                          gid_t *supplementary_gids, int ngids) {
+static int enforce_groups(gid_t gid, gid_t *supplementary_gids, int ngids) {
         int r;
 
-        assert(context);
-
-        /* Handle SupplementaryGroups= even if it is empty */
-        if (!strv_isempty(context->supplementary_groups)) {
+        /* Handle SupplementaryGroups= if it is not empty */
+        if (ngids > 0) {
                 r = maybe_setgroups(ngids, supplementary_gids);
                 if (r < 0)
                         return r;
@@ -3096,7 +3093,7 @@ static int exec_child(
 
         /* Drop groups as early as possbile */
         if (needs_setuid) {
-                r = enforce_groups(context, gid, supplementary_gids, ngids);
+                r = enforce_groups(gid, supplementary_gids, ngids);
                 if (r < 0) {
                         *exit_status = EXIT_GROUP;
                         return log_unit_error_errno(unit, r, "Changing group credentials failed: %m");
