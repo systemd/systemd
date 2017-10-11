@@ -421,7 +421,7 @@ static void unlink_uid_lock(int lock_fd, uid_t uid, const char *name) {
         (void) make_uid_symlinks(uid, name, false); /* remove direct lookup symlinks */
 }
 
-static int dynamic_user_realize(DynamicUser *d, char **suggested_dirs, uid_t *ret) {
+static int dynamic_user_realize(DynamicUser *d, char **suggested_dirs, uid_t *ret, bool is_user) {
 
         _cleanup_close_ int etc_passwd_lock_fd = -1, uid_lock_fd = -1;
         uid_t uid = UID_INVALID;
@@ -460,19 +460,28 @@ static int dynamic_user_realize(DynamicUser *d, char **suggested_dirs, uid_t *re
                         struct passwd *p;
                         struct group *g;
 
-                        /* OK, this is not a numeric UID. Let's see if there's a user by this name */
-                        p = getpwnam(d->name);
-                        if (p)
-                                uid = p->pw_uid;
-
-                        /* Let's see if there's a group by this name */
-                        g = getgrnam(d->name);
-                        if (g) {
-                                /* If the UID/GID of the user/group of the same don't match, refuse operation */
-                                if (uid != UID_INVALID && uid != (uid_t) g->gr_gid)
-                                        return -EILSEQ;
-
-                                uid = (uid_t) g->gr_gid;
+                        if (is_user) {
+                                /* OK, this is not a numeric UID. Let's see if there's a user by this name */
+                                p = getpwnam(d->name);
+                                if (p)
+                                        uid = p->pw_uid;
+                                else {
+                                        /* if the user does not exist but the group with the same name exists, refuse operation */
+                                        g = getgrnam(d->name);
+                                        if (g)
+                                                return -EILSEQ;
+                                }
+                        } else {
+                                /* Let's see if there's a group by this name */
+                                g = getgrnam(d->name);
+                                if (g)
+                                        uid = (uid_t) g->gr_gid;
+                                else {
+                                        /* if the group does not exist but the user with the same name exists, refuse operation */
+                                        p = getpwnam(d->name);
+                                        if (p)
+                                                return -EILSEQ;
+                                }
                         }
                 }
 
@@ -814,13 +823,13 @@ int dynamic_creds_realize(DynamicCreds *creds, char **suggested_paths, uid_t *ui
         /* Realize both the referenced user and group */
 
         if (creds->user) {
-                r = dynamic_user_realize(creds->user, suggested_paths, &u);
+                r = dynamic_user_realize(creds->user, suggested_paths, &u, true);
                 if (r < 0)
                         return r;
         }
 
         if (creds->group && creds->group != creds->user) {
-                r = dynamic_user_realize(creds->group, suggested_paths, &g);
+                r = dynamic_user_realize(creds->group, suggested_paths, &g, false);
                 if (r < 0)
                         return r;
         } else
