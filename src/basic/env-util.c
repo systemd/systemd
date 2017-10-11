@@ -805,7 +805,7 @@ int deserialize_environment(char ***environment, const char *line) {
         assert(environment);
 
         assert(startswith(line, "env="));
-        r = cunescape(line + 4, UNESCAPE_RELAX, &uce);
+        r = cunescape(line + 4, 0, &uce);
         if (r < 0)
                 return r;
 

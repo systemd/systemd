@@ -323,6 +323,9 @@ static void test_deserialize_environment(void) {
         assert_se(deserialize_environment(&env, "env=FOO%%=a\\177b\\nc\\td e") >= 0);
 
         assert_se(strv_equal(env, STRV_MAKE("A=1", "B=2", "FOO%%=a\177b\nc\td e")));
+
+        assert_se(deserialize_environment(&env, "env=foo\\") < 0);
+        assert_se(deserialize_environment(&env, "env=bar\\_baz") < 0);
 }
 
 static void test_serialize_environment(void) {
