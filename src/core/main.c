@@ -1466,17 +1466,19 @@ static int become_shutdown(
                 int retval) {
 
         char log_level[DECIMAL_STR_MAX(int) + 1],
-                exit_code[DECIMAL_STR_MAX(uint8_t) + 1];
+                exit_code[DECIMAL_STR_MAX(uint8_t) + 1],
+                timeout[DECIMAL_STR_MAX(usec_t) + 1];
 
-        const char* command_line[11] = {
+        const char* command_line[13] = {
                 SYSTEMD_SHUTDOWN_BINARY_PATH,
                 shutdown_verb,
+                "--timeout", timeout,
                 "--log-level", log_level,
                 "--log-target",
         };
 
         _cleanup_strv_free_ char **env_block = NULL;
-        size_t pos = 5;
+        size_t pos = 7;
         int r;
 
         assert(shutdown_verb);
@@ -1484,6 +1486,7 @@ static int become_shutdown(
         env_block = strv_copy(environ);
 
         xsprintf(log_level, "%d", log_get_max_level());
+        xsprintf(timeout, "%" PRI_USEC "us", arg_default_timeout_stop_usec);
 
         switch (log_get_target()) {
 
@@ -1639,7 +1642,7 @@ static void do_reexecute(
         if (switch_root_dir) {
                 /* Kill all remaining processes from the initrd, but don't wait for them, so that we can handle the
                  * SIGCHLD for them after deserializing. */
-                broadcast_signal(SIGTERM, false, true);
+                broadcast_signal(SIGTERM, false, true, arg_default_timeout_stop_usec);
 
                 /* And switch root with MS_MOVE, because we remove the old directory afterwards and detach it. */
                 r = switch_root(switch_root_dir, "/mnt", true, MS_MOVE);

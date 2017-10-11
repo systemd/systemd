@@ -20,4 +20,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-void broadcast_signal(int sig, bool wait_for_exit, bool send_sighup);
+#include "time-util.h"
+
+void broadcast_signal(int sig, bool wait_for_exit, bool send_sighup, usec_t timeout);
