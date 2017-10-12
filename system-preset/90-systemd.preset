@@ -9,6 +9,7 @@
 # generally follow a default-off policy.
 
 enable remote-fs.target
+enable remote-cryptsetup.target
 enable machines.target
 
 enable getty@.service

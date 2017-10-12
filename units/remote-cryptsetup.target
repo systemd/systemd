@@ -8,3 +8,9 @@
 [Unit]
 Description=Remote Encrypted Volumes
 Documentation=man:systemd.special(7)
+After=remote-cryptsetup-pre.target
+DefaultDependencies=no
+Conflicts=shutdown.target
+
+[Install]
+WantedBy=multi-user.target
