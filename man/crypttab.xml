@@ -198,7 +198,7 @@
         started after the network is available, similarly to
         <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         units marked with <option>_netdev</option>. The service unit to set up this device
-        will be ordered between <filename>remote-cryptsetup-pre.target</filename> and
+        will be ordered between <filename>remote-fs-pre.target</filename> and
         <filename>remote-cryptsetup.target</filename>, instead of
         <filename>cryptsetup-pre.target</filename> and
         <filename>cryptsetup.target</filename>.</para></listitem>

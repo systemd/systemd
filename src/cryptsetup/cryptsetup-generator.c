@@ -113,7 +113,7 @@ static int create_disk(
                 "Conflicts=umount.target\n"
                 "IgnoreOnIsolate=true\n"
                 "After=%s\n",
-                netdev ? "remote-cryptsetup-pre.target" : "cryptsetup-pre.target");
+                netdev ? "remote-fs-pre.target" : "cryptsetup-pre.target");
 
         if (!nofail)
                 fprintf(f,
