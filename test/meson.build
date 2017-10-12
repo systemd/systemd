@@ -46,6 +46,7 @@ test_data_files = '''
         test-path/path-makedirectory.path
         test-path/path-modified.path
         test-path/path-unit.path
+        test-execute/exec-bind-paths.service
         test-execute/exec-environment-empty.service
         test-execute/exec-environment-multiple.service
         test-execute/exec-environment.service
