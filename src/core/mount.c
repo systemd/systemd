@@ -156,6 +156,21 @@ static bool needs_quota(const MountParameters *p) {
                                  "usrquota\0" "grpquota\0" "quota\0" "usrjquota\0" "grpjquota\0");
 }
 
+const char *mount_get_fstype(const Mount *m) {
+        const char *type = NULL;
+
+        assert(m);
+
+        if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.fstype)
+                type = m->parameters_proc_self_mountinfo.fstype;
+        else if (m->from_fragment && m->parameters_fragment.fstype)
+                type = m->parameters_fragment.fstype;
+        else
+                type = "";
+
+        return type;
+}
+
 static void mount_init(Unit *u) {
         Mount *m = MOUNT(u);
 
@@ -267,6 +282,7 @@ _pure_ static MountParameters* get_mount_parameters(Mount *m) {
 
 static int mount_add_mount_links(Mount *m) {
         _cleanup_free_ char *parent = NULL;
+        const char *fstype;
         MountParameters *pm;
         Unit *other;
         Iterator i;
@@ -322,6 +338,14 @@ static int mount_add_mount_links(Mount *m) {
                         if (r < 0)
                                 return r;
                 }
+        }
+
+        /* If this is a tmpfs mount then we have to unmount it before we try to deactivate swaps */
+        fstype = mount_get_fstype(m);
+        if (streq(fstype, "tmpfs")) {
+                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_SWAP_TARGET, NULL, true);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
