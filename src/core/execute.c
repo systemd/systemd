@@ -2071,55 +2071,6 @@ static int setup_smack(
         return 0;
 }
 
-static int compile_read_write_paths(
-                const ExecContext *context,
-                const ExecParameters *params,
-                char ***ret) {
-
-        _cleanup_strv_free_ char **l = NULL;
-        char **rt;
-        ExecDirectoryType i;
-
-        /* Compile the list of writable paths. This is the combination of
-         * the explicitly configured paths, plus all runtime directories. */
-
-        if (strv_isempty(context->read_write_paths)) {
-                for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++)
-                        if (!strv_isempty(context->directories[i].paths))
-                                break;
-
-                if (i == _EXEC_DIRECTORY_TYPE_MAX) {
-                        *ret = NULL; /* NOP if neither is set */
-                        return 0;
-                }
-        }
-
-        l = strv_copy(context->read_write_paths);
-        if (!l)
-                return -ENOMEM;
-
-        for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++) {
-                if (!params->prefix[i])
-                        continue;
-
-                STRV_FOREACH(rt, context->directories[i].paths) {
-                        char *s;
-
-                        s = strjoin(params->prefix[i], "/", *rt);
-                        if (!s)
-                                return -ENOMEM;
-
-                        if (strv_consume(&l, s) < 0)
-                                return -ENOMEM;
-                }
-        }
-
-        *ret = l;
-        l = NULL;
-
-        return 0;
-}
-
 static int compile_bind_mounts(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -2264,7 +2215,7 @@ static int apply_mount_namespace(
                 const ExecParameters *params,
                 ExecRuntime *runtime) {
 
-        _cleanup_strv_free_ char **rw = NULL, **empty_directories = NULL;
+        _cleanup_strv_free_ char **empty_directories = NULL;
         char *tmp = NULL, *var = NULL;
         const char *root_dir = NULL, *root_image = NULL;
         NamespaceInfo ns_info = {
@@ -2293,10 +2244,6 @@ static int apply_mount_namespace(
                         var = strjoina(runtime->var_tmp_dir, "/tmp");
         }
 
-        r = compile_read_write_paths(context, params, &rw);
-        if (r < 0)
-                return r;
-
         if (params->flags & EXEC_APPLY_CHROOT) {
                 root_image = context->root_image;
 
@@ -2319,7 +2266,7 @@ static int apply_mount_namespace(
         needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
 
         r = setup_namespace(root_dir, root_image,
-                            &ns_info, rw,
+                            &ns_info, context->read_write_paths,
                             needs_sandboxing ? context->read_only_paths : NULL,
                             needs_sandboxing ? context->inaccessible_paths : NULL,
                             empty_directories,
