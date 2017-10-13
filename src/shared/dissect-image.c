@@ -19,6 +19,9 @@
 
 #if HAVE_LIBCRYPTSETUP
 #include <libcryptsetup.h>
+#ifndef CRYPT_LUKS
+#define CRYPT_LUKS NULL
+#endif
 #endif
 #include <sys/mount.h>
 
@@ -843,7 +846,7 @@ static int decrypt_partition(
         if (r < 0)
                 return log_debug_errno(r, "Failed to initialize dm-crypt: %m");
 
-        r = crypt_load(cd, CRYPT_LUKS1, NULL);
+        r = crypt_load(cd, CRYPT_LUKS, NULL);
         if (r < 0) {
                 log_debug_errno(r, "Failed to load LUKS metadata: %m");
                 goto fail;
