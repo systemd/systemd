@@ -3288,15 +3288,19 @@ int link_update(Link *link, sd_netlink_message *m) {
         if (carrier_gained) {
                 log_link_info(link, "Gained carrier");
 
-                r = link_carrier_gained(link);
-                if (r < 0)
-                        return r;
+                if (link->state != LINK_STATE_CONFIGURED || !link->network->configure_without_carrier) {
+                        r = link_carrier_gained(link);
+                        if (r < 0)
+                                return r;
+                }
         } else if (carrier_lost) {
                 log_link_info(link, "Lost carrier");
 
-                r = link_carrier_lost(link);
-                if (r < 0)
-                        return r;
+                if (link->state != LINK_STATE_CONFIGURED || !link->network->configure_without_carrier) {
+                        r = link_carrier_lost(link);
+                        if (r < 0)
+                              return r;
+                }
         }
 
         return 0;
