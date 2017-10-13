@@ -526,7 +526,9 @@ void dns_zone_item_notify(DnsZoneItem *i) {
                 bool we_lost = false;
 
                 /* The probe got a successful reply. If we so far
-                 * weren't established we just give up. If we already
+                 * weren't established we just give up.
+                 *
+                 * In LLMNR case if we already
                  * were established, and the peer has the
                  * lexicographically larger IP address we continue
                  * and defend it. */
@@ -534,7 +536,7 @@ void dns_zone_item_notify(DnsZoneItem *i) {
                 if (!IN_SET(i->state, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING)) {
                         log_debug("Got a successful probe for not yet established RR, we lost.");
                         we_lost = true;
-                } else {
+                } else if (i->probe_transaction->scope->protocol == DNS_PROTOCOL_LLMNR) {
                         assert(i->probe_transaction->received);
                         we_lost = memcmp(&i->probe_transaction->received->sender, &i->probe_transaction->received->destination, FAMILY_ADDRESS_SIZE(i->probe_transaction->received->family)) < 0;
                         if (we_lost)
