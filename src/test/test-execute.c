@@ -100,6 +100,16 @@ static void test(Manager *m, const char *unit_name, int status_expected, int cod
         check(m, unit, status_expected, code_expected);
 }
 
+static void test_exec_bind_paths(Manager *m) {
+        assert_se(mkdir_p("/tmp/test-exec_bind_paths", 0755) >= 0);
+        assert_se(mkdir_p("/tmp/test-exec_bind_readonly_paths", 0755) >= 0);
+
+        test(m, "exec-bind-paths.service", 0, CLD_EXITED);
+
+        (void) rm_rf("/tmp/test-exec_bind_paths", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/tmp/test-exec_bind_readonly_paths", REMOVE_ROOT|REMOVE_PHYSICAL);
+}
+
 static void test_exec_workingdirectory(Manager *m) {
         assert_se(mkdir_p("/tmp/test-exec_workingdirectory", 0755) >= 0);
 
@@ -483,6 +493,7 @@ static int run_tests(UnitFileScope scope, const test_function_t *tests) {
 
 int main(int argc, char *argv[]) {
         static const test_function_t user_tests[] = {
+                test_exec_bind_paths,
                 test_exec_workingdirectory,
                 test_exec_personality,
                 test_exec_ignoresigpipe,
