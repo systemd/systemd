@@ -5239,11 +5239,13 @@ static int show_system_status(sd_bus *bus) {
         if (streq_ptr(mi.state, "degraded")) {
                 on = ansi_highlight_red();
                 off = ansi_normal();
-        } else if (!streq_ptr(mi.state, "running")) {
+        } else if (streq_ptr(mi.state, "running")) {
+                on = ansi_highlight_green();
+                off = ansi_normal();
+        } else {
                 on = ansi_highlight_yellow();
                 off = ansi_normal();
-        } else
-                on = off = "";
+        }
 
         printf("%s%s%s %s\n", on, special_glyph(BLACK_CIRCLE), off, arg_host ? arg_host : hn);
 
