@@ -580,23 +580,15 @@ int session_object_find(sd_bus *bus, const char *path, const char *interface, vo
         assert(m);
 
         if (streq(path, "/org/freedesktop/login1/session/self")) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 sd_bus_message *message;
-                const char *name;
 
                 message = sd_bus_get_current_message(bus);
                 if (!message)
                         return 0;
 
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_SESSION|SD_BUS_CREDS_AUGMENT, &creds);
+                r = manager_get_session_from_creds(m, message, NULL, error, &session);
                 if (r < 0)
                         return r;
-
-                r = sd_bus_creds_get_session(creds, &name);
-                if (r < 0)
-                        return r;
-
-                session = hashmap_get(m->sessions, name);
         } else {
                 _cleanup_free_ char *e = NULL;
                 const char *p;
@@ -610,10 +602,9 @@ int session_object_find(sd_bus *bus, const char *path, const char *interface, vo
                         return -ENOMEM;
 
                 session = hashmap_get(m->sessions, e);
+                if (!session)
+                        return 0;
         }
-
-        if (!session)
-                return 0;
 
         *found = session;
         return 1;

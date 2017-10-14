@@ -332,28 +332,15 @@ int seat_object_find(sd_bus *bus, const char *path, const char *interface, void 
         assert(m);
 
         if (streq(path, "/org/freedesktop/login1/seat/self")) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 sd_bus_message *message;
-                Session *session;
-                const char *name;
 
                 message = sd_bus_get_current_message(bus);
                 if (!message)
                         return 0;
 
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_SESSION|SD_BUS_CREDS_AUGMENT, &creds);
+                r = manager_get_seat_from_creds(m, message, NULL, error, &seat);
                 if (r < 0)
                         return r;
-
-                r = sd_bus_creds_get_session(creds, &name);
-                if (r < 0)
-                        return r;
-
-                session = hashmap_get(m->sessions, name);
-                if (!session)
-                        return 0;
-
-                seat = session->seat;
         } else {
                 _cleanup_free_ char *e = NULL;
                 const char *p;
@@ -367,10 +354,9 @@ int seat_object_find(sd_bus *bus, const char *path, const char *interface, void 
                         return -ENOMEM;
 
                 seat = hashmap_get(m->seats, e);
+                if (!seat)
+                        return 0;
         }
-
-        if (!seat)
-                return 0;
 
         *found = seat;
         return 1;
