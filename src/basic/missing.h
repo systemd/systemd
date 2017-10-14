@@ -1132,6 +1132,10 @@ typedef int32_t key_serial_t;
 #define KEYCTL_LINK 8
 #endif
 
+#ifndef KEYCTL_UNLINK
+#define KEYCTL_UNLINK 9
+#endif
+
 #ifndef KEYCTL_READ
 #define KEYCTL_READ 11
 #endif
