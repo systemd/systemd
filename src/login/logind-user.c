@@ -541,7 +541,7 @@ static int user_remove_runtime_path(User *u) {
 
         r = rm_rf(u->runtime_path, 0);
         if (r < 0)
-                log_error_errno(r, "Failed to remove runtime directory %s: %m", u->runtime_path);
+                log_error_errno(r, "Failed to remove runtime directory %s (before unmounting): %m", u->runtime_path);
 
         /* Ignore cases where the directory isn't mounted, as that's
          * quite possible, if we lacked the permissions to mount
@@ -552,7 +552,7 @@ static int user_remove_runtime_path(User *u) {
 
         r = rm_rf(u->runtime_path, REMOVE_ROOT);
         if (r < 0)
-                log_error_errno(r, "Failed to remove runtime directory %s: %m", u->runtime_path);
+                log_error_errno(r, "Failed to remove runtime directory %s (after unmounting): %m", u->runtime_path);
 
         return r;
 }
