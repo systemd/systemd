@@ -319,10 +319,13 @@ static void test_env_assignment_is_valid(void) {
 static void test_deserialize_environment(void) {
         _cleanup_strv_free_ char **env = strv_new("A=1", NULL);
 
-        assert_se(deserialize_environment(&env, "env=test") < 0);
         assert_se(deserialize_environment(&env, "env=B=2") >= 0);
+        assert_se(deserialize_environment(&env, "env=FOO%%=a\\177b\\nc\\td e") >= 0);
 
-        assert_se(strv_equal(env, STRV_MAKE("A=1", "B=2")));
+        assert_se(strv_equal(env, STRV_MAKE("A=1", "B=2", "FOO%%=a\177b\nc\td e")));
+
+        assert_se(deserialize_environment(&env, "env=foo\\") < 0);
+        assert_se(deserialize_environment(&env, "env=bar\\_baz") < 0);
 }
 
 static void test_serialize_environment(void) {
@@ -334,6 +337,7 @@ static void test_serialize_environment(void) {
                                                   "B=2",
                                                   "C=ąęółń",
                                                   "D=D=a\\x0Ab",
+                                                  "FOO%%=a\177b\nc\td e",
                                                   NULL);
         _cleanup_strv_free_ char **env2 = NULL;
 
