@@ -254,6 +254,8 @@ struct Manager {
 
         bool taint_usr:1;
 
+        bool ready_sent:1;
+
         unsigned test_run_flags:8;
 
         /* If non-zero, exit with the following value when the systemd

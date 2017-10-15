@@ -325,8 +325,6 @@ Features:
 
 * introduce systemd-timesync-wait.service or so to sync on an NTP fix?
 
-* systemd --user should issue sd_notify() upon reaching basic.target, not on becoming idle
-
 * consider showing the unit names during boot up in the status output, not just the unit descriptions
 
 * maybe allow timer units with an empty Units= setting, so that they
