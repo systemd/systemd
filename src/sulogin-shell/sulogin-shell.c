@@ -81,9 +81,10 @@ static void fork_wait(const char* const cmdline[]) {
 }
 
 static void print_mode(const char* mode) {
-        printf("You are in %s mode. After logging in, type \"journalctl -xb\" to view\n"
-                "system logs, \"systemctl reboot\" to reboot, \"systemctl default\" or ^D to boot\n"
-                "into default mode.\n", mode);
+        printf("You are in %s mode. If the root account is enabled, you must log in\n"
+               "as root after this message. In the shell, type \"journalctl -xb -p3\" to view\n"
+               "the error log for the current boot, \"systemctl reboot\" to reboot,\n"
+               "\"systemctl default\" or ^D to boot into default mode.\n", mode);
         fflush(stdout);
 }
 
