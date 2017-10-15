@@ -88,7 +88,7 @@ static void print_mode(const char* mode) {
 }
 
 int main(int argc, char *argv[]) {
-        static const char* const sulogin_cmdline[] = {SULOGIN, NULL};
+        static const char* const sulogin_cmdline[] = {SULOGIN, "--force", NULL};
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
