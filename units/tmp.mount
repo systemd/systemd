@@ -13,7 +13,6 @@ ConditionPathIsSymbolicLink=!/tmp
 DefaultDependencies=no
 Conflicts=umount.target
 Before=local-fs.target umount.target
-After=swap.target
 
 [Mount]
 What=tmpfs
