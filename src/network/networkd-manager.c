@@ -1454,8 +1454,14 @@ int manager_rtnl_enumerate_rules(Manager *m) {
                 return r;
 
         r = sd_netlink_call(m->rtnl, req, 0, &reply);
-        if (r < 0)
+        if (r < 0) {
+                if (r == -EOPNOTSUPP) {
+                        log_debug("FIB Rules are not supported by the kernel. Ignoring.");
+                        return 0;
+                }
+
                 return r;
+        }
 
         for (rule = reply; rule; rule = sd_netlink_message_next(rule)) {
                 int k;
