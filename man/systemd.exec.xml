@@ -1799,12 +1799,12 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <varname>CacheDirectoryMode=</varname>, <varname>LogsDirectoryMode=</varname> and
         <varname>ConfigurationDirectoryMode=</varname>.</para>
 
-        <para>Except in case of <varname>ConfigurationDirectory=</varname>, these options imply
-        <varname>ReadWritePaths=</varname> for the specified paths. When combined with
+        <para>These options imply <varname>BindPaths=</varname> for the specified paths. When combined with
         <varname>RootDirectory=</varname> or <varname>RootImage=</varname> these paths always reside on the host and
         are mounted from there into the unit's file system namespace. If <varname>DynamicUser=</varname> is used in
         conjunction with <varname>RuntimeDirectory=</varname>, <varname>StateDirectory=</varname>,
-        <varname>CacheDirectory=</varname> and <varname>LogsDirectory=</varname>, the behaviour of these options is
+        <varname>CacheDirectory=</varname> and <varname>LogsDirectory=</varname> (except
+        <varname>ConfigurationDirectory=</varname>), the behaviour of these options is
         slightly altered: the directories are created below <filename>/run/private</filename>,
         <filename>/var/lib/private</filename>, <filename>/var/cache/private</filename> and
         <filename>/var/log/private</filename>, respectively, which are host directories made inaccessible to
