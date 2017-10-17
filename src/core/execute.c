@@ -2798,6 +2798,10 @@ static int exec_child(
                 r = dynamic_creds_realize(dcreds, suggested_paths, &uid, &gid);
                 if (r < 0) {
                         *exit_status = EXIT_USER;
+                        if (r == -EILSEQ) {
+                                log_unit_error(unit, "Failed to update dynamic user credentials: User or group with specified name already exists.");
+                                return -EOPNOTSUPP;
+                        }
                         return log_unit_error_errno(unit, r, "Failed to update dynamic user credentials: %m");
                 }
 
