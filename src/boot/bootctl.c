@@ -37,6 +37,7 @@
 
 #include "alloc-util.h"
 #include "blkid-util.h"
+#include "bootspec.h"
 #include "copy.h"
 #include "dirent-util.h"
 #include "efivars.h"
@@ -49,6 +50,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "umask-util.h"
 #include "util.h"
 #include "verbs.h"
@@ -437,6 +439,54 @@ static int status_variables(void) {
 
         next_option:
                 continue;
+        }
+
+        return 0;
+}
+
+static int status_entries(const char *esp_path, sd_id128_t partition) {
+        int r;
+
+        _cleanup_(boot_config_free) BootConfig config = {};
+
+        printf("Default Boot Entry:\n");
+
+        r = boot_entries_load_config(esp_path, &config);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load bootspec config from \"%s/loader\": %m",
+                                       esp_path);
+
+        if (config.default_entry < 0)
+                printf("%zu entries, no entry suitable as default", config.n_entries);
+        else {
+                const BootEntry *e = &config.entries[config.default_entry];
+
+                printf("        title: %s\n", strna(e->title));
+                if (e->version)
+                        printf("      version: %s\n", e->version);
+                if (e->kernel)
+                        printf("        linux: %s\n", e->kernel);
+                if (!strv_isempty(e->initrd)) {
+                        _cleanup_free_ char *t;
+
+                        t = strv_join(e->initrd, " ");
+                        if (!t)
+                                return log_oom();
+
+                        printf("       initrd: %s\n", t);
+                }
+                if (!strv_isempty(e->options)) {
+                        _cleanup_free_ char *t;
+
+                        t = strv_join(e->options, " ");
+                        if (!t)
+                                return log_oom();
+
+                        printf("      options: %s\n", t);
+                }
+                if (e->device_tree)
+                        printf("   devicetree: %s\n", e->device_tree);
+                puts("");
         }
 
         return 0;
@@ -965,6 +1015,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "\n"
                "Commands:\n"
                "     status          Show status of installed systemd-boot and EFI variables\n"
+               "     list            List boot entries\n"
                "     install         Install systemd-boot to the ESP and EFI variables\n"
                "     update          Update systemd-boot in the ESP and EFI variables\n"
                "     remove          Remove systemd-boot from the ESP and EFI variables\n",
@@ -1101,7 +1152,74 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                         r2 = r;
         }
 
+        r = status_entries(arg_path, uuid);
+        if (r < 0)
+                r2 = r;
+
         return r2;
+}
+
+static int verb_list(int argc, char *argv[], void *userdata) {
+        sd_id128_t uuid = SD_ID128_NULL;
+        int r;
+        unsigned n;
+
+        _cleanup_(boot_config_free) BootConfig config = {};
+
+        r = find_esp(NULL, NULL, NULL, &uuid);
+        if (r < 0)
+                return r;
+
+        r = boot_entries_load_config(arg_path, &config);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load bootspec config from \"%s/loader\": %m",
+                                       arg_path);
+
+        printf("Available boot entries:\n");
+
+        for (n = 0; n < config.n_entries; n++) {
+                const BootEntry *e = &config.entries[n];
+
+                printf("        title: %s%s%s%s%s%s\n",
+                       ansi_highlight(),
+                       strna(e->title),
+                       ansi_normal(),
+                       ansi_highlight_green(),
+                       n == config.default_entry ? " (default)" : "",
+                       ansi_normal());
+                if (e->version)
+                        printf("      version: %s\n", e->version);
+                if (e->machine_id)
+                        printf("   machine-id: %s\n", e->machine_id);
+                if (e->architecture)
+                        printf(" architecture: %s\n", e->architecture);
+                if (e->kernel)
+                        printf("        linux: %s\n", e->kernel);
+                if (!strv_isempty(e->initrd)) {
+                        _cleanup_free_ char *t;
+
+                        t = strv_join(e->initrd, " ");
+                        if (!t)
+                                return log_oom();
+
+                        printf("       initrd: %s\n", t);
+                }
+                if (!strv_isempty(e->options)) {
+                        _cleanup_free_ char *t;
+
+                        t = strv_join(e->options, " ");
+                        if (!t)
+                                return log_oom();
+
+                        printf("      options: %s\n", t);
+                }
+                if (e->device_tree)
+                        printf("   devicetree: %s\n", e->device_tree);
+
+                puts("");
+        }
+
+        return 0;
 }
 
 static int verb_install(int argc, char *argv[], void *userdata) {
@@ -1173,6 +1291,7 @@ static int bootctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "help",            VERB_ANY, VERB_ANY, 0,            help         },
                 { "status",          VERB_ANY, 1,        VERB_DEFAULT, verb_status  },
+                { "list",            VERB_ANY, 1,        0,            verb_list    },
                 { "install",         VERB_ANY, 1,        0,            verb_install },
                 { "update",          VERB_ANY, 1,        0,            verb_install },
                 { "remove",          VERB_ANY, 1,        0,            verb_remove  },
