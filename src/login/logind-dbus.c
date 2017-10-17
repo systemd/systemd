@@ -123,7 +123,7 @@ static int get_sender_user(Manager *m, sd_bus_message *message, sd_bus_error *er
         return 0;
 
 err_no_user:
-        return sd_bus_error_setf(error, BUS_ERROR_NO_USER_FOR_PID, "Caller does not belong to any known or logged in user");
+        return sd_bus_error_setf(error, BUS_ERROR_NO_USER_FOR_PID, "Caller does not belong to any logged in user or lingering user");
 }
 
 int manager_get_user_from_creds(Manager *m, sd_bus_message *message, uid_t uid, sd_bus_error *error, User **ret) {
@@ -138,7 +138,7 @@ int manager_get_user_from_creds(Manager *m, sd_bus_message *message, uid_t uid, 
 
         user = hashmap_get(m->users, UID_TO_PTR(uid));
         if (!user)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_USER, "No user "UID_FMT" known or logged in", uid);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_USER, "User ID "UID_FMT" is not logged in or lingering", uid);
 
         *ret = user;
         return 0;
@@ -454,7 +454,9 @@ static int method_get_user_by_pid(sd_bus_message *message, void *userdata, sd_bu
                 if (r < 0)
                         return r;
                 if (!user)
-                        return sd_bus_error_setf(error, BUS_ERROR_NO_USER_FOR_PID, "PID "PID_FMT" does not belong to any known or logged in user", pid);
+                        return sd_bus_error_setf(error, BUS_ERROR_NO_USER_FOR_PID,
+                                                 "PID "PID_FMT" does not belong to any logged in user or lingering user",
+                                                 pid);
         }
 
         p = user_bus_path(user);
