@@ -202,7 +202,7 @@ int config_parse_capability(
                         continue;
                 }
 
-                u |= 1 << ((uint64_t) cap);
+                u |= UINT64_C(1) << cap;
         }
 
         if (u == 0)
