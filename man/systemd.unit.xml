@@ -297,7 +297,8 @@
     <para>For example, target units will complement all configured
     dependencies of type <varname>Wants=</varname> or
     <varname>Requires=</varname> with dependencies of type
-    <varname>After=</varname>. See
+    <varname>After=</varname> unless <varname>DefaultDependencies=no</varname>
+    is set in the specified units. See
     <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for details. Note that this behavior can be turned off by setting
     <varname>DefaultDependencies=no</varname>.</para>
