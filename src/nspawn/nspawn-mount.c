@@ -598,11 +598,15 @@ int mount_all(const char *dest,
 
                 r = mkdir_userns_p(dest, where, 0755, mount_settings, uid_shift);
                 if (r < 0 && r != -EEXIST) {
-                        if (fatal)
+                        if (fatal && r != -EROFS)
                                 return log_error_errno(r, "Failed to create directory %s: %m", where);
 
                         log_debug_errno(r, "Failed to create directory %s: %m", where);
-                        continue;
+                        /* If we failed mkdir() or chown() due to the root
+                         * directory being read only, attempt to mount this fs
+                         * anyway and let mount_verbose log any errors */
+                        if (r != -EROFS)
+                                continue;
                 }
 
                 o = mount_table[k].options;
