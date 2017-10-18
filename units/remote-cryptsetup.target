@@ -8,7 +8,7 @@
 [Unit]
 Description=Remote Encrypted Volumes
 Documentation=man:systemd.special(7)
-After=remote-fs-pre.target
+After=remote-fs-pre.target cryptsetup-pre.target
 DefaultDependencies=no
 Conflicts=shutdown.target
 
