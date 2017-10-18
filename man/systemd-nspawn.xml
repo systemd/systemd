@@ -1075,14 +1075,17 @@
     <example>
       <title>Build and boot a minimal Fedora distribution in a container</title>
 
-      <programlisting># dnf -y --releasever=25 --installroot=/srv/mycontainer \
+      <programlisting># dnf -y --releasever=27 --installroot=/var/lib/machines/f27container \
       --disablerepo='*' --enablerepo=fedora --enablerepo=updates install \
       systemd passwd dnf fedora-release vim-minimal
-# systemd-nspawn -bD /srv/mycontainer</programlisting>
+# systemd-nspawn -bD /var/lib/machines/f27container</programlisting>
 
       <para>This installs a minimal Fedora distribution into the
-      directory <filename noindex='true'>/srv/mycontainer/</filename>
-      and then boots an OS in a namespace container in it.</para>
+      directory <filename noindex='true'>/var/lib/machines/f27container</filename>
+      and then boots an OS in a namespace container in it. Because the installation
+      is located underneath the standard <filename>/var/lib/machines/</filename>
+      directory, it is also possible to start the machine using
+      <command>systemd-nspawn -M f27container</command>.</para>
     </example>
 
     <example>
