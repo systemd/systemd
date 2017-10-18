@@ -403,7 +403,7 @@ tests += [
          [],
          []],
 
-        [['src/test/test-time.c'],
+        [['src/test/test-time-util.c'],
          [],
          []],
 
