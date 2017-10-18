@@ -72,12 +72,13 @@ static void status_info_clear(StatusInfo *info) {
 }
 
 static void print_status_info(const StatusInfo *i) {
-        char a[FORMAT_TIMESTAMP_MAX];
+        char a[LINE_MAX];
         struct tm tm;
         time_t sec;
         bool have_time = false;
         const char *old_tz = NULL, *tz;
         int r;
+        size_t n;
 
         assert(i);
 
@@ -102,11 +103,11 @@ static void print_status_info(const StatusInfo *i) {
                 log_warning("Could not get time from timedated and not operating locally, ignoring.");
 
         if (have_time) {
-                xstrftime(a, "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&sec, &tm));
-                printf("                      Local time: %.*s\n", (int) sizeof(a), a);
+                n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&sec, &tm));
+                printf("                      Local time: %s\n", n > 0 ? a : "n/a");
 
-                xstrftime(a, "%a %Y-%m-%d %H:%M:%S UTC", gmtime_r(&sec, &tm));
-                printf("                  Universal time: %.*s\n", (int) sizeof(a), a);
+                n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S UTC", gmtime_r(&sec, &tm));
+                printf("                  Universal time: %s\n", n > 0 ? a : "n/a");
         } else {
                 printf("                      Local time: %s\n", "n/a");
                 printf("                  Universal time: %s\n", "n/a");
@@ -116,13 +117,13 @@ static void print_status_info(const StatusInfo *i) {
                 time_t rtc_sec;
 
                 rtc_sec = (time_t) (i->rtc_time / USEC_PER_SEC);
-                xstrftime(a, "%a %Y-%m-%d %H:%M:%S", gmtime_r(&rtc_sec, &tm));
-                printf("                        RTC time: %.*s\n", (int) sizeof(a), a);
+                n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S", gmtime_r(&rtc_sec, &tm));
+                printf("                        RTC time: %s\n", n > 0 ? a : "n/a");
         } else
                 printf("                        RTC time: %s\n", "n/a");
 
         if (have_time)
-                xstrftime(a, "%Z, %z", localtime_r(&sec, &tm));
+                n = strftime(a, sizeof a, "%Z, %z", localtime_r(&sec, &tm));
 
         /* Restore the $TZ */
         if (old_tz)
@@ -134,11 +135,11 @@ static void print_status_info(const StatusInfo *i) {
         else
                 tzset();
 
-        printf("                       Time zone: %s (%.*s)\n"
+        printf("                       Time zone: %s (%s)\n"
                "       System clock synchronized: %s\n"
                "systemd-timesyncd.service active: %s\n"
                "                 RTC in local TZ: %s\n",
-               strna(i->timezone), (int) sizeof(a), have_time ? a : "n/a",
+               strna(i->timezone), have_time && n > 0 ? a : "n/a",
                i->ntp_capable ? yes_no(i->ntp_enabled) : "n/a",
                yes_no(i->ntp_synced),
                yes_no(i->rtc_local));

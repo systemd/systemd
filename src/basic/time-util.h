@@ -148,10 +148,6 @@ clockid_t clock_boottime_or_monotonic(void);
 
 usec_t usec_shift_clock(usec_t, clockid_t from, clockid_t to);
 
-#define xstrftime(buf, fmt, tm) \
-        assert_message_se(strftime(buf, ELEMENTSOF(buf), fmt, tm) > 0, \
-                          "xstrftime: " #buf "[] must be big enough")
-
 int get_timezone(char **timezone);
 
 time_t mktime_or_timegm(struct tm *tm, bool utc);
