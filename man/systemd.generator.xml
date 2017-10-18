@@ -122,7 +122,8 @@
         <para><parameter>normal-dir</parameter></para>
         <para>argv[1] may be used to override unit files in
         <filename>/usr</filename>, but not those in
-        <filename>/etc</filename>. This means that unit files placed
+        <filename>/run</filename> or in <filename>/etc</filename>.
+        This means that unit files placed
         in this directory take precedence over vendor unit
         configuration but not over native user/administrator unit
         configuration.</para>
@@ -131,7 +132,7 @@
       <listitem>
         <para><parameter>early-dir</parameter></para>
         <para>argv[2] may be used to override unit files in
-        <filename>/usr</filename> and in
+        <filename>/usr</filename>, in <filename>/run</filename> and in
         <filename>/etc</filename>. This means that unit files placed
         in this directory take precedence over all configuration,
         both vendor and user/administrator.</para>
