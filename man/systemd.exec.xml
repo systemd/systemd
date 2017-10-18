@@ -206,7 +206,10 @@
         enabled for a unit, the name of the dynamic user/group is implicitly derived from the unit name. If the unit
         name without the type suffix qualifies as valid user name it is used directly, otherwise a name incorporating a
         hash of it is used. If a statically allocated user or group of the configured name already exists, it is used
-        and no dynamic user/group is allocated. Dynamic users/groups are allocated from the UID/GID range
+        and no dynamic user/group is allocated. Note that if <varname>User=</varname> is specified and the static group
+        with the name exists, then it is required that the static user with the name already exists. Similarly,
+        if <varname>Group=</varname> is specified and the static user with the name exists, then it is required that
+        the static group with the name already exists. Dynamic users/groups are allocated from the UID/GID range
         61184…65519. It is recommended to avoid this range for regular system or login users.  At any point in time
         each UID/GID from this range is only assigned to zero or one dynamically allocated users/groups in
         use. However, UID/GIDs are recycled after a unit is terminated. Care should be taken that any processes running
