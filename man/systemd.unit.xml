@@ -764,14 +764,14 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>StartLimitIntervalSec=</varname></term>
-        <term><varname>StartLimitBurst=</varname></term>
+        <term><varname>StartLimitIntervalSec=<replaceable>interval</replaceable></varname></term>
+        <term><varname>StartLimitBurst=<replaceable>burst</replaceable></varname></term>
 
-        <listitem><para>Configure unit start rate limiting. By default, units which are started more than 5 times
-        within 10 seconds are not permitted to start any more times until the 10 second interval ends. With these two
-        options, this rate limiting may be modified. Use <varname>StartLimitIntervalSec=</varname> to configure the
+        <listitem><para>Configure unit start rate limiting. Units which are started more than
+        <replaceable>burst</replaceable> times within an <replaceable>interval</replaceable> time interval
+        are not permitted to start any more. Use <varname>StartLimitIntervalSec=</varname> to configure the
         checking interval (defaults to <varname>DefaultStartLimitIntervalSec=</varname> in manager configuration file,
-        set to 0 to disable any kind of rate limiting). Use <varname>StartLimitBurst=</varname> to configure how many
+        set it to 0 to disable any kind of rate limiting). Use <varname>StartLimitBurst=</varname> to configure how many
         starts per interval are allowed (defaults to <varname>DefaultStartLimitBurst=</varname> in manager
         configuration file). These configuration options are particularly useful in conjunction with the service
         setting <varname>Restart=</varname> (see
@@ -779,13 +779,14 @@
         they apply to all kinds of starts (including manual), not just those triggered by the
         <varname>Restart=</varname> logic. Note that units which are configured for <varname>Restart=</varname> and
         which reach the start limit are not attempted to be restarted anymore; however, they may still be restarted
-        manually at a later point, from which point on, the restart logic is again activated. Note that
+        manually at a later point, after the <replaceable>interval</replaceable> has passed.
+        From this point on, the restart logic is activated again. Note that
         <command>systemctl reset-failed</command> will cause the restart rate counter for a service to be flushed,
         which is useful if the administrator wants to manually start a unit and the start limit interferes with
         that. Note that this rate-limiting is enforced after any unit condition checks are executed, and hence unit
-        activations with failing conditions are not counted by this rate limiting. Slice, target, device and scope
-        units do not enforce this setting, as they are unit types whose activation may either never fail, or may
-        succeed only a single time.</para></listitem>
+        activations with failing conditions do not count towards this rate limit. This setting does not apply to
+        slice, target, device, and scope units, since they are unit types whose activation may either never fail, or
+        may succeed only a single time.</para></listitem>
       </varlistentry>
 
       <varlistentry>
