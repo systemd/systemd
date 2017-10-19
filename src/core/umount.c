@@ -572,6 +572,8 @@ int umount_all(bool *changed) {
 
         /* umount one more time with logging enabled */
         r = mount_points_list_umount(&mp_list_head, &umount_changed, true);
+        if (umount_changed)
+                *changed = true;
 
   end:
         mount_points_list_free(&mp_list_head);
