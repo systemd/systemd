@@ -3052,6 +3052,9 @@ static int link_carrier_gained(Link *link) {
 
         assert(link);
 
+        if (link->state == LINK_STATE_CONFIGURED && link->network->configure_without_carrier)
+                return 0;
+
         if (!IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_UNMANAGED, LINK_STATE_FAILED)) {
                 r = link_acquire_conf(link);
                 if (r < 0) {
@@ -3075,6 +3078,9 @@ static int link_carrier_lost(Link *link) {
         int r;
 
         assert(link);
+
+        if (link->state == LINK_STATE_CONFIGURED && link->network->configure_without_carrier)
+                return 0;
 
         r = link_stop_clients(link);
         if (r < 0) {
@@ -3288,19 +3294,15 @@ int link_update(Link *link, sd_netlink_message *m) {
         if (carrier_gained) {
                 log_link_info(link, "Gained carrier");
 
-                if (link->state != LINK_STATE_CONFIGURED || !link->network->configure_without_carrier) {
-                        r = link_carrier_gained(link);
-                        if (r < 0)
-                                return r;
-                }
+                r = link_carrier_gained(link);
+                if (r < 0)
+                        return r;
         } else if (carrier_lost) {
                 log_link_info(link, "Lost carrier");
 
-                if (link->state != LINK_STATE_CONFIGURED || !link->network->configure_without_carrier) {
-                        r = link_carrier_lost(link);
-                        if (r < 0)
-                              return r;
-                }
+                r = link_carrier_lost(link);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
