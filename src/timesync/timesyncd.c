@@ -70,8 +70,40 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
 
         } else {
                 r = mkdir_safe_label("/var/lib/systemd/timesync", 0755, uid, gid, true);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create state directory: %m");
+                if (r < 0) {
+                        struct stat st;
+
+                        log_error_errno(r, "Failed to create state directory: %m");
+                        log_error("mkdir_safe_label fails: uid=" UID_FMT ", gid=" GID_FMT, uid, gid);
+
+                        if (lstat("/var/lib/systemd/timesync", &st) < 0) {
+                                log_error_errno(errno, "Failed to lstat /var/lib/systemd/timesync: %m");
+                                return r;
+                        }
+                        if (S_ISLNK(st.st_mode)) {
+                                _cleanup_free_ char *p = NULL;
+                                int s;
+
+                                log_error("/var/lib/systemd/timesync is a symlink");
+                                s = chase_symlinks("/var/lib/systemd/timesync", NULL, CHASE_NONEXISTENT, &p);
+                                if (s < 0) {
+                                        log_error_errno(s, "Failed to chase_symlinks /var/lib/systemd/timesync: %m");
+                                        return r;
+                                }
+                                log_error("chase_symlinks: /var/lib/systemd/timesync -> %s", p);
+                                if (s == 0) {
+                                        log_error("chase_symlinks returns 0, so it seems that %s does not exists.", p);
+                                        return r;
+                                }
+                                if (lstat(p, &st) < 0) {
+                                        log_error_errno(errno, "Failed to lstat %s: %m", p);
+                                        return r;
+                                }
+                        }
+
+                        log_error("st.st_mode=%04o, st.st_uid=" UID_FMT ", st.st_gid=" GID_FMT ", st.st_mode=%o", st.st_mode & 07777, st.st_uid, st.st_gid, st.st_mode);
+                        return r;
+                }
 
                 /* create stamp file with the compiled-in date */
                 (void) touch_file("/var/lib/systemd/timesync/clock", false, min, uid, gid, 0644);
