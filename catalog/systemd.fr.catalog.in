@@ -329,3 +329,18 @@ Documentation: man:systemd-resolved.service(8)
 Une ancre de confiance DNSSEC a été révoquée. Une nouvelle ancre de
 confiance doit être configurée, ou le système d'exploitation a besoin
 d'être mis à jour, pour fournir une version à jour de l'ancre de confiance.
+
+-- 5eb03494b6584870a536b337290809b3
+Subject: Le redémarrage automatique d'une unité (unit) a été planifié
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Le redémarrage automatique de l'unité (unit) @UNIT@ a été planifié, en
+raison de sa configuration avec le paramètre Restart=.
+
+-- ae8f7b866b0347b9af31fe1c80b127c0
+Subject: Ressources consommées durant l'éxécution de l'unité (unit)
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+L'unité (unit) @UNIT@ s'est arrêtée et a consommé les ressources indiquées.
