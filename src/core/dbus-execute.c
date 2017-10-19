@@ -1189,7 +1189,7 @@ int bus_exec_context_set_transient_property(
 
         } else if (streq(name, "SystemCallFilter")) {
                 int whitelist;
-                _cleanup_strv_free_ char **l;
+                _cleanup_strv_free_ char **l = NULL;
 
                 r = sd_bus_message_enter_container(message, 'r', "bas");
                 if (r < 0)
@@ -1238,7 +1238,7 @@ int bus_exec_context_set_transient_property(
                                                         if (id == __NR_SCMP_ERROR)
                                                                 return -EINVAL;
 
-                                                        r = set_put(c->address_families, INT_TO_PTR(id + 1));
+                                                        r = set_put(c->syscall_filter, INT_TO_PTR(id + 1));
                                                         if (r < 0)
                                                                 return r;
                                                 }
@@ -1250,7 +1250,7 @@ int bus_exec_context_set_transient_property(
                                                 if (id == __NR_SCMP_ERROR)
                                                         return -EINVAL;
 
-                                                r = set_put(c->address_families, INT_TO_PTR(id + 1));
+                                                r = set_put(c->syscall_filter, INT_TO_PTR(id + 1));
                                                 if (r < 0)
                                                         return r;
                                         }
@@ -1330,7 +1330,7 @@ int bus_exec_context_set_transient_property(
 
         } else if (streq(name, "RestrictAddressFamilies")) {
                 int whitelist;
-                _cleanup_strv_free_ char **l;
+                _cleanup_strv_free_ char **l = NULL;
 
                 r = sd_bus_message_enter_container(message, 'r', "bas");
                 if (r < 0)
