@@ -25,6 +25,7 @@ typedef struct BootEntry {
         char *filename;
 
         char *title;
+        char *show_title;
         char *version;
         char *machine_id;
         char *architecture;
@@ -56,3 +57,7 @@ int boot_entries_select_default(const BootConfig *config);
 int boot_loader_read_conf(const char *path, BootConfig *config);
 void boot_config_free(BootConfig *config);
 int boot_entries_load_config(const char *esp_path, BootConfig *config);
+
+static inline const char* boot_entry_title(const BootEntry *entry) {
+        return entry->show_title ?: entry->title ?: entry->filename;
+}

@@ -461,7 +461,7 @@ static int status_entries(const char *esp_path, sd_id128_t partition) {
         else {
                 const BootEntry *e = &config.entries[config.default_entry];
 
-                printf("        title: %s\n", strna(e->title));
+                printf("        title: %s\n", boot_entry_title(e));
                 if (e->version)
                         printf("      version: %s\n", e->version);
                 if (e->kernel)
@@ -1182,7 +1182,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
 
                 printf("        title: %s%s%s%s%s%s\n",
                        ansi_highlight(),
-                       strna(e->title),
+                       boot_entry_title(e),
                        ansi_normal(),
                        ansi_highlight_green(),
                        n == config.default_entry ? " (default)" : "",

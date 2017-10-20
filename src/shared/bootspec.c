@@ -33,6 +33,7 @@ void boot_entry_free(BootEntry *entry) {
         free(entry->filename);
 
         free(entry->title);
+        free(entry->show_title);
         free(entry->version);
         free(entry->machine_id);
         free(entry->architecture);
@@ -274,6 +275,71 @@ int boot_entries_find(const char *dir, BootEntry **entries, size_t *n_entries) {
         return 0;
 }
 
+static bool find_nonunique(BootEntry *entries, size_t n_entries, bool *arr) {
+        unsigned i, j;
+        bool non_unique = false;
+
+        for (i = 0; i < n_entries; i++)
+                arr[i] = false;
+
+        for (i = 0; i < n_entries; i++)
+                for (j = 0; j < n_entries; j++)
+                        if (i != j && streq(boot_entry_title(entries + i),
+                                            boot_entry_title(entries + j)))
+                                non_unique = arr[i] = arr[j] = true;
+
+        return non_unique;
+}
+
+static int boot_entries_uniquify(BootEntry *entries, size_t n_entries) {
+        char *s;
+        unsigned i;
+        int r;
+        bool arr[n_entries];
+
+        /* Find _all_ non-unique titles */
+        if (!find_nonunique(entries, n_entries, arr))
+                return 0;
+
+        /* Add version to non-unique titles */
+        for (i = 0; i < n_entries; i++)
+                if (arr[i] && entries[i].version) {
+                        r = asprintf(&s, "%s (%s)", boot_entry_title(entries + i), entries[i].version);
+                        if (r < 0)
+                                return -ENOMEM;
+
+                        free_and_replace(entries[i].show_title, s);
+                }
+
+        if (!find_nonunique(entries, n_entries, arr))
+                return 0;
+
+        /* Add machine-id to non-unique titles */
+        for (i = 0; i < n_entries; i++)
+                if (arr[i] && entries[i].machine_id) {
+                        r = asprintf(&s, "%s (%s)", boot_entry_title(entries + i), entries[i].machine_id);
+                        if (r < 0)
+                                return -ENOMEM;
+
+                        free_and_replace(entries[i].show_title, s);
+                }
+
+        if (!find_nonunique(entries, n_entries, arr))
+                return 0;
+
+        /* Add file name to non-unique titles */
+        for (i = 0; i < n_entries; i++)
+                if (arr[i]) {
+                        r = asprintf(&s, "%s (%s)", boot_entry_title(entries + i), entries[i].filename);
+                        if (r < 0)
+                                return -ENOMEM;
+
+                        free_and_replace(entries[i].show_title, s);
+                }
+
+        return 0;
+}
+
 int boot_entries_select_default(const BootConfig *config) {
         int i;
 
@@ -321,6 +387,10 @@ int boot_entries_load_config(const char *esp_path, BootConfig *config) {
         r = boot_entries_find(p, &config->entries, &config->n_entries);
         if (r < 0)
                 return log_error_errno(r, "Failed to read boot entries from \"%s\": %m", p);
+
+        r = boot_entries_uniquify(config->entries, config->n_entries);
+        if (r < 0)
+                return log_error_errno(r, "Failed to uniquify boot entries: %m");
 
         r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntryOneShot", &config->entry_oneshot);
         if (r < 0 && r != -ENOENT)
