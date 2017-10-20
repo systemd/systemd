@@ -61,3 +61,6 @@ int boot_entries_load_config(const char *esp_path, BootConfig *config);
 static inline const char* boot_entry_title(const BootEntry *entry) {
         return entry->show_title ?: entry->title ?: entry->filename;
 }
+
+int find_esp(char **path,
+             uint32_t *part, uint64_t *pstart, uint64_t *psize, sd_id128_t *uuid);

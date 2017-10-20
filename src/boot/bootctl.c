@@ -59,199 +59,20 @@
 static char *arg_path = NULL;
 static bool arg_touch_variables = true;
 
-static int verify_esp(
-                bool searching,
-                const char *p,
-                uint32_t *ret_part,
-                uint64_t *ret_pstart,
-                uint64_t *ret_psize,
-                sd_id128_t *ret_uuid) {
-
-        _cleanup_blkid_free_probe_ blkid_probe b = NULL;
-        _cleanup_free_ char *t = NULL;
-        uint64_t pstart = 0, psize = 0;
-        struct stat st, st2;
-        const char *v, *t2;
-        struct statfs sfs;
-        sd_id128_t uuid = SD_ID128_NULL;
-        uint32_t part = 0;
-        bool quiet;
+static int find_esp_and_warn(uint32_t *part, uint64_t *pstart, uint64_t *psize, sd_id128_t *uuid) {
         int r;
 
-        assert(p);
+        r = find_esp(&arg_path, part, pstart, psize, uuid);
+        if (r == -ENOENT)
+                return log_error_errno(r,
+                                       "Couldn't find EFI system partition. It is recommended to mount it to /boot.\n"
+                                       "Alternatively, use --path= to specify path to mount point.");
+        else if (r < 0)
+                return log_error_errno(r,
+                                       "Couldn't find EFI system partition: %m");
 
-        /* Non-root user can run only `bootctl status`, then if error occured in the following, it does not cause any issues.
-         * So, let's silence the error messages. */
-        quiet = (geteuid() != 0);
-
-        if (statfs(p, &sfs) < 0) {
-
-                /* If we are searching for the mount point, don't generate a log message if we can't find the path */
-                if (errno == ENOENT && searching)
-                        return -ENOENT;
-
-                return log_full_errno(quiet && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to check file system type of \"%s\": %m", p);
-        }
-
-        if (!F_TYPE_EQUAL(sfs.f_type, MSDOS_SUPER_MAGIC)) {
-
-                if (searching)
-                        return -EADDRNOTAVAIL;
-
-                log_error("File system \"%s\" is not a FAT EFI System Partition (ESP) file system.", p);
-                return -ENODEV;
-        }
-
-        if (stat(p, &st) < 0)
-                return log_full_errno(quiet && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to determine block device node of \"%s\": %m", p);
-
-        if (major(st.st_dev) == 0) {
-                log_error("Block device node of %p is invalid.", p);
-                return -ENODEV;
-        }
-
-        t2 = strjoina(p, "/..");
-        r = stat(t2, &st2);
-        if (r < 0)
-                return log_full_errno(quiet && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to determine block device node of parent of \"%s\": %m", p);
-
-        if (st.st_dev == st2.st_dev) {
-                log_error("Directory \"%s\" is not the root of the EFI System Partition (ESP) file system.", p);
-                return -ENODEV;
-        }
-
-        /* In a container we don't have access to block devices, skip this part of the verification, we trust the
-         * container manager set everything up correctly on its own. Also skip the following verification for non-root user. */
-        if (detect_container() > 0 || geteuid() != 0)
-                goto finish;
-
-        r = asprintf(&t, "/dev/block/%u:%u", major(st.st_dev), minor(st.st_dev));
-        if (r < 0)
-                return log_oom();
-
-        errno = 0;
-        b = blkid_new_probe_from_filename(t);
-        if (!b)
-                return log_error_errno(errno ?: ENOMEM, "Failed to open file system \"%s\": %m", p);
-
-        blkid_probe_enable_superblocks(b, 1);
-        blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
-        blkid_probe_enable_partitions(b, 1);
-        blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
-
-        errno = 0;
-        r = blkid_do_safeprobe(b);
-        if (r == -2) {
-                log_error("File system \"%s\" is ambiguous.", p);
-                return -ENODEV;
-        } else if (r == 1) {
-                log_error("File system \"%s\" does not contain a label.", p);
-                return -ENODEV;
-        } else if (r != 0)
-                return log_error_errno(errno ?: EIO, "Failed to probe file system \"%s\": %m", p);
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "TYPE", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: EIO, "Failed to probe file system type \"%s\": %m", p);
-        if (!streq(v, "vfat")) {
-                log_error("File system \"%s\" is not FAT.", p);
-                return -ENODEV;
-        }
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: EIO, "Failed to probe partition scheme \"%s\": %m", p);
-        if (!streq(v, "gpt")) {
-                log_error("File system \"%s\" is not on a GPT partition table.", p);
-                return -ENODEV;
-        }
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: EIO, "Failed to probe partition type UUID \"%s\": %m", p);
-        if (!streq(v, "c12a7328-f81f-11d2-ba4b-00a0c93ec93b")) {
-                log_error("File system \"%s\" has wrong type for an EFI System Partition (ESP).", p);
-                return -ENODEV;
-        }
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_UUID", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: EIO, "Failed to probe partition entry UUID \"%s\": %m", p);
-        r = sd_id128_from_string(v, &uuid);
-        if (r < 0) {
-                log_error("Partition \"%s\" has invalid UUID \"%s\".", p, v);
-                return -EIO;
-        }
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_NUMBER", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: EIO, "Failed to probe partition number \"%s\": m", p);
-        r = safe_atou32(v, &part);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse PART_ENTRY_NUMBER field.");
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_OFFSET", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: EIO, "Failed to probe partition offset \"%s\": %m", p);
-        r = safe_atou64(v, &pstart);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse PART_ENTRY_OFFSET field.");
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_SIZE", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: EIO, "Failed to probe partition size \"%s\": %m", p);
-        r = safe_atou64(v, &psize);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse PART_ENTRY_SIZE field.");
-
-finish:
-        if (ret_part)
-                *ret_part = part;
-        if (ret_pstart)
-                *ret_pstart = pstart;
-        if (ret_psize)
-                *ret_psize = psize;
-        if (ret_uuid)
-                *ret_uuid = uuid;
-
+        log_info("Using EFI System Partition at %s.", arg_path);
         return 0;
-}
-
-static int find_esp(uint32_t *part, uint64_t *pstart, uint64_t *psize, sd_id128_t *uuid) {
-        const char *path;
-        int r;
-
-        if (arg_path)
-                return verify_esp(false, arg_path, part, pstart, psize, uuid);
-
-        FOREACH_STRING(path, "/efi", "/boot", "/boot/efi") {
-
-                r = verify_esp(true, path, part, pstart, psize, uuid);
-                if (IN_SET(r, -ENOENT, -EADDRNOTAVAIL)) /* This one is not it */
-                        continue;
-                if (r < 0)
-                        return r;
-
-                arg_path = strdup(path);
-                if (!arg_path)
-                        return log_oom();
-
-                log_info("Using EFI System Partition at %s.", path);
-                return 0;
-        }
-
-        log_error("Couldn't find EFI system partition. It is recommended to mount it to /boot. Alternatively, use --path= to specify path to mount point.");
-        return -ENOENT;
 }
 
 /* search for "#### LoaderInfo: systemd-boot 218 ####" string inside the binary */
@@ -1096,7 +917,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         sd_id128_t uuid = SD_ID128_NULL;
         int r, r2;
 
-        r2 = find_esp(NULL, NULL, NULL, &uuid);
+        r2 = find_esp_and_warn(NULL, NULL, NULL, &uuid);
 
         if (is_efi_boot()) {
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL;
@@ -1166,7 +987,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
 
         _cleanup_(boot_config_free) BootConfig config = {};
 
-        r = find_esp(NULL, NULL, NULL, &uuid);
+        r = find_esp_and_warn(NULL, NULL, NULL, &uuid);
         if (r < 0)
                 return r;
 
@@ -1234,7 +1055,7 @@ static int verb_install(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = find_esp(&part, &pstart, &psize, &uuid);
+        r = find_esp_and_warn(&part, &pstart, &psize, &uuid);
         if (r < 0)
                 return r;
 
@@ -1269,7 +1090,7 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = find_esp(NULL, NULL, NULL, &uuid);
+        r = find_esp_and_warn(NULL, NULL, NULL, &uuid);
         if (r < 0)
                 return r;
 
