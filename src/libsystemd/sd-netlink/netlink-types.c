@@ -37,6 +37,10 @@
 #include <linux/if_tunnel.h>
 #include <linux/fib_rules.h>
 
+#if HAVE_VXCAN_INFO_PEER
+#include <linux/can/vxcan.h>
+#endif
+
 #include "macro.h"
 #include "missing.h"
 #include "netlink-types.h"
@@ -90,6 +94,10 @@ static const NLTypeSystem empty_type_system = {
 
 static const NLType rtnl_link_info_data_veth_types[] = {
         [VETH_INFO_PEER]  = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
+};
+
+static const NLType rtnl_link_info_data_vxcan_types[] = {
+        [VXCAN_INFO_PEER]  = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
 };
 
 static const NLType rtnl_link_info_data_ipvlan_types[] = {
@@ -328,6 +336,8 @@ static const char* const nl_union_link_info_data_table[] = {
         [NL_UNION_LINK_INFO_DATA_VRF] = "vrf",
         [NL_UNION_LINK_INFO_DATA_VCAN] = "vcan",
         [NL_UNION_LINK_INFO_DATA_GENEVE] = "geneve",
+        [NL_UNION_LINK_INFO_DATA_VXCAN] = "vxcan",
+
 };
 
 DEFINE_STRING_TABLE_LOOKUP(nl_union_link_info_data, NLUnionLinkInfoData);
@@ -371,6 +381,8 @@ static const NLTypeSystem rtnl_link_info_data_type_systems[] = {
                                                        .types = rtnl_link_info_data_vrf_types },
         [NL_UNION_LINK_INFO_DATA_GENEVE] =           { .count = ELEMENTSOF(rtnl_link_info_data_geneve_types),
                                                        .types = rtnl_link_info_data_geneve_types },
+        [NL_UNION_LINK_INFO_DATA_VXCAN] =            { .count = ELEMENTSOF(rtnl_link_info_data_vxcan_types),
+                                                       .types = rtnl_link_info_data_vxcan_types },
 };
 
 static const NLTypeSystemUnion rtnl_link_info_data_type_system_union = {

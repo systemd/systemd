@@ -180,6 +180,10 @@
           <row><entry><varname>vcan</varname></entry>
           <entry>The virtual CAN driver (vcan). Similar to the network loopback devices, vcan offers a virtual local CAN interface.</entry></row>
 
+          <row><entry><varname>vxcan</varname></entry>
+          <entry>The virtual CAN tunnel driver (vxcan). Similar to the virtual ethernet driver veth, vxcan implements a local CAN traffic tunnel between two virtual CAN network devices. When creating a vxcan, two vxcan devices are created as pair. When one end receives the packet it appears on its pair and vice versa. The vxcan can be used for cross namespace communication.
+          </entry></row>
+
         </tbody>
       </tgroup>
     </table>
@@ -890,6 +894,22 @@
             <para>The peer MACAddress, if not set, it is generated in
             the same way as the MAC address of the main
             interface.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+  </refsect1>
+  <refsect1>
+  <title>[VXCAN] Section Options</title>
+      <para>The <literal>[VXCAN]</literal> section only applies for
+      netdevs of kind <literal>vxcan</literal> and accepts the
+      following key:</para>
+
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>Peer=</varname></term>
+          <listitem>
+            <para>The peer interface name used when creating the netdev.
+            This option is compulsory.</para>
           </listitem>
         </varlistentry>
       </variablelist>
