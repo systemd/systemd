@@ -354,6 +354,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--dry-run</option></term>
+
+        <listitem>
+          <para>Just print what would be done. Currently supported by verbs
+          <command>halt</command>, <command>poweroff</command>, <command>reboot</command>,
+          <command>kexec</command>, <command>suspend</command>,
+          <command>hibernate</command>, <command>hybrid-sleep</command>,
+          <command>default</command>, <command>rescue</command>,
+          <command>emergency</command>, and <command>exit</command>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-q</option></term>
         <term><option>--quiet</option></term>
 

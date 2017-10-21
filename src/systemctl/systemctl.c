@@ -130,7 +130,7 @@ static bool arg_no_reload = false;
 static bool arg_value = false;
 static bool arg_show_types = false;
 static bool arg_ignore_inhibitors = false;
-static bool arg_dry = false;
+static bool arg_dry_run = false;
 static bool arg_quiet = false;
 static bool arg_full = false;
 static bool arg_recursive = false;
@@ -255,6 +255,9 @@ static int map_string_no_copy(sd_bus *bus, const char *member, sd_bus_message *m
 static void ask_password_agent_open_if_enabled(void) {
 
         /* Open the password agent as a child process if necessary */
+
+        if (arg_dry_run)
+                return;
 
         if (!arg_ask_password)
                 return;
@@ -2938,7 +2941,11 @@ static int start_unit_one(
                         return log_error_errno(r, "Failed to add match for PropertiesChanged signal: %m");
         }
 
-        log_debug("Calling manager for %s on %s, %s", method, name, mode);
+        log_debug("%s manager for %s on %s, %s",
+                  arg_dry_run ? "Would call" : "Calling",
+                  method, name, mode);
+        if (arg_dry_run)
+                return 0;
 
         r = sd_bus_call_method(
                         bus,
@@ -5592,6 +5599,9 @@ static int trivial_method(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r;
 
+        if (arg_dry_run)
+                return 0;
+
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
@@ -7146,6 +7156,7 @@ static void systemctl_help(void) {
                "     --kill-who=WHO   Who to send signal to\n"
                "  -s --signal=SIGNAL  Which signal to send\n"
                "     --now            Start or stop unit in addition to enabling or disabling it\n"
+               "     --dry-run        Only print what would be done\n"
                "  -q --quiet          Suppress output\n"
                "     --wait           For (re)start, wait until service stopped again\n"
                "     --no-block       Do not wait until operation finished\n"
@@ -7392,6 +7403,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_REVERSE,
                 ARG_AFTER,
                 ARG_BEFORE,
+                ARG_DRY_RUN,
                 ARG_SHOW_TYPES,
                 ARG_IRREVERSIBLE,
                 ARG_IGNORE_DEPENDENCIES,
@@ -7447,6 +7459,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "no-legend",           no_argument,       NULL, ARG_NO_LEGEND           },
                 { "no-pager",            no_argument,       NULL, ARG_NO_PAGER            },
                 { "no-wall",             no_argument,       NULL, ARG_NO_WALL             },
+                { "dry-run",             no_argument,       NULL, ARG_DRY_RUN             },
                 { "quiet",               no_argument,       NULL, 'q'                     },
                 { "root",                required_argument, NULL, ARG_ROOT                },
                 { "force",               no_argument,       NULL, ARG_FORCE               },
@@ -7656,6 +7669,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_DRY_RUN:
+                        arg_dry_run = true;
+                        break;
+
                 case 'q':
                         arg_quiet = true;
                         break;
@@ -7861,7 +7878,7 @@ static int halt_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'w':
-                        arg_dry = true;
+                        arg_dry_run = true;
                         break;
 
                 case 'd':
@@ -8004,7 +8021,7 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'k':
-                        arg_dry = true;
+                        arg_dry_run = true;
                         break;
 
                 case ARG_NO_WALL:
@@ -8395,24 +8412,28 @@ static int halt_now(enum action a) {
         /* The kernel will automaticall flush ATA disks and suchlike
          * on reboot(), but the file systems need to be synce'd
          * explicitly in advance. */
-        if (!arg_no_sync)
+        if (!arg_no_sync && !arg_dry_run)
                 (void) sync();
 
-        /* Make sure C-A-D is handled by the kernel from this point
-         * on... */
-        (void) reboot(RB_ENABLE_CAD);
+        /* Make sure C-A-D is handled by the kernel from this point on... */
+        if (!arg_dry_run)
+                (void) reboot(RB_ENABLE_CAD);
 
         switch (a) {
 
         case ACTION_HALT:
                 if (!arg_quiet)
                         log_info("Halting.");
+                if (arg_dry_run)
+                        return 0;
                 (void) reboot(RB_HALT_SYSTEM);
                 return -errno;
 
         case ACTION_POWEROFF:
                 if (!arg_quiet)
                         log_info("Powering off.");
+                if (arg_dry_run)
+                        return 0;
                 (void) reboot(RB_POWER_OFF);
                 return -errno;
 
@@ -8427,12 +8448,17 @@ static int halt_now(enum action a) {
                 if (!isempty(param)) {
                         if (!arg_quiet)
                                 log_info("Rebooting with argument '%s'.", param);
-                        (void) syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART2, param);
-                        log_warning_errno(errno, "Failed to reboot with parameter, retrying without: %m");
+                        if (!arg_dry_run) {
+                                (void) syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2,
+                                               LINUX_REBOOT_CMD_RESTART2, param);
+                                log_warning_errno(errno, "Failed to reboot with parameter, retrying without: %m");
+                        }
                 }
 
                 if (!arg_quiet)
                         log_info("Rebooting.");
+                if (arg_dry_run)
+                        return 0;
                 (void) reboot(RB_AUTOBOOT);
                 return -errno;
         }
@@ -8474,7 +8500,7 @@ static int logind_schedule_shutdown(void) {
                 break;
         }
 
-        if (arg_dry)
+        if (arg_dry_run)
                 action = strjoina("dry-", action);
 
         (void) logind_set_wall_message();
@@ -8513,7 +8539,7 @@ static int halt_main(void) {
                 return logind_schedule_shutdown();
 
         if (geteuid() != 0) {
-                if (arg_dry || arg_force > 0) {
+                if (arg_dry_run || arg_force > 0) {
                         log_error("Must be root.");
                         return -EPERM;
                 }
@@ -8534,7 +8560,7 @@ static int halt_main(void) {
                 }
         }
 
-        if (!arg_dry && !arg_force)
+        if (!arg_dry_run && !arg_force)
                 return start_with_fallback();
 
         assert(geteuid() == 0);
@@ -8549,7 +8575,7 @@ static int halt_main(void) {
                 }
         }
 
-        if (arg_dry)
+        if (arg_dry_run)
                 return 0;
 
         r = halt_now(arg_action);
