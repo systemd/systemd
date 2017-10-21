@@ -60,3 +60,9 @@ touchpad:usb:v056a*
 touchpad:usb:v045ep07*
  ID_INPUT_TOUCHPAD_INTEGRATION=internal
  
+###########################################################
+# Alps
+###########################################################
+# Seen in the DELL Latitude 7285
+touchpad:usb:v044ep1218*
+ ID_INPUT_TOUCHPAD_INTEGRATION=internal
