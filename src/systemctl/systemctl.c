@@ -27,6 +27,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/prctl.h>
 #include <sys/reboot.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -36,6 +37,7 @@
 #include "sd-login.h"
 
 #include "alloc-util.h"
+#include "bootspec.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-message.h"
@@ -143,6 +145,7 @@ static const char *arg_kill_who = NULL;
 static int arg_signal = SIGTERM;
 static char *arg_root = NULL;
 static usec_t arg_when = 0;
+static char *arg_esp_path = NULL;
 static char *argv_cmdline = NULL;
 static enum action {
         ACTION_SYSTEMCTL,
@@ -3497,6 +3500,75 @@ static int prepare_firmware_setup(void) {
         return logind_prepare_firmware_setup();
 }
 
+static int load_kexec_kernel(void) {
+        _cleanup_(boot_config_free) BootConfig config = {};
+        _cleanup_free_ char *kernel = NULL, *initrd = NULL, *options = NULL;
+        const BootEntry *e;
+        pid_t pid;
+        int r;
+
+        if (kexec_loaded()) {
+                log_debug("Kexec kernel already loaded.");
+                return 0;
+        }
+
+        r = find_esp(&arg_esp_path, NULL, NULL, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Cannot find the ESP partition mount point: %m");
+
+        r = boot_entries_load_config(arg_esp_path, &config);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load bootspec config from \"%s/loader\": %m",
+                                       arg_esp_path);
+
+        if (config.default_entry < 0) {
+                log_error("No entry suitable as default, refusing to guess.");
+                return -ENOENT;
+        }
+        e = &config.entries[config.default_entry];
+
+        if (strv_length(e->initrd) > 1) {
+                log_error("Boot entry specifies multiple initrds, which is not supported currently.");
+                return -EINVAL;
+        }
+
+        kernel = path_join(NULL, arg_esp_path, e->kernel);
+        if (!strv_isempty(e->initrd))
+                initrd = path_join(NULL, arg_esp_path, *e->initrd);
+        options = strv_join(e->options, " ");
+        if (!options)
+                return log_oom();
+
+        log_debug("%s kexec kernel %s initrd %s options \"%s\".",
+                  arg_dry_run ? "Would load" : "loading",
+                  kernel, initrd, options);
+        if (arg_dry_run)
+                return 0;
+
+        pid = fork();
+        if (pid < 0)
+                return log_error_errno(errno, "Failed to fork: %m");
+        else if (pid == 0) {
+
+                const char* const args[] = {
+                        KEXEC,
+                        "--load", kernel,
+                        "--append", options,
+                        initrd ? "--initrd" : NULL, initrd,
+                        NULL };
+
+                /* Child */
+
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
+                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
+
+                execv(args[0], (char * const *) args);
+                _exit(EXIT_FAILURE);
+        } else
+                return wait_for_terminate_and_warn("kexec", pid, true);
+}
+
 static int set_exit_code(uint8_t code) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
@@ -3546,6 +3618,11 @@ static int start_special(int argc, char *argv[], void *userdata) {
 
         if (a == ACTION_REBOOT && argc > 1) {
                 r = update_reboot_parameter_and_warn(argv[1]);
+                if (r < 0)
+                        return r;
+
+        } else if (a == ACTION_KEXEC) {
+                r = load_kexec_kernel();
                 if (r < 0)
                         return r;
 
@@ -8723,6 +8800,7 @@ finish:
 
         strv_free(arg_wall);
         free(arg_root);
+        free(arg_esp_path);
 
         /* Note that we return r here, not EXIT_SUCCESS, so that we can implement the LSB-like return codes */
         return r < 0 ? EXIT_FAILURE : r;
