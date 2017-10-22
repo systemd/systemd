@@ -19,5 +19,22 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "bus-util.h"
+
 int polkit_agent_open(void);
 void polkit_agent_close(void);
+
+static inline void polkit_agent_open_if_enabled(
+                BusTransport transport,
+                bool ask_password) {
+
+        /* Open the polkit agent as a child process if necessary */
+
+        if (transport != BUS_TRANSPORT_LOCAL)
+                return;
+
+        if (!ask_password)
+                return;
+
+        polkit_agent_open();
+}
