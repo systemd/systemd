@@ -1128,15 +1128,14 @@ static int config_parse_alias(
                 void *data,
                 void *userdata) {
 
-        const char *name;
         UnitType type;
 
+        assert(unit);
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
-        name = basename(filename);
-        type = unit_name_to_type(name);
+        type = unit_name_to_type(unit);
         if (!unit_type_may_alias(type))
                 return log_syntax(unit, LOG_WARNING, filename, line, 0,
                                   "Alias= is not allowed for %s units, ignoring.",
@@ -1162,6 +1161,7 @@ static int config_parse_also(
         InstallContext *c = data;
         int r;
 
+        assert(unit);
         assert(filename);
         assert(lvalue);
         assert(rvalue);
@@ -1209,22 +1209,21 @@ static int config_parse_default_instance(
                 void *userdata) {
 
         UnitFileInstallInfo *i = data;
-        const char *name;
         _cleanup_free_ char *printed = NULL;
         int r;
 
+        assert(unit);
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
-        name = basename(filename);
-        if (unit_name_is_valid(name, UNIT_NAME_INSTANCE))
+        if (unit_name_is_valid(unit, UNIT_NAME_INSTANCE))
                 /* When enabling an instance, we might be using a template unit file,
                  * but we should ignore DefaultInstance silently. */
                 return 0;
-        if (!unit_name_is_valid(name, UNIT_NAME_TEMPLATE))
+        if (!unit_name_is_valid(unit, UNIT_NAME_TEMPLATE))
                 return log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                  "DefaultInstance= only makes sense for template units, ignoring.");
+                                  "DefaultInstance= only makes sense for template units, ignoring. %s", unit);
 
         r = install_full_printf(i, rvalue, &printed);
         if (r < 0)
@@ -1251,7 +1250,6 @@ static int unit_file_load(
                 {}
         };
 
-        const char *name;
         UnitType type;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_close_ int fd = -1;
@@ -1261,9 +1259,8 @@ static int unit_file_load(
         assert(info);
         assert(path);
 
-        name = basename(path);
-        type = unit_name_to_type(name);
-        if (unit_name_is_valid(name, UNIT_NAME_TEMPLATE|UNIT_NAME_INSTANCE) &&
+        type = unit_name_to_type(info->name);
+        if (unit_name_is_valid(info->name, UNIT_NAME_TEMPLATE|UNIT_NAME_INSTANCE) &&
             !unit_type_may_template(type))
                 return log_error_errno(EINVAL, "Unit type %s cannot be templated.", unit_type_to_string(type));
 
@@ -1308,7 +1305,7 @@ static int unit_file_load(
                 return -errno;
         fd = -1;
 
-        r = config_parse(NULL, path, f,
+        r = config_parse(info->name, path, f,
                          NULL,
                          config_item_table_lookup, items,
                          true, true, false, info);
@@ -1398,8 +1395,15 @@ static int unit_file_search(
                 SearchFlags flags) {
 
         _cleanup_free_ char *template = NULL;
+        _cleanup_strv_free_ char **dirs = NULL;
+        _cleanup_free_ char **files = NULL;
+        const char *dropin_dir_name = NULL;
+        const char *dropin_template_dir_name = NULL;
+
         char **p;
         int r;
+        int result;
+        bool found_unit = false;
 
         assert(info);
         assert(paths);
@@ -1413,6 +1417,12 @@ static int unit_file_search(
 
         assert(info->name);
 
+        if (unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
+                r = unit_name_template(info->name, &template);
+                if (r < 0)
+                        return r;
+        }
+
         STRV_FOREACH(p, paths->search_path) {
                 _cleanup_free_ char *path = NULL;
 
@@ -1421,22 +1431,22 @@ static int unit_file_search(
                         return -ENOMEM;
 
                 r = unit_file_load_or_readlink(c, info, path, paths->root_dir, flags);
+
                 if (r >= 0) {
                         info->path = path;
                         path = NULL;
-                        return r;
+                        result = r;
+                        found_unit = true;
+                        break;
                 } else if (!IN_SET(r, -ENOENT, -ENOTDIR, -EACCES))
                         return r;
         }
 
-        if (unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
+        if (!found_unit && template) {
+
                 /* Unit file doesn't exist, however instance
                  * enablement was requested.  We will check if it is
                  * possible to load template unit file. */
-
-                r = unit_name_template(info->name, &template);
-                if (r < 0)
-                        return r;
 
                 STRV_FOREACH(p, paths->search_path) {
                         _cleanup_free_ char *path = NULL;
@@ -1449,14 +1459,62 @@ static int unit_file_search(
                         if (r >= 0) {
                                 info->path = path;
                                 path = NULL;
-                                return r;
+                                result = r;
+                                found_unit = true;
+                                break;
                         } else if (!IN_SET(r, -ENOENT, -ENOTDIR, -EACCES))
                                 return r;
                 }
         }
 
-        log_debug("Cannot find unit %s%s%s.", info->name, template ? " or " : "", strempty(template));
-        return -ENOENT;
+        if (!found_unit) {
+                log_debug("Cannot find unit %s%s%s.", info->name, template ? " or " : "", strempty(template));
+                return -ENOENT;
+        }
+
+        /* Search for drop-in directories */
+
+        dropin_dir_name = strjoina(info->name, ".d");
+        STRV_FOREACH(p, paths->search_path) {
+                char *path;
+
+                path = path_join(NULL, *p, dropin_dir_name);
+                if (!path)
+                        return -ENOMEM;
+
+                r = strv_consume(&dirs, path);
+                if (r < 0)
+                        return r;
+        }
+
+        if (template) {
+                dropin_template_dir_name = strjoina(template, ".d");
+                STRV_FOREACH(p, paths->search_path) {
+                        char *path;
+
+                        path = path_join(NULL, *p, dropin_template_dir_name);
+                        if (!path)
+                                return -ENOMEM;
+
+                        r = strv_consume(&dirs, path);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        /* Load drop-in conf files */
+
+        r = conf_files_list_strv(&files, ".conf", NULL, 0, (const char**) dirs);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get list of conf files: %m");
+
+        STRV_FOREACH(p, files) {
+                r = unit_file_load_or_readlink(c, info, *p, paths->root_dir, flags);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to load conf file %s: %m", *p);
+        }
+
+        return result;
 }
 
 static int install_info_follow(
