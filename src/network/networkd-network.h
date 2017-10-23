@@ -167,6 +167,8 @@ struct Network {
         uint8_t router_preference;
         bool router_managed;
         bool router_other_information;
+        bool router_emit_dns;
+        bool router_emit_domains;
         usec_t router_dns_lifetime_usec;
         struct in6_addr *router_dns;
         unsigned n_router_dns;

@@ -21,4 +21,5 @@
 
 #include "networkd-link.h"
 
+int radv_emit_dns(Link *link);
 int radv_configure(Link *link);
