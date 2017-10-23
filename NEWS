@@ -1,5 +1,11 @@
 systemd System and Service Manager
 
+CHANGES WITH 236 in spe:
+
+	* The modprobe.d drop-in, introduced in v235 for the bonding module,
+	  has been extended to also set the dummy module option numdummies=0,
+	  resolving issues with the kernel creating dummy0.
+
 CHANGES WITH 235:
 
         * A new modprobe.d drop-in is now shipped by default that sets the
