@@ -36,17 +36,11 @@
 
 touchpad:i8042:*
 touchpad:rmi:*
+touchpad:usb:*
  ID_INPUT_TOUCHPAD_INTEGRATION=internal
 
 touchpad:bluetooth:*
-touchpad:usb:*
  ID_INPUT_TOUCHPAD_INTEGRATION=external
-
-###########################################################
-# Apple
-###########################################################
-touchpad:usb:v05ac*
- ID_INPUT_TOUCHPAD_INTEGRATION=internal
 
 ###########################################################
 # Wacom
@@ -54,9 +48,3 @@ touchpad:usb:v05ac*
 touchpad:usb:v056a*
  ID_INPUT_TOUCHPAD_INTEGRATION=external
 
-###########################################################
-# Microsoft (Surface Type Covers)
-###########################################################
-touchpad:usb:v045ep07*
- ID_INPUT_TOUCHPAD_INTEGRATION=internal
- 
