@@ -23,6 +23,7 @@
 #include "list.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-zone.h"
+#include "resolved-dnssd.h"
 #include "string-util.h"
 
 /* Never allow more than 1K entries */
@@ -524,6 +525,8 @@ void dns_zone_item_conflict(DnsZoneItem *i) {
 
         /* Withdraw the conflict item */
         i->state = DNS_ZONE_ITEM_WITHDRAWN;
+
+        dnssd_signal_conflict(i->scope->manager, dns_resource_key_name(i->rr->key));
 
         /* Maybe change the hostname */
         if (manager_is_own_hostname(i->scope->manager, dns_resource_key_name(i->rr->key)) > 0)

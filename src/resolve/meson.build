@@ -37,6 +37,8 @@ systemd_resolved_only_sources = files('''
         resolved-manager.h
         resolved-dnssd.c
         resolved-dnssd.h
+        resolved-dnssd-bus.c
+        resolved-dnssd-bus.h
         resolved-conf.c
         resolved-conf.h
         resolved-resolv-conf.c

@@ -1205,6 +1205,8 @@ int dns_scope_add_dnssd_services(DnsScope *scope) {
         scope->announced = false;
 
         HASHMAP_FOREACH(service, scope->manager->dnssd_services, i) {
+                service->withdrawn = false;
+
                 r = dns_zone_put(&scope->zone, scope, service->ptr_rr, false);
                 if (r < 0)
                         log_warning_errno(r, "Failed to add PTR record to MDNS zone: %m");
