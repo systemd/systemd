@@ -2573,9 +2573,10 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
         m->n_reloading++;
 
         fprintf(f, "current-job-id=%"PRIu32"\n", m->current_job_id);
-        fprintf(f, "taint-usr=%s\n", yes_no(m->taint_usr));
         fprintf(f, "n-installed-jobs=%u\n", m->n_installed_jobs);
         fprintf(f, "n-failed-jobs=%u\n", m->n_failed_jobs);
+        fprintf(f, "taint-usr=%s\n", yes_no(m->taint_usr));
+        fprintf(f, "ready-sent=%s\n", yes_no(m->ready_sent));
 
         dual_timestamp_serialize(f, "firmware-timestamp", &m->firmware_timestamp);
         dual_timestamp_serialize(f, "loader-timestamp", &m->loader_timestamp);
@@ -2731,6 +2732,15 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 log_notice("Failed to parse taint /usr flag %s", val);
                         else
                                 m->taint_usr = m->taint_usr || b;
+
+                } else if ((val = startswith(l, "ready-sent="))) {
+                        int b;
+
+                        b = parse_boolean(val);
+                        if (b < 0)
+                                log_notice("Failed to parse ready-sent flag %s", val);
+                        else
+                                m->ready_sent = m->ready_sent || b;
 
                 } else if ((val = startswith(l, "firmware-timestamp=")))
                         dual_timestamp_deserialize(val, &m->firmware_timestamp);
@@ -3062,9 +3072,11 @@ static void manager_notify_finished(Manager *m) {
         bus_manager_send_finished(m, firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec);
 
         sd_notifyf(false,
-                   "READY=1\n"
-                   "STATUS=Startup finished in %s.",
+                   m->ready_sent ? "STATUS=Startup finished in %s."
+                                 : "READY=1\n"
+                                   "STATUS=Startup finished in %s.",
                    format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC));
+        m->ready_sent = true;
 }
 
 void manager_check_finished(Manager *m) {
@@ -3078,6 +3090,19 @@ void manager_check_finished(Manager *m) {
          * then set to MANAGER_OK */
         if (m->exit_code != MANAGER_OK)
                 return;
+
+        /* For user managers, send out READY=1 as soon as we reach basic.target */
+        if (MANAGER_IS_USER(m) && !m->ready_sent) {
+                Unit *u;
+
+                u = manager_get_unit(m, SPECIAL_BASIC_TARGET);
+                if (u && !u->job) {
+                        sd_notifyf(false,
+                                   "READY=1\n"
+                                   "STATUS=Reached " SPECIAL_BASIC_TARGET ".");
+                        m->ready_sent = true;
+                }
+        }
 
         if (hashmap_size(m->jobs) > 0) {
                 if (m->jobs_in_progress_event_source)
