@@ -1339,7 +1339,7 @@ static int apply_syscall_filter(const Unit* u, const ExecContext *c, bool needs_
         if (skip_seccomp_unavailable(u, "SystemCallFilter="))
                 return 0;
 
-        negative_action = c->syscall_errno == 0 ? SCMP_ACT_KILL : SCMP_ACT_ERRNO(c->syscall_errno);
+        negative_action = c->syscall_errno < 0 ? SCMP_ACT_KILL : SCMP_ACT_ERRNO(c->syscall_errno);
 
         if (c->syscall_whitelist) {
                 default_action = negative_action;
@@ -3530,6 +3530,7 @@ void exec_context_init(ExecContext *c) {
                 c->directories[i].mode = 0755;
         c->capability_bounding_set = CAP_ALL;
         c->restrict_namespaces = NAMESPACE_FLAGS_ALL;
+        c->syscall_errno = -1;
 }
 
 void exec_context_done(ExecContext *c) {
@@ -4178,10 +4179,10 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                                 prefix, s);
         }
 
-        if (c->syscall_errno > 0)
+        if (c->syscall_errno >= 0)
                 fprintf(f,
                         "%sSystemCallErrorNumber: %s\n",
-                        prefix, strna(errno_to_name(c->syscall_errno)));
+                        prefix, c->syscall_errno == 0 ? "0" : strna(errno_to_name(c->syscall_errno)));
 
         if (c->apparmor_profile)
                 fprintf(f,

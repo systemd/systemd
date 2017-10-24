@@ -21,5 +21,6 @@
 
 const char *errno_to_name(int id);
 int errno_from_name(const char *name);
+int errno_from_name0(const char *name);
 
 int errno_max(void);

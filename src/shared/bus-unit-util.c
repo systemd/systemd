@@ -683,7 +683,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
         } else if (streq(field, "SystemCallErrorNumber")) {
                 int n;
 
-                n = errno_from_name(eq);
+                n = errno_from_name0(eq);
                 if (n < 0)
                         return log_error_errno(r, "Failed to parse %s value: %s", field, eq);
 
