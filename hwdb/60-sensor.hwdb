@@ -145,6 +145,9 @@ sensor:modalias:acpi:KIOX000A*:dmi:*svnLAMINA:pnT-1016BNORD*
 sensor:modalias:acpi:NCPE0388*:dmi:*:rnLenovoYOGA510-14IKB:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, 1
 
+sensor:modalias:acpi:BOSC0200:BOSC0200:dmi:*ThinkPadYoga11e3rdGen*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
+
 #########################################
 # Peaq
 #########################################
@@ -184,4 +187,3 @@ sensor:modalias:acpi:BMA250*:dmi:*:bvrTREK.G.WI71C.JGBMRBA*:*:svnInsyde:pnST7041
 #########################################
 sensor:modalias:acpi:*KIOX000A*:dmi:*svn*CytrixTechnology:*pn*Complex11t*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
-
