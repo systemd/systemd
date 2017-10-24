@@ -94,7 +94,8 @@
     <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details
     about systemd's own configuration files for DNS servers. To improve compatibility,
     <filename>/etc/resolv.conf</filename> is read in order to discover configured system DNS servers, but only if it is
-    not a symlink to <filename>/run/systemd/resolve/resolv.conf</filename> (see below).</para>
+    not a symlink to <filename>/run/systemd/resolve/stub-resolv.conf</filename> or
+    <filename>/run/systemd/resolve/resolv.conf</filename> (see below).</para>
 
     <para><command>systemd-resolved</command> synthesizes DNS resource records (RRs) for the following cases:</para>
 
@@ -164,15 +165,26 @@
   <refsect1>
     <title><filename>/etc/resolv.conf</filename></title>
 
-    <para>Three modes of handling <filename>/etc/resolv.conf</filename> (see
+    <para>Four modes of handling <filename>/etc/resolv.conf</filename> (see
     <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>) are
     supported:</para>
 
     <itemizedlist>
+      <listitem><para><command>systemd-resolved</command> maintains the
+      <filename>/run/systemd/resolve/stub-resolv.conf</filename> file for compatibility with traditional Linux
+      programs. This file may be symlinked from <filename>/etc/resolv.conf</filename>. This file lists the 127.0.0.53
+      DNS stub (see above) as the only DNS server. It also contains a list of search domains that are in use by
+      systemd-resolved. The list of search domains is always kept up-to-date. Note that
+      <filename>/run/systemd/resolve/stub-resolv.conf</filename> should not be used directly by applications, but only
+      through a symlink from <filename>/etc/resolv.conf</filename>. This file may be symlinked from
+      <filename>/etc/resolv.conf</filename> in order to connect all local clients that bypass local DNS APIs to
+      <command>systemd-resolved</command> with correct search domains settings. This mode of operation is
+      recommended.</para></listitem>
+
       <listitem><para>A static file <filename>/usr/lib/systemd/resolv.conf</filename> is provided that lists
       the 127.0.0.53 DNS stub (see above) as only DNS server. This file may be symlinked from
       <filename>/etc/resolv.conf</filename> in order to connect all local clients that bypass local DNS APIs to
-      <command>systemd-resolved</command>. This mode of operation is recommended.</para></listitem>
+      <command>systemd-resolved</command>. This file does not contain any search domains.</para></listitem>
 
       <listitem><para><command>systemd-resolved</command> maintains the
       <filename>/run/systemd/resolve/resolv.conf</filename> file for compatibility with traditional Linux

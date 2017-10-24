@@ -21,7 +21,8 @@
 
 #include "resolved-manager.h"
 
-#define PRIVATE_RESOLV_CONF "/run/systemd/resolve/resolv.conf"
+#define PRIVATE_UPLINK_RESOLV_CONF "/run/systemd/resolve/resolv.conf"
+#define PRIVATE_STUB_RESOLV_CONF "/run/systemd/resolve/stub-resolv.conf"
 
 int manager_read_resolv_conf(Manager *m);
 int manager_write_resolv_conf(Manager *m);

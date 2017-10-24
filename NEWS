@@ -6,6 +6,14 @@ CHANGES WITH 236 in spe:
 	  has been extended to also set the dummy module option numdummies=0,
 	  resolving issues with the kernel creating dummy0.
 
+        * systemd-resolved now maintains a new dynamic
+          /run/systemd/resolve/stub-resolv.conf compatibility file. It is now
+          recommended to maintain /etc/resolv.conf as a symlink to this new
+          dynamic file. It points at the systemd-resolved stub DNS 127.0.0.53
+          resolver and it includes dynamically acquired search domains. This
+          achieves a more correct DNS resolution by software that bypasses
+          local DNS APIs (e.g. NSS).
+
 CHANGES WITH 235:
 
         * A new modprobe.d drop-in is now shipped by default that sets the
