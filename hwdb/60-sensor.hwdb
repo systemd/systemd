@@ -38,6 +38,13 @@
 #
 # [1]: https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=dfc57732ad38f93ae6232a3b4e64fd077383a0f1
 #
+# Note for devices where the display (LCD panel) is mounted non upright
+# in the device's casing, e.g. mounted upside-down or 90 degree rotated,
+# the ACCEL_MOUNT_MATRIX should be such that the x and y axis matches the
+# x and y axis of the display, not those of the casing, so that desktop
+# environments using the accelerometer data for rotation will e.g.
+# automatically flip their output for an upside-down display when the device
+# is held upright.
 #
 # Sort by brand, model
 
