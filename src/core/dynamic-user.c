@@ -421,31 +421,55 @@ static void unlink_uid_lock(int lock_fd, uid_t uid, const char *name) {
         (void) make_uid_symlinks(uid, name, false); /* remove direct lookup symlinks */
 }
 
-static int dynamic_user_realize(DynamicUser *d, char **suggested_dirs, uid_t *ret, bool is_user) {
+static int lockfp(int fd, int *fd_lock) {
+        if (lockf(fd, F_LOCK, 0) < 0)
+                return -errno;
+        *fd_lock = fd;
+        return 0;
+}
 
-        _cleanup_close_ int etc_passwd_lock_fd = -1, uid_lock_fd = -1;
-        uid_t uid = UID_INVALID;
+static void unlockfp(int *fd_lock) {
+        if (*fd_lock < 0)
+                return;
+        lockf(*fd_lock, F_ULOCK, 0);
+        *fd_lock = -1;
+}
+
+static int dynamic_user_realize(
+                DynamicUser *d,
+                char **suggested_dirs,
+                uid_t *ret_uid, gid_t *ret_gid,
+                bool is_user) {
+
+        _cleanup_(unlockfp) int storage_socket0_lock = -1;
+        _cleanup_close_ int uid_lock_fd = -1;
+        _cleanup_close_ int etc_passwd_lock_fd = -1;
+        uid_t num = UID_INVALID; /* a uid if is_user, and a gid otherwise */
+        gid_t gid = GID_INVALID; /* a gid if is_user, ignored otherwise */
         int r;
 
         assert(d);
+        assert(is_user == !!ret_uid);
+        assert(ret_gid);
 
         /* Acquire a UID for the user name. This will allocate a UID for the user name if the user doesn't exist
          * yet. If it already exists its existing UID/GID will be reused. */
 
-        if (lockf(d->storage_socket[0], F_LOCK, 0) < 0)
-                return -errno;
+        r = lockfp(d->storage_socket[0], &storage_socket0_lock);
+        if (r < 0)
+                return r;
 
-        r = dynamic_user_pop(d, &uid, &uid_lock_fd);
+        r = dynamic_user_pop(d, &num, &uid_lock_fd);
         if (r < 0) {
                 int new_uid_lock_fd;
                 uid_t new_uid;
 
                 if (r != -EAGAIN)
-                        goto finish;
+                        return r;
 
                 /* OK, nothing stored yet, let's try to find something useful. While we are working on this release the
                  * lock however, so that nobody else blocks on our NSS lookups. */
-                (void) lockf(d->storage_socket[0], F_ULOCK, 0);
+                unlockfp(&storage_socket0_lock);
 
                 /* Let's see if a proper, static user or group by this name exists. Try to take the lock on
                  * /etc/passwd, if that fails with EROFS then /etc is read-only. In that case it's fine if we don't
@@ -455,7 +479,7 @@ static int dynamic_user_realize(DynamicUser *d, char **suggested_dirs, uid_t *re
                         return etc_passwd_lock_fd;
 
                 /* First, let's parse this as numeric UID */
-                r = parse_uid(d->name, &uid);
+                r = parse_uid(d->name, &num);
                 if (r < 0) {
                         struct passwd *p;
                         struct group *g;
@@ -463,9 +487,10 @@ static int dynamic_user_realize(DynamicUser *d, char **suggested_dirs, uid_t *re
                         if (is_user) {
                                 /* OK, this is not a numeric UID. Let's see if there's a user by this name */
                                 p = getpwnam(d->name);
-                                if (p)
-                                        uid = p->pw_uid;
-                                else {
+                                if (p) {
+                                        num = p->pw_uid;
+                                        gid = p->pw_gid;
+                                } else {
                                         /* if the user does not exist but the group with the same name exists, refuse operation */
                                         g = getgrnam(d->name);
                                         if (g)
@@ -475,7 +500,7 @@ static int dynamic_user_realize(DynamicUser *d, char **suggested_dirs, uid_t *re
                                 /* Let's see if there's a group by this name */
                                 g = getgrnam(d->name);
                                 if (g)
-                                        uid = (uid_t) g->gr_gid;
+                                        num = (uid_t) g->gr_gid;
                                 else {
                                         /* if the group does not exist but the user with the same name exists, refuse operation */
                                         p = getpwnam(d->name);
@@ -485,26 +510,27 @@ static int dynamic_user_realize(DynamicUser *d, char **suggested_dirs, uid_t *re
                         }
                 }
 
-                if (uid == UID_INVALID) {
+                if (num == UID_INVALID) {
                         /* No static UID assigned yet, excellent. Let's pick a new dynamic one, and lock it. */
 
-                        uid_lock_fd = pick_uid(suggested_dirs, d->name, &uid);
+                        uid_lock_fd = pick_uid(suggested_dirs, d->name, &num);
                         if (uid_lock_fd < 0)
                                 return uid_lock_fd;
                 }
 
                 /* So, we found a working UID/lock combination. Let's see if we actually still need it. */
-                if (lockf(d->storage_socket[0], F_LOCK, 0) < 0) {
-                        unlink_uid_lock(uid_lock_fd, uid, d->name);
-                        return -errno;
+                r = lockfp(d->storage_socket[0], &storage_socket0_lock);
+                if (r < 0) {
+                        unlink_uid_lock(uid_lock_fd, num, d->name);
+                        return r;
                 }
 
                 r = dynamic_user_pop(d, &new_uid, &new_uid_lock_fd);
                 if (r < 0) {
                         if (r != -EAGAIN) {
                                 /* OK, something bad happened, let's get rid of the bits we acquired. */
-                                unlink_uid_lock(uid_lock_fd, uid, d->name);
-                                goto finish;
+                                unlink_uid_lock(uid_lock_fd, num, d->name);
+                                return r;
                         }
 
                         /* Great! Nothing is stored here, still. Store our newly acquired data. */
@@ -512,10 +538,10 @@ static int dynamic_user_realize(DynamicUser *d, char **suggested_dirs, uid_t *re
                         /* Hmm, so as it appears there's now something stored in the storage socket. Throw away what we
                          * acquired, and use what's stored now. */
 
-                        unlink_uid_lock(uid_lock_fd, uid, d->name);
+                        unlink_uid_lock(uid_lock_fd, num, d->name);
                         safe_close(uid_lock_fd);
 
-                        uid = new_uid;
+                        num = new_uid;
                         uid_lock_fd = new_uid_lock_fd;
                 }
         }
@@ -523,19 +549,21 @@ static int dynamic_user_realize(DynamicUser *d, char **suggested_dirs, uid_t *re
         /* If the UID/GID was already allocated dynamically, push the data we popped out back in. If it was already
          * allocated statically, push the UID back too, but do not push the lock fd in. If we allocated the UID
          * dynamically right here, push that in along with the lock fd for it. */
-        r = dynamic_user_push(d, uid, uid_lock_fd);
+        r = dynamic_user_push(d, num, uid_lock_fd);
         if (r < 0)
-                goto finish;
+                return r;
 
-        *ret = uid;
-        r = 0;
+        if (is_user) {
+                *ret_uid = num;
+                *ret_gid = gid != GID_INVALID ? gid : num;
+        } else
+                *ret_gid = num;
 
-finish:
-        (void) lockf(d->storage_socket[0], F_ULOCK, 0);
-        return r;
+        return 0;
 }
 
 static int dynamic_user_current(DynamicUser *d, uid_t *ret) {
+        _cleanup_(unlockfp) int storage_socket0_lock = -1;
         _cleanup_close_ int lock_fd = -1;
         uid_t uid;
         int r;
@@ -545,23 +573,20 @@ static int dynamic_user_current(DynamicUser *d, uid_t *ret) {
 
         /* Get the currently assigned UID for the user, if there's any. This simply pops the data from the storage socket, and pushes it back in right-away. */
 
-        if (lockf(d->storage_socket[0], F_LOCK, 0) < 0)
-                return -errno;
+        r = lockfp(d->storage_socket[0], &storage_socket0_lock);
+        if (r < 0)
+                return r;
 
         r = dynamic_user_pop(d, &uid, &lock_fd);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = dynamic_user_push(d, uid, lock_fd);
         if (r < 0)
-                goto finish;
+                return r;
 
         *ret = uid;
-        r = 0;
-
-finish:
-        (void) lockf(d->storage_socket[0], F_ULOCK, 0);
-        return r;
+        return 0;
 }
 
 static DynamicUser* dynamic_user_ref(DynamicUser *d) {
@@ -589,6 +614,7 @@ static DynamicUser* dynamic_user_unref(DynamicUser *d) {
 }
 
 static int dynamic_user_close(DynamicUser *d) {
+        _cleanup_(unlockfp) int storage_socket0_lock = -1;
         _cleanup_close_ int lock_fd = -1;
         uid_t uid;
         int r;
@@ -596,25 +622,20 @@ static int dynamic_user_close(DynamicUser *d) {
         /* Release the user ID, by releasing the lock on it, and emptying the storage socket. After this the user is
          * unrealized again, much like it was after it the DynamicUser object was first allocated. */
 
-        if (lockf(d->storage_socket[0], F_LOCK, 0) < 0)
-                return -errno;
+        r = lockfp(d->storage_socket[0], &storage_socket0_lock);
+        if (r < 0)
+                return r;
 
         r = dynamic_user_pop(d, &uid, &lock_fd);
-        if (r == -EAGAIN) {
+        if (r == -EAGAIN)
                 /* User wasn't realized yet, nothing to do. */
-                r = 0;
-                goto finish;
-        }
+                return 0;
         if (r < 0)
-                goto finish;
+                return r;
 
         /* This dynamic user was realized and dynamically allocated. In this case, let's remove the lock file. */
         unlink_uid_lock(lock_fd, uid, d->name);
-        r = 1;
-
-finish:
-        (void) lockf(d->storage_socket[0], F_ULOCK, 0);
-        return r;
+        return 1;
 }
 
 static DynamicUser* dynamic_user_destroy(DynamicUser *d) {
@@ -823,21 +844,19 @@ int dynamic_creds_realize(DynamicCreds *creds, char **suggested_paths, uid_t *ui
         /* Realize both the referenced user and group */
 
         if (creds->user) {
-                r = dynamic_user_realize(creds->user, suggested_paths, &u, true);
+                r = dynamic_user_realize(creds->user, suggested_paths, &u, &g, true);
                 if (r < 0)
                         return r;
         }
 
         if (creds->group && creds->group != creds->user) {
-                r = dynamic_user_realize(creds->group, suggested_paths, &g, false);
+                r = dynamic_user_realize(creds->group, suggested_paths, NULL, &g, false);
                 if (r < 0)
                         return r;
-        } else
-                g = u;
+        }
 
         *uid = u;
         *gid = g;
-
         return 0;
 }
 
