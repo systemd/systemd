@@ -24,6 +24,48 @@ Janitorial Clean-ups:
 
 Features:
 
+* let's log the "tainted" string at boot
+
+* Add NetworkNamespacePath= to specify a path to a network namespace
+
+* Add StandardInputData= and StandardInputText= for putting together data to
+  pass to a service through stdin
+
+* Add StandardInputPath=, StandardOutputPath=, StandardErrorPath= to connect a
+  service to a specific file. Be smart, and if the specified path refers to an
+  AF_UNIX socket, connect() to it.
+
+* maybe use SOURCE_DATE_EPOCH (i.e. the env var the reproducible builds folks
+  introduced) as the RTC epoch, instead of the mtime of NEWS.
+
+* Introduce GCMode= as unit file property or so, for tweaking the GC
+  logic. Specifically, there should be a way to tell systemd to collect
+  individual units even on failure. Then, make systemd-run --wait use this, so
+  that failed transient units in that case don't stick around.
+
+* add a way to lock down cgroup migration: a boolean, which when set for a unit
+  makes sure the processes in it can never migrate out of it
+
+* complain if a unit starts up and there are already processes in its cgroup
+
+* blog about fd store and restartable services
+
+* document Environment=SYSTEMD_LOG_LEVEL=debug drop-in in debugging document
+
+* add a way to remove fds from the fdstore by name, and make logind use it
+
+* in the long run: permit a system with /etc/machine-id linked to /dev/null, to
+  make it lose its identity, i.e. be anonymous. For this we'd have to patch
+  through the whole tree to make all code deal with the case where no machine
+  ID is available.
+
+* optionally, collect cgroup resource data, and store it in per-unit RRD files,
+  suitable for processing with rrdtool. Add bus API to access this data, and
+  possibly implement a CPULoad property based on it.
+
+* In journalctl add a way how "-o verbose" and suchlike can be tweaked to show
+  only a specific set of properties
+
 * export UID ranges nspawns's --private-user and DynamicUser= uses in
   the systemd.pc pkg-config file, the same way we already expose the system
   user boundary there
