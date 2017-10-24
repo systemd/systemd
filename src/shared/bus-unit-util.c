@@ -602,11 +602,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
         } else if (streq(field, "SystemCallFilter")) {
                 int whitelist;
+                _cleanup_strv_free_ char **l = NULL;
                 const char *p;
-
-                r = sd_bus_message_open_container(m, 'v', "bas");
-                if (r < 0)
-                        return bus_log_create_error(r);
 
                 p = eq;
                 if (*p == '~') {
@@ -615,18 +612,10 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 } else
                         whitelist = 1;
 
-                r = sd_bus_message_append_basic(m, 'b', &whitelist);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_open_container(m, 'a', "s");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
                 if (whitelist != 0) {
-                        r = sd_bus_message_append_basic(m, 's', "@default");
+                        r = strv_extend(&l, "@default");
                         if (r < 0)
-                                return bus_log_create_error(r);
+                                return log_oom();
                 }
 
                 for (;;) {
@@ -638,16 +627,34 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         if (r == 0)
                                 break;
 
-                        r = sd_bus_message_append_basic(m, 's', word);
+                        r = strv_extend(&l, word);
                         if (r < 0)
-                                return bus_log_create_error(r);
+                                return log_oom();
                 }
+
+                r = sd_bus_message_open_container(m, 'v', "(bas)");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, 'r', "bas");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_basic(m, 'b', &whitelist);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_strv(m, l);
+                if (r < 0)
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_close_container(m);
                 if (r < 0)
                         return bus_log_create_error(r);
 
                 r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
 
         } else if (streq(field, "SystemCallArchitectures")) {
                 const char *p;
@@ -691,26 +698,14 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
         } else if (streq(field, "RestrictAddressFamilies")) {
                 int whitelist;
-                const char *p;
+                _cleanup_strv_free_ char **l = NULL;
+                const char *p = eq;
 
-                r = sd_bus_message_open_container(m, 'v', "bas");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                p = eq;
                 if (*p == '~') {
                         whitelist = 0;
                         p++;
                 } else
                         whitelist = 1;
-
-                r = sd_bus_message_append_basic(m, 'b', &whitelist);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_open_container(m, 'a', "s");
-                if (r < 0)
-                        return bus_log_create_error(r);
 
                 for (;;) {
                         _cleanup_free_ char *word = NULL;
@@ -721,19 +716,35 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         if (r == 0)
                                 break;
 
-                        r = sd_bus_message_append_basic(m, 's', word);
+                        r = strv_extend(&l, word);
                         if (r < 0)
-                                return bus_log_create_error(r);
+                                return log_oom();
                 }
+
+                r = sd_bus_message_open_container(m, 'v', "(bas)");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, 'r', "bas");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_basic(m, 'b', &whitelist);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_strv(m, l);
+                if (r < 0)
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_close_container(m);
                 if (r < 0)
                         return bus_log_create_error(r);
 
                 r = sd_bus_message_close_container(m);
-
+                if (r < 0)
+                        return bus_log_create_error(r);
 #endif
-
         } else if (streq(field, "FileDescriptorStoreMax")) {
                 unsigned u;
 
