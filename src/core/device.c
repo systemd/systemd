@@ -285,19 +285,24 @@ static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
         }
 }
 
-static bool device_is_bound_by_mounts(Unit *d, struct udev_device *dev) {
+static bool device_is_bound_by_mounts(Device *d, struct udev_device *dev) {
         const char *bound_by;
-        int r = false;
+        int r;
 
         assert(d);
         assert(dev);
 
         bound_by = udev_device_get_property_value(dev, "SYSTEMD_MOUNT_DEVICE_BOUND");
-        if (bound_by)
-                r = parse_boolean(bound_by) > 0;
+        if (bound_by) {
+                r = parse_boolean(bound_by);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse SYSTEMD_MOUNT_DEVICE_BOUND='%s' udev property of %s, ignoring: %m", bound_by, strna(d->sysfs));
 
-        DEVICE(d)->bind_mounts = r;
-        return r;
+                d->bind_mounts = r > 0;
+        } else
+                d->bind_mounts = false;
+
+        return d->bind_mounts;
 }
 
 static int device_upgrade_mount_deps(Unit *u) {
@@ -386,7 +391,7 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
         /* So the user wants the mount units to be bound to the device but a mount unit might has been seen by systemd
          * before the device appears on its radar. In this case the device unit is partially initialized and includes
          * the deps on the mount unit but at that time the "bind mounts" flag wasn't not present. Fix this up now. */
-        if (dev && device_is_bound_by_mounts(u, dev))
+        if (dev && device_is_bound_by_mounts(DEVICE(u), dev))
                 device_upgrade_mount_deps(u);
 
         /* Note that this won't dispatch the load queue, the caller
