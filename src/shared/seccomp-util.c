@@ -465,7 +465,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "stat64\0"
                 "statfs\0"
                 "statfs64\0"
-#ifdef __PNR_statx
+#ifdef __NR_statx
                 "statx\0"
 #endif
                 "symlink\0"
