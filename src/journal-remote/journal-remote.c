@@ -26,6 +26,7 @@
 #include <sys/prctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <stdint.h>
 
 #include "sd-daemon.h"
 
@@ -299,6 +300,9 @@ static int dispatch_raw_connection_event(sd_event_source *event,
                                          int fd,
                                          uint32_t revents,
                                          void *userdata);
+static int null_timer_event_handler(sd_event_source *s,
+                                uint64_t usec,
+                                void *userdata);
 static int dispatch_http_event(sd_event_source *event,
                                int fd,
                                uint32_t revents,
@@ -727,7 +731,7 @@ static int setup_microhttpd_server(RemoteServer *s,
                 goto error;
         }
 
-        r = sd_event_add_io(s->events, &d->event,
+        r = sd_event_add_io(s->events, &d->io_event,
                             epoll_fd, EPOLLIN,
                             dispatch_http_event, d);
         if (r < 0) {
@@ -735,7 +739,21 @@ static int setup_microhttpd_server(RemoteServer *s,
                 goto error;
         }
 
-        r = sd_event_source_set_description(d->event, "epoll-fd");
+        r = sd_event_source_set_description(d->io_event, "io_event");
+        if (r < 0) {
+                log_error_errno(r, "Failed to set source name: %m");
+                goto error;
+        }
+
+        r = sd_event_add_time(s->events, &d->timer_event,
+                              CLOCK_MONOTONIC, UINT64_MAX, 0,
+                              null_timer_event_handler, d);
+        if (r < 0) {
+                log_error_errno(r, "Failed to add timer_event: %m");
+                goto error;
+        }
+
+        r = sd_event_source_set_description(d->io_event, "timer_event");
         if (r < 0) {
                 log_error_errno(r, "Failed to set source name: %m");
                 goto error;
@@ -777,21 +795,46 @@ static int setup_microhttpd_socket(RemoteServer *s,
         return setup_microhttpd_server(s, fd, key, cert, trust);
 }
 
+static int null_timer_event_handler(sd_event_source *timer_event,
+                                    uint64_t usec,
+                                    void *userdata) {
+        return dispatch_http_event(timer_event, 0, 0, userdata);
+}
+
 static int dispatch_http_event(sd_event_source *event,
                                int fd,
                                uint32_t revents,
                                void *userdata) {
         MHDDaemonWrapper *d = userdata;
         int r;
+        fd_set rd, w, e;
+        MHD_UNSIGNED_LONG_LONG timeout = ULONG_LONG_MAX;
 
         assert(d);
 
-        r = MHD_run(d->daemon);
+        r = MHD_get_fdset(d->daemon, &rd, &w, &e, 0);
         if (r == MHD_NO) {
-                log_error("MHD_run failed!");
+                log_error("MHD_get_fdset failed!");
+                return -EINVAL;
+        }
+        r = MHD_run_from_select(d->daemon, &rd, &w, &e);
+        if (r == MHD_NO) {
+                log_error("MHD_run_from_select failed!");
                 // XXX: unregister daemon
                 return -EINVAL;
         }
+        if (MHD_get_timeout(d->daemon, &timeout) == MHD_NO)
+                timeout = ULONG_LONG_MAX;
+
+        r = sd_event_source_set_time(d->timer_event, timeout);
+        if (r < 0) {
+                log_warning_errno(r, "Unable to set event loop timeout: %m, this may result in indefinite blocking!");
+                return 1;
+        }
+
+        r = sd_event_source_set_enabled(d->timer_event, SD_EVENT_ON);
+        if (r < 0)
+                log_warning_errno(r, "Unable to enable timer_event: %m, this may result in indefinite blocking!");
 
         return 1; /* work to do */
 }
@@ -1011,7 +1054,8 @@ static void server_destroy(RemoteServer *s) {
 
         while ((d = hashmap_steal_first(s->daemons))) {
                 MHD_stop_daemon(d->daemon);
-                sd_event_source_unref(d->event);
+                sd_event_source_unref(d->io_event);
+                sd_event_source_unref(d->timer_event);
                 free(d);
         }
 
