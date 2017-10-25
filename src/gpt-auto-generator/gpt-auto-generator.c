@@ -688,7 +688,7 @@ static int add_mounts(void) {
 }
 
 int main(int argc, char *argv[]) {
-        int r = 0, k;
+        int r, k;
 
         if (argc > 1 && argc != 4) {
                 log_error("This program takes three or no arguments.");
@@ -720,6 +720,8 @@ int main(int argc, char *argv[]) {
 
         if (arg_root_enabled)
                 r = add_root_mount();
+        else
+                r = 0;
 
         if (!in_initrd()) {
                 k = add_mounts();
