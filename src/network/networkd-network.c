@@ -113,9 +113,9 @@ void network_apply_anonymize_if_set(Network *network) {
         * (to use the MTU sent by the server but to do not send
         * the option in the PRL). */
         network->dhcp_use_mtu = false;
-        /* RFC7844 section 3.6.
-        * same comments as previous option */
-        network->dhcp_use_routes = false;
+        /* NOTE: when Anonymize=yes, the PRL route options are sent by default,
+         * but this is needed to use them. */
+        network->dhcp_use_routes = true;
         /* RFC7844 section 3.6.
         * same comments as previous option */
         network->dhcp_use_timezone = false;
@@ -208,7 +208,6 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->dhcp_use_ntp = true;
         network->dhcp_use_dns = true;
         network->dhcp_use_hostname = true;
-        /* NOTE: this var might be overwriten by network_apply_anonymize_if_set */
         network->dhcp_use_routes = true;
         /* NOTE: this var might be overwriten by network_apply_anonymize_if_set */
         network->dhcp_send_hostname = true;
