@@ -100,9 +100,10 @@ static int property_get_dependencies(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Set *s = *(Set**) userdata;
+        Hashmap *h = *(Hashmap**) userdata;
         Iterator j;
         Unit *u;
+        void *v;
         int r;
 
         assert(bus);
@@ -112,7 +113,7 @@ static int property_get_dependencies(
         if (r < 0)
                 return r;
 
-        SET_FOREACH(u, s, j) {
+        HASHMAP_FOREACH_KEY(v, u, h, j) {
                 r = sd_bus_message_append(reply, "s", u->id);
                 if (r < 0)
                         return r;
@@ -1395,7 +1396,7 @@ static int bus_unit_set_transient_property(
                         if (mode != UNIT_CHECK) {
                                 _cleanup_free_ char *label = NULL;
 
-                                r = unit_add_dependency_by_name(u, d, other, NULL, true);
+                                r = unit_add_dependency_by_name(u, d, other, NULL, true, UNIT_DEPENDENCY_FILE);
                                 if (r < 0)
                                         return r;
 

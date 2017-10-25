@@ -437,6 +437,7 @@ int job_type_merge_and_collapse(JobType *a, JobType b, Unit *u) {
 static bool job_is_runnable(Job *j) {
         Iterator i;
         Unit *other;
+        void *v;
 
         assert(j);
         assert(j->installed);
@@ -459,13 +460,12 @@ static bool job_is_runnable(Job *j) {
                 return true;
 
         if (IN_SET(j->type, JOB_START, JOB_VERIFY_ACTIVE, JOB_RELOAD)) {
-
                 /* Immediate result is that the job is or might be
                  * started. In this case let's wait for the
                  * dependencies, regardless whether they are
                  * starting or stopping something. */
 
-                SET_FOREACH(other, j->unit->dependencies[UNIT_AFTER], i)
+                HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER], i)
                         if (other->job)
                                 return false;
         }
@@ -473,7 +473,7 @@ static bool job_is_runnable(Job *j) {
         /* Also, if something else is being stopped and we should
          * change state after it, then let's wait. */
 
-        SET_FOREACH(other, j->unit->dependencies[UNIT_BEFORE], i)
+        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_BEFORE], i)
                 if (other->job &&
                     IN_SET(other->job->type, JOB_STOP, JOB_RESTART))
                         return false;
@@ -832,10 +832,11 @@ static void job_emit_status_message(Unit *u, JobType t, JobResult result) {
 static void job_fail_dependencies(Unit *u, UnitDependency d) {
         Unit *other;
         Iterator i;
+        void *v;
 
         assert(u);
 
-        SET_FOREACH(other, u->dependencies[d], i) {
+        HASHMAP_FOREACH_KEY(v, other, u->dependencies[d], i) {
                 Job *j = other->job;
 
                 if (!j)
@@ -852,6 +853,7 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
         Unit *other;
         JobType t;
         Iterator i;
+        void *v;
 
         assert(j);
         assert(j->installed);
@@ -919,12 +921,12 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
 
 finish:
         /* Try to start the next jobs that can be started */
-        SET_FOREACH(other, u->dependencies[UNIT_AFTER], i)
+        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_AFTER], i)
                 if (other->job) {
                         job_add_to_run_queue(other->job);
                         job_add_to_gc_queue(other->job);
                 }
-        SET_FOREACH(other, u->dependencies[UNIT_BEFORE], i)
+        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_BEFORE], i)
                 if (other->job) {
                         job_add_to_run_queue(other->job);
                         job_add_to_gc_queue(other->job);
@@ -1273,6 +1275,7 @@ int job_get_timeout(Job *j, usec_t *timeout) {
 bool job_check_gc(Job *j) {
         Unit *other;
         Iterator i;
+        void *v;
 
         assert(j);
 
@@ -1301,7 +1304,7 @@ bool job_check_gc(Job *j) {
 
         /* If a job is ordered after ours, and is to be started, then it needs to wait for us, regardless if we stop or
          * start, hence let's not GC in that case. */
-        SET_FOREACH(other, j->unit->dependencies[UNIT_BEFORE], i) {
+        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_BEFORE], i) {
                 if (!other->job)
                         continue;
 
@@ -1314,7 +1317,7 @@ bool job_check_gc(Job *j) {
 
         /* If we are going down, but something else is ordered After= us, then it needs to wait for us */
         if (IN_SET(j->type, JOB_STOP, JOB_RESTART))
-                SET_FOREACH(other, j->unit->dependencies[UNIT_AFTER], i) {
+                HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER], i) {
                         if (!other->job)
                                 continue;
 
@@ -1392,6 +1395,7 @@ int job_get_before(Job *j, Job*** ret) {
         size_t n = 0, n_allocated = 0;
         Unit *other = NULL;
         Iterator i;
+        void *v;
 
         /* Returns a list of all pending jobs that need to finish before this job may be started. */
 
@@ -1405,7 +1409,7 @@ int job_get_before(Job *j, Job*** ret) {
 
         if (IN_SET(j->type, JOB_START, JOB_VERIFY_ACTIVE, JOB_RELOAD)) {
 
-                SET_FOREACH(other, j->unit->dependencies[UNIT_AFTER], i) {
+                HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER], i) {
                         if (!other->job)
                                 continue;
 
@@ -1415,7 +1419,7 @@ int job_get_before(Job *j, Job*** ret) {
                 }
         }
 
-        SET_FOREACH(other, j->unit->dependencies[UNIT_BEFORE], i) {
+        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_BEFORE], i) {
                 if (!other->job)
                         continue;
 
@@ -1439,6 +1443,7 @@ int job_get_after(Job *j, Job*** ret) {
         _cleanup_free_ Job** list = NULL;
         size_t n = 0, n_allocated = 0;
         Unit *other = NULL;
+        void *v;
         Iterator i;
 
         assert(j);
@@ -1446,7 +1451,7 @@ int job_get_after(Job *j, Job*** ret) {
 
         /* Returns a list of all pending jobs that are waiting for this job to finish. */
 
-        SET_FOREACH(other, j->unit->dependencies[UNIT_BEFORE], i) {
+        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_BEFORE], i) {
                 if (!other->job)
                         continue;
 
@@ -1463,7 +1468,7 @@ int job_get_after(Job *j, Job*** ret) {
 
         if (IN_SET(j->type, JOB_STOP, JOB_RESTART)) {
 
-                SET_FOREACH(other, j->unit->dependencies[UNIT_AFTER], i) {
+                HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER], i) {
                         if (!other->job)
                                 continue;
 

@@ -97,7 +97,7 @@ static int slice_add_default_dependencies(Slice *s) {
         r = unit_add_two_dependencies_by_name(
                         UNIT(s),
                         UNIT_BEFORE, UNIT_CONFLICTS,
-                        SPECIAL_SHUTDOWN_TARGET, NULL, true);
+                        SPECIAL_SHUTDOWN_TARGET, NULL, true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;
 

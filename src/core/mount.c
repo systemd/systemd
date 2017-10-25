@@ -280,8 +280,7 @@ _pure_ static MountParameters* get_mount_parameters(Mount *m) {
         return get_mount_parameters_fragment(m);
 }
 
-static int mount_add_mount_links(Mount *m) {
-        _cleanup_free_ char *parent = NULL;
+static int mount_add_mount_dependencies(Mount *m) {
         const char *fstype;
         MountParameters *pm;
         Unit *other;
@@ -292,33 +291,32 @@ static int mount_add_mount_links(Mount *m) {
         assert(m);
 
         if (!path_equal(m->where, "/")) {
-                /* Adds in links to other mount points that might lie further
-                 * up in the hierarchy */
+                _cleanup_free_ char *parent = NULL;
+
+                /* Adds in links to other mount points that might lie further up in the hierarchy */
 
                 parent = dirname_malloc(m->where);
                 if (!parent)
                         return -ENOMEM;
 
-                r = unit_require_mounts_for(UNIT(m), parent);
+                r = unit_require_mounts_for(UNIT(m), parent, UNIT_DEPENDENCY_IMPLICIT);
                 if (r < 0)
                         return r;
         }
 
-        /* Adds in links to other mount points that might be needed
-         * for the source path (if this is a bind mount or a loop mount) to be
-         * available. */
+        /* Adds in dependencies to other mount points that might be needed for the source path (if this is a bind mount
+         * or a loop mount) to be available. */
         pm = get_mount_parameters_fragment(m);
         if (pm && pm->what &&
             path_is_absolute(pm->what) &&
             (mount_is_bind(pm) || mount_is_loop(pm) || !mount_is_network(pm))) {
 
-                r = unit_require_mounts_for(UNIT(m), pm->what);
+                r = unit_require_mounts_for(UNIT(m), pm->what, UNIT_DEPENDENCY_FILE);
                 if (r < 0)
                         return r;
         }
 
-        /* Adds in links to other units that use this path or paths
-         * further down in the hierarchy */
+        /* Adds in dependencies to other units that use this path or paths further down in the hierarchy */
         s = manager_get_units_requiring_mounts_for(UNIT(m)->manager, m->where);
         SET_FOREACH(other, s, i) {
 
@@ -328,13 +326,13 @@ static int mount_add_mount_links(Mount *m) {
                 if (other == UNIT(m))
                         continue;
 
-                r = unit_add_dependency(other, UNIT_AFTER, UNIT(m), true);
+                r = unit_add_dependency(other, UNIT_AFTER, UNIT(m), true, UNIT_DEPENDENCY_PATH);
                 if (r < 0)
                         return r;
 
                 if (UNIT(m)->fragment_path) {
                         /* If we have fragment configuration, then make this dependency required */
-                        r = unit_add_dependency(other, UNIT_REQUIRES, UNIT(m), true);
+                        r = unit_add_dependency(other, UNIT_REQUIRES, UNIT(m), true, UNIT_DEPENDENCY_PATH);
                         if (r < 0)
                                 return r;
                 }
@@ -343,7 +341,7 @@ static int mount_add_mount_links(Mount *m) {
         /* If this is a tmpfs mount then we have to unmount it before we try to deactivate swaps */
         fstype = mount_get_fstype(m);
         if (streq(fstype, "tmpfs")) {
-                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_SWAP_TARGET, NULL, true);
+                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_SWAP_TARGET, NULL, true, UNIT_DEPENDENCY_IMPLICIT);
                 if (r < 0)
                         return r;
         }
@@ -351,9 +349,10 @@ static int mount_add_mount_links(Mount *m) {
         return 0;
 }
 
-static int mount_add_device_links(Mount *m) {
-        MountParameters *p;
+static int mount_add_device_dependencies(Mount *m) {
         bool device_wants_mount = false;
+        UnitDependencyMask mask;
+        MountParameters *p;
         UnitDependency dep;
         int r;
 
@@ -391,16 +390,19 @@ static int mount_add_device_links(Mount *m) {
          * automatically stopped when the device disappears suddenly. */
         dep = mount_is_bound_to_device(m) ? UNIT_BINDS_TO : UNIT_REQUIRES;
 
-        r = unit_add_node_link(UNIT(m), p->what, device_wants_mount, dep);
+        mask = m->from_fragment ? UNIT_DEPENDENCY_FILE : UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT;
+
+        r = unit_add_node_dependency(UNIT(m), p->what, device_wants_mount, dep, mask);
         if (r < 0)
                 return r;
 
         return 0;
 }
 
-static int mount_add_quota_links(Mount *m) {
-        int r;
+static int mount_add_quota_dependencies(Mount *m) {
+        UnitDependencyMask mask;
         MountParameters *p;
+        int r;
 
         assert(m);
 
@@ -414,11 +416,13 @@ static int mount_add_quota_links(Mount *m) {
         if (!needs_quota(p))
                 return 0;
 
-        r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTACHECK_SERVICE, NULL, true);
+        mask = m->from_fragment ? UNIT_DEPENDENCY_FILE : UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT;
+
+        r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTACHECK_SERVICE, NULL, true, mask);
         if (r < 0)
                 return r;
 
-        r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTAON_SERVICE, NULL, true);
+        r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTAON_SERVICE, NULL, true, mask);
         if (r < 0)
                 return r;
 
@@ -457,9 +461,10 @@ static bool mount_is_extrinsic(Mount *m) {
 }
 
 static int mount_add_default_dependencies(Mount *m) {
+        UnitDependencyMask mask;
+        int r;
         MountParameters *p;
         const char *after;
-        int r;
 
         assert(m);
 
@@ -476,6 +481,8 @@ static int mount_add_default_dependencies(Mount *m) {
         if (!p)
                 return 0;
 
+        mask = m->from_fragment ? UNIT_DEPENDENCY_FILE : UNIT_DEPENDENCY_MOUNTINFO_DEFAULT;
+
         if (mount_is_network(p)) {
                 /* We order ourselves after network.target. This is
                  * primarily useful at shutdown: services that take
@@ -483,7 +490,7 @@ static int mount_add_default_dependencies(Mount *m) {
                  * network.target, so that they are shut down only
                  * after this mount unit is stopped. */
 
-                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_NETWORK_TARGET, NULL, true);
+                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_NETWORK_TARGET, NULL, true, mask);
                 if (r < 0)
                         return r;
 
@@ -494,7 +501,7 @@ static int mount_add_default_dependencies(Mount *m) {
                  * whose purpose it is to delay this until the network
                  * is "up". */
 
-                r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_WANTS, UNIT_AFTER, SPECIAL_NETWORK_ONLINE_TARGET, NULL, true);
+                r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_WANTS, UNIT_AFTER, SPECIAL_NETWORK_ONLINE_TARGET, NULL, true, mask);
                 if (r < 0)
                         return r;
 
@@ -502,11 +509,11 @@ static int mount_add_default_dependencies(Mount *m) {
         } else
                 after = SPECIAL_LOCAL_FS_PRE_TARGET;
 
-        r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after, NULL, true);
+        r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after, NULL, true, mask);
         if (r < 0)
                 return r;
 
-        r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
+        r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true, mask);
         if (r < 0)
                 return r;
 
@@ -577,15 +584,15 @@ static int mount_add_extras(Mount *m) {
                         return r;
         }
 
-        r = mount_add_device_links(m);
+        r = mount_add_device_dependencies(m);
         if (r < 0)
                 return r;
 
-        r = mount_add_mount_links(m);
+        r = mount_add_mount_dependencies(m);
         if (r < 0)
                 return r;
 
-        r = mount_add_quota_links(m);
+        r = mount_add_quota_dependencies(m);
         if (r < 0)
                 return r;
 
@@ -1453,11 +1460,11 @@ static int mount_setup_new_unit(
                 int r;
 
                 target = mount_is_network(p) ? SPECIAL_REMOTE_FS_TARGET : SPECIAL_LOCAL_FS_TARGET;
-                r = unit_add_dependency_by_name(u, UNIT_BEFORE, target, NULL, true);
+                r = unit_add_dependency_by_name(u, UNIT_BEFORE, target, NULL, true, UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT);
                 if (r < 0)
                         return r;
 
-                r = unit_add_dependency_by_name(u, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
+                r = unit_add_dependency_by_name(u, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true, UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT);
                 if (r < 0)
                         return r;
         }
@@ -1515,7 +1522,7 @@ static int mount_setup_existing_unit(
                  * in the dependency "Set*" objects who created a
                  * dependency), we can only add deps, never lose them,
                  * until the next full daemon-reload. */
-                unit_add_dependency_by_name(u, UNIT_BEFORE, SPECIAL_REMOTE_FS_TARGET, NULL, true);
+                unit_add_dependency_by_name(u, UNIT_BEFORE, SPECIAL_REMOTE_FS_TARGET, NULL, true, UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT);
                 load_extras = true;
         }
 

@@ -562,7 +562,7 @@ static int service_add_default_dependencies(Service *s) {
                  * require it, so that we fail if we can't acquire
                  * it. */
 
-                r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true);
+                r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true, UNIT_DEPENDENCY_DEFAULT);
                 if (r < 0)
                         return r;
         } else {
@@ -570,7 +570,7 @@ static int service_add_default_dependencies(Service *s) {
                 /* In the --user instance there's no sysinit.target,
                  * in that case require basic.target instead. */
 
-                r = unit_add_dependency_by_name(UNIT(s), UNIT_REQUIRES, SPECIAL_BASIC_TARGET, NULL, true);
+                r = unit_add_dependency_by_name(UNIT(s), UNIT_REQUIRES, SPECIAL_BASIC_TARGET, NULL, true, UNIT_DEPENDENCY_DEFAULT);
                 if (r < 0)
                         return r;
         }
@@ -578,12 +578,12 @@ static int service_add_default_dependencies(Service *s) {
         /* Second, if the rest of the base system is in the same
          * transaction, order us after it, but do not pull it in or
          * even require it. */
-        r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_BASIC_TARGET, NULL, true);
+        r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_BASIC_TARGET, NULL, true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;
 
         /* Third, add us in for normal shutdown. */
-        return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
+        return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true, UNIT_DEPENDENCY_DEFAULT);
 }
 
 static void service_fix_output(Service *s) {
@@ -612,12 +612,12 @@ static int service_setup_bus_name(Service *s) {
         if (!s->bus_name)
                 return 0;
 
-        r = unit_add_dependency_by_name(UNIT(s), UNIT_REQUIRES, SPECIAL_DBUS_SOCKET, NULL, true);
+        r = unit_add_dependency_by_name(UNIT(s), UNIT_REQUIRES, SPECIAL_DBUS_SOCKET, NULL, true, UNIT_DEPENDENCY_FILE);
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to add dependency on " SPECIAL_DBUS_SOCKET ": %m");
 
         /* We always want to be ordered against dbus.socket if both are in the transaction. */
-        r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_DBUS_SOCKET, NULL, true);
+        r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_DBUS_SOCKET, NULL, true, UNIT_DEPENDENCY_FILE);
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to add dependency on " SPECIAL_DBUS_SOCKET ": %m");
 
@@ -1103,11 +1103,12 @@ static int service_collect_fds(Service *s,
                 rn_socket_fds = 1;
         } else {
                 Iterator i;
+                void *v;
                 Unit *u;
 
                 /* Pass all our configured sockets for singleton services */
 
-                SET_FOREACH(u, UNIT(s)->dependencies[UNIT_TRIGGERED_BY], i) {
+                HASHMAP_FOREACH_KEY(v, u, UNIT(s)->dependencies[UNIT_TRIGGERED_BY], i) {
                         _cleanup_free_ int *cfds = NULL;
                         Socket *sock;
                         int cn_fds;
@@ -3617,7 +3618,7 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock, bool selinux_context
                         return r;
         }
 
-        r = unit_add_two_dependencies(UNIT(sock), UNIT_BEFORE, UNIT_TRIGGERS, UNIT(s), false);
+        r = unit_add_two_dependencies(UNIT(sock), UNIT_BEFORE, UNIT_TRIGGERS, UNIT(s), false, UNIT_DEPENDENCY_IMPLICIT);
         if (r < 0)
                 return r;
 

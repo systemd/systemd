@@ -279,7 +279,7 @@ static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Failed to mangle unit name \"%s\": %m", word);
 
-                r = unit_add_dependency_by_name(u, UNIT_WANTS, k, NULL, true);
+                r = unit_add_dependency_by_name(u, UNIT_WANTS, k, NULL, true, UNIT_DEPENDENCY_UDEV);
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Failed to add wants dependency: %m");
         }
@@ -303,13 +303,16 @@ static bool device_is_bound_by_mounts(Unit *d, struct udev_device *dev) {
 static int device_upgrade_mount_deps(Unit *u) {
         Unit *other;
         Iterator i;
+        void *v;
         int r;
 
-        SET_FOREACH(other, u->dependencies[UNIT_REQUIRED_BY], i) {
+        /* Let's upgrade Requires= to BindsTo= on us. (Used when SYSTEMD_MOUNT_DEVICE_BOUND is set) */
+
+        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_REQUIRED_BY], i) {
                 if (other->type != UNIT_MOUNT)
                         continue;
 
-                r = unit_add_dependency(other, UNIT_BINDS_TO, u, true);
+                r = unit_add_dependency(other, UNIT_BINDS_TO, u, true, UNIT_DEPENDENCY_UDEV);
                 if (r < 0)
                         return r;
         }
@@ -380,11 +383,9 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
                         (void) device_add_udev_wants(u, dev);
         }
 
-        /* So the user wants the mount units to be bound to the device but a
-         * mount unit might has been seen by systemd before the device appears
-         * on its radar. In this case the device unit is partially initialized
-         * and includes the deps on the mount unit but at that time the "bind
-         * mounts" flag wasn't not present. Fix this up now. */
+        /* So the user wants the mount units to be bound to the device but a mount unit might has been seen by systemd
+         * before the device appears on its radar. In this case the device unit is partially initialized and includes
+         * the deps on the mount unit but at that time the "bind mounts" flag wasn't not present. Fix this up now. */
         if (dev && device_is_bound_by_mounts(u, dev))
                 device_upgrade_mount_deps(u);
 

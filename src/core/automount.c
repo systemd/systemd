@@ -130,7 +130,20 @@ static void automount_done(Unit *u) {
         a->expire_event_source = sd_event_source_unref(a->expire_event_source);
 }
 
-static int automount_add_mount_links(Automount *a) {
+static int automount_add_trigger_dependencies(Automount *a) {
+        Unit *x;
+        int r;
+
+        assert(a);
+
+        r = unit_load_related_unit(UNIT(a), ".mount", &x);
+        if (r < 0)
+                return r;
+
+        return unit_add_two_dependencies(UNIT(a), UNIT_BEFORE, UNIT_TRIGGERS, x, true, UNIT_DEPENDENCY_IMPLICIT);
+}
+
+static int automount_add_mount_dependencies(Automount *a) {
         _cleanup_free_ char *parent = NULL;
 
         assert(a);
@@ -139,7 +152,7 @@ static int automount_add_mount_links(Automount *a) {
         if (!parent)
                 return -ENOMEM;
 
-        return unit_require_mounts_for(UNIT(a), parent);
+        return unit_require_mounts_for(UNIT(a), parent, UNIT_DEPENDENCY_IMPLICIT);
 }
 
 static int automount_add_default_dependencies(Automount *a) {
@@ -153,7 +166,7 @@ static int automount_add_default_dependencies(Automount *a) {
         if (!MANAGER_IS_SYSTEM(UNIT(a)->manager))
                 return 0;
 
-        r = unit_add_two_dependencies_by_name(UNIT(a), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
+        r = unit_add_two_dependencies_by_name(UNIT(a), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;
 
@@ -215,21 +228,15 @@ static int automount_load(Unit *u) {
                 return r;
 
         if (u->load_state == UNIT_LOADED) {
-                Unit *x;
-
                 r = automount_set_where(a);
                 if (r < 0)
                         return r;
 
-                r = unit_load_related_unit(u, ".mount", &x);
+                r = automount_add_trigger_dependencies(a);
                 if (r < 0)
                         return r;
 
-                r = unit_add_two_dependencies(u, UNIT_BEFORE, UNIT_TRIGGERS, x, true);
-                if (r < 0)
-                        return r;
-
-                r = automount_add_mount_links(a);
+                r = automount_add_mount_dependencies(a);
                 if (r < 0)
                         return r;
 
