@@ -51,6 +51,18 @@ journalctl --sync
 journalctl -b -o cat -t "$ID" >/output
 cmp /expected /output
 
+# --output-fields restricts output
+ID=$(journalctl --new-id128 | sed -n 2p)
+printf $'foo' | systemd-cat -t "$ID" --level-prefix false
+journalctl --sync
+journalctl -b -o export --output-fields=MESSAGE,FOO --output-fields=PRIORITY,MESSAGE -t "$ID" >/output
+[[ `grep -c . /output` -eq 6 ]]
+grep -q '^__CURSOR=' /output
+grep -q '^MESSAGE=foo$' /output
+grep -q '^PRIORITY=6$' /output
+! grep -q '^FOO=' /output
+! grep -q '^SYSLOG_FACILITY=' /output
+
 # Don't lose streams on restart
 systemctl start forever-print-hola
 sleep 3

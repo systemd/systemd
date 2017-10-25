@@ -48,6 +48,7 @@
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
 #include "utf8.h"
@@ -134,6 +135,19 @@ static int parse_fieldv(const void *data, size_t length, const ParseFieldVec *fi
         }
 
         return 0;
+}
+
+static int field_set_test(Set *fields, const char *name, size_t n) {
+        char *s = NULL;
+
+        if (!fields)
+                return 1;
+
+        s = strndupa(name, n);
+        if (!s)
+                return log_oom();
+
+        return set_get(fields, s) ? 1 : 0;
 }
 
 static bool shall_print(const char *p, size_t l, OutputFlags flags) {
@@ -353,7 +367,8 @@ static int output_short(
                 sd_journal *j,
                 OutputMode mode,
                 unsigned n_columns,
-                OutputFlags flags) {
+                OutputFlags flags,
+                Set *output_fields) {
 
         int r;
         const void *data;
@@ -466,7 +481,8 @@ static int output_verbose(
                 sd_journal *j,
                 OutputMode mode,
                 unsigned n_columns,
-                OutputFlags flags) {
+                OutputFlags flags,
+                Set *output_fields) {
 
         const void *data;
         size_t length;
@@ -527,6 +543,12 @@ static int output_verbose(
                 }
                 fieldlen = c - (const char*) data;
 
+                r = field_set_test(output_fields, data, fieldlen);
+                if (r < 0)
+                        return r;
+                if (!r)
+                        continue;
+
                 if (flags & OUTPUT_COLOR && startswith(data, "MESSAGE=")) {
                         on = ANSI_HIGHLIGHT;
                         off = ANSI_NORMAL;
@@ -564,7 +586,8 @@ static int output_export(
                 sd_journal *j,
                 OutputMode mode,
                 unsigned n_columns,
-                OutputFlags flags) {
+                OutputFlags flags,
+                Set *output_fields) {
 
         sd_id128_t boot_id;
         char sid[33];
@@ -601,6 +624,7 @@ static int output_export(
                 sd_id128_to_string(boot_id, sid));
 
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
+                const char *c;
 
                 /* We already printed the boot id, from the data in
                  * the header, hence let's suppress it here */
@@ -608,17 +632,22 @@ static int output_export(
                     startswith(data, "_BOOT_ID="))
                         continue;
 
+                c = memchr(data, '=', length);
+                if (!c) {
+                        log_error("Invalid field.");
+                        return -EINVAL;
+                }
+
+                r = field_set_test(output_fields, data, c - (const char *) data);
+                if (r < 0)
+                        return r;
+                if (!r)
+                        continue;
+
                 if (utf8_is_printable_newline(data, length, false))
                         fwrite(data, length, 1, f);
                 else {
-                        const char *c;
                         uint64_t le64;
-
-                        c = memchr(data, '=', length);
-                        if (!c) {
-                                log_error("Invalid field.");
-                                return -EINVAL;
-                        }
 
                         fwrite(data, c - (const char*) data, 1, f);
                         fputc('\n', f);
@@ -695,7 +724,8 @@ static int output_json(
                 sd_journal *j,
                 OutputMode mode,
                 unsigned n_columns,
-                OutputFlags flags) {
+                OutputFlags flags,
+                Set *output_fields) {
 
         uint64_t realtime, monotonic;
         _cleanup_free_ char *cursor = NULL;
@@ -814,19 +844,24 @@ static int output_json(
                         if (!eq)
                                 continue;
 
-                        if (separator) {
-                                if (mode == OUTPUT_JSON_PRETTY)
-                                        fputs(",\n\t", f);
-                                else
-                                        fputs(", ", f);
-                        }
-
                         m = eq - (const char*) data;
 
                         n = strndup(data, m);
                         if (!n) {
                                 r = log_oom();
                                 goto finish;
+                        }
+
+                        if (output_fields && !set_get(output_fields, n)) {
+                                free(n);
+                                continue;
+                        }
+
+                        if (separator) {
+                                if (mode == OUTPUT_JSON_PRETTY)
+                                        fputs(",\n\t", f);
+                                else
+                                        fputs(", ", f);
                         }
 
                         u = PTR_TO_UINT(hashmap_get2(h, n, (void**) &kk));
@@ -913,7 +948,8 @@ static int output_cat(
                 sd_journal *j,
                 OutputMode mode,
                 unsigned n_columns,
-                OutputFlags flags) {
+                OutputFlags flags,
+                Set *output_fields) {
 
         const void *data;
         size_t l;
@@ -946,7 +982,8 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(
                 sd_journal*j,
                 OutputMode mode,
                 unsigned n_columns,
-                OutputFlags flags) = {
+                OutputFlags flags,
+                Set *output_fields) = {
 
         [OUTPUT_SHORT] = output_short,
         [OUTPUT_SHORT_ISO] = output_short,
@@ -969,16 +1006,28 @@ int output_journal(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
+                char **output_fields,
                 bool *ellipsized) {
 
         int ret;
+        _cleanup_set_free_free_ Set *fields = NULL;
         assert(mode >= 0);
         assert(mode < _OUTPUT_MODE_MAX);
 
         if (n_columns <= 0)
                 n_columns = columns();
 
-        ret = output_funcs[mode](f, j, mode, n_columns, flags);
+        if (output_fields) {
+                fields = set_new(&string_hash_ops);
+                if (!fields)
+                        return log_oom();
+
+                ret = set_put_strdupv(fields, output_fields);
+                if (ret < 0)
+                        return ret;
+        }
+
+        ret = output_funcs[mode](f, j, mode, n_columns, flags, fields);
 
         if (ellipsized && ret > 0)
                 *ellipsized = true;
@@ -1060,7 +1109,7 @@ static int show_journal(FILE *f,
                         line++;
                         maybe_print_begin_newline(f, &flags);
 
-                        r = output_journal(f, j, mode, n_columns, flags, ellipsized);
+                        r = output_journal(f, j, mode, n_columns, flags, NULL, ellipsized);
                         if (r < 0)
                                 return r;
                 }
