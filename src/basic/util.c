@@ -177,15 +177,12 @@ int block_get_whole_disk(dev_t d, dev_t *ret) {
 }
 
 bool kexec_loaded(void) {
-       bool loaded = false;
-       char *s;
+       _cleanup_free_ char *s = NULL;
 
-       if (read_one_line_file("/sys/kernel/kexec_loaded", &s) >= 0) {
-               if (s[0] == '1')
-                       loaded = true;
-               free(s);
-       }
-       return loaded;
+       if (read_one_line_file("/sys/kernel/kexec_loaded", &s) < 0)
+               return false;
+
+       return s[0] == '1';
 }
 
 int prot_from_flags(int flags) {

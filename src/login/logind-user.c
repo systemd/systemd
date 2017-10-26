@@ -425,12 +425,11 @@ static int user_start_service(User *u) {
                         u->service,
                         &error,
                         &job);
-        if (r < 0) {
+        if (r < 0)
                 /* we don't fail due to this, let's try to continue */
                 log_error_errno(r, "Failed to start user service, ignoring: %s", bus_error_message(&error, r));
-        } else {
+        else
                 u->service_job = job;
-        }
 
         return 0;
 }

@@ -462,7 +462,6 @@ endif
 #####################################################################
 
 sed = find_program('sed')
-grep = find_program('grep')
 awk = find_program('awk')
 m4 = find_program('m4')
 stat = find_program('stat')
