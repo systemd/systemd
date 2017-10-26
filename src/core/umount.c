@@ -381,13 +381,19 @@ static bool nonunmountable_path(const char *path) {
                 || path_startswith(path, "/run/initramfs");
 }
 
+/* This includes remounting readonly, which changes the kernel mount options.
+ * Therefore the list passed to this function is invalidated, and should not be reused. */
+
 static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_error) {
-        MountPoint *m, *n;
+        MountPoint *m;
         int n_failed = 0;
 
         assert(head);
 
-        LIST_FOREACH_SAFE(mount_point, m, n, *head) {
+        LIST_FOREACH(mount_point, m, *head) {
+                bool mount_is_readonly;
+
+                mount_is_readonly = fstab_test_yes_no_option(m->options, "ro\0rw\0");
 
                 /* If we are in a container, don't attempt to
                    read-only mount anything as that brings no real
@@ -397,7 +403,8 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_e
                    remount.  It brings no value (we cannot leave
                    a "dirty fs") and could hang if the network is down.  */
                 if (detect_container() <= 0 &&
-                    !fstype_is_network(m->type)) {
+                    !fstype_is_network(m->type) &&
+                    !mount_is_readonly) {
                         _cleanup_free_ char *options = NULL;
                         /* MS_REMOUNT requires that the data parameter
                          * should be the same from the original mount
@@ -444,8 +451,6 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_e
                 if (umount2(m->path, 0) == 0) {
                         if (changed)
                                 *changed = true;
-
-                        mount_point_free(head, m);
                 } else {
                         if (log_error)
                                 log_warning_errno(errno, "Could not unmount %s: %m", m->path);
@@ -550,9 +555,8 @@ static int dm_points_list_detach(MountPoint **head, bool *changed) {
         return n_failed;
 }
 
-int umount_all(bool *changed) {
+static int umount_all_once(bool *changed, bool log_error) {
         int r;
-        bool umount_changed;
         LIST_HEAD(MountPoint, mp_list_head);
 
         LIST_HEAD_INIT(mp_list_head);
@@ -560,21 +564,31 @@ int umount_all(bool *changed) {
         if (r < 0)
                 goto end;
 
+        r = mount_points_list_umount(&mp_list_head, changed, log_error);
+
+  end:
+        mount_points_list_free(&mp_list_head);
+
+        return r;
+}
+
+int umount_all(bool *changed) {
+        bool umount_changed;
+        int r;
+
         /* retry umount, until nothing can be umounted anymore */
         do {
                 umount_changed = false;
 
-                mount_points_list_umount(&mp_list_head, &umount_changed, false);
+                umount_all_once(&umount_changed, false);
                 if (umount_changed)
                         *changed = true;
-
         } while (umount_changed);
 
         /* umount one more time with logging enabled */
-        r = mount_points_list_umount(&mp_list_head, &umount_changed, true);
-
-  end:
-        mount_points_list_free(&mp_list_head);
+        r = umount_all_once(&umount_changed, true);
+        if (umount_changed)
+                *changed = true;
 
         return r;
 }
