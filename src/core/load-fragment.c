@@ -833,16 +833,18 @@ int config_parse_socket_bindtodevice(
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_output, exec_output, ExecOutput, "Failed to parse output literal specifier");
 
-int config_parse_exec_input(const char *unit,
-                            const char *filename,
-                            unsigned line,
-                            const char *section,
-                            unsigned section_line,
-                            const char *lvalue,
-                            int ltype,
-                            const char *rvalue,
-                            void *data,
-                            void *userdata) {
+int config_parse_exec_input(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         ExecContext *c = data;
         const char *name;
         int r;
@@ -859,19 +861,25 @@ int config_parse_exec_input(const char *unit,
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid file descriptor name, ignoring: %s", name);
                         return 0;
                 }
-                c->std_input = EXEC_INPUT_NAMED_FD;
+
                 r = free_and_strdup(&c->stdio_fdname[STDIN_FILENO], name);
                 if (r < 0)
-                        log_oom();
-                return r;
+                        return log_oom();
+
+                c->std_input = EXEC_INPUT_NAMED_FD;
         } else {
-                ExecInput ei = exec_input_from_string(rvalue);
-                if (ei == _EXEC_INPUT_INVALID)
+                ExecInput ei;
+
+                ei = exec_input_from_string(rvalue);
+                if (ei < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse input specifier, ignoring: %s", rvalue);
-                else
-                        c->std_input = ei;
-                return 0;
+                        return 0;
+                }
+
+                c->std_input = ei;
         }
+
+        return 0;
 }
 
 int config_parse_exec_output(const char *unit,
