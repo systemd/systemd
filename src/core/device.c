@@ -256,18 +256,22 @@ static int device_update_description(Unit *u, struct udev_device *dev, const cha
 }
 
 static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
-        const char *wants, *property, *p;
+        const char *wants, *property;
         int r;
 
         assert(u);
         assert(dev);
 
         property = MANAGER_IS_USER(u->manager) ? "SYSTEMD_USER_WANTS" : "SYSTEMD_WANTS";
+
         wants = udev_device_get_property_value(dev, property);
-        for (p = wants;;) {
+        if (!wants)
+                return 0;
+
+        for (;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&wants, &word, NULL, EXTRACT_QUOTES);
                 if (r == 0)
                         return 0;
                 if (r == -ENOMEM)
@@ -281,7 +285,7 @@ static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
 
                 r = unit_add_dependency_by_name(u, UNIT_WANTS, k, NULL, true, UNIT_DEPENDENCY_UDEV);
                 if (r < 0)
-                        return log_unit_error_errno(u, r, "Failed to add wants dependency: %m");
+                        return log_unit_error_errno(u, r, "Failed to add Wants= dependency: %m");
         }
 }
 
