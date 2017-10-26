@@ -317,6 +317,7 @@ static int detect_vm_zvm(void) {
 int detect_vm(void) {
         static thread_local int cached_found = _VIRTUALIZATION_INVALID;
         int r, dmi;
+        bool other = false;
 
         if (cached_found >= 0)
                 return cached_found;
@@ -337,14 +338,22 @@ int detect_vm(void) {
         r = detect_vm_cpuid();
         if (r < 0)
                 return r;
-        if (r != VIRTUALIZATION_NONE)
-                goto finish;
+        if (r != VIRTUALIZATION_NONE) {
+                if (r == VIRTUALIZATION_VM_OTHER)
+                        other = true;
+                else
+                        goto finish;
+        }
 
         r = dmi;
         if (r < 0)
                 return r;
-        if (r != VIRTUALIZATION_NONE)
-                goto finish;
+        if (r != VIRTUALIZATION_NONE) {
+                if (r == VIRTUALIZATION_VM_OTHER)
+                        other = true;
+                else
+                        goto finish;
+        }
 
         /* x86 xen will most likely be detected by cpuid. If not (most likely
          * because we're not an x86 guest), then we should try the xen capabilities
@@ -356,26 +365,42 @@ int detect_vm(void) {
         r = detect_vm_xen();
         if (r < 0)
                 return r;
-        if (r != VIRTUALIZATION_NONE)
-                goto finish;
+        if (r != VIRTUALIZATION_NONE) {
+                if (r == VIRTUALIZATION_VM_OTHER)
+                        other = true;
+                else
+                        goto finish;
+        }
 
         r = detect_vm_hypervisor();
         if (r < 0)
                 return r;
-        if (r != VIRTUALIZATION_NONE)
-                goto finish;
+        if (r != VIRTUALIZATION_NONE) {
+                if (r == VIRTUALIZATION_VM_OTHER)
+                        other = true;
+                else
+                        goto finish;
+        }
 
         r = detect_vm_device_tree();
         if (r < 0)
                 return r;
-        if (r != VIRTUALIZATION_NONE)
-                goto finish;
+        if (r != VIRTUALIZATION_NONE) {
+                if (r == VIRTUALIZATION_VM_OTHER)
+                        other = true;
+                else
+                        goto finish;
+        }
 
         r = detect_vm_uml();
         if (r < 0)
                 return r;
-        if (r != VIRTUALIZATION_NONE)
-                goto finish;
+        if (r != VIRTUALIZATION_NONE) {
+                if (r == VIRTUALIZATION_VM_OTHER)
+                        other = true;
+                else
+                        goto finish;
+        }
 
         r = detect_vm_zvm();
         if (r < 0)
@@ -387,6 +412,8 @@ finish:
          * double-check it */
         if (r == VIRTUALIZATION_XEN && detect_vm_xen_dom0())
                 r = VIRTUALIZATION_NONE;
+        else if (r == VIRTUALIZATION_NONE && other)
+                r = VIRTUALIZATION_VM_OTHER;
 
         cached_found = r;
         log_debug("Found VM virtualization %s", virtualization_to_string(r));
