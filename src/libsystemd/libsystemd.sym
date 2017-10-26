@@ -522,3 +522,9 @@ LIBSYSTEMD_234 {
 global:
         sd_bus_message_appendv;
 } LIBSYSTEMD_233;
+
+LIBSYSTEMD_236 {
+global:
+        sd_bus_message_new;
+        sd_bus_message_seal;
+} LIBSYSTEMD_234;
