@@ -87,13 +87,19 @@ static int property_get_type(
                 void *userdata,
                 sd_bus_error *error) {
 
+        const char *fstype = NULL;
         Mount *m = userdata;
 
         assert(bus);
         assert(reply);
         assert(m);
 
-        return sd_bus_message_append(reply, "s", mount_get_fstype(m));
+        if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.fstype)
+                fstype = m->parameters_proc_self_mountinfo.fstype;
+        else if (m->from_fragment && m->parameters_fragment.fstype)
+                fstype = m->parameters_fragment.fstype;
+
+        return sd_bus_message_append(reply, "s", fstype);
 }
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, mount_result, MountResult);
