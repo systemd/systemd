@@ -740,6 +740,8 @@ void unit_set_exec_params(Unit *s, ExecParameters *p);
 
 int unit_fork_helper_process(Unit *u, pid_t *ret);
 
+void unit_remove_dependencies(Unit *u, UnitDependencyMask mask);
+
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
 #define log_unit_full(unit, level, error, ...)                          \
