@@ -36,7 +36,7 @@ static int property_get_what(
                 sd_bus_error *error) {
 
         Mount *m = userdata;
-        const char *d;
+        const char *d = NULL;
 
         assert(bus);
         assert(reply);
@@ -46,8 +46,6 @@ static int property_get_what(
                 d = m->parameters_proc_self_mountinfo.what;
         else if (m->from_fragment && m->parameters_fragment.what)
                 d = m->parameters_fragment.what;
-        else
-                d = "";
 
         return sd_bus_message_append(reply, "s", d);
 }
@@ -62,7 +60,7 @@ static int property_get_options(
                 sd_bus_error *error) {
 
         Mount *m = userdata;
-        const char *d;
+        const char *d = NULL;
 
         assert(bus);
         assert(reply);
@@ -72,8 +70,6 @@ static int property_get_options(
                 d = m->parameters_proc_self_mountinfo.options;
         else if (m->from_fragment && m->parameters_fragment.options)
                 d = m->parameters_fragment.options;
-        else
-                d = "";
 
         return sd_bus_message_append(reply, "s", d);
 }
