@@ -349,23 +349,26 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
                 return log_error_errno(r, "Failed to generate unit name from device path: %m");
 
         u = manager_get_unit(m, e);
+        if (u) {
+                /* The device unit can still be present even if the device was unplugged: a mount unit can reference it hence
+                 * preventing the GC to have garbaged it. That's desired since the device unit may have a dependency on the
+                 * mount unit which was added during the loading of the later. */
+                if (dev && DEVICE(u)->state == DEVICE_PLUGGED) {
 
-        /* The device unit can still be present even if the device was
-         * unplugged: a mount unit can reference it hence preventing
-         * the GC to have garbaged it. That's desired since the device
-         * unit may have a dependency on the mount unit which was
-         * added during the loading of the later. */
-        if (dev && u && DEVICE(u)->state == DEVICE_PLUGGED) {
-                /* This unit is in plugged state: we're sure it's
-                 * attached to a device. */
-                if (!path_equal(DEVICE(u)->sysfs, sysfs)) {
-                        log_unit_debug(u, "Dev %s appeared twice with different sysfs paths %s and %s",
-                                       e, DEVICE(u)->sysfs, sysfs);
-                        return -EEXIST;
+                        /* This unit is in plugged state: we're sure it's attached to a device. */
+                        if (!path_equal(DEVICE(u)->sysfs, sysfs)) {
+                                log_unit_debug(u, "Dev %s appeared twice with different sysfs paths %s and %s",
+                                               e, DEVICE(u)->sysfs, sysfs);
+                                return -EEXIST;
+                        }
                 }
-        }
 
-        if (!u) {
+                delete = false;
+
+                /* Let's remove all dependencies generated due to udev properties. We'll readd whatever is configured
+                 * now below. */
+                unit_remove_dependencies(u, UNIT_DEPENDENCY_UDEV);
+        } else {
                 delete = true;
 
                 r = unit_new_for_name(m, sizeof(Device), e, &u);
@@ -373,8 +376,7 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
                         goto fail;
 
                 unit_add_to_load_queue(u);
-        } else
-                delete = false;
+        }
 
         /* If this was created via some dependency and has not
          * actually been seen yet ->sysfs will not be
@@ -398,8 +400,7 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
         if (dev && device_is_bound_by_mounts(DEVICE(u), dev))
                 device_upgrade_mount_deps(u);
 
-        /* Note that this won't dispatch the load queue, the caller
-         * has to do that if needed and appropriate */
+        /* Note that this won't dispatch the load queue, the caller has to do that if needed and appropriate */
 
         unit_add_to_dbus_queue(u);
         return 0;
