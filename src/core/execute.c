@@ -275,7 +275,7 @@ static bool exec_context_needs_term(const ExecContext *c) {
 }
 
 static int open_null_as(int flags, int nfd) {
-        int fd, r;
+        int fd;
 
         assert(nfd >= 0);
 
@@ -283,13 +283,7 @@ static int open_null_as(int flags, int nfd) {
         if (fd < 0)
                 return -errno;
 
-        if (fd != nfd) {
-                r = dup2(fd, nfd) < 0 ? -errno : nfd;
-                safe_close(fd);
-        } else
-                r = nfd;
-
-        return r;
+        return move_fd(fd, nfd, false);
 }
 
 static int connect_journal_socket(int fd, uid_t uid, gid_t gid) {
@@ -381,16 +375,10 @@ static int connect_logger_as(
                 is_kmsg_output(output),
                 is_terminal_output(output));
 
-        if (fd == nfd)
-                return nfd;
-
-        r = dup2(fd, nfd) < 0 ? -errno : nfd;
-        safe_close(fd);
-
-        return r;
+        return move_fd(fd, nfd, false);
 }
 static int open_terminal_as(const char *path, mode_t mode, int nfd) {
-        int fd, r;
+        int fd;
 
         assert(path);
         assert(nfd >= 0);
@@ -399,13 +387,7 @@ static int open_terminal_as(const char *path, mode_t mode, int nfd) {
         if (fd < 0)
                 return fd;
 
-        if (fd != nfd) {
-                r = dup2(fd, nfd) < 0 ? -errno : nfd;
-                safe_close(fd);
-        } else
-                r = nfd;
-
-        return r;
+        return move_fd(fd, nfd, false);
 }
 
 static int fixup_input(ExecInput std_input, int socket_fd, bool apply_tty_stdin) {
@@ -459,7 +441,7 @@ static int setup_input(
         case EXEC_INPUT_TTY:
         case EXEC_INPUT_TTY_FORCE:
         case EXEC_INPUT_TTY_FAIL: {
-                int fd, r;
+                int fd;
 
                 fd = acquire_terminal(exec_context_tty_path(context),
                                       i == EXEC_INPUT_TTY_FAIL,
@@ -469,13 +451,7 @@ static int setup_input(
                 if (fd < 0)
                         return fd;
 
-                if (fd != STDIN_FILENO) {
-                        r = dup2(fd, STDIN_FILENO) < 0 ? -errno : STDIN_FILENO;
-                        safe_close(fd);
-                } else
-                        r = STDIN_FILENO;
-
-                return r;
+                return move_fd(fd, STDIN_FILENO, false);
         }
 
         case EXEC_INPUT_SOCKET:

@@ -377,3 +377,47 @@ int fd_get_path(int fd, char **ret) {
 
         return r;
 }
+
+int move_fd(int from, int to, int cloexec) {
+        int r;
+
+        /* Move fd 'from' to 'to', make sure FD_CLOEXEC remains equal if requested, and release the old fd. If
+         * 'cloexec' is passed as -1, the original FD_CLOEXEC is inherited for the new fd. If it is 0, it is turned
+         * off, if it is > 0 it is turned on. */
+
+        if (from < 0)
+                return -EBADF;
+        if (to < 0)
+                return -EBADF;
+
+        if (from == to) {
+
+                if (cloexec >= 0) {
+                        r = fd_cloexec(to, cloexec);
+                        if (r < 0)
+                                return r;
+                }
+
+                return to;
+        }
+
+        if (cloexec < 0) {
+                int fl;
+
+                fl = fcntl(from, F_GETFD, 0);
+                if (fl < 0)
+                        return -errno;
+
+                cloexec = !!(fl & FD_CLOEXEC);
+        }
+
+        r = dup3(from, to, cloexec ? O_CLOEXEC : 0);
+        if (r < 0)
+                return -errno;
+
+        assert(r == to);
+
+        safe_close(from);
+
+        return to;
+}
