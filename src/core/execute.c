@@ -425,8 +425,10 @@ static int setup_input(
                         return -errno;
 
                 /* Try to make this the controlling tty, if it is a tty, and reset it */
-                (void) ioctl(STDIN_FILENO, TIOCSCTTY, context->std_input == EXEC_INPUT_TTY_FORCE);
-                (void) reset_terminal_fd(STDIN_FILENO, true);
+                if (isatty(STDIN_FILENO)) {
+                        (void) ioctl(STDIN_FILENO, TIOCSCTTY, context->std_input == EXEC_INPUT_TTY_FORCE);
+                        (void) reset_terminal_fd(STDIN_FILENO, true);
+                }
 
                 return STDIN_FILENO;
         }
