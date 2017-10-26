@@ -277,11 +277,28 @@ static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
-                        return log_unit_error_errno(u, r, "Failed to add parse %s: %m", property);
+                        return log_unit_error_errno(u, r, "Failed to parse property %s with value %s: %m", property, wants);
 
-                r = unit_name_mangle(word, UNIT_NAME_NOGLOB, &k);
-                if (r < 0)
-                        return log_unit_error_errno(u, r, "Failed to mangle unit name \"%s\": %m", word);
+                if (unit_name_is_valid(word, UNIT_NAME_TEMPLATE) && DEVICE(u)->sysfs) {
+                        _cleanup_free_ char *escaped = NULL;
+
+                        /* If the unit name is specified as template, then automatically fill in the sysfs path of the
+                         * device as instance name, properly escaped. */
+
+                        r = unit_name_path_escape(DEVICE(u)->sysfs, &escaped);
+                        if (r < 0)
+                                return log_unit_error_errno(u, r, "Failed to escape %s: %m", DEVICE(u)->sysfs);
+
+                        r = unit_name_replace_instance(word, escaped, &k);
+                        if (r < 0)
+                                return log_unit_error_errno(u, r, "Failed to build %s instance of template %s: %m", escaped, word);
+                } else {
+                        /* If this is not a template, then let's mangle it so, that it becomes a valid unit name. */
+
+                        r = unit_name_mangle(word, UNIT_NAME_NOGLOB, &k);
+                        if (r < 0)
+                                return log_unit_error_errno(u, r, "Failed to mangle unit name \"%s\": %m", word);
+                }
 
                 r = unit_add_dependency_by_name(u, UNIT_WANTS, k, NULL, true, UNIT_DEPENDENCY_UDEV);
                 if (r < 0)
