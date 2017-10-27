@@ -1816,34 +1816,38 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (!fdname_is_valid(s))
+                if (isempty(s))
+                        s = NULL;
+                else if (!fdname_is_valid(s))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid file descriptor name");
 
                 if (mode != UNIT_CHECK) {
 
                         if (streq(name, "StandardInputFileDescriptorName")) {
-                                c->std_input = EXEC_INPUT_NAMED_FD;
-                                r = free_and_strdup(&c->stdio_fdname[STDIN_FILENO], s);
+                                r = free_and_strdup(c->stdio_fdname + STDIN_FILENO, s);
                                 if (r < 0)
                                         return r;
 
-                                unit_write_drop_in_private_format(u, mode, name, "StandardInput=fd:%s", s);
+                                c->std_input = EXEC_INPUT_NAMED_FD;
+                                unit_write_drop_in_private_format(u, mode, name, "StandardInput=fd:%s", exec_context_fdname(c, STDIN_FILENO));
 
                         } else if (streq(name, "StandardOutputFileDescriptorName")) {
-                                c->std_output = EXEC_OUTPUT_NAMED_FD;
-                                r = free_and_strdup(&c->stdio_fdname[STDOUT_FILENO], s);
+                                r = free_and_strdup(c->stdio_fdname + STDOUT_FILENO, s);
                                 if (r < 0)
                                         return r;
 
-                                unit_write_drop_in_private_format(u, mode, name, "StandardOutput=fd:%s", s);
+                                c->std_output = EXEC_OUTPUT_NAMED_FD;
+                                unit_write_drop_in_private_format(u, mode, name, "StandardOutput=fd:%s", exec_context_fdname(c, STDOUT_FILENO));
 
-                        } else if (streq(name, "StandardErrorFileDescriptorName")) {
-                                c->std_error = EXEC_OUTPUT_NAMED_FD;
+                        } else {
+                                assert(streq(name, "StandardErrorFileDescriptorName"));
+
                                 r = free_and_strdup(&c->stdio_fdname[STDERR_FILENO], s);
                                 if (r < 0)
                                         return r;
 
-                                unit_write_drop_in_private_format(u, mode, name, "StandardError=fd:%s", s);
+                                c->std_error = EXEC_OUTPUT_NAMED_FD;
+                                unit_write_drop_in_private_format(u, mode, name, "StandardError=fd:%s", exec_context_fdname(c, STDERR_FILENO));
                         }
                 }
 
