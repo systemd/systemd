@@ -1853,6 +1853,50 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
+        } else if (STR_IN_SET(name, "StandardInputFile", "StandardOutputFile", "StandardErrorFile")) {
+                const char *s;
+
+                r = sd_bus_message_read(message, "s", &s);
+                if (r < 0)
+                        return r;
+
+                if (!path_is_absolute(s))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not absolute", s);
+                if (!path_is_safe(s))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not normalized", s);
+
+                if (mode != UNIT_CHECK) {
+
+                        if (streq(name, "StandardInputFile")) {
+                                r = free_and_strdup(&c->stdio_file[STDIN_FILENO], s);
+                                if (r < 0)
+                                        return r;
+
+                                c->std_input = EXEC_INPUT_FILE;
+                                unit_write_drop_in_private_format(u, mode, name, "StandardInput=file:%s", s);
+
+                        } else if (streq(name, "StandardOutputFile")) {
+                                r = free_and_strdup(&c->stdio_file[STDOUT_FILENO], s);
+                                if (r < 0)
+                                        return r;
+
+                                c->std_output = EXEC_OUTPUT_FILE;
+                                unit_write_drop_in_private_format(u, mode, name, "StandardOutput=file:%s", s);
+
+                        } else {
+                                assert(streq(name, "StandardErrorFile"));
+
+                                r = free_and_strdup(&c->stdio_file[STDERR_FILENO], s);
+                                if (r < 0)
+                                        return r;
+
+                                c->std_error = EXEC_OUTPUT_FILE;
+                                unit_write_drop_in_private_format(u, mode, name, "StandardError=file:%s", s);
+                        }
+                }
+
+                return 1;
+
         } else if (streq(name, "StandardInputData")) {
                 const void *p;
                 size_t sz;

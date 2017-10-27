@@ -275,6 +275,22 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 r = sd_bus_message_append(m, "sv", "TasksMax", "t", t);
                 goto finish;
 
+        } else if (STR_IN_SET(field, "StandardInput", "StandardOutput", "StandardError")) {
+                const char *n, *appended;
+
+                n = startswith(eq, "fd:");
+                if (n) {
+                        appended = strjoina(field, "FileDescriptorName");
+                        r = sd_bus_message_append(m, "sv", appended, "s", n);
+
+                } else if ((n = startswith(eq, "file:"))) {
+                        appended = strjoina(field, "File");
+                        r = sd_bus_message_append(m, "sv", appended, "s", n);
+                } else
+                        r = sd_bus_message_append(m, "sv", field, "s", eq);
+
+                goto finish;
+
         } else if (streq(field, "StandardInputText")) {
                 _cleanup_free_ char *unescaped = NULL;
 
@@ -387,7 +403,6 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
         } else if (STR_IN_SET(field,
                               "User", "Group", "DevicePolicy", "KillMode",
                               "UtmpIdentifier", "UtmpMode", "PAMName", "TTYPath",
-                              "StandardInput", "StandardOutput", "StandardError",
                               "Description", "Slice", "Type", "WorkingDirectory",
                               "RootDirectory", "SyslogIdentifier", "ProtectSystem",
                               "ProtectHome", "SELinuxContext", "Restart", "RootImage",

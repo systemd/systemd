@@ -847,7 +847,9 @@ int config_parse_exec_input(
                 void *userdata) {
 
         ExecContext *c = data;
-        const char *name;
+        Unit *u = userdata;
+        const char *n;
+        ExecInput ei;
         int r;
 
         assert(data);
@@ -855,31 +857,55 @@ int config_parse_exec_input(
         assert(line);
         assert(rvalue);
 
-        name = startswith(rvalue, "fd:");
-        if (name) {
-                /* Strip prefix and validate fd name */
-                if (!fdname_is_valid(name)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid file descriptor name, ignoring: %s", name);
-                        return 0;
+        n = startswith(rvalue, "fd:");
+        if (n) {
+                _cleanup_free_ char *resolved = NULL;
+
+                r = unit_full_printf(u, n, &resolved);
+                if (r < 0)
+                        return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers on %s: %m", n);
+
+                if (isempty(resolved))
+                        resolved = mfree(resolved);
+                else if (!fdname_is_valid(resolved)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid file descriptor name: %s", resolved);
+                        return -EINVAL;
                 }
 
-                r = free_and_strdup(&c->stdio_fdname[STDIN_FILENO], name);
+                free_and_replace(c->stdio_fdname[STDIN_FILENO], resolved);
+
+                ei = EXEC_INPUT_NAMED_FD;
+
+        } else if ((n = startswith(rvalue, "file:"))) {
+                _cleanup_free_ char *resolved = NULL;
+
+                r = unit_full_printf(u, n, &resolved);
                 if (r < 0)
-                        return log_oom();
+                        return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers on %s: %m", n);
 
-                c->std_input = EXEC_INPUT_NAMED_FD;
+                if (!path_is_absolute(resolved)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "file: requires an absolute path name: %s", resolved);
+                        return -EINVAL;
+                }
+
+                if (!path_is_safe(resolved)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "file: requires a normalized path name: %s", resolved);
+                        return -EINVAL;
+                }
+
+                free_and_replace(c->stdio_file[STDIN_FILENO], resolved);
+
+                ei = EXEC_INPUT_FILE;
+
         } else {
-                ExecInput ei;
-
                 ei = exec_input_from_string(rvalue);
                 if (ei < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse input specifier, ignoring: %s", rvalue);
                         return 0;
                 }
-
-                c->std_input = ei;
         }
 
+        c->std_input = ei;
         return 0;
 }
 
@@ -915,22 +941,18 @@ int config_parse_exec_input_text(
         }
 
         r = cunescape(rvalue, 0, &unescaped);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to decode C escaped text, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to decode C escaped text: %s", rvalue);
 
         r = unit_full_printf(u, unescaped, &resolved);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve specifiers, ignoring: %s", unescaped);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve specifiers: %s", unescaped);
 
         sz = strlen(resolved);
         if (c->stdin_data_size + sz + 1 < c->stdin_data_size || /* check for overflow */
             c->stdin_data_size + sz + 1 > EXEC_STDIN_DATA_MAX) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Standard input data too large (%zu), maximum of %zu permitted, ignoring.", c->stdin_data_size + sz, (size_t) EXEC_STDIN_DATA_MAX);
-                return 0;
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Standard input data too large (%zu), maximum of %zu permitted, ignoring.", c->stdin_data_size + sz, (size_t) EXEC_STDIN_DATA_MAX);
+                return -E2BIG;
         }
 
         p = realloc(c->stdin_data, c->stdin_data_size + sz + 1);
@@ -983,17 +1005,15 @@ int config_parse_exec_input_data(
         delete_chars(cleaned, WHITESPACE);
 
         r = unbase64mem(cleaned, (size_t) -1, &p, &sz);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to decode base64 data, ignoring: %s", cleaned);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to decode base64 data, ignoring: %s", cleaned);
 
         assert(sz > 0);
 
         if (c->stdin_data_size + sz < c->stdin_data_size || /* check for overflow */
             c->stdin_data_size + sz > EXEC_STDIN_DATA_MAX) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Standard input data too large (%zu), maximum of %zu permitted, ignoring.", c->stdin_data_size + sz, (size_t) EXEC_STDIN_DATA_MAX);
-                return 0;
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Standard input data too large (%zu), maximum of %zu permitted, ignoring.", c->stdin_data_size + sz, (size_t) EXEC_STDIN_DATA_MAX);
+                return -E2BIG;
         }
 
         q = realloc(c->stdin_data, c->stdin_data_size + sz);
@@ -1008,19 +1028,23 @@ int config_parse_exec_input_data(
         return 0;
 }
 
-int config_parse_exec_output(const char *unit,
-                             const char *filename,
-                             unsigned line,
-                             const char *section,
-                             unsigned section_line,
-                             const char *lvalue,
-                             int ltype,
-                             const char *rvalue,
-                             void *data,
-                             void *userdata) {
+int config_parse_exec_output(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *resolved = NULL;
+        const char *n;
         ExecContext *c = data;
+        Unit *u = userdata;
         ExecOutput eo;
-        const char *name;
         int r;
 
         assert(data);
@@ -1029,38 +1053,67 @@ int config_parse_exec_output(const char *unit,
         assert(lvalue);
         assert(rvalue);
 
-        name = startswith(rvalue, "fd:");
-        if (name) {
-                /* Strip prefix and validate fd name */
-                if (!fdname_is_valid(name)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid file descriptor name, ignoring: %s", name);
-                        return 0;
+        n = startswith(rvalue, "fd:");
+        if (n) {
+                r = unit_full_printf(u, n, &resolved);
+                if (r < 0)
+                        return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers on %s: %m", n);
+
+                if (isempty(resolved))
+                        resolved = mfree(resolved);
+                else if (!fdname_is_valid(resolved)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid file descriptor name: %s", resolved);
+                        return -EINVAL;
                 }
+
                 eo = EXEC_OUTPUT_NAMED_FD;
+
+        } else if ((n = startswith(rvalue, "file:"))) {
+
+                r = unit_full_printf(u, n, &resolved);
+                if (r < 0)
+                        return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers on %s: %m", n);
+
+                if (!path_is_absolute(resolved)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "file: requires an absolute path name: %s", resolved);
+                        return -EINVAL;
+                }
+
+                if (!path_is_safe(resolved)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "file: requires a normalized path name, ignoring: %s", resolved);
+                        return -EINVAL;
+                }
+
+                eo = EXEC_OUTPUT_FILE;
+
         } else {
                 eo = exec_output_from_string(rvalue);
-                if (eo == _EXEC_OUTPUT_INVALID) {
+                if (eo < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse output specifier, ignoring: %s", rvalue);
                         return 0;
                 }
         }
 
         if (streq(lvalue, "StandardOutput")) {
+                if (eo == EXEC_OUTPUT_NAMED_FD)
+                        free_and_replace(c->stdio_fdname[STDOUT_FILENO], resolved);
+                else
+                        free_and_replace(c->stdio_file[STDOUT_FILENO], resolved);
+
                 c->std_output = eo;
-                r = free_and_strdup(&c->stdio_fdname[STDOUT_FILENO], name);
-                if (r < 0)
-                        log_oom();
-                return r;
-        } else if (streq(lvalue, "StandardError")) {
-                c->std_error = eo;
-                r = free_and_strdup(&c->stdio_fdname[STDERR_FILENO], name);
-                if (r < 0)
-                        log_oom();
-                return r;
+
         } else {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse output property, ignoring: %s", lvalue);
-                return 0;
+                assert(streq(lvalue, "StandardError"));
+
+                if (eo == EXEC_OUTPUT_NAMED_FD)
+                        free_and_replace(c->stdio_fdname[STDERR_FILENO], resolved);
+                else
+                        free_and_replace(c->stdio_file[STDERR_FILENO], resolved);
+
+                c->std_error = eo;
         }
+
+        return 0;
 }
 
 int config_parse_exec_io_class(const char *unit,

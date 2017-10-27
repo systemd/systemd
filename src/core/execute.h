@@ -55,6 +55,7 @@ typedef enum ExecInput {
         EXEC_INPUT_SOCKET,
         EXEC_INPUT_NAMED_FD,
         EXEC_INPUT_DATA,
+        EXEC_INPUT_FILE,
         _EXEC_INPUT_MAX,
         _EXEC_INPUT_INVALID = -1
 } ExecInput;
@@ -71,6 +72,7 @@ typedef enum ExecOutput {
         EXEC_OUTPUT_JOURNAL_AND_CONSOLE,
         EXEC_OUTPUT_SOCKET,
         EXEC_OUTPUT_NAMED_FD,
+        EXEC_OUTPUT_FILE,
         _EXEC_OUTPUT_MAX,
         _EXEC_OUTPUT_INVALID = -1
 } ExecOutput;
@@ -165,6 +167,7 @@ struct ExecContext {
         ExecOutput std_output;
         ExecOutput std_error;
         char *stdio_fdname[3];
+        char *stdio_file[3];
 
         void *stdin_data;
         size_t stdin_data_size;

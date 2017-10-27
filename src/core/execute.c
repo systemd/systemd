@@ -390,6 +390,53 @@ static int open_terminal_as(const char *path, int flags, int nfd) {
         return move_fd(fd, nfd, false);
 }
 
+static int acquire_path(const char *path, int flags, mode_t mode) {
+        union sockaddr_union sa = {
+                .sa.sa_family = AF_UNIX,
+        };
+        int fd, r;
+
+        assert(path);
+
+        if (IN_SET(flags & O_ACCMODE, O_WRONLY, O_RDWR))
+                flags |= O_CREAT;
+
+        fd = open(path, flags|O_NOCTTY, mode);
+        if (fd >= 0)
+                return fd;
+
+        if (errno != ENXIO) /* ENXIO is returned when we try to open() an AF_UNIX file system socket on Linux */
+                return -errno;
+        if (strlen(path) > sizeof(sa.un.sun_path)) /* Too long, can't be a UNIX socket */
+                return -ENXIO;
+
+        /* So, it appears the specified path could be an AF_UNIX socket. Let's see if we can connect to it. */
+
+        fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        if (fd < 0)
+                return -errno;
+
+        strncpy(sa.un.sun_path, path, sizeof(sa.un.sun_path));
+        if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0) {
+                safe_close(fd);
+                return errno == EINVAL ? -ENXIO : -errno; /* Propagate initial error if we get EINVAL, i.e. we have
+                                                           * indication that his wasn't an AF_UNIX socket after all */
+        }
+
+        if ((flags & O_ACCMODE) == O_RDONLY)
+                r = shutdown(fd, SHUT_WR);
+        else if ((flags & O_ACCMODE) == O_WRONLY)
+                r = shutdown(fd, SHUT_RD);
+        else
+                return fd;
+        if (r < 0) {
+                safe_close(fd);
+                return -errno;
+        }
+
+        return fd;
+}
+
 static int fixup_input(
                 const ExecContext *context,
                 int socket_fd,
@@ -483,6 +530,22 @@ static int setup_input(
                 int fd;
 
                 fd = acquire_data_fd(context->stdin_data, context->stdin_data_size, 0);
+                if (fd < 0)
+                        return fd;
+
+                return move_fd(fd, STDIN_FILENO, false);
+        }
+
+        case EXEC_INPUT_FILE: {
+                bool rw;
+                int fd;
+
+                assert(context->stdio_file[STDIN_FILENO]);
+
+                rw = (context->std_output == EXEC_OUTPUT_FILE && streq_ptr(context->stdio_file[STDIN_FILENO], context->stdio_file[STDOUT_FILENO])) ||
+                        (context->std_error == EXEC_OUTPUT_FILE && streq_ptr(context->stdio_file[STDIN_FILENO], context->stdio_file[STDERR_FILENO]));
+
+                fd = acquire_path(context->stdio_file[STDIN_FILENO], rw ? O_RDWR : O_RDONLY, 0666 & ~context->umask);
                 if (fd < 0)
                         return fd;
 
@@ -624,6 +687,25 @@ static int setup_output(
 
                 (void) fd_nonblock(named_iofds[fileno], false);
                 return dup2(named_iofds[fileno], fileno) < 0 ? -errno : fileno;
+
+        case EXEC_OUTPUT_FILE: {
+                bool rw;
+                int fd;
+
+                assert(context->stdio_file[fileno]);
+
+                rw = context->std_input == EXEC_INPUT_FILE &&
+                        streq_ptr(context->stdio_file[fileno], context->stdio_file[STDIN_FILENO]);
+
+                if (rw)
+                        return dup2(STDIN_FILENO, fileno) < 0 ? -errno : fileno;
+
+                fd = acquire_path(context->stdio_file[fileno], O_WRONLY, 0666 & ~context->umask);
+                if (fd < 0)
+                        return fd;
+
+                return move_fd(fd, fileno, false);
+        }
 
         default:
                 assert_not_reached("Unknown error type");
@@ -3507,8 +3589,10 @@ void exec_context_done(ExecContext *c) {
         for (l = 0; l < ELEMENTSOF(c->rlimit); l++)
                 c->rlimit[l] = mfree(c->rlimit[l]);
 
-        for (l = 0; l < 3; l++)
+        for (l = 0; l < 3; l++) {
                 c->stdio_fdname[l] = mfree(c->stdio_fdname[l]);
+                c->stdio_file[l] = mfree(c->stdio_file[l]);
+        }
 
         c->working_directory = mfree(c->working_directory);
         c->root_directory = mfree(c->root_directory);
@@ -4648,6 +4732,7 @@ static const char* const exec_input_table[_EXEC_INPUT_MAX] = {
         [EXEC_INPUT_SOCKET] = "socket",
         [EXEC_INPUT_NAMED_FD] = "fd",
         [EXEC_INPUT_DATA] = "data",
+        [EXEC_INPUT_FILE] = "file",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_input, ExecInput);
@@ -4664,6 +4749,7 @@ static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
         [EXEC_OUTPUT_JOURNAL_AND_CONSOLE] = "journal+console",
         [EXEC_OUTPUT_SOCKET] = "socket",
         [EXEC_OUTPUT_NAMED_FD] = "fd",
+        [EXEC_OUTPUT_FILE] = "file",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_output, ExecOutput);
