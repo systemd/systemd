@@ -377,13 +377,13 @@ static int connect_logger_as(
 
         return move_fd(fd, nfd, false);
 }
-static int open_terminal_as(const char *path, mode_t mode, int nfd) {
+static int open_terminal_as(const char *path, int flags, int nfd) {
         int fd;
 
         assert(path);
         assert(nfd >= 0);
 
-        fd = open_terminal(path, mode | O_NOCTTY);
+        fd = open_terminal(path, flags | O_NOCTTY);
         if (fd < 0)
                 return fd;
 
