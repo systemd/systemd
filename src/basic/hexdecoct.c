@@ -96,7 +96,10 @@ int unhexmem(const char *p, size_t l, void **mem, size_t *len) {
 
         assert(mem);
         assert(len);
-        assert(p);
+        assert(p || l == 0);
+
+        if (l == (size_t) -1)
+                l = strlen(p);
 
         if (l % 2 != 0)
                 return -EINVAL;
@@ -159,6 +162,8 @@ char *base32hexmem(const void *p, size_t l, bool padding) {
         char *r, *z;
         const uint8_t *x;
         size_t len;
+
+        assert(p || l == 0);
 
         if (padding)
                 /* five input bytes makes eight output bytes, padding is added so we must round up */
@@ -269,7 +274,12 @@ int unbase32hexmem(const char *p, size_t l, bool padding, void **mem, size_t *_l
         size_t len;
         unsigned pad = 0;
 
-        assert(p);
+        assert(p || l == 0);
+        assert(mem);
+        assert(_len);
+
+        if (l == (size_t) -1)
+                l = strlen(p);
 
         /* padding ensures any base32hex input has input divisible by 8 */
         if (padding && l % 8 != 0)
@@ -519,6 +529,9 @@ ssize_t base64mem(const void *p, size_t l, char **out) {
         char *r, *z;
         const uint8_t *x;
 
+        assert(p || l == 0);
+        assert(out);
+
         /* three input bytes makes four output bytes, padding is added so we must round up */
         z = r = malloc(4 * (l + 2) / 3 + 1);
         if (!r)
@@ -554,10 +567,11 @@ ssize_t base64mem(const void *p, size_t l, char **out) {
         return z - r;
 }
 
-static int base64_append_width(char **prefix, int plen,
-                               const char *sep, int indent,
-                               const void *p, size_t l,
-                               int width) {
+static int base64_append_width(
+                char **prefix, int plen,
+                const char *sep, int indent,
+                const void *p, size_t l,
+                int width) {
 
         _cleanup_free_ char *x = NULL;
         char *t, *s;
@@ -596,17 +610,18 @@ static int base64_append_width(char **prefix, int plen,
         return 0;
 }
 
-int base64_append(char **prefix, int plen,
-                  const void *p, size_t l,
-                  int indent, int width) {
+int base64_append(
+                char **prefix, int plen,
+                const void *p, size_t l,
+                int indent, int width) {
+
         if (plen > width / 2 || plen + indent > width)
                 /* leave indent on the left, keep last column free */
                 return base64_append_width(prefix, plen, "\n", indent, p, l, width - indent - 1);
         else
                 /* leave plen on the left, keep last column free */
                 return base64_append_width(prefix, plen, NULL, plen, p, l, width - plen - 1);
-};
-
+}
 
 int unbase64mem(const char *p, size_t l, void **mem, size_t *_len) {
         _cleanup_free_ uint8_t *r = NULL;
@@ -615,7 +630,12 @@ int unbase64mem(const char *p, size_t l, void **mem, size_t *_len) {
         const char *x;
         size_t len;
 
-        assert(p);
+        assert(p || l == 0);
+        assert(mem);
+        assert(_len);
+
+        if (l == (size_t) -1)
+                l = strlen(p);
 
         /* padding ensures any base63 input has input divisible by 4 */
         if (l % 4 != 0)
@@ -659,6 +679,7 @@ int unbase64mem(const char *p, size_t l, void **mem, size_t *_len) {
         }
 
         switch (l % 4) {
+
         case 3:
                 a = unbase64char(x[0]);
                 if (a < 0)
