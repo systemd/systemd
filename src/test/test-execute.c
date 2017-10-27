@@ -468,6 +468,10 @@ static void test_exec_unset_environment(Manager *m) {
         test(m, "exec-unset-environment.service", 0, CLD_EXITED);
 }
 
+static void test_exec_specifier(Manager *m) {
+        test(m, "exec-specifier.service", 0, CLD_EXITED);
+}
+
 static int run_tests(UnitFileScope scope, const test_function_t *tests) {
         const test_function_t *test = NULL;
         Manager *m = NULL;
@@ -529,6 +533,7 @@ int main(int argc, char *argv[]) {
         static const test_function_t system_tests[] = {
                 test_exec_systemcall_system_mode_with_user,
                 test_exec_dynamic_user,
+                test_exec_specifier,
                 NULL,
         };
         int r;
