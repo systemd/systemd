@@ -390,12 +390,24 @@ static int open_terminal_as(const char *path, mode_t mode, int nfd) {
         return move_fd(fd, nfd, false);
 }
 
-static int fixup_input(ExecInput std_input, int socket_fd, bool apply_tty_stdin) {
+static int fixup_input(
+                const ExecContext *context,
+                int socket_fd,
+                bool apply_tty_stdin) {
+
+        ExecInput std_input;
+
+        assert(context);
+
+        std_input = context->std_input;
 
         if (is_terminal_input(std_input) && !apply_tty_stdin)
                 return EXEC_INPUT_NULL;
 
         if (std_input == EXEC_INPUT_SOCKET && socket_fd < 0)
+                return EXEC_INPUT_NULL;
+
+        if (std_input == EXEC_INPUT_DATA && context->stdin_data_size == 0)
                 return EXEC_INPUT_NULL;
 
         return std_input;
@@ -433,7 +445,7 @@ static int setup_input(
                 return STDIN_FILENO;
         }
 
-        i = fixup_input(context->std_input, socket_fd, params->flags & EXEC_APPLY_TTY_STDIN);
+        i = fixup_input(context, socket_fd, params->flags & EXEC_APPLY_TTY_STDIN);
 
         switch (i) {
 
@@ -462,6 +474,16 @@ static int setup_input(
         case EXEC_INPUT_NAMED_FD:
                 (void) fd_nonblock(named_iofds[STDIN_FILENO], false);
                 return dup2(named_iofds[STDIN_FILENO], STDIN_FILENO) < 0 ? -errno : STDIN_FILENO;
+
+        case EXEC_INPUT_DATA: {
+                int fd;
+
+                fd = acquire_data_fd(context->stdin_data, context->stdin_data_size, 0);
+                if (fd < 0)
+                        return fd;
+
+                return move_fd(fd, STDIN_FILENO, false);
+        }
 
         default:
                 assert_not_reached("Unknown input type");
@@ -507,7 +529,7 @@ static int setup_output(
                 return STDERR_FILENO;
         }
 
-        i = fixup_input(context->std_input, socket_fd, params->flags & EXEC_APPLY_TTY_STDIN);
+        i = fixup_input(context, socket_fd, params->flags & EXEC_APPLY_TTY_STDIN);
         o = fixup_output(context->std_output, socket_fd);
 
         if (fileno == STDERR_FILENO) {
@@ -536,8 +558,8 @@ static int setup_output(
                 if (i == EXEC_INPUT_NULL && is_terminal_input(context->std_input))
                         return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
 
-                /* If the input is connected to anything that's not a /dev/null, inherit that... */
-                if (i != EXEC_INPUT_NULL)
+                /* If the input is connected to anything that's not a /dev/null or a data fd, inherit that... */
+                if (!IN_SET(i, EXEC_INPUT_NULL, EXEC_INPUT_DATA))
                         return dup2(STDIN_FILENO, fileno) < 0 ? -errno : fileno;
 
                 /* If we are not started from PID 1 we just inherit STDOUT from our parent process. */
@@ -3517,6 +3539,9 @@ void exec_context_done(ExecContext *c) {
         c->log_level_max = -1;
 
         exec_context_free_log_extra_fields(c);
+
+        c->stdin_data = mfree(c->stdin_data);
+        c->stdin_data_size = 0;
 }
 
 int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_prefix) {
@@ -4608,6 +4633,7 @@ static const char* const exec_input_table[_EXEC_INPUT_MAX] = {
         [EXEC_INPUT_TTY_FAIL] = "tty-fail",
         [EXEC_INPUT_SOCKET] = "socket",
         [EXEC_INPUT_NAMED_FD] = "fd",
+        [EXEC_INPUT_DATA] = "data",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_input, ExecInput);

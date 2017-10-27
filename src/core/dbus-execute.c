@@ -34,6 +34,7 @@
 #include "execute.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "hexdecoct.h"
 #include "io-util.h"
 #include "ioprio.h"
 #include "journal-util.h"
@@ -730,6 +731,25 @@ static int property_get_output_fdname(
         return sd_bus_message_append(reply, "s", name);
 }
 
+static int property_get_input_data(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+
+        assert(bus);
+        assert(c);
+        assert(property);
+        assert(reply);
+
+        return sd_bus_message_append_array(reply, 'y', c->stdin_data, c->stdin_data_size);
+}
+
 static int property_get_bind_paths(
                 sd_bus *bus,
                 const char *path,
@@ -858,6 +878,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("NonBlocking", "b", bus_property_get_bool, offsetof(ExecContext, non_blocking), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StandardInput", "s", property_get_exec_input, offsetof(ExecContext, std_input), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StandardInputFileDescriptorName", "s", property_get_input_fdname, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("StandardInputData", "ay", property_get_input_data, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StandardOutput", "s", bus_property_get_exec_output, offsetof(ExecContext, std_output), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StandardOutputFileDescriptorName", "s", property_get_output_fdname, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StandardError", "s", bus_property_get_exec_output, offsetof(ExecContext, std_error), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1835,6 +1856,49 @@ int bus_exec_context_set_transient_property(
                                 if (r < 0)
                                         return r;
                                 unit_write_drop_in_private_format(u, mode, name, "StandardError=fd:%s", s);
+                        }
+                }
+
+                return 1;
+
+        } else if (streq(name, "StandardInputData")) {
+                const void *p;
+                size_t sz;
+
+                r = sd_bus_message_read_array(message, 'y', &p, &sz);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        _cleanup_free_ char *encoded = NULL;
+
+                        if (sz == 0) {
+                                c->stdin_data = mfree(c->stdin_data);
+                                c->stdin_data_size = 0;
+
+                                unit_write_drop_in_private(u, mode, name, "StandardInputData=");
+                        } else {
+                                void *q;
+                                ssize_t n;
+
+                                if (c->stdin_data_size + sz < c->stdin_data_size || /* check for overflow */
+                                    c->stdin_data_size + sz > EXEC_STDIN_DATA_MAX)
+                                        return -E2BIG;
+
+                                n = base64mem(p, sz, &encoded);
+                                if (n < 0)
+                                        return (int) n;
+
+                                q = realloc(c->stdin_data, c->stdin_data_size + sz);
+                                if (!q)
+                                        return -ENOMEM;
+
+                                memcpy((uint8_t*) q + c->stdin_data_size, p, sz);
+
+                                c->stdin_data = q;
+                                c->stdin_data_size += sz;
+
+                                unit_write_drop_in_private_format(u, mode, name, "StandardInputData=%s", encoded);
                         }
                 }
 

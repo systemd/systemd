@@ -41,6 +41,8 @@ $1.RemoveIPC,                    config_parse_bool,                  0,         
 $1.StandardInput,                config_parse_exec_input,            0,                             offsetof($1, exec_context)
 $1.StandardOutput,               config_parse_exec_output,           0,                             offsetof($1, exec_context)
 $1.StandardError,                config_parse_exec_output,           0,                             offsetof($1, exec_context)
+$1.StandardInputText,            config_parse_exec_input_text,       0,                             offsetof($1, exec_context)
+$1.StandardInputData,            config_parse_exec_input_data,       0,                             offsetof($1, exec_context)
 $1.TTYPath,                      config_parse_unit_path_printf,      0,                             offsetof($1, exec_context.tty_path)
 $1.TTYReset,                     config_parse_bool,                  0,                             offsetof($1, exec_context.tty_reset)
 $1.TTYVHangup,                   config_parse_bool,                  0,                             offsetof($1, exec_context.tty_vhangup)

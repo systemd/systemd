@@ -45,6 +45,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "hexdecoct.h"
 #include "io-util.h"
 #include "ioprio.h"
 #include "journal-util.h"
@@ -878,6 +879,131 @@ int config_parse_exec_input(
 
                 c->std_input = ei;
         }
+
+        return 0;
+}
+
+int config_parse_exec_input_text(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *unescaped = NULL, *resolved = NULL;
+        ExecContext *c = data;
+        Unit *u = userdata;
+        size_t sz;
+        void *p;
+        int r;
+
+        assert(data);
+        assert(filename);
+        assert(line);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                /* Reset if the empty string is assigned */
+                c->stdin_data = mfree(c->stdin_data);
+                c->stdin_data_size = 0;
+                return 0;
+        }
+
+        r = cunescape(rvalue, 0, &unescaped);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to decode C escaped text, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        r = unit_full_printf(u, unescaped, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve specifiers, ignoring: %s", unescaped);
+                return 0;
+        }
+
+        sz = strlen(resolved);
+        if (c->stdin_data_size + sz + 1 < c->stdin_data_size || /* check for overflow */
+            c->stdin_data_size + sz + 1 > EXEC_STDIN_DATA_MAX) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Standard input data too large (%zu), maximum of %zu permitted, ignoring.", c->stdin_data_size + sz, (size_t) EXEC_STDIN_DATA_MAX);
+                return 0;
+        }
+
+        p = realloc(c->stdin_data, c->stdin_data_size + sz + 1);
+        if (!p)
+                return log_oom();
+
+        *((char*) mempcpy((char*) p + c->stdin_data_size, resolved, sz)) = '\n';
+
+        c->stdin_data = p;
+        c->stdin_data_size += sz + 1;
+
+        return 0;
+}
+
+int config_parse_exec_input_data(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *cleaned = NULL;
+        _cleanup_free_ void *p = NULL;
+        ExecContext *c = data;
+        size_t sz;
+        void *q;
+        int r;
+
+        assert(data);
+        assert(filename);
+        assert(line);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                /* Reset if the empty string is assigned */
+                c->stdin_data = mfree(c->stdin_data);
+                c->stdin_data_size = 0;
+                return 0;
+        }
+
+        /* Be tolerant to whitespace. Remove it all before decoding */
+        cleaned = strdup(rvalue);
+        if (!cleaned)
+                return log_oom();
+        delete_chars(cleaned, WHITESPACE);
+
+        r = unbase64mem(cleaned, (size_t) -1, &p, &sz);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to decode base64 data, ignoring: %s", cleaned);
+                return 0;
+        }
+
+        assert(sz > 0);
+
+        if (c->stdin_data_size + sz < c->stdin_data_size || /* check for overflow */
+            c->stdin_data_size + sz > EXEC_STDIN_DATA_MAX) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Standard input data too large (%zu), maximum of %zu permitted, ignoring.", c->stdin_data_size + sz, (size_t) EXEC_STDIN_DATA_MAX);
+                return 0;
+        }
+
+        q = realloc(c->stdin_data, c->stdin_data_size + sz);
+        if (!q)
+                return log_oom();
+
+        memcpy((uint8_t*) q + c->stdin_data_size, p, sz);
+
+        c->stdin_data = q;
+        c->stdin_data_size += sz;
 
         return 0;
 }

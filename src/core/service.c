@@ -591,10 +591,8 @@ static int service_add_default_dependencies(Service *s) {
 static void service_fix_output(Service *s) {
         assert(s);
 
-        /* If nothing has been explicitly configured, patch default
-         * output in. If input is socket/tty we avoid this however,
-         * since in that case we want output to default to the same
-         * place as we read input from. */
+        /* If nothing has been explicitly configured, patch default output in. If input is socket/tty we avoid this
+         * however, since in that case we want output to default to the same place as we read input from. */
 
         if (s->exec_context.std_error == EXEC_OUTPUT_INHERIT &&
             s->exec_context.std_output == EXEC_OUTPUT_INHERIT &&
@@ -604,6 +602,10 @@ static void service_fix_output(Service *s) {
         if (s->exec_context.std_output == EXEC_OUTPUT_INHERIT &&
             s->exec_context.std_input == EXEC_INPUT_NULL)
                 s->exec_context.std_output = UNIT(s)->manager->default_std_output;
+
+        if (s->exec_context.std_input == EXEC_INPUT_NULL &&
+            s->exec_context.stdin_data_size > 0)
+                s->exec_context.std_input = EXEC_INPUT_DATA;
 }
 
 static int service_setup_bus_name(Service *s) {

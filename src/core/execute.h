@@ -37,6 +37,8 @@ typedef struct ExecParameters ExecParameters;
 #include "namespace.h"
 #include "nsflags.h"
 
+#define EXEC_STDIN_DATA_MAX (64U*1024U*1024U)
+
 typedef enum ExecUtmpMode {
         EXEC_UTMP_INIT,
         EXEC_UTMP_LOGIN,
@@ -52,6 +54,7 @@ typedef enum ExecInput {
         EXEC_INPUT_TTY_FAIL,
         EXEC_INPUT_SOCKET,
         EXEC_INPUT_NAMED_FD,
+        EXEC_INPUT_DATA,
         _EXEC_INPUT_MAX,
         _EXEC_INPUT_INVALID = -1
 } ExecInput;
@@ -162,6 +165,9 @@ struct ExecContext {
         ExecOutput std_output;
         ExecOutput std_error;
         char *stdio_fdname[3];
+
+        void *stdin_data;
+        size_t stdin_data_size;
 
         nsec_t timer_slack_nsec;
 

@@ -28,6 +28,7 @@
 #include "errno-list.h"
 #include "escape.h"
 #include "hashmap.h"
+#include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
 #include "list.h"
@@ -273,6 +274,34 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 r = sd_bus_message_append(m, "sv", "TasksMax", "t", t);
                 goto finish;
+
+        } else if (streq(field, "StandardInputText")) {
+                _cleanup_free_ char *unescaped = NULL;
+
+                r = cunescape(eq, 0, &unescaped);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to unescape text '%s': %m", eq);
+
+                if (!strextend(&unescaped, "\n", NULL))
+                        return log_oom();
+
+                /* Note that we don't expand specifiers here, but that should be OK, as this is a programmatic
+                 * interface anyway */
+
+                r = sd_bus_message_append(m, "s", "StandardInputData");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, 'v', "ay");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_array(m, 'y', unescaped, strlen(unescaped));
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+                goto finish;
         }
 
         r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
@@ -366,7 +395,32 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                               "KeyringMode", "CollectMode"))
                 r = sd_bus_message_append(m, "v", "s", eq);
 
-        else if (STR_IN_SET(field, "AppArmorProfile", "SmackProcessLabel")) {
+        else if (streq(field, "StandardInputData")) {
+                _cleanup_free_ char *cleaned = NULL;
+                _cleanup_free_ void *decoded = NULL;
+                size_t sz;
+
+                cleaned = strdup(eq);
+                if (!cleaned)
+                        return log_oom();
+
+                delete_chars(cleaned, WHITESPACE);
+
+                r = unbase64mem(cleaned, (size_t) -1, &decoded, &sz);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to decode base64 data '%s': %m", cleaned);
+
+                r = sd_bus_message_open_container(m, 'v', "ay");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_array(m, 'y', decoded, sz);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+
+        } else if (STR_IN_SET(field, "AppArmorProfile", "SmackProcessLabel")) {
                 bool ignore;
                 const char *s;
 
