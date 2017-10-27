@@ -4035,6 +4035,20 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 prefix, exec_output_to_string(c->std_output),
                 prefix, exec_output_to_string(c->std_error));
 
+        if (c->std_input == EXEC_INPUT_NAMED_FD)
+                fprintf(f, "%sStandardInputFileDescriptorName: %s\n", prefix, c->stdio_fdname[STDIN_FILENO]);
+        if (c->std_output == EXEC_OUTPUT_NAMED_FD)
+                fprintf(f, "%sStandardOutputFileDescriptorName: %s\n", prefix, c->stdio_fdname[STDOUT_FILENO]);
+        if (c->std_error == EXEC_OUTPUT_NAMED_FD)
+                fprintf(f, "%sStandardErrorFileDescriptorName: %s\n", prefix, c->stdio_fdname[STDERR_FILENO]);
+
+        if (c->std_input == EXEC_INPUT_FILE)
+                fprintf(f, "%sStandardInputFile: %s\n", prefix, c->stdio_file[STDIN_FILENO]);
+        if (c->std_output == EXEC_OUTPUT_FILE)
+                fprintf(f, "%sStandardOutputFile: %s\n", prefix, c->stdio_file[STDOUT_FILENO]);
+        if (c->std_error == EXEC_OUTPUT_FILE)
+                fprintf(f, "%sStandardErrorFile: %s\n", prefix, c->stdio_file[STDERR_FILENO]);
+
         if (c->tty_path)
                 fprintf(f,
                         "%sTTYPath: %s\n"
