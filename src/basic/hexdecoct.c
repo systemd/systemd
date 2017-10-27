@@ -737,7 +737,10 @@ void hexdump(FILE *f, const void *p, size_t s) {
         const uint8_t *b = p;
         unsigned n = 0;
 
-        assert(s == 0 || b);
+        assert(b || s == 0);
+
+        if (!f)
+                f = stdout;
 
         while (s > 0) {
                 size_t i;
