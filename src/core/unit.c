@@ -4460,7 +4460,7 @@ int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) 
 
         path_kill_slashes(p);
 
-        if (!path_is_safe(p)) {
+        if (!path_is_normalized(p)) {
                 free(p);
                 return -EPERM;
         }

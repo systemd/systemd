@@ -382,7 +382,7 @@ int unit_name_path_escape(const char *f, char **ret) {
         if (STR_IN_SET(p, "/", ""))
                 s = strdup("-");
         else {
-                if (!path_is_safe(p))
+                if (!path_is_normalized(p))
                         return -EINVAL;
 
                 /* Truncate trailing slashes */
@@ -432,7 +432,7 @@ int unit_name_path_unescape(const char *f, char **ret) {
                 if (!s)
                         return -ENOMEM;
 
-                if (!path_is_safe(s)) {
+                if (!path_is_normalized(s)) {
                         free(s);
                         return -EINVAL;
                 }

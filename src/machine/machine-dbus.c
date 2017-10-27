@@ -854,12 +854,12 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        if (!path_is_absolute(src) || !path_is_safe(src))
+        if (!path_is_absolute(src) || !path_is_normalized(src))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute and not contain ../.");
 
         if (isempty(dest))
                 dest = src;
-        else if (!path_is_absolute(dest) || !path_is_safe(dest))
+        else if (!path_is_absolute(dest) || !path_is_normalized(dest))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute and not contain ../.");
 
         r = bus_verify_polkit_async(

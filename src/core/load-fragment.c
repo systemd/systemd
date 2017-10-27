@@ -886,7 +886,7 @@ int config_parse_exec_input(
                         return -EINVAL;
                 }
 
-                if (!path_is_safe(resolved)) {
+                if (!path_is_normalized(resolved)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "file: requires a normalized path name: %s", resolved);
                         return -EINVAL;
                 }
@@ -1077,7 +1077,7 @@ int config_parse_exec_output(
                         return -EINVAL;
                 }
 
-                if (!path_is_safe(resolved)) {
+                if (!path_is_normalized(resolved)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "file: requires a normalized path name, ignoring: %s", resolved);
                         return -EINVAL;
                 }
@@ -4050,7 +4050,7 @@ int config_parse_exec_directories(
                         continue;
                 }
 
-                if (!path_is_safe(k) || path_is_absolute(k)) {
+                if (!path_is_normalized(k) || path_is_absolute(k)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0,
                                    "%s= path is not valid, ignoring assignment: %s", lvalue, rvalue);
                         continue;

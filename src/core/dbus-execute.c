@@ -1862,7 +1862,7 @@ int bus_exec_context_set_transient_property(
 
                 if (!path_is_absolute(s))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not absolute", s);
-                if (!path_is_safe(s))
+                if (!path_is_normalized(s))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not normalized", s);
 
                 if (mode != UNIT_CHECK) {
@@ -2462,7 +2462,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 STRV_FOREACH(p, l) {
-                        if (!path_is_safe(*p) || path_is_absolute(*p))
+                        if (!path_is_normalized(*p) || path_is_absolute(*p))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= path is not valid: %s", name, *p);
                 }
 

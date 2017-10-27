@@ -721,7 +721,7 @@ bool filename_is_valid(const char *p) {
         return true;
 }
 
-bool path_is_safe(const char *p) {
+bool path_is_normalized(const char *p) {
 
         if (isempty(p))
                 return false;
@@ -735,7 +735,6 @@ bool path_is_safe(const char *p) {
         if (strlen(p)+1 > PATH_MAX)
                 return false;
 
-        /* The following two checks are not really dangerous, but hey, they still are confusing */
         if (startswith(p, "./") || endswith(p, "/.") || strstr(p, "/./"))
                 return false;
 
