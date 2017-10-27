@@ -3616,18 +3616,25 @@ const char* exec_context_fdname(const ExecContext *c, int fd_index) {
         assert(c);
 
         switch (fd_index) {
+
         case STDIN_FILENO:
                 if (c->std_input != EXEC_INPUT_NAMED_FD)
                         return NULL;
+
                 return c->stdio_fdname[STDIN_FILENO] ?: "stdin";
+
         case STDOUT_FILENO:
                 if (c->std_output != EXEC_OUTPUT_NAMED_FD)
                         return NULL;
+
                 return c->stdio_fdname[STDOUT_FILENO] ?: "stdout";
+
         case STDERR_FILENO:
                 if (c->std_error != EXEC_OUTPUT_NAMED_FD)
                         return NULL;
+
                 return c->stdio_fdname[STDERR_FILENO] ?: "stderr";
+
         default:
                 return NULL;
         }
