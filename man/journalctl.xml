@@ -385,6 +385,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--output-fields=</option></term>
+
+        <listitem><para>A comma separated list of the fields which should
+        be included in the output. This only has an effect for the output modes
+        which would normally show all fields (<option>verbose</option>,
+        <option>export</option>, <option>json</option>,
+        <option>json-pretty</option>, and <option>json-sse</option>). The
+        <literal>__CURSOR</literal>, <literal>__REALTIME_TIMESTAMP</literal>,
+        <literal>__MONOTONIC_TIMESTAMP</literal>, and
+        <literal>_BOOT_ID</literal> fields are always
+        printed.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--utc</option></term>
 
         <listitem><para>Express time in Coordinated Universal Time
