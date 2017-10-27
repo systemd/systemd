@@ -26,8 +26,10 @@
 
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "macro.h"
+#include "memfd-util.h"
 #include "missing.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -420,4 +422,159 @@ int move_fd(int from, int to, int cloexec) {
         safe_close(from);
 
         return to;
+}
+
+int acquire_data_fd(const void *data, size_t size, unsigned flags) {
+
+        char procfs_path[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        _cleanup_close_pair_ int pipefds[2] = { -1, -1 };
+        char pattern[] = "/dev/shm/data-fd-XXXXXX";
+        _cleanup_close_ int fd = -1;
+        int isz = 0, r;
+        ssize_t n;
+        off_t f;
+
+        assert(data || size == 0);
+
+        /* Acquire a read-only file descriptor that when read from returns the specified data. This is much more
+         * complex than I wish it was. But here's why:
+         *
+         * a) First we try to use memfds. They are the best option, as we can seal them nicely to make them
+         *    read-only. Unfortunately they require kernel 3.17, and – at the time of writing – we still support 3.14.
+         *
+         * b) Then, we try classic pipes. They are the second best options, as we can close the writing side, retaining
+         *    a nicely read-only fd in the reading side. However, they are by default quite small, and unprivileged
+         *    clients can only bump their size to a system-wide limit, which might be quite low.
+         *
+         * c) Then, we try an O_TMPFILE file in /dev/shm (that dir is the only suitable one known to exist from
+         *    earliest boot on). To make it read-only we open the fd a second time with O_RDONLY via
+         *    /proc/self/<fd>. Unfortunately O_TMPFILE is not available on older kernels on tmpfs.
+         *
+         * d) Finally, we try creating a regular file in /dev/shm, which we then delete.
+         *
+         * It sucks a bit that depending on the situation we return very different objects here, but that's Linux I
+         * figure. */
+
+        if (size == 0 && ((flags & ACQUIRE_NO_DEV_NULL) == 0)) {
+                /* As a special case, return /dev/null if we have been called for an empty data block */
+                r = open("/dev/null", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (r < 0)
+                        return -errno;
+
+                return r;
+        }
+
+        if ((flags & ACQUIRE_NO_MEMFD) == 0) {
+                fd = memfd_new("data-fd");
+                if (fd < 0)
+                        goto try_pipe;
+
+                n = write(fd, data, size);
+                if (n < 0)
+                        return -errno;
+                if ((size_t) n != size)
+                        return -EIO;
+
+                f = lseek(fd, 0, SEEK_SET);
+                if (f != 0)
+                        return -errno;
+
+                r = memfd_set_sealed(fd);
+                if (r < 0)
+                        return r;
+
+                r = fd;
+                fd = -1;
+
+                return r;
+        }
+
+try_pipe:
+        if ((flags & ACQUIRE_NO_PIPE) == 0) {
+                if (pipe2(pipefds, O_CLOEXEC|O_NONBLOCK) < 0)
+                        return -errno;
+
+                isz = fcntl(pipefds[1], F_GETPIPE_SZ, 0);
+                if (isz < 0)
+                        return -errno;
+
+                if ((size_t) isz < size) {
+                        isz = (int) size;
+                        if (isz < 0 || (size_t) isz != size)
+                                return -E2BIG;
+
+                        /* Try to bump the pipe size */
+                        (void) fcntl(pipefds[1], F_SETPIPE_SZ, isz);
+
+                        /* See if that worked */
+                        isz = fcntl(pipefds[1], F_GETPIPE_SZ, 0);
+                        if (isz < 0)
+                                return -errno;
+
+                        if ((size_t) isz < size)
+                                goto try_dev_shm;
+                }
+
+                n = write(pipefds[1], data, size);
+                if (n < 0)
+                        return -errno;
+                if ((size_t) n != size)
+                        return -EIO;
+
+                (void) fd_nonblock(pipefds[0], false);
+
+                r = pipefds[0];
+                pipefds[0] = -1;
+
+                return r;
+        }
+
+try_dev_shm:
+        if ((flags & ACQUIRE_NO_TMPFILE) == 0) {
+                fd = open("/dev/shm", O_RDWR|O_TMPFILE|O_CLOEXEC, 0500);
+                if (fd < 0)
+                        goto try_dev_shm_without_o_tmpfile;
+
+                n = write(fd, data, size);
+                if (n < 0)
+                        return -errno;
+                if ((size_t) n != size)
+                        return -EIO;
+
+                /* Let's reopen the thing, in order to get an O_RDONLY fd for the original O_RDWR one */
+                xsprintf(procfs_path, "/proc/self/fd/%i", fd);
+                r = open(procfs_path, O_RDONLY|O_CLOEXEC);
+                if (r < 0)
+                        return -errno;
+
+                return r;
+        }
+
+try_dev_shm_without_o_tmpfile:
+        if ((flags & ACQUIRE_NO_REGULAR) == 0) {
+                fd = mkostemp_safe(pattern);
+                if (fd < 0)
+                        return fd;
+
+                n = write(fd, data, size);
+                if (n < 0) {
+                        r = -errno;
+                        goto unlink_and_return;
+                }
+                if ((size_t) n != size) {
+                        r = -EIO;
+                        goto unlink_and_return;
+                }
+
+                /* Let's reopen the thing, in order to get an O_RDONLY fd for the original O_RDWR one */
+                r = open(pattern, O_RDONLY|O_CLOEXEC);
+                if (r < 0)
+                        r = -errno;
+
+        unlink_and_return:
+                (void) unlink(pattern);
+                return r;
+        }
+
+        return -EOPNOTSUPP;
 }
