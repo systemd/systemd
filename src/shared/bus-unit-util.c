@@ -323,10 +323,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 uint64_t u;
 
                 r = cg_weight_parse(eq, &u);
-                if (r < 0) {
-                        log_error("Failed to parse %s value %s.", field, eq);
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s value %s: %m", field, eq);
 
                 r = sd_bus_message_append(m, "v", "t", u);
 
@@ -334,10 +332,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 uint64_t u;
 
                 r = cg_cpu_shares_parse(eq, &u);
-                if (r < 0) {
-                        log_error("Failed to parse %s value %s.", field, eq);
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s value %s: %m", field, eq);
 
                 r = sd_bus_message_append(m, "v", "t", u);
 
@@ -345,10 +341,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 uint64_t u;
 
                 r = cg_weight_parse(eq, &u);
-                if (r < 0) {
-                        log_error("Failed to parse %s value %s.", field, eq);
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s value %s: %m", field, eq);
 
                 r = sd_bus_message_append(m, "v", "t", u);
 
@@ -356,10 +350,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 uint64_t u;
 
                 r = cg_blkio_weight_parse(eq, &u);
-                if (r < 0) {
-                        log_error("Failed to parse %s value %s.", field, eq);
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s value %s: %m", field, eq);
 
                 r = sd_bus_message_append(m, "v", "t", u);
 
@@ -413,10 +405,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
         } else if (streq(field, "SecureBits")) {
 
                 r = secure_bits_from_string(eq);
-                if (r < 0) {
-                        log_error("Failed to parse %s value %s.", field, eq);
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s value %s: %m", field, eq);
 
                 r = sd_bus_message_append(m, "v", "i", r);
 
@@ -432,10 +422,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 }
 
                 r = capability_set_from_string(p, &sum);
-                if (r < 0) {
-                        log_error("Failed to parse %s value %s.", field, eq);
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s value %s: %m", field, eq);
 
                 sum = invert ? ~sum : sum;
 
@@ -491,10 +479,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                                 bytes = CGROUP_LIMIT_MAX;
                         } else {
                                 r = parse_size(bandwidth, 1000, &bytes);
-                                if (r < 0) {
-                                        log_error("Failed to parse byte value %s.", bandwidth);
-                                        return -EINVAL;
-                                }
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse byte value %s: %m", bandwidth);
                         }
 
                         r = sd_bus_message_append(m, "v", "a(st)", 1, path, bytes);
@@ -523,10 +509,9 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         }
 
                         r = safe_atou64(weight, &u);
-                        if (r < 0) {
-                                log_error("Failed to parse %s value %s.", field, weight);
-                                return -EINVAL;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse %s value %s: %m", field, weight);
+
                         r = sd_bus_message_append(m, "v", "a(st)", 1, path, u);
                 }
 
@@ -857,10 +842,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         _cleanup_free_ char *word = NULL;
 
                         r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE);
-                        if (r < 0) {
-                                log_error("Failed to parse Environment value %s", eq);
-                                return -EINVAL;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse Environment value %s: %m", eq);
                         if (r == 0)
                                 break;
 
@@ -907,20 +890,16 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 nsec_t n;
 
                 r = parse_nsec(eq, &n);
-                if (r < 0) {
-                        log_error("Failed to parse %s value %s", field, eq);
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s value %s: %m", field, eq);
 
                 r = sd_bus_message_append(m, "v", "t", n);
         } else if (streq(field, "OOMScoreAdjust")) {
                 int oa;
 
                 r = safe_atoi(eq, &oa);
-                if (r < 0) {
-                        log_error("Failed to parse %s value %s", field, eq);
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s value %s: %m", field, eq);
 
                 if (!oom_score_adjust_is_valid(oa)) {
                         log_error("OOM score adjust value out of range");
@@ -945,10 +924,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         size_t offset;
 
                         r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
-                        if (r < 0) {
-                                log_error("Failed to parse %s value %s", field, eq);
-                                return -EINVAL;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse %s value %s: %m", field, eq);
                         if (r == 0)
                                 break;
 
@@ -993,10 +970,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         _cleanup_free_ char *word = NULL;
 
                         r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
-                        if (r < 0) {
-                                log_error("Failed to parse %s value %s", field, eq);
-                                return -EINVAL;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse %s value %s: %m", field, eq);
                         if (r == 0)
                                 break;
 
