@@ -469,9 +469,13 @@ static int setup_input(
         }
 
         case EXEC_INPUT_SOCKET:
+                assert(socket_fd >= 0);
+
                 return dup2(socket_fd, STDIN_FILENO) < 0 ? -errno : STDIN_FILENO;
 
         case EXEC_INPUT_NAMED_FD:
+                assert(named_iofds[STDIN_FILENO] >= 0);
+
                 (void) fd_nonblock(named_iofds[STDIN_FILENO], false);
                 return dup2(named_iofds[STDIN_FILENO], STDIN_FILENO) < 0 ? -errno : STDIN_FILENO;
 
@@ -612,9 +616,12 @@ static int setup_output(
 
         case EXEC_OUTPUT_SOCKET:
                 assert(socket_fd >= 0);
+
                 return dup2(socket_fd, fileno) < 0 ? -errno : fileno;
 
         case EXEC_OUTPUT_NAMED_FD:
+                assert(named_iofds[fileno] >= 0);
+
                 (void) fd_nonblock(named_iofds[fileno], false);
                 return dup2(named_iofds[fileno], fileno) < 0 ? -errno : fileno;
 
