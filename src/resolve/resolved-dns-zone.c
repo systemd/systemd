@@ -619,6 +619,10 @@ int dns_zone_check_conflicts(DnsZone *zone, DnsResourceRecord *rr) {
         if (dns_zone_get(zone, rr))
                 return 0;
 
+        /* No conflict if it is DNS-SD RR used for service enumeration. */
+        if (dns_resource_key_is_dnssd_ptr(rr->key))
+                return 0;
+
         /* OK, somebody else has RRs for the same name. Yuck! Let's
          * start probing again */
 
