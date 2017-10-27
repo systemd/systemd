@@ -832,8 +832,6 @@ int config_parse_socket_bindtodevice(
         return 0;
 }
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_output, exec_output, ExecOutput, "Failed to parse output literal specifier");
-
 int config_parse_exec_input(
                 const char *unit,
                 const char *filename,

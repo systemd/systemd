@@ -571,6 +571,40 @@ static int config_parse_show_status(
         return 0;
 }
 
+static int config_parse_output_restricted(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecOutput t, *eo = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        t = exec_output_from_string(rvalue);
+        if (t < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse output type, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (IN_SET(t, EXEC_OUTPUT_SOCKET, EXEC_OUTPUT_NAMED_FD, EXEC_OUTPUT_FILE)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Standard output types socket, fd:, file: are not supported as defaults, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        *eo = t;
+        return 0;
+}
+
 static int config_parse_crash_chvt(
                 const char* unit,
                 const char *filename,
@@ -722,8 +756,8 @@ static int parse_config_file(void) {
 #endif
                 { "Manager", "TimerSlackNSec",            config_parse_nsec,             0, &arg_timer_slack_nsec                  },
                 { "Manager", "DefaultTimerAccuracySec",   config_parse_sec,              0, &arg_default_timer_accuracy_usec       },
-                { "Manager", "DefaultStandardOutput",     config_parse_output,           0, &arg_default_std_output                },
-                { "Manager", "DefaultStandardError",      config_parse_output,           0, &arg_default_std_error                 },
+                { "Manager", "DefaultStandardOutput",     config_parse_output_restricted,0, &arg_default_std_output                },
+                { "Manager", "DefaultStandardError",      config_parse_output_restricted,0, &arg_default_std_error                 },
                 { "Manager", "DefaultTimeoutStartSec",    config_parse_sec,              0, &arg_default_timeout_start_usec        },
                 { "Manager", "DefaultTimeoutStopSec",     config_parse_sec,              0, &arg_default_timeout_stop_usec         },
                 { "Manager", "DefaultRestartSec",         config_parse_sec,              0, &arg_default_restart_usec              },
