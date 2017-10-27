@@ -927,7 +927,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         mount_tmp_created = true;
 
         if (mount(src, mount_tmp, NULL, MS_BIND, NULL) < 0) {
-                r = sd_bus_error_set_errnof(error, errno, "Failed to overmount %s: %m", mount_tmp);
+                r = sd_bus_error_set_errnof(error, errno, "Failed to overmount %s: %m", src);
                 goto finish;
         }
 
