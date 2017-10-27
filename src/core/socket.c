@@ -820,7 +820,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
 
                         r = socket_address_print(&p->address, &k);
                         if (r < 0)
-                                t = strerror(-r);
+                                t = strerror(r);
                         else
                                 t = k;
 
