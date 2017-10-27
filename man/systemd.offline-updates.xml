@@ -170,7 +170,6 @@
     <title>See also</title>
 
     <para>
-      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/SystemUpdates/">Implementing Offline System Updates</ulink>,
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-system-update-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
