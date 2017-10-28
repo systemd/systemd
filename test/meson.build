@@ -81,6 +81,7 @@ test_data_files = '''
         test-execute/exec-protectkernelmodules-yes-mount-propagation.service
         test-execute/exec-read-only-path-succeed.service
         test-execute/exec-readonlypaths-mount-propagation.service
+        test-execute/exec-readonlypaths-with-bindpaths.service
         test-execute/exec-readonlypaths.service
         test-execute/exec-readwritepaths-mount-propagation.service
         test-execute/exec-restrict-namespaces-mnt-blacklist.service

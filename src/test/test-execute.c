@@ -225,6 +225,7 @@ static void test_exec_readonlypaths(Manager *m) {
 
         test(m, "exec-readonlypaths.service", 0, CLD_EXITED);
         test(m, "exec-readonlypaths-mount-propagation.service", 0, CLD_EXITED);
+        test(m, "exec-readonlypaths-with-bindpaths.service", 0, CLD_EXITED);
 }
 
 static void test_exec_readwritepaths(Manager *m) {
