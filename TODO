@@ -35,6 +35,10 @@ Features:
   the quota of a the user indicated in User= via unit file settings, like the
   other resource management concepts. Would mix nicely with DynamicUser=1
 
+* add dissect_image_warn() as a wrapper around dissect_image() that prints
+  friendly log messages for the returned errors, so that we don't have to
+  duplicate that in nspawn, systemd-dissect and PID 1.
+
 * maybe set a new set of env vars for services, based on RuntimeDirectory=,
   StateDirectory=, LogsDirectory=, CacheDirectory= and ConfigurationDirectory=
   automatically. For example, there could be $RUNTIME_DIRECTORY,

@@ -266,18 +266,34 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                         return -EIO;
                 }
                 if (n < z + 1) {
-                        unsigned j;
+                        unsigned j = 0;
 
                         /* The kernel has probed fewer partitions than blkid? Maybe the kernel prober is still running
                          * or it got EBUSY because udev already opened the device. Let's reprobe the device, which is a
                          * synchronous call that waits until probing is complete. */
 
-                        for (j = 0; j < 20; j++) {
+                        for (;;) {
+                                if (j++ > 20)
+                                        return -EBUSY;
 
-                                r = ioctl(fd, BLKRRPART, 0);
-                                if (r < 0)
+                                if (ioctl(fd, BLKRRPART, 0) < 0) {
                                         r = -errno;
-                                if (r >= 0 || r != -EBUSY)
+
+                                        if (r == -EINVAL) {
+                                                struct loop_info64 info;
+
+                                                /* If we are running on a loop device that has partition scanning off,
+                                                 * return an explicit recognizable error about this, so that callers
+                                                 * can generate a proper message explaining the situation. */
+
+                                                if (ioctl(fd, LOOP_GET_STATUS64, &info) >= 0 && (info.lo_flags & LO_FLAGS_PARTSCAN) == 0) {
+                                                        log_debug("Device is loop device and partition scanning is off!");
+                                                        return -EPROTONOSUPPORT;
+                                                }
+                                        }
+                                        if (r != -EBUSY)
+                                                return r;
+                                } else
                                         break;
 
                                 /* If something else has the device open, such as an udev rule, the ioctl will return
@@ -286,11 +302,8 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                                  *
                                  * This is really something they should fix in the kernel! */
 
-                                usleep(50 * USEC_PER_MSEC);
+                                (void) usleep(50 * USEC_PER_MSEC);
                         }
-
-                        if (r < 0)
-                                return r;
                 }
 
                 e = udev_enumerate_unref(e);

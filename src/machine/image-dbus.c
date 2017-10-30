@@ -431,6 +431,7 @@ int bus_image_method_get_os_release(
                 break;
 
         case IMAGE_RAW:
+        case IMAGE_BLOCK:
                 r = raw_image_get_os_release(image, &v, error);
                 break;
 

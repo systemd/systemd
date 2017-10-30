@@ -2089,7 +2089,7 @@ static int determine_names(void) {
                                 return -ENOENT;
                         }
 
-                        if (i->type == IMAGE_RAW)
+                        if (IN_SET(i->type, IMAGE_RAW, IMAGE_BLOCK))
                                 r = free_and_strdup(&arg_image, i->path);
                         else
                                 r = free_and_strdup(&arg_directory, i->path);
@@ -3881,6 +3881,10 @@ int main(int argc, char *argv[]) {
                 }
                 if (r == -EOPNOTSUPP) {
                         log_error_errno(r, "--image= is not supported, compiled without blkid support.");
+                        goto finish;
+                }
+                if (r == -EPROTONOSUPPORT) {
+                        log_error_errno(r, "Device is loopback block device with partition scanning turned off, please turn it on.");
                         goto finish;
                 }
                 if (r < 0) {
