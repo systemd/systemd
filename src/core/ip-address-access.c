@@ -114,7 +114,7 @@ int config_parse_ip_address_access(
 
                         a->family = AF_INET6;
                         a->address.in6 = (struct in6_addr) {
-                                .__in6_u.__u6_addr32[0] = htobe32(0xfe800000)
+                                .s6_addr32[0] = htobe32(0xfe800000)
                         };
                         a->prefixlen = 64;
 
@@ -133,7 +133,7 @@ int config_parse_ip_address_access(
 
                         a->family = AF_INET6;
                         a->address.in6 = (struct in6_addr) {
-                                .__in6_u.__u6_addr32[0] = htobe32(0xff000000)
+                                .s6_addr32[0] = htobe32(0xff000000)
                         };
                         a->prefixlen = 8;
 
