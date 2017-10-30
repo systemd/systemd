@@ -216,6 +216,7 @@ void *sd_bus_slot_get_current_userdata(sd_bus_slot *slot);
 
 /* Message object */
 
+int sd_bus_message_new(sd_bus *bus, sd_bus_message **m, uint8_t type);
 int sd_bus_message_new_signal(sd_bus *bus, sd_bus_message **m, const char *path, const char *interface, const char *member);
 int sd_bus_message_new_method_call(sd_bus *bus, sd_bus_message **m, const char *destination, const char *path, const char *interface, const char *member);
 int sd_bus_message_new_method_return(sd_bus_message *call, sd_bus_message **m);
@@ -226,6 +227,8 @@ int sd_bus_message_new_method_errnof(sd_bus_message *call, sd_bus_message **m, i
 
 sd_bus_message* sd_bus_message_ref(sd_bus_message *m);
 sd_bus_message* sd_bus_message_unref(sd_bus_message *m);
+
+int sd_bus_message_seal(sd_bus_message *m, uint64_t cookie, uint64_t timeout_usec);
 
 int sd_bus_message_get_type(sd_bus_message *m, uint8_t *type);
 int sd_bus_message_get_cookie(sd_bus_message *m, uint64_t *cookie);

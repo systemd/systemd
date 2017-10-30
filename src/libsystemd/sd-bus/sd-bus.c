@@ -1412,7 +1412,7 @@ static int bus_seal_message(sd_bus *b, sd_bus_message *m, usec_t timeout) {
         if (timeout == 0)
                 timeout = BUS_DEFAULT_TIMEOUT;
 
-        return bus_message_seal(m, ++b->cookie, timeout);
+        return sd_bus_message_seal(m, ++b->cookie, timeout);
 }
 
 static int bus_remarshal_message(sd_bus *b, sd_bus_message **m) {
@@ -1452,7 +1452,7 @@ int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m) {
          * pick a fixed, artificial one. We use (uint32_t) -1 rather
          * than (uint64_t) -1 since dbus1 only had 32bit identifiers,
          * even though kdbus can do 64bit. */
-        return bus_message_seal(m, 0xFFFFFFFFULL, 0);
+        return sd_bus_message_seal(m, 0xFFFFFFFFULL, 0);
 }
 
 static int bus_write_message(sd_bus *bus, sd_bus_message *m, bool hint_sync_call, size_t *idx) {

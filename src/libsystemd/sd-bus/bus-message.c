@@ -573,28 +573,35 @@ fail:
         return r;
 }
 
-static sd_bus_message *message_new(sd_bus *bus, uint8_t type) {
-        sd_bus_message *m;
+_public_ int sd_bus_message_new(
+                sd_bus *bus,
+                sd_bus_message **m,
+                uint8_t type) {
 
-        assert(bus);
+        sd_bus_message *t;
 
-        m = malloc0(ALIGN(sizeof(sd_bus_message)) + sizeof(struct bus_header));
-        if (!m)
-                return NULL;
+        assert_return(bus, -ENOTCONN);
+        assert_return(bus->state != BUS_UNSET, -ENOTCONN);
+        assert_return(m, -EINVAL);
 
-        m->n_ref = 1;
-        m->header = (struct bus_header*) ((uint8_t*) m + ALIGN(sizeof(struct sd_bus_message)));
-        m->header->endian = BUS_NATIVE_ENDIAN;
-        m->header->type = type;
-        m->header->version = bus->message_version;
-        m->allow_fds = bus->can_fds || !IN_SET(bus->state, BUS_HELLO, BUS_RUNNING);
-        m->root_container.need_offsets = BUS_MESSAGE_IS_GVARIANT(m);
-        m->bus = sd_bus_ref(bus);
+        t = malloc0(ALIGN(sizeof(sd_bus_message)) + sizeof(struct bus_header));
+        if (!t)
+                return -ENOMEM;
+
+        t->n_ref = 1;
+        t->header = (struct bus_header*) ((uint8_t*) t + ALIGN(sizeof(struct sd_bus_message)));
+        t->header->endian = BUS_NATIVE_ENDIAN;
+        t->header->type = type;
+        t->header->version = bus->message_version;
+        t->allow_fds = bus->can_fds || !IN_SET(bus->state, BUS_HELLO, BUS_RUNNING);
+        t->root_container.need_offsets = BUS_MESSAGE_IS_GVARIANT(t);
+        t->bus = sd_bus_ref(bus);
 
         if (bus->allow_interactive_authorization)
-                m->header->flags |= BUS_MESSAGE_ALLOW_INTERACTIVE_AUTHORIZATION;
+                t->header->flags |= BUS_MESSAGE_ALLOW_INTERACTIVE_AUTHORIZATION;
 
-        return m;
+        *m = t;
+        return 0;
 }
 
 _public_ int sd_bus_message_new_signal(
@@ -614,9 +621,11 @@ _public_ int sd_bus_message_new_signal(
         assert_return(member_name_is_valid(member), -EINVAL);
         assert_return(m, -EINVAL);
 
-        t = message_new(bus, SD_BUS_MESSAGE_SIGNAL);
-        if (!t)
+        r = sd_bus_message_new(bus, &t, SD_BUS_MESSAGE_SIGNAL);
+        if (r < 0)
                 return -ENOMEM;
+
+        assert(t);
 
         t->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
 
@@ -657,9 +666,11 @@ _public_ int sd_bus_message_new_method_call(
         assert_return(member_name_is_valid(member), -EINVAL);
         assert_return(m, -EINVAL);
 
-        t = message_new(bus, SD_BUS_MESSAGE_METHOD_CALL);
-        if (!t)
+        r = sd_bus_message_new(bus, &t, SD_BUS_MESSAGE_METHOD_CALL);
+        if (r < 0)
                 return -ENOMEM;
+
+        assert(t);
 
         r = message_append_field_string(t, BUS_MESSAGE_HEADER_PATH, SD_BUS_TYPE_OBJECT_PATH, path, &t->path);
         if (r < 0)
@@ -702,9 +713,11 @@ static int message_new_reply(
         assert_return(call->bus->state != BUS_UNSET, -ENOTCONN);
         assert_return(m, -EINVAL);
 
-        t = message_new(call->bus, type);
-        if (!t)
+        r = sd_bus_message_new(call->bus, &t, type);
+        if (r < 0)
                 return -ENOMEM;
+
+        assert(t);
 
         t->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
         t->reply_cookie = BUS_MESSAGE_COOKIE(call);
@@ -858,9 +871,11 @@ int bus_message_new_synthetic_error(
         assert(sd_bus_error_is_set(e));
         assert(m);
 
-        t = message_new(bus, SD_BUS_MESSAGE_METHOD_ERROR);
-        if (!t)
+        r = sd_bus_message_new(bus, &t, SD_BUS_MESSAGE_METHOD_ERROR);
+        if (r < 0)
                 return -ENOMEM;
+
+        assert(t);
 
         t->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
         t->reply_cookie = cookie;
@@ -2857,13 +2872,13 @@ static int bus_message_close_header(sd_bus_message *m) {
         return 0;
 }
 
-int bus_message_seal(sd_bus_message *m, uint64_t cookie, usec_t timeout) {
+_public_ int sd_bus_message_seal(sd_bus_message *m, uint64_t cookie, uint64_t timeout_usec) {
         struct bus_body_part *part;
         size_t a;
         unsigned i;
         int r;
 
-        assert(m);
+        assert_return(m, -EINVAL);
 
         if (m->sealed)
                 return -EPERM;
@@ -2913,7 +2928,7 @@ int bus_message_seal(sd_bus_message *m, uint64_t cookie, usec_t timeout) {
         else
                 m->header->dbus1.serial = (uint32_t) cookie;
 
-        m->timeout = m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED ? 0 : timeout;
+        m->timeout = m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED ? 0 : timeout_usec;
 
         /* Add padding at the end of the fields part, since we know
          * the body needs to start at an 8 byte alignment. We made
@@ -5787,9 +5802,11 @@ int bus_message_remarshal(sd_bus *bus, sd_bus_message **m) {
         case SD_BUS_MESSAGE_METHOD_RETURN:
         case SD_BUS_MESSAGE_METHOD_ERROR:
 
-                n = message_new(bus, (*m)->header->type);
-                if (!n)
+                r = sd_bus_message_new(bus, &n, (*m)->header->type);
+                if (r < 0)
                         return -ENOMEM;
+
+                assert(n);
 
                 n->reply_cookie = (*m)->reply_cookie;
 
@@ -5833,7 +5850,7 @@ int bus_message_remarshal(sd_bus *bus, sd_bus_message **m) {
         if (timeout == 0 && !((*m)->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED))
                 timeout = BUS_DEFAULT_TIMEOUT;
 
-        r = bus_message_seal(n, BUS_MESSAGE_COOKIE(*m), timeout);
+        r = sd_bus_message_seal(n, BUS_MESSAGE_COOKIE(*m), timeout);
         if (r < 0)
                 return r;
 
