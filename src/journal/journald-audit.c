@@ -61,9 +61,7 @@ static int map_simple_field(const char *field, const char **p, struct iovec **io
         if (!GREEDY_REALLOC(*iov, *n_iov_allocated, *n_iov + 1))
                 return -ENOMEM;
 
-        (*iov)[*n_iov].iov_base = c;
-        (*iov)[*n_iov].iov_len = l;
-        (*n_iov)++;
+        (*iov)[(*n_iov)++] = IOVEC_MAKE(c, l);
 
         *p = e;
         c = NULL;
@@ -140,9 +138,7 @@ static int map_string_field_internal(const char *field, const char **p, struct i
         if (!GREEDY_REALLOC(*iov, *n_iov_allocated, *n_iov + 1))
                 return -ENOMEM;
 
-        (*iov)[*n_iov].iov_base = c;
-        (*iov)[*n_iov].iov_len = l;
-        (*n_iov)++;
+        (*iov)[(*n_iov)++] = IOVEC_MAKE(c, l);
 
         *p = e;
         c = NULL;

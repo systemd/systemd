@@ -172,14 +172,10 @@ static int server_process_entry(
 
                                 l = e - p;
 
-                                /* If the field name starts with an
-                                 * underscore, skip the variable,
-                                 * since that indicates a trusted
-                                 * field */
-                                iovec[n].iov_base = (char*) p;
-                                iovec[n].iov_len = l;
+                                /* If the field name starts with an underscore, skip the variable, since that indicates
+                                 * a trusted field */
+                                iovec[n++] = IOVEC_MAKE((char*) p, l);
                                 entry_size += l;
-                                n++;
 
                                 server_process_entry_meta(p, l, ucred,
                                                           &priority,
