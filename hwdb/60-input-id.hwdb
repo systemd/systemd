@@ -57,3 +57,8 @@
 #  ID_INPUT=1
 
 # Sort by brand, model
+
+# UC-Logic TABLET 1060N Pad
+id-input:modalias:input:b0003v5543p0081*
+ ID_INPUT_TABLET=1
+ ID_INPUT_TABLET_PAD=1
