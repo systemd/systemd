@@ -28,6 +28,7 @@
 #include "fs-util.h"
 #include "io-util.h"
 #include "journal-importer.h"
+#include "journal-util.h"
 #include "journald-console.h"
 #include "journald-kmsg.h"
 #include "journald-native.h"
@@ -42,41 +43,6 @@
 #include "socket-util.h"
 #include "string-util.h"
 #include "unaligned.h"
-
-bool valid_user_field(const char *p, size_t l, bool allow_protected) {
-        const char *a;
-
-        /* We kinda enforce POSIX syntax recommendations for
-           environment variables here, but make a couple of additional
-           requirements.
-
-           http://pubs.opengroup.org/onlinepubs/000095399/basedefs/xbd_chap08.html */
-
-        /* No empty field names */
-        if (l <= 0)
-                return false;
-
-        /* Don't allow names longer than 64 chars */
-        if (l > 64)
-                return false;
-
-        /* Variables starting with an underscore are protected */
-        if (!allow_protected && p[0] == '_')
-                return false;
-
-        /* Don't allow digits as first character */
-        if (p[0] >= '0' && p[0] <= '9')
-                return false;
-
-        /* Only allow A-Z0-9 and '_' */
-        for (a = p; a < p + l; a++)
-                if ((*a < 'A' || *a > 'Z') &&
-                    (*a < '0' || *a > '9') &&
-                    *a != '_')
-                        return false;
-
-        return true;
-}
 
 static bool allow_object_pid(const struct ucred *ucred) {
         return ucred && ucred->uid == 0;
@@ -201,7 +167,7 @@ static int server_process_entry(
 
                 q = memchr(p, '=', e - p);
                 if (q) {
-                        if (valid_user_field(p, q - p, false)) {
+                        if (journal_field_valid(p, q - p, false)) {
                                 size_t l;
 
                                 l = e - p;
@@ -257,7 +223,7 @@ static int server_process_entry(
                         k[e - p] = '=';
                         memcpy(k + (e - p) + 1, e + 1 + sizeof(uint64_t), l);
 
-                        if (valid_user_field(p, e - p, false)) {
+                        if (journal_field_valid(p, e - p, false)) {
                                 iovec[n].iov_base = k;
                                 iovec[n].iov_len = (e - p) + 1 + l;
                                 entry_size += iovec[n].iov_len;
