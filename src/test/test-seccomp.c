@@ -17,12 +17,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <poll.h>
 #include <sched.h>
 #include <stdlib.h>
 #include <sys/eventfd.h>
 #include <sys/mman.h>
 #include <sys/personality.h>
-#include <sys/poll.h>
 #include <sys/shm.h>
 #include <sys/types.h>
 #include <unistd.h>

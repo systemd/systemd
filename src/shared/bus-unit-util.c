@@ -511,7 +511,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                                         return bus_log_create_error(r);
 
                                 prefix.in6 = (struct in6_addr) {
-                                        .__in6_u.__u6_addr32[0] = htobe32(0xfe800000)
+                                        .s6_addr32[0] = htobe32(0xfe800000)
                                 };
                                 r = bus_append_ip_address_access(m, AF_INET6, &prefix, 64);
                                 if (r < 0)
@@ -527,7 +527,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                                         return bus_log_create_error(r);
 
                                 prefix.in6 = (struct in6_addr) {
-                                        .__in6_u.__u6_addr32[0] = htobe32(0xff000000)
+                                        .s6_addr32[0] = htobe32(0xff000000)
                                 };
                                 r = bus_append_ip_address_access(m, AF_INET6, &prefix, 8);
                                 if (r < 0)
