@@ -253,6 +253,45 @@ static void service_start_watchdog(Service *s) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to install watchdog timer: %m");
 }
 
+static void service_extend_timeout(Service *s, usec_t extend_timeout_usec) {
+        assert(s);
+
+        if (s->timer_event_source) {
+                uint64_t current = 0, extended = 0;
+                int r;
+
+                if (IN_SET(extend_timeout_usec, 0, USEC_INFINITY))
+                        return;
+
+                extended = usec_add(now(CLOCK_MONOTONIC), extend_timeout_usec);
+
+                r = sd_event_source_get_time(s->timer_event_source, &current);
+                if (r < 0)
+                        log_unit_error_errno(UNIT(s), r, "Failed to retrieve timeout timer: %m");
+                else if (extended > current) {
+                        r = sd_event_source_set_time(s->timer_event_source, extended);
+                        if (r < 0)
+                                log_unit_warning_errno(UNIT(s), r, "Failed to set timeout timer: %m");
+                }
+
+                if (s->watchdog_event_source) {
+                        /* extend watchdog if necessary. We've asked for an extended timeout so we
+                         * shouldn't expect a watchdog timeout in the interval in between */
+                        r = sd_event_source_get_time(s->watchdog_event_source, &current);
+                        if (r < 0) {
+                                log_unit_error_errno(UNIT(s), r, "Failed to retrieve watchdog timer: %m");
+                                return;
+                        }
+
+                        if (extended > current) {
+                                r = sd_event_source_set_time(s->watchdog_event_source, extended);
+                                if (r < 0)
+                                        log_unit_warning_errno(UNIT(s), r, "Failed to set watchdog timer: %m");
+                        }
+                }
+        }
+}
+
 static void service_reset_watchdog(Service *s) {
         assert(s);
 
@@ -3474,6 +3513,16 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
                         s->status_errno = status_errno;
                         notify_dbus = true;
                 }
+        }
+
+        /* Interpret EXTEND_TIMEOUT= */
+        e = strv_find_startswith(tags, "EXTEND_TIMEOUT_USEC=");
+        if (e) {
+                usec_t extend_timeout_usec;
+                if (safe_atou64(e, &extend_timeout_usec) < 0)
+                        log_unit_warning(u, "Failed to parse EXTEND_TIMEOUT_USEC=%s", e);
+                else
+                        service_extend_timeout(s, extend_timeout_usec);
         }
 
         /* Interpret WATCHDOG= */
