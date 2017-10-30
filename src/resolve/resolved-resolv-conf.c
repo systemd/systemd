@@ -243,8 +243,8 @@ static int write_uplink_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSe
 static int write_stub_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet *domains) {
         fputs("# This file is managed by man:systemd-resolved(8). Do not edit.\n#\n"
               "# 127.0.0.53 is the systemd-resolved stub resolver.\n"
-              "# run \"systemd-resolve --status\" to see details about the actual nameservers.\n"
-              "nameserver 127.0.0.53\n\n", f);
+              "# run \"systemd-resolve --status\" to see details about the actual nameservers.\n\n"
+              "nameserver 127.0.0.53\n", f);
 
         if (!ordered_set_isempty(domains))
                 write_resolv_conf_search(domains, f);
