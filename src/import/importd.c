@@ -18,6 +18,7 @@
 ***/
 
 #include <sys/prctl.h>
+#include <sys/wait.h>
 
 #include "sd-bus.h"
 
