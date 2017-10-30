@@ -46,18 +46,6 @@ static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static char *arg_host = NULL;
 static bool arg_convert = true;
 
-static void polkit_agent_open_if_enabled(void) {
-
-        /* Open the polkit agent as a child process if necessary */
-        if (!arg_ask_password)
-                return;
-
-        if (arg_transport != BUS_TRANSPORT_LOCAL)
-                return;
-
-        polkit_agent_open();
-}
-
 typedef struct StatusInfo {
         char **locale;
         char *vconsole_keymap;
@@ -195,7 +183,7 @@ static int set_locale(sd_bus *bus, char **args, unsigned n) {
         assert(bus);
         assert(args);
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -253,7 +241,7 @@ static int set_vconsole_keymap(sd_bus *bus, char **args, unsigned n) {
                 return -EINVAL;
         }
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         map = args[1];
         toggle_map = n > 2 ? args[2] : "";
@@ -356,7 +344,7 @@ static int set_x11_keymap(sd_bus *bus, char **args, unsigned n) {
                 return -EINVAL;
         }
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         layout = args[1];
         model = n > 2 ? args[2] : "";

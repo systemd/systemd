@@ -268,20 +268,13 @@ static void ask_password_agent_open_if_enabled(void) {
         ask_password_agent_open();
 }
 
-static void polkit_agent_open_if_enabled(void) {
-
+static void polkit_agent_open_maybe(void) {
         /* Open the polkit agent as a child process if necessary */
-
-        if (!arg_ask_password)
-                return;
 
         if (arg_scope != UNIT_FILE_SYSTEM)
                 return;
 
-        if (arg_transport != BUS_TRANSPORT_LOCAL)
-                return;
-
-        polkit_agent_open();
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 }
 
 static OutputFlags get_output_flags(void) {
@@ -2163,7 +2156,7 @@ static int set_default(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 sd_bus *bus;
 
-                polkit_agent_open_if_enabled();
+                polkit_agent_open_maybe();
 
                 r = acquire_bus(BUS_MANAGER, &bus);
                 if (r < 0)
@@ -2391,7 +2384,7 @@ static int cancel_job(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_maybe();
 
         STRV_FOREACH(name, strv_skip(argv, 1)) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -3099,7 +3092,7 @@ static int start_unit(int argc, char *argv[], void *userdata) {
                 return r;
 
         ask_password_agent_open_if_enabled();
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_maybe();
 
         if (arg_action == ACTION_SYSTEMCTL) {
                 enum action action;
@@ -3301,7 +3294,7 @@ static int logind_reboot(enum action a) {
                 return -EINVAL;
         }
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_maybe();
         (void) logind_set_wall_message();
 
         r = sd_bus_call_method(
@@ -3673,7 +3666,7 @@ static int kill_unit(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_maybe();
 
         if (!arg_kill_who)
                 arg_kill_who = "all";
@@ -5486,7 +5479,7 @@ static int set_property(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_maybe();
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -5536,7 +5529,7 @@ static int daemon_reload(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_maybe();
 
         switch (arg_action) {
 
@@ -5596,7 +5589,7 @@ static int trivial_method(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_maybe();
 
         method =
                 streq(argv[0], "clear-jobs")    ||
@@ -5639,7 +5632,7 @@ static int reset_failed(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_maybe();
 
         r = expand_names(bus, strv_skip(argv, 1), NULL, &names);
         if (r < 0)
@@ -5824,7 +5817,7 @@ static int set_environment(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_maybe();
 
         method = streq(argv[0], "set-environment")
                 ? "SetEnvironment"
@@ -5861,7 +5854,7 @@ static int import_environment(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_maybe();
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -6286,7 +6279,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
 
-                polkit_agent_open_if_enabled();
+                polkit_agent_open_maybe();
 
                 if (streq(verb, "enable")) {
                         method = "EnableUnitFiles";
@@ -6456,7 +6449,7 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
 
-                polkit_agent_open_if_enabled();
+                polkit_agent_open_maybe();
 
                 r = sd_bus_message_new_method_call(
                                 bus,
@@ -6518,7 +6511,7 @@ static int preset_all(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
 
-                polkit_agent_open_if_enabled();
+                polkit_agent_open_maybe();
 
                 r = sd_bus_call_method(
                                 bus,

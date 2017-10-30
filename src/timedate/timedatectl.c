@@ -40,18 +40,6 @@ static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static char *arg_host = NULL;
 static bool arg_adjust_system_clock = false;
 
-static void polkit_agent_open_if_enabled(void) {
-
-        /* Open the polkit agent as a child process if necessary */
-        if (!arg_ask_password)
-                return;
-
-        if (arg_transport != BUS_TRANSPORT_LOCAL)
-                return;
-
-        polkit_agent_open();
-}
-
 typedef struct StatusInfo {
         usec_t time;
         char *timezone;
@@ -195,7 +183,7 @@ static int set_time(sd_bus *bus, char **args, unsigned n) {
         assert(args);
         assert(n == 2);
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = parse_timestamp(args[1], &t);
         if (r < 0) {
@@ -224,7 +212,7 @@ static int set_timezone(sd_bus *bus, char **args, unsigned n) {
         assert(args);
         assert(n == 2);
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_call_method(bus,
                                "org.freedesktop.timedate1",
@@ -247,7 +235,7 @@ static int set_local_rtc(sd_bus *bus, char **args, unsigned n) {
         assert(args);
         assert(n == 2);
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         b = parse_boolean(args[1]);
         if (b < 0) {
@@ -276,7 +264,7 @@ static int set_ntp(sd_bus *bus, char **args, unsigned n) {
         assert(args);
         assert(n == 2);
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         b = parse_boolean(args[1]);
         if (b < 0) {

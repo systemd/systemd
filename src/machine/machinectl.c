@@ -89,19 +89,6 @@ static int arg_addrs = 1;
 
 static int print_addresses(sd_bus *bus, const char *name, int, const char *pr1, const char *pr2, int n_addr);
 
-static void polkit_agent_open_if_enabled(void) {
-
-        /* Open the polkit agent as a child process if necessary */
-
-        if (!arg_ask_password)
-                return;
-
-        if (arg_transport != BUS_TRANSPORT_LOCAL)
-                return;
-
-        polkit_agent_open();
-}
-
 static OutputFlags get_output_flags(void) {
         return
                 arg_all * OUTPUT_SHOW_ALL |
@@ -1179,7 +1166,7 @@ static int kill_machine(int argc, char *argv[], void *userdata) {
 
         assert(bus);
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         if (!arg_kill_who)
                 arg_kill_who = "all";
@@ -1224,7 +1211,7 @@ static int terminate_machine(int argc, char *argv[], void *userdata) {
 
         assert(bus);
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         for (i = 1; i < argc; i++) {
                 r = sd_bus_call_method(
@@ -1256,7 +1243,7 @@ static int copy_files(int argc, char *argv[], void *userdata) {
 
         assert(bus);
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         copy_from = streq(argv[0], "copy-from");
         dest = argv[3] ?: argv[2];
@@ -1305,7 +1292,7 @@ static int bind_mount(int argc, char *argv[], void *userdata) {
 
         assert(bus);
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_call_method(
                         bus,
@@ -1463,7 +1450,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
                 return -EOPNOTSUPP;
         }
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_event_default(&event);
         if (r < 0)
@@ -1536,7 +1523,7 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
                 }
         }
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_event_default(&event);
         if (r < 0)
@@ -1604,7 +1591,7 @@ static int remove_image(int argc, char *argv[], void *userdata) {
 
         assert(bus);
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         for (i = 1; i < argc; i++) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1638,7 +1625,7 @@ static int rename_image(int argc, char *argv[], void *userdata) {
         sd_bus *bus = userdata;
         int r;
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_call_method(
                         bus,
@@ -1663,7 +1650,7 @@ static int clone_image(int argc, char *argv[], void *userdata) {
         sd_bus *bus = userdata;
         int r;
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -1700,7 +1687,7 @@ static int read_only_image(int argc, char *argv[], void *userdata) {
                 }
         }
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_call_method(
                         bus,
@@ -1771,7 +1758,7 @@ static int start_machine(int argc, char *argv[], void *userdata) {
 
         assert(bus);
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = bus_wait_for_jobs_new(bus, &w);
         if (r < 0)
@@ -1836,7 +1823,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
 
         assert(bus);
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         method = streq(argv[0], "enable") ? "EnableUnitFiles" : "DisableUnitFiles";
 
@@ -1991,7 +1978,7 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
         assert(bus);
         assert(m);
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_event_default(&event);
         if (r < 0)
@@ -2542,7 +2529,7 @@ static int cancel_transfer(int argc, char *argv[], void *userdata) {
 
         assert(bus);
 
-        polkit_agent_open_if_enabled();
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         for (i = 1; i < argc; i++) {
                 uint32_t id;
