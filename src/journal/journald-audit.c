@@ -214,29 +214,29 @@ static const MapField map_fields_kernel[] = {
 
         /* First, we map certain well-known audit fields into native
          * well-known fields */
-        { "pid=",       "_PID=",                   map_simple_field },
-        { "ppid=",      "_PPID=",                  map_simple_field },
-        { "uid=",       "_UID=",                   map_simple_field },
-        { "euid=",      "_EUID=",                  map_simple_field },
-        { "fsuid=",     "_FSUID=",                 map_simple_field },
-        { "gid=",       "_GID=",                   map_simple_field },
-        { "egid=",      "_EGID=",                  map_simple_field },
-        { "fsgid=",     "_FSGID=",                 map_simple_field },
-        { "tty=",       "_TTY=",                   map_simple_field },
-        { "ses=",       "_AUDIT_SESSION=",         map_simple_field },
-        { "auid=",      "_AUDIT_LOGINUID=",        map_simple_field },
-        { "subj=",      "_SELINUX_CONTEXT=",       map_simple_field },
-        { "comm=",      "_COMM=",                  map_string_field },
-        { "exe=",       "_EXE=",                   map_string_field },
-        { "proctitle=", "_CMDLINE=",               map_string_field_printable },
+        { "pid=",       "_PID=",              map_simple_field },
+        { "ppid=",      "_PPID=",             map_simple_field },
+        { "uid=",       "_UID=",              map_simple_field },
+        { "euid=",      "_EUID=",             map_simple_field },
+        { "fsuid=",     "_FSUID=",            map_simple_field },
+        { "gid=",       "_GID=",              map_simple_field },
+        { "egid=",      "_EGID=",             map_simple_field },
+        { "fsgid=",     "_FSGID=",            map_simple_field },
+        { "tty=",       "_TTY=",              map_simple_field },
+        { "ses=",       "_AUDIT_SESSION=",    map_simple_field },
+        { "auid=",      "_AUDIT_LOGINUID=",   map_simple_field },
+        { "subj=",      "_SELINUX_CONTEXT=",  map_simple_field },
+        { "comm=",      "_COMM=",             map_string_field },
+        { "exe=",       "_EXE=",              map_string_field },
+        { "proctitle=", "_CMDLINE=",          map_string_field_printable },
 
         /* Some fields don't map to native well-known fields. However,
          * we know that they are string fields, hence let's undo
          * string field escaping for them, though we stick to the
          * generic field names. */
-        { "path=",      "_AUDIT_FIELD_PATH=",      map_string_field },
-        { "dev=",       "_AUDIT_FIELD_DEV=",       map_string_field },
-        { "name=",      "_AUDIT_FIELD_NAME=",      map_string_field },
+        { "path=",      "_AUDIT_FIELD_PATH=", map_string_field },
+        { "dev=",       "_AUDIT_FIELD_DEV=",  map_string_field },
+        { "name=",      "_AUDIT_FIELD_NAME=", map_string_field },
         {}
 };
 
@@ -244,11 +244,11 @@ static const MapField map_fields_kernel[] = {
  * msg='. All of these fields are untrusted, hence carry no "_"
  * prefix. We map the fields we don't know to AUDIT_FIELD_XYZ= */
 static const MapField map_fields_userspace[] = {
-        { "cwd=",       "AUDIT_FIELD_CWD=",  map_string_field },
-        { "cmd=",       "AUDIT_FIELD_CMD=",  map_string_field },
-        { "acct=",      "AUDIT_FIELD_ACCT=", map_string_field },
-        { "exe=",       "AUDIT_FIELD_EXE=",  map_string_field },
-        { "comm=",      "AUDIT_FIELD_COMM=", map_string_field },
+        { "cwd=",       "AUDIT_FIELD_CWD=",   map_string_field },
+        { "cmd=",       "AUDIT_FIELD_CMD=",   map_string_field },
+        { "acct=",      "AUDIT_FIELD_ACCT=",  map_string_field },
+        { "exe=",       "AUDIT_FIELD_EXE=",   map_string_field },
+        { "comm=",      "AUDIT_FIELD_COMM=",  map_string_field },
         {}
 };
 
