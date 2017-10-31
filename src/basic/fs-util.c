@@ -735,7 +735,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                 if (fstat(child, &st) < 0)
                         return -errno;
                 if ((flags & CHASE_NO_AUTOFS) &&
-                    fd_check_fstype(child, AUTOFS_SUPER_MAGIC) > 0)
+                    fd_is_fs_type(child, AUTOFS_SUPER_MAGIC) > 0)
                         return -EREMOTE;
 
                 if (S_ISLNK(st.st_mode)) {

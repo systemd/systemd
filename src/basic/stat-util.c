@@ -193,7 +193,7 @@ bool is_fs_type(const struct statfs *s, statfs_f_type_t magic_value) {
         return F_TYPE_EQUAL(s->f_type, magic_value);
 }
 
-int fd_check_fstype(int fd, statfs_f_type_t magic_value) {
+int fd_is_fs_type(int fd, statfs_f_type_t magic_value) {
         struct statfs s;
 
         if (fstatfs(fd, &s) < 0)
@@ -209,7 +209,7 @@ int path_check_fstype(const char *path, statfs_f_type_t magic_value) {
         if (fd < 0)
                 return -errno;
 
-        return fd_check_fstype(fd, magic_value);
+        return fd_is_fs_type(fd, magic_value);
 }
 
 bool is_temporary_fs(const struct statfs *s) {

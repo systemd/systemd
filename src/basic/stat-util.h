@@ -57,7 +57,7 @@ int files_same(const char *filea, const char *fileb, int flags);
 typedef typeof(((struct statfs*)NULL)->f_type) statfs_f_type_t;
 
 bool is_fs_type(const struct statfs *s, statfs_f_type_t magic_value) _pure_;
-int fd_check_fstype(int fd, statfs_f_type_t magic_value);
+int fd_is_fs_type(int fd, statfs_f_type_t magic_value);
 int path_check_fstype(const char *path, statfs_f_type_t magic_value);
 
 bool is_temporary_fs(const struct statfs *s) _pure_;
