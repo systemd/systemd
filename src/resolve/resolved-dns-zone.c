@@ -305,6 +305,24 @@ int dns_zone_put(DnsZone *z, DnsScope *s, DnsResourceRecord *rr, bool probe) {
         return 0;
 }
 
+static int dns_zone_add_authenticated_answer(DnsAnswer *a, DnsZoneItem *i, int ifindex) {
+        DnsAnswerFlags flags;
+
+        /* From RFC 6762, Section 10.2
+         * "They (the rules about when to set the cache-flush bit) apply to
+         * startup announcements as described in Section 8.3, "Announcing",
+         * and to responses generated as a result of receiving query messages."
+         * So, set the cache-flush bit for mDNS answers except for DNS-SD
+         * service enumeration PTRs described in RFC 6763, Section 4.1. */
+        if (i->scope->protocol == DNS_PROTOCOL_MDNS &&
+            !dns_resource_key_is_dnssd_ptr(i->rr->key))
+                flags = DNS_ANSWER_AUTHENTICATED|DNS_ANSWER_CACHE_FLUSH;
+        else
+                flags = DNS_ANSWER_AUTHENTICATED;
+
+        return dns_answer_add(a, i->rr, ifindex, flags);
+}
+
 int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, int ifindex, DnsAnswer **ret_answer, DnsAnswer **ret_soa, bool *ret_tentative) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
         unsigned n_answer = 0;
@@ -410,7 +428,7 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, int ifindex, DnsAnswer **re
                         if (k < 0)
                                 return k;
                         if (k > 0) {
-                                r = dns_answer_add(answer, j->rr, ifindex, DNS_ANSWER_AUTHENTICATED);
+                                r = dns_zone_add_authenticated_answer(answer, j, ifindex);
                                 if (r < 0)
                                         return r;
 
@@ -436,7 +454,7 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, int ifindex, DnsAnswer **re
                         if (j->state != DNS_ZONE_ITEM_PROBING)
                                 tentative = false;
 
-                        r = dns_answer_add(answer, j->rr, ifindex, DNS_ANSWER_AUTHENTICATED);
+                        r = dns_zone_add_authenticated_answer(answer, j, ifindex);
                         if (r < 0)
                                 return r;
                 }
