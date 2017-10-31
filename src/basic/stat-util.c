@@ -202,7 +202,7 @@ int fd_is_fs_type(int fd, statfs_f_type_t magic_value) {
         return is_fs_type(&s, magic_value);
 }
 
-int path_check_fstype(const char *path, statfs_f_type_t magic_value) {
+int path_is_fs_type(const char *path, statfs_f_type_t magic_value) {
         _cleanup_close_ int fd = -1;
 
         fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_PATH);

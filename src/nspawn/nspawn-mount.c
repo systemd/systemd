@@ -405,7 +405,7 @@ int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
         unsigned long extra_flags = 0;
 
         top = prefix_roota(dest, "/sys");
-        r = path_check_fstype(top, SYSFS_MAGIC);
+        r = path_is_fs_type(top, SYSFS_MAGIC);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine filesystem type of %s: %m", top);
         /* /sys might already be mounted as sysfs by the outer child in the
