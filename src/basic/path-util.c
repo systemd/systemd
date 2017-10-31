@@ -703,6 +703,34 @@ char* dirname_malloc(const char *path) {
         return dir2;
 }
 
+const char *last_path_component(const char *path) {
+        /* Finds the last component of the path, preserving the
+         * optional trailing slash that signifies a directory.
+         *    a/b/c → c
+         *    a/b/c/ → c/
+         *    / → /
+         *    // → /
+         *    /foo/a → a
+         *    /foo/a/ → a/
+         * This is different than basename, which returns "" when
+         * a trailing slash is present.
+         */
+
+        unsigned l, k;
+
+        l = k = strlen(path);
+        while (k > 0 && path[k-1] == '/')
+                k--;
+
+        if (k == 0) /* the root directory */
+                return path + l - 1;
+
+        while (k > 0 && path[k-1] != '/')
+                k--;
+
+        return path + k;
+}
+
 bool filename_is_valid(const char *p) {
         const char *e;
 

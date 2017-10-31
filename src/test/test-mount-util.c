@@ -111,15 +111,23 @@ static void test_path_is_mount_point(void) {
 
         assert_se(path_is_mount_point("/", NULL, AT_SYMLINK_FOLLOW) > 0);
         assert_se(path_is_mount_point("/", NULL, 0) > 0);
+        assert_se(path_is_mount_point("//", NULL, AT_SYMLINK_FOLLOW) > 0);
+        assert_se(path_is_mount_point("//", NULL, 0) > 0);
 
         assert_se(path_is_mount_point("/proc", NULL, AT_SYMLINK_FOLLOW) > 0);
         assert_se(path_is_mount_point("/proc", NULL, 0) > 0);
+        assert_se(path_is_mount_point("/proc/", NULL, AT_SYMLINK_FOLLOW) > 0);
+        assert_se(path_is_mount_point("/proc/", NULL, 0) > 0);
 
         assert_se(path_is_mount_point("/proc/1", NULL, AT_SYMLINK_FOLLOW) == 0);
         assert_se(path_is_mount_point("/proc/1", NULL, 0) == 0);
+        assert_se(path_is_mount_point("/proc/1/", NULL, AT_SYMLINK_FOLLOW) == 0);
+        assert_se(path_is_mount_point("/proc/1/", NULL, 0) == 0);
 
         assert_se(path_is_mount_point("/sys", NULL, AT_SYMLINK_FOLLOW) > 0);
         assert_se(path_is_mount_point("/sys", NULL, 0) > 0);
+        assert_se(path_is_mount_point("/sys/", NULL, AT_SYMLINK_FOLLOW) > 0);
+        assert_se(path_is_mount_point("/sys/", NULL, 0) > 0);
 
         /* we'll create a hierarchy of different kinds of dir/file/link
          * layouts:
@@ -191,12 +199,21 @@ static void test_path_is_mount_point(void) {
 
         /* these tests will only work as root */
         if (mount(file1, file2, NULL, MS_BIND, NULL) >= 0) {
-                int rt, rf, rlt, rlf, rl1t, rl1f;
+                int rf, rt, rdf, rdt, rlf, rlt, rl1f, rl1t;
+                const char *file2d;
 
                 /* files */
                 /* capture results in vars, to avoid dangling mounts on failure */
+                log_info("%s: %s", __func__, file2);
                 rf = path_is_mount_point(file2, NULL, 0);
                 rt = path_is_mount_point(file2, NULL, AT_SYMLINK_FOLLOW);
+
+                file2d = strjoina(file2, "/");
+                log_info("%s: %s", __func__, file2d);
+                rdf = path_is_mount_point(file2d, NULL, 0);
+                rdt = path_is_mount_point(file2d, NULL, AT_SYMLINK_FOLLOW);
+
+                log_info("%s: %s", __func__, link2);
                 rlf = path_is_mount_point(link2, NULL, 0);
                 rlt = path_is_mount_point(link2, NULL, AT_SYMLINK_FOLLOW);
 
@@ -204,6 +221,8 @@ static void test_path_is_mount_point(void) {
 
                 assert_se(rf == 1);
                 assert_se(rt == 1);
+                assert_se(rdf == -ENOTDIR);
+                assert_se(rdt == -ENOTDIR);
                 assert_se(rlf == 0);
                 assert_se(rlt == 1);
 
@@ -216,10 +235,13 @@ static void test_path_is_mount_point(void) {
 
                 assert_se(mount(dir2, dir1, NULL, MS_BIND, NULL) >= 0);
 
+                log_info("%s: %s", __func__, dir1);
                 rf = path_is_mount_point(dir1, NULL, 0);
                 rt = path_is_mount_point(dir1, NULL, AT_SYMLINK_FOLLOW);
+                log_info("%s: %s", __func__, dirlink1);
                 rlf = path_is_mount_point(dirlink1, NULL, 0);
                 rlt = path_is_mount_point(dirlink1, NULL, AT_SYMLINK_FOLLOW);
+                log_info("%s: %s", __func__, dirlink1file);
                 /* its parent is a mount point, but not /file itself */
                 rl1f = path_is_mount_point(dirlink1file, NULL, 0);
                 rl1t = path_is_mount_point(dirlink1file, NULL, AT_SYMLINK_FOLLOW);

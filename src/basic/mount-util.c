@@ -277,6 +277,7 @@ int path_is_mount_point(const char *t, const char *root, int flags) {
         int r;
 
         assert(t);
+        assert((flags & ~AT_SYMLINK_FOLLOW) == 0);
 
         if (path_equal(t, "/"))
                 return 1;
@@ -301,7 +302,7 @@ int path_is_mount_point(const char *t, const char *root, int flags) {
         if (fd < 0)
                 return -errno;
 
-        return fd_is_mount_point(fd, basename(t), flags);
+        return fd_is_mount_point(fd, last_path_component(t), flags);
 }
 
 int path_get_mnt_id(const char *path, int *ret) {
