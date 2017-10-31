@@ -1085,6 +1085,10 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                 if (DNS_TRANSACTION_IS_LIVE(t->state))
                         return 0;
 
+        /* Check if there're services pending conflict resolution. */
+        if (manager_next_dnssd_names(scope->manager))
+                return 0; /* we reach this point only if changing hostname didn't help */
+
         /* Calculate answer's size. */
         HASHMAP_FOREACH(z, scope->zone.by_key, iterator) {
                 if (z->state != DNS_ZONE_ITEM_ESTABLISHED)

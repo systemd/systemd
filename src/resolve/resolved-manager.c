@@ -1124,19 +1124,16 @@ void manager_refresh_rrs(Manager *m) {
         }
 }
 
-int manager_next_hostname(Manager *m) {
+static int manager_next_random_name(const char *old, char **ret_new) {
         const char *p;
         uint64_t u, a;
-        char *h, *k;
-        int r;
+        char *n;
 
-        assert(m);
-
-        p = strchr(m->llmnr_hostname, 0);
+        p = strchr(old, 0);
         assert(p);
 
-        while (p > m->llmnr_hostname) {
-                if (!strchr("0123456789", p[-1]))
+        while (p > old) {
+                if (!strchr(DIGITS, p[-1]))
                         break;
 
                 p--;
@@ -1155,22 +1152,32 @@ int manager_next_hostname(Manager *m) {
         random_bytes(&a, sizeof(a));
         u += 1 + a % 10;
 
-        if (asprintf(&h, "%.*s%" PRIu64, (int) (p - m->llmnr_hostname), m->llmnr_hostname, u) < 0)
+        if (asprintf(&n, "%.*s%" PRIu64, (int) (p - old), old, u) < 0)
                 return -ENOMEM;
 
-        r = dns_name_concat(h, "local", &k);
-        if (r < 0) {
-                free(h);
+        *ret_new = n;
+
+        return 0;
+}
+
+int manager_next_hostname(Manager *m) {
+        _cleanup_free_ char *h = NULL, *k = NULL;
+        int r;
+
+        assert(m);
+
+        r = manager_next_random_name(m->llmnr_hostname, &h);
+        if (r < 0)
                 return r;
-        }
+
+        r = dns_name_concat(h, "local", &k);
+        if (r < 0)
+                return r;
 
         log_info("Hostname conflict, changing published hostname from '%s' to '%s'.", m->llmnr_hostname, h);
 
-        free(m->llmnr_hostname);
-        m->llmnr_hostname = h;
-
-        free(m->mdns_hostname);
-        m->mdns_hostname = k;
+        free_and_replace(m->llmnr_hostname, h);
+        free_and_replace(m->mdns_hostname, k);
 
         manager_refresh_rrs(m);
 
@@ -1503,4 +1510,37 @@ void manager_cleanup_saved_user(Manager *m) {
 
                 (void) unlink(p);
         }
+}
+
+bool manager_next_dnssd_names(Manager *m) {
+        Iterator i;
+        DnssdService *s;
+        bool tried = false;
+        int r;
+
+        assert(m);
+
+        HASHMAP_FOREACH(s, m->dnssd_services, i) {
+                _cleanup_free_ char * new_name = NULL;
+
+                if (!s->withdrawn)
+                        continue;
+
+                r = manager_next_random_name(s->name_template, &new_name);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to get new name for service '%s': %m", s->name);
+                        continue;
+                }
+
+                free_and_replace(s->name_template, new_name);
+
+                s->withdrawn = false;
+
+                tried = true;
+        }
+
+        if (tried)
+                manager_refresh_rrs(m);
+
+        return tried;
 }
