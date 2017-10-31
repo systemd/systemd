@@ -42,6 +42,7 @@
 #include "btrfs-util.h"
 #include "chattr-util.h"
 #include "copy.h"
+#include "device-nodes.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "io-util.h"
@@ -910,7 +911,8 @@ int btrfs_subvol_set_subtree_quota_limit(const char *path, uint64_t subvol_id, u
 
 int btrfs_resize_loopback_fd(int fd, uint64_t new_size, bool grow_only) {
         struct btrfs_ioctl_vol_args args = {};
-        _cleanup_free_ char *p = NULL, *loop = NULL, *backing = NULL;
+        char p[SYS_BLOCK_PATH_MAX("/loop/backing_file")];
+        _cleanup_free_ char *backing = NULL;
         _cleanup_close_ int loop_fd = -1, backing_fd = -1;
         struct stat st;
         dev_t dev = 0;
@@ -930,8 +932,7 @@ int btrfs_resize_loopback_fd(int fd, uint64_t new_size, bool grow_only) {
         if (r == 0)
                 return -ENODEV;
 
-        if (asprintf(&p, "/sys/dev/block/%u:%u/loop/backing_file", major(dev), minor(dev)) < 0)
-                return -ENOMEM;
+        xsprintf_sys_block_path(p, "/loop/backing_file", dev);
         r = read_one_line_file(p, &backing);
         if (r == -ENOENT)
                 return -ENODEV;
@@ -955,9 +956,8 @@ int btrfs_resize_loopback_fd(int fd, uint64_t new_size, bool grow_only) {
         if (grow_only && new_size < (uint64_t) st.st_size)
                 return -EINVAL;
 
-        if (asprintf(&loop, "/dev/block/%u:%u", major(dev), minor(dev)) < 0)
-                return -ENOMEM;
-        loop_fd = open(loop, O_RDWR|O_CLOEXEC|O_NOCTTY);
+        xsprintf_sys_block_path(p, NULL, dev);
+        loop_fd = open(p, O_RDWR|O_CLOEXEC|O_NOCTTY);
         if (loop_fd < 0)
                 return -errno;
 

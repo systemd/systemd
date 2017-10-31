@@ -33,6 +33,7 @@
 #include "blkid-util.h"
 #include "copy.h"
 #include "def.h"
+#include "device-nodes.h"
 #include "dissect-image.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -652,7 +653,7 @@ DissectedImage* dissected_image_unref(DissectedImage *m) {
 }
 
 static int is_loop_device(const char *path) {
-        char s[strlen("/sys/dev/block/") + DECIMAL_STR_MAX(dev_t) + 1 + DECIMAL_STR_MAX(dev_t) + strlen("/../loop/")];
+        char s[SYS_BLOCK_PATH_MAX("/../loop/")];
         struct stat st;
 
         assert(path);
@@ -663,13 +664,13 @@ static int is_loop_device(const char *path) {
         if (!S_ISBLK(st.st_mode))
                 return -ENOTBLK;
 
-        xsprintf(s, "/sys/dev/block/%u:%u/loop/", major(st.st_rdev), minor(st.st_rdev));
+        xsprintf_sys_block_path(s, "/loop/", st.st_dev);
         if (access(s, F_OK) < 0) {
                 if (errno != ENOENT)
                         return -errno;
 
                 /* The device itself isn't a loop device, but maybe it's a partition and its parent is? */
-                xsprintf(s, "/sys/dev/block/%u:%u/../loop/", major(st.st_rdev), minor(st.st_rdev));
+                xsprintf_sys_block_path(s, "/../loop/", st.st_dev);
                 if (access(s, F_OK) < 0)
                         return errno == ENOENT ? false : -errno;
         }

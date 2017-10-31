@@ -39,6 +39,7 @@
 #include "build.h"
 #include "cgroup-util.h"
 #include "def.h"
+#include "device-nodes.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -118,63 +119,42 @@ int socket_from_display(const char *display, char **path) {
 }
 
 int block_get_whole_disk(dev_t d, dev_t *ret) {
-        char *p, *s;
+        char p[SYS_BLOCK_PATH_MAX("/partition")];
+        _cleanup_free_ char *s = NULL;
         int r;
         unsigned n, m;
 
         assert(ret);
 
         /* If it has a queue this is good enough for us */
-        if (asprintf(&p, "/sys/dev/block/%u:%u/queue", major(d), minor(d)) < 0)
-                return -ENOMEM;
-
-        r = access(p, F_OK);
-        free(p);
-
-        if (r >= 0) {
+        xsprintf_sys_block_path(p, "/queue", d);
+        if (access(p, F_OK) >= 0) {
                 *ret = d;
                 return 0;
         }
 
         /* If it is a partition find the originating device */
-        if (asprintf(&p, "/sys/dev/block/%u:%u/partition", major(d), minor(d)) < 0)
-                return -ENOMEM;
-
-        r = access(p, F_OK);
-        free(p);
-
-        if (r < 0)
+        xsprintf_sys_block_path(p, "/partition", d);
+        if (access(p, F_OK) < 0)
                 return -ENOENT;
 
         /* Get parent dev_t */
-        if (asprintf(&p, "/sys/dev/block/%u:%u/../dev", major(d), minor(d)) < 0)
-                return -ENOMEM;
-
+        xsprintf_sys_block_path(p, "/../dev", d);
         r = read_one_line_file(p, &s);
-        free(p);
-
         if (r < 0)
                 return r;
 
         r = sscanf(s, "%u:%u", &m, &n);
-        free(s);
-
         if (r != 2)
                 return -EINVAL;
 
         /* Only return this if it is really good enough for us. */
-        if (asprintf(&p, "/sys/dev/block/%u:%u/queue", m, n) < 0)
-                return -ENOMEM;
+        xsprintf_sys_block_path(p, "/queue", makedev(m, n));
+        if (access(p, F_OK) < 0)
+                return -ENOENT;
 
-        r = access(p, F_OK);
-        free(p);
-
-        if (r >= 0) {
-                *ret = makedev(m, n);
-                return 0;
-        }
-
-        return -ENOENT;
+        *ret = makedev(m, n);
+        return 0;
 }
 
 bool kexec_loaded(void) {
@@ -749,7 +729,8 @@ int get_block_device(const char *path, dev_t *dev) {
 
 int get_block_device_harder(const char *path, dev_t *dev) {
         _cleanup_closedir_ DIR *d = NULL;
-        _cleanup_free_ char *p = NULL, *t = NULL;
+        _cleanup_free_ char *t = NULL;
+        char p[SYS_BLOCK_PATH_MAX("/slaves")];
         struct dirent *de, *found = NULL;
         const char *q;
         unsigned maj, min;
@@ -767,9 +748,7 @@ int get_block_device_harder(const char *path, dev_t *dev) {
         if (r <= 0)
                 return r;
 
-        if (asprintf(&p, "/sys/dev/block/%u:%u/slaves", major(dt), minor(dt)) < 0)
-                return -ENOMEM;
-
+        xsprintf_sys_block_path(p, "/slaves", dt);
         d = opendir(p);
         if (!d) {
                 if (errno == ENOENT)
