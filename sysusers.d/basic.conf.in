@@ -32,6 +32,7 @@ g lp      -     -            -
 g kvm     -     -            -
 g tape    -     -            -
 g video   -     -            -
+g render  -     -            -
 
 # Default group for normal users
 g users   -     -            -

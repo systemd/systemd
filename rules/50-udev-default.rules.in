@@ -31,10 +31,12 @@ SUBSYSTEM=="input", KERNEL=="js[0-9]*", MODE="0664"
 
 SUBSYSTEM=="video4linux", GROUP="video"
 SUBSYSTEM=="graphics", GROUP="video"
-SUBSYSTEM=="drm", GROUP="video"
+SUBSYSTEM=="drm", KERNEL!="renderD*", GROUP="video"
 SUBSYSTEM=="dvb", GROUP="video"
 SUBSYSTEM=="media", GROUP="video"
 SUBSYSTEM=="cec", GROUP="video"
+
+SUBSYSTEM=="drm", KERNEL=="renderD*", GROUP="render", MODE="@GROUP_RENDER_MODE@"
 
 SUBSYSTEM=="sound", GROUP="audio", \
   OPTIONS+="static_node=snd/seq", OPTIONS+="static_node=snd/timer"

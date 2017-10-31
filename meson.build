@@ -614,6 +614,7 @@ if get_option('wheel-group')
 endif
 
 substs.set('DEV_KVM_MODE', get_option('dev-kvm-mode'))
+substs.set('GROUP_RENDER_MODE', get_option('group-render-mode'))
 
 kill_user_processes = get_option('default-kill-user-processes')
 conf.set10('KILL_USER_PROCESSES', kill_user_processes)
@@ -2452,6 +2453,7 @@ status = [
         'maximum system UID:                @0@'.format(system_uid_max),
         'maximum system GID:                @0@'.format(system_gid_max),
         '/dev/kvm access mode:              @0@'.format(get_option('dev-kvm-mode')),
+        'render group access mode:          @0@'.format(get_option('group-render-mode')),
         'certificate root:                  @0@'.format(get_option('certificate-root')),
         'support URL:                       @0@'.format(support_url),
         'nobody user name:                  @0@'.format(get_option('nobody-user')),
