@@ -245,7 +245,6 @@ int ask_string(char **ret, const char *text, ...) {
 
 int reset_terminal_fd(int fd, bool switch_to_text) {
         struct termios termios;
-        _cleanup_free_ char *utf8 = NULL;
         int r = 0;
 
         /* Set terminal to some sane defaults */

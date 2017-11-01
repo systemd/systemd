@@ -56,7 +56,7 @@ static bool arg_root_enabled = true;
 static bool arg_root_rw = false;
 
 static int add_cryptsetup(const char *id, const char *what, bool rw, bool require, char **device) {
-        _cleanup_free_ char *e = NULL, *n = NULL, *p = NULL, *d = NULL, *to = NULL;
+        _cleanup_free_ char *e = NULL, *n = NULL, *p = NULL, *d = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         char *ret;
         int r;

@@ -1136,7 +1136,6 @@ void session_restore_vt(Session *s) {
                 .mode = VT_AUTO,
         };
 
-        _cleanup_free_ char *utf8 = NULL;
         int vt, old_fd;
 
         /* We need to get a fresh handle to the virtual terminal,
