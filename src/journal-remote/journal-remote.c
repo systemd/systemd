@@ -807,19 +807,13 @@ static int dispatch_http_event(sd_event_source *event,
                                void *userdata) {
         MHDDaemonWrapper *d = userdata;
         int r;
-        fd_set rd, w, e;
         MHD_UNSIGNED_LONG_LONG timeout = ULONG_LONG_MAX;
 
         assert(d);
 
-        r = MHD_get_fdset(d->daemon, &rd, &w, &e, 0);
+        r = MHD_run(d->daemon);
         if (r == MHD_NO) {
-                log_error("MHD_get_fdset failed!");
-                return -EINVAL;
-        }
-        r = MHD_run_from_select(d->daemon, &rd, &w, &e);
-        if (r == MHD_NO) {
-                log_error("MHD_run_from_select failed!");
+                log_error("MHD_run failed!");
                 // XXX: unregister daemon
                 return -EINVAL;
         }
