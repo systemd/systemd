@@ -753,7 +753,7 @@ static int setup_microhttpd_server(RemoteServer *s,
                 goto error;
         }
 
-        r = sd_event_source_set_description(d->io_event, "timer_event");
+        r = sd_event_source_set_description(d->timer_event, "timer_event");
         if (r < 0) {
                 log_error_errno(r, "Failed to set source name: %m");
                 goto error;
