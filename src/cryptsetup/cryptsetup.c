@@ -255,10 +255,6 @@ static int parse_options(const char *options) {
         return 0;
 }
 
-static void log_glue(int level, const char *msg, void *usrptr) {
-        log_debug("%s", msg);
-}
-
 static int disk_major_minor(const char *path, char **ret) {
         struct stat st;
 
@@ -667,7 +663,7 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                crypt_set_log_callback(cd, log_glue, NULL);
+                crypt_set_log_callback(cd, cryptsetup_log_glue, NULL);
 
                 status = crypt_status(cd, argv[2]);
                 if (IN_SET(status, CRYPT_ACTIVE, CRYPT_BUSY)) {
@@ -751,7 +747,7 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                crypt_set_log_callback(cd, log_glue, NULL);
+                crypt_set_log_callback(cd, cryptsetup_log_glue, NULL);
 
                 r = crypt_deactivate(cd, argv[2]);
                 if (r < 0) {

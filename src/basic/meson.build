@@ -61,6 +61,7 @@ basic_sources_plain = files('''
         copy.h
         cpu-set-util.c
         cpu-set-util.h
+        crypt-util.c
         crypt-util.h
         def.h
         device-nodes.c
