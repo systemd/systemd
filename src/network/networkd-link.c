@@ -3573,7 +3573,8 @@ int link_save(Link *link) {
                         if (r < 0)
                                 goto fail;
 
-                        fprintf(f, "%s%s/%hhu/%hhu/%"PRIu32"/%hhu/"USEC_FMT, space ? " " : "", route_str,
+                        fprintf(f, "%s%s/%hhu/%hhu/%"PRIu32"/%"PRIu32"/"USEC_FMT,
+                                space ? " " : "", route_str,
                                 route->dst_prefixlen, route->tos, route->priority, route->table, route->lifetime);
                         space = true;
                 }
