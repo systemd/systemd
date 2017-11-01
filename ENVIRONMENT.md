@@ -31,6 +31,9 @@ systemctl:
 * `$SYSTEMCTL_FORCE_BUS=1` — if set, do not connect to PID1's private D-Bus
   listener, and instead always connect through the dbus-daemon D-bus broker.
 
+* `$SYSTEMCTL_FORCE_LOCAL=1` — if set, do not connect through the dbus-daemon
+  D-Bus broker, and instead always use PID1's private D-Bus listener.
+
 * `$SYSTEMCTL_INSTALL_CLIENT_SIDE=1` — if set, enable or disable unit files on
   the client side, instead of asking PID 1 to do this.
 
