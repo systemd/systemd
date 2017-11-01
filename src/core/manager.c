@@ -934,7 +934,7 @@ static int manager_connect_bus(Manager *m, bool reexecuting) {
         u = manager_get_unit(m, SPECIAL_DBUS_SERVICE);
 
         try_bus_connect =
-                (u && UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u))) &&
+                (u && SERVICE(u)->deserialized_state == SERVICE_RUNNING) &&
                 (reexecuting ||
                  (MANAGER_IS_USER(m) && getenv("DBUS_SESSION_BUS_ADDRESS")));
 
