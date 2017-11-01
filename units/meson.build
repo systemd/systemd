@@ -208,7 +208,7 @@ in_units = [
          'multi-user.target.wants/ graphical.target.wants/ rescue.target.wants/'],
         ['systemd-update-utmp.service',          'ENABLE_UTMP',
          'sysinit.target.wants/'],
-        ['systemd-user-sessions.service',        '',
+        ['systemd-user-sessions.service',        'HAVE_PAM',
          'multi-user.target.wants/'],
         ['systemd-vconsole-setup.service',       'ENABLE_VCONSOLE'],
         ['systemd-volatile-root.service',        ''],

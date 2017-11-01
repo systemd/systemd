@@ -32,7 +32,7 @@ custom_entities_ent = configure_file(
 man_pages = []
 html_pages = []
 source_xml_files = []
-foreach tuple : manpages
+foreach tuple : want_man or want_html ? manpages : []
         stem = tuple[0]
         section = tuple[1]
         aliases = tuple[2]
@@ -115,8 +115,8 @@ systemd_index_xml = custom_target(
         output : 'systemd.index.xml',
         command : [make_man_index_py, '@OUTPUT@'] + nonindex_xml_files)
 
-foreach tuple : [['systemd.directives', '7', systemd_directives_xml],
-                 ['systemd.index',      '7', systemd_index_xml]]
+foreach tuple : want_man or want_html ? [['systemd.directives', '7', systemd_directives_xml],
+                                         ['systemd.index',      '7', systemd_index_xml]] : []
         stem = tuple[0]
         section = tuple[1]
         xml = tuple[2]
