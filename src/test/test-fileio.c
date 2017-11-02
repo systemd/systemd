@@ -704,7 +704,6 @@ static void test_read_line_one_file(FILE *f) {
 
 static void test_read_line(void) {
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *line = NULL;
 
         f = fmemopen((void*) buffer, sizeof(buffer), "re");
         assert_se(f);

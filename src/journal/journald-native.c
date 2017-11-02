@@ -332,7 +332,7 @@ void server_process_native_message(
                 const char *label, size_t label_len) {
 
         size_t remaining = buffer_size;
-        ClientContext *context;
+        ClientContext *context = NULL;
         int r;
 
         assert(s);

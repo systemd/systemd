@@ -672,7 +672,6 @@ int config_parse_routing_policy_rule_fwmark_mask(
                 void *userdata) {
 
         _cleanup_routing_policy_rule_free_ RoutingPolicyRule *n = NULL;
-        _cleanup_free_ char *fwmark = NULL;
         Network *network = userdata;
         int r;
 
@@ -751,7 +750,7 @@ int config_parse_routing_policy_rule_prefix(
 }
 
 static int routing_policy_rule_read_full_file(char *state_file, char **ret) {
-        _cleanup_free_ char *s = NULL, *p = NULL;
+        _cleanup_free_ char *s = NULL;
         size_t size;
         int r;
 

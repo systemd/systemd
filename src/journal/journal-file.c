@@ -90,6 +90,10 @@
 /* The mmap context to use for the header we pick as one above the last defined typed */
 #define CONTEXT_HEADER _OBJECT_TYPE_MAX
 
+#ifdef __clang__
+#  pragma GCC diagnostic ignored "-Waddress-of-packed-member"
+#endif
+
 /* This may be called from a separate thread to prevent blocking the caller for the duration of fsync().
  * As a result we use atomic operations on f->offline_state for inter-thread communications with
  * journal_file_set_offline() and journal_file_set_online(). */

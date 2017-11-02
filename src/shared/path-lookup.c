@@ -245,7 +245,6 @@ static int acquire_generator_dirs(
                 char **generator_early,
                 char **generator_late) {
 
-        _cleanup_(rmdir_and_freep) char *t = NULL;
         _cleanup_free_ char *x = NULL, *y = NULL, *z = NULL;
         const char *prefix;
 

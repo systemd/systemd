@@ -1556,7 +1556,7 @@ int read_line(FILE *f, size_t limit, char **ret) {
         }
 
         {
-                _cleanup_(funlockfilep) FILE *flocked = f;
+                _unused_ _cleanup_(funlockfilep) FILE *flocked = f;
                 flockfile(f);
 
                 for (;;) {

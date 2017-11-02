@@ -1142,8 +1142,12 @@ static int manager_save(Manager *m) {
                                 goto fail;
                 }
 
-                fprintf(f, "from=%s%s/%hhu to=%s%s/%hhu tos=%hhu fwmark=%"PRIu32"/%"PRIu32" table=%hhu", space ? " " : "", from_str,
-                        rule->from_prefixlen, space ? " " : "", to_str, rule->to_prefixlen, rule->tos, rule->fwmark, rule->fwmask, rule->table);
+                fprintf(f, "from=%s%s/%hhu to=%s%s/%hhu tos=%hhu fwmark=%"PRIu32"/%"PRIu32" table=%"PRIu32,
+                        space ? " " : "", from_str, rule->from_prefixlen,
+                        space ? " " : "", to_str, rule->to_prefixlen,
+                        rule->tos,
+                        rule->fwmark, rule->fwmask,
+                        rule->table);
 
                 fputc('\n', f);
         }

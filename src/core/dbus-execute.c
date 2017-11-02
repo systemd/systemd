@@ -1177,8 +1177,6 @@ int bus_exec_context_set_transient_property(
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid personality");
 
                 if (mode != UNIT_CHECK) {
-                        _cleanup_free_ char *str = NULL;
-
                         c->personality = p;
                         unit_write_drop_in_private_format(u, mode, name, "%s=%s", name, s);
                 }
