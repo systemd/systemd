@@ -1363,7 +1363,7 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
                 break;
 
         case MOUNT_REMOUNTING:
-                log_unit_warning(UNIT(m), "Remounting timed out. Killing remount process.");
+                log_unit_warning(UNIT(m), "Remounting timed out. Terminating remount process.");
                 mount_set_reload_result(m, MOUNT_FAILURE_TIMEOUT);
                 mount_enter_signal(m, MOUNT_REMOUNTING_SIGTERM, MOUNT_SUCCESS);
                 break;
@@ -1388,7 +1388,7 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
                 break;
 
         case MOUNT_UNMOUNTING:
-                log_unit_warning(UNIT(m), "Unmounting timed out. Stopping.");
+                log_unit_warning(UNIT(m), "Unmounting timed out. Terminating.");
                 mount_enter_signal(m, MOUNT_UNMOUNTING_SIGTERM, MOUNT_FAILURE_TIMEOUT);
                 break;
 
