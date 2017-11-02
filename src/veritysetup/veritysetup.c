@@ -18,10 +18,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <libcryptsetup.h>
 #include <stdio.h>
 #include <sys/stat.h>
 
+#include "crypt-util.h"
 #include "log.h"
 #include "hexdecoct.h"
 #include "string-util.h"
@@ -46,7 +46,7 @@ static void log_glue(int level, const char *msg, void *usrptr) {
 }
 
 int main(int argc, char *argv[]) {
-        struct crypt_device *cd = NULL;
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         int r;
 
         if (argc <= 1) {
@@ -144,9 +144,6 @@ int main(int argc, char *argv[]) {
         r = 0;
 
 finish:
-        if (cd)
-                crypt_free(cd);
-
         free(arg_root_hash);
         free(arg_data_what);
         free(arg_hash_what);

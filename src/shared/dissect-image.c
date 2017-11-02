@@ -24,6 +24,7 @@
 #define CRYPT_LUKS NULL
 #endif
 #endif
+
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
@@ -32,6 +33,7 @@
 #include "ask-password-api.h"
 #include "blkid-util.h"
 #include "copy.h"
+#include "crypt-util.h"
 #include "def.h"
 #include "device-nodes.h"
 #include "dissect-image.h"
@@ -850,7 +852,7 @@ static int decrypt_partition(
                 DecryptedImage *d) {
 
         _cleanup_free_ char *node = NULL, *name = NULL;
-        struct crypt_device *cd;
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         int r;
 
         assert(m);
@@ -877,37 +879,28 @@ static int decrypt_partition(
                 return log_debug_errno(r, "Failed to initialize dm-crypt: %m");
 
         r = crypt_load(cd, CRYPT_LUKS, NULL);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to load LUKS metadata: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to load LUKS metadata: %m");
 
         r = crypt_activate_by_passphrase(cd, name, CRYPT_ANY_SLOT, passphrase, strlen(passphrase),
                                          ((flags & DISSECT_IMAGE_READ_ONLY) ? CRYPT_ACTIVATE_READONLY : 0) |
                                          ((flags & DISSECT_IMAGE_DISCARD_ON_CRYPTO) ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0));
-        if (r < 0)
+        if (r < 0) {
                 log_debug_errno(r, "Failed to activate LUKS device: %m");
-        if (r == -EPERM) {
-                r = -EKEYREJECTED;
-                goto fail;
+                return r == -EPERM ? -EKEYREJECTED : r;
         }
-        if (r < 0)
-                goto fail;
 
         d->decrypted[d->n_decrypted].name = name;
         name = NULL;
 
         d->decrypted[d->n_decrypted].device = cd;
+        cd = NULL;
         d->n_decrypted++;
 
         m->decrypted_node = node;
         node = NULL;
 
         return 0;
-
-fail:
-        crypt_free(cd);
-        return r;
 }
 
 static int verity_partition(
@@ -919,7 +912,7 @@ static int verity_partition(
                 DecryptedImage *d) {
 
         _cleanup_free_ char *node = NULL, *name = NULL;
-        struct crypt_device *cd;
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         int r;
 
         assert(m);
@@ -949,30 +942,27 @@ static int verity_partition(
 
         r = crypt_load(cd, CRYPT_VERITY, NULL);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = crypt_set_data_device(cd, m->node);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = crypt_activate_by_volume_key(cd, name, root_hash, root_hash_size, CRYPT_ACTIVATE_READONLY);
         if (r < 0)
-                goto fail;
+                return r;
 
         d->decrypted[d->n_decrypted].name = name;
         name = NULL;
 
         d->decrypted[d->n_decrypted].device = cd;
+        cd = NULL;
         d->n_decrypted++;
 
         m->decrypted_node = node;
         node = NULL;
 
         return 0;
-
-fail:
-        crypt_free(cd);
-        return r;
 }
 #endif
 

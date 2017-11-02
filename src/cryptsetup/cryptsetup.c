@@ -28,6 +28,7 @@
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
+#include "crypt-util.h"
 #include "device-util.h"
 #include "escape.h"
 #include "fileio.h"
@@ -604,7 +605,7 @@ static int help(void) {
 }
 
 int main(int argc, char *argv[]) {
-        struct crypt_device *cd = NULL;
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         int r = -EINVAL;
 
         if (argc <= 1) {
@@ -766,9 +767,6 @@ int main(int argc, char *argv[]) {
         r = 0;
 
 finish:
-        if (cd)
-                crypt_free(cd);
-
         free(arg_cipher);
         free(arg_hash);
         free(arg_header);
