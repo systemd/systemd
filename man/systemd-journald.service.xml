@@ -90,17 +90,19 @@
     for more information about the collected metadata.
     </para>
 
-    <para>Log data collected by the journal is primarily text-based
-    but can also include binary data where necessary. All objects
-    stored in the journal can be up to 2^64-1 bytes in size.</para>
+    <para>Log data collected by the journal is primarily text-based but can also include binary data where
+    necessary. Individual fields making up a log record stored in the journal may be up to 2^64-1 bytes in size.</para>
 
-    <para>By default, the journal stores log data in
-    <filename>/run/log/journal/</filename>. Since
-    <filename>/run/</filename> is volatile, log data is lost at
-    reboot. To make the data persistent, it is sufficient to create
-    <filename>/var/log/journal/</filename> where
-    <filename>systemd-journald</filename> will then store the
-    data:</para>
+    <para>The journal service stores log data either persistently below <filename>/var/log/journal</filename> or in a
+    volatile way below <filename>/run/log/journal/</filename> (in the latter case it is lost at reboot). By default, log
+    data is stored persistently if <filename>/var/log/journal/</filename> exists during boot, with an implicit fallback
+    to volatile storage otherwise. Use <varname>Storage=</varname> in
+    <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> to configure
+    where log data is placed, independently of the existence of <filename>/var/log/journal/</filename>.</para>
+
+    <para>On systems where <filename>/var/log/journal/</filename> does not exist yet but where persistent logging is
+    desired (and the default <filename>journald.conf</filename> is used), it is sufficient to create the directory, and
+    ensure it has the correct access modes and ownership:</para>
 
     <programlisting>mkdir -p /var/log/journal
 systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
