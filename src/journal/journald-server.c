@@ -753,7 +753,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
 
 static void dispatch_message_real(
                 Server *s,
-                struct iovec *iovec, unsigned n, unsigned m,
+                struct iovec *iovec, size_t n, size_t m,
                 const ClientContext *c,
                 const struct timeval *tv,
                 int priority,
@@ -766,7 +766,10 @@ static void dispatch_message_real(
         assert(s);
         assert(iovec);
         assert(n > 0);
-        assert(n + N_IOVEC_META_FIELDS + (pid_is_valid(object_pid) ? N_IOVEC_OBJECT_FIELDS : 0) <= m);
+        assert(n +
+               N_IOVEC_META_FIELDS +
+               (pid_is_valid(object_pid) ? N_IOVEC_OBJECT_FIELDS : 0) +
+               client_context_extra_fields_n_iovec(c) <= m);
 
         if (c) {
                 IOVEC_ADD_NUMERIC_FIELD(iovec, n, c->pid, pid_t, pid_is_valid, PID_FMT, "_PID");
@@ -792,6 +795,11 @@ static void dispatch_message_real(
                 IOVEC_ADD_STRING_FIELD(iovec, n, c->user_slice, "_SYSTEMD_USER_SLICE");
 
                 IOVEC_ADD_ID128_FIELD(iovec, n, c->invocation_id, "_SYSTEMD_INVOCATION_ID");
+
+                if (c->extra_fields_n_iovec > 0) {
+                        memcpy(iovec + n, c->extra_fields_iovec, c->extra_fields_n_iovec * sizeof(struct iovec));
+                        n += c->extra_fields_n_iovec;
+                }
         }
 
         assert(n <= m);
@@ -862,13 +870,16 @@ static void dispatch_message_real(
 
 void server_driver_message(Server *s, pid_t object_pid, const char *message_id, const char *format, ...) {
 
-        struct iovec iovec[N_IOVEC_META_FIELDS + 5 + N_IOVEC_PAYLOAD_FIELDS];
-        unsigned n = 0, m;
+        struct iovec *iovec;
+        size_t n = 0, k, m;
         va_list ap;
         int r;
 
         assert(s);
         assert(format);
+
+        m = N_IOVEC_META_FIELDS + 5 + N_IOVEC_PAYLOAD_FIELDS + client_context_extra_fields_n_iovec(s->my_context);
+        iovec = newa(struct iovec, m);
 
         assert_cc(3 == LOG_FAC(LOG_DAEMON));
         iovec[n++] = IOVEC_MAKE_STRING("SYSLOG_FACILITY=3");
@@ -880,18 +891,18 @@ void server_driver_message(Server *s, pid_t object_pid, const char *message_id, 
 
         if (message_id)
                 iovec[n++] = IOVEC_MAKE_STRING(message_id);
-        m = n;
+        k = n;
 
         va_start(ap, format);
-        r = log_format_iovec(iovec, ELEMENTSOF(iovec), &n, false, 0, format, ap);
+        r = log_format_iovec(iovec, m, &n, false, 0, format, ap);
         /* Error handling below */
         va_end(ap);
 
         if (r >= 0)
-                dispatch_message_real(s, iovec, n, ELEMENTSOF(iovec), s->my_context, NULL, LOG_INFO, object_pid);
+                dispatch_message_real(s, iovec, n, m, s->my_context, NULL, LOG_INFO, object_pid);
 
-        while (m < n)
-                free(iovec[m++].iov_base);
+        while (k < n)
+                free(iovec[k++].iov_base);
 
         if (r < 0) {
                 /* We failed to format the message. Emit a warning instead. */
@@ -902,13 +913,13 @@ void server_driver_message(Server *s, pid_t object_pid, const char *message_id, 
                 n = 3;
                 iovec[n++] = IOVEC_MAKE_STRING("PRIORITY=4");
                 iovec[n++] = IOVEC_MAKE_STRING(buf);
-                dispatch_message_real(s, iovec, n, ELEMENTSOF(iovec), s->my_context, NULL, LOG_INFO, object_pid);
+                dispatch_message_real(s, iovec, n, m, s->my_context, NULL, LOG_INFO, object_pid);
         }
 }
 
 void server_dispatch_message(
                 Server *s,
-                struct iovec *iovec, unsigned n, unsigned m,
+                struct iovec *iovec, size_t n, size_t m,
                 ClientContext *c,
                 const struct timeval *tv,
                 int priority,

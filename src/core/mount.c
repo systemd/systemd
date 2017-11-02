@@ -769,6 +769,8 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
                 m->reset_accounting = false;
         }
 
+        unit_export_state_files(UNIT(m));
+
         r = unit_setup_exec_runtime(UNIT(m));
         if (r < 0)
                 return r;

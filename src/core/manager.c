@@ -53,14 +53,15 @@
 #include "dirent-util.h"
 #include "env-util.h"
 #include "escape.h"
-#include "execute.h"
 #include "exec-util.h"
+#include "execute.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "hashmap.h"
 #include "io-util.h"
+#include "label.h"
 #include "locale-setup.h"
 #include "log.h"
 #include "macro.h"
@@ -712,6 +713,12 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
         if (!m->udev) {
                 r = -ENOMEM;
                 goto fail;
+        }
+
+        if (MANAGER_IS_SYSTEM(m)) {
+                r = mkdir_label("/run/systemd/units", 0755);
+                if (r < 0 && r != -EEXIST)
+                        goto fail;
         }
 
         /* Note that we do not set up the notify fd here. We do that after deserialization,

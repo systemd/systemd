@@ -180,8 +180,8 @@ int log_oom_internal(
 
 int log_format_iovec(
                 struct iovec *iovec,
-                unsigned iovec_len,
-                unsigned *n,
+                size_t iovec_len,
+                size_t *n,
                 bool newline_separator,
                 int error,
                 const char *format,

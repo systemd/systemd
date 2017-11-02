@@ -29,10 +29,10 @@
 typedef struct MapField {
         const char *audit_field;
         const char *journal_field;
-        int (*map)(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, unsigned *n_iov);
+        int (*map)(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, size_t *n_iov);
 } MapField;
 
-static int map_simple_field(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, unsigned *n_iov) {
+static int map_simple_field(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, size_t *n_iov) {
         _cleanup_free_ char *c = NULL;
         size_t l = 0, allocated = 0;
         const char *e;
@@ -69,7 +69,7 @@ static int map_simple_field(const char *field, const char **p, struct iovec **io
         return 1;
 }
 
-static int map_string_field_internal(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, unsigned *n_iov, bool filter_printable) {
+static int map_string_field_internal(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, size_t *n_iov, bool filter_printable) {
         _cleanup_free_ char *c = NULL;
         const char *s, *e;
         size_t l;
@@ -146,15 +146,15 @@ static int map_string_field_internal(const char *field, const char **p, struct i
         return 1;
 }
 
-static int map_string_field(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, unsigned *n_iov) {
+static int map_string_field(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, size_t *n_iov) {
         return map_string_field_internal(field, p, iov, n_iov_allocated, n_iov, false);
 }
 
-static int map_string_field_printable(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, unsigned *n_iov) {
+static int map_string_field_printable(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, size_t *n_iov) {
         return map_string_field_internal(field, p, iov, n_iov_allocated, n_iov, true);
 }
 
-static int map_generic_field(const char *prefix, const char **p, struct iovec **iov, size_t *n_iov_allocated, unsigned *n_iov) {
+static int map_generic_field(const char *prefix, const char **p, struct iovec **iov, size_t *n_iov_allocated, size_t *n_iov) {
         const char *e, *f;
         char *c, *t;
         int r;
@@ -259,7 +259,7 @@ static int map_all_fields(
                 bool handle_msg,
                 struct iovec **iov,
                 size_t *n_iov_allocated,
-                unsigned *n_iov) {
+                size_t *n_iov) {
 
         int r;
 
@@ -331,16 +331,15 @@ static int map_all_fields(
 }
 
 static void process_audit_string(Server *s, int type, const char *data, size_t size) {
+        size_t n_iov_allocated = 0, n_iov = 0, z;
         _cleanup_free_ struct iovec *iov = NULL;
-        size_t n_iov_allocated = 0;
-        unsigned n_iov = 0, k;
         uint64_t seconds, msec, id;
         const char *p, *type_name;
-        unsigned z;
         char id_field[sizeof("_AUDIT_ID=") + DECIMAL_STR_MAX(uint64_t)],
              type_field[sizeof("_AUDIT_TYPE=") + DECIMAL_STR_MAX(int)],
              source_time_field[sizeof("_SOURCE_REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t)];
         char *m;
+        int k;
 
         assert(s);
 

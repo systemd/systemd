@@ -114,19 +114,17 @@ static int server_process_entry(
                 const struct timeval *tv,
                 const char *label, size_t label_len) {
 
-        /* Process a single entry from a native message.
-         * Returns 0 if nothing special happened and the message processing should continue,
-         * and a negative or positive value otherwise.
+        /* Process a single entry from a native message. Returns 0 if nothing special happened and the message
+         * processing should continue, and a negative or positive value otherwise.
          *
          * Note that *remaining is altered on both success and failure. */
 
-        struct iovec *iovec = NULL;
-        unsigned n = 0, j, tn = (unsigned) -1;
-        const char *p;
-        size_t m = 0, entry_size = 0;
-        int priority = LOG_INFO;
+        size_t n = 0, j, tn = (size_t) -1, m = 0, entry_size = 0;
         char *identifier = NULL, *message = NULL;
+        struct iovec *iovec = NULL;
+        int priority = LOG_INFO;
         pid_t object_pid = 0;
+        const char *p;
         int r = 0;
 
         p = buffer;
@@ -160,7 +158,10 @@ static int server_process_entry(
                 /* A property follows */
 
                 /* n existing properties, 1 new, +1 for _TRANSPORT */
-                if (!GREEDY_REALLOC(iovec, m, n + 2 + N_IOVEC_META_FIELDS + N_IOVEC_OBJECT_FIELDS)) {
+                if (!GREEDY_REALLOC(iovec, m,
+                                    n + 2 +
+                                    N_IOVEC_META_FIELDS + N_IOVEC_OBJECT_FIELDS +
+                                    client_context_extra_fields_n_iovec(context))) {
                         r = log_oom();
                         break;
                 }
@@ -243,13 +244,17 @@ static int server_process_entry(
                 goto finish;
         }
 
+        if (!client_context_test_priority(context, priority)) {
+                r = 0;
+                goto finish;
+        }
+
         tn = n++;
         iovec[tn] = IOVEC_MAKE_STRING("_TRANSPORT=journal");
         entry_size += strlen("_TRANSPORT=journal");
 
         if (entry_size + n + 1 > ENTRY_SIZE_MAX) { /* data + separators + trailer */
-                log_debug("Entry is too big with %u properties and %zu bytes, ignoring.",
-                          n, entry_size);
+                log_debug("Entry is too big with %zu properties and %zu bytes, ignoring.", n, entry_size);
                 goto finish;
         }
 

@@ -338,6 +338,11 @@ struct Unit {
 
         /* For transient units: whether to add a bus track reference after creating the unit */
         bool bus_track_add:1;
+
+        /* Remember which unit state files we created */
+        bool exported_invocation_id:1;
+        bool exported_log_level_max:1;
+        bool exported_log_extra_fields:1;
 };
 
 struct UnitStatusMessageFormats {
@@ -741,6 +746,9 @@ void unit_set_exec_params(Unit *s, ExecParameters *p);
 int unit_fork_helper_process(Unit *u, pid_t *ret);
 
 void unit_remove_dependencies(Unit *u, UnitDependencyMask mask);
+
+void unit_export_state_files(Unit *u);
+void unit_unlink_state_files(Unit *u);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 

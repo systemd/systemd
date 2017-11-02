@@ -156,6 +156,31 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 r = sd_bus_message_append(m, "sv", n, "t", t);
                 goto finish;
 
+        } else if (streq(field, "LogExtraFields")) {
+
+                r = sd_bus_message_append(m, "s", "LogExtraFields");
+                if (r < 0)
+                        goto finish;
+
+                r = sd_bus_message_open_container(m, 'v', "aay");
+                if (r < 0)
+                        goto finish;
+
+                r = sd_bus_message_open_container(m, 'a', "ay");
+                if (r < 0)
+                        goto finish;
+
+                r = sd_bus_message_append_array(m, 'y', eq, strlen(eq));
+                if (r < 0)
+                        goto finish;
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        goto finish;
+
+                r = sd_bus_message_close_container(m);
+                goto finish;
+
         } else if (STR_IN_SET(field, "MemoryLow", "MemoryHigh", "MemoryMax", "MemoryLimit")) {
                 uint64_t bytes;
 
@@ -363,7 +388,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 r = sd_bus_message_append(m, "v", "(bs)", ignore, s);
 
-        } else if (streq(field, "SyslogLevel")) {
+        } else if (STR_IN_SET(field, "SyslogLevel", "LogLevelMax")) {
                 int level;
 
                 level = log_level_from_string(eq);

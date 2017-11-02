@@ -3483,11 +3483,12 @@ void exec_context_init(ExecContext *c) {
                 c->directories[i].mode = 0755;
         c->capability_bounding_set = CAP_ALL;
         c->restrict_namespaces = NAMESPACE_FLAGS_ALL;
+        c->log_level_max = -1;
 }
 
 void exec_context_done(ExecContext *c) {
-        unsigned l;
         ExecDirectoryType i;
+        size_t l;
 
         assert(c);
 
@@ -3534,6 +3535,10 @@ void exec_context_done(ExecContext *c) {
 
         for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++)
                 c->directories[i].paths = strv_free(c->directories[i].paths);
+
+        c->log_level_max = -1;
+
+        exec_context_free_log_extra_fields(c);
 }
 
 int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_prefix) {
@@ -3796,9 +3801,9 @@ static void strv_fprintf(FILE *f, char **l) {
 }
 
 void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
+        ExecDirectoryType dt;
         char **e, **d;
         unsigned i;
-        ExecDirectoryType dt;
         int r;
 
         assert(c);
@@ -3964,6 +3969,26 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 r = log_level_to_string_alloc(LOG_PRI(c->syslog_priority), &lvl_str);
                 if (r >= 0)
                         fprintf(f, "%sSyslogLevel: %s\n", prefix, lvl_str);
+        }
+
+        if (c->log_level_max >= 0) {
+                _cleanup_free_ char *t = NULL;
+
+                (void) log_level_to_string_alloc(c->log_level_max, &t);
+
+                fprintf(f, "%sLogLevelMax: %s\n", prefix, strna(t));
+        }
+
+        if (c->n_log_extra_fields > 0) {
+                size_t j;
+
+                for (j = 0; j < c->n_log_extra_fields; j++) {
+                        fprintf(f, "%sLogExtraFields: ", prefix);
+                        fwrite(c->log_extra_fields[j].iov_base,
+                               1, c->log_extra_fields[j].iov_len,
+                               f);
+                        fputc('\n', f);
+                }
         }
 
         if (c->secure_bits) {
@@ -4175,6 +4200,17 @@ int exec_context_get_effective_ioprio(ExecContext *c) {
                 return IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 4);
 
         return p;
+}
+
+void exec_context_free_log_extra_fields(ExecContext *c) {
+        size_t l;
+
+        assert(c);
+
+        for (l = 0; l < c->n_log_extra_fields; l++)
+                free(c->log_extra_fields[l].iov_base);
+        c->log_extra_fields = mfree(c->log_extra_fields);
+        c->n_log_extra_fields = 0;
 }
 
 void exec_status_start(ExecStatus *s, pid_t pid) {

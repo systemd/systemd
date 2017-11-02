@@ -187,7 +187,7 @@ struct Server {
 #define N_IOVEC_OBJECT_FIELDS 14
 #define N_IOVEC_PAYLOAD_FIELDS 15
 
-void server_dispatch_message(Server *s, struct iovec *iovec, unsigned n, unsigned m, ClientContext *c, const struct timeval *tv, int priority, pid_t object_pid);
+void server_dispatch_message(Server *s, struct iovec *iovec, size_t n, size_t m, ClientContext *c, const struct timeval *tv, int priority, pid_t object_pid);
 void server_driver_message(Server *s, pid_t object_pid, const char *message_id, const char *format, ...) _sentinel_;
 
 /* gperf lookup function */

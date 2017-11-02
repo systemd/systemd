@@ -339,6 +339,8 @@ static int scope_start(Unit *u) {
         (void) unit_reset_cpu_accounting(u);
         (void) unit_reset_ip_accounting(u);
 
+        unit_export_state_files(UNIT(s));
+
         r = unit_attach_pids_to_cgroup(u);
         if (r < 0) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to add PIDs to scope's control group: %m");
