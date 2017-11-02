@@ -461,10 +461,6 @@ int route_remove(Route *route, Link *link,
         if (r < 0)
                 return log_error_errno(r, "Could not append RTA_PRIORITY attribute: %m");
 
-        r = sd_rtnl_message_route_set_type(req, route->type);
-        if (r < 0)
-                return log_error_errno(r, "Could not set route type: %m");
-
         if (!IN_SET(route->type, RTN_UNREACHABLE, RTN_PROHIBIT, RTN_BLACKHOLE)) {
                 r = sd_netlink_message_append_u32(req, RTA_OIF, link->ifindex);
                 if (r < 0)
