@@ -952,6 +952,7 @@
         system. Currently, the recognized values are
         <varname>selinux</varname>,
         <varname>apparmor</varname>,
+        <varname>tomoyo</varname>,
         <varname>ima</varname>,
         <varname>smack</varname> and
         <varname>audit</varname>. The test may be negated by

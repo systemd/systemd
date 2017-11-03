@@ -54,6 +54,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "tomoyo-util.h"
 #include "user-util.h"
 #include "util.h"
 #include "virt.h"
@@ -301,6 +302,8 @@ static int condition_test_security(Condition *c) {
                 return use_audit();
         if (streq(c->parameter, "ima"))
                 return use_ima();
+        if (streq(c->parameter, "tomoyo"))
+                return mac_tomoyo_use();
 
         return false;
 }
