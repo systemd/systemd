@@ -1,0 +1,8 @@
+# Symlink NVMe Bay and Slot
+
+# Tested on Dell PowerEdge Servers.
+ATTR{[dmi/id]sys_vendor}!="Dell*", GOTO="nvme_location_end"
+
+KERNEL=="nvme*[0-9]n*[0-9]", ENV{DEVTYPE}=="disk", DRIVERS=="nvme", ATTRS{label}=="?*", PROGRAM="/bin/sh -c 'echo $attr{label} | tr [:blank:] - | tr [:upper:] [:lower:]'", SYMLINK+="disk/by-location/%c-%k"
+
+LABEL="nvme_location_end"
