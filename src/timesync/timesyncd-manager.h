@@ -76,6 +76,7 @@ struct Manager {
         } samples[8];
         unsigned int samples_idx;
         double samples_jitter;
+        usec_t max_root_distance_usec;
 
         /* last change */
         bool jumped;
