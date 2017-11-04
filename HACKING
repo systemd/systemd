@@ -11,6 +11,15 @@ CODING_STYLE for details. Also have a look at our Contribution Guidelines:
 
         https://github.com/systemd/systemd/blob/master/.github/CONTRIBUTING.md
 
+When adding new functionality, tests should be added. For shared functionality
+(in src/basic and src/shared) unit tests should be sufficient. The general
+policy is to keep tests in matching files underneath src/test,
+e.g. src/test/test-path-util.c contains tests for any functions in
+src/basic/path-util.c. If adding a new source file, consider adding a matching
+test executable. For features at a higher level, tests in src/test/ are very
+strongly recommended. If that is no possible, integration tests in test/ are
+encouraged.
+
 Please always test your work before submitting a PR. For many of the components
 of systemd testing is straight-forward as you can simply compile systemd and
 run the relevant tool from the build directory.
