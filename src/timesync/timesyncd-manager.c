@@ -80,8 +80,8 @@
 #define NTP_FIELD_MODE(f)               ((f) & 7)
 #define NTP_FIELD(l, v, m)              (((l) << 6) | ((v) << 3) | (m))
 
-/* Maximum acceptable root distance in seconds. */
-#define NTP_MAX_ROOT_DISTANCE           5.0
+/* Maximum acceptable root distance in microseconds. */
+#define NTP_MAX_ROOT_DISTANCE           (5 * USEC_PER_SEC)
 
 /* Maximum number of missed replies before selecting another source. */
 #define NTP_MAX_MISSED_REPLIES          2
@@ -588,7 +588,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         }
 
         root_distance = ntp_ts_short_to_d(&ntpmsg.root_delay) / 2 + ntp_ts_short_to_d(&ntpmsg.root_dispersion);
-        if (root_distance > NTP_MAX_ROOT_DISTANCE) {
+        if (root_distance > (double) m->max_root_distance_usec / (double) USEC_PER_SEC) {
                 log_debug("Server has too large root distance. Disconnecting.");
                 return manager_connect(m);
         }
@@ -1123,6 +1123,8 @@ int manager_new(Manager **ret) {
         m = new0(Manager, 1);
         if (!m)
                 return -ENOMEM;
+
+        m->max_root_distance_usec = NTP_MAX_ROOT_DISTANCE;
 
         m->server_socket = m->clock_watch_fd = -1;
 
