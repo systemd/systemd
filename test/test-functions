@@ -504,9 +504,8 @@ install_execs() {
     export PKG_CONFIG_PATH=$BUILD_DIR/src/core/
     systemdsystemunitdir=$(pkg-config --variable=systemdsystemunitdir systemd)
     systemduserunitdir=$(pkg-config --variable=systemduserunitdir systemd)
-    egrep -ho '^Exec[^ ]*=[^ ]+' $initdir/{$systemdsystemunitdir,$systemduserunitdir}/*.service \
-         | while read i; do
-         i=${i##Exec*=}; i=${i##[@+\!-]}; i=${i##\!}
+    sed -n 's|^Exec[a-zA-Z]*=[^/]*\(/[^ ]*\).*|\1|gp' $initdir/{$systemdsystemunitdir,$systemduserunitdir}/*.service \
+         | sort -u | while read i; do
          # some {rc,halt}.local scripts and programs are okay to not exist, the rest should
          inst $i || [ "${i%.local}" != "$i" ] || [ "${i%systemd-update-done}" != "$i" ]
      done
