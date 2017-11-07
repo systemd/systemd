@@ -1498,7 +1498,7 @@ void bus_node_gc(sd_bus *b, struct node *n) {
             n->object_managers)
                 return;
 
-        assert(hashmap_remove(b->nodes, n->path) == n);
+        assert_se(hashmap_remove(b->nodes, n->path) == n);
 
         if (n->parent)
                 LIST_REMOVE(siblings, n->parent->child, n);

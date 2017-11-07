@@ -270,9 +270,9 @@ static void test_var_tmp(void) {
                 assert_se(tmp_backup);
         }
 
-        assert(unsetenv("TMPDIR") >= 0);
-        assert(unsetenv("TEMP") >= 0);
-        assert(unsetenv("TMP") >= 0);
+        assert_se(unsetenv("TMPDIR") >= 0);
+        assert_se(unsetenv("TEMP") >= 0);
+        assert_se(unsetenv("TMP") >= 0);
 
         assert_se(var_tmp_dir(&tmp_dir) >= 0);
         assert_se(streq(tmp_dir, "/var/tmp"));

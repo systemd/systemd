@@ -150,7 +150,7 @@ int main(int argc, char *argv[]) {
 
         assert(r >= 0);
 
-        assert(unit_start(u) >= 0);
+        assert_se(unit_start(u) >= 0);
 
         while (!IN_SET(SERVICE(u)->state, SERVICE_DEAD, SERVICE_FAILED))
                 assert_se(sd_event_run(m->event, UINT64_MAX) >= 0);
