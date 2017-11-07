@@ -106,11 +106,27 @@ int config_parse_servers(
 }
 
 int manager_parse_config_file(Manager *m) {
+        int r;
+
         assert(m);
 
-        return config_parse_many_nulstr(PKGSYSCONFDIR "/timesyncd.conf",
-                                        CONF_PATHS_NULSTR("systemd/timesyncd.conf.d"),
-                                        "Time\0",
-                                        config_item_perf_lookup, timesyncd_gperf_lookup,
-                                        false, m);
+        r = config_parse_many_nulstr(PKGSYSCONFDIR "/timesyncd.conf",
+                                     CONF_PATHS_NULSTR("systemd/timesyncd.conf.d"),
+                                     "Time\0",
+                                     config_item_perf_lookup, timesyncd_gperf_lookup,
+                                     false, m);
+        if (r < 0)
+                return r;
+
+        if (m->poll_interval_min_usec < 16 * USEC_PER_SEC) {
+                log_warning("Invalid PollIntervalMinSec=. Using default value.");
+                m->poll_interval_min_usec = NTP_POLL_INTERVAL_MIN_USEC;
+        }
+
+        if (m->poll_interval_max_usec < m->poll_interval_min_usec) {
+                log_warning("PollIntervalMaxSec= is smaller than PollIntervalMinSec=. Using default value.");
+                m->poll_interval_max_usec = MAX(NTP_POLL_INTERVAL_MAX_USEC, m->poll_interval_min_usec * 32);
+        }
+
+        return r;
 }

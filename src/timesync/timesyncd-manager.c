@@ -56,15 +56,8 @@
 #define NTP_ACCURACY_SEC                0.2
 
 /*
- * "A client MUST NOT under any conditions use a poll interval less
- * than 15 seconds."
- */
-#define NTP_POLL_INTERVAL_MIN_SEC       32
-#define NTP_POLL_INTERVAL_MAX_SEC       2048
-
-/*
  * Maximum delta in seconds which the system clock is gradually adjusted
- * (slew) to approach the network time. Deltas larger that this are set by
+ * (slewed) to approach the network time. Deltas larger that this are set by
  * letting the system time jump. The kernel's limit for adjtime is 0.5s.
  */
 #define NTP_MAX_ADJUST                  0.4
@@ -80,7 +73,7 @@
 #define NTP_FIELD_MODE(f)               ((f) & 7)
 #define NTP_FIELD(l, v, m)              (((l) << 6) | ((v) << 3) | (m))
 
-/* Maximum acceptable root distance in microseconds. */
+/* Default of maximum acceptable root distance in microseconds. */
 #define NTP_MAX_ROOT_DISTANCE           (5 * USEC_PER_SEC)
 
 /* Maximum number of missed replies before selecting another source. */
@@ -204,10 +197,10 @@ static int manager_send_request(Manager *m) {
 
         /* re-arm timer with increasing timeout, in case the packets never arrive back */
         if (m->retry_interval > 0) {
-                if (m->retry_interval < NTP_POLL_INTERVAL_MAX_SEC * USEC_PER_SEC)
+                if (m->retry_interval < m->poll_interval_max_usec)
                         m->retry_interval *= 2;
         } else
-                m->retry_interval = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
+                m->retry_interval = m->poll_interval_min_usec;
 
         r = manager_arm_timer(m, m->retry_interval);
         if (r < 0)
@@ -446,27 +439,27 @@ static void manager_adjust_poll(Manager *m, double offset, bool spike) {
         assert(m);
 
         if (m->poll_resync) {
-                m->poll_interval_usec = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
+                m->poll_interval_usec = m->poll_interval_min_usec;
                 m->poll_resync = false;
                 return;
         }
 
         /* set to minimal poll interval */
         if (!spike && fabs(offset) > NTP_ACCURACY_SEC) {
-                m->poll_interval_usec = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
+                m->poll_interval_usec = m->poll_interval_min_usec;
                 return;
         }
 
         /* increase polling interval */
         if (fabs(offset) < NTP_ACCURACY_SEC * 0.25) {
-                if (m->poll_interval_usec < NTP_POLL_INTERVAL_MAX_SEC * USEC_PER_SEC)
+                if (m->poll_interval_usec < m->poll_interval_max_usec)
                         m->poll_interval_usec *= 2;
                 return;
         }
 
         /* decrease polling interval */
         if (spike || fabs(offset) > NTP_ACCURACY_SEC * 0.75) {
-                if (m->poll_interval_usec > NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC)
+                if (m->poll_interval_usec > m->poll_interval_min_usec)
                         m->poll_interval_usec /= 2;
                 return;
         }
@@ -743,7 +736,7 @@ static int manager_begin(Manager *m) {
         m->good = false;
         m->missed_replies = NTP_MAX_MISSED_REPLIES;
         if (m->poll_interval_usec == 0)
-                m->poll_interval_usec = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
+                m->poll_interval_usec = m->poll_interval_min_usec;
 
         server_address_pretty(m->current_server_address, &pretty);
         log_debug("Connecting to time server %s (%s).", strna(pretty), m->current_server_name->string);
@@ -921,7 +914,7 @@ int manager_connect(Manager *m) {
                                 m->exhausted_servers = true;
 
                                 /* Increase the polling interval */
-                                if (m->poll_interval_usec < NTP_POLL_INTERVAL_MAX_SEC * USEC_PER_SEC)
+                                if (m->poll_interval_usec < m->poll_interval_max_usec)
                                         m->poll_interval_usec *= 2;
 
                                 return 0;
@@ -1125,6 +1118,8 @@ int manager_new(Manager **ret) {
                 return -ENOMEM;
 
         m->max_root_distance_usec = NTP_MAX_ROOT_DISTANCE;
+        m->poll_interval_min_usec = NTP_POLL_INTERVAL_MIN_USEC;
+        m->poll_interval_max_usec = NTP_POLL_INTERVAL_MAX_USEC;
 
         m->server_socket = m->clock_watch_fd = -1;
 

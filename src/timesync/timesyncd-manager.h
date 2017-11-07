@@ -25,10 +25,18 @@
 
 #include "list.h"
 #include "ratelimit.h"
+#include "time-util.h"
 
 typedef struct Manager Manager;
 
 #include "timesyncd-server.h"
+
+/*
+ * "A client MUST NOT under any conditions use a poll interval less
+ * than 15 seconds."
+ */
+#define NTP_POLL_INTERVAL_MIN_USEC      (32 * USEC_PER_SEC)
+#define NTP_POLL_INTERVAL_MAX_USEC      (2048 * USEC_PER_SEC)
 
 struct Manager {
         sd_event *event;
@@ -67,6 +75,8 @@ struct Manager {
         /* poll timer */
         sd_event_source *event_timer;
         usec_t poll_interval_usec;
+        usec_t poll_interval_min_usec;
+        usec_t poll_interval_max_usec;
         bool poll_resync;
 
         /* history data */
