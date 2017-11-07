@@ -401,7 +401,9 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_e
                    the superblock here, not the bind mount.
                    If the filesystem is a network fs, also skip the
                    remount.  It brings no value (we cannot leave
-                   a "dirty fs") and could hang if the network is down.  */
+                   a "dirty fs") and could hang if the network is down.
+                   Note that umount2() is more careful and will not
+                   hang because of the network being down. */
                 if (detect_container() <= 0 &&
                     !fstype_is_network(m->type) &&
                     !mount_is_readonly) {
@@ -444,11 +446,15 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_e
                 if (nonunmountable_path(m->path))
                         continue;
 
-                /* Trying to umount. We don't force here since we rely
-                 * on busy NFS and FUSE file systems to return EBUSY
-                 * until we closed everything on top of them. */
+                /* Trying to umount. Using MNT_FORCE causes some
+                 * filesystems (e.g. FUSE and NFS and other network
+                 * filesystems) to abort any pending requests and
+                 * return -EIO rather than blocking indefinitely.
+                 * If the filesysten is "busy", this may allow processes
+                 * to die, thus making the filesystem less busy so
+                 * the unmount might succeed (rather then return EBUSY).*/
                 log_info("Unmounting %s.", m->path);
-                if (umount2(m->path, 0) == 0) {
+                if (umount2(m->path, MNT_FORCE) == 0) {
                         if (changed)
                                 *changed = true;
                 } else {
