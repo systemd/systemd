@@ -88,6 +88,8 @@ shared_sources = '''
         sysctl-util.h
         tests.c
         tests.h
+        tomoyo-util.c
+        tomoyo-util.h
         udev-util.h
         udev-util.c
         uid-range.c
