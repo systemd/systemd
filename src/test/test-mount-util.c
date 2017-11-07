@@ -26,7 +26,7 @@
 static void test_mount_propagation_flags(const char *name, int ret, unsigned long expected) {
         long unsigned flags;
 
-        assert(mount_propagation_flags_from_string(name, &flags) == ret);
+        assert_se(mount_propagation_flags_from_string(name, &flags) == ret);
 
         if (ret >= 0) {
                 const char *c;
