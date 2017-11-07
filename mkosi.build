@@ -24,7 +24,7 @@
 # as out-of-tree build dir. Otherwise, let's make up our own builddir.
 [ -z "$BUILDDIR" ] && BUILDDIR=build
 
-export LC_CTYPE=C.UTF-8
+export LC_CTYPE=en_US.UTF-8
 
 [ -f "$BUILDDIR"/build.ninja ] || meson "$BUILDDIR"
 ninja -C "$BUILDDIR" all
