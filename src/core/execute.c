@@ -1705,7 +1705,12 @@ static bool exec_needs_mount_namespace(
             !strv_isempty(context->inaccessible_paths))
                 return true;
 
-        if (context->n_bind_mounts > 0)
+        if (context->n_bind_mounts > 0 ||
+            !strv_isempty(context->directories[EXEC_DIRECTORY_RUNTIME].paths) ||
+            !strv_isempty(context->directories[EXEC_DIRECTORY_STATE].paths) ||
+            !strv_isempty(context->directories[EXEC_DIRECTORY_CACHE].paths) ||
+            !strv_isempty(context->directories[EXEC_DIRECTORY_LOGS].paths) ||
+            !strv_isempty(context->directories[EXEC_DIRECTORY_CONFIGURATION].paths))
                 return true;
 
         if (context->mount_flags != 0)
@@ -1723,13 +1728,6 @@ static bool exec_needs_mount_namespace(
                 return true;
 
         if (context->mount_apivfs && (context->root_image || context->root_directory))
-                return true;
-
-        if (context->dynamic_user &&
-            (!strv_isempty(context->directories[EXEC_DIRECTORY_RUNTIME].paths) ||
-             !strv_isempty(context->directories[EXEC_DIRECTORY_STATE].paths) ||
-             !strv_isempty(context->directories[EXEC_DIRECTORY_CACHE].paths) ||
-             !strv_isempty(context->directories[EXEC_DIRECTORY_LOGS].paths)))
                 return true;
 
         return false;
@@ -1941,7 +1939,8 @@ static int setup_exec_directory(
                 if (r < 0)
                         goto fail;
 
-                if (context->dynamic_user && type != EXEC_DIRECTORY_CONFIGURATION) {
+                if (context->dynamic_user &&
+                    !IN_SET(type, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION)) {
                         _cleanup_free_ char *private_root = NULL, *relative = NULL, *parent = NULL;
 
                         /* So, here's one extra complication when dealing with DynamicUser=1 units. In that case we
@@ -1962,7 +1961,9 @@ static int setup_exec_directory(
                          * dirs it needs but no others. Tricky? Yes, absolutely, but it works!
                          *
                          * Note that we don't do this for EXEC_DIRECTORY_CONFIGURATION as that's assumed not to be
-                         * owned by the service itself. */
+                         * owned by the service itself.
+                         * Also, note that we don't do this for EXEC_DIRECTORY_RUNTIME as that's often used for sharing
+                         * files or sockets with other services. */
 
                         private_root = strjoin(params->prefix[type], "/private");
                         if (!private_root) {
@@ -2071,55 +2072,6 @@ static int setup_smack(
         return 0;
 }
 
-static int compile_read_write_paths(
-                const ExecContext *context,
-                const ExecParameters *params,
-                char ***ret) {
-
-        _cleanup_strv_free_ char **l = NULL;
-        char **rt;
-        ExecDirectoryType i;
-
-        /* Compile the list of writable paths. This is the combination of
-         * the explicitly configured paths, plus all runtime directories. */
-
-        if (strv_isempty(context->read_write_paths)) {
-                for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++)
-                        if (!strv_isempty(context->directories[i].paths))
-                                break;
-
-                if (i == _EXEC_DIRECTORY_TYPE_MAX) {
-                        *ret = NULL; /* NOP if neither is set */
-                        return 0;
-                }
-        }
-
-        l = strv_copy(context->read_write_paths);
-        if (!l)
-                return -ENOMEM;
-
-        for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++) {
-                if (!params->prefix[i])
-                        continue;
-
-                STRV_FOREACH(rt, context->directories[i].paths) {
-                        char *s;
-
-                        s = strjoin(params->prefix[i], "/", *rt);
-                        if (!s)
-                                return -ENOMEM;
-
-                        if (strv_consume(&l, s) < 0)
-                                return -ENOMEM;
-                }
-        }
-
-        *ret = l;
-        l = NULL;
-
-        return 0;
-}
-
 static int compile_bind_mounts(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -2193,7 +2145,8 @@ static int compile_bind_mounts(
                 if (strv_isempty(context->directories[t].paths))
                         continue;
 
-                if (context->dynamic_user && t != EXEC_DIRECTORY_CONFIGURATION) {
+                if (context->dynamic_user &&
+                    !IN_SET(t, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION)) {
                         char *private_root;
 
                         /* So this is for a dynamic user, and we need to make sure the process can access its own
@@ -2216,7 +2169,8 @@ static int compile_bind_mounts(
                 STRV_FOREACH(suffix, context->directories[t].paths) {
                         char *s, *d;
 
-                        if (context->dynamic_user && t != EXEC_DIRECTORY_CONFIGURATION)
+                        if (context->dynamic_user &&
+                            !IN_SET(t, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION))
                                 s = strjoin(params->prefix[t], "/private/", *suffix);
                         else
                                 s = strjoin(params->prefix[t], "/", *suffix);
@@ -2264,7 +2218,7 @@ static int apply_mount_namespace(
                 const ExecParameters *params,
                 ExecRuntime *runtime) {
 
-        _cleanup_strv_free_ char **rw = NULL, **empty_directories = NULL;
+        _cleanup_strv_free_ char **empty_directories = NULL;
         char *tmp = NULL, *var = NULL;
         const char *root_dir = NULL, *root_image = NULL;
         NamespaceInfo ns_info = {
@@ -2293,10 +2247,6 @@ static int apply_mount_namespace(
                         var = strjoina(runtime->var_tmp_dir, "/tmp");
         }
 
-        r = compile_read_write_paths(context, params, &rw);
-        if (r < 0)
-                return r;
-
         if (params->flags & EXEC_APPLY_CHROOT) {
                 root_image = context->root_image;
 
@@ -2319,7 +2269,7 @@ static int apply_mount_namespace(
         needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
 
         r = setup_namespace(root_dir, root_image,
-                            &ns_info, rw,
+                            &ns_info, context->read_write_paths,
                             needs_sandboxing ? context->read_only_paths : NULL,
                             needs_sandboxing ? context->inaccessible_paths : NULL,
                             empty_directories,
@@ -2641,7 +2591,10 @@ static int compile_suggested_paths(const ExecContext *c, const ExecParameters *p
                 STRV_FOREACH(i, c->directories[t].paths) {
                         char *e;
 
-                        e = strjoin(p->prefix[t], "/private/", *i);
+                        if (t == EXEC_DIRECTORY_RUNTIME)
+                                e = strjoin(p->prefix[t], "/", *i);
+                        else
+                                e = strjoin(p->prefix[t], "/private/", *i);
                         if (!e)
                                 return -ENOMEM;
 
@@ -3600,18 +3553,6 @@ int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_p
 
                 /* We execute this synchronously, since we need to be sure this is gone when we start the service
                  * next. */
-                (void) rm_rf(p, REMOVE_ROOT);
-
-                /* Also destroy any matching subdirectory below /private/. This is done to support DynamicUser=1
-                 * setups. Note that we don't conditionalize here on that though, as the namespace is same way, and it
-                 * makes us a bit more robust towards changing unit settings. Or to say this differently: in the worst
-                 * case this is a NOP. */
-
-                free(p);
-                p = strjoin(runtime_prefix, "/private/", *i);
-                if (!p)
-                        return -ENOMEM;
-
                 (void) rm_rf(p, REMOVE_ROOT);
         }
 

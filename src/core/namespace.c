@@ -191,7 +191,7 @@ static void mount_entry_done(MountEntry *p) {
         p->source_malloc = mfree(p->source_malloc);
 }
 
-static int append_access_mounts(MountEntry **p, char **strv, MountMode mode) {
+static int append_access_mounts(MountEntry **p, char **strv, MountMode mode, bool forcibly_require_prefix) {
         char **i;
 
         assert(p);
@@ -219,7 +219,7 @@ static int append_access_mounts(MountEntry **p, char **strv, MountMode mode) {
                         .path_const = e,
                         .mode = mode,
                         .ignore = ignore,
-                        .has_prefix = !needs_prefix,
+                        .has_prefix = !needs_prefix && !forcibly_require_prefix,
                 };
         }
 
@@ -983,6 +983,7 @@ int setup_namespace(
         bool make_slave = false;
         const char *root;
         unsigned n_mounts;
+        bool require_prefix = false;
         int r = 0;
 
         assert(ns_info);
@@ -1027,6 +1028,7 @@ int setup_namespace(
 
                 root = "/run/systemd/unit-root";
                 (void) mkdir_label(root, 0700);
+                require_prefix = true;
         } else
                 root = NULL;
 
@@ -1047,15 +1049,15 @@ int setup_namespace(
 
         if (n_mounts > 0) {
                 m = mounts = (MountEntry *) alloca0(n_mounts * sizeof(MountEntry));
-                r = append_access_mounts(&m, read_write_paths, READWRITE);
+                r = append_access_mounts(&m, read_write_paths, READWRITE, require_prefix);
                 if (r < 0)
                         goto finish;
 
-                r = append_access_mounts(&m, read_only_paths, READONLY);
+                r = append_access_mounts(&m, read_only_paths, READONLY, require_prefix);
                 if (r < 0)
                         goto finish;
 
-                r = append_access_mounts(&m, inaccessible_paths, INACCESSIBLE);
+                r = append_access_mounts(&m, inaccessible_paths, INACCESSIBLE, require_prefix);
                 if (r < 0)
                         goto finish;
 
