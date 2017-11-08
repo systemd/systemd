@@ -1939,7 +1939,8 @@ static int setup_exec_directory(
                 if (r < 0)
                         goto fail;
 
-                if (context->dynamic_user && type != EXEC_DIRECTORY_CONFIGURATION) {
+                if (context->dynamic_user &&
+                    !IN_SET(type, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION)) {
                         _cleanup_free_ char *private_root = NULL, *relative = NULL, *parent = NULL;
 
                         /* So, here's one extra complication when dealing with DynamicUser=1 units. In that case we
@@ -1960,7 +1961,9 @@ static int setup_exec_directory(
                          * dirs it needs but no others. Tricky? Yes, absolutely, but it works!
                          *
                          * Note that we don't do this for EXEC_DIRECTORY_CONFIGURATION as that's assumed not to be
-                         * owned by the service itself. */
+                         * owned by the service itself.
+                         * Also, note that we don't do this for EXEC_DIRECTORY_RUNTIME as that's often used for sharing
+                         * files or sockets with other services. */
 
                         private_root = strjoin(params->prefix[type], "/private");
                         if (!private_root) {
@@ -2142,7 +2145,8 @@ static int compile_bind_mounts(
                 if (strv_isempty(context->directories[t].paths))
                         continue;
 
-                if (context->dynamic_user && t != EXEC_DIRECTORY_CONFIGURATION) {
+                if (context->dynamic_user &&
+                    !IN_SET(t, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION)) {
                         char *private_root;
 
                         /* So this is for a dynamic user, and we need to make sure the process can access its own
@@ -2165,7 +2169,8 @@ static int compile_bind_mounts(
                 STRV_FOREACH(suffix, context->directories[t].paths) {
                         char *s, *d;
 
-                        if (context->dynamic_user && t != EXEC_DIRECTORY_CONFIGURATION)
+                        if (context->dynamic_user &&
+                            !IN_SET(t, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION))
                                 s = strjoin(params->prefix[t], "/private/", *suffix);
                         else
                                 s = strjoin(params->prefix[t], "/", *suffix);
@@ -2586,7 +2591,10 @@ static int compile_suggested_paths(const ExecContext *c, const ExecParameters *p
                 STRV_FOREACH(i, c->directories[t].paths) {
                         char *e;
 
-                        e = strjoin(p->prefix[t], "/private/", *i);
+                        if (t == EXEC_DIRECTORY_RUNTIME)
+                                e = strjoin(p->prefix[t], "/", *i);
+                        else
+                                e = strjoin(p->prefix[t], "/private/", *i);
                         if (!e)
                                 return -ENOMEM;
 
@@ -3545,18 +3553,6 @@ int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_p
 
                 /* We execute this synchronously, since we need to be sure this is gone when we start the service
                  * next. */
-                (void) rm_rf(p, REMOVE_ROOT);
-
-                /* Also destroy any matching subdirectory below /private/. This is done to support DynamicUser=1
-                 * setups. Note that we don't conditionalize here on that though, as the namespace is same way, and it
-                 * makes us a bit more robust towards changing unit settings. Or to say this differently: in the worst
-                 * case this is a NOP. */
-
-                free(p);
-                p = strjoin(runtime_prefix, "/private/", *i);
-                if (!p)
-                        return -ENOMEM;
-
                 (void) rm_rf(p, REMOVE_ROOT);
         }
 
