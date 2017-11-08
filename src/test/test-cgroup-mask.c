@@ -22,6 +22,7 @@
 #include "macro.h"
 #include "manager.h"
 #include "rm-rf.h"
+#include "string-util.h"
 #include "test-helper.h"
 #include "tests.h"
 #include "unit.h"
@@ -117,10 +118,38 @@ static int test_cgroup_mask(void) {
         return 0;
 }
 
+static void test_cg_mask_to_string_one(CGroupMask mask, const char *t) {
+        _cleanup_free_ char *b = NULL;
+
+        assert_se(cg_mask_to_string(mask, &b) >= 0);
+        assert_se(streq_ptr(b, t));
+}
+
+static void test_cg_mask_to_string(void) {
+        test_cg_mask_to_string_one(0, NULL);
+        test_cg_mask_to_string_one(_CGROUP_MASK_ALL, "cpu cpuacct io blkio memory devices pids");
+        test_cg_mask_to_string_one(CGROUP_MASK_CPU, "cpu");
+        test_cg_mask_to_string_one(CGROUP_MASK_CPUACCT, "cpuacct");
+        test_cg_mask_to_string_one(CGROUP_MASK_IO, "io");
+        test_cg_mask_to_string_one(CGROUP_MASK_BLKIO, "blkio");
+        test_cg_mask_to_string_one(CGROUP_MASK_MEMORY, "memory");
+        test_cg_mask_to_string_one(CGROUP_MASK_DEVICES, "devices");
+        test_cg_mask_to_string_one(CGROUP_MASK_PIDS, "pids");
+        test_cg_mask_to_string_one(CGROUP_MASK_CPU|CGROUP_MASK_CPUACCT, "cpu cpuacct");
+        test_cg_mask_to_string_one(CGROUP_MASK_CPU|CGROUP_MASK_PIDS, "cpu pids");
+        test_cg_mask_to_string_one(CGROUP_MASK_CPUACCT|CGROUP_MASK_PIDS, "cpuacct pids");
+        test_cg_mask_to_string_one(CGROUP_MASK_DEVICES|CGROUP_MASK_PIDS, "devices pids");
+        test_cg_mask_to_string_one(CGROUP_MASK_IO|CGROUP_MASK_BLKIO, "io blkio");
+}
+
 int main(int argc, char* argv[]) {
         int rc = 0;
 
+        log_parse_environment();
+        log_open();
+
         TEST_REQ_RUNNING_SYSTEMD(rc = test_cgroup_mask());
+        test_cg_mask_to_string();
 
         return rc;
 }

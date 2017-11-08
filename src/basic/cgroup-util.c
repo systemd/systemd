@@ -2244,10 +2244,10 @@ int cg_trim_everywhere(CGroupMask supported, const char *path, bool delete_root)
 }
 
 int cg_mask_to_string(CGroupMask mask, char **ret) {
-        const char *controllers[_CGROUP_CONTROLLER_MAX + 1];
+        _cleanup_free_ char *s = NULL;
+        size_t n = 0, allocated = 0;
+        bool space = false;
         CGroupController c;
-        int i = 0;
-        char *s;
 
         assert(ret);
 
@@ -2257,19 +2257,32 @@ int cg_mask_to_string(CGroupMask mask, char **ret) {
         }
 
         for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
+                const char *k;
+                size_t l;
 
                 if (!(mask & CGROUP_CONTROLLER_TO_MASK(c)))
                         continue;
 
-                controllers[i++] = cgroup_controller_to_string(c);
-                controllers[i] = NULL;
+                k = cgroup_controller_to_string(c);
+                l = strlen(k);
+
+                if (!GREEDY_REALLOC(s, allocated, n + space + l + 1))
+                        return -ENOMEM;
+
+                if (space)
+                        s[n] = ' ';
+                memcpy(s + n + space, k, l);
+                n += space + l;
+
+                space = true;
         }
 
-        s = strv_join((char **)controllers, NULL);
-        if (!s)
-                return -ENOMEM;
+        assert(s);
 
+        s[n] = 0;
         *ret = s;
+        s = NULL;
+
         return 0;
 }
 
