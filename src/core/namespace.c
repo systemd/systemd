@@ -1152,10 +1152,6 @@ int setup_namespace(
                 }
         }
 
-        /* Try to set up the new root directory before mounting anything there */
-        if (root)
-                (void) base_filesystem_create(root, UID_INVALID, GID_INVALID);
-
         if (root_image) {
                 /* A root image is specified, mount it to the right place */
                 r = dissected_image_mount(dissected_image, root, dissect_image_flags);
@@ -1191,6 +1187,10 @@ int setup_namespace(
                         goto finish;
                 }
         }
+
+        /* Try to set up the new root directory before mounting anything else there. */
+        if (root_image || root_directory)
+                (void) base_filesystem_create(root, UID_INVALID, GID_INVALID);
 
         if (n_mounts > 0) {
                 _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
