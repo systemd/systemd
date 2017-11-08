@@ -1799,20 +1799,18 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <varname>CacheDirectoryMode=</varname>, <varname>LogsDirectoryMode=</varname> and
         <varname>ConfigurationDirectoryMode=</varname>.</para>
 
-        <para>Except in case of <varname>ConfigurationDirectory=</varname>, these options imply
-        <varname>ReadWritePaths=</varname> for the specified paths. When combined with
+        <para>These options imply <varname>BindPaths=</varname> for the specified paths. When combined with
         <varname>RootDirectory=</varname> or <varname>RootImage=</varname> these paths always reside on the host and
-        are mounted from there into the unit's file system namespace. If <varname>DynamicUser=</varname> is used in
-        conjunction with <varname>RuntimeDirectory=</varname>, <varname>StateDirectory=</varname>,
-        <varname>CacheDirectory=</varname> and <varname>LogsDirectory=</varname>, the behaviour of these options is
-        slightly altered: the directories are created below <filename>/run/private</filename>,
-        <filename>/var/lib/private</filename>, <filename>/var/cache/private</filename> and
+        are mounted from there into the unit's file system namespace.</para>
+
+        <para>If <varname>DynamicUser=</varname> is used in conjunction with <varname>StateDirectory=</varname>,
+        <varname>CacheDirectory=</varname> and <varname>LogsDirectory=</varname> is slightly altered: the directories
+        are created below <filename>/var/lib/private</filename>, <filename>/var/cache/private</filename> and
         <filename>/var/log/private</filename>, respectively, which are host directories made inaccessible to
         unprivileged users, which ensures that access to these directories cannot be gained through dynamic user ID
         recycling. Symbolic links are created to hide this difference in behaviour. Both from perspective of the host
         and from inside the unit, the relevant directories hence always appear directly below
-        <filename>/run</filename>, <filename>/var/lib</filename>, <filename>/var/cache</filename> and
-        <filename>/var/log</filename>.</para>
+        <filename>/var/lib</filename>, <filename>/var/cache</filename> and <filename>/var/log</filename>.</para>
 
         <para>Use <varname>RuntimeDirectory=</varname> to manage one or more runtime directories for the unit and bind
         their lifetime to the daemon runtime. This is particularly useful for unprivileged daemons that cannot create
