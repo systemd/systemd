@@ -15,3 +15,5 @@
 #NTP=
 #FallbackNTP=@NTP_SERVERS@
 #RootDistanceMaxSec=5
+#PollIntervalMinSec=32
+#PollIntervalMaxSec=2048
