@@ -109,8 +109,8 @@ int main(int argc, char *argv[]) {
         assert(cc->ip_address_deny->items_next);
         assert(!cc->ip_address_deny->items_next->items_next);
 
-        assert_se(config_parse_exec(u->id, "filename", 1, "Service", 1, "ExecStart", SERVICE_EXEC_START, "/usr/bin/ping -c 1 127.0.0.2 -W 5", SERVICE(u)->exec_command, u) == 0);
-        assert_se(config_parse_exec(u->id, "filename", 1, "Service", 1, "ExecStart", SERVICE_EXEC_START, "/usr/bin/ping -c 1 127.0.0.3 -W 5", SERVICE(u)->exec_command, u) == 0);
+        assert_se(config_parse_exec(u->id, "filename", 1, "Service", 1, "ExecStart", SERVICE_EXEC_START, "/bin/ping -c 1 127.0.0.2 -W 5", SERVICE(u)->exec_command, u) == 0);
+        assert_se(config_parse_exec(u->id, "filename", 1, "Service", 1, "ExecStart", SERVICE_EXEC_START, "/bin/ping -c 1 127.0.0.3 -W 5", SERVICE(u)->exec_command, u) == 0);
 
         assert_se(SERVICE(u)->exec_command[SERVICE_EXEC_START]);
         assert_se(SERVICE(u)->exec_command[SERVICE_EXEC_START]->command_next);
