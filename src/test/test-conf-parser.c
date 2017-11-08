@@ -311,7 +311,7 @@ static void test_config_parse(unsigned i, const char *s) {
         r = config_parse(NULL, name, f,
                          "Section\0",
                          config_item_table_lookup, items,
-                         false, false, true, NULL);
+                         CONFIG_PARSE_WARN, NULL);
 
         switch (i) {
         case 0 ... 3:

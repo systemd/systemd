@@ -4450,7 +4450,7 @@ static int load_from_path(Unit *u, const char *path) {
                 r = config_parse(u->id, filename, f,
                                  UNIT_VTABLE(u)->sections,
                                  config_item_perf_lookup, load_fragment_gperf_lookup,
-                                 false, true, false, u);
+                                 CONFIG_PARSE_ALLOW_INCLUDE, u);
                 if (r < 0)
                         return r;
         }

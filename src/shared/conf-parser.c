@@ -121,17 +121,18 @@ int config_item_perf_lookup(
 }
 
 /* Run the user supplied parser for an assignment */
-static int next_assignment(const char *unit,
-                           const char *filename,
-                           unsigned line,
-                           ConfigItemLookup lookup,
-                           const void *table,
-                           const char *section,
-                           unsigned section_line,
-                           const char *lvalue,
-                           const char *rvalue,
-                           bool relaxed,
-                           void *userdata) {
+static int next_assignment(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                ConfigItemLookup lookup,
+                const void *table,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                const char *rvalue,
+                ConfigParseFlags flags,
+                void *userdata) {
 
         ConfigParserCallback func = NULL;
         int ltype = 0;
@@ -157,26 +158,26 @@ static int next_assignment(const char *unit,
         }
 
         /* Warn about unknown non-extension fields. */
-        if (!relaxed && !startswith(lvalue, "X-"))
+        if (!(flags & CONFIG_PARSE_RELAXED) && !startswith(lvalue, "X-"))
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown lvalue '%s' in section '%s'", lvalue, section);
 
         return 0;
 }
 
 /* Parse a variable assignment line */
-static int parse_line(const char* unit,
-                      const char *filename,
-                      unsigned line,
-                      const char *sections,
-                      ConfigItemLookup lookup,
-                      const void *table,
-                      bool relaxed,
-                      bool allow_include,
-                      char **section,
-                      unsigned *section_line,
-                      bool *section_ignored,
-                      char *l,
-                      void *userdata) {
+static int parse_line(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *sections,
+                ConfigItemLookup lookup,
+                const void *table,
+                ConfigParseFlags flags,
+                char **section,
+                unsigned *section_line,
+                bool *section_ignored,
+                char *l,
+                void *userdata) {
 
         char *e;
 
@@ -204,7 +205,7 @@ static int parse_line(const char* unit,
                  *
                  * Support for them should be eventually removed. */
 
-                if (!allow_include) {
+                if (!(flags & CONFIG_PARSE_ALLOW_INCLUDE)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, ".include not allowed here. Ignoring.");
                         return 0;
                 }
@@ -213,7 +214,7 @@ static int parse_line(const char* unit,
                 if (!fn)
                         return -ENOMEM;
 
-                return config_parse(unit, fn, NULL, sections, lookup, table, relaxed, false, false, userdata);
+                return config_parse(unit, fn, NULL, sections, lookup, table, flags, userdata);
         }
 
         if (*l == '[') {
@@ -234,7 +235,7 @@ static int parse_line(const char* unit,
 
                 if (sections && !nulstr_contains(sections, n)) {
 
-                        if (!relaxed && !startswith(n, "X-"))
+                        if (!(flags & CONFIG_PARSE_RELAXED) && !startswith(n, "X-"))
                                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown section '%s'. Ignoring.", n);
 
                         free(n);
@@ -253,7 +254,7 @@ static int parse_line(const char* unit,
 
         if (sections && !*section) {
 
-                if (!relaxed && !*section_ignored)
+                if (!(flags & CONFIG_PARSE_RELAXED) && !*section_ignored)
                         log_syntax(unit, LOG_WARNING, filename, line, 0, "Assignment outside of section. Ignoring.");
 
                 return 0;
@@ -277,7 +278,7 @@ static int parse_line(const char* unit,
                                *section_line,
                                strstrip(l),
                                strstrip(e),
-                               relaxed,
+                               flags,
                                userdata);
 }
 
@@ -288,15 +289,13 @@ int config_parse(const char *unit,
                  const char *sections,
                  ConfigItemLookup lookup,
                  const void *table,
-                 bool relaxed,
-                 bool allow_include,
-                 bool warn,
+                 ConfigParseFlags flags,
                  void *userdata) {
 
         _cleanup_free_ char *section = NULL, *continuation = NULL;
         _cleanup_fclose_ FILE *ours = NULL;
         unsigned line = 0, section_line = 0;
-        bool section_ignored = false, allow_bom = true;
+        bool section_ignored = false;
         int r;
 
         assert(filename);
@@ -307,7 +306,7 @@ int config_parse(const char *unit,
                 if (!f) {
                         /* Only log on request, except for ENOENT,
                          * since we return 0 to the caller. */
-                        if (warn || errno == ENOENT)
+                        if ((flags & CONFIG_PARSE_WARN) || errno == ENOENT)
                                 log_full(errno == ENOENT ? LOG_DEBUG : LOG_ERR,
                                          "Failed to open configuration file '%s': %m", filename);
                         return errno == ENOENT ? 0 : -errno;
@@ -325,38 +324,38 @@ int config_parse(const char *unit,
                 if (r == 0)
                         break;
                 if (r == -ENOBUFS) {
-                        if (warn)
+                        if (flags & CONFIG_PARSE_WARN)
                                 log_error_errno(r, "%s:%u: Line too long", filename, line);
 
                         return r;
                 }
                 if (r < 0) {
-                        if (warn)
+                        if (CONFIG_PARSE_WARN)
                                 log_error_errno(r, "%s:%u: Error while reading configuration file: %m", filename, line);
 
                         return r;
                 }
 
                 l = buf;
-                if (allow_bom) {
+                if (!(flags & CONFIG_PARSE_REFUSE_BOM)) {
                         char *q;
 
                         q = startswith(buf, UTF8_BYTE_ORDER_MARK);
                         if (q) {
                                 l = q;
-                                allow_bom = false;
+                                flags |= CONFIG_PARSE_REFUSE_BOM;
                         }
                 }
 
                 if (continuation) {
                         if (strlen(continuation) + strlen(l) > LONG_LINE_MAX) {
-                                if (warn)
+                                if (flags & CONFIG_PARSE_WARN)
                                         log_error("%s:%u: Continuation line too long", filename, line);
                                 return -ENOBUFS;
                         }
 
                         if (!strextend(&continuation, l, NULL)) {
-                                if (warn)
+                                if (flags & CONFIG_PARSE_WARN)
                                         log_oom();
                                 return -ENOMEM;
                         }
@@ -378,7 +377,7 @@ int config_parse(const char *unit,
                         if (!continuation) {
                                 continuation = strdup(l);
                                 if (!continuation) {
-                                        if (warn)
+                                        if (flags & CONFIG_PARSE_WARN)
                                                 log_oom();
                                         return -ENOMEM;
                                 }
@@ -393,15 +392,14 @@ int config_parse(const char *unit,
                                sections,
                                lookup,
                                table,
-                               relaxed,
-                               allow_include,
+                               flags,
                                &section,
                                &section_line,
                                &section_ignored,
                                p,
                                userdata);
                 if (r < 0) {
-                        if (warn)
+                        if (flags & CONFIG_PARSE_WARN)
                                 log_warning_errno(r, "%s:%u: Failed to parse file: %m", filename, line);
                         return r;
 
@@ -419,20 +417,20 @@ static int config_parse_many_files(
                 const char *sections,
                 ConfigItemLookup lookup,
                 const void *table,
-                bool relaxed,
+                ConfigParseFlags flags,
                 void *userdata) {
 
         char **fn;
         int r;
 
         if (conf_file) {
-                r = config_parse(NULL, conf_file, NULL, sections, lookup, table, relaxed, false, true, userdata);
+                r = config_parse(NULL, conf_file, NULL, sections, lookup, table, flags, userdata);
                 if (r < 0)
                         return r;
         }
 
         STRV_FOREACH(fn, files) {
-                r = config_parse(NULL, *fn, NULL, sections, lookup, table, relaxed, false, true, userdata);
+                r = config_parse(NULL, *fn, NULL, sections, lookup, table, flags, userdata);
                 if (r < 0)
                         return r;
         }
@@ -447,7 +445,7 @@ int config_parse_many_nulstr(
                 const char *sections,
                 ConfigItemLookup lookup,
                 const void *table,
-                bool relaxed,
+                ConfigParseFlags flags,
                 void *userdata) {
 
         _cleanup_strv_free_ char **files = NULL;
@@ -457,8 +455,7 @@ int config_parse_many_nulstr(
         if (r < 0)
                 return r;
 
-        return config_parse_many_files(conf_file, files,
-                                       sections, lookup, table, relaxed, userdata);
+        return config_parse_many_files(conf_file, files, sections, lookup, table, flags, userdata);
 }
 
 /* Parse each config file in the directories specified as strv. */
@@ -469,7 +466,7 @@ int config_parse_many(
                 const char *sections,
                 ConfigItemLookup lookup,
                 const void *table,
-                bool relaxed,
+                ConfigParseFlags flags,
                 void *userdata) {
 
         _cleanup_strv_free_ char **dropin_dirs = NULL;
@@ -486,8 +483,7 @@ int config_parse_many(
         if (r < 0)
                 return r;
 
-        return config_parse_many_files(conf_file, files,
-                                       sections, lookup, table, relaxed, userdata);
+        return config_parse_many_files(conf_file, files, sections, lookup, table, flags, userdata);
 }
 
 #define DEFINE_PARSER(type, vartype, conv_func)                         \

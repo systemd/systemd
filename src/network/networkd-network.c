@@ -280,7 +280,7 @@ static int network_load_one(Manager *manager, const char *filename) {
                               "IPv6PrefixDelegation\0"
                               "IPv6Prefix\0",
                               config_item_perf_lookup, network_network_gperf_lookup,
-                              false, network);
+                              CONFIG_PARSE_WARN, network);
         if (r < 0)
                 return r;
 

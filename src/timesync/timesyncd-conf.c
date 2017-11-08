@@ -114,7 +114,7 @@ int manager_parse_config_file(Manager *m) {
                                      CONF_PATHS_NULSTR("systemd/timesyncd.conf.d"),
                                      "Time\0",
                                      config_item_perf_lookup, timesyncd_gperf_lookup,
-                                     false, m);
+                                     CONFIG_PARSE_WARN, m);
         if (r < 0)
                 return r;
 

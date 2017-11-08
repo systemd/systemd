@@ -1308,7 +1308,7 @@ static int unit_file_load(
         r = config_parse(info->name, path, f,
                          NULL,
                          config_item_table_lookup, items,
-                         true, true, false, info);
+                         CONFIG_PARSE_RELAXED|CONFIG_PARSE_ALLOW_INCLUDE, info);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse %s: %m", info->name);
 

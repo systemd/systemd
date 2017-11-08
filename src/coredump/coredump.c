@@ -147,7 +147,7 @@ static int parse_config(void) {
                                         CONF_PATHS_NULSTR("systemd/coredump.conf.d"),
                                         "Coredump\0",
                                         config_item_table_lookup, items,
-                                        false, NULL);
+                                        CONFIG_PARSE_WARN, NULL);
 }
 
 static inline uint64_t storage_size_max(void) {

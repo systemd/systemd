@@ -236,7 +236,7 @@ int manager_parse_config_file(Manager *m) {
                                      CONF_PATHS_NULSTR("systemd/resolved.conf.d"),
                                      "Resolve\0",
                                      config_item_perf_lookup, resolved_gperf_lookup,
-                                     false, m);
+                                     CONFIG_PARSE_WARN, m);
         if (r < 0)
                 return r;
 
