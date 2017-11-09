@@ -14,6 +14,10 @@ CHANGES WITH 236 in spe:
           achieves a more correct DNS resolution by software that bypasses
           local DNS APIs (e.g. NSS).
 
+        * uaccess tag has been dropped from /dev/kvm and /dev/dri/renderD*.
+          These devices now have 0666 permsions by default.  /dev/dri/renderD*
+          will now be owned by the render group along with /dev/kfd.
+
 CHANGES WITH 235:
 
         * A new modprobe.d drop-in is now shipped by default that sets the

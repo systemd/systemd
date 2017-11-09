@@ -144,8 +144,10 @@ option('nobody-user', type : 'string',
 option('nobody-group', type : 'string',
        description : 'The name of the nobody group (the one with GID 65534)',
        value : 'nobody')
-option('dev-kvm-mode', type : 'string', value : '0660',
+option('dev-kvm-mode', type : 'string', value : '0666',
        description : '/dev/kvm access mode')
+option('group-render-mode', type : 'string', value : '0666',
+       description : 'Access mode for devices owned by render group (e.g. /dev/dri/renderD*, /dev/kfd).')
 option('default-kill-user-processes', type : 'boolean',
        description : 'the default value for KillUserProcesses= setting')
 option('gshadow', type : 'boolean',
