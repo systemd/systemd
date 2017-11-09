@@ -559,16 +559,17 @@ int config_parse_iec_size(const char* unit,
         return 0;
 }
 
-int config_parse_si_size(const char* unit,
-                            const char *filename,
-                            unsigned line,
-                            const char *section,
-                            unsigned section_line,
-                            const char *lvalue,
-                            int ltype,
-                            const char *rvalue,
-                            void *data,
-                            void *userdata) {
+int config_parse_si_size(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         size_t *sz = data;
         uint64_t v;
@@ -589,16 +590,17 @@ int config_parse_si_size(const char* unit,
         return 0;
 }
 
-int config_parse_iec_uint64(const char* unit,
-                           const char *filename,
-                           unsigned line,
-                           const char *section,
-                           unsigned section_line,
-                           const char *lvalue,
-                           int ltype,
-                           const char *rvalue,
-                           void *data,
-                           void *userdata) {
+int config_parse_iec_uint64(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         uint64_t *bytes = data;
         int r;
