@@ -117,6 +117,7 @@ sensor:modalias:platform:lis3lv02d:dmi:*svn*Hewlett-Packard*:*pn*HPEliteBook8560
   ACCEL_MOUNT_MATRIX=1, 0, 0; 0, 0, -1; 0, 1, 0
 
 sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream7Tablet:*
+sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream8Tablet:*
   ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
