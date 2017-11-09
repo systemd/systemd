@@ -431,7 +431,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
         if (r < 0)
                 return r;
 
-        assert (client->duid_len);
+        assert(client->duid_len);
         r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_CLIENTID,
                                 client->duid_len, &client->duid);
         if (r < 0)
