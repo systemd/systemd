@@ -1967,7 +1967,7 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                         } else {
                                 int count;
 
-                                util_remove_trailing_chars(result, '\n');
+                                delete_trailing_chars(result, "\n");
                                 if (IN_SET(esc, ESCAPE_UNSET, ESCAPE_REPLACE)) {
                                         count = util_replace_chars(result, UDEV_ALLOWED_CHARS_INPUT);
                                         if (count > 0)

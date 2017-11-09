@@ -1944,11 +1944,9 @@ int manager_setup_cgroup(Manager *m) {
         if (e)
                 *e = 0;
 
-        /* And make sure to store away the root value without trailing
-         * slash, even for the root dir, so that we can easily prepend
-         * it everywhere. */
-        while ((e = endswith(m->cgroup_root, "/")))
-                *e = 0;
+        /* And make sure to store away the root value without trailing slash, even for the root dir, so that we can
+         * easily prepend it everywhere. */
+        delete_trailing_chars(m->cgroup_root, "/");
 
         /* 2. Show data */
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, NULL, &path);
