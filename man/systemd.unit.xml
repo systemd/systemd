@@ -194,9 +194,7 @@
     modify unit files. Each drop-in file must have appropriate section headers. Note that for
     instantiated units, this logic will first look for the instance <literal>.d/</literal>
     subdirectory and read its <literal>.conf</literal> files, followed by the template
-    <literal>.d/</literal> subdirectory and the <literal>.conf</literal> files there. Also note that
-    settings from the <literal>[Install]</literal> section are not honored in drop-in unit files,
-    and have no effect.</para>
+    <literal>.d/</literal> subdirectory and the <literal>.conf</literal> files there.</para>
 
     <para>In addition to <filename>/etc/systemd/system</filename>, the drop-in <literal>.d</literal>
     directories for system services can be placed in <filename>/usr/lib/systemd/system</filename> or
@@ -1133,8 +1131,7 @@
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> during runtime; it is
     used by the <command>enable</command> and <command>disable</command> commands of the
     <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> tool during
-    installation of a unit. Note that settings in the <literal>[Install]</literal> section may not appear in
-    <filename>.d/*.conf</filename> unit file drop-ins (see above).</para>
+    installation of a unit.</para>
 
     <variablelist class='unit-directives'>
       <varlistentry>
