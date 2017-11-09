@@ -1057,8 +1057,9 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 timespan[FORMAT_TIMESPAN_MAX];
         Unit *following;
         _cleanup_set_free_ Set *following_set = NULL;
-        int r;
         const char *n;
+        CGroupMask m;
+        int r;
 
         assert(u);
         assert(u->type >= 0);
@@ -1105,11 +1106,23 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         if (u->cgroup_realized_mask != 0) {
                 _cleanup_free_ char *s = NULL;
                 (void) cg_mask_to_string(u->cgroup_realized_mask, &s);
-                fprintf(f, "%s\tCGroup mask: %s\n", prefix, strnull(s));
+                fprintf(f, "%s\tCGroup realized mask: %s\n", prefix, strnull(s));
         }
-        if (u->cgroup_members_mask != 0) {
+        if (u->cgroup_enabled_mask != 0) {
                 _cleanup_free_ char *s = NULL;
-                (void) cg_mask_to_string(u->cgroup_members_mask, &s);
+                (void) cg_mask_to_string(u->cgroup_enabled_mask, &s);
+                fprintf(f, "%s\tCGroup enabled mask: %s\n", prefix, strnull(s));
+        }
+        m = unit_get_own_mask(u);
+        if (m != 0) {
+                _cleanup_free_ char *s = NULL;
+                (void) cg_mask_to_string(m, &s);
+                fprintf(f, "%s\tCGroup own mask: %s\n", prefix, strnull(s));
+        }
+        m = unit_get_members_mask(u);
+        if (m != 0) {
+                _cleanup_free_ char *s = NULL;
+                (void) cg_mask_to_string(m, &s);
                 fprintf(f, "%s\tCGroup members mask: %s\n", prefix, strnull(s));
         }
 

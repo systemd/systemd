@@ -32,6 +32,42 @@
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_cgroup_device_policy, cgroup_device_policy, CGroupDevicePolicy);
 
+static int property_get_delegate_controllers(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        CGroupContext *c = userdata;
+        CGroupController cc;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+        if (!c->delegate)
+                return sd_bus_message_append(reply, "as", 0);
+
+        r = sd_bus_message_open_container(reply, 'a', "s");
+        if (r < 0)
+                return r;
+
+        for (cc = 0; cc < _CGROUP_CONTROLLER_MAX; cc++) {
+                if ((c->delegate_controllers & CGROUP_CONTROLLER_TO_MASK(cc)) == 0)
+                        continue;
+
+                r = sd_bus_message_append(reply, "s", cgroup_controller_to_string(cc));
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 static int property_get_io_device_weight(
                 sd_bus *bus,
                 const char *path,
@@ -255,6 +291,7 @@ static int property_get_ip_address_access(
 const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Delegate", "b", bus_property_get_bool, offsetof(CGroupContext, delegate), 0),
+        SD_BUS_PROPERTY("DelegateControllers", "as", property_get_delegate_controllers, 0, 0),
         SD_BUS_PROPERTY("CPUAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, cpu_accounting), 0),
         SD_BUS_PROPERTY("CPUWeight", "t", NULL, offsetof(CGroupContext, cpu_weight), 0),
         SD_BUS_PROPERTY("StartupCPUWeight", "t", NULL, offsetof(CGroupContext, startup_cpu_weight), 0),
@@ -315,7 +352,52 @@ static int bus_cgroup_set_transient_property(
 
                 if (mode != UNIT_CHECK) {
                         c->delegate = b;
+                        c->delegate_controllers = b ? _CGROUP_MASK_ALL : 0;
+
                         unit_write_drop_in_private(u, mode, name, b ? "Delegate=yes" : "Delegate=no");
+                }
+
+                return 1;
+
+        } else if (streq(name, "DelegateControllers")) {
+                CGroupMask mask = 0;
+
+                r = sd_bus_message_enter_container(message, 'a', "s");
+                if (r < 0)
+                        return r;
+
+                for (;;) {
+                        CGroupController cc;
+                        const char *t;
+
+                        r = sd_bus_message_read(message, "s", &t);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        cc = cgroup_controller_from_string(t);
+                        if (cc < 0)
+                                return sd_bus_error_set_errnof(error, EINVAL, "Unknown cgroup contoller '%s'", t);
+
+                        mask |= CGROUP_CONTROLLER_TO_MASK(cc);
+                }
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        _cleanup_free_ char *t = NULL;
+
+                        r = cg_mask_to_string(mask, &t);
+                        if (r < 0)
+                                return r;
+
+                        c->delegate = true;
+                        c->delegate_controllers |= mask;
+
+                        unit_write_drop_in_private_format(u, mode, name, "Delegate=%s", t);
                 }
 
                 return 1;
