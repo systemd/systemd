@@ -714,7 +714,7 @@ static int print_seat_status_info(sd_bus *bus, const char *path, bool *new_line)
 
                 printf("\t Devices:\n");
 
-                show_sysfs(i.id, "\t\t  ", c);
+                show_sysfs(i.id, "\t\t  ", c, get_output_flags());
         }
 
         return 0;
