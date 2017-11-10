@@ -2827,11 +2827,11 @@ int config_parse_syscall_errno(
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets to KILL */
-                c->syscall_errno = 0;
+                c->syscall_errno = -1;
                 return 0;
         }
 
-        e = errno_from_name(rvalue);
+        e = errno_from_name0(rvalue);
         if (e < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse error number, ignoring: %s", rvalue);
                 return 0;

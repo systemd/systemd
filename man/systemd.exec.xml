@@ -1617,15 +1617,11 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       <varlistentry>
         <term><varname>SystemCallErrorNumber=</varname></term>
 
-        <listitem><para>Takes an <literal>errno</literal> error number
-        name to return when the system call filter configured with
-        <varname>SystemCallFilter=</varname> is triggered, instead of
-        terminating the process immediately. Takes an error name such
-        as <constant>EPERM</constant>, <constant>EACCES</constant> or
-        <constant>EUCLEAN</constant>. When this setting is not used,
-        or when the empty string is assigned, the process will be
-        terminated immediately when the filter is
-        triggered.</para></listitem>
+        <listitem><para>Takes an <literal>errno</literal> error number name to return when the system call filter
+        configured with <varname>SystemCallFilter=</varname> is triggered, instead of terminating the process
+        immediately. Takes <constant>0</constant> or an error name such as <constant>EPERM</constant>,
+        <constant>EACCES</constant> or <constant>EUCLEAN</constant>. When this setting is not used, or when the
+        empty string is assigned, the process will be terminated immediately when the filter is triggered.</para></listitem>
       </varlistentry>
 
       <varlistentry>

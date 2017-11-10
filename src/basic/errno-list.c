@@ -21,6 +21,7 @@
 
 #include "errno-list.h"
 #include "macro.h"
+#include "string-util.h"
 
 static const struct errno_name* lookup_errno(register const char *str,
                                              register GPERF_LEN_TYPE len);
@@ -50,6 +51,15 @@ int errno_from_name(const char *name) {
 
         assert(sc->id > 0);
         return sc->id;
+}
+
+int errno_from_name0(const char *name) {
+        assert(name);
+
+        if (streq(name, "0"))
+                return 0;
+
+        return errno_from_name(name);
 }
 
 int errno_max(void) {
