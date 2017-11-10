@@ -1396,7 +1396,7 @@ static int unit_file_search(
 
         _cleanup_free_ char *template = NULL;
         _cleanup_strv_free_ char **dirs = NULL;
-        _cleanup_free_ char **files = NULL;
+        _cleanup_strv_free_ char **files = NULL;
         const char *dropin_dir_name = NULL;
         const char *dropin_template_dir_name = NULL;
 
