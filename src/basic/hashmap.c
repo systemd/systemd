@@ -25,12 +25,14 @@
 
 #include "alloc-util.h"
 #include "hashmap.h"
+#include "fileio.h"
 #include "macro.h"
 #include "mempool.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "set.h"
 #include "siphash24.h"
+#include "string-util.h"
 #include "strv.h"
 #include "util.h"
 
@@ -277,6 +279,28 @@ static const struct hashmap_type_info hashmap_type_info[_HASHMAP_TYPE_MAX] = {
                 .n_direct_buckets = DIRECT_BUCKETS(struct set_entry),
         },
 };
+
+#ifdef VALGRIND
+__attribute__((destructor)) static void cleanup_pools(void) {
+        _cleanup_free_ char *t = NULL;
+        int r;
+
+        /* Be nice to valgrind */
+
+        /* The pool is only allocated by the main thread, but the memory can
+         * be passed to other threads. Let's clean up if we are the main thread
+         * and no other threads are live. */
+        if (!is_main_thread())
+                return;
+
+        r = get_proc_field("/proc/self/status", "Threads", WHITESPACE, &t);
+        if (r < 0 || !streq(t, "1"))
+                return;
+
+        mempool_drop(&hashmap_pool);
+        mempool_drop(&ordered_hashmap_pool);
+}
+#endif
 
 static unsigned n_buckets(HashmapBase *h) {
         return h->has_indirect ? h->indirect.n_buckets
