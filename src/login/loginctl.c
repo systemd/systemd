@@ -66,8 +66,7 @@ static OutputFlags get_output_flags(void) {
 
         return
                 arg_all * OUTPUT_SHOW_ALL |
-                arg_full * OUTPUT_FULL_WIDTH |
-                (!on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
+                (arg_full || !on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
                 colors_enabled() * OUTPUT_COLOR;
 }
 

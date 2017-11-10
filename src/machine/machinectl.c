@@ -93,8 +93,7 @@ static int print_addresses(sd_bus *bus, const char *name, int, const char *pr1, 
 static OutputFlags get_output_flags(void) {
         return
                 arg_all * OUTPUT_SHOW_ALL |
-                arg_full * OUTPUT_FULL_WIDTH |
-                (!on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
+                (arg_full || !on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
                 colors_enabled() * OUTPUT_COLOR |
                 !arg_quiet * OUTPUT_WARN_CUTOFF;
 }
