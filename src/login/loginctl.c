@@ -37,6 +37,7 @@
 #include "pager.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "sigbus.h"
 #include "signal-util.h"
 #include "spawn-polkit-agent.h"
 #include "strv.h"
@@ -1589,6 +1590,7 @@ int main(int argc, char *argv[]) {
         setlocale(LC_ALL, "");
         log_parse_environment();
         log_open();
+        sigbus_install();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

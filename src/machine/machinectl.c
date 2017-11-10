@@ -52,15 +52,16 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "ptyfwd.h"
+#include "sigbus.h"
 #include "signal-util.h"
 #include "spawn-polkit-agent.h"
+#include "stdio-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit-name.h"
 #include "util.h"
 #include "verbs.h"
 #include "web-util.h"
-#include "stdio-util.h"
 
 #define ALL_IP_ADDRESSES -1
 
@@ -3051,6 +3052,7 @@ int main(int argc, char*argv[]) {
         setlocale(LC_ALL, "");
         log_parse_environment();
         log_open();
+        sigbus_install();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
