@@ -766,6 +766,26 @@ static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
                 return 0;
         }
 
+        if (streq(action, "change"))  {
+                _cleanup_free_ char *e = NULL;
+                Unit *u;
+
+                r = unit_name_from_path(sysfs, ".device", &e);
+                if (r < 0)
+                        log_error_errno(r, "Failed to generate unit name from device path: %m");
+                else {
+                        u = manager_get_unit(m, e);
+                        if (u && UNIT_VTABLE(u)->active_state(u) == UNIT_ACTIVE) {
+                                r = manager_propagate_reload(m, u, JOB_REPLACE, NULL);
+                                if (r < 0)
+                                        log_error_errno(r, "Failed to propagate reload: %m");
+                        }
+                }
+        }
+
+        /* A change event can signal that a device is becoming ready, in particular if
+         * the device is using the SYSTEMD_READY logic in udev
+         * so we need to reach the else block of the follwing if, even for change events */
         if (streq(action, "remove"))  {
                 r = swap_process_device_remove(m, dev);
                 if (r < 0)
