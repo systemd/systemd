@@ -60,6 +60,7 @@
 #include "io-util.h"
 #include "list.h"
 #include "locale-util.h"
+#include "syslog-util.h"
 #include "log.h"
 #include "logs-show.h"
 #include "macro.h"
@@ -5579,6 +5580,67 @@ static int daemon_reload(int argc, char *argv[], void *userdata) {
         return r < 0 ? r : 0;
 }
 
+static int set_log_level(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus;
+        int r;
+
+        if (log_level_from_string(argv[1]) < 0) {
+                r = -EINVAL;
+                return log_error_errno(r, "Failed to parse manager log level: %m");
+        }
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.DBus.Properties",
+                        "Set",
+                        &error,
+                        NULL,
+                        "ssv", "org.freedesktop.systemd1.Manager", "LogLevel", "s", argv[1]);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set manager log level: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int get_log_level(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        const char *level;
+        sd_bus *bus;
+        int r;
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.DBus.Properties",
+                        "Get",
+                        &error,
+                        &reply,
+                        "ss", "org.freedesktop.systemd1.Manager", "LogLevel");
+        if (r < 0)
+                return log_error_errno(r, "Failed to get manager log level: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "v", "s", &level);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        printf("%s\n", level);
+
+        return 0;
+}
+
 static int trivial_method(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *method;
@@ -7228,7 +7290,9 @@ static void systemctl_help(void) {
                "  import-environment [NAME...]    Import all or some environment variables\n\n"
                "Manager Lifecycle Commands:\n"
                "  daemon-reload                   Reload systemd manager configuration\n"
-               "  daemon-reexec                   Reexecute systemd manager\n\n"
+               "  daemon-reexec                   Reexecute systemd manager\n"
+               "  set-log-level                   Set systemd manager log level\n"
+               "  get-log-level                   Get systemd manager log level\n\n"
                "System Commands:\n"
                "  is-system-running               Check whether system is fully running\n"
                "  default                         Enter system default mode\n"
@@ -8312,6 +8376,8 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "help",                  VERB_ANY, VERB_ANY, VERB_NOCHROOT, show                 },
                 { "daemon-reload",         VERB_ANY, 1,        VERB_NOCHROOT, daemon_reload        },
                 { "daemon-reexec",         VERB_ANY, 1,        VERB_NOCHROOT, daemon_reload        },
+                { "set-log-level",         2,        2,        VERB_NOCHROOT, set_log_level        },
+                { "get-log-level",         VERB_ANY, 1,        VERB_NOCHROOT, get_log_level        },
                 { "show-environment",      VERB_ANY, 1,        VERB_NOCHROOT, show_environment     },
                 { "set-environment",       2,        VERB_ANY, VERB_NOCHROOT, set_environment      },
                 { "unset-environment",     2,        VERB_ANY, VERB_NOCHROOT, set_environment      },
