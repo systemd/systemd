@@ -472,6 +472,10 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
 
         assert(s);
         assert(percent <= 100);
+
+        if (new_length == (size_t) -1)
+                return strndup(s, old_length);
+
         assert(new_length >= 3);
 
         /* if no multibyte characters use ascii_ellipsize_mem for speed */
@@ -539,6 +543,10 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
 }
 
 char *ellipsize(const char *s, size_t length, unsigned percent) {
+
+        if (length == (size_t) -1)
+                return strdup(s);
+
         return ellipsize_mem(s, strlen(s), length, percent);
 }
 
