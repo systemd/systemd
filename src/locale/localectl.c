@@ -261,68 +261,15 @@ static int set_vconsole_keymap(sd_bus *bus, char **args, unsigned n) {
         return r;
 }
 
-static Set *keymaps = NULL;
-
-static int nftw_cb(
-                const char *fpath,
-                const struct stat *sb,
-                int tflag,
-                struct FTW *ftwbuf) {
-
-        char *p, *e;
+static int list_vconsole_keymaps(sd_bus *bus, char **args, unsigned n) {
+       _cleanup_strv_free_ char **l = NULL;
         int r;
 
-        if (tflag != FTW_F)
-                return 0;
+        assert(args);
 
-        if (!endswith(fpath, ".map") &&
-            !endswith(fpath, ".map.gz"))
-                return 0;
-
-        p = strdup(basename(fpath));
-        if (!p)
-                return log_oom();
-
-        e = endswith(p, ".map");
-        if (e)
-                *e = 0;
-
-        e = endswith(p, ".map.gz");
-        if (e)
-                *e = 0;
-
-        r = set_consume(keymaps, p);
-        if (r < 0 && r != -EEXIST)
-                return log_error_errno(r, "Can't add keymap: %m");
-
-        return 0;
-}
-
-static int list_vconsole_keymaps(sd_bus *bus, char **args, unsigned n) {
-        _cleanup_strv_free_ char **l = NULL;
-        const char *dir;
-
-        keymaps = set_new(&string_hash_ops);
-        if (!keymaps)
-                return log_oom();
-
-        NULSTR_FOREACH(dir, KBD_KEYMAP_DIRS)
-                nftw(dir, nftw_cb, 20, FTW_MOUNT|FTW_PHYS);
-
-        l = set_get_strv(keymaps);
-        if (!l) {
-                set_free_free(keymaps);
-                return log_oom();
-        }
-
-        set_free(keymaps);
-
-        if (strv_isempty(l)) {
-                log_error("Couldn't find any console keymaps.");
-                return -ENOENT;
-        }
-
-        strv_sort(l);
+        r = get_keymaps(&l);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read list of keymaps: %m");
 
         pager_open(arg_no_pager, false);
 
