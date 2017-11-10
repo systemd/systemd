@@ -37,6 +37,7 @@ $1.EnvironmentFile,              config_parse_unit_env_file,         0,         
 $1.PassEnvironment,              config_parse_pass_environ,          0,                             offsetof($1, exec_context.pass_environment)
 $1.UnsetEnvironment,             config_parse_unset_environ,         0,                             offsetof($1, exec_context.unset_environment)
 $1.DynamicUser,                  config_parse_bool,                  true,                          offsetof($1, exec_context.dynamic_user)
+$1.RemoveIPC,                    config_parse_bool,                  0,                             offsetof($1, exec_context.remove_ipc)
 $1.StandardInput,                config_parse_exec_input,            0,                             offsetof($1, exec_context)
 $1.StandardOutput,               config_parse_exec_output,           0,                             offsetof($1, exec_context)
 $1.StandardError,                config_parse_exec_output,           0,                             offsetof($1, exec_context)
