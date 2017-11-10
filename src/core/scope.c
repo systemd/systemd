@@ -522,6 +522,7 @@ int scope_abandon(Scope *s) {
 
         s->was_abandoned = true;
         s->controller = mfree(s->controller);
+        scope_set_state(s, SCOPE_ABANDONED);
 
         /* The client is no longer watching the remaining processes,
          * so let's step in here, under the assumption that the
@@ -530,12 +531,6 @@ int scope_abandon(Scope *s) {
 
         unit_tidy_watch_pids(UNIT(s), 0, 0);
         unit_watch_all_pids(UNIT(s));
-
-        /* If the PID set is empty now, then let's finish this off */
-        if (set_isempty(UNIT(s)->pids))
-                scope_notify_cgroup_empty_event(UNIT(s));
-        else
-                scope_set_state(s, SCOPE_ABANDONED);
 
         return 0;
 }
