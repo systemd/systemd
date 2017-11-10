@@ -1868,8 +1868,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         memory segments as executable are prohibited.  Specifically, a system call filter is added that rejects
         <citerefentry><refentrytitle>mmap</refentrytitle><manvolnum>2</manvolnum></citerefentry> system calls with both
         <constant>PROT_EXEC</constant> and <constant>PROT_WRITE</constant> set,
-        <citerefentry><refentrytitle>mprotect</refentrytitle><manvolnum>2</manvolnum></citerefentry> system calls with
-        <constant>PROT_EXEC</constant> set and
+        <citerefentry><refentrytitle>mprotect</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        or <citerefentry><refentrytitle>pkey_mprotect</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        system calls with <constant>PROT_EXEC</constant> set and
         <citerefentry><refentrytitle>shmat</refentrytitle><manvolnum>2</manvolnum></citerefentry> system calls with
         <constant>SHM_EXEC</constant> set. Note that this option is incompatible with programs and libraries that
         generate program code dynamically at runtime, including JIT execution engines, executable stacks, and code
