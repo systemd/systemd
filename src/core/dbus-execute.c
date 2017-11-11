@@ -378,7 +378,7 @@ static int property_get_syscall_filter(
 
 #if HAVE_SECCOMP
         Iterator i;
-        void *id;
+        void *id, *val;
 #endif
 
         assert(bus);
@@ -394,14 +394,33 @@ static int property_get_syscall_filter(
                 return r;
 
 #if HAVE_SECCOMP
-        SET_FOREACH(id, c->syscall_filter, i) {
-                char *name;
+        HASHMAP_FOREACH_KEY(val, id, c->syscall_filter, i) {
+                _cleanup_free_ char *name = NULL;
+                const char *e = NULL;
+                char *s;
+                int num = PTR_TO_INT(val);
 
                 name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
                 if (!name)
                         continue;
 
-                r = strv_consume(&l, name);
+                if (num >= 0) {
+                        e = errno_to_name(num);
+                        if (e) {
+                                s = strjoin(name, ":", e);
+                                if (!s)
+                                        return -ENOMEM;
+                        } else {
+                                r = asprintf(&s, "%s:%d", name, num);
+                                if (r < 0)
+                                        return -ENOMEM;
+                        }
+                } else {
+                        s = name;
+                        name = NULL;
+                }
+
+                r = strv_consume(&l, s);
                 if (r < 0)
                         return r;
         }
@@ -1210,22 +1229,29 @@ int bus_exec_context_set_transient_property(
 
                         if (strv_length(l) == 0) {
                                 c->syscall_whitelist = false;
-                                c->syscall_filter = set_free(c->syscall_filter);
+                                c->syscall_filter = hashmap_free(c->syscall_filter);
                         } else {
                                 char **s;
 
                                 c->syscall_whitelist = whitelist;
 
-                                r = set_ensure_allocated(&c->syscall_filter, NULL);
+                                r = hashmap_ensure_allocated(&c->syscall_filter, NULL);
                                 if (r < 0)
                                         return r;
 
                                 STRV_FOREACH(s, l) {
-                                        if (**s == '@') {
+                                        _cleanup_free_ char *n = NULL;
+                                        int e;
+
+                                        r = parse_syscall_and_errno(*s, &n, &e);
+                                        if (r < 0)
+                                                return r;
+
+                                        if (*n == '@') {
                                                 const SyscallFilterSet *set;
                                                 const char *i;
 
-                                                set = syscall_filter_set_find(*s);
+                                                set = syscall_filter_set_find(n);
                                                 if (!set)
                                                         return -EINVAL;
 
@@ -1236,7 +1262,7 @@ int bus_exec_context_set_transient_property(
                                                         if (id == __NR_SCMP_ERROR)
                                                                 return -EINVAL;
 
-                                                        r = set_put(c->syscall_filter, INT_TO_PTR(id + 1));
+                                                        r = hashmap_put(c->syscall_filter, INT_TO_PTR(id + 1), INT_TO_PTR(e));
                                                         if (r < 0)
                                                                 return r;
                                                 }
@@ -1244,11 +1270,11 @@ int bus_exec_context_set_transient_property(
                                         } else {
                                                 int id;
 
-                                                id = seccomp_syscall_resolve_name(*s);
+                                                id = seccomp_syscall_resolve_name(n);
                                                 if (id == __NR_SCMP_ERROR)
                                                         return -EINVAL;
 
-                                                r = set_put(c->syscall_filter, INT_TO_PTR(id + 1));
+                                                r = hashmap_put(c->syscall_filter, INT_TO_PTR(id + 1), INT_TO_PTR(e));
                                                 if (r < 0)
                                                         return r;
                                         }

@@ -1290,7 +1290,7 @@ static bool context_has_syscall_filters(const ExecContext *c) {
         assert(c);
 
         return c->syscall_whitelist ||
-                !set_isempty(c->syscall_filter);
+                !hashmap_isempty(c->syscall_filter);
 }
 
 static bool context_has_no_new_privileges(const ExecContext *c) {
@@ -3528,7 +3528,7 @@ void exec_context_done(ExecContext *c) {
         c->apparmor_profile = mfree(c->apparmor_profile);
         c->smack_process_label = mfree(c->smack_process_label);
 
-        c->syscall_filter = set_free(c->syscall_filter);
+        c->syscall_filter = hashmap_free(c->syscall_filter);
         c->syscall_archs = set_free(c->syscall_archs);
         c->address_families = set_free(c->address_families);
 
@@ -4065,7 +4065,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         if (c->syscall_filter) {
 #if HAVE_SECCOMP
                 Iterator j;
-                void *id;
+                void *id, *val;
                 bool first = true;
 #endif
 
@@ -4077,8 +4077,10 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         fputc('~', f);
 
 #if HAVE_SECCOMP
-                SET_FOREACH(id, c->syscall_filter, j) {
+                HASHMAP_FOREACH_KEY(val, id, c->syscall_filter, j) {
                         _cleanup_free_ char *name = NULL;
+                        const char *errno_name = NULL;
+                        int num = PTR_TO_INT(val);
 
                         if (first)
                                 first = false;
@@ -4087,6 +4089,14 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
 
                         name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
                         fputs(strna(name), f);
+
+                        if (num >= 0) {
+                                errno_name = errno_to_name(num);
+                                if (errno_name)
+                                        fprintf(f, ":%s", errno_name);
+                                else
+                                        fprintf(f, ":%d", num);
+                        }
                 }
 #endif
 

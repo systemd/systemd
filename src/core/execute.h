@@ -242,7 +242,7 @@ struct ExecContext {
 
         unsigned long restrict_namespaces; /* The CLONE_NEWxyz flags permitted to the unit's processes */
 
-        Set *syscall_filter;
+        Hashmap *syscall_filter;
         Set *syscall_archs;
         int syscall_errno;
         bool syscall_whitelist:1;

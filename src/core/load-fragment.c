@@ -2632,7 +2632,8 @@ static int syscall_filter_parse_one(
                 ExecContext *c,
                 bool invert,
                 const char *t,
-                bool warn) {
+                bool warn,
+                int errno_num) {
         int r;
 
         if (t[0] == '@') {
@@ -2647,7 +2648,7 @@ static int syscall_filter_parse_one(
                 }
 
                 NULSTR_FOREACH(i, set->value) {
-                        r = syscall_filter_parse_one(unit, filename, line, c, invert, i, false);
+                        r = syscall_filter_parse_one(unit, filename, line, c, invert, i, false, errno_num);
                         if (r < 0)
                                 return r;
                 }
@@ -2665,13 +2666,13 @@ static int syscall_filter_parse_one(
                  * we want to allow it, then remove it from the list
                  */
                 if (!invert == c->syscall_whitelist) {
-                        r = set_put(c->syscall_filter, INT_TO_PTR(id + 1));
+                        r = hashmap_put(c->syscall_filter, INT_TO_PTR(id + 1), INT_TO_PTR(errno_num));
                         if (r == 0)
                                 return 0;
                         if (r < 0)
                                 return log_oom();
                 } else
-                        (void) set_remove(c->syscall_filter, INT_TO_PTR(id + 1));
+                        (void) hashmap_remove(c->syscall_filter, INT_TO_PTR(id + 1));
         }
 
         return 0;
@@ -2702,7 +2703,7 @@ int config_parse_syscall_filter(
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                c->syscall_filter = set_free(c->syscall_filter);
+                c->syscall_filter = hashmap_free(c->syscall_filter);
                 c->syscall_whitelist = false;
                 return 0;
         }
@@ -2713,7 +2714,7 @@ int config_parse_syscall_filter(
         }
 
         if (!c->syscall_filter) {
-                c->syscall_filter = set_new(NULL);
+                c->syscall_filter = hashmap_new(NULL);
                 if (!c->syscall_filter)
                         return log_oom();
 
@@ -2725,7 +2726,7 @@ int config_parse_syscall_filter(
                         c->syscall_whitelist = true;
 
                         /* Accept default syscalls if we are on a whitelist */
-                        r = syscall_filter_parse_one(unit, filename, line, c, false, "@default", false);
+                        r = syscall_filter_parse_one(unit, filename, line, c, false, "@default", false, -1);
                         if (r < 0)
                                 return r;
                 }
@@ -2733,7 +2734,8 @@ int config_parse_syscall_filter(
 
         p = rvalue;
         for (;;) {
-                _cleanup_free_ char *word = NULL;
+                _cleanup_free_ char *word = NULL, *name = NULL;
+                int num;
 
                 r = extract_first_word(&p, &word, NULL, 0);
                 if (r == 0)
@@ -2745,7 +2747,13 @@ int config_parse_syscall_filter(
                         break;
                 }
 
-                r = syscall_filter_parse_one(unit, filename, line, c, invert, word, true);
+                r = parse_syscall_and_errno(word, &name, &num);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse syscall:errno, ignoring: %s", word);
+                        continue;
+                }
+
+                r = syscall_filter_parse_one(unit, filename, line, c, invert, name, true, num);
                 if (r < 0)
                         return r;
         }
