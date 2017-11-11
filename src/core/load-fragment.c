@@ -2839,8 +2839,8 @@ int config_parse_syscall_errno(
                 return 0;
         }
 
-        e = errno_from_name(rvalue);
-        if (e < 0) {
+        e = parse_errno(rvalue);
+        if (e <= 0) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse error number, ignoring: %s", rvalue);
                 return 0;
         }

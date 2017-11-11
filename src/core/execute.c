@@ -4129,10 +4129,17 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                                 prefix, s);
         }
 
-        if (c->syscall_errno > 0)
-                fprintf(f,
-                        "%sSystemCallErrorNumber: %s\n",
-                        prefix, strna(errno_to_name(c->syscall_errno)));
+        if (c->syscall_errno > 0) {
+                const char *errno_name;
+
+                fprintf(f, "%sSystemCallErrorNumber: ", prefix);
+
+                errno_name = errno_to_name(c->syscall_errno);
+                if (errno_name)
+                        fprintf(f, "%s\n", errno_name);
+                else
+                        fprintf(f, "%d\n", c->syscall_errno);
+        }
 
         if (c->apparmor_profile)
                 fprintf(f,

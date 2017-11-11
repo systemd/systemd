@@ -1334,20 +1334,18 @@ int bus_exec_context_set_transient_property(
 
         } else if (streq(name, "SystemCallErrorNumber")) {
                 int32_t n;
-                const char *str;
 
                 r = sd_bus_message_read(message, "i", &n);
                 if (r < 0)
                         return r;
 
-                str = errno_to_name(n);
-                if (!str)
+                if (n <= 0 || n > ERRNO_MAX)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid SystemCallErrorNumber");
 
                 if (mode != UNIT_CHECK) {
                         c->syscall_errno = n;
 
-                        unit_write_drop_in_private_format(u, mode, name, "SystemCallErrorNumber=%s", str);
+                        unit_write_drop_in_private_format(u, mode, name, "SystemCallErrorNumber=%d", n);
                 }
 
                 return 1;
