@@ -270,8 +270,10 @@ static void test_exec_systemcallfilter(Manager *m) {
 
 static void test_exec_systemcallerrornumber(Manager *m) {
 #if HAVE_SECCOMP
-        if (is_seccomp_available())
-                test(m, "exec-systemcallerrornumber.service", 1, CLD_EXITED);
+        if (!is_seccomp_available())
+                return;
+        test(m, "exec-systemcallerrornumber-name.service", errno_from_name("EACCES"), CLD_EXITED);
+        test(m, "exec-systemcallerrornumber-number.service", 255, CLD_EXITED);
 #endif
 }
 

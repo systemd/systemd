@@ -100,7 +100,8 @@ test_data_files = '''
         test-execute/exec-supplementarygroups-single-group-user.service
         test-execute/exec-supplementarygroups-single-group.service
         test-execute/exec-supplementarygroups.service
-        test-execute/exec-systemcallerrornumber.service
+        test-execute/exec-systemcallerrornumber-name.service
+        test-execute/exec-systemcallerrornumber-number.service
         test-execute/exec-systemcallfilter-failing.service
         test-execute/exec-systemcallfilter-failing2.service
         test-execute/exec-systemcallfilter-not-failing.service
