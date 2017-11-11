@@ -51,7 +51,3 @@ int errno_from_name(const char *name) {
         assert(sc->id > 0);
         return sc->id;
 }
-
-int errno_max(void) {
-        return ELEMENTSOF(errno_names);
-}
