@@ -100,13 +100,16 @@ test_data_files = '''
         test-execute/exec-supplementarygroups-single-group-user.service
         test-execute/exec-supplementarygroups-single-group.service
         test-execute/exec-supplementarygroups.service
-        test-execute/exec-systemcallerrornumber.service
+        test-execute/exec-systemcallerrornumber-name.service
+        test-execute/exec-systemcallerrornumber-number.service
         test-execute/exec-systemcallfilter-failing.service
         test-execute/exec-systemcallfilter-failing2.service
         test-execute/exec-systemcallfilter-not-failing.service
         test-execute/exec-systemcallfilter-not-failing2.service
         test-execute/exec-systemcallfilter-system-user-nfsnobody.service
         test-execute/exec-systemcallfilter-system-user.service
+        test-execute/exec-systemcallfilter-with-errno-name.service
+        test-execute/exec-systemcallfilter-with-errno-number.service
         test-execute/exec-umask-0177.service
         test-execute/exec-umask-default.service
         test-execute/exec-unset-environment.service

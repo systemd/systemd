@@ -21,8 +21,11 @@
 #include <locale.h>
 #include <math.h>
 
+#include "alloc-util.h"
+#include "errno-list.h"
 #include "log.h"
 #include "parse-util.h"
+#include "string-util.h"
 
 static void test_parse_boolean(void) {
         assert_se(parse_boolean("1") == 1);
@@ -660,6 +663,74 @@ static void test_parse_dev(void) {
         assert_se(parse_dev("8:11", &dev) >= 0 && major(dev) == 8 && minor(dev) == 11);
 }
 
+static void test_parse_errno(void) {
+        assert_se(parse_errno("EILSEQ") == EILSEQ);
+        assert_se(parse_errno("EINVAL") == EINVAL);
+        assert_se(parse_errno("0") == 0);
+        assert_se(parse_errno("1") == 1);
+        assert_se(parse_errno("4095") == 4095);
+
+        assert_se(parse_errno("-1") == -ERANGE);
+        assert_se(parse_errno("-3") == -ERANGE);
+        assert_se(parse_errno("4096") == -ERANGE);
+
+        assert_se(parse_errno("") == -EINVAL);
+        assert_se(parse_errno("12.3") == -EINVAL);
+        assert_se(parse_errno("123junk") == -EINVAL);
+        assert_se(parse_errno("junk123") == -EINVAL);
+        assert_se(parse_errno("255EILSEQ") == -EINVAL);
+        assert_se(parse_errno("EINVAL12") == -EINVAL);
+        assert_se(parse_errno("-EINVAL") == -EINVAL);
+        assert_se(parse_errno("EINVALaaa") == -EINVAL);
+}
+
+static void test_parse_syscall_and_errno(void) {
+        _cleanup_free_ char *n = NULL;
+        int e;
+
+        assert_se(parse_syscall_and_errno("uname:EILSEQ", &n, &e) >= 0);
+        assert_se(streq(n, "uname"));
+        assert_se(e == errno_from_name("EILSEQ") && e >= 0);
+        n = mfree(n);
+
+        assert_se(parse_syscall_and_errno("uname:EINVAL", &n, &e) >= 0);
+        assert_se(streq(n, "uname"));
+        assert_se(e == errno_from_name("EINVAL") && e >= 0);
+        n = mfree(n);
+
+        assert_se(parse_syscall_and_errno("@sync:4095", &n, &e) >= 0);
+        assert_se(streq(n, "@sync"));
+        assert_se(e == 4095);
+        n = mfree(n);
+
+        /* If errno is omitted, then e is set to -1 */
+        assert_se(parse_syscall_and_errno("mount", &n, &e) >= 0);
+        assert_se(streq(n, "mount"));
+        assert_se(e == -1);
+        n = mfree(n);
+
+        /* parse_syscall_and_errno() does not check the syscall name is valid or not. */
+        assert_se(parse_syscall_and_errno("hoge:255", &n, &e) >= 0);
+        assert_se(streq(n, "hoge"));
+        assert_se(e == 255);
+        n = mfree(n);
+
+        /* The function checks the syscall name is empty or not. */
+        assert_se(parse_syscall_and_errno("", &n, &e) == -EINVAL);
+        assert_se(parse_syscall_and_errno(":255", &n, &e) == -EINVAL);
+
+        /* errno must be a valid errno name or number between 0 and ERRNO_MAX == 4095 */
+        assert_se(parse_syscall_and_errno("hoge:4096", &n, &e) == -ERANGE);
+        assert_se(parse_syscall_and_errno("hoge:-3", &n, &e) == -ERANGE);
+        assert_se(parse_syscall_and_errno("hoge:12.3", &n, &e) == -EINVAL);
+        assert_se(parse_syscall_and_errno("hoge:123junk", &n, &e) == -EINVAL);
+        assert_se(parse_syscall_and_errno("hoge:junk123", &n, &e) == -EINVAL);
+        assert_se(parse_syscall_and_errno("hoge:255:EILSEQ", &n, &e) == -EINVAL);
+        assert_se(parse_syscall_and_errno("hoge:-EINVAL", &n, &e) == -EINVAL);
+        assert_se(parse_syscall_and_errno("hoge:EINVALaaa", &n, &e) == -EINVAL);
+        assert_se(parse_syscall_and_errno("hoge:", &n, &e) == -EINVAL);
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -679,6 +750,8 @@ int main(int argc, char *argv[]) {
         test_parse_percent_unbounded();
         test_parse_nice();
         test_parse_dev();
+        test_parse_errno();
+        test_parse_syscall_and_errno();
 
         return 0;
 }

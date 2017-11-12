@@ -37,6 +37,8 @@ int parse_ifindex(const char *s, int *ret);
 
 int parse_size(const char *t, uint64_t base, uint64_t *size);
 int parse_range(const char *t, unsigned *lower, unsigned *upper);
+int parse_errno(const char *t);
+int parse_syscall_and_errno(const char *in, char **name, int *error);
 
 #define FORMAT_BYTES_MAX 8
 char *format_bytes(char *buf, size_t l, uint64_t t);

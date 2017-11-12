@@ -23,6 +23,7 @@
 #include <sys/prctl.h>
 #include <sys/types.h>
 
+#include "errno-list.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "macro.h"
@@ -261,14 +262,18 @@ static void test_exec_systemcallfilter(Manager *m) {
         test(m, "exec-systemcallfilter-not-failing2.service", 0, CLD_EXITED);
         test(m, "exec-systemcallfilter-failing.service", SIGSYS, CLD_KILLED);
         test(m, "exec-systemcallfilter-failing2.service", SIGSYS, CLD_KILLED);
+        test(m, "exec-systemcallfilter-with-errno-name.service", errno_from_name("EILSEQ"), CLD_EXITED);
+        test(m, "exec-systemcallfilter-with-errno-number.service", 255, CLD_EXITED);
 
 #endif
 }
 
 static void test_exec_systemcallerrornumber(Manager *m) {
 #if HAVE_SECCOMP
-        if (is_seccomp_available())
-                test(m, "exec-systemcallerrornumber.service", 1, CLD_EXITED);
+        if (!is_seccomp_available())
+                return;
+        test(m, "exec-systemcallerrornumber-name.service", errno_from_name("EACCES"), CLD_EXITED);
+        test(m, "exec-systemcallerrornumber-number.service", 255, CLD_EXITED);
 #endif
 }
 
