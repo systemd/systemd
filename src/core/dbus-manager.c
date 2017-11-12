@@ -139,8 +139,10 @@ static int property_get_tainted(
                 void *userdata,
                 sd_bus_error *error) {
 
-        char buf[sizeof("split-usr:cgroups-missing:local-hwclock:")] = "", *e = buf;
+        char buf[sizeof("split-usr:cgroups-missing:local-hwclock:var-run-bad:")] = "", *e = buf;
+        _cleanup_free_ char *destination = NULL;
         Manager *m = userdata;
+        int r;
 
         assert(bus);
         assert(reply);
@@ -154,6 +156,10 @@ static int property_get_tainted(
 
         if (clock_is_localtime(NULL) > 0)
                 e = stpcpy(e, "local-hwclock:");
+
+        r = readlink_malloc("/var/run", &destination);
+        if (r < 0 || !PATH_IN_SET(destination, "../run", "/run"))
+                e = stpcpy(e, "var-run-bad:");
 
         /* remove the last ':' */
         if (e != buf)

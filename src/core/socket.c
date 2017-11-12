@@ -250,7 +250,7 @@ int socket_instantiate_service(Socket *s) {
 
         unit_ref_set(&s->service, u);
 
-        return unit_add_two_dependencies(UNIT(s), UNIT_BEFORE, UNIT_TRIGGERS, u, false);
+        return unit_add_two_dependencies(UNIT(s), UNIT_BEFORE, UNIT_TRIGGERS, u, false, UNIT_DEPENDENCY_IMPLICIT);
 }
 
 static bool have_non_accept_socket(Socket *s) {
@@ -273,7 +273,7 @@ static bool have_non_accept_socket(Socket *s) {
         return false;
 }
 
-static int socket_add_mount_links(Socket *s) {
+static int socket_add_mount_dependencies(Socket *s) {
         SocketPort *p;
         int r;
 
@@ -290,7 +290,7 @@ static int socket_add_mount_links(Socket *s) {
                 if (!path)
                         continue;
 
-                r = unit_require_mounts_for(UNIT(s), path);
+                r = unit_require_mounts_for(UNIT(s), path, UNIT_DEPENDENCY_FILE);
                 if (r < 0)
                         return r;
         }
@@ -298,7 +298,7 @@ static int socket_add_mount_links(Socket *s) {
         return 0;
 }
 
-static int socket_add_device_link(Socket *s) {
+static int socket_add_device_dependencies(Socket *s) {
         char *t;
 
         assert(s);
@@ -307,7 +307,7 @@ static int socket_add_device_link(Socket *s) {
                 return 0;
 
         t = strjoina("/sys/subsystem/net/devices/", s->bind_to_device);
-        return unit_add_node_link(UNIT(s), t, false, UNIT_BINDS_TO);
+        return unit_add_node_dependency(UNIT(s), t, false, UNIT_BINDS_TO, UNIT_DEPENDENCY_FILE);
 }
 
 static int socket_add_default_dependencies(Socket *s) {
@@ -317,17 +317,17 @@ static int socket_add_default_dependencies(Socket *s) {
         if (!UNIT(s)->default_dependencies)
                 return 0;
 
-        r = unit_add_dependency_by_name(UNIT(s), UNIT_BEFORE, SPECIAL_SOCKETS_TARGET, NULL, true);
+        r = unit_add_dependency_by_name(UNIT(s), UNIT_BEFORE, SPECIAL_SOCKETS_TARGET, NULL, true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;
 
         if (MANAGER_IS_SYSTEM(UNIT(s)->manager)) {
-                r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true);
+                r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true, UNIT_DEPENDENCY_DEFAULT);
                 if (r < 0)
                         return r;
         }
 
-        return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
+        return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true, UNIT_DEPENDENCY_DEFAULT);
 }
 
 _pure_ static bool socket_has_exec(Socket *s) {
@@ -378,16 +378,16 @@ static int socket_add_extras(Socket *s) {
                         unit_ref_set(&s->service, x);
                 }
 
-                r = unit_add_two_dependencies(u, UNIT_BEFORE, UNIT_TRIGGERS, UNIT_DEREF(s->service), true);
+                r = unit_add_two_dependencies(u, UNIT_BEFORE, UNIT_TRIGGERS, UNIT_DEREF(s->service), true, UNIT_DEPENDENCY_IMPLICIT);
                 if (r < 0)
                         return r;
         }
 
-        r = socket_add_mount_links(s);
+        r = socket_add_mount_dependencies(s);
         if (r < 0)
                 return r;
 
-        r = socket_add_device_link(s);
+        r = socket_add_device_dependencies(s);
         if (r < 0)
                 return r;
 
@@ -2261,13 +2261,14 @@ static void socket_enter_running(Socket *s, int cfd) {
         }
 
         if (cfd < 0) {
-                Iterator i;
-                Unit *other;
                 bool pending = false;
+                Unit *other;
+                Iterator i;
+                void *v;
 
                 /* If there's already a start pending don't bother to
                  * do anything */
-                SET_FOREACH(other, UNIT(s)->dependencies[UNIT_TRIGGERS], i)
+                HASHMAP_FOREACH_KEY(v, other, UNIT(s)->dependencies[UNIT_TRIGGERS], i)
                         if (unit_active_or_pending(other)) {
                                 pending = true;
                                 break;

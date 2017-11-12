@@ -256,60 +256,89 @@ static int device_update_description(Unit *u, struct udev_device *dev, const cha
 }
 
 static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
-        const char *wants, *property, *p;
+        const char *wants, *property;
         int r;
 
         assert(u);
         assert(dev);
 
         property = MANAGER_IS_USER(u->manager) ? "SYSTEMD_USER_WANTS" : "SYSTEMD_WANTS";
+
         wants = udev_device_get_property_value(dev, property);
-        for (p = wants;;) {
+        if (!wants)
+                return 0;
+
+        for (;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&wants, &word, NULL, EXTRACT_QUOTES);
                 if (r == 0)
                         return 0;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
-                        return log_unit_error_errno(u, r, "Failed to add parse %s: %m", property);
+                        return log_unit_error_errno(u, r, "Failed to parse property %s with value %s: %m", property, wants);
 
-                r = unit_name_mangle(word, UNIT_NAME_NOGLOB, &k);
-                if (r < 0)
-                        return log_unit_error_errno(u, r, "Failed to mangle unit name \"%s\": %m", word);
+                if (unit_name_is_valid(word, UNIT_NAME_TEMPLATE) && DEVICE(u)->sysfs) {
+                        _cleanup_free_ char *escaped = NULL;
 
-                r = unit_add_dependency_by_name(u, UNIT_WANTS, k, NULL, true);
+                        /* If the unit name is specified as template, then automatically fill in the sysfs path of the
+                         * device as instance name, properly escaped. */
+
+                        r = unit_name_path_escape(DEVICE(u)->sysfs, &escaped);
+                        if (r < 0)
+                                return log_unit_error_errno(u, r, "Failed to escape %s: %m", DEVICE(u)->sysfs);
+
+                        r = unit_name_replace_instance(word, escaped, &k);
+                        if (r < 0)
+                                return log_unit_error_errno(u, r, "Failed to build %s instance of template %s: %m", escaped, word);
+                } else {
+                        /* If this is not a template, then let's mangle it so, that it becomes a valid unit name. */
+
+                        r = unit_name_mangle(word, UNIT_NAME_NOGLOB, &k);
+                        if (r < 0)
+                                return log_unit_error_errno(u, r, "Failed to mangle unit name \"%s\": %m", word);
+                }
+
+                r = unit_add_dependency_by_name(u, UNIT_WANTS, k, NULL, true, UNIT_DEPENDENCY_UDEV);
                 if (r < 0)
-                        return log_unit_error_errno(u, r, "Failed to add wants dependency: %m");
+                        return log_unit_error_errno(u, r, "Failed to add Wants= dependency: %m");
         }
 }
 
-static bool device_is_bound_by_mounts(Unit *d, struct udev_device *dev) {
+static bool device_is_bound_by_mounts(Device *d, struct udev_device *dev) {
         const char *bound_by;
-        int r = false;
+        int r;
 
         assert(d);
         assert(dev);
 
         bound_by = udev_device_get_property_value(dev, "SYSTEMD_MOUNT_DEVICE_BOUND");
-        if (bound_by)
-                r = parse_boolean(bound_by) > 0;
+        if (bound_by) {
+                r = parse_boolean(bound_by);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse SYSTEMD_MOUNT_DEVICE_BOUND='%s' udev property of %s, ignoring: %m", bound_by, strna(d->sysfs));
 
-        DEVICE(d)->bind_mounts = r;
-        return r;
+                d->bind_mounts = r > 0;
+        } else
+                d->bind_mounts = false;
+
+        return d->bind_mounts;
 }
 
 static int device_upgrade_mount_deps(Unit *u) {
         Unit *other;
         Iterator i;
+        void *v;
         int r;
 
-        SET_FOREACH(other, u->dependencies[UNIT_REQUIRED_BY], i) {
+        /* Let's upgrade Requires= to BindsTo= on us. (Used when SYSTEMD_MOUNT_DEVICE_BOUND is set) */
+
+        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_REQUIRED_BY], i) {
                 if (other->type != UNIT_MOUNT)
                         continue;
 
-                r = unit_add_dependency(other, UNIT_BINDS_TO, u, true);
+                r = unit_add_dependency(other, UNIT_BINDS_TO, u, true, UNIT_DEPENDENCY_UDEV);
                 if (r < 0)
                         return r;
         }
@@ -337,23 +366,26 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
                 return log_error_errno(r, "Failed to generate unit name from device path: %m");
 
         u = manager_get_unit(m, e);
+        if (u) {
+                /* The device unit can still be present even if the device was unplugged: a mount unit can reference it hence
+                 * preventing the GC to have garbaged it. That's desired since the device unit may have a dependency on the
+                 * mount unit which was added during the loading of the later. */
+                if (dev && DEVICE(u)->state == DEVICE_PLUGGED) {
 
-        /* The device unit can still be present even if the device was
-         * unplugged: a mount unit can reference it hence preventing
-         * the GC to have garbaged it. That's desired since the device
-         * unit may have a dependency on the mount unit which was
-         * added during the loading of the later. */
-        if (dev && u && DEVICE(u)->state == DEVICE_PLUGGED) {
-                /* This unit is in plugged state: we're sure it's
-                 * attached to a device. */
-                if (!path_equal(DEVICE(u)->sysfs, sysfs)) {
-                        log_unit_debug(u, "Dev %s appeared twice with different sysfs paths %s and %s",
-                                       e, DEVICE(u)->sysfs, sysfs);
-                        return -EEXIST;
+                        /* This unit is in plugged state: we're sure it's attached to a device. */
+                        if (!path_equal(DEVICE(u)->sysfs, sysfs)) {
+                                log_unit_debug(u, "Dev %s appeared twice with different sysfs paths %s and %s",
+                                               e, DEVICE(u)->sysfs, sysfs);
+                                return -EEXIST;
+                        }
                 }
-        }
 
-        if (!u) {
+                delete = false;
+
+                /* Let's remove all dependencies generated due to udev properties. We'll readd whatever is configured
+                 * now below. */
+                unit_remove_dependencies(u, UNIT_DEPENDENCY_UDEV);
+        } else {
                 delete = true;
 
                 r = unit_new_for_name(m, sizeof(Device), e, &u);
@@ -361,8 +393,7 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
                         goto fail;
 
                 unit_add_to_load_queue(u);
-        } else
-                delete = false;
+        }
 
         /* If this was created via some dependency and has not
          * actually been seen yet ->sysfs will not be
@@ -380,16 +411,13 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
                         (void) device_add_udev_wants(u, dev);
         }
 
-        /* So the user wants the mount units to be bound to the device but a
-         * mount unit might has been seen by systemd before the device appears
-         * on its radar. In this case the device unit is partially initialized
-         * and includes the deps on the mount unit but at that time the "bind
-         * mounts" flag wasn't not present. Fix this up now. */
-        if (dev && device_is_bound_by_mounts(u, dev))
+        /* So the user wants the mount units to be bound to the device but a mount unit might has been seen by systemd
+         * before the device appears on its radar. In this case the device unit is partially initialized and includes
+         * the deps on the mount unit but at that time the "bind mounts" flag wasn't not present. Fix this up now. */
+        if (dev && device_is_bound_by_mounts(DEVICE(u), dev))
                 device_upgrade_mount_deps(u);
 
-        /* Note that this won't dispatch the load queue, the caller
-         * has to do that if needed and appropriate */
+        /* Note that this won't dispatch the load queue, the caller has to do that if needed and appropriate */
 
         unit_add_to_dbus_queue(u);
         return 0;

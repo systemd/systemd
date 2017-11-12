@@ -361,6 +361,7 @@ static char* merge_unit_ids(const char* unit_log_field, char **pairs) {
 static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsigned generation, sd_bus_error *e) {
         Iterator i;
         Unit *u;
+        void *v;
         int r;
 
         assert(tr);
@@ -452,7 +453,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
 
         /* We assume that the dependencies are bidirectional, and
          * hence can ignore UNIT_AFTER */
-        SET_FOREACH(u, j->unit->dependencies[UNIT_BEFORE], i) {
+        HASHMAP_FOREACH_KEY(v, u, j->unit->dependencies[UNIT_BEFORE], i) {
                 Job *o;
 
                 /* Is there a job for this unit? */
@@ -860,14 +861,15 @@ static void transaction_unlink_job(Transaction *tr, Job *j, bool delete_dependen
 
 void transaction_add_propagate_reload_jobs(Transaction *tr, Unit *unit, Job *by, bool ignore_order, sd_bus_error *e) {
         Iterator i;
-        Unit *dep;
         JobType nt;
+        Unit *dep;
+        void *v;
         int r;
 
         assert(tr);
         assert(unit);
 
-        SET_FOREACH(dep, unit->dependencies[UNIT_PROPAGATES_RELOAD_TO], i) {
+        HASHMAP_FOREACH_KEY(v, dep, unit->dependencies[UNIT_PROPAGATES_RELOAD_TO], i) {
                 nt = job_type_collapse(JOB_TRY_RELOAD, dep);
                 if (nt == JOB_NOP)
                         continue;
@@ -892,11 +894,13 @@ int transaction_add_job_and_dependencies(
                 bool ignore_requirements,
                 bool ignore_order,
                 sd_bus_error *e) {
-        Job *ret;
+
+        bool is_new;
         Iterator i;
         Unit *dep;
+        Job *ret;
+        void *v;
         int r;
-        bool is_new;
 
         assert(tr);
         assert(type < _JOB_TYPE_MAX);
@@ -969,7 +973,7 @@ int transaction_add_job_and_dependencies(
 
                 /* Finally, recursively add in all dependencies. */
                 if (IN_SET(type, JOB_START, JOB_RESTART)) {
-                        SET_FOREACH(dep, ret->unit->dependencies[UNIT_REQUIRES], i) {
+                        HASHMAP_FOREACH_KEY(v, dep, ret->unit->dependencies[UNIT_REQUIRES], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, true, false, false, ignore_order, e);
                                 if (r < 0) {
                                         if (r != -EBADR) /* job type not applicable */
@@ -979,7 +983,7 @@ int transaction_add_job_and_dependencies(
                                 }
                         }
 
-                        SET_FOREACH(dep, ret->unit->dependencies[UNIT_BINDS_TO], i) {
+                        HASHMAP_FOREACH_KEY(v, dep, ret->unit->dependencies[UNIT_BINDS_TO], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, true, false, false, ignore_order, e);
                                 if (r < 0) {
                                         if (r != -EBADR) /* job type not applicable */
@@ -989,7 +993,7 @@ int transaction_add_job_and_dependencies(
                                 }
                         }
 
-                        SET_FOREACH(dep, ret->unit->dependencies[UNIT_WANTS], i) {
+                        HASHMAP_FOREACH_KEY(v, dep, ret->unit->dependencies[UNIT_WANTS], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, false, false, false, ignore_order, e);
                                 if (r < 0) {
                                         /* unit masked, job type not applicable and unit not found are not considered as errors. */
@@ -1001,7 +1005,7 @@ int transaction_add_job_and_dependencies(
                                 }
                         }
 
-                        SET_FOREACH(dep, ret->unit->dependencies[UNIT_REQUISITE], i) {
+                        HASHMAP_FOREACH_KEY(v, dep, ret->unit->dependencies[UNIT_REQUISITE], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_VERIFY_ACTIVE, dep, ret, true, false, false, ignore_order, e);
                                 if (r < 0) {
                                         if (r != -EBADR) /* job type not applicable */
@@ -1011,7 +1015,7 @@ int transaction_add_job_and_dependencies(
                                 }
                         }
 
-                        SET_FOREACH(dep, ret->unit->dependencies[UNIT_CONFLICTS], i) {
+                        HASHMAP_FOREACH_KEY(v, dep, ret->unit->dependencies[UNIT_CONFLICTS], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_STOP, dep, ret, true, true, false, ignore_order, e);
                                 if (r < 0) {
                                         if (r != -EBADR) /* job type not applicable */
@@ -1021,7 +1025,7 @@ int transaction_add_job_and_dependencies(
                                 }
                         }
 
-                        SET_FOREACH(dep, ret->unit->dependencies[UNIT_CONFLICTED_BY], i) {
+                        HASHMAP_FOREACH_KEY(v, dep, ret->unit->dependencies[UNIT_CONFLICTED_BY], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_STOP, dep, ret, false, false, false, ignore_order, e);
                                 if (r < 0) {
                                         log_unit_warning(dep,
@@ -1050,7 +1054,7 @@ int transaction_add_job_and_dependencies(
                         ptype = type == JOB_RESTART ? JOB_TRY_RESTART : type;
 
                         for (j = 0; j < ELEMENTSOF(propagate_deps); j++)
-                                SET_FOREACH(dep, ret->unit->dependencies[propagate_deps[j]], i) {
+                                HASHMAP_FOREACH_KEY(v, dep, ret->unit->dependencies[propagate_deps[j]], i) {
                                         JobType nt;
 
                                         nt = job_type_collapse(ptype, dep);

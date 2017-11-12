@@ -61,6 +61,53 @@ static inline bool UNIT_IS_INACTIVE_OR_FAILED(UnitActiveState t) {
         return IN_SET(t, UNIT_INACTIVE, UNIT_FAILED);
 }
 
+/* Stores the 'reason' a dependency was created as a bit mask, i.e. due to which configuration source it came to be. We
+ * use this so that we can selectively flush out parts of dependencies again. Note that the same dependency might be
+ * created as a result of multiple "reasons", hence the bitmask. */
+typedef enum UnitDependencyMask {
+        /* Configured directly by the unit file, .wants/.requries symlink or drop-in, or as an immediate result of a
+         * non-dependency option configured that way.  */
+        UNIT_DEPENDENCY_FILE               = 1 << 0,
+
+        /* As unconditional implicit dependency (not affected by unit configuration — except by the unit name and
+         * type) */
+        UNIT_DEPENDENCY_IMPLICIT           = 1 << 1,
+
+        /* A dependency effected by DefaultDependencies=yes. Note that dependencies marked this way are conceptually
+         * just a subset of UNIT_DEPENDENCY_FILE, as DefaultDependencies= is itself a unit file setting that can only
+         * be set in unit files. We make this two separate bits only to help debugging how dependencies came to be. */
+        UNIT_DEPENDENCY_DEFAULT            = 1 << 2,
+
+        /* A dependency created from udev rules */
+        UNIT_DEPENDENCY_UDEV               = 1 << 3,
+
+        /* A dependency created because of some unit's RequiresMountsFor= setting */
+        UNIT_DEPENDENCY_PATH               = 1 << 4,
+
+        /* A dependency created because of data read from /proc/self/mountinfo and no other configuration source */
+        UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT = 1 << 5,
+
+        /* A dependency created because of data read from /proc/self/mountinfo, but conditionalized by
+         * DefaultDependencies= and thus also involving configuration from UNIT_DEPENDENCY_FILE sources */
+        UNIT_DEPENDENCY_MOUNTINFO_DEFAULT  = 1 << 6,
+
+        /* A dependency created because of data read from /proc/swaps and no other configuration source */
+        UNIT_DEPENDENCY_PROC_SWAP          = 1 << 7,
+
+        _UNIT_DEPENDENCY_MASK_FULL = (1 << 8) - 1,
+} UnitDependencyMask;
+
+/* The Unit's dependencies[] hashmaps use this structure as value. It has the same size as a void pointer, and thus can
+ * be stored directly as hashmap value, without any indirection. Note that this stores two masks, as both the origin
+ * and the destination of a dependency might have created it. */
+typedef union UnitDependencyInfo {
+        void *data;
+        struct {
+                UnitDependencyMask origin_mask:16;
+                UnitDependencyMask destination_mask:16;
+        } _packed_;
+} UnitDependencyInfo;
+
 #include "job.h"
 
 struct UnitRef {
@@ -89,9 +136,13 @@ struct Unit {
         char *instance;
 
         Set *names;
-        Set *dependencies[_UNIT_DEPENDENCY_MAX];
 
-        char **requires_mounts_for;
+        /* For each dependency type we maintain a Hashmap whose key is the Unit* object, and the value encodes why the
+         * dependency exists, using the UnitDependencyInfo type */
+        Hashmap *dependencies[_UNIT_DEPENDENCY_MAX];
+
+        /* Similar, for RequiresMountsFor= path dependencies. The key is the path, the value the UnitDependencyInfo type */
+        Hashmap *requires_mounts_for;
 
         char *description;
         char **documentation;
@@ -492,7 +543,7 @@ extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
 #define UNIT_HAS_CGROUP_CONTEXT(u) (UNIT_VTABLE(u)->cgroup_context_offset > 0)
 #define UNIT_HAS_KILL_CONTEXT(u) (UNIT_VTABLE(u)->kill_context_offset > 0)
 
-#define UNIT_TRIGGER(u) ((Unit*) set_first((u)->dependencies[UNIT_TRIGGERS]))
+#define UNIT_TRIGGER(u) ((Unit*) hashmap_first_key((u)->dependencies[UNIT_TRIGGERS]))
 
 DEFINE_CAST(SERVICE, Service);
 DEFINE_CAST(SOCKET, Socket);
@@ -512,11 +563,11 @@ void unit_free(Unit *u);
 int unit_new_for_name(Manager *m, size_t size, const char *name, Unit **ret);
 int unit_add_name(Unit *u, const char *name);
 
-int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_reference);
-int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit *other, bool add_reference);
+int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_reference, UnitDependencyMask mask);
+int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit *other, bool add_reference, UnitDependencyMask mask);
 
-int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, const char *filename, bool add_reference);
-int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference);
+int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, const char *filename, bool add_reference, UnitDependencyMask mask);
+int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference, UnitDependencyMask mask);
 
 int unit_add_exec_dependencies(Unit *u, ExecContext *c);
 
@@ -596,7 +647,7 @@ int unit_serialize_item_escaped(Unit *u, FILE *f, const char *key, const char *v
 int unit_serialize_item_fd(Unit *u, FILE *f, FDSet *fds, const char *key, int fd);
 void unit_serialize_item_format(Unit *u, FILE *f, const char *key, const char *value, ...) _printf_(4,5);
 
-int unit_add_node_link(Unit *u, const char *what, bool wants, UnitDependency d);
+int unit_add_node_dependency(Unit *u, const char *what, bool wants, UnitDependency d, UnitDependencyMask mask);
 
 int unit_coldplug(Unit *u);
 
@@ -651,7 +702,7 @@ int unit_kill_context(Unit *u, KillContext *c, KillOperation k, pid_t main_pid, 
 
 int unit_make_transient(Unit *u);
 
-int unit_require_mounts_for(Unit *u, const char *path);
+int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask);
 
 bool unit_type_supported(UnitType t);
 
@@ -688,6 +739,8 @@ bool unit_shall_confirm_spawn(Unit *u);
 void unit_set_exec_params(Unit *s, ExecParameters *p);
 
 int unit_fork_helper_process(Unit *u, pid_t *ret);
+
+void unit_remove_dependencies(Unit *u, UnitDependencyMask mask);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 

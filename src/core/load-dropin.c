@@ -115,7 +115,7 @@ static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suff
                         log_unit_warning(u, "%s dependency dropin %s target %s has different name",
                                          unit_dependency_to_string(dependency), *p, target);
 
-                r = unit_add_dependency_by_name(u, dependency, entry, *p, true);
+                r = unit_add_dependency_by_name(u, dependency, entry, *p, true, UNIT_DEPENDENCY_FILE);
                 if (r < 0)
                         log_unit_error_errno(u, r, "cannot add %s dependency on %s, ignoring: %m",
                                              unit_dependency_to_string(dependency), entry);

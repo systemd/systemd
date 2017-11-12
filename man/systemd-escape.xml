@@ -73,6 +73,9 @@
     special mode of escaping is applied instead, which assumes the
     string is already escaped but will escape everything that
     appears obviously non-escaped.</para>
+
+    <para>For details on the escaping and unescaping algorithms see the relevant section in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
   </refsect1>
 
   <refsect1>
@@ -107,11 +110,12 @@
         <term><option>--path</option></term>
         <term><option>-p</option></term>
 
-        <listitem><para>When escaping or unescaping a string, assume
-        it refers to a file system path. This eliminates leading,
-        trailing or duplicate <literal>/</literal> characters
-        and rejects <literal>.</literal> and <literal>..</literal>
-        path components.</para></listitem>
+        <listitem><para>When escaping or unescaping a string, assume it refers to a file system path. This eliminates
+        leading, trailing or duplicate <literal>/</literal> characters and rejects <literal>.</literal> and
+        <literal>..</literal> path components. This is particularly useful for generating strings suitable for
+        unescaping with the <literal>%f</literal> specifier in unit files, see
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -172,6 +176,7 @@ systemd-nspawn@My\x20Container\x201.service systemd-nspawn@containerb.service sy
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>

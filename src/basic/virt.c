@@ -216,6 +216,7 @@ static int detect_vm_dmi(void) {
 }
 
 static int detect_vm_xen(void) {
+
         /* Check for Dom0 will be executed later in detect_vm_xen_dom0
            Thats why we dont check the content of /proc/xen/capabilities here. */
         if (access("/proc/xen/capabilities", F_OK) < 0) {
@@ -224,8 +225,7 @@ static int detect_vm_xen(void) {
         }
 
         log_debug("Virtualization XEN found (/proc/xen/capabilities exists)");
-        return  VIRTUALIZATION_XEN;
-
+        return VIRTUALIZATION_XEN;
 }
 
 static bool detect_vm_xen_dom0(void) {

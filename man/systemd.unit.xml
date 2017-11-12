@@ -213,22 +213,6 @@
     socket-based activation which make dependencies implicit,
     resulting in a both simpler and more flexible system.</para>
 
-    <para>Some unit names reflect paths existing in the file system
-    namespace. Example: a device unit
-    <filename>dev-sda.device</filename> refers to a device with the
-    device node <filename noindex='true'>/dev/sda</filename> in the
-    file system namespace. If this applies, a special way to escape
-    the path name is used, so that the result is usable as part of a
-    filename. Basically, given a path, "/" is replaced by "-", and all
-    other characters which are not ASCII alphanumerics are replaced by
-    C-style "\x2d" escapes (except that "_" is never replaced and "."
-    is only replaced when it would be the first character in the
-    escaped path). The root directory "/" is encoded as single dash,
-    while otherwise the initial and ending "/" are removed from all
-    paths during transformation. This escaping is reversible. Properly
-    escaped paths can be generated using the
-    <citerefentry><refentrytitle>systemd-escape</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    command.</para>
 
     <para>Optionally, units may be instantiated from a
     template file at runtime. This allows creation of
@@ -263,6 +247,32 @@
     url="https://www.freedesktop.org/wiki/Software/systemd/InterfaceStabilityPromise">Interface
     Stability Promise</ulink>.</para>
 
+  </refsect1>
+
+  <refsect1>
+    <title>String Escaping for Inclusion in Unit Names</title>
+
+    <para>Sometimes it is useful to convert arbitrary strings into unit names. To facilitate this, a method of string
+    escaping is used, in order to map strings containing arbitrary byte values (except NUL) into valid unit names and
+    their restricted character set. A common special case are unit names that reflect paths to objects in the file
+    system hierarchy. Example: a device unit <filename>dev-sda.device</filename> refers to a device with the device
+    node <filename noindex='true'>/dev/sda</filename> in the file system.</para>
+
+    <para>The escaping algorithm operates as follows: given a string, any <literal>/</literal> character is replaced by
+    <literal>-</literal>, and all other characters which are not ASCII alphanumerics or <literal>_</literal> are
+    replaced by C-style <literal>\x2d</literal> escapes. In addition, <literal>.</literal> is replaced with such a
+    C-style escape when it would appear as the first character in the escaped string.</para>
+
+    <para>When the input qualifies as absolute file system path, this algorithm is extended slightly: the path to the
+    root directory <literal>/</literal> is encoded as single dash <literal>-</literal>. In addition, any leading,
+    trailing or duplicate <literal>/</literal> characters are removed from the string before transformation. Example:
+    <filename>/foo//bar/baz/</filename> becomes <literal>foo-bar-baz</literal>.</para>
+
+    <para>This escaping is fully reversible, as long as it is known whether the escaped string was a path (the
+    unescaping results are different for paths and non-path strings). The
+    <citerefentry><refentrytitle>systemd-escape</refentrytitle><manvolnum>1</manvolnum></citerefentry> command may be
+    used to apply and reverse escaping on arbitrary strings. Use <command>systemd-escape --path</command> to escape
+    path strings, and <command>systemd-escape</command> without <option>--path</option> otherwise.</para>
   </refsect1>
 
   <refsect1>
@@ -1241,7 +1251,7 @@
           <row>
       <entry><literal>%N</literal></entry>
       <entry>Unescaped full unit name</entry>
-      <entry>Same as <literal>%n</literal>, but with escaping undone</entry>
+      <entry>Same as <literal>%n</literal>, but with escaping undone. This undoes the escaping used when generating unit names from arbitrary strings (see above). </entry>
           </row>
           <row>
       <entry><literal>%p</literal></entry>
@@ -1266,7 +1276,7 @@
           <row>
       <entry><literal>%f</literal></entry>
       <entry>Unescaped filename</entry>
-      <entry>This is either the unescaped instance name (if applicable) with <filename>/</filename> prepended (if applicable), or the unescaped prefix name prepended with <filename>/</filename>.</entry>
+      <entry>This is either the unescaped instance name (if applicable) with <filename>/</filename> prepended (if applicable), or the unescaped prefix name prepended with <filename>/</filename>. This implements unescaping according to the rules for escaping absolute file system paths discussed above.</entry>
           </row>
           <row>
       <entry><literal>%t</literal></entry>

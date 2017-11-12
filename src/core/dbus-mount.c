@@ -36,7 +36,7 @@ static int property_get_what(
                 sd_bus_error *error) {
 
         Mount *m = userdata;
-        const char *d;
+        const char *d = NULL;
 
         assert(bus);
         assert(reply);
@@ -46,8 +46,6 @@ static int property_get_what(
                 d = m->parameters_proc_self_mountinfo.what;
         else if (m->from_fragment && m->parameters_fragment.what)
                 d = m->parameters_fragment.what;
-        else
-                d = "";
 
         return sd_bus_message_append(reply, "s", d);
 }
@@ -62,7 +60,7 @@ static int property_get_options(
                 sd_bus_error *error) {
 
         Mount *m = userdata;
-        const char *d;
+        const char *d = NULL;
 
         assert(bus);
         assert(reply);
@@ -72,8 +70,6 @@ static int property_get_options(
                 d = m->parameters_proc_self_mountinfo.options;
         else if (m->from_fragment && m->parameters_fragment.options)
                 d = m->parameters_fragment.options;
-        else
-                d = "";
 
         return sd_bus_message_append(reply, "s", d);
 }
@@ -87,13 +83,19 @@ static int property_get_type(
                 void *userdata,
                 sd_bus_error *error) {
 
+        const char *fstype = NULL;
         Mount *m = userdata;
 
         assert(bus);
         assert(reply);
         assert(m);
 
-        return sd_bus_message_append(reply, "s", mount_get_fstype(m));
+        if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.fstype)
+                fstype = m->parameters_proc_self_mountinfo.fstype;
+        else if (m->from_fragment && m->parameters_fragment.fstype)
+                fstype = m->parameters_fragment.fstype;
+
+        return sd_bus_message_append(reply, "s", fstype);
 }
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, mount_result, MountResult);
