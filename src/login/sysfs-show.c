@@ -37,12 +37,22 @@ static int show_sysfs_one(
                 struct udev_list_entry **item,
                 const char *sub,
                 const char *prefix,
-                unsigned n_columns) {
+                unsigned n_columns,
+                OutputFlags flags) {
+
+        size_t max_width;
 
         assert(udev);
         assert(seat);
         assert(item);
         assert(prefix);
+
+        if (flags & OUTPUT_FULL_WIDTH)
+                max_width = (size_t) -1;
+        else if (n_columns < 10)
+                max_width = 10;
+        else
+                max_width = n_columns;
 
         while (*item) {
                 _cleanup_udev_device_unref_ struct udev_device *d = NULL;
@@ -106,7 +116,7 @@ static int show_sysfs_one(
                         lookahead = udev_list_entry_get_next(lookahead);
                 }
 
-                k = ellipsize(sysfs, n_columns, 20);
+                k = ellipsize(sysfs, max_width, 20);
                 if (!k)
                         return -ENOMEM;
 
@@ -120,7 +130,7 @@ static int show_sysfs_one(
                         return -ENOMEM;
 
                 free(k);
-                k = ellipsize(l, n_columns, 70);
+                k = ellipsize(l, max_width, 70);
                 if (!k)
                         return -ENOMEM;
 
@@ -134,14 +144,16 @@ static int show_sysfs_one(
                         if (!p)
                                 return -ENOMEM;
 
-                        show_sysfs_one(udev, seat, item, sysfs, p, n_columns - 2);
+                        show_sysfs_one(udev, seat, item, sysfs, p,
+                                       n_columns == (unsigned) -1 || n_columns < 2 ? n_columns : n_columns - 2,
+                                       flags);
                 }
         }
 
         return 0;
 }
 
-int show_sysfs(const char *seat, const char *prefix, unsigned n_columns) {
+int show_sysfs(const char *seat, const char *prefix, unsigned n_columns, OutputFlags flags) {
         _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
         _cleanup_udev_unref_ struct udev *udev = NULL;
         struct udev_list_entry *first = NULL;
@@ -150,8 +162,7 @@ int show_sysfs(const char *seat, const char *prefix, unsigned n_columns) {
         if (n_columns <= 0)
                 n_columns = columns();
 
-        if (!prefix)
-                prefix = "";
+        prefix = strempty(prefix);
 
         if (isempty(seat))
                 seat = "seat0";
@@ -181,7 +192,7 @@ int show_sysfs(const char *seat, const char *prefix, unsigned n_columns) {
 
         first = udev_enumerate_get_list_entry(e);
         if (first)
-                show_sysfs_one(udev, seat, &first, "/", prefix, n_columns);
+                show_sysfs_one(udev, seat, &first, "/", prefix, n_columns, flags);
         else
                 printf("%s%s%s\n", prefix, special_glyph(TREE_RIGHT), "(none)");
 

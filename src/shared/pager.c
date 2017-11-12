@@ -80,9 +80,10 @@ int pager_open(bool no_pager, bool jump_to_end) {
         if (pager && STR_IN_SET(pager, "", "cat"))
                 return 0;
 
-        /* Determine and cache number of columns before we spawn the
-         * pager so that we get the value from the actual tty */
+        /* Determine and cache number of columns/lines before we spawn the pager so that we get the value from the
+         * actual tty */
         (void) columns();
+        (void) lines();
 
         if (pipe2(fd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pager pipe: %m");

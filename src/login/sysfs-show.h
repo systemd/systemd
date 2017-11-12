@@ -19,4 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-int show_sysfs(const char *seat, const char *prefix, unsigned columns);
+#include <sys/types.h>
+
+#include "output-mode.h"
+
+int show_sysfs(const char *seat, const char *prefix, unsigned columns, OutputFlags flags);

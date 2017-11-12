@@ -1619,8 +1619,6 @@ int main(int argc, char* argv[]) {
         }
 
 finish:
-        bus = sd_bus_flush_close_unref(bus);
-
         pager_close();
 
         free(arg_mount_what);

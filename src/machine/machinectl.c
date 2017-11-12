@@ -52,15 +52,16 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "ptyfwd.h"
+#include "sigbus.h"
 #include "signal-util.h"
 #include "spawn-polkit-agent.h"
+#include "stdio-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit-name.h"
 #include "util.h"
 #include "verbs.h"
 #include "web-util.h"
-#include "stdio-util.h"
 
 #define ALL_IP_ADDRESSES -1
 
@@ -92,8 +93,7 @@ static int print_addresses(sd_bus *bus, const char *name, int, const char *pr1, 
 static OutputFlags get_output_flags(void) {
         return
                 arg_all * OUTPUT_SHOW_ALL |
-                arg_full * OUTPUT_FULL_WIDTH |
-                (!on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
+                (arg_full || !on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
                 colors_enabled() * OUTPUT_COLOR |
                 !arg_quiet * OUTPUT_WARN_CUTOFF;
 }
@@ -3045,12 +3045,13 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
 }
 
 int main(int argc, char*argv[]) {
-        sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         setlocale(LC_ALL, "");
         log_parse_environment();
         log_open();
+        sigbus_install();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -3067,7 +3068,6 @@ int main(int argc, char*argv[]) {
         r = machinectl_main(argc, argv, bus);
 
 finish:
-        sd_bus_flush_close_unref(bus);
         pager_close();
         polkit_agent_close();
 
