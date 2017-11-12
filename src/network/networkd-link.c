@@ -3149,7 +3149,7 @@ int link_update(Link *link, sd_netlink_message *m) {
 
         r = sd_netlink_message_read_string(m, IFLA_IFNAME, &ifname);
         if (r >= 0 && !streq(ifname, link->ifname)) {
-                log_link_info(link, "Renamed to %s", ifname);
+                log_link_info(link, "Interface name change detected, %s has been renamed to %s.", link->ifname, ifname);
 
                 link_free_carrier_maps(link);
 
