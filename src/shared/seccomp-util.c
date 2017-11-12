@@ -313,6 +313,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "set_robust_list\0"
                 "set_thread_area\0"
                 "set_tid_address\0"
+                "set_tls\0"
                 "sigreturn\0"
                 "time\0"
                 "ugetrlimit\0"
