@@ -1223,7 +1223,7 @@ static int config_parse_default_instance(
                 return 0;
         if (!unit_name_is_valid(unit, UNIT_NAME_TEMPLATE))
                 return log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                  "DefaultInstance= only makes sense for template units, ignoring. %s", unit);
+                                  "DefaultInstance= only makes sense for template units, ignoring.");
 
         r = install_full_printf(i, rvalue, &printed);
         if (r < 0)
@@ -2995,7 +2995,7 @@ static int preset_prepare_one(
         if (r < 0)
                 return r;
         if (!streq(name, i->name)) {
-                log_debug("Skipping %s because is an alias for %s", name, i->name);
+                log_debug("Skipping %s because it is an alias for %s.", name, i->name);
                 return 0;
         }
 
