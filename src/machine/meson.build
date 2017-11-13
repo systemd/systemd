@@ -32,6 +32,7 @@ if conf.get('ENABLE_MACHINED') == 1
                 input : 'org.freedesktop.machine1.policy.in',
                 output : 'org.freedesktop.machine1.policy',
                 po_dir : po_dir,
+                data_dirs : po_dir,
                 install : install_polkit,
                 install_dir : polkitpolicydir)
 endif

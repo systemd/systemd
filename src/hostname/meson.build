@@ -9,6 +9,7 @@ if conf.get('ENABLE_HOSTNAMED') == 1
                 input : 'org.freedesktop.hostname1.policy.in',
                 output : 'org.freedesktop.hostname1.policy',
                 po_dir : po_dir,
+                data_dirs : po_dir,
                 install : install_polkit,
                 install_dir : polkitpolicydir)
 endif

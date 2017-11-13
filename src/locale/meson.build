@@ -17,6 +17,7 @@ if conf.get('ENABLE_LOCALED') == 1
                 input : 'org.freedesktop.locale1.policy.in',
                 output : 'org.freedesktop.locale1.policy',
                 po_dir : po_dir,
+                data_dirs : po_dir,
                 install : install_polkit,
                 install_dir : polkitpolicydir)
 endif

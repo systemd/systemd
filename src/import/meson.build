@@ -59,6 +59,7 @@ if conf.get('ENABLE_IMPORTD') == 1
                 input : 'org.freedesktop.import1.policy.in',
                 output : 'org.freedesktop.import1.policy',
                 po_dir : po_dir,
+                data_dirs : po_dir,
                 install : install_polkit,
                 install_dir : polkitpolicydir)
 

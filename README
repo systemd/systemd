@@ -149,7 +149,7 @@ REQUIREMENTS:
         libpython (optional)
         libidn2 or libidn (optional)
         elfutils >= 158 (optional)
-        polkit >= 0.113-22-gc78819245f (optional)
+        polkit (optional)
         pkg-config
         gperf
         docbook-xsl (optional, required for documentation)

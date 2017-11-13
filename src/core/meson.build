@@ -202,6 +202,7 @@ i18n.merge_file(
         input : policy_in,
         output : 'org.freedesktop.systemd1.policy',
         po_dir : po_dir,
+        data_dirs : po_dir,
         install : install_polkit,
         install_dir : polkitpolicydir)
 
