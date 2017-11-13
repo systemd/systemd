@@ -3202,6 +3202,67 @@ int config_parse_tasks_max(
         return 0;
 }
 
+int config_parse_delegate(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        CGroupContext *c = data;
+        int r;
+
+        /* We either accept a boolean value, which may be used to turn on delegation for all controllers, or turn it
+         * off for all. Or it takes a list of controller names, in which case we add the specified controllers to the
+         * mask to delegate. */
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                const char *p = rvalue;
+                CGroupMask mask = 0;
+
+                for (;;) {
+                        _cleanup_free_ char *word = NULL;
+                        CGroupController cc;
+
+                        r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                        if (r == 0)
+                                break;
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0) {
+                                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                                return r;
+                        }
+
+                        cc = cgroup_controller_from_string(word);
+                        if (cc < 0) {
+                                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid controller name '%s', ignoring", rvalue);
+                                continue;
+                        }
+
+                        mask |= CGROUP_CONTROLLER_TO_MASK(cc);
+                }
+
+                c->delegate = true;
+                c->delegate_controllers |= mask;
+
+        } else if (r > 0) {
+                c->delegate = true;
+                c->delegate_controllers = _CGROUP_MASK_ALL;
+        } else {
+                c->delegate = false;
+                c->delegate_controllers = 0;
+        }
+
+        return 0;
+}
+
 int config_parse_device_allow(
                 const char *unit,
                 const char *filename,
@@ -4450,7 +4511,7 @@ static int load_from_path(Unit *u, const char *path) {
                 r = config_parse(u->id, filename, f,
                                  UNIT_VTABLE(u)->sections,
                                  config_item_perf_lookup, load_fragment_gperf_lookup,
-                                 false, true, false, u);
+                                 CONFIG_PARSE_ALLOW_INCLUDE, u);
                 if (r < 0)
                         return r;
         }

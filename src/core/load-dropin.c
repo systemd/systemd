@@ -117,8 +117,8 @@ static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suff
 
                 r = unit_add_dependency_by_name(u, dependency, entry, *p, true, UNIT_DEPENDENCY_FILE);
                 if (r < 0)
-                        log_unit_error_errno(u, r, "cannot add %s dependency on %s, ignoring: %m",
-                                             unit_dependency_to_string(dependency), entry);
+                        log_unit_warning_errno(u, r, "Cannot add %s dependency on %s, ignoring: %m",
+                                               unit_dependency_to_string(dependency), entry);
         }
 
         return 0;
@@ -154,12 +154,11 @@ int unit_load_dropin(Unit *u) {
                         return log_oom();
         }
 
-        STRV_FOREACH(f, u->dropin_paths) {
-                config_parse(u->id, *f, NULL,
-                             UNIT_VTABLE(u)->sections,
-                             config_item_perf_lookup, load_fragment_gperf_lookup,
-                             false, false, false, u);
-        }
+        STRV_FOREACH(f, u->dropin_paths)
+                (void) config_parse(u->id, *f, NULL,
+                                    UNIT_VTABLE(u)->sections,
+                                    config_item_perf_lookup, load_fragment_gperf_lookup,
+                                    0, u);
 
         u->dropin_mtime = now(CLOCK_REALTIME);
 

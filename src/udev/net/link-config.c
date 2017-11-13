@@ -175,7 +175,7 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
         r = config_parse(NULL, filename, file,
                          "Match\0Link\0Ethernet\0",
                          config_item_perf_lookup, link_config_gperf_lookup,
-                         false, false, true, link);
+                         CONFIG_PARSE_WARN, link);
         if (r < 0)
                 return r;
         else

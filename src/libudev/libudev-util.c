@@ -150,17 +150,6 @@ size_t util_path_encode(const char *src, char *dest, size_t size)
         return j;
 }
 
-void util_remove_trailing_chars(char *path, char c)
-{
-        size_t len;
-
-        if (path == NULL)
-                return;
-        len = strlen(path);
-        while (len > 0 && path[len-1] == c)
-                path[--len] = '\0';
-}
-
 /*
  * Copy from 'str' to 'to', while removing all leading and trailing whitespace,
  * and replacing each run of consecutive whitespace with a single underscore.

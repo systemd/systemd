@@ -209,6 +209,16 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 prefix, cgroup_device_policy_to_string(c->device_policy),
                 prefix, yes_no(c->delegate));
 
+        if (c->delegate) {
+                _cleanup_free_ char *t = NULL;
+
+                (void) cg_mask_to_string(c->delegate_controllers, &t);
+
+                fprintf(f, "%sDelegateController=%s\n",
+                        prefix,
+                        strempty(t));
+        }
+
         LIST_FOREACH(device_allow, a, c->device_allow)
                 fprintf(f,
                         "%sDeviceAllow=%s %s%s%s\n",
@@ -1062,37 +1072,47 @@ CGroupMask unit_get_own_mask(Unit *u) {
         if (!c)
                 return 0;
 
-        /* If delegation is turned on, then turn on all cgroups,
-         * unless we are on the legacy hierarchy and the process we
-         * fork into it is known to drop privileges, and hence
-         * shouldn't get access to the controllers.
-         *
-         * Note that on the unified hierarchy it is safe to delegate
-         * controllers to unprivileged services. */
+        return cgroup_context_get_mask(c);
+}
 
-        if (c->delegate) {
+CGroupMask unit_get_delegate_mask(Unit *u) {
+        CGroupContext *c;
+
+        /* If delegation is turned on, then turn on selected controllers, unless we are on the legacy hierarchy and the
+         * process we fork into is known to drop privileges, and hence shouldn't get access to the controllers.
+         *
+         * Note that on the unified hierarchy it is safe to delegate controllers to unprivileged services. */
+
+        if (u->type == UNIT_SLICE)
+                return 0;
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return 0;
+
+        if (!c->delegate)
+                return 0;
+
+        if (cg_all_unified() <= 0) {
                 ExecContext *e;
 
                 e = unit_get_exec_context(u);
-                if (!e ||
-                    exec_context_maintains_privileges(e) ||
-                    cg_all_unified() > 0)
-                        return _CGROUP_MASK_ALL;
+                if (e && !exec_context_maintains_privileges(e))
+                        return 0;
         }
 
-        return cgroup_context_get_mask(c);
+        return c->delegate_controllers;
 }
 
 CGroupMask unit_get_members_mask(Unit *u) {
         assert(u);
 
-        /* Returns the mask of controllers all of the unit's children
-         * require, merged */
+        /* Returns the mask of controllers all of the unit's children require, merged */
 
         if (u->cgroup_members_mask_valid)
                 return u->cgroup_members_mask;
 
-        u->cgroup_members_mask = 0;
+        u->cgroup_members_mask = unit_get_delegate_mask(u);
 
         if (u->type == UNIT_SLICE) {
                 void *v;
@@ -1107,9 +1127,7 @@ CGroupMask unit_get_members_mask(Unit *u) {
                         if (UNIT_DEREF(member->slice) != u)
                                 continue;
 
-                        u->cgroup_members_mask |=
-                                unit_get_own_mask(member) |
-                                unit_get_members_mask(member);
+                        u->cgroup_members_mask |= unit_get_subtree_mask(member); /* note that this calls ourselves again, for the children */
                 }
         }
 
@@ -1127,7 +1145,7 @@ CGroupMask unit_get_siblings_mask(Unit *u) {
         if (UNIT_ISSET(u->slice))
                 return unit_get_members_mask(UNIT_DEREF(u->slice));
 
-        return unit_get_own_mask(u) | unit_get_members_mask(u);
+        return unit_get_subtree_mask(u);
 }
 
 CGroupMask unit_get_subtree_mask(Unit *u) {
@@ -1946,11 +1964,9 @@ int manager_setup_cgroup(Manager *m) {
         if (e)
                 *e = 0;
 
-        /* And make sure to store away the root value without trailing
-         * slash, even for the root dir, so that we can easily prepend
-         * it everywhere. */
-        while ((e = endswith(m->cgroup_root, "/")))
-                *e = 0;
+        /* And make sure to store away the root value without trailing slash, even for the root dir, so that we can
+         * easily prepend it everywhere. */
+        delete_trailing_chars(m->cgroup_root, "/");
 
         /* 2. Show data */
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, NULL, &path);

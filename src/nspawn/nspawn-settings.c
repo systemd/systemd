@@ -59,9 +59,7 @@ int settings_load(FILE *f, const char *path, Settings **ret) {
                          "Network\0"
                          "Files\0",
                          config_item_perf_lookup, nspawn_gperf_lookup,
-                         false,
-                         false,
-                         true,
+                         CONFIG_PARSE_WARN,
                          s);
         if (r < 0)
                 return r;

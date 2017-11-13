@@ -116,7 +116,7 @@ static int adm_test(struct udev *udev, int argc, char *argv[]) {
                 strscpyl(filename, sizeof(filename), "/sys", syspath, NULL);
         else
                 strscpy(filename, sizeof(filename), syspath);
-        util_remove_trailing_chars(filename, '/');
+        delete_trailing_chars(filename, "/");
 
         dev = udev_device_new_from_synthetic_event(udev, filename, action);
         if (dev == NULL) {

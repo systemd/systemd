@@ -1072,7 +1072,7 @@ static int manager_parse_config_file(Manager *m) {
                                         CONF_PATHS_NULSTR("systemd/logind.conf.d"),
                                         "Login\0",
                                         config_item_perf_lookup, logind_gperf_lookup,
-                                        false, m);
+                                        CONFIG_PARSE_WARN, m);
 }
 
 static int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {

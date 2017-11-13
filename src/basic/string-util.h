@@ -133,7 +133,19 @@ char *strjoin_real(const char *x, ...) _sentinel_;
 
 char *strstrip(char *s);
 char *delete_chars(char *s, const char *bad);
+char *delete_trailing_chars(char *s, const char *bad);
 char *truncate_nl(char *s);
+
+static inline char *skip_leading_chars(const char *s, const char *bad) {
+
+        if (!s)
+                return NULL;
+
+        if (!bad)
+                bad = WHITESPACE;
+
+        return (char*) s + strspn(s, bad);
+}
 
 char ascii_tolower(char x);
 char *ascii_strlower(char *s);

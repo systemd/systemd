@@ -278,6 +278,9 @@ char *strjoin_real(const char *x, ...) {
 char *strstrip(char *s) {
         char *e;
 
+        if (!s)
+                return NULL;
+
         /* Drops trailing whitespace. Modifies the string in
          * place. Returns pointer to first non-space character */
 
@@ -295,7 +298,13 @@ char *strstrip(char *s) {
 char *delete_chars(char *s, const char *bad) {
         char *f, *t;
 
-        /* Drops all whitespace, regardless where in the string */
+        /* Drops all specified bad characters, regardless where in the string */
+
+        if (!s)
+                return NULL;
+
+        if (!bad)
+                bad = WHITESPACE;
 
         for (f = s, t = s; *f; f++) {
                 if (strchr(bad, *f))
@@ -305,6 +314,26 @@ char *delete_chars(char *s, const char *bad) {
         }
 
         *t = 0;
+
+        return s;
+}
+
+char *delete_trailing_chars(char *s, const char *bad) {
+        char *p, *c = s;
+
+        /* Drops all specified bad characters, at the end of the string */
+
+        if (!s)
+                return NULL;
+
+        if (!bad)
+                bad = WHITESPACE;
+
+        for (p = s; *p; p++)
+                if (!strchr(bad, *p))
+                        c = p + 1;
+
+        *c = 0;
 
         return s;
 }

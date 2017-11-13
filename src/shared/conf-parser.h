@@ -29,8 +29,14 @@
 #include "log.h"
 #include "macro.h"
 
-/* An abstract parser for simple, line based, shallow configuration
- * files consisting of variable assignments only. */
+/* An abstract parser for simple, line based, shallow configuration files consisting of variable assignments only. */
+
+typedef enum ConfigParseFlags {
+        CONFIG_PARSE_RELAXED       = 1U << 0,
+        CONFIG_PARSE_ALLOW_INCLUDE = 1U << 1,
+        CONFIG_PARSE_WARN          = 1U << 2,
+        CONFIG_PARSE_REFUSE_BOM    = 1U << 3,
+} ConfigParseFlags;
 
 /* Prototype for a parser for a specific configuration setting */
 typedef int (*ConfigParserCallback)(const char *unit,
@@ -91,9 +97,7 @@ int config_parse(
                 const char *sections,  /* nulstr */
                 ConfigItemLookup lookup,
                 const void *table,
-                bool relaxed,
-                bool allow_include,
-                bool warn,
+                ConfigParseFlags flags,
                 void *userdata);
 
 int config_parse_many_nulstr(
@@ -102,7 +106,7 @@ int config_parse_many_nulstr(
                 const char *sections,       /* nulstr */
                 ConfigItemLookup lookup,
                 const void *table,
-                bool relaxed,
+                ConfigParseFlags flags,
                 void *userdata);
 
 int config_parse_many(
@@ -112,7 +116,7 @@ int config_parse_many(
                 const char *sections,       /* nulstr */
                 ConfigItemLookup lookup,
                 const void *table,
-                bool relaxed,
+                ConfigParseFlags flags,
                 void *userdata);
 
 /* Generic parsers */

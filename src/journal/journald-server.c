@@ -1398,7 +1398,7 @@ static int server_parse_config_file(Server *s) {
                                         CONF_PATHS_NULSTR("systemd/journald.conf.d"),
                                         "Journal\0",
                                         config_item_perf_lookup, journald_gperf_lookup,
-                                        false, s);
+                                        CONFIG_PARSE_WARN, s);
 }
 
 static int server_dispatch_sync(sd_event_source *es, usec_t t, void *userdata) {

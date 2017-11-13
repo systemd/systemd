@@ -183,6 +183,51 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 r = sd_bus_message_append(m, "sv", field, "t", bytes);
                 goto finish;
+
+        } else if (streq(field, "Delegate")) {
+
+                r = parse_boolean(eq);
+                if (r < 0) {
+                        const char *p = eq;
+
+                        r = sd_bus_message_append(m, "s", "DelegateControllers");
+                        if (r < 0)
+                                goto finish;
+
+                        r = sd_bus_message_open_container(m, 'v', "as");
+                        if (r < 0)
+                                goto finish;
+
+                        r = sd_bus_message_open_container(m, 'a', "s");
+                        if (r < 0)
+                                goto finish;
+
+                        for (;;) {
+                                _cleanup_free_ char *word = NULL;
+
+                                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                                if (r == 0)
+                                        break;
+                                if (r == -ENOMEM)
+                                        return log_oom();
+                                if (r < 0)
+                                        return log_error_errno(r, "Invalid syntax: %s", eq);
+
+                                r = sd_bus_message_append(m, "s", word);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        r = sd_bus_message_close_container(m);
+                        if (r < 0)
+                                goto finish;
+
+                        r = sd_bus_message_close_container(m);
+                } else
+                        r = sd_bus_message_append(m, "sv", "Delegate", "b", r);
+
+                goto finish;
+
         } else if (streq(field, "TasksMax")) {
                 uint64_t t;
 
@@ -238,7 +283,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                               "TasksAccounting", "IPAccounting", "SendSIGHUP", "SendSIGKILL", "WakeSystem",
                               "DefaultDependencies", "IgnoreSIGPIPE", "TTYVHangup", "TTYReset", "TTYVTDisallocate",
                               "RemainAfterExit", "PrivateTmp", "PrivateDevices", "PrivateNetwork", "PrivateUsers",
-                              "NoNewPrivileges", "SyslogLevelPrefix", "Delegate", "RemainAfterElapse",
+                              "NoNewPrivileges", "SyslogLevelPrefix", "RemainAfterElapse",
                               "MemoryDenyWriteExecute", "RestrictRealtime", "DynamicUser", "RemoveIPC",
                               "ProtectKernelTunables", "ProtectKernelModules", "ProtectControlGroups", "MountAPIVFS",
                               "CPUSchedulingResetOnFork", "LockPersonality")) {

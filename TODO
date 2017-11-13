@@ -66,9 +66,15 @@ Features:
 * In journalctl add a way how "-o verbose" and suchlike can be tweaked to show
   only a specific set of properties
 
+* beef up pam_systemd to take unit file settings such as cgroups properties as
+  parameters
+
 * export UID ranges nspawns's --private-user and DynamicUser= uses in
   the systemd.pc pkg-config file, the same way we already expose the system
   user boundary there
+
+* a new "systemd-analyze security" tool outputting a checklist of security
+  features a service does and does not implement
 
 * Whenever we check a UID against the system UID range, also check for the
   dynamic UID range

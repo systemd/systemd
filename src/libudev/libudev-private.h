@@ -138,7 +138,6 @@ int udev_queue_export_device_finished(struct udev_queue_export *udev_queue_expor
 #define UDEV_ALLOWED_CHARS_INPUT        "/ $%?,"
 int util_log_priority(const char *priority);
 size_t util_path_encode(const char *src, char *dest, size_t size);
-void util_remove_trailing_chars(char *path, char c);
 int util_replace_whitespace(const char *str, char *to, size_t len);
 int util_replace_chars(char *str, const char *white);
 unsigned int util_string_hash32(const char *key);
