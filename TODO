@@ -58,8 +58,6 @@ Features:
 * rework ExecOutput and ExecInput enums so that EXEC_OUTPUT_NULL loses its
   magic meaning and is no longer upgraded to something else if set explicitly.
 
-* add a way to remove fds from the fdstore by name, and make logind use it
-
 * in the long run: permit a system with /etc/machine-id linked to /dev/null, to
   make it lose its identity, i.e. be anonymous. For this we'd have to patch
   through the whole tree to make all code deal with the case where no machine
