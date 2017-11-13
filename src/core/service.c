@@ -3312,13 +3312,10 @@ static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void 
 
 static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) {
         Service *s = SERVICE(u);
-        _cleanup_free_ char *cc = NULL;
         bool notify_dbus = false;
         const char *e;
 
         assert(u);
-
-        cc = strv_join(tags, ", ");
 
         if (s->notify_access == NOTIFY_NONE) {
                 log_unit_warning(u, "Got notification message from PID "PID_FMT", but reception is disabled.", pid);
@@ -3340,8 +3337,14 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
                 else
                         log_unit_warning(u, "Got notification message from PID "PID_FMT", but reception only permitted for main PID and control PID which are currently not known", pid);
                 return;
-        } else
+        }
+
+        if (log_get_max_level() >= LOG_DEBUG) {
+                _cleanup_free_ char *cc = NULL;
+
+                cc = strv_join(tags, ", ");
                 log_unit_debug(u, "Got notification message from PID "PID_FMT" (%s)", pid, isempty(cc) ? "n/a" : cc);
+        }
 
         /* Interpret MAINPID= */
         e = strv_find_startswith(tags, "MAINPID=");
