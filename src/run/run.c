@@ -75,6 +75,7 @@ static usec_t arg_on_unit_inactive = 0;
 static const char *arg_on_calendar = NULL;
 static char **arg_timer_property = NULL;
 static bool arg_quiet = false;
+static bool arg_aggressive_gc = false;
 
 static void help(void) {
         printf("%s [OPTIONS...] {COMMAND} [ARGS...]\n\n"
@@ -102,7 +103,8 @@ static void help(void) {
                "  -t --pty                        Run service on pseudo TTY as STDIN/STDOUT/\n"
                "                                  STDERR\n"
                "  -P --pipe                       Pass STDIN/STDOUT/STDERR directly to service\n"
-               "  -q --quiet                      Suppress information messages during runtime\n\n"
+               "  -q --quiet                      Suppress information messages during runtime\n"
+               "  -G --collect                    Unload unit after it ran, even when failed\n\n"
                "Timer options:\n"
                "     --on-active=SECONDS          Run after SECONDS delay\n"
                "     --on-boot=SECONDS            Run SECONDS after machine was booted up\n"
@@ -178,6 +180,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "timer-property",    required_argument, NULL, ARG_TIMER_PROPERTY   },
                 { "no-block",          no_argument,       NULL, ARG_NO_BLOCK         },
                 { "no-ask-password",   no_argument,       NULL, ARG_NO_ASK_PASSWORD  },
+                { "collect",           no_argument,       NULL, 'G'                  },
                 {},
         };
 
@@ -186,7 +189,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hrH:M:E:p:tPq", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hrH:M:E:p:tPqG", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -372,6 +375,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_wait = true;
                         break;
 
+                case 'G':
+                        arg_aggressive_gc = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -460,6 +467,12 @@ static int transient_unit_set_properties(sd_bus_message *m, char **properties) {
         r = sd_bus_message_append(m, "(sv)", "Description", "s", arg_description);
         if (r < 0)
                 return r;
+
+        if (arg_aggressive_gc) {
+                r = sd_bus_message_append(m, "(sv)", "CollectMode", "s", "inactive-or-failed");
+                if (r < 0)
+                        return r;
+        }
 
         r = bus_append_unit_property_assignment_many(m, properties);
         if (r < 0)
