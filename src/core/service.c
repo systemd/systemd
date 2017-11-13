@@ -3457,6 +3457,15 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
         if (strv_find(tags, "WATCHDOG=1"))
                 service_reset_watchdog(s);
 
+        e = strv_find_startswith(tags, "WATCHDOG_USEC=");
+        if (e) {
+                usec_t watchdog_override_usec;
+                if (safe_atou64(e, &watchdog_override_usec) < 0)
+                        log_unit_warning(u, "Failed to parse WATCHDOG_USEC=%s", e);
+                else
+                        service_reset_watchdog_timeout(s, watchdog_override_usec);
+        }
+
         if (strv_find(tags, "FDSTORE=1")) {
                 const char *name;
 
@@ -3467,15 +3476,6 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
                 }
 
                 service_add_fd_store_set(s, fds, name);
-        }
-
-        e = strv_find_startswith(tags, "WATCHDOG_USEC=");
-        if (e) {
-                usec_t watchdog_override_usec;
-                if (safe_atou64(e, &watchdog_override_usec) < 0)
-                        log_unit_warning(u, "Failed to parse WATCHDOG_USEC=%s", e);
-                else
-                        service_reset_watchdog_timeout(s, watchdog_override_usec);
         }
 
         /* Notify clients about changed status or main pid */
