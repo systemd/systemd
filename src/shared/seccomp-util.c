@@ -1440,11 +1440,13 @@ int seccomp_memory_deny_write_execute(void) {
                 if (r < 0)
                         continue;
 
+#ifdef __NR_pkey_mprotect
                 r = add_seccomp_syscall_filter(seccomp, arch, SCMP_SYS(pkey_mprotect),
                                                1,
                                                SCMP_A2(SCMP_CMP_MASKED_EQ, PROT_EXEC, PROT_EXEC));
                 if (r < 0)
                         continue;
+#endif
 
                 if (shmat_syscall != 0) {
                         r = add_seccomp_syscall_filter(seccomp, arch, SCMP_SYS(shmat),
