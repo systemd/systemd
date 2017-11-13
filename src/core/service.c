@@ -3310,6 +3310,40 @@ static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void 
         return 0;
 }
 
+static bool service_notify_message_authorized(Service *s, pid_t pid, char **tags, FDSet *fds) {
+        assert(s);
+
+        if (s->notify_access == NOTIFY_NONE) {
+                log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception is disabled.", pid);
+                return false;
+        }
+
+        if (s->notify_access == NOTIFY_MAIN && pid != s->main_pid) {
+                if (s->main_pid != 0)
+                        log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid, s->main_pid);
+                else
+                        log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID which is currently not known", pid);
+
+                return false;
+        }
+
+        if (s->notify_access == NOTIFY_EXEC && pid != s->main_pid && pid != s->control_pid) {
+                if (s->main_pid != 0 && s->control_pid != 0)
+                        log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT" and control PID "PID_FMT,
+                                         pid, s->main_pid, s->control_pid);
+                else if (s->main_pid != 0)
+                        log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid, s->main_pid);
+                else if (s->control_pid != 0)
+                        log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for control PID "PID_FMT, pid, s->control_pid);
+                else
+                        log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID and control PID which are currently not known", pid);
+
+                return false;
+        }
+
+        return true;
+}
+
 static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) {
         Service *s = SERVICE(u);
         bool notify_dbus = false;
@@ -3317,27 +3351,8 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
 
         assert(u);
 
-        if (s->notify_access == NOTIFY_NONE) {
-                log_unit_warning(u, "Got notification message from PID "PID_FMT", but reception is disabled.", pid);
+        if (!service_notify_message_authorized(SERVICE(u), pid, tags, fds))
                 return;
-        } else if (s->notify_access == NOTIFY_MAIN && pid != s->main_pid) {
-                if (s->main_pid != 0)
-                        log_unit_warning(u, "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid, s->main_pid);
-                else
-                        log_unit_warning(u, "Got notification message from PID "PID_FMT", but reception only permitted for main PID which is currently not known", pid);
-                return;
-        } else if (s->notify_access == NOTIFY_EXEC && pid != s->main_pid && pid != s->control_pid) {
-                if (s->main_pid != 0 && s->control_pid != 0)
-                        log_unit_warning(u, "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT" and control PID "PID_FMT,
-                                         pid, s->main_pid, s->control_pid);
-                else if (s->main_pid != 0)
-                        log_unit_warning(u, "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid, s->main_pid);
-                else if (s->control_pid != 0)
-                        log_unit_warning(u, "Got notification message from PID "PID_FMT", but reception only permitted for control PID "PID_FMT, pid, s->control_pid);
-                else
-                        log_unit_warning(u, "Got notification message from PID "PID_FMT", but reception only permitted for main PID and control PID which are currently not known", pid);
-                return;
-        }
 
         if (log_get_max_level() >= LOG_DEBUG) {
                 _cleanup_free_ char *cc = NULL;
