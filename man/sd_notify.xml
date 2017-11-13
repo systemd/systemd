@@ -235,24 +235,25 @@
       </varlistentry>
 
       <varlistentry>
+        <term>FDSTOREREMOVE=1</term>
+
+        <listitem><para>Removes file descriptors from the file descriptor store. This field needs to be combined with
+        <varname>FDNAME=</varname> to specify the name of the file descriptors to remove.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>FDNAME=…</term>
 
-        <listitem><para>When used in combination with
-        <varname>FDSTORE=1</varname>, specifies a name for the
-        submitted file descriptors. This name is passed to the service
-        during activation, and may be queried using
+        <listitem><para>When used in combination with <varname>FDSTORE=1</varname>, specifies a name for the submitted
+        file descriptors. When used with <varname>FDSTOREREMOVE=1</varname>, specifies the name for the file
+        descriptors to remove. This name is passed to the service during activation, and may be queried using
         <citerefentry><refentrytitle>sd_listen_fds_with_names</refentrytitle><manvolnum>3</manvolnum></citerefentry>. File
-        descriptors submitted without this field set, will implicitly
-        get the name <literal>stored</literal> assigned. Note that, if
-        multiple file descriptors are submitted at once, the specified
-        name will be assigned to all of them. In order to assign
-        different names to submitted file descriptors, submit them in
-        separate invocations of
-        <function>sd_pid_notify_with_fds()</function>. The name may
-        consist of any ASCII character, but must not contain control
-        characters or <literal>:</literal>. It may not be longer than
-        255 characters. If a submitted name does not follow these
-        restrictions, it is ignored.</para></listitem>
+        descriptors submitted without this field set, will implicitly get the name <literal>stored</literal>
+        assigned. Note that, if multiple file descriptors are submitted at once, the specified name will be assigned to
+        all of them. In order to assign different names to submitted file descriptors, submit them in separate
+        invocations of <function>sd_pid_notify_with_fds()</function>. The name may consist of arbitrary ASCII
+        characters except control characters or <literal>:</literal>. It may not be longer than 255 characters. If a
+        submitted name does not follow these restrictions, it is ignored.</para></listitem>
       </varlistentry>
 
     </variablelist>

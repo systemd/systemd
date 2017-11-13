@@ -222,6 +222,15 @@ int sd_is_mq(int fd, const char *path);
                   invocation. This variable is only supported with
                   sd_pid_notify_with_fds().
 
+     FDSTOREREMOVE=1
+                  Remove one or more file descriptors from the file
+                  descriptor store, identified by the name specified
+                  in FDNAME=, see below.
+
+     FDNAME=      A name to assign to new file descriptors stored in the
+                  file descriptor store, or the name of the file descriptors
+                  to remove in case of FDSTOREREMOVE=1.
+
   Daemons can choose to send additional variables. However, it is
   recommended to prefix variable names not listed above with X_.
 
