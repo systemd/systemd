@@ -56,6 +56,7 @@
 #include "special.h"
 #include "stat-util.h"
 #include "stdio-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "umask-util.h"
@@ -75,7 +76,7 @@ const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_TIMER] = &timer_vtable,
         [UNIT_PATH] = &path_vtable,
         [UNIT_SLICE] = &slice_vtable,
-        [UNIT_SCOPE] = &scope_vtable
+        [UNIT_SCOPE] = &scope_vtable,
 };
 
 static void maybe_warn_about_dependency(Unit *u, const char *other, UnitDependency dependency);
@@ -331,7 +332,11 @@ int unit_set_description(Unit *u, const char *description) {
 
 bool unit_check_gc(Unit *u) {
         UnitActiveState state;
+
         assert(u);
+
+        /* Checks whether the unit is ready to be unloaded for garbage collection. Returns true, when the unit shall
+         * stay around, false if there's no reason to keep it loaded. */
 
         if (u->job)
                 return true;
@@ -346,10 +351,6 @@ bool unit_check_gc(Unit *u) {
             UNIT_VTABLE(u)->release_resources)
                 UNIT_VTABLE(u)->release_resources(u);
 
-        /* But we keep the unit object around for longer when it is referenced or configured to not be gc'ed */
-        if (state != UNIT_INACTIVE)
-                return true;
-
         if (u->perpetual)
                 return true;
 
@@ -358,6 +359,25 @@ bool unit_check_gc(Unit *u) {
 
         if (sd_bus_track_count(u->bus_track) > 0)
                 return true;
+
+        /* But we keep the unit object around for longer when it is referenced or configured to not be gc'ed */
+        switch (u->collect_mode) {
+
+        case COLLECT_INACTIVE:
+                if (state != UNIT_INACTIVE)
+                        return true;
+
+                break;
+
+        case COLLECT_INACTIVE_OR_FAILED:
+                if (!IN_SET(state, UNIT_INACTIVE, UNIT_FAILED))
+                        return true;
+
+                break;
+
+        default:
+                assert_not_reached("Unknown garbage collection mode");
+        }
 
         if (UNIT_VTABLE(u)->check_gc)
                 if (UNIT_VTABLE(u)->check_gc(u))
@@ -1083,6 +1103,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tNeed Daemon Reload: %s\n"
                 "%s\tTransient: %s\n"
                 "%s\tPerpetual: %s\n"
+                "%s\tGarbage Collection Mode: %s\n"
                 "%s\tSlice: %s\n"
                 "%s\tCGroup: %s\n"
                 "%s\tCGroup realized: %s\n",
@@ -1100,6 +1121,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(unit_need_daemon_reload(u)),
                 prefix, yes_no(u->transient),
                 prefix, yes_no(u->perpetual),
+                prefix, collect_mode_to_string(u->collect_mode),
                 prefix, strna(unit_slice_name(u)),
                 prefix, strna(u->cgroup_path),
                 prefix, yes_no(u->cgroup_realized));
@@ -5121,3 +5143,10 @@ void unit_unlink_state_files(Unit *u) {
                 u->exported_log_extra_fields = false;
         }
 }
+
+static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {
+        [COLLECT_INACTIVE] = "inactive",
+        [COLLECT_INACTIVE_OR_FAILED] = "inactive-or-failed",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(collect_mode, CollectMode);

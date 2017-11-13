@@ -213,7 +213,6 @@
     socket-based activation which make dependencies implicit,
     resulting in a both simpler and more flexible system.</para>
 
-
     <para>Optionally, units may be instantiated from a
     template file at runtime. This allows creation of
     multiple units from a single configuration file. If
@@ -415,6 +414,45 @@
     Also, some units are dynamically created via a
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
     </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Unit Garbage Collection</title>
+
+    <para>The system and service manager loads a unit's configuration automatically when a unit is referenced for the
+    first time. It will automatically unload the unit configuration and state again when the unit is not needed anymore
+    ("garbage collection"). A unit may be referenced through a number of different mechanisms:</para>
+
+    <orderedlist>
+      <listitem><para>Another loaded unit references it with a dependency such as <varname>After=</varname>,
+      <varname>Wants=</varname>, …</para></listitem>
+
+      <listitem><para>The unit is currently starting, running, reloading or stopping.</para></listitem>
+
+      <listitem><para>The unit is currently in the <constant>failed</constant> state. (But see below.)</para></listitem>
+
+      <listitem><para>A job for the unit is pending.</para></listitem>
+
+      <listitem><para>The unit is pinned by an active IPC client program.</para></listitem>
+
+      <listitem><para>The unit is a special "perpetual" unit that is always active and loaded. Examples for perpetual
+      units are the root mount unit <filename>-.mount</filename> or the scope unit <filename>init.scope</filename> that
+      the service manager itself lives in.</para></listitem>
+
+      <listitem><para>The unit has running processes associated with it.</para></listitem>
+    </orderedlist>
+
+    <para>The garbage collection logic may be altered with the <varname>CollectMode=</varname> option, which allows
+    configuration whether automatic unloading of units that are in <constant>failed</constant> state is permissible,
+    see below.</para>
+
+    <para>Note that when a unit's configuration and state is unloaded, all execution results, such as exit codes, exit
+    signals, resource consumption and other statistics are lost, except for what is stored in the log subsystem.</para>
+
+    <para>Use <command>systemctl daemon-reload</command> or an equivalent command to reload unit configuration while
+    the unit is already loaded. In this case all configuration settings are flushed out and replaced with the new
+    configuration (which however might not be in effect immediately), however all runtime state is
+    saved/restored.</para>
   </refsect1>
 
   <refsect1>
@@ -745,6 +783,23 @@
         set to <option>false</option>, this option does not disable
         all implicit dependencies, just non-essential
         ones.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CollectMode=</varname></term>
+
+        <listitem><para>Tweaks the "garbage collection" algorithm for this unit. Takes one of <option>inactive</option>
+        or <option>inactive-or-failed</option>. If set to <option>inactive</option> the unit will be unloaded if it is
+        in the <constant>inactive</constant> state and is not referenced by clients, jobs or other units — however it
+        is not unloaded if it is in the <constant>failed</constant> state. In <option>failed</option> mode, failed
+        units are not unloaded until the user invoked <command>systemctl reset-failed</command> on them to reset the
+        <constant>failed</constant> state, or an equivalent command. This behaviour is altered if this option is set to
+        <option>inactive-or-failed</option>: in this case the unit is unloaded even if the unit is in a
+        <constant>failed</constant> state, and thus an explicitly resetting of the <constant>failed</constant> state is
+        not necessary. Note that if this mode is used unit results (such as exit codes, exit signals, consumed
+        resources, …) are flushed out immediately after the unit completed, except for what is stored in the logging
+        subsystem. Defaults to <option>inactive</option>.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>

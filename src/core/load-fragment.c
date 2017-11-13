@@ -103,6 +103,8 @@ int config_parse_warn_compat(
         return 0;
 }
 
+DEFINE_CONFIG_PARSE_ENUM(config_parse_collect_mode, collect_mode, CollectMode, "Failed to parse garbage collection mode");
+
 int config_parse_unit_deps(
                 const char *unit,
                 const char *filename,

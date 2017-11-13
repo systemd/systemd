@@ -45,6 +45,13 @@ typedef enum KillOperation {
         _KILL_OPERATION_INVALID = -1
 } KillOperation;
 
+typedef enum CollectMode {
+        COLLECT_INACTIVE,
+        COLLECT_INACTIVE_OR_FAILED,
+        _COLLECT_MODE_MAX,
+        _COLLECT_MODE_INVALID = -1,
+} CollectMode;
+
 static inline bool UNIT_IS_ACTIVE_OR_RELOADING(UnitActiveState t) {
         return IN_SET(t, UNIT_ACTIVE, UNIT_RELOADING);
 }
@@ -281,6 +288,9 @@ struct Unit {
 
         /* How to start OnFailure units */
         JobMode on_failure_job_mode;
+
+        /* Tweaking the GC logic */
+        CollectMode collect_mode;
 
         /* The current invocation ID */
         sd_id128_t invocation_id;
@@ -773,3 +783,6 @@ void unit_unlink_state_files(Unit *u);
 #define LOG_UNIT_MESSAGE(unit, fmt, ...) "MESSAGE=%s: " fmt, (unit)->id, ##__VA_ARGS__
 #define LOG_UNIT_ID(unit) (unit)->manager->unit_log_format_string, (unit)->id
 #define LOG_UNIT_INVOCATION_ID(unit) (unit)->manager->invocation_log_format_string, (unit)->invocation_id_string
+
+const char* collect_mode_to_string(CollectMode m) _const_;
+CollectMode collect_mode_from_string(const char *s) _pure_;
