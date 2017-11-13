@@ -3348,6 +3348,7 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
         Service *s = SERVICE(u);
         bool notify_dbus = false;
         const char *e;
+        char **i;
 
         assert(u);
 
@@ -3377,44 +3378,43 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
                 }
         }
 
-        /* Interpret RELOADING= */
-        if (strv_find(tags, "RELOADING=1")) {
+        /* Interpret READY=/STOPPING=/RELOADING=. Last one wins. */
+        STRV_FOREACH_BACKWARDS(i, tags) {
 
-                s->notify_state = NOTIFY_RELOADING;
+                if (streq(*i, "READY=1")) {
+                        s->notify_state = NOTIFY_READY;
 
-                if (s->state == SERVICE_RUNNING)
-                        service_enter_reload_by_notify(s);
+                        /* Type=notify services inform us about completed
+                         * initialization with READY=1 */
+                        if (s->type == SERVICE_NOTIFY && s->state == SERVICE_START)
+                                service_enter_start_post(s);
 
-                notify_dbus = true;
-        }
+                        /* Sending READY=1 while we are reloading informs us
+                         * that the reloading is complete */
+                        if (s->state == SERVICE_RELOAD && s->control_pid == 0)
+                                service_enter_running(s, SERVICE_SUCCESS);
 
-        /* Interpret READY= */
-        if (strv_find(tags, "READY=1")) {
+                        notify_dbus = true;
+                        break;
 
-                s->notify_state = NOTIFY_READY;
+                } else if (streq(*i, "RELOADING=1")) {
+                        s->notify_state = NOTIFY_RELOADING;
 
-                /* Type=notify services inform us about completed
-                 * initialization with READY=1 */
-                if (s->type == SERVICE_NOTIFY && s->state == SERVICE_START)
-                        service_enter_start_post(s);
+                        if (s->state == SERVICE_RUNNING)
+                                service_enter_reload_by_notify(s);
 
-                /* Sending READY=1 while we are reloading informs us
-                 * that the reloading is complete */
-                if (s->state == SERVICE_RELOAD && s->control_pid == 0)
-                        service_enter_running(s, SERVICE_SUCCESS);
+                        notify_dbus = true;
+                        break;
 
-                notify_dbus = true;
-        }
+                } else if (streq(*i, "STOPPING=1")) {
+                        s->notify_state = NOTIFY_STOPPING;
 
-        /* Interpret STOPPING= */
-        if (strv_find(tags, "STOPPING=1")) {
+                        if (s->state == SERVICE_RUNNING)
+                                service_enter_stop_by_notify(s);
 
-                s->notify_state = NOTIFY_STOPPING;
-
-                if (s->state == SERVICE_RUNNING)
-                        service_enter_stop_by_notify(s);
-
-                notify_dbus = true;
+                        notify_dbus = true;
+                        break;
+                }
         }
 
         /* Interpret STATUS= */

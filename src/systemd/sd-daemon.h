@@ -175,11 +175,21 @@ int sd_is_mq(int fd, const char *path);
   newline separated environment-style variable assignments in a
   string. The following variables are known:
 
-     READY=1      Tells systemd that daemon startup is finished (only
-                  relevant for services of Type=notify). The passed
-                  argument is a boolean "1" or "0". Since there is
-                  little value in signaling non-readiness the only
+     MAINPID=...  The main PID of a daemon, in case systemd did not
+                  fork off the process itself. Example: "MAINPID=4711"
+
+     READY=1      Tells systemd that daemon startup or daemon reload
+                  is finished (only relevant for services of Type=notify).
+                  The passed argument is a boolean "1" or "0". Since there
+                  is little value in signaling non-readiness the only
                   value daemons should send is "READY=1".
+
+     RELOADING=1  Tell systemd that the daemon began reloading its
+                  configuration. When the configuration has been
+                  reloaded completely, READY=1 should be sent to inform
+                  systemd about this.
+
+     STOPPING=1   Tells systemd that the daemon is about to go down.
 
      STATUS=...   Passes a single-line status string back to systemd
                   that describes the daemon state. This is free-form
@@ -194,9 +204,6 @@ int sd_is_mq(int fd, const char *path);
 
      BUSERROR=... If a daemon fails, the D-Bus error-style error
                   code. Example: "BUSERROR=org.freedesktop.DBus.Error.TimedOut"
-
-     MAINPID=...  The main pid of a daemon, in case systemd did not
-                  fork off the process itself. Example: "MAINPID=4711"
 
      WATCHDOG=1   Tells systemd to update the watchdog timestamp.
                   Services using this feature should do this in
