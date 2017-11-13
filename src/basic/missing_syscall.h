@@ -319,6 +319,8 @@ static inline ssize_t copy_file_range(int fd_in, loff_t *off_in,
 }
 #endif
 
+/* ======================================================================= */
+
 #if !HAVE_BPF
 #  ifndef __NR_bpf
 #    if defined __i386__
@@ -347,4 +349,32 @@ static inline int bpf(int cmd, union bpf_attr *attr, size_t size) {
 #endif
 }
 
+#endif
+
+/* ======================================================================= */
+
+#ifndef __IGNORE_pkey_mprotect
+#  ifndef __NR_pkey_mprotect
+#    if defined __i386__
+#      define __NR_pkey_mprotect 380
+#    elif defined __x86_64__
+#      define __NR_pkey_mprotect 329
+#    elif defined __arm__
+#      define __NR_pkey_mprotect 394
+#    elif defined __aarch64__
+#      define __NR_pkey_mprotect 394
+#    elif defined _MIPS_SIM
+#      if _MIPS_SIM == _MIPS_SIM_ABI32
+#        define __NR_pkey_mprotect 4363
+#      endif
+#      if _MIPS_SIM == _MIPS_SIM_NABI32
+#        define __NR_pkey_mprotect 6327
+#      endif
+#      if _MIPS_SIM == _MIPS_SIM_ABI64
+#        define __NR_pkey_mprotect 5323
+#      endif
+#    elif ! defined(__IGNORE_pkey_mprotect)
+#      warning "__NR_pkey_mprotect not defined for your architecture"
+#    endif
+#  endif
 #endif
