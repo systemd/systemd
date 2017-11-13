@@ -641,6 +641,12 @@ int bpf_firewall_reset_accounting(int map_fd) {
 
 
 int bpf_firewall_supported(void) {
+        struct bpf_insn trivial[] = {
+                BPF_MOV64_IMM(BPF_REG_0, 1),
+                BPF_EXIT_INSN()
+        };
+
+        _cleanup_(bpf_program_unrefp) BPFProgram *program = NULL;
         static int supported = -1;
         int fd, r;
 
@@ -655,8 +661,10 @@ int bpf_firewall_supported(void) {
         if (supported >= 0)
                 return supported;
 
-        if (geteuid() != 0)
+        if (geteuid() != 0) {
+                log_debug("Not enough privileges, BPF firewalling is not supported.");
                 return supported = false;
+        }
 
         r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
         if (r < 0)
@@ -675,6 +683,23 @@ int bpf_firewall_supported(void) {
         }
 
         safe_close(fd);
+
+        if (bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, &program) < 0) {
+                log_debug_errno(r, "Can't allocate CGROUP SKB BPF program, BPF firewalling is not supported: %m");
+                return supported = false;
+        }
+
+        r = bpf_program_add_instructions(program, trivial, ELEMENTSOF(trivial));
+        if (r < 0) {
+                log_debug_errno(r, "Can't add trivial instructions to CGROUP SKB BPF program, BPF firewalling is not supported: %m");
+                return supported = false;
+        }
+
+        r = bpf_program_load_kernel(program, NULL, 0);
+        if (r < 0) {
+                log_debug_errno(r, "Can't load kernel CGROUP SKB BPF program, BPF firewalling is not supported: %m");
+                return supported = false;
+        }
 
         return supported = true;
 }
