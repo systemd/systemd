@@ -27,11 +27,11 @@ if conf.get('ENABLE_MACHINED') == 1
         install_data('org.freedesktop.machine1.service',
                      install_dir : dbussystemservicedir)
 
-        custom_target(
+        i18n.merge_file(
                 'org.freedesktop.machine1.policy',
                 input : 'org.freedesktop.machine1.policy.in',
                 output : 'org.freedesktop.machine1.policy',
-                command : intltool_command,
+                po_dir : po_dir,
                 install : install_polkit,
                 install_dir : polkitpolicydir)
 endif

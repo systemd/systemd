@@ -197,24 +197,13 @@ policy_in = configure_file(
         output : 'org.freedesktop.systemd1.policy.in',
         configuration : substs)
 
-custom_target(
+i18n.merge_file(
         'org.freedesktop.systemd1.policy',
         input : policy_in,
         output : 'org.freedesktop.systemd1.policy',
-        command : intltool_command,
+        po_dir : po_dir,
         install : install_polkit,
         install_dir : polkitpolicydir)
-
-# TODO: this might work with meson from git, see
-# https://github.com/mesonbuild/meson/issues/1441#issuecomment-283585493
-#
-# i18n.merge_file(
-#   'org.freedesktop.systemd1.policy',
-#   po_dir : po_dir,
-#   input : policy_in,
-#   output : 'org.freedesktop.systemd1.policy',
-#   install : install_polkit,
-#   install_dir : polkitpolicydir)
 
 install_data('system.conf',
              'user.conf',

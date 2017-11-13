@@ -71,11 +71,11 @@ if conf.get('ENABLE_LOGIND') == 1
         install_data('org.freedesktop.login1.service',
                      install_dir : dbussystemservicedir)
 
-        custom_target(
+        i18n.merge_file(
                 'org.freedesktop.login1.policy',
                 input : 'org.freedesktop.login1.policy.in',
                 output : 'org.freedesktop.login1.policy',
-                command : intltool_command,
+                po_dir : po_dir,
                 install : install_polkit,
                 install_dir : polkitpolicydir)
 
