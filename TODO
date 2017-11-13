@@ -38,11 +38,6 @@ Features:
 * maybe use SOURCE_DATE_EPOCH (i.e. the env var the reproducible builds folks
   introduced) as the RTC epoch, instead of the mtime of NEWS.
 
-* Introduce GCMode= as unit file property or so, for tweaking the GC
-  logic. Specifically, there should be a way to tell systemd to collect
-  individual units even on failure. Then, make systemd-run --wait use this, so
-  that failed transient units in that case don't stick around.
-
 * add a way to lock down cgroup migration: a boolean, which when set for a unit
   makes sure the processes in it can never migrate out of it
 
@@ -86,6 +81,10 @@ Features:
 * add dissect_image_warn() as a wrapper around dissect_image() that prints
   friendly log messages for the returned errors, so that we don't have to
   duplicate that in nspawn, systemd-dissect and PID 1.
+
+* add "systemctl wait" or so, which does what "systemd-run --wait" does, but
+  for all units. It should be both a way to pin units into memory as well as a
+  wait to retrieve their exit data.
 
 * maybe set a new set of env vars for services, based on RuntimeDirectory=,
   StateDirectory=, LogsDirectory=, CacheDirectory= and ConfigurationDirectory=
