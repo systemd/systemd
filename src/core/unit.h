@@ -453,9 +453,8 @@ struct UnitVTable {
          * way */
         bool (*check_gc)(Unit *u);
 
-        /* When the unit is not running and no job for it queued we
-         * shall release its runtime resources */
-        void (*release_resources)(Unit *u, bool inactive);
+        /* When the unit is not running and no job for it queued we shall release its runtime resources */
+        void (*release_resources)(Unit *u);
 
         /* Invoked on every child that died */
         void (*sigchld_event)(Unit *u, pid_t pid, int code, int status);

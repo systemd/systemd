@@ -294,6 +294,9 @@ static void service_fd_store_unlink(ServiceFDStore *fs) {
 static void service_release_fd_store(Service *s) {
         assert(s);
 
+        if (s->n_keep_fd_store > 0)
+                return;
+
         log_unit_debug(UNIT(s), "Releasing all stored fds");
         while (s->fd_store)
                 service_fd_store_unlink(s->fd_store);
@@ -301,7 +304,7 @@ static void service_release_fd_store(Service *s) {
         assert(s->n_fd_store == 0);
 }
 
-static void service_release_resources(Unit *u, bool inactive) {
+static void service_release_resources(Unit *u) {
         Service *s = SERVICE(u);
 
         assert(s);
@@ -315,8 +318,7 @@ static void service_release_resources(Unit *u, bool inactive) {
         s->stdout_fd = safe_close(s->stdout_fd);
         s->stderr_fd = safe_close(s->stderr_fd);
 
-        if (inactive)
-                service_release_fd_store(s);
+        service_release_fd_store(s);
 }
 
 static void service_done(Unit *u) {
@@ -360,7 +362,7 @@ static void service_done(Unit *u) {
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
 
-        service_release_resources(u, true);
+        service_release_resources(u);
 }
 
 static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *userdata) {
@@ -1524,6 +1526,10 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         if (s->result != SERVICE_SUCCESS)
                 log_unit_warning(UNIT(s), "Failed with result '%s'.", service_result_to_string(s->result));
 
+        /* Make sure service_release_resources() doesn't destroy our FD store, while we are changing through
+         * SERVICE_FAILED/SERVICE_DEAD before entering into SERVICE_AUTO_RESTART. */
+        s->n_keep_fd_store ++;
+
         service_set_state(s, s->result != SERVICE_SUCCESS ? SERVICE_FAILED : SERVICE_DEAD);
 
         if (s->result != SERVICE_SUCCESS)
@@ -1532,14 +1538,21 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         if (allow_restart && service_shall_restart(s)) {
 
                 r = service_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->restart_usec));
-                if (r < 0)
+                if (r < 0) {
+                        s->n_keep_fd_store--;
                         goto fail;
+                }
 
                 service_set_state(s, SERVICE_AUTO_RESTART);
         } else
                 /* If we shan't restart, then flush out the restart counter. But don't do that immediately, so that the
                  * user can still introspect the counter. Do so on the next start. */
                 s->flush_n_restarts = true;
+
+        /* The new state is in effect, let's decrease the fd store ref counter again. Let's also readd us to the GC
+         * queue, so that the fd store is possibly gc'ed again */
+        s->n_keep_fd_store--;
+        unit_add_to_gc_queue(UNIT(s));
 
         /* The next restart might not be a manual stop, hence reset the flag indicating manual stops */
         s->forbid_restart = false;
