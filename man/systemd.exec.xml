@@ -624,14 +624,19 @@
 
         <para>If the standard output (or error output, see below) of a unit is connected to the journal, syslog or the
         kernel log buffer, the unit will implicitly gain a dependency of type <varname>After=</varname> on
-        <filename>systemd-journald.socket</filename> (also see the "Implicit Dependencies" section above).</para>
+        <filename>systemd-journald.socket</filename> (also see the "Implicit Dependencies" section above). Also note
+        that in this case stdout (or stderr, see below) will be an <constant>AF_UNIX</constant> stream socket, and not
+        a pipe or FIFO that can be re-opened. This means when executing shell scripts the construct <command>echo
+        "hello" &gt; /dev/stderr</command> for writing text to stderr will not work. To mitigate this use the construct
+        <command>echo "hello" >&amp;2</command> instead, which is mostly equivalent and avoids this pitfall.</para>
 
         <para>This setting defaults to the value set with
         <option>DefaultStandardOutput=</option> in
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         which defaults to <option>journal</option>. Note that setting
         this parameter might result in additional dependencies to be
-        added to the unit (see above).</para></listitem>
+        added to the unit (see above).</para>
+      </listitem>
       </varlistentry>
 
       <varlistentry>

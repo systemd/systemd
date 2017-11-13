@@ -244,7 +244,15 @@
 
         <para>When both <option>--pipe</option> and <option>--pty</option> are used in combination the more appropriate
         option is automatically determined and used. Specifically, when invoked with standard input, output and error
-        connected to a TTY <option>--pty</option> is used, and otherwise <option>--pipe</option>.</para></listitem>
+        connected to a TTY <option>--pty</option> is used, and otherwise <option>--pipe</option>.</para>
+
+        <para>When this option is used the original file descriptors <command>systemd-run</command> receives are passed
+        to the service processes as-is. If the service runs with different privileges than
+        <command>systemd-run</command>, this means the service might not be able to re-open the passed file
+        descriptors, due to normal file descriptor access restrictions. If the invoked process is a shell script that
+        uses the <command>echo "hello" > /dev/stderr</command> construct for writing messages to stderr, this might
+        cause problems, as this only works if stderr can be re-opened. To mitigate this use the construct <command>echo
+        "hello" >&amp;2</command> instead, which is mostly equivalent and avoids this pitfall.</para></listitem>
       </varlistentry>
 
       <varlistentry>
