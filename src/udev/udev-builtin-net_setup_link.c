@@ -50,16 +50,17 @@ static int builtin_net_setup_link(struct udev_device *dev, int argc, char **argv
                 }
         }
 
-        r = link_config_apply(ctx, link, dev, &name);
+        name = link_config_get_ifname(ctx, link, dev);
+        if (name)
+                udev_builtin_add_property(dev, test, "ID_NET_NAME", name);
+
+        r = link_config_apply(ctx, link, dev);
         if (r < 0) {
                 log_error_errno(r, "Could not apply link config to %s: %m", udev_device_get_sysname(dev));
                 return EXIT_FAILURE;
         }
 
         udev_builtin_add_property(dev, test, "ID_NET_LINK_FILE", link->filename);
-
-        if (name)
-                udev_builtin_add_property(dev, test, "ID_NET_NAME", name);
 
         return EXIT_SUCCESS;
 }
