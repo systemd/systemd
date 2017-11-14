@@ -445,6 +445,73 @@ static void test_config_parse_exec(void) {
         manager_free(m);
 }
 
+static void test_config_parse_log_extra_fields(void) {
+        /* int config_parse_log_extra_fields(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) */
+
+        int r;
+
+        Manager *m = NULL;
+        Unit *u = NULL;
+        ExecContext c = {};
+
+        r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
+        if (MANAGER_SKIP_TEST(r)) {
+                log_notice_errno(r, "Skipping test: manager_new: %m");
+                return;
+        }
+
+        assert_se(r >= 0);
+        assert_se(manager_startup(m, NULL, NULL) >= 0);
+
+        assert_se(u = unit_new(m, sizeof(Service)));
+
+        log_info("/* %s – basic test */", __func__);
+        r = config_parse_log_extra_fields(NULL, "fake", 1, "section", 1,
+                                          "LValue", 0, "FOO=BAR \"QOOF=quux '  ' \"",
+                                          &c, u);
+        assert_se(r >= 0);
+        assert_se(c.n_log_extra_fields == 2);
+        assert_se(strneq(c.log_extra_fields[0].iov_base, "FOO=BAR", c.log_extra_fields[0].iov_len));
+        assert_se(strneq(c.log_extra_fields[1].iov_base, "QOOF=quux '  ' ", c.log_extra_fields[1].iov_len));
+
+        log_info("/* %s – add some */", __func__);
+        r = config_parse_log_extra_fields(NULL, "fake", 1, "section", 1,
+                                          "LValue", 0, "FOO2=BAR2 QOOF2=quux '  '",
+                                          &c, u);
+        assert_se(r >= 0);
+        assert_se(c.n_log_extra_fields == 4);
+        assert_se(strneq(c.log_extra_fields[0].iov_base, "FOO=BAR", c.log_extra_fields[0].iov_len));
+        assert_se(strneq(c.log_extra_fields[1].iov_base, "QOOF=quux '  ' ", c.log_extra_fields[1].iov_len));
+        assert_se(strneq(c.log_extra_fields[2].iov_base, "FOO2=BAR2", c.log_extra_fields[2].iov_len));
+        assert_se(strneq(c.log_extra_fields[3].iov_base, "QOOF2=quux", c.log_extra_fields[3].iov_len));
+
+        exec_context_dump(&c, stdout, "    --> ");
+
+        log_info("/* %s – reset */", __func__);
+        r = config_parse_log_extra_fields(NULL, "fake", 1, "section", 1,
+                                          "LValue", 0, "",
+                                          &c, u);
+        assert_se(r >= 0);
+        assert_se(c.n_log_extra_fields == 0);
+
+        exec_context_free_log_extra_fields(&c);
+
+        unit_free(u);
+        manager_free(m);
+
+        log_info("/* %s – bye */", __func__);
+}
+
 #define env_file_1                              \
         "a=a\n"                                 \
         "b=b\\\n"                               \
@@ -868,6 +935,7 @@ int main(int argc, char *argv[]) {
 
         r = test_unit_file_get_set();
         test_config_parse_exec();
+        test_config_parse_log_extra_fields();
         test_config_parse_capability_set();
         test_config_parse_rlimit();
         test_config_parse_pass_environ();
