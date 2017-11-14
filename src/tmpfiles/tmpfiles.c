@@ -165,13 +165,48 @@ static const char conf_file_dirs[] = CONF_PATHS_NULSTR("tmpfiles.d");
 static OrderedHashmap *items = NULL, *globs = NULL;
 static Set *unix_sockets = NULL;
 
+static int specifier_machine_id_safe(char specifier, void *data, void *userdata, char **ret);
+
 static const Specifier specifier_table[] = {
-        { 'm', specifier_machine_id, NULL },
+        { 'm', specifier_machine_id_safe, NULL },
         { 'b', specifier_boot_id, NULL },
         { 'H', specifier_host_name, NULL },
         { 'v', specifier_kernel_release, NULL },
         {}
 };
+
+static int specifier_machine_id_safe(char specifier, void *data, void *userdata, char **ret) {
+        int r;
+
+        /* If /etc/machine_id is missing (e.g. in a chroot environment), returns
+         * a recognizable error so that the caller can skip the rule
+         * gracefully. */
+
+        r = specifier_machine_id(specifier, data, userdata, ret);
+        if (r == -ENOENT)
+                return -ENOKEY;
+
+        return r;
+}
+
+static int log_unresolvable_specifier(const char *filename, unsigned line) {
+        static bool notified = false;
+
+        /* This is called when /etc is not fully initialized (e.g. in a chroot
+         * environment) where some specifiers are unresolvable. These cases are
+         * not considered as an error so log at LOG_NOTICE only for the first
+         * time and then downgrade this to LOG_DEBUG for the rest. */
+
+        log_full(notified ? LOG_DEBUG : LOG_NOTICE,
+                 "[%s:%u] Failed to resolve specifier: uninitialized /etc detected, skipping",
+                 filename, line);
+
+        if (!notified)
+                log_notice("All rules containing unresolvable specifiers will be skipped.");
+
+        notified = true;
+        return 0;
+}
 
 static bool needs_glob(ItemType t) {
         return IN_SET(t,
@@ -693,7 +728,7 @@ static int parse_xattrs_from_arg(Item *i) {
         p = i->argument;
 
         for (;;) {
-                _cleanup_free_ char *name = NULL, *value = NULL, *xattr = NULL, *xattr_replaced = NULL;
+                _cleanup_free_ char *name = NULL, *value = NULL, *xattr = NULL;
 
                 r = extract_first_word(&p, &xattr, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE);
                 if (r < 0)
@@ -701,11 +736,7 @@ static int parse_xattrs_from_arg(Item *i) {
                 if (r <= 0)
                         break;
 
-                r = specifier_printf(xattr, specifier_table, NULL, &xattr_replaced);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to replace specifiers in extended attribute '%s': %m", xattr);
-
-                r = split_pair(xattr_replaced, "=", &name, &value);
+                r = split_pair(xattr, "=", &name, &value);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to parse extended attribute, ignoring: %s", xattr);
                         continue;
@@ -1024,19 +1055,9 @@ static int write_one_file(Item *i, const char *path) {
         }
 
         if (i->argument) {
-                _cleanup_free_ char *unescaped = NULL, *replaced = NULL;
-
                 log_debug("%s to \"%s\".", i->type == CREATE_FILE ? "Appending" : "Writing", path);
 
-                r = cunescape(i->argument, 0, &unescaped);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to unescape parameter to write: %s", i->argument);
-
-                r = specifier_printf(unescaped, specifier_table, NULL, &replaced);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to replace specifiers in parameter to write '%s': %m", unescaped);
-
-                r = loop_write(fd, replaced, strlen(replaced), false);
+                r = loop_write(fd, i->argument, strlen(i->argument), false);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write file \"%s\": %m", path);
         } else
@@ -1145,7 +1166,6 @@ static const char *creation_mode_verb_table[_CREATION_MODE_MAX] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(creation_mode_verb, CreationMode);
 
 static int create_item(Item *i) {
-        _cleanup_free_ char *resolved = NULL;
         struct stat st;
         int r = 0;
         int q = 0;
@@ -1171,12 +1191,8 @@ static int create_item(Item *i) {
                 break;
 
         case COPY_FILES: {
-                r = specifier_printf(i->argument, specifier_table, NULL, &resolved);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to substitute specifiers in copy source %s: %m", i->argument);
-
-                log_debug("Copying tree \"%s\" to \"%s\".", resolved, i->path);
-                r = copy_tree(resolved, i->path, i->uid_set ? i->uid : UID_INVALID, i->gid_set ? i->gid : GID_INVALID, COPY_REFLINK);
+                log_debug("Copying tree \"%s\" to \"%s\".", i->argument, i->path);
+                r = copy_tree(i->argument, i->path, i->uid_set ? i->uid : UID_INVALID, i->gid_set ? i->gid : GID_INVALID, COPY_REFLINK);
 
                 if (r == -EROFS && stat(i->path, &st) == 0)
                         r = -EEXIST;
@@ -1187,8 +1203,8 @@ static int create_item(Item *i) {
                         if (r != -EEXIST)
                                 return log_error_errno(r, "Failed to copy files to %s: %m", i->path);
 
-                        if (stat(resolved, &a) < 0)
-                                return log_error_errno(errno, "stat(%s) failed: %m", resolved);
+                        if (stat(i->argument, &a) < 0)
+                                return log_error_errno(errno, "stat(%s) failed: %m", i->argument);
 
                         if (stat(i->path, &b) < 0)
                                 return log_error_errno(errno, "stat(%s) failed: %m", i->path);
@@ -1343,26 +1359,22 @@ static int create_item(Item *i) {
         }
 
         case CREATE_SYMLINK: {
-                r = specifier_printf(i->argument, specifier_table, NULL, &resolved);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to substitute specifiers in symlink target %s: %m", i->argument);
-
                 mac_selinux_create_file_prepare(i->path, S_IFLNK);
-                r = symlink(resolved, i->path);
+                r = symlink(i->argument, i->path);
                 mac_selinux_create_file_clear();
 
                 if (r < 0) {
                         _cleanup_free_ char *x = NULL;
 
                         if (errno != EEXIST)
-                                return log_error_errno(errno, "symlink(%s, %s) failed: %m", resolved, i->path);
+                                return log_error_errno(errno, "symlink(%s, %s) failed: %m", i->argument, i->path);
 
                         r = readlink_malloc(i->path, &x);
-                        if (r < 0 || !streq(resolved, x)) {
+                        if (r < 0 || !streq(i->argument, x)) {
 
                                 if (i->force) {
                                         mac_selinux_create_file_prepare(i->path, S_IFLNK);
-                                        r = symlink_atomic(resolved, i->path);
+                                        r = symlink_atomic(i->argument, i->path);
                                         mac_selinux_create_file_clear();
 
                                         if (IN_SET(r, -EEXIST, -ENOTEMPTY)) {
@@ -1371,11 +1383,11 @@ static int create_item(Item *i) {
                                                         return log_error_errno(r, "rm -fr %s failed: %m", i->path);
 
                                                 mac_selinux_create_file_prepare(i->path, S_IFLNK);
-                                                r = symlink(resolved, i->path) < 0 ? -errno : 0;
+                                                r = symlink(i->argument, i->path) < 0 ? -errno : 0;
                                                 mac_selinux_create_file_clear();
                                         }
                                         if (r < 0)
-                                                return log_error_errno(r, "symlink(%s, %s) failed: %m", resolved, i->path);
+                                                return log_error_errno(r, "symlink(%s, %s) failed: %m", i->argument, i->path);
 
                                         creation = CREATION_FORCE;
                                 } else {
@@ -1785,6 +1797,52 @@ static bool should_include_path(const char *path) {
         return false;
 }
 
+static int specifier_expansion_from_arg(Item *i) {
+        _cleanup_free_ char *unescaped = NULL, *resolved = NULL;
+        char **xattr;
+        int r;
+
+        assert(i);
+
+        if (i->argument == NULL)
+                return 0;
+
+        switch (i->type) {
+        case COPY_FILES:
+        case CREATE_SYMLINK:
+        case CREATE_FILE:
+        case TRUNCATE_FILE:
+        case WRITE_FILE:
+                r = cunescape(i->argument, 0, &unescaped);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to unescape parameter to write: %s", i->argument);
+
+                r = specifier_printf(unescaped, specifier_table, NULL, &resolved);
+                if (r < 0)
+                        return r;
+
+                free_and_replace(i->argument, resolved);
+                break;
+
+        case SET_XATTR:
+        case RECURSIVE_SET_XATTR:
+                assert(i->xattrs);
+
+                STRV_FOREACH (xattr, i->xattrs) {
+                        r = specifier_printf(*xattr, specifier_table, NULL, &resolved);
+                        if (r < 0)
+                                return r;
+
+                        free_and_replace(*xattr, resolved);
+                }
+                break;
+
+        default:
+                break;
+        }
+        return 0;
+}
+
 static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         _cleanup_free_ char *action = NULL, *mode = NULL, *user = NULL, *group = NULL, *age = NULL, *path = NULL;
@@ -1849,10 +1907,10 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         i.force = force;
 
         r = specifier_printf(path, specifier_table, NULL, &i.path);
-        if (r < 0) {
-                log_error("[%s:%u] Failed to replace specifiers: %s", fname, line, path);
-                return r;
-        }
+        if (r == -ENOKEY)
+                return log_unresolvable_specifier(fname, line);
+        if (r < 0)
+                return log_error_errno(r, "[%s:%u] Failed to replace specifiers: %s", fname, line, path);
 
         switch (i.type) {
 
@@ -1972,6 +2030,13 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         if (!should_include_path(i.path))
                 return 0;
+
+        r = specifier_expansion_from_arg(&i);
+        if (r == -ENOKEY)
+                return log_unresolvable_specifier(fname, line);
+        if (r < 0)
+                return log_error_errno(r, "[%s:%u] Failed to substitute specifiers in argument: %m",
+                                       fname, line);
 
         if (arg_root) {
                 char *p;
