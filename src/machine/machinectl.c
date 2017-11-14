@@ -900,6 +900,100 @@ static int show_machine(int argc, char *argv[], void *userdata) {
         return r;
 }
 
+static int print_image_hostname(sd_bus *bus, const char *name) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        const char *hn;
+        int r;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.machine1",
+                        "/org/freedesktop/machine1",
+                        "org.freedesktop.machine1.Manager",
+                        "GetImageHostname",
+                        NULL, &reply, "s", name);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(reply, "s", &hn);
+        if (r < 0)
+                return r;
+
+        if (!isempty(hn))
+                printf("\tHostname: %s\n", hn);
+
+        return 0;
+}
+
+static int print_image_machine_id(sd_bus *bus, const char *name) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        sd_id128_t id = SD_ID128_NULL;
+        const void *p;
+        size_t size;
+        int r;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.machine1",
+                        "/org/freedesktop/machine1",
+                        "org.freedesktop.machine1.Manager",
+                        "GetImageMachineID",
+                        NULL, &reply, "s", name);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read_array(reply, 'y', &p, &size);
+        if (r < 0)
+                return r;
+
+        if (size == sizeof(sd_id128_t))
+                memcpy(&id, p, size);
+
+        if (!sd_id128_is_null(id))
+                printf("      Machine ID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(id));
+
+        return 0;
+}
+
+static int print_image_machine_info(sd_bus *bus, const char *name) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.machine1",
+                        "/org/freedesktop/machine1",
+                        "org.freedesktop.machine1.Manager",
+                        "GetImageMachineInfo",
+                        NULL, &reply, "s", name);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_enter_container(reply, 'a', "{ss}");
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                const char *p, *q;
+
+                r = sd_bus_message_read(reply, "{ss}", &p, &q);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                if (streq(p, "DEPLOYMENT"))
+                        printf("      Deployment: %s\n", q);
+        }
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 typedef struct ImageStatusInfo {
         char *name;
         char *path;
@@ -914,12 +1008,13 @@ typedef struct ImageStatusInfo {
 } ImageStatusInfo;
 
 static void image_status_info_clear(ImageStatusInfo *info) {
-        if (info) {
-                free(info->name);
-                free(info->path);
-                free(info->type);
-                zero(*info);
-        }
+        if (!info)
+                return;
+
+        free(info->name);
+        free(info->path);
+        free(info->type);
+        zero(*info);
 }
 
 static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
@@ -941,6 +1036,10 @@ static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
 
         if (i->path)
                 printf("\t    Path: %s\n", i->path);
+
+        (void) print_image_hostname(bus, i->name);
+        (void) print_image_machine_id(bus, i->name);
+        (void) print_image_machine_info(bus, i->name);
 
         print_os_release(bus, "GetImageOSRelease", i->name, "\t      OS: ");
 
