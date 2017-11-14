@@ -846,6 +846,78 @@ static int method_mark_image_read_only(sd_bus_message *message, void *userdata, 
         return bus_image_method_mark_read_only(message, i, error);
 }
 
+static int method_get_image_hostname(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(image_unrefp) Image *i = NULL;
+        const char *name;
+        int r;
+
+        assert(message);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return r;
+
+        if (!image_name_is_valid(name))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", name);
+
+        r = image_find(name, &i);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
+
+        i->userdata = userdata;
+        return bus_image_method_get_hostname(message, i, error);
+}
+
+static int method_get_image_machine_id(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(image_unrefp) Image *i = NULL;
+        const char *name;
+        int r;
+
+        assert(message);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return r;
+
+        if (!image_name_is_valid(name))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", name);
+
+        r = image_find(name, &i);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
+
+        i->userdata = userdata;
+        return bus_image_method_get_machine_id(message, i, error);
+}
+
+static int method_get_image_machine_info(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(image_unrefp) Image *i = NULL;
+        const char *name;
+        int r;
+
+        assert(message);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return r;
+
+        if (!image_name_is_valid(name))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", name);
+
+        r = image_find(name, &i);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
+
+        i->userdata = userdata;
+        return bus_image_method_get_machine_info(message, i, error);
+}
+
 static int method_get_image_os_release(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(image_unrefp) Image *i = NULL;
         const char *name;
@@ -1442,6 +1514,9 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("RenameImage", "ss", NULL, method_rename_image, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CloneImage", "ssb", NULL, method_clone_image, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("MarkImageReadOnly", "sb", NULL, method_mark_image_read_only, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetImageHostname", "s", "s", method_get_image_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetImageMachineID", "s", "ay", method_get_image_machine_id, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetImageMachineInfo", "s", "a{ss}", method_get_image_machine_info, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetImageOSRelease", "s", "a{ss}", method_get_image_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetPoolLimit", "t", NULL, method_set_pool_limit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetImageLimit", "st", NULL, method_set_image_limit, SD_BUS_VTABLE_UNPRIVILEGED),
