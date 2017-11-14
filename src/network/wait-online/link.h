@@ -32,6 +32,7 @@ struct Link {
         char *ifname;
         unsigned flags;
 
+        bool required_for_online;
         char *operational_state;
         char *state;
 };
@@ -40,6 +41,5 @@ int link_new(Manager *m, Link **ret, int ifindex, const char *ifname);
 Link *link_free(Link *l);
 int link_update_rtnl(Link *l, sd_netlink_message *m);
 int link_update_monitor(Link *l);
-bool link_relevant(Link *l);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);

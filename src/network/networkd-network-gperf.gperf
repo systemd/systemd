@@ -30,6 +30,7 @@ Link.MACAddress,                        config_parse_hwaddr,                    
 Link.MTUBytes,                          config_parse_iec_size,                          0,                             offsetof(Network, mtu)
 Link.ARP,                               config_parse_tristate,                          0,                             offsetof(Network, arp)
 Link.Unmanaged,                         config_parse_bool,                              0,                             offsetof(Network, unmanaged)
+Link.RequiredForOnline,                 config_parse_bool,                              0,                             offsetof(Network, required_for_online)
 Network.Description,                    config_parse_string,                            0,                             offsetof(Network, description)
 Network.Bridge,                         config_parse_netdev,                            0,                             offsetof(Network, bridge)
 Network.Bond,                           config_parse_netdev,                            0,                             offsetof(Network, bond)

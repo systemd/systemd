@@ -41,6 +41,9 @@ bool manager_ignore_link(Manager *m, Link *link) {
         if (m->interfaces && !strv_contains(m->interfaces, link->ifname))
                 return true;
 
+        if (!link->required_for_online)
+                return true;
+
         /* ignore interfaces we explicitly are asked to ignore */
         return strv_fnmatch(m->ignore, link->ifname, 0);
 }

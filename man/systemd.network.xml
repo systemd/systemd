@@ -250,6 +250,21 @@
           controlled by other applications.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>RequiredForOnline=</varname></term>
+        <listitem>
+          <para>A boolean. When <literal>yes</literal>, the network is deemed
+          required when determining whether the system is online when running
+          <literal>systemd-networkd-wait-online</literal>.
+          When <literal>no</literal>, the network is ignored when checking for
+          online state. Defaults to <literal>yes</literal>.</para>
+          <para>The network will be brought up normally in all cases, but in
+          the event that there is no address being assigned by DHCP or the
+          cable is not plugged in, the link will simply remain offline and be
+          skipped automatically by <literal>systemd-networkd-wait-online</literal>
+          if <literal>RequiredForOnline=true</literal>.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

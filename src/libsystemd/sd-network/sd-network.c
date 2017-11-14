@@ -171,6 +171,21 @@ _public_ int sd_network_link_get_operational_state(int ifindex, char **state) {
         return network_link_get_string(ifindex, "OPER_STATE", state);
 }
 
+_public_ int sd_network_link_get_required_for_online(int ifindex) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        r = network_link_get_string(ifindex, "REQUIRED_FOR_ONLINE", &s);
+        if (r < 0) {
+                /* Handle -ENODATA as RequiredForOnline=yes, for compatibility */
+                if (r == -ENODATA)
+                        return true;
+                return r;
+        }
+
+        return parse_boolean(s);
+}
+
 _public_ int sd_network_link_get_llmnr(int ifindex, char **llmnr) {
         return network_link_get_string(ifindex, "LLMNR", llmnr);
 }

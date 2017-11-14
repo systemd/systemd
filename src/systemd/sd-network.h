@@ -94,6 +94,14 @@ int sd_network_link_get_setup_state(int ifindex, char **state);
  */
 int sd_network_link_get_operational_state(int ifindex, char **state);
 
+/* Indicates whether the network is relevant to being online.
+ * Possible return codes:
+ *   0: the connection is not required
+ *   1: the connection is required to consider the system online
+ *   <0: networkd is not aware of the link
+ */
+int sd_network_link_get_required_for_online(int ifindex);
+
 /* Get path to .network file applied to link */
 int sd_network_link_get_network_file(int ifindex, char **filename);
 

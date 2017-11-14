@@ -204,6 +204,7 @@ static int network_load_one(Manager *manager, const char *filename) {
 
         *d = '\0';
 
+        network->required_for_online = true;
         network->dhcp = ADDRESS_FAMILY_NO;
         network->dhcp_use_ntp = true;
         network->dhcp_use_dns = true;
