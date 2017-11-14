@@ -306,8 +306,6 @@ Features:
   prefixed with /sys generally special.
   http://lists.freedesktop.org/archives/systemd-devel/2015-June/032962.html
 
-* man: document that unless you use StandardError=null the shell >/dev/stderr won't work in shell scripts in services
-
 * fstab-generator: default to tmpfs-as-root if only usr= is specified on the kernel cmdline
 
 * docs: bring http://www.freedesktop.org/wiki/Software/systemd/MyServiceCantGetRealtime up to date
