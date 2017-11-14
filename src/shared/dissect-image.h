@@ -77,7 +77,13 @@ struct DissectedImage {
         bool encrypted:1;
         bool verity:1;     /* verity available and usable */
         bool can_verity:1; /* verity available, but not necessarily used */
+
         DissectedPartition partitions[_PARTITION_DESIGNATOR_MAX];
+
+        char *hostname;
+        sd_id128_t machine_id;
+        char **machine_info;
+        char **os_release;
 };
 
 int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectImageFlags flags, DissectedImage **ret);
@@ -88,6 +94,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DissectedImage*, dissected_image_unref);
 int dissected_image_decrypt(DissectedImage *m, const char *passphrase, const void *root_hash, size_t root_hash_size, DissectImageFlags flags, DecryptedImage **ret);
 int dissected_image_decrypt_interactively(DissectedImage *m, const char *passphrase, const void *root_hash, size_t root_hash_size, DissectImageFlags flags, DecryptedImage **ret);
 int dissected_image_mount(DissectedImage *m, const char *dest, DissectImageFlags flags);
+
+int dissected_image_acquire_metadata(DissectedImage *m);
 
 DecryptedImage* decrypted_image_unref(DecryptedImage *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DecryptedImage*, decrypted_image_unref);

@@ -25,19 +25,28 @@
 #endif
 #endif
 #include <sys/mount.h>
+#include <sys/prctl.h>
+#include <sys/wait.h>
 
 #include "architecture.h"
 #include "ask-password-api.h"
 #include "blkid-util.h"
+#include "copy.h"
+#include "def.h"
 #include "dissect-image.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "gpt.h"
 #include "hexdecoct.h"
+#include "hostname-util.h"
+#include "id128-util.h"
 #include "linux-3.13/dm-ioctl.h"
 #include "mount-util.h"
 #include "path-util.h"
+#include "process-util.h"
+#include "raw-clone.h"
+#include "signal-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -635,6 +644,10 @@ DissectedImage* dissected_image_unref(DissectedImage *m) {
                 free(m->partitions[i].decrypted_node);
         }
 
+        free(m->hostname);
+        strv_free(m->machine_info);
+        strv_free(m->os_release);
+
         free(m);
         return NULL;
 }
@@ -1191,6 +1204,174 @@ int root_hash_load(const char *image, void **ret, size_t *ret_size) {
         k = NULL;
 
         return 1;
+}
+
+int dissected_image_acquire_metadata(DissectedImage *m) {
+
+        enum {
+                META_HOSTNAME,
+                META_MACHINE_ID,
+                META_MACHINE_INFO,
+                META_OS_RELEASE,
+                _META_MAX,
+        };
+
+        static const char *const paths[_META_MAX] = {
+                [META_HOSTNAME]     = "/etc/hostname\0",
+                [META_MACHINE_ID]   = "/etc/machine-id\0",
+                [META_MACHINE_INFO] = "/etc/machine-info\0",
+                [META_OS_RELEASE]   = "/etc/os-release\0/usr/lib/os-release\0",
+        };
+
+        _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL;
+        _cleanup_(rmdir_and_freep) char *t = NULL;
+        _cleanup_(sigkill_waitp) pid_t child = 0;
+        sd_id128_t machine_id = SD_ID128_NULL;
+        _cleanup_free_ char *hostname = NULL;
+        unsigned n_meta_initialized = 0, k;
+        int fds[2 * _META_MAX], r;
+        siginfo_t si;
+
+        BLOCK_SIGNALS(SIGCHLD);
+
+        assert(m);
+
+        for (; n_meta_initialized < _META_MAX; n_meta_initialized ++)
+                if (pipe2(fds + 2*n_meta_initialized, O_CLOEXEC) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+
+        r = mkdtemp_malloc("/tmp/dissect-XXXXXX", &t);
+        if (r < 0)
+                goto finish;
+
+        child = raw_clone(SIGCHLD|CLONE_NEWNS);
+        if (child < 0) {
+                r = -errno;
+                goto finish;
+        }
+
+        if (child == 0) {
+
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
+                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
+
+                /* Make sure we never propagate to the host */
+                if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0)
+                        _exit(EXIT_FAILURE);
+
+                r = dissected_image_mount(m, t, DISSECT_IMAGE_READ_ONLY);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                for (k = 0; k < _META_MAX; k++) {
+                        _cleanup_close_ int fd = -1;
+                        const char *p;
+
+                        fds[2*k] = safe_close(fds[2*k]);
+
+                        NULSTR_FOREACH(p, paths[k]) {
+                                _cleanup_free_ char *q = NULL;
+
+                                r = chase_symlinks(p, t, CHASE_PREFIX_ROOT, &q);
+                                if (r < 0)
+                                        continue;
+
+                                fd = open(q, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                                if (fd >= 0)
+                                        break;
+                        }
+                        if (fd < 0)
+                                continue;
+
+                        r = copy_bytes(fd, fds[2*k+1], (uint64_t) -1, 0);
+                        if (r < 0)
+                                _exit(EXIT_FAILURE);
+
+                        fds[2*k+1] = safe_close(fds[2*k+1]);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        for (k = 0; k < _META_MAX; k++) {
+                _cleanup_fclose_ FILE *f = NULL;
+
+                fds[2*k+1] = safe_close(fds[2*k+1]);
+
+                f = fdopen(fds[2*k], "re");
+                if (!f) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                fds[2*k] = -1;
+
+                switch (k) {
+
+                case META_HOSTNAME:
+                        r = read_etc_hostname_stream(f, &hostname);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to read /etc/hostname: %m");
+
+                        break;
+
+                case META_MACHINE_ID: {
+                        _cleanup_free_ char *line = NULL;
+
+                        r = read_line(f, LONG_LINE_MAX, &line);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to read /etc/machine-id: %m");
+                        else if (r == 33) {
+                                r = sd_id128_from_string(line, &machine_id);
+                                if (r < 0)
+                                        log_debug_errno(r, "Image contains invalid /etc/machine-id: %s", line);
+                        } else if (r == 0)
+                                log_debug("/etc/machine-id file is empty.");
+                        else
+                                log_debug("/etc/machine-id has unexpected length %i.", r);
+
+                        break;
+                }
+
+                case META_MACHINE_INFO:
+                        r = load_env_file_pairs(f, "machine-info", NULL, &machine_info);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to read /etc/machine-info: %m");
+
+                        break;
+
+                case META_OS_RELEASE:
+                        r = load_env_file_pairs(f, "os-release", NULL, &os_release);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to read OS release file: %m");
+
+                        break;
+                }
+        }
+
+        r = wait_for_terminate(child, &si);
+        if (r < 0)
+                goto finish;
+        child = 0;
+
+        if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS) {
+                r = -EPROTO;
+                goto finish;
+        }
+
+        free_and_replace(m->hostname, hostname);
+        m->machine_id = machine_id;
+        strv_free_and_replace(m->machine_info, machine_info);
+        strv_free_and_replace(m->os_release, os_release);
+
+finish:
+        for (k = 0; k < n_meta_initialized; k++)
+                safe_close_pair(fds + 2*k);
+
+        return r;
 }
 
 static const char *const partition_designator_table[] = {
