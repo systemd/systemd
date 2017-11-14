@@ -863,7 +863,7 @@ static int introspect(sd_bus *bus, char **argv) {
                 .on_property = on_property,
         };
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply_xml = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(member_set_freep) Set *members = NULL;
         Iterator i;
@@ -889,13 +889,13 @@ static int introspect(sd_bus *bus, char **argv) {
         if (!members)
                 return log_oom();
 
-        r = sd_bus_call_method(bus, argv[1], argv[2], "org.freedesktop.DBus.Introspectable", "Introspect", &error, &reply, "");
+        r = sd_bus_call_method(bus, argv[1], argv[2], "org.freedesktop.DBus.Introspectable", "Introspect", &error, &reply_xml, "");
         if (r < 0) {
                 log_error("Failed to introspect object %s of service %s: %s", argv[2], argv[1], bus_error_message(&error, r));
                 return r;
         }
 
-        r = sd_bus_message_read(reply, "s", &xml);
+        r = sd_bus_message_read(reply_xml, "s", &xml);
         if (r < 0)
                 return bus_log_parse_error(r);
 
@@ -906,6 +906,7 @@ static int introspect(sd_bus *bus, char **argv) {
 
         /* Second, find the current values for them */
         SET_FOREACH(m, members, i) {
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
 
                 if (!streq(m->type, "property"))
                         continue;
