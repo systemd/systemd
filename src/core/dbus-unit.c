@@ -147,9 +147,9 @@ static int property_get_requires_mounts_for(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Hashmap *h = (Hashmap*) userdata;
-        Iterator j;
+        Hashmap *h = *(Hashmap**) userdata;
         const char *p;
+        Iterator j;
         void *v;
         int r;
 
