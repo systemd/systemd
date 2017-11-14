@@ -25,6 +25,8 @@
 #include <sys/utsname.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
+#include "def.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hostname-util.h"
@@ -219,35 +221,55 @@ int sethostname_idempotent(const char *s) {
         return 1;
 }
 
-int read_hostname_config(const char *path, char **hostname) {
-        _cleanup_fclose_ FILE *f = NULL;
-        char l[LINE_MAX];
-        char *name = NULL;
+int read_etc_hostname_stream(FILE *f, char **ret) {
+        int r;
 
-        assert(path);
-        assert(hostname);
+        assert(f);
+        assert(ret);
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+                char *p;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0) /* EOF without any hostname? the file is empty, let's treat that exactly like no file at all: ENOENT */
+                        return -ENOENT;
+
+                p = strstrip(line);
+
+                /* File may have empty lines or comments, ignore them */
+                if (!IN_SET(*p, '\0', '#')) {
+                        char *copy;
+
+                        hostname_cleanup(p); /* normalize the hostname */
+
+                        if (!hostname_is_valid(p, true)) /* check that the hostname we return is valid */
+                                return -EBADMSG;
+
+                        copy = strdup(p);
+                        if (!copy)
+                                return -ENOMEM;
+
+                        *ret = copy;
+                        return 0;
+                }
+        }
+}
+
+int read_etc_hostname(const char *path, char **ret) {
+        _cleanup_fclose_ FILE *f = NULL;
+
+        assert(ret);
+
+        if (!path)
+                path = "/etc/hostname";
 
         f = fopen(path, "re");
         if (!f)
                 return -errno;
 
-        /* may have comments, ignore them */
-        FOREACH_LINE(l, f, return -errno) {
-                truncate_nl(l);
-                if (!IN_SET(l[0], '\0', '#')) {
-                        /* found line with value */
-                        name = hostname_cleanup(l);
-                        name = strdup(name);
-                        if (!name)
-                                return -ENOMEM;
-                        break;
-                }
-        }
+        return read_etc_hostname_stream(f, ret);
 
-        if (!name)
-                /* no non-empty line found */
-                return -ENOENT;
-
-        *hostname = name;
-        return 0;
 }

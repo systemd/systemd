@@ -100,7 +100,7 @@ static void test_hostname_cleanup(void) {
         assert_se(streq(hostname_cleanup(s), "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"));
 }
 
-static void test_read_hostname_config(void) {
+static void test_read_etc_hostname(void) {
         char path[] = "/tmp/hostname.XXXXXX";
         char *hostname;
         int fd;
@@ -111,27 +111,27 @@ static void test_read_hostname_config(void) {
 
         /* simple hostname */
         write_string_file(path, "foo", WRITE_STRING_FILE_CREATE);
-        assert_se(read_hostname_config(path, &hostname) == 0);
+        assert_se(read_etc_hostname(path, &hostname) == 0);
         assert_se(streq(hostname, "foo"));
         hostname = mfree(hostname);
 
         /* with comment */
         write_string_file(path, "# comment\nfoo", WRITE_STRING_FILE_CREATE);
-        assert_se(read_hostname_config(path, &hostname) == 0);
+        assert_se(read_etc_hostname(path, &hostname) == 0);
         assert_se(hostname);
         assert_se(streq(hostname, "foo"));
         hostname = mfree(hostname);
 
         /* with comment and extra whitespace */
         write_string_file(path, "# comment\n\n foo ", WRITE_STRING_FILE_CREATE);
-        assert_se(read_hostname_config(path, &hostname) == 0);
+        assert_se(read_etc_hostname(path, &hostname) == 0);
         assert_se(hostname);
         assert_se(streq(hostname, "foo"));
         hostname = mfree(hostname);
 
         /* cleans up name */
         write_string_file(path, "!foo/bar.com", WRITE_STRING_FILE_CREATE);
-        assert_se(read_hostname_config(path, &hostname) == 0);
+        assert_se(read_etc_hostname(path, &hostname) == 0);
         assert_se(hostname);
         assert_se(streq(hostname, "foobar.com"));
         hostname = mfree(hostname);
@@ -139,11 +139,11 @@ static void test_read_hostname_config(void) {
         /* no value set */
         hostname = (char*) 0x1234;
         write_string_file(path, "# nothing here\n", WRITE_STRING_FILE_CREATE);
-        assert_se(read_hostname_config(path, &hostname) == -ENOENT);
+        assert_se(read_etc_hostname(path, &hostname) == -ENOENT);
         assert_se(hostname == (char*) 0x1234);  /* does not touch argument on error */
 
         /* nonexisting file */
-        assert_se(read_hostname_config("/non/existing", &hostname) == -ENOENT);
+        assert_se(read_etc_hostname("/non/existing", &hostname) == -ENOENT);
         assert_se(hostname == (char*) 0x1234);  /* does not touch argument on error */
 
         unlink(path);
@@ -155,7 +155,7 @@ int main(int argc, char *argv[]) {
 
         test_hostname_is_valid();
         test_hostname_cleanup();
-        test_read_hostname_config();
+        test_read_etc_hostname();
 
         return 0;
 }
