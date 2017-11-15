@@ -20,6 +20,33 @@ CHANGES WITH 236 in spe:
 
 CHANGES WITH 235:
 
+        * INCOMPATIBILITY: systemd-logind.service and other long-running
+          services now run inside an IPv4/IPv6 sandbox, prohibiting them any IP
+          communication with the outside. This generally improves security of
+          the system, and is in almost all cases a safe and good choice, as
+          these services do not and should provide any network-facing
+          functionality. However, systemd-logind uses the glibc NSS API to
+          query the user database. This creates problems on systems where NSS
+          is set up to directly consult network services for user database
+          lookups. In particular, this creates incompatibilities with the
+          "nss-nis" module, which attempts to directly contact the NIS/YP
+          network servers it is configured for, and will now consistently
+          fail. In such cases, it is possible to turn off IP sandboxing for
+          systemd-logind.service (set IPAddressDeny= in its [Service] section
+          to the empty string, via a .d/ unit file drop-in). Downstream
+          distributions might want to update their nss-nis packaging to include
+          such a drop-in snippet, accordingly, to hide this incompatibility
+          from the user. Another option is to make use of glibc's nscd service
+          to proxy such network requests through a privilege-separated, minimal
+          local caching daemon, or to switch to more modern technologies such
+          sssd, whose NSS hook-ups generally do not involve direct network
+          access. In general, we think it's definitely time to question the
+          implementation choices of nss-nis, i.e. whether it's a good idea
+          today to embed a network-facing loadable module into all local
+          processes that need to query the user database, including the most
+          trivial and benign ones, such as "ls". For more details about
+          IPAddressDeny= see below.
+
         * A new modprobe.d drop-in is now shipped by default that sets the
           bonding module option max_bonds=0. This overrides the kernel default,
           to avoid conflicts and ambiguity as to whether or not bond0 should be
