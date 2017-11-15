@@ -777,9 +777,17 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
           <term><command>restart <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>
-            <para>Stop and then start one or more units specified on the
-            command line. If the units are not running yet, they will
-            be started.</para>
+            <para>Stop and then start one or more units specified on the command line. If the units are not running
+            yet, they will be started.</para>
+
+            <para>Note that restarting a unit with this command does not necessarily flush out all of the unit's
+            resources before it is started again. For example, the per-service file descriptor storage facility (see
+            <varname>FileDescriptoreStoreMax=</varname> in
+            <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>) will
+            remain intact as long as the unit has a job pending, and is only cleared when the unit is fully stopped and
+            no jobs are pending anymore. If it is intended that the file descriptor store is flushed out, too, during a
+            restart operation an explicit <command>systemctl stop</command> command followed by <command>systemctl
+            start</command> should be issued.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
