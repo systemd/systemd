@@ -780,7 +780,7 @@ static int parse_config_file(void) {
         return 0;
 }
 
-static void manager_set_defaults(Manager *m) {
+static void set_manager_defaults(Manager *m) {
 
         assert(m);
 
@@ -1861,7 +1861,7 @@ int main(int argc, char *argv[]) {
         m->security_finish_timestamp = security_finish_timestamp;
         m->cad_burst_action = arg_cad_burst_action;
 
-        manager_set_defaults(m);
+        set_manager_defaults(m);
         manager_set_show_status(m, arg_show_status);
         manager_set_first_boot(m, empty_etc);
 
@@ -1973,7 +1973,7 @@ int main(int argc, char *argv[]) {
                         if (r < 0)
                                 log_error("Failed to parse config file.");
 
-                        manager_set_defaults(m);
+                        set_manager_defaults(m);
 
                         r = manager_reload(m);
                         if (r < 0)
