@@ -208,16 +208,16 @@
       <varlistentry>
         <term><option>--mkdir</option></term>
 
-        <listitem><para>When used with <command>bind</command>, creates
-        the destination directory before applying the bind
-        mount.</para></listitem>
+        <listitem><para>When used with <command>bind</command>, creates the destination file or directory before
+        applying the bind mount. Note that even though the name of this option suggests that it is suitable only for
+        directories, this option also creates the destination file node to mount over if the the object to mount is not
+        a directory, but a regular file, device node, socket or FIFO.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--read-only</option></term>
 
-        <listitem><para>When used with <command>bind</command>, applies
-        a read-only bind mount.</para>
+        <listitem><para>When used with <command>bind</command>, creates a read-only bind mount.</para>
 
         <para>When used with <command>clone</command>, <command>import-raw</command> or <command>import-tar</command> a
         read-only container or VM image is created.</para></listitem>
@@ -528,14 +528,16 @@
       <varlistentry>
         <term><command>bind</command> <replaceable>NAME</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>]</term>
 
-        <listitem><para>Bind mounts a directory from the host into the specified container. The first directory
-        argument is the source directory on the host, the second directory argument is the destination directory in the
-        container. When the latter is omitted, the destination path in the container is the same as the source path on
-        the host. When combined with the <option>--read-only</option> switch, a ready-only bind mount is created. When
-        combined with the <option>--mkdir</option> switch, the destination path is first created before the mount is
-        applied. Note that this option is currently only supported for
+        <listitem><para>Bind mounts a file or directory from the host into the specified container. The first path
+        argument is the source file or directory on the host, the second path argument is the destination file or
+        directory in the container. When the latter is omitted, the destination path in the container is the same as
+        the source path on the host. When combined with the <option>--read-only</option> switch, a ready-only bind
+        mount is created. When combined with the <option>--mkdir</option> switch, the destination path is first created
+        before the mount is applied. Note that this option is currently only supported for
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> containers,
-        and only if user namespacing (<option>--private-users</option>) is not used.</para></listitem>
+        and only if user namespacing (<option>--private-users</option>) is not used. This command supports bind
+        mounting directories, regular files, device nodes, <constant>AF_UNIX</constant> socket nodes, as well as
+        FIFOs.</para></listitem>
       </varlistentry>
 
       <varlistentry>
