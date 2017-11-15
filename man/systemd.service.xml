@@ -352,7 +352,7 @@
         <literal>+</literal>/<literal>!</literal>/<literal>!!</literal> may be used together and they can appear in any
         order. However, only one of <literal>+</literal>, <literal>!</literal>, <literal>!!</literal> may be used at a
         time. Note that these prefixes are also supported for the other command line settings,
-        i.e. <varname>ExecStartPre=</varname>, <varname>ExecStartPost=</varname>, <varname>ExecReload</varname>,
+        i.e. <varname>ExecStartPre=</varname>, <varname>ExecStartPost=</varname>, <varname>ExecReload=</varname>,
         <varname>ExecStop=</varname> and <varname>ExecStopPost=</varname>.</para>
 
         <para>If more than one command is specified, the commands are
