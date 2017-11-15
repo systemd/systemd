@@ -74,17 +74,14 @@
 
   <refsect1>
     <title>Description</title>
-    <para>Generators are small binaries that live in
-    <filename>&usergeneratordir;/</filename> and other directories
-    listed above.
-    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    will execute those binaries very early at bootup and at
-    configuration reload time — before unit files are loaded.
-    Generators can dynamically generate unit files or create symbolic
-    links to unit files to add additional dependencies, thus extending
-    or overriding existing definitions. Their main purpose is to
-    convert configuration files that are not native unit files
-    dynamically into native unit files.</para>
+    <para>Generators are small executables that live in <filename>&systemgeneratordir;/</filename> and other
+    directories listed above.
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> will execute those
+    binaries very early at bootup and at configuration reload time — before unit files are loaded.  Generators may
+    dynamically generate unit files (regular ones, instances as well as templates) and unit file
+    <filename>.d/</filename> drop-ins, or create symbolic links to unit files to add additional dependencies or
+    instantiate existing templates, thus extending or overriding existing definitions. Their main purpose is to convert
+    configuration files that are not native unit files dynamically into native unit files.</para>
 
     <para>Generators are loaded from a set of paths determined during
     compilation, as listed above. System and user generators are loaded
@@ -189,13 +186,10 @@
 
         <listitem>
           <para>
-            Generators should only be used to generate unit files, not
-            any other kind of configuration. Due to the lifecycle
-            logic mentioned above, generators are not a good fit to
-            generate dynamic configuration for other services. If you
-            need to generate dynamic configuration for other services,
-            do so in normal services you order before the service in
-            question.
+            Generators should only be used to generate unit files and symlinks to them, not any other kind of
+            configuration. Due to the lifecycle logic mentioned above, generators are not a good fit to generate
+            dynamic configuration for other services. If you need to generate dynamic configuration for other services,
+            do so in normal services you order before the service in question.
           </para>
         </listitem>
 
