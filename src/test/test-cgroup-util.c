@@ -371,6 +371,32 @@ static void test_is_wanted(void) {
         test_is_wanted_print(false);
 }
 
+static void test_cg_tests(void) {
+        int all, hybrid, systemd;
+
+        assert_se(cg_unified_flush() == 0);
+
+        all = cg_all_unified();
+        assert_se(IN_SET(all, 0, 1));
+
+        hybrid = cg_hybrid_unified();
+        assert_se(IN_SET(hybrid, 0, 1));
+
+        systemd = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
+        assert_se(IN_SET(systemd, 0, 1));
+
+        if (all) {
+                assert_se(systemd);
+                assert_se(!hybrid);
+
+        } else if (hybrid) {
+                assert_se(systemd);
+                assert_se(!all);
+
+        } else
+                assert_se(!systemd);
+}
+
 int main(void) {
         log_set_max_level(LOG_DEBUG);
         log_parse_environment();
@@ -395,6 +421,7 @@ int main(void) {
         test_is_wanted_print(true);
         test_is_wanted_print(false); /* run twice to test caching */
         test_is_wanted();
+        test_cg_tests();
 
         return 0;
 }
