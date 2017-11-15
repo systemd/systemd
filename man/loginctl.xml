@@ -280,11 +280,10 @@
         one or more logged in users, followed by the most recent log
         data from the journal. Takes one or more user names or numeric
         user IDs as parameters. If no parameters are passed, the status
-        of the caller's user is shown. This function is intended to
-        generate human-readable output. If you are looking for
-        computer-parsable output, use <command>show-user</command>
-        instead. Users may be specified by their usernames or numeric
-        user IDs. </para></listitem>
+        is shown for the user of the session of the caller. This
+        function is intended to generate human-readable output. If you
+        are looking for computer-parsable output, use
+        <command>show-user</command> instead.</para></listitem>
       </varlistentry>
 
       <varlistentry>

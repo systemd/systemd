@@ -357,6 +357,8 @@ static int pid_is_active(Manager *m, pid_t pid) {
         Session *s;
         int r;
 
+        /* Get client session.  This is not what you are looking for these days.
+         * FIXME #6852 */
         r = manager_get_session_by_pid(m, pid, &s);
         if (r < 0)
                 return r;

@@ -1120,6 +1120,8 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_userns_chown = true;
 
         if (arg_keep_unit && arg_register && cg_pid_get_owner_uid(0, NULL) >= 0) {
+                /* Save the user from accidentally registering either user-$SESSION.scope or user@.service.
+                 * The latter is not technically a user session, but we don't need to labour the point. */
                 log_error("--keep-unit --register=yes may not be used when invoked from a user session.");
                 return -EINVAL;
         }

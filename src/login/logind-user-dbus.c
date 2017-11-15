@@ -270,18 +270,15 @@ int user_object_find(sd_bus *bus, const char *path, const char *interface, void 
         assert(m);
 
         if (streq(path, "/org/freedesktop/login1/user/self")) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 sd_bus_message *message;
 
                 message = sd_bus_get_current_message(bus);
                 if (!message)
                         return 0;
 
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_OWNER_UID|SD_BUS_CREDS_AUGMENT, &creds);
+                r = manager_get_user_from_creds(m, message, UID_INVALID, error, &user);
                 if (r < 0)
                         return r;
-
-                r = sd_bus_creds_get_owner_uid(creds, &uid);
         } else {
                 const char *p;
 

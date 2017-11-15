@@ -1151,11 +1151,11 @@ static int enable_linger(int argc, char *argv[], void *userdata) {
         b = streq(argv[0], "enable-linger");
 
         if (argc < 2) {
-                /* No argument? Let's either use $XDG_SESSION_ID (if specified), or an empty
-                 * session name, in which case logind will try to guess our session. */
+                /* No argument? Let's use an empty user name,
+                 * then logind will use our user. */
 
                 short_argv[0] = argv[0];
-                short_argv[1] = getenv("XDG_SESSION_ID") ?: (char*) "";
+                short_argv[1] = (char*) "";
                 short_argv[2] = NULL;
                 argv = short_argv;
                 argc = 2;
