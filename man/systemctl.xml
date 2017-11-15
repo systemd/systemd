@@ -805,18 +805,16 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
           <term><command>reload-or-restart <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>
-            <para>Reload one or more units if they support it. If not,
-            restart them instead. If the units are not running yet, they
-            will be started.</para>
+            <para>Reload one or more units if they support it. If not, stop and then start them instead. If the units
+            are not running yet, they will be started.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><command>try-reload-or-restart <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>
-            <para>Reload one or more units if they support it. If not,
-            restart them instead. This does nothing if the units are not
-            running.</para>
+            <para>Reload one or more units if they support it. If not, stop and then start them instead. This does
+            nothing if the units are not running.</para>
             <!-- Note that we don't document force-reload here, as that is just compatibility support, and we generally
                  don't document that. -->
           </listitem>
@@ -1035,14 +1033,11 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <term><command>reset-failed [<replaceable>PATTERN</replaceable>…]</command></term>
 
           <listitem>
-            <para>Reset the <literal>failed</literal> state of the
-            specified units, or if no unit name is passed, reset the state of all
-            units. When a unit fails in some way (i.e. process exiting
-            with non-zero error code, terminating abnormally or timing
-            out), it will automatically enter the
-            <literal>failed</literal> state and its exit code and status
-            is recorded for introspection by the administrator until the
-            service is restarted or reset with this command.</para>
+            <para>Reset the <literal>failed</literal> state of the specified units, or if no unit name is passed, reset
+            the state of all units. When a unit fails in some way (i.e. process exiting with non-zero error code,
+            terminating abnormally or timing out), it will automatically enter the <literal>failed</literal> state and
+            its exit code and status is recorded for introspection by the administrator until the service is
+            stopped/re-started or reset with this command.</para>
           </listitem>
         </varlistentry>
 
