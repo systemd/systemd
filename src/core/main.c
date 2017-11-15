@@ -1406,7 +1406,7 @@ int main(int argc, char *argv[]) {
         bool loaded_policy = false;
         bool arm_reboot_watchdog = false;
         bool queue_default_job = false;
-        bool empty_etc = false;
+        bool first_boot = false;
         char *switch_root_dir = NULL, *switch_root_init = NULL;
         struct rlimit saved_rlimit_nofile = RLIMIT_MAKE_CONST(0), saved_rlimit_memlock = RLIMIT_MAKE_CONST((rlim_t) -1);
         const char *error_message = NULL;
@@ -1767,18 +1767,17 @@ int main(int argc, char *argv[]) {
 
                 if (in_initrd())
                         log_info("Running in initial RAM disk.");
+                else {
+                        /* Let's check whether we are in first boot, i.e. whether /etc is still unpopulated. We use
+                         * /etc/machine-id as flag file, for this: if it exists we assume /etc is populated, if it
+                         * doesn't it's unpopulated. This allows container managers and installers to provision a
+                         * couple of files already. If the container manager wants to provision the machine ID itself
+                         * it should pass $container_uuid to PID 1. */
 
-                /* Let's check whether /etc is already populated. We
-                 * don't actually really check for that, but use
-                 * /etc/machine-id as flag file. This allows container
-                 * managers and installers to provision a couple of
-                 * files already. If the container manager wants to
-                 * provision the machine ID itself it should pass
-                 * $container_uuid to PID 1. */
-
-                empty_etc = access("/etc/machine-id", F_OK) < 0;
-                if (empty_etc)
-                        log_info("Running with unpopulated /etc.");
+                        first_boot = access("/etc/machine-id", F_OK) < 0;
+                        if (first_boot)
+                                log_info("Running with unpopulated /etc.");
+                }
         } else {
                 _cleanup_free_ char *t;
 
@@ -1863,7 +1862,7 @@ int main(int argc, char *argv[]) {
 
         set_manager_defaults(m);
         manager_set_show_status(m, arg_show_status);
-        manager_set_first_boot(m, empty_etc);
+        manager_set_first_boot(m, first_boot);
 
         /* Remember whether we should queue the default job */
         queue_default_job = !arg_serialization || arg_switched_root;
