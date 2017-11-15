@@ -24,6 +24,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* add a new RuntimeDirectoryPreserve= mode that defines a similar lifecycle for
+  the runtime dir as we maintain for the fdstore: i.e. keep it around as long
+  as the unit is running or has a job queued.
+
 * let's log the "tainted" string at boot
 
 * Add NetworkNamespacePath= to specify a path to a network namespace
