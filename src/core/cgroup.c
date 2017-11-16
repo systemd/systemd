@@ -214,7 +214,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
 
                 (void) cg_mask_to_string(c->delegate_controllers, &t);
 
-                fprintf(f, "%sDelegateController=%s\n",
+                fprintf(f, "%sDelegateControllers=%s\n",
                         prefix,
                         strempty(t));
         }
@@ -1978,9 +1978,9 @@ int manager_setup_cgroup(Manager *m) {
                 return log_error_errno(r, "Couldn't determine if we are running in the unified hierarchy: %m");
 
         all_unified = cg_all_unified();
-        if (r < 0)
-                return log_error_errno(r, "Couldn't determine whether we are in all unified mode: %m");
-        if (r > 0)
+        if (all_unified < 0)
+                return log_error_errno(all_unified, "Couldn't determine whether we are in all unified mode: %m");
+        if (all_unified > 0)
                 log_debug("Unified cgroup hierarchy is located at %s.", path);
         else {
                 r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);

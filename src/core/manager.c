@@ -1309,7 +1309,7 @@ static void manager_distribute_fds(Manager *m, FDSet *fds) {
 }
 
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
-        int r, q;
+        int r;
 
         assert(m);
 
@@ -1329,7 +1329,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
          * in the search path */
         r = mkdir_p_label(m->lookup_paths.transient, 0755);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to create transient generator directory \"%s\": %m",
+                                       m->lookup_paths.transient);
 
         dual_timestamp_get(&m->generators_start_timestamp);
         r = manager_run_generators(m);
@@ -1341,9 +1342,10 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
             m->unit_file_scope == UNIT_FILE_SYSTEM &&
             !m->test_run_flags) {
 
-                q = unit_file_preset_all(UNIT_FILE_SYSTEM, 0, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, NULL, 0);
-                if (q < 0)
-                        log_full_errno(q == -EEXIST ? LOG_NOTICE : LOG_WARNING, q, "Failed to populate /etc with preset unit settings, ignoring: %m");
+                r = unit_file_preset_all(UNIT_FILE_SYSTEM, 0, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, NULL, 0);
+                if (r < 0)
+                        log_full_errno(r == -EEXIST ? LOG_NOTICE : LOG_WARNING, r,
+                                       "Failed to populate /etc with preset unit settings, ignoring: %m");
                 else
                         log_info("Populated /etc with preset unit settings.");
         }
@@ -1366,7 +1368,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         if (serialization) {
                 r = manager_deserialize(m, serialization, fds);
                 if (r < 0)
-                        log_error_errno(r, "Deserialization failed: %m");
+                        return log_error_errno(r, "Deserialization failed: %m");
         }
 
         /* Any fds left? Find some unit which wants them. This is
@@ -1377,17 +1379,20 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         /* We might have deserialized the notify fd, but if we didn't
          * then let's create the bus now */
-        q = manager_setup_notify(m);
-        if (q < 0 && r == 0)
-                r = q;
+        r = manager_setup_notify(m);
+        if (r < 0)
+                /* No sense to continue without notifications, our children would fail anyway. */
+                return r;
 
-        q = manager_setup_cgroups_agent(m);
-        if (q < 0 && r == 0)
-                r = q;
+        r = manager_setup_cgroups_agent(m);
+        if (r < 0)
+                /* Likewise, no sense to continue without empty cgroup notifications. */
+                return r;
 
-        q = manager_setup_user_lookup_fd(m);
-        if (q < 0 && r == 0)
-                r = q;
+        r = manager_setup_user_lookup_fd(m);
+        if (r < 0)
+                /* This shouldn't fail, except if things are really broken. */
+                return r;
 
         /* Let's connect to the bus now. */
         (void) manager_connect_bus(m, !!serialization);
@@ -1415,7 +1420,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 m->send_reloading_done = true;
         }
 
-        return r;
+        return 0;
 }
 
 int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, sd_bus_error *e, Job **_ret) {
