@@ -23,13 +23,16 @@
 #include <sys/acl.h>
 #endif
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <sys/vfs.h>
 #include <unistd.h>
 
 #include "acl-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "missing.h"
+#include "nspawn-def.h"
 #include "nspawn-patch-uid.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -289,42 +292,44 @@ static int patch_fd(int fd, const char *name, const struct stat *st, uid_t shift
  * user namespaces, however their inodes may relate to host resources or only
  * valid in the global user namespace, therefore no patching should be applied.
  */
-static int is_fs_fully_userns_compatible(int fd) {
+static int is_fs_fully_userns_compatible(const struct statfs *sfs) {
+
+        assert(sfs);
+
+        return F_TYPE_EQUAL(sfs->f_type, BINFMTFS_MAGIC) ||
+               F_TYPE_EQUAL(sfs->f_type, CGROUP_SUPER_MAGIC) ||
+               F_TYPE_EQUAL(sfs->f_type, CGROUP2_SUPER_MAGIC) ||
+               F_TYPE_EQUAL(sfs->f_type, DEBUGFS_MAGIC) ||
+               F_TYPE_EQUAL(sfs->f_type, DEVPTS_SUPER_MAGIC) ||
+               F_TYPE_EQUAL(sfs->f_type, EFIVARFS_MAGIC) ||
+               F_TYPE_EQUAL(sfs->f_type, HUGETLBFS_MAGIC) ||
+               F_TYPE_EQUAL(sfs->f_type, MQUEUE_MAGIC) ||
+               F_TYPE_EQUAL(sfs->f_type, PROC_SUPER_MAGIC) ||
+               F_TYPE_EQUAL(sfs->f_type, PSTOREFS_MAGIC) ||
+               F_TYPE_EQUAL(sfs->f_type, SELINUX_MAGIC) ||
+               F_TYPE_EQUAL(sfs->f_type, SMACK_MAGIC) ||
+               F_TYPE_EQUAL(sfs->f_type, SECURITYFS_MAGIC) ||
+               F_TYPE_EQUAL(sfs->f_type, BPF_FS_MAGIC) ||
+               F_TYPE_EQUAL(sfs->f_type, TRACEFS_MAGIC) ||
+               F_TYPE_EQUAL(sfs->f_type, SYSFS_MAGIC);
+}
+
+static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift, bool is_toplevel) {
+        _cleanup_closedir_ DIR *d = NULL;
+        bool changed = false;
         struct statfs sfs;
+        int r;
 
         assert(fd >= 0);
 
         if (fstatfs(fd, &sfs) < 0)
                 return -errno;
 
-        return F_TYPE_EQUAL(sfs.f_type, BINFMTFS_MAGIC) ||
-               F_TYPE_EQUAL(sfs.f_type, CGROUP_SUPER_MAGIC) ||
-               F_TYPE_EQUAL(sfs.f_type, CGROUP2_SUPER_MAGIC) ||
-               F_TYPE_EQUAL(sfs.f_type, DEBUGFS_MAGIC) ||
-               F_TYPE_EQUAL(sfs.f_type, DEVPTS_SUPER_MAGIC) ||
-               F_TYPE_EQUAL(sfs.f_type, EFIVARFS_MAGIC) ||
-               F_TYPE_EQUAL(sfs.f_type, HUGETLBFS_MAGIC) ||
-               F_TYPE_EQUAL(sfs.f_type, MQUEUE_MAGIC) ||
-               F_TYPE_EQUAL(sfs.f_type, PROC_SUPER_MAGIC) ||
-               F_TYPE_EQUAL(sfs.f_type, PSTOREFS_MAGIC) ||
-               F_TYPE_EQUAL(sfs.f_type, SELINUX_MAGIC) ||
-               F_TYPE_EQUAL(sfs.f_type, SMACK_MAGIC) ||
-               F_TYPE_EQUAL(sfs.f_type, SECURITYFS_MAGIC) ||
-               F_TYPE_EQUAL(sfs.f_type, BPF_FS_MAGIC) ||
-               F_TYPE_EQUAL(sfs.f_type, TRACEFS_MAGIC) ||
-               F_TYPE_EQUAL(sfs.f_type, SYSFS_MAGIC);
-}
+        /* We generally want to permit crossing of mount boundaries when patching the UIDs/GIDs. However, we probably
+         * shouldn't do this for /proc and /sys if that is already mounted into place. Hence, let's stop the recursion
+         * when we hit procfs, sysfs or some other special file systems. */
 
-static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift, bool is_toplevel) {
-        bool changed = false;
-        int r;
-
-        assert(fd >= 0);
-
-        /* We generally want to permit crossing of mount boundaries when patching the UIDs/GIDs. However, we
-         * probably shouldn't do this for /proc and /sys if that is already mounted into place. Hence, let's
-         * stop the recursion when we hit procfs, sysfs or some other special file systems. */
-        r = is_fs_fully_userns_compatible(fd);
+        r = is_fs_fully_userns_compatible(&sfs);
         if (r < 0)
                 goto finish;
         if (r > 0) {
@@ -332,26 +337,12 @@ static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift
                 goto finish;
         }
 
-        r = patch_fd(fd, NULL, st, shift);
-        if (r == -EROFS) {
-                _cleanup_free_ char *name = NULL;
-
-                if (!is_toplevel) {
-                        /* When we hit a ready-only subtree we simply skip it, but log about it. */
-                        (void) fd_get_path(fd, &name);
-                        log_debug("Skippping read-only file or directory %s.", strna(name));
-                        r = 0;
-                }
-
-                goto finish;
-        }
-        if (r < 0)
-                goto finish;
-        if (r > 0)
-                changed = true;
+        /* Also, if we hit a read-only file system, then don't bother, skip the whole subtree */
+        if ((sfs.f_flags & ST_RDONLY) ||
+            access_fd(fd, W_OK) == -EROFS)
+                goto read_only;
 
         if (S_ISDIR(st->st_mode)) {
-                _cleanup_closedir_ DIR *d = NULL;
                 struct dirent *de;
 
                 if (!donate_fd) {
@@ -411,7 +402,27 @@ static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift
                 }
         }
 
+        /* After we descended, also patch the directory itself. It's key to do this in this order so that the top-level
+         * directory is patched as very last object in the tree, so that we can use it as quick indicator whether the
+         * tree is properly chown()ed already. */
+        r = patch_fd(d ? dirfd(d) : fd, NULL, st, shift);
+        if (r == -EROFS)
+                goto read_only;
+        if (r > 0)
+                changed = true;
+
         r = changed;
+        goto finish;
+
+read_only:
+        if (!is_toplevel) {
+                _cleanup_free_ char *name = NULL;
+
+                /* When we hit a ready-only subtree we simply skip it, but log about it. */
+                (void) fd_get_path(fd, &name);
+                log_debug("Skippping read-only file or directory %s.", strna(name));
+                r = changed;
+        }
 
 finish:
         if (donate_fd)
@@ -437,6 +448,11 @@ static int fd_patch_uid_internal(int fd, bool donate_fd, uid_t shift, uid_t rang
                 goto finish;
         }
 
+        if (shift == UID_BUSY_BASE) {
+                r = -EINVAL;
+                goto finish;
+        }
+
         if (range != 0x10000) {
                 /* We only support containers with 16bit UID ranges for the patching logic */
                 r = -EOPNOTSUPP;
@@ -458,6 +474,19 @@ static int fd_patch_uid_internal(int fd, bool donate_fd, uid_t shift, uid_t rang
          * that if the top-level dir has the right upper 16bit assigned, then everything below will have too... */
         if (((uint32_t) (st.st_uid ^ shift) >> 16) == 0)
                 return 0;
+
+        /* Before we start recursively chowning, mark the top-level dir as "busy" by chowning it to the "busy"
+         * range. Should we be interrupted in the middle of our work, we'll see it owned by this user and will start
+         * chown()ing it again, unconditionally, as the busy UID is not a valid UID we'd everpick for ourselves. */
+
+        if ((st.st_uid & UID_BUSY_MASK) != UID_BUSY_BASE) {
+                if (fchown(fd,
+                           UID_BUSY_BASE | (st.st_uid & ~UID_BUSY_MASK),
+                           (gid_t) UID_BUSY_BASE | (st.st_gid & ~(gid_t) UID_BUSY_MASK)) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+        }
 
         return recurse_fd(fd, donate_fd, &st, shift, true);
 
