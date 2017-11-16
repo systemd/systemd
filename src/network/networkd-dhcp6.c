@@ -22,6 +22,7 @@
 
 #include "sd-dhcp6-client.h"
 
+#include "hostname-util.h"
 #include "network-internal.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -211,6 +212,28 @@ int dhcp6_request_address(Link *link, int ir) {
         return 0;
 }
 
+static int dhcp6_set_hostname(sd_dhcp6_client *client, Link *link) {
+        _cleanup_free_ char *hostname = NULL;
+        const char *hn;
+        int r;
+
+        assert(link);
+
+        if (!link->network->dhcp_send_hostname)
+                hn = NULL;
+        else if (link->network->dhcp_hostname)
+                hn = link->network->dhcp_hostname;
+        else {
+                r = gethostname_strict(&hostname);
+                if (r < 0 && r != -ENXIO) /* ENXIO: no hostname set or hostname is "localhost" */
+                        return r;
+
+                hn = hostname;
+        }
+
+        return sd_dhcp6_client_set_fqdn(client, hn);
+}
+
 int dhcp6_configure(Link *link) {
         sd_dhcp6_client *client = NULL;
         int r;
@@ -246,6 +269,11 @@ int dhcp6_configure(Link *link) {
                                      duid->raw_data_len);
         if (r < 0)
                 goto error;
+
+        r = dhcp6_set_hostname(client, link);
+        log_link_warning(link, "dhcp6_set_hostname: %d", r);
+        if (r < 0)
+                return r;
 
         r = sd_dhcp6_client_set_ifindex(client, link->ifindex);
         if (r < 0)

@@ -104,3 +104,9 @@ enum {
         DHCP6_STATUS_USE_MULTICAST              = 5,
         _DHCP6_STATUS_MAX                       = 6,
 };
+
+enum {
+        DHCP6_FQDN_FLAG_S = (1 << 0),
+        DHCP6_FQDN_FLAG_O = (1 << 1),
+        DHCP6_FQDN_FLAG_N = (1 << 2),
+};
