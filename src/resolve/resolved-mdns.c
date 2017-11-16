@@ -201,7 +201,7 @@ int manager_mdns_ipv4_fd(Manager *m) {
                 .in.sin_family = AF_INET,
                 .in.sin_port = htobe16(MDNS_PORT),
         };
-        static const int one = 1, pmtu = IP_PMTUDISC_DONT, ttl = 255;
+        static const int one = 1, pmtu = IP_PMTUDISC_DONT, ttl = 255, zero = 0;
         int r;
 
         assert(m);
@@ -225,7 +225,7 @@ int manager_mdns_ipv4_fd(Manager *m) {
                 goto fail;
         }
 
-        r = setsockopt(m->mdns_ipv4_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &one, sizeof(one));
+        r = setsockopt(m->mdns_ipv4_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &zero, sizeof(zero));
         if (r < 0) {
                 r = log_error_errno(errno, "mDNS-IPv4: Failed to set IP_MULTICAST_LOOP: %m");
                 goto fail;
@@ -298,7 +298,7 @@ int manager_mdns_ipv6_fd(Manager *m) {
                 .in6.sin6_family = AF_INET6,
                 .in6.sin6_port = htobe16(MDNS_PORT),
         };
-        static const int one = 1, ttl = 255;
+        static const int one = 1, ttl = 255, zero = 0;
         int r;
 
         assert(m);
@@ -323,7 +323,7 @@ int manager_mdns_ipv6_fd(Manager *m) {
                 goto fail;
         }
 
-        r = setsockopt(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &one, sizeof(one));
+        r = setsockopt(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &zero, sizeof(zero));
         if (r < 0) {
                 r = log_error_errno(errno, "mDNS-IPv6: Failed to set IPV6_MULTICAST_LOOP: %m");
                 goto fail;
