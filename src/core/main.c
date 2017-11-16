@@ -1399,6 +1399,23 @@ static int fixup_environment(void) {
         return 0;
 }
 
+static void redirect_telinit(int argc, char *argv[]) {
+
+        /* This is compatibility support for SysV, where calling init as a user is identical to telinit. */
+
+#if HAVE_SYSV_COMPAT
+        if (getpid_cached() == 1)
+                return;
+
+        if (!strstr(program_invocation_short_name, "init"))
+                return;
+
+        execv(SYSTEMCTL_BINARY_PATH, argv);
+        log_error_errno(errno, "Failed to exec " SYSTEMCTL_BINARY_PATH ": %m");
+        exit(1);
+#endif
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
@@ -1423,16 +1440,7 @@ int main(int argc, char *argv[]) {
         struct rlimit saved_rlimit_nofile = RLIMIT_MAKE_CONST(0), saved_rlimit_memlock = RLIMIT_MAKE_CONST((rlim_t) -1);
         const char *error_message = NULL;
 
-#if HAVE_SYSV_COMPAT
-        if (getpid_cached() != 1 && strstr(program_invocation_short_name, "init")) {
-                /* This is compatibility support for SysV, where
-                 * calling init as a user is identical to telinit. */
-
-                execv(SYSTEMCTL_BINARY_PATH, argv);
-                log_error_errno(errno, "Failed to exec " SYSTEMCTL_BINARY_PATH ": %m");
-                return 1;
-        }
-#endif
+        redirect_telinit(argc, argv);
 
         dual_timestamp_from_monotonic(&kernel_timestamp, 0);
         dual_timestamp_get(&userspace_timestamp);
