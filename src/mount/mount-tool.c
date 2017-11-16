@@ -68,6 +68,7 @@ static bool arg_timeout_idle_set = false;
 static char **arg_automount_property = NULL;
 static int arg_bind_device = -1;
 static bool arg_fsck = true;
+static bool arg_aggressive_gc = false;
 
 static void help(void) {
         printf("systemd-mount [OPTIONS...] WHAT [WHERE]\n"
@@ -95,7 +96,8 @@ static void help(void) {
                "                                  Set automount unit property\n"
                "     --bind-device                Bind automount unit to device\n"
                "     --list                       List mountable block devices\n"
-               "  -u --umount                     Unmount mount points\n",
+               "  -u --umount                     Unmount mount points\n"
+               "  -G --collect                    Unload unit after it stopped, even when failed\n",
                program_invocation_short_name,
                streq(program_invocation_short_name, "systemd-umount") ? "" : "--umount ");
 }
@@ -145,6 +147,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "list",               no_argument,       NULL, ARG_LIST               },
                 { "umount",             no_argument,       NULL, 'u'                    },
                 { "unmount",            no_argument,       NULL, 'u'                    },
+                { "collect",            no_argument,       NULL, 'G'                    },
                 {},
         };
 
@@ -156,7 +159,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (strstr(program_invocation_short_name, "systemd-umount"))
                         arg_action = ACTION_UMOUNT;
 
-        while ((c = getopt_long(argc, argv, "hqH:M:t:o:p:Au", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hqH:M:t:o:p:AuG", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -269,6 +272,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'u':
                         arg_action = ACTION_UMOUNT;
+                        break;
+
+                case 'G':
+                        arg_aggressive_gc = true;
                         break;
 
                 case '?':
@@ -406,6 +413,12 @@ static int transient_unit_set_properties(sd_bus_message *m, char **properties) {
                 r = sd_bus_message_append(m, "(sv)(sv)",
                                           "After", "as", 1, device_unit,
                                           "BindsTo", "as", 1, device_unit);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_aggressive_gc) {
+                r = sd_bus_message_append(m, "(sv)", "CollectMode", "s", "inactive-or-failed");
                 if (r < 0)
                         return r;
         }
