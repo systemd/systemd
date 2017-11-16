@@ -806,7 +806,13 @@
         <option>norbind</option> are allowed, controlling whether to create a recursive or a regular bind
         mount. Defaults to "rbind". Backslash escapes are interpreted, so <literal>\:</literal> may be used to embed
         colons in either path.  This option may be specified multiple times for creating multiple independent bind
-        mount points. The <option>--bind-ro=</option> option creates read-only bind mounts.</para></listitem>
+        mount points. The <option>--bind-ro=</option> option creates read-only bind mounts.</para>
+
+        <para>Note that when this option is used in combination with <option>--private-users</option>, the resulting
+        mount points will be owned by the <constant>nobody</constant> user. That's because the mount and its files and
+        directories continue to be owned by the relevant host users and groups, which do not exist in the container,
+        and thus show up under the wildcard UID 65534 (nobody). If such bind mounts are created, it is recommended to
+        make them read-only, using <option>--bind-ro=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
