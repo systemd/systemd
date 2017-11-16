@@ -104,7 +104,6 @@ int rmdir_parents(const char *path, const char *stop) {
         return 0;
 }
 
-
 int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath) {
         struct stat buf;
         int ret;
@@ -808,4 +807,19 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
         }
 
         return exists;
+}
+
+int access_fd(int fd, int mode) {
+        char p[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(fd) + 1];
+        int r;
+
+        /* Like access() but operates on an already open fd */
+
+        xsprintf(p, "/proc/self/fd/%i", fd);
+
+        r = access(p, mode);
+        if (r < 0)
+                r = -errno;
+
+        return r;
 }
