@@ -340,11 +340,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                         r = path_make_absolute_cwd(u, &p);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to make path absolute: %m");
+                                return log_error_errno(r, "Failed to make path %s absolute: %m", u);
 
                         arg_mount_what = canonicalize_file_name(p);
                         if (!arg_mount_what)
-                                return log_error_errno(errno, "Failed to canonicalize path: %m");
+                                return log_error_errno(errno, "Failed to canonicalize path %s: %m", p);
                 } else {
                         arg_mount_what = strdup(argv[optind]);
                         if (!arg_mount_what)
@@ -364,11 +364,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                                 r = path_make_absolute_cwd(argv[optind+1], &p);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to make path absolute: %m");
+                                        return log_error_errno(r, "Failed to make path %s absolute: %m", argv[optind+1]);
 
                                 arg_mount_where = canonicalize_file_name(p);
                                 if (!arg_mount_where)
-                                        return log_error_errno(errno, "Failed to canonicalize path: %m");
+                                        return log_error_errno(errno, "Failed to canonicalize path %s: %m", p);
 
                         } else {
                                 arg_mount_where = strdup(argv[optind+1]);
