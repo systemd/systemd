@@ -1416,6 +1416,87 @@ static void redirect_telinit(int argc, char *argv[]) {
 #endif
 }
 
+static int become_shutdown(
+                const char *shutdown_verb,
+                int retval,
+                bool arm_reboot_watchdog) {
+
+        char log_level[DECIMAL_STR_MAX(int) + 1],
+                exit_code[DECIMAL_STR_MAX(uint8_t) + 1];
+
+        const char* command_line[11] = {
+                SYSTEMD_SHUTDOWN_BINARY_PATH,
+                shutdown_verb,
+                "--log-level", log_level,
+                "--log-target",
+        };
+
+        _cleanup_strv_free_ char **env_block = NULL;
+        size_t pos = 5;
+        int r;
+
+        assert(command_line[pos] == NULL);
+        env_block = strv_copy(environ);
+
+        xsprintf(log_level, "%d", log_get_max_level());
+
+        switch (log_get_target()) {
+
+        case LOG_TARGET_KMSG:
+        case LOG_TARGET_JOURNAL_OR_KMSG:
+        case LOG_TARGET_SYSLOG_OR_KMSG:
+                command_line[pos++] = "kmsg";
+                break;
+
+        case LOG_TARGET_NULL:
+                command_line[pos++] = "null";
+                break;
+
+        case LOG_TARGET_CONSOLE:
+        default:
+                command_line[pos++] = "console";
+                break;
+        };
+
+        if (log_get_show_color())
+                command_line[pos++] = "--log-color";
+
+        if (log_get_show_location())
+                command_line[pos++] = "--log-location";
+
+        if (streq(shutdown_verb, "exit")) {
+                command_line[pos++] = "--exit-code";
+                command_line[pos++] = exit_code;
+                xsprintf(exit_code, "%d", retval);
+        }
+
+        assert(pos < ELEMENTSOF(command_line));
+
+        if (arm_reboot_watchdog && arg_shutdown_watchdog > 0 && arg_shutdown_watchdog != USEC_INFINITY) {
+                char *e;
+
+                /* If we reboot let's set the shutdown
+                 * watchdog and tell the shutdown binary to
+                 * repeatedly ping it */
+                r = watchdog_set_timeout(&arg_shutdown_watchdog);
+                watchdog_close(r < 0);
+
+                /* Tell the binary how often to ping, ignore failure */
+                if (asprintf(&e, "WATCHDOG_USEC="USEC_FMT, arg_shutdown_watchdog) > 0)
+                        (void) strv_push(&env_block, e);
+        } else
+                watchdog_close(true);
+
+        /* Avoid the creation of new processes forked by the
+         * kernel; at this point, we will not listen to the
+         * signals anyway */
+        if (detect_container() <= 0)
+                (void) cg_uninstall_release_agent(SYSTEMD_CGROUP_CONTROLLER);
+
+        execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);
+        return -errno;
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
@@ -2203,78 +2284,9 @@ finish:
 #endif
 
         if (shutdown_verb) {
-                char log_level[DECIMAL_STR_MAX(int) + 1];
-                char exit_code[DECIMAL_STR_MAX(uint8_t) + 1];
-                const char* command_line[11] = {
-                        SYSTEMD_SHUTDOWN_BINARY_PATH,
-                        shutdown_verb,
-                        "--log-level", log_level,
-                        "--log-target",
-                };
-                unsigned pos = 5;
-                _cleanup_strv_free_ char **env_block = NULL;
+                r = become_shutdown(shutdown_verb, retval, arm_reboot_watchdog);
 
-                assert(command_line[pos] == NULL);
-                env_block = strv_copy(environ);
-
-                xsprintf(log_level, "%d", log_get_max_level());
-
-                switch (log_get_target()) {
-
-                case LOG_TARGET_KMSG:
-                case LOG_TARGET_JOURNAL_OR_KMSG:
-                case LOG_TARGET_SYSLOG_OR_KMSG:
-                        command_line[pos++] = "kmsg";
-                        break;
-
-                case LOG_TARGET_NULL:
-                        command_line[pos++] = "null";
-                        break;
-
-                case LOG_TARGET_CONSOLE:
-                default:
-                        command_line[pos++] = "console";
-                        break;
-                };
-
-                if (log_get_show_color())
-                        command_line[pos++] = "--log-color";
-
-                if (log_get_show_location())
-                        command_line[pos++] = "--log-location";
-
-                if (streq(shutdown_verb, "exit")) {
-                        command_line[pos++] = "--exit-code";
-                        command_line[pos++] = exit_code;
-                        xsprintf(exit_code, "%d", retval);
-                }
-
-                assert(pos < ELEMENTSOF(command_line));
-
-                if (arm_reboot_watchdog && arg_shutdown_watchdog > 0 && arg_shutdown_watchdog != USEC_INFINITY) {
-                        char *e;
-
-                        /* If we reboot let's set the shutdown
-                         * watchdog and tell the shutdown binary to
-                         * repeatedly ping it */
-                        r = watchdog_set_timeout(&arg_shutdown_watchdog);
-                        watchdog_close(r < 0);
-
-                        /* Tell the binary how often to ping, ignore failure */
-                        if (asprintf(&e, "WATCHDOG_USEC="USEC_FMT, arg_shutdown_watchdog) > 0)
-                                (void) strv_push(&env_block, e);
-                } else
-                        watchdog_close(true);
-
-                /* Avoid the creation of new processes forked by the
-                 * kernel; at this point, we will not listen to the
-                 * signals anyway */
-                if (detect_container() <= 0)
-                        (void) cg_uninstall_release_agent(SYSTEMD_CGROUP_CONTROLLER);
-
-                execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);
-                log_error_errno(errno, "Failed to execute shutdown binary, %s: %m",
-                          getpid_cached() == 1 ? "freezing" : "quitting");
+                log_error_errno(r, "Failed to execute shutdown binary, %s: %m", getpid_cached() == 1 ? "freezing" : "quitting");
                 error_message = "Failed to execute shutdown binary";
         }
 
