@@ -804,6 +804,18 @@ static void set_manager_defaults(Manager *m) {
         manager_environment_add(m, NULL, arg_default_environment);
 }
 
+static void set_manager_settings(Manager *m) {
+
+        assert(m);
+
+        m->confirm_spawn = arg_confirm_spawn;
+        m->runtime_watchdog = arg_runtime_watchdog;
+        m->shutdown_watchdog = arg_shutdown_watchdog;
+        m->cad_burst_action = arg_cad_burst_action;
+
+        manager_set_show_status(m, arg_show_status);
+}
+
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
@@ -1850,18 +1862,14 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        m->confirm_spawn = arg_confirm_spawn;
-        m->runtime_watchdog = arg_runtime_watchdog;
-        m->shutdown_watchdog = arg_shutdown_watchdog;
         m->userspace_timestamp = userspace_timestamp;
         m->kernel_timestamp = kernel_timestamp;
         m->initrd_timestamp = initrd_timestamp;
         m->security_start_timestamp = security_start_timestamp;
         m->security_finish_timestamp = security_finish_timestamp;
-        m->cad_burst_action = arg_cad_burst_action;
 
         set_manager_defaults(m);
-        manager_set_show_status(m, arg_show_status);
+        set_manager_settings(m);
         manager_set_first_boot(m, first_boot);
 
         /* Remember whether we should queue the default job */
