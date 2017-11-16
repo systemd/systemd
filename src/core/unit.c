@@ -2503,6 +2503,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                  * units go directly from starting to inactive,
                  * without ever entering started.) */
                 unit_check_binds_to(u);
+
+                if (os != UNIT_FAILED && ns == UNIT_FAILED)
+                        (void) emergency_action(u->manager, u->failure_action, u->reboot_arg, "unit failed");
         }
 
         unit_add_to_dbus_queue(u);

@@ -248,6 +248,8 @@ struct Unit {
         /* Put a ratelimit on unit starting */
         RateLimit start_limit;
         EmergencyAction start_limit_action;
+
+        EmergencyAction failure_action;
         char *reboot_arg;
 
         /* Make sure we never enter endless loops with the check unneeded logic, or the BindsTo= logic */

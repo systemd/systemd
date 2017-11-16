@@ -878,10 +878,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>FailureAction=</varname></term>
+        <listitem><para>Configure the action to take when the unit enters the failed state. Takes the same values as
+        the setting <varname>StartLimitAction=</varname> setting and executes the same actions (see
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>). Defaults to
+        <option>none</option>. </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RebootArgument=</varname></term>
         <listitem><para>Configure the optional argument for the
         <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry> system call if
-        <varname>StartLimitAction=</varname> or a service's <varname>FailureAction=</varname> is a reboot action. This
+        <varname>StartLimitAction=</varname> or <varname>FailureAction=</varname> is a reboot action. This
         works just like the optional argument to <command>systemctl reboot</command> command.</para></listitem>
       </varlistentry>
 

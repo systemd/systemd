@@ -174,8 +174,6 @@ struct Service {
         char *status_text;
         int status_errno;
 
-        EmergencyAction emergency_action;
-
         UnitRef accept_socket;
 
         sd_event_source *timer_event_source;
