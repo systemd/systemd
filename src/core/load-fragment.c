@@ -45,7 +45,9 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "io-util.h"
 #include "ioprio.h"
+#include "journal-util.h"
 #include "load-fragment.h"
 #include "log.h"
 #include "missing.h"
@@ -2326,6 +2328,78 @@ int config_parse_unset_environ(
                 r = strv_extend_strv(unsetenv, n, true);
                 if (r < 0)
                         return r;
+        }
+
+        return 0;
+}
+
+int config_parse_log_extra_fields(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        Unit *u = userdata;
+        const char *p;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(c);
+
+        if (isempty(rvalue)) {
+                exec_context_free_log_extra_fields(c);
+                return 0;
+        }
+
+        for (p = rvalue;; ) {
+                _cleanup_free_ char *word = NULL, *k = NULL;
+                struct iovec *t;
+                const char *eq;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_QUOTES);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                r = unit_full_printf(u, word, &k);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers on %s, ignoring field: %m", word);
+                        continue;
+                }
+
+                eq = strchr(k, '=');
+                if (!eq) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Log field lacks '=' character, ignoring field: %s", k);
+                        continue;
+                }
+
+                if (!journal_field_valid(k, eq-k, false)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Log field name is invalid, ignoring field: %s", k);
+                        continue;
+                }
+
+                t = realloc_multiply(c->log_extra_fields, sizeof(struct iovec), c->n_log_extra_fields+1);
+                if (!t)
+                        return log_oom();
+
+                c->log_extra_fields = t;
+                c->log_extra_fields[c->n_log_extra_fields++] = IOVEC_MAKE_STRING(k);
+
+                k = NULL;
         }
 
         return 0;

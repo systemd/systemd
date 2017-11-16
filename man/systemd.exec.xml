@@ -686,81 +686,96 @@
         that the screen and scrollback buffer is cleared. Defaults to
         <literal>no</literal>.</para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><varname>SyslogIdentifier=</varname></term>
-        <listitem><para>Sets the process name to prefix log lines sent
-        to the logging system or the kernel log buffer with. If not
-        set, defaults to the process name of the executed process.
-        This option is only useful when
-        <varname>StandardOutput=</varname> or
-        <varname>StandardError=</varname> are set to
-        <option>syslog</option>, <option>journal</option> or
-        <option>kmsg</option> (or to the same settings in combination
-        with <option>+console</option>).</para></listitem>
+        <listitem><para>Sets the process name ("<command>syslog</command> tag") to prefix log lines sent to the logging
+        system or the kernel log buffer with. If not set, defaults to the process name of the executed process.  This
+        option is only useful when <varname>StandardOutput=</varname> or <varname>StandardError=</varname> are set to
+        <option>journal</option>, <option>syslog</option> or <option>kmsg</option> (or to the same settings in
+        combination with <option>+console</option>) and only applies to log messages written to stdout or
+        stderr.</para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><varname>SyslogFacility=</varname></term>
-        <listitem><para>Sets the syslog facility to use when logging
-        to syslog. One of <option>kern</option>,
-        <option>user</option>, <option>mail</option>,
-        <option>daemon</option>, <option>auth</option>,
-        <option>syslog</option>, <option>lpr</option>,
-        <option>news</option>, <option>uucp</option>,
-        <option>cron</option>, <option>authpriv</option>,
-        <option>ftp</option>, <option>local0</option>,
-        <option>local1</option>, <option>local2</option>,
-        <option>local3</option>, <option>local4</option>,
-        <option>local5</option>, <option>local6</option> or
-        <option>local7</option>. See
+        <listitem><para>Sets the <command>syslog</command> facility identifier to use when logging. One of
+        <option>kern</option>, <option>user</option>, <option>mail</option>, <option>daemon</option>,
+        <option>auth</option>, <option>syslog</option>, <option>lpr</option>, <option>news</option>,
+        <option>uucp</option>, <option>cron</option>, <option>authpriv</option>, <option>ftp</option>,
+        <option>local0</option>, <option>local1</option>, <option>local2</option>, <option>local3</option>,
+        <option>local4</option>, <option>local5</option>, <option>local6</option> or <option>local7</option>. See
         <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        for details. This option is only useful when
-        <varname>StandardOutput=</varname> or
-        <varname>StandardError=</varname> are set to
-        <option>syslog</option>. Defaults to
-        <option>daemon</option>.</para></listitem>
+        for details. This option is only useful when <varname>StandardOutput=</varname> or
+        <varname>StandardError=</varname> are set to <option>journal</option>, <option>syslog</option> or
+        <option>kmsg</option> (or to the same settings in combination with <option>+console</option>), and only applies
+        to log messages written to stdout or stderr. Defaults to <option>daemon</option>.</para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><varname>SyslogLevel=</varname></term>
-        <listitem><para>The default syslog level to use when logging to
-        syslog or the kernel log buffer. One of
-        <option>emerg</option>,
-        <option>alert</option>,
-        <option>crit</option>,
-        <option>err</option>,
-        <option>warning</option>,
-        <option>notice</option>,
-        <option>info</option>,
-        <option>debug</option>. See
-        <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        for details. This option is only useful when
-        <varname>StandardOutput=</varname> or
-        <varname>StandardError=</varname> are set to
-        <option>syslog</option> or <option>kmsg</option>. Note that
-        individual lines output by the daemon might be prefixed with a
-        different log level which can be used to override the default
-        log level specified here. The interpretation of these prefixes
-        may be disabled with <varname>SyslogLevelPrefix=</varname>,
-        see below. For details, see
-        <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        <listitem><para>The default <command>syslog</command> log level to use when logging to the logging system or
+        the kernel log buffer. One of <option>emerg</option>, <option>alert</option>, <option>crit</option>,
+        <option>err</option>, <option>warning</option>, <option>notice</option>, <option>info</option>,
+        <option>debug</option>. See <citerefentry
+        project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
+        details. This option is only useful when <varname>StandardOutput=</varname> or
+        <varname>StandardError=</varname> are set to <option>journal</option>, <option>syslog</option> or
+        <option>kmsg</option> (or to the same settings in combination with <option>+console</option>), and only applies
+        to log messages written to stdout or stderr. Note that individual lines output by executed processes may be
+        prefixed with a different log level which can be used to override the default log level specified here. The
+        interpretation of these prefixes may be disabled with <varname>SyslogLevelPrefix=</varname>, see below. For
+        details, see <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
 
-        Defaults to
-        <option>info</option>.</para></listitem>
+        Defaults to <option>info</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>SyslogLevelPrefix=</varname></term>
-        <listitem><para>Takes a boolean argument. If true and
-        <varname>StandardOutput=</varname> or
-        <varname>StandardError=</varname> are set to
-        <option>syslog</option>, <option>kmsg</option> or
-        <option>journal</option>, log lines written by the executed
-        process that are prefixed with a log level will be passed on
-        to syslog with this log level set but the prefix removed. If
-        set to false, the interpretation of these prefixes is disabled
-        and the logged lines are passed on as-is. For details about
-        this prefixing see
-        <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-        Defaults to true.</para></listitem>
+        <listitem><para>Takes a boolean argument. If true and <varname>StandardOutput=</varname> or
+        <varname>StandardError=</varname> are set to <option>journal</option>, <option>syslog</option> or
+        <option>kmsg</option> (or to the same settings in combination with <option>+console</option>), log lines
+        written by the executed process that are prefixed with a log level will be processed with this log level set
+        but the prefix removed. If set to false, the interpretation of these prefixes is disabled and the logged lines
+        are passed on as-is. This only applies to log messages written to stdout or stderr.  For details
+        about this prefixing see
+        <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>.  Defaults to
+        true.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LogLevelMax=</varname></term>
+        <listitem><para>Configures filtering by log level of log messages generated by this unit. Takes a
+        <command>syslog</command> log level, one of <option>emerg</option> (lowest log level, only highest priority
+        messages), <option>alert</option>, <option>crit</option>, <option>err</option>, <option>warning</option>,
+        <option>notice</option>, <option>info</option>, <option>debug</option> (highest log level, also lowest priority
+        messages). See <citerefentry
+        project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
+        details. By default no filtering is applied (i.e. the default maximum log level is <option>debug</option>). Use
+        this option to configure the logging system to drop log messages of a specific service above the specified
+        level. For example, set <varname>LogLevelMax=</varname><option>info</option> in order to turn off debug logging
+        of a particularly chatty unit. Note that the the configured level is applied to any log messages written by any
+        of the processes belonging to this unit, sent via any supported logging protocol. The filtering is applied
+        early in the logging pipeline, before any kind of further processing is done. Moreover, messages which pass
+        through this filter successfully might still be dropped by filters applied at a later stage in the logging
+        subsystem. For example, <varname>MaxLevelStore=</varname> configured in
+        <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> might
+        prohibit messages of higher log levels to be stored on disk, even though the per-unit
+        <varname>LogLevelMax=</varname> permitted it to be processed.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LogExtraFields=</varname></term>
+        <listitem><para>Configures additional log metadata fields to include in all log records generated by processes
+        associated with this unit. This setting takes one or more journal field assignments in the format
+        <literal>FIELD=VALUE</literal> separated by whitespace. See
+        <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details on the journal field concept. Even though the underlying journal implementation permits binary field
+        values, this setting accepts only valid UTF-8 values. To include space characters in a journal field value,
+        enclose the assignment in double quotes ("). The usual specifiers are expanded in all assignments (see
+        below). Note that this setting is not only useful for attaching additional metadata to log records of a unit,
+        but given that all fields and values are indexed may also be used to implement cross-unit log record
+        matching. Assign an empty string to reset the list.</para></listitem>
       </varlistentry>
 
       <varlistentry>

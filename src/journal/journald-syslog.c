@@ -324,17 +324,26 @@ void server_process_syslog_message(
              syslog_facility[sizeof("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
         const char *message = NULL, *syslog_identifier = NULL, *syslog_pid = NULL;
         _cleanup_free_ char *identifier = NULL, *pid = NULL;
-        struct iovec iovec[N_IOVEC_META_FIELDS + 6];
         int priority = LOG_USER | LOG_INFO, r;
         ClientContext *context = NULL;
+        struct iovec *iovec;
         const char *orig;
-        unsigned n = 0;
+        size_t n = 0, m;
 
         assert(s);
         assert(buf);
 
+        if (ucred && pid_is_valid(ucred->pid)) {
+                r = client_context_get(s, ucred->pid, ucred, label, label_len, NULL, &context);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to retrieve credentials for PID " PID_FMT ", ignoring: %m", ucred->pid);
+        }
+
         orig = buf;
         syslog_parse_priority(&buf, &priority, true);
+
+        if (!client_context_test_priority(context, priority))
+                return;
 
         if (s->forward_to_syslog)
                 forward_syslog_raw(s, priority, orig, ucred, tv);
@@ -350,6 +359,9 @@ void server_process_syslog_message(
 
         if (s->forward_to_wall)
                 server_forward_wall(s, priority, identifier, buf, ucred);
+
+        m = N_IOVEC_META_FIELDS + 6 + client_context_extra_fields_n_iovec(context);
+        iovec = newa(struct iovec, m);
 
         iovec[n++] = IOVEC_MAKE_STRING("_TRANSPORT=syslog");
 
@@ -375,13 +387,7 @@ void server_process_syslog_message(
         if (message)
                 iovec[n++] = IOVEC_MAKE_STRING(message);
 
-        if (ucred && pid_is_valid(ucred->pid)) {
-                r = client_context_get(s, ucred->pid, ucred, label, label_len, NULL, &context);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to retrieve credentials for PID " PID_FMT ", ignoring: %m", ucred->pid);
-        }
-
-        server_dispatch_message(s, iovec, n, ELEMENTSOF(iovec), context, tv, priority, 0);
+        server_dispatch_message(s, iovec, n, m, context, tv, priority, 0);
 }
 
 int server_open_syslog_socket(Server *s) {
@@ -449,7 +455,7 @@ void server_maybe_warn_forward_syslog_missed(Server *s) {
         if (s->last_warn_forward_syslog_missed + WARN_FORWARD_SYSLOG_MISSED_USEC > n)
                 return;
 
-        server_driver_message(s,
+        server_driver_message(s, 0,
                               "MESSAGE_ID=" SD_MESSAGE_FORWARD_SYSLOG_MISSED_STR,
                               LOG_MESSAGE("Forwarding to syslog missed %u messages.",
                                           s->n_forward_syslog_missed),

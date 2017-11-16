@@ -24,9 +24,16 @@
 #include "alloc-util.h"
 #include "audit-util.h"
 #include "cgroup-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
+#include "io-util.h"
+#include "journal-util.h"
 #include "journald-context.h"
 #include "process-util.h"
 #include "string-util.h"
+#include "syslog-util.h"
+#include "unaligned.h"
 #include "user-util.h"
 
 /* This implements a metadata cache for clients, which are identified by their PID. Requesting metadata through /proc
@@ -115,6 +122,8 @@ static int client_context_new(Server *s, pid_t pid, ClientContext **ret) {
         c->owner_uid = UID_INVALID;
         c->lru_index = PRIOQ_IDX_NULL;
         c->timestamp = USEC_INFINITY;
+        c->extra_fields_mtime = NSEC_INFINITY;
+        c->log_level_max = -1;
 
         r = hashmap_put(s->client_contexts, PID_TO_PTR(pid), c);
         if (r < 0) {
@@ -154,6 +163,13 @@ static void client_context_reset(ClientContext *c) {
 
         c->label = mfree(c->label);
         c->label_size = 0;
+
+        c->extra_fields_iovec = mfree(c->extra_fields_iovec);
+        c->extra_fields_n_iovec = 0;
+        c->extra_fields_data = mfree(c->extra_fields_data);
+        c->extra_fields_mtime = NSEC_INFINITY;
+
+        c->log_level_max = -1;
 }
 
 static ClientContext* client_context_free(Server *s, ClientContext *c) {
@@ -296,40 +312,141 @@ static int client_context_read_invocation_id(
                 Server *s,
                 ClientContext *c) {
 
-        _cleanup_free_ char *escaped = NULL, *slice_path = NULL;
-        char ids[SD_ID128_STRING_MAX];
+        _cleanup_free_ char *value = NULL;
         const char *p;
         int r;
 
         assert(s);
         assert(c);
 
-        /* Read the invocation ID of a unit off a unit. It's stored in the "trusted.invocation_id" extended attribute
-         * on the cgroup path. */
+        /* Read the invocation ID of a unit off a unit. PID 1 stores it in a per-unit symlink in /run/systemd/units/ */
 
-        if (!c->unit || !c->slice)
+        if (!c->unit)
                 return 0;
 
-        r = cg_slice_to_path(c->slice, &slice_path);
+        p = strjoina("/run/systemd/units/invocation:", c->unit);
+        r = readlink_malloc(p, &value);
         if (r < 0)
                 return r;
 
-        escaped = cg_escape(c->unit);
-        if (!escaped)
-                return -ENOMEM;
+        return sd_id128_from_string(value, &c->invocation_id);
+}
 
-        p = strjoina(s->cgroup_root, "/", slice_path, "/", escaped);
-        if (!p)
-                return -ENOMEM;
+static int client_context_read_log_level_max(
+                Server *s,
+                ClientContext *c) {
 
-        r = cg_get_xattr(SYSTEMD_CGROUP_CONTROLLER, p, "trusted.invocation_id", ids, 32);
+        _cleanup_free_ char *value = NULL;
+        const char *p;
+        int r, ll;
+
+        if (!c->unit)
+                return 0;
+
+        p = strjoina("/run/systemd/units/log-level-max:", c->unit);
+        r = readlink_malloc(p, &value);
         if (r < 0)
                 return r;
-        if (r != 32)
+
+        ll = log_level_from_string(value);
+        if (ll < 0)
                 return -EINVAL;
-        ids[32] = 0;
 
-        return sd_id128_from_string(ids, &c->invocation_id);
+        c->log_level_max = ll;
+        return 0;
+}
+
+static int client_context_read_extra_fields(
+                Server *s,
+                ClientContext *c) {
+
+        size_t size = 0, n_iovec = 0, n_allocated = 0, left;
+        _cleanup_free_ struct iovec *iovec = NULL;
+        _cleanup_free_ void *data = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        struct stat st;
+        const char *p;
+        uint8_t *q;
+        int r;
+
+        if (!c->unit)
+                return 0;
+
+        p = strjoina("/run/systemd/units/log-extra-fields:", c->unit);
+
+        if (c->extra_fields_mtime != NSEC_INFINITY) {
+                if (stat(p, &st) < 0) {
+                        if (errno == ENOENT)
+                                return 0;
+
+                        return -errno;
+                }
+
+                if (timespec_load_nsec(&st.st_mtim) == c->extra_fields_mtime)
+                        return 0;
+        }
+
+        f = fopen(p, "re");
+        if (!f) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return -errno;
+        }
+
+        if (fstat(fileno(f), &st) < 0) /* The file might have been replaced since the stat() above, let's get a new
+                                        * one, that matches the stuff we are reading */
+                return -errno;
+
+        r = read_full_stream(f, (char**) &data, &size);
+        if (r < 0)
+                return r;
+
+        q = data, left = size;
+        while (left > 0) {
+                uint8_t *field, *eq;
+                uint64_t v, n;
+
+                if (left < sizeof(uint64_t))
+                        return -EBADMSG;
+
+                v = unaligned_read_le64(q);
+                if (v < 2)
+                        return -EBADMSG;
+
+                n = sizeof(uint64_t) + v;
+                if (left < n)
+                        return -EBADMSG;
+
+                field = q + sizeof(uint64_t);
+
+                eq = memchr(field, '=', v);
+                if (!eq)
+                        return -EBADMSG;
+
+                if (!journal_field_valid((const char *) field, eq - field, false))
+                        return -EBADMSG;
+
+                if (!GREEDY_REALLOC(iovec, n_allocated, n_iovec+1))
+                        return -ENOMEM;
+
+                iovec[n_iovec++] = IOVEC_MAKE(field, v);
+
+                left -= n, q += n;
+        }
+
+        free(c->extra_fields_iovec);
+        free(c->extra_fields_data);
+
+        c->extra_fields_iovec = iovec;
+        c->extra_fields_n_iovec = n_iovec;
+        c->extra_fields_data = data;
+        c->extra_fields_mtime = timespec_load_nsec(&st.st_mtim);
+
+        iovec = NULL;
+        data = NULL;
+
+        return 0;
 }
 
 static void client_context_really_refresh(
@@ -356,6 +473,8 @@ static void client_context_really_refresh(
 
         (void) client_context_read_cgroup(s, c, unit_id);
         (void) client_context_read_invocation_id(s, c);
+        (void) client_context_read_log_level_max(s, c);
+        (void) client_context_read_extra_fields(s, c);
 
         c->timestamp = timestamp;
 

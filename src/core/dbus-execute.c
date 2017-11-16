@@ -26,15 +26,17 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "bus-util.h"
-#include "capability-util.h"
 #include "cap-list.h"
+#include "capability-util.h"
 #include "dbus-execute.h"
 #include "env-util.h"
 #include "errno-list.h"
 #include "execute.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "io-util.h"
 #include "ioprio.h"
+#include "journal-util.h"
 #include "missing.h"
 #include "mount-util.h"
 #include "namespace.h"
@@ -771,6 +773,37 @@ static int property_get_bind_paths(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_log_extra_fields(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+        size_t i;
+        int r;
+
+        assert(bus);
+        assert(c);
+        assert(property);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'a', "ay");
+        if (r < 0)
+                return r;
+
+        for (i = 0; i < c->n_log_extra_fields; i++) {
+                r = sd_bus_message_append_array(reply, 'y', c->log_extra_fields[i].iov_base, c->log_extra_fields[i].iov_len);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(ExecContext, environment), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -838,6 +871,8 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("SyslogLevelPrefix", "b", bus_property_get_bool, offsetof(ExecContext, syslog_level_prefix), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SyslogLevel", "i", property_get_syslog_level, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SyslogFacility", "i", property_get_syslog_facility, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LogLevelMax", "i", bus_property_get_int, offsetof(ExecContext, log_level_max), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LogExtraFields", "aay", property_get_log_extra_fields, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SecureBits", "i", bus_property_get_int, offsetof(ExecContext, secure_bits), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CapabilityBoundingSet", "t", property_get_capability_bounding_set, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("AmbientCapabilities", "t", property_get_ambient_capabilities, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1137,6 +1172,98 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+
+        } else if (streq(name, "LogLevelMax")) {
+                int32_t level;
+
+                r = sd_bus_message_read(message, "i", &level);
+                if (r < 0)
+                        return r;
+
+                if (!log_level_is_valid(level))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Maximum log level value out of range");
+
+                if (mode != UNIT_CHECK) {
+                        c->log_level_max = level;
+                        unit_write_drop_in_private_format(u, mode, name, "LogLevelMax=%i", level);
+                }
+
+                return 1;
+
+        } else if (streq(name, "LogExtraFields")) {
+                size_t n = 0;
+
+                r = sd_bus_message_enter_container(message, 'a', "ay");
+                if (r < 0)
+                        return r;
+
+                for (;;) {
+                        _cleanup_free_ void *copy = NULL;
+                        struct iovec *t;
+                        const char *eq;
+                        const void *p;
+                        size_t sz;
+
+                        /* Note that we expect a byte array for each field, instead of a string. That's because on the
+                         * lower-level journal fields can actually contain binary data and are not restricted to text,
+                         * and we should not "lose precision" in our types on the way. That said, I am pretty sure
+                         * actually encoding binary data as unit metadata is not a good idea. Hence we actually refuse
+                         * any actual binary data, and only accept UTF-8. This allows us to eventually lift this
+                         * limitation, should a good, valid usecase arise. */
+
+                        r = sd_bus_message_read_array(message, 'y', &p, &sz);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        if (memchr(p, 0, sz))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Journal field contains zero byte");
+
+                        eq = memchr(p, '=', sz);
+                        if (!eq)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Journal field contains no '=' character");
+                        if (!journal_field_valid(p, eq - (const char*) p, false))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Journal field invalid");
+
+                        if (mode != UNIT_CHECK) {
+                                t = realloc_multiply(c->log_extra_fields, sizeof(struct iovec), c->n_log_extra_fields+1);
+                                if (!t)
+                                        return -ENOMEM;
+                                c->log_extra_fields = t;
+                        }
+
+                        copy = malloc(sz + 1);
+                        if (!copy)
+                                return -ENOMEM;
+
+                        memcpy(copy, p, sz);
+                        ((uint8_t*) copy)[sz] = 0;
+
+                        if (!utf8_is_valid(copy))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Journal field is not valid UTF-8");
+
+                        if (mode != UNIT_CHECK) {
+                                c->log_extra_fields[c->n_log_extra_fields++] = IOVEC_MAKE(copy, sz);
+                                unit_write_drop_in_private_format(u, mode, name, "LogExtraFields=%s", (char*) copy);
+
+                                copy = NULL;
+                        }
+
+                        n++;
+                }
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK && n == 0) {
+                        exec_context_free_log_extra_fields(c);
+                        unit_write_drop_in_private(u, mode, name, "LogExtraFields=");
+                }
+
+                return 1;
+
         } else if (streq(name, "SecureBits")) {
                 int n;
 

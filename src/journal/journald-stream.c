@@ -251,21 +251,32 @@ fail:
 }
 
 static int stdout_stream_log(StdoutStream *s, const char *p, LineBreak line_break) {
-        struct iovec iovec[N_IOVEC_META_FIELDS + 7];
+        struct iovec *iovec;
         int priority;
         char syslog_priority[] = "PRIORITY=\0";
         char syslog_facility[sizeof("SYSLOG_FACILITY=")-1 + DECIMAL_STR_MAX(int) + 1];
         _cleanup_free_ char *message = NULL, *syslog_identifier = NULL;
-        unsigned n = 0;
+        size_t n = 0, m;
         int r;
 
         assert(s);
         assert(p);
 
+        if (s->context)
+                (void) client_context_maybe_refresh(s->server, s->context, NULL, NULL, 0, NULL, USEC_INFINITY);
+        else if (pid_is_valid(s->ucred.pid)) {
+                r = client_context_acquire(s->server, s->ucred.pid, &s->ucred, s->label, strlen_ptr(s->label), s->unit_id, &s->context);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to acquire client context, ignoring: %m");
+        }
+
         priority = s->priority;
 
         if (s->level_prefix)
                 syslog_parse_priority(&p, &priority, false);
+
+        if (!client_context_test_priority(s->context, priority))
+                return 0;
 
         if (isempty(p))
                 return 0;
@@ -281,6 +292,9 @@ static int stdout_stream_log(StdoutStream *s, const char *p, LineBreak line_brea
 
         if (s->server->forward_to_wall)
                 server_forward_wall(s->server, priority, s->identifier, p, &s->ucred);
+
+        m = N_IOVEC_META_FIELDS + 7 + client_context_extra_fields_n_iovec(s->context);
+        iovec = newa(struct iovec, m);
 
         iovec[n++] = IOVEC_MAKE_STRING("_TRANSPORT=stdout");
         iovec[n++] = IOVEC_MAKE_STRING(s->id_field);
@@ -315,15 +329,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p, LineBreak line_brea
         if (message)
                 iovec[n++] = IOVEC_MAKE_STRING(message);
 
-        if (s->context)
-                (void) client_context_maybe_refresh(s->server, s->context, NULL, NULL, 0, NULL, USEC_INFINITY);
-        else if (pid_is_valid(s->ucred.pid)) {
-                r = client_context_acquire(s->server, s->ucred.pid, &s->ucred, s->label, strlen_ptr(s->label), s->unit_id, &s->context);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to acquire client context, ignoring: %m");
-        }
-
-        server_dispatch_message(s->server, iovec, n, ELEMENTSOF(iovec), s->context, NULL, priority, 0);
+        server_dispatch_message(s->server, iovec, n, m, s->context, NULL, priority, 0);
         return 0;
 }
 

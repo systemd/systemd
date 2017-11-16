@@ -212,6 +212,11 @@ struct ExecContext {
         char *syslog_identifier;
         bool syslog_level_prefix;
 
+        int log_level_max;
+
+        struct iovec* log_extra_fields;
+        size_t n_log_extra_fields;
+
         bool cpu_sched_reset_on_fork;
         bool non_blocking;
         bool private_tmp;
@@ -352,6 +357,8 @@ bool exec_context_may_touch_console(ExecContext *c);
 bool exec_context_maintains_privileges(ExecContext *c);
 
 int exec_context_get_effective_ioprio(ExecContext *c);
+
+void exec_context_free_log_extra_fields(ExecContext *c);
 
 void exec_status_start(ExecStatus *s, pid_t pid);
 void exec_status_exit(ExecStatus *s, ExecContext *context, pid_t pid, int code, int status);

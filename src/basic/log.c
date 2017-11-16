@@ -847,8 +847,8 @@ int log_oom_internal(LogRealm realm, const char *file, int line, const char *fun
 
 int log_format_iovec(
                 struct iovec *iovec,
-                unsigned iovec_len,
-                unsigned *n,
+                size_t iovec_len,
+                size_t *n,
                 bool newline_separator,
                 int error,
                 const char *format,
@@ -928,7 +928,7 @@ int log_struct_internal(
                 if (journal_fd >= 0) {
                         char header[LINE_MAX];
                         struct iovec iovec[17] = {};
-                        unsigned n = 0, i;
+                        size_t n = 0, i;
                         int r;
                         struct msghdr mh = {
                                 .msg_iov = iovec,

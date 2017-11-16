@@ -109,15 +109,16 @@ static bool is_us(const char *pid) {
 }
 
 static void dev_kmsg_record(Server *s, const char *p, size_t l) {
-        struct iovec iovec[N_IOVEC_META_FIELDS + 7 + N_IOVEC_KERNEL_FIELDS + 2 + N_IOVEC_UDEV_FIELDS];
+
         _cleanup_free_ char *message = NULL, *syslog_priority = NULL, *syslog_pid = NULL, *syslog_facility = NULL, *syslog_identifier = NULL, *source_time = NULL, *identifier = NULL, *pid = NULL;
-        int priority, r;
-        unsigned n = 0, z = 0, j;
+        struct iovec iovec[N_IOVEC_META_FIELDS + 7 + N_IOVEC_KERNEL_FIELDS + 2 + N_IOVEC_UDEV_FIELDS];
+        char *kernel_device = NULL;
         unsigned long long usec;
+        size_t n = 0, z = 0, j;
+        int priority, r;
         char *e, *f, *k;
         uint64_t serial;
         size_t pl;
-        char *kernel_device = NULL;
 
         assert(s);
         assert(p);
@@ -155,7 +156,7 @@ static void dev_kmsg_record(Server *s, const char *p, size_t l) {
 
                 /* Did we lose any? */
                 if (serial > *s->kernel_seqnum)
-                        server_driver_message(s,
+                        server_driver_message(s, 0,
                                               "MESSAGE_ID=" SD_MESSAGE_JOURNAL_MISSED_STR,
                                               LOG_MESSAGE("Missed %"PRIu64" kernel messages",
                                                           serial - *s->kernel_seqnum),

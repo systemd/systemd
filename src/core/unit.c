@@ -38,6 +38,7 @@
 #include "fd-util.h"
 #include "fileio-label.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "id128-util.h"
 #include "io-util.h"
 #include "load-dropin.h"
@@ -51,6 +52,7 @@
 #include "process-util.h"
 #include "set.h"
 #include "signal-util.h"
+#include "sparse-endian.h"
 #include "special.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -596,6 +598,9 @@ void unit_free(Unit *u) {
                 LIST_REMOVE(cgroup_empty_queue, u->manager->cgroup_empty_queue, u);
 
         unit_release_cgroup(u);
+
+        if (!MANAGER_IS_RELOADING(u->manager))
+                unit_unlink_state_files(u);
 
         unit_unref_uid_gid(u, false);
 
@@ -2296,9 +2301,11 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         /* Keep track of failed units */
         (void) manager_update_failed_units(u->manager, u, ns == UNIT_FAILED);
 
-        /* Make sure the cgroup is always removed when we become inactive */
-        if (UNIT_IS_INACTIVE_OR_FAILED(ns))
+        /* Make sure the cgroup and state files are always removed when we become inactive */
+        if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
                 unit_prune_cgroup(u);
+                unit_unlink_state_files(u);
+        }
 
         /* Note that this doesn't apply to RemainAfterExit services exiting
          * successfully, since there's no change of state in that case. Which is
@@ -3102,6 +3109,10 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
 
         unit_serialize_item(u, f, "transient", yes_no(u->transient));
 
+        unit_serialize_item(u, f, "exported-invocation-id", yes_no(u->exported_invocation_id));
+        unit_serialize_item(u, f, "exported-log-level-max", yes_no(u->exported_log_level_max));
+        unit_serialize_item(u, f, "exported-log-extra-fields", yes_no(u->exported_log_extra_fields));
+
         unit_serialize_item_format(u, f, "cpu-usage-base", "%" PRIu64, u->cpu_usage_base);
         if (u->cpu_usage_last != NSEC_INFINITY)
                 unit_serialize_item_format(u, f, "cpu-usage-last", "%" PRIu64, u->cpu_usage_last);
@@ -3339,6 +3350,36 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 log_unit_debug(u, "Failed to parse transient bool %s, ignoring.", v);
                         else
                                 u->transient = r;
+
+                        continue;
+
+                } else if (streq(l, "exported-invocation-id")) {
+
+                        r = parse_boolean(v);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to parse exported invocation ID bool %s, ignoring.", v);
+                        else
+                                u->exported_invocation_id = r;
+
+                        continue;
+
+                } else if (streq(l, "exported-log-level-max")) {
+
+                        r = parse_boolean(v);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to parse exported log level max bool %s, ignoring.", v);
+                        else
+                                u->exported_log_level_max = r;
+
+                        continue;
+
+                } else if (streq(l, "exported-log-extra-fields")) {
+
+                        r = parse_boolean(v);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to parse exported log extra fields bool %s, ignoring.", v);
+                        else
+                                u->exported_log_extra_fields = r;
 
                         continue;
 
@@ -4911,5 +4952,176 @@ void unit_remove_dependencies(Unit *u, UnitDependencyMask mask) {
                         }
 
                 } while (!done);
+        }
+}
+
+static int unit_export_invocation_id(Unit *u) {
+        const char *p;
+        int r;
+
+        assert(u);
+
+        if (u->exported_invocation_id)
+                return 0;
+
+        if (sd_id128_is_null(u->invocation_id))
+                return 0;
+
+        p = strjoina("/run/systemd/units/invocation:", u->id);
+        r = symlink_atomic(u->invocation_id_string, p);
+        if (r < 0)
+                return log_unit_debug_errno(u, r, "Failed to create invocation ID symlink %s: %m", p);
+
+        u->exported_invocation_id = true;
+        return 0;
+}
+
+static int unit_export_log_level_max(Unit *u, const ExecContext *c) {
+        const char *p;
+        char buf[2];
+        int r;
+
+        assert(u);
+        assert(c);
+
+        if (u->exported_log_level_max)
+                return 0;
+
+        if (c->log_level_max < 0)
+                return 0;
+
+        assert(c->log_level_max <= 7);
+
+        buf[0] = '0' + c->log_level_max;
+        buf[1] = 0;
+
+        p = strjoina("/run/systemd/units/log-level-max:", u->id);
+        r = symlink_atomic(buf, p);
+        if (r < 0)
+                return log_unit_debug_errno(u, r, "Failed to create maximum log level symlink %s: %m", p);
+
+        u->exported_log_level_max = true;
+        return 0;
+}
+
+static int unit_export_log_extra_fields(Unit *u, const ExecContext *c) {
+        _cleanup_close_ int fd = -1;
+        struct iovec *iovec;
+        const char *p;
+        char *pattern;
+        le64_t *sizes;
+        ssize_t n;
+        size_t i;
+        int r;
+
+        if (u->exported_log_extra_fields)
+                return 0;
+
+        if (c->n_log_extra_fields <= 0)
+                return 0;
+
+        sizes = newa(le64_t, c->n_log_extra_fields);
+        iovec = newa(struct iovec, c->n_log_extra_fields * 2);
+
+        for (i = 0; i < c->n_log_extra_fields; i++) {
+                sizes[i] = htole64(c->log_extra_fields[i].iov_len);
+
+                iovec[i*2] = IOVEC_MAKE(sizes + i, sizeof(le64_t));
+                iovec[i*2+1] = c->log_extra_fields[i];
+        }
+
+        p = strjoina("/run/systemd/units/log-extra-fields:", u->id);
+        pattern = strjoina(p, ".XXXXXX");
+
+        fd = mkostemp_safe(pattern);
+        if (fd < 0)
+                return log_unit_debug_errno(u, fd, "Failed to create extra fields file %s: %m", p);
+
+        n = writev(fd, iovec, c->n_log_extra_fields*2);
+        if (n < 0) {
+                r = log_unit_debug_errno(u, errno, "Failed to write extra fields: %m");
+                goto fail;
+        }
+
+        (void) fchmod(fd, 0644);
+
+        if (rename(pattern, p) < 0) {
+                r = log_unit_debug_errno(u, errno, "Failed to rename extra fields file: %m");
+                goto fail;
+        }
+
+        u->exported_log_extra_fields = true;
+        return 0;
+
+fail:
+        (void) unlink(pattern);
+        return r;
+}
+
+void unit_export_state_files(Unit *u) {
+        const ExecContext *c;
+
+        assert(u);
+
+        if (!u->id)
+                return;
+
+        if (!MANAGER_IS_SYSTEM(u->manager))
+                return;
+
+        /* Exports a couple of unit properties to /run/systemd/units/, so that journald can quickly query this data
+         * from there. Ideally, journald would use IPC to query this, like everybody else, but that's hard, as long as
+         * the IPC system itself and PID 1 also log to the journal.
+         *
+         * Note that these files really shouldn't be considered API for anyone else, as use a runtime file system as
+         * IPC replacement is not compatible with today's world of file system namespaces. However, this doesn't really
+         * apply to communication between the journal and systemd, as we assume that these two daemons live in the same
+         * namespace at least.
+         *
+         * Note that some of the "files" exported here are actually symlinks and not regular files. Symlinks work
+         * better for storing small bits of data, in particular as we can write them with two system calls, and read
+         * them with one. */
+
+        (void) unit_export_invocation_id(u);
+
+        c = unit_get_exec_context(u);
+        if (c) {
+                (void) unit_export_log_level_max(u, c);
+                (void) unit_export_log_extra_fields(u, c);
+        }
+}
+
+void unit_unlink_state_files(Unit *u) {
+        const char *p;
+
+        assert(u);
+
+        if (!u->id)
+                return;
+
+        if (!MANAGER_IS_SYSTEM(u->manager))
+                return;
+
+        /* Undoes the effect of unit_export_state() */
+
+        if (u->exported_invocation_id) {
+                p = strjoina("/run/systemd/units/invocation:", u->id);
+                (void) unlink(p);
+
+                u->exported_invocation_id = false;
+        }
+
+        if (u->exported_log_level_max) {
+                p = strjoina("/run/systemd/units/log-level-max:", u->id);
+                (void) unlink(p);
+
+                u->exported_log_level_max = false;
+        }
+
+        if (u->exported_log_extra_fields) {
+                p = strjoina("/run/systemd/units/extra-fields:", u->id);
+                (void) unlink(p);
+
+                u->exported_log_extra_fields = false;
         }
 }

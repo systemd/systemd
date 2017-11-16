@@ -1251,6 +1251,8 @@ static int service_spawn(
                 s->reset_accounting = false;
         }
 
+        unit_export_state_files(UNIT(s));
+
         r = unit_setup_exec_runtime(UNIT(s));
         if (r < 0)
                 return r;

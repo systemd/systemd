@@ -29,10 +29,10 @@
 typedef struct MapField {
         const char *audit_field;
         const char *journal_field;
-        int (*map)(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, unsigned *n_iov);
+        int (*map)(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, size_t *n_iov);
 } MapField;
 
-static int map_simple_field(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, unsigned *n_iov) {
+static int map_simple_field(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, size_t *n_iov) {
         _cleanup_free_ char *c = NULL;
         size_t l = 0, allocated = 0;
         const char *e;
@@ -61,9 +61,7 @@ static int map_simple_field(const char *field, const char **p, struct iovec **io
         if (!GREEDY_REALLOC(*iov, *n_iov_allocated, *n_iov + 1))
                 return -ENOMEM;
 
-        (*iov)[*n_iov].iov_base = c;
-        (*iov)[*n_iov].iov_len = l;
-        (*n_iov)++;
+        (*iov)[(*n_iov)++] = IOVEC_MAKE(c, l);
 
         *p = e;
         c = NULL;
@@ -71,7 +69,7 @@ static int map_simple_field(const char *field, const char **p, struct iovec **io
         return 1;
 }
 
-static int map_string_field_internal(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, unsigned *n_iov, bool filter_printable) {
+static int map_string_field_internal(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, size_t *n_iov, bool filter_printable) {
         _cleanup_free_ char *c = NULL;
         const char *s, *e;
         size_t l;
@@ -140,9 +138,7 @@ static int map_string_field_internal(const char *field, const char **p, struct i
         if (!GREEDY_REALLOC(*iov, *n_iov_allocated, *n_iov + 1))
                 return -ENOMEM;
 
-        (*iov)[*n_iov].iov_base = c;
-        (*iov)[*n_iov].iov_len = l;
-        (*n_iov)++;
+        (*iov)[(*n_iov)++] = IOVEC_MAKE(c, l);
 
         *p = e;
         c = NULL;
@@ -150,15 +146,15 @@ static int map_string_field_internal(const char *field, const char **p, struct i
         return 1;
 }
 
-static int map_string_field(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, unsigned *n_iov) {
+static int map_string_field(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, size_t *n_iov) {
         return map_string_field_internal(field, p, iov, n_iov_allocated, n_iov, false);
 }
 
-static int map_string_field_printable(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, unsigned *n_iov) {
+static int map_string_field_printable(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, size_t *n_iov) {
         return map_string_field_internal(field, p, iov, n_iov_allocated, n_iov, true);
 }
 
-static int map_generic_field(const char *prefix, const char **p, struct iovec **iov, size_t *n_iov_allocated, unsigned *n_iov) {
+static int map_generic_field(const char *prefix, const char **p, struct iovec **iov, size_t *n_iov_allocated, size_t *n_iov) {
         const char *e, *f;
         char *c, *t;
         int r;
@@ -218,29 +214,29 @@ static const MapField map_fields_kernel[] = {
 
         /* First, we map certain well-known audit fields into native
          * well-known fields */
-        { "pid=",       "_PID=",                   map_simple_field },
-        { "ppid=",      "_PPID=",                  map_simple_field },
-        { "uid=",       "_UID=",                   map_simple_field },
-        { "euid=",      "_EUID=",                  map_simple_field },
-        { "fsuid=",     "_FSUID=",                 map_simple_field },
-        { "gid=",       "_GID=",                   map_simple_field },
-        { "egid=",      "_EGID=",                  map_simple_field },
-        { "fsgid=",     "_FSGID=",                 map_simple_field },
-        { "tty=",       "_TTY=",                   map_simple_field },
-        { "ses=",       "_AUDIT_SESSION=",         map_simple_field },
-        { "auid=",      "_AUDIT_LOGINUID=",        map_simple_field },
-        { "subj=",      "_SELINUX_CONTEXT=",       map_simple_field },
-        { "comm=",      "_COMM=",                  map_string_field },
-        { "exe=",       "_EXE=",                   map_string_field },
-        { "proctitle=", "_CMDLINE=",               map_string_field_printable },
+        { "pid=",       "_PID=",              map_simple_field },
+        { "ppid=",      "_PPID=",             map_simple_field },
+        { "uid=",       "_UID=",              map_simple_field },
+        { "euid=",      "_EUID=",             map_simple_field },
+        { "fsuid=",     "_FSUID=",            map_simple_field },
+        { "gid=",       "_GID=",              map_simple_field },
+        { "egid=",      "_EGID=",             map_simple_field },
+        { "fsgid=",     "_FSGID=",            map_simple_field },
+        { "tty=",       "_TTY=",              map_simple_field },
+        { "ses=",       "_AUDIT_SESSION=",    map_simple_field },
+        { "auid=",      "_AUDIT_LOGINUID=",   map_simple_field },
+        { "subj=",      "_SELINUX_CONTEXT=",  map_simple_field },
+        { "comm=",      "_COMM=",             map_string_field },
+        { "exe=",       "_EXE=",              map_string_field },
+        { "proctitle=", "_CMDLINE=",          map_string_field_printable },
 
         /* Some fields don't map to native well-known fields. However,
          * we know that they are string fields, hence let's undo
          * string field escaping for them, though we stick to the
          * generic field names. */
-        { "path=",      "_AUDIT_FIELD_PATH=",      map_string_field },
-        { "dev=",       "_AUDIT_FIELD_DEV=",       map_string_field },
-        { "name=",      "_AUDIT_FIELD_NAME=",      map_string_field },
+        { "path=",      "_AUDIT_FIELD_PATH=", map_string_field },
+        { "dev=",       "_AUDIT_FIELD_DEV=",  map_string_field },
+        { "name=",      "_AUDIT_FIELD_NAME=", map_string_field },
         {}
 };
 
@@ -248,11 +244,11 @@ static const MapField map_fields_kernel[] = {
  * msg='. All of these fields are untrusted, hence carry no "_"
  * prefix. We map the fields we don't know to AUDIT_FIELD_XYZ= */
 static const MapField map_fields_userspace[] = {
-        { "cwd=",       "AUDIT_FIELD_CWD=",  map_string_field },
-        { "cmd=",       "AUDIT_FIELD_CMD=",  map_string_field },
-        { "acct=",      "AUDIT_FIELD_ACCT=", map_string_field },
-        { "exe=",       "AUDIT_FIELD_EXE=",  map_string_field },
-        { "comm=",      "AUDIT_FIELD_COMM=", map_string_field },
+        { "cwd=",       "AUDIT_FIELD_CWD=",   map_string_field },
+        { "cmd=",       "AUDIT_FIELD_CMD=",   map_string_field },
+        { "acct=",      "AUDIT_FIELD_ACCT=",  map_string_field },
+        { "exe=",       "AUDIT_FIELD_EXE=",   map_string_field },
+        { "comm=",      "AUDIT_FIELD_COMM=",  map_string_field },
         {}
 };
 
@@ -263,7 +259,7 @@ static int map_all_fields(
                 bool handle_msg,
                 struct iovec **iov,
                 size_t *n_iov_allocated,
-                unsigned *n_iov) {
+                size_t *n_iov) {
 
         int r;
 
@@ -335,16 +331,15 @@ static int map_all_fields(
 }
 
 static void process_audit_string(Server *s, int type, const char *data, size_t size) {
+        size_t n_iov_allocated = 0, n_iov = 0, z;
         _cleanup_free_ struct iovec *iov = NULL;
-        size_t n_iov_allocated = 0;
-        unsigned n_iov = 0, k;
         uint64_t seconds, msec, id;
         const char *p, *type_name;
-        unsigned z;
         char id_field[sizeof("_AUDIT_ID=") + DECIMAL_STR_MAX(uint64_t)],
              type_field[sizeof("_AUDIT_TYPE=") + DECIMAL_STR_MAX(int)],
              source_time_field[sizeof("_SOURCE_REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t)];
         char *m;
+        int k;
 
         assert(s);
 
