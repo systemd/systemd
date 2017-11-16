@@ -1892,8 +1892,8 @@ int main(int argc, char *argv[]) {
                 _cleanup_free_ char *t;
 
                 t = uid_to_name(getuid());
-                log_debug(PACKAGE_STRING " running in %suser mode for user "UID_FMT"/%s. (" SYSTEMD_FEATURES ")",
-                          arg_action == ACTION_TEST ? " test" : "", getuid(), t);
+                log_debug(PACKAGE_STRING " running in %suser mode for user " UID_FMT "/%s. (" SYSTEMD_FEATURES ")",
+                          arg_action == ACTION_TEST ? " test" : "", getuid(), strna(t));
         }
 
         if (arg_action == ACTION_RUN) {
