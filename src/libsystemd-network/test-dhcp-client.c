@@ -75,6 +75,12 @@ static void test_request_basic(sd_event *e) {
         assert_se(sd_dhcp_client_set_ifindex(client, 0) == -EINVAL);
         assert_se(sd_dhcp_client_set_ifindex(client, 1) == 0);
 
+        assert_se(sd_dhcp_client_set_hostname(client, "host") == 1);
+        assert_se(sd_dhcp_client_set_hostname(client, "host.domain") == 1);
+        assert_se(sd_dhcp_client_set_hostname(client, NULL) == 1);
+        assert_se(sd_dhcp_client_set_hostname(client, "~host") == -EINVAL);
+        assert_se(sd_dhcp_client_set_hostname(client, "~host.domain") == -EINVAL);
+
         assert_se(sd_dhcp_client_set_request_option(client,
                                         SD_DHCP_OPTION_SUBNET_MASK) == -EEXIST);
         assert_se(sd_dhcp_client_set_request_option(client,
