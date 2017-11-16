@@ -3121,6 +3121,8 @@ int unit_file_preset_all(
                         else if (r == -ENOLINK)
                                 r = unit_file_changes_add(changes, n_changes,
                                                           UNIT_FILE_IS_DANGLING, de->d_name, NULL);
+                        else if (r == -EADDRNOTAVAIL) /* Ignore generated/transient units when applying preset */
+                                continue;
                         if (r < 0)
                                 return r;
                 }
