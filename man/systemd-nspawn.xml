@@ -1061,7 +1061,8 @@
     <title>Examples</title>
 
     <example>
-      <title>Download a Fedora image and start a shell in it</title>
+      <title>Download a
+      <ulink url="https://getfedora.org">Fedora</ulink> image and start a shell in it</title>
 
       <programlisting># machinectl pull-raw --verify=no \
       https://download.fedoraproject.org/pub/fedora/linux/releases/25/CloudImages/x86_64/images/Fedora-Cloud-Base-25-1.3.x86_64.raw.xz
@@ -1097,10 +1098,20 @@
       <para>This installs a minimal Debian unstable distribution into
       the directory <filename>~/debian-tree/</filename> and then
       spawns a shell in a namespace container in it.</para>
+
+      <para><command>debootstrap</command> supports
+      <ulink url="https://www.debian.org">Debian</ulink>,
+      <ulink url="https://www.ubuntu.com">Ubuntu</ulink>,
+      and <ulink url="https://www.tanglu.org">Tanglu</ulink>
+      out of the box, so the same command can be used to install any of those. For other
+      distributions from the Debian family, a mirror has to be specified, see
+      <citerefentry project='die-net'><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+      </para>
     </example>
 
     <example>
-      <title>Boot a minimal Arch Linux distribution in a container</title>
+      <title>Boot a minimal
+      <ulink url="https://www.archlinux.org">Arch Linux</ulink> distribution in a container</title>
 
       <programlisting># pacstrap -c -d ~/arch-tree/ base
 # systemd-nspawn -bD ~/arch-tree/</programlisting>
@@ -1111,7 +1122,9 @@
     </example>
 
     <example>
-      <title>Install the OpenSUSE Tumbleweed rolling distribution</title>
+      <title>Install the
+      <ulink url="https://software.opensuse.org/distributions/tumbleweed">OpenSUSE Tumbleweed</ulink>
+      rolling distribution</title>
 
       <programlisting># zypper --root=/var/lib/machines/tumbleweed ar -c \
       https://download.opensuse.org/tumbleweed/repo/oss tumbleweed
