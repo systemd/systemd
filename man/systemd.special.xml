@@ -525,7 +525,8 @@
           shell. Isolate to this target in order to administer the system in single-user mode with all file systems
           mounted but with no services running, except for the most basic. Compare with
           <filename>emergency.target</filename>, which is much more reduced and does not provide the file systems or
-          most basic services.</para>
+          most basic services. Compare with <filename>multi-user.target</filename>, this target could be seen as
+          <filename>single-user.target</filename>.</para>
 
           <para><filename>runlevel1.target</filename> is an alias for this target unit, for compatibility with
           SysV.</para>
