@@ -193,6 +193,16 @@ REQUIREMENTS:
         under all circumstances. In fact, systemd-hostnamed will warn
         if nss-myhostname is not installed.
 
+        nss-systemd must be enabled on systemd systems, as that's required for
+        DynamicUser= to work. Note that we ship services out-of-the-box that
+        make use of DynamicUser= now, hence enabling nss-systemd is not
+        optional.
+
+        Note that the build prefix for systemd must be /usr. -Dsplit-usr=false
+        (which is the default and does not need to be specified) is the
+        recommended setting, and -Dsplit-usr=true should be used on systems
+        which have /usr on a separate partition.
+
         Additional packages are necessary to run some tests:
         - busybox            (used by test/TEST-13-NSPAWN-SMOKE)
         - nc                 (used by test/TEST-12-ISSUE-3171)
