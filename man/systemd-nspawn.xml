@@ -915,20 +915,17 @@
       <varlistentry>
         <term><option>--keep-unit</option></term>
 
-        <listitem><para>Instead of creating a transient scope unit to
-        run the container in, simply register the service or scope
-        unit <command>systemd-nspawn</command> has been invoked in
-        with
-        <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-        This has no effect if <option>--register=no</option> is used.
-        This switch should be used if
-        <command>systemd-nspawn</command> is invoked from within a
-        service unit, and the service unit's sole purpose is to run a
-        single <command>systemd-nspawn</command> container. This
-        option is not available if run from a user
-        session.</para>
+        <listitem><para>Instead of creating a transient scope unit to run the container in, simply use the service or
+        scope unit <command>systemd-nspawn</command> has been invoked in. If <option>--register=yes</option> is set
+        this unit is registered with
+        <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>. This
+        switch should be used if <command>systemd-nspawn</command> is invoked from within a service unit, and the
+        service unit's sole purpose is to run a single <command>systemd-nspawn</command> container. This option is not
+        available if run from a user session.</para>
         <para>Note that passing <option>--keep-unit</option> disables the effect of <option>--slice=</option> and
-        <option>--property=</option>.</para></listitem>
+        <option>--property=</option>. Use <option>--keep-unit</option> and <option>--register=no</option> in
+        combination to disable any kind of unit allocation or registration with
+        <command>systemd-machined</command>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
