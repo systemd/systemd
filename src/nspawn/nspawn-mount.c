@@ -1038,12 +1038,12 @@ static int mount_legacy_cgns_supported(
                         if (r == 0)
                                 break;
 
-                        target = prefix_root("/sys/fs/cgroup", tok);
-                        if (!target)
-                                return log_oom();
-
                         if (streq(controller, tok))
                                 break;
+
+                        target = prefix_root("/sys/fs/cgroup/", tok);
+                        if (!target)
+                                return log_oom();
 
                         r = symlink_idempotent(controller, target);
                         if (r == -EINVAL)
