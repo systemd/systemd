@@ -109,6 +109,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-p</option></term>
+        <term><option>--print-path</option></term>
+        <listitem><para>This option modifies the behaviour of <command>status</command>.
+        Just print the path to the EFI System Partition (ESP) to standard output and
+        exit.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--no-variables</option></term>
         <listitem><para>Do not touch the EFI boot variables.</para></listitem>
       </varlistentry>

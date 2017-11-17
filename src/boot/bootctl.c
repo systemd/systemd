@@ -57,6 +57,7 @@
 #include "virt.h"
 
 static char *arg_path = NULL;
+static bool arg_print_path = false;
 static bool arg_touch_variables = true;
 
 static int find_esp_and_warn(uint32_t *part, uint64_t *pstart, uint64_t *psize, sd_id128_t *uuid) {
@@ -71,7 +72,7 @@ static int find_esp_and_warn(uint32_t *part, uint64_t *pstart, uint64_t *psize, 
                 return log_error_errno(r,
                                        "Couldn't find EFI system partition: %m");
 
-        log_info("Using EFI System Partition at %s.", arg_path);
+        log_debug("Using EFI System Partition at %s.", arg_path);
         return 0;
 }
 
@@ -832,6 +833,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -h --help          Show this help\n"
                "     --version       Print version\n"
                "     --path=PATH     Path to the EFI System Partition (ESP)\n"
+               "  -p --print-path    Print path to the EFI partition\n"
                "     --no-variables  Don't touch EFI variables\n"
                "\n"
                "Commands:\n"
@@ -856,6 +858,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",         no_argument,       NULL, 'h'              },
                 { "version",      no_argument,       NULL, ARG_VERSION      },
                 { "path",         required_argument, NULL, ARG_PATH         },
+                { "print-path",   no_argument,       NULL, 'p'              },
                 { "no-variables", no_argument,       NULL, ARG_NO_VARIABLES },
                 { NULL,           0,                 NULL, 0                }
         };
@@ -865,7 +868,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hp", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -879,6 +882,10 @@ static int parse_argv(int argc, char *argv[]) {
                         r = free_and_strdup(&arg_path, optarg);
                         if (r < 0)
                                 return log_oom();
+                        break;
+
+                case 'p':
+                        arg_print_path = true;
                         break;
 
                 case ARG_NO_VARIABLES:
@@ -918,6 +925,14 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         int r, k;
 
         r = find_esp_and_warn(NULL, NULL, NULL, &uuid);
+
+        if (arg_print_path) {
+                if (r < 0)
+                        return r;
+
+                puts(arg_path);
+                return 0;
+        }
 
         if (is_efi_boot()) {
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL;
