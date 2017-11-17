@@ -271,9 +271,8 @@ int dhcp6_configure(Link *link) {
                 goto error;
 
         r = dhcp6_set_hostname(client, link);
-        log_link_warning(link, "dhcp6_set_hostname: %d", r);
         if (r < 0)
-                return r;
+                goto error;
 
         r = sd_dhcp6_client_set_ifindex(client, link->ifindex);
         if (r < 0)
