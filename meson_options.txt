@@ -4,8 +4,6 @@ option('split-usr', type : 'boolean', value : false,
        description : '''assume that /bin, /sbin aren't symlinks into /usr''')
 option('rootlibdir', type : 'string',
        description : '''[/usr]/lib/x86_64-linux-gnu or such''')
-option('rootprefix', type : 'string',
-       description : '''override the root prefix''')
 option('link-udev-shared', type : 'boolean',
        description : 'link systemd-udev and its helpers to libsystemd-shared.so')
 
