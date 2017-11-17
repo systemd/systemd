@@ -2678,7 +2678,7 @@ int cg_cpu_shares_parse(const char *s, uint64_t *ret) {
         uint64_t u;
         int r;
 
-        if (isempty(s)) {
+        if (STR_IN_SET(s, "", "-1")) {
                 *ret = CGROUP_CPU_SHARES_INVALID;
                 return 0;
         }
@@ -2687,7 +2687,7 @@ int cg_cpu_shares_parse(const char *s, uint64_t *ret) {
         if (r < 0)
                 return r;
 
-        if (u < CGROUP_CPU_SHARES_MIN || u > CGROUP_CPU_SHARES_MAX)
+        if (!CGROUP_CPU_SHARES_IS_OK(u))
                 return -ERANGE;
 
         *ret = u;
@@ -2698,7 +2698,7 @@ int cg_blkio_weight_parse(const char *s, uint64_t *ret) {
         uint64_t u;
         int r;
 
-        if (isempty(s)) {
+        if (STR_IN_SET(s, "", "-1")) {
                 *ret = CGROUP_BLKIO_WEIGHT_INVALID;
                 return 0;
         }
@@ -2707,7 +2707,7 @@ int cg_blkio_weight_parse(const char *s, uint64_t *ret) {
         if (r < 0)
                 return r;
 
-        if (u < CGROUP_BLKIO_WEIGHT_MIN || u > CGROUP_BLKIO_WEIGHT_MAX)
+        if (!CGROUP_BLKIO_WEIGHT_IS_OK(u))
                 return -ERANGE;
 
         *ret = u;
