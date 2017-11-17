@@ -1299,17 +1299,14 @@ static int service_spawn(
                 union sockaddr_union sa;
                 socklen_t salen = sizeof(sa);
 
-                r = getpeername(s->socket_fd, &sa.sa, &salen);
-                if (r < 0) {
-                        r = -errno;
+                /* If this is a per-connection service instance, let's set $REMOTE_ADDR and $REMOTE_PORT to something
+                 * useful. Note that we do this only when we are still connected at this point in time, which we might
+                 * very well not be. Hence we ignore all errors when retrieving peer information (as that might result
+                 * in ENOTCONN), and just use whate we can use. */
 
-                        /* ENOTCONN is legitimate if the endpoint disappeared on shutdown.
-                         * This connection is over, but the socket unit lives on. */
-                        if (r != -ENOTCONN || !IN_SET(s->control_command_id, SERVICE_EXEC_STOP, SERVICE_EXEC_STOP_POST))
-                                return r;
-                }
+                if (getpeername(s->socket_fd, &sa.sa, &salen) >= 0 &&
+                    IN_SET(sa.sa.sa_family, AF_INET, AF_INET6, AF_VSOCK)) {
 
-                if (r == 0 && IN_SET(sa.sa.sa_family, AF_INET, AF_INET6, AF_VSOCK)) {
                         _cleanup_free_ char *addr = NULL;
                         char *t;
                         unsigned port;
