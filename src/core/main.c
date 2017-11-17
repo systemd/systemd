@@ -780,7 +780,7 @@ static int parse_config_file(void) {
         return 0;
 }
 
-static void manager_set_defaults(Manager *m) {
+static void set_manager_defaults(Manager *m) {
 
         assert(m);
 
@@ -802,6 +802,18 @@ static void manager_set_defaults(Manager *m) {
 
         manager_set_default_rlimits(m, arg_default_rlimit);
         manager_environment_add(m, NULL, arg_default_environment);
+}
+
+static void set_manager_settings(Manager *m) {
+
+        assert(m);
+
+        m->confirm_spawn = arg_confirm_spawn;
+        m->runtime_watchdog = arg_runtime_watchdog;
+        m->shutdown_watchdog = arg_shutdown_watchdog;
+        m->cad_burst_action = arg_cad_burst_action;
+
+        manager_set_show_status(m, arg_show_status);
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -1387,6 +1399,161 @@ static int fixup_environment(void) {
         return 0;
 }
 
+static void redirect_telinit(int argc, char *argv[]) {
+
+        /* This is compatibility support for SysV, where calling init as a user is identical to telinit. */
+
+#if HAVE_SYSV_COMPAT
+        if (getpid_cached() == 1)
+                return;
+
+        if (!strstr(program_invocation_short_name, "init"))
+                return;
+
+        execv(SYSTEMCTL_BINARY_PATH, argv);
+        log_error_errno(errno, "Failed to exec " SYSTEMCTL_BINARY_PATH ": %m");
+        exit(1);
+#endif
+}
+
+static int become_shutdown(
+                const char *shutdown_verb,
+                int retval,
+                bool arm_reboot_watchdog) {
+
+        char log_level[DECIMAL_STR_MAX(int) + 1],
+                exit_code[DECIMAL_STR_MAX(uint8_t) + 1];
+
+        const char* command_line[11] = {
+                SYSTEMD_SHUTDOWN_BINARY_PATH,
+                shutdown_verb,
+                "--log-level", log_level,
+                "--log-target",
+        };
+
+        _cleanup_strv_free_ char **env_block = NULL;
+        size_t pos = 5;
+        int r;
+
+        assert(command_line[pos] == NULL);
+        env_block = strv_copy(environ);
+
+        xsprintf(log_level, "%d", log_get_max_level());
+
+        switch (log_get_target()) {
+
+        case LOG_TARGET_KMSG:
+        case LOG_TARGET_JOURNAL_OR_KMSG:
+        case LOG_TARGET_SYSLOG_OR_KMSG:
+                command_line[pos++] = "kmsg";
+                break;
+
+        case LOG_TARGET_NULL:
+                command_line[pos++] = "null";
+                break;
+
+        case LOG_TARGET_CONSOLE:
+        default:
+                command_line[pos++] = "console";
+                break;
+        };
+
+        if (log_get_show_color())
+                command_line[pos++] = "--log-color";
+
+        if (log_get_show_location())
+                command_line[pos++] = "--log-location";
+
+        if (streq(shutdown_verb, "exit")) {
+                command_line[pos++] = "--exit-code";
+                command_line[pos++] = exit_code;
+                xsprintf(exit_code, "%d", retval);
+        }
+
+        assert(pos < ELEMENTSOF(command_line));
+
+        if (arm_reboot_watchdog && arg_shutdown_watchdog > 0 && arg_shutdown_watchdog != USEC_INFINITY) {
+                char *e;
+
+                /* If we reboot let's set the shutdown
+                 * watchdog and tell the shutdown binary to
+                 * repeatedly ping it */
+                r = watchdog_set_timeout(&arg_shutdown_watchdog);
+                watchdog_close(r < 0);
+
+                /* Tell the binary how often to ping, ignore failure */
+                if (asprintf(&e, "WATCHDOG_USEC="USEC_FMT, arg_shutdown_watchdog) > 0)
+                        (void) strv_push(&env_block, e);
+        } else
+                watchdog_close(true);
+
+        /* Avoid the creation of new processes forked by the
+         * kernel; at this point, we will not listen to the
+         * signals anyway */
+        if (detect_container() <= 0)
+                (void) cg_uninstall_release_agent(SYSTEMD_CGROUP_CONTROLLER);
+
+        execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);
+        return -errno;
+}
+
+static void initialize_clock(void) {
+        int r;
+
+        if (clock_is_localtime(NULL) > 0) {
+                int min;
+
+                /*
+                 * The very first call of settimeofday() also does a time warp in the kernel.
+                 *
+                 * In the rtc-in-local time mode, we set the kernel's timezone, and rely on external tools to take care
+                 * of maintaining the RTC and do all adjustments.  This matches the behavior of Windows, which leaves
+                 * the RTC alone if the registry tells that the RTC runs in UTC.
+                 */
+                r = clock_set_timezone(&min);
+                if (r < 0)
+                        log_error_errno(r, "Failed to apply local time delta, ignoring: %m");
+                else
+                        log_info("RTC configured in localtime, applying delta of %i minutes to system time.", min);
+
+        } else if (!in_initrd()) {
+                /*
+                 * Do a dummy very first call to seal the kernel's time warp magic.
+                 *
+                 * Do not call this from inside the initrd. The initrd might not carry /etc/adjtime with LOCAL, but the
+                 * real system could be set up that way. In such case, we need to delay the time-warp or the sealing
+                 * until we reach the real system.
+                 *
+                 * Do no set the kernel's timezone. The concept of local time cannot be supported reliably, the time
+                 * will jump or be incorrect at every daylight saving time change. All kernel local time concepts will
+                 * be treated as UTC that way.
+                 */
+                (void) clock_reset_timewarp();
+        }
+
+        r = clock_apply_epoch();
+        if (r < 0)
+                log_error_errno(r, "Current system time is before build time, but cannot correct: %m");
+        else if (r > 0)
+                log_info("System time before build time, advancing clock.");
+}
+
+static void initialize_coredump(bool skip_setup) {
+
+        if (getpid_cached() != 1)
+                return;
+
+        /* Don't limit the core dump size, so that coredump handlers such as systemd-coredump (which honour the limit)
+         * will process core dumps for system services by default. */
+        if (setrlimit(RLIMIT_CORE, &RLIMIT_MAKE_CONST(RLIM_INFINITY)) < 0)
+                log_warning_errno(errno, "Failed to set RLIMIT_CORE: %m");
+
+        /* But at the same time, turn off the core_pattern logic by default, so that no coredumps are stored
+         * until the systemd-coredump tool is enabled via sysctl. */
+        if (!skip_setup)
+                (void) write_string_file("/proc/sys/kernel/core_pattern", "|/bin/false", 0);
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
@@ -1406,21 +1573,12 @@ int main(int argc, char *argv[]) {
         bool loaded_policy = false;
         bool arm_reboot_watchdog = false;
         bool queue_default_job = false;
-        bool empty_etc = false;
+        bool first_boot = false;
         char *switch_root_dir = NULL, *switch_root_init = NULL;
         struct rlimit saved_rlimit_nofile = RLIMIT_MAKE_CONST(0), saved_rlimit_memlock = RLIMIT_MAKE_CONST((rlim_t) -1);
         const char *error_message = NULL;
 
-#if HAVE_SYSV_COMPAT
-        if (getpid_cached() != 1 && strstr(program_invocation_short_name, "init")) {
-                /* This is compatibility support for SysV, where
-                 * calling init as a user is identical to telinit. */
-
-                execv(SYSTEMCTL_BINARY_PATH, argv);
-                log_error_errno(errno, "Failed to exec " SYSTEMCTL_BINARY_PATH ": %m");
-                return 1;
-        }
-#endif
+        redirect_telinit(argc, argv);
 
         dual_timestamp_from_monotonic(&kernel_timestamp, 0);
         dual_timestamp_get(&userspace_timestamp);
@@ -1495,46 +1653,8 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                if (!skip_setup) {
-                        if (clock_is_localtime(NULL) > 0) {
-                                int min;
-
-                                /*
-                                 * The very first call of settimeofday() also does a time warp in the kernel.
-                                 *
-                                 * In the rtc-in-local time mode, we set the kernel's timezone, and rely on
-                                 * external tools to take care of maintaining the RTC and do all adjustments.
-                                 * This matches the behavior of Windows, which leaves the RTC alone if the
-                                 * registry tells that the RTC runs in UTC.
-                                 */
-                                r = clock_set_timezone(&min);
-                                if (r < 0)
-                                        log_error_errno(r, "Failed to apply local time delta, ignoring: %m");
-                                else
-                                        log_info("RTC configured in localtime, applying delta of %i minutes to system time.", min);
-                        } else if (!in_initrd()) {
-                                /*
-                                 * Do a dummy very first call to seal the kernel's time warp magic.
-                                 *
-                                 * Do not call this from inside the initrd. The initrd might not
-                                 * carry /etc/adjtime with LOCAL, but the real system could be set up
-                                 * that way. In such case, we need to delay the time-warp or the sealing
-                                 * until we reach the real system.
-                                 *
-                                 * Do no set the kernel's timezone. The concept of local time cannot
-                                 * be supported reliably, the time will jump or be incorrect at every daylight
-                                 * saving time change. All kernel local time concepts will be treated
-                                 * as UTC that way.
-                                 */
-                                (void) clock_reset_timewarp();
-                        }
-
-                        r = clock_apply_epoch();
-                        if (r < 0)
-                                log_error_errno(r, "Current system time is before build time, but cannot correct: %m");
-                        else if (r > 0)
-                                log_info("System time before build time, advancing clock.");
-                }
+                if (!skip_setup)
+                        initialize_clock();
 
                 /* Set the default for later on, but don't actually
                  * open the logs like this for now. Note that if we
@@ -1568,17 +1688,7 @@ int main(int argc, char *argv[]) {
                 kernel_timestamp = DUAL_TIMESTAMP_NULL;
         }
 
-        if (getpid_cached() == 1) {
-                /* Don't limit the core dump size, so that coredump handlers such as systemd-coredump (which honour the limit)
-                 * will process core dumps for system services by default. */
-                if (setrlimit(RLIMIT_CORE, &RLIMIT_MAKE_CONST(RLIM_INFINITY)) < 0)
-                        log_warning_errno(errno, "Failed to set RLIMIT_CORE: %m");
-
-                /* But at the same time, turn off the core_pattern logic by default, so that no coredumps are stored
-                 * until the systemd-coredump tool is enabled via sysctl. */
-                if (!skip_setup)
-                        (void) write_string_file("/proc/sys/kernel/core_pattern", "|/bin/false", 0);
-        }
+        initialize_coredump(skip_setup);
 
         if (arg_system) {
                 if (fixup_environment() < 0) {
@@ -1767,24 +1877,23 @@ int main(int argc, char *argv[]) {
 
                 if (in_initrd())
                         log_info("Running in initial RAM disk.");
+                else {
+                        /* Let's check whether we are in first boot, i.e. whether /etc is still unpopulated. We use
+                         * /etc/machine-id as flag file, for this: if it exists we assume /etc is populated, if it
+                         * doesn't it's unpopulated. This allows container managers and installers to provision a
+                         * couple of files already. If the container manager wants to provision the machine ID itself
+                         * it should pass $container_uuid to PID 1. */
 
-                /* Let's check whether /etc is already populated. We
-                 * don't actually really check for that, but use
-                 * /etc/machine-id as flag file. This allows container
-                 * managers and installers to provision a couple of
-                 * files already. If the container manager wants to
-                 * provision the machine ID itself it should pass
-                 * $container_uuid to PID 1. */
-
-                empty_etc = access("/etc/machine-id", F_OK) < 0;
-                if (empty_etc)
-                        log_info("Running with unpopulated /etc.");
+                        first_boot = access("/etc/machine-id", F_OK) < 0;
+                        if (first_boot)
+                                log_info("Running with unpopulated /etc.");
+                }
         } else {
                 _cleanup_free_ char *t;
 
                 t = uid_to_name(getuid());
-                log_debug(PACKAGE_STRING " running in %suser mode for user "UID_FMT"/%s. (" SYSTEMD_FEATURES ")",
-                          arg_action == ACTION_TEST ? " test" : "", getuid(), t);
+                log_debug(PACKAGE_STRING " running in %suser mode for user " UID_FMT "/%s. (" SYSTEMD_FEATURES ")",
+                          arg_action == ACTION_TEST ? " test" : "", getuid(), strna(t));
         }
 
         if (arg_action == ACTION_RUN) {
@@ -1851,19 +1960,15 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        m->confirm_spawn = arg_confirm_spawn;
-        m->runtime_watchdog = arg_runtime_watchdog;
-        m->shutdown_watchdog = arg_shutdown_watchdog;
         m->userspace_timestamp = userspace_timestamp;
         m->kernel_timestamp = kernel_timestamp;
         m->initrd_timestamp = initrd_timestamp;
         m->security_start_timestamp = security_start_timestamp;
         m->security_finish_timestamp = security_finish_timestamp;
-        m->cad_burst_action = arg_cad_burst_action;
 
-        manager_set_defaults(m);
-        manager_set_show_status(m, arg_show_status);
-        manager_set_first_boot(m, empty_etc);
+        set_manager_defaults(m);
+        set_manager_settings(m);
+        manager_set_first_boot(m, first_boot);
 
         /* Remember whether we should queue the default job */
         queue_default_job = !arg_serialization || arg_switched_root;
@@ -1973,7 +2078,7 @@ int main(int argc, char *argv[]) {
                         if (r < 0)
                                 log_error("Failed to parse config file.");
 
-                        manager_set_defaults(m);
+                        set_manager_defaults(m);
 
                         r = manager_reload(m);
                         if (r < 0)
@@ -2188,78 +2293,9 @@ finish:
 #endif
 
         if (shutdown_verb) {
-                char log_level[DECIMAL_STR_MAX(int) + 1];
-                char exit_code[DECIMAL_STR_MAX(uint8_t) + 1];
-                const char* command_line[11] = {
-                        SYSTEMD_SHUTDOWN_BINARY_PATH,
-                        shutdown_verb,
-                        "--log-level", log_level,
-                        "--log-target",
-                };
-                unsigned pos = 5;
-                _cleanup_strv_free_ char **env_block = NULL;
+                r = become_shutdown(shutdown_verb, retval, arm_reboot_watchdog);
 
-                assert(command_line[pos] == NULL);
-                env_block = strv_copy(environ);
-
-                xsprintf(log_level, "%d", log_get_max_level());
-
-                switch (log_get_target()) {
-
-                case LOG_TARGET_KMSG:
-                case LOG_TARGET_JOURNAL_OR_KMSG:
-                case LOG_TARGET_SYSLOG_OR_KMSG:
-                        command_line[pos++] = "kmsg";
-                        break;
-
-                case LOG_TARGET_NULL:
-                        command_line[pos++] = "null";
-                        break;
-
-                case LOG_TARGET_CONSOLE:
-                default:
-                        command_line[pos++] = "console";
-                        break;
-                };
-
-                if (log_get_show_color())
-                        command_line[pos++] = "--log-color";
-
-                if (log_get_show_location())
-                        command_line[pos++] = "--log-location";
-
-                if (streq(shutdown_verb, "exit")) {
-                        command_line[pos++] = "--exit-code";
-                        command_line[pos++] = exit_code;
-                        xsprintf(exit_code, "%d", retval);
-                }
-
-                assert(pos < ELEMENTSOF(command_line));
-
-                if (arm_reboot_watchdog && arg_shutdown_watchdog > 0 && arg_shutdown_watchdog != USEC_INFINITY) {
-                        char *e;
-
-                        /* If we reboot let's set the shutdown
-                         * watchdog and tell the shutdown binary to
-                         * repeatedly ping it */
-                        r = watchdog_set_timeout(&arg_shutdown_watchdog);
-                        watchdog_close(r < 0);
-
-                        /* Tell the binary how often to ping, ignore failure */
-                        if (asprintf(&e, "WATCHDOG_USEC="USEC_FMT, arg_shutdown_watchdog) > 0)
-                                (void) strv_push(&env_block, e);
-                } else
-                        watchdog_close(true);
-
-                /* Avoid the creation of new processes forked by the
-                 * kernel; at this point, we will not listen to the
-                 * signals anyway */
-                if (detect_container() <= 0)
-                        (void) cg_uninstall_release_agent(SYSTEMD_CGROUP_CONTROLLER);
-
-                execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);
-                log_error_errno(errno, "Failed to execute shutdown binary, %s: %m",
-                          getpid_cached() == 1 ? "freezing" : "quitting");
+                log_error_errno(r, "Failed to execute shutdown binary, %s: %m", getpid_cached() == 1 ? "freezing" : "quitting");
                 error_message = "Failed to execute shutdown binary";
         }
 

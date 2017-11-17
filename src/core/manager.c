@@ -1345,8 +1345,9 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         if (r < 0)
                 return r;
 
+        /* If this is the first boot, and we are in the host system, then preset everything */
         if (m->first_boot > 0 &&
-            m->unit_file_scope == UNIT_FILE_SYSTEM &&
+            MANAGER_IS_SYSTEM(m) &&
             !m->test_run_flags) {
 
                 r = unit_file_preset_all(UNIT_FILE_SYSTEM, 0, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, NULL, 0);
