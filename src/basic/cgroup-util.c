@@ -2541,6 +2541,7 @@ int cg_unified_flush(void) {
 }
 
 int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p) {
+        _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *fs = NULL;
         CGroupController c;
         int r;
@@ -2574,7 +2575,15 @@ int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p) {
                         s[0] = mask & bit ? '+' : '-';
                         strcpy(s + 1, n);
 
-                        r = write_string_file(fs, s, 0);
+                        if (!f) {
+                                f = fopen(fs, "we");
+                                if (!f) {
+                                        log_debug_errno(errno, "Failed to open cgroup.subtree_control file of %s: %m", p);
+                                        break;
+                                }
+                        }
+
+                        r = write_string_stream(f, s, 0);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to enable controller %s for %s (%s): %m", n, p, fs);
                 }
