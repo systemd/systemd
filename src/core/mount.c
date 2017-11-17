@@ -750,33 +750,21 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
 }
 
 static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
-        pid_t pid;
-        int r;
+
         ExecParameters exec_params = {
                 .flags      = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
                 .stdin_fd   = -1,
                 .stdout_fd  = -1,
                 .stderr_fd  = -1,
         };
+        pid_t pid;
+        int r;
 
         assert(m);
         assert(c);
         assert(_pid);
 
-        (void) unit_realize_cgroup(UNIT(m));
-        if (m->reset_accounting) {
-                (void) unit_reset_cpu_accounting(UNIT(m));
-                (void) unit_reset_ip_accounting(UNIT(m));
-                m->reset_accounting = false;
-        }
-
-        unit_export_state_files(UNIT(m));
-
-        r = unit_setup_exec_runtime(UNIT(m));
-        if (r < 0)
-                return r;
-
-        r = unit_setup_dynamic_creds(UNIT(m));
+        r = unit_prepare_exec(UNIT(m));
         if (r < 0)
                 return r;
 
@@ -1091,7 +1079,8 @@ static int mount_start(Unit *u) {
 
         m->result = MOUNT_SUCCESS;
         m->reload_result = MOUNT_SUCCESS;
-        m->reset_accounting = true;
+
+        u->reset_accounting = true;
 
         mount_enter_mounting(m);
         return 1;

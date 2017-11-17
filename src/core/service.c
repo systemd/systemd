@@ -1223,23 +1223,25 @@ static int service_spawn(
                 ExecFlags flags,
                 pid_t *_pid) {
 
-        _cleanup_strv_free_ char **final_env = NULL, **our_env = NULL, **fd_names = NULL;
-        _cleanup_free_ int *fds = NULL;
-        unsigned n_storage_fds = 0, n_socket_fds = 0, n_env = 0;
-        pid_t pid;
-
         ExecParameters exec_params = {
                 .flags      = flags,
                 .stdin_fd   = -1,
                 .stdout_fd  = -1,
                 .stderr_fd  = -1,
         };
-
+        _cleanup_strv_free_ char **final_env = NULL, **our_env = NULL, **fd_names = NULL;
+        unsigned n_storage_fds = 0, n_socket_fds = 0, n_env = 0;
+        _cleanup_free_ int *fds = NULL;
+        pid_t pid;
         int r;
 
         assert(s);
         assert(c);
         assert(_pid);
+
+        r = unit_prepare_exec(UNIT(s));
+        if (r < 0)
+                return r;
 
         if (flags & EXEC_IS_CONTROL) {
                 /* If this is a control process, mask the permissions/chroot application if this is requested. */
@@ -1248,23 +1250,6 @@ static int service_spawn(
                 if (s->root_directory_start_only)
                         exec_params.flags &= ~EXEC_APPLY_CHROOT;
         }
-
-        (void) unit_realize_cgroup(UNIT(s));
-        if (s->reset_accounting) {
-                (void) unit_reset_cpu_accounting(UNIT(s));
-                (void) unit_reset_ip_accounting(UNIT(s));
-                s->reset_accounting = false;
-        }
-
-        unit_export_state_files(UNIT(s));
-
-        r = unit_setup_exec_runtime(UNIT(s));
-        if (r < 0)
-                return r;
-
-        r = unit_setup_dynamic_creds(UNIT(s));
-        if (r < 0)
-                return r;
 
         if ((flags & EXEC_PASS_FDS) ||
             s->exec_context.std_input == EXEC_INPUT_SOCKET ||
@@ -2188,7 +2173,8 @@ static int service_start(Unit *u) {
         s->main_pid_known = false;
         s->main_pid_alien = false;
         s->forbid_restart = false;
-        s->reset_accounting = true;
+
+        u->reset_accounting = true;
 
         s->status_text = mfree(s->status_text);
         s->status_errno = 0;

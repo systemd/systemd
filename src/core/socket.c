@@ -1865,33 +1865,21 @@ static int socket_coldplug(Unit *u) {
 }
 
 static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
-        pid_t pid;
-        int r;
+
         ExecParameters exec_params = {
                 .flags      = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
                 .stdin_fd   = -1,
                 .stdout_fd  = -1,
                 .stderr_fd  = -1,
         };
+        pid_t pid;
+        int r;
 
         assert(s);
         assert(c);
         assert(_pid);
 
-        (void) unit_realize_cgroup(UNIT(s));
-        if (s->reset_accounting) {
-                (void) unit_reset_cpu_accounting(UNIT(s));
-                (void) unit_reset_ip_accounting(UNIT(s));
-                s->reset_accounting = false;
-        }
-
-        unit_export_state_files(UNIT(s));
-
-        r = unit_setup_exec_runtime(UNIT(s));
-        if (r < 0)
-                return r;
-
-        r = unit_setup_dynamic_creds(UNIT(s));
+        r = unit_prepare_exec(UNIT(s));
         if (r < 0)
                 return r;
 
@@ -2471,7 +2459,8 @@ static int socket_start(Unit *u) {
                 return r;
 
         s->result = SOCKET_SUCCESS;
-        s->reset_accounting = true;
+
+        u->reset_accounting = true;
 
         socket_enter_start_pre(s);
         return 1;
