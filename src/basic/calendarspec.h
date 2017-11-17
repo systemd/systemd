@@ -61,3 +61,5 @@ int calendar_spec_to_string(const CalendarSpec *spec, char **p);
 int calendar_spec_from_string(const char *p, CalendarSpec **spec);
 
 int calendar_spec_next_usec(const CalendarSpec *spec, usec_t usec, usec_t *next);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(CalendarSpec*, calendar_spec_free);
