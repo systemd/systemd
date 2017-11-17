@@ -1213,23 +1213,25 @@ int mount_cgroups(
 
         if (unified_requested >= CGROUP_UNIFIED_ALL)
                 return mount_unified_cgroups(dest);
-        else if (use_cgns)
+        if (use_cgns)
                 return mount_legacy_cgns_supported(dest, unified_requested, userns, uid_shift, uid_range, selinux_apifs_context);
 
         return mount_legacy_cgns_unsupported(dest, unified_requested, userns, uid_shift, uid_range, selinux_apifs_context);
 }
 
-static int mount_systemd_cgroup_writable_one(const char *systemd_own, const char *systemd_root)
-{
+static int mount_systemd_cgroup_writable_one(const char *root, const char *own) {
         int r;
 
+        assert(root);
+        assert(own);
+
         /* Make our own cgroup a (writable) bind mount */
-        r = mount_verbose(LOG_ERR, systemd_own, systemd_own,  NULL, MS_BIND, NULL);
+        r = mount_verbose(LOG_ERR, own, own, NULL, MS_BIND, NULL);
         if (r < 0)
                 return r;
 
         /* And then remount the systemd cgroup root read-only */
-        return mount_verbose(LOG_ERR, NULL, systemd_root, NULL,
+        return mount_verbose(LOG_ERR, NULL, root, NULL,
                              MS_BIND|MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, NULL);
 }
 
@@ -1238,6 +1240,7 @@ int mount_systemd_cgroup_writable(
                 CGroupUnified unified_requested) {
 
         _cleanup_free_ char *own_cgroup_path = NULL;
+        const char *root, *own;
         int r;
 
         assert(dest);
@@ -1250,19 +1253,27 @@ int mount_systemd_cgroup_writable(
         if (path_equal(own_cgroup_path, "/"))
                 return 0;
 
-        if (unified_requested >= CGROUP_UNIFIED_ALL)
-                return mount_systemd_cgroup_writable_one(strjoina(dest, "/sys/fs/cgroup", own_cgroup_path),
-                                                         prefix_roota(dest, "/sys/fs/cgroup"));
+        if (unified_requested >= CGROUP_UNIFIED_ALL) {
 
-        if (unified_requested >= CGROUP_UNIFIED_SYSTEMD) {
-                r = mount_systemd_cgroup_writable_one(strjoina(dest, "/sys/fs/cgroup/unified", own_cgroup_path),
-                                                      prefix_roota(dest, "/sys/fs/cgroup/unified"));
-                if (r < 0)
-                        return r;
+                root = prefix_roota(dest, "/sys/fs/cgroup");
+                own = strjoina(root, own_cgroup_path);
+
+        } else {
+
+                if (unified_requested >= CGROUP_UNIFIED_SYSTEMD) {
+                        root = prefix_roota(dest, "/sys/fs/cgroup/unified");
+                        own = strjoina(root, own_cgroup_path);
+
+                        r = mount_systemd_cgroup_writable_one(root, own);
+                        if (r < 0)
+                                return r;
+                }
+
+                root = prefix_roota(dest, "/sys/fs/cgroup/systemd");
+                own = strjoina(root, own_cgroup_path);
         }
 
-        return mount_systemd_cgroup_writable_one(strjoina(dest, "/sys/fs/cgroup/systemd", own_cgroup_path),
-                                                 prefix_roota(dest, "/sys/fs/cgroup/systemd"));
+        return mount_systemd_cgroup_writable_one(root, own);
 }
 
 int setup_volatile_state(
