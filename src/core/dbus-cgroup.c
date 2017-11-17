@@ -395,9 +395,12 @@ static int bus_cgroup_set_transient_property(
                                 return r;
 
                         c->delegate = true;
-                        c->delegate_controllers |= mask;
+                        if (mask == 0)
+                                c->delegate_controllers = 0;
+                        else
+                                c->delegate_controllers |= mask;
 
-                        unit_write_drop_in_private_format(u, mode, name, "Delegate=%s", t);
+                        unit_write_drop_in_private_format(u, mode, name, "Delegate=%s", strempty(t));
                 }
 
                 return 1;

@@ -3297,6 +3297,12 @@ int config_parse_delegate(
          * off for all. Or it takes a list of controller names, in which case we add the specified controllers to the
          * mask to delegate. */
 
+        if (isempty(rvalue)) {
+                c->delegate = true;
+                c->delegate_controllers = 0;
+                return 0;
+        }
+
         r = parse_boolean(rvalue);
         if (r < 0) {
                 const char *p = rvalue;

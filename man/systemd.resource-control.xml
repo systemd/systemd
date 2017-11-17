@@ -723,7 +723,8 @@
           enabled for the unit, making them available to the unit's processes for management. If false, delegation is
           turned off entirely (and no additional controllers are enabled). If set to a list of controllers, delegation
           is turned on, and the specified controllers are enabled for the unit. Note that assigning the empty string
-          will enable delegation, but not enable any additional controllers. Defaults to false.</para>
+          will enable delegation, but reset the list of controllers, all assignments prior to this will have no effect.
+          Defaults to false.</para>
 
           <para>Note that controller delegation to less privileged code is only safe on the unified control group
           hierarchy. Accordingly, access to the specified controllers will not be granted to unprivileged services on
