@@ -283,16 +283,16 @@ SYSV INIT.D SCRIPTS:
         needs to look like, and provide an implementation at the marked places.
 
 WARNINGS:
-        systemd will warn you during boot if /usr is on a different
-        file system than /. While in systemd itself very little will
-        break if /usr is on a separate partition, many of its
-        dependencies very likely will break sooner or later in one
-        form or another. For example, udev rules tend to refer to
-        binaries in /usr, binaries that link to libraries in /usr or
-        binaries that refer to data files in /usr. Since these
-        breakages are not always directly visible, systemd will warn
-        about this, since this kind of file system setup is not really
-        supported anymore by the basic set of Linux OS components.
+        systemd will warn during early boot if /usr is not already mounted at
+        this point (that means: either located on the same file system as / or
+        already mounted in the initrd). While in systemd itself very little
+        will break if /usr is on a separate, late-mounted partition, many of
+        its dependencies very likely will break sooner or later in one form or
+        another. For example, udev rules tend to refer to binaries in /usr,
+        binaries that link to libraries in /usr or binaries that refer to data
+        files in /usr. Since these breakages are not always directly visible,
+        systemd will warn about this, since this kind of file system setup is
+        not really supported anymore by the basic set of Linux OS components.
 
         systemd requires that the /run mount point exists. systemd also
         requires that /var/run is a symlink to /run.
