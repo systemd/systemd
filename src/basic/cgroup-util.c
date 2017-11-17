@@ -1104,6 +1104,11 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
                 if (!p)
                         return -ENOMEM;
 
+                /* Truncate suffix indicating the process is a zombie */
+                e = endswith(p, " (deleted)");
+                if (e)
+                        *e = 0;
+
                 *path = p;
                 return 0;
         }
