@@ -14,6 +14,7 @@ NSPAWN_TIMEOUT="${NSPAWN_TIMEOUT:-infinity}"
 TIMED_OUT=  # will be 1 after run_* if *_TIMEOUT is set and test timed out
 [[ "$LOOKS_LIKE_SUSE" ]] && FSTYPE="${FSTYPE:-btrfs}" || FSTYPE="${FSTYPE:-ext3}"
 UNIFIED_CGROUP_HIERARCHY="${UNIFIED_CGROUP_HIERARCHY:-default}"
+EFI_MOUNT="$(bootctl -p)"
 
 if ! ROOTLIBDIR=$(pkg-config --variable=systemdutildir systemd); then
     echo "WARNING! Cannot determine rootlibdir from pkg-config, assuming /usr/lib/systemd" >&2
@@ -61,10 +62,10 @@ function find_qemu_bin() {
 run_qemu() {
     if [ -f /etc/machine-id ]; then
         read MACHINE_ID < /etc/machine-id
-        [ -z "$INITRD" ] && [ -e "/boot/$MACHINE_ID/$KERNEL_VER/initrd" ] \
-            && INITRD="/boot/$MACHINE_ID/$KERNEL_VER/initrd"
-        [ -z "$KERNEL_BIN" ] && [ -e "/boot/$MACHINE_ID/$KERNEL_VER/linux" ] \
-            && KERNEL_BIN="/boot/$MACHINE_ID/$KERNEL_VER/linux"
+        [ -z "$INITRD" ] && [ -e "$EFI_MOUNT/$MACHINE_ID/$KERNEL_VER/initrd" ] \
+            && INITRD="$EFI_MOUNT/$MACHINE_ID/$KERNEL_VER/initrd"
+        [ -z "$KERNEL_BIN" ] && [ -e "$EFI_MOUNT/$MACHINE_ID/$KERNEL_VER/linux" ] \
+            && KERNEL_BIN="$EFI_MOUNT/$MACHINE_ID/$KERNEL_VER/linux"
     fi
 
     if [[ ! "$KERNEL_BIN" ]]; then
