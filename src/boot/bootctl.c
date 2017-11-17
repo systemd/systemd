@@ -915,9 +915,9 @@ static int must_be_root(void) {
 static int verb_status(int argc, char *argv[], void *userdata) {
 
         sd_id128_t uuid = SD_ID128_NULL;
-        int r, r2;
+        int r, k;
 
-        r2 = find_esp_and_warn(NULL, NULL, NULL, &uuid);
+        r = find_esp_and_warn(NULL, NULL, NULL, &uuid);
 
         if (is_efi_boot()) {
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL;
@@ -931,24 +931,24 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 if (loader_path)
                         efi_tilt_backslashes(loader_path);
 
-                r = efi_loader_get_device_part_uuid(&loader_part_uuid);
-                if (r < 0 && r != -ENOENT)
-                        r2 = log_warning_errno(r, "Failed to read EFI variable LoaderDevicePartUUID: %m");
+                k = efi_loader_get_device_part_uuid(&loader_part_uuid);
+                if (k < 0 && k != -ENOENT)
+                        r = log_warning_errno(k, "Failed to read EFI variable LoaderDevicePartUUID: %m");
 
                 printf("System:\n");
                 printf("     Firmware: %s (%s)\n", strna(fw_type), strna(fw_info));
 
-                r = is_efi_secure_boot();
-                if (r < 0)
-                        r2 = log_warning_errno(r, "Failed to query secure boot status: %m");
+                k = is_efi_secure_boot();
+                if (k < 0)
+                        r = log_warning_errno(k, "Failed to query secure boot status: %m");
                 else
-                        printf("  Secure Boot: %sd\n", enable_disable(r));
+                        printf("  Secure Boot: %sd\n", enable_disable(k));
 
-                r = is_efi_secure_boot_setup_mode();
-                if (r < 0)
-                        r2 = log_warning_errno(r, "Failed to query secure boot mode: %m");
+                k = is_efi_secure_boot_setup_mode();
+                if (k < 0)
+                        r = log_warning_errno(k, "Failed to query secure boot mode: %m");
                 else
-                        printf("   Setup Mode: %s\n", r ? "setup" : "user");
+                        printf("   Setup Mode: %s\n", k ? "setup" : "user");
                 printf("\n");
 
                 printf("Current Loader:\n");
@@ -963,21 +963,21 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         } else
                 printf("System:\n    Not booted with EFI\n\n");
 
-        r = status_binaries(arg_path, uuid);
-        if (r < 0)
-                r2 = r;
+        k = status_binaries(arg_path, uuid);
+        if (k < 0)
+                r = k;
 
         if (is_efi_boot()) {
-                r = status_variables();
-                if (r < 0)
-                        r2 = r;
+                k = status_variables();
+                if (k < 0)
+                        r = k;
         }
 
-        r = status_entries(arg_path, uuid);
-        if (r < 0)
-                r2 = r;
+        k = status_entries(arg_path, uuid);
+        if (k < 0)
+                r = k;
 
-        return r2;
+        return r;
 }
 
 static int verb_list(int argc, char *argv[], void *userdata) {
