@@ -1111,11 +1111,7 @@ static int mount_legacy_cgns_unsupported(
         if (r > 0)
                 goto skip_controllers;
 
-        controllers = set_new(&string_hash_ops);
-        if (!controllers)
-                return log_oom();
-
-        r = cg_kernel_controllers(controllers);
+        r = cg_kernel_controllers(&controllers);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine cgroup controllers: %m");
 

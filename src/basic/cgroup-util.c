@@ -2369,21 +2369,29 @@ int cg_mask_supported(CGroupMask *ret) {
         return 0;
 }
 
-int cg_kernel_controllers(Set *controllers) {
+int cg_kernel_controllers(Set **ret) {
+        _cleanup_set_free_free_ Set *controllers = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
-        assert(controllers);
+        assert(ret);
 
         /* Determines the full list of kernel-known controllers. Might
          * include controllers we don't actually support, arbitrary
          * named hierarchies and controllers that aren't currently
          * accessible (because not mounted). */
 
+        controllers = set_new(&string_hash_ops);
+        if (!controllers)
+                return -ENOMEM;
+
         f = fopen("/proc/cgroups", "re");
         if (!f) {
-                if (errno == ENOENT)
+                if (errno == ENOENT) {
+                        *ret = NULL;
                         return 0;
+                }
+
                 return -errno;
         }
 
@@ -2420,6 +2428,9 @@ int cg_kernel_controllers(Set *controllers) {
                 if (r < 0)
                         return r;
         }
+
+        *ret = controllers;
+        controllers = NULL;
 
         return 0;
 }

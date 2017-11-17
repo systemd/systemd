@@ -237,11 +237,7 @@ int mount_cgroup_controllers(char ***join_controllers) {
 
         /* Mount all available cgroup controllers that are built into the kernel. */
 
-        controllers = set_new(&string_hash_ops);
-        if (!controllers)
-                return log_oom();
-
-        r = cg_kernel_controllers(controllers);
+        r = cg_kernel_controllers(&controllers);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate cgroup controllers: %m");
 
