@@ -28,6 +28,10 @@ Features:
   the runtime dir as we maintain for the fdstore: i.e. keep it around as long
   as the unit is running or has a job queued.
 
+* hook up sd-bus' creds stuff with SO_PEERGROUPS
+
+* add async version of sd_bus_add_match and make use of that
+
 * let's log the "tainted" string at boot
 
 * Add NetworkNamespacePath= to specify a path to a network namespace
