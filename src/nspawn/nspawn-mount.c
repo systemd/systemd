@@ -867,19 +867,30 @@ int mount_custom(
 /* Retrieve existing subsystems. This function is called in a new cgroup
  * namespace.
  */
-static int get_controllers(Set *subsystems) {
+static int get_process_controllers(Set **ret) {
+        _cleanup_set_free_free_ Set *controllers = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        char line[LINE_MAX];
+        int r;
 
-        assert(subsystems);
+        assert(ret);
+
+        controllers = set_new(&string_hash_ops);
+        if (!controllers)
+                return -ENOMEM;
 
         f = fopen("/proc/self/cgroup", "re");
         if (!f)
                 return errno == ENOENT ? -ESRCH : -errno;
 
-        FOREACH_LINE(line, f, return -errno) {
-                int r;
-                char *e, *l, *p;
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+                char *e, *l;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
 
                 l = strchr(line, ':');
                 if (!l)
@@ -895,14 +906,13 @@ static int get_controllers(Set *subsystems) {
                 if (STR_IN_SET(l, "", "name=systemd", "name=unified"))
                         continue;
 
-                p = strdup(l);
-                if (!p)
-                        return -ENOMEM;
-
-                r = set_consume(subsystems, p);
+                r = set_put_strdup(controllers, l);
                 if (r < 0)
                         return r;
         }
+
+        *ret = controllers;
+        controllers = NULL;
 
         return 0;
 }
@@ -999,11 +1009,7 @@ static int mount_legacy_cgns_supported(
         if (r > 0)
                 goto skip_controllers;
 
-        controllers = set_new(&string_hash_ops);
-        if (!controllers)
-                return log_oom();
-
-        r = get_controllers(controllers);
+        r = get_process_controllers(&controllers);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine cgroup controllers: %m");
 
