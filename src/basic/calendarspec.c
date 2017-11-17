@@ -51,10 +51,10 @@ static void free_chain(CalendarComponent *c) {
         }
 }
 
-void calendar_spec_free(CalendarSpec *c) {
+CalendarSpec* calendar_spec_free(CalendarSpec *c) {
 
         if (!c)
-                return;
+                return NULL;
 
         free_chain(c->year);
         free_chain(c->month);
@@ -64,7 +64,7 @@ void calendar_spec_free(CalendarSpec *c) {
         free_chain(c->microsecond);
         free(c->timezone);
 
-        free(c);
+        return mfree(c);
 }
 
 static int component_compare(const void *_a, const void *_b) {

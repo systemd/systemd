@@ -52,7 +52,7 @@ typedef struct CalendarSpec {
         CalendarComponent *microsecond;
 } CalendarSpec;
 
-void calendar_spec_free(CalendarSpec *c);
+CalendarSpec* calendar_spec_free(CalendarSpec *c);
 
 int calendar_spec_normalize(CalendarSpec *spec);
 bool calendar_spec_valid(CalendarSpec *spec);
