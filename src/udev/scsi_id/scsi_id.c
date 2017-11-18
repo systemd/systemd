@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright (C) IBM Corp. 2003
  * Copyright (C) SUSE Linux Products GmbH, 2006

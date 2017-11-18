@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright (C) 2003-2004 Greg Kroah-Hartman <greg@kroah.com>
  * Copyright (C) 2004-2008 Kay Sievers <kay@vrfy.org>

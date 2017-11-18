@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright (C) 2006-2009 Kay Sievers <kay@vrfy.org>
  * Copyright (C) 2009 Canonical Ltd.
