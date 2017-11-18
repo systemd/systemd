@@ -29,7 +29,6 @@ g dialout -     -            -
 g disk    -     -            -
 g input   -     -            -
 g lp      -     -            -
-g kvm     -     -            -
 g tape    -     -            -
 g video   -     -            -
 g render  -     -            -
