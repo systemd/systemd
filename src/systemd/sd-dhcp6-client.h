@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1+ */
 #ifndef foosddhcp6clienthfoo
 #define foosddhcp6clienthfoo
 
