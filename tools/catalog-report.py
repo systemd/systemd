@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- Mode: python; coding: utf-8; indent-tabs-mode: nil -*- */
+# SPDX-License-Identifier: MIT
 #
 # This file is part of systemd. It is distrubuted under the MIT license, see
 # below.
