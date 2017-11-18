@@ -1,4 +1,6 @@
 /***
+  SPDX-License-Identifier: MIT
+
   Copyright 2014 Tom Gundersen
 
   Permission is hereby granted, free of charge, to any person
