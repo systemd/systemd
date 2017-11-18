@@ -1,4 +1,5 @@
 #compdef networkctl
+# SPDX-License-Identifier: LGPL-2.1+
 
 _networkctl_command(){
     local -a _networkctl_cmds

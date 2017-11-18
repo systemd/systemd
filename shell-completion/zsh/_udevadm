@@ -1,4 +1,5 @@
 #compdef udevadm
+# SPDX-License-Identifier: LGPL-2.1+
 
 _udevadm_info(){
     _arguments \

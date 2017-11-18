@@ -1,4 +1,5 @@
 #compdef systemd-tmpfiles
+# SPDX-License-Identifier: LGPL-2.1+
 
 _arguments \
     {-h,--help}'[Show help]' \

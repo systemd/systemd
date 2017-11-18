@@ -1,4 +1,5 @@
 #compdef localectl
+# SPDX-License-Identifier: LGPL-2.1+
 
 _localectl_set-locale() {
     local -a _locales locale_fields

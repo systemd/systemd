@@ -1,4 +1,5 @@
 #compdef kernel-install
+# SPDX-License-Identifier: LGPL-2.1+
 
 _images(){
     if [[ "$words[2]" == "remove" ]]; then

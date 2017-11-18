@@ -1,4 +1,5 @@
 #compdef systemd-nspawn
+# SPDX-License-Identifier: LGPL-2.1+
 
 _nspawn-caps(){
     local -a _caps

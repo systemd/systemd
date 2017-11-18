@@ -1,4 +1,5 @@
 #compdef loginctl
+# SPDX-License-Identifier: LGPL-2.1+
 
 _loginctl_all_sessions() {
   local session description
