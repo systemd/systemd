@@ -36,8 +36,8 @@ SUBSYSTEM=="dvb", GROUP="video"
 SUBSYSTEM=="media", GROUP="video"
 SUBSYSTEM=="cec", GROUP="video"
 
-SUBSYSTEM=="drm", KERNEL=="renderD*", GROUP="render", MODE="@GROUP_RENDER_MODE@"
-SUBSYSTEM=="kfd", GROUP="render", MODE="@GROUP_RENDER_MODE@"
+SUBSYSTEM=="drm", KERNEL=="renderD*", MODE="@GROUP_RENDER_MODE@"
+SUBSYSTEM=="kfd", MODE="@GROUP_RENDER_MODE@"
 
 SUBSYSTEM=="sound", GROUP="audio", \
   OPTIONS+="static_node=snd/seq", OPTIONS+="static_node=snd/timer"

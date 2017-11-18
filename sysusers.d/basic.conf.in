@@ -31,7 +31,6 @@ g input   -     -            -
 g lp      -     -            -
 g tape    -     -            -
 g video   -     -            -
-g render  -     -            -
 
 # Default group for normal users
 g users   -     -            -
