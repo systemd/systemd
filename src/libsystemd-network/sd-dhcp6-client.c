@@ -1035,7 +1035,7 @@ static int client_receive_message(
                         break;
                 }
 
-                /* fall through */ /* for Soliciation Rapid Commit option check */
+                _fallthrough_; /* for Soliciation Rapid Commit option check */
         case DHCP6_STATE_REQUEST:
         case DHCP6_STATE_RENEW:
         case DHCP6_STATE_REBIND:
@@ -1100,7 +1100,7 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
                         return 0;
                 }
 
-                /* fall through */
+                _fallthrough_;
         case DHCP6_STATE_SOLICITATION:
                 client->state = DHCP6_STATE_SOLICITATION;
 

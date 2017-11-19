@@ -532,7 +532,7 @@ static int job_perform_on_unit(Job **j) {
 
                 case JOB_RESTART:
                         t = JOB_STOP;
-                        /* fall through */
+                        _fallthrough_;
                 case JOB_STOP:
                         r = unit_stop(u);
                         break;

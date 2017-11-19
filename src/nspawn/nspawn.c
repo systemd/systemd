@@ -569,8 +569,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_oom();
 
-                        /* fall through */
-
+                        _fallthrough_;
                 case 'n':
                         arg_network_veth = true;
                         arg_private_network = true;
@@ -624,8 +623,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (strv_extend(&arg_network_ipvlan, optarg) < 0)
                                 return log_oom();
 
-                        /* fall through */
-
+                        _fallthrough_;
                 case ARG_PRIVATE_NETWORK:
                         arg_private_network = true;
                         arg_settings_mask |= SETTING_NETWORK;
@@ -2013,8 +2011,7 @@ static int wait_for_container(pid_t pid, ContainerStatus *container) {
                         return 0;
                 }
 
-                /* fall through */
-
+                _fallthrough_;
         case CLD_DUMPED:
                 log_error("Container %s terminated by signal %s.", arg_machine, signal_to_string(status.si_status));
                 return -EIO;

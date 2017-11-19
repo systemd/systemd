@@ -1756,8 +1756,7 @@ static int add_object_vtable_internal(
                                 goto fail;
                         }
 
-                        /* Fall through */
-
+                        _fallthrough_;
                 case _SD_BUS_VTABLE_PROPERTY: {
                         struct vtable_member *m;
 

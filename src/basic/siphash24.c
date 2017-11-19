@@ -127,25 +127,25 @@ void siphash24_compress(const void *_in, size_t inlen, struct siphash *state) {
         switch (left) {
                 case 7:
                         state->padding |= ((uint64_t) in[6]) << 48;
-                        /* fall through */
+                        _fallthrough_;
                 case 6:
                         state->padding |= ((uint64_t) in[5]) << 40;
-                        /* fall through */
+                        _fallthrough_;
                 case 5:
                         state->padding |= ((uint64_t) in[4]) << 32;
-                        /* fall through */
+                        _fallthrough_;
                 case 4:
                         state->padding |= ((uint64_t) in[3]) << 24;
-                        /* fall through */
+                        _fallthrough_;
                 case 3:
                         state->padding |= ((uint64_t) in[2]) << 16;
-                        /* fall through */
+                        _fallthrough_;
                 case 2:
                         state->padding |= ((uint64_t) in[1]) <<  8;
-                        /* fall through */
+                        _fallthrough_;
                 case 1:
                         state->padding |= ((uint64_t) in[0]);
-                        /* fall through */
+                        _fallthrough_;
                 case 0:
                         break;
         }

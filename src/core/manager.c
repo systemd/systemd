@@ -2113,8 +2113,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                                 break;
                         }
 
-                        /* Fall through */
-
+                        _fallthrough_;
                 case SIGINT:
                         if (MANAGER_IS_SYSTEM(m))
                                 manager_handle_ctrl_alt_del(m);

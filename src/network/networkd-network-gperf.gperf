@@ -1,4 +1,7 @@
 %{
+#if __GNUC__ >= 7
+_Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
+#endif
 #include <stddef.h>
 #include "conf-parser.h"
 #include "networkd-conf.h"

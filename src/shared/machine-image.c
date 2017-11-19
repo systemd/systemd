@@ -513,8 +513,7 @@ int image_remove(Image *i) {
                 if (path_startswith(i->path, "/dev"))
                         break;
 
-                /* fallthrough */
-
+                _fallthrough_;
         case IMAGE_RAW:
                 if (unlink(i->path) < 0)
                         return -errno;
@@ -599,8 +598,7 @@ int image_rename(Image *i, const char *new_name) {
                 if (file_attr & FS_IMMUTABLE_FL)
                         (void) chattr_path(i->path, 0, FS_IMMUTABLE_FL);
 
-                /* fall through */
-
+                _fallthrough_;
         case IMAGE_SUBVOLUME:
                 new_path = file_in_same_dir(i->path, new_name);
                 break;

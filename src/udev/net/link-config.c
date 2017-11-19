@@ -328,7 +328,7 @@ static bool should_rename(struct udev_device *device, bool respect_predictable) 
                 /* the kernel claims to have given a predictable name */
                 if (respect_predictable)
                         return false;
-                /* fall through */
+                _fallthrough_;
         case NET_NAME_ENUM:
         default:
                 /* the name is known to be bad, or of an unknown type */

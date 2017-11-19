@@ -48,6 +48,7 @@
 #define _weakref_(x) __attribute__((weakref(#x)))
 #define _alignas_(x) __attribute__((aligned(__alignof(x))))
 #define _cleanup_(x) __attribute__((cleanup(x)))
+#define _fallthrough_ __attribute__((fallthrough))
 
 /* Temporarily disable some warnings */
 #define DISABLE_WARNING_DECLARATION_AFTER_STATEMENT                     \

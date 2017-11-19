@@ -1,5 +1,10 @@
 #!/bin/sh -eu
 awk '   BEGIN {
+                print "%{\n\
+#if __GNUC__ >= 7\n\
+_Pragma(\"GCC diagnostic ignored \\\"-Wimplicit-fallthrough\\\"\")\n\
+#endif\n\
+%}"
                 print "struct key_name { const char* name; unsigned short id; };"
                 print "%null-strings"
                 print "%%"

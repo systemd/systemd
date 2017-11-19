@@ -2155,7 +2155,7 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        /* fallthrough */
+                        _fallthrough_;
                 case MANAGER_REBOOT:
                 case MANAGER_POWEROFF:
                 case MANAGER_HALT:
