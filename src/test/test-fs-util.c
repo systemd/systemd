@@ -315,6 +315,32 @@ static void test_dot_or_dot_dot(void) {
         assert_se(!dot_or_dot_dot("..foo"));
 }
 
+static void test_access_fd(void) {
+        _cleanup_(rmdir_and_freep) char *p = NULL;
+        _cleanup_close_ int fd = -1;
+
+        assert_se(mkdtemp_malloc("/tmp/access-fd.XXXXXX", &p) >= 0);
+
+        fd = open(p, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        assert_se(fd >= 0);
+
+        assert_se(access_fd(fd, R_OK) >= 0);
+        assert_se(access_fd(fd, F_OK) >= 0);
+        assert_se(access_fd(fd, W_OK) >= 0);
+
+        assert_se(fchmod(fd, 0000) >= 0);
+
+        assert_se(access_fd(fd, F_OK) >= 0);
+
+        if (geteuid() == 0) {
+                assert_se(access_fd(fd, R_OK) >= 0);
+                assert_se(access_fd(fd, W_OK) >= 0);
+        } else {
+                assert_se(access_fd(fd, R_OK) == -EACCES);
+                assert_se(access_fd(fd, W_OK) == -EACCES);
+        }
+}
+
 int main(int argc, char *argv[]) {
         test_unlink_noerrno();
         test_get_files_in_directory();
@@ -322,6 +348,7 @@ int main(int argc, char *argv[]) {
         test_var_tmp();
         test_chase_symlinks();
         test_dot_or_dot_dot();
+        test_access_fd();
 
         return 0;
 }

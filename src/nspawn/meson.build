@@ -1,25 +1,26 @@
 systemd_nspawn_sources = files('''
-        nspawn.c
-        nspawn-settings.c
-        nspawn-settings.h
+        nspawn-cgroup.c
+        nspawn-cgroup.h
+        nspawn-def.h
+        nspawn-expose-ports.c
+        nspawn-expose-ports.h
         nspawn-mount.c
         nspawn-mount.h
         nspawn-network.c
         nspawn-network.h
-        nspawn-expose-ports.c
-        nspawn-expose-ports.h
-        nspawn-cgroup.c
-        nspawn-cgroup.h
-        nspawn-seccomp.c
-        nspawn-seccomp.h
+        nspawn-patch-uid.c
+        nspawn-patch-uid.h
         nspawn-register.c
         nspawn-register.h
+        nspawn-seccomp.c
+        nspawn-seccomp.h
+        nspawn-settings.c
+        nspawn-settings.h
         nspawn-setuid.c
         nspawn-setuid.h
         nspawn-stub-pid1.c
         nspawn-stub-pid1.h
-        nspawn-patch-uid.c
-        nspawn-patch-uid.h
+        nspawn.c
 '''.split())
 
 nspawn_gperf_c = custom_target(

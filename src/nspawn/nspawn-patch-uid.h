@@ -1,3 +1,5 @@
+#pragma once
+
 /***
   This file is part of systemd.
 
