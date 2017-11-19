@@ -1448,7 +1448,11 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <varname>RestrictAddressFamilies=</varname>, <varname>RestrictNamespaces=</varname>,
         <varname>PrivateDevices=</varname>, <varname>ProtectKernelTunables=</varname>,
         <varname>ProtectKernelModules=</varname>, <varname>MemoryDenyWriteExecute=</varname>, or
-        <varname>RestrictRealtime=</varname> are specified.</para></listitem>
+        <varname>RestrictRealtime=</varname> are specified.</para>
+
+        <para>Also see
+        <ulink url="https://www.kernel.org/doc/html/latest/userspace-api/no_new_privs.html">No New Privileges Flag</ulink>.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
