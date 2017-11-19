@@ -2774,7 +2774,7 @@ int link_initialized(Link *link, struct udev_device *device) {
                 return r;
 
         r = sd_netlink_call_async(link->manager->rtnl, req,
-                               link_initialized_and_synced, link, 0, NULL);
+                                  link_initialized_and_synced, link, 0, NULL);
         if (r < 0)
                 return r;
 
