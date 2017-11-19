@@ -836,11 +836,13 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         bool mount_slave_created = false, mount_slave_mounted = false,
                 mount_tmp_created = false, mount_tmp_mounted = false,
                 mount_outside_created = false, mount_outside_mounted = false;
+        _cleanup_free_ char *chased_src = NULL;
+        int read_only, make_file_or_directory;
         const char *dest, *src;
         Machine *m = userdata;
-        int read_only, make_directory;
-        pid_t child;
+        struct stat st;
         siginfo_t si;
+        pid_t child;
         uid_t uid;
         int r;
 
@@ -850,7 +852,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         if (m->class != MACHINE_CONTAINER)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Bind mounting is only supported on container machines.");
 
-        r = sd_bus_message_read(message, "ssbb", &src, &dest, &read_only, &make_directory);
+        r = sd_bus_message_read(message, "ssbb", &src, &dest, &read_only, &make_file_or_directory);
         if (r < 0)
                 return r;
 
@@ -890,6 +892,15 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         if (laccess(p, F_OK) < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Container does not allow propagation of mount points.");
 
+        r = chase_symlinks(src, NULL, 0, &chased_src);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to resolve source path: %m");
+
+        if (lstat(chased_src, &st) < 0)
+                return sd_bus_error_set_errnof(error, errno, "Failed to stat() source path: %m");
+        if (S_ISLNK(st.st_mode)) /* This shouldn't really happen, given that we just chased the symlinks above, but let's better be safe… */
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Source directory can't be a symbolic link");
+
         /* Our goal is to install a new bind mount into the container,
            possibly read-only. This is irritatingly complex
            unfortunately, currently.
@@ -916,18 +927,21 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
                 goto finish;
         }
 
-        /* Second, we mount the source directory to a directory inside
-           of our MS_SLAVE playground. */
+        /* Second, we mount the source file or directory to a directory inside of our MS_SLAVE playground. */
         mount_tmp = strjoina(mount_slave, "/mount");
-        if (mkdir(mount_tmp, 0700) < 0) {
-                r = sd_bus_error_set_errnof(error, errno, "Failed to create temporary mount point %s: %m", mount_tmp);
+        if (S_ISDIR(st.st_mode))
+                r = mkdir(mount_tmp, 0700) < 0 ? -errno : 0;
+        else
+                r = touch(mount_tmp);
+        if (r < 0) {
+                sd_bus_error_set_errnof(error, errno, "Failed to create temporary mount point %s: %m", mount_tmp);
                 goto finish;
         }
 
         mount_tmp_created = true;
 
-        if (mount(src, mount_tmp, NULL, MS_BIND, NULL) < 0) {
-                r = sd_bus_error_set_errnof(error, errno, "Failed to mount %s: %m", src);
+        if (mount(chased_src, mount_tmp, NULL, MS_BIND, NULL) < 0) {
+                r = sd_bus_error_set_errnof(error, errno, "Failed to mount %s: %m", chased_src);
                 goto finish;
         }
 
@@ -940,13 +954,18 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
                         goto finish;
                 }
 
-        /* Fourth, we move the new bind mount into the propagation
-         * directory. This way it will appear there read-only
+        /* Fourth, we move the new bind mount into the propagation directory. This way it will appear there read-only
          * right-away. */
 
         mount_outside = strjoina("/run/systemd/nspawn/propagate/", m->name, "/XXXXXX");
-        if (!mkdtemp(mount_outside)) {
-                r = sd_bus_error_set_errnof(error, errno, "Cannot create propagation directory %s: %m", mount_outside);
+        if (S_ISDIR(st.st_mode))
+                r = mkdtemp(mount_outside) ? 0 : -errno;
+        else {
+                r = mkostemp_safe(mount_outside);
+                safe_close(r);
+        }
+        if (r < 0) {
+                sd_bus_error_set_errnof(error, errno, "Cannot create propagation file or directory %s: %m", mount_outside);
                 goto finish;
         }
 
@@ -960,7 +979,10 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         mount_outside_mounted = true;
         mount_tmp_mounted = false;
 
-        (void) rmdir(mount_tmp);
+        if (S_ISDIR(st.st_mode))
+                (void) rmdir(mount_tmp);
+        else
+                (void) unlink(mount_tmp);
         mount_tmp_created = false;
 
         (void) umount(mount_slave);
@@ -999,8 +1021,14 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
                         goto child_fail;
                 }
 
-                if (make_directory)
-                        (void) mkdir_p(dest, 0755);
+                if (make_file_or_directory) {
+                        if (S_ISDIR(st.st_mode))
+                                (void) mkdir_p(dest, 0755);
+                        else {
+                                (void) mkdir_parents(dest, 0755);
+                                safe_close(open(dest, O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC|O_NOCTTY, 0600));
+                        }
+                }
 
                 /* Fifth, move the mount to the right place inside */
                 mount_inside = strjoina("/run/systemd/nspawn/incoming/", basename(mount_outside));
@@ -1042,19 +1070,27 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
 
 finish:
         if (mount_outside_mounted)
-                umount(mount_outside);
-        if (mount_outside_created)
-                rmdir(mount_outside);
+                (void) umount(mount_outside);
+        if (mount_outside_created) {
+                if (S_ISDIR(st.st_mode))
+                        (void) rmdir(mount_outside);
+                else
+                        (void) unlink(mount_outside);
+        }
 
         if (mount_tmp_mounted)
-                umount(mount_tmp);
-        if (mount_tmp_created)
-                rmdir(mount_tmp);
+                (void) umount(mount_tmp);
+        if (mount_tmp_created) {
+                if (S_ISDIR(st.st_mode))
+                        (void) rmdir(mount_tmp);
+                else
+                        (void) unlink(mount_tmp);
+        }
 
         if (mount_slave_mounted)
-                umount(mount_slave);
+                (void) umount(mount_slave);
         if (mount_slave_created)
-                rmdir(mount_slave);
+                (void) rmdir(mount_slave);
 
         return r;
 }
