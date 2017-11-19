@@ -1,4 +1,5 @@
 #compdef systemd-run
+# SPDX-License-Identifier: LGPL-2.1+
 
 __systemctl() {
         local -a _modes

@@ -1,4 +1,5 @@
 #compdef hostnamectl
+# SPDX-License-Identifier: LGPL-2.1+
 
 _hostnamectl_set-hostname() {
     if (( CURRENT <= 3 )); then

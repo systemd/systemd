@@ -1,4 +1,5 @@
 #compdef systemd-delta
+# SPDX-License-Identifier: LGPL-2.1+
 
 _delta_type() {
     local -a _delta_types

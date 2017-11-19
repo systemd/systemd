@@ -1,4 +1,6 @@
-/* Copyright (c) 2012 Josh Triplett <josh@joshtriplett.org>
+/* SPDX-License-Identifier: MIT
+ *
+ * Copyright (c) 2012 Josh Triplett <josh@joshtriplett.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to

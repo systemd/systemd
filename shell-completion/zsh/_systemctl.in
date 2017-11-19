@@ -1,4 +1,5 @@
 #compdef systemctl
+# SPDX-License-Identifier: LGPL-2.1+
 
 (( $+functions[_systemctl_command] )) || _systemctl_command()
 {

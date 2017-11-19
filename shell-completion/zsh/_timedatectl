@@ -1,4 +1,5 @@
 #compdef timedatectl
+# SPDX-License-Identifier: LGPL-2.1+
 
 _timedatectl_set-timezone(){
     local -a _timezones

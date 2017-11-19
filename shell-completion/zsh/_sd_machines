@@ -1,4 +1,5 @@
 #autoload
+# SPDX-License-Identifier: LGPL-2.1+
 __get_machines () {
         machinectl --full --no-legend --no-pager list |  {while read -r a b; do echo $a; done;};
 }

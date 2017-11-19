@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: LGPL-2.1+
 
 OUTFILE_HEADER = """#!/usr/bin/env python3
+# SPDX-License-Identifier: LGPL-2.1+
 #
 # create-sys-script.py
 #

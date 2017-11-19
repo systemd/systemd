@@ -1,6 +1,8 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 
 <!--
+  SPDX-License-Identifier: LGPL-2.1+
+
   This file is part of systemd.
 
   Copyright 2013 Zbigniew Jędrzejewski-Szmek

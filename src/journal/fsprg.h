@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1+ */
+
 #ifndef __fsprgh__
 #define __fsprgh__
 

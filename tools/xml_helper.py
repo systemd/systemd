@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 #  -*- Mode: python; coding: utf-8; indent-tabs-mode: nil -*- */
+#  SPDX-License-Identifier: LGPL-2.1+
 #
 #  This file is part of systemd.
 #
@@ -27,9 +28,11 @@ class CustomResolver(tree.Resolver):
 
 _parser = tree.XMLParser()
 _parser.resolvers.add(CustomResolver())
+
 def xml_parse(page):
     doc = tree.parse(page, _parser)
     doc.xinclude()
     return doc
+
 def xml_print(xml):
     return tree.tostring(xml, pretty_print=True, encoding='utf-8')

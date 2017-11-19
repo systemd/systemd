@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1+
+#
 # Polish translation for systemd.
 # Copyright © 2011-2017 the systemd authors.
 # This file is distributed under the same license as the systemd package.

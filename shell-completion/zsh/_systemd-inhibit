@@ -1,4 +1,5 @@
 #compdef systemd-inhibit
+# SPDX-License-Identifier: LGPL-2.1+
 
 _systemd_inhibit_command(){
     if (( CURRENT == 1 )); then
