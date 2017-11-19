@@ -120,10 +120,6 @@
         <varlistentry>
           <term><option>CPU</option></term>
           <listitem>
-            <para>Due to the lack of consensus in the kernel community, the CPU controller support on the unified
-            control group hierarchy requires out-of-tree kernel patches. See <ulink
-            url="https://git.kernel.org/cgit/linux/kernel/git/tj/cgroup.git/tree/Documentation/cgroup-v2-cpu.txt?h=cgroup-v2-cpu">cgroup-v2-cpu.txt</ulink>.</para>
-
             <para><varname>CPUWeight=</varname> and <varname>StartupCPUWeight=</varname> replace
             <varname>CPUShares=</varname> and <varname>StartupCPUShares=</varname>, respectively.</para>
 
@@ -142,7 +138,7 @@
         <varlistentry>
           <term><option>IO</option></term>
           <listitem>
-            <para><varname>IO</varname> prefixed settings are superset of and replace <varname>BlockIO</varname>
+            <para><varname>IO</varname> prefixed settings are a superset of and replace <varname>BlockIO</varname>
             prefixed ones. On unified hierarchy, IO resource control also applies to buffered writes.</para>
           </listitem>
         </varlistentry>
