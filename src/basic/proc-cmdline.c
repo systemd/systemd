@@ -271,17 +271,21 @@ static const char * const rlmap_initrd[] = {
 };
 
 const char* runlevel_to_target(const char *word) {
+        const char * const *rlmap_ptr;
         size_t i;
-        const char * const *rlmap_ptr = in_initrd() ? rlmap_initrd
-                                                    : rlmap;
 
         if (!word)
                 return NULL;
 
-        if (in_initrd() && (word = startswith(word, "rd.")) == NULL)
-                return NULL;
+        if (in_initrd()) {
+                word = startswith(word, "rd.");
+                if (!word)
+                        return NULL;
+        }
 
-        for (i = 0; rlmap_ptr[i] != NULL; i += 2)
+        rlmap_ptr = in_initrd() ? rlmap_initrd : rlmap;
+
+        for (i = 0; rlmap_ptr[i]; i += 2)
                 if (streq(word, rlmap_ptr[i]))
                         return rlmap_ptr[i+1];
 

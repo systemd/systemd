@@ -606,7 +606,7 @@ bool valid_home(const char *p) {
         if (!path_is_absolute(p))
                 return false;
 
-        if (!path_is_safe(p))
+        if (!path_is_normalized(p))
                 return false;
 
         /* Colons are used as field separators, and hence not OK */

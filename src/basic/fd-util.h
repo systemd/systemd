@@ -76,6 +76,18 @@ bool fdname_is_valid(const char *s);
 
 int fd_get_path(int fd, char **ret);
 
+int move_fd(int from, int to, int cloexec);
+
+enum {
+        ACQUIRE_NO_DEV_NULL = 1 << 0,
+        ACQUIRE_NO_MEMFD    = 1 << 1,
+        ACQUIRE_NO_PIPE     = 1 << 2,
+        ACQUIRE_NO_TMPFILE  = 1 << 3,
+        ACQUIRE_NO_REGULAR  = 1 << 4,
+};
+
+int acquire_data_fd(const void *data, size_t size, unsigned flags);
+
 /* Hint: ENETUNREACH happens if we try to connect to "non-existing" special IP addresses, such as ::5 */
 #define ERRNO_IS_DISCONNECT(r) \
         IN_SET(r, ENOTCONN, ECONNRESET, ECONNREFUSED, ECONNABORTED, EPIPE, ENETUNREACH)

@@ -32,13 +32,6 @@ Features:
 
 * Add NetworkNamespacePath= to specify a path to a network namespace
 
-* Add StandardInputData= and StandardInputText= for putting together data to
-  pass to a service through stdin
-
-* Add StandardInputPath=, StandardOutputPath=, StandardErrorPath= to connect a
-  service to a specific file. Be smart, and if the specified path refers to an
-  AF_UNIX socket, connect() to it.
-
 * maybe use SOURCE_DATE_EPOCH (i.e. the env var the reproducible builds folks
   introduced) as the RTC epoch, instead of the mtime of NEWS.
 
@@ -50,6 +43,9 @@ Features:
 * blog about fd store and restartable services
 
 * document Environment=SYSTEMD_LOG_LEVEL=debug drop-in in debugging document
+
+* rework ExecOutput and ExecInput enums so that EXEC_OUTPUT_NULL loses its
+  magic meaning and is no longer upgraded to something else if set explicitly.
 
 * add a way to remove fds from the fdstore by name, and make logind use it
 
@@ -99,8 +95,17 @@ Features:
   taken if multiple dirs are configured. Maybe avoid setting the env vars in
   that case?
 
+* introduce SuccessAction= that permits shutting down the system when a service
+  succeeds. This is useful to replace "ExecPost=/usr/bin/systemctl poweroff" and
+  similar constructs, which are frequently used. This is particularly nice for
+  implementation of a systemd.run= kernel command line option that runs some
+  command and immediately shuts down.
+
 * expose IO accounting data on the bus, show it in systemd-run --wait and log
   about it in the resource log message
+
+* rework unbase64 code to drop whitespace automatically, so that we don't have
+  to drop it first.
 
 * add "systemctl purge" for flushing out configuration, state, logs, ... of a
   unit when it is stopped
@@ -109,12 +114,6 @@ Features:
   using mtime data of ConfigurationDirectory=.
 
 * replace all uses of fgets() + LINE_MAX by read_line()
-
-* set IPAddressDeny=any on all services that shouldn't do networking (possibly
-  combined with IPAddressAllow=localhost).
-
-* dissect: when we discover squashfs, don't claim we had a "writable" partition
-  in systemd-dissect
 
 * Add AddUser= setting to unit files, similar to DynamicUser=1 which however
   creates a static, persistent user rather than a dynamic, transient user. We
@@ -149,15 +148,6 @@ Features:
   after all. Be strict however, only support the equivalent of nspawn's
   --as-pid2 switch, and sanely proxy sd_notify() messages dropping stuff such
   as MAINPID.
-
-* change the dependency Set* objects in Unit structures to become Hashmap*, and
-  then store a bit mask who created a specific dependency: the source unit via
-  fragment configuration, the destination unit via fragment configuration, or
-  the source unit via udev rules (in case of .device units), or any combination
-  thereof. This information can then be used to flush out old udev-created
-  dependencies when the udev properties change, and eventually to implement a
-  "systemctl refresh" operation for reloading the configuration of individual
-  units without reloading the whole set.
 
 * Add ExecMonitor= setting. May be used multiple times. Forks off a process in
   the service cgroup, which is supposed to monitor the service, and when it
@@ -333,8 +323,6 @@ Features:
   http://lists.freedesktop.org/archives/systemd-devel/2015-January/027451.html
 
 * Rework systemctl's GetAll property parsing to use the generic bus_map_all_properties() API
-
-* implement a per-service firewall based on net_cls
 
 * Port various tools to make use of verbs.[ch], where applicable: busctl,
   coredumpctl, hostnamectl, localectl, systemd-analyze, timedatectl
@@ -689,7 +677,6 @@ Features:
   - document that deps in [Unit] sections ignore Alias= fields in
     [Install] units of other units, unless those units are disabled
   - man: clarify that time-sync.target is not only sysv compat but also useful otherwise. Same for similar targets
-  - document the exit codes when services fail before they are exec()ed
   - document that service reload may be implemented as service reexec
   - document in wiki how to map ical recurrence events to systemd timer unit calendar specifications
   - add a man page containing packaging guidelines and recommending usage of things like Documentation=, PrivateTmp=, PrivateNetwork= and ReadOnlyDirectories=/etc /usr.

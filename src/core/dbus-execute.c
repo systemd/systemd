@@ -35,6 +35,7 @@
 #include "execute.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "hexdecoct.h"
 #include "io-util.h"
 #include "ioprio.h"
 #include "journal-util.h"
@@ -684,7 +685,7 @@ static int property_get_syslog_facility(
         return sd_bus_message_append(reply, "i", LOG_FAC(c->syslog_priority));
 }
 
-static int property_get_input_fdname(
+static int property_get_stdio_fdname(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -694,19 +695,26 @@ static int property_get_input_fdname(
                 sd_bus_error *error) {
 
         ExecContext *c = userdata;
-        const char *name;
+        int fileno;
 
         assert(bus);
         assert(c);
         assert(property);
         assert(reply);
 
-        name = exec_context_fdname(c, STDIN_FILENO);
+        if (streq(property, "StandardInputFileDescriptorName"))
+                fileno = STDIN_FILENO;
+        else if (streq(property, "StandardOutputFileDescriptorName"))
+                fileno = STDOUT_FILENO;
+        else {
+                assert(streq(property, "StandardErrorFileDescriptorName"));
+                fileno = STDERR_FILENO;
+        }
 
-        return sd_bus_message_append(reply, "s", name);
+        return sd_bus_message_append(reply, "s", exec_context_fdname(c, fileno));
 }
 
-static int property_get_output_fdname(
+static int property_get_input_data(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -716,19 +724,13 @@ static int property_get_output_fdname(
                 sd_bus_error *error) {
 
         ExecContext *c = userdata;
-        const char *name = NULL;
 
         assert(bus);
         assert(c);
         assert(property);
         assert(reply);
 
-        if (c->std_output == EXEC_OUTPUT_NAMED_FD && streq(property, "StandardOutputFileDescriptorName"))
-                name = exec_context_fdname(c, STDOUT_FILENO);
-        else if (c->std_error == EXEC_OUTPUT_NAMED_FD && streq(property, "StandardErrorFileDescriptorName"))
-                name = exec_context_fdname(c, STDERR_FILENO);
-
-        return sd_bus_message_append(reply, "s", name);
+        return sd_bus_message_append_array(reply, 'y', c->stdin_data, c->stdin_data_size);
 }
 
 static int property_get_bind_paths(
@@ -858,11 +860,12 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("CPUSchedulingResetOnFork", "b", bus_property_get_bool, offsetof(ExecContext, cpu_sched_reset_on_fork), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NonBlocking", "b", bus_property_get_bool, offsetof(ExecContext, non_blocking), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StandardInput", "s", property_get_exec_input, offsetof(ExecContext, std_input), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("StandardInputFileDescriptorName", "s", property_get_input_fdname, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("StandardInputFileDescriptorName", "s", property_get_stdio_fdname, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("StandardInputData", "ay", property_get_input_data, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StandardOutput", "s", bus_property_get_exec_output, offsetof(ExecContext, std_output), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("StandardOutputFileDescriptorName", "s", property_get_output_fdname, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("StandardOutputFileDescriptorName", "s", property_get_stdio_fdname, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StandardError", "s", bus_property_get_exec_output, offsetof(ExecContext, std_error), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("StandardErrorFileDescriptorName", "s", property_get_output_fdname, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("StandardErrorFileDescriptorName", "s", property_get_stdio_fdname, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TTYPath", "s", NULL, offsetof(ExecContext, tty_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TTYReset", "b", bus_property_get_bool, offsetof(ExecContext, tty_reset), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TTYVHangup", "b", bus_property_get_bool, offsetof(ExecContext, tty_vhangup), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1814,28 +1817,125 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (!fdname_is_valid(s))
+                if (isempty(s))
+                        s = NULL;
+                else if (!fdname_is_valid(s))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid file descriptor name");
 
                 if (mode != UNIT_CHECK) {
+
                         if (streq(name, "StandardInputFileDescriptorName")) {
+                                r = free_and_strdup(c->stdio_fdname + STDIN_FILENO, s);
+                                if (r < 0)
+                                        return r;
+
                                 c->std_input = EXEC_INPUT_NAMED_FD;
-                                r = free_and_strdup(&c->stdio_fdname[STDIN_FILENO], s);
-                                if (r < 0)
-                                        return r;
-                                unit_write_drop_in_private_format(u, mode, name, "StandardInput=fd:%s", s);
+                                unit_write_drop_in_private_format(u, mode, name, "StandardInput=fd:%s", exec_context_fdname(c, STDIN_FILENO));
+
                         } else if (streq(name, "StandardOutputFileDescriptorName")) {
-                                c->std_output = EXEC_OUTPUT_NAMED_FD;
-                                r = free_and_strdup(&c->stdio_fdname[STDOUT_FILENO], s);
+                                r = free_and_strdup(c->stdio_fdname + STDOUT_FILENO, s);
                                 if (r < 0)
                                         return r;
-                                unit_write_drop_in_private_format(u, mode, name, "StandardOutput=fd:%s", s);
-                        } else if (streq(name, "StandardErrorFileDescriptorName")) {
-                                c->std_error = EXEC_OUTPUT_NAMED_FD;
+
+                                c->std_output = EXEC_OUTPUT_NAMED_FD;
+                                unit_write_drop_in_private_format(u, mode, name, "StandardOutput=fd:%s", exec_context_fdname(c, STDOUT_FILENO));
+
+                        } else {
+                                assert(streq(name, "StandardErrorFileDescriptorName"));
+
                                 r = free_and_strdup(&c->stdio_fdname[STDERR_FILENO], s);
                                 if (r < 0)
                                         return r;
-                                unit_write_drop_in_private_format(u, mode, name, "StandardError=fd:%s", s);
+
+                                c->std_error = EXEC_OUTPUT_NAMED_FD;
+                                unit_write_drop_in_private_format(u, mode, name, "StandardError=fd:%s", exec_context_fdname(c, STDERR_FILENO));
+                        }
+                }
+
+                return 1;
+
+        } else if (STR_IN_SET(name, "StandardInputFile", "StandardOutputFile", "StandardErrorFile")) {
+                const char *s;
+
+                r = sd_bus_message_read(message, "s", &s);
+                if (r < 0)
+                        return r;
+
+                if (!path_is_absolute(s))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not absolute", s);
+                if (!path_is_normalized(s))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not normalized", s);
+
+                if (mode != UNIT_CHECK) {
+
+                        if (streq(name, "StandardInputFile")) {
+                                r = free_and_strdup(&c->stdio_file[STDIN_FILENO], s);
+                                if (r < 0)
+                                        return r;
+
+                                c->std_input = EXEC_INPUT_FILE;
+                                unit_write_drop_in_private_format(u, mode, name, "StandardInput=file:%s", s);
+
+                        } else if (streq(name, "StandardOutputFile")) {
+                                r = free_and_strdup(&c->stdio_file[STDOUT_FILENO], s);
+                                if (r < 0)
+                                        return r;
+
+                                c->std_output = EXEC_OUTPUT_FILE;
+                                unit_write_drop_in_private_format(u, mode, name, "StandardOutput=file:%s", s);
+
+                        } else {
+                                assert(streq(name, "StandardErrorFile"));
+
+                                r = free_and_strdup(&c->stdio_file[STDERR_FILENO], s);
+                                if (r < 0)
+                                        return r;
+
+                                c->std_error = EXEC_OUTPUT_FILE;
+                                unit_write_drop_in_private_format(u, mode, name, "StandardError=file:%s", s);
+                        }
+                }
+
+                return 1;
+
+        } else if (streq(name, "StandardInputData")) {
+                const void *p;
+                size_t sz;
+
+                r = sd_bus_message_read_array(message, 'y', &p, &sz);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        _cleanup_free_ char *encoded = NULL;
+
+                        if (sz == 0) {
+                                c->stdin_data = mfree(c->stdin_data);
+                                c->stdin_data_size = 0;
+
+                                unit_write_drop_in_private(u, mode, name, "StandardInputData=");
+                        } else {
+                                void *q;
+                                ssize_t n;
+
+                                if (c->stdin_data_size + sz < c->stdin_data_size || /* check for overflow */
+                                    c->stdin_data_size + sz > EXEC_STDIN_DATA_MAX)
+                                        return -E2BIG;
+
+                                n = base64mem(p, sz, &encoded);
+                                if (n < 0)
+                                        return (int) n;
+
+                                q = realloc(c->stdin_data, c->stdin_data_size + sz);
+                                if (!q)
+                                        return -ENOMEM;
+
+                                memcpy((uint8_t*) q + c->stdin_data_size, p, sz);
+
+                                c->stdin_data = q;
+                                c->stdin_data_size += sz;
+
+                                unit_write_drop_in_private_format(u, mode, name, "StandardInputData=%s", encoded);
                         }
                 }
 
@@ -2363,7 +2463,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 STRV_FOREACH(p, l) {
-                        if (!path_is_safe(*p) || path_is_absolute(*p))
+                        if (!path_is_normalized(*p) || path_is_absolute(*p))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= path is not valid: %s", name, *p);
                 }
 

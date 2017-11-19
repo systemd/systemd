@@ -887,8 +887,8 @@ static int stop_mounts(
                 return -EINVAL;
         }
 
-        if (!path_is_safe(where)) {
-                log_error("Path contains unsafe components: %s", where);
+        if (!path_is_normalized(where)) {
+                log_error("Path contains non-normalized components: %s", where);
                 return -EINVAL;
         }
 
@@ -1569,8 +1569,8 @@ int main(int argc, char* argv[]) {
                 goto finish;
         }
 
-        if (!path_is_safe(arg_mount_what)) {
-                log_error("Path contains unsafe components: %s", arg_mount_what);
+        if (!path_is_normalized(arg_mount_what)) {
+                log_error("Path contains non-normalized components: %s", arg_mount_what);
                 r = -EINVAL;
                 goto finish;
         }
@@ -1593,8 +1593,8 @@ int main(int argc, char* argv[]) {
                 goto finish;
         }
 
-        if (!path_is_safe(arg_mount_where)) {
-                log_error("Path contains unsafe components: %s", arg_mount_where);
+        if (!path_is_normalized(arg_mount_where)) {
+                log_error("Path contains non-normalized components: %s", arg_mount_where);
                 r = -EINVAL;
                 goto finish;
         }

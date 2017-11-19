@@ -25,6 +25,9 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "macro.h"
+#include "random-util.h"
+#include "string-util.h"
+#include "util.h"
 
 static void test_close_many(void) {
         int fds[3];
@@ -104,11 +107,60 @@ static void test_open_serialization_fd(void) {
         write(fd, "test\n", 5);
 }
 
+static void test_acquire_data_fd_one(unsigned flags) {
+        char wbuffer[196*1024 - 7];
+        char rbuffer[sizeof(wbuffer)];
+        int fd;
+
+        fd = acquire_data_fd("foo", 3, flags);
+        assert_se(fd >= 0);
+
+        zero(rbuffer);
+        assert_se(read(fd, rbuffer, sizeof(rbuffer)) == 3);
+        assert_se(streq(rbuffer, "foo"));
+
+        fd = safe_close(fd);
+
+        fd = acquire_data_fd("", 0, flags);
+        assert_se(fd >= 0);
+
+        zero(rbuffer);
+        assert_se(read(fd, rbuffer, sizeof(rbuffer)) == 0);
+        assert_se(streq(rbuffer, ""));
+
+        fd = safe_close(fd);
+
+        random_bytes(wbuffer, sizeof(wbuffer));
+
+        fd = acquire_data_fd(wbuffer, sizeof(wbuffer), flags);
+        assert_se(fd >= 0);
+
+        zero(rbuffer);
+        assert_se(read(fd, rbuffer, sizeof(rbuffer)) == sizeof(rbuffer));
+        assert_se(memcmp(rbuffer, wbuffer, sizeof(rbuffer)) == 0);
+
+        fd = safe_close(fd);
+}
+
+static void test_acquire_data_fd(void) {
+
+        test_acquire_data_fd_one(0);
+        test_acquire_data_fd_one(ACQUIRE_NO_DEV_NULL);
+        test_acquire_data_fd_one(ACQUIRE_NO_MEMFD);
+        test_acquire_data_fd_one(ACQUIRE_NO_DEV_NULL|ACQUIRE_NO_MEMFD);
+        test_acquire_data_fd_one(ACQUIRE_NO_PIPE);
+        test_acquire_data_fd_one(ACQUIRE_NO_DEV_NULL|ACQUIRE_NO_PIPE);
+        test_acquire_data_fd_one(ACQUIRE_NO_MEMFD|ACQUIRE_NO_PIPE);
+        test_acquire_data_fd_one(ACQUIRE_NO_DEV_NULL|ACQUIRE_NO_MEMFD|ACQUIRE_NO_PIPE);
+        test_acquire_data_fd_one(ACQUIRE_NO_DEV_NULL|ACQUIRE_NO_MEMFD|ACQUIRE_NO_PIPE|ACQUIRE_NO_TMPFILE);
+}
+
 int main(int argc, char *argv[]) {
         test_close_many();
         test_close_nointr();
         test_same_fd();
         test_open_serialization_fd();
+        test_acquire_data_fd();
 
         return 0;
 }

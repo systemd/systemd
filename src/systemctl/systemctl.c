@@ -56,6 +56,7 @@
 #include "fs-util.h"
 #include "glob-util.h"
 #include "hostname-util.h"
+#include "hexdecoct.h"
 #include "initreq.h"
 #include "install.h"
 #include "io-util.h"
@@ -4976,6 +4977,24 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                         r = sd_bus_message_exit_container(m);
                         if (r < 0)
                                 return bus_log_parse_error(r);
+
+                        return 0;
+
+                } else if (contents[1] == SD_BUS_TYPE_BYTE && streq(name, "StandardInputData")) {
+                        _cleanup_free_ char *h = NULL;
+                        const void *p;
+                        size_t sz;
+                        ssize_t n;
+
+                        r = sd_bus_message_read_array(m, 'y', &p, &sz);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        n = base64mem(p, sz, &h);
+                        if (n < 0)
+                                return log_oom();
+
+                        print_prop(name, "%s", h);
 
                         return 0;
                 }

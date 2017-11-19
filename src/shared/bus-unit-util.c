@@ -29,6 +29,7 @@
 #include "errno-list.h"
 #include "escape.h"
 #include "hashmap.h"
+#include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
 #include "list.h"
@@ -274,6 +275,50 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 r = sd_bus_message_append(m, "sv", "TasksMax", "t", t);
                 goto finish;
+
+        } else if (STR_IN_SET(field, "StandardInput", "StandardOutput", "StandardError")) {
+                const char *n, *appended;
+
+                n = startswith(eq, "fd:");
+                if (n) {
+                        appended = strjoina(field, "FileDescriptorName");
+                        r = sd_bus_message_append(m, "sv", appended, "s", n);
+
+                } else if ((n = startswith(eq, "file:"))) {
+                        appended = strjoina(field, "File");
+                        r = sd_bus_message_append(m, "sv", appended, "s", n);
+                } else
+                        r = sd_bus_message_append(m, "sv", field, "s", eq);
+
+                goto finish;
+
+        } else if (streq(field, "StandardInputText")) {
+                _cleanup_free_ char *unescaped = NULL;
+
+                r = cunescape(eq, 0, &unescaped);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to unescape text '%s': %m", eq);
+
+                if (!strextend(&unescaped, "\n", NULL))
+                        return log_oom();
+
+                /* Note that we don't expand specifiers here, but that should be OK, as this is a programmatic
+                 * interface anyway */
+
+                r = sd_bus_message_append(m, "s", "StandardInputData");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, 'v', "ay");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_array(m, 'y', unescaped, strlen(unescaped));
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+                goto finish;
         }
 
         r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
@@ -324,10 +369,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 uint64_t u;
 
                 r = cg_weight_parse(eq, &u);
-                if (r < 0) {
-                        log_error("Failed to parse %s value %s.", field, eq);
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s value %s: %m", field, eq);
 
                 r = sd_bus_message_append(m, "v", "t", u);
 
@@ -335,10 +378,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 uint64_t u;
 
                 r = cg_cpu_shares_parse(eq, &u);
-                if (r < 0) {
-                        log_error("Failed to parse %s value %s.", field, eq);
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s value %s: %m", field, eq);
 
                 r = sd_bus_message_append(m, "v", "t", u);
 
@@ -346,10 +387,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 uint64_t u;
 
                 r = cg_weight_parse(eq, &u);
-                if (r < 0) {
-                        log_error("Failed to parse %s value %s.", field, eq);
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s value %s: %m", field, eq);
 
                 r = sd_bus_message_append(m, "v", "t", u);
 
@@ -357,17 +396,14 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 uint64_t u;
 
                 r = cg_blkio_weight_parse(eq, &u);
-                if (r < 0) {
-                        log_error("Failed to parse %s value %s.", field, eq);
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s value %s: %m", field, eq);
 
                 r = sd_bus_message_append(m, "v", "t", u);
 
         } else if (STR_IN_SET(field,
                               "User", "Group", "DevicePolicy", "KillMode",
                               "UtmpIdentifier", "UtmpMode", "PAMName", "TTYPath",
-                              "StandardInput", "StandardOutput", "StandardError",
                               "Description", "Slice", "Type", "WorkingDirectory",
                               "RootDirectory", "SyslogIdentifier", "ProtectSystem",
                               "ProtectHome", "SELinuxContext", "Restart", "RootImage",
@@ -375,7 +411,32 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                               "KeyringMode", "CollectMode"))
                 r = sd_bus_message_append(m, "v", "s", eq);
 
-        else if (STR_IN_SET(field, "AppArmorProfile", "SmackProcessLabel")) {
+        else if (streq(field, "StandardInputData")) {
+                _cleanup_free_ char *cleaned = NULL;
+                _cleanup_free_ void *decoded = NULL;
+                size_t sz;
+
+                cleaned = strdup(eq);
+                if (!cleaned)
+                        return log_oom();
+
+                delete_chars(cleaned, WHITESPACE);
+
+                r = unbase64mem(cleaned, (size_t) -1, &decoded, &sz);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to decode base64 data '%s': %m", cleaned);
+
+                r = sd_bus_message_open_container(m, 'v', "ay");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_array(m, 'y', decoded, sz);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+
+        } else if (STR_IN_SET(field, "AppArmorProfile", "SmackProcessLabel")) {
                 bool ignore;
                 const char *s;
 
@@ -414,10 +475,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
         } else if (streq(field, "SecureBits")) {
 
                 r = secure_bits_from_string(eq);
-                if (r < 0) {
-                        log_error("Failed to parse %s value %s.", field, eq);
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s value %s: %m", field, eq);
 
                 r = sd_bus_message_append(m, "v", "i", r);
 
@@ -433,10 +492,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 }
 
                 r = capability_set_from_string(p, &sum);
-                if (r < 0) {
-                        log_error("Failed to parse %s value %s.", field, eq);
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s value %s: %m", field, eq);
 
                 sum = invert ? ~sum : sum;
 
@@ -492,10 +549,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                                 bytes = CGROUP_LIMIT_MAX;
                         } else {
                                 r = parse_size(bandwidth, 1000, &bytes);
-                                if (r < 0) {
-                                        log_error("Failed to parse byte value %s.", bandwidth);
-                                        return -EINVAL;
-                                }
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse byte value %s: %m", bandwidth);
                         }
 
                         r = sd_bus_message_append(m, "v", "a(st)", 1, path, bytes);
@@ -524,10 +579,9 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         }
 
                         r = safe_atou64(weight, &u);
-                        if (r < 0) {
-                                log_error("Failed to parse %s value %s.", field, weight);
-                                return -EINVAL;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse %s value %s: %m", field, weight);
+
                         r = sd_bus_message_append(m, "v", "a(st)", 1, path, u);
                 }
 
@@ -668,8 +722,6 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         return log_error_errno(r, "Failed to parse nice value: %s", eq);
 
                 r = sd_bus_message_append(m, "v", "i", (int32_t) n);
-
-#if HAVE_SECCOMP
 
         } else if (streq(field, "SystemCallFilter")) {
                 int whitelist;
@@ -815,7 +867,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 r = sd_bus_message_close_container(m);
                 if (r < 0)
                         return bus_log_create_error(r);
-#endif
+
         } else if (streq(field, "FileDescriptorStoreMax")) {
                 unsigned u;
 
@@ -858,10 +910,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         _cleanup_free_ char *word = NULL;
 
                         r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE);
-                        if (r < 0) {
-                                log_error("Failed to parse Environment value %s", eq);
-                                return -EINVAL;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse Environment value %s: %m", eq);
                         if (r == 0)
                                 break;
 
@@ -908,20 +958,16 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 nsec_t n;
 
                 r = parse_nsec(eq, &n);
-                if (r < 0) {
-                        log_error("Failed to parse %s value %s", field, eq);
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s value %s: %m", field, eq);
 
                 r = sd_bus_message_append(m, "v", "t", n);
         } else if (streq(field, "OOMScoreAdjust")) {
                 int oa;
 
                 r = safe_atoi(eq, &oa);
-                if (r < 0) {
-                        log_error("Failed to parse %s value %s", field, eq);
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s value %s: %m", field, eq);
 
                 if (!oom_score_adjust_is_valid(oa)) {
                         log_error("OOM score adjust value out of range");
@@ -946,10 +992,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         size_t offset;
 
                         r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
-                        if (r < 0) {
-                                log_error("Failed to parse %s value %s", field, eq);
-                                return -EINVAL;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse %s value %s: %m", field, eq);
                         if (r == 0)
                                 break;
 
@@ -994,10 +1038,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         _cleanup_free_ char *word = NULL;
 
                         r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
-                        if (r < 0) {
-                                log_error("Failed to parse %s value %s", field, eq);
-                                return -EINVAL;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse %s value %s: %m", field, eq);
                         if (r == 0)
                                 break;
 

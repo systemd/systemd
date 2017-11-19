@@ -276,7 +276,7 @@ static bool exec_context_needs_term(const ExecContext *c) {
 }
 
 static int open_null_as(int flags, int nfd) {
-        int fd, r;
+        int fd;
 
         assert(nfd >= 0);
 
@@ -284,13 +284,7 @@ static int open_null_as(int flags, int nfd) {
         if (fd < 0)
                 return -errno;
 
-        if (fd != nfd) {
-                r = dup2(fd, nfd) < 0 ? -errno : nfd;
-                safe_close(fd);
-        } else
-                r = nfd;
-
-        return r;
+        return move_fd(fd, nfd, false);
 }
 
 static int connect_journal_socket(int fd, uid_t uid, gid_t gid) {
@@ -382,39 +376,86 @@ static int connect_logger_as(
                 is_kmsg_output(output),
                 is_terminal_output(output));
 
-        if (fd == nfd)
-                return nfd;
-
-        r = dup2(fd, nfd) < 0 ? -errno : nfd;
-        safe_close(fd);
-
-        return r;
+        return move_fd(fd, nfd, false);
 }
-static int open_terminal_as(const char *path, mode_t mode, int nfd) {
-        int fd, r;
+static int open_terminal_as(const char *path, int flags, int nfd) {
+        int fd;
 
         assert(path);
         assert(nfd >= 0);
 
-        fd = open_terminal(path, mode | O_NOCTTY);
+        fd = open_terminal(path, flags | O_NOCTTY);
         if (fd < 0)
                 return fd;
 
-        if (fd != nfd) {
-                r = dup2(fd, nfd) < 0 ? -errno : nfd;
-                safe_close(fd);
-        } else
-                r = nfd;
-
-        return r;
+        return move_fd(fd, nfd, false);
 }
 
-static int fixup_input(ExecInput std_input, int socket_fd, bool apply_tty_stdin) {
+static int acquire_path(const char *path, int flags, mode_t mode) {
+        union sockaddr_union sa = {
+                .sa.sa_family = AF_UNIX,
+        };
+        int fd, r;
+
+        assert(path);
+
+        if (IN_SET(flags & O_ACCMODE, O_WRONLY, O_RDWR))
+                flags |= O_CREAT;
+
+        fd = open(path, flags|O_NOCTTY, mode);
+        if (fd >= 0)
+                return fd;
+
+        if (errno != ENXIO) /* ENXIO is returned when we try to open() an AF_UNIX file system socket on Linux */
+                return -errno;
+        if (strlen(path) > sizeof(sa.un.sun_path)) /* Too long, can't be a UNIX socket */
+                return -ENXIO;
+
+        /* So, it appears the specified path could be an AF_UNIX socket. Let's see if we can connect to it. */
+
+        fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        if (fd < 0)
+                return -errno;
+
+        strncpy(sa.un.sun_path, path, sizeof(sa.un.sun_path));
+        if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0) {
+                safe_close(fd);
+                return errno == EINVAL ? -ENXIO : -errno; /* Propagate initial error if we get EINVAL, i.e. we have
+                                                           * indication that his wasn't an AF_UNIX socket after all */
+        }
+
+        if ((flags & O_ACCMODE) == O_RDONLY)
+                r = shutdown(fd, SHUT_WR);
+        else if ((flags & O_ACCMODE) == O_WRONLY)
+                r = shutdown(fd, SHUT_RD);
+        else
+                return fd;
+        if (r < 0) {
+                safe_close(fd);
+                return -errno;
+        }
+
+        return fd;
+}
+
+static int fixup_input(
+                const ExecContext *context,
+                int socket_fd,
+                bool apply_tty_stdin) {
+
+        ExecInput std_input;
+
+        assert(context);
+
+        std_input = context->std_input;
 
         if (is_terminal_input(std_input) && !apply_tty_stdin)
                 return EXEC_INPUT_NULL;
 
         if (std_input == EXEC_INPUT_SOCKET && socket_fd < 0)
+                return EXEC_INPUT_NULL;
+
+        if (std_input == EXEC_INPUT_DATA && context->stdin_data_size == 0)
                 return EXEC_INPUT_NULL;
 
         return std_input;
@@ -444,13 +485,15 @@ static int setup_input(
                         return -errno;
 
                 /* Try to make this the controlling tty, if it is a tty, and reset it */
-                (void) ioctl(STDIN_FILENO, TIOCSCTTY, context->std_input == EXEC_INPUT_TTY_FORCE);
-                (void) reset_terminal_fd(STDIN_FILENO, true);
+                if (isatty(STDIN_FILENO)) {
+                        (void) ioctl(STDIN_FILENO, TIOCSCTTY, context->std_input == EXEC_INPUT_TTY_FORCE);
+                        (void) reset_terminal_fd(STDIN_FILENO, true);
+                }
 
                 return STDIN_FILENO;
         }
 
-        i = fixup_input(context->std_input, socket_fd, params->flags & EXEC_APPLY_TTY_STDIN);
+        i = fixup_input(context, socket_fd, params->flags & EXEC_APPLY_TTY_STDIN);
 
         switch (i) {
 
@@ -460,7 +503,7 @@ static int setup_input(
         case EXEC_INPUT_TTY:
         case EXEC_INPUT_TTY_FORCE:
         case EXEC_INPUT_TTY_FAIL: {
-                int fd, r;
+                int fd;
 
                 fd = acquire_terminal(exec_context_tty_path(context),
                                       i == EXEC_INPUT_TTY_FAIL,
@@ -470,21 +513,45 @@ static int setup_input(
                 if (fd < 0)
                         return fd;
 
-                if (fd != STDIN_FILENO) {
-                        r = dup2(fd, STDIN_FILENO) < 0 ? -errno : STDIN_FILENO;
-                        safe_close(fd);
-                } else
-                        r = STDIN_FILENO;
-
-                return r;
+                return move_fd(fd, STDIN_FILENO, false);
         }
 
         case EXEC_INPUT_SOCKET:
+                assert(socket_fd >= 0);
+
                 return dup2(socket_fd, STDIN_FILENO) < 0 ? -errno : STDIN_FILENO;
 
         case EXEC_INPUT_NAMED_FD:
+                assert(named_iofds[STDIN_FILENO] >= 0);
+
                 (void) fd_nonblock(named_iofds[STDIN_FILENO], false);
                 return dup2(named_iofds[STDIN_FILENO], STDIN_FILENO) < 0 ? -errno : STDIN_FILENO;
+
+        case EXEC_INPUT_DATA: {
+                int fd;
+
+                fd = acquire_data_fd(context->stdin_data, context->stdin_data_size, 0);
+                if (fd < 0)
+                        return fd;
+
+                return move_fd(fd, STDIN_FILENO, false);
+        }
+
+        case EXEC_INPUT_FILE: {
+                bool rw;
+                int fd;
+
+                assert(context->stdio_file[STDIN_FILENO]);
+
+                rw = (context->std_output == EXEC_OUTPUT_FILE && streq_ptr(context->stdio_file[STDIN_FILENO], context->stdio_file[STDOUT_FILENO])) ||
+                        (context->std_error == EXEC_OUTPUT_FILE && streq_ptr(context->stdio_file[STDIN_FILENO], context->stdio_file[STDERR_FILENO]));
+
+                fd = acquire_path(context->stdio_file[STDIN_FILENO], rw ? O_RDWR : O_RDONLY, 0666 & ~context->umask);
+                if (fd < 0)
+                        return fd;
+
+                return move_fd(fd, STDIN_FILENO, false);
+        }
 
         default:
                 assert_not_reached("Unknown input type");
@@ -530,7 +597,7 @@ static int setup_output(
                 return STDERR_FILENO;
         }
 
-        i = fixup_input(context->std_input, socket_fd, params->flags & EXEC_APPLY_TTY_STDIN);
+        i = fixup_input(context, socket_fd, params->flags & EXEC_APPLY_TTY_STDIN);
         o = fixup_output(context->std_output, socket_fd);
 
         if (fileno == STDERR_FILENO) {
@@ -559,8 +626,8 @@ static int setup_output(
                 if (i == EXEC_INPUT_NULL && is_terminal_input(context->std_input))
                         return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
 
-                /* If the input is connected to anything that's not a /dev/null, inherit that... */
-                if (i != EXEC_INPUT_NULL)
+                /* If the input is connected to anything that's not a /dev/null or a data fd, inherit that... */
+                if (!IN_SET(i, EXEC_INPUT_NULL, EXEC_INPUT_DATA))
                         return dup2(STDIN_FILENO, fileno) < 0 ? -errno : fileno;
 
                 /* If we are not started from PID 1 we just inherit STDOUT from our parent process. */
@@ -613,11 +680,33 @@ static int setup_output(
 
         case EXEC_OUTPUT_SOCKET:
                 assert(socket_fd >= 0);
+
                 return dup2(socket_fd, fileno) < 0 ? -errno : fileno;
 
         case EXEC_OUTPUT_NAMED_FD:
+                assert(named_iofds[fileno] >= 0);
+
                 (void) fd_nonblock(named_iofds[fileno], false);
                 return dup2(named_iofds[fileno], fileno) < 0 ? -errno : fileno;
+
+        case EXEC_OUTPUT_FILE: {
+                bool rw;
+                int fd;
+
+                assert(context->stdio_file[fileno]);
+
+                rw = context->std_input == EXEC_INPUT_FILE &&
+                        streq_ptr(context->stdio_file[fileno], context->stdio_file[STDIN_FILENO]);
+
+                if (rw)
+                        return dup2(STDIN_FILENO, fileno) < 0 ? -errno : fileno;
+
+                fd = acquire_path(context->stdio_file[fileno], O_WRONLY, 0666 & ~context->umask);
+                if (fd < 0)
+                        return fd;
+
+                return move_fd(fd, fileno, false);
+        }
 
         default:
                 assert_not_reached("Unknown error type");
@@ -3501,8 +3590,10 @@ void exec_context_done(ExecContext *c) {
         for (l = 0; l < ELEMENTSOF(c->rlimit); l++)
                 c->rlimit[l] = mfree(c->rlimit[l]);
 
-        for (l = 0; l < 3; l++)
+        for (l = 0; l < 3; l++) {
                 c->stdio_fdname[l] = mfree(c->stdio_fdname[l]);
+                c->stdio_file[l] = mfree(c->stdio_file[l]);
+        }
 
         c->working_directory = mfree(c->working_directory);
         c->root_directory = mfree(c->root_directory);
@@ -3540,6 +3631,9 @@ void exec_context_done(ExecContext *c) {
         c->log_level_max = -1;
 
         exec_context_free_log_extra_fields(c);
+
+        c->stdin_data = mfree(c->stdin_data);
+        c->stdin_data_size = 0;
 }
 
 int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_prefix) {
@@ -3614,18 +3708,25 @@ const char* exec_context_fdname(const ExecContext *c, int fd_index) {
         assert(c);
 
         switch (fd_index) {
+
         case STDIN_FILENO:
                 if (c->std_input != EXEC_INPUT_NAMED_FD)
                         return NULL;
+
                 return c->stdio_fdname[STDIN_FILENO] ?: "stdin";
+
         case STDOUT_FILENO:
                 if (c->std_output != EXEC_OUTPUT_NAMED_FD)
                         return NULL;
+
                 return c->stdio_fdname[STDOUT_FILENO] ?: "stdout";
+
         case STDERR_FILENO:
                 if (c->std_error != EXEC_OUTPUT_NAMED_FD)
                         return NULL;
+
                 return c->stdio_fdname[STDERR_FILENO] ?: "stderr";
+
         default:
                 return NULL;
         }
@@ -3934,6 +4035,20 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 prefix, exec_input_to_string(c->std_input),
                 prefix, exec_output_to_string(c->std_output),
                 prefix, exec_output_to_string(c->std_error));
+
+        if (c->std_input == EXEC_INPUT_NAMED_FD)
+                fprintf(f, "%sStandardInputFileDescriptorName: %s\n", prefix, c->stdio_fdname[STDIN_FILENO]);
+        if (c->std_output == EXEC_OUTPUT_NAMED_FD)
+                fprintf(f, "%sStandardOutputFileDescriptorName: %s\n", prefix, c->stdio_fdname[STDOUT_FILENO]);
+        if (c->std_error == EXEC_OUTPUT_NAMED_FD)
+                fprintf(f, "%sStandardErrorFileDescriptorName: %s\n", prefix, c->stdio_fdname[STDERR_FILENO]);
+
+        if (c->std_input == EXEC_INPUT_FILE)
+                fprintf(f, "%sStandardInputFile: %s\n", prefix, c->stdio_file[STDIN_FILENO]);
+        if (c->std_output == EXEC_OUTPUT_FILE)
+                fprintf(f, "%sStandardOutputFile: %s\n", prefix, c->stdio_file[STDOUT_FILENO]);
+        if (c->std_error == EXEC_OUTPUT_FILE)
+                fprintf(f, "%sStandardErrorFile: %s\n", prefix, c->stdio_file[STDERR_FILENO]);
 
         if (c->tty_path)
                 fprintf(f,
@@ -4631,6 +4746,8 @@ static const char* const exec_input_table[_EXEC_INPUT_MAX] = {
         [EXEC_INPUT_TTY_FAIL] = "tty-fail",
         [EXEC_INPUT_SOCKET] = "socket",
         [EXEC_INPUT_NAMED_FD] = "fd",
+        [EXEC_INPUT_DATA] = "data",
+        [EXEC_INPUT_FILE] = "file",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_input, ExecInput);
@@ -4647,6 +4764,7 @@ static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
         [EXEC_OUTPUT_JOURNAL_AND_CONSOLE] = "journal+console",
         [EXEC_OUTPUT_SOCKET] = "socket",
         [EXEC_OUTPUT_NAMED_FD] = "fd",
+        [EXEC_OUTPUT_FILE] = "file",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_output, ExecOutput);

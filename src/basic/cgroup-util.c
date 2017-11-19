@@ -1279,7 +1279,7 @@ int cg_split_spec(const char *spec, char **controller, char **path) {
         assert(spec);
 
         if (*spec == '/') {
-                if (!path_is_safe(spec))
+                if (!path_is_normalized(spec))
                         return -EINVAL;
 
                 if (path) {
@@ -1332,7 +1332,7 @@ int cg_split_spec(const char *spec, char **controller, char **path) {
                         return -ENOMEM;
                 }
 
-                if (!path_is_safe(u) ||
+                if (!path_is_normalized(u) ||
                     !path_is_absolute(u)) {
                         free(t);
                         free(u);
