@@ -346,16 +346,14 @@ static bool unix_socket_alive(const char *fn) {
 
 static int dir_is_mount_point(DIR *d, const char *subdir) {
 
-        union file_handle_union h = FILE_HANDLE_INIT;
         int mount_id_parent, mount_id;
         int r_p, r;
 
-        r_p = name_to_handle_at(dirfd(d), ".", &h.handle, &mount_id_parent, 0);
+        r_p = name_to_handle_at_loop(dirfd(d), ".", NULL, &mount_id_parent, 0);
         if (r_p < 0)
                 r_p = -errno;
 
-        h.handle.handle_bytes = MAX_HANDLE_SZ;
-        r = name_to_handle_at(dirfd(d), subdir, &h.handle, &mount_id, 0);
+        r = name_to_handle_at_loop(dirfd(d), subdir, NULL, &mount_id, 0);
         if (r < 0)
                 r = -errno;
 

@@ -115,13 +115,12 @@ static struct udev_monitor *udev_monitor_new(struct udev *udev)
 /* we consider udev running when /dev is on devtmpfs */
 static bool udev_has_devtmpfs(struct udev *udev) {
 
-        union file_handle_union h = FILE_HANDLE_INIT;
         _cleanup_fclose_ FILE *f = NULL;
         char line[LINE_MAX], *e;
         int mount_id;
         int r;
 
-        r = name_to_handle_at(AT_FDCWD, "/dev", &h.handle, &mount_id, 0);
+        r = name_to_handle_at_loop(AT_FDCWD, "/dev", NULL, &mount_id, 0);
         if (r < 0) {
                 if (errno != EOPNOTSUPP)
                         log_debug_errno(errno, "name_to_handle_at on /dev: %m");
