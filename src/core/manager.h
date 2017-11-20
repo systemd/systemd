@@ -374,6 +374,7 @@ int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error 
 
 void manager_dump_units(Manager *s, FILE *f, const char *prefix);
 void manager_dump_jobs(Manager *s, FILE *f, const char *prefix);
+void manager_dump(Manager *s, FILE *f, const char *prefix);
 
 void manager_clear_jobs(Manager *m);
 

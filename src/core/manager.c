@@ -1711,6 +1711,26 @@ void manager_dump_units(Manager *s, FILE *f, const char *prefix) {
                         unit_dump(u, f, prefix);
 }
 
+void manager_dump(Manager *m, FILE *f, const char *prefix) {
+        ManagerTimestamp q;
+
+        assert(m);
+        assert(f);
+
+        for (q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
+                char buf[FORMAT_TIMESTAMP_MAX];
+
+                if (dual_timestamp_is_set(m->timestamps + q))
+                        fprintf(f, "%sTimestamp %s: %s\n",
+                                strempty(prefix),
+                                manager_timestamp_to_string(q),
+                                format_timestamp(buf, sizeof(buf), m->timestamps[q].realtime));
+        }
+
+        manager_dump_units(m, f, prefix);
+        manager_dump_jobs(m, f, prefix);
+}
+
 void manager_clear_jobs(Manager *m) {
         Job *j;
 
@@ -2168,8 +2188,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                                 break;
                         }
 
-                        manager_dump_units(m, f, "\t");
-                        manager_dump_jobs(m, f, "\t");
+                        manager_dump(m, f, NULL);
 
                         r = fflush_and_check(f);
                         if (r < 0) {

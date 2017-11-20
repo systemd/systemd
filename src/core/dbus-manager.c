@@ -1307,8 +1307,7 @@ static int method_dump(sd_bus_message *message, void *userdata, sd_bus_error *er
         if (!f)
                 return -ENOMEM;
 
-        manager_dump_units(m, f, NULL);
-        manager_dump_jobs(m, f, NULL);
+        manager_dump(m, f, NULL);
 
         r = fflush_and_check(f);
         if (r < 0)
