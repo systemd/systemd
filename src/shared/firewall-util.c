@@ -78,7 +78,8 @@ static int entry_fill_basics(
 
         if (out_interface) {
                 size_t l = strlen(out_interface);
-                assert(l < sizeof entry->ip.outiface && l < sizeof entry->ip.outiface_mask);
+                assert(l < sizeof entry->ip.outiface);
+                assert(l < sizeof entry->ip.outiface_mask);
 
                 strcpy(entry->ip.outiface, out_interface);
                 memset(entry->ip.outiface_mask, 0xFF, l + 1);
