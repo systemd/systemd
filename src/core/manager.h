@@ -70,6 +70,24 @@ typedef enum StatusType {
         STATUS_TYPE_EMERGENCY,
 } StatusType;
 
+typedef enum ManagerTimestamp {
+        MANAGER_TIMESTAMP_FIRMWARE,
+        MANAGER_TIMESTAMP_LOADER,
+        MANAGER_TIMESTAMP_KERNEL,
+        MANAGER_TIMESTAMP_INITRD,
+        MANAGER_TIMESTAMP_USERSPACE,
+        MANAGER_TIMESTAMP_FINISH,
+
+        MANAGER_TIMESTAMP_SECURITY_START,
+        MANAGER_TIMESTAMP_SECURITY_FINISH,
+        MANAGER_TIMESTAMP_GENERATORS_START,
+        MANAGER_TIMESTAMP_GENERATORS_FINISH,
+        MANAGER_TIMESTAMP_UNITS_LOAD_START,
+        MANAGER_TIMESTAMP_UNITS_LOAD_FINISH,
+        _MANAGER_TIMESTAMP_MAX,
+        _MANAGER_TIMESTAMP_INVALID = -1,
+} ManagerTimestamp;
+
 #include "execute.h"
 #include "job.h"
 #include "path-lookup.h"
@@ -171,19 +189,7 @@ struct Manager {
         usec_t runtime_watchdog;
         usec_t shutdown_watchdog;
 
-        dual_timestamp firmware_timestamp;
-        dual_timestamp loader_timestamp;
-        dual_timestamp kernel_timestamp;
-        dual_timestamp initrd_timestamp;
-        dual_timestamp userspace_timestamp;
-        dual_timestamp finish_timestamp;
-
-        dual_timestamp security_start_timestamp;
-        dual_timestamp security_finish_timestamp;
-        dual_timestamp generators_start_timestamp;
-        dual_timestamp generators_finish_timestamp;
-        dual_timestamp units_load_start_timestamp;
-        dual_timestamp units_load_finish_timestamp;
+        dual_timestamp timestamps[_MANAGER_TIMESTAMP_MAX];
 
         struct udev* udev;
 
@@ -431,3 +437,6 @@ ManagerState manager_state_from_string(const char *s) _pure_;
 const char *manager_get_confirm_spawn(Manager *m);
 bool manager_is_confirm_spawn_disabled(Manager *m);
 void manager_disable_confirm_spawn(void);
+
+const char *manager_timestamp_to_string(ManagerTimestamp m) _const_;
+ManagerTimestamp manager_timestamp_from_string(const char *s) _pure_;

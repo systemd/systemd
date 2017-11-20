@@ -624,7 +624,9 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
 
 #if ENABLE_EFI
         if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0)
-                boot_timestamps(&m->userspace_timestamp, &m->firmware_timestamp, &m->loader_timestamp);
+                boot_timestamps(m->timestamps + MANAGER_TIMESTAMP_USERSPACE,
+                                m->timestamps + MANAGER_TIMESTAMP_FIRMWARE,
+                                m->timestamps + MANAGER_TIMESTAMP_LOADER);
 #endif
 
         /* Prepare log fields we can use for structured logging */
@@ -1340,9 +1342,9 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 return log_error_errno(r, "Failed to create transient generator directory \"%s\": %m",
                                        m->lookup_paths.transient);
 
-        dual_timestamp_get(&m->generators_start_timestamp);
+        dual_timestamp_get(m->timestamps + MANAGER_TIMESTAMP_GENERATORS_START);
         r = manager_run_generators(m);
-        dual_timestamp_get(&m->generators_finish_timestamp);
+        dual_timestamp_get(m->timestamps + MANAGER_TIMESTAMP_GENERATORS_FINISH);
         if (r < 0)
                 return r;
 
@@ -1369,9 +1371,9 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 m->n_reloading++;
 
         /* First, enumerate what we can from all config files */
-        dual_timestamp_get(&m->units_load_start_timestamp);
+        dual_timestamp_get(m->timestamps + MANAGER_TIMESTAMP_UNITS_LOAD_START);
         manager_enumerate(m);
-        dual_timestamp_get(&m->units_load_finish_timestamp);
+        dual_timestamp_get(m->timestamps + MANAGER_TIMESTAMP_UNITS_LOAD_FINISH);
 
         /* Second, deserialize if there is something to deserialize */
         if (serialization) {
@@ -2577,9 +2579,10 @@ int manager_open_serialization(Manager *m, FILE **_f) {
 }
 
 int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
+        ManagerTimestamp q;
+        const char *t;
         Iterator i;
         Unit *u;
-        const char *t;
         int r;
 
         assert(m);
@@ -2594,20 +2597,17 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
         fprintf(f, "taint-usr=%s\n", yes_no(m->taint_usr));
         fprintf(f, "ready-sent=%s\n", yes_no(m->ready_sent));
 
-        dual_timestamp_serialize(f, "firmware-timestamp", &m->firmware_timestamp);
-        dual_timestamp_serialize(f, "loader-timestamp", &m->loader_timestamp);
-        dual_timestamp_serialize(f, "kernel-timestamp", &m->kernel_timestamp);
-        dual_timestamp_serialize(f, "initrd-timestamp", &m->initrd_timestamp);
+        for (q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
+                /* The userspace and finish timestamps only apply to the host system, hence only serialize them there */
+                if (in_initrd() && IN_SET(q, MANAGER_TIMESTAMP_USERSPACE, MANAGER_TIMESTAMP_FINISH))
+                        continue;
 
-        if (!in_initrd()) {
-                dual_timestamp_serialize(f, "userspace-timestamp", &m->userspace_timestamp);
-                dual_timestamp_serialize(f, "finish-timestamp", &m->finish_timestamp);
-                dual_timestamp_serialize(f, "security-start-timestamp", &m->security_start_timestamp);
-                dual_timestamp_serialize(f, "security-finish-timestamp", &m->security_finish_timestamp);
-                dual_timestamp_serialize(f, "generators-start-timestamp", &m->generators_start_timestamp);
-                dual_timestamp_serialize(f, "generators-finish-timestamp", &m->generators_finish_timestamp);
-                dual_timestamp_serialize(f, "units-load-start-timestamp", &m->units_load_start_timestamp);
-                dual_timestamp_serialize(f, "units-load-finish-timestamp", &m->units_load_finish_timestamp);
+                t = manager_timestamp_to_string(q);
+                {
+                        char field[strlen(t) + strlen("-timestamp") + 1];
+                        strcpy(stpcpy(field, t), "-timestamp");
+                        dual_timestamp_serialize(f, field, m->timestamps + q);
+                }
         }
 
         if (!switching_root)
@@ -2758,31 +2758,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         else
                                 m->ready_sent = m->ready_sent || b;
 
-                } else if ((val = startswith(l, "firmware-timestamp=")))
-                        dual_timestamp_deserialize(val, &m->firmware_timestamp);
-                else if ((val = startswith(l, "loader-timestamp=")))
-                        dual_timestamp_deserialize(val, &m->loader_timestamp);
-                else if ((val = startswith(l, "kernel-timestamp=")))
-                        dual_timestamp_deserialize(val, &m->kernel_timestamp);
-                else if ((val = startswith(l, "initrd-timestamp=")))
-                        dual_timestamp_deserialize(val, &m->initrd_timestamp);
-                else if ((val = startswith(l, "userspace-timestamp=")))
-                        dual_timestamp_deserialize(val, &m->userspace_timestamp);
-                else if ((val = startswith(l, "finish-timestamp=")))
-                        dual_timestamp_deserialize(val, &m->finish_timestamp);
-                else if ((val = startswith(l, "security-start-timestamp=")))
-                        dual_timestamp_deserialize(val, &m->security_start_timestamp);
-                else if ((val = startswith(l, "security-finish-timestamp=")))
-                        dual_timestamp_deserialize(val, &m->security_finish_timestamp);
-                else if ((val = startswith(l, "generators-start-timestamp=")))
-                        dual_timestamp_deserialize(val, &m->generators_start_timestamp);
-                else if ((val = startswith(l, "generators-finish-timestamp=")))
-                        dual_timestamp_deserialize(val, &m->generators_finish_timestamp);
-                else if ((val = startswith(l, "units-load-start-timestamp=")))
-                        dual_timestamp_deserialize(val, &m->units_load_start_timestamp);
-                else if ((val = startswith(l, "units-load-finish-timestamp=")))
-                        dual_timestamp_deserialize(val, &m->units_load_finish_timestamp);
-                else if (startswith(l, "env=")) {
+                } else if (startswith(l, "env=")) {
                         r = deserialize_environment(&m->environment, l);
                         if (r == -ENOMEM)
                                 goto finish;
@@ -2845,9 +2821,24 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
                         if (strv_extend(&m->deserialized_subscribed, val) < 0)
                                 log_oom();
+                } else {
+                        ManagerTimestamp q;
 
-                } else if (!startswith(l, "kdbus-fd=")) /* ignore this one */
-                        log_notice("Unknown serialization item '%s'", l);
+                        for (q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
+                                val = startswith(l, manager_timestamp_to_string(q));
+                                if (!val)
+                                        continue;
+
+                                val = startswith(val, "-timestamp=");
+                                if (val)
+                                        break;
+                        }
+
+                        if (q < _MANAGER_TIMESTAMP_MAX) /* found it */
+                                dual_timestamp_deserialize(val, m->timestamps + q);
+                        else if (!startswith(l, "kdbus-fd=")) /* ignore kdbus */
+                                log_notice("Unknown serialization item '%s'", l);
+                }
         }
 
         for (;;) {
@@ -3033,20 +3024,20 @@ static void manager_notify_finished(Manager *m) {
 
         if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0) {
 
-                /* Note that m->kernel_usec.monotonic is always at 0,
-                 * and m->firmware_usec.monotonic and
-                 * m->loader_usec.monotonic should be considered
+                /* Note that MANAGER_TIMESTAMP_KERNEL's monotonic value is always at 0, and
+                 * MANAGER_TIMESTAMP_FIRMWARE's and MANAGER_TIMESTAMP_LOADER's monotonic value should be considered
                  * negative values. */
 
-                firmware_usec = m->firmware_timestamp.monotonic - m->loader_timestamp.monotonic;
-                loader_usec = m->loader_timestamp.monotonic - m->kernel_timestamp.monotonic;
-                userspace_usec = m->finish_timestamp.monotonic - m->userspace_timestamp.monotonic;
-                total_usec = m->firmware_timestamp.monotonic + m->finish_timestamp.monotonic;
+                firmware_usec = m->timestamps[MANAGER_TIMESTAMP_FIRMWARE].monotonic - m->timestamps[MANAGER_TIMESTAMP_LOADER].monotonic;
+                loader_usec = m->timestamps[MANAGER_TIMESTAMP_LOADER].monotonic - m->timestamps[MANAGER_TIMESTAMP_KERNEL].monotonic;
+                userspace_usec = m->timestamps[MANAGER_TIMESTAMP_FINISH].monotonic - m->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic;
+                total_usec = m->timestamps[MANAGER_TIMESTAMP_FIRMWARE].monotonic + m->timestamps[MANAGER_TIMESTAMP_FINISH].monotonic;
 
-                if (dual_timestamp_is_set(&m->initrd_timestamp)) {
+                if (dual_timestamp_is_set(&m->timestamps[MANAGER_TIMESTAMP_INITRD])) {
 
-                        kernel_usec = m->initrd_timestamp.monotonic - m->kernel_timestamp.monotonic;
-                        initrd_usec = m->userspace_timestamp.monotonic - m->initrd_timestamp.monotonic;
+                        /* The initrd case on bare-metal*/
+                        kernel_usec = m->timestamps[MANAGER_TIMESTAMP_INITRD].monotonic - m->timestamps[MANAGER_TIMESTAMP_KERNEL].monotonic;
+                        initrd_usec = m->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic - m->timestamps[MANAGER_TIMESTAMP_INITRD].monotonic;
 
                         log_struct(LOG_INFO,
                                    "MESSAGE_ID=" SD_MESSAGE_STARTUP_FINISHED_STR,
@@ -3060,7 +3051,9 @@ static void manager_notify_finished(Manager *m) {
                                                format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC)),
                                    NULL);
                 } else {
-                        kernel_usec = m->userspace_timestamp.monotonic - m->kernel_timestamp.monotonic;
+                        /* The initrd-less case on bare-metal*/
+
+                        kernel_usec = m->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic - m->timestamps[MANAGER_TIMESTAMP_KERNEL].monotonic;
                         initrd_usec = 0;
 
                         log_struct(LOG_INFO,
@@ -3074,8 +3067,9 @@ static void manager_notify_finished(Manager *m) {
                                    NULL);
                 }
         } else {
+                /* The container case */
                 firmware_usec = loader_usec = initrd_usec = kernel_usec = 0;
-                total_usec = userspace_usec = m->finish_timestamp.monotonic - m->userspace_timestamp.monotonic;
+                total_usec = userspace_usec = m->timestamps[MANAGER_TIMESTAMP_FINISH].monotonic - m->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic;
 
                 log_struct(LOG_INFO,
                            "MESSAGE_ID=" SD_MESSAGE_USER_STARTUP_FINISHED_STR,
@@ -3142,10 +3136,10 @@ void manager_check_finished(Manager *m) {
         /* This is no longer the first boot */
         manager_set_first_boot(m, false);
 
-        if (dual_timestamp_is_set(&m->finish_timestamp))
+        if (dual_timestamp_is_set(m->timestamps + MANAGER_TIMESTAMP_FINISH))
                 return;
 
-        dual_timestamp_get(&m->finish_timestamp);
+        dual_timestamp_get(m->timestamps + MANAGER_TIMESTAMP_FINISH);
 
         manager_notify_finished(m);
 
@@ -3500,7 +3494,7 @@ ManagerState manager_state(Manager *m) {
         assert(m);
 
         /* Did we ever finish booting? If not then we are still starting up */
-        if (!dual_timestamp_is_set(&m->finish_timestamp)) {
+        if (!dual_timestamp_is_set(m->timestamps + MANAGER_TIMESTAMP_FINISH)) {
 
                 u = manager_get_unit(m, SPECIAL_BASIC_TARGET);
                 if (!u || !UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)))
@@ -3836,3 +3830,20 @@ static const char *const manager_state_table[_MANAGER_STATE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(manager_state, ManagerState);
+
+static const char *const manager_timestamp_table[_MANAGER_TIMESTAMP_MAX] = {
+        [MANAGER_TIMESTAMP_FIRMWARE] = "firmware",
+        [MANAGER_TIMESTAMP_LOADER] = "loader",
+        [MANAGER_TIMESTAMP_KERNEL] = "kernel",
+        [MANAGER_TIMESTAMP_INITRD] = "initrd",
+        [MANAGER_TIMESTAMP_USERSPACE] = "userspace",
+        [MANAGER_TIMESTAMP_FINISH] = "finish",
+        [MANAGER_TIMESTAMP_SECURITY_START] = "security-start",
+        [MANAGER_TIMESTAMP_SECURITY_FINISH] = "security-finish",
+        [MANAGER_TIMESTAMP_GENERATORS_START] = "generators-start",
+        [MANAGER_TIMESTAMP_GENERATORS_FINISH] = "generators-finish",
+        [MANAGER_TIMESTAMP_UNITS_LOAD_START] = "units-load-start",
+        [MANAGER_TIMESTAMP_UNITS_LOAD_FINISH] = "units-load-finish",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(manager_timestamp, ManagerTimestamp);
