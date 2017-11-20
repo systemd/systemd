@@ -352,6 +352,8 @@ struct Manager {
 
 #define MANAGER_IS_RELOADING(m) ((m)->n_reloading > 0)
 
+#define MANAGER_IS_FINISHED(m) (dual_timestamp_is_set((m)->timestamps + MANAGER_TIMESTAMP_FINISH))
+
 int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **m);
 Manager* manager_free(Manager *m);
 

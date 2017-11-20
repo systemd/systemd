@@ -3175,7 +3175,7 @@ void manager_check_finished(Manager *m) {
         /* This is no longer the first boot */
         manager_set_first_boot(m, false);
 
-        if (dual_timestamp_is_set(m->timestamps + MANAGER_TIMESTAMP_FINISH))
+        if (MANAGER_IS_FINISHED(m))
                 return;
 
         dual_timestamp_get(m->timestamps + MANAGER_TIMESTAMP_FINISH);
@@ -3533,7 +3533,7 @@ ManagerState manager_state(Manager *m) {
         assert(m);
 
         /* Did we ever finish booting? If not then we are still starting up */
-        if (!dual_timestamp_is_set(m->timestamps + MANAGER_TIMESTAMP_FINISH)) {
+        if (!MANAGER_IS_FINISHED(m)) {
 
                 u = manager_get_unit(m, SPECIAL_BASIC_TARGET);
                 if (!u || !UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)))

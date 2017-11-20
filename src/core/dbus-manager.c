@@ -323,7 +323,7 @@ static int property_get_progress(
         assert(reply);
         assert(m);
 
-        if (dual_timestamp_is_set(m->timestamps + MANAGER_TIMESTAMP_FINISH))
+        if (MANAGER_IS_FINISHED(m))
                 d = 1.0;
         else
                 d = 1.0 - ((double) hashmap_size(m->jobs) / (double) m->n_installed_jobs);
