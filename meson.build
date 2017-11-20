@@ -24,7 +24,7 @@ project('systemd', 'c',
                 'sysconfdir=/etc',
                 'localstatedir=/var',
         ],
-        meson_version : '>= 0.40',
+        meson_version : '>= 0.41',
        )
 
 libsystemd_version = '0.19.1'
