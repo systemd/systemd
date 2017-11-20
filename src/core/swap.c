@@ -292,7 +292,10 @@ static int swap_load(Unit *u) {
         assert(u->load_state == UNIT_STUB);
 
         /* Load a .swap file */
-        r = unit_load_fragment_and_dropin_optional(u);
+        if (SWAP(u)->from_proc_swaps)
+                r = unit_load_fragment_and_dropin_optional(u);
+        else
+                r = unit_load_fragment_and_dropin(u);
         if (r < 0)
                 return r;
 
