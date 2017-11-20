@@ -183,3 +183,6 @@
         for ((i) = (p)->name##_next ? (p)->name##_next : (head);        \
              (i) != (p);                                                \
              (i) = (i)->name##_next ? (i)->name##_next : (head))
+
+#define LIST_IS_EMPTY(head)                                             \
+        (!(head))
