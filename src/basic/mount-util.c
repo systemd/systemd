@@ -302,6 +302,16 @@ int path_is_mount_point(const char *t, const char *root, int flags) {
         return fd_is_mount_point(fd, basename(t), flags);
 }
 
+int path_get_mnt_id(const char *path, int *ret) {
+        int r;
+
+        r = name_to_handle_at_loop(AT_FDCWD, path, NULL, ret, 0);
+        if (IN_SET(r, -EOPNOTSUPP, -ENOSYS, -EACCES, -EPERM)) /* kernel/fs don't support this, or seccomp blocks access */
+                return fd_fdinfo_mnt_id(AT_FDCWD, path, 0, ret);
+
+        return r;
+}
+
 int umount_recursive(const char *prefix, int flags) {
         bool again;
         int n = 0, r;
