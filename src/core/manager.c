@@ -22,6 +22,7 @@
 #include <fcntl.h>
 #include <linux/kd.h>
 #include <signal.h>
+#include <stdio_ext.h>
 #include <string.h>
 #include <sys/epoll.h>
 #include <sys/inotify.h>
@@ -1731,6 +1732,35 @@ void manager_dump(Manager *m, FILE *f, const char *prefix) {
         manager_dump_jobs(m, f, prefix);
 }
 
+int manager_get_dump_string(Manager *m, char **ret) {
+        _cleanup_free_ char *dump = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        size_t size;
+        int r;
+
+        assert(m);
+        assert(ret);
+
+        f = open_memstream(&dump, &size);
+        if (!f)
+                return -errno;
+
+        __fsetlocking(f, FSETLOCKING_BYCALLER);
+
+        manager_dump(m, f, NULL);
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                return r;
+
+        f = safe_fclose(f);
+
+        *ret = dump;
+        dump = NULL;
+
+        return 0;
+}
+
 void manager_clear_jobs(Manager *m) {
         Job *j;
 
@@ -2179,20 +2209,10 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
                 case SIGUSR2: {
                         _cleanup_free_ char *dump = NULL;
-                        _cleanup_fclose_ FILE *f = NULL;
-                        size_t size;
 
-                        f = open_memstream(&dump, &size);
-                        if (!f) {
-                                log_warning_errno(errno, "Failed to allocate memory stream: %m");
-                                break;
-                        }
-
-                        manager_dump(m, f, NULL);
-
-                        r = fflush_and_check(f);
+                        r = manager_get_dump_string(m, &dump);
                         if (r < 0) {
-                                log_warning_errno(r, "Failed to write status stream: %m");
+                                log_warning_errno(errno, "Failed to acquire manager dump: %m");
                                 break;
                         }
 

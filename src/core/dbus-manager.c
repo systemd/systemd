@@ -1289,9 +1289,7 @@ static int method_unsubscribe(sd_bus_message *message, void *userdata, sd_bus_er
 
 static int method_dump(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *dump = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
         Manager *m = userdata;
-        size_t size;
         int r;
 
         assert(message);
@@ -1303,13 +1301,7 @@ static int method_dump(sd_bus_message *message, void *userdata, sd_bus_error *er
         if (r < 0)
                 return r;
 
-        f = open_memstream(&dump, &size);
-        if (!f)
-                return -ENOMEM;
-
-        manager_dump(m, f, NULL);
-
-        r = fflush_and_check(f);
+        r = manager_get_dump_string(m, &dump);
         if (r < 0)
                 return r;
 
