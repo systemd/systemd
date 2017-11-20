@@ -36,8 +36,8 @@ SUBSYSTEM=="dvb", GROUP="video"
 SUBSYSTEM=="media", GROUP="video"
 SUBSYSTEM=="cec", GROUP="video"
 
-SUBSYSTEM=="drm", KERNEL=="renderD*", GROUP="render", MODE="@GROUP_RENDER_MODE@"
-SUBSYSTEM=="kfd", GROUP="render", MODE="@GROUP_RENDER_MODE@"
+SUBSYSTEM=="drm", KERNEL=="renderD*", MODE="@GROUP_RENDER_MODE@"
+SUBSYSTEM=="kfd", MODE="@GROUP_RENDER_MODE@"
 
 SUBSYSTEM=="sound", GROUP="audio", \
   OPTIONS+="static_node=snd/seq", OPTIONS+="static_node=snd/timer"
@@ -78,7 +78,7 @@ KERNEL=="tun", MODE="0666", OPTIONS+="static_node=net/tun"
 
 KERNEL=="fuse", MODE="0666", OPTIONS+="static_node=fuse"
 
-KERNEL=="kvm", GROUP="kvm", MODE="@DEV_KVM_MODE@"
+KERNEL=="kvm", MODE="@DEV_KVM_MODE@"
 
 SUBSYSTEM=="ptp", ATTR{clock_name}=="KVM virtual PTP", SYMLINK += "ptp_kvm"
 

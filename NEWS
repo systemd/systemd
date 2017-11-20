@@ -15,8 +15,7 @@ CHANGES WITH 236 in spe:
           local DNS APIs (e.g. NSS).
 
         * uaccess tag has been dropped from /dev/kvm and /dev/dri/renderD*.
-          These devices now have 0666 permsions by default.  /dev/dri/renderD*
-          will now be owned by the render group along with /dev/kfd.
+          These devices now have 0666 permsions by default.
 
 CHANGES WITH 235:
 
