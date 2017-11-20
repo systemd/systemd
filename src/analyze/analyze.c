@@ -31,6 +31,7 @@
 #include "bus-error.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
+#include "calendarspec.h"
 #include "glob-util.h"
 #include "hashmap.h"
 #include "locale-util.h"
@@ -1395,6 +1396,70 @@ static int dump_syscall_filters(char** names) {
 }
 #endif
 
+static int test_calendar(char **args) {
+        int ret = 0, r;
+        char **p;
+        usec_t n;
+
+        if (strv_isempty(args)) {
+                log_error("Expected at least one calendar specification string as argument.");
+                return -EINVAL;
+        }
+
+        n = now(CLOCK_REALTIME);
+
+        STRV_FOREACH(p, args) {
+                _cleanup_(calendar_spec_freep) CalendarSpec *spec = NULL;
+                _cleanup_free_ char *t = NULL;
+                usec_t next;
+
+                r = calendar_spec_from_string(*p, &spec);
+                if (r < 0) {
+                        ret = log_error_errno(r, "Failed to parse calendar specification '%s': %m", *p);
+                        continue;
+                }
+
+                r = calendar_spec_normalize(spec);
+                if (r < 0) {
+                        ret = log_error_errno(r, "Failed to normalize calendar specification '%s': %m", *p);
+                        continue;
+                }
+
+                r = calendar_spec_to_string(spec, &t);
+                if (r < 0) {
+                        ret = log_error_errno(r, "Failed to fomat calendar specification '%s': %m", *p);
+                        continue;
+                }
+
+                if (!streq(t, *p))
+                        printf("  Original form: %s\n", *p);
+
+                printf("Normalized form: %s\n", t);
+
+                r = calendar_spec_next_usec(spec, n, &next);
+                if (r == -ENOENT)
+                        printf("    Next elapse: never\n");
+                else if (r < 0) {
+                        ret = log_error_errno(r, "Failed to determine next elapse for '%s': %m", *p);
+                        continue;
+                } else {
+                        char buffer[CONST_MAX(FORMAT_TIMESTAMP_MAX, FORMAT_TIMESTAMP_RELATIVE_MAX)];
+
+                        printf("    Next elapse: %s\n", format_timestamp(buffer, sizeof(buffer), next));
+
+                        if (!in_utc_timezone())
+                                printf("       (in UTC): %s\n", format_timestamp_utc(buffer, sizeof(buffer), next));
+
+                        printf("       From now: %s\n", format_timestamp_relative(buffer, sizeof(buffer), next));
+                }
+
+                if (*(p+1))
+                        putchar('\n');
+        }
+
+        return ret;
+}
+
 static void help(void) {
 
         pager_open(arg_no_pager, false);
@@ -1429,6 +1494,7 @@ static void help(void) {
                "  dump                     Output state serialization of service manager\n"
                "  syscall-filter [NAME...] Print list of syscalls in seccomp filter\n"
                "  verify FILE...           Check unit files for correctness\n"
+               "  calendar SPEC...         Validate repetitive calendar time events\n"
                , program_invocation_short_name);
 
         /* When updating this list, including descriptions, apply
@@ -1618,6 +1684,8 @@ int main(int argc, char *argv[]) {
                         r = get_log_target(bus, argv+optind+1);
                 else if (streq(argv[optind], "syscall-filter"))
                         r = dump_syscall_filters(argv+optind+1);
+                else if (streq(argv[optind], "calendar"))
+                        r = test_calendar(argv+optind+1);
                 else
                         log_error("Unknown operation '%s'.", argv[optind]);
         }

@@ -1457,3 +1457,9 @@ usec_t usec_shift_clock(usec_t x, clockid_t from, clockid_t to) {
                 /* x lies in the past */
                 return usec_sub_unsigned(b, usec_sub_unsigned(a, x));
 }
+
+bool in_utc_timezone(void) {
+        tzset();
+
+        return timezone == 0 && daylight == 0;
+}

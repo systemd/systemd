@@ -383,6 +383,22 @@ static void test_usec_shift_clock(void) {
         }
 }
 
+static void test_in_utc_timezone(void) {
+        assert_se(setenv("TZ", ":UTC", 1) >= 0);
+        assert_se(in_utc_timezone());
+        assert_se(streq(tzname[0], "UTC"));
+        assert_se(streq(tzname[1], "UTC"));
+        assert_se(timezone == 0);
+        assert_se(daylight == 0);
+
+        assert_se(setenv("TZ", "Europe/Berlin", 1) >= 0);
+        assert_se(!in_utc_timezone());
+        assert_se(streq(tzname[0], "CET"));
+        assert_se(streq(tzname[1], "CEST"));
+
+        assert_se(unsetenv("TZ") >= 0);
+}
+
 int main(int argc, char *argv[]) {
         uintmax_t x;
 
@@ -409,6 +425,7 @@ int main(int argc, char *argv[]) {
         test_format_timestamp_utc();
         test_dual_timestamp_deserialize();
         test_usec_shift_clock();
+        test_in_utc_timezone();
 
         /* Ensure time_t is signed */
         assert_cc((time_t) -1 < (time_t) 1);

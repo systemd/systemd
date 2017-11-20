@@ -156,6 +156,8 @@ struct tm *localtime_or_gmtime_r(const time_t *t, struct tm *tm, bool utc);
 
 unsigned long usec_to_jiffies(usec_t usec);
 
+bool in_utc_timezone(void);
+
 static inline usec_t usec_add(usec_t a, usec_t b) {
         usec_t c;
 
