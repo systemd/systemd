@@ -504,8 +504,9 @@
 
         <listitem><para>Configures requirement dependencies on other units. If this unit gets activated, the units
         listed here will be activated as well. If one of the other units fails to activate, and an ordering dependency
-        <varname>After=</varname> on the failing unit is set, this
-        unit will not be started. This option may be specified more than once or multiple space-separated units may be
+        <varname>After=</varname> on the failing unit is set, this unit will not be started. Besides, with or without
+        specifying <varname>After=</varname>, this unit will be deactivated if one of the other units get deactivated.
+        This option may be specified more than once or multiple space-separated units may be
         specified in one option in which case requirement dependencies for all listed names will be created. Note that
         requirement dependencies do not influence the order in which services are started or stopped.  This has to be
         configured independently with the <varname>After=</varname> or <varname>Before=</varname> options. If a unit
