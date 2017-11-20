@@ -2289,6 +2289,11 @@ static int link_enter_join_netdev(Link *link) {
 
         HASHMAP_FOREACH(netdev, link->network->stacked_netdevs, i) {
 
+                if (netdev->ifindex > 0) {
+                        link_joined(link);
+                        continue;
+                }
+
                 log_struct(LOG_DEBUG,
                            LOG_LINK_INTERFACE(link),
                            LOG_NETDEV_INTERFACE(netdev),
