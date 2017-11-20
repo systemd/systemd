@@ -28,11 +28,11 @@ g cdrom   -     -            -
 g dialout -     -            -
 g disk    -     -            -
 g input   -     -            -
-g lp      -     -            -
 g kvm     -     -            -
+g lp      -     -            -
+g render  -     -            -
 g tape    -     -            -
 g video   -     -            -
-g render  -     -            -
 
 # Default group for normal users
 g users   -     -            -

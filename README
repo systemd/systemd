@@ -193,6 +193,16 @@ REQUIREMENTS:
         under all circumstances. In fact, systemd-hostnamed will warn
         if nss-myhostname is not installed.
 
+        nss-systemd must be enabled on systemd systems, as that's required for
+        DynamicUser= to work. Note that we ship services out-of-the-box that
+        make use of DynamicUser= now, hence enabling nss-systemd is not
+        optional.
+
+        Note that the build prefix for systemd must be /usr. -Dsplit-usr=false
+        (which is the default and does not need to be specified) is the
+        recommended setting, and -Dsplit-usr=true should be used on systems
+        which have /usr on a separate partition.
+
         Additional packages are necessary to run some tests:
         - busybox            (used by test/TEST-13-NSPAWN-SMOKE)
         - nc                 (used by test/TEST-12-ISSUE-3171)
@@ -207,7 +217,7 @@ USERS AND GROUPS:
         even in the very early boot stages, where no other databases
         and network are available:
 
-        audio, cdrom, dialout, disk, input, kmem, lp, tape, tty, video
+        audio, cdrom, dialout, disk, input, kmem, kvm, lp, render, tape, tty, video
 
         During runtime, the journal daemon requires the
         "systemd-journal" system group to exist. New journal files will
@@ -273,16 +283,16 @@ SYSV INIT.D SCRIPTS:
         needs to look like, and provide an implementation at the marked places.
 
 WARNINGS:
-        systemd will warn you during boot if /usr is on a different
-        file system than /. While in systemd itself very little will
-        break if /usr is on a separate partition, many of its
-        dependencies very likely will break sooner or later in one
-        form or another. For example, udev rules tend to refer to
-        binaries in /usr, binaries that link to libraries in /usr or
-        binaries that refer to data files in /usr. Since these
-        breakages are not always directly visible, systemd will warn
-        about this, since this kind of file system setup is not really
-        supported anymore by the basic set of Linux OS components.
+        systemd will warn during early boot if /usr is not already mounted at
+        this point (that means: either located on the same file system as / or
+        already mounted in the initrd). While in systemd itself very little
+        will break if /usr is on a separate, late-mounted partition, many of
+        its dependencies very likely will break sooner or later in one form or
+        another. For example, udev rules tend to refer to binaries in /usr,
+        binaries that link to libraries in /usr or binaries that refer to data
+        files in /usr. Since these breakages are not always directly visible,
+        systemd will warn about this, since this kind of file system setup is
+        not really supported anymore by the basic set of Linux OS components.
 
         systemd requires that the /run mount point exists. systemd also
         requires that /var/run is a symlink to /run.
