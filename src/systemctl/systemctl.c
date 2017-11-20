@@ -1084,7 +1084,7 @@ static int get_next_elapse(
                         't',
                         &t.monotonic);
         if (r < 0)
-                return log_error_errno(r, "Failed to get next elapsation time: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to get next elapse time: %s", bus_error_message(&error, r));
 
         r = sd_bus_get_property_trivial(
                         bus,
@@ -1096,7 +1096,7 @@ static int get_next_elapse(
                         't',
                         &t.realtime);
         if (r < 0)
-                return log_error_errno(r, "Failed to get next elapsation time: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to get next elapse time: %s", bus_error_message(&error, r));
 
         *next = t;
         return 0;
