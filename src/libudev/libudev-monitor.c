@@ -96,8 +96,7 @@ struct udev_monitor_netlink_header {
         unsigned int filter_tag_bloom_lo;
 };
 
-static struct udev_monitor *udev_monitor_new(struct udev *udev)
-{
+static struct udev_monitor *udev_monitor_new(struct udev *udev) {
         struct udev_monitor *udev_monitor;
 
         udev_monitor = new0(struct udev_monitor, 1);
@@ -117,13 +116,13 @@ static bool udev_has_devtmpfs(struct udev *udev) {
 
         _cleanup_fclose_ FILE *f = NULL;
         char line[LINE_MAX], *e;
-        int mount_id;
-        int r;
+        int mount_id, r;
 
-        r = name_to_handle_at_loop(AT_FDCWD, "/dev", NULL, &mount_id, 0);
+        r = path_get_mnt_id("/dev", &mount_id);
         if (r < 0) {
-                if (errno != EOPNOTSUPP)
-                        log_debug_errno(errno, "name_to_handle_at on /dev: %m");
+                if (r != -EOPNOTSUPP)
+                        log_debug_errno(r, "name_to_handle_at on /dev: %m");
+
                 return false;
         }
 
@@ -168,8 +167,7 @@ static void monitor_set_nl_address(struct udev_monitor *udev_monitor) {
                 udev_monitor->snl.nl.nl_pid = snl.nl.nl_pid;
 }
 
-struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const char *name, int fd)
-{
+struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const char *name, int fd) {
         struct udev_monitor *udev_monitor;
         unsigned int group;
 
@@ -253,8 +251,7 @@ struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const c
  *
  * Returns: a new udev monitor, or #NULL, in case of an error
  **/
-_public_ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, const char *name)
-{
+_public_ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, const char *name) {
         return udev_monitor_new_from_netlink_fd(udev, name, -1);
 }
 
