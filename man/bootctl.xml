@@ -52,6 +52,9 @@
       <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg> status</command>
     </cmdsynopsis>
     <cmdsynopsis>
+      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg> list</command>
+    </cmdsynopsis>
+    <cmdsynopsis>
       <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg> update</command>
     </cmdsynopsis>
     <cmdsynopsis>
@@ -72,6 +75,9 @@
     <para><command>bootctl status</command> checks and prints the
     currently installed versions of the boot loader binaries and
     all current EFI boot variables.</para>
+
+    <para><command>bootctl list</command> displays all configured boot loader entries.
+    </para>
 
     <para><command>bootctl update</command> updates all installed versions of systemd-boot, if the current version is
     newer than the version installed in the EFI system partition. This also includes the EFI default/fallback loader at
@@ -102,6 +108,14 @@
         <listitem><para>Path to the EFI System Partition (ESP). If not specified, <filename>/efi</filename>,
         <filename>/boot</filename>, and <filename>/boot/efi</filename> are checked in turn.  It is recommended to mount
         the ESP to <filename>/boot</filename>, if possible.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-p</option></term>
+        <term><option>--print-path</option></term>
+        <listitem><para>This option modifies the behaviour of <command>status</command>.
+        Just print the path to the EFI System Partition (ESP) to standard output and
+        exit.</para></listitem>
       </varlistentry>
 
       <varlistentry>

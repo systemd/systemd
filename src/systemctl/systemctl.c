@@ -28,6 +28,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/prctl.h>
 #include <sys/reboot.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -37,6 +38,7 @@
 #include "sd-login.h"
 
 #include "alloc-util.h"
+#include "bootspec.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-message.h"
@@ -132,7 +134,7 @@ static bool arg_no_reload = false;
 static bool arg_value = false;
 static bool arg_show_types = false;
 static bool arg_ignore_inhibitors = false;
-static bool arg_dry = false;
+static bool arg_dry_run = false;
 static bool arg_quiet = false;
 static bool arg_full = false;
 static bool arg_recursive = false;
@@ -145,6 +147,7 @@ static const char *arg_kill_who = NULL;
 static int arg_signal = SIGTERM;
 static char *arg_root = NULL;
 static usec_t arg_when = 0;
+static char *arg_esp_path = NULL;
 static char *argv_cmdline = NULL;
 static enum action {
         ACTION_SYSTEMCTL,
@@ -263,6 +266,9 @@ static int map_string_no_copy(sd_bus *bus, const char *member, sd_bus_message *m
 static void ask_password_agent_open_if_enabled(void) {
 
         /* Open the password agent as a child process if necessary */
+
+        if (arg_dry_run)
+                return;
 
         if (!arg_ask_password)
                 return;
@@ -2938,7 +2944,11 @@ static int start_unit_one(
                         return log_error_errno(r, "Failed to add match for PropertiesChanged signal: %m");
         }
 
-        log_debug("Calling manager for %s on %s, %s", method, name, mode);
+        log_debug("%s manager for %s on %s, %s",
+                  arg_dry_run ? "Would call" : "Calling",
+                  method, name, mode);
+        if (arg_dry_run)
+                return 0;
 
         r = sd_bus_call_method(
                         bus,
@@ -3490,6 +3500,75 @@ static int prepare_firmware_setup(void) {
         return logind_prepare_firmware_setup();
 }
 
+static int load_kexec_kernel(void) {
+        _cleanup_(boot_config_free) BootConfig config = {};
+        _cleanup_free_ char *kernel = NULL, *initrd = NULL, *options = NULL;
+        const BootEntry *e;
+        pid_t pid;
+        int r;
+
+        if (kexec_loaded()) {
+                log_debug("Kexec kernel already loaded.");
+                return 0;
+        }
+
+        r = find_esp(&arg_esp_path, NULL, NULL, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Cannot find the ESP partition mount point: %m");
+
+        r = boot_entries_load_config(arg_esp_path, &config);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load bootspec config from \"%s/loader\": %m",
+                                       arg_esp_path);
+
+        if (config.default_entry < 0) {
+                log_error("No entry suitable as default, refusing to guess.");
+                return -ENOENT;
+        }
+        e = &config.entries[config.default_entry];
+
+        if (strv_length(e->initrd) > 1) {
+                log_error("Boot entry specifies multiple initrds, which is not supported currently.");
+                return -EINVAL;
+        }
+
+        kernel = path_join(NULL, arg_esp_path, e->kernel);
+        if (!strv_isempty(e->initrd))
+                initrd = path_join(NULL, arg_esp_path, *e->initrd);
+        options = strv_join(e->options, " ");
+        if (!options)
+                return log_oom();
+
+        log_debug("%s kexec kernel %s initrd %s options \"%s\".",
+                  arg_dry_run ? "Would load" : "loading",
+                  kernel, initrd, options);
+        if (arg_dry_run)
+                return 0;
+
+        pid = fork();
+        if (pid < 0)
+                return log_error_errno(errno, "Failed to fork: %m");
+        else if (pid == 0) {
+
+                const char* const args[] = {
+                        KEXEC,
+                        "--load", kernel,
+                        "--append", options,
+                        initrd ? "--initrd" : NULL, initrd,
+                        NULL };
+
+                /* Child */
+
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
+                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
+
+                execv(args[0], (char * const *) args);
+                _exit(EXIT_FAILURE);
+        } else
+                return wait_for_terminate_and_warn("kexec", pid, true);
+}
+
 static int set_exit_code(uint8_t code) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
@@ -3539,6 +3618,11 @@ static int start_special(int argc, char *argv[], void *userdata) {
 
         if (a == ACTION_REBOOT && argc > 1) {
                 r = update_reboot_parameter_and_warn(argv[1]);
+                if (r < 0)
+                        return r;
+
+        } else if (a == ACTION_KEXEC) {
+                r = load_kexec_kernel();
                 if (r < 0)
                         return r;
 
@@ -5610,6 +5694,9 @@ static int trivial_method(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r;
 
+        if (arg_dry_run)
+                return 0;
+
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
@@ -7164,6 +7251,7 @@ static void systemctl_help(void) {
                "     --kill-who=WHO   Who to send signal to\n"
                "  -s --signal=SIGNAL  Which signal to send\n"
                "     --now            Start or stop unit in addition to enabling or disabling it\n"
+               "     --dry-run        Only print what would be done\n"
                "  -q --quiet          Suppress output\n"
                "     --wait           For (re)start, wait until service stopped again\n"
                "     --no-block       Do not wait until operation finished\n"
@@ -7410,6 +7498,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_REVERSE,
                 ARG_AFTER,
                 ARG_BEFORE,
+                ARG_DRY_RUN,
                 ARG_SHOW_TYPES,
                 ARG_IRREVERSIBLE,
                 ARG_IGNORE_DEPENDENCIES,
@@ -7465,6 +7554,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "no-legend",           no_argument,       NULL, ARG_NO_LEGEND           },
                 { "no-pager",            no_argument,       NULL, ARG_NO_PAGER            },
                 { "no-wall",             no_argument,       NULL, ARG_NO_WALL             },
+                { "dry-run",             no_argument,       NULL, ARG_DRY_RUN             },
                 { "quiet",               no_argument,       NULL, 'q'                     },
                 { "root",                required_argument, NULL, ARG_ROOT                },
                 { "force",               no_argument,       NULL, ARG_FORCE               },
@@ -7674,6 +7764,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_DRY_RUN:
+                        arg_dry_run = true;
+                        break;
+
                 case 'q':
                         arg_quiet = true;
                         break;
@@ -7879,7 +7973,7 @@ static int halt_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'w':
-                        arg_dry = true;
+                        arg_dry_run = true;
                         break;
 
                 case 'd':
@@ -8022,7 +8116,7 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'k':
-                        arg_dry = true;
+                        arg_dry_run = true;
                         break;
 
                 case ARG_NO_WALL:
@@ -8413,24 +8507,28 @@ static int halt_now(enum action a) {
         /* The kernel will automaticall flush ATA disks and suchlike
          * on reboot(), but the file systems need to be synce'd
          * explicitly in advance. */
-        if (!arg_no_sync)
+        if (!arg_no_sync && !arg_dry_run)
                 (void) sync();
 
-        /* Make sure C-A-D is handled by the kernel from this point
-         * on... */
-        (void) reboot(RB_ENABLE_CAD);
+        /* Make sure C-A-D is handled by the kernel from this point on... */
+        if (!arg_dry_run)
+                (void) reboot(RB_ENABLE_CAD);
 
         switch (a) {
 
         case ACTION_HALT:
                 if (!arg_quiet)
                         log_info("Halting.");
+                if (arg_dry_run)
+                        return 0;
                 (void) reboot(RB_HALT_SYSTEM);
                 return -errno;
 
         case ACTION_POWEROFF:
                 if (!arg_quiet)
                         log_info("Powering off.");
+                if (arg_dry_run)
+                        return 0;
                 (void) reboot(RB_POWER_OFF);
                 return -errno;
 
@@ -8445,12 +8543,17 @@ static int halt_now(enum action a) {
                 if (!isempty(param)) {
                         if (!arg_quiet)
                                 log_info("Rebooting with argument '%s'.", param);
-                        (void) syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART2, param);
-                        log_warning_errno(errno, "Failed to reboot with parameter, retrying without: %m");
+                        if (!arg_dry_run) {
+                                (void) syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2,
+                                               LINUX_REBOOT_CMD_RESTART2, param);
+                                log_warning_errno(errno, "Failed to reboot with parameter, retrying without: %m");
+                        }
                 }
 
                 if (!arg_quiet)
                         log_info("Rebooting.");
+                if (arg_dry_run)
+                        return 0;
                 (void) reboot(RB_AUTOBOOT);
                 return -errno;
         }
@@ -8492,7 +8595,7 @@ static int logind_schedule_shutdown(void) {
                 break;
         }
 
-        if (arg_dry)
+        if (arg_dry_run)
                 action = strjoina("dry-", action);
 
         (void) logind_set_wall_message();
@@ -8531,7 +8634,7 @@ static int halt_main(void) {
                 return logind_schedule_shutdown();
 
         if (geteuid() != 0) {
-                if (arg_dry || arg_force > 0) {
+                if (arg_dry_run || arg_force > 0) {
                         log_error("Must be root.");
                         return -EPERM;
                 }
@@ -8552,7 +8655,7 @@ static int halt_main(void) {
                 }
         }
 
-        if (!arg_dry && !arg_force)
+        if (!arg_dry_run && !arg_force)
                 return start_with_fallback();
 
         assert(geteuid() == 0);
@@ -8567,7 +8670,7 @@ static int halt_main(void) {
                 }
         }
 
-        if (arg_dry)
+        if (arg_dry_run)
                 return 0;
 
         r = halt_now(arg_action);
@@ -8715,6 +8818,7 @@ finish:
 
         strv_free(arg_wall);
         free(arg_root);
+        free(arg_esp_path);
 
         /* Note that we return r here, not EXIT_SUCCESS, so that we can implement the LSB-like return codes */
         return r < 0 ? EXIT_FAILURE : r;

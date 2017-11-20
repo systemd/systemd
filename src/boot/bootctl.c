@@ -38,6 +38,7 @@
 
 #include "alloc-util.h"
 #include "blkid-util.h"
+#include "bootspec.h"
 #include "copy.h"
 #include "dirent-util.h"
 #include "efivars.h"
@@ -50,207 +51,30 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "umask-util.h"
 #include "util.h"
 #include "verbs.h"
 #include "virt.h"
 
 static char *arg_path = NULL;
+static bool arg_print_path = false;
 static bool arg_touch_variables = true;
 
-static int verify_esp(
-                bool searching,
-                const char *p,
-                uint32_t *ret_part,
-                uint64_t *ret_pstart,
-                uint64_t *ret_psize,
-                sd_id128_t *ret_uuid) {
-
-        _cleanup_blkid_free_probe_ blkid_probe b = NULL;
-        _cleanup_free_ char *t = NULL;
-        uint64_t pstart = 0, psize = 0;
-        struct stat st, st2;
-        const char *v, *t2;
-        struct statfs sfs;
-        sd_id128_t uuid = SD_ID128_NULL;
-        uint32_t part = 0;
-        bool quiet;
+static int find_esp_and_warn(uint32_t *part, uint64_t *pstart, uint64_t *psize, sd_id128_t *uuid) {
         int r;
 
-        assert(p);
+        r = find_esp(&arg_path, part, pstart, psize, uuid);
+        if (r == -ENOENT)
+                return log_error_errno(r,
+                                       "Couldn't find EFI system partition. It is recommended to mount it to /boot.\n"
+                                       "Alternatively, use --path= to specify path to mount point.");
+        else if (r < 0)
+                return log_error_errno(r,
+                                       "Couldn't find EFI system partition: %m");
 
-        /* Non-root user can run only `bootctl status`, then if error occured in the following, it does not cause any issues.
-         * So, let's silence the error messages. */
-        quiet = (geteuid() != 0);
-
-        if (statfs(p, &sfs) < 0) {
-
-                /* If we are searching for the mount point, don't generate a log message if we can't find the path */
-                if (errno == ENOENT && searching)
-                        return -ENOENT;
-
-                return log_full_errno(quiet && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to check file system type of \"%s\": %m", p);
-        }
-
-        if (!F_TYPE_EQUAL(sfs.f_type, MSDOS_SUPER_MAGIC)) {
-
-                if (searching)
-                        return -EADDRNOTAVAIL;
-
-                log_error("File system \"%s\" is not a FAT EFI System Partition (ESP) file system.", p);
-                return -ENODEV;
-        }
-
-        if (stat(p, &st) < 0)
-                return log_full_errno(quiet && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to determine block device node of \"%s\": %m", p);
-
-        if (major(st.st_dev) == 0) {
-                log_error("Block device node of %p is invalid.", p);
-                return -ENODEV;
-        }
-
-        t2 = strjoina(p, "/..");
-        r = stat(t2, &st2);
-        if (r < 0)
-                return log_full_errno(quiet && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to determine block device node of parent of \"%s\": %m", p);
-
-        if (st.st_dev == st2.st_dev) {
-                log_error("Directory \"%s\" is not the root of the EFI System Partition (ESP) file system.", p);
-                return -ENODEV;
-        }
-
-        /* In a container we don't have access to block devices, skip this part of the verification, we trust the
-         * container manager set everything up correctly on its own. Also skip the following verification for non-root user. */
-        if (detect_container() > 0 || geteuid() != 0)
-                goto finish;
-
-        r = asprintf(&t, "/dev/block/%u:%u", major(st.st_dev), minor(st.st_dev));
-        if (r < 0)
-                return log_oom();
-
-        errno = 0;
-        b = blkid_new_probe_from_filename(t);
-        if (!b)
-                return log_error_errno(errno ?: ENOMEM, "Failed to open file system \"%s\": %m", p);
-
-        blkid_probe_enable_superblocks(b, 1);
-        blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
-        blkid_probe_enable_partitions(b, 1);
-        blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
-
-        errno = 0;
-        r = blkid_do_safeprobe(b);
-        if (r == -2) {
-                log_error("File system \"%s\" is ambiguous.", p);
-                return -ENODEV;
-        } else if (r == 1) {
-                log_error("File system \"%s\" does not contain a label.", p);
-                return -ENODEV;
-        } else if (r != 0)
-                return log_error_errno(errno ?: EIO, "Failed to probe file system \"%s\": %m", p);
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "TYPE", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: EIO, "Failed to probe file system type \"%s\": %m", p);
-        if (!streq(v, "vfat")) {
-                log_error("File system \"%s\" is not FAT.", p);
-                return -ENODEV;
-        }
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: EIO, "Failed to probe partition scheme \"%s\": %m", p);
-        if (!streq(v, "gpt")) {
-                log_error("File system \"%s\" is not on a GPT partition table.", p);
-                return -ENODEV;
-        }
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: EIO, "Failed to probe partition type UUID \"%s\": %m", p);
-        if (!streq(v, "c12a7328-f81f-11d2-ba4b-00a0c93ec93b")) {
-                log_error("File system \"%s\" has wrong type for an EFI System Partition (ESP).", p);
-                return -ENODEV;
-        }
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_UUID", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: EIO, "Failed to probe partition entry UUID \"%s\": %m", p);
-        r = sd_id128_from_string(v, &uuid);
-        if (r < 0) {
-                log_error("Partition \"%s\" has invalid UUID \"%s\".", p, v);
-                return -EIO;
-        }
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_NUMBER", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: EIO, "Failed to probe partition number \"%s\": m", p);
-        r = safe_atou32(v, &part);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse PART_ENTRY_NUMBER field.");
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_OFFSET", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: EIO, "Failed to probe partition offset \"%s\": %m", p);
-        r = safe_atou64(v, &pstart);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse PART_ENTRY_OFFSET field.");
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_SIZE", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: EIO, "Failed to probe partition size \"%s\": %m", p);
-        r = safe_atou64(v, &psize);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse PART_ENTRY_SIZE field.");
-
-finish:
-        if (ret_part)
-                *ret_part = part;
-        if (ret_pstart)
-                *ret_pstart = pstart;
-        if (ret_psize)
-                *ret_psize = psize;
-        if (ret_uuid)
-                *ret_uuid = uuid;
-
+        log_debug("Using EFI System Partition at %s.", arg_path);
         return 0;
-}
-
-static int find_esp(uint32_t *part, uint64_t *pstart, uint64_t *psize, sd_id128_t *uuid) {
-        const char *path;
-        int r;
-
-        if (arg_path)
-                return verify_esp(false, arg_path, part, pstart, psize, uuid);
-
-        FOREACH_STRING(path, "/efi", "/boot", "/boot/efi") {
-
-                r = verify_esp(true, path, part, pstart, psize, uuid);
-                if (IN_SET(r, -ENOENT, -EADDRNOTAVAIL)) /* This one is not it */
-                        continue;
-                if (r < 0)
-                        return r;
-
-                arg_path = strdup(path);
-                if (!arg_path)
-                        return log_oom();
-
-                log_info("Using EFI System Partition at %s.", path);
-                return 0;
-        }
-
-        log_error("Couldn't find EFI system partition. It is recommended to mount it to /boot. Alternatively, use --path= to specify path to mount point.");
-        return -ENOENT;
 }
 
 /* search for "#### LoaderInfo: systemd-boot 218 ####" string inside the binary */
@@ -438,6 +262,54 @@ static int status_variables(void) {
 
         next_option:
                 continue;
+        }
+
+        return 0;
+}
+
+static int status_entries(const char *esp_path, sd_id128_t partition) {
+        int r;
+
+        _cleanup_(boot_config_free) BootConfig config = {};
+
+        printf("Default Boot Entry:\n");
+
+        r = boot_entries_load_config(esp_path, &config);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load bootspec config from \"%s/loader\": %m",
+                                       esp_path);
+
+        if (config.default_entry < 0)
+                printf("%zu entries, no entry suitable as default", config.n_entries);
+        else {
+                const BootEntry *e = &config.entries[config.default_entry];
+
+                printf("        title: %s\n", boot_entry_title(e));
+                if (e->version)
+                        printf("      version: %s\n", e->version);
+                if (e->kernel)
+                        printf("        linux: %s\n", e->kernel);
+                if (!strv_isempty(e->initrd)) {
+                        _cleanup_free_ char *t;
+
+                        t = strv_join(e->initrd, " ");
+                        if (!t)
+                                return log_oom();
+
+                        printf("       initrd: %s\n", t);
+                }
+                if (!strv_isempty(e->options)) {
+                        _cleanup_free_ char *t;
+
+                        t = strv_join(e->options, " ");
+                        if (!t)
+                                return log_oom();
+
+                        printf("      options: %s\n", t);
+                }
+                if (e->device_tree)
+                        printf("   devicetree: %s\n", e->device_tree);
+                puts("");
         }
 
         return 0;
@@ -962,10 +834,12 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -h --help          Show this help\n"
                "     --version       Print version\n"
                "     --path=PATH     Path to the EFI System Partition (ESP)\n"
+               "  -p --print-path    Print path to the EFI partition\n"
                "     --no-variables  Don't touch EFI variables\n"
                "\n"
                "Commands:\n"
                "     status          Show status of installed systemd-boot and EFI variables\n"
+               "     list            List boot entries\n"
                "     install         Install systemd-boot to the ESP and EFI variables\n"
                "     update          Update systemd-boot in the ESP and EFI variables\n"
                "     remove          Remove systemd-boot from the ESP and EFI variables\n",
@@ -985,6 +859,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",         no_argument,       NULL, 'h'              },
                 { "version",      no_argument,       NULL, ARG_VERSION      },
                 { "path",         required_argument, NULL, ARG_PATH         },
+                { "print-path",   no_argument,       NULL, 'p'              },
                 { "no-variables", no_argument,       NULL, ARG_NO_VARIABLES },
                 { NULL,           0,                 NULL, 0                }
         };
@@ -994,7 +869,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hp", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -1008,6 +883,10 @@ static int parse_argv(int argc, char *argv[]) {
                         r = free_and_strdup(&arg_path, optarg);
                         if (r < 0)
                                 return log_oom();
+                        break;
+
+                case 'p':
+                        arg_print_path = true;
                         break;
 
                 case ARG_NO_VARIABLES:
@@ -1044,9 +923,17 @@ static int must_be_root(void) {
 static int verb_status(int argc, char *argv[], void *userdata) {
 
         sd_id128_t uuid = SD_ID128_NULL;
-        int r, r2;
+        int r, k;
 
-        r2 = find_esp(NULL, NULL, NULL, &uuid);
+        r = find_esp_and_warn(NULL, NULL, NULL, &uuid);
+
+        if (arg_print_path) {
+                if (r < 0)
+                        return r;
+
+                puts(arg_path);
+                return 0;
+        }
 
         if (is_efi_boot()) {
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL;
@@ -1060,24 +947,24 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 if (loader_path)
                         efi_tilt_backslashes(loader_path);
 
-                r = efi_loader_get_device_part_uuid(&loader_part_uuid);
-                if (r < 0 && r != -ENOENT)
-                        r2 = log_warning_errno(r, "Failed to read EFI variable LoaderDevicePartUUID: %m");
+                k = efi_loader_get_device_part_uuid(&loader_part_uuid);
+                if (k < 0 && k != -ENOENT)
+                        r = log_warning_errno(k, "Failed to read EFI variable LoaderDevicePartUUID: %m");
 
                 printf("System:\n");
                 printf("     Firmware: %s (%s)\n", strna(fw_type), strna(fw_info));
 
-                r = is_efi_secure_boot();
-                if (r < 0)
-                        r2 = log_warning_errno(r, "Failed to query secure boot status: %m");
+                k = is_efi_secure_boot();
+                if (k < 0)
+                        r = log_warning_errno(k, "Failed to query secure boot status: %m");
                 else
-                        printf("  Secure Boot: %sd\n", enable_disable(r));
+                        printf("  Secure Boot: %sd\n", enable_disable(k));
 
-                r = is_efi_secure_boot_setup_mode();
-                if (r < 0)
-                        r2 = log_warning_errno(r, "Failed to query secure boot mode: %m");
+                k = is_efi_secure_boot_setup_mode();
+                if (k < 0)
+                        r = log_warning_errno(k, "Failed to query secure boot mode: %m");
                 else
-                        printf("   Setup Mode: %s\n", r ? "setup" : "user");
+                        printf("   Setup Mode: %s\n", k ? "setup" : "user");
                 printf("\n");
 
                 printf("Current Loader:\n");
@@ -1092,17 +979,84 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         } else
                 printf("System:\n    Not booted with EFI\n\n");
 
-        r = status_binaries(arg_path, uuid);
-        if (r < 0)
-                r2 = r;
+        k = status_binaries(arg_path, uuid);
+        if (k < 0)
+                r = k;
 
         if (is_efi_boot()) {
-                r = status_variables();
-                if (r < 0)
-                        r2 = r;
+                k = status_variables();
+                if (k < 0)
+                        r = k;
         }
 
-        return r2;
+        k = status_entries(arg_path, uuid);
+        if (k < 0)
+                r = k;
+
+        return r;
+}
+
+static int verb_list(int argc, char *argv[], void *userdata) {
+        sd_id128_t uuid = SD_ID128_NULL;
+        int r;
+        unsigned n;
+
+        _cleanup_(boot_config_free) BootConfig config = {};
+
+        r = find_esp_and_warn(NULL, NULL, NULL, &uuid);
+        if (r < 0)
+                return r;
+
+        r = boot_entries_load_config(arg_path, &config);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load bootspec config from \"%s/loader\": %m",
+                                       arg_path);
+
+        printf("Available boot entries:\n");
+
+        for (n = 0; n < config.n_entries; n++) {
+                const BootEntry *e = &config.entries[n];
+
+                printf("        title: %s%s%s%s%s%s\n",
+                       ansi_highlight(),
+                       boot_entry_title(e),
+                       ansi_normal(),
+                       ansi_highlight_green(),
+                       n == config.default_entry ? " (default)" : "",
+                       ansi_normal());
+                if (e->version)
+                        printf("      version: %s\n", e->version);
+                if (e->machine_id)
+                        printf("   machine-id: %s\n", e->machine_id);
+                if (e->architecture)
+                        printf(" architecture: %s\n", e->architecture);
+                if (e->kernel)
+                        printf("        linux: %s\n", e->kernel);
+                if (!strv_isempty(e->initrd)) {
+                        _cleanup_free_ char *t;
+
+                        t = strv_join(e->initrd, " ");
+                        if (!t)
+                                return log_oom();
+
+                        printf("       initrd: %s\n", t);
+                }
+                if (!strv_isempty(e->options)) {
+                        _cleanup_free_ char *t;
+
+                        t = strv_join(e->options, " ");
+                        if (!t)
+                                return log_oom();
+
+                        printf("      options: %s\n", t);
+                }
+                if (e->device_tree)
+                        printf("   devicetree: %s\n", e->device_tree);
+
+                puts("");
+        }
+
+        return 0;
 }
 
 static int verb_install(int argc, char *argv[], void *userdata) {
@@ -1117,7 +1071,7 @@ static int verb_install(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = find_esp(&part, &pstart, &psize, &uuid);
+        r = find_esp_and_warn(&part, &pstart, &psize, &uuid);
         if (r < 0)
                 return r;
 
@@ -1152,7 +1106,7 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = find_esp(NULL, NULL, NULL, &uuid);
+        r = find_esp_and_warn(NULL, NULL, NULL, &uuid);
         if (r < 0)
                 return r;
 
@@ -1174,6 +1128,7 @@ static int bootctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "help",            VERB_ANY, VERB_ANY, 0,            help         },
                 { "status",          VERB_ANY, 1,        VERB_DEFAULT, verb_status  },
+                { "list",            VERB_ANY, 1,        0,            verb_list    },
                 { "install",         VERB_ANY, 1,        0,            verb_install },
                 { "update",          VERB_ANY, 1,        0,            verb_install },
                 { "remove",          VERB_ANY, 1,        0,            verb_remove  },

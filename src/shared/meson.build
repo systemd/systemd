@@ -27,6 +27,8 @@ shared_sources = '''
         base-filesystem.h
         boot-timestamps.c
         boot-timestamps.h
+        bootspec.c
+        bootspec.h
         bus-unit-util.c
         bus-unit-util.h
         bus-util.c
