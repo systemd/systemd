@@ -24,7 +24,7 @@ CHANGES WITH 235:
           services now run inside an IPv4/IPv6 sandbox, prohibiting them any IP
           communication with the outside. This generally improves security of
           the system, and is in almost all cases a safe and good choice, as
-          these services do not and should provide any network-facing
+          these services do not and should not provide any network-facing
           functionality. However, systemd-logind uses the glibc NSS API to
           query the user database. This creates problems on systems where NSS
           is set up to directly consult network services for user database
