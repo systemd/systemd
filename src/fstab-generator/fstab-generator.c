@@ -51,6 +51,7 @@ typedef enum MountpointFlags {
         NOAUTO    = 1 << 0,
         NOFAIL    = 1 << 1,
         AUTOMOUNT = 1 << 2,
+        MAKEFS    = 1 << 3,
 } MountpointFlags;
 
 static const char *arg_dest = "/tmp";
@@ -154,6 +155,12 @@ static int add_swap(
         r = generator_write_timeouts(arg_dest, what, what, me->mnt_opts, NULL);
         if (r < 0)
                 return r;
+
+        if (flags & MAKEFS) {
+                r = generator_hook_up_mkswap(arg_dest, what);
+                if (r < 0)
+                        return r;
+        }
 
         if (!(flags & NOAUTO)) {
                 r = generator_add_symlink(arg_dest, SPECIAL_SWAP_TARGET,
@@ -307,10 +314,11 @@ static int add_mount(
                 const char *source) {
 
         _cleanup_free_ char
-                *name = NULL, *unit = NULL,
+                *name = NULL,
                 *automount_name = NULL, *automount_unit = NULL,
                 *filtered = NULL,
                 *where_escaped = NULL;
+        const char *unit;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -347,9 +355,7 @@ static int add_mount(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        unit = strjoin(dest, "/", name);
-        if (!unit)
-                return log_oom();
+        unit = strjoina(dest, "/", name);
 
         f = fopen(unit, "wxe");
         if (!f)
@@ -447,6 +453,12 @@ static int add_mount(
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit file %s: %m", unit);
 
+        if (flags & MAKEFS) {
+                r = generator_hook_up_mkfs(dest, what, where, fstype);
+                if (r < 0)
+                        return r;
+        }
+
         if (!(flags & NOAUTO) && !(flags & AUTOMOUNT)) {
                 r = generator_add_symlink(dest, post,
                                           (flags & NOFAIL) ? "wants" : "requires", name);
@@ -532,7 +544,7 @@ static int parse_fstab(bool initrd) {
 
         while ((me = getmntent(f))) {
                 _cleanup_free_ char *where = NULL, *what = NULL, *canonical_where = NULL;
-                bool noauto, nofail;
+                bool makefs, noauto, nofail;
                 int k;
 
                 if (initrd && !mount_in_initrd(me))
@@ -574,15 +586,17 @@ static int parse_fstab(bool initrd) {
                         }
                 }
 
+                makefs = fstab_test_option(me->mnt_opts, "x-systemd.makefs\0");
                 noauto = fstab_test_yes_no_option(me->mnt_opts, "noauto\0" "auto\0");
                 nofail = fstab_test_yes_no_option(me->mnt_opts, "nofail\0" "fail\0");
-                log_debug("Found entry what=%s where=%s type=%s nofail=%s noauto=%s",
+                log_debug("Found entry what=%s where=%s type=%s makefs=%s nofail=%s noauto=%s",
                           what, where, me->mnt_type,
+                          yes_no(makefs),
                           yes_no(noauto), yes_no(nofail));
 
                 if (streq(me->mnt_type, "swap"))
                         k = add_swap(what, me,
-                                     noauto*NOAUTO | nofail*NOFAIL);
+                                     makefs*MAKEFS | noauto*NOAUTO | nofail*NOFAIL);
                 else {
                         bool automount;
                         const char *post;
@@ -604,7 +618,7 @@ static int parse_fstab(bool initrd) {
                                       me->mnt_type,
                                       me->mnt_opts,
                                       me->mnt_passno,
-                                      noauto*NOAUTO | nofail*NOFAIL | automount*AUTOMOUNT,
+                                      makefs*MAKEFS | noauto*NOAUTO | nofail*NOFAIL | automount*AUTOMOUNT,
                                       post,
                                       fstab_path);
                 }
@@ -665,7 +679,7 @@ static int add_sysroot_mount(void) {
                          arg_root_fstype,
                          opts,
                          is_device_path(what) ? 1 : 0, /* passno */
-                         0,                            /* noauto off, nofail off, automount off */
+                         0,                            /* makefs off, noauto off, nofail off, automount off */
                          SPECIAL_INITRD_ROOT_FS_TARGET,
                          "/proc/cmdline");
 }
