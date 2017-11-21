@@ -33,6 +33,7 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "special.h"
+#include "specifier.h"
 #include "string-util.h"
 #include "time-util.h"
 #include "unit-name.h"
@@ -55,13 +56,17 @@ int generator_add_symlink(const char *root, const char *dst, const char *dep_typ
 }
 
 static int write_fsck_sysroot_service(const char *dir, const char *what) {
-        _cleanup_free_ char *device = NULL, *escaped = NULL;
+        _cleanup_free_ char *device = NULL, *escaped = NULL, *escaped2 = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *unit;
         int r;
 
-        escaped = cescape(what);
+        escaped = specifier_escape(what);
         if (!escaped)
+                return log_oom();
+
+        escaped2 = cescape(escaped);
+        if (!escaped2)
                 return log_oom();
 
         unit = strjoina(dir, "/systemd-fsck-root.service");
@@ -91,9 +96,9 @@ static int write_fsck_sysroot_service(const char *dir, const char *what) {
                 "ExecStart=" SYSTEMD_FSCK_PATH " %4$s\n"
                 "TimeoutSec=0\n",
                 program_invocation_short_name,
-                what,
+                escaped,
                 device,
-                escaped);
+                escaped2);
 
         r = fflush_and_check(f);
         if (r < 0)
