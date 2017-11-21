@@ -50,6 +50,9 @@ struct RoutingPolicyRule {
         unsigned char to_prefixlen;
         unsigned char from_prefixlen;
 
+        char *iif;
+        char *oif;
+
         union in_addr_union to;
         union in_addr_union from;
 
@@ -68,11 +71,11 @@ int link_routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_message
 int link_routing_policy_rule_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata);
 
 int routing_policy_rule_add(Manager *m, int family, const union in_addr_union *from, uint8_t from_prefixlen, const union in_addr_union *to, uint8_t to_prefixlen,
-                            uint8_t tos, uint32_t fwmark, uint32_t table, RoutingPolicyRule **ret);
+                            uint8_t tos, uint32_t fwmark, uint32_t table, char *iif, char *oif, RoutingPolicyRule **ret);
 int routing_policy_rule_add_foreign(Manager *m, int family, const union in_addr_union *from, uint8_t from_prefixlen, const union in_addr_union *to, uint8_t to_prefixlen,
-                                    uint8_t tos, uint32_t fwmark, uint32_t table, RoutingPolicyRule **ret);
+                                    uint8_t tos, uint32_t fwmark, uint32_t table, char *iif, char *oif, RoutingPolicyRule **ret);
 int routing_policy_rule_get(Manager *m, int family, const union in_addr_union *from, uint8_t from_prefixlen, const union in_addr_union *to, uint8_t to_prefixlen, uint8_t tos,
-                            uint32_t fwmark, uint32_t table, RoutingPolicyRule **ret);
+                            uint32_t fwmark, uint32_t table, char *iif, char *oif, RoutingPolicyRule **ret);
 int routing_policy_rule_make_local(Manager *m, RoutingPolicyRule *rule);
 int routing_policy_rule_load(Manager *m);
 void routing_policy_rule_purge(Manager *m, Link *link);
@@ -82,3 +85,4 @@ int config_parse_routing_policy_rule_table(const char *unit, const char *filenam
 int config_parse_routing_policy_rule_fwmark_mask(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_routing_policy_rule_prefix(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_routing_policy_rule_priority(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data,void *userdata);
+int config_parse_routing_policy_rule_device(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data,void *userdata);

@@ -732,6 +732,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
         union in_addr_union to, from;
         uint32_t fwmark = 0, table = 0;
         Manager *m = userdata;
+        char *iif, *oif;
         uint16_t type;
         int family;
         int r;
@@ -811,13 +812,15 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
         (void) sd_netlink_message_read_u32(message, FRA_FWMARK, &fwmark);
         (void) sd_netlink_message_read_u32(message, FRA_TABLE, &table);
         (void) sd_rtnl_message_routing_policy_rule_get_tos(message, &tos);
+        (void) sd_netlink_message_read_string(message, FRA_IIFNAME, (const char **) &iif);
+        (void) sd_netlink_message_read_string(message, FRA_OIFNAME, (const char **) &oif);
 
-        (void) routing_policy_rule_get(m, family, &from, from_prefixlen, &to, to_prefixlen, tos, fwmark, table, &rule);
+        (void) routing_policy_rule_get(m, family, &from, from_prefixlen, &to, to_prefixlen, tos, fwmark, table, iif, oif, &rule);
 
         switch (type) {
         case RTM_NEWRULE:
                 if(!rule) {
-                        r = routing_policy_rule_add_foreign(m, family, &from, from_prefixlen, &to, to_prefixlen, tos, fwmark, table, &rule);
+                        r = routing_policy_rule_add_foreign(m, family, &from, from_prefixlen, &to, to_prefixlen, tos, fwmark, table, iif, oif, &rule);
                         if (r < 0) {
                                 log_warning_errno(r, "Could not add rule: %m");
                                 return 0;

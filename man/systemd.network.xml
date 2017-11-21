@@ -926,6 +926,18 @@
             integer. Higher number means lower priority, and rules get processed in order of increasing number.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>IncomingInterface=</varname></term>
+          <listitem>
+            <para>Specifies incoming device to match. If the interface is loopback, the rule only matches packets originating from this host.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>OutgoingInterface=</varname></term>
+          <listitem>
+            <para>Specifies the outgoing device to match. The outgoing interface is only available for packets originating from local sockets that are bound to a device.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 
