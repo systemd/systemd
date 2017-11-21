@@ -603,26 +603,26 @@ char* strshorten(char *s, size_t l) {
 }
 
 char *strreplace(const char *text, const char *old_string, const char *new_string) {
+        size_t l, old_len, new_len, allocated = 0;
+        char *t, *ret = NULL;
         const char *f;
-        char *t, *r;
-        size_t l, old_len, new_len;
 
-        assert(text);
         assert(old_string);
         assert(new_string);
+
+        if (!text)
+                return NULL;
 
         old_len = strlen(old_string);
         new_len = strlen(new_string);
 
         l = strlen(text);
-        r = new(char, l+1);
-        if (!r)
+        if (!GREEDY_REALLOC(ret, allocated, l+1))
                 return NULL;
 
         f = text;
-        t = r;
+        t = ret;
         while (*f) {
-                char *a;
                 size_t d, nl;
 
                 if (!startswith(f, old_string)) {
@@ -630,25 +630,21 @@ char *strreplace(const char *text, const char *old_string, const char *new_strin
                         continue;
                 }
 
-                d = t - r;
+                d = t - ret;
                 nl = l - old_len + new_len;
-                a = realloc(r, nl + 1);
-                if (!a)
-                        goto oom;
+
+                if (!GREEDY_REALLOC(ret, allocated, nl + 1))
+                        return mfree(ret);
 
                 l = nl;
-                r = a;
-                t = r + d;
+                t = ret + d;
 
                 t = stpcpy(t, new_string);
                 f += old_len;
         }
 
         *t = 0;
-        return r;
-
-oom:
-        return mfree(r);
+        return ret;
 }
 
 char *strip_tab_ansi(char **ibuf, size_t *_isz) {
