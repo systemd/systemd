@@ -94,6 +94,10 @@ REQUIREMENTS:
         Required for CPUQuota= in resource control unit settings
           CONFIG_CFS_BANDWIDTH
 
+        Required for IPAddressDeny= and IPAddressAllow= in resource control
+        unit settings
+          CONFIG_CGROUP_BPF
+
         For UEFI systems:
           CONFIG_EFIVAR_FS
           CONFIG_EFI_PARTITION
