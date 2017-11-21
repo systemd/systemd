@@ -434,3 +434,8 @@
   that interrupted system calls are automatically restarted, and we minimize
   hassles with handling EINTR (in particular as EINTR handling is pretty broken
   on Linux).
+
+- When applying C-style unescaping as well as specifier expansion on the same
+  string, always apply the C-style unescaping fist, followed by the specifier
+  expansion. When doing the reverse, make sure to escape '%' in specifier-style
+  first (i.e. '%' → '%%'), and then do C-style escaping where necessary.
