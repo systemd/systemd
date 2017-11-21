@@ -2474,7 +2474,7 @@ int config_parse_unset_environ(
         for (;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
-                r = extract_first_word(&rvalue, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&rvalue, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_QUOTES);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
