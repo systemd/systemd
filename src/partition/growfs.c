@@ -38,27 +38,35 @@
 #include "path-util.h"
 #include "strv.h"
 
-static int resize_ext4(int mountfd, int devfd, uint64_t numblocks, uint64_t blocksize) {
+static int resize_ext4(const char *path, int mountfd, int devfd, uint64_t numblocks, uint64_t blocksize) {
         assert((uint64_t) (int) blocksize == blocksize);
 
         if (ioctl(mountfd, EXT4_IOC_RESIZE_FS, &numblocks) != 0)
-                return -errno;
+                return log_error_errno(errno, "Failed to resize \"%s\" to %"PRIu64" blocks (ext4): %m",
+                                       path, numblocks);
 
         return 0;
 }
 
-static int resize_btrfs(int mountfd, int devfd, uint64_t numblocks, uint64_t blocksize) {
+static int resize_btrfs(const char *path, int mountfd, int devfd, uint64_t numblocks, uint64_t blocksize) {
         struct btrfs_ioctl_vol_args args = {};
         int r;
 
         assert((uint64_t) (int) blocksize == blocksize);
+
+        /* https://bugzilla.kernel.org/show_bug.cgi?id=118111 */
+        if (numblocks * blocksize < 256*1024*1024) {
+                log_warning("%s: resizing of btrfs volumes smaller than 256M is not supported", path);
+                return -EOPNOTSUPP;
+        }
 
         r = snprintf(args.name, sizeof(args.name), "%"PRIu64, numblocks * blocksize);
         /* The buffer is large enough for any number to fit... */
         assert((size_t) r < sizeof(args.name));
 
         if (ioctl(mountfd, BTRFS_IOC_RESIZE, &args) != 0)
-                return -errno;
+                return log_error_errno(errno, "Failed to resize \"%s\" to %"PRIu64" blocks (btrfs): %m",
+                                       path, numblocks);
 
         return 0;
 }
@@ -133,10 +141,10 @@ int main(int argc, char *argv[]) {
 
         switch(sfs.f_type) {
         case EXT4_SUPER_MAGIC:
-                r = resize_ext4(mountfd, devfd, numblocks, blocksize);
+                r = resize_ext4(argv[1], mountfd, devfd, numblocks, blocksize);
                 break;
         case BTRFS_SUPER_MAGIC:
-                r = resize_btrfs(mountfd, devfd, numblocks, blocksize);
+                r = resize_btrfs(argv[1], mountfd, devfd, numblocks, blocksize);
                 break;
         default:
                 log_error("Don't know how to resize fs %llx on \"%s\"",
@@ -144,11 +152,8 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        if (r < 0) {
-                log_error_errno(r, "Failed to resize \"%s\" to %"PRIu64" blocks: %m",
-                                argv[1], numblocks);
+        if (r < 0)
                 return EXIT_FAILURE;
-        }
 
         log_info("Successfully resized \"%s\" to %s bytes (%"PRIu64" blocks of %d bytes).",
                  argv[1], format_bytes(fb, sizeof fb, size), numblocks, blocksize);
