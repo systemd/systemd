@@ -3075,6 +3075,9 @@ static int link_carrier_gained(Link *link) {
 
         assert(link);
 
+        if (link->state == LINK_STATE_CONFIGURED && link->network->configure_without_carrier)
+                return 0;
+
         if (!IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_UNMANAGED, LINK_STATE_FAILED)) {
                 r = link_acquire_conf(link);
                 if (r < 0) {
@@ -3098,6 +3101,9 @@ static int link_carrier_lost(Link *link) {
         int r;
 
         assert(link);
+
+        if (link->state == LINK_STATE_CONFIGURED && link->network->configure_without_carrier)
+                return 0;
 
         r = link_stop_clients(link);
         if (r < 0) {
