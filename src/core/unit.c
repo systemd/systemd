@@ -1181,6 +1181,11 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         STRV_FOREACH(j, u->dropin_paths)
                 fprintf(f, "%s\tDropIn Path: %s\n", prefix, *j);
 
+        if (u->failure_action != EMERGENCY_ACTION_NONE)
+                fprintf(f, "%s\tFailure Action: %s\n", prefix, emergency_action_to_string(u->failure_action));
+        if (u->success_action != EMERGENCY_ACTION_NONE)
+                fprintf(f, "%s\tSuccess Action: %s\n", prefix, emergency_action_to_string(u->success_action));
+
         if (u->job_timeout != USEC_INFINITY)
                 fprintf(f, "%s\tJob Timeout: %s\n", prefix, format_timespan(timespan, sizeof(timespan), u->job_timeout, 0));
 
@@ -2503,6 +2508,11 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                  * units go directly from starting to inactive,
                  * without ever entering started.) */
                 unit_check_binds_to(u);
+
+                if (os != UNIT_FAILED && ns == UNIT_FAILED)
+                        (void) emergency_action(u->manager, u->failure_action, u->reboot_arg, "unit failed");
+                else if (!UNIT_IS_INACTIVE_OR_FAILED(os) && ns == UNIT_INACTIVE)
+                        (void) emergency_action(u->manager, u->success_action, u->reboot_arg, "unit succeeded");
         }
 
         unit_add_to_dbus_queue(u);

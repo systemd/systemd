@@ -798,6 +798,8 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("StartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StartLimitBurst", "u", bus_property_get_unsigned, offsetof(Unit, start_limit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StartLimitAction", "s", property_get_emergency_action, offsetof(Unit, start_limit_action), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("FailureAction", "s", property_get_emergency_action, offsetof(Unit, failure_action), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SuccessAction", "s", property_get_emergency_action, offsetof(Unit, success_action), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RebootArgument", "s", NULL, offsetof(Unit, reboot_arg), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("InvocationID", "ay", bus_property_get_id128, offsetof(Unit, invocation_id), 0),
         SD_BUS_PROPERTY("CollectMode", "s", property_get_collect_mode, offsetof(Unit, collect_mode), 0),
@@ -1467,6 +1469,30 @@ static int bus_unit_set_transient_property(
                 r = sd_bus_message_exit_container(message);
                 if (r < 0)
                         return r;
+
+                return 1;
+
+        } else if (STR_IN_SET(name, "FailureAction", "SuccessAction")) {
+                EmergencyAction action;
+                const char *s;
+
+                r = sd_bus_message_read(message, "s", &s);
+                if (r < 0)
+                        return r;
+
+                action = emergency_action_from_string(s);
+                if (action < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid emergency action: %s", s);
+
+                if (mode != UNIT_CHECK) {
+
+                        if (streq(name, "FailureAction"))
+                                u->failure_action = action;
+                        else
+                                u->success_action = action;
+
+                        unit_write_drop_in_format(u, mode, name, "%s=%s", name, emergency_action_to_string(action));
+                }
 
                 return 1;
 

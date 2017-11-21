@@ -894,14 +894,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>FailureAction=</varname></term>
-        <listitem><para>Configure the action to take when the service enters a failed state. Takes the same values as
-        the unit setting <varname>StartLimitAction=</varname> and executes the same actions (see
-        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>). Defaults to
-        <option>none</option>. </para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>FileDescriptorStoreMax=</varname></term>
         <listitem><para>Configure how many file descriptors may be stored in the service manager for the service using
         <citerefentry><refentrytitle>sd_pid_notify_with_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>'s

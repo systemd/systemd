@@ -1532,9 +1532,6 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
 
         service_set_state(s, s->result != SERVICE_SUCCESS ? SERVICE_FAILED : SERVICE_DEAD);
 
-        if (s->result != SERVICE_SUCCESS)
-                emergency_action(UNIT(s)->manager, s->emergency_action, UNIT(s)->reboot_arg, "service failed");
-
         if (allow_restart && service_shall_restart(s)) {
 
                 r = service_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->restart_usec));

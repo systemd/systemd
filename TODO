@@ -82,6 +82,14 @@ Features:
   the quota of a the user indicated in User= via unit file settings, like the
   other resource management concepts. Would mix nicely with DynamicUser=1
 
+* Introduce "exit" as an EmergencyAction value, and allow to configure a
+  per-unit success/failure exit code to configure. This would be useful for
+  running commands inside of services inside of containers, which could then
+  propagate their failure state all the way up.
+
+* In DynamicUser= mode: before selecting a UID, use disk quota APIs on relevant
+  disks to see if the UID is already in use.
+
 * add dissect_image_warn() as a wrapper around dissect_image() that prints
   friendly log messages for the returned errors, so that we don't have to
   duplicate that in nspawn, systemd-dissect and PID 1.
