@@ -2896,6 +2896,8 @@ int unit_set_slice(Unit *u, Unit *slice) {
         if (UNIT_ISSET(u->slice) && u->cgroup_realized)
                 return -EBUSY;
 
+        SLICE(slice)->loaded_by_other_units = true;
+
         unit_ref_unset(&u->slice);
         unit_ref_set(&u->slice, slice);
         return 1;
