@@ -73,7 +73,9 @@ KERNEL=="msblk[0-9]p[0-9]|mspblk[0-9]p[0-9]", ENV{ID_NAME}=="?*", ENV{ID_SERIAL}
 ENV{DEVTYPE}=="disk", DEVPATH!="*/virtual/*", IMPORT{builtin}="path_id"
 KERNEL=="mmcblk[0-9]boot[0-9]", ENV{DEVTYPE}=="disk", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-boot%n"
 KERNEL!="mmcblk[0-9]boot[0-9]", ENV{DEVTYPE}=="disk", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}"
+ENV{DEVTYPE}=="disk", DEVPATH=="*/session[0-9]*/*", KERNELS=="[0-9]*:*[0-9]", SYMLINK+="disk/by-path/$env{ID_PATH}-$id"
 ENV{DEVTYPE}=="partition", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
+ENV{DEVTYPE}=="partition", DEVPATH=="*/session[0-9]*/*", KERNELS=="[0-9]*:*[0-9]", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n-$id"
 
 # legacy virtio-pci by-path links (deprecated)
 KERNEL=="vd*[!0-9]", ENV{ID_PATH}=="pci-*", SYMLINK+="disk/by-path/virtio-$env{ID_PATH}"
