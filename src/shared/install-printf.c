@@ -103,34 +103,6 @@ static int specifier_instance(char specifier, void *data, void *userdata, char *
         return 0;
 }
 
-static int specifier_user_name(char specifier, void *data, void *userdata, char **ret) {
-        char *t;
-
-        /* If we are UID 0 (root), this will not result in NSS,
-         * otherwise it might. This is good, as we want to be able to
-         * run this in PID 1, where our user ID is 0, but where NSS
-         * lookups are not allowed.
-
-         * We don't user getusername_malloc() here, because we don't want to look
-         * at $USER, to remain consistent with specifer_user_id() below.
-         */
-
-        t = uid_to_name(getuid());
-        if (!t)
-                return -ENOMEM;
-
-        *ret = t;
-        return 0;
-}
-
-static int specifier_user_id(char specifier, void *data, void *userdata, char **ret) {
-
-        if (asprintf(ret, UID_FMT, getuid()) < 0)
-                return -ENOMEM;
-
-        return 0;
-}
-
 int install_full_printf(UnitFileInstallInfo *i, const char *format, char **ret) {
 
         /* This is similar to unit_full_printf() but does not support

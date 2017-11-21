@@ -39,6 +39,11 @@ int specifier_boot_id(char specifier, void *data, void *userdata, char **ret);
 int specifier_host_name(char specifier, void *data, void *userdata, char **ret);
 int specifier_kernel_release(char specifier, void *data, void *userdata, char **ret);
 
+int specifier_user_name(char specifier, void *data, void *userdata, char **ret);
+int specifier_user_id(char specifier, void *data, void *userdata, char **ret);
+int specifier_user_home(char specifier, void *data, void *userdata, char **ret);
+int specifier_user_shell(char specifier, void *data, void *userdata, char **ret);
+
 static inline char* specifier_escape(const char *string) {
         return strreplace(string, "%", "%%");
 }
