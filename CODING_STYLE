@@ -218,7 +218,7 @@
 - We never use the POSIX version of basename() (which glibc defines it in
   libgen.h), only the GNU version (which glibc defines in string.h).
   The only reason to include libgen.h is because dirname()
-  is needed. Everytime you need that please immediately undefine
+  is needed. Every time you need that please immediately undefine
   basename(), and add a comment about it, so that no code ever ends up
   using the POSIX version!
 
@@ -363,7 +363,7 @@
   global variables. Why are global variables bad? They usually hinder
   generic reusability of code (since they break in threaded programs,
   and usually would require locking there), and as the code using them
-  has side-effects make programs intransparent. That said, there are
+  has side-effects make programs non-transparent. That said, there are
   many cases where they explicitly make a lot of sense, and are OK to
   use. For example, the log level and target in log.c is stored in a
   global variable, and that's OK and probably expected by most. Also
@@ -385,7 +385,7 @@
 
 - When exposing public C APIs, be careful what function parameters you make
   "const". For example, a parameter taking a context object should probably not
-  be "const", even if you are writing an other-wise read-only accessor function
+  be "const", even if you are writing an otherwise read-only accessor function
   for it. The reason is that making it "const" fixates the contract that your
   call won't alter the object ever, as part of the API. However, that's often
   quite a promise, given that this even prohibits object-internal caching or
@@ -395,14 +395,14 @@
 
 - Make sure to enforce limits on every user controllable resource. If the user
   can allocate resources in your code, your code must enforce some form of
-  limits after which it will refuse operation. It's fine if it is hardcoded (at
+  limits after which it will refuse operation. It's fine if it is hard-coded (at
   least initially), but it needs to be there. This is particularly important
   for objects that unprivileged users may allocate, but also matters for
   everything else any user may allocated.
 
 - htonl()/ntohl() and htons()/ntohs() are weird. Please use htobe32() and
   htobe16() instead, it's much more descriptive, and actually says what really
-  is happening, after all htonl() and htons() don't operation on longs and
+  is happening, after all htonl() and htons() don't operate on longs and
   shorts as their name would suggest, but on uint32_t and uint16_t. Also,
   "network byte order" is just a weird name for "big endian", hence we might
   want to call it "big endian" right-away.

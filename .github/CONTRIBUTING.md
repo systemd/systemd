@@ -28,7 +28,7 @@ If you discover a security vulnerability, we'd appreciate a non-public disclosur
 * Please make sure to test your change before submitting the PR. See [HACKING](https://raw.githubusercontent.com/systemd/systemd/master/HACKING) for details how to do this.
 * Make sure to run the test suite locally, before posting your PR. We use a CI system, meaning we don't even look at your PR, if the build and tests don't pass.
 * If you need to update the code in an existing PR, force-push into the same branch, overriding old commits with new versions.
-* After you have pushed a new version, add a comment about the new version (no notification is sent just for the commits, so it's easy to miss the update without an explicit comment). If you are a member of the systemd project on github, remove the `reviewed/needs-rework` label.
+* After you have pushed a new version, add a comment about the new version (no notification is sent just for the commits, so it's easy to miss the update without an explicit comment). If you are a member of the systemd project on GitHub, remove the `reviewed/needs-rework` label.
 
 ## Final Words
 
