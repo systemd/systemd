@@ -1940,6 +1940,7 @@ executable('systemd-growfs',
            'src/partition/growfs.c',
            include_directories : includes,
            link_with : [libshared],
+           dependencies : [libcryptsetup],
            install_rpath : rootlibexecdir,
            install : true,
            install_dir : rootlibexecdir)

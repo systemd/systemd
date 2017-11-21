@@ -51,7 +51,7 @@
 #include "udev-util.h"
 #include "xattr-util.h"
 
-_unused_ static int probe_filesystem(const char *node, char **ret_fstype) {
+int probe_filesystem(const char *node, char **ret_fstype) {
 #if HAVE_BLKID
         _cleanup_blkid_free_probe_ blkid_probe b = NULL;
         const char *fstype;
