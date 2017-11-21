@@ -34,12 +34,17 @@
 #include "chattr-util.h"
 #include "copy.h"
 #include "dirent-util.h"
+#include "dissect-image.h"
 #include "env-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "hostname-util.h"
+#include "id128-util.h"
 #include "lockfile-util.h"
 #include "log.h"
+#include "loop-util.h"
 #include "machine-image.h"
 #include "macro.h"
 #include "mkdir.h"
@@ -65,6 +70,11 @@ Image *image_unref(Image *i) {
 
         free(i->name);
         free(i->path);
+
+        free(i->hostname);
+        strv_free(i->machine_info);
+        strv_free(i->os_release);
+
         return mfree(i);
 }
 
@@ -761,6 +771,7 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
 int image_read_only(Image *i, bool b) {
         _cleanup_release_lock_file_ LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
         int r;
+
         assert(i);
 
         if (IMAGE_IS_VENDOR(i) || IMAGE_IS_HOST(i))
@@ -922,6 +933,118 @@ int image_set_limit(Image *i, uint64_t referenced_max) {
         (void) btrfs_qgroup_set_limit(i->path, 0, referenced_max);
         (void) btrfs_subvol_auto_qgroup(i->path, 0, true);
         return btrfs_subvol_set_subtree_quota_limit(i->path, 0, referenced_max);
+}
+
+int image_read_metadata(Image *i) {
+        _cleanup_release_lock_file_ LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
+        int r;
+
+        assert(i);
+
+        r = image_path_lock(i->path, LOCK_SH|LOCK_NB, &global_lock, &local_lock);
+        if (r < 0)
+                return r;
+
+        switch (i->type) {
+
+        case IMAGE_SUBVOLUME:
+        case IMAGE_DIRECTORY: {
+                _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL;
+                sd_id128_t machine_id = SD_ID128_NULL;
+                _cleanup_free_ char *hostname = NULL;
+                _cleanup_free_ char *path = NULL;
+
+                r = chase_symlinks("/etc/hostname", i->path, CHASE_PREFIX_ROOT, &path);
+                if (r < 0 && r != -ENOENT)
+                        log_debug_errno(r, "Failed to chase /etc/hostname in image %s: %m", i->name);
+                else if (r >= 0) {
+                        r = read_etc_hostname(path, &hostname);
+                        if (r < 0)
+                                log_debug_errno(errno, "Failed to read /etc/hostname of image %s: %m", i->name);
+                }
+
+                path = mfree(path);
+
+                r = chase_symlinks("/etc/machine-id", i->path, CHASE_PREFIX_ROOT, &path);
+                if (r < 0 && r != -ENOENT)
+                        log_debug_errno(r, "Failed to chase /etc/machine-id in image %s: %m", i->name);
+                else if (r >= 0) {
+                        _cleanup_close_ int fd = -1;
+
+                        fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                        if (fd < 0)
+                                log_debug_errno(errno, "Failed to open %s: %m", path);
+                        else {
+                                r = id128_read_fd(fd, ID128_PLAIN, &machine_id);
+                                if (r < 0)
+                                        log_debug_errno(r, "Image %s contains invalid machine ID.", i->name);
+                        }
+                }
+
+                path = mfree(path);
+
+                r = chase_symlinks("/etc/machine-info", i->path, CHASE_PREFIX_ROOT, &path);
+                if (r < 0 && r != -ENOENT)
+                        log_debug_errno(r, "Failed to chase /etc/machine-info in image %s: %m", i->name);
+                else if (r >= 0) {
+                        r = load_env_file_pairs(NULL, path, NULL, &machine_info);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to parse machine-info data of %s: %m", i->name);
+                }
+
+                path = mfree(path);
+
+                r = chase_symlinks("/etc/os-release", i->path, CHASE_PREFIX_ROOT, &path);
+                if (r == -ENOENT)
+                        r = chase_symlinks("/usr/lib/os-release", i->path, CHASE_PREFIX_ROOT, &path);
+                if (r < 0 && r != -ENOENT)
+                        log_debug_errno(r, "Failed to chase os-release in image: %m");
+                else if (r >= 0) {
+                        r = load_env_file_pairs(NULL, path, NULL, &os_release);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to parse os-release data of %s: %m", i->name);
+                }
+
+                free_and_replace(i->hostname, hostname);
+                i->machine_id = machine_id;
+                strv_free_and_replace(i->machine_info, machine_info);
+                strv_free_and_replace(i->os_release, os_release);
+
+                break;
+        }
+
+        case IMAGE_RAW:
+        case IMAGE_BLOCK: {
+                _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+                _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
+
+                r = loop_device_make_by_path(i->path, O_RDONLY, &d);
+                if (r < 0)
+                        return r;
+
+                r = dissect_image(d->fd, NULL, 0, DISSECT_IMAGE_REQUIRE_ROOT, &m);
+                if (r < 0)
+                        return r;
+
+                r = dissected_image_acquire_metadata(m);
+                if (r < 0)
+                        return r;
+
+                free_and_replace(i->hostname, m->hostname);
+                i->machine_id = m->machine_id;
+                strv_free_and_replace(i->machine_info, m->machine_info);
+                strv_free_and_replace(i->os_release, m->os_release);
+
+                break;
+        }
+
+        default:
+                return -EOPNOTSUPP;
+        }
+
+        i->metadata_valid = true;
+
+        return 0;
 }
 
 int image_name_lock(const char *name, int operation, LockFile *ret) {

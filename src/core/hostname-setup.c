@@ -37,7 +37,7 @@ int hostname_setup(void) {
         const char *hn;
         int r;
 
-        r = read_hostname_config("/etc/hostname", &b);
+        r = read_etc_hostname(NULL, &b);
         if (r < 0) {
                 if (r == -ENOENT)
                         enoent = true;

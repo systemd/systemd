@@ -53,6 +53,13 @@ typedef struct Image {
         uint64_t limit;
         uint64_t limit_exclusive;
 
+        char *hostname;
+        sd_id128_t machine_id;
+        char **machine_info;
+        char **os_release;
+
+        bool metadata_valid;
+
         void *userdata;
 } Image;
 
@@ -79,6 +86,8 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
 int image_name_lock(const char *name, int operation, LockFile *ret);
 
 int image_set_limit(Image *i, uint64_t referenced_max);
+
+int image_read_metadata(Image *i);
 
 static inline bool IMAGE_IS_HIDDEN(const struct Image *i) {
         assert(i);

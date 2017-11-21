@@ -39,4 +39,5 @@ bool is_gateway_hostname(const char *hostname);
 
 int sethostname_idempotent(const char *s);
 
-int read_hostname_config(const char *path, char **hostname);
+int read_etc_hostname_stream(FILE *f, char **ret);
+int read_etc_hostname(const char *path, char **ret);

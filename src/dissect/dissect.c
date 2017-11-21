@@ -28,6 +28,7 @@
 #include "log.h"
 #include "loop-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "util.h"
 
 static enum {
@@ -262,6 +263,36 @@ int main(int argc, char *argv[]) {
                                 printf(" (%s)", p->node);
 
                         putchar('\n');
+                }
+
+                r = dissected_image_acquire_metadata(m);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to acquire image metadata: %m");
+                        goto finish;
+                }
+
+                if (m->hostname)
+                        printf("  Hostname: %s\n", m->hostname);
+
+                if (!sd_id128_is_null(m->machine_id))
+                        printf("Machine ID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(m->machine_id));
+
+                if (!strv_isempty(m->machine_info)) {
+                        char **p, **q;
+
+                        STRV_FOREACH_PAIR(p, q, m->machine_info)
+                                printf("%s %s=%s\n",
+                                       p == m->machine_info ? "Mach. Info:" : "           ",
+                                       *p, *q);
+                }
+
+                if (!strv_isempty(m->os_release)) {
+                        char **p, **q;
+
+                        STRV_FOREACH_PAIR(p, q, m->os_release)
+                                printf("%s %s=%s\n",
+                                       p == m->os_release ? "OS Release:" : "           ",
+                                       *p, *q);
                 }
 
                 break;
