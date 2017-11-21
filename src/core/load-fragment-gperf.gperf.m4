@@ -189,7 +189,7 @@ $1.NetClass,                     config_parse_warn_compat,           DISABLED_LE
 )m4_dnl
 Unit.Description,                config_parse_unit_string_printf,    0,                             offsetof(Unit, description)
 Unit.Documentation,              config_parse_documentation,         0,                             offsetof(Unit, documentation)
-Unit.SourcePath,                 config_parse_path,                  0,                             offsetof(Unit, source_path)
+Unit.SourcePath,                 config_parse_unit_path_printf,      0,                             offsetof(Unit, source_path)
 Unit.Requires,                   config_parse_unit_deps,             UNIT_REQUIRES,                 0
 Unit.Requisite,                  config_parse_unit_deps,             UNIT_REQUISITE,                0
 Unit.Wants,                      config_parse_unit_deps,             UNIT_WANTS,                    0
@@ -382,9 +382,9 @@ CGROUP_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
 m4_dnl
 Mount.What,                      config_parse_unit_string_printf,    0,                             offsetof(Mount, parameters_fragment.what)
-Mount.Where,                     config_parse_path,                  0,                             offsetof(Mount, where)
+Mount.Where,                     config_parse_unit_path_printf,      0,                             offsetof(Mount, where)
 Mount.Options,                   config_parse_unit_string_printf,    0,                             offsetof(Mount, parameters_fragment.options)
-Mount.Type,                      config_parse_string,                0,                             offsetof(Mount, parameters_fragment.fstype)
+Mount.Type,                      config_parse_unit_string_printf,    0,                             offsetof(Mount, parameters_fragment.fstype)
 Mount.TimeoutSec,                config_parse_sec_fix_0,             0,                             offsetof(Mount, timeout_usec)
 Mount.DirectoryMode,             config_parse_mode,                  0,                             offsetof(Mount, directory_mode)
 Mount.SloppyOptions,             config_parse_bool,                  0,                             offsetof(Mount, sloppy_options)
@@ -394,11 +394,11 @@ EXEC_CONTEXT_CONFIG_ITEMS(Mount)m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Mount)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Mount)m4_dnl
 m4_dnl
-Automount.Where,                 config_parse_path,                  0,                             offsetof(Automount, where)
+Automount.Where,                 config_parse_unit_path_printf,      0,                             offsetof(Automount, where)
 Automount.DirectoryMode,         config_parse_mode,                  0,                             offsetof(Automount, directory_mode)
 Automount.TimeoutIdleSec,        config_parse_sec_fix_0,             0,                             offsetof(Automount, timeout_idle_usec)
 m4_dnl
-Swap.What,                       config_parse_path,                  0,                             offsetof(Swap, parameters_fragment.what)
+Swap.What,                       config_parse_unit_path_printf,      0,                             offsetof(Swap, parameters_fragment.what)
 Swap.Priority,                   config_parse_int,                   0,                             offsetof(Swap, parameters_fragment.priority)
 Swap.Options,                    config_parse_unit_string_printf,    0,                             offsetof(Swap, parameters_fragment.options)
 Swap.TimeoutSec,                 config_parse_sec_fix_0,             0,                             offsetof(Swap, timeout_usec)
