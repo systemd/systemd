@@ -32,7 +32,7 @@ test_setup() {
 Description=Testsuite service
 
 [Service]
-ExecStart=/bin/sh -x /testsuite.sh
+ExecStart=/bin/bash -x /testsuite.sh
 Type=oneshot
 StandardOutput=tty
 StandardError=tty
