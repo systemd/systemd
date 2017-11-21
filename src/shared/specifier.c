@@ -32,6 +32,7 @@
 #include "macro.h"
 #include "specifier.h"
 #include "string-util.h"
+#include "strv.h"
 
 /*
  * Generic infrastructure for replacing %x style specifiers in
@@ -189,5 +190,34 @@ int specifier_kernel_release(char specifier, void *data, void *userdata, char **
                 return -ENOMEM;
 
         *ret = n;
+        return 0;
+}
+
+int specifier_escape_strv(char **l, char ***ret) {
+        char **z, **p, **q;
+
+        assert(ret);
+
+        if (strv_isempty(l)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        z = new(char*, strv_length(l)+1);
+        if (!z)
+                return -ENOMEM;
+
+        for (p = l, q = z; *p; p++, q++) {
+
+                *q = specifier_escape(*p);
+                if (!*q) {
+                        strv_free(z);
+                        return -ENOMEM;
+                }
+        }
+
+        *q = NULL;
+        *ret = z;
+
         return 0;
 }
