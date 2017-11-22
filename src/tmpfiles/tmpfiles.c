@@ -1095,7 +1095,7 @@ static int item_do_children(Item *i, const char *path, action_t action) {
 
         d = opendir_nomod(path);
         if (!d)
-                return IN_SET(errno, ENOENT, ENOTDIR) ? 0 : -errno;
+                return IN_SET(errno, ENOENT, ENOTDIR, ELOOP) ? 0 : -errno;
 
         FOREACH_DIRENT_ALL(de, d, r = -errno) {
                 _cleanup_free_ char *p = NULL;
