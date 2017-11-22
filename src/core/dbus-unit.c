@@ -1315,7 +1315,7 @@ int bus_unit_queue_job(
         return sd_bus_reply_method_return(message, "o", path);
 }
 
-static int bus_unit_set_transient_property(
+static int bus_unit_set_live_property(
                 Unit *u,
                 const char *name,
                 sd_bus_message *message,
@@ -1327,6 +1327,9 @@ static int bus_unit_set_transient_property(
         assert(u);
         assert(name);
         assert(message);
+
+        /* Handles setting properties both "live" (i.e. at any time during runtime), and during creation (for transient
+         * units that are being created). */
 
         if (streq(name, "Description")) {
                 const char *d;
@@ -1344,8 +1347,28 @@ static int bus_unit_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "DefaultDependencies")) {
+        return 0;
+}
+
+static int bus_unit_set_transient_property(
+                Unit *u,
+                const char *name,
+                sd_bus_message *message,
+                UnitWriteFlags flags,
+                sd_bus_error *error) {
+
+        int r;
+
+        assert(u);
+        assert(name);
+        assert(message);
+
+        /* Handles settings when transient units are created. This settings cannot be altered anymore after the unit
+         * has been created. */
+
+        if (streq(name, "DefaultDependencies")) {
                 int b;
 
                 r = sd_bus_message_read(message, "b", &b);
@@ -1583,8 +1606,11 @@ int bus_unit_set_properties(
                 r = UNIT_VTABLE(u)->bus_set_property(u, name, message, f, error);
                 if (r == 0 && u->transient && u->load_state == UNIT_STUB)
                         r = bus_unit_set_transient_property(u, name, message, f, error);
+                if (r == 0)
+                        r = bus_unit_set_live_property(u, name, message, f, error);
                 if (r < 0)
                         return r;
+
                 if (r == 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_PROPERTY_READ_ONLY, "Cannot set property %s, or unknown property.", name);
 
