@@ -32,7 +32,7 @@ else:
     root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     rules_dir = os.path.join(os.environ.get('top_srcdir', root_dir), 'rules')
     if not os.path.isdir(rules_dir):
-        sys.stderr.write('No rules files given, and %s does not exist, aborting' % rules_dir)
+        print('No rules files given, and {} does not exist, aborting'.format(rules_dir), file=sys.stderr)
         sys.exit(2)
     rules_files = glob(os.path.join(rules_dir, '*.rules'))
 
@@ -44,6 +44,7 @@ args_assign = re.compile(r'(ATTR|ENV|IMPORT|RUN){([a-zA-Z0-9/_.*%-]+)}\s*(=|\+=)
 result = 0
 buffer = ''
 for path in rules_files:
+    print('# looking at {}'.format(path))
     lineno = 0
     for line in open(path):
         lineno += 1
@@ -66,9 +67,9 @@ for path in rules_files:
             if not (no_args_tests.match(clause) or args_tests.match(clause) or
                     no_args_assign.match(clause) or args_assign.match(clause)):
 
-                print('Invalid line %s:%i: %s' % (path, lineno, line))
-                print('  clause: %s' % clause)
-                print('')
+                print('Invalid line {}:{}: {}'.format(path, lineno, line))
+                print('  clause:', clause)
+                print()
                 result = 1
                 break
 
