@@ -671,7 +671,7 @@ static int path_set_perms(Item *i, const char *path) {
                 return log_error_errno(errno, "Failed to fstat() file %s: %m", path);
 
         if (S_ISLNK(st.st_mode))
-                log_debug("Skipping mode an owner fix for symlink %s.", path);
+                log_debug("Skipping mode and owner fix for symlink %s.", path);
         else {
                 char fn[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
                 xsprintf(fn, "/proc/self/fd/%i", fd);
