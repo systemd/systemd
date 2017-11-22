@@ -6,7 +6,7 @@ ACTION=="remove", GOTO="persistent_storage_tape_end"
 ENV{UDEV_DISABLE_PERSISTENT_STORAGE_RULES_FLAG}=="1", GOTO="persistent_storage_tape_end"
 
 # type 8 devices are "Medium Changers"
-SUBSYSTEM=="scsi_generic", SUBSYSTEMS=="scsi", ATTRS{type}=="8", IMPORT{program}="scsi_id --sg-version=3 --export --whitelisted -d $devnode", \
+SUBSYSTEM=="scsi_generic", ENV{ID_SERIAL}=="?*", ATTRS{type}=="8", \
   SYMLINK+="tape/by-id/scsi-$env{ID_SERIAL}"
 
 # iSCSI devices from the same host have all the same ID_SERIAL,
@@ -19,17 +19,12 @@ SUBSYSTEM=="scsi_generic", SUBSYSTEMS=="scsi", ATTRS{type}=="8", IMPORT{builtin}
 
 SUBSYSTEM!="scsi_tape", GOTO="persistent_storage_tape_end"
 
-KERNEL=="st*[0-9]|nst*[0-9]", ATTRS{ieee1394_id}=="?*", ENV{ID_SERIAL}="$attr{ieee1394_id}", ENV{ID_BUS}="ieee1394"
-KERNEL=="st*[0-9]|nst*[0-9]", ENV{ID_SERIAL}!="?*", SUBSYSTEMS=="usb", IMPORT{builtin}="usb_id"
-KERNEL=="st*[0-9]|nst*[0-9]", ENV{ID_SERIAL}!="?*", SUBSYSTEMS=="scsi", KERNELS=="[0-9]*:*[0-9]", ENV{.BSG_DEV}="$root/bsg/$id"
-KERNEL=="st*[0-9]|nst*[0-9]", ENV{ID_SERIAL}!="?*", IMPORT{program}="scsi_id --whitelisted --export --device=$env{.BSG_DEV}", ENV{ID_BUS}="scsi"
 KERNEL=="st*[0-9]",  ENV{ID_SERIAL}=="?*",      SYMLINK+="tape/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
 KERNEL=="st*[0-9]",  ENV{ID_SCSI_SERIAL}=="?*", SYMLINK+="tape/by-id/$env{ID_BUS}-$env{ID_SCSI_SERIAL}"
 KERNEL=="nst*[0-9]", ENV{ID_SERIAL}=="?*",      SYMLINK+="tape/by-id/$env{ID_BUS}-$env{ID_SERIAL}-nst"
 KERNEL=="nst*[0-9]", ENV{ID_SCSI_SERIAL}=="?*", SYMLINK+="tape/by-id/$env{ID_BUS}-$env{ID_SCSI_SERIAL}-nst"
 
 # by-path (parent device path)
-KERNEL=="st*[0-9]|nst*[0-9]", IMPORT{builtin}="path_id"
 KERNEL=="st*[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="tape/by-path/$env{ID_PATH}"
 KERNEL=="nst*[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="tape/by-path/$env{ID_PATH}-nst"
 

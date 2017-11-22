@@ -9,13 +9,13 @@
 # Content-based properties (blkid) are handled in 59-storage-content.rules
 
 ACTION=="remove", GOTO="storage_hardware_end"
-SUBSYSTEM!="block", GOTO="storage_hardware_end"
-KERNEL!="loop*|mmcblk*[0-9]|msblk*[0-9]|mspblk*[0-9]|nvme*|sd*|sr*|vd*|xvd*|bcache*|cciss*|dasd*|ubd*|scm*|pmem*|nbd*", GOTO="storage_hardware_end"
+SUBSYSTEM!="block", GOTO="block_storage_end"
+KERNEL!="loop*|mmcblk*[0-9]|msblk*[0-9]|mspblk*[0-9]|nvme*|sd*|sr*|vd*|xvd*|bcache*|cciss*|dasd*|ubd*|scm*|pmem*|nbd*", GOTO="block_storage_end"
 
 # We don't need to honor UDEV_DISABLE_PERSISTENT_STORAGE_RULES_FLAG here.
 
 # ignore partitions that span the entire disk
-TEST=="whole_disk", GOTO="storage_hardware_end"
+TEST=="whole_disk", GOTO="block_storage_end"
 
 # For partitions import parent disk ID_* information, except ID_FS_*.
 #
@@ -77,5 +77,15 @@ SUBSYSTEM=="ubi", KERNEL=="ubi*_*", ATTRS{mtd_num}=="*", ENV{ID_UBI_MTD}="%s{mtd
 
 # by-path
 ENV{DEVTYPE}=="disk", DEVPATH!="*/virtual/*", IMPORT{builtin}="path_id"
+
+LABEL="block_storage_end"
+
+# SCSI tape devices
+SUBSYSTEM!="scsi_tape", GOTO="storage_hardware_end"
+KERNEL!="st*[0-9]|nst*[0-9]", GOTO="storage_hardware_end"
+
+ATTRS{ieee1394_id}=="?*", ENV{ID_SERIAL}="$attr{ENV{ID_SERIAL}", ENV{ID_BUS}="ieee1394"
+SUBSYSTEMS=="usb", ATTRS{serial}=="?*", IMPORT{builtin}="usb_id"
+IMPORT{builtin}="path_id"
 
 LABEL="storage_hardware_end"

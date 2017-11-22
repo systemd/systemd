@@ -12,6 +12,15 @@ KERNEL=="sd*[!0-9]|sr*", \
 KERNEL=="cciss*", ENV{DEVTYPE}=="disk", \
 	IMPORT{program}="scsi_id --export --whitelisted -d $devnode", \
         ENV{.ID_BUS}="cciss"
+KERNEL=="st*[0-9]|nst*[0-9]", KERNELS=="[0-9]*:*[0-9]", \
+	ENV{.BSG_DEV}="$root/bsg/$id"
+KERNEL=="st*[0-9]|nst*[0-9]", KERNELS=="[0-9]*:*[0-9]", \
+	IMPORT{program}="scsi_id --whitelisted --export --device=$env{.BSG_DEV}", \
+	ENV{.ID_BUS}="scsi"
+# type 8 means SCSI medium changers
+KERNEL=="sg*[0-9]", SUBSYSTEM=="scsi_generic", ATTRS{type}=="8", \
+	IMPORT{program}="scsi_id --sg-version=3 --export --whitelisted -d $devnode", \
+	ENV{.ID_BUS}="scsi"
 
 # This is executed after other rules that may have set ID_BUS already
 # (e.g. USB). Don't overwrite it.
