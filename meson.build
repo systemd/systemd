@@ -2146,6 +2146,11 @@ if conf.get('ENABLE_TMPFILES') == 1
                          install : true,
                          install_dir : rootbindir)
         public_programs += [exe]
+
+        test('test-systemd-tmpfiles',
+             test_systemd_tmpfiles_py,
+             args : exe.full_path())
+        # https://github.com/mesonbuild/meson/issues/2681
 endif
 
 if conf.get('ENABLE_HWDB') == 1

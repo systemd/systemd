@@ -33,6 +33,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/xattr.h>
+#include <sysexits.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -1841,7 +1842,7 @@ static int specifier_expansion_from_arg(Item *i) {
         return 0;
 }
 
-static int parse_line(const char *fname, unsigned line, const char *buffer) {
+static int parse_line(const char *fname, unsigned line, const char *buffer, bool *invalid_config) {
 
         _cleanup_free_ char *action = NULL, *mode = NULL, *user = NULL, *group = NULL, *age = NULL, *path = NULL;
         _cleanup_(item_free_contents) Item i = {};
@@ -1865,9 +1866,14 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         &group,
                         &age,
                         NULL);
-        if (r < 0)
+        if (r < 0) {
+                if (r == -EINVAL) /* invalid quoting and such */
+                        *invalid_config = true;
                 return log_error_errno(r, "[%s:%u] Failed to parse line: %m", fname, line);
+        }
+
         else if (r < 2) {
+                *invalid_config = true;
                 log_error("[%s:%u] Syntax error.", fname, line);
                 return -EIO;
         }
@@ -1879,6 +1885,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         if (isempty(action)) {
+                *invalid_config = true;
                 log_error("[%s:%u] Command too short '%s'.", fname, line, action);
                 return -EINVAL;
         }
@@ -1889,6 +1896,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 else if (action[pos] == '+' && !force)
                         force = true;
                 else {
+                        *invalid_config = true;
                         log_error("[%s:%u] Unknown modifiers in command '%s'",
                                   fname, line, action);
                         return -EINVAL;
@@ -1907,8 +1915,11 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         r = specifier_printf(path, specifier_table, NULL, &i.path);
         if (r == -ENOKEY)
                 return log_unresolvable_specifier(fname, line);
-        if (r < 0)
+        if (r < 0) {
+                /* ENOMEM is the only return value left after ENOKEY,
+                 * so *invalid_config should not be set. */
                 return log_error_errno(r, "[%s:%u] Failed to replace specifiers: %s", fname, line, path);
+        }
 
         switch (i.type) {
 
@@ -1945,6 +1956,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         case WRITE_FILE:
                 if (!i.argument) {
+                        *invalid_config = true;
                         log_error("[%s:%u] Write file requires argument.", fname, line);
                         return -EBADMSG;
                 }
@@ -1956,6 +1968,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         if (!i.argument)
                                 return log_oom();
                 } else if (!path_is_absolute(i.argument)) {
+                        *invalid_config = true;
                         log_error("[%s:%u] Source path is not absolute.", fname, line);
                         return -EBADMSG;
                 }
@@ -1968,11 +1981,13 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 unsigned major, minor;
 
                 if (!i.argument) {
+                        *invalid_config = true;
                         log_error("[%s:%u] Device file requires argument.", fname, line);
                         return -EBADMSG;
                 }
 
                 if (sscanf(i.argument, "%u:%u", &major, &minor) != 2) {
+                        *invalid_config = true;
                         log_error("[%s:%u] Can't parse device file major/minor '%s'.", fname, line, i.argument);
                         return -EBADMSG;
                 }
@@ -1984,6 +1999,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         case SET_XATTR:
         case RECURSIVE_SET_XATTR:
                 if (!i.argument) {
+                        *invalid_config = true;
                         log_error("[%s:%u] Set extended attribute requires argument.", fname, line);
                         return -EBADMSG;
                 }
@@ -1995,6 +2011,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         case SET_ACL:
         case RECURSIVE_SET_ACL:
                 if (!i.argument) {
+                        *invalid_config = true;
                         log_error("[%s:%u] Set ACLs requires argument.", fname, line);
                         return -EBADMSG;
                 }
@@ -2006,21 +2023,26 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         case SET_ATTRIBUTE:
         case RECURSIVE_SET_ATTRIBUTE:
                 if (!i.argument) {
+                        *invalid_config = true;
                         log_error("[%s:%u] Set file attribute requires argument.", fname, line);
                         return -EBADMSG;
                 }
                 r = parse_attribute_from_arg(&i);
+                if (r == -EINVAL)
+                        *invalid_config = true;
                 if (r < 0)
                         return r;
                 break;
 
         default:
                 log_error("[%s:%u] Unknown command type '%c'.", fname, line, (char) i.type);
+                *invalid_config = true;
                 return -EBADMSG;
         }
 
         if (!path_is_absolute(i.path)) {
                 log_error("[%s:%u] Path '%s' not absolute.", fname, line, i.path);
+                *invalid_config = true;
                 return -EBADMSG;
         }
 
@@ -2052,8 +2074,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
                 r = get_user_creds(&u, &i.uid, NULL, NULL, NULL);
                 if (r < 0) {
-                        log_error("[%s:%u] Unknown user '%s'.", fname, line, user);
-                        return r;
+                        *invalid_config = true;
+                        return log_error_errno(r, "[%s:%u] Unknown user '%s'.", fname, line, user);
                 }
 
                 i.uid_set = true;
@@ -2064,6 +2086,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
                 r = get_group_creds(&g, &i.gid);
                 if (r < 0) {
+                        *invalid_config = true;
                         log_error("[%s:%u] Unknown group '%s'.", fname, line, group);
                         return r;
                 }
@@ -2081,6 +2104,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 }
 
                 if (parse_mode(mm, &m) < 0) {
+                        *invalid_config = true;
                         log_error("[%s:%u] Invalid mode '%s'.", fname, line, mode);
                         return -EBADMSG;
                 }
@@ -2099,6 +2123,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 }
 
                 if (parse_sec(a, &i.age) < 0) {
+                        *invalid_config = true;
                         log_error("[%s:%u] Invalid age '%s'.", fname, line, age);
                         return -EBADMSG;
                 }
@@ -2149,8 +2174,8 @@ static void help(void) {
                "     --boot                 Execute actions only safe at boot\n"
                "     --prefix=PATH          Only apply rules with the specified prefix\n"
                "     --exclude-prefix=PATH  Ignore rules with the specified prefix\n"
-               "     --root=PATH            Operate on an alternate filesystem root\n",
-               program_invocation_short_name);
+               "     --root=PATH            Operate on an alternate filesystem root\n"
+               , program_invocation_short_name);
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -2242,7 +2267,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int read_config_file(const char *fn, bool ignore_enoent) {
+static int read_config_file(const char *fn, bool ignore_enoent, bool *invalid_config) {
         _cleanup_fclose_ FILE *_f = NULL;
         FILE *f;
         char line[LINE_MAX];
@@ -2274,6 +2299,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
         FOREACH_LINE(line, f, break) {
                 char *l;
                 int k;
+                bool invalid_line = false;
 
                 v++;
 
@@ -2281,9 +2307,15 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                 if (IN_SET(*l, 0, '#'))
                         continue;
 
-                k = parse_line(fn, v, l);
-                if (k < 0 && r == 0)
-                        r = k;
+                k = parse_line(fn, v, l, &invalid_line);
+                if (k < 0) {
+                        if (invalid_line)
+                                /* Allow reporting with a special code if the caller requested this */
+                                *invalid_config = true;
+                        else if (r == 0)
+                                /* The first error becomes our return value */
+                                r = k;
+                }
         }
 
         /* we have to determine age parameter for each entry of type X */
@@ -2327,6 +2359,7 @@ int main(int argc, char *argv[]) {
         int r, k;
         ItemArray *a;
         Iterator iterator;
+        bool invalid_config = false;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -2354,7 +2387,7 @@ int main(int argc, char *argv[]) {
                 int j;
 
                 for (j = optind; j < argc; j++) {
-                        k = read_config_file(argv[j], false);
+                        k = read_config_file(argv[j], false, &invalid_config);
                         if (k < 0 && r == 0)
                                 r = k;
                 }
@@ -2370,7 +2403,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 STRV_FOREACH(f, files) {
-                        k = read_config_file(*f, true);
+                        k = read_config_file(*f, true, &invalid_config);
                         if (k < 0 && r == 0)
                                 r = k;
                 }
@@ -2404,5 +2437,10 @@ finish:
 
         mac_selinux_finish();
 
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        if (r < 0)
+                return EXIT_FAILURE;
+        else if (invalid_config)
+                return EX_DATAERR;
+        else
+                return EXIT_SUCCESS;
 }
