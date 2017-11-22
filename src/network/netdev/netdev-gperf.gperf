@@ -17,6 +17,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "netdev/vxlan.h"
 #include "netdev/vrf.h"
 #include "netdev/netdev.h"
+#include "netdev/vxcan.h"
 #include "vlan-util.h"
 %}
 struct ConfigPerfItem;
@@ -62,6 +63,7 @@ Tunnel.EncapsulationLimit,   config_parse_encap_limit,             0,           
 Tunnel.Independent,          config_parse_bool,                    0,                             offsetof(Tunnel, independent)
 Peer.Name,                   config_parse_ifname,                  0,                             offsetof(Veth, ifname_peer)
 Peer.MACAddress,             config_parse_hwaddr,                  0,                             offsetof(Veth, mac_peer)
+VXCAN.Peer,                  config_parse_ifname,                  0,                             offsetof(VxCan, ifname_peer)
 VXLAN.Id,                    config_parse_uint64,                  0,                             offsetof(VxLan, id)
 VXLAN.Group,                 config_parse_vxlan_address,           0,                             offsetof(VxLan, remote)
 VXLAN.Local,                 config_parse_vxlan_address,           0,                             offsetof(VxLan, local)

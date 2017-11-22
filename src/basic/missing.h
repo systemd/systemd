@@ -956,6 +956,10 @@ struct input_mask {
 #define IFLA_VRF_TABLE 1
 #endif
 
+#if !HAVE_VXCAN_INFO_PEER
+#define VXCAN_INFO_PEER 1
+#endif
+
 #if !HAVE_NDA_IFINDEX
 #define NDA_UNSPEC 0
 #define NDA_DST 1
