@@ -2,6 +2,7 @@
 
 rules = files('''
         53-storage-hardware.rules
+        56-fallback-scsi_id.rules
         59-storage-content.rules
         60-block.rules
         60-cdrom_id.rules

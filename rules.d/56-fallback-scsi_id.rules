@@ -1,0 +1,20 @@
+ACTION=="remove", GOTO="scsi_id_end"
+ENV{ID_SERIAL}=="?*", GOTO="scsi_id_end"
+
+# SCSI devices are normally handled in 55-sg3_utils.rules.
+# Add fallback rules here for users who don't have sg3_utils.
+# Called after other 55-* rules, and early during 56-* stage.
+# This may go away once scsi_id is removed from udev
+
+KERNEL=="sd*[!0-9]|sr*", \
+	IMPORT{program}="scsi_id --export --whitelisted -d $devnode", \
+        ENV{.ID_BUS}="scsi"
+KERNEL=="cciss*", ENV{DEVTYPE}=="disk", \
+	IMPORT{program}="scsi_id --export --whitelisted -d $devnode", \
+        ENV{.ID_BUS}="cciss"
+
+# This is executed after other rules that may have set ID_BUS already
+# (e.g. USB). Don't overwrite it.
+ENV{ID_BUS}!="?*", ENV{.ID_BUS}=="?*", ENV{ID_BUS}="$env{.ID_BUS}"
+
+LABEL="scsi_id_end"

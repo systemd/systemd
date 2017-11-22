@@ -58,9 +58,8 @@ KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}!="?*", ATTR{removable}=="0", SUBSYSTEMS=
 # Fall back usb_id for USB devices
 KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}!="?*", SUBSYSTEMS=="usb", IMPORT{builtin}="usb_id"
 
-# SCSI devices
-KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}!="?*", IMPORT{program}="scsi_id --export --whitelisted -d $devnode", ENV{ID_BUS}="scsi"
-KERNEL=="cciss*", ENV{DEVTYPE}=="disk", ENV{ID_SERIAL}!="?*", IMPORT{program}="scsi_id --export --whitelisted -d $devnode", ENV{ID_BUS}="cciss"
+# SCSI devices are not handled here but in 55-sg3_utils.rules
+# or 56-fallback-scsi_id.rules
 
 # FireWire
 KERNEL=="sd*|sr*", ATTRS{ieee1394_id}=="?*", ENV{ID_IEEE1394}="$attr{ieee1394_id}"
