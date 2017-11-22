@@ -360,6 +360,10 @@ struct Unit {
         bool exported_invocation_id:1;
         bool exported_log_level_max:1;
         bool exported_log_extra_fields:1;
+
+        /* When writing transient unit files, stores which section we stored last. If < 0, we didn't write any yet. If
+         * == 0 we are in the [Unit] section, if > 0 we are in the unit type-specific section. */
+        int last_section_private:2;
 };
 
 struct UnitStatusMessageFormats {
@@ -368,11 +372,26 @@ struct UnitStatusMessageFormats {
         const char *finished_stop_job[_JOB_RESULT_MAX];
 };
 
-typedef enum UnitSetPropertiesMode {
-        UNIT_CHECK = 0,
-        UNIT_RUNTIME = 1,
-        UNIT_PERSISTENT = 2,
-} UnitSetPropertiesMode;
+/* Flags used when writing drop-in files or transient unit files */
+typedef enum UnitWriteFlags {
+        /* Write a runtime unit file or drop-in (i.e. one below /run) */
+        UNIT_RUNTIME           = 1 << 0,
+
+        /* Write a persistent drop-in (i.e. one below /etc) */
+        UNIT_PERSISTENT        = 1 << 1,
+
+        /* Place this item in the per-unit-type private section, instead of [Unit] */
+        UNIT_PRIVATE           = 1 << 2,
+
+        /* Apply specifier escaping before writing */
+        UNIT_ESCAPE_SPECIFIERS = 1 << 3,
+
+        /* Apply C escaping before writing */
+        UNIT_ESCAPE_C          = 1 << 4,
+} UnitWriteFlags;
+
+/* Returns true if neither persistent, nor runtime storage is requested, i.e. this is a check invocation only */
+#define UNIT_WRITE_FLAGS_NOOP(flags) (((flags) & (UNIT_RUNTIME|UNIT_PERSISTENT)) == 0)
 
 #include "automount.h"
 #include "device.h"
@@ -490,7 +509,7 @@ struct UnitVTable {
         void (*bus_name_owner_change)(Unit *u, const char *name, const char *old_owner, const char *new_owner);
 
         /* Called for each property that is being set */
-        int (*bus_set_property)(Unit *u, const char *name, sd_bus_message *message, UnitSetPropertiesMode mode, sd_bus_error *error);
+        int (*bus_set_property)(Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);
 
         /* Called after at least one property got changed to apply the necessary change */
         int (*bus_commit_properties)(Unit *u);
@@ -713,11 +732,11 @@ ExecRuntime *unit_get_exec_runtime(Unit *u) _pure_;
 int unit_setup_exec_runtime(Unit *u);
 int unit_setup_dynamic_creds(Unit *u);
 
-int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *data);
-int unit_write_drop_in_format(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *format, ...) _printf_(4,5);
+char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf);
+char* unit_concat_strv(char **l, UnitWriteFlags flags);
 
-int unit_write_drop_in_private(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *data);
-int unit_write_drop_in_private_format(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *format, ...) _printf_(4,5);
+int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const char *data);
+int unit_write_settingf(Unit *u, UnitWriteFlags mode, const char *name, const char *format, ...) _printf_(4,5);
 
 int unit_kill_context(Unit *u, KillContext *c, KillOperation k, pid_t main_pid, pid_t control_pid, bool main_pid_alien);
 

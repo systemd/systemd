@@ -73,7 +73,7 @@ static int bus_scope_set_transient_property(
                 Scope *s,
                 const char *name,
                 sd_bus_message *message,
-                UnitSetPropertiesMode mode,
+                UnitWriteFlags flags,
                 sd_bus_error *error) {
 
         int r;
@@ -81,6 +81,8 @@ static int bus_scope_set_transient_property(
         assert(s);
         assert(name);
         assert(message);
+
+        flags |= UNIT_PRIVATE;
 
         if (streq(name, "PIDs")) {
                 unsigned n = 0;
@@ -95,7 +97,7 @@ static int bus_scope_set_transient_property(
                         if (pid <= 1)
                                 return -EINVAL;
 
-                        if (mode != UNIT_CHECK) {
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 r = unit_watch_pid(UNIT(s), pid);
                                 if (r < 0 && r != -EEXIST)
                                         return r;
@@ -117,7 +119,6 @@ static int bus_scope_set_transient_property(
 
         } else if (streq(name, "Controller")) {
                 const char *controller;
-                char *c;
 
                 /* We can't support direct connections with this, as direct connections know no service or unique name
                  * concept, but the Controller field stores exactly that. */
@@ -131,33 +132,25 @@ static int bus_scope_set_transient_property(
                 if (!isempty(controller) && !service_name_is_valid(controller))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Controller '%s' is not a valid bus name.", controller);
 
-                if (mode != UNIT_CHECK) {
-                        if (isempty(controller))
-                                c = NULL;
-                        else {
-                                c = strdup(controller);
-                                if (!c)
-                                        return -ENOMEM;
-                        }
-
-                        free(s->controller);
-                        s->controller = c;
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        r = free_and_strdup(&s->controller, empty_to_null(controller));
+                        if (r < 0)
+                                return r;
                 }
 
                 return 1;
 
         } else if (streq(name, "TimeoutStopUSec")) {
+                uint64_t t;
 
-                if (mode != UNIT_CHECK) {
-                        r = sd_bus_message_read(message, "t", &s->timeout_stop_usec);
-                        if (r < 0)
-                                return r;
+                r = sd_bus_message_read(message, "t", &t);
+                if (r < 0)
+                        return r;
 
-                        unit_write_drop_in_private_format(UNIT(s), mode, name, "TimeoutStopSec="USEC_FMT"us", s->timeout_stop_usec);
-                } else {
-                        r = sd_bus_message_skip(message, "t");
-                        if (r < 0)
-                                return r;
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        s->timeout_stop_usec = t;
+
+                        unit_write_settingf(UNIT(s), flags, name, "TimeoutStopSec=" USEC_FMT "us", t);
                 }
 
                 return 1;
@@ -170,7 +163,7 @@ int bus_scope_set_property(
                 Unit *u,
                 const char *name,
                 sd_bus_message *message,
-                UnitSetPropertiesMode mode,
+                UnitWriteFlags flags,
                 sd_bus_error *error) {
 
         Scope *s = SCOPE(u);
@@ -180,18 +173,18 @@ int bus_scope_set_property(
         assert(name);
         assert(message);
 
-        r = bus_cgroup_set_property(u, &s->cgroup_context, name, message, mode, error);
+        r = bus_cgroup_set_property(u, &s->cgroup_context, name, message, flags, error);
         if (r != 0)
                 return r;
 
         if (u->load_state == UNIT_STUB) {
                 /* While we are created we still accept PIDs */
 
-                r = bus_scope_set_transient_property(s, name, message, mode, error);
+                r = bus_scope_set_transient_property(s, name, message, flags, error);
                 if (r != 0)
                         return r;
 
-                r = bus_kill_context_set_transient_property(u, &s->kill_context, name, message, mode, error);
+                r = bus_kill_context_set_transient_property(u, &s->kill_context, name, message, flags, error);
                 if (r != 0)
                         return r;
         }

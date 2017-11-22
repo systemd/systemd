@@ -1319,7 +1319,7 @@ static int bus_unit_set_transient_property(
                 Unit *u,
                 const char *name,
                 sd_bus_message *message,
-                UnitSetPropertiesMode mode,
+                UnitWriteFlags flags,
                 sd_bus_error *error) {
 
         int r;
@@ -1335,12 +1335,12 @@ static int bus_unit_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (mode != UNIT_CHECK) {
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         r = unit_set_description(u, d);
                         if (r < 0)
                                 return r;
 
-                        unit_write_drop_in_format(u, mode, name, "[Unit]\nDescription=%s", d);
+                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "Description=%s", d);
                 }
 
                 return 1;
@@ -1352,9 +1352,9 @@ static int bus_unit_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (mode != UNIT_CHECK) {
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         u->default_dependencies = b;
-                        unit_write_drop_in_format(u, mode, name, "[Unit]\nDefaultDependencies=%s", yes_no(b));
+                        unit_write_settingf(u, flags, name, "DefaultDependencies=%s", yes_no(b));
                 }
 
                 return 1;
@@ -1371,9 +1371,9 @@ static int bus_unit_set_transient_property(
                 if (m < 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown garbage collection mode: %s", s);
 
-                if (mode != UNIT_CHECK) {
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         u->collect_mode = m;
-                        unit_write_drop_in_format(u, mode, name, "[Unit]\nCollectMode=%s", collect_mode_to_string(m));
+                        unit_write_settingf(u, flags, name, "CollectMode=%s", collect_mode_to_string(m));
                 }
 
                 return 1;
@@ -1406,12 +1406,12 @@ static int bus_unit_set_transient_property(
                 if (slice->type != UNIT_SLICE)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unit name '%s' is not a slice", s);
 
-                if (mode != UNIT_CHECK) {
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         r = unit_set_slice(u, slice);
                         if (r < 0)
                                 return r;
 
-                        unit_write_drop_in_private_format(u, mode, name, "Slice=%s", s);
+                        unit_write_settingf(u, flags|UNIT_PRIVATE, name, "Slice=%s", s);
                 }
 
                 return 1;
@@ -1448,7 +1448,7 @@ static int bus_unit_set_transient_property(
                         if (!unit_name_is_valid(other, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid unit name %s", other);
 
-                        if (mode != UNIT_CHECK) {
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 _cleanup_free_ char *label = NULL;
 
                                 r = unit_add_dependency_by_name(u, d, other, NULL, true, UNIT_DEPENDENCY_FILE);
@@ -1459,7 +1459,7 @@ static int bus_unit_set_transient_property(
                                 if (!label)
                                         return -ENOMEM;
 
-                                unit_write_drop_in_format(u, mode, label, "[Unit]\n%s=%s", name, other);
+                                unit_write_settingf(u, flags, label, "%s=%s", name, other);
                         }
 
                 }
@@ -1484,14 +1484,14 @@ static int bus_unit_set_transient_property(
                 if (action < 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid emergency action: %s", s);
 
-                if (mode != UNIT_CHECK) {
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
 
                         if (streq(name, "FailureAction"))
                                 u->failure_action = action;
                         else
                                 u->success_action = action;
 
-                        unit_write_drop_in_format(u, mode, name, "%s=%s", name, emergency_action_to_string(action));
+                        unit_write_settingf(u, flags, name, "%s=%s", name, emergency_action_to_string(action));
                 }
 
                 return 1;
@@ -1514,7 +1514,7 @@ static int bus_unit_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (mode != UNIT_CHECK)
+                if (!UNIT_WRITE_FLAGS_NOOP(flags))
                         u->bus_track_add = b;
 
                 return 1;
@@ -1526,7 +1526,7 @@ static int bus_unit_set_transient_property(
 int bus_unit_set_properties(
                 Unit *u,
                 sd_bus_message *message,
-                UnitSetPropertiesMode mode,
+                UnitWriteFlags flags,
                 bool commit,
                 sd_bus_error *error) {
 
@@ -1548,12 +1548,13 @@ int bus_unit_set_properties(
 
         for (;;) {
                 const char *name;
+                UnitWriteFlags f;
 
                 r = sd_bus_message_enter_container(message, 'r', "sv");
                 if (r < 0)
                         return r;
                 if (r == 0) {
-                        if (for_real || mode == UNIT_CHECK)
+                        if (for_real || UNIT_WRITE_FLAGS_NOOP(flags))
                                 break;
 
                         /* Reached EOF. Let's try again, and this time for realz... */
@@ -1576,9 +1577,12 @@ int bus_unit_set_properties(
                 if (r < 0)
                         return r;
 
-                r = UNIT_VTABLE(u)->bus_set_property(u, name, message, for_real ? mode : UNIT_CHECK, error);
+                /* If not for real, then mask out the two target flags */
+                f = for_real ? flags : (flags & ~(UNIT_RUNTIME|UNIT_PERSISTENT));
+
+                r = UNIT_VTABLE(u)->bus_set_property(u, name, message, f, error);
                 if (r == 0 && u->transient && u->load_state == UNIT_STUB)
-                        r = bus_unit_set_transient_property(u, name, message, for_real ? mode : UNIT_CHECK, error);
+                        r = bus_unit_set_transient_property(u, name, message, f, error);
                 if (r < 0)
                         return r;
                 if (r == 0)

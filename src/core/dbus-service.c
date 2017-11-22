@@ -90,7 +90,7 @@ static int bus_service_set_transient_property(
                 Service *s,
                 const char *name,
                 sd_bus_message *message,
-                UnitSetPropertiesMode mode,
+                UnitWriteFlags flags,
                 sd_bus_error *error) {
 
         int r;
@@ -99,6 +99,8 @@ static int bus_service_set_transient_property(
         assert(name);
         assert(message);
 
+        flags |= UNIT_PRIVATE;
+
         if (streq(name, "RemainAfterExit")) {
                 int b;
 
@@ -106,9 +108,9 @@ static int bus_service_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (mode != UNIT_CHECK) {
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         s->remain_after_exit = b;
-                        unit_write_drop_in_private_format(UNIT(s), mode, name, "RemainAfterExit=%s", yes_no(b));
+                        unit_write_settingf(UNIT(s), flags, name, "RemainAfterExit=%s", yes_no(b));
                 }
 
                 return 1;
@@ -125,9 +127,9 @@ static int bus_service_set_transient_property(
                 if (k < 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid service type %s", t);
 
-                if (mode != UNIT_CHECK) {
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         s->type = k;
-                        unit_write_drop_in_private_format(UNIT(s), mode, name, "Type=%s", service_type_to_string(s->type));
+                        unit_write_settingf(UNIT(s), flags, name, "Type=%s", service_type_to_string(s->type));
                 }
 
                 return 1;
@@ -138,9 +140,9 @@ static int bus_service_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (mode != UNIT_CHECK) {
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         s->runtime_max_usec = u;
-                        unit_write_drop_in_private_format(UNIT(s), mode, name, "RuntimeMaxSec=" USEC_FMT "us", u);
+                        unit_write_settingf(UNIT(s), flags, name, "RuntimeMaxSec=" USEC_FMT "us", u);
                 }
 
                 return 1;
@@ -161,9 +163,9 @@ static int bus_service_set_transient_property(
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid restart setting: %s", v);
                 }
 
-                if (mode != UNIT_CHECK) {
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         s->restart = sr;
-                        unit_write_drop_in_private_format(UNIT(s), mode, name, "Restart=%s", service_restart_to_string(sr));
+                        unit_write_settingf(UNIT(s), flags, name, "Restart=%s", service_restart_to_string(sr));
                 }
 
                 return 1;
@@ -178,7 +180,7 @@ static int bus_service_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (mode != UNIT_CHECK) {
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         int copy;
 
                         copy = fcntl(fd, F_DUPFD_CLOEXEC, 3);
@@ -208,9 +210,9 @@ static int bus_service_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (mode != UNIT_CHECK) {
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         s->n_fd_store_max = (unsigned) u;
-                        unit_write_drop_in_private_format(UNIT(s), mode, name, "FileDescriptorStoreMax=%" PRIu32, u);
+                        unit_write_settingf(UNIT(s), flags, name, "FileDescriptorStoreMax=%" PRIu32, u);
                 }
 
                 return 1;
@@ -227,9 +229,9 @@ static int bus_service_set_transient_property(
                 if (k < 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid notify access setting %s", t);
 
-                if (mode != UNIT_CHECK) {
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         s->notify_access = k;
-                        unit_write_drop_in_private_format(UNIT(s), mode, name, "NotifyAccess=%s", notify_access_to_string(s->notify_access));
+                        unit_write_settingf(UNIT(s), flags, name, "NotifyAccess=%s", notify_access_to_string(s->notify_access));
                 }
 
                 return 1;
@@ -265,7 +267,7 @@ static int bus_service_set_transient_property(
                         if (r < 0)
                                 return r;
 
-                        if (mode != UNIT_CHECK) {
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 ExecCommand *c;
 
                                 c = new0(ExecCommand, 1);
@@ -297,7 +299,7 @@ static int bus_service_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (mode != UNIT_CHECK) {
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *buf = NULL;
                         _cleanup_fclose_ FILE *f = NULL;
                         ExecCommand *c;
@@ -313,22 +315,28 @@ static int bus_service_set_transient_property(
                         fputs_unlocked("ExecStart=\n", f);
 
                         LIST_FOREACH(command, c, s->exec_command[SERVICE_EXEC_START]) {
-                                _cleanup_free_ char *a;
+                                _cleanup_free_ char *a = NULL, *t = NULL;
+                                const char *p;
 
-                                a = strv_join_quoted(c->argv);
+                                p = unit_escape_setting(c->path, UNIT_ESCAPE_C|UNIT_ESCAPE_SPECIFIERS, &t);
+                                if (!p)
+                                        return -ENOMEM;
+
+                                a = unit_concat_strv(c->argv, UNIT_ESCAPE_C|UNIT_ESCAPE_SPECIFIERS);
                                 if (!a)
                                         return -ENOMEM;
 
                                 fprintf(f, "ExecStart=%s@%s %s\n",
                                         c->flags & EXEC_COMMAND_IGNORE_FAILURE ? "-" : "",
-                                        c->path,
+                                        p,
                                         a);
                         }
 
                         r = fflush_and_check(f);
                         if (r < 0)
                                 return r;
-                        unit_write_drop_in_private(UNIT(s), mode, name, buf);
+
+                        unit_write_setting(UNIT(s), flags, name, buf);
                 }
 
                 return 1;
@@ -341,7 +349,7 @@ int bus_service_set_property(
                 Unit *u,
                 const char *name,
                 sd_bus_message *message,
-                UnitSetPropertiesMode mode,
+                UnitWriteFlags flags,
                 sd_bus_error *error) {
 
         Service *s = SERVICE(u);
@@ -351,22 +359,22 @@ int bus_service_set_property(
         assert(name);
         assert(message);
 
-        r = bus_cgroup_set_property(u, &s->cgroup_context, name, message, mode, error);
+        r = bus_cgroup_set_property(u, &s->cgroup_context, name, message, flags, error);
         if (r != 0)
                 return r;
 
         if (u->transient && u->load_state == UNIT_STUB) {
                 /* This is a transient unit, let's load a little more */
 
-                r = bus_service_set_transient_property(s, name, message, mode, error);
+                r = bus_service_set_transient_property(s, name, message, flags, error);
                 if (r != 0)
                         return r;
 
-                r = bus_exec_context_set_transient_property(u, &s->exec_context, name, message, mode, error);
+                r = bus_exec_context_set_transient_property(u, &s->exec_context, name, message, flags, error);
                 if (r != 0)
                         return r;
 
-                r = bus_kill_context_set_transient_property(u, &s->kill_context, name, message, mode, error);
+                r = bus_kill_context_set_transient_property(u, &s->kill_context, name, message, flags, error);
                 if (r != 0)
                         return r;
         }

@@ -96,7 +96,7 @@ int bus_swap_set_property(
                 Unit *u,
                 const char *name,
                 sd_bus_message *message,
-                UnitSetPropertiesMode mode,
+                UnitWriteFlags flags,
                 sd_bus_error *error) {
 
         Swap *s = SWAP(u);
@@ -105,7 +105,7 @@ int bus_swap_set_property(
         assert(name);
         assert(message);
 
-        return bus_cgroup_set_property(u, &s->cgroup_context, name, message, mode, error);
+        return bus_cgroup_set_property(u, &s->cgroup_context, name, message, flags, error);
 }
 
 int bus_swap_commit_properties(Unit *u) {

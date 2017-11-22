@@ -32,7 +32,7 @@ int bus_slice_set_property(
                 Unit *u,
                 const char *name,
                 sd_bus_message *message,
-                UnitSetPropertiesMode mode,
+                UnitWriteFlags flags,
                 sd_bus_error *error) {
 
         Slice *s = SLICE(u);
@@ -40,7 +40,7 @@ int bus_slice_set_property(
         assert(name);
         assert(u);
 
-        return bus_cgroup_set_property(u, &s->cgroup_context, name, message, mode, error);
+        return bus_cgroup_set_property(u, &s->cgroup_context, name, message, flags, error);
 }
 
 int bus_slice_commit_properties(Unit *u) {
