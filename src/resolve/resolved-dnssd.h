@@ -47,6 +47,7 @@ struct DnssdService {
         Manager *manager;
 
         bool withdrawn:1;
+        uid_t originator;
 };
 
 DnssdService *dnssd_service_free(DnssdService *service);

@@ -28,6 +28,7 @@
 #include "resolved-dnssd.h"
 #include "resolved-dnssd-bus.h"
 #include "resolved-link-bus.h"
+#include "user-util.h"
 #include "utf8.h"
 
 static int reply_query_state(DnsQuery *q) {
@@ -1597,6 +1598,7 @@ static int on_bus_track(sd_bus_track *t, void *userdata) {
 }
 
 static int bus_method_register_service(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         _cleanup_(dnssd_service_freep) DnssdService *service = NULL;
         _cleanup_(sd_bus_track_unrefp) sd_bus_track *bus_track = NULL;
         _cleanup_free_ char *path = NULL;
@@ -1607,6 +1609,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         const char *name;
         const char *name_template;
         const char *type;
+        uid_t euid;
         int r;
 
         assert(message);
@@ -1615,9 +1618,27 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (m->mdns_support != RESOLVE_SUPPORT_YES)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Support for MulticastDNS is disabled");
 
+        r = bus_verify_polkit_async(message, CAP_SYS_ADMIN,
+                                    "org.freedesktop.resolve1.register-service",
+                                    NULL, false, UID_INVALID,
+                                    &m->polkit_registry, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Polkit will call us back */
+
         service = new0(DnssdService, 1);
         if (!service)
                 return log_oom();
+
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_creds_get_euid(creds, &euid);
+        if (r < 0)
+                return r;
+        service->originator = euid;
 
         r = sd_bus_message_read(message, "sssqqq", &name, &name_template, &type,
                                 &service->port, &service->priority,
@@ -1783,8 +1804,8 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_METHOD("SetLinkDNSSECNegativeTrustAnchors", "ias", NULL, bus_method_set_link_dnssec_negative_trust_anchors, 0),
         SD_BUS_METHOD("RevertLink", "i", NULL, bus_method_revert_link, 0),
 
-        SD_BUS_METHOD("RegisterService", "sssqqqa{say}", "o", bus_method_register_service, 0),
-        SD_BUS_METHOD("UnregisterService", "o", NULL, bus_method_unregister_service, 0),
+        SD_BUS_METHOD("RegisterService", "sssqqqa{say}", "o", bus_method_register_service, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("UnregisterService", "o", NULL, bus_method_unregister_service, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END,
 };
 
