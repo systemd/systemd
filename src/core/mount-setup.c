@@ -29,6 +29,7 @@
 #include "cgroup-util.h"
 #include "dev-setup.h"
 #include "efivars.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "label.h"
 #include "log.h"
@@ -49,6 +50,7 @@ typedef enum MountMode {
         MNT_NONE  =        0,
         MNT_FATAL =        1 <<  0,
         MNT_IN_CONTAINER = 1 <<  1,
+        MNT_CHECK_MKDIR  = 1 <<  2,
 } MountMode;
 
 typedef struct MountPoint {
@@ -103,9 +105,9 @@ static const MountPoint mount_table[] = {
         { "tmpfs",       "/sys/fs/cgroup",            "tmpfs",      "mode=755",                MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
           cg_is_legacy_wanted, MNT_FATAL|MNT_IN_CONTAINER },
         { "cgroup",      "/sys/fs/cgroup/unified",    "cgroup2",    "nsdelegate",              MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          cg_is_hybrid_wanted, MNT_IN_CONTAINER },
+          cg_is_hybrid_wanted, MNT_IN_CONTAINER|MNT_CHECK_MKDIR },
         { "cgroup",      "/sys/fs/cgroup/unified",    "cgroup2",    NULL,                      MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          cg_is_hybrid_wanted, MNT_IN_CONTAINER },
+          cg_is_hybrid_wanted, MNT_IN_CONTAINER|MNT_CHECK_MKDIR },
         { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd,xattr", MS_NOSUID|MS_NOEXEC|MS_NODEV,
           cg_is_legacy_wanted, MNT_IN_CONTAINER     },
         { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd",       MS_NOSUID|MS_NOEXEC|MS_NODEV,
@@ -201,6 +203,18 @@ static int mount_one(const MountPoint *p, bool relabel) {
         /* Relabel again, since we now mounted something fresh here */
         if (relabel)
                 (void) label_fix(p->where, false, false);
+
+        if (p->mode & MNT_CHECK_MKDIR) {
+                _cleanup_(rmdir_and_freep) char *tempdir = NULL;
+                const char *template;
+
+                template = strjoina(p->where, "/systemd-temporary-XXXXXX");
+                r = mkdtemp_malloc(template, &tempdir);
+                if (r < 0) {
+                        (void) umount(p->where);
+                        return (p->mode & MNT_FATAL) ? r : 0;
+                }
+        }
 
         return 1;
 }
