@@ -34,11 +34,12 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "string-util.h"
+#include "sysexits.h"
 #include "udev.h"
 #include "udev-util.h"
 
 _printf_(2,3)
-static int path_prepend(char **path, const char *fmt, ...) {
+static void path_prepend(char **path, const char *fmt, ...) {
         va_list va;
         _cleanup_free_ char *pre = NULL;
         int r;
@@ -46,36 +47,40 @@ static int path_prepend(char **path, const char *fmt, ...) {
         va_start(va, fmt);
         r = vasprintf(&pre, fmt, va);
         va_end(va);
-        if (r < 0)
-                return -ENOMEM;
+        if (r < 0) {
+                log_oom();
+                exit(EX_OSERR);
+        }
 
         if (*path) {
                 char *new;
 
                 new = strjoin(pre, "-", *path);
-                if (!new)
-                        return -ENOMEM;
+                if (!new) {
+                        log_oom();
+                        exit(EX_OSERR);
+                }
+
                 free_and_replace(*path, new);
         } else {
                 *path = pre;
                 pre = NULL;
         }
-
-        return 0;
 }
 
 /*
 ** Linux only supports 32 bit luns.
 ** See drivers/scsi/scsi_scan.c::scsilun_to_int() for more details.
 */
-static int format_lun_number(struct udev_device *dev, char **path) {
+static void format_lun_number(struct udev_device *dev, char **path) {
         unsigned long lun = strtoul(udev_device_get_sysnum(dev), NULL, 10);
 
-        /* address method 0, peripheral device addressing with bus id of zero */
         if (lun < 256)
-                return path_prepend(path, "lun-%lu", lun);
-        /* handle all other lun addressing methods by using a variant of the original lun format */
-        return path_prepend(path, "lun-0x%04lx%04lx00000000", lun & 0xffff, (lun >> 16) & 0xffff);
+                /* address method 0, peripheral device addressing with bus id of zero */
+                path_prepend(path, "lun-%lu", lun);
+        else
+                /* handle all other lun addressing methods by using a variant of the original lun format */
+                path_prepend(path, "lun-0x%04lx%04lx00000000", lun & 0xffff, (lun >> 16) & 0xffff);
 }
 
 static struct udev_device *skip_subsystem(struct udev_device *dev, const char *subsys) {
