@@ -32,6 +32,10 @@
 #include "macro.h"
 #include "set.h"
 
+#define SYSTEMD_CGROUP_CONTROLLER_LEGACY "name=systemd"
+#define SYSTEMD_CGROUP_CONTROLLER_HYBRID "name=unified"
+#define SYSTEMD_CGROUP_CONTROLLER "_systemd"
+
 /* An enum of well known cgroup controllers */
 typedef enum CGroupController {
         CGROUP_CONTROLLER_CPU,
@@ -239,7 +243,7 @@ int cg_mask_supported(CGroupMask *ret);
 int cg_mask_from_string(const char *s, CGroupMask *ret);
 int cg_mask_to_string(CGroupMask mask, char **ret);
 
-int cg_kernel_controllers(Set *controllers);
+int cg_kernel_controllers(Set **controllers);
 
 bool cg_ns_supported(void);
 

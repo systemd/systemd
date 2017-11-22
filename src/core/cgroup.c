@@ -1073,7 +1073,7 @@ CGroupMask unit_get_own_mask(Unit *u) {
         if (!c)
                 return 0;
 
-        return cgroup_context_get_mask(c);
+        return cgroup_context_get_mask(c) | unit_get_delegate_mask(u);
 }
 
 CGroupMask unit_get_delegate_mask(Unit *u) {
@@ -1113,7 +1113,7 @@ CGroupMask unit_get_members_mask(Unit *u) {
         if (u->cgroup_members_mask_valid)
                 return u->cgroup_members_mask;
 
-        u->cgroup_members_mask = unit_get_delegate_mask(u);
+        u->cgroup_members_mask = 0;
 
         if (u->type == UNIT_SLICE) {
                 void *v;
@@ -1146,7 +1146,7 @@ CGroupMask unit_get_siblings_mask(Unit *u) {
         if (UNIT_ISSET(u->slice))
                 return unit_get_members_mask(UNIT_DEREF(u->slice));
 
-        return unit_get_subtree_mask(u);
+        return unit_get_subtree_mask(u); /* we are the top-level slice */
 }
 
 CGroupMask unit_get_subtree_mask(Unit *u) {

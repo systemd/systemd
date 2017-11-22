@@ -603,35 +603,23 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
 }
 
 static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
-        pid_t pid;
-        int r;
+
         ExecParameters exec_params = {
                 .flags     = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
                 .stdin_fd  = -1,
                 .stdout_fd = -1,
                 .stderr_fd = -1,
         };
+        pid_t pid;
+        int r;
 
         assert(s);
         assert(c);
         assert(_pid);
 
-        (void) unit_realize_cgroup(UNIT(s));
-        if (s->reset_accounting) {
-                (void) unit_reset_cpu_accounting(UNIT(s));
-                (void) unit_reset_ip_accounting(UNIT(s));
-                s->reset_accounting = false;
-        }
-
-        unit_export_state_files(UNIT(s));
-
-        r = unit_setup_exec_runtime(UNIT(s));
+        r = unit_prepare_exec(UNIT(s));
         if (r < 0)
-                goto fail;
-
-        r = unit_setup_dynamic_creds(UNIT(s));
-        if (r < 0)
-                goto fail;
+                return r;
 
         r = swap_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_usec));
         if (r < 0)
@@ -868,7 +856,8 @@ static int swap_start(Unit *u) {
                 return r;
 
         s->result = SWAP_SUCCESS;
-        s->reset_accounting = true;
+
+        u->reset_accounting = true;
 
         swap_enter_activating(s);
         return 1;

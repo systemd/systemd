@@ -345,6 +345,9 @@ struct Unit {
 
         UnitCGroupBPFState cgroup_bpf_state:2;
 
+        /* Reset cgroup accounting next time we fork something off */
+        bool reset_accounting:1;
+
         bool start_limit_hit:1;
 
         /* Did we already invoke unit_coldplug() for this unit? */
@@ -762,6 +765,8 @@ void unit_remove_dependencies(Unit *u, UnitDependencyMask mask);
 
 void unit_export_state_files(Unit *u);
 void unit_unlink_state_files(Unit *u);
+
+int unit_prepare_exec(Unit *u);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 

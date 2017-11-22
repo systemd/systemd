@@ -1104,6 +1104,11 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
                 if (!p)
                         return -ENOMEM;
 
+                /* Truncate suffix indicating the process is a zombie */
+                e = endswith(p, " (deleted)");
+                if (e)
+                        *e = 0;
+
                 *path = p;
                 return 0;
         }
@@ -2369,21 +2374,29 @@ int cg_mask_supported(CGroupMask *ret) {
         return 0;
 }
 
-int cg_kernel_controllers(Set *controllers) {
+int cg_kernel_controllers(Set **ret) {
+        _cleanup_set_free_free_ Set *controllers = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
-        assert(controllers);
+        assert(ret);
 
         /* Determines the full list of kernel-known controllers. Might
          * include controllers we don't actually support, arbitrary
          * named hierarchies and controllers that aren't currently
          * accessible (because not mounted). */
 
+        controllers = set_new(&string_hash_ops);
+        if (!controllers)
+                return -ENOMEM;
+
         f = fopen("/proc/cgroups", "re");
         if (!f) {
-                if (errno == ENOENT)
+                if (errno == ENOENT) {
+                        *ret = NULL;
                         return 0;
+                }
+
                 return -errno;
         }
 
@@ -2420,6 +2433,9 @@ int cg_kernel_controllers(Set *controllers) {
                 if (r < 0)
                         return r;
         }
+
+        *ret = controllers;
+        controllers = NULL;
 
         return 0;
 }
@@ -2530,6 +2546,7 @@ int cg_unified_flush(void) {
 }
 
 int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p) {
+        _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *fs = NULL;
         CGroupController c;
         int r;
@@ -2563,7 +2580,15 @@ int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p) {
                         s[0] = mask & bit ? '+' : '-';
                         strcpy(s + 1, n);
 
-                        r = write_string_file(fs, s, 0);
+                        if (!f) {
+                                f = fopen(fs, "we");
+                                if (!f) {
+                                        log_debug_errno(errno, "Failed to open cgroup.subtree_control file of %s: %m", p);
+                                        break;
+                                }
+                        }
+
+                        r = write_string_stream(f, s, 0);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to enable controller %s for %s (%s): %m", n, p, fs);
                 }

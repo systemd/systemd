@@ -32,6 +32,9 @@ Features:
 
 * add async version of sd_bus_add_match and make use of that
 
+* support projid-based quota in machinectl for containers, and then drop
+  implicit btrfs loopback magic in machined
+
 * let's log the "tainted" string at boot
 
 * Add NetworkNamespacePath= to specify a path to a network namespace
@@ -80,7 +83,11 @@ Features:
 
 * maybe hook of xfs/ext4 quotactl() with services? i.e. automatically manage
   the quota of a the user indicated in User= via unit file settings, like the
-  other resource management concepts. Would mix nicely with DynamicUser=1
+  other resource management concepts. Would mix nicely with DynamicUser=1. Or
+  alternatively, do this with projids, so that we can also cover services
+  running as root. Quota should probably cover all the special dirs such as
+  StateDirectory=, LogsDirectory=, CacheDirectory=, as well as RootDirectory= if it
+  is set, plus the whole disk space any image configured with RootImage=.
 
 * Introduce "exit" as an EmergencyAction value, and allow to configure a
   per-unit success/failure exit code to configure. This would be useful for
