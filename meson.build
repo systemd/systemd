@@ -1218,6 +1218,7 @@ subdir('src/sulogin-shell')
 subdir('src/boot/efi')
 
 subdir('src/test')
+subdir('rules')
 subdir('test')
 
 ############################################################
@@ -2345,7 +2346,6 @@ subdir('units')
 subdir('sysctl.d')
 subdir('sysusers.d')
 subdir('tmpfiles.d')
-subdir('rules')
 subdir('hwdb')
 subdir('network')
 subdir('man')

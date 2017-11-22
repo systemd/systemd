@@ -41,6 +41,8 @@ rules = files('''
 install_data(rules,
              install_dir : udevrulesdir)
 
+all_rules = rules
+
 rules_in = '''
         50-udev-default.rules
         64-btrfs.rules
@@ -54,4 +56,5 @@ foreach file : rules_in
                 configuration : substs)
         install_data(gen,
                      install_dir : udevrulesdir)
+        all_rules += gen
 endforeach

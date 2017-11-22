@@ -24,17 +24,9 @@ import sys
 import os
 from glob import glob
 
-if len(sys.argv) > 1:
-    # explicit rule file list
-    rules_files = sys.argv[1:]
-else:
-    # take them from the build dir
-    root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    rules_dir = os.path.join(os.environ.get('top_srcdir', root_dir), 'rules')
-    if not os.path.isdir(rules_dir):
-        print('No rules files given, and {} does not exist, aborting'.format(rules_dir), file=sys.stderr)
-        sys.exit(2)
-    rules_files = glob(os.path.join(rules_dir, '*.rules'))
+rules_files = sys.argv[1:]
+if not rules_files:
+    sys.exit('Specify files to test as arguments')
 
 no_args_tests = re.compile(r'(ACTION|DEVPATH|KERNELS?|NAME|SYMLINK|SUBSYSTEMS?|DRIVERS?|TAG|RESULT|TEST)\s*(?:=|!)=\s*"([^"]*)"$')
 args_tests = re.compile(r'(ATTRS?|ENV|TEST){([a-zA-Z0-9/_.*%-]+)}\s*(?:=|!)=\s*"([^"]*)"$')

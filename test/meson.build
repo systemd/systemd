@@ -188,6 +188,13 @@ endif
 
 ############################################################
 
+rule_syntax_check_py = find_program('rule-syntax-check.py')
+test('rule-syntax-check',
+     rule_syntax_check_py,
+     args : all_rules)
+
+############################################################
+
 if conf.get('HAVE_SYSV_COMPAT') == 1
         sysv_generator_test_py = find_program('sysv-generator-test.py')
         test('sysv-generator-test',
