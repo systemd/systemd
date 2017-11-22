@@ -1282,7 +1282,7 @@ static int trigger_device(Manager *m, struct udev_device *d) {
                 if (!t)
                         return -ENOMEM;
 
-                write_string_file(t, "change", WRITE_STRING_FILE_CREATE);
+                (void) write_string_file(t, "change", 0);
         }
 
         return 0;
