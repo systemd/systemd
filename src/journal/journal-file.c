@@ -133,8 +133,7 @@ static void journal_file_set_offline_internal(JournalFile *f) {
                 case OFFLINE_OFFLINING:
                         if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_OFFLINING, OFFLINE_DONE))
                                 continue;
-                        /* fall through */
-
+                        _fallthrough_;
                 case OFFLINE_DONE:
                         return;
 
@@ -290,8 +289,7 @@ static int journal_file_set_online(JournalFile *f) {
                         if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_AGAIN_FROM_OFFLINING, OFFLINE_CANCEL))
                                 continue;
                         /* Canceled restart from offlining, must wait for offlining to complete however. */
-
-                        /* fall through */
+                        _fallthrough_;
                 default: {
                         int r;
 

@@ -63,8 +63,8 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                         }
 
                         pos += r;
-                }       /* fall through */
-
+                }
+                        _fallthrough_;
                 case ENTRY_REALTIME: {
                         usec_t realtime;
 
@@ -87,8 +87,8 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                         }
 
                         pos += r;
-                }       /* fall through */
-
+                }
+                        _fallthrough_;
                 case ENTRY_MONOTONIC: {
                         usec_t monotonic;
                         sd_id128_t boot_id;
@@ -112,8 +112,8 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                         }
 
                         pos += r;
-                }       /* fall through */
-
+                }
+                        _fallthrough_;
                 case ENTRY_BOOT_ID: {
                         sd_id128_t boot_id;
                         char sid[33];
@@ -137,8 +137,8 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                         }
 
                         pos += r;
-                }       /* fall through */
-
+                }
+                        _fallthrough_;
                 case ENTRY_NEW_FIELD: {
                         u->field_pos = 0;
 
@@ -159,8 +159,8 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                         }
 
                         u->entry_state++;
-                }       /* fall through */
-
+                }
+                        _fallthrough_;
                 case ENTRY_TEXT_FIELD:
                 case ENTRY_BINARY_FIELD: {
                         bool done;
@@ -209,8 +209,8 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
 
                         u->field_pos = len + 1;
                         u->entry_state++;
-                }       /* fall through */
-
+                }
+                        _fallthrough_;
                 case ENTRY_BINARY_FIELD_SIZE: {
                         uint64_t le64;
 

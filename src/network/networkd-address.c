@@ -152,7 +152,7 @@ static void address_hash_func(const void *b, struct siphash *state) {
                         siphash24_compress(&prefix, sizeof(prefix), state);
                 }
 
-                /* fallthrough */
+                _fallthrough_;
         case AF_INET6:
                 /* local address */
                 siphash24_compress(&a->in_addr, FAMILY_ADDRESS_SIZE(a->family), state);
@@ -202,7 +202,7 @@ static int address_compare_func(const void *c1, const void *c2) {
                                 return 1;
                 }
 
-                /* fall-through */
+                _fallthrough_;
         case AF_INET6:
                 return memcmp(&a1->in_addr, &a2->in_addr, FAMILY_ADDRESS_SIZE(a1->family));
         default:

@@ -829,7 +829,6 @@ static int client_send_request(sd_dhcp_client *client) {
                    client’s IP address.
                 */
 
-                /* fall through */
         case DHCP_STATE_REBINDING:
                 /* ’server identifier’ MUST NOT be filled in, ’requested IP address’
                    option MUST NOT be filled in, ’ciaddr’ MUST be filled in with

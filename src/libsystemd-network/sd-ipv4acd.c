@@ -288,8 +288,7 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
                         break;
                 }
 
-                /* fall through */
-
+                _fallthrough_;
         case IPV4ACD_STATE_WAITING_ANNOUNCE:
                 /* Send announcement packet */
                 r = arp_send_announcement(acd->fd, acd->ifindex, acd->address, &acd->mac_addr);

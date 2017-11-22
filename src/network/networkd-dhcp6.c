@@ -149,7 +149,7 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
                         return;
                 }
 
-                /* fall through */
+                _fallthrough_;
         case SD_DHCP6_CLIENT_EVENT_INFORMATION_REQUEST:
                 r = dhcp6_lease_information_acquired(client, link);
                 if (r < 0) {

@@ -1305,8 +1305,7 @@ static int create_item(Item *i) {
                                 log_debug("Quota for subvolume \"%s\" already in place, no change made.", i->path);
                 }
 
-                /* fall through */
-
+                _fallthrough_;
         case EMPTY_DIRECTORY:
                 r = path_set_perms(i, i->path);
                 if (q < 0)

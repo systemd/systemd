@@ -2892,8 +2892,7 @@ static void service_notify_cgroup_empty_event(Unit *u) {
                         break;
                 }
 
-                /* Fall through */
-
+                _fallthrough_;
         case SERVICE_START_POST:
                 if (s->pid_file_pathspec &&
                     main_pid_good(s) == 0 &&
@@ -3054,8 +3053,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                         break;
                                 }
 
-                                /* Fall through */
-
+                                _fallthrough_;
                         case SERVICE_RUNNING:
                                 service_enter_running(s, f);
                                 break;

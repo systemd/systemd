@@ -396,8 +396,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 cmd = RB_AUTOBOOT;
-                /* Fall through */
-
+                _fallthrough_;
         case RB_AUTOBOOT:
 
                 if (!in_container) {

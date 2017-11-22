@@ -287,8 +287,7 @@ static void syslog_skip_date(char **buf) {
                         if (*p == ' ')
                                 break;
 
-                        /* fall through */
-
+                        _fallthrough_;
                 case NUMBER:
                         if (*p < '0' || *p > '9')
                                 return;

@@ -796,8 +796,8 @@ static int apply_mount(
 
         case BIND_MOUNT:
                 rbind = false;
-                /* fallthrough */
 
+                _fallthrough_;
         case BIND_MOUNT_RECURSIVE:
                 /* Also chase the source mount */
 

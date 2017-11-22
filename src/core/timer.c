@@ -417,7 +417,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                                 /* In a container we don't want to include the time the host
                                  * was already up when the container started, so count from
                                  * our own startup. */
-                                /* fall through */
+                                _fallthrough_;
                         case TIMER_STARTUP:
                                 base = UNIT(t)->manager->userspace_timestamp.monotonic;
                                 break;
