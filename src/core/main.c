@@ -1995,11 +1995,11 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        m->userspace_timestamp = userspace_timestamp;
-        m->kernel_timestamp = kernel_timestamp;
-        m->initrd_timestamp = initrd_timestamp;
-        m->security_start_timestamp = security_start_timestamp;
-        m->security_finish_timestamp = security_finish_timestamp;
+        m->timestamps[MANAGER_TIMESTAMP_KERNEL] = kernel_timestamp;
+        m->timestamps[MANAGER_TIMESTAMP_INITRD] = initrd_timestamp;
+        m->timestamps[MANAGER_TIMESTAMP_USERSPACE] = userspace_timestamp;
+        m->timestamps[MANAGER_TIMESTAMP_SECURITY_START] = security_start_timestamp;
+        m->timestamps[MANAGER_TIMESTAMP_SECURITY_FINISH] = security_finish_timestamp;
 
         set_manager_defaults(m);
         set_manager_settings(m);
