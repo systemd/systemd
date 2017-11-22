@@ -253,7 +253,7 @@ static int bus_service_set_transient_property(
                                 return r;
 
                         if (!path_is_absolute(path))
-                                return sd_bus_error_set_errnof(error, EINVAL, "Path %s is not absolute.", path);
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not absolute.", path);
 
                         r = sd_bus_message_read_strv(message, &argv);
                         if (r < 0)

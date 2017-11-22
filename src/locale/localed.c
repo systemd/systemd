@@ -381,7 +381,7 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
 
                 if ((keymap && (!filename_is_valid(keymap) || !string_is_safe(keymap))) ||
                     (keymap_toggle && (!filename_is_valid(keymap_toggle) || !string_is_safe(keymap_toggle))))
-                        return sd_bus_error_set_errnof(error, -EINVAL, "Received invalid keymap data");
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Received invalid keymap data");
 
                 r = bus_verify_polkit_async(
                                 m,
@@ -560,7 +560,7 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
                     (model && !string_is_safe(model)) ||
                     (variant && !string_is_safe(variant)) ||
                     (options && !string_is_safe(options)))
-                        return sd_bus_error_set_errnof(error, -EINVAL, "Received invalid keyboard data");
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Received invalid keyboard data");
 
                 r = bus_verify_polkit_async(
                                 m,
