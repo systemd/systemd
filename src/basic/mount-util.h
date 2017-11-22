@@ -30,6 +30,10 @@
 #include "macro.h"
 #include "missing.h"
 
+int name_to_handle_at_loop(int fd, const char *path, struct file_handle **ret_handle, int *ret_mnt_id, int flags);
+
+int path_get_mnt_id(const char *path, int *ret);
+
 int fd_is_mount_point(int fd, const char *filename, int flags);
 int path_is_mount_point(const char *path, const char *root, int flags);
 
@@ -49,14 +53,7 @@ bool fstype_is_api_vfs(const char *fstype);
 bool fstype_is_ro(const char *fsype);
 bool fstype_can_discard(const char *fstype);
 
-union file_handle_union {
-        struct file_handle handle;
-        char padding[sizeof(struct file_handle) + MAX_HANDLE_SZ];
-};
-
 const char* mode_to_inaccessible_node(mode_t mode);
-
-#define FILE_HANDLE_INIT { .handle.handle_bytes = MAX_HANDLE_SZ }
 
 int mount_verbose(
                 int error_log_level,

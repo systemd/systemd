@@ -40,6 +40,76 @@
 #include "string-util.h"
 #include "strv.h"
 
+int name_to_handle_at_loop(
+                int fd,
+                const char *path,
+                struct file_handle **ret_handle,
+                int *ret_mnt_id,
+                int flags) {
+
+        _cleanup_free_ struct file_handle *h;
+        size_t n = MAX_HANDLE_SZ;
+
+        /* We need to invoke name_to_handle_at() in a loop, given that it might return EOVERFLOW when the specified
+         * buffer is too small. Note that in contrast to what the docs might suggest, MAX_HANDLE_SZ is only good as a
+         * start value, it is not an upper bound on the buffer size required.
+         *
+         * This improves on raw name_to_handle_at() also in one other regard: ret_handle and ret_mnt_id can be passed
+         * as NULL if there's no interest in either. */
+
+        h = malloc0(offsetof(struct file_handle, f_handle) + n);
+        if (!h)
+                return -ENOMEM;
+
+        h->handle_bytes = n;
+
+        for (;;) {
+                int mnt_id = -1;
+                size_t m;
+
+                if (name_to_handle_at(fd, path, h, &mnt_id, flags) >= 0) {
+
+                        if (ret_handle) {
+                                *ret_handle = h;
+                                h = NULL;
+                        }
+
+                        if (ret_mnt_id)
+                                *ret_mnt_id = mnt_id;
+
+                        return 0;
+                }
+                if (errno != EOVERFLOW)
+                        return -errno;
+
+                if (!ret_handle && ret_mnt_id && mnt_id >= 0) {
+
+                        /* As it appears, name_to_handle_at() fills in mnt_id even when it returns EOVERFLOW, but
+                         * that's undocumented. Hence, let's make use of this if it appears to be filled in, and the
+                         * caller was interested in only the mount ID an nothing else. */
+
+                        *ret_mnt_id = mnt_id;
+                        return 0;
+                }
+
+                /* The buffer was too small. Size the new buffer by what name_to_handle_at() returned, but make sure it
+                 * is always larger than what we passed in before */
+                m = h->handle_bytes > n ? h->handle_bytes : n * 2;
+                if (m < n) /* Check for multiplication overflow */
+                        return -EOVERFLOW;
+                if (offsetof(struct file_handle, f_handle) + m < m) /* check for addition overflow */
+                        return -EOVERFLOW;
+                n = m;
+
+                free(h);
+                h = malloc0(offsetof(struct file_handle, f_handle) + n);
+                if (!h)
+                        return -ENOMEM;
+
+                h->handle_bytes = n;
+        }
+}
+
 static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *mnt_id) {
         char path[strlen("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *fdinfo = NULL;
@@ -79,7 +149,7 @@ static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *mnt_id
 }
 
 int fd_is_mount_point(int fd, const char *filename, int flags) {
-        union file_handle_union h = FILE_HANDLE_INIT, h_parent = FILE_HANDLE_INIT;
+        _cleanup_free_ struct file_handle *h = NULL, *h_parent = NULL;
         int mount_id = -1, mount_id_parent = -1;
         bool nosupp = false, check_st_dev = true;
         struct stat a, b;
@@ -111,39 +181,30 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
          * subvolumes have different st_dev, even though they aren't
          * real mounts of their own. */
 
-        r = name_to_handle_at(fd, filename, &h.handle, &mount_id, flags);
-        if (r < 0) {
-                if (IN_SET(errno, ENOSYS, EACCES, EPERM))
-                        /* This kernel does not support name_to_handle_at() at all, or the syscall was blocked (maybe
-                         * through seccomp, because we are running inside of a container?): fall back to simpler
-                         * logic. */
-                        goto fallback_fdinfo;
-                else if (errno == EOPNOTSUPP)
-                        /* This kernel or file system does not support
-                         * name_to_handle_at(), hence let's see if the
-                         * upper fs supports it (in which case it is a
-                         * mount point), otherwise fallback to the
-                         * traditional stat() logic */
-                        nosupp = true;
-                else
-                        return -errno;
-        }
+        r = name_to_handle_at_loop(fd, filename, &h, &mount_id, flags);
+        if (IN_SET(r, -ENOSYS, -EACCES, -EPERM))
+                /* This kernel does not support name_to_handle_at() at all, or the syscall was blocked (maybe through
+                 * seccomp, because we are running inside of a container?): fall back to simpler logic. */
+                goto fallback_fdinfo;
+        else if (r == -EOPNOTSUPP)
+                /* This kernel or file system does not support name_to_handle_at(), hence let's see if the upper fs
+                 * supports it (in which case it is a mount point), otherwise fallback to the traditional stat()
+                 * logic */
+                nosupp = true;
+        else if (r < 0)
+                return r;
 
-        r = name_to_handle_at(fd, "", &h_parent.handle, &mount_id_parent, AT_EMPTY_PATH);
-        if (r < 0) {
-                if (errno == EOPNOTSUPP) {
-                        if (nosupp)
-                                /* Neither parent nor child do name_to_handle_at()?
-                                   We have no choice but to fall back. */
-                                goto fallback_fdinfo;
-                        else
-                                /* The parent can't do name_to_handle_at() but the
-                                 * directory we are interested in can?
-                                 * If so, it must be a mount point. */
-                                return 1;
-                } else
-                        return -errno;
-        }
+        r = name_to_handle_at_loop(fd, "", &h_parent, &mount_id_parent, AT_EMPTY_PATH);
+        if (r == -EOPNOTSUPP) {
+                if (nosupp)
+                        /* Neither parent nor child do name_to_handle_at()?  We have no choice but to fall back. */
+                        goto fallback_fdinfo;
+                else
+                        /* The parent can't do name_to_handle_at() but the directory we are interested in can?  If so,
+                         * it must be a mount point. */
+                        return 1;
+        } else if (r < 0)
+                       return r;
 
         /* The parent can do name_to_handle_at() but the
          * directory we are interested in can't? If so, it
@@ -156,9 +217,9 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
          * assume this is the root directory, which is a mount
          * point. */
 
-        if (h.handle.handle_bytes == h_parent.handle.handle_bytes &&
-            h.handle.handle_type == h_parent.handle.handle_type &&
-            memcmp(h.handle.f_handle, h_parent.handle.f_handle, h.handle.handle_bytes) == 0)
+        if (h->handle_bytes == h_parent->handle_bytes &&
+            h->handle_type == h_parent->handle_type &&
+            memcmp(h->f_handle, h_parent->f_handle, h->handle_bytes) == 0)
                 return 1;
 
         return mount_id != mount_id_parent;
@@ -239,6 +300,16 @@ int path_is_mount_point(const char *t, const char *root, int flags) {
                 return -errno;
 
         return fd_is_mount_point(fd, basename(t), flags);
+}
+
+int path_get_mnt_id(const char *path, int *ret) {
+        int r;
+
+        r = name_to_handle_at_loop(AT_FDCWD, path, NULL, ret, 0);
+        if (IN_SET(r, -EOPNOTSUPP, -ENOSYS, -EACCES, -EPERM)) /* kernel/fs don't support this, or seccomp blocks access */
+                return fd_fdinfo_mnt_id(AT_FDCWD, path, 0, ret);
+
+        return r;
 }
 
 int umount_recursive(const char *prefix, int flags) {
