@@ -4325,8 +4325,8 @@ int unit_write_settingf(Unit *u, UnitWriteFlags flags, const char *name, const c
 }
 
 int unit_make_transient(Unit *u) {
+        _cleanup_free_ char *path = NULL;
         FILE *f;
-        char *path;
 
         assert(u);
 
@@ -4342,18 +4342,14 @@ int unit_make_transient(Unit *u) {
 
         RUN_WITH_UMASK(0022) {
                 f = fopen(path, "we");
-                if (!f) {
-                        free(path);
+                if (!f)
                         return -errno;
-                }
         }
 
-        if (u->transient_file)
-                fclose(u->transient_file);
+        safe_fclose(u->transient_file);
         u->transient_file = f;
 
-        free(u->fragment_path);
-        u->fragment_path = path;
+        free_and_replace(u->fragment_path, path);
 
         u->source_path = mfree(u->source_path);
         u->dropin_paths = strv_free(u->dropin_paths);
