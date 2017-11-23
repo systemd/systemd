@@ -119,6 +119,8 @@ int efi_reboot_to_firmware_supported(void) {
                 return -EOPNOTSUPP;
 
         r = efi_get_variable(EFI_VENDOR_GLOBAL, "OsIndicationsSupported", NULL, &v, &s);
+        if (r == -ENOENT) /* variable doesn't exist? it's not supported then */
+                return -EOPNOTSUPP;
         if (r < 0)
                 return r;
         if (s != sizeof(uint64_t))
