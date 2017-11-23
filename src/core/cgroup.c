@@ -1485,7 +1485,7 @@ static void cgroup_xattr_apply(Unit *u) {
                          sd_id128_to_string(u->invocation_id, ids), 32,
                          0);
         if (r < 0)
-                log_unit_warning_errno(u, r, "Failed to set invocation ID on control group %s, ignoring: %m", u->cgroup_path);
+                log_unit_debug_errno(u, r, "Failed to set invocation ID on control group %s, ignoring: %m", u->cgroup_path);
 }
 
 static bool unit_has_mask_realized(
