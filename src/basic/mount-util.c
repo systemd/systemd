@@ -183,9 +183,10 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
          * real mounts of their own. */
 
         r = name_to_handle_at_loop(fd, filename, &h, &mount_id, flags);
-        if (IN_SET(r, -ENOSYS, -EACCES, -EPERM))
-                /* This kernel does not support name_to_handle_at() at all, or the syscall was blocked (maybe through
-                 * seccomp, because we are running inside of a container?): fall back to simpler logic. */
+        if (IN_SET(r, -ENOSYS, -EACCES, -EPERM, -EOVERFLOW))
+                /* This kernel does not support name_to_handle_at() at all (ENOSYS), or the syscall was blocked
+                 * (EACCES/EPERM; maybe through seccomp, because we are running inside of a container?), or the mount
+                 * point is not triggered yet (EOVERFLOW, thinkg nfs4): fall back to simpler logic. */
                 goto fallback_fdinfo;
         else if (r == -EOPNOTSUPP)
                 /* This kernel or file system does not support name_to_handle_at(), hence let's see if the upper fs
@@ -307,7 +308,7 @@ int path_get_mnt_id(const char *path, int *ret) {
         int r;
 
         r = name_to_handle_at_loop(AT_FDCWD, path, NULL, ret, 0);
-        if (IN_SET(r, -EOPNOTSUPP, -ENOSYS, -EACCES, -EPERM)) /* kernel/fs don't support this, or seccomp blocks access */
+        if (IN_SET(r, -EOPNOTSUPP, -ENOSYS, -EACCES, -EPERM, -EOVERFLOW)) /* kernel/fs don't support this, or seccomp blocks access, or untriggered mount */
                 return fd_fdinfo_mnt_id(AT_FDCWD, path, 0, ret);
 
         return r;
