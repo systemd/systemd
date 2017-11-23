@@ -8,6 +8,7 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
+import os
 import sys
 import subprocess
 
@@ -15,37 +16,53 @@ EX_DATAERR = 65 # from sysexits.h
 
 exe = sys.argv[1]
 
-def test_invalid_line(line):
-    print('Running {} on {!r}'.format(exe, line))
-    c = subprocess.run([exe, '--create', '-'],
+def test_line(line, *, user, returncode=EX_DATAERR):
+    args = ['--user'] if user else []
+    print('Running {} {} on {!r}'.format(exe, ' '.join(args), line))
+    c = subprocess.run([exe, '--create', *args, '-'],
                        input=line, stdout=subprocess.PIPE, universal_newlines=True)
-    assert c.returncode == EX_DATAERR, c
+    assert c.returncode == returncode, c
+
+def test_invalids(*, user):
+    test_line('asdfa', user=user)
+    test_line('f "open quote', user=user)
+    test_line('f closed quote""', user=user)
+    test_line('Y /unknown/letter', user=user)
+    test_line('w non/absolute/path', user=user)
+    test_line('s', user=user) # s is for short
+    test_line('f!! /too/many/bangs', user=user)
+    test_line('f++ /too/many/plusses', user=user)
+    test_line('f+!+ /too/many/plusses', user=user)
+    test_line('f!+! /too/many/bangs', user=user)
+    test_line('w /unresolved/argument - - - - "%Y"', user=user)
+    test_line('w /unresolved/argument/sandwich - - - - "%v%Y%v"', user=user)
+    test_line('w /unresolved/filename/%Y - - - - "whatever"', user=user)
+    test_line('w /unresolved/filename/sandwich/%v%Y%v - - - - "whatever"', user=user)
+    test_line('w - - - - - "no file specfied"', user=user)
+    test_line('C - - - - - "no file specfied"', user=user)
+    test_line('C non/absolute/path - - - - -', user=user)
+    test_line('b - - - - - -', user=user)
+    test_line('b 1234 - - - - -', user=user)
+    test_line('c - - - - - -', user=user)
+    test_line('c 1234 - - - - -', user=user)
+    test_line('t - - -', user=user)
+    test_line('T - - -', user=user)
+    test_line('a - - -', user=user)
+    test_line('A - - -', user=user)
+    test_line('h - - -', user=user)
+    test_line('H - - -', user=user)
+
+def test_unitialized_t():
+    if os.getuid() == 0:
+        return
+
+    try:
+        del os.environ['XDG_RUNTIME_DIR']
+    except KeyError:
+        pass
+    test_line('w /foo - - - - "specifier for --user %t"', user=True, returncode=0)
 
 if __name__ == '__main__':
-    test_invalid_line('asdfa')
-    test_invalid_line('f "open quote')
-    test_invalid_line('f closed quote""')
-    test_invalid_line('Y /unknown/letter')
-    test_invalid_line('w non/absolute/path')
-    test_invalid_line('s') # s is for short
-    test_invalid_line('f!! /too/many/bangs')
-    test_invalid_line('f++ /too/many/plusses')
-    test_invalid_line('f+!+ /too/many/plusses')
-    test_invalid_line('f!+! /too/many/bangs')
-    test_invalid_line('w /unresolved/argument - - - - "%Y"')
-    test_invalid_line('w /unresolved/argument/sandwich - - - - "%v%Y%v"')
-    test_invalid_line('w /unresolved/filename/%Y - - - - "whatever"')
-    test_invalid_line('w /unresolved/filename/sandwich/%v%Y%v - - - - "whatever"')
-    test_invalid_line('w - - - - - "no file specfied"')
-    test_invalid_line('C - - - - - "no file specfied"')
-    test_invalid_line('C non/absolute/path - - - - -')
-    test_invalid_line('b - - - - - -')
-    test_invalid_line('b 1234 - - - - -')
-    test_invalid_line('c - - - - - -')
-    test_invalid_line('c 1234 - - - - -')
-    test_invalid_line('t - - -')
-    test_invalid_line('T - - -')
-    test_invalid_line('a - - -')
-    test_invalid_line('A - - -')
-    test_invalid_line('h - - -')
-    test_invalid_line('H - - -')
+    test_invalids(user=False)
+    test_invalids(user=True)
+    test_unitialized_t()

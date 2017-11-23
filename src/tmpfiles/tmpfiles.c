@@ -37,6 +37,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "sd-path.h"
+
 #include "acl-util.h"
 #include "alloc-util.h"
 #include "btrfs-util.h"
@@ -152,6 +154,14 @@ typedef struct ItemArray {
         size_t size;
 } ItemArray;
 
+typedef enum DirectoryType {
+        DIRECTORY_RUNTIME = 0,
+        DIRECTORY_STATE,
+        DIRECTORY_CACHE,
+        DIRECTORY_LOGS,
+        _DIRECTORY_TYPE_MAX,
+} DirectoryType;
+
 static bool arg_user = false;
 static bool arg_create = false;
 static bool arg_clean = false;
@@ -168,16 +178,21 @@ static OrderedHashmap *items = NULL, *globs = NULL;
 static Set *unix_sockets = NULL;
 
 static int specifier_machine_id_safe(char specifier, void *data, void *userdata, char **ret);
+static int specifier_directory(char specifier, void *data, void *userdata, char **ret);
 
 static const Specifier specifier_table[] = {
         { 'm', specifier_machine_id_safe, NULL },
-        { 'b', specifier_boot_id, NULL },
-        { 'H', specifier_host_name, NULL },
-        { 'v', specifier_kernel_release, NULL },
+        { 'b', specifier_boot_id,         NULL },
+        { 'H', specifier_host_name,       NULL },
+        { 'v', specifier_kernel_release,  NULL },
 
-        { 'U', specifier_user_id, NULL },
-        { 'u', specifier_user_name, NULL },
-        { 'h', specifier_user_home, NULL },
+        { 'U', specifier_user_id,         NULL },
+        { 'u', specifier_user_name,       NULL },
+        { 'h', specifier_user_home,       NULL },
+        { 't', specifier_directory,       UINT_TO_PTR(DIRECTORY_RUNTIME) },
+        { 'S', specifier_directory,       UINT_TO_PTR(DIRECTORY_STATE) },
+        { 'C', specifier_directory,       UINT_TO_PTR(DIRECTORY_CACHE) },
+        { 'L', specifier_directory,       UINT_TO_PTR(DIRECTORY_LOGS) },
         {}
 };
 
@@ -190,22 +205,56 @@ static int specifier_machine_id_safe(char specifier, void *data, void *userdata,
 
         r = specifier_machine_id(specifier, data, userdata, ret);
         if (r == -ENOENT)
-                return -ENOKEY;
+                return -ENXIO;
 
         return r;
+}
+
+static int specifier_directory(char specifier, void *data, void *userdata, char **ret) {
+        struct table_entry {
+                uint64_t type;
+                const char *suffix;
+        };
+
+        static const struct table_entry paths_system[] = {
+                [DIRECTORY_RUNTIME] = { SD_PATH_SYSTEM_RUNTIME            },
+                [DIRECTORY_STATE] =   { SD_PATH_SYSTEM_STATE_PRIVATE      },
+                [DIRECTORY_CACHE] =   { SD_PATH_SYSTEM_STATE_CACHE        },
+                [DIRECTORY_LOGS] =    { SD_PATH_SYSTEM_STATE_LOGS         },
+        };
+
+        static const struct table_entry paths_user[] = {
+                [DIRECTORY_RUNTIME] = { SD_PATH_USER_RUNTIME              },
+                [DIRECTORY_STATE] =   { SD_PATH_USER_CONFIGURATION        },
+                [DIRECTORY_CACHE] =   { SD_PATH_USER_STATE_CACHE          },
+                [DIRECTORY_LOGS] =    { SD_PATH_USER_CONFIGURATION, "log" },
+        };
+
+        unsigned i;
+        const struct table_entry *paths;
+
+        assert_cc(ELEMENTSOF(paths_system) == ELEMENTSOF(paths_user));
+        paths = arg_user ? paths_user : paths_system;
+
+        i = PTR_TO_UINT(data);
+        assert(i < ELEMENTSOF(paths_system));
+
+        return sd_path_home(paths[i].type, paths[i].suffix, ret);
 }
 
 static int log_unresolvable_specifier(const char *filename, unsigned line) {
         static bool notified = false;
 
-        /* This is called when /etc is not fully initialized (e.g. in a chroot
-         * environment) where some specifiers are unresolvable. These cases are
-         * not considered as an error so log at LOG_NOTICE only for the first
-         * time and then downgrade this to LOG_DEBUG for the rest. */
+        /* In system mode, this is called when /etc is not fully initialized (e.g.
+         * in a chroot environment) where some specifiers are unresolvable. In user
+         * mode, this is called when some variables are not defined. These cases are
+         * not considered as an error so log at LOG_NOTICE only for the first time
+         * and then downgrade this to LOG_DEBUG for the rest. */
 
         log_full(notified ? LOG_DEBUG : LOG_NOTICE,
-                 "[%s:%u] Failed to resolve specifier: uninitialized /etc detected, skipping",
-                 filename, line);
+                 "[%s:%u] Failed to resolve specifier: %s, skipping",
+                 filename, line,
+                 arg_user ? "Required $XDG_... variable not defined" : "uninitialized /etc detected");
 
         if (!notified)
                 log_notice("All rules containing unresolvable specifiers will be skipped.");
@@ -1969,7 +2018,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
         i.force = force;
 
         r = specifier_printf(path, specifier_table, NULL, &i.path);
-        if (r == -ENOKEY)
+        if (r == -ENXIO)
                 return log_unresolvable_specifier(fname, line);
         if (r < 0) {
                 if (IN_SET(r, -EINVAL, -EBADSLT))
@@ -2108,7 +2157,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                 return 0;
 
         r = specifier_expansion_from_arg(&i);
-        if (r == -ENOKEY)
+        if (r == -ENXIO)
                 return log_unresolvable_specifier(fname, line);
         if (r < 0) {
                 if (IN_SET(r, -EINVAL, -EBADSLT))

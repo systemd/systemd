@@ -654,8 +654,28 @@ r! /tmp/.X[0-9]*-lock</programlisting>
               <entry>This is the home directory of the user running the service manager instance. In case of the system manager this resolves to <literal>/root</literal>.</entry>
             </row>
             <row>
+              <entry><literal>%t</literal></entry>
+              <entry>System or user runtime directory</entry>
+              <entry>In --user mode, this is the same <varname>$XDG_RUNTIME_DIR</varname>, and <filename>/run</filename> otherwise.</entry>
+            </row>
+            <row>
+              <entry><literal>%S</literal></entry>
+              <entry>System or user state directory</entry>
+              <entry>In <option>--user</option> mode, this is the same as <varname>$XDG_CONFIG_HOME</varname>, and <filename>/var/lib</filename> otherwise.</entry>
+            </row>
+            <row>
+              <entry><literal>%C</literal></entry>
+              <entry>System or user cache directory</entry>
+              <entry>In <option>--user</option> mode, this is the same as <varname>$XDG_CACHE_HOME</varname>, and <filename>/var/cache</filename> otherwise.</entry>
+            </row>
+            <row>
+              <entry><literal>%L</literal></entry>
+              <entry>System or user log directory</entry>
+              <entry>In <option>--user</option> mode, this is the same as <varname>$XDG_CONFIG_HOME</varname> with <filename noindex='true'>/log</filename> appended, and <filename>/var/log</filename> otherwise.</entry>
+            </row>
+            <row>
               <entry><literal>%%</literal></entry>
-              <entry>Escaped %</entry>
+              <entry>Escaped <literal>%</literal></entry>
               <entry>Single percent sign.</entry>
             </row>
           </tbody>
