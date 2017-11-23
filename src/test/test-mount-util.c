@@ -27,6 +27,7 @@
 #include "hashmap.h"
 #include "log.h"
 #include "mount-util.h"
+#include "path-util.h"
 #include "string-util.h"
 
 static void test_mount_propagation_flags(const char *name, int ret, unsigned long expected) {
@@ -51,16 +52,15 @@ static void test_mnt_id(void) {
         _cleanup_fclose_ FILE *f = NULL;
         Hashmap *h;
         Iterator i;
-        char *k;
-        void *p;
+        char *p;
+        void *k;
         int r;
 
         assert_se(f = fopen("/proc/self/mountinfo", "re"));
-        assert_se(h = hashmap_new(&string_hash_ops));
+        assert_se(h = hashmap_new(&trivial_hash_ops));
 
         for (;;) {
                 _cleanup_free_ char *line = NULL, *path = NULL;
-                void *old_key;
                 int mnt_id;
 
                 r = read_line(f, LONG_LINE_MAX, &line);
@@ -70,38 +70,35 @@ static void test_mnt_id(void) {
 
                 assert_se(sscanf(line, "%i %*s %*s %*s %ms", &mnt_id, &path) == 2);
 
-                /* Add all mount points and their ids to a hashtable, so that we filter out mount points that are
-                 * overmounted. For those we only care for the "upper" mount, since that's the only one
-                 * path_get_mnt_id() can determine. */
-
-                if (hashmap_remove2(h, path, &old_key))
-                        free(old_key);
-
-                assert_se(hashmap_put(h, path, INT_TO_PTR(mnt_id)) >= 0);
+                assert_se(hashmap_put(h, INT_TO_PTR(mnt_id), path) >= 0);
                 path = NULL;
         }
 
         HASHMAP_FOREACH_KEY(p, k, h, i) {
-                int mnt_id = PTR_TO_INT(p), mnt_id2;
+                int mnt_id = PTR_TO_INT(k), mnt_id2;
 
-                r = path_get_mnt_id(k, &mnt_id2);
+                r = path_get_mnt_id(p, &mnt_id2);
                 if (r == -EOPNOTSUPP) { /* kernel or file system too old? */
-                        log_debug("%s doesn't support mount IDs\n", k);
+                        log_debug("%s doesn't support mount IDs\n", p);
                         continue;
                 }
                 if (IN_SET(r, -EACCES, -EPERM)) {
-                        log_debug("Can't access %s\n", k);
+                        log_debug("Can't access %s\n", p);
                         continue;
                 }
 
-                log_debug("mnt id of %s is %i\n", k, mnt_id2);
+                log_debug("mnt id of %s is %i\n", p, mnt_id2);
 
-                assert_se(r >= 0);
-                assert_se(mnt_id == mnt_id2);
+                if (mnt_id == mnt_id2)
+                        continue;
+
+                /* The ids don't match? If so, then there are two mounts on the same path, let's check if that's really
+                 * the case */
+                assert_se(path_equal_ptr(hashmap_get(h, INT_TO_PTR(mnt_id2)), p));
         }
 
-        while ((k = hashmap_steal_first_key(h)))
-                free(k);
+        while ((p = hashmap_steal_first(h)))
+                free(p);
 
         hashmap_free(h);
 }
