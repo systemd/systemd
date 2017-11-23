@@ -2466,7 +2466,7 @@ static int need_daemon_reload(sd_bus *bus, const char *unit) {
 static void warn_unit_file_changed(const char *name) {
         assert(name);
 
-        log_warning("%sWarning:%s %s changed on disk. Run 'systemctl%s daemon-reload' to reload units.",
+        log_warning("%sWarning:%s The unit file, source configuration file or drop-ins of %s changed on disk. Run 'systemctl%s daemon-reload' to reload units.",
                     ansi_highlight_red(),
                     ansi_normal(),
                     name,
