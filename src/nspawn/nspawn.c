@@ -2039,20 +2039,47 @@ static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo
 }
 
 static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *ssi, void *userdata) {
+        pid_t pid;
+
+        assert(s);
+        assert(ssi);
+
+        pid = PTR_TO_PID(userdata);
+
         for (;;) {
                 siginfo_t si = {};
+
                 if (waitid(P_ALL, 0, &si, WNOHANG|WNOWAIT|WEXITED) < 0)
                         return log_error_errno(errno, "Failed to waitid(): %m");
                 if (si.si_pid == 0) /* No pending children. */
                         break;
-                if (si.si_pid == PTR_TO_PID(userdata)) {
+                if (si.si_pid == pid) {
                         /* The main process we care for has exited. Return from
                          * signal handler but leave the zombie. */
                         sd_event_exit(sd_event_source_get_event(s), 0);
                         break;
                 }
+
                 /* Reap all other children. */
                 (void) waitid(P_PID, si.si_pid, &si, WNOHANG|WEXITED);
+        }
+
+        return 0;
+}
+
+static int on_request_stop(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        pid_t pid;
+
+        assert(m);
+
+        pid = PTR_TO_PID(userdata);
+
+        if (arg_kill_signal > 0) {
+                log_info("Container termination requested. Attempting to halt container.");
+                (void) kill(pid, arg_kill_signal);
+        } else {
+                log_info("Container termination requested. Exiting.");
+                sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(m)), 0);
         }
 
         return 0;
@@ -3214,6 +3241,7 @@ static int run(int master,
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         ContainerStatus container_status = 0;
         char last_char = 0;
         int ifi = 0, r;
@@ -3444,8 +3472,31 @@ static int run(int master,
                         return r;
         }
 
+        if (arg_register || !arg_keep_unit) {
+                r = sd_bus_default_system(&bus);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open system bus: %m");
+        }
+
+        if (!arg_keep_unit) {
+                /* When a new scope is created for this container, then we'll be registered as its controller, in which
+                 * case PID 1 will send us a friendly RequestStop signal, when it is asked to terminate the
+                 * scope. Let's hook into that, and cleanly shut down the container, and print a friendly message. */
+
+                r = sd_bus_add_match(bus, NULL,
+                                     "type='signal',"
+                                     "sender='org.freedesktop.systemd1',"
+                                     "interface='org.freedesktop.systemd1.Scope',"
+                                     "member='RequestStop'",
+                                     on_request_stop, PID_TO_PTR(*pid));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to install request stop match: %m");
+        }
+
         if (arg_register) {
+
                 r = register_machine(
+                                bus,
                                 arg_machine,
                                 *pid,
                                 arg_directory,
@@ -3459,8 +3510,11 @@ static int run(int master,
                                 arg_container_service_name);
                 if (r < 0)
                         return r;
+
         } else if (!arg_keep_unit) {
+
                 r = allocate_scope(
+                                bus,
                                 arg_machine,
                                 *pid,
                                 arg_slice,
@@ -3505,6 +3559,12 @@ static int run(int master,
         r = sd_event_new(&event);
         if (r < 0)
                 return log_error_errno(r, "Failed to get default event source: %m");
+
+        if (bus) {
+                r = sd_bus_attach_event(bus, event, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to attach bus to event loop: %m");
+        }
 
         r = setup_sd_notify_parent(event, notify_socket, PID_TO_PTR(*pid), &notify_event_source);
         if (r < 0)
@@ -3567,8 +3627,8 @@ static int run(int master,
                 putc('\n', stdout);
 
         /* Kill if it is not dead yet anyway */
-        if (arg_register && !arg_keep_unit)
-                terminate_machine(*pid);
+        if (arg_register && !arg_keep_unit && bus)
+                terminate_machine(bus, *pid);
 
         /* Normally redundant, but better safe than sorry */
         (void) kill(*pid, SIGKILL);

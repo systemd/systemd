@@ -99,7 +99,26 @@ static int append_machine_properties(
         return 0;
 }
 
+static int append_controller_property(sd_bus *bus, sd_bus_message *m) {
+        const char *unique;
+        int r;
+
+        assert(bus);
+        assert(m);
+
+        r = sd_bus_get_unique_name(bus, &unique);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get unique name: %m");
+
+        r = sd_bus_message_append(m, "(sv)", "Controller", "s", unique);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 0;
+}
+
 int register_machine(
+                sd_bus *bus,
                 const char *machine_name,
                 pid_t pid,
                 const char *directory,
@@ -114,12 +133,9 @@ int register_machine(
                 const char *service) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        r = sd_bus_default_system(&bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to open system bus: %m");
+        assert(bus);
 
         if (keep_unit) {
                 r = sd_bus_call_method(
@@ -174,6 +190,10 @@ int register_machine(
                                 return bus_log_create_error(r);
                 }
 
+                r = append_controller_property(bus, m);
+                if (r < 0)
+                        return r;
+
                 r = append_machine_properties(
                                 m,
                                 mounts,
@@ -202,16 +222,13 @@ int register_machine(
         return 0;
 }
 
-int terminate_machine(pid_t pid) {
+int terminate_machine(sd_bus *bus, pid_t pid) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *path;
         int r;
 
-        r = sd_bus_default_system(&bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to open system bus: %m");
+        assert(bus);
 
         r = sd_bus_call_method(
                         bus,
@@ -253,6 +270,7 @@ int terminate_machine(pid_t pid) {
 }
 
 int allocate_scope(
+                sd_bus *bus,
                 const char *machine_name,
                 pid_t pid,
                 const char *slice,
@@ -263,16 +281,13 @@ int allocate_scope(
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_free_ char *scope = NULL;
         const char *description, *object;
         int r;
 
-        r = sd_bus_default_system(&bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to open system bus: %m");
+        assert(bus);
 
         r = bus_wait_for_jobs_new(bus, &w);
         if (r < 0)
@@ -310,6 +325,10 @@ int allocate_scope(
                                   "Slice", "s", isempty(slice) ? "machine.slice" : slice);
         if (r < 0)
                 return bus_log_create_error(r);
+
+        r = append_controller_property(bus, m);
+        if (r < 0)
+                return r;
 
         r = append_machine_properties(
                         m,
