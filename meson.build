@@ -2383,6 +2383,7 @@ subdir('units')
 subdir('sysctl.d')
 subdir('sysusers.d')
 subdir('tmpfiles.d')
+subdir('presets')
 subdir('hwdb')
 subdir('network')
 subdir('man')
@@ -2399,8 +2400,6 @@ install_subdir('factory/etc',
 
 install_data('xorg/50-systemd-user.sh',
              install_dir : xinitrcdir)
-install_data('system-preset/90-systemd.preset',
-             install_dir : systempresetdir)
 install_data('modprobe.d/systemd.conf',
              install_dir : modprobedir)
 install_data('README',
