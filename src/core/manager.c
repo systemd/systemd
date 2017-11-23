@@ -3546,14 +3546,16 @@ ManagerState manager_state(Manager *m) {
         if (u && unit_active_or_pending(u))
                 return MANAGER_STOPPING;
 
-        /* Are the rescue or emergency targets active or queued? If so we are in maintenance state */
-        u = manager_get_unit(m, SPECIAL_RESCUE_TARGET);
-        if (u && unit_active_or_pending(u))
-                return MANAGER_MAINTENANCE;
+        if (MANAGER_IS_SYSTEM(m)) {
+                /* Are the rescue or emergency targets active or queued? If so we are in maintenance state */
+                u = manager_get_unit(m, SPECIAL_RESCUE_TARGET);
+                if (u && unit_active_or_pending(u))
+                        return MANAGER_MAINTENANCE;
 
-        u = manager_get_unit(m, SPECIAL_EMERGENCY_TARGET);
-        if (u && unit_active_or_pending(u))
-                return MANAGER_MAINTENANCE;
+                u = manager_get_unit(m, SPECIAL_EMERGENCY_TARGET);
+                if (u && unit_active_or_pending(u))
+                        return MANAGER_MAINTENANCE;
+        }
 
         /* Are there any failed units? If so, we are in degraded mode */
         if (set_size(m->failed_units) > 0)
