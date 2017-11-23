@@ -206,7 +206,7 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
                          * it must be a mount point. */
                         return 1;
         } else if (r < 0)
-                       return r;
+                return r;
 
         /* The parent can do name_to_handle_at() but the
          * directory we are interested in can't? If so, it
