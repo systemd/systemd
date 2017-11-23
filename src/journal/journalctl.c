@@ -304,6 +304,7 @@ static void help(void) {
                "                             short-iso, short-iso-precise, short-full,\n"
                "                             short-monotonic, short-unix, verbose, export,\n"
                "                             json, json-pretty, json-sse, cat)\n"
+               "     --output-fields=LIST  Select fields to print in verbose/export/json modes\n"
                "     --utc                 Express time in Coordinated Universal Time (UTC)\n"
                "  -x --catalog             Add message explanations where available\n"
                "     --no-full             Ellipsize fields\n"
