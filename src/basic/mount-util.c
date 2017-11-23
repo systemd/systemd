@@ -65,7 +65,6 @@ int name_to_handle_at_loop(
 
         for (;;) {
                 int mnt_id = -1;
-                size_t m;
 
                 if (name_to_handle_at(fd, path, h, &mnt_id, flags) >= 0) {
 
@@ -84,22 +83,24 @@ int name_to_handle_at_loop(
 
                 if (!ret_handle && ret_mnt_id && mnt_id >= 0) {
 
-                        /* As it appears, name_to_handle_at() fills in mnt_id even when it returns EOVERFLOW, but
-                         * that's undocumented. Hence, let's make use of this if it appears to be filled in, and the
-                         * caller was interested in only the mount ID an nothing else. */
+                        /* As it appears, name_to_handle_at() fills in mnt_id even when it returns EOVERFLOW when the
+                         * buffer is too small, but that's undocumented. Hence, let's make use of this if it appears to
+                         * be filled in, and the caller was interested in only the mount ID an nothing else. */
 
                         *ret_mnt_id = mnt_id;
                         return 0;
                 }
 
-                /* The buffer was too small. Size the new buffer by what name_to_handle_at() returned, but make sure it
-                 * is always larger than what we passed in before */
-                m = h->handle_bytes > n ? h->handle_bytes : n * 2;
-                if (m < n) /* Check for multiplication overflow */
+                /* If name_to_handle_at() didn't increase the byte size, then this EOVERFLOW is caused by something
+                 * else (apparently EOVERFLOW is returned for untriggered nfs4 mounts sometimes), not by the too small
+                 * buffer. In that case propagate EOVERFLOW */
+                if (h->handle_bytes <= n)
                         return -EOVERFLOW;
-                if (offsetof(struct file_handle, f_handle) + m < m) /* check for addition overflow */
+
+                /* The buffer was too small. Size the new buffer by what name_to_handle_at() returned. */
+                n = h->handle_bytes;
+                if (offsetof(struct file_handle, f_handle) + n < n) /* check for addition overflow */
                         return -EOVERFLOW;
-                n = m;
 
                 free(h);
                 h = malloc0(offsetof(struct file_handle, f_handle) + n);
@@ -131,7 +132,7 @@ static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *mnt_id
         if (r == -ENOENT) /* The fdinfo directory is a relatively new addition */
                 return -EOPNOTSUPP;
         if (r < 0)
-                return -errno;
+                return r;
 
         p = startswith(fdinfo, "mnt_id:");
         if (!p) {
@@ -182,9 +183,10 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
          * real mounts of their own. */
 
         r = name_to_handle_at_loop(fd, filename, &h, &mount_id, flags);
-        if (IN_SET(r, -ENOSYS, -EACCES, -EPERM))
-                /* This kernel does not support name_to_handle_at() at all, or the syscall was blocked (maybe through
-                 * seccomp, because we are running inside of a container?): fall back to simpler logic. */
+        if (IN_SET(r, -ENOSYS, -EACCES, -EPERM, -EOVERFLOW))
+                /* This kernel does not support name_to_handle_at() at all (ENOSYS), or the syscall was blocked
+                 * (EACCES/EPERM; maybe through seccomp, because we are running inside of a container?), or the mount
+                 * point is not triggered yet (EOVERFLOW, thinkg nfs4): fall back to simpler logic. */
                 goto fallback_fdinfo;
         else if (r == -EOPNOTSUPP)
                 /* This kernel or file system does not support name_to_handle_at(), hence let's see if the upper fs
@@ -204,7 +206,7 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
                          * it must be a mount point. */
                         return 1;
         } else if (r < 0)
-                       return r;
+                return r;
 
         /* The parent can do name_to_handle_at() but the
          * directory we are interested in can't? If so, it
@@ -306,7 +308,7 @@ int path_get_mnt_id(const char *path, int *ret) {
         int r;
 
         r = name_to_handle_at_loop(AT_FDCWD, path, NULL, ret, 0);
-        if (IN_SET(r, -EOPNOTSUPP, -ENOSYS, -EACCES, -EPERM)) /* kernel/fs don't support this, or seccomp blocks access */
+        if (IN_SET(r, -EOPNOTSUPP, -ENOSYS, -EACCES, -EPERM, -EOVERFLOW)) /* kernel/fs don't support this, or seccomp blocks access, or untriggered mount */
                 return fd_fdinfo_mnt_id(AT_FDCWD, path, 0, ret);
 
         return r;
