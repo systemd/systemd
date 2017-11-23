@@ -60,6 +60,7 @@
 #include "mkdir.h"
 #include "mount-util.h"
 #include "parse-util.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "selinux-util.h"
@@ -151,6 +152,7 @@ typedef struct ItemArray {
         size_t size;
 } ItemArray;
 
+static bool arg_user = false;
 static bool arg_create = false;
 static bool arg_clean = false;
 static bool arg_remove = false;
@@ -159,8 +161,6 @@ static bool arg_boot = false;
 static char **arg_include_prefixes = NULL;
 static char **arg_exclude_prefixes = NULL;
 static char *arg_root = NULL;
-
-static const char conf_file_dirs[] = CONF_PATHS_NULSTR("tmpfiles.d");
 
 #define MAX_DEPTH 256
 
@@ -211,6 +211,57 @@ static int log_unresolvable_specifier(const char *filename, unsigned line) {
                 log_notice("All rules containing unresolvable specifiers will be skipped.");
 
         notified = true;
+        return 0;
+}
+
+static int user_config_paths(char*** ret) {
+        _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
+        _cleanup_free_ char *persistent_config = NULL, *runtime_config = NULL, *data_home = NULL;
+        _cleanup_strv_free_ char **res = NULL;
+        int r;
+
+        r = xdg_user_dirs(&config_dirs, &data_dirs);
+        if (r < 0)
+                return r;
+
+        r = xdg_user_config_dir(&persistent_config, "/user-tmpfiles.d");
+        if (r < 0 && r != -ENXIO)
+                return r;
+
+        r = xdg_user_runtime_dir(&runtime_config, "/user-tmpfiles.d");
+        if (r < 0 && r != -ENXIO)
+                return r;
+
+        r = xdg_user_data_dir(&data_home, "/user-tmpfiles.d");
+        if (r < 0 && r != -ENXIO)
+                return r;
+
+        r = strv_extend_strv_concat(&res, config_dirs, "/user-tmpfiles.d");
+        if (r < 0)
+                return r;
+
+        r = strv_extend(&res, persistent_config);
+        if (r < 0)
+                return r;
+
+        r = strv_extend(&res, runtime_config);
+        if (r < 0)
+                return r;
+
+        r = strv_extend(&res, data_home);
+        if (r < 0)
+                return r;
+
+        r = strv_extend_strv_concat(&res, data_dirs, "/user-tmpfiles.d");
+        if (r < 0)
+                return r;
+
+        r = path_strv_make_absolute_cwd(res);
+        if (r < 0)
+                return r;
+
+        *ret = res;
+        res = NULL;
         return 0;
 }
 
@@ -2175,6 +2226,7 @@ static void help(void) {
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
                "Creates, deletes and cleans up volatile and temporary files and directories.\n\n"
                "  -h --help                 Show this help\n"
+               "     --user                 Execute user configuration\n"
                "     --version              Show package version\n"
                "     --create               Create marked files/directories\n"
                "     --clean                Clean up marked directories\n"
@@ -2190,6 +2242,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
+                ARG_USER,
                 ARG_CREATE,
                 ARG_CLEAN,
                 ARG_REMOVE,
@@ -2201,6 +2254,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         static const struct option options[] = {
                 { "help",           no_argument,         NULL, 'h'                },
+                { "user",           no_argument,         NULL, ARG_USER           },
                 { "version",        no_argument,         NULL, ARG_VERSION        },
                 { "create",         no_argument,         NULL, ARG_CREATE         },
                 { "clean",          no_argument,         NULL, ARG_CLEAN          },
@@ -2227,6 +2281,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERSION:
                         return version();
+
+                case ARG_USER:
+                        arg_user = true;
+                        break;
 
                 case ARG_CREATE:
                         arg_create = true;
@@ -2275,7 +2333,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int read_config_file(const char *fn, bool ignore_enoent, bool *invalid_config) {
+static int read_config_file(const char **config_dirs, const char *fn, bool ignore_enoent, bool *invalid_config) {
         _cleanup_fclose_ FILE *_f = NULL;
         FILE *f;
         char line[LINE_MAX];
@@ -2291,7 +2349,7 @@ static int read_config_file(const char *fn, bool ignore_enoent, bool *invalid_co
                 fn = "<stdin>";
                 f = stdin;
         } else {
-                r = search_and_fopen_nulstr(fn, "re", arg_root, conf_file_dirs, &_f);
+                r = search_and_fopen(fn, "re", arg_root, config_dirs, &_f);
                 if (r < 0) {
                         if (ignore_enoent && r == -ENOENT) {
                                 log_debug_errno(r, "Failed to open \"%s\", ignoring: %m", fn);
@@ -2367,7 +2425,9 @@ int main(int argc, char *argv[]) {
         int r, k;
         ItemArray *a;
         Iterator iterator;
+        _cleanup_strv_free_ char **config_dirs = NULL;
         bool invalid_config = false;
+        char **f;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -2391,27 +2451,48 @@ int main(int argc, char *argv[]) {
 
         r = 0;
 
+        if (arg_user) {
+                r = user_config_paths(&config_dirs);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to initialize configuration directory list: %m");
+                        goto finish;
+                }
+        } else {
+                config_dirs = strv_split_nulstr(CONF_PATHS_NULSTR("tmpfiles.d"));
+                if (!config_dirs) {
+                        r = log_oom();
+                        goto finish;
+                }
+        }
+
+        {
+                _cleanup_free_ char *t = NULL;
+
+                t = strv_join(config_dirs, "\n\t");
+                if (t)
+                        log_debug("Looking for configuration files in (higher priority first:\n\t%s", t);
+        }
+
         if (optind < argc) {
                 int j;
 
                 for (j = optind; j < argc; j++) {
-                        k = read_config_file(argv[j], false, &invalid_config);
+                        k = read_config_file((const char**) config_dirs, argv[j], false, &invalid_config);
                         if (k < 0 && r == 0)
                                 r = k;
                 }
 
         } else {
                 _cleanup_strv_free_ char **files = NULL;
-                char **f;
 
-                r = conf_files_list_nulstr(&files, ".conf", arg_root, 0, conf_file_dirs);
+                r = conf_files_list_strv(&files, ".conf", arg_root, 0, (const char* const*) config_dirs);
                 if (r < 0) {
                         log_error_errno(r, "Failed to enumerate tmpfiles.d files: %m");
                         goto finish;
                 }
 
                 STRV_FOREACH(f, files) {
-                        k = read_config_file(*f, true, &invalid_config);
+                        k = read_config_file((const char**) config_dirs, *f, true, &invalid_config);
                         if (k < 0 && r == 0)
                                 r = k;
                 }

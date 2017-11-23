@@ -115,7 +115,7 @@
         <varname>T</varname>,
         <varname>a</varname>, and
         <varname>A</varname> have their ownership, access mode and
-        security labels set. </para></listitem>
+        security labels set.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -132,6 +132,12 @@
         <varname>R</varname>, and files or directories themselves
         marked with <varname>r</varname> or <varname>R</varname> are
         removed.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--user</option></term>
+        <listitem><para>Execute "user" configuration, i.e. <filename>tmpfiles.d</filename>
+        files in user configuration directories.</para></listitem>
       </varlistentry>
 
       <varlistentry>
