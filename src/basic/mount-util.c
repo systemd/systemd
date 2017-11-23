@@ -65,7 +65,6 @@ int name_to_handle_at_loop(
 
         for (;;) {
                 int mnt_id = -1;
-                size_t m;
 
                 if (name_to_handle_at(fd, path, h, &mnt_id, flags) >= 0) {
 
@@ -84,22 +83,24 @@ int name_to_handle_at_loop(
 
                 if (!ret_handle && ret_mnt_id && mnt_id >= 0) {
 
-                        /* As it appears, name_to_handle_at() fills in mnt_id even when it returns EOVERFLOW, but
-                         * that's undocumented. Hence, let's make use of this if it appears to be filled in, and the
-                         * caller was interested in only the mount ID an nothing else. */
+                        /* As it appears, name_to_handle_at() fills in mnt_id even when it returns EOVERFLOW when the
+                         * buffer is too small, but that's undocumented. Hence, let's make use of this if it appears to
+                         * be filled in, and the caller was interested in only the mount ID an nothing else. */
 
                         *ret_mnt_id = mnt_id;
                         return 0;
                 }
 
-                /* The buffer was too small. Size the new buffer by what name_to_handle_at() returned, but make sure it
-                 * is always larger than what we passed in before */
-                m = h->handle_bytes > n ? h->handle_bytes : n * 2;
-                if (m < n) /* Check for multiplication overflow */
+                /* If name_to_handle_at() didn't increase the byte size, then this EOVERFLOW is caused by something
+                 * else (apparently EOVERFLOW is returned for untriggered nfs4 mounts sometimes), not by the too small
+                 * buffer. In that case propagate EOVERFLOW */
+                if (h->handle_bytes <= n)
                         return -EOVERFLOW;
-                if (offsetof(struct file_handle, f_handle) + m < m) /* check for addition overflow */
+
+                /* The buffer was too small. Size the new buffer by what name_to_handle_at() returned. */
+                n = h->handle_bytes;
+                if (offsetof(struct file_handle, f_handle) + n < n) /* check for addition overflow */
                         return -EOVERFLOW;
-                n = m;
 
                 free(h);
                 h = malloc0(offsetof(struct file_handle, f_handle) + n);
