@@ -85,10 +85,10 @@ bool is_efi_boot(void) {
 }
 
 static int read_flag(const char *varname) {
-        int r;
         _cleanup_free_ void *v = NULL;
-        size_t s;
         uint8_t b;
+        size_t s;
+        int r;
 
         r = efi_get_variable(EFI_VENDOR_GLOBAL, varname, NULL, &v, &s);
         if (r < 0)
@@ -98,8 +98,7 @@ static int read_flag(const char *varname) {
                 return -EINVAL;
 
         b = *(uint8_t *)v;
-        r = b > 0;
-        return r;
+        return b > 0;
 }
 
 bool is_efi_secure_boot(void) {
@@ -111,10 +110,10 @@ bool is_efi_secure_boot_setup_mode(void) {
 }
 
 int efi_reboot_to_firmware_supported(void) {
-        int r;
-        size_t s;
-        uint64_t b;
         _cleanup_free_ void *v = NULL;
+        uint64_t b;
+        size_t s;
+        int r;
 
         if (!is_efi_boot() || detect_container() > 0)
                 return -EOPNOTSUPP;
@@ -122,18 +121,20 @@ int efi_reboot_to_firmware_supported(void) {
         r = efi_get_variable(EFI_VENDOR_GLOBAL, "OsIndicationsSupported", NULL, &v, &s);
         if (r < 0)
                 return r;
-        else if (s != sizeof(uint64_t))
+        if (s != sizeof(uint64_t))
                 return -EINVAL;
 
-        b = *(uint64_t *)v;
-        b &= EFI_OS_INDICATIONS_BOOT_TO_FW_UI;
-        return b > 0 ? 0 : -EOPNOTSUPP;
+        b = *(uint64_t*) v;
+        if (!(b & EFI_OS_INDICATIONS_BOOT_TO_FW_UI))
+                return -EOPNOTSUPP; /* bit unset? it's not supported then */
+
+        return 0;
 }
 
 static int get_os_indications(uint64_t *os_indication) {
-        int r;
-        size_t s;
         _cleanup_free_ void *v = NULL;
+        size_t s;
+        int r;
 
         r = efi_reboot_to_firmware_supported();
         if (r < 0)
