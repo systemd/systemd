@@ -93,6 +93,7 @@ static int bus_service_set_transient_property(
                 UnitWriteFlags flags,
                 sd_bus_error *error) {
 
+        ServiceExecCommand ci;
         int r;
 
         assert(s);
@@ -236,7 +237,7 @@ static int bus_service_set_transient_property(
 
                 return 1;
 
-        } else if (streq(name, "ExecStart")) {
+        } else if ((ci = service_exec_command_from_string(name)) >= 0) {
                 unsigned n = 0;
 
                 r = sd_bus_message_enter_container(message, 'a', "(sasb)");
@@ -286,7 +287,7 @@ static int bus_service_set_transient_property(
                                 c->flags = b ? EXEC_COMMAND_IGNORE_FAILURE : 0;
 
                                 path_kill_slashes(c->path);
-                                exec_command_append_list(&s->exec_command[SERVICE_EXEC_START], c);
+                                exec_command_append_list(&s->exec_command[ci], c);
                         }
 
                         n++;
@@ -306,7 +307,7 @@ static int bus_service_set_transient_property(
                         size_t size = 0;
 
                         if (n == 0)
-                                s->exec_command[SERVICE_EXEC_START] = exec_command_free_list(s->exec_command[SERVICE_EXEC_START]);
+                                s->exec_command[ci] = exec_command_free_list(s->exec_command[ci]);
 
                         f = open_memstream(&buf, &size);
                         if (!f)
@@ -314,7 +315,7 @@ static int bus_service_set_transient_property(
 
                         fputs_unlocked("ExecStart=\n", f);
 
-                        LIST_FOREACH(command, c, s->exec_command[SERVICE_EXEC_START]) {
+                        LIST_FOREACH(command, c, s->exec_command[ci]) {
                                 _cleanup_free_ char *a = NULL, *t = NULL;
                                 const char *p;
 
@@ -326,7 +327,8 @@ static int bus_service_set_transient_property(
                                 if (!a)
                                         return -ENOMEM;
 
-                                fprintf(f, "ExecStart=%s@%s %s\n",
+                                fprintf(f, "%s=%s@%s %s\n",
+                                        name,
                                         c->flags & EXEC_COMMAND_IGNORE_FAILURE ? "-" : "",
                                         p,
                                         a);
