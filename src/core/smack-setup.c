@@ -103,7 +103,7 @@ static int write_access2_rules(const char* srcdir) {
 
                         _cleanup_free_ char *sbj = NULL, *obj = NULL, *acc1 = NULL, *acc2 = NULL;
 
-                        if (isempty(truncate_nl(buf)))
+                        if (isempty(truncate_nl(buf)) || strchr(COMMENTS, *buf))
                                 continue;
 
                         /* if 3 args -> load rule   : subject object access1 */
@@ -180,7 +180,7 @@ static int write_cipso2_rules(const char* srcdir) {
                              log_error_errno(errno, "Failed to read line from '%s': %m",
                                              entry->d_name)) {
 
-                        if (isempty(truncate_nl(buf)))
+                        if (isempty(truncate_nl(buf)) || strchr(COMMENTS, *buf))
                                 continue;
 
                         if (write(cipso2_fd, buf, strlen(buf)) < 0) {
