@@ -2397,7 +2397,7 @@ static int property_get_reboot_to_firmware_setup(
 
         r = efi_get_reboot_to_firmware();
         if (r < 0 && r != -EOPNOTSUPP)
-                return r;
+                log_warning_errno(r, "Failed to determine reboot-to-firmware state: %m");
 
         return sd_bus_message_append(reply, "b", r > 0);
 }
@@ -2451,10 +2451,12 @@ static int method_can_reboot_to_firmware_setup(
         assert(m);
 
         r = efi_reboot_to_firmware_supported();
-        if (r == -EOPNOTSUPP)
+        if (r < 0) {
+                if (r != -EOPNOTSUPP)
+                        log_warning_errno(errno, "Failed to determine whether reboot to firmware is supported: %m");
+
                 return sd_bus_reply_method_return(message, "s", "na");
-        else if (r < 0)
-                return r;
+        }
 
         r = bus_test_polkit(message,
                             CAP_SYS_ADMIN,
