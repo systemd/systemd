@@ -4285,7 +4285,7 @@ int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const ch
         if (r < 0)
                 return r;
 
-        (void) mkdir_p(p, 0755);
+        (void) mkdir_p_label(p, 0755);
         r = write_string_file_atomic_label(q, wrapped);
         if (r < 0)
                 return r;
@@ -4332,6 +4332,8 @@ int unit_make_transient(Unit *u) {
 
         if (!UNIT_VTABLE(u)->can_transient)
                 return -EOPNOTSUPP;
+
+        (void) mkdir_p_label(u->manager->lookup_paths.transient, 0755);
 
         path = strjoin(u->manager->lookup_paths.transient, "/", u->id);
         if (!path)

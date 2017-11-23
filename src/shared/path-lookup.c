@@ -736,6 +736,14 @@ int lookup_paths_reduce(LookupPaths *p) {
                 struct stat st;
                 unsigned k;
 
+                /* Never strip the transient and control directories from the path */
+                if (path_equal_ptr(p->search_path[c], p->transient) ||
+                    path_equal_ptr(p->search_path[c], p->persistent_control) ||
+                    path_equal_ptr(p->search_path[c], p->runtime_control)) {
+                        c++;
+                        continue;
+                }
+
                 if (p->root_dir)
                         r = lstat(p->search_path[c], &st);
                 else

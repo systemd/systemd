@@ -1336,13 +1336,6 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         if (r < 0)
                 return r;
 
-        /* Make sure the transient directory always exists, so that it remains
-         * in the search path */
-        r = mkdir_p_label(m->lookup_paths.transient, 0755);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create transient generator directory \"%s\": %m",
-                                       m->lookup_paths.transient);
-
         dual_timestamp_get(m->timestamps + MANAGER_TIMESTAMP_GENERATORS_START);
         r = manager_run_generators(m);
         dual_timestamp_get(m->timestamps + MANAGER_TIMESTAMP_GENERATORS_FINISH);
