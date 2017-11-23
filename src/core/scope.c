@@ -411,11 +411,16 @@ static int scope_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         unit_serialize_item(u, f, "state", scope_state_to_string(s->state));
         unit_serialize_item(u, f, "was-abandoned", yes_no(s->was_abandoned));
+
+        if (s->controller)
+                unit_serialize_item(u, f, "controller", s->controller);
+
         return 0;
 }
 
 static int scope_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
         Scope *s = SCOPE(u);
+        int r;
 
         assert(u);
         assert(key);
@@ -439,6 +444,12 @@ static int scope_deserialize_item(Unit *u, const char *key, const char *value, F
                         log_unit_debug(u, "Failed to parse boolean value: %s", value);
                 else
                         s->was_abandoned = k;
+        } else if (streq(key, "controller")) {
+
+                r = free_and_strdup(&s->controller, value);
+                if (r < 0)
+                        log_oom();
+
         } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 
