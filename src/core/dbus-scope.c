@@ -61,7 +61,7 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, scope_result, ScopeResu
 
 const sd_bus_vtable bus_scope_vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_PROPERTY("Controller", "s", NULL, offsetof(Scope, controller), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Controller", "s", NULL, offsetof(Scope, controller), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("TimeoutStopUSec", "t", bus_property_get_usec, offsetof(Scope, timeout_stop_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Scope, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_SIGNAL("RequestStop", NULL, 0),
@@ -232,4 +232,41 @@ int bus_scope_send_request_stop(Scope *s) {
                 return r;
 
         return sd_bus_send_to(UNIT(s)->manager->api_bus, m, s->controller, NULL);
+}
+
+static int on_controller_gone(sd_bus_track *track, void *userdata) {
+        Scope *s = userdata;
+
+        assert(track);
+
+        if (s->controller) {
+                log_unit_debug(UNIT(s), "Controller %s disappeared from bus.", s->controller);
+                unit_add_to_dbus_queue(UNIT(s));
+                s->controller = mfree(s->controller);
+        }
+
+        s->controller_track = sd_bus_track_unref(s->controller_track);
+
+        return 0;
+}
+
+int bus_scope_track_controller(Scope *s) {
+        int r;
+
+        assert(s);
+
+        if (!s->controller || s->controller_track)
+                return 0;
+
+        r = sd_bus_track_new(UNIT(s)->manager->api_bus, &s->controller_track, on_controller_gone, s);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_track_add_name(s->controller_track, s->controller);
+        if (r < 0) {
+                s->controller_track = sd_bus_track_unref(s->controller_track);
+                return r;
+        }
+
+        return 0;
 }
