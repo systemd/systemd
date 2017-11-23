@@ -95,10 +95,8 @@ static int link_set_dhcp_routes(Link *link) {
                 return log_link_warning_errno(link, r, "DHCP error: could not get address: %m");
 
         n = sd_dhcp_lease_get_routes(link->dhcp_lease, &static_routes);
-        if (n == -ENODATA)
-                return 0;
         if (n < 0)
-                return log_link_warning_errno(link, n, "DHCP error: could not get routes: %m");
+                log_link_debug_errno(link, n, "DHCP error: could not get routes: %m");
 
         for (i = 0; i < n; i++) {
                 _cleanup_route_free_ Route *route = NULL;
