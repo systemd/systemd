@@ -94,7 +94,10 @@ polkitrulesdir = join_paths(datadir, 'polkit-1/rules.d')
 polkitpkladir = join_paths(localstatedir, 'lib/polkit-1/localauthority/10-vendor.d')
 varlogdir = join_paths(localstatedir, 'log')
 xinitrcdir = join_paths(sysconfdir, 'X11/xinit/xinitrc.d')
-rpmmacrosdir = join_paths(prefixdir, get_option('rpmmacrosdir'))
+rpmmacrosdir = get_option('rpmmacrosdir')
+if rpmmacrosdir != 'no'
+        rpmmacrosdir = join_paths(prefixdir, rpmmacrosdir)
+endif
 modprobedir = join_paths(rootprefixdir, 'lib/modprobe.d')
 
 # Our own paths
