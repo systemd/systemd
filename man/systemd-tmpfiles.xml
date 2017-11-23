@@ -62,10 +62,16 @@
       <arg choice="opt" rep="repeat"><replaceable>CONFIGFILE</replaceable></arg>
     </cmdsynopsis>
 
-    <para><filename>systemd-tmpfiles-setup.service</filename></para>
-    <para><filename>systemd-tmpfiles-setup-dev.service</filename></para>
-    <para><filename>systemd-tmpfiles-clean.service</filename></para>
-    <para><filename>systemd-tmpfiles-clean.timer</filename></para>
+    <para>System units:
+<literallayout><filename>systemd-tmpfiles-setup.service</filename>
+<filename>systemd-tmpfiles-setup-dev.service</filename>
+<filename>systemd-tmpfiles-clean.service</filename>
+<filename>systemd-tmpfiles-clean.timer</filename></literallayout></para>
+
+    <para>User units:
+<literallayout><filename>systemd-tmpfiles-setup.service</filename>
+<filename>systemd-tmpfiles-clean.service</filename>
+<filename>systemd-tmpfiles-clean.timer</filename></literallayout></para>
   </refsynopsisdiv>
 
   <refsect1>
