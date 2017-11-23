@@ -1548,7 +1548,7 @@ static int status_all(sd_bus *bus) {
 static void help_protocol_types(void) {
         if (arg_legend)
                 puts("Known protocol types:");
-        puts("dns\nllmnr\nllmnr-ipv4\nllmnr-ipv6\nmdns\nmnds-ipv4\nmdns-ipv6");
+        puts("dns\nllmnr\nllmnr-ipv4\nllmnr-ipv6\nmdns\nmdns-ipv4\nmdns-ipv6");
 }
 
 static void help_dns_types(void) {
