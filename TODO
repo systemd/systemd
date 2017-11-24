@@ -24,6 +24,12 @@ Janitorial Clean-ups:
 
 Features:
 
+* add some special mode to LogsDirectory=/StateDirectory=… that allows
+  declaring these directories without necessarily pulling in deps for them, or
+  creating them when starting up. That way, we could declare that
+  systemd-journald writes to /var/log/journal, which could be useful when we
+  doing disk usage calculations and so on.
+
 * add a new RuntimeDirectoryPreserve= mode that defines a similar lifecycle for
   the runtime dir as we maintain for the fdstore: i.e. keep it around as long
   as the unit is running or has a job queued.
@@ -44,8 +50,6 @@ Features:
 
 * add a way to lock down cgroup migration: a boolean, which when set for a unit
   makes sure the processes in it can never migrate out of it
-
-* complain if a unit starts up and there are already processes in its cgroup
 
 * blog about fd store and restartable services
 
@@ -302,8 +306,6 @@ Features:
 * add an explicit parser for LimitRTPRIO= that verifies
   the specified range and generates sane error messages for incorrect
   specifications.
-
-* do something about "/control" subcgroups in the unified cgroup hierarchy
 
 * when we detect that there are waiting jobs but no running jobs, do something
 
