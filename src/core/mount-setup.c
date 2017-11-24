@@ -208,6 +208,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
                 r = access(p->where, W_OK);
                 if (r < 0) {
                         (void) umount(p->where);
+                        (void) rmdir(p->where);
                         return (p->mode & MNT_FATAL) ? r : 0;
                 }
         }
