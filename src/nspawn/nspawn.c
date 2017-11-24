@@ -190,6 +190,7 @@ static bool arg_network_veth = false;
 static char **arg_network_veth_extra = NULL;
 static char *arg_network_bridge = NULL;
 static char *arg_network_zone = NULL;
+static char *arg_network_namespace_path = NULL;
 static unsigned long arg_personality = PERSONALITY_INVALID;
 static char *arg_image = NULL;
 static VolatileMode arg_volatile_mode = VOLATILE_NO;
@@ -260,6 +261,9 @@ static void help(void) {
                "                            and attach it to an existing bridge on the host\n"
                "     --network-zone=NAME    Similar, but attach the new interface to an\n"
                "                            an automatically managed bridge interface\n"
+               "     --network-namespace-path=PATH\n"
+               "                            Set network namespace to the one represented by\n"
+               "                            the specified kernel namespace file node\n"
                "  -p --port=[PROTOCOL:]HOSTPORT[:CONTAINERPORT]\n"
                "                            Expose a container IP port on the host\n"
                "  -Z --selinux-context=SECLABEL\n"
@@ -434,6 +438,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NETWORK_BRIDGE,
                 ARG_NETWORK_ZONE,
                 ARG_NETWORK_VETH_EXTRA,
+                ARG_NETWORK_NAMESPACE_PATH,
                 ARG_PERSONALITY,
                 ARG_VOLATILE,
                 ARG_TEMPLATE,
@@ -450,55 +455,56 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",                  no_argument,       NULL, 'h'                     },
-                { "version",               no_argument,       NULL, ARG_VERSION             },
-                { "directory",             required_argument, NULL, 'D'                     },
-                { "template",              required_argument, NULL, ARG_TEMPLATE            },
-                { "ephemeral",             no_argument,       NULL, 'x'                     },
-                { "user",                  required_argument, NULL, 'u'                     },
-                { "private-network",       no_argument,       NULL, ARG_PRIVATE_NETWORK     },
-                { "as-pid2",               no_argument,       NULL, 'a'                     },
-                { "boot",                  no_argument,       NULL, 'b'                     },
-                { "uuid",                  required_argument, NULL, ARG_UUID                },
-                { "read-only",             no_argument,       NULL, ARG_READ_ONLY           },
-                { "capability",            required_argument, NULL, ARG_CAPABILITY          },
-                { "drop-capability",       required_argument, NULL, ARG_DROP_CAPABILITY     },
-                { "link-journal",          required_argument, NULL, ARG_LINK_JOURNAL        },
-                { "bind",                  required_argument, NULL, ARG_BIND                },
-                { "bind-ro",               required_argument, NULL, ARG_BIND_RO             },
-                { "tmpfs",                 required_argument, NULL, ARG_TMPFS               },
-                { "overlay",               required_argument, NULL, ARG_OVERLAY             },
-                { "overlay-ro",            required_argument, NULL, ARG_OVERLAY_RO          },
-                { "machine",               required_argument, NULL, 'M'                     },
-                { "slice",                 required_argument, NULL, 'S'                     },
-                { "setenv",                required_argument, NULL, 'E'                     },
-                { "selinux-context",       required_argument, NULL, 'Z'                     },
-                { "selinux-apifs-context", required_argument, NULL, 'L'                     },
-                { "quiet",                 no_argument,       NULL, 'q'                     },
-                { "share-system",          no_argument,       NULL, ARG_SHARE_SYSTEM        }, /* not documented */
-                { "register",              required_argument, NULL, ARG_REGISTER            },
-                { "keep-unit",             no_argument,       NULL, ARG_KEEP_UNIT           },
-                { "network-interface",     required_argument, NULL, ARG_NETWORK_INTERFACE   },
-                { "network-macvlan",       required_argument, NULL, ARG_NETWORK_MACVLAN     },
-                { "network-ipvlan",        required_argument, NULL, ARG_NETWORK_IPVLAN      },
-                { "network-veth",          no_argument,       NULL, 'n'                     },
-                { "network-veth-extra",    required_argument, NULL, ARG_NETWORK_VETH_EXTRA  },
-                { "network-bridge",        required_argument, NULL, ARG_NETWORK_BRIDGE      },
-                { "network-zone",          required_argument, NULL, ARG_NETWORK_ZONE        },
-                { "personality",           required_argument, NULL, ARG_PERSONALITY         },
-                { "image",                 required_argument, NULL, 'i'                     },
-                { "volatile",              optional_argument, NULL, ARG_VOLATILE            },
-                { "port",                  required_argument, NULL, 'p'                     },
-                { "property",              required_argument, NULL, ARG_PROPERTY            },
-                { "private-users",         optional_argument, NULL, ARG_PRIVATE_USERS       },
-                { "private-users-chown",   optional_argument, NULL, ARG_PRIVATE_USERS_CHOWN },
-                { "kill-signal",           required_argument, NULL, ARG_KILL_SIGNAL         },
-                { "settings",              required_argument, NULL, ARG_SETTINGS            },
-                { "chdir",                 required_argument, NULL, ARG_CHDIR               },
-                { "pivot-root",            required_argument, NULL, ARG_PIVOT_ROOT          },
-                { "notify-ready",          required_argument, NULL, ARG_NOTIFY_READY        },
-                { "root-hash",             required_argument, NULL, ARG_ROOT_HASH           },
-                { "system-call-filter",    required_argument, NULL, ARG_SYSTEM_CALL_FILTER  },
+                { "help",                   no_argument,       NULL, 'h'                        },
+                { "version",                no_argument,       NULL, ARG_VERSION                },
+                { "directory",              required_argument, NULL, 'D'                        },
+                { "template",               required_argument, NULL, ARG_TEMPLATE               },
+                { "ephemeral",              no_argument,       NULL, 'x'                        },
+                { "user",                   required_argument, NULL, 'u'                        },
+                { "private-network",        no_argument,       NULL, ARG_PRIVATE_NETWORK        },
+                { "as-pid2",                no_argument,       NULL, 'a'                        },
+                { "boot",                   no_argument,       NULL, 'b'                        },
+                { "uuid",                   required_argument, NULL, ARG_UUID                   },
+                { "read-only",              no_argument,       NULL, ARG_READ_ONLY              },
+                { "capability",             required_argument, NULL, ARG_CAPABILITY             },
+                { "drop-capability",        required_argument, NULL, ARG_DROP_CAPABILITY        },
+                { "link-journal",           required_argument, NULL, ARG_LINK_JOURNAL           },
+                { "bind",                   required_argument, NULL, ARG_BIND                   },
+                { "bind-ro",                required_argument, NULL, ARG_BIND_RO                },
+                { "tmpfs",                  required_argument, NULL, ARG_TMPFS                  },
+                { "overlay",                required_argument, NULL, ARG_OVERLAY                },
+                { "overlay-ro",             required_argument, NULL, ARG_OVERLAY_RO             },
+                { "machine",                required_argument, NULL, 'M'                        },
+                { "slice",                  required_argument, NULL, 'S'                        },
+                { "setenv",                 required_argument, NULL, 'E'                        },
+                { "selinux-context",        required_argument, NULL, 'Z'                        },
+                { "selinux-apifs-context",  required_argument, NULL, 'L'                        },
+                { "quiet",                  no_argument,       NULL, 'q'                        },
+                { "share-system",           no_argument,       NULL, ARG_SHARE_SYSTEM           }, /* not documented */
+                { "register",               required_argument, NULL, ARG_REGISTER               },
+                { "keep-unit",              no_argument,       NULL, ARG_KEEP_UNIT              },
+                { "network-interface",      required_argument, NULL, ARG_NETWORK_INTERFACE      },
+                { "network-macvlan",        required_argument, NULL, ARG_NETWORK_MACVLAN        },
+                { "network-ipvlan",         required_argument, NULL, ARG_NETWORK_IPVLAN         },
+                { "network-veth",           no_argument,       NULL, 'n'                        },
+                { "network-veth-extra",     required_argument, NULL, ARG_NETWORK_VETH_EXTRA     },
+                { "network-bridge",         required_argument, NULL, ARG_NETWORK_BRIDGE         },
+                { "network-zone",           required_argument, NULL, ARG_NETWORK_ZONE           },
+                { "network-namespace-path", required_argument, NULL, ARG_NETWORK_NAMESPACE_PATH },
+                { "personality",            required_argument, NULL, ARG_PERSONALITY            },
+                { "image",                  required_argument, NULL, 'i'                        },
+                { "volatile",               optional_argument, NULL, ARG_VOLATILE               },
+                { "port",                   required_argument, NULL, 'p'                        },
+                { "property",               required_argument, NULL, ARG_PROPERTY               },
+                { "private-users",          optional_argument, NULL, ARG_PRIVATE_USERS          },
+                { "private-users-chown",    optional_argument, NULL, ARG_PRIVATE_USERS_CHOWN    },
+                { "kill-signal",            required_argument, NULL, ARG_KILL_SIGNAL            },
+                { "settings",               required_argument, NULL, ARG_SETTINGS               },
+                { "chdir",                  required_argument, NULL, ARG_CHDIR                  },
+                { "pivot-root",             required_argument, NULL, ARG_PIVOT_ROOT             },
+                { "notify-ready",           required_argument, NULL, ARG_NOTIFY_READY           },
+                { "root-hash",              required_argument, NULL, ARG_ROOT_HASH              },
+                { "system-call-filter",     required_argument, NULL, ARG_SYSTEM_CALL_FILTER     },
                 {}
         };
 
@@ -642,6 +648,13 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_PRIVATE_NETWORK:
                         arg_private_network = true;
                         arg_settings_mask |= SETTING_NETWORK;
+                        break;
+
+                case ARG_NETWORK_NAMESPACE_PATH:
+                        r = parse_path_argument_and_warn(optarg, false, &arg_network_namespace_path);
+                        if (r < 0)
+                                return r;
+
                         break;
 
                 case 'b':
@@ -1102,6 +1115,17 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
+
+        /* If --network-namespace-path is given with any other network-related option,
+         * we need to error out, to avoid conflicts between different network options. */
+        if (arg_network_namespace_path &&
+                (arg_network_interfaces || arg_network_macvlan ||
+                 arg_network_ipvlan || arg_network_veth_extra ||
+                 arg_network_bridge || arg_network_zone ||
+                 arg_network_veth || arg_private_network)) {
+                log_error("--network-namespace-path cannot be combined with other network options.");
+                return -EINVAL;
+        }
 
         parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_NS_IPC", CLONE_NEWIPC);
         parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_NS_PID", CLONE_NEWPID);
@@ -2532,12 +2556,14 @@ static int outer_child(
                 int rtnl_socket,
                 int uid_shift_socket,
                 int unified_cgroup_hierarchy_socket,
-                FDSet *fds) {
+                FDSet *fds,
+                int netns_fd) {
 
         pid_t pid;
         ssize_t l;
         int r;
         _cleanup_close_ int fd = -1;
+        bool create_netns;
 
         assert(barrier);
         assert(directory);
@@ -2788,9 +2814,11 @@ static int outer_child(
         if (fd < 0)
                 return fd;
 
+        create_netns = !arg_network_namespace_path && arg_private_network;
+
         pid = raw_clone(SIGCHLD|CLONE_NEWNS|
                         arg_clone_ns_flags |
-                        (arg_private_network ? CLONE_NEWNET : 0) |
+                        (create_netns ? CLONE_NEWNET : 0) |
                         (arg_userns_mode != USER_NAMESPACE_NO ? CLONE_NEWUSER : 0));
         if (pid < 0)
                 return log_error_errno(errno, "Failed to fork inner child: %m");
@@ -2803,6 +2831,12 @@ static int outer_child(
                 /* The inner child has all namespaces that are
                  * requested, so that we all are owned by the user if
                  * user namespaces are turned on. */
+
+                if (arg_network_namespace_path) {
+                        r = namespace_enter(-1, -1, netns_fd, -1, -1);
+                        if (r < 0)
+                                return r;
+                }
 
                 r = inner_child(barrier, directory, secondary, kmsg_socket, rtnl_socket, fds);
                 if (r < 0)
@@ -2836,6 +2870,7 @@ static int outer_child(
         notify_socket = safe_close(notify_socket);
         kmsg_socket = safe_close(kmsg_socket);
         rtnl_socket = safe_close(rtnl_socket);
+        netns_fd = safe_close(netns_fd);
 
         return 0;
 }
@@ -3311,6 +3346,7 @@ static int run(int master,
         int ifi = 0, r;
         ssize_t l;
         sigset_t mask_chld;
+        _cleanup_close_ int netns_fd = -1;
 
         assert_se(sigemptyset(&mask_chld) == 0);
         assert_se(sigaddset(&mask_chld, SIGCHLD) == 0);
@@ -3365,6 +3401,20 @@ static int run(int master,
         if (r < 0)
                 return log_error_errno(errno, "Failed to install SIGCHLD handler: %m");
 
+        if (arg_network_namespace_path) {
+                netns_fd = open(arg_network_namespace_path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                if (netns_fd < 0)
+                        return log_error_errno(errno, "Cannot open file %s: %m", arg_network_namespace_path);
+
+                r = fd_is_network_ns(netns_fd);
+                if (r < 0 && r != -ENOTTY)
+                        return log_error_errno(r, "Failed to check %s fs type: %m", arg_network_namespace_path);
+                if (r == 0) {
+                        log_error("Path %s doesn't refer to a network namespace", arg_network_namespace_path);
+                        return -EINVAL;
+                }
+        }
+
         *pid = raw_clone(SIGCHLD|CLONE_NEWNS);
         if (*pid < 0)
                 return log_error_errno(errno, "clone() failed%s: %m",
@@ -3401,7 +3451,8 @@ static int run(int master,
                                 rtnl_socket_pair[1],
                                 uid_shift_socket_pair[1],
                                 unified_cgroup_hierarchy_socket_pair[1],
-                                fds);
+                                fds,
+                                netns_fd);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
