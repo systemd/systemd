@@ -57,9 +57,10 @@ int probe_filesystem(const char *node, char **ret_fstype) {
         const char *fstype;
         int r;
 
+        errno = 0;
         b = blkid_new_probe_from_filename(node);
         if (!b)
-                return -ENOMEM;
+                return -errno ?: -ENOMEM;
 
         blkid_probe_enable_superblocks(b, 1);
         blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
