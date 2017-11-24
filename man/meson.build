@@ -49,7 +49,7 @@ custom_entities_ent = configure_file(
 man_pages = []
 html_pages = []
 source_xml_files = []
-foreach tuple : want_man or want_html ? manpages : []
+foreach tuple : xsltproc.found() ? manpages : []
         stem = tuple[0]
         section = tuple[1]
         aliases = tuple[2]
