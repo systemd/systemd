@@ -482,51 +482,8 @@ r! /tmp/.X[0-9]*-lock</programlisting>
       <title>Path</title>
 
       <para>The file system path specification supports simple
-      specifier expansion. The following expansions are
-      understood:</para>
-
-      <table>
-        <title>Specifiers available</title>
-        <tgroup cols='3' align='left' colsep='1' rowsep='1'>
-          <colspec colname="spec" />
-          <colspec colname="mean" />
-          <colspec colname="detail" />
-          <thead>
-            <row>
-              <entry>Specifier</entry>
-              <entry>Meaning</entry>
-              <entry>Details</entry>
-            </row>
-          </thead>
-          <tbody>
-            <row>
-              <entry><literal>%m</literal></entry>
-              <entry>Machine ID</entry>
-              <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
-            </row>
-            <row>
-              <entry><literal>%b</literal></entry>
-              <entry>Boot ID</entry>
-              <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
-            </row>
-            <row>
-              <entry><literal>%H</literal></entry>
-              <entry>Host name</entry>
-              <entry>The hostname of the running system.</entry>
-            </row>
-            <row>
-              <entry><literal>%v</literal></entry>
-              <entry>Kernel release</entry>
-              <entry>Identical to <command>uname -r</command> output.</entry>
-            </row>
-            <row>
-              <entry><literal>%%</literal></entry>
-              <entry>Escaped %</entry>
-              <entry>Single percent sign.</entry>
-            </row>
-          </tbody>
-        </tgroup>
-      </table>
+      specifier expansion, see below. The path (after expansion) must be
+      absolute.</para>
     </refsect2>
 
     <refsect2>
@@ -628,8 +585,58 @@ r! /tmp/.X[0-9]*-lock</programlisting>
       attributes to be set. For <varname>h</varname> and
       <varname>H</varname>, determines the file attributes to
       set. Ignored for all other lines.</para>
-    </refsect2>
 
+      <para>This field can contain specifiers, see below.</para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Specifiers</title>
+
+    <para>Specifiers can be used in the "path" and "argument" fields.
+    The following expansions are understood:</para>
+      <table>
+        <title>Specifiers available</title>
+        <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+          <colspec colname="spec" />
+          <colspec colname="mean" />
+          <colspec colname="detail" />
+          <thead>
+            <row>
+              <entry>Specifier</entry>
+              <entry>Meaning</entry>
+              <entry>Details</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry><literal>%m</literal></entry>
+              <entry>Machine ID</entry>
+              <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
+            </row>
+            <row>
+              <entry><literal>%b</literal></entry>
+              <entry>Boot ID</entry>
+              <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
+            </row>
+            <row>
+              <entry><literal>%H</literal></entry>
+              <entry>Host name</entry>
+              <entry>The hostname of the running system.</entry>
+            </row>
+            <row>
+              <entry><literal>%v</literal></entry>
+              <entry>Kernel release</entry>
+              <entry>Identical to <command>uname -r</command> output.</entry>
+            </row>
+            <row>
+              <entry><literal>%%</literal></entry>
+              <entry>Escaped %</entry>
+              <entry>Single percent sign.</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
   </refsect1>
 
   <refsect1>
