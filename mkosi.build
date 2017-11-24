@@ -28,7 +28,7 @@ export LC_CTYPE=en_US.UTF-8
 
 sysvinit_path=`realpath /etc/init.d`
 
-[ -f "$BUILDDIR"/build.ninja ] || meson "$BUILDDIR" -D "sysvinit-path=$sysvinit_path"
+[ -f "$BUILDDIR"/build.ninja ] || meson "$BUILDDIR" -D "sysvinit-path=$sysvinit_path" -D "default-hierarchy=unified"
 ninja -C "$BUILDDIR" all
 [ "$WITH_TESTS" = 0 ] || ninja -C "$BUILDDIR" test || ( RET="$?" ; cat "$BUILDDIR"/meson-logs/testlog.txt ; exit "$RET" )
 ninja -C "$BUILDDIR" install
