@@ -606,7 +606,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         case RTM_NEWADDR:
                 if (address)
                         log_link_debug(link, "Updating address: %s/%u (valid %s%s)", buf, prefixlen,
-                                       valid_str ? "for " : "forever", valid_str ?: "");
+                                       valid_str ? "for " : "forever", strempty(valid_str));
                 else {
                         /* An address appeared that we did not request */
                         r = address_add_foreign(link, family, &in_addr, prefixlen, &address);
@@ -615,7 +615,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                                 return 0;
                         } else
                                 log_link_debug(link, "Adding address: %s/%u (valid %s%s)", buf, prefixlen,
-                                               valid_str ? "for " : "forever", valid_str ?: "");
+                                               valid_str ? "for " : "forever", strempty(valid_str));
                 }
 
                 address_update(address, flags, scope, &cinfo);
@@ -626,11 +626,11 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
 
                 if (address) {
                         log_link_debug(link, "Removing address: %s/%u (valid %s%s)", buf, prefixlen,
-                                       valid_str ? "for " : "forever", valid_str ?: "");
+                                       valid_str ? "for " : "forever", strempty(valid_str));
                         address_drop(address);
                 } else
                         log_link_warning(link, "Removing non-existent address: %s/%u (valid %s%s)", buf, prefixlen,
-                                         valid_str ? "for " : "forever", valid_str ?: "");
+                                         valid_str ? "for " : "forever", strempty(valid_str));
 
                 break;
         default:
