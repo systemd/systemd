@@ -777,7 +777,7 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
 
         /* The description might be longer than the buffer, but that's OK, we'll just truncate it here */
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        snprintf(buf, sizeof(buf), format, unit_description(u));
+        xsprintf(buf, format, unit_description(u));
         REENABLE_WARNING;
 
         switch (t) {
