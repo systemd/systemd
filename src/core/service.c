@@ -1343,11 +1343,6 @@ static int service_spawn(
         if (!final_env)
                 return -ENOMEM;
 
-        if ((flags & EXEC_IS_CONTROL) && UNIT(s)->cgroup_path) {
-                exec_params.cgroup_path = strjoina(UNIT(s)->cgroup_path, "/control");
-                (void) cg_create(SYSTEMD_CGROUP_CONTROLLER, exec_params.cgroup_path);
-        }
-
         /* System services should get a new keyring by default. */
         SET_FLAG(exec_params.flags, EXEC_NEW_KEYRING, MANAGER_IS_SYSTEM(UNIT(s)->manager));
 
@@ -1789,39 +1784,22 @@ fail:
         service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
 }
 
-static void service_kill_control_processes(Service *s) {
+static void service_kill_control_process(Service *s) {
         int r;
 
         assert(s);
 
-        if (s->control_pid > 0) {
-                r = kill_and_sigcont(s->control_pid, SIGKILL);
-                if (r < 0) {
-                        _cleanup_free_ char *comm = NULL;
+        if (s->control_pid <= 0)
+                return;
 
-                        (void) get_process_comm(s->control_pid, &comm);
+        r = kill_and_sigcont(s->control_pid, SIGKILL);
+        if (r < 0) {
+                _cleanup_free_ char *comm = NULL;
 
-                        log_unit_debug_errno(UNIT(s), r, "Failed to kill control process " PID_FMT " (%s), ignoring: %m",
-                                             s->control_pid, strna(comm));
-                }
-        }
+                (void) get_process_comm(s->control_pid, &comm);
 
-        if (UNIT(s)->cgroup_path) {
-                _cleanup_set_free_ Set *pid_set = NULL;
-                char *p;
-
-                if (s->control_pid > 0) {
-                        r = set_make(&pid_set, PID_TO_PTR(s->control_pid), NULL);
-                        if (r < 0) {
-                                log_oom();
-                                return;
-                        }
-                }
-
-                p = strjoina(UNIT(s)->cgroup_path, "/control");
-                r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, p, SIGKILL, CGROUP_SIGCONT|CGROUP_IGNORE_SELF|CGROUP_REMOVE, pid_set, NULL, NULL);
-                if (r < 0)
-                        log_unit_debug_errno(UNIT(s), r, "Failed to send SIGKILL to processes of control group %s: %m", p);
+                log_unit_debug_errno(UNIT(s), r, "Failed to kill control process " PID_FMT " (%s), ignoring: %m",
+                                     s->control_pid, strna(comm));
         }
 }
 
@@ -1835,11 +1813,6 @@ static void service_enter_start(Service *s) {
 
         service_unwatch_control_pid(s);
         service_unwatch_main_pid(s);
-
-        /* We want to ensure that nobody leaks processes from
-         * START_PRE here, so let's go on a killing spree, People
-         * should not spawn long running processes from START_PRE. */
-        service_kill_control_processes(s);
 
         if (s->type == SERVICE_FORKING) {
                 s->control_command_id = SERVICE_EXEC_START;
@@ -1927,9 +1900,6 @@ static void service_enter_start_pre(Service *s) {
 
         s->control_command = s->exec_command[SERVICE_EXEC_START_PRE];
         if (s->control_command) {
-                /* Before we start anything, let's clear up what might
-                 * be left from previous runs. */
-                service_kill_control_processes(s);
 
                 s->control_command_id = SERVICE_EXEC_START_PRE;
 
@@ -3084,11 +3054,6 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 if (s->result == SERVICE_SUCCESS)
                         s->result = f;
 
-                /* Immediately get rid of the cgroup, so that the
-                 * kernel doesn't delay the cgroup empty messages for
-                 * the service cgroup any longer than necessary */
-                service_kill_control_processes(s);
-
                 if (s->control_command &&
                     s->control_command->command_next &&
                     f == SERVICE_SUCCESS) {
@@ -3251,7 +3216,7 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
 
         case SERVICE_RELOAD:
                 log_unit_warning(UNIT(s), "Reload operation timed out. Killing reload process.");
-                service_kill_control_processes(s);
+                service_kill_control_process(s);
                 s->reload_result = SERVICE_FAILURE_TIMEOUT;
                 service_enter_running(s, SERVICE_SUCCESS);
                 break;
