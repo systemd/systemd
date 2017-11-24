@@ -94,7 +94,7 @@ static int specifier_instance(char specifier, void *data, void *userdata, char *
                 return r;
 
         if (isempty(instance)) {
-                r = free_and_strdup(&instance, i->default_instance ?: "");
+                r = free_and_strdup(&instance, strempty(i->default_instance));
                 if (r < 0)
                         return r;
         }
