@@ -1806,6 +1806,22 @@ DnsTxtItem *dns_txt_item_copy(DnsTxtItem *first) {
         return copy;
 }
 
+int dns_txt_item_new_empty(DnsTxtItem **ret) {
+        DnsTxtItem *i;
+
+        /* RFC 6763, section 6.1 suggests to treat
+         * empty TXT RRs as equivalent to a TXT record
+         * with a single empty string. */
+
+        i = malloc0(offsetof(DnsTxtItem, data) + 1); /* for safety reasons we add an extra NUL byte */
+        if (!i)
+                return -ENOMEM;
+
+        *ret = i;
+
+        return 0;
+}
+
 static const char* const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] = {
         /* Mnemonics as listed on https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml */
         [DNSSEC_ALGORITHM_RSAMD5]             = "RSAMD5",
