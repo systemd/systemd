@@ -2793,6 +2793,7 @@ static int outer_child(
 }
 
 static int uid_shift_pick(uid_t *shift, LockFile *ret_lock_file) {
+        bool tried_hashed = false;
         unsigned n_tries = 100;
         uid_t candidate;
         int r;
@@ -2841,7 +2842,20 @@ static int uid_shift_pick(uid_t *shift, LockFile *ret_lock_file) {
                 return 0;
 
         next:
-                random_bytes(&candidate, sizeof(candidate));
+                if (arg_machine && !tried_hashed) {
+                        /* Try to hash the base from the container name */
+
+                        static const uint8_t hash_key[] = {
+                                0xe1, 0x56, 0xe0, 0xf0, 0x4a, 0xf0, 0x41, 0xaf,
+                                0x96, 0x41, 0xcf, 0x41, 0x33, 0x94, 0xff, 0x72
+                        };
+
+                        candidate = (uid_t) siphash24(arg_machine, strlen(arg_machine), hash_key);
+
+                        tried_hashed = true;
+                } else
+                        random_bytes(&candidate, sizeof(candidate));
+
                 candidate = (candidate % (UID_SHIFT_PICK_MAX - UID_SHIFT_PICK_MIN)) + UID_SHIFT_PICK_MIN;
                 candidate &= (uid_t) UINT32_C(0xFFFF0000);
         }
