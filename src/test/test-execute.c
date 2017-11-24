@@ -477,6 +477,7 @@ static void test_exec_unset_environment(Manager *m) {
 
 static void test_exec_specifier(Manager *m) {
         test(m, "exec-specifier.service", 0, CLD_EXITED);
+        test(m, "exec-specifier@foo-bar.service", 0, CLD_EXITED);
 }
 
 static void test_exec_stdin_data(Manager *m) {

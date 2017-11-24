@@ -1,12 +1,12 @@
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/test %n = exec-specifier.service
-ExecStart=/usr/bin/test %N = exec-specifier
+ExecStart=/usr/bin/test %n = exec-specifier@foo-bar.service
+ExecStart=/usr/bin/test %N = exec-specifier@foo-bar
 ExecStart=/usr/bin/test %p = exec-specifier
 ExecStart=/usr/bin/test %P = exec/specifier
-ExecStart=/usr/bin/test %i = ""
-ExecStart=/usr/bin/test %I = ""
-ExecStart=/usr/bin/test %f = /exec/specifier
+ExecStart=/usr/bin/test %i = foo-bar
+ExecStart=/usr/bin/test %I = foo/bar
+ExecStart=/usr/bin/test %f = /foo/bar
 ExecStart=/usr/bin/test %t = /run
 ExecStart=/usr/bin/test %S = /var/lib
 ExecStart=/usr/bin/test %C = /var/cache
