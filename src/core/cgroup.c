@@ -677,8 +677,10 @@ static void cgroup_apply_unified_memory_limit(Unit *u, const char *file, uint64_
                               "Failed to set %s: %m", file);
 }
 
-static void cgroup_apply_firewall(Unit *u, CGroupContext *c) {
+static void cgroup_apply_firewall(Unit *u) {
         int r;
+
+        assert(u);
 
         if (u->type == UNIT_SLICE) /* Skip this for slice units, they are inner cgroup nodes, and since bpf/cgroup is
                                     * not recursive we don't ever touch the bpf on them */
@@ -1031,7 +1033,7 @@ static void cgroup_context_apply(
         }
 
         if (apply_bpf)
-                cgroup_apply_firewall(u, c);
+                cgroup_apply_firewall(u);
 }
 
 CGroupMask cgroup_context_get_mask(CGroupContext *c) {
