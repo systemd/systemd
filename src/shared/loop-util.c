@@ -152,9 +152,7 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
         }
 
         free(d->node);
-        free(d);
-
-        return NULL;
+        return mfree(d);
 }
 
 void loop_device_relinquish(LoopDevice *d) {

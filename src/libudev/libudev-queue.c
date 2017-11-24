@@ -115,8 +115,7 @@ _public_ struct udev_queue *udev_queue_unref(struct udev_queue *udev_queue)
 
         safe_close(udev_queue->fd);
 
-        free(udev_queue);
-        return NULL;
+        return mfree(udev_queue);
 }
 
 /**
