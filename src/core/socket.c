@@ -2187,6 +2187,9 @@ static void socket_enter_start_pre(Socket *s) {
         assert(s);
 
         socket_unwatch_control_pid(s);
+
+        unit_warn_leftover_processes(UNIT(s));
+
         s->control_command_id = SOCKET_EXEC_START_PRE;
         s->control_command = s->exec_command[SOCKET_EXEC_START_PRE];
 

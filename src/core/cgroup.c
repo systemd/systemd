@@ -1394,6 +1394,31 @@ int unit_watch_cgroup(Unit *u) {
         return 0;
 }
 
+int unit_pick_cgroup_path(Unit *u) {
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        assert(u);
+
+        if (u->cgroup_path)
+                return 0;
+
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
+                return -EINVAL;
+
+        path = unit_default_cgroup_path(u);
+        if (!path)
+                return log_oom();
+
+        r = unit_set_cgroup_path(u, path);
+        if (r == -EEXIST)
+                return log_unit_error_errno(u, r, "Control group %s exists already.", path);
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Failed to set unit's control group path to %s: %m", path);
+
+        return 0;
+}
+
 static int unit_create_cgroup(
                 Unit *u,
                 CGroupMask target_mask,
@@ -1409,19 +1434,10 @@ static int unit_create_cgroup(
         if (!c)
                 return 0;
 
-        if (!u->cgroup_path) {
-                _cleanup_free_ char *path = NULL;
-
-                path = unit_default_cgroup_path(u);
-                if (!path)
-                        return log_oom();
-
-                r = unit_set_cgroup_path(u, path);
-                if (r == -EEXIST)
-                        return log_unit_error_errno(u, r, "Control group %s exists already.", path);
-                if (r < 0)
-                        return log_unit_error_errno(u, r, "Failed to set unit's control group path to %s: %m", path);
-        }
+        /* Figure out our cgroup path */
+        r = unit_pick_cgroup_path(u);
+        if (r < 0)
+                return r;
 
         /* First, create our own group */
         r = cg_create_everywhere(u->manager->cgroup_supported, target_mask, u->cgroup_path);

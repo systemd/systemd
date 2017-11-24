@@ -5196,6 +5196,31 @@ int unit_prepare_exec(Unit *u) {
         return 0;
 }
 
+static void log_leftover(pid_t pid, int sig, void *userdata) {
+        _cleanup_free_ char *comm = NULL;
+
+        (void) get_process_comm(pid, &comm);
+
+        if (comm && comm[0] == '(') /* Most likely our own helper process (PAM?), ignore */
+                return;
+
+        log_unit_warning(userdata,
+                         "Found left-over process " PID_FMT " (%s) in control group while starting unit. Ignoring.\n"
+                         "This usually indicates unclean termination of a previous run, or service implementation deficiencies.",
+                         pid, strna(comm));
+}
+
+void unit_warn_leftover_processes(Unit *u) {
+        assert(u);
+
+        (void) unit_pick_cgroup_path(u);
+
+        if (!u->cgroup_path)
+                return;
+
+        (void) cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, 0, 0, NULL, log_leftover, u);
+}
+
 static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {
         [COLLECT_INACTIVE] = "inactive",
         [COLLECT_INACTIVE_OR_FAILED] = "inactive-or-failed",

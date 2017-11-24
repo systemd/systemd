@@ -1814,6 +1814,8 @@ static void service_enter_start(Service *s) {
         service_unwatch_control_pid(s);
         service_unwatch_main_pid(s);
 
+        unit_warn_leftover_processes(UNIT(s));
+
         if (s->type == SERVICE_FORKING) {
                 s->control_command_id = SERVICE_EXEC_START;
                 c = s->control_command = s->exec_command[SERVICE_EXEC_START];
@@ -1900,6 +1902,8 @@ static void service_enter_start_pre(Service *s) {
 
         s->control_command = s->exec_command[SERVICE_EXEC_START_PRE];
         if (s->control_command) {
+
+                unit_warn_leftover_processes(UNIT(s));
 
                 s->control_command_id = SERVICE_EXEC_START_PRE;
 
