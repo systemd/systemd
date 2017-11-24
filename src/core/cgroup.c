@@ -2436,7 +2436,7 @@ void unit_invalidate_cgroup(Unit *u, CGroupMask m) {
         if (m & (CGROUP_MASK_CPU | CGROUP_MASK_CPUACCT))
                 m |= CGROUP_MASK_CPU | CGROUP_MASK_CPUACCT;
 
-        if ((u->cgroup_realized_mask & m) == 0)
+        if ((u->cgroup_realized_mask & m) == 0) /* NOP? */
                 return;
 
         u->cgroup_realized_mask &= ~m;
@@ -2449,7 +2449,7 @@ void unit_invalidate_cgroup_bpf(Unit *u) {
         if (!UNIT_HAS_CGROUP_CONTEXT(u))
                 return;
 
-        if (u->cgroup_bpf_state == UNIT_CGROUP_BPF_INVALIDATED)
+        if (u->cgroup_bpf_state == UNIT_CGROUP_BPF_INVALIDATED) /* NOP? */
                 return;
 
         u->cgroup_bpf_state = UNIT_CGROUP_BPF_INVALIDATED;

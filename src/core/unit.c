@@ -108,6 +108,7 @@ Unit *unit_new(Manager *m, size_t size) {
         u->ref_uid = UID_INVALID;
         u->ref_gid = GID_INVALID;
         u->cpu_usage_last = NSEC_INFINITY;
+        u->cgroup_bpf_state = UNIT_CGROUP_BPF_INVALIDATED;
 
         u->ip_accounting_ingress_map_fd = -1;
         u->ip_accounting_egress_map_fd = -1;
