@@ -20,6 +20,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <linux/magic.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
@@ -40,8 +41,14 @@
 #include "path-util.h"
 #include "strv.h"
 
+const char *arg_target = NULL;
+bool arg_dry_run = false;
+
 static int resize_ext4(const char *path, int mountfd, int devfd, uint64_t numblocks, uint64_t blocksize) {
         assert((uint64_t) (int) blocksize == blocksize);
+
+        if (arg_dry_run)
+                return 0;
 
         if (ioctl(mountfd, EXT4_IOC_RESIZE_FS, &numblocks) != 0)
                 return log_error_errno(errno, "Failed to resize \"%s\" to %"PRIu64" blocks (ext4): %m",
@@ -65,6 +72,9 @@ static int resize_btrfs(const char *path, int mountfd, int devfd, uint64_t numbl
         r = snprintf(args.name, sizeof(args.name), "%"PRIu64, numblocks * blocksize);
         /* The buffer is large enough for any number to fit... */
         assert((size_t) r < sizeof(args.name));
+
+        if (arg_dry_run)
+                return 0;
 
         if (ioctl(mountfd, BTRFS_IOC_RESIZE, &args) != 0)
                 return log_error_errno(errno, "Failed to resize \"%s\" to %"PRIu64" blocks (btrfs): %m",
@@ -101,6 +111,9 @@ static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_
         r = crypt_load(cd, CRYPT_LUKS, NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to load LUKS metadata for %s: %m", devpath);
+
+        if (arg_dry_run)
+                return 0;
 
         r = crypt_resize(cd, main_devpath, 0);
         if (r < 0)
@@ -148,6 +161,65 @@ static int maybe_resize_slave_device(const char *mountpath, dev_t main_devno) {
         return 0;
 }
 
+static void help(void) {
+        printf("%s [OPTIONS...] /path/to/mountpoint\n\n"
+               "Grow filesystem or encrypted payload to device size.\n\n"
+               "Options:\n"
+               "  -h --help          Show this help and exit\n"
+               "     --version       Print version string and exit\n"
+               "  -n --dry-run       Just print what would be done\n"
+               , program_invocation_short_name);
+}
+
+static int parse_argv(int argc, char *argv[]) {
+        enum {
+                ARG_VERSION = 0x100,
+        };
+
+        int c;
+
+        static const struct option options[] = {
+                { "help",         no_argument,       NULL, 'h'           },
+                { "version" ,     no_argument,       NULL, ARG_VERSION   },
+                { "dry-run",      no_argument,       NULL, 'n'           },
+                {}
+        };
+
+        assert(argc >= 0);
+        assert(argv);
+
+        while ((c = getopt_long(argc, argv, "hn", options, NULL)) >= 0)
+                switch(c) {
+                case 'h':
+                        help();
+                        return 0;
+
+                case ARG_VERSION:
+                        version();
+                        return 0;
+
+                case 'n':
+                        arg_dry_run = true;
+                        break;
+
+                case '?':
+                        return -EINVAL;
+
+                default:
+                        assert_not_reached("Unhandled option");
+                }
+
+        if (optind + 1 != argc) {
+                log_error("%s excepts exactly one argument (the mount point).",
+                          program_invocation_short_name);
+                return -EINVAL;
+        }
+
+        arg_target = argv[optind];
+
+        return 1;
+}
+
 int main(int argc, char *argv[]) {
         dev_t devno;
         _cleanup_close_ int mountfd = -1, devfd = -1;
@@ -157,38 +229,39 @@ int main(int argc, char *argv[]) {
         struct statfs sfs;
         int r;
 
-        if (argc != 2) {
-                log_error("This program requires one argument (the mountpoint).");
-                return EXIT_FAILURE;
-        }
-
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
 
-        r = path_is_mount_point(argv[1], NULL, 0);
+        r = parse_argv(argc, argv);
+        if (r < 0)
+                return EXIT_FAILURE;
+        if (r == 0)
+                return EXIT_SUCCESS;
+
+        r = path_is_mount_point(arg_target, NULL, 0);
         if (r < 0) {
-                log_error_errno(r, "Failed to check if \"%s\" is a mount point: %m", argv[1]);
+                log_error_errno(r, "Failed to check if \"%s\" is a mount point: %m", arg_target);
                 return EXIT_FAILURE;
         }
         if (r == 0) {
-                log_error_errno(r, "\"%s\" is not a mount point: %m", argv[1]);
+                log_error_errno(r, "\"%s\" is not a mount point: %m", arg_target);
                 return EXIT_FAILURE;
         }
 
-        r = get_block_device(argv[1], &devno);
+        r = get_block_device(arg_target, &devno);
         if (r < 0) {
-                log_error_errno(r, "Failed to determine block device of \"%s\": %m", argv[1]);
+                log_error_errno(r, "Failed to determine block device of \"%s\": %m", arg_target);
                 return EXIT_FAILURE;
         }
 
-        r = maybe_resize_slave_device(argv[1], devno);
+        r = maybe_resize_slave_device(arg_target, devno);
         if (r < 0)
                 return EXIT_FAILURE;
 
-        mountfd = open(argv[1], O_RDONLY|O_CLOEXEC);
+        mountfd = open(arg_target, O_RDONLY|O_CLOEXEC);
         if (mountfd < 0) {
-                log_error_errno(errno, "Failed to open \"%s\": %m", argv[1]);
+                log_error_errno(errno, "Failed to open \"%s\": %m", arg_target);
                 return EXIT_FAILURE;
         }
 
@@ -216,20 +289,20 @@ int main(int argc, char *argv[]) {
         numblocks = size / blocksize;
 
         if (fstatfs(mountfd, &sfs) < 0) {
-                log_error_errno(errno, "Failed to stat file system \"%s\": %m", argv[1]);
+                log_error_errno(errno, "Failed to stat file system \"%s\": %m", arg_target);
                 return EXIT_FAILURE;
         }
 
         switch(sfs.f_type) {
         case EXT4_SUPER_MAGIC:
-                r = resize_ext4(argv[1], mountfd, devfd, numblocks, blocksize);
+                r = resize_ext4(arg_target, mountfd, devfd, numblocks, blocksize);
                 break;
         case BTRFS_SUPER_MAGIC:
-                r = resize_btrfs(argv[1], mountfd, devfd, numblocks, blocksize);
+                r = resize_btrfs(arg_target, mountfd, devfd, numblocks, blocksize);
                 break;
         default:
                 log_error("Don't know how to resize fs %llx on \"%s\"",
-                          (long long unsigned) sfs.f_type, argv[1]);
+                          (long long unsigned) sfs.f_type, arg_target);
                 return EXIT_FAILURE;
         }
 
@@ -237,6 +310,6 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
 
         log_info("Successfully resized \"%s\" to %s bytes (%"PRIu64" blocks of %d bytes).",
-                 argv[1], format_bytes(fb, sizeof fb, size), numblocks, blocksize);
+                 arg_target, format_bytes(fb, sizeof fb, size), numblocks, blocksize);
         return EXIT_SUCCESS;
 }
