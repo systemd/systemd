@@ -22,20 +22,18 @@
 #include <string.h>
 #include <unistd.h>
 
-#if HAVE_KMOD
-#include <libkmod.h>
-#endif
-
 #include "alloc-util.h"
 #include "bus-util.h"
 #include "capability-util.h"
 #include "fileio.h"
 #include "kmod-setup.h"
 #include "macro.h"
-#include "module-util.h"
 #include "string-util.h"
 
 #if HAVE_KMOD
+#include <libkmod.h>
+#include "module-util.h"
+
 static void systemd_kmod_log(
                 void *data,
                 int priority,
