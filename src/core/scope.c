@@ -460,18 +460,6 @@ static int scope_deserialize_item(Unit *u, const char *key, const char *value, F
         return 0;
 }
 
-static bool scope_check_gc(Unit *u) {
-        assert(u);
-
-        /* Never clean up scopes that still have a process around,
-         * even if the scope is formally dead. */
-
-        if (!u->cgroup_path)
-                return false;
-
-        return cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path) <= 0;
-}
-
 static void scope_notify_cgroup_empty_event(Unit *u) {
         Scope *s = SCOPE(u);
         assert(u);
@@ -638,8 +626,6 @@ const UnitVTable scope_vtable = {
 
         .active_state = scope_active_state,
         .sub_state_to_string = scope_sub_state_to_string,
-
-        .check_gc = scope_check_gc,
 
         .sigchld_event = scope_sigchld_event,
 

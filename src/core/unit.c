@@ -334,6 +334,7 @@ int unit_set_description(Unit *u, const char *description) {
 
 bool unit_check_gc(Unit *u) {
         UnitActiveState state;
+        int r;
 
         assert(u);
 
@@ -379,6 +380,17 @@ bool unit_check_gc(Unit *u) {
 
         default:
                 assert_not_reached("Unknown garbage collection mode");
+        }
+
+        if (u->cgroup_path) {
+                /* If the unit has a cgroup, then check whether there's anything in it. If so, we should stay
+                 * around. Units with active processes should never be collected. */
+
+                r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path);
+                if (r < 0)
+                        log_unit_debug_errno(u, r, "Failed to determine whether cgroup %s is empty: %m", u->cgroup_path);
+                if (r <= 0)
+                        return true;
         }
 
         if (UNIT_VTABLE(u)->check_gc)

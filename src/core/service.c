@@ -2716,10 +2716,11 @@ static bool service_check_gc(Unit *u) {
 
         assert(s);
 
-        /* Never clean up services that still have a process around,
-         * even if the service is formally dead. */
-        if (cgroup_good(s) > 0 ||
-            main_pid_good(s) > 0 ||
+        /* Never clean up services that still have a process around, even if the service is formally dead. Note that
+         * unit_check_gc() already checked our cgroup for us, we just check our two additional PIDs, too, in case they
+         * have moved outside of the cgroup. */
+
+        if (main_pid_good(s) > 0 ||
             control_pid_good(s) > 0)
                 return true;
 
