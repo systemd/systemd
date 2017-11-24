@@ -8084,7 +8084,7 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "HPrhkKtafFc", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "HPrhkKat:fFc", options, NULL)) >= 0)
                 switch (c) {
 
                 case ARG_HELP:
@@ -8123,8 +8123,8 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                         arg_no_wall = true;
                         break;
 
-                case 't':
                 case 'a':
+                case 't': /* Note that we also ignore any passed argument to -t, not just the -t itself */
                 case 'f':
                 case 'F':
                         /* Compatibility nops */
