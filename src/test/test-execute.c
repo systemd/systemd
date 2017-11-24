@@ -560,6 +560,9 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        (void) unsetenv("USER");
+        (void) unsetenv("LOGNAME");
+
         /* It is needed otherwise cgroup creation fails */
         if (getuid() != 0) {
                 puts("Skipping test: not root");
