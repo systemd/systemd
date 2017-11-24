@@ -41,6 +41,10 @@
  *
  */
 
+/* Any ASCII character or digit: our pool of potential specifiers,
+ * and "%" used for escaping. */
+#define POSSIBLE_SPECIFIERS ALPHANUMERICAL "%"
+
 int specifier_printf(const char *text, const Specifier table[], void *userdata, char **_ret) {
         char *ret, *t;
         const char *f;
@@ -97,7 +101,10 @@ int specifier_printf(const char *text, const Specifier table[], void *userdata, 
 
                                         ret = n;
                                         t = n + j + k;
-                                } else {
+                                } else if (strchr(POSSIBLE_SPECIFIERS, *f))
+                                        /* Oops, an unknown specifier. */
+                                        return -EBADSLT;
+                                else {
                                         *(t++) = '%';
                                         *(t++) = *f;
                                 }

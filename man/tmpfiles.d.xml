@@ -594,6 +594,7 @@ r! /tmp/.X[0-9]*-lock</programlisting>
     <title>Specifiers</title>
 
     <para>Specifiers can be used in the "path" and "argument" fields.
+    An unknown or unresolvable specifier is treated as invalid configuration.
     The following expansions are understood:</para>
       <table>
         <title>Specifiers available</title>

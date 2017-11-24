@@ -1867,7 +1867,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                         &age,
                         NULL);
         if (r < 0) {
-                if (r == -EINVAL) /* invalid quoting and such */
+                if (IN_SET(r, -EINVAL, -EBADSLT))
+                        /* invalid quoting and such or an unknown specifier */
                         *invalid_config = true;
                 return log_error_errno(r, "[%s:%u] Failed to parse line: %m", fname, line);
         }
@@ -1916,8 +1917,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
         if (r == -ENOKEY)
                 return log_unresolvable_specifier(fname, line);
         if (r < 0) {
-                /* ENOMEM is the only return value left after ENOKEY,
-                 * so *invalid_config should not be set. */
+                if (IN_SET(r, -EINVAL, -EBADSLT))
+                        *invalid_config = true;
                 return log_error_errno(r, "[%s:%u] Failed to replace specifiers: %s", fname, line, path);
         }
 
@@ -2028,7 +2029,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                         return -EBADMSG;
                 }
                 r = parse_attribute_from_arg(&i);
-                if (r == -EINVAL)
+                if (IN_SET(r, -EINVAL, -EBADSLT))
                         *invalid_config = true;
                 if (r < 0)
                         return r;
@@ -2054,9 +2055,12 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
         r = specifier_expansion_from_arg(&i);
         if (r == -ENOKEY)
                 return log_unresolvable_specifier(fname, line);
-        if (r < 0)
+        if (r < 0) {
+                if (IN_SET(r, -EINVAL, -EBADSLT))
+                        *invalid_config = true;
                 return log_error_errno(r, "[%s:%u] Failed to substitute specifiers in argument: %m",
                                        fname, line);
+        }
 
         if (arg_root) {
                 char *p;

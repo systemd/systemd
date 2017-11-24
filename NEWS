@@ -7,6 +7,13 @@ CHANGES WITH 236 in spe:
           numdummies=0, preventing the kernel from automatically creating
           dummy0. All dummy interfaces must now be explicitly created.
 
+        * Unknown specifiers are now rejected. This applies to units and
+          tmpfiles.d configuration. Any percent characters that are followed by
+          a letter or digit that are not supposed to be interpreted as the
+          beginning of a specifier should be escaped by doubling ("%%").
+          (So "size=5%" is still accepted, as well as "size=5%,foo=bar", but
+          not "LABEL=x%y%z" since %y and %z are not valid specifiers today.)
+
         * systemd-resolved now maintains a new dynamic
           /run/systemd/resolve/stub-resolv.conf compatibility file. It is
           recommended to make /etc/resolv.conf a symlink to it. This file
