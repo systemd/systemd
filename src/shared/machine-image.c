@@ -649,13 +649,8 @@ int image_rename(Image *i, const char *new_name) {
         if (file_attr & FS_IMMUTABLE_FL)
                 (void) chattr_path(new_path, FS_IMMUTABLE_FL, FS_IMMUTABLE_FL);
 
-        free(i->path);
-        i->path = new_path;
-        new_path = NULL;
-
-        free(i->name);
-        i->name = nn;
-        nn = NULL;
+        free_and_replace(i->path, new_path);
+        free_and_replace(i->name, nn);
 
         STRV_FOREACH(j, settings) {
                 r = rename_auxiliary_file(*j, new_name, ".nspawn");

@@ -493,8 +493,7 @@ _public_ struct udev_monitor *udev_monitor_unref(struct udev_monitor *udev_monit
                 close(udev_monitor->sock);
         udev_list_cleanup(&udev_monitor->filter_subsystem_list);
         udev_list_cleanup(&udev_monitor->filter_tag_list);
-        free(udev_monitor);
-        return NULL;
+        return mfree(udev_monitor);
 }
 
 /**

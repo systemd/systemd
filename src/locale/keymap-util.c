@@ -201,9 +201,7 @@ static int x11_read_data(Context *c) {
                                         p = &c->x11_options;
 
                                 if (p) {
-                                        free(*p);
-                                        *p = a[2];
-                                        a[2] = NULL;
+                                        free_and_replace(*p, a[2]);
                                 }
                         }
 

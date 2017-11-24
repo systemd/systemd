@@ -648,8 +648,7 @@ DissectedImage* dissected_image_unref(DissectedImage *m) {
         strv_free(m->machine_info);
         strv_free(m->os_release);
 
-        free(m);
-        return NULL;
+        return mfree(m);
 }
 
 static int is_loop_device(const char *path) {

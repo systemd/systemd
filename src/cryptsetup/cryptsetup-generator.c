@@ -337,9 +337,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                         d->create = arg_whitelist = true;
 
-                        free(d->name);
-                        d->name = uuid_value;
-                        uuid_value = NULL;
+                        free_and_replace(d->name, uuid_value);
                 } else
                         log_warning("Failed to parse luks name switch %s. Ignoring.", value);
         }

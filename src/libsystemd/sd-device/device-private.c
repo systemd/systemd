@@ -678,13 +678,9 @@ static int device_update_properties_bufs(sd_device *device) {
                 i++;
         }
 
-        free(device->properties_nulstr);
-        device->properties_nulstr = buf_nulstr;
-        buf_nulstr = NULL;
+        free_and_replace(device->properties_nulstr, buf_nulstr);
         device->properties_nulstr_len = nulstr_len;
-        free(device->properties_strv);
-        device->properties_strv = buf_strv;
-        buf_strv = NULL;
+        free_and_replace(device->properties_strv, buf_strv);
 
         device->properties_buf_outdated = false;
 

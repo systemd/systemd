@@ -78,8 +78,7 @@ Condition* condition_new(ConditionType type, const char *parameter, bool trigger
 
         r = free_and_strdup(&c->parameter, parameter);
         if (r < 0) {
-                free(c);
-                return NULL;
+                return mfree(c);
         }
 
         return c;

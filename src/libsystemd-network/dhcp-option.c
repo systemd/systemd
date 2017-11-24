@@ -191,9 +191,7 @@ static int parse_options(const uint8_t options[], size_t buflen, uint8_t *overlo
                                 if (!ascii_is_valid(string))
                                         return -EINVAL;
 
-                                free(*error_message);
-                                *error_message = string;
-                                string = NULL;
+                                free_and_replace(*error_message, string);
                         }
 
                         break;

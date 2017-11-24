@@ -136,8 +136,7 @@ _public_ struct udev *udev_unref(struct udev *udev) {
         udev->refcount--;
         if (udev->refcount > 0)
                 return udev;
-        free(udev);
-        return NULL;
+        return mfree(udev);
 }
 
 /**
