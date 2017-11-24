@@ -957,7 +957,6 @@ static int print_image_machine_id(sd_bus *bus, const char *name) {
 
 static int print_image_machine_info(sd_bus *bus, const char *name) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_strv_free_ char **l = NULL;
         int r;
 
         r = sd_bus_call_method(
