@@ -32,49 +32,55 @@
 
 #include "alloc-util.h"
 #include "dirent-util.h"
+#include "fd-util.h"
 #include "string-util.h"
+#include "sysexits.h"
 #include "udev.h"
+#include "udev-util.h"
 
 _printf_(2,3)
-static int path_prepend(char **path, const char *fmt, ...) {
+static void path_prepend(char **path, const char *fmt, ...) {
         va_list va;
-        char *pre;
-        int err = 0;
+        _cleanup_free_ char *pre = NULL;
+        int r;
 
         va_start(va, fmt);
-        err = vasprintf(&pre, fmt, va);
+        r = vasprintf(&pre, fmt, va);
         va_end(va);
-        if (err < 0)
-                goto out;
+        if (r < 0) {
+                log_oom();
+                exit(EX_OSERR);
+        }
 
-        if (*path != NULL) {
+        if (*path) {
                 char *new;
 
-                err = asprintf(&new, "%s-%s", pre, *path);
-                free(pre);
-                if (err < 0)
-                        goto out;
-                free(*path);
-                *path = new;
+                new = strjoin(pre, "-", *path);
+                if (!new) {
+                        log_oom();
+                        exit(EX_OSERR);
+                }
+
+                free_and_replace(*path, new);
         } else {
                 *path = pre;
+                pre = NULL;
         }
-out:
-        return err;
 }
 
 /*
 ** Linux only supports 32 bit luns.
 ** See drivers/scsi/scsi_scan.c::scsilun_to_int() for more details.
 */
-static int format_lun_number(struct udev_device *dev, char **path) {
+static void format_lun_number(struct udev_device *dev, char **path) {
         unsigned long lun = strtoul(udev_device_get_sysnum(dev), NULL, 10);
 
-        /* address method 0, peripheral device addressing with bus id of zero */
         if (lun < 256)
-                return path_prepend(path, "lun-%lu", lun);
-        /* handle all other lun addressing methods by using a variant of the original lun format */
-        return path_prepend(path, "lun-0x%04lx%04lx00000000", lun & 0xffff, (lun >> 16) & 0xffff);
+                /* address method 0, peripheral device addressing with bus id of zero */
+                path_prepend(path, "lun-%lu", lun);
+        else
+                /* handle all other lun addressing methods by using a variant of the original lun format */
+                path_prepend(path, "lun-0x%04lx%04lx00000000", lun & 0xffff, (lun >> 16) & 0xffff);
 }
 
 static struct udev_device *skip_subsystem(struct udev_device *dev, const char *subsys) {
@@ -83,167 +89,149 @@ static struct udev_device *skip_subsystem(struct udev_device *dev, const char *s
         assert(dev);
         assert(subsys);
 
-        while (parent != NULL) {
+        while (parent) {
                 const char *subsystem;
 
                 subsystem = udev_device_get_subsystem(parent);
-                if (subsystem == NULL || !streq(subsystem, subsys))
+                if (!streq_ptr(subsystem, subsys))
                         break;
+
                 dev = parent;
                 parent = udev_device_get_parent(parent);
         }
+
         return dev;
 }
 
 static struct udev_device *handle_scsi_fibre_channel(struct udev_device *parent, char **path) {
-        struct udev *udev  = udev_device_get_udev(parent);
+        struct udev *udev;
         struct udev_device *targetdev;
-        struct udev_device *fcdev = NULL;
+        _cleanup_udev_device_unref_ struct udev_device *fcdev = NULL;
         const char *port;
-        char *lun = NULL;
+        _cleanup_free_ char *lun = NULL;
 
         assert(parent);
         assert(path);
 
+        udev = udev_device_get_udev(parent);
+
         targetdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_target");
-        if (targetdev == NULL)
+        if (!targetdev)
                 return NULL;
 
         fcdev = udev_device_new_from_subsystem_sysname(udev, "fc_transport", udev_device_get_sysname(targetdev));
-        if (fcdev == NULL)
+        if (!fcdev)
                 return NULL;
+
         port = udev_device_get_sysattr_value(fcdev, "port_name");
-        if (port == NULL) {
-                parent = NULL;
-                goto out;
-        }
+        if (!port)
+                return NULL;
 
         format_lun_number(parent, &lun);
         path_prepend(path, "fc-%s-%s", port, lun);
-        free(lun);
-out:
-        udev_device_unref(fcdev);
         return parent;
 }
 
 static struct udev_device *handle_scsi_sas_wide_port(struct udev_device *parent, char **path) {
-        struct udev *udev  = udev_device_get_udev(parent);
-        struct udev_device *targetdev;
-        struct udev_device *target_parent;
-        struct udev_device *sasdev;
+        struct udev *udev;
+        struct udev_device *targetdev, *target_parent;
+        _cleanup_udev_device_unref_ struct udev_device *sasdev = NULL;
         const char *sas_address;
-        char *lun = NULL;
+        _cleanup_free_ char *lun = NULL;
 
         assert(parent);
         assert(path);
 
+        udev = udev_device_get_udev(parent);
+
         targetdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_target");
-        if (targetdev == NULL)
+        if (!targetdev)
                 return NULL;
 
         target_parent = udev_device_get_parent(targetdev);
-        if (target_parent == NULL)
+        if (!target_parent)
                 return NULL;
 
         sasdev = udev_device_new_from_subsystem_sysname(udev, "sas_device",
-                                udev_device_get_sysname(target_parent));
-        if (sasdev == NULL)
+                                                        udev_device_get_sysname(target_parent));
+        if (!sasdev)
                 return NULL;
 
         sas_address = udev_device_get_sysattr_value(sasdev, "sas_address");
-        if (sas_address == NULL) {
-                parent = NULL;
-                goto out;
-        }
+        if (!sas_address)
+                return NULL;
 
         format_lun_number(parent, &lun);
         path_prepend(path, "sas-%s-%s", sas_address, lun);
-        free(lun);
-out:
-        udev_device_unref(sasdev);
         return parent;
 }
 
 static struct udev_device *handle_scsi_sas(struct udev_device *parent, char **path)
 {
-        struct udev *udev  = udev_device_get_udev(parent);
-        struct udev_device *targetdev;
-        struct udev_device *target_parent;
-        struct udev_device *port;
-        struct udev_device *expander;
-        struct udev_device *target_sasdev = NULL;
-        struct udev_device *expander_sasdev = NULL;
-        struct udev_device *port_sasdev = NULL;
+        struct udev *udev;
+        struct udev_device *targetdev, *target_parent, *port, *expander;
+        _cleanup_udev_device_unref_ struct udev_device
+                *target_sasdev = NULL, *expander_sasdev = NULL, *port_sasdev = NULL;
         const char *sas_address = NULL;
         const char *phy_id;
         const char *phy_count;
-        char *lun = NULL;
+        _cleanup_free_ char *lun = NULL;
 
         assert(parent);
         assert(path);
 
+        udev = udev_device_get_udev(parent);
+
         targetdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_target");
-        if (targetdev == NULL)
+        if (!targetdev)
                 return NULL;
 
         target_parent = udev_device_get_parent(targetdev);
-        if (target_parent == NULL)
+        if (!target_parent)
                 return NULL;
 
         /* Get sas device */
-        target_sasdev = udev_device_new_from_subsystem_sysname(udev,
-                          "sas_device", udev_device_get_sysname(target_parent));
-        if (target_sasdev == NULL)
+        target_sasdev = udev_device_new_from_subsystem_sysname(
+                        udev, "sas_device", udev_device_get_sysname(target_parent));
+        if (!target_sasdev)
                 return NULL;
 
         /* The next parent is sas port */
         port = udev_device_get_parent(target_parent);
-        if (port == NULL) {
-                parent = NULL;
-                goto out;
-        }
+        if (!port)
+                return NULL;
 
         /* Get port device */
-        port_sasdev = udev_device_new_from_subsystem_sysname(udev,
-                          "sas_port", udev_device_get_sysname(port));
+        port_sasdev = udev_device_new_from_subsystem_sysname(
+                udev, "sas_port", udev_device_get_sysname(port));
 
         phy_count = udev_device_get_sysattr_value(port_sasdev, "num_phys");
-        if (phy_count == NULL) {
-               parent = NULL;
-               goto out;
-        }
+        if (!phy_count)
+                return NULL;
 
         /* Check if we are simple disk */
-        if (strncmp(phy_count, "1", 2) != 0) {
-                 parent = handle_scsi_sas_wide_port(parent, path);
-                 goto out;
-        }
+        if (strncmp(phy_count, "1", 2) != 0)
+                return handle_scsi_sas_wide_port(parent, path);
 
         /* Get connected phy */
         phy_id = udev_device_get_sysattr_value(target_sasdev, "phy_identifier");
-        if (phy_id == NULL) {
-                parent = NULL;
-                goto out;
-        }
+        if (!phy_id)
+                return NULL;
 
         /* The port's parent is either hba or expander */
         expander = udev_device_get_parent(port);
-        if (expander == NULL) {
-                parent = NULL;
-                goto out;
-        }
+        if (!expander)
+                return NULL;
 
         /* Get expander device */
-        expander_sasdev = udev_device_new_from_subsystem_sysname(udev,
-                          "sas_device", udev_device_get_sysname(expander));
-        if (expander_sasdev != NULL) {
+        expander_sasdev = udev_device_new_from_subsystem_sysname(
+                        udev, "sas_device", udev_device_get_sysname(expander));
+        if (expander_sasdev) {
                  /* Get expander's address */
                  sas_address = udev_device_get_sysattr_value(expander_sasdev,
                                                     "sas_address");
-                 if (sas_address == NULL) {
-                        parent = NULL;
-                        goto out;
-                 }
+                 if (!sas_address)
+                         return NULL;
         }
 
         format_lun_number(parent, &lun);
@@ -252,33 +240,27 @@ static struct udev_device *handle_scsi_sas(struct udev_device *parent, char **pa
         else
                  path_prepend(path, "sas-phy%s-%s", phy_id, lun);
 
-        free(lun);
-out:
-        udev_device_unref(target_sasdev);
-        udev_device_unref(expander_sasdev);
-        udev_device_unref(port_sasdev);
         return parent;
 }
 
 static struct udev_device *handle_scsi_iscsi(struct udev_device *parent, char **path) {
-        struct udev *udev  = udev_device_get_udev(parent);
+        struct udev *udev;
         struct udev_device *transportdev;
-        struct udev_device *sessiondev = NULL;
-        const char *target;
-        char *connname;
-        struct udev_device *conndev = NULL;
-        const char *addr;
-        const char *port;
-        char *lun = NULL;
+        _cleanup_udev_device_unref_ struct udev_device
+                *sessiondev = NULL, *conndev = NULL;
+        const char *target, *connname, *addr, *port;
+        _cleanup_free_ char *lun = NULL;
 
         assert(parent);
         assert(path);
+
+        udev = udev_device_get_udev(parent);
 
         /* find iscsi session */
         transportdev = parent;
         for (;;) {
                 transportdev = udev_device_get_parent(transportdev);
-                if (transportdev == NULL)
+                if (!transportdev)
                         return NULL;
                 if (startswith(udev_device_get_sysname(transportdev), "session"))
                         break;
@@ -286,49 +268,38 @@ static struct udev_device *handle_scsi_iscsi(struct udev_device *parent, char **
 
         /* find iscsi session device */
         sessiondev = udev_device_new_from_subsystem_sysname(udev, "iscsi_session", udev_device_get_sysname(transportdev));
-        if (sessiondev == NULL)
+        if (!sessiondev)
                 return NULL;
-        target = udev_device_get_sysattr_value(sessiondev, "targetname");
-        if (target == NULL) {
-                parent = NULL;
-                goto out;
-        }
 
-        if (asprintf(&connname, "connection%s:0", udev_device_get_sysnum(transportdev)) < 0) {
-                parent = NULL;
-                goto out;
-        }
+        target = udev_device_get_sysattr_value(sessiondev, "targetname");
+        if (!target)
+                return NULL;
+
+        connname = strjoina("connection", udev_device_get_sysnum(transportdev), ":0");
         conndev = udev_device_new_from_subsystem_sysname(udev, "iscsi_connection", connname);
-        free(connname);
-        if (conndev == NULL) {
-                parent = NULL;
-                goto out;
-        }
+        if (!conndev)
+                return NULL;
+
         addr = udev_device_get_sysattr_value(conndev, "persistent_address");
         port = udev_device_get_sysattr_value(conndev, "persistent_port");
-        if (addr == NULL || port == NULL) {
-                parent = NULL;
-                goto out;
-        }
+        if (!addr || !port)
+                return NULL;
 
         format_lun_number(parent, &lun);
         path_prepend(path, "ip-%s:%s-iscsi-%s-%s", addr, port, target, lun);
-        free(lun);
-out:
-        udev_device_unref(sessiondev);
-        udev_device_unref(conndev);
         return parent;
 }
 
 static struct udev_device *handle_scsi_ata(struct udev_device *parent, char **path) {
-        struct udev *udev  = udev_device_get_udev(parent);
-        struct udev_device *targetdev;
-        struct udev_device *target_parent;
-        struct udev_device *atadev;
+        struct udev *udev;
+        struct udev_device *targetdev, *target_parent;
+        _cleanup_udev_device_unref_ struct udev_device *atadev = NULL;
         const char *port_no;
 
         assert(parent);
         assert(path);
+
+        udev = udev_device_get_udev(parent);
 
         targetdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_host");
         if (!targetdev)
@@ -343,31 +314,26 @@ static struct udev_device *handle_scsi_ata(struct udev_device *parent, char **pa
                 return NULL;
 
         port_no = udev_device_get_sysattr_value(atadev, "port_no");
-        if (!port_no) {
-               parent = NULL;
-               goto out;
-        }
+        if (!port_no)
+                return NULL;
+
         path_prepend(path, "ata-%s", port_no);
-out:
-        udev_device_unref(atadev);
         return parent;
 }
 
 static struct udev_device *handle_scsi_default(struct udev_device *parent, char **path) {
         struct udev_device *hostdev;
         int host, bus, target, lun;
-        const char *name;
-        char *base;
-        char *pos;
-        DIR *dir;
+        const char *name, *base, *pos;
+        _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *dent;
-        int basenum;
+        int basenum = -1;
 
         assert(parent);
         assert(path);
 
         hostdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_host");
-        if (hostdev == NULL)
+        if (!hostdev)
                 return NULL;
 
         name = udev_device_get_sysname(parent);
@@ -391,21 +357,17 @@ static struct udev_device *handle_scsi_default(struct udev_device *parent, char 
          * this. Manual driver unbind/bind, parallel hotplug/unplug will
          * get into the way of this "I hope it works" logic.
          */
-        basenum = -1;
-        base = strdup(udev_device_get_syspath(hostdev));
-        if (base == NULL)
-                return NULL;
+
+        base = udev_device_get_syspath(hostdev);
         pos = strrchr(base, '/');
-        if (pos == NULL) {
-                parent = NULL;
-                goto out;
-        }
-        pos[0] = '\0';
+        if (!pos)
+                return NULL;
+
+        base = strndupa(base, pos - base);
         dir = opendir(base);
-        if (dir == NULL) {
-                parent = NULL;
-                goto out;
-        }
+        if (!dir)
+                return NULL;
+
         FOREACH_DIRENT_ALL(dent, dir, break) {
                 char *rest;
                 int i;
@@ -427,16 +389,11 @@ static struct udev_device *handle_scsi_default(struct udev_device *parent, char 
                 if (basenum == -1 || i < basenum)
                         basenum = i;
         }
-        closedir(dir);
-        if (basenum == -1) {
-                parent = NULL;
-                goto out;
-        }
+        if (basenum == -1)
+                return hostdev;
         host -= basenum;
 
         path_prepend(path, "scsi-%u:%u:%u:%u", host, bus, target, lun);
-out:
-        free(base);
         return hostdev;
 }
 
@@ -444,7 +401,7 @@ static struct udev_device *handle_scsi_hyperv(struct udev_device *parent, char *
         struct udev_device *hostdev;
         struct udev_device *vmbusdev;
         const char *guid_str;
-        char *lun = NULL;
+        _cleanup_free_ char *lun = NULL;
         char guid[38];
         size_t i, k;
 
@@ -475,62 +432,49 @@ static struct udev_device *handle_scsi_hyperv(struct udev_device *parent, char *
 
         format_lun_number(parent, &lun);
         path_prepend(path, "vmbus-%s-%s", guid, lun);
-        free(lun);
         return parent;
 }
 
 static struct udev_device *handle_scsi(struct udev_device *parent, char **path, bool *supported_parent) {
-        const char *devtype;
-        const char *name;
-        const char *id;
+        const char *devtype, *id, *name;
 
         devtype = udev_device_get_devtype(parent);
-        if (devtype == NULL || !streq(devtype, "scsi_device"))
+        if (!streq_ptr(devtype, "scsi_device"))
                 return parent;
 
         /* firewire */
         id = udev_device_get_sysattr_value(parent, "ieee1394_id");
-        if (id != NULL) {
-                parent = skip_subsystem(parent, "scsi");
+        if (id) {
                 path_prepend(path, "ieee1394-0x%s", id);
                 *supported_parent = true;
-                goto out;
+                return skip_subsystem(parent, "scsi");
         }
 
         /* scsi sysfs does not have a "subsystem" for the transport */
         name = udev_device_get_syspath(parent);
 
-        if (strstr(name, "/rport-") != NULL) {
-                parent = handle_scsi_fibre_channel(parent, path);
+        if (strstr(name, "/rport-")) {
                 *supported_parent = true;
-                goto out;
+                return handle_scsi_fibre_channel(parent, path);
         }
 
-        if (strstr(name, "/end_device-") != NULL) {
-                parent = handle_scsi_sas(parent, path);
+        if (strstr(name, "/end_device-")) {
                 *supported_parent = true;
-                goto out;
+                return handle_scsi_sas(parent, path);
         }
 
-        if (strstr(name, "/session") != NULL) {
-                parent = handle_scsi_iscsi(parent, path);
+        if (strstr(name, "/session")) {
                 *supported_parent = true;
-                goto out;
+                return handle_scsi_iscsi(parent, path);
         }
 
-        if (strstr(name, "/ata") != NULL) {
-                parent = handle_scsi_ata(parent, path);
-                goto out;
-        }
+        if (strstr(name, "/ata"))
+                return handle_scsi_ata(parent, path);
 
-        if (strstr(name, "/vmbus_") != NULL) {
-                parent = handle_scsi_hyperv(parent, path);
-                goto out;
-        }
+        if (strstr(name, "/vmbus_"))
+                return handle_scsi_hyperv(parent, path);
 
-        parent = handle_scsi_default(parent, path);
-out:
-        return parent;
+        return handle_scsi_default(parent, path);
 }
 
 static struct udev_device *handle_cciss(struct udev_device *parent, char **path) {
@@ -542,44 +486,40 @@ static struct udev_device *handle_cciss(struct udev_device *parent, char **path)
                 return NULL;
 
         path_prepend(path, "cciss-disk%u", disk);
-        parent = skip_subsystem(parent, "cciss");
-        return parent;
+        return skip_subsystem(parent, "cciss");
 }
 
 static void handle_scsi_tape(struct udev_device *dev, char **path) {
         const char *name;
 
         /* must be the last device in the syspath */
-        if (*path != NULL)
+        if (*path)
                 return;
 
         name = udev_device_get_sysname(dev);
-        if (startswith(name, "nst") && strchr("lma", name[3]) != NULL)
+        if (startswith(name, "nst") && strchr("lma", name[3]))
                 path_prepend(path, "nst%c", name[3]);
-        else if (startswith(name, "st") && strchr("lma", name[2]) != NULL)
+        else if (startswith(name, "st") && strchr("lma", name[2]))
                 path_prepend(path, "st%c", name[2]);
 }
 
 static struct udev_device *handle_usb(struct udev_device *parent, char **path) {
-        const char *devtype;
-        const char *str;
-        const char *port;
+        const char *devtype, *str, *port;
 
         devtype = udev_device_get_devtype(parent);
-        if (devtype == NULL)
+        if (!devtype)
                 return parent;
-        if (!streq(devtype, "usb_interface") && !streq(devtype, "usb_device"))
+        if (!STR_IN_SET(devtype, "usb_interface", "usb_device"))
                 return parent;
 
         str = udev_device_get_sysname(parent);
         port = strchr(str, '-');
-        if (port == NULL)
+        if (!port)
                 return parent;
         port++;
 
-        parent = skip_subsystem(parent, "usb");
         path_prepend(path, "usb-0:%s", port);
-        return parent;
+        return skip_subsystem(parent, "usb");
 }
 
 static struct udev_device *handle_bcma(struct udev_device *parent, char **path) {
@@ -604,19 +544,17 @@ static struct udev_device *handle_ap(struct udev_device *parent, char **path) {
         type = udev_device_get_sysattr_value(parent, "type");
         func = udev_device_get_sysattr_value(parent, "ap_functions");
 
-        if (type != NULL && func != NULL) {
+        if (type && func)
                 path_prepend(path, "ap-%s-%s", type, func);
-                goto out;
-        }
-        path_prepend(path, "ap-%s", udev_device_get_sysname(parent));
-out:
-        parent = skip_subsystem(parent, "ap");
-        return parent;
+        else
+                path_prepend(path, "ap-%s", udev_device_get_sysname(parent));
+
+        return skip_subsystem(parent, "ap");
 }
 
 static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool test) {
         struct udev_device *parent;
-        char *path = NULL;
+        _cleanup_free_ char *path = NULL;
         bool supported_transport = false;
         bool supported_parent = false;
 
@@ -624,11 +562,11 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
 
         /* walk up the chain of devices and compose path */
         parent = dev;
-        while (parent != NULL) {
+        while (parent) {
                 const char *subsys;
 
                 subsys = udev_device_get_subsystem(parent);
-                if (subsys == NULL) {
+                if (!subsys) {
                         ;
                 } else if (streq(subsys, "scsi_tape")) {
                         handle_scsi_tape(parent, &path);
@@ -706,13 +644,16 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
                         parent = udev_device_get_parent(parent);
         }
 
+        if (!path)
+                return EXIT_FAILURE;
+
         /*
          * Do not return devices with an unknown parent device type. They
          * might produce conflicting IDs if the parent does not provide a
          * unique and predictable name.
          */
         if (!supported_parent)
-                path = mfree(path);
+                return EXIT_FAILURE;
 
         /*
          * Do not return block devices without a well-known transport. Some
@@ -720,9 +661,9 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
          * and predictable name that way.
          */
         if (streq_ptr(udev_device_get_subsystem(dev), "block") && !supported_transport)
-                path = mfree(path);
+                return EXIT_FAILURE;
 
-        if (path != NULL) {
+        {
                 char tag[UTIL_NAME_SIZE];
                 size_t i;
                 const char *p;
@@ -754,10 +695,9 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
 
                 udev_builtin_add_property(dev, test, "ID_PATH", path);
                 udev_builtin_add_property(dev, test, "ID_PATH_TAG", tag);
-                free(path);
-                return EXIT_SUCCESS;
         }
-        return EXIT_FAILURE;
+
+        return EXIT_SUCCESS;
 }
 
 const struct udev_builtin udev_builtin_path_id = {
