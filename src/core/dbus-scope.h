@@ -30,3 +30,5 @@ int bus_scope_set_property(Unit *u, const char *name, sd_bus_message *i, UnitSet
 int bus_scope_commit_properties(Unit *u);
 
 int bus_scope_send_request_stop(Scope *s);
+
+int bus_scope_track_controller(Scope *s);
