@@ -314,14 +314,8 @@ static int prompt_keymap(void) {
 
         putchar('\n');
 
-        r = prompt_loop("Please enter system keymap name or number", kmaps, keymap_is_valid, &arg_keymap);
-        if (r < 0)
-                return r;
-
-        if (isempty(arg_keymap))
-                return 0;
-
-        return 0;
+        return prompt_loop("Please enter system keymap name or number",
+                           kmaps, keymap_is_valid, &arg_keymap);
 }
 
 static int process_keymap(void) {
