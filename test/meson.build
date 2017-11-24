@@ -111,6 +111,7 @@ test_data_files = '''
         test-execute/exec-runtimedirectory.service
         test-execute/exec-spec-interpolation.service
         test-execute/exec-specifier.service
+        test-execute/exec-specifier@.service
         test-execute/exec-stdin-data.service
         test-execute/exec-stdio-file.service
         test-execute/exec-supplementarygroups-multiple-groups-default-group-user.service
