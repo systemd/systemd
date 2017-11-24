@@ -403,9 +403,7 @@ int config_parse_network_zone(
                 return 0;
         }
 
-        free(settings->network_zone);
-        settings->network_zone = j;
-        j = NULL;
+        free_and_replace(settings->network_zone, j);
 
         return 0;
 }

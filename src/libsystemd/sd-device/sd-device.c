@@ -215,9 +215,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
         if (r < 0)
                 return r;
 
-        free(device->syspath);
-        device->syspath = syspath;
-        syspath = NULL;
+        free_and_replace(device->syspath, syspath);
 
         device->devpath = devpath;
 
@@ -347,9 +345,7 @@ int device_set_devtype(sd_device *device, const char *_devtype) {
         if (r < 0)
                 return r;
 
-        free(device->devtype);
-        device->devtype = devtype;
-        devtype = NULL;
+        free_and_replace(device->devtype, devtype);
 
         return 0;
 }
@@ -394,9 +390,7 @@ int device_set_devname(sd_device *device, const char *_devname) {
         if (r < 0)
                 return r;
 
-        free(device->devname);
-        device->devname = devname;
-        devname = NULL;
+        free_and_replace(device->devname, devname);
 
         return 0;
 }
@@ -761,9 +755,7 @@ int device_set_subsystem(sd_device *device, const char *_subsystem) {
         if (r < 0)
                 return r;
 
-        free(device->subsystem);
-        device->subsystem = subsystem;
-        subsystem = NULL;
+        free_and_replace(device->subsystem, subsystem);
 
         device->subsystem_set = true;
 
@@ -786,9 +778,7 @@ static int device_set_drivers_subsystem(sd_device *device, const char *_subsyste
         if (r < 0)
                 return r;
 
-        free(device->driver_subsystem);
-        device->driver_subsystem = subsystem;
-        subsystem = NULL;
+        free_and_replace(device->driver_subsystem, subsystem);
 
         return 0;
 }
@@ -936,9 +926,7 @@ int device_set_driver(sd_device *device, const char *_driver) {
         if (r < 0)
                 return r;
 
-        free(device->driver);
-        device->driver = driver;
-        driver = NULL;
+        free_and_replace(device->driver, driver);
 
         device->driver_set = true;
 
@@ -1045,9 +1033,7 @@ static int device_set_sysname(sd_device *device) {
         if (len == 0)
                 sysnum = NULL;
 
-        free(device->sysname);
-        device->sysname = sysname;
-        sysname = NULL;
+        free_and_replace(device->sysname, sysname);
 
         device->sysnum = sysnum;
 

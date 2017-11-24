@@ -786,9 +786,7 @@ static int parse_container_unix_address(sd_bus *b, const char **p, char **guid) 
                 if (!machine_name_is_valid(machine))
                         return -EINVAL;
 
-                free(b->machine);
-                b->machine = machine;
-                machine = NULL;
+                free_and_replace(b->machine, machine);
         } else {
                 b->machine = mfree(b->machine);
         }
