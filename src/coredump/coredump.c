@@ -1215,7 +1215,7 @@ static int gather_pid_metadata(
         if (get_process_environ(pid, &t) >= 0)
                 set_iovec_field_free(iovec, n_iovec, "COREDUMP_ENVIRON=", t);
 
-        t = strjoin("COREDUMP_TIMESTAMP=", context[CONTEXT_TIMESTAMP], "000000", NULL);
+        t = strjoin("COREDUMP_TIMESTAMP=", context[CONTEXT_TIMESTAMP], "000000");
         if (t)
                 iovec[(*n_iovec)++] = IOVEC_MAKE_STRING(t);
 

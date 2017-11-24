@@ -192,7 +192,7 @@ int pull_make_path(const char *url, const char *etag, const char *image_root, co
         }
 
         path = strjoin(image_root, "/", strempty(prefix), escaped_url, escaped_etag ? "." : "",
-                       strempty(escaped_etag), strempty(suffix), NULL);
+                       strempty(escaped_etag), strempty(suffix));
         if (!path)
                 return -ENOMEM;
 
@@ -210,7 +210,7 @@ int pull_make_path(const char *url, const char *etag, const char *image_root, co
                         return r;
 
                 path = strjoin(image_root, "/", strempty(prefix), hash, escaped_etag ? "." : "",
-                               strempty(escaped_etag), strempty(suffix), NULL);
+                               strempty(escaped_etag), strempty(suffix));
                 if (!path)
                         return -ENOMEM;
         }
