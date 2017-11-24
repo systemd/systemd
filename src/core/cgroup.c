@@ -1505,6 +1505,27 @@ static bool unit_has_mask_realized(
                  (!needs_bpf && u->cgroup_bpf_state == UNIT_CGROUP_BPF_OFF));
 }
 
+static void unit_add_to_cgroup_realize_queue(Unit *u) {
+        assert(u);
+
+        if (u->in_cgroup_realize_queue)
+                return;
+
+        LIST_PREPEND(cgroup_realize_queue, u->manager->cgroup_realize_queue, u);
+        u->in_cgroup_realize_queue = true;
+}
+
+static void unit_remove_from_cgroup_realize_queue(Unit *u) {
+        assert(u);
+
+        if (!u->in_cgroup_realize_queue)
+                return;
+
+        LIST_REMOVE(cgroup_realize_queue, u->manager->cgroup_realize_queue, u);
+        u->in_cgroup_realize_queue = false;
+}
+
+
 /* Check if necessary controllers and attributes for a unit are in place.
  *
  * If so, do nothing.
@@ -1518,10 +1539,7 @@ static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
 
         assert(u);
 
-        if (u->in_cgroup_realize_queue) {
-                LIST_REMOVE(cgroup_realize_queue, u->manager->cgroup_realize_queue, u);
-                u->in_cgroup_realize_queue = false;
-        }
+        unit_remove_from_cgroup_realize_queue(u);
 
         target_mask = unit_get_target_mask(u);
         enable_mask = unit_get_enable_mask(u);
@@ -1554,16 +1572,6 @@ static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
         return 0;
 }
 
-static void unit_add_to_cgroup_realize_queue(Unit *u) {
-        assert(u);
-
-        if (u->in_cgroup_realize_queue)
-                return;
-
-        LIST_PREPEND(cgroup_realize_queue, u->manager->cgroup_realize_queue, u);
-        u->in_cgroup_realize_queue = true;
-}
-
 unsigned manager_dispatch_cgroup_realize_queue(Manager *m) {
         ManagerState state;
         unsigned n = 0;
@@ -1576,6 +1584,12 @@ unsigned manager_dispatch_cgroup_realize_queue(Manager *m) {
 
         while ((i = m->cgroup_realize_queue)) {
                 assert(i->in_cgroup_realize_queue);
+
+                if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(i))) {
+                        /* Maybe things changed, and the unit is not actually active anymore? */
+                        unit_remove_from_cgroup_realize_queue(i);
+                        continue;
+                }
 
                 r = unit_realize_cgroup_now(i, state);
                 if (r < 0)
@@ -2353,7 +2367,6 @@ int unit_get_ip_accounting(
         fd = IN_SET(metric, CGROUP_IP_INGRESS_BYTES, CGROUP_IP_INGRESS_PACKETS) ?
                 u->ip_accounting_ingress_map_fd :
                 u->ip_accounting_egress_map_fd;
-
         if (fd < 0)
                 return -ENODATA;
 
