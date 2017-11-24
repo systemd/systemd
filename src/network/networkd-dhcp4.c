@@ -24,11 +24,14 @@
 #include "alloc-util.h"
 #include "dhcp-lease-internal.h"
 #include "hostname-util.h"
+#include "parse-util.h"
 #include "netdev/vrf.h"
 #include "network-internal.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
+#include "string-util.h"
+#include "sysctl-util.h"
 
 static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m,
                                void *userdata) {
@@ -584,6 +587,58 @@ static int dhcp4_set_hostname(Link *link) {
         }
 
         return sd_dhcp_client_set_hostname(link->dhcp_client, hn);
+}
+
+static bool promote_secondaries_enabled(const char *ifname) {
+        char *promote_secondaries_sysctl, *promote_secondaries_path;
+        int r;
+
+        promote_secondaries_path = strjoina("net/ipv4/conf/", ifname, "/promote_secondaries");
+        r = sysctl_read(promote_secondaries_path, &promote_secondaries_sysctl);
+        if (r < 0) {
+                log_debug_errno(r, "Cannot read sysctl %s", promote_secondaries_path);
+                return false;
+        }
+
+        truncate_nl(promote_secondaries_sysctl);
+        r = parse_boolean(promote_secondaries_sysctl);
+        if (r < 0)
+                log_warning_errno(r, "Cannot parse sysctl %s with content %s as boolean", promote_secondaries_path, promote_secondaries_sysctl);
+        return r > 0;
+}
+
+/* dhcp4_set_promote_secondaries will ensure this interface has
+ * the "promote_secondaries" option in the kernel set. If this sysctl
+ * is not set DHCP will work only as long as the IP address does not
+ * changes between leases. The kernel will remove all secondary IP
+ * addresses of an interface otherwise. The way systemd-network works
+ * is that the new IP of a lease is added as a secondary IP and when
+ * the primary one expires it relies on the kernel to promote the
+ * secondary IP. See also https://github.com/systemd/systemd/issues/7163
+ */
+int dhcp4_set_promote_secondaries(Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(link->network->dhcp & ADDRESS_FAMILY_IPV4);
+
+        /* check if the kernel has promote_secondaries enabled for our
+         * interface. If it is not globally enabled or enabled for the
+         * specific interface we must either enable it.
+         */
+        if (!(promote_secondaries_enabled("all") || promote_secondaries_enabled("default") || promote_secondaries_enabled(link->ifname))) {
+                char *promote_secondaries_path = NULL;
+
+                log_link_debug(link, "promote_secondaries is unset, setting it");
+                promote_secondaries_path = strjoina("net/ipv4/conf/", link->ifname, "/promote_secondaries");
+                r = sysctl_write(promote_secondaries_path, "1");
+                if (r < 0)
+                        log_link_warning_errno(link, r, "cannot set sysctl %s to 1", promote_secondaries_path);
+                return r > 0;
+        }
+
+        return 0;
 }
 
 int dhcp4_configure(Link *link) {

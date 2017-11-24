@@ -2621,6 +2621,10 @@ static int link_configure(Link *link) {
         }
 
         if (link_dhcp4_enabled(link)) {
+                r = dhcp4_set_promote_secondaries(link);
+                if (r < 0)
+                        return r;
+
                 r = dhcp4_configure(link);
                 if (r < 0)
                         return r;
