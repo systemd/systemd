@@ -1,5 +1,7 @@
 #!/bin/sh -eu
 
+export SYSTEMD_LOG_LEVEL=info
+
 # output width
 if "$1"  --help | grep -v 'default:' | grep -E -q '.{80}.'; then
         echo "$(basename "$1") --help output is too wide:"
