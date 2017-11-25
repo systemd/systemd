@@ -108,6 +108,12 @@
 #include "user-util.h"
 #include "util.h"
 
+#if HAVE_SPLIT_USR
+#define STATIC_RESOLV_CONF "/lib/systemd/resolv.conf"
+#else
+#define STATIC_RESOLV_CONF "/usr/lib/systemd/resolv.conf"
+#endif
+
 /* nspawn is listening on the socket at the path in the constant nspawn_notify_socket_path
  * nspawn_notify_socket_path is relative to the container
  * the init process in the container pid can send messages to nspawn following the sd_notify(3) protocol */
@@ -1406,7 +1412,7 @@ static int setup_resolv_conf(const char *dest) {
                 return 0;
         }
 
-        if (access("/usr/lib/systemd/resolv.conf", F_OK) >= 0 &&
+        if (access(STATIC_RESOLV_CONF, F_OK) >= 0 &&
             resolved_listening() > 0) {
 
                 /* resolved is enabled on the host. In this, case bind mount its static resolv.conf file into the
@@ -1418,7 +1424,7 @@ static int setup_resolv_conf(const char *dest) {
                 if (found == 0) /* missing? */
                         (void) touch(resolved);
 
-                r = mount_verbose(LOG_DEBUG, "/usr/lib/systemd/resolv.conf", resolved, NULL, MS_BIND, NULL);
+                r = mount_verbose(LOG_DEBUG, STATIC_RESOLV_CONF, resolved, NULL, MS_BIND, NULL);
                 if (r >= 0)
                         return mount_verbose(LOG_ERR, NULL, resolved, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL);
         }
