@@ -295,7 +295,6 @@ int bus_image_method_get_hostname(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Image *image = userdata;
         int r;
 

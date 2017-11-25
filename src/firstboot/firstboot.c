@@ -346,13 +346,15 @@ static int process_keymap(void) {
         if (r < 0)
                 return r;
 
-        if (!isempty(arg_keymap))
-                keymap = STRV_MAKE(strjoina("KEYMAP=", arg_keymap));
-
-        if (!keymap)
+        if (isempty(arg_keymap))
                 return 0;
 
-        mkdir_parents(etc_vconsoleconf, 0755);
+        keymap = STRV_MAKE(strjoina("KEYMAP=", arg_keymap));
+
+        r = mkdir_parents(etc_vconsoleconf, 0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create the parent directory of %s: %m", etc_vconsoleconf);
+
         r = write_env_file(etc_vconsoleconf, keymap);
         if (r < 0)
                 return log_error_errno(r, "Failed to write %s: %m", etc_vconsoleconf);
