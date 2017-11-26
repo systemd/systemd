@@ -95,6 +95,9 @@ sensor:modalias:acpi:KIOX000A*:dmi:svnChuwi*:pnHi13
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 # Chuwi HiBook
+# Chuwi HiBook does not have its product name filled, so we
+# match the entire dmi-alias, assuming that the use of a BOSC0200 +
+# bios-version + bios-date combo is unique
 sensor:modalias:acpi:BOSC0200*:dmi:*svnDefaultstring:pnDefaultstring:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
