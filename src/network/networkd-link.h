@@ -110,6 +110,7 @@ typedef struct Link {
         bool ipv4ll_route:1;
 
         bool static_configured;
+        bool setting_mtu;
 
         LIST_HEAD(Address, pool_addresses);
 

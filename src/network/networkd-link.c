@@ -1314,6 +1314,8 @@ int link_set_mtu(Link *link, uint32_t mtu) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
+        link->setting_mtu = true;
+
         link_ref(link);
 
         return 0;
@@ -1659,6 +1661,11 @@ static int link_acquire_conf(Link *link) {
         int r;
 
         assert(link);
+
+        if (link->setting_mtu) {
+                link->setting_mtu = false;
+                return 0;
+        }
 
         r = link_acquire_ipv4_conf(link);
         if (r < 0)
@@ -3100,6 +3107,9 @@ static int link_carrier_lost(Link *link) {
         int r;
 
         assert(link);
+
+        if (link->setting_mtu)
+                return 0;
 
         r = link_stop_clients(link);
         if (r < 0) {
