@@ -677,8 +677,10 @@ static void cgroup_apply_unified_memory_limit(Unit *u, const char *file, uint64_
                               "Failed to set %s: %m", file);
 }
 
-static void cgroup_apply_firewall(Unit *u, CGroupContext *c) {
+static void cgroup_apply_firewall(Unit *u) {
         int r;
+
+        assert(u);
 
         if (u->type == UNIT_SLICE) /* Skip this for slice units, they are inner cgroup nodes, and since bpf/cgroup is
                                     * not recursive we don't ever touch the bpf on them */
@@ -1031,7 +1033,7 @@ static void cgroup_context_apply(
         }
 
         if (apply_bpf)
-                cgroup_apply_firewall(u, c);
+                cgroup_apply_firewall(u);
 }
 
 CGroupMask cgroup_context_get_mask(CGroupContext *c) {
@@ -1392,6 +1394,31 @@ int unit_watch_cgroup(Unit *u) {
         return 0;
 }
 
+int unit_pick_cgroup_path(Unit *u) {
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        assert(u);
+
+        if (u->cgroup_path)
+                return 0;
+
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
+                return -EINVAL;
+
+        path = unit_default_cgroup_path(u);
+        if (!path)
+                return log_oom();
+
+        r = unit_set_cgroup_path(u, path);
+        if (r == -EEXIST)
+                return log_unit_error_errno(u, r, "Control group %s exists already.", path);
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Failed to set unit's control group path to %s: %m", path);
+
+        return 0;
+}
+
 static int unit_create_cgroup(
                 Unit *u,
                 CGroupMask target_mask,
@@ -1407,19 +1434,10 @@ static int unit_create_cgroup(
         if (!c)
                 return 0;
 
-        if (!u->cgroup_path) {
-                _cleanup_free_ char *path = NULL;
-
-                path = unit_default_cgroup_path(u);
-                if (!path)
-                        return log_oom();
-
-                r = unit_set_cgroup_path(u, path);
-                if (r == -EEXIST)
-                        return log_unit_error_errno(u, r, "Control group %s exists already.", path);
-                if (r < 0)
-                        return log_unit_error_errno(u, r, "Failed to set unit's control group path to %s: %m", path);
-        }
+        /* Figure out our cgroup path */
+        r = unit_pick_cgroup_path(u);
+        if (r < 0)
+                return r;
 
         /* First, create our own group */
         r = cg_create_everywhere(u->manager->cgroup_supported, target_mask, u->cgroup_path);
@@ -1503,6 +1521,27 @@ static bool unit_has_mask_realized(
                  (!needs_bpf && u->cgroup_bpf_state == UNIT_CGROUP_BPF_OFF));
 }
 
+static void unit_add_to_cgroup_realize_queue(Unit *u) {
+        assert(u);
+
+        if (u->in_cgroup_realize_queue)
+                return;
+
+        LIST_PREPEND(cgroup_realize_queue, u->manager->cgroup_realize_queue, u);
+        u->in_cgroup_realize_queue = true;
+}
+
+static void unit_remove_from_cgroup_realize_queue(Unit *u) {
+        assert(u);
+
+        if (!u->in_cgroup_realize_queue)
+                return;
+
+        LIST_REMOVE(cgroup_realize_queue, u->manager->cgroup_realize_queue, u);
+        u->in_cgroup_realize_queue = false;
+}
+
+
 /* Check if necessary controllers and attributes for a unit are in place.
  *
  * If so, do nothing.
@@ -1516,10 +1555,7 @@ static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
 
         assert(u);
 
-        if (u->in_cgroup_realize_queue) {
-                LIST_REMOVE(cgroup_realize_queue, u->manager->cgroup_realize_queue, u);
-                u->in_cgroup_realize_queue = false;
-        }
+        unit_remove_from_cgroup_realize_queue(u);
 
         target_mask = unit_get_target_mask(u);
         enable_mask = unit_get_enable_mask(u);
@@ -1552,16 +1588,6 @@ static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
         return 0;
 }
 
-static void unit_add_to_cgroup_realize_queue(Unit *u) {
-        assert(u);
-
-        if (u->in_cgroup_realize_queue)
-                return;
-
-        LIST_PREPEND(cgroup_realize_queue, u->manager->cgroup_realize_queue, u);
-        u->in_cgroup_realize_queue = true;
-}
-
 unsigned manager_dispatch_cgroup_realize_queue(Manager *m) {
         ManagerState state;
         unsigned n = 0;
@@ -1574,6 +1600,12 @@ unsigned manager_dispatch_cgroup_realize_queue(Manager *m) {
 
         while ((i = m->cgroup_realize_queue)) {
                 assert(i->in_cgroup_realize_queue);
+
+                if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(i))) {
+                        /* Maybe things changed, and the unit is not actually active anymore? */
+                        unit_remove_from_cgroup_realize_queue(i);
+                        continue;
+                }
 
                 r = unit_realize_cgroup_now(i, state);
                 if (r < 0)
@@ -2351,7 +2383,6 @@ int unit_get_ip_accounting(
         fd = IN_SET(metric, CGROUP_IP_INGRESS_BYTES, CGROUP_IP_INGRESS_PACKETS) ?
                 u->ip_accounting_ingress_map_fd :
                 u->ip_accounting_egress_map_fd;
-
         if (fd < 0)
                 return -ENODATA;
 
@@ -2421,7 +2452,7 @@ void unit_invalidate_cgroup(Unit *u, CGroupMask m) {
         if (m & (CGROUP_MASK_CPU | CGROUP_MASK_CPUACCT))
                 m |= CGROUP_MASK_CPU | CGROUP_MASK_CPUACCT;
 
-        if ((u->cgroup_realized_mask & m) == 0)
+        if ((u->cgroup_realized_mask & m) == 0) /* NOP? */
                 return;
 
         u->cgroup_realized_mask &= ~m;
@@ -2434,7 +2465,7 @@ void unit_invalidate_cgroup_bpf(Unit *u) {
         if (!UNIT_HAS_CGROUP_CONTEXT(u))
                 return;
 
-        if (u->cgroup_bpf_state == UNIT_CGROUP_BPF_INVALIDATED)
+        if (u->cgroup_bpf_state == UNIT_CGROUP_BPF_INVALIDATED) /* NOP? */
                 return;
 
         u->cgroup_bpf_state = UNIT_CGROUP_BPF_INVALIDATED;

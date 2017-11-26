@@ -938,9 +938,6 @@ static void mount_enter_mounting(Mount *m) {
 
         assert(m);
 
-        m->control_command_id = MOUNT_EXEC_MOUNT;
-        m->control_command = m->exec_command + MOUNT_EXEC_MOUNT;
-
         r = unit_fail_if_symlink(UNIT(m), m->where);
         if (r < 0)
                 goto fail;
@@ -948,6 +945,11 @@ static void mount_enter_mounting(Mount *m) {
         (void) mkdir_p_label(m->where, m->directory_mode);
 
         unit_warn_if_dir_nonempty(UNIT(m), m->where);
+
+        unit_warn_leftover_processes(UNIT(m));
+
+        m->control_command_id = MOUNT_EXEC_MOUNT;
+        m->control_command = m->exec_command + MOUNT_EXEC_MOUNT;
 
         /* Create the source directory for bind-mounts if needed */
         p = get_mount_parameters_fragment(m);

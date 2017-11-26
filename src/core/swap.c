@@ -734,6 +734,8 @@ static void swap_enter_activating(Swap *s) {
 
         assert(s);
 
+        unit_warn_leftover_processes(UNIT(s));
+
         s->control_command_id = SWAP_EXEC_ACTIVATE;
         s->control_command = s->exec_command + SWAP_EXEC_ACTIVATE;
 

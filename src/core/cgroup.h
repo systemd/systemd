@@ -169,6 +169,7 @@ void unit_update_cgroup_members_masks(Unit *u);
 
 char *unit_default_cgroup_path(Unit *u);
 int unit_set_cgroup_path(Unit *u, const char *path);
+int unit_pick_cgroup_path(Unit *u);
 
 int unit_realize_cgroup(Unit *u);
 void unit_release_cgroup(Unit *u);
