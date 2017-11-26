@@ -22,6 +22,7 @@
 
 set -e
 
+export SYSTEMD_LOG_LEVEL=info
 ROOTDIR=$(dirname $(dirname $(readlink -f $0)))
 SYSTEMD_HWDB=./systemd-hwdb
 
