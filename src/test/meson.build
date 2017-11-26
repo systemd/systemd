@@ -664,7 +664,8 @@ tests += [
           libshared],
          [threads,
           libxz,
-          liblz4]],
+          liblz4],
+         '', 'timeout=360'],
 
         [['src/journal/test-journal-stream.c'],
          [libjournal_core,

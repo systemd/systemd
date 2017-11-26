@@ -219,5 +219,6 @@ test('udev-test',
 if conf.get('ENABLE_HWDB') == 1
         hwdb_test_sh = find_program('hwdb-test.sh')
         test('hwdb-test',
-             hwdb_test_sh)
+             hwdb_test_sh,
+             timeout : 90)
 endif
