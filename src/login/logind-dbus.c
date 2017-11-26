@@ -1601,7 +1601,7 @@ static int execute_shutdown_or_sleep(
 
 error:
         /* Tell people that they now may take a lock again */
-        send_prepare_for(m, m->action_what, false);
+        (void) send_prepare_for(m, w, false);
 
         return r;
 }
@@ -1712,7 +1712,7 @@ int bus_manager_shutdown_or_sleep_now_or_later(
         assert(!m->action_job);
 
         /* Tell everybody to prepare for shutdown/sleep */
-        send_prepare_for(m, w, true);
+        (void) send_prepare_for(m, w, true);
 
         delayed =
                 m->inhibit_delay_max > 0 &&
@@ -2767,7 +2767,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                 log_info("Operation '%s' finished.", inhibit_what_to_string(m->action_what));
 
                 /* Tell people that they now may take a lock again */
-                send_prepare_for(m, m->action_what, false);
+                (void) send_prepare_for(m, m->action_what, false);
 
                 m->action_job = mfree(m->action_job);
                 m->action_unit = NULL;
