@@ -425,7 +425,7 @@ static void test_rename_process_multi(void) {
         /* child */
         test_rename_process_now("one", 1);
         test_rename_process_now("more", 0); /* longer than "one", hence truncated */
-        setresuid(99, 99, 99);
+        (void) setresuid(99, 99, 99); /* change uid when running privileged */
         test_rename_process_now("time!", 0);
         test_rename_process_now("0", 1); /* shorter than "one", should fit */
         test_rename_process_one("", -EINVAL);
