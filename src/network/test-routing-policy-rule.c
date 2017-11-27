@@ -96,5 +96,9 @@ int main(int argc, char **argv) {
         test_rule_serialization("outgoing interface",
                                 "RULE=from=1::2/64 to=2::3/64 oif=eth0 table=1", NULL);
 
+        test_rule_serialization("freeing interface names",
+                                "RULE=from=1::2/64 to=2::3/64 iif=e0 iif=e1 oif=e0 oif=e1 table=1",
+                                "RULE=from=1::2/64 to=2::3/64 iif=e1 oif=e1 table=1");
+
         return 0;
 }

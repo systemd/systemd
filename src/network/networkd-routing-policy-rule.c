@@ -1017,13 +1017,12 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                                 }
                         } else if (streq(a, "iif")) {
 
-                                rule->iif = strdup(b);
-                                if (!rule->iif)
+                                if (free_and_strdup(&rule->iif, b) < 0)
                                         return log_oom();
+
                         } else if (streq(a, "oif")) {
 
-                                rule->oif = strdup(b);
-                                if (!rule->oif)
+                                if (free_and_strdup(&rule->oif, b) < 0)
                                         return log_oom();
                         }
                 }
