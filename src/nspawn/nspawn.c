@@ -320,7 +320,7 @@ static int custom_mount_check_all(void) {
         return 0;
 }
 
-static int detect_unified_cgroup_hierarchy(const char *directory) {
+static int detect_unified_cgroup_hierarchy_from_environment(void) {
         const char *e;
         int r;
 
@@ -334,11 +334,16 @@ static int detect_unified_cgroup_hierarchy(const char *directory) {
                         arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_ALL;
                 else
                         arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
-
-                return 0;
         }
 
-        /* Otherwise inherit the default from the host system */
+        return 0;
+}
+
+static int detect_unified_cgroup_hierarchy_from_image(const char *directory) {
+        int r;
+
+        /* Let's inherit the mode to use from the host system, but let's take into consideration what systemd in the
+         * image actually supports. */
         r = cg_all_unified();
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether we are in all unified mode.");
@@ -363,6 +368,10 @@ static int detect_unified_cgroup_hierarchy(const char *directory) {
                         arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
         } else
                 arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
+
+        log_debug("Using %s hierarchy for container.",
+                  arg_unified_cgroup_hierarchy == CGROUP_UNIFIED_NONE ? "legacy" :
+                  arg_unified_cgroup_hierarchy == CGROUP_UNIFIED_SYSTEMD ? "hybrid" : "unified");
 
         return 0;
 }
@@ -2522,6 +2531,7 @@ static int outer_child(
                 int kmsg_socket,
                 int rtnl_socket,
                 int uid_shift_socket,
+                int unified_cgroup_hierarchy_socket,
                 FDSet *fds) {
 
         pid_t pid;
@@ -2606,6 +2616,24 @@ static int outer_child(
                 }
 
                 log_info("Selected user namespace base " UID_FMT " and range " UID_FMT ".", arg_uid_shift, arg_uid_range);
+        }
+
+        if (arg_unified_cgroup_hierarchy == CGROUP_UNIFIED_UNKNOWN) {
+                /* OK, we don't know yet which cgroup mode to use yet. Let's figure it out, and tell the parent. */
+
+                r = detect_unified_cgroup_hierarchy_from_image(directory);
+                if (r < 0)
+                        return r;
+
+                l = send(unified_cgroup_hierarchy_socket, &arg_unified_cgroup_hierarchy, sizeof(arg_unified_cgroup_hierarchy), MSG_NOSIGNAL);
+                if (l < 0)
+                        return log_error_errno(errno, "Failed to send cgroup mode: %m");
+                if (l != sizeof(arg_unified_cgroup_hierarchy)) {
+                        log_error("Short write while sending cgroup mode: %m");
+                        return -EIO;
+                }
+
+                unified_cgroup_hierarchy_socket = safe_close(unified_cgroup_hierarchy_socket);
         }
 
         /* Turn directory into bind mount */
@@ -3254,7 +3282,9 @@ static int run(int master,
                 pid_socket_pair[2] = { -1, -1 },
                 uuid_socket_pair[2] = { -1, -1 },
                 notify_socket_pair[2] = { -1, -1 },
-                uid_shift_socket_pair[2] = { -1, -1 };
+                uid_shift_socket_pair[2] = { -1, -1 },
+                unified_cgroup_hierarchy_socket_pair[2] = { -1, -1};
+
         _cleanup_close_ int notify_socket= -1;
         _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
@@ -3307,6 +3337,10 @@ static int run(int master,
                 if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, uid_shift_socket_pair) < 0)
                         return log_error_errno(errno, "Failed to create uid shift socket pair: %m");
 
+        if (arg_unified_cgroup_hierarchy == CGROUP_UNIFIED_UNKNOWN)
+                if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, unified_cgroup_hierarchy_socket_pair) < 0)
+                        return log_error_errno(errno, "Failed to create unified cgroup socket pair: %m");
+
         /* Child can be killed before execv(), so handle SIGCHLD in order to interrupt
          * parent's blocking calls and give it a chance to call wait() and terminate. */
         r = sigprocmask(SIG_UNBLOCK, &mask_chld, NULL);
@@ -3335,6 +3369,7 @@ static int run(int master,
                 uuid_socket_pair[0] = safe_close(uuid_socket_pair[0]);
                 notify_socket_pair[0] = safe_close(notify_socket_pair[0]);
                 uid_shift_socket_pair[0] = safe_close(uid_shift_socket_pair[0]);
+                unified_cgroup_hierarchy_socket_pair[0] = safe_close(unified_cgroup_hierarchy_socket_pair[0]);
 
                 (void) reset_all_signal_handlers();
                 (void) reset_signal_mask();
@@ -3351,6 +3386,7 @@ static int run(int master,
                                 kmsg_socket_pair[1],
                                 rtnl_socket_pair[1],
                                 uid_shift_socket_pair[1],
+                                unified_cgroup_hierarchy_socket_pair[1],
                                 fds);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
@@ -3368,6 +3404,7 @@ static int run(int master,
         uuid_socket_pair[1] = safe_close(uuid_socket_pair[1]);
         notify_socket_pair[1] = safe_close(notify_socket_pair[1]);
         uid_shift_socket_pair[1] = safe_close(uid_shift_socket_pair[1]);
+        unified_cgroup_hierarchy_socket_pair[1] = safe_close(unified_cgroup_hierarchy_socket_pair[1]);
 
         if (arg_userns_mode != USER_NAMESPACE_NO) {
                 /* The child just let us know the UID shift it might have read from the image. */
@@ -3395,6 +3432,17 @@ static int run(int master,
                                 log_error("Short write while writing UID shift.");
                                 return -EIO;
                         }
+                }
+        }
+
+        if (arg_unified_cgroup_hierarchy == CGROUP_UNIFIED_UNKNOWN) {
+                /* The child let us know the support cgroup mode it might have read from the image. */
+                l = recv(unified_cgroup_hierarchy_socket_pair[0], &arg_unified_cgroup_hierarchy, sizeof(arg_unified_cgroup_hierarchy), 0);
+                if (l < 0)
+                        return log_error_errno(errno, "Failed to read cgroup mode: %m");
+                if (l != sizeof(arg_unified_cgroup_hierarchy)) {
+                        log_error("Short read while reading cgroup mode.");
+                        return -EIO;
                 }
         }
 
@@ -3736,6 +3784,10 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
+        r = detect_unified_cgroup_hierarchy_from_environment();
+        if (r < 0)
+                goto finish;
+
         n_fd_passed = sd_listen_fds(false);
         if (n_fd_passed > 0) {
                 r = fdset_new_listen_fds(&fds, false);
@@ -3980,10 +4032,6 @@ int main(int argc, char *argv[]) {
         }
 
         r = custom_mount_prepare_all(arg_directory, arg_custom_mounts, arg_n_custom_mounts);
-        if (r < 0)
-                goto finish;
-
-        r = detect_unified_cgroup_hierarchy(arg_directory);
         if (r < 0)
                 goto finish;
 
