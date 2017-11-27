@@ -3458,13 +3458,13 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
         if (e) {
                 int status_errno;
 
-                if (safe_atoi(e, &status_errno) < 0 || status_errno < 0)
-                        log_unit_warning(u, "Failed to parse ERRNO= field in notification message: %s", e);
-                else {
-                        if (s->status_errno != status_errno) {
-                                s->status_errno = status_errno;
-                                notify_dbus = true;
-                        }
+                status_errno = parse_errno(e);
+                if (status_errno < 0)
+                        log_unit_warning_errno(u, status_errno,
+                                               "Failed to parse ERRNO= field in notification message: %s", e);
+                else if (s->status_errno != status_errno) {
+                        s->status_errno = status_errno;
+                        notify_dbus = true;
                 }
         }
 
