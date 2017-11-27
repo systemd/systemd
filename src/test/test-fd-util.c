@@ -104,7 +104,7 @@ static void test_open_serialization_fd(void) {
         fd = open_serialization_fd("test");
         assert_se(fd >= 0);
 
-        write(fd, "test\n", 5);
+        assert_se(write(fd, "test\n", 5) == 5);
 }
 
 static void test_acquire_data_fd_one(unsigned flags) {
