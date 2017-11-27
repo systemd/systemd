@@ -996,7 +996,7 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                                 }
                         } else if (streq(a, "fwmark")) {
 
-                                r = parse_fwmark_fwmask(a, &rule->fwmark, &rule->fwmask);
+                                r = parse_fwmark_fwmask(b, &rule->fwmark, &rule->fwmask);
                                 if (r < 0) {
                                         log_error_errno(r, "Failed to parse RPDB rule firewall mark or mask, ignoring: %s", a);
                                         continue;
