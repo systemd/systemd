@@ -41,13 +41,15 @@ static int chown_cgroup_path(const char *path, uid_t uid_shift) {
 
         FOREACH_STRING(fn,
                        ".",
-                       "tasks",
-                       "notify_on_release",
-                       "cgroup.procs",
-                       "cgroup.events",
                        "cgroup.clone_children",
                        "cgroup.controllers",
-                       "cgroup.subtree_control")
+                       "cgroup.events",
+                       "cgroup.procs",
+                       "cgroup.stat",
+                       "cgroup.subtree_control",
+                       "cgroup.threads",
+                       "notify_on_release",
+                       "tasks")
                 if (fchownat(fd, fn, uid_shift, uid_shift, 0) < 0)
                         log_full_errno(errno == ENOENT ? LOG_DEBUG :  LOG_WARNING, errno,
                                        "Failed to chown \"%s/%s\", ignoring: %m", path, fn);
