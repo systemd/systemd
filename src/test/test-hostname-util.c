@@ -110,27 +110,27 @@ static void test_read_etc_hostname(void) {
         close(fd);
 
         /* simple hostname */
-        write_string_file(path, "foo", WRITE_STRING_FILE_CREATE);
+        assert_se(write_string_file(path, "foo", WRITE_STRING_FILE_CREATE) == 0);
         assert_se(read_etc_hostname(path, &hostname) == 0);
         assert_se(streq(hostname, "foo"));
         hostname = mfree(hostname);
 
         /* with comment */
-        write_string_file(path, "# comment\nfoo", WRITE_STRING_FILE_CREATE);
+        assert_se(write_string_file(path, "# comment\nfoo", WRITE_STRING_FILE_CREATE) == 0);
         assert_se(read_etc_hostname(path, &hostname) == 0);
         assert_se(hostname);
         assert_se(streq(hostname, "foo"));
         hostname = mfree(hostname);
 
         /* with comment and extra whitespace */
-        write_string_file(path, "# comment\n\n foo ", WRITE_STRING_FILE_CREATE);
+        assert_se(write_string_file(path, "# comment\n\n foo ", WRITE_STRING_FILE_CREATE) == 0);
         assert_se(read_etc_hostname(path, &hostname) == 0);
         assert_se(hostname);
         assert_se(streq(hostname, "foo"));
         hostname = mfree(hostname);
 
         /* cleans up name */
-        write_string_file(path, "!foo/bar.com", WRITE_STRING_FILE_CREATE);
+        assert_se(write_string_file(path, "!foo/bar.com", WRITE_STRING_FILE_CREATE) == 0);
         assert_se(read_etc_hostname(path, &hostname) == 0);
         assert_se(hostname);
         assert_se(streq(hostname, "foobar.com"));
@@ -138,7 +138,7 @@ static void test_read_etc_hostname(void) {
 
         /* no value set */
         hostname = (char*) 0x1234;
-        write_string_file(path, "# nothing here\n", WRITE_STRING_FILE_CREATE);
+        assert_se(write_string_file(path, "# nothing here\n", WRITE_STRING_FILE_CREATE) == 0);
         assert_se(read_etc_hostname(path, &hostname) == -ENOENT);
         assert_se(hostname == (char*) 0x1234);  /* does not touch argument on error */
 
