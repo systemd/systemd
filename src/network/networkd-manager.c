@@ -471,7 +471,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
                                 return 0;
                 }
 
-                route_update(route, &src, src_prefixlen, &gw, &prefsrc, scope, rt_type, protocol);
+                route_update(route, &src, src_prefixlen, &gw, &prefsrc, scope, protocol, rt_type);
 
                 break;
 
