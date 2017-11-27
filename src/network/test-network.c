@@ -22,6 +22,7 @@
 #include "dhcp-lease-internal.h"
 #include "network-internal.h"
 #include "networkd-manager.h"
+#include "udev-util.h"
 
 static void test_deserialize_in_addr(void) {
         _cleanup_free_ struct in_addr *addresses = NULL;
@@ -187,25 +188,22 @@ static void test_address_equality(void) {
 
 int main(void) {
         _cleanup_manager_free_ Manager *manager = NULL;
-        sd_event *event;
-        struct udev *udev;
-        struct udev_device *loopback;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_udev_device_unref_ struct udev_device *loopback = NULL;
         int r;
 
         test_deserialize_in_addr();
         test_deserialize_dhcp_routes();
         test_address_equality();
 
-        r = sd_event_default(&event);
-        assert_se(r >= 0);
+        assert_se(sd_event_default(&event) >= 0);
 
         assert_se(manager_new(&manager, event) >= 0);
 
         r = test_load_config(manager);
-        if (r == -EPERM) {
-                sd_event_unref(event);
+        if (r == -EPERM)
                 return EXIT_TEST_SKIP;
-        }
 
         udev = udev_new();
         assert_se(udev);
@@ -217,8 +215,4 @@ int main(void) {
         test_network_get(manager, loopback);
 
         assert_se(manager_rtnl_enumerate_links(manager) >= 0);
-
-        udev_device_unref(loopback);
-        udev_unref(udev);
-        sd_event_unref(event);
 }
