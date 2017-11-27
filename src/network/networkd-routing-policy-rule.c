@@ -885,9 +885,6 @@ int routing_policy_rule_load(Manager *m) {
                 if (!p)
                         continue;
 
-                p = strchr(*i, '=');
-                p++;
-
                 r = routing_policy_rule_new(&rule);
                 if (r < 0)
                         return r;
