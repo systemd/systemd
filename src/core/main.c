@@ -1237,7 +1237,7 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
 
         /* Get current RLIMIT_NOFILE maximum compiled into the kernel. */
         r = read_one_line_file("/proc/sys/fs/nr_open", &nr_open);
-        if (r == 0)
+        if (r >= 0)
                 r = safe_atoi(nr_open, &min_max);
         /* If we fail, fallback to the hard-coded kernel limit of 1024 * 1024. */
         if (r < 0)
