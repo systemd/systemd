@@ -62,10 +62,7 @@ static BOOLEAN shim_validate(VOID *data, UINT32 size) {
         if (!shim_lock)
                 return FALSE;
 
-        if (shim_lock->shim_verify(data, size) == EFI_SUCCESS)
-                return TRUE;
-
-        return FALSE;
+        return shim_lock->shim_verify(data, size) == EFI_SUCCESS;
 }
 
 BOOLEAN secure_boot_enabled(void) {
@@ -188,12 +185,10 @@ static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROT
 
         if (shim_validate(file_buffer, file_size))
                 status = EFI_SUCCESS;
-
-        FreePool(file_buffer);
-
-        /* Try using the platform's native policy.... */
-        if (status != EFI_SUCCESS)
+        else
+                /* Try using the platform's native policy.... */
                 status = uefi_call_wrapper(esfas, 3, this, authentication_status, device_path_const);
+        FreePool(file_buffer);
 
         return status;
 }
