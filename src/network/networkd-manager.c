@@ -151,9 +151,6 @@ int manager_connect_bus(Manager *m) {
                 return 0;
         }
 
-        if (r < 0)
-                return r;
-
         r = sd_bus_add_match(m->bus, &m->prepare_for_sleep_slot,
                              "type='signal',"
                              "sender='org.freedesktop.login1',"
