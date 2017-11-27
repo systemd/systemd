@@ -208,9 +208,9 @@ EFI_STATUS security_policy_install(void) {
                 return EFI_ALREADY_STARTED;
 
         /*
-         * Don't bother with status here.  The call is allowed
-         * to fail, since SECURITY2 was introduced in PI 1.2.1
-         * If it fails, use security2_protocol == NULL as indicator
+         * Don't bother with status here. The call is allowed
+         * to fail, since SECURITY2 was introduced in PI 1.2.1.
+         * Use security2_protocol == NULL as indicator.
          */
         uefi_call_wrapper(BS->LocateProtocol, 3, (EFI_GUID*) &security2_protocol_guid, NULL, (VOID**) &security2_protocol);
 
@@ -219,13 +219,13 @@ EFI_STATUS security_policy_install(void) {
         if (status != EFI_SUCCESS)
                 return status;
 
-        if (!security2_protocol) {
+        esfas = security_protocol->FileAuthenticationState;
+        security_protocol->FileAuthenticationState = security_policy_authentication;
+
+        if (security2_protocol) {
                 es2fa = security2_protocol->FileAuthentication;
                 security2_protocol->FileAuthentication = security2_policy_authentication;
         }
-
-        esfas = security_protocol->FileAuthenticationState;
-        security_protocol->FileAuthenticationState = security_policy_authentication;
 
         return EFI_SUCCESS;
 }
