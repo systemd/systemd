@@ -2904,7 +2904,7 @@ static int syscall_filter_parse_one(
                 set = syscall_filter_set_find(t);
                 if (!set) {
                         if (warn)
-                                log_syntax(unit, LOG_WARNING, filename, line, 0, "Don't know system call group, ignoring: %s", t);
+                                log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown system call group, ignoring: %s", t);
                         return 0;
                 }
 
@@ -2924,7 +2924,7 @@ static int syscall_filter_parse_one(
                 }
 
                 /* If we previously wanted to forbid a syscall and now
-                 * we want to allow it, then remove it from the list
+                 * we want to allow it, then remove it from the list.
                  */
                 if (!invert == c->syscall_whitelist) {
                         r = hashmap_put(c->syscall_filter, INT_TO_PTR(id + 1), INT_TO_PTR(errno_num));
