@@ -861,6 +861,9 @@ static int decrypt_partition(
         if (!streq(m->fstype, "crypto_LUKS"))
                 return 0;
 
+        if (!passphrase)
+                return -ENOKEY;
+
         r = make_dm_name_and_node(m->node, "-decrypted", &name, &node);
         if (r < 0)
                 return r;
@@ -1006,9 +1009,6 @@ int dissected_image_decrypt(
         }
 
 #if HAVE_LIBCRYPTSETUP
-        if (m->encrypted && !passphrase)
-                return -ENOKEY;
-
         d = new0(DecryptedImage, 1);
         if (!d)
                 return -ENOMEM;
