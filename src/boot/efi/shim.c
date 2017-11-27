@@ -162,7 +162,7 @@ static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROT
         EFI_DEVICE_PATH *dev_path;
         EFI_HANDLE h;
         EFI_FILE *root;
-        VOID *file_buffer = NULL;
+        CHAR8 *file_buffer = NULL;
         UINTN file_size;
         CHAR16 *dev_path_str;
 
@@ -182,7 +182,7 @@ static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROT
         dev_path_str = DevicePathToStr(dev_path);
         FreePool(dev_path);
 
-        file_size = file_read(root, dev_path_str, 0, 0, file_buffer);
+        file_size = file_read(root, dev_path_str, 0, 0, &file_buffer);
         FreePool(dev_path_str);
         uefi_call_wrapper(root->Close, 1, root);
 
