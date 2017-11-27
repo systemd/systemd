@@ -905,6 +905,20 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
                         space = true;
                 }
 
+                if (rule->iif) {
+                        fprintf(f, "%siif=%s",
+                                space ? " " : "",
+                                rule->iif);
+                        space = true;
+                }
+
+                if (rule->oif) {
+                        fprintf(f, "%soif=%s",
+                                space ? " " : "",
+                                rule->oif);
+                        space = true;
+                }
+
                 fprintf(f, "%stable=%"PRIu32 "\n",
                         space ? " " : "",
                         rule->table);
@@ -1001,14 +1015,14 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                                         log_error_errno(r, "Failed to parse RPDB rule firewall mark or mask, ignoring: %s", a);
                                         continue;
                                 }
-                        } else if (streq(a, "IncomingInterface")) {
+                        } else if (streq(a, "iif")) {
 
-                                rule->iif = strdup(a);
+                                rule->iif = strdup(b);
                                 if (!rule->iif)
                                         return log_oom();
-                        } else if (streq(a, "OutgoingInterface")) {
+                        } else if (streq(a, "oif")) {
 
-                                rule->oif = strdup(a);
+                                rule->oif = strdup(b);
                                 if (!rule->oif)
                                         return log_oom();
                         }

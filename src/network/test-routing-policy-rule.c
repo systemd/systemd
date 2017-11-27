@@ -89,5 +89,12 @@ int main(int argc, char **argv) {
         test_rule_serialization("default table",
                                 "RULE=from=1::2/64 to=2::3/64", p);
 
+        test_rule_serialization("incoming interface",
+                                "RULE=from=1::2/64 to=2::3/64 table=1 iif=lo",
+                                "RULE=from=1::2/64 to=2::3/64 iif=lo table=1");
+
+        test_rule_serialization("outgoing interface",
+                                "RULE=from=1::2/64 to=2::3/64 oif=eth0 table=1", NULL);
+
         return 0;
 }
