@@ -836,7 +836,7 @@ int config_parse_routing_policy_rule_device(
         return 0;
 }
 
-static int routing_policy_rule_read_full_file(char *state_file, char **ret) {
+static int routing_policy_rule_read_full_file(const char *state_file, char **ret) {
         _cleanup_free_ char *s = NULL;
         size_t size;
         int r;
@@ -857,16 +857,73 @@ static int routing_policy_rule_read_full_file(char *state_file, char **ret) {
         return size;
 }
 
-int routing_policy_rule_load(Manager *m) {
+int routing_policy_serialize_rules(Set *rules, FILE *f) {
+        RoutingPolicyRule *rule = NULL;
+        Iterator i;
+        int r;
+
+        assert(f);
+
+        SET_FOREACH(rule, rules, i) {
+                _cleanup_free_ char *from_str = NULL, *to_str = NULL;
+                bool space = false;
+
+                fputs("RULE=", f);
+
+                if (!in_addr_is_null(rule->family, &rule->from)) {
+                        r = in_addr_to_string(rule->family, &rule->from, &from_str);
+                        if (r < 0)
+                                return r;
+
+                        fprintf(f, "from=%s/%hhu",
+                                from_str, rule->from_prefixlen);
+                        space = true;
+                }
+
+                if (!in_addr_is_null(rule->family, &rule->to)) {
+                        r = in_addr_to_string(rule->family, &rule->to, &to_str);
+                        if (r < 0)
+                                return r;
+
+                        fprintf(f, "%sto=%s/%hhu",
+                                space ? " " : "",
+                                to_str, rule->to_prefixlen);
+                        space = true;
+                }
+
+                if (rule->tos != 0) {
+                        fprintf(f, "%stos=%hhu",
+                                space ? " " : "",
+                                rule->tos);
+                        space = true;
+                }
+
+                if (rule->fwmark != 0) {
+                        fprintf(f, "%sfwmark=%"PRIu32"/%"PRIu32,
+                                space ? " " : "",
+                                rule->fwmark, rule->fwmask);
+                        space = true;
+                }
+
+                fprintf(f, "%stable=%"PRIu32 "\n",
+                        space ? " " : "",
+                        rule->table);
+        }
+
+        return 0;
+}
+
+int routing_policy_load_rules(const char *state_file, Set **rules) {
         _cleanup_strv_free_ char **l = NULL;
         _cleanup_free_ char *data = NULL;
         const char *p;
         char **i;
         int r;
 
-        assert(m);
+        assert(state_file);
+        assert(rules);
 
-        r = routing_policy_rule_read_full_file(m->state_file, &data);
+        r = routing_policy_rule_read_full_file(state_file, &data);
         if (r <= 0)
                 return r;
 
@@ -874,7 +931,7 @@ int routing_policy_rule_load(Manager *m) {
         if (!l)
                 return -ENOMEM;
 
-        r = set_ensure_allocated(&m->rules_saved, &routing_policy_rule_hash_ops);
+        r = set_ensure_allocated(rules, &routing_policy_rule_hash_ops);
         if (r < 0)
                 return r;
 
@@ -957,7 +1014,7 @@ int routing_policy_rule_load(Manager *m) {
                         }
                 }
 
-                r = set_put(m->rules_saved, rule);
+                r = set_put(*rules, rule);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to add RPDB rule to saved DB, ignoring: %s", p);
                         continue;

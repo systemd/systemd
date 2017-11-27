@@ -1004,7 +1004,6 @@ static void print_string_set(FILE *f, const char *field, OrderedSet *s) {
 
 static int manager_save(Manager *m) {
         _cleanup_ordered_set_free_free_ OrderedSet *dns = NULL, *ntp = NULL, *search_domains = NULL, *route_domains = NULL;
-        RoutingPolicyRule *rule = NULL;
         Link *link;
         Iterator i;
         _cleanup_free_ char *temp_path = NULL;
@@ -1129,51 +1128,9 @@ static int manager_save(Manager *m) {
         print_string_set(f, "DOMAINS=", search_domains);
         print_string_set(f, "ROUTE_DOMAINS=", route_domains);
 
-        SET_FOREACH(rule, m->rules, i) {
-                _cleanup_free_ char *from_str = NULL, *to_str = NULL;
-                bool space = false;
-
-                fputs("RULE=", f);
-
-                if (!in_addr_is_null(rule->family, &rule->from)) {
-                        r = in_addr_to_string(rule->family, &rule->from, &from_str);
-                        if (r < 0)
-                                goto fail;
-
-                        fprintf(f, "from=%s/%hhu",
-                                from_str, rule->from_prefixlen);
-                        space = true;
-                }
-
-                if (!in_addr_is_null(rule->family, &rule->to)) {
-                        r = in_addr_to_string(rule->family, &rule->to, &to_str);
-                        if (r < 0)
-                                goto fail;
-
-                        fprintf(f, "%sto=%s/%hhu",
-                                space ? " " : "",
-                                to_str, rule->to_prefixlen);
-                        space = true;
-                }
-
-                if (rule->tos != 0) {
-                        fprintf(f, "%stos=%hhu",
-                                space ? " " : "",
-                                rule->tos);
-                        space = true;
-                }
-
-                if (rule->fwmark != 0) {
-                        fprintf(f, "%sfwmark=%"PRIu32"/%"PRIu32,
-                                space ? " " : "",
-                                rule->fwmark, rule->fwmask);
-                        space = true;
-                }
-
-                fprintf(f, "%stable=%"PRIu32 "\n",
-                        space ? " " : "",
-                        rule->table);
-        }
+        r = routing_policy_serialize_rules(m->rules, f);
+        if (r < 0)
+                goto fail;
 
         r = fflush_and_check(f);
         if (r < 0)
@@ -1260,7 +1217,7 @@ int manager_new(Manager **ret, sd_event *event) {
 
         m->duid.type = DUID_TYPE_EN;
 
-        (void) routing_policy_rule_load(m);
+        (void) routing_policy_load_rules(m->state_file, &m->rules_saved);
 
         *ret = m;
         m = NULL;
