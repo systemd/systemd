@@ -24,6 +24,9 @@ Janitorial Clean-ups:
 
 Features:
 
+* make use of ethtool veth peer info in machined, for automatically finding out
+  host-side interface pointing to the container.
+
 * add some special mode to LogsDirectory=/StateDirectory=… that allows
   declaring these directories without necessarily pulling in deps for them, or
   creating them when starting up. That way, we could declare that
