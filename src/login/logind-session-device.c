@@ -410,6 +410,17 @@ error:
 void session_device_free(SessionDevice *sd) {
         assert(sd);
 
+        if (sd->pushed_fd) {
+                const char *m;
+
+                /* Remove the pushed fd again, just in case. */
+
+                m = strjoina("FDSTOREREMOVE=1\n"
+                             "FDNAME=session-", sd->session->id);
+
+                (void) sd_notify(false, m);
+        }
+
         session_device_stop(sd);
         session_device_notify(sd, SESSION_DEVICE_RELEASE);
         close_nointr(sd->fd);
@@ -489,26 +500,30 @@ unsigned int session_device_try_pause_all(Session *s) {
 }
 
 int session_device_save(SessionDevice *sd) {
-        _cleanup_free_ char *state = NULL;
+        const char *m;
         int r;
 
         assert(sd);
 
-        /* Store device fd in PID1. It will send it back to us on
-         * restart so revocation will continue to work. To make things
-         * simple, send fds for all type of devices even if they don't
-         * support the revocation mechanism so we don't have to handle
-         * them differently later.
+        /* Store device fd in PID1. It will send it back to us on restart so revocation will continue to work. To make
+         * things simple, send fds for all type of devices even if they don't support the revocation mechanism so we
+         * don't have to handle them differently later.
          *
-         * Note: for device supporting revocation, PID1 will drop a
-         * stored fd automatically if the corresponding device is
-         * revoked. */
-        r = asprintf(&state, "FDSTORE=1\n"
-                             "FDNAME=session-%s", sd->session->id);
-        if (r < 0)
-                return -ENOMEM;
+         * Note: for device supporting revocation, PID1 will drop a stored fd automatically if the corresponding device
+         * is revoked. */
 
-        return sd_pid_notify_with_fds(0, false, state, &sd->fd, 1);
+        if (sd->pushed_fd)
+                return 0;
+
+        m = strjoina("FDSTORE=1\n"
+                     "FDNAME=session", sd->session->id);
+
+        r = sd_pid_notify_with_fds(0, false, m, &sd->fd, 1);
+        if (r < 0)
+                return r;
+
+        sd->pushed_fd = true;
+        return 1;
 }
 
 void session_device_attach_fd(SessionDevice *sd, int fd, bool active) {

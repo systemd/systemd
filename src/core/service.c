@@ -458,6 +458,21 @@ static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name) {
         return 0;
 }
 
+static void service_remove_fd_store(Service *s, const char *name) {
+        ServiceFDStore *fs, *n;
+
+        assert(s);
+        assert(name);
+
+        LIST_FOREACH_SAFE(fd_store, fs, n, s->fd_store) {
+                if (!streq(fs->fdname, name))
+                        continue;
+
+                log_unit_debug(UNIT(s), "Got explicit request to remove fd %i (%s), closing.", fs->fd, name);
+                service_fd_store_unlink(fs);
+        }
+}
+
 static int service_arm_timer(Service *s, usec_t usec) {
         int r;
 
@@ -3310,38 +3325,57 @@ static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void 
         return 0;
 }
 
+static bool service_notify_message_authorized(Service *s, pid_t pid, char **tags, FDSet *fds) {
+        assert(s);
+
+        if (s->notify_access == NOTIFY_NONE) {
+                log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception is disabled.", pid);
+                return false;
+        }
+
+        if (s->notify_access == NOTIFY_MAIN && pid != s->main_pid) {
+                if (s->main_pid != 0)
+                        log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid, s->main_pid);
+                else
+                        log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID which is currently not known", pid);
+
+                return false;
+        }
+
+        if (s->notify_access == NOTIFY_EXEC && pid != s->main_pid && pid != s->control_pid) {
+                if (s->main_pid != 0 && s->control_pid != 0)
+                        log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT" and control PID "PID_FMT,
+                                         pid, s->main_pid, s->control_pid);
+                else if (s->main_pid != 0)
+                        log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid, s->main_pid);
+                else if (s->control_pid != 0)
+                        log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for control PID "PID_FMT, pid, s->control_pid);
+                else
+                        log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID and control PID which are currently not known", pid);
+
+                return false;
+        }
+
+        return true;
+}
+
 static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) {
         Service *s = SERVICE(u);
-        _cleanup_free_ char *cc = NULL;
         bool notify_dbus = false;
         const char *e;
+        char **i;
 
         assert(u);
 
-        cc = strv_join(tags, ", ");
+        if (!service_notify_message_authorized(SERVICE(u), pid, tags, fds))
+                return;
 
-        if (s->notify_access == NOTIFY_NONE) {
-                log_unit_warning(u, "Got notification message from PID "PID_FMT", but reception is disabled.", pid);
-                return;
-        } else if (s->notify_access == NOTIFY_MAIN && pid != s->main_pid) {
-                if (s->main_pid != 0)
-                        log_unit_warning(u, "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid, s->main_pid);
-                else
-                        log_unit_warning(u, "Got notification message from PID "PID_FMT", but reception only permitted for main PID which is currently not known", pid);
-                return;
-        } else if (s->notify_access == NOTIFY_EXEC && pid != s->main_pid && pid != s->control_pid) {
-                if (s->main_pid != 0 && s->control_pid != 0)
-                        log_unit_warning(u, "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT" and control PID "PID_FMT,
-                                         pid, s->main_pid, s->control_pid);
-                else if (s->main_pid != 0)
-                        log_unit_warning(u, "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid, s->main_pid);
-                else if (s->control_pid != 0)
-                        log_unit_warning(u, "Got notification message from PID "PID_FMT", but reception only permitted for control PID "PID_FMT, pid, s->control_pid);
-                else
-                        log_unit_warning(u, "Got notification message from PID "PID_FMT", but reception only permitted for main PID and control PID which are currently not known", pid);
-                return;
-        } else
+        if (log_get_max_level() >= LOG_DEBUG) {
+                _cleanup_free_ char *cc = NULL;
+
+                cc = strv_join(tags, ", ");
                 log_unit_debug(u, "Got notification message from PID "PID_FMT" (%s)", pid, isempty(cc) ? "n/a" : cc);
+        }
 
         /* Interpret MAINPID= */
         e = strv_find_startswith(tags, "MAINPID=");
@@ -3352,51 +3386,50 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
                         log_unit_warning(u, "A control process cannot also be the main process");
                 else if (pid == getpid_cached() || pid == 1)
                         log_unit_warning(u, "Service manager can't be main process, ignoring sd_notify() MAINPID= field");
-                else {
+                else if (pid != s->main_pid) {
                         service_set_main_pid(s, pid);
                         unit_watch_pid(UNIT(s), pid);
                         notify_dbus = true;
                 }
         }
 
-        /* Interpret RELOADING= */
-        if (strv_find(tags, "RELOADING=1")) {
+        /* Interpret READY=/STOPPING=/RELOADING=. Last one wins. */
+        STRV_FOREACH_BACKWARDS(i, tags) {
 
-                s->notify_state = NOTIFY_RELOADING;
+                if (streq(*i, "READY=1")) {
+                        s->notify_state = NOTIFY_READY;
 
-                if (s->state == SERVICE_RUNNING)
-                        service_enter_reload_by_notify(s);
+                        /* Type=notify services inform us about completed
+                         * initialization with READY=1 */
+                        if (s->type == SERVICE_NOTIFY && s->state == SERVICE_START)
+                                service_enter_start_post(s);
 
-                notify_dbus = true;
-        }
+                        /* Sending READY=1 while we are reloading informs us
+                         * that the reloading is complete */
+                        if (s->state == SERVICE_RELOAD && s->control_pid == 0)
+                                service_enter_running(s, SERVICE_SUCCESS);
 
-        /* Interpret READY= */
-        if (strv_find(tags, "READY=1")) {
+                        notify_dbus = true;
+                        break;
 
-                s->notify_state = NOTIFY_READY;
+                } else if (streq(*i, "RELOADING=1")) {
+                        s->notify_state = NOTIFY_RELOADING;
 
-                /* Type=notify services inform us about completed
-                 * initialization with READY=1 */
-                if (s->type == SERVICE_NOTIFY && s->state == SERVICE_START)
-                        service_enter_start_post(s);
+                        if (s->state == SERVICE_RUNNING)
+                                service_enter_reload_by_notify(s);
 
-                /* Sending READY=1 while we are reloading informs us
-                 * that the reloading is complete */
-                if (s->state == SERVICE_RELOAD && s->control_pid == 0)
-                        service_enter_running(s, SERVICE_SUCCESS);
+                        notify_dbus = true;
+                        break;
 
-                notify_dbus = true;
-        }
+                } else if (streq(*i, "STOPPING=1")) {
+                        s->notify_state = NOTIFY_STOPPING;
 
-        /* Interpret STOPPING= */
-        if (strv_find(tags, "STOPPING=1")) {
+                        if (s->state == SERVICE_RUNNING)
+                                service_enter_stop_by_notify(s);
 
-                s->notify_state = NOTIFY_STOPPING;
-
-                if (s->state == SERVICE_RUNNING)
-                        service_enter_stop_by_notify(s);
-
-                notify_dbus = true;
+                        notify_dbus = true;
+                        break;
+                }
         }
 
         /* Interpret STATUS= */
@@ -3425,31 +3458,19 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
         if (e) {
                 int status_errno;
 
-                if (safe_atoi(e, &status_errno) < 0 || status_errno < 0)
-                        log_unit_warning(u, "Failed to parse ERRNO= field in notification message: %s", e);
-                else {
-                        if (s->status_errno != status_errno) {
-                                s->status_errno = status_errno;
-                                notify_dbus = true;
-                        }
+                status_errno = parse_errno(e);
+                if (status_errno < 0)
+                        log_unit_warning_errno(u, status_errno,
+                                               "Failed to parse ERRNO= field in notification message: %s", e);
+                else if (s->status_errno != status_errno) {
+                        s->status_errno = status_errno;
+                        notify_dbus = true;
                 }
         }
 
         /* Interpret WATCHDOG= */
         if (strv_find(tags, "WATCHDOG=1"))
                 service_reset_watchdog(s);
-
-        if (strv_find(tags, "FDSTORE=1")) {
-                const char *name;
-
-                name = strv_find_startswith(tags, "FDNAME=");
-                if (name && !fdname_is_valid(name)) {
-                        log_unit_warning(u, "Passed FDNAME= name is invalid, ignoring.");
-                        name = NULL;
-                }
-
-                service_add_fd_store_set(s, fds, name);
-        }
 
         e = strv_find_startswith(tags, "WATCHDOG_USEC=");
         if (e) {
@@ -3458,6 +3479,30 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
                         log_unit_warning(u, "Failed to parse WATCHDOG_USEC=%s", e);
                 else
                         service_reset_watchdog_timeout(s, watchdog_override_usec);
+        }
+
+        /* Process FD store messages. Either FDSTOREREMOVE=1 for removal, or FDSTORE=1 for addition. In both cases,
+         * process FDNAME= for picking the file descriptor name to use. Note that FDNAME= is required when removing
+         * fds, but optional when pushing in new fds, for compatibility reasons. */
+        if (strv_find(tags, "FDSTOREREMOVE=1")) {
+                const char *name;
+
+                name = strv_find_startswith(tags, "FDNAME=");
+                if (!name || !fdname_is_valid(name))
+                        log_unit_warning(u, "FDSTOREREMOVE=1 requested, but no valid file descriptor name passed, ignoring.");
+                else
+                        service_remove_fd_store(s, name);
+
+        } else if (strv_find(tags, "FDSTORE=1")) {
+                const char *name;
+
+                name = strv_find_startswith(tags, "FDNAME=");
+                if (name && !fdname_is_valid(name)) {
+                        log_unit_warning(u, "Passed FDNAME= name is invalid, ignoring.");
+                        name = NULL;
+                }
+
+                (void) service_add_fd_store_set(s, fds, name);
         }
 
         /* Notify clients about changed status or main pid */
