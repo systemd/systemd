@@ -46,6 +46,10 @@ import os
 import ycm_core
 
 
+SOURCE_EXTENSIONS = (".C", ".cpp", ".cxx", ".cc", ".c", ".m", ".mm")
+HEADER_EXTENSIONS = (".H", ".h", ".hxx", ".hpp", ".hh")
+
+
 def DirectoryOfThisScript():
     return os.path.dirname(os.path.abspath(__file__))
 
@@ -126,8 +130,6 @@ if os.path.exists(compilation_database_folder):
 else:
     database = None
 
-SOURCE_EXTENSIONS = [".C", ".cpp", ".cxx", ".cc", ".c", ".m", ".mm"]
-
 
 def MakeRelativePathsInFlagsAbsolute(flags, working_directory):
     if not working_directory:
@@ -160,7 +162,7 @@ def MakeRelativePathsInFlagsAbsolute(flags, working_directory):
 
 def IsHeaderFile(filename):
     extension = os.path.splitext(filename)[1]
-    return extension in [".H", ".h", ".hxx", ".hpp", ".hh"]
+    return extension in HEADER_EXTENSIONS
 
 
 def GetCompilationInfoForFile(filename):
