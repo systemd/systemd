@@ -2,7 +2,7 @@
 # -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
 # ex: ts=8 sw=4 sts=4 et filetype=sh
 set -e
-TEST_DESCRIPTION="Basic systemd setup"
+TEST_DESCRIPTION="/etc/machine-id testing"
 TEST_NO_NSPAWN=1
 SKIP_INITRD=yes
 . $TEST_BASE_DIR/test-functions
