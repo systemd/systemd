@@ -156,6 +156,12 @@ if conf.get('ENABLE_NETWORKD') == 1
       libshared],
      [threads]],
 
+    [['src/network/test-routing-policy-rule.c'],
+     [libnetworkd_core,
+      libsystemd_network,
+      libudev],
+     []],
+
     [['src/network/test-network-tables.c',
       'src/network/test-network-tables.c',
       test_tables_h],

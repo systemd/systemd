@@ -262,7 +262,7 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
         unsigned char buf[168];
         size_t i;
 
-        read(test_fd[0], &buf, sizeof(buf));
+        assert_se(read(test_fd[0], &buf, sizeof(buf)) == sizeof(buf));
 
         /* router lifetime must be zero when test is stopped */
         if (test_stopped) {

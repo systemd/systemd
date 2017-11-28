@@ -159,7 +159,7 @@ static int swap_list_get(MountPoint **head) {
 
         for (i = 2;; i++) {
                 MountPoint *swap;
-                char *dev = NULL, *d;
+                _cleanup_free_ char *dev = NULL, *d = NULL;
                 int k;
 
                 k = fscanf(proc_swaps,
@@ -175,27 +175,21 @@ static int swap_list_get(MountPoint **head) {
                                 break;
 
                         log_warning("Failed to parse /proc/swaps:%u.", i);
-                        free(dev);
                         continue;
                 }
 
-                if (endswith(dev, " (deleted)")) {
-                        free(dev);
+                if (endswith(dev, " (deleted)"))
                         continue;
-                }
 
                 r = cunescape(dev, UNESCAPE_RELAX, &d);
-                free(dev);
                 if (r < 0)
                         return r;
 
                 swap = new0(MountPoint, 1);
-                if (!swap) {
-                        free(d);
+                if (!swap)
                         return -ENOMEM;
-                }
 
-                swap->path = d;
+                free_and_replace(swap->path, d);
                 LIST_PREPEND(mount_point, *head, swap);
         }
 

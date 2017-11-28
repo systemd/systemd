@@ -62,10 +62,7 @@ static BOOLEAN shim_validate(VOID *data, UINT32 size) {
         if (!shim_lock)
                 return FALSE;
 
-        if (shim_lock->shim_verify(data, size) == EFI_SUCCESS)
-                return TRUE;
-
-        return FALSE;
+        return shim_lock->shim_verify(data, size) == EFI_SUCCESS;
 }
 
 BOOLEAN secure_boot_enabled(void) {
@@ -162,7 +159,7 @@ static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROT
         EFI_DEVICE_PATH *dev_path;
         EFI_HANDLE h;
         EFI_FILE *root;
-        VOID *file_buffer = NULL;
+        CHAR8 *file_buffer = NULL;
         UINTN file_size;
         CHAR16 *dev_path_str;
 
@@ -182,18 +179,16 @@ static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROT
         dev_path_str = DevicePathToStr(dev_path);
         FreePool(dev_path);
 
-        file_size = file_read(root, dev_path_str, 0, 0, file_buffer);
+        file_size = file_read(root, dev_path_str, 0, 0, &file_buffer);
         FreePool(dev_path_str);
         uefi_call_wrapper(root->Close, 1, root);
 
         if (shim_validate(file_buffer, file_size))
                 status = EFI_SUCCESS;
-
-        FreePool(file_buffer);
-
-        /* Try using the platform's native policy.... */
-        if (status != EFI_SUCCESS)
+        else
+                /* Try using the platform's native policy.... */
                 status = uefi_call_wrapper(esfas, 3, this, authentication_status, device_path_const);
+        FreePool(file_buffer);
 
         return status;
 }
@@ -208,9 +203,9 @@ EFI_STATUS security_policy_install(void) {
                 return EFI_ALREADY_STARTED;
 
         /*
-         * Don't bother with status here.  The call is allowed
-         * to fail, since SECURITY2 was introduced in PI 1.2.1
-         * If it fails, use security2_protocol == NULL as indicator
+         * Don't bother with status here. The call is allowed
+         * to fail, since SECURITY2 was introduced in PI 1.2.1.
+         * Use security2_protocol == NULL as indicator.
          */
         uefi_call_wrapper(BS->LocateProtocol, 3, (EFI_GUID*) &security2_protocol_guid, NULL, (VOID**) &security2_protocol);
 
@@ -219,13 +214,13 @@ EFI_STATUS security_policy_install(void) {
         if (status != EFI_SUCCESS)
                 return status;
 
-        if (!security2_protocol) {
+        esfas = security_protocol->FileAuthenticationState;
+        security_protocol->FileAuthenticationState = security_policy_authentication;
+
+        if (security2_protocol) {
                 es2fa = security2_protocol->FileAuthentication;
                 security2_protocol->FileAuthentication = security2_policy_authentication;
         }
-
-        esfas = security_protocol->FileAuthenticationState;
-        security_protocol->FileAuthenticationState = security_policy_authentication;
 
         return EFI_SUCCESS;
 }

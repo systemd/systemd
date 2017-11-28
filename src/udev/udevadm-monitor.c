@@ -145,12 +145,12 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[]) {
         /* set signal handlers */
         act.sa_handler = sig_handler;
         act.sa_flags = SA_RESTART;
-        sigaction(SIGINT, &act, NULL);
-        sigaction(SIGTERM, &act, NULL);
-        sigemptyset(&mask);
-        sigaddset(&mask, SIGINT);
-        sigaddset(&mask, SIGTERM);
-        sigprocmask(SIG_UNBLOCK, &mask, NULL);
+        assert_se(sigaction(SIGINT, &act, NULL) == 0);
+        assert_se(sigaction(SIGTERM, &act, NULL) == 0);
+        assert_se(sigemptyset(&mask) == 0);
+        assert_se(sigaddset(&mask, SIGINT) == 0);
+        assert_se(sigaddset(&mask, SIGTERM) == 0);
+        assert_se(sigprocmask(SIG_UNBLOCK, &mask, NULL) == 0);
 
         /* Callers are expecting to see events as they happen: Line buffering */
         setlinebuf(stdout);

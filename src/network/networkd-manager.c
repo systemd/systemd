@@ -151,9 +151,6 @@ int manager_connect_bus(Manager *m) {
                 return 0;
         }
 
-        if (r < 0)
-                return r;
-
         r = sd_bus_add_match(m->bus, &m->prepare_for_sleep_slot,
                              "type='signal',"
                              "sender='org.freedesktop.login1',"
@@ -471,7 +468,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
                                 return 0;
                 }
 
-                route_update(route, &src, src_prefixlen, &gw, &prefsrc, scope, rt_type, protocol);
+                route_update(route, &src, src_prefixlen, &gw, &prefsrc, scope, protocol, rt_type);
 
                 break;
 
@@ -1004,8 +1001,6 @@ static void print_string_set(FILE *f, const char *field, OrderedSet *s) {
 
 static int manager_save(Manager *m) {
         _cleanup_ordered_set_free_free_ OrderedSet *dns = NULL, *ntp = NULL, *search_domains = NULL, *route_domains = NULL;
-        RoutingPolicyRule *rule = NULL;
-        bool space = false;
         Link *link;
         Iterator i;
         _cleanup_free_ char *temp_path = NULL;
@@ -1130,31 +1125,9 @@ static int manager_save(Manager *m) {
         print_string_set(f, "DOMAINS=", search_domains);
         print_string_set(f, "ROUTE_DOMAINS=", route_domains);
 
-        SET_FOREACH(rule, m->rules, i) {
-                _cleanup_free_ char *from_str = NULL, *to_str = NULL;
-                fputs("RULE=", f);
-
-                if (!in_addr_is_null(rule->family, &rule->from)) {
-                        r = in_addr_to_string(rule->family, &rule->from, &from_str);
-                        if (r < 0)
-                                goto fail;
-                }
-
-                if (!in_addr_is_null(rule->family, &rule->to)) {
-                        r = in_addr_to_string(rule->family, &rule->to, &to_str);
-                        if (r < 0)
-                                goto fail;
-                }
-
-                fprintf(f, "from=%s%s/%hhu to=%s%s/%hhu tos=%hhu fwmark=%"PRIu32"/%"PRIu32" table=%"PRIu32,
-                        space ? " " : "", from_str, rule->from_prefixlen,
-                        space ? " " : "", to_str, rule->to_prefixlen,
-                        rule->tos,
-                        rule->fwmark, rule->fwmask,
-                        rule->table);
-
-                fputc('\n', f);
-        }
+        r = routing_policy_serialize_rules(m->rules, f);
+        if (r < 0)
+                goto fail;
 
         r = fflush_and_check(f);
         if (r < 0)
@@ -1241,7 +1214,7 @@ int manager_new(Manager **ret, sd_event *event) {
 
         m->duid.type = DUID_TYPE_EN;
 
-        (void) routing_policy_rule_load(m);
+        (void) routing_policy_load_rules(m->state_file, &m->rules_saved);
 
         *ret = m;
         m = NULL;

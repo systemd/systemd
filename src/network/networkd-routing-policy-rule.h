@@ -77,7 +77,8 @@ int routing_policy_rule_add_foreign(Manager *m, int family, const union in_addr_
 int routing_policy_rule_get(Manager *m, int family, const union in_addr_union *from, uint8_t from_prefixlen, const union in_addr_union *to, uint8_t to_prefixlen, uint8_t tos,
                             uint32_t fwmark, uint32_t table, char *iif, char *oif, RoutingPolicyRule **ret);
 int routing_policy_rule_make_local(Manager *m, RoutingPolicyRule *rule);
-int routing_policy_rule_load(Manager *m);
+int routing_policy_serialize_rules(Set *rules, FILE *f);
+int routing_policy_load_rules(const char *state_file, Set **rules);
 void routing_policy_rule_purge(Manager *m, Link *link);
 
 int config_parse_routing_policy_rule_tos(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data,void *userdata);
