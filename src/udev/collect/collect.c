@@ -188,8 +188,6 @@ static int checkout(int fd)
 
                 if (!ptr)
                         ptr = word;
-                if (!ptr)
-                        break;
                 ptr -= len;
         }
 
