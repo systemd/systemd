@@ -23,7 +23,6 @@
 #include "alloc-util.h"
 #include "cap-list.h"
 #include "capability-util.h"
-#include "fileio.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "util.h"
@@ -71,39 +70,6 @@ static void test_cap_list(void) {
         }
 }
 
-/* verify cap_last_cap() against /proc/sys/kernel/cap_last_cap */
-static void test_last_cap_file(void) {
-        _cleanup_free_ char *content = NULL;
-        unsigned long val = 0;
-        int r;
-
-        r = read_one_line_file("/proc/sys/kernel/cap_last_cap", &content);
-        assert_se(r >= 0);
-
-        r = safe_atolu(content, &val);
-        assert_se(r >= 0);
-        assert_se(val != 0);
-        assert_se(val == cap_last_cap());
-}
-
-/* verify cap_last_cap() against syscall probing */
-static void test_last_cap_probe(void) {
-        unsigned long p = (unsigned long)CAP_LAST_CAP;
-
-        if (prctl(PR_CAPBSET_READ, p) < 0) {
-                for (p--; p > 0; p --)
-                        if (prctl(PR_CAPBSET_READ, p) >= 0)
-                                break;
-        } else {
-                for (;; p++)
-                        if (prctl(PR_CAPBSET_READ, p+1) < 0)
-                                break;
-        }
-
-        assert_se(p != 0);
-        assert_se(p == cap_last_cap());
-}
-
 static void test_capability_set_to_string_alloc(void) {
         _cleanup_free_ char *t1 = NULL, *t2 = NULL, *t3 = NULL;
 
@@ -119,8 +85,6 @@ static void test_capability_set_to_string_alloc(void) {
 
 int main(int argc, char *argv[]) {
         test_cap_list();
-        test_last_cap_file();
-        test_last_cap_probe();
         test_capability_set_to_string_alloc();
 
         return 0;
