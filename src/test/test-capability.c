@@ -26,9 +26,12 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "capability-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "macro.h"
+#include "parse-util.h"
 #include "util.h"
 
 static uid_t test_uid = -1;
@@ -36,6 +39,39 @@ static gid_t test_gid = -1;
 
 /* We keep CAP_DAC_OVERRIDE to avoid errors with gcov when doing test coverage */
 static uint64_t test_flags = 1ULL << CAP_DAC_OVERRIDE;
+
+/* verify cap_last_cap() against /proc/sys/kernel/cap_last_cap */
+static void test_last_cap_file(void) {
+        _cleanup_free_ char *content = NULL;
+        unsigned long val = 0;
+        int r;
+
+        r = read_one_line_file("/proc/sys/kernel/cap_last_cap", &content);
+        assert_se(r >= 0);
+
+        r = safe_atolu(content, &val);
+        assert_se(r >= 0);
+        assert_se(val != 0);
+        assert_se(val == cap_last_cap());
+}
+
+/* verify cap_last_cap() against syscall probing */
+static void test_last_cap_probe(void) {
+        unsigned long p = (unsigned long)CAP_LAST_CAP;
+
+        if (prctl(PR_CAPBSET_READ, p) < 0) {
+                for (p--; p > 0; p --)
+                        if (prctl(PR_CAPBSET_READ, p) >= 0)
+                                break;
+        } else {
+                for (;; p++)
+                        if (prctl(PR_CAPBSET_READ, p+1) < 0)
+                                break;
+        }
+
+        assert_se(p != 0);
+        assert_se(p == cap_last_cap());
+}
 
 static void fork_test(void (*test_func)(void)) {
         pid_t pid = 0;
@@ -202,6 +238,9 @@ static void test_set_ambient_caps(void) {
 int main(int argc, char *argv[]) {
         int r;
         bool run_ambient;
+
+        test_last_cap_file();
+        test_last_cap_probe();
 
         log_parse_environment();
         log_open();
