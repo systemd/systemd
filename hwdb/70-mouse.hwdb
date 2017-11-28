@@ -451,6 +451,15 @@ mouse:usb:v046dp4041:name:Logitech MX Master:
  MOUSE_WHEEL_CLICK_COUNT=24
  MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL=14
 
+# Logitech MX Master 2s
+# Horiz wheel has 14 stops, angle is rounded up
+mouse:usb:v046dp4069:name:Logitech MX Master 2s:
+ MOUSE_DPI=1000@125
+ MOUSE_WHEEL_CLICK_ANGLE=15
+ MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL=26
+ MOUSE_WHEEL_CLICK_COUNT=24
+ MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL=14
+
 # Logitech MK260 Wireless Combo Receiver aka M-R0011
 mouse:usb:v046dpc52e:name:Logitech USB Receiver:
  MOUSE_DPI=1000@200
