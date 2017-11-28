@@ -2582,7 +2582,13 @@ static int outer_child(
                 return r;
 
         if (dissected_image) {
-                r = dissected_image_mount(dissected_image, directory, DISSECT_IMAGE_DISCARD_ON_LOOP|(arg_read_only ? DISSECT_IMAGE_READ_ONLY : 0));
+                /* If we are operating on a disk image, then mount its root directory now, but leave out the rest. We
+                 * can read the UID shift from it if we need to. Further down we'll mount the rest, but then with the
+                 * uid shift known. That way we can mount VFAT file systems shifted to the right place right away. This
+                 * makes sure ESP partitions and userns are compatible. */
+
+                r = dissected_image_mount(dissected_image, directory, arg_uid_shift,
+                                          DISSECT_IMAGE_MOUNT_ROOT_ONLY|DISSECT_IMAGE_DISCARD_ON_LOOP|(arg_read_only ? DISSECT_IMAGE_READ_ONLY : 0));
                 if (r < 0)
                         return r;
         }
@@ -2616,6 +2622,14 @@ static int outer_child(
                 }
 
                 log_info("Selected user namespace base " UID_FMT " and range " UID_FMT ".", arg_uid_shift, arg_uid_range);
+        }
+
+        if (dissected_image) {
+                /* Now we know the uid shift, let's now mount everything else that might be in the image. */
+                r = dissected_image_mount(dissected_image, directory, arg_uid_shift,
+                                          DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY|DISSECT_IMAGE_DISCARD_ON_LOOP|(arg_read_only ? DISSECT_IMAGE_READ_ONLY : 0));
+                if (r < 0)
+                        return r;
         }
 
         if (arg_unified_cgroup_hierarchy == CGROUP_UNIFIED_UNKNOWN) {

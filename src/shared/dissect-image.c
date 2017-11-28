@@ -49,6 +49,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "udev-util.h"
+#include "user-util.h"
 #include "xattr-util.h"
 
 int probe_filesystem(const char *node, char **ret_fstype) {
@@ -686,10 +687,11 @@ static int mount_partition(
                 DissectedPartition *m,
                 const char *where,
                 const char *directory,
+                uid_t uid_shift,
                 DissectImageFlags flags) {
 
-        const char *p, *options = NULL, *node, *fstype;
-        _cleanup_free_ char *chased = NULL;
+        _cleanup_free_ char *chased = NULL, *options = NULL;
+        const char *p, *node, *fstype;
         bool rw;
         int r;
 
@@ -720,13 +722,26 @@ static int mount_partition(
         /* If requested, turn on discard support. */
         if (fstype_can_discard(fstype) &&
             ((flags & DISSECT_IMAGE_DISCARD) ||
-             ((flags & DISSECT_IMAGE_DISCARD_ON_LOOP) && is_loop_device(m->node))))
-                options = "discard";
+             ((flags & DISSECT_IMAGE_DISCARD_ON_LOOP) && is_loop_device(m->node)))) {
+                options = strdup("discard");
+                if (!options)
+                        return -ENOMEM;
+        }
+
+        if (uid_is_valid(uid_shift) && uid_shift != 0 && fstype_can_uid_gid(fstype)) {
+                _cleanup_free_ char *uid_option = NULL;
+
+                if (asprintf(&uid_option, "uid=" UID_FMT ",gid=" GID_FMT, uid_shift, (gid_t) uid_shift) < 0)
+                        return -ENOMEM;
+
+                if (!strextend_with_separator(&options, ",", uid_option, NULL))
+                        return -ENOMEM;
+        }
 
         return mount_verbose(LOG_DEBUG, node, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), options);
 }
 
-int dissected_image_mount(DissectedImage *m, const char *where, DissectImageFlags flags) {
+int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift, DissectImageFlags flags) {
         int r;
 
         assert(m);
@@ -735,15 +750,20 @@ int dissected_image_mount(DissectedImage *m, const char *where, DissectImageFlag
         if (!m->partitions[PARTITION_ROOT].found)
                 return -ENXIO;
 
-        r = mount_partition(m->partitions + PARTITION_ROOT, where, NULL, flags);
+        if ((flags & DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY) == 0) {
+                r = mount_partition(m->partitions + PARTITION_ROOT, where, NULL, uid_shift, flags);
+                if (r < 0)
+                        return r;
+        }
+
+        if ((flags & DISSECT_IMAGE_MOUNT_ROOT_ONLY))
+                return 0;
+
+        r = mount_partition(m->partitions + PARTITION_HOME, where, "/home", uid_shift, flags);
         if (r < 0)
                 return r;
 
-        r = mount_partition(m->partitions + PARTITION_HOME, where, "/home", flags);
-        if (r < 0)
-                return r;
-
-        r = mount_partition(m->partitions + PARTITION_SRV, where, "/srv", flags);
+        r = mount_partition(m->partitions + PARTITION_SRV, where, "/srv", uid_shift, flags);
         if (r < 0)
                 return r;
 
@@ -761,7 +781,7 @@ int dissected_image_mount(DissectedImage *m, const char *where, DissectImageFlag
 
                         r = dir_is_empty(p);
                         if (r > 0) {
-                                r = mount_partition(m->partitions + PARTITION_ESP, where, mp, flags);
+                                r = mount_partition(m->partitions + PARTITION_ESP, where, mp, uid_shift, flags);
                                 if (r < 0)
                                         return r;
                         }
@@ -1254,7 +1274,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0)
                         _exit(EXIT_FAILURE);
 
-                r = dissected_image_mount(m, t, DISSECT_IMAGE_READ_ONLY);
+                r = dissected_image_mount(m, t, UID_INVALID, DISSECT_IMAGE_READ_ONLY);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 

@@ -673,6 +673,22 @@ bool fstype_can_discard(const char *fstype) {
                           "xfs");
 }
 
+bool fstype_can_uid_gid(const char *fstype) {
+
+        /* All file systems that have a uid=/gid= mount option that fixates the owners of all files and directories,
+         * current and future. */
+
+        return STR_IN_SET(fstype,
+                          "adfs",
+                          "fat",
+                          "hfs",
+                          "hpfs",
+                          "iso9660",
+                          "msdos",
+                          "ntfs",
+                          "vfat");
+}
+
 int repeat_unmount(const char *path, int flags) {
         bool done = false;
 
