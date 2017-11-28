@@ -97,8 +97,19 @@ int main(int argc, const char *argv[]) {
 
         assert_se(i == (unsigned) -1);
 
+        b2 = bitmap_copy(b);
+        assert_se(b2);
+        assert_se(bitmap_equal(b, b2) == true);
+        assert_se(bitmap_equal(b, b) == true);
+        assert_se(bitmap_equal(b, NULL) == false);
+        assert_se(bitmap_equal(NULL, b) == false);
+        assert_se(bitmap_equal(NULL, NULL) == true);
+
         bitmap_clear(b);
         assert_se(bitmap_isclear(b) == true);
+        assert_se(bitmap_equal(b, b2) == false);
+        bitmap_free(b2);
+        b2 = NULL;
 
         assert_se(bitmap_set(b, (unsigned) -1) == -ERANGE);
 
