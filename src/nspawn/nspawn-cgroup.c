@@ -57,7 +57,7 @@ static int chown_cgroup_path(const char *path, uid_t uid_shift) {
         return 0;
 }
 
-int chown_cgroup(pid_t pid, uid_t uid_shift) {
+int chown_cgroup(pid_t pid, CGroupUnified unified_requested, uid_t uid_shift) {
         _cleanup_free_ char *path = NULL, *fs = NULL;
         int r;
 
@@ -72,6 +72,19 @@ int chown_cgroup(pid_t pid, uid_t uid_shift) {
         r = chown_cgroup_path(fs, uid_shift);
         if (r < 0)
                 return log_error_errno(r, "Failed to chown() cgroup %s: %m", fs);
+
+        if (unified_requested == CGROUP_UNIFIED_SYSTEMD) {
+                _cleanup_free_ char *lfs = NULL;
+                /* Always propagate access rights from unified to legacy controller */
+
+                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER_LEGACY, path, NULL, &lfs);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get file system path for container cgroup: %m");
+
+                r = chown_cgroup_path(lfs, uid_shift);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to chown() cgroup %s: %m", lfs);
+        }
 
         return 0;
 }

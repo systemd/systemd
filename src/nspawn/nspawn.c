@@ -3619,7 +3619,7 @@ static int run(int master,
                         return r;
         }
 
-        r = chown_cgroup(*pid, arg_uid_shift);
+        r = chown_cgroup(*pid, arg_unified_cgroup_hierarchy, arg_uid_shift);
         if (r < 0)
                 return r;
 
