@@ -34,6 +34,8 @@
 #include "socket-util.h"
 #include "string-util.h"
 
+#define TEST_TIMEOUT_USEC (20*USEC_PER_SEC)
+
 static int getaddrinfo_handler(sd_resolve_query *q, int ret, const struct addrinfo *ai, void *userdata) {
         const struct addrinfo *i;
 
@@ -102,9 +104,18 @@ int main(int argc, char *argv[]) {
 
         /* Wait until all queries are completed */
         for (;;) {
-                r = sd_resolve_wait(resolve, (uint64_t) -1);
+                r = sd_resolve_wait(resolve, TEST_TIMEOUT_USEC);
                 if (r == 0)
                         break;
+                if (r == -ETIMEDOUT) {
+                        /* Let's catch time-outs here, so that we can run safely in a CI that has no reliable DNS. Note
+                         * that we invoke exit() directly here, as the stuck NSS call will not allow us to exit
+                         * cleanly. */
+
+                        log_notice_errno(r, "sd_resolve_wait() timed out, but that's OK");
+                        exit(EXIT_SUCCESS);
+                        break;
+                }
                 if (r < 0) {
                         log_error_errno(r, "sd_resolve_wait(): %m");
                         assert_not_reached("sd_resolve_wait() failed");

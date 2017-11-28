@@ -200,7 +200,6 @@ int fd_wait_for_event(int fd, int event, usec_t t) {
         r = ppoll(&pollfd, 1, t == USEC_INFINITY ? NULL : timespec_store(&ts, t), NULL);
         if (r < 0)
                 return -errno;
-
         if (r == 0)
                 return 0;
 

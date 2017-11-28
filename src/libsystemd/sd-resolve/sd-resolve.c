@@ -890,6 +890,8 @@ _public_ int sd_resolve_wait(sd_resolve *resolve, uint64_t timeout_usec) {
 
         if (r < 0)
                 return r;
+        if (r == 0)
+                return -ETIMEDOUT;
 
         return sd_resolve_process(resolve);
 }
