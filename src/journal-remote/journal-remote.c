@@ -1043,18 +1043,17 @@ static int remoteserver_init(RemoteServer *s,
         return 0;
 }
 
+static void MHDDaemonWrapper_free(MHDDaemonWrapper *d) {
+        MHD_stop_daemon(d->daemon);
+        sd_event_source_unref(d->io_event);
+        sd_event_source_unref(d->timer_event);
+        free(d);
+}
+
 static void server_destroy(RemoteServer *s) {
         size_t i;
-        MHDDaemonWrapper *d;
 
-        while ((d = hashmap_steal_first(s->daemons))) {
-                MHD_stop_daemon(d->daemon);
-                sd_event_source_unref(d->io_event);
-                sd_event_source_unref(d->timer_event);
-                free(d);
-        }
-
-        hashmap_free(s->daemons);
+        hashmap_free_with_destructor(s->daemons, MHDDaemonWrapper_free);
 
         assert(s->sources_size == 0 || s->sources);
         for (i = 0; i < s->sources_size; i++)
