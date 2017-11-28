@@ -135,7 +135,8 @@ static int prepare(char *dir, char *filename)
 static int checkout(int fd)
 {
         int len;
-        char *buf, *ptr, *word = NULL;
+        _cleanup_free_ char *buf = NULL;
+        char *ptr, *word = NULL;
         struct _mate *him;
 
  restart:
@@ -155,7 +156,6 @@ static int checkout(int fd)
                                 bufsize = bufsize << 1;
                                 if (debug)
                                         fprintf(stderr, "ID overflow, restarting with size %zu\n", bufsize);
-                                free(buf);
                                 lseek(fd, 0, SEEK_SET);
                                 goto restart;
                         }
@@ -168,13 +168,10 @@ static int checkout(int fd)
                                 if (debug)
                                         fprintf(stderr, "Found word %s\n", word);
                                 him = malloc(sizeof (struct _mate));
-                                if (!him) {
-                                        free(buf);
+                                if (!him)
                                         return log_oom();
-                                }
                                 him->name = strdup(word);
                                 if (!him->name) {
-                                        free(buf);
                                         free(him);
                                         return log_oom();
                                 }
@@ -191,7 +188,6 @@ static int checkout(int fd)
                 ptr -= len;
         }
 
-        free(buf);
         return 0;
 }
 
