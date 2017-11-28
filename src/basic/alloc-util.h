@@ -55,7 +55,7 @@ static inline void *mfree(void *memory) {
         })
 
 void* memdup(const void *p, size_t l) _alloc_(2);
-void* memdup_suffix0(const void*p, size_t l) _alloc_(2);
+void* memdup_suffix0(const void *p, size_t l) _alloc_(2);
 
 static inline void freep(void *p) {
         free(*(void**) p);
