@@ -3,7 +3,6 @@
 # ex: ts=8 sw=4 sts=4 et filetype=sh
 set -e
 TEST_DESCRIPTION="https://github.com/systemd/systemd/issues/2467"
-TEST_NO_NSPAWN=1
 
 . $TEST_BASE_DIR/test-functions
 SKIP_INITRD=yes
@@ -49,6 +48,7 @@ EOF
 
         setup_testsuite
     ) || return 1
+    setup_nspawn_root
 
     # mask some services that we do not want to run in these tests
     ln -s /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service
