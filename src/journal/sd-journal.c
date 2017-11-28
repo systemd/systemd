@@ -1978,7 +1978,6 @@ fail:
 _public_ void sd_journal_close(sd_journal *j) {
         Directory *d;
         JournalFile *f;
-        char *p;
 
         if (!j)
                 return;
@@ -2006,9 +2005,7 @@ _public_ void sd_journal_close(sd_journal *j) {
                 mmap_cache_unref(j->mmap);
         }
 
-        while ((p = hashmap_steal_first(j->errors)))
-                free(p);
-        hashmap_free(j->errors);
+        hashmap_free_free(j->errors);
 
         free(j->path);
         free(j->prefix);
