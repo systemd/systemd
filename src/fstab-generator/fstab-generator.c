@@ -820,19 +820,13 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return log_oom();
 
         } else if (streq(key, "rootflags")) {
-                char *o;
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                o = arg_root_options ?
-                        strjoin(arg_root_options, ",", value) :
-                        strdup(value);
-                if (!o)
+                if (!strextend_with_separator(&arg_root_options, ",", value, NULL))
                         return log_oom();
 
-                free(arg_root_options);
-                arg_root_options = o;
         } else if (streq(key, "roothash")) {
 
                 if (proc_cmdline_value_missing(key, value))
@@ -858,19 +852,12 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return log_oom();
 
         } else if (streq(key, "mount.usrflags")) {
-                char *o;
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                o = arg_usr_options ?
-                        strjoin(arg_usr_options, ",", value) :
-                        strdup(value);
-                if (!o)
+                if (!strextend_with_separator(&arg_usr_options, ",", value, NULL))
                         return log_oom();
-
-                free(arg_usr_options);
-                arg_usr_options = o;
 
         } else if (streq(key, "rw") && !value)
                 arg_root_rw = true;
