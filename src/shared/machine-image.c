@@ -457,15 +457,6 @@ int image_discover(Hashmap *h) {
         return 0;
 }
 
-void image_hashmap_free(Hashmap *map) {
-        Image *i;
-
-        while ((i = hashmap_steal_first(map)))
-                image_unref(i);
-
-        hashmap_free(map);
-}
-
 int image_remove(Image *i) {
         _cleanup_release_lock_file_ LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
         _cleanup_strv_free_ char **settings = NULL;

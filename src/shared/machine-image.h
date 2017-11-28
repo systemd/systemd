@@ -64,7 +64,9 @@ typedef struct Image {
 } Image;
 
 Image *image_unref(Image *i);
-void image_hashmap_free(Hashmap *map);
+static inline Hashmap* image_hashmap_free(Hashmap *map) {
+        return hashmap_free_with_destructor(map, image_unref);
+}
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Image*, image_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, image_hashmap_free);
