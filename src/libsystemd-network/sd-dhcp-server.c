@@ -87,7 +87,6 @@ int sd_dhcp_server_configure_pool(sd_dhcp_server *server, struct in_addr *addres
                 size = size_max;
 
         if (server->address != address->s_addr || server->netmask != netmask || server->pool_size != size || server->pool_offset != offset) {
-                DHCPLease *lease;
 
                 free(server->bound_leases);
                 server->bound_leases = new0(DHCPLease*, size);
@@ -105,8 +104,7 @@ int sd_dhcp_server_configure_pool(sd_dhcp_server *server, struct in_addr *addres
                         server->bound_leases[server_off - offset] = &server->invalid_lease;
 
                 /* Drop any leases associated with the old address range */
-                while ((lease = hashmap_steal_first(server->leases_by_client_id)))
-                        dhcp_lease_free(lease);
+                hashmap_clear_with_destructor(server->leases_by_client_id, dhcp_lease_free);
         }
 
         return 0;

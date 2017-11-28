@@ -699,12 +699,7 @@ static int get_unit_list(
 }
 
 static void message_set_freep(Set **set) {
-        sd_bus_message *m;
-
-        while ((m = set_steal_first(*set)))
-                sd_bus_message_unref(m);
-
-        set_free(*set);
+        set_free_with_destructor(*set, sd_bus_message_unref);
 }
 
 static int get_unit_list_recursive(

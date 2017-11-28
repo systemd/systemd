@@ -396,14 +396,11 @@ const sd_bus_vtable image_vtable[] = {
 
 static int image_flush_cache(sd_event_source *s, void *userdata) {
         Manager *m = userdata;
-        Image *i;
 
         assert(s);
         assert(m);
 
-        while ((i = hashmap_steal_first(m->image_cache)))
-                image_unref(i);
-
+        hashmap_clear_with_destructor(m->image_cache, image_unref);
         return 0;
 }
 

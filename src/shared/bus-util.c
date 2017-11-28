@@ -554,12 +554,7 @@ int bus_verify_polkit_async(
 
 void bus_verify_polkit_async_registry_free(Hashmap *registry) {
 #if ENABLE_POLKIT
-        AsyncPolkitQuery *q;
-
-        while ((q = hashmap_steal_first(registry)))
-                async_polkit_query_free(q);
-
-        hashmap_free(registry);
+        hashmap_free_with_destructor(registry, async_polkit_query_free);
 #endif
 }
 

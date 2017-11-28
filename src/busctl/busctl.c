@@ -692,12 +692,7 @@ static void member_free(Member *m) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(Member*, member_free);
 
 static void member_set_free(Set *s) {
-        Member *m;
-
-        while ((m = set_steal_first(s)))
-                member_free(m);
-
-        set_free(s);
+        set_free_with_destructor(s, member_free);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Set*, member_set_free);

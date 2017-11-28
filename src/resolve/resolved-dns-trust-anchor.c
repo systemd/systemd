@@ -542,19 +542,10 @@ int dns_trust_anchor_load(DnsTrustAnchor *d) {
 }
 
 void dns_trust_anchor_flush(DnsTrustAnchor *d) {
-        DnsAnswer *a;
-        DnsResourceRecord *rr;
-
         assert(d);
 
-        while ((a = hashmap_steal_first(d->positive_by_key)))
-                dns_answer_unref(a);
-        d->positive_by_key = hashmap_free(d->positive_by_key);
-
-        while ((rr = set_steal_first(d->revoked_by_rr)))
-                dns_resource_record_unref(rr);
-        d->revoked_by_rr = set_free(d->revoked_by_rr);
-
+        d->positive_by_key = hashmap_free_with_destructor(d->positive_by_key, dns_answer_unref);
+        d->revoked_by_rr = set_free_with_destructor(d->revoked_by_rr, dns_resource_record_unref);
         d->negative_by_name = set_free_free(d->negative_by_name);
 }
 

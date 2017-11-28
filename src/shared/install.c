@@ -992,23 +992,11 @@ static void install_info_free(UnitFileInstallInfo *i) {
         free(i);
 }
 
-static OrderedHashmap* install_info_hashmap_free(OrderedHashmap *m) {
-        UnitFileInstallInfo *i;
-
-        if (!m)
-                return NULL;
-
-        while ((i = ordered_hashmap_steal_first(m)))
-                install_info_free(i);
-
-        return ordered_hashmap_free(m);
-}
-
 static void install_context_done(InstallContext *c) {
         assert(c);
 
-        c->will_process = install_info_hashmap_free(c->will_process);
-        c->have_processed = install_info_hashmap_free(c->have_processed);
+        c->will_process = ordered_hashmap_free_with_destructor(c->will_process, install_info_free);
+        c->have_processed = ordered_hashmap_free_with_destructor(c->have_processed, install_info_free);
 }
 
 static UnitFileInstallInfo *install_info_find(InstallContext *c, const char *name) {
@@ -3141,12 +3129,7 @@ static void unit_file_list_free_one(UnitFileList *f) {
 }
 
 Hashmap* unit_file_list_free(Hashmap *h) {
-        UnitFileList *i;
-
-        while ((i = hashmap_steal_first(h)))
-                unit_file_list_free_one(i);
-
-        return hashmap_free(h);
+        return hashmap_free_with_destructor(h, unit_file_list_free_one);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(UnitFileList*, unit_file_list_free_one);
