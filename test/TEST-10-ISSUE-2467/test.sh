@@ -18,7 +18,7 @@ test_setup() {
         eval $(udevadm info --export --query=env --name=${LOOPDEV}p2)
 
         setup_basic_environment
-        dracut_install nc true rm
+        dracut_install true rm
 
         # setup the testsuite service
         cat >$initdir/etc/systemd/system/testsuite.service <<'EOF'
@@ -28,13 +28,15 @@ After=multi-user.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -e -x -c 'rm -f /tmp/nonexistent; systemctl start test.socket; echo a | nc -U /run/test.ctl; >/testok'
+StandardOutput=tty
+StandardError=tty
+ExecStart=/bin/sh -e -x -c 'rm -f /tmp/nonexistent; systemctl start test.socket; echo > /run/test.ctl; >/testok'
 TimeoutStartSec=10s
 EOF
 
 	cat  >$initdir/etc/systemd/system/test.socket <<'EOF'
 [Socket]
-ListenStream=/run/test.ctl
+ListenFIFO=/run/test.ctl
 EOF
 
 	cat > $initdir/etc/systemd/system/test.service <<'EOF'
