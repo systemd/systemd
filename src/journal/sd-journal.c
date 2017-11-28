@@ -1977,17 +1977,13 @@ fail:
 
 _public_ void sd_journal_close(sd_journal *j) {
         Directory *d;
-        JournalFile *f;
 
         if (!j)
                 return;
 
         sd_journal_flush_matches(j);
 
-        while ((f = ordered_hashmap_steal_first(j->files)))
-                (void) journal_file_close(f);
-
-        ordered_hashmap_free(j->files);
+        ordered_hashmap_free_with_destructor(j->files, journal_file_close);
 
         while ((d = hashmap_first(j->directories_by_path)))
                 remove_directory(j, d);

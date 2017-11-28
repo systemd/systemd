@@ -400,15 +400,6 @@ JournalFile* journal_file_close(JournalFile *f) {
         return mfree(f);
 }
 
-void journal_file_close_set(Set *s) {
-        JournalFile *f;
-
-        assert(s);
-
-        while ((f = set_steal_first(s)))
-                (void) journal_file_close(f);
-}
-
 static int journal_file_init_header(JournalFile *f, JournalFile *template) {
         Header h = {};
         ssize_t k;
@@ -3371,8 +3362,7 @@ int journal_file_open(
         f->header = h;
 
         if (!newly_created) {
-                if (deferred_closes)
-                        journal_file_close_set(deferred_closes);
+                set_clear_with_destructor(deferred_closes, journal_file_close);
 
                 r = journal_file_verify_header(f);
                 if (r < 0)
