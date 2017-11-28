@@ -1223,7 +1223,6 @@ int manager_new(Manager **ret, sd_event *event) {
 }
 
 void manager_free(Manager *m) {
-        RoutingPolicyRule *rule;
         Network *network;
         NetDev *netdev;
         Link *link;
@@ -1253,10 +1252,7 @@ void manager_free(Manager *m) {
         set_free(m->rules);
         set_free(m->rules_foreign);
 
-        while ((rule = set_steal_first(m->rules_saved)))
-                free(rule);
-
-        set_free(m->rules_saved);
+        set_free_with_destructor(m->rules_saved, routing_policy_rule_free);
 
         sd_netlink_unref(m->rtnl);
         sd_event_unref(m->event);
