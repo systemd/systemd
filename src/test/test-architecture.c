@@ -25,6 +25,14 @@
 
 int main(int argc, char *argv[]) {
         int a, v;
+        const char *p;
+
+        assert_se(architecture_from_string("") < 0);
+        assert_se(architecture_from_string(NULL) < 0);
+        assert_se(architecture_from_string("hoge") < 0);
+        assert_se(architecture_to_string(-1) == NULL);
+        assert_se(architecture_from_string(architecture_to_string(0)) == 0);
+        assert_se(architecture_from_string(architecture_to_string(1)) == 1);
 
         v = detect_virtualization();
         if (IN_SET(v, -EPERM, -EACCES))
@@ -40,12 +48,18 @@ int main(int argc, char *argv[]) {
         a = uname_architecture();
         assert_se(a >= 0);
 
-        log_info("uname architecture=%s", architecture_to_string(a));
+        p = architecture_to_string(a);
+        assert_se(p);
+        log_info("uname architecture=%s", p);
+        assert_se(architecture_from_string(p) == a);
 
         a = native_architecture();
         assert_se(a >= 0);
 
-        log_info("native architecture=%s", architecture_to_string(a));
+        p = architecture_to_string(a);
+        assert_se(p);
+        log_info("native architecture=%s", p);
+        assert_se(architecture_from_string(p) == a);
 
         log_info("primary library architecture=" LIB_ARCH_TUPLE);
 
