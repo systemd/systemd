@@ -320,7 +320,7 @@ static int prompt_keymap(void) {
 
 static int process_keymap(void) {
         const char *etc_vconsoleconf;
-        char **keymap;
+        char **keymap = NULL;
         int r;
 
         etc_vconsoleconf = prefix_roota(arg_root, "/etc/vconsole.conf");
