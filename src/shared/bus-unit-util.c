@@ -134,9 +134,12 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
         } else if (streq(field, "EnvironmentFile")) {
 
-                r = sd_bus_message_append(m, "sv", "EnvironmentFiles", "a(sb)", 1,
-                                          eq[0] == '-' ? eq + 1 : eq,
-                                          eq[0] == '-');
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "sv", "EnvironmentFiles", "a(sb)", 0);
+                else
+                        r = sd_bus_message_append(m, "sv", "EnvironmentFiles", "a(sb)", 1,
+                                                  eq[0] == '-' ? eq + 1 : eq,
+                                                  eq[0] == '-');
                 goto finish;
 
         } else if (STR_IN_SET(field, "AccuracySec", "RandomizedDelaySec", "RuntimeMaxSec")) {
