@@ -27,6 +27,7 @@
 
 int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         DnssdService *s = userdata;
+        DnssdTxtData *txt_data;
         Manager *m;
         Iterator i;
         Link *l;
@@ -54,7 +55,8 @@ int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_
 
                         dns_zone_remove_rr(&l->mdns_ipv4_scope->zone, s->ptr_rr);
                         dns_zone_remove_rr(&l->mdns_ipv4_scope->zone, s->srv_rr);
-                        dns_zone_remove_rr(&l->mdns_ipv4_scope->zone, s->txt_rr);
+                        LIST_FOREACH(items, txt_data, s->txt_data_items)
+                                dns_zone_remove_rr(&l->mdns_ipv4_scope->zone, txt_data->rr);
                 }
 
                 if (l->mdns_ipv6_scope) {
@@ -64,7 +66,8 @@ int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_
 
                         dns_zone_remove_rr(&l->mdns_ipv6_scope->zone, s->ptr_rr);
                         dns_zone_remove_rr(&l->mdns_ipv6_scope->zone, s->srv_rr);
-                        dns_zone_remove_rr(&l->mdns_ipv6_scope->zone, s->txt_rr);
+                        LIST_FOREACH(items, txt_data, s->txt_data_items)
+                                dns_zone_remove_rr(&l->mdns_ipv6_scope->zone, txt_data->rr);
                 }
         }
 

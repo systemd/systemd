@@ -19,7 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "list.h"
+
 typedef struct DnssdService DnssdService;
+typedef struct DnssdTxtData DnssdTxtData;
 
 typedef struct Manager Manager;
 typedef struct DnsResourceRecord DnsResourceRecord;
@@ -30,6 +33,14 @@ enum {
         DNS_TXT_ITEM_DATA
 };
 
+struct DnssdTxtData {
+        DnsResourceRecord *rr;
+
+        LIST_HEAD(DnsTxtItem, txt);
+
+        LIST_FIELDS(DnssdTxtData, items);
+};
+
 struct DnssdService {
         char *filename;
         char *name;
@@ -38,11 +49,13 @@ struct DnssdService {
         uint16_t port;
         uint16_t priority;
         uint16_t weight;
-        DnsTxtItem *txt;
 
         DnsResourceRecord *ptr_rr;
         DnsResourceRecord *srv_rr;
-        DnsResourceRecord *txt_rr;
+
+        /* Section 6.8 of RFC 6763 allows having service
+         * instances with multiple TXT resource records. */
+        LIST_HEAD(DnssdTxtData, txt_data_items);
 
         Manager *manager;
 
@@ -51,8 +64,11 @@ struct DnssdService {
 };
 
 DnssdService *dnssd_service_free(DnssdService *service);
+DnssdTxtData *dnssd_txtdata_free(DnssdTxtData *txt_data);
+DnssdTxtData *dnssd_txtdata_free_all(DnssdTxtData *txt_data);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdService*, dnssd_service_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdTxtData*, dnssd_txtdata_free);
 
 int dnssd_render_instance_name(DnssdService *s, char **ret_name);
 int dnssd_load(Manager *manager);

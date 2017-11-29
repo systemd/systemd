@@ -297,6 +297,7 @@ int config_parse_dnssd_service_type(const char *unit, const char *filename, unsi
 }
 
 int config_parse_dnssd_txt(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
+        _cleanup_(dnssd_txtdata_freep) DnssdTxtData *txt_data = NULL;
         DnssdService *s = userdata;
         DnsTxtItem *last = NULL;
 
@@ -305,13 +306,15 @@ int config_parse_dnssd_txt(const char *unit, const char *filename, unsigned line
         assert(rvalue);
         assert(s);
 
-        /* TODO: Since RFC6763 allows more than one TXT RR per service
-         *       this s->txt field should be implemented as a list
-         *       of DnsTxtItem lists. */
-        s->txt = dns_txt_item_free_all(s->txt);
-
-        if (isempty(rvalue))
+        if (isempty(rvalue)) {
+                /* Flush out collected items */
+                s->txt_data_items = dnssd_txtdata_free_all(s->txt_data_items);
                 return 0;
+        }
+
+        txt_data = new0(DnssdTxtData, 1);
+        if (!txt_data)
+                return log_oom();
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
@@ -371,8 +374,13 @@ int config_parse_dnssd_txt(const char *unit, const char *filename, unsigned line
                         assert_not_reached("Unknown type of Txt config");
                 }
 
-                LIST_INSERT_AFTER(items, s->txt, last, i);
+                LIST_INSERT_AFTER(items, txt_data->txt, last, i);
                 last = i;
+        }
+
+        if (!LIST_IS_EMPTY(txt_data->txt)) {
+                LIST_PREPEND(items, s->txt_data_items, txt_data);
+                txt_data = NULL;
         }
 
         return 0;

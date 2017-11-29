@@ -174,6 +174,10 @@
             e.g. <literal>path=/portal/index.html</literal>. Keys and values can contain C-style escape
             sequences which get translated upon reading configuration files.
             </para>
+            <para>This option together with <varname>TxtData=</varname> may be specified more than once, in which
+            case multiple TXT resource records will be created for the service. If the empty string is assigned to
+            this option, the list is reset and all prior assignments will have no effect.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -184,6 +188,10 @@
             where values are base64-encoded string representing any binary data,
             e.g. <literal>data=YW55IGJpbmFyeSBkYXRhCg==</literal>. Keys can contain C-style escape
             sequences which get translated upon reading configuration files.
+            </para>
+            <para>This option together with <varname>TxtText=</varname> may be specified more than once, in which
+            case multiple TXT resource records will be created for the service. If the empty string is assigned to
+            this option, the list is reset and all prior assignments will have no effect.
             </para>
           </listitem>
         </varlistentry>

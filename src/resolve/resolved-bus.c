@@ -1605,7 +1605,6 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         _cleanup_free_ char *instance_name = NULL;
         Manager *m = userdata;
         DnssdService *s = NULL;
-        DnsTxtItem *last = NULL;
         const char *name;
         const char *name_template;
         const char *type;
@@ -1669,46 +1668,82 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_enter_container(message, SD_BUS_TYPE_ARRAY, "{say}");
+        r = sd_bus_message_enter_container(message, SD_BUS_TYPE_ARRAY, "a{say}");
         if (r < 0)
-                return sd_bus_error_set_errno(error, r);
+                return r;
 
-        while ((r = sd_bus_message_enter_container(message, SD_BUS_TYPE_DICT_ENTRY, "say")) > 0) {
-                const char *key;
-                const void *value;
-                size_t size;
-                DnsTxtItem *i;
+        while ((r = sd_bus_message_enter_container(message, SD_BUS_TYPE_ARRAY, "{say}")) > 0) {
+                _cleanup_(dnssd_txtdata_freep) DnssdTxtData *txt_data = NULL;
+                DnsTxtItem *last = NULL;
 
-                r = sd_bus_message_read(message, "s", &key);
+                txt_data = new0(DnssdTxtData, 1);
+                if (!txt_data)
+                        return log_oom();
+
+                while ((r = sd_bus_message_enter_container(message, SD_BUS_TYPE_DICT_ENTRY, "say")) > 0) {
+                        const char *key;
+                        const void *value;
+                        size_t size;
+                        DnsTxtItem *i;
+
+                        r = sd_bus_message_read(message, "s", &key);
+                        if (r < 0)
+                                return r;
+
+                        if (isempty(key))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Keys in DNS-SD TXT RRs can't be empty");
+
+                        if (!ascii_is_valid(key))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "TXT key '%s' contains non-ASCII symbols", key);
+
+                        r = sd_bus_message_read_array(message, 'y', &value, &size);
+                        if (r < 0)
+                                return r;
+
+                        r = dnssd_txt_item_new_from_data(key, value, size, &i);
+                        if (r < 0)
+                                return r;
+
+                        LIST_INSERT_AFTER(items, txt_data->txt, last, i);
+                        last = i;
+
+                        r = sd_bus_message_exit_container(message);
+                        if (r < 0)
+                                return r;
+
+                }
                 if (r < 0)
-                        return sd_bus_error_set_errno(error, r);
+                        return r;
 
-                if (strlen_ptr(key) == 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Keys in DNS-SD TXT RRs can't be empty");
-
-                if (!ascii_is_valid(key))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "TXT key '%s' contains non-ASCII symbols", key);
-
-                r = sd_bus_message_read_array(message, 'y', &value, &size);
+                r = sd_bus_message_exit_container(message);
                 if (r < 0)
-                        return sd_bus_error_set_errno(error, r);
+                        return r;
 
-                r = dnssd_txt_item_new_from_data(key, value, size, &i);
-                if (r < 0)
-                        return sd_bus_error_set_errno(error, r);
-
-                LIST_INSERT_AFTER(items, service->txt, last, i);
-                last = i;
+                if (txt_data->txt) {
+                        LIST_PREPEND(items, service->txt_data_items, txt_data);
+                        txt_data = NULL;
+                }
         }
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_exit_container(message);
         if (r < 0)
-                return sd_bus_error_set_errno(error, r);
+                return r;
 
-        if (!service->txt) {
-                r = dns_txt_item_new_empty(&service->txt);
+        if (!service->txt_data_items) {
+                _cleanup_(dnssd_txtdata_freep) DnssdTxtData *txt_data = NULL;
+
+                txt_data = new0(DnssdTxtData, 1);
+                if (!txt_data)
+                        return log_oom();
+
+                r = dns_txt_item_new_empty(&txt_data->txt);
                 if (r < 0)
-                        return sd_bus_error_set_errno(error, r);
+                        return r;
+
+                LIST_PREPEND(items, service->txt_data_items, txt_data);
+                txt_data = NULL;
         }
 
         r = sd_bus_path_encode("/org/freedesktop/resolve1/dnssd", service->name, &path);
@@ -1804,7 +1839,7 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_METHOD("SetLinkDNSSECNegativeTrustAnchors", "ias", NULL, bus_method_set_link_dnssec_negative_trust_anchors, 0),
         SD_BUS_METHOD("RevertLink", "i", NULL, bus_method_revert_link, 0),
 
-        SD_BUS_METHOD("RegisterService", "sssqqqa{say}", "o", bus_method_register_service, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("RegisterService", "sssqqqaa{say}", "o", bus_method_register_service, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("UnregisterService", "o", NULL, bus_method_unregister_service, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END,
 };

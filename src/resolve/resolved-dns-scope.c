@@ -1068,7 +1068,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         _cleanup_set_free_ Set *types = NULL;
         DnsTransaction *t;
-        DnsZoneItem *z;
+        DnsZoneItem *z, *i;
         unsigned size = 0;
         Iterator iterator;
         char *service_type;
@@ -1117,7 +1117,8 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                         }
                 }
 
-                size++;
+                LIST_FOREACH(by_key, i, z)
+                        size++;
         }
 
         answer = dns_answer_new(size + set_size(types));
@@ -1125,21 +1126,22 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                 return log_oom();
 
         /* Second iteration, actually add RRs to the answer. */
-        HASHMAP_FOREACH(z, scope->zone.by_key, iterator) {
-                DnsAnswerFlags flags;
+        HASHMAP_FOREACH(z, scope->zone.by_key, iterator)
+                LIST_FOREACH (by_key, i, z) {
+                        DnsAnswerFlags flags;
 
-                if (z->state != DNS_ZONE_ITEM_ESTABLISHED)
-                        continue;
+                        if (i->state != DNS_ZONE_ITEM_ESTABLISHED)
+                                continue;
 
-                if (dns_resource_key_is_dnssd_ptr(z->rr->key))
-                        flags = goodbye ? DNS_ANSWER_GOODBYE : 0;
-                else
-                        flags = goodbye ? (DNS_ANSWER_GOODBYE|DNS_ANSWER_CACHE_FLUSH) : DNS_ANSWER_CACHE_FLUSH;
+                        if (dns_resource_key_is_dnssd_ptr(i->rr->key))
+                                flags = goodbye ? DNS_ANSWER_GOODBYE : 0;
+                        else
+                                flags = goodbye ? (DNS_ANSWER_GOODBYE|DNS_ANSWER_CACHE_FLUSH) : DNS_ANSWER_CACHE_FLUSH;
 
-                r = dns_answer_add(answer, z->rr, 0 , flags);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to add RR to announce: %m");
-        }
+                        r = dns_answer_add(answer, i->rr, 0 , flags);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to add RR to announce: %m");
+                }
 
         /* Since all the active services are in the zone make them discoverable now. */
         SET_FOREACH(service_type, types, iterator) {
@@ -1199,6 +1201,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
 int dns_scope_add_dnssd_services(DnsScope *scope) {
         Iterator i;
         DnssdService *service;
+        DnssdTxtData *txt_data;
         int r;
 
         assert(scope);
@@ -1219,9 +1222,11 @@ int dns_scope_add_dnssd_services(DnsScope *scope) {
                 if (r < 0)
                         log_warning_errno(r, "Failed to add SRV record to MDNS zone: %m");
 
-                r = dns_zone_put(&scope->zone, scope, service->txt_rr, true);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to add TXT record to MDNS zone: %m");
+                LIST_FOREACH(items, txt_data, service->txt_data_items) {
+                        r = dns_zone_put(&scope->zone, scope, txt_data->rr, true);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to add TXT record to MDNS zone: %m");
+                }
         }
 
         return 0;
@@ -1231,6 +1236,7 @@ int dns_scope_remove_dnssd_services(DnsScope *scope) {
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
         Iterator i;
         DnssdService *service;
+        DnssdTxtData *txt_data;
         int r;
 
         assert(scope);
@@ -1247,7 +1253,8 @@ int dns_scope_remove_dnssd_services(DnsScope *scope) {
         HASHMAP_FOREACH(service, scope->manager->dnssd_services, i) {
                 dns_zone_remove_rr(&scope->zone, service->ptr_rr);
                 dns_zone_remove_rr(&scope->zone, service->srv_rr);
-                dns_zone_remove_rr(&scope->zone, service->txt_rr);
+                LIST_FOREACH(items, txt_data, service->txt_data_items)
+                        dns_zone_remove_rr(&scope->zone, txt_data->rr);
         }
 
         return 0;

@@ -35,6 +35,29 @@ const char* const dnssd_service_dirs[] = {
     NULL
 };
 
+DnssdTxtData *dnssd_txtdata_free(DnssdTxtData *txt_data) {
+        if (!txt_data)
+                return NULL;
+
+        dns_resource_record_unref(txt_data->rr);
+        dns_txt_item_free_all(txt_data->txt);
+
+        return mfree(txt_data);
+}
+
+DnssdTxtData *dnssd_txtdata_free_all(DnssdTxtData *txt_data) {
+        DnssdTxtData *next;
+
+        if (!txt_data)
+                return NULL;
+
+        next = txt_data->items_next;
+
+        dnssd_txtdata_free(txt_data);
+
+        return dnssd_txtdata_free_all(next);
+}
+
 DnssdService *dnssd_service_free(DnssdService *service) {
         if (!service)
                 return NULL;
@@ -44,19 +67,20 @@ DnssdService *dnssd_service_free(DnssdService *service) {
 
         dns_resource_record_unref(service->ptr_rr);
         dns_resource_record_unref(service->srv_rr);
-        dns_resource_record_unref(service->txt_rr);
+
+        dnssd_txtdata_free_all(service->txt_data_items);
 
         free(service->filename);
         free(service->name);
         free(service->type);
         free(service->name_template);
-        dns_txt_item_free_all(service->txt);
 
         return mfree(service);
 }
 
 static int dnssd_service_load(Manager *manager, const char *filename) {
         _cleanup_(dnssd_service_freep) DnssdService *service = NULL;
+        _cleanup_(dnssd_txtdata_freep) DnssdTxtData *txt_data = NULL;
         char *d;
         const char *dropin_dirname;
         int r;
@@ -103,10 +127,17 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
                 return -EINVAL;
         }
 
-        if (!service->txt) {
-                r = dns_txt_item_new_empty(&service->txt);
+        if (LIST_IS_EMPTY(service->txt_data_items)) {
+                txt_data = new0(DnssdTxtData, 1);
+                if (!txt_data)
+                        return log_oom();
+
+                r = dns_txt_item_new_empty(&txt_data->txt);
                 if (r < 0)
                         return r;
+
+                LIST_PREPEND(items, service->txt_data_items, txt_data);
+                txt_data = NULL;
         }
 
         r = hashmap_ensure_allocated(&manager->dnssd_services, &string_hash_ops);
@@ -200,15 +231,17 @@ int dnssd_update_rrs(DnssdService *s) {
         _cleanup_free_ char *n = NULL;
         _cleanup_free_ char *service_name = NULL;
         _cleanup_free_ char *full_name = NULL;
+        DnssdTxtData *txt_data;
         int r;
 
         assert(s);
-        assert(s->txt);
+        assert(s->txt_data_items);
         assert(s->manager);
 
         s->ptr_rr = dns_resource_record_unref(s->ptr_rr);
         s->srv_rr = dns_resource_record_unref(s->srv_rr);
-        s->txt_rr = dns_resource_record_unref(s->txt_rr);
+        LIST_FOREACH(items, txt_data, s->txt_data_items)
+                txt_data->rr = dns_resource_record_unref(txt_data->rr);
 
         r = dnssd_render_instance_name(s, &n);
         if (r < 0)
@@ -221,15 +254,17 @@ int dnssd_update_rrs(DnssdService *s) {
         if (r < 0)
                 return r;
 
-        s->txt_rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_TXT,
-                                                 full_name);
-        if (!s->txt_rr)
-                goto oom;
+        LIST_FOREACH(items, txt_data, s->txt_data_items) {
+                txt_data->rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_TXT,
+                                                            full_name);
+                if (!txt_data->rr)
+                        goto oom;
 
-        s->txt_rr->ttl = MDNS_DEFAULT_TTL;
-        s->txt_rr->txt.items = dns_txt_item_copy(s->txt);
-        if (!s->txt_rr->txt.items)
-                goto oom;
+                txt_data->rr->ttl = MDNS_DEFAULT_TTL;
+                txt_data->rr->txt.items = dns_txt_item_copy(txt_data->txt);
+                if (!txt_data->rr->txt.items)
+                        goto oom;
+        }
 
         s->ptr_rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR,
                                                  service_name);
@@ -257,7 +292,8 @@ int dnssd_update_rrs(DnssdService *s) {
         return 0;
 
 oom:
-        s->txt_rr = dns_resource_record_unref(s->txt_rr);
+        LIST_FOREACH(items, txt_data, s->txt_data_items)
+                txt_data->rr = dns_resource_record_unref(txt_data->rr);
         s->ptr_rr = dns_resource_record_unref(s->ptr_rr);
         s->srv_rr = dns_resource_record_unref(s->srv_rr);
         return -ENOMEM;
