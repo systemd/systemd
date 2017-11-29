@@ -1893,6 +1893,42 @@ int config_parse_service_timeout(
         return 0;
 }
 
+int config_parse_service_timeout_abort(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Service *s = userdata;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(s);
+
+        rvalue += strspn(rvalue, WHITESPACE);
+        if (isempty(rvalue)) {
+                s->timeout_abort_set = false;
+                return 0;
+        }
+
+        r = parse_sec(rvalue, &s->timeout_abort_usec);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse TimeoutAbortSec= setting, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        s->timeout_abort_set = true;
+        return 0;
+}
+
 int config_parse_sec_fix_0(
                 const char *unit,
                 const char *filename,

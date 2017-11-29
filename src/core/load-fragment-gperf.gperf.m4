@@ -307,6 +307,7 @@ Service.RestartSec,              config_parse_sec,                   0,         
 Service.TimeoutSec,              config_parse_service_timeout,       0,                             0
 Service.TimeoutStartSec,         config_parse_service_timeout,       0,                             0
 Service.TimeoutStopSec,          config_parse_sec_fix_0,             0,                             offsetof(Service, timeout_stop_usec)
+Service.TimeoutAbortSec,         config_parse_service_timeout_abort, 0,                             0
 Service.RuntimeMaxSec,           config_parse_sec,                   0,                             offsetof(Service, runtime_max_usec)
 Service.WatchdogSec,             config_parse_sec,                   0,                             offsetof(Service, watchdog_usec)
 m4_dnl The following five only exist for compatibility, they moved into Unit, see above

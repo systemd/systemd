@@ -285,6 +285,7 @@ Most service unit settings are available for transient units.
 ✓ RestartSec=
 ✓ TimeoutStartSec=
 ✓ TimeoutStopSec=
+✓ TimeoutAbortSec=
 ✓ TimeoutSec=
 ✓ RuntimeMaxSec=
 ✓ WatchdogSec=

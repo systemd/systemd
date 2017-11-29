@@ -314,6 +314,8 @@ struct Manager {
         ExecOutput default_std_output, default_std_error;
 
         usec_t default_restart_usec, default_timeout_start_usec, default_timeout_stop_usec;
+        usec_t default_timeout_abort_usec;
+        bool default_timeout_abort_set;
 
         usec_t default_start_limit_interval;
         unsigned default_start_limit_burst;
@@ -398,6 +400,10 @@ struct Manager {
 
         bool honor_device_enumeration;
 };
+
+static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
+        return m->default_timeout_abort_set ? m->default_timeout_abort_usec : m->default_timeout_stop_usec;
+}
 
 #define MANAGER_IS_SYSTEM(m) ((m)->unit_file_scope == UNIT_FILE_SYSTEM)
 #define MANAGER_IS_USER(m) ((m)->unit_file_scope != UNIT_FILE_SYSTEM)
