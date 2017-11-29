@@ -574,6 +574,35 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>TimeoutAbortSec=</varname></term>
+        <listitem><para>This option configures the time to wait for the service to terminate when it was aborted due to a
+        watchdog timeout (see <varname>WatchdogSec=</varname>). If the service has a short <varname>TimeoutStopSec=</varname>
+        this option can be used to give the system more time to write a core dump of the service. Upon expiration the service
+        will be forcibly terminated by <constant>SIGKILL</constant> (see <varname>KillMode=</varname> in
+        <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>). The core file will
+        be truncated in this case. Use <varname>TimeoutAbortSec=</varname> to set a sensible timeout for the core dumping per
+        service that is large enough to write all expected data while also being short enough to handle the service failure
+        in due time.
+        </para>
+
+        <para>Takes a unit-less value in seconds, or a time span value such as "5min 20s". Pass an empty value to skip
+        the dedicated watchdog abort timeout handling and fall back <varname>TimeoutStopSec=</varname>. Pass
+        <literal>infinity</literal> to disable the timeout logic. Defaults to <varname>DefaultTimeoutAbortSec=</varname> from
+        the manager configuration file (see
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        </para>
+
+        <para>If a service of <varname>Type=notify</varname> handles <constant>SIGABRT</constant> itself (instead of relying
+        on the kernel to write a core dump) it can send <literal>EXTEND_TIMEOUT_USEC=…</literal> to
+        extended the abort time beyond <varname>TimeoutAbortSec=</varname>. The first receipt of this message
+        must occur before <varname>TimeoutAbortSec=</varname> is exceeded, and once the abort time has exended beyond
+        <varname>TimeoutAbortSec=</varname>, the service manager will allow the service to continue to abort, provided
+        the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified, or terminates itself
+        (see <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>TimeoutSec=</varname></term>
         <listitem><para>A shorthand for configuring both
         <varname>TimeoutStartSec=</varname> and

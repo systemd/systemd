@@ -239,13 +239,15 @@
       <varlistentry>
         <term><varname>DefaultTimeoutStartSec=</varname></term>
         <term><varname>DefaultTimeoutStopSec=</varname></term>
+        <term><varname>DefaultTimeoutAbortSec=</varname></term>
         <term><varname>DefaultRestartSec=</varname></term>
 
-        <listitem><para>Configures the default timeouts for starting
-        and stopping of units, as well as the default time to sleep
+        <listitem><para>Configures the default timeouts for starting,
+        stopping and aborting of units, as well as the default time to sleep
         between automatic restarts of units, as configured per-unit in
         <varname>TimeoutStartSec=</varname>,
-        <varname>TimeoutStopSec=</varname> and
+        <varname>TimeoutStopSec=</varname>,
+        <varname>TimeoutAbortSec=</varname> and
         <varname>RestartSec=</varname> (for services, see
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details on the per-unit settings). Disabled by default, when
@@ -255,7 +257,9 @@
         <varname>TimeoutSec=</varname>
         value. <varname>DefaultTimeoutStartSec=</varname> and
         <varname>DefaultTimeoutStopSec=</varname> default to
-        90s. <varname>DefaultRestartSec=</varname> defaults to
+        90s. <varname>DefaultTimeoutAbortSec=</varname> is not set by default
+        so that all units fall back to <varname>TimeoutStopSec=</varname>.
+        <varname>DefaultRestartSec=</varname> defaults to
         100ms.</para></listitem>
       </varlistentry>
 

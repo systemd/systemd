@@ -97,6 +97,8 @@ struct Service {
         usec_t restart_usec;
         usec_t timeout_start_usec;
         usec_t timeout_stop_usec;
+        usec_t timeout_abort_usec;
+        usec_t timeout_abort_set;
         usec_t runtime_max_usec;
 
         dual_timestamp watchdog_timestamp;
@@ -188,6 +190,10 @@ struct Service {
 
         OOMPolicy oom_policy;
 };
+
+static inline usec_t service_timeout_abort_usec(Service *s) {
+        return s->timeout_abort_set ? s->timeout_abort_usec : s->timeout_stop_usec;
+}
 
 extern const UnitVTable service_vtable;
 
