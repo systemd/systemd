@@ -182,11 +182,20 @@ struct Server {
 
 #define SERVER_MACHINE_ID(s) ((s)->machine_id_field + strlen("_MACHINE_ID="))
 
+/* Extra fields for any log messages */
 #define N_IOVEC_META_FIELDS 22
+
+/* Extra fields for log messages that contain OBJECT_PID= (i.e. log about another process) */
+#define N_IOVEC_OBJECT_FIELDS 18
+
+/* Maximum number of fields we'll add in for driver (i.e. internal) messages */
+#define N_IOVEC_PAYLOAD_FIELDS 16
+
+/* kmsg: Maximum number of extra fields we'll import from the kernel's /dev/kmsg */
 #define N_IOVEC_KERNEL_FIELDS 64
+
+/* kmsg: Maximum number of extra fields we'll import from udev's devices */
 #define N_IOVEC_UDEV_FIELDS 32
-#define N_IOVEC_OBJECT_FIELDS 14
-#define N_IOVEC_PAYLOAD_FIELDS 15
 
 void server_dispatch_message(Server *s, struct iovec *iovec, size_t n, size_t m, ClientContext *c, const struct timeval *tv, int priority, pid_t object_pid);
 void server_driver_message(Server *s, pid_t object_pid, const char *message_id, const char *format, ...) _sentinel_ _printf_(4,0);
