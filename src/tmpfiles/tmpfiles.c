@@ -1788,7 +1788,7 @@ static bool should_include_path(const char *path) {
 
         /* no matches, so we should include this path only if we
          * have no whitelist at all */
-        if (strv_length(arg_include_prefixes) == 0)
+        if (strv_isempty(arg_include_prefixes))
                 return true;
 
         log_debug("Entry \"%s\" does not match any include prefix, skipping.", path);

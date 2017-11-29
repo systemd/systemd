@@ -1108,7 +1108,7 @@ int bus_exec_context_set_transient_property(
                 }
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        if (strv_length(l) == 0) {
+                        if (strv_isempty(l)) {
                                 c->supplementary_groups = strv_free(c->supplementary_groups);
                                 unit_write_settingf(u, flags, name, "%s=", name);
                         } else {
@@ -1360,7 +1360,7 @@ int bus_exec_context_set_transient_property(
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *joined = NULL;
 
-                        if (strv_length(l) == 0) {
+                        if (strv_isempty(l)) {
                                 c->syscall_whitelist = false;
                                 c->syscall_filter = hashmap_free(c->syscall_filter);
                         } else {
@@ -1433,7 +1433,7 @@ int bus_exec_context_set_transient_property(
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *joined = NULL;
 
-                        if (strv_length(l) == 0)
+                        if (strv_isempty(l))
                                 c->syscall_archs = set_free(c->syscall_archs);
                         else {
                                 char **s;
@@ -1506,7 +1506,7 @@ int bus_exec_context_set_transient_property(
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *joined = NULL;
 
-                        if (strv_length(l) == 0) {
+                        if (strv_isempty(l)) {
                                 c->address_families_whitelist = false;
                                 c->address_families = set_free(c->address_families);
                         } else {
@@ -2073,7 +2073,7 @@ int bus_exec_context_set_transient_property(
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment block.");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        if (strv_length(l) == 0) {
+                        if (strv_isempty(l)) {
                                 c->environment = strv_free(c->environment);
                                 unit_write_setting(u, flags, name, "Environment=");
                         } else {
@@ -2109,7 +2109,7 @@ int bus_exec_context_set_transient_property(
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid UnsetEnvironment= list.");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        if (strv_length(l) == 0) {
+                        if (strv_isempty(l)) {
                                 c->unset_environment = strv_free(c->unset_environment);
                                 unit_write_setting(u, flags, name, "UnsetEnvironment=");
                         } else {
@@ -2316,7 +2316,7 @@ int bus_exec_context_set_transient_property(
                         else /* "InaccessiblePaths" */
                                 dirs = &c->inaccessible_paths;
 
-                        if (strv_length(l) == 0) {
+                        if (strv_isempty(l)) {
                                 *dirs = strv_free(*dirs);
                                 unit_write_settingf(u, flags, name, "%s=", name);
                         } else {
