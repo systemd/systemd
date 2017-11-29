@@ -18,13 +18,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#if HAVE_LIBCRYPTSETUP
-#include <libcryptsetup.h>
-#ifndef CRYPT_LUKS
-#define CRYPT_LUKS NULL
-#endif
-#endif
-
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>

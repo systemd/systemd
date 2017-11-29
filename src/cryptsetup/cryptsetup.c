@@ -19,7 +19,6 @@
 ***/
 
 #include <errno.h>
-#include <libcryptsetup.h>
 #include <mntent.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -39,11 +38,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
-
-/* libcryptsetup define for any LUKS version, compatible with libcryptsetup 1.x */
-#ifndef CRYPT_LUKS
-#define CRYPT_LUKS NULL
-#endif
 
 /* internal helper */
 #define ANY_LUKS "LUKS"
