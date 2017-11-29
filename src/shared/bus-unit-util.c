@@ -186,7 +186,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 r = sd_bus_message_close_container(m);
                 goto finish;
 
-        } else if (STR_IN_SET(field, "MemoryLow", "MemoryHigh", "MemoryMax", "MemoryLimit")) {
+        } else if (STR_IN_SET(field, "MemoryLow", "MemoryHigh", "MemoryMax", "MemorySwapMax", "MemoryLimit")) {
                 uint64_t bytes;
 
                 if (isempty(eq) || streq(eq, "infinity"))
