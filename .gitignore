@@ -29,5 +29,6 @@
 /image.raw.cache-pre-inst
 /install-tree
 /mkosi.builddir/
+/mkosi.output/
 /tags
 __pycache__/
