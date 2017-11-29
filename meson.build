@@ -54,8 +54,16 @@ endif
 
 #####################################################################
 
-conf.set10('HAVE_SPLIT_USR', get_option('split-usr'))
-rootprefixdir = get_option('split-usr') ? '/' : '/usr'
+split_usr = get_option('split-usr')
+conf.set10('HAVE_SPLIT_USR', split_usr)
+
+rootprefixdir = get_option('rootprefix')
+# Unusual rootprefixdir values are used by some distros
+# (see https://github.com/systemd/systemd/pull/7461).
+rootprefix_default = get_option('split-usr') ? '/' : '/usr'
+if rootprefixdir == ''
+        rootprefixdir = rootprefix_default
+endif
 
 sysvinit_path = get_option('sysvinit-path')
 sysvrcnd_path = get_option('sysvrcnd-path')
@@ -179,6 +187,7 @@ conf.set_quoted('SYSTEMD_SLEEP_BINARY_PATH',                  join_paths(rootlib
 conf.set_quoted('SYSTEMCTL_BINARY_PATH',                      join_paths(rootbindir, 'systemctl'))
 conf.set_quoted('SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH', join_paths(rootbindir, 'systemd-tty-ask-password-agent'))
 conf.set_quoted('SYSTEMD_STDIO_BRIDGE_BINARY_PATH',           join_paths(bindir, 'systemd-stdio-bridge'))
+conf.set_quoted('ROOTPREFIX',                                 rootprefixdir)
 conf.set_quoted('RANDOM_SEED_DIR',                            randomseeddir)
 conf.set_quoted('RANDOM_SEED',                                join_paths(randomseeddir, 'random-seed'))
 conf.set_quoted('SYSTEMD_CRYPTSETUP_PATH',                    join_paths(rootlibexecdir, 'systemd-cryptsetup'))
@@ -2607,3 +2616,10 @@ status += [
         'disabled features: @0@'.format(', '.join(missing)),
         '']
 message('\n         '.join(status))
+
+if rootprefixdir != rootprefix_default
+        message('WARNING:\n' +
+                '        Note that the installation prefix was changed to "@0@".\n'.format(rootprefixdir) +
+                '        systemd used fixed names for unit file directories and other paths, so anything\n' +
+                '        except the default ("@0@") is strongly discouraged.'.format(rootprefix_default))
+endif
