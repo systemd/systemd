@@ -47,6 +47,12 @@
 #include "virt.h"
 #include "volatile-util.h"
 
+typedef enum MountpointFlags {
+        NOAUTO    = 1 << 0,
+        NOFAIL    = 1 << 1,
+        AUTOMOUNT = 1 << 2,
+} MountpointFlags;
+
 static const char *arg_dest = "/tmp";
 static const char *arg_dest_late = "/tmp";
 static bool arg_fstab_enabled = true;
@@ -91,8 +97,7 @@ static int write_what(FILE *f, const char *what) {
 static int add_swap(
                 const char *what,
                 struct mntent *me,
-                bool noauto,
-                bool nofail) {
+                MountpointFlags flags) {
 
         _cleanup_free_ char *name = NULL, *unit = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -150,9 +155,9 @@ static int add_swap(
         if (r < 0)
                 return r;
 
-        if (!noauto) {
+        if (!(flags & NOAUTO)) {
                 r = generator_add_symlink(arg_dest, SPECIAL_SWAP_TARGET,
-                                          nofail ? "wants" : "requires", name);
+                                          (flags & NOFAIL) ? "wants" : "requires", name);
                 if (r < 0)
                         return r;
         }
@@ -297,9 +302,7 @@ static int add_mount(
                 const char *fstype,
                 const char *opts,
                 int passno,
-                bool noauto,
-                bool nofail,
-                bool automount,
+                MountpointFlags flags,
                 const char *post,
                 const char *source) {
 
@@ -330,14 +333,14 @@ static int add_mount(
                 return 0;
 
         if (path_equal(where, "/")) {
-                if (noauto)
+                if (flags & NOAUTO)
                         log_warning("Ignoring \"noauto\" for root device");
-                if (nofail)
+                if (flags & NOFAIL)
                         log_warning("Ignoring \"nofail\" for root device");
-                if (automount)
+                if (flags & AUTOMOUNT)
                         log_warning("Ignoring automount option for root device");
 
-                noauto = nofail = automount = false;
+                SET_FLAG(flags, NOAUTO | NOFAIL | AUTOMOUNT, false);
         }
 
         r = unit_name_from_path(where, ".mount", &name);
@@ -363,7 +366,7 @@ static int add_mount(
                 "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n",
                 source);
 
-        if (STRPTR_IN_SET(fstype, "nfs", "nfs4") && !automount &&
+        if (STRPTR_IN_SET(fstype, "nfs", "nfs4") && !(flags & AUTOMOUNT) &&
             fstab_test_yes_no_option(opts, "bg\0" "fg\0")) {
                 /* The default retry timeout that mount.nfs uses for 'bg' mounts
                  * is 10000 minutes, where as it uses 2 minutes for 'fg' mounts.
@@ -374,13 +377,13 @@ static int add_mount(
                  * By placing these options first, they can be over-ridden by
                  * settings in /etc/fstab. */
                 opts = strjoina("x-systemd.mount-timeout=infinity,retry=10000,", opts, ",fg");
-                nofail = true;
+                SET_FLAG(flags, NOFAIL, true);
         }
 
-        if (!nofail && !automount)
+        if (!(flags & NOFAIL) && !(flags & AUTOMOUNT))
                 fprintf(f, "Before=%s\n", post);
 
-        if (!automount && opts) {
+        if (!(flags & AUTOMOUNT) && opts) {
                  r = write_after(f, opts);
                  if (r < 0)
                          return r;
@@ -444,14 +447,14 @@ static int add_mount(
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit file %s: %m", unit);
 
-        if (!noauto && !automount) {
+        if (!(flags & NOAUTO) && !(flags & AUTOMOUNT)) {
                 r = generator_add_symlink(dest, post,
-                                          nofail ? "wants" : "requires", name);
+                                          (flags & NOFAIL) ? "wants" : "requires", name);
                 if (r < 0)
                         return r;
         }
 
-        if (automount) {
+        if (flags & AUTOMOUNT) {
                 r = unit_name_from_path(where, ".automount", &automount_name);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate unit name: %m");
@@ -504,7 +507,7 @@ static int add_mount(
                         return log_error_errno(r, "Failed to write unit file %s: %m", automount_unit);
 
                 r = generator_add_symlink(dest, post,
-                                          nofail ? "wants" : "requires", automount_name);
+                                          (flags & NOFAIL) ? "wants" : "requires", automount_name);
                 if (r < 0)
                         return r;
         }
@@ -578,7 +581,8 @@ static int parse_fstab(bool initrd) {
                           yes_no(noauto), yes_no(nofail));
 
                 if (streq(me->mnt_type, "swap"))
-                        k = add_swap(what, me, noauto, nofail);
+                        k = add_swap(what, me,
+                                     noauto*NOAUTO | nofail*NOFAIL);
                 else {
                         bool automount;
                         const char *post;
@@ -600,9 +604,7 @@ static int parse_fstab(bool initrd) {
                                       me->mnt_type,
                                       me->mnt_opts,
                                       me->mnt_passno,
-                                      noauto,
-                                      nofail,
-                                      automount,
+                                      noauto*NOAUTO | nofail*NOFAIL | automount*AUTOMOUNT,
                                       post,
                                       fstab_path);
                 }
@@ -663,9 +665,7 @@ static int add_sysroot_mount(void) {
                          arg_root_fstype,
                          opts,
                          is_device_path(what) ? 1 : 0, /* passno */
-                         false,                        /* noauto off */
-                         false,                        /* nofail off */
-                         false,                        /* automount off */
+                         0,                            /* noauto off, nofail off, automount off */
                          SPECIAL_INITRD_ROOT_FS_TARGET,
                          "/proc/cmdline");
 }
@@ -718,9 +718,7 @@ static int add_sysroot_usr_mount(void) {
                          arg_usr_fstype,
                          opts,
                          is_device_path(what) ? 1 : 0, /* passno */
-                         false,                        /* noauto off */
-                         false,                        /* nofail off */
-                         false,                        /* automount off */
+                         0,
                          SPECIAL_INITRD_FS_TARGET,
                          "/proc/cmdline");
 }
@@ -759,9 +757,7 @@ static int add_volatile_var(void) {
                          "tmpfs",
                          "mode=0755",
                          0,
-                         false,
-                         false,
-                         false,
+                         0,
                          SPECIAL_LOCAL_FS_TARGET,
                          "/proc/cmdline");
 }
