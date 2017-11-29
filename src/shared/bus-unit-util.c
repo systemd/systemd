@@ -1297,7 +1297,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 r = sd_bus_message_close_container(m);
 
         } else {
-                log_error("Unknown assignment %s.", assignment);
+                log_error("Unknown assignment: %s", assignment);
                 return -EINVAL;
         }
 
