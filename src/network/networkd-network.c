@@ -361,6 +361,7 @@ void network_free(Network *network) {
 
         free(network->description);
         free(network->dhcp_vendor_class_identifier);
+        strv_free(network->dhcp_user_class);
         free(network->dhcp_hostname);
 
         free(network->mac);
@@ -1374,6 +1375,58 @@ int config_parse_ntp(
                 r = dns_name_is_valid_or_address(w);
                 if (r <= 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "%s is not a valid domain name or IP address, ignoring.", w);
+                        continue;
+                }
+
+                r = strv_push(l, w);
+                if (r < 0)
+                        return log_oom();
+
+                w = NULL;
+        }
+
+        return 0;
+}
+
+int config_parse_dhcp_user_class(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char ***l = data;
+        int r;
+
+        assert(l);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *l = strv_free(*l);
+                return 0;
+        }
+
+        for (;;) {
+                _cleanup_free_ char *w = NULL;
+
+                r = extract_first_word(&rvalue, &w, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to split user classes option, ignoring: %s", rvalue);
+                        break;
+                }
+                if (r == 0)
+                        break;
+
+                if (strlen(w) > 255) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "%s length is not in the range 1-255, ignoring.", w);
                         continue;
                 }
 

@@ -27,6 +27,7 @@
 #include "random-util.h"
 #include "string-util.h"
 #include "util.h"
+#include "strv.h"
 
 #define MAX_CLIENT_ID_LEN (sizeof(uint32_t) + MAX_DUID_LEN)  /* Arbitrary limit */
 #define MAX_MAC_ADDR_LEN CONST_MAX(INFINIBAND_ALEN, ETH_ALEN)
@@ -83,6 +84,7 @@ struct sd_dhcp_client {
         size_t client_id_len;
         char *hostname;
         char *vendor_class_identifier;
+        char **user_class;
         uint32_t mtu;
         uint32_t xid;
         usec_t start_time;
@@ -440,6 +442,26 @@ int sd_dhcp_client_set_vendor_class_identifier(
         return free_and_strdup(&client->vendor_class_identifier, vci);
 }
 
+int sd_dhcp_client_set_user_class(
+                sd_dhcp_client *client,
+                const char* const* user_class) {
+
+        _cleanup_strv_free_ char **s = NULL;
+        char **p;
+
+        STRV_FOREACH(p, (char **) user_class)
+                if (strlen(*p) > 255)
+                        return -ENAMETOOLONG;
+
+        s = strv_copy((char **) user_class);
+        if (!s)
+                return -ENOMEM;
+
+        client->user_class = TAKE_PTR(s);
+
+        return 0;
+}
+
 int sd_dhcp_client_set_client_port(
                 sd_dhcp_client *client,
                 uint16_t port) {
@@ -759,6 +781,15 @@ static int client_send_discover(sd_dhcp_client *client) {
                                        SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER,
                                        strlen(client->vendor_class_identifier),
                                        client->vendor_class_identifier);
+                if (r < 0)
+                        return r;
+        }
+
+        if (client->user_class) {
+                r = dhcp_option_append(&discover->dhcp, optlen, &optoffset, 0,
+                                       SD_DHCP_OPTION_USER_CLASS,
+                                       strv_length(client->user_class),
+                                       client->user_class);
                 if (r < 0)
                         return r;
         }
@@ -1918,6 +1949,7 @@ sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client) {
         free(client->req_opts);
         free(client->hostname);
         free(client->vendor_class_identifier);
+        client->user_class = strv_free(client->user_class);
         return mfree(client);
 }
 

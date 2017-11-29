@@ -82,6 +82,7 @@ enum {
         SD_DHCP_OPTION_REBINDING_T2_TIME           = 59,
         SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER     = 60,
         SD_DHCP_OPTION_CLIENT_IDENTIFIER           = 61,
+        SD_DHCP_OPTION_USER_CLASS                  = 77,
         SD_DHCP_OPTION_FQDN                        = 81,
         SD_DHCP_OPTION_NEW_POSIX_TIMEZONE          = 100,
         SD_DHCP_OPTION_NEW_TZDB_TIMEZONE           = 101,
@@ -154,6 +155,9 @@ int sd_dhcp_client_set_hostname(
 int sd_dhcp_client_set_vendor_class_identifier(
                 sd_dhcp_client *client,
                 const char *vci);
+int sd_dhcp_client_set_user_class(
+                sd_dhcp_client *client,
+                const char* const *user_class);
 int sd_dhcp_client_get_lease(
                 sd_dhcp_client *client,
                 sd_dhcp_lease **ret);

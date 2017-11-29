@@ -12,6 +12,7 @@
 
 #include "alloc-util.h"
 #include "utf8.h"
+#include "strv.h"
 
 #include "dhcp-internal.h"
 
@@ -35,6 +36,34 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                 *offset += 1;
                 break;
 
+        case SD_DHCP_OPTION_USER_CLASS: {
+                size_t len = 0;
+                char **s;
+
+                STRV_FOREACH(s, (char **) optval)
+                        len += strlen(*s) + 1;
+
+                if (size < *offset + len + 2)
+                        return -ENOBUFS;
+
+                options[*offset] = code;
+                options[*offset + 1] =  len;
+                *offset += 2;
+
+                STRV_FOREACH(s, (char **) optval) {
+                        len = strlen(*s);
+
+                        if (len > 255)
+                                return -ENAMETOOLONG;
+
+                        options[*offset] = len;
+
+                        memcpy_safe(&options[*offset + 1], *s, len);
+                        *offset += len + 1;
+                }
+
+                break;
+        }
         default:
                 if (size < *offset + optlen + 2)
                         return -ENOBUFS;
