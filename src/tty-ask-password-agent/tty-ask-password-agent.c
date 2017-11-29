@@ -721,7 +721,7 @@ static int ask_on_this_console(const char *tty, pid_t *pid, int argc, char *argv
 
                 for (ac = 0; ac < argc; ac++) {
                         if (streq(argv[ac], "--console")) {
-                                argv[ac] = strjoina("--console=", tty, NULL);
+                                argv[ac] = strjoina("--console=", tty);
                                 break;
                         }
                 }
