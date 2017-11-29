@@ -56,3 +56,7 @@ int generator_hook_up_mkfs(
         const char *what,
         const char *where,
         const char *type);
+int generator_hook_up_growfs(
+        const char *dir,
+        const char *where,
+        const char *target);
