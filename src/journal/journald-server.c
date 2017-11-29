@@ -955,7 +955,7 @@ void server_dispatch_message(
                         server_driver_message(s, c->pid,
                                               "MESSAGE_ID=" SD_MESSAGE_JOURNAL_DROPPED_STR,
                                               LOG_MESSAGE("Suppressed %i messages from %s", rl - 1, c->unit),
-                                              LOG_MESSAGE("N_DROPPED=%i", rl - 1),
+                                              "N_DROPPED=%i", rl - 1,
                                               NULL);
         }
 
