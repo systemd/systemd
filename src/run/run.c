@@ -467,12 +467,12 @@ static int transient_unit_set_properties(sd_bus_message *m, char **properties) {
 
         r = sd_bus_message_append(m, "(sv)", "Description", "s", arg_description);
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         if (arg_aggressive_gc) {
                 r = sd_bus_message_append(m, "(sv)", "CollectMode", "s", "inactive-or-failed");
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
         }
 
         r = bus_append_unit_property_assignment_many(m, properties);
@@ -487,27 +487,32 @@ static int transient_cgroup_set_properties(sd_bus_message *m) {
         assert(m);
 
         if (!isempty(arg_slice)) {
-                _cleanup_free_ char *slice;
+                _cleanup_free_ char *slice = NULL;
 
                 r = unit_name_mangle_with_suffix(arg_slice, UNIT_NAME_NOGLOB, ".slice", &slice);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to mangle name '%s': %m", arg_slice);
 
                 r = sd_bus_message_append(m, "(sv)", "Slice", "s", slice);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
         }
 
         return 0;
 }
 
 static int transient_kill_set_properties(sd_bus_message *m) {
+        int r;
+
         assert(m);
 
-        if (arg_send_sighup)
-                return sd_bus_message_append(m, "(sv)", "SendSIGHUP", "b", arg_send_sighup);
-        else
-                return 0;
+        if (arg_send_sighup) {
+                r = sd_bus_message_append(m, "(sv)", "SendSIGHUP", "b", arg_send_sighup);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        return 0;
 }
 
 static int transient_service_set_properties(sd_bus_message *m, char **argv, const char *pty_path) {
@@ -531,37 +536,37 @@ static int transient_service_set_properties(sd_bus_message *m, char **argv, cons
         if (arg_wait || arg_stdio != ARG_STDIO_NONE) {
                 r = sd_bus_message_append(m, "(sv)", "AddRef", "b", 1);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
         }
 
         if (arg_remain_after_exit) {
                 r = sd_bus_message_append(m, "(sv)", "RemainAfterExit", "b", arg_remain_after_exit);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
         }
 
         if (arg_service_type) {
                 r = sd_bus_message_append(m, "(sv)", "Type", "s", arg_service_type);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
         }
 
         if (arg_exec_user) {
                 r = sd_bus_message_append(m, "(sv)", "User", "s", arg_exec_user);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
         }
 
         if (arg_exec_group) {
                 r = sd_bus_message_append(m, "(sv)", "Group", "s", arg_exec_group);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
         }
 
         if (arg_nice_set) {
                 r = sd_bus_message_append(m, "(sv)", "Nice", "i", arg_nice);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
         }
 
         if (pty_path) {
@@ -572,7 +577,7 @@ static int transient_service_set_properties(sd_bus_message *m, char **argv, cons
                                           "StandardError", "s", "tty",
                                           "TTYPath", "s", pty_path);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 send_term = true;
 
@@ -583,7 +588,7 @@ static int transient_service_set_properties(sd_bus_message *m, char **argv, cons
                                           "StandardOutputFileDescriptor", "h", STDOUT_FILENO,
                                           "StandardErrorFileDescriptor", "h", STDERR_FILENO);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 send_term = isatty(STDIN_FILENO) || isatty(STDOUT_FILENO) || isatty(STDERR_FILENO);
         }
@@ -600,85 +605,85 @@ static int transient_service_set_properties(sd_bus_message *m, char **argv, cons
                                                   "(sv)",
                                                   "Environment", "as", 1, n);
                         if (r < 0)
-                                return r;
+                                return bus_log_create_error(r);
                 }
         }
 
         if (!strv_isempty(arg_environment)) {
                 r = sd_bus_message_open_container(m, 'r', "sv");
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_append(m, "s", "Environment");
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_open_container(m, 'v', "as");
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_append_strv(m, arg_environment);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_close_container(m);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_close_container(m);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
         }
 
         /* Exec container */
         {
                 r = sd_bus_message_open_container(m, 'r', "sv");
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_append(m, "s", "ExecStart");
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_open_container(m, 'v', "a(sasb)");
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_open_container(m, 'a', "(sasb)");
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_open_container(m, 'r', "sasb");
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_append(m, "s", argv[0]);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_append_strv(m, argv);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_append(m, "b", false);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_close_container(m);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_close_container(m);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_close_container(m);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_close_container(m);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
         }
 
         return 0;
@@ -703,7 +708,7 @@ static int transient_scope_set_properties(sd_bus_message *m) {
 
         r = sd_bus_message_append(m, "(sv)", "PIDs", "au", 1, (uint32_t) getpid_cached());
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         return 0;
 }
@@ -720,42 +725,42 @@ static int transient_timer_set_properties(sd_bus_message *m) {
         /* Automatically clean up our transient timers */
         r = sd_bus_message_append(m, "(sv)", "RemainAfterElapse", "b", false);
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         if (arg_on_active) {
                 r = sd_bus_message_append(m, "(sv)", "OnActiveSec", "t", arg_on_active);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
         }
 
         if (arg_on_boot) {
                 r = sd_bus_message_append(m, "(sv)", "OnBootSec", "t", arg_on_boot);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
         }
 
         if (arg_on_startup) {
                 r = sd_bus_message_append(m, "(sv)", "OnStartupSec", "t", arg_on_startup);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
         }
 
         if (arg_on_unit_active) {
                 r = sd_bus_message_append(m, "(sv)", "OnUnitActiveSec", "t", arg_on_unit_active);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
         }
 
         if (arg_on_unit_inactive) {
                 r = sd_bus_message_append(m, "(sv)", "OnUnitInactiveSec", "t", arg_on_unit_inactive);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
         }
 
         if (arg_on_calendar) {
                 r = sd_bus_message_append(m, "(sv)", "OnCalendar", "s", arg_on_calendar);
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
         }
 
         return 0;
@@ -1018,7 +1023,7 @@ static int start_transient_service(
 
         r = transient_service_set_properties(m, argv, pty_path);
         if (r < 0)
-                return bus_log_create_error(r);
+                return r;
 
         r = sd_bus_message_close_container(m);
         if (r < 0)
@@ -1217,7 +1222,7 @@ static int start_transient_scope(
 
         r = transient_scope_set_properties(m);
         if (r < 0)
-                return bus_log_create_error(r);
+                return r;
 
         r = sd_bus_message_close_container(m);
         if (r < 0)
@@ -1398,7 +1403,7 @@ static int start_transient_timer(
 
         r = transient_timer_set_properties(m);
         if (r < 0)
-                return bus_log_create_error(r);
+                return r;
 
         r = sd_bus_message_close_container(m);
         if (r < 0)
@@ -1423,7 +1428,7 @@ static int start_transient_timer(
 
                 r = transient_service_set_properties(m, argv, NULL);
                 if (r < 0)
-                        return bus_log_create_error(r);
+                        return r;
 
                 r = sd_bus_message_close_container(m);
                 if (r < 0)
