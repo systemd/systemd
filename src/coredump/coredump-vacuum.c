@@ -52,16 +52,11 @@ static void vacuum_candidate_free(struct vacuum_candidate *c) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct vacuum_candidate*, vacuum_candidate_free);
 
-static void vacuum_candidate_hasmap_free(Hashmap *h) {
-        struct vacuum_candidate *c;
-
-        while ((c = hashmap_steal_first(h)))
-                vacuum_candidate_free(c);
-
-        hashmap_free(h);
+static void vacuum_candidate_hashmap_free(Hashmap *h) {
+        hashmap_free_with_destructor(h, vacuum_candidate_free);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, vacuum_candidate_hasmap_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, vacuum_candidate_hashmap_free);
 
 static int uid_from_file_name(const char *filename, uid_t *uid) {
         const char *p, *e, *u;
@@ -160,7 +155,7 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
         }
 
         for (;;) {
-                _cleanup_(vacuum_candidate_hasmap_freep) Hashmap *h = NULL;
+                _cleanup_(vacuum_candidate_hashmap_freep) Hashmap *h = NULL;
                 struct vacuum_candidate *worst = NULL;
                 struct dirent *de;
                 uint64_t sum = 0;

@@ -2393,14 +2393,8 @@ int main(int argc, char *argv[]) {
         }
 
 finish:
-        while ((a = ordered_hashmap_steal_first(items)))
-                item_array_free(a);
-
-        while ((a = ordered_hashmap_steal_first(globs)))
-                item_array_free(a);
-
-        ordered_hashmap_free(items);
-        ordered_hashmap_free(globs);
+        ordered_hashmap_free_with_destructor(items, item_array_free);
+        ordered_hashmap_free_with_destructor(globs, item_array_free);
 
         free(arg_include_prefixes);
         free(arg_exclude_prefixes);

@@ -38,6 +38,29 @@ static void test_ordered_hashmap_next(void) {
         assert_se(!ordered_hashmap_next(m, INT_TO_PTR(3)));
 }
 
+typedef struct Item {
+        int seen;
+} Item;
+static void item_seen(Item *item) {
+        item->seen++;
+}
+
+static void test_hashmap_free_with_destructor(void) {
+        Hashmap *m;
+        struct Item items[4] = {};
+        unsigned i;
+
+        assert_se(m = hashmap_new(NULL));
+        for (i = 0; i < ELEMENTSOF(items) - 1; i++)
+                assert_se(hashmap_put(m, INT_TO_PTR(i), items + i) == 1);
+
+        m = hashmap_free_with_destructor(m, item_seen);
+        assert_se(items[0].seen == 1);
+        assert_se(items[1].seen == 1);
+        assert_se(items[2].seen == 1);
+        assert_se(items[3].seen == 0);
+}
+
 static void test_uint64_compare_func(void) {
         const uint64_t a = 0x100, b = 0x101;
 
@@ -62,6 +85,7 @@ int main(int argc, const char *argv[]) {
         test_ordered_hashmap_funcs();
 
         test_ordered_hashmap_next();
+        test_hashmap_free_with_destructor();
         test_uint64_compare_func();
         test_trivial_compare_func();
         test_string_compare_func();

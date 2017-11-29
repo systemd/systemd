@@ -95,12 +95,7 @@ static void free_sysvstub(SysvStub *s) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(SysvStub*, free_sysvstub);
 
 static void free_sysvstub_hashmapp(Hashmap **h) {
-        SysvStub *stub;
-
-        while ((stub = hashmap_steal_first(*h)))
-                free_sysvstub(stub);
-
-        hashmap_free(*h);
+        hashmap_free_with_destructor(*h, free_sysvstub);
 }
 
 static int add_alias(const char *service, const char *alias) {

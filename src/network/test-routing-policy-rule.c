@@ -34,7 +34,7 @@ static void test_rule_serialization(const char *title, const char *ruleset, cons
         const char *cmd;
         int fd, fd2, fd3;
         _cleanup_fclose_ FILE *f = NULL, *f2 = NULL, *f3 = NULL;
-        _cleanup_set_free_free_ Set *rules = NULL;
+        Set *rules = NULL;
         _cleanup_free_ char *buf = NULL;
         size_t buf_size;
 
@@ -64,6 +64,8 @@ static void test_rule_serialization(const char *title, const char *ruleset, cons
         cmd = strjoina("diff -u ", pattern3, " ", pattern2);
         log_info("$ %s", cmd);
         assert_se(system(cmd) == 0);
+
+        set_free_with_destructor(rules, routing_policy_rule_free);
 }
 
 int main(int argc, char **argv) {

@@ -1899,13 +1899,9 @@ void server_maybe_append_tags(Server *s) {
 }
 
 void server_done(Server *s) {
-        JournalFile *f;
         assert(s);
 
-        if (s->deferred_closes) {
-                journal_file_close_set(s->deferred_closes);
-                set_free(s->deferred_closes);
-        }
+        set_free_with_destructor(s->deferred_closes, journal_file_close);
 
         while (s->stdout_streams)
                 stdout_stream_free(s->stdout_streams);
@@ -1918,10 +1914,7 @@ void server_done(Server *s) {
         if (s->runtime_journal)
                 (void) journal_file_close(s->runtime_journal);
 
-        while ((f = ordered_hashmap_steal_first(s->user_journals)))
-                (void) journal_file_close(f);
-
-        ordered_hashmap_free(s->user_journals);
+        ordered_hashmap_free_with_destructor(s->user_journals, journal_file_close);
 
         sd_event_source_unref(s->syslog_event_source);
         sd_event_source_unref(s->native_event_source);

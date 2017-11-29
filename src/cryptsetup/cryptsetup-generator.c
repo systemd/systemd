@@ -219,18 +219,12 @@ static int create_disk(
         return 0;
 }
 
-static void free_arg_disks(void) {
-        crypto_device *d;
-
-        while ((d = hashmap_steal_first(arg_disks))) {
-                free(d->uuid);
-                free(d->keyfile);
-                free(d->name);
-                free(d->options);
-                free(d);
-        }
-
-        hashmap_free(arg_disks);
+static void crypt_device_free(crypto_device *d) {
+        free(d->uuid);
+        free(d->keyfile);
+        free(d->name);
+        free(d->options);
+        free(d);
 }
 
 static crypto_device *get_crypto_device(const char *uuid) {
@@ -492,7 +486,7 @@ int main(int argc, char *argv[]) {
         r = 0;
 
 finish:
-        free_arg_disks();
+        hashmap_free_with_destructor(arg_disks, crypt_device_free);
         free(arg_default_options);
         free(arg_default_keyfile);
 

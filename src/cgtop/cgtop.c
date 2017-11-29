@@ -105,10 +105,7 @@ static void group_free(Group *g) {
 }
 
 static void group_hashmap_clear(Hashmap *h) {
-        Group *g;
-
-        while ((g = hashmap_steal_first(h)))
-                group_free(g);
+        hashmap_clear_with_destructor(h, group_free);
 }
 
 static void group_hashmap_free(Hashmap *h) {

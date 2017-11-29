@@ -97,10 +97,7 @@ static void test_mnt_id(void) {
                 assert_se(path_equal_ptr(hashmap_get(h, INT_TO_PTR(mnt_id2)), p));
         }
 
-        while ((p = hashmap_steal_first(h)))
-                free(p);
-
-        hashmap_free(h);
+        hashmap_free_free(h);
 }
 
 int main(int argc, char *argv[]) {

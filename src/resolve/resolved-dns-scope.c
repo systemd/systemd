@@ -103,8 +103,6 @@ static void dns_scope_abort_transactions(DnsScope *s) {
 }
 
 DnsScope* dns_scope_free(DnsScope *s) {
-        DnsResourceRecord *rr;
-
         if (!s)
                 return NULL;
 
@@ -119,10 +117,7 @@ DnsScope* dns_scope_free(DnsScope *s) {
 
         hashmap_free(s->transactions_by_key);
 
-        while ((rr = ordered_hashmap_steal_first(s->conflict_queue)))
-                dns_resource_record_unref(rr);
-
-        ordered_hashmap_free(s->conflict_queue);
+        ordered_hashmap_free_with_destructor(s->conflict_queue, dns_resource_record_unref);
         sd_event_source_unref(s->conflict_event_source);
 
         sd_event_source_unref(s->announce_event_source);

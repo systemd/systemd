@@ -1864,20 +1864,15 @@ int main(int argc, char *argv[]) {
                 log_error_errno(r, "Failed to write files: %m");
 
 finish:
-        while ((i = hashmap_steal_first(groups)))
-                item_free(i);
-
-        while ((i = hashmap_steal_first(users)))
-                item_free(i);
+        hashmap_free_with_destructor(groups, item_free);
+        hashmap_free_with_destructor(users, item_free);
 
         while ((n = hashmap_first_key(members))) {
                 strv_free(hashmap_steal_first(members));
                 free(n);
         }
-
-        hashmap_free(groups);
-        hashmap_free(users);
         hashmap_free(members);
+
         hashmap_free(todo_uids);
         hashmap_free(todo_gids);
 
