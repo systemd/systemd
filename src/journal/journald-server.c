@@ -879,7 +879,7 @@ void server_driver_message(Server *s, pid_t object_pid, const char *message_id, 
         assert(s);
         assert(format);
 
-        m = N_IOVEC_META_FIELDS + 5 + N_IOVEC_PAYLOAD_FIELDS + client_context_extra_fields_n_iovec(s->my_context);
+        m = N_IOVEC_META_FIELDS + 5 + N_IOVEC_PAYLOAD_FIELDS + client_context_extra_fields_n_iovec(s->my_context) + N_IOVEC_OBJECT_FIELDS;
         iovec = newa(struct iovec, m);
 
         assert_cc(3 == LOG_FAC(LOG_DAEMON));
