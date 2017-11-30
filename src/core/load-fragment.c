@@ -1268,17 +1268,30 @@ int config_parse_exec_cpu_affinity(const char *unit,
         if (ncpus < 0)
                 return ncpus;
 
-        if (c->cpuset)
-                CPU_FREE(c->cpuset);
-
-        if (ncpus == 0)
+        if (ncpus == 0) {
                 /* An empty assignment resets the CPU list */
-                c->cpuset = NULL;
-        else {
+                c->cpuset = cpu_set_mfree(c->cpuset);
+                c->cpuset_ncpus = 0;
+                return 0;
+        }
+
+        if (!c->cpuset) {
                 c->cpuset = cpuset;
                 cpuset = NULL;
+                c->cpuset_ncpus = (unsigned) ncpus;
+                return 0;
         }
-        c->cpuset_ncpus = ncpus;
+
+        if (c->cpuset_ncpus < (unsigned) ncpus) {
+                CPU_OR_S(CPU_ALLOC_SIZE(c->cpuset_ncpus), cpuset, c->cpuset, cpuset);
+                CPU_FREE(c->cpuset);
+                c->cpuset = cpuset;
+                cpuset = NULL;
+                c->cpuset_ncpus = (unsigned) ncpus;
+                return 0;
+        }
+
+        CPU_OR_S(CPU_ALLOC_SIZE((unsigned) ncpus), c->cpuset, c->cpuset, cpuset);
 
         return 0;
 }
