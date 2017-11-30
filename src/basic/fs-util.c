@@ -722,6 +722,10 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                                  * what we got so far. But don't allow this if the remaining path contains "../ or "./"
                                  * or something else weird. */
 
+                                /* If done is "/", as first also contains slash at the head, then remove this redundant slash. */
+                                if (streq_ptr(done, "/"))
+                                        *done = '\0';
+
                                 if (!strextend(&done, first, todo, NULL))
                                         return -ENOMEM;
 
@@ -794,6 +798,10 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                         done = first;
                         first = NULL;
                 } else {
+                        /* If done is "/", as first also contains slash at the head, then remove this redundant slash. */
+                        if (streq(done, "/"))
+                                *done = '\0';
+
                         if (!strextend(&done, first, NULL))
                                 return -ENOMEM;
                 }
