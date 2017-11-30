@@ -334,19 +334,15 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
 
                 } else if (arg_transport == BUS_TRANSPORT_LOCAL) {
-                        _cleanup_free_ char *u = NULL, *p = NULL;
+                        _cleanup_free_ char *u = NULL;
 
                         u = fstab_node_to_udev_node(argv[optind]);
                         if (!u)
                                 return log_oom();
 
-                        r = path_make_absolute_cwd(u, &p);
+                        r = chase_symlinks(u, NULL, 0, &arg_mount_what);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to make path %s absolute: %m", u);
-
-                        arg_mount_what = canonicalize_file_name(p);
-                        if (!arg_mount_what)
-                                return log_error_errno(errno, "Failed to canonicalize path %s: %m", p);
                 } else {
                         arg_mount_what = strdup(argv[optind]);
                         if (!arg_mount_what)
@@ -989,23 +985,16 @@ static int action_umount(
         }
 
         for (i = optind; i < argc; i++) {
-                _cleanup_free_ char *u = NULL, *a = NULL, *p = NULL;
+                _cleanup_free_ char *u = NULL, *p = NULL;
                 struct stat st;
 
                 u = fstab_node_to_udev_node(argv[i]);
                 if (!u)
                         return log_oom();
 
-                r = path_make_absolute_cwd(u, &a);
+                r = chase_symlinks(u, NULL, 0, &p);
                 if (r < 0) {
                         r2 = log_error_errno(r, "Failed to make path %s absolute: %m", argv[i]);
-                        continue;
-                }
-
-                p = canonicalize_file_name(a);
-
-                if (!p) {
-                        r2 = log_error_errno(errno, "Failed to canonicalize path %s: %m", argv[i]);
                         continue;
                 }
 
