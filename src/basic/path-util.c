@@ -719,6 +719,9 @@ const char *last_path_component(const char *path) {
         unsigned l, k;
 
         l = k = strlen(path);
+        if (l == 0) /* special case — an empty string */
+                return path;
+
         while (k > 0 && path[k-1] == '/')
                 k--;
 

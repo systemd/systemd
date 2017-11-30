@@ -411,6 +411,7 @@ static void test_last_path_component(void) {
         assert_se(streq(last_path_component("././/"), ".//"));
         assert_se(streq(last_path_component("/foo/a"), "a"));
         assert_se(streq(last_path_component("/foo/a/"), "a/"));
+        assert_se(streq(last_path_component(""), ""));
 }
 
 static void test_filename_is_valid(void) {
