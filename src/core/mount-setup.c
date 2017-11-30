@@ -390,9 +390,19 @@ int mount_setup(bool loaded_policy) {
                 nftw("/dev/shm", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
                 nftw("/run", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
 
+                /* Temporarily remount the root cgroup filesystem to give it a proper label. */
+                r = cg_all_unified();
+                if (r == 0) {
+                        (void) mount(NULL, "/sys/fs/cgroup", NULL, MS_REMOUNT, NULL);
+                        label_fix("/sys/fs/cgroup", false, false);
+                        nftw("/sys/fs/cgroup", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
+                        (void) mount(NULL, "/sys/fs/cgroup", NULL, MS_REMOUNT|MS_RDONLY, NULL);
+                } else if (r < 0)
+                        return log_error_errno(r, "Failed to determine whether we are in all unified mode: %m");
+
                 after_relabel = now(CLOCK_MONOTONIC);
 
-                log_info("Relabelled /dev and /run in %s.",
+                log_info("Relabelled /dev, /run and /sys/fs/cgroup in %s.",
                          format_timespan(timespan, sizeof(timespan), after_relabel - before_relabel, 0));
         }
 #endif
