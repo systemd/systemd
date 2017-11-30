@@ -2274,6 +2274,10 @@ int bus_exec_context_set_transient_property(
                         } else {
                                 _cleanup_free_ char *joined = NULL;
 
+                                r = strv_extend_strv(&c->pass_environment, l, true);
+                                if (r < 0)
+                                        return r;
+
                                 /* We write just the new settings out to file, with unresolved specifiers. */
                                 joined = unit_concat_strv(l, UNIT_ESCAPE_SPECIFIERS);
                                 if (!joined)
