@@ -30,6 +30,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "fstab-util.h"
 #include "mount-util.h"
 #include "pager.h"
@@ -361,16 +362,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 if (argc > optind+1) {
                         if (arg_transport == BUS_TRANSPORT_LOCAL) {
-                                _cleanup_free_ char *p = NULL;
-
-                                r = path_make_absolute_cwd(argv[optind+1], &p);
+                                r = chase_symlinks(argv[optind+1], NULL, CHASE_NONEXISTENT, &arg_mount_where);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to make path %s absolute: %m", argv[optind+1]);
-
-                                arg_mount_where = canonicalize_file_name(p);
-                                if (!arg_mount_where)
-                                        return log_error_errno(errno, "Failed to canonicalize path %s: %m", p);
-
                         } else {
                                 arg_mount_where = strdup(argv[optind+1]);
                                 if (!arg_mount_where)
