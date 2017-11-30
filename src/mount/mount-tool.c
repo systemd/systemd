@@ -829,7 +829,7 @@ static int stop_mount(
 
         r = unit_name_from_path(where, suffix, &mount_unit);
         if (r < 0)
-                return log_error_errno(r, "Failed to make mount unit name from path %s: %m", where);
+                return log_error_errno(r, "Failed to make %s unit name from path %s: %m", suffix + 1, where);
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -853,8 +853,12 @@ static int stop_mount(
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0)
-                return log_error_errno(r, "Failed to stop mount unit: %s", bus_error_message(&error, r));
+        if (r < 0) {
+                if (streq(suffix, ".automount") &&
+                    sd_bus_error_has_name(&error, "org.freedesktop.systemd1.NoSuchUnit"))
+                        return 0;
+                return log_error_errno(r, "Failed to stop %s unit: %s", suffix + 1, bus_error_message(&error, r));
+        }
 
         if (w) {
                 const char *object;
