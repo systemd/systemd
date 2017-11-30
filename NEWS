@@ -2,9 +2,10 @@ systemd System and Service Manager
 
 CHANGES WITH 236 in spe:
 
-	* The modprobe.d drop-in, introduced in v235 for the bonding module,
-	  has been extended to also set the dummy module option numdummies=0,
-	  resolving issues with the kernel creating dummy0.
+	* The modprobe.d/ drop-in for the bonding.ko kernel module introduced
+	  in v235, has been extended to also set the dummy.ko module option
+	  numdummies=0, resolving issues with the kernel creating the dummy0
+	  network interface implicitly.
 
         * systemd-resolved now maintains a new dynamic
           /run/systemd/resolve/stub-resolv.conf compatibility file. It is now
@@ -14,9 +15,153 @@ CHANGES WITH 236 in spe:
           achieves a more correct DNS resolution by software that bypasses
           local DNS APIs (e.g. NSS).
 
-        * uaccess tag has been dropped from /dev/kvm and /dev/dri/renderD*.
-          These devices now have 0666 permsions by default.  /dev/dri/renderD*
-          will now be owned by the render group along with /dev/kfd.
+        * The "uaccess" udev tag has been dropped from /dev/kvm and
+          /dev/dri/renderD*.  These devices now have the 0666 permissions by
+          default (but this may be changed at build-time). /dev/dri/renderD*
+          will now be owned by the "render" group along with /dev/kfd.
+
+        * This enables "DynamicUser=yes" by default for
+          systemd-timesyncd.service, systemd-journal-gatewayd.service and
+          systemd-journal-upload.service. This means "nss-systemd" really
+          should be enabled in /etc/nsswitch.conf to ensure the UIDs assigned
+          to these services show up properly in the user database.
+
+        * In systemd-networkd, the IPv6 RA logic now optionally may announce
+          DNS server and domain information.
+
+        * Support for the LUKS2 on-disk format for encrypted partitions has
+          been added. This requires libcryptsetup2 during compilation and
+          runtime.
+
+        * The systemd --user instance will not signal "readiness" when its
+          basic.target unit has been reached, instead of when the run queue ran
+          empty for the first time.
+
+        * Unit files learnt three new % specifiers that are expanded during
+          loading: %S resolves to the top-level state directory (/var/lib for
+          the system instance, $XDG_CONFIG_HOME for the user instance), %C
+          resolves to the top-level cache directory (/var/cache for the system
+          instance, $XDG_CACHE_HOME for the user instance), %L resolves to the
+          top-level logs directory (/var/log for the system instance,
+          $XDG_CONFIG_HOME/log/ for the user instance). This matches the
+          existing %t specifier, that resolves to the top-level runtime
+          directory (/run for the system instance, and $XDG_RUNTIME_DIR for the
+          user instance).
+
+        * journalctl learnt a new parameter --output-fields= for limiting the
+          set of journal fields to output in verbose and JSON output modes.
+
+        * systemd-timesyncd's configuration file gained a new option
+          RootDistanceMaxSec= for setting the maximum root distance, as well as
+          the new options PollIntervalMinSec= and PollIntervalMaxSec= to tweak
+          the minimum and maximum poll interval.
+
+        * bootctl gained a new command "list" for listing all available boot
+          menu items on systems that follor the boot loader specification.
+
+        * systemctl gained a new --dry-run switch that shows what would be done
+          instead of doing it, and is currently supported by the shutdown and
+          sleep verbs.
+
+        * ConditionSecurity= know can detect the TOMOYO security module.
+
+        * Unit file [Install] sections are now also respected in unit drop-in
+          files.
+
+        * systemd-firstboot may now also set up the initial keyboard mapping.
+
+        * When udev devices that are exposed as systemd .device units see a
+          "changed" events, this is propagated as reload from the units, in
+          respect to ReloadPropagatedFrom=.
+
+        * When a udev device with a SYSTEMD_WANTS= property containing a
+          systemd unit template name (i.e. a name in the form of
+          'foobar@.service', without the instance component between the '@' and
+          the '.'), then the escaped sysfs path of the device is automatically
+          inserted when the unit is added as dependency.
+
+        * SystemCallFilter= in unit files has been extended so that an "errno"
+          can be specified individually for each system call. Example:
+          SystemCallFilter=~uname:EILSEQ.
+
+        * The cgroup delegation logic has been substantially updated. Delegate=
+          now optionally takes a list of controllers (instead of a boolean, as
+          before), which lists the controllers to delegate at least.
+
+        * The networkd DHCPv6 client now implements the FQDN option (RFC 4704)
+
+        * Two new unit file options have been added: LogLevelMax= configures
+          the maximum log level any process of the unit may log at
+          (i.e. anything with a lesser priority than what is specified is
+          automatically dropped). LogExtraFields= allows configuration of
+          additional journal fields to attach to all log records generated by
+          any of the unit's processes.
+
+        * A new unit file option CollectMode= has been added, that allows
+          tweaking the garbage collection logic for units. It may be used to
+          tell systemd to garbage collect units that have failed automatically
+          (normally it only GCs units that exited successfully). systemd-run
+          exposes this new functionality wiht a new -G option.
+
+        * Services gained a two new settings StandardInputData= and
+          StadardInputText=, along with a new option StandardInput=data. They
+          may be used to configure textual or binary data that shall be passed
+          to the executed service process via STDIN, encoded in-line in the
+          unit file.
+
+        * StandardInput=, StandardOutput= and StandardError= may now be used to
+          connect stdin/stdout/stderr of executed processes directly with a
+          file or AF_UNIX socket in the file system, using the new "file:" option.
+
+        * "machinectl bind" may now be used to bind mount non-directories
+          (i.e. regularfiles, devices, fifos, sockets).
+
+        * systemd-analyze gained a new verb "calendar" for validating and
+          testing calendar time specifications to use for OnCalendar= in timer
+          units. Besides validating the expression it will calculate the next
+          time the specified expression would elapse.
+
+        * In addition to the pre-existing FailureAction= unit file setting
+          there's now SuccessAction=, for configuring an shutdown action to
+          execute when a unit completed successfully. This is useful in
+          particular inside of containers that shall terminate after some
+          workload has been completed. Also, both options are now supported for
+          all unit types, not just services.
+
+        * networkds's IP rule support gained two new options
+          IncomingInterface=and OutgoingInterface= for configuring the incoming
+          and outgoing interfaces of configured rules. systemd-networkd also
+          gained support for "vxcan" network devices.
+
+        * networkd gained a new setting RequiredForOnline=, taking a
+          boolean. If set, systemd-wait-online will take it into consideration
+          when determining that the system is up, otherwise it will ignore the
+          interface for this purpose.
+
+        * The sd_notify() protocol gained support for a new operation: with
+          FDSTOREREMOVE=1 file descriptors may be removed from the per-service
+          store again, ahead of POLLHUP or POLLERR when they are removed
+          anyway.
+
+        Contributions from: aeywalee, Alan Jenkins, Alessandro Ghedini, Andrew
+        Jeddeloh, Antonio Rojas, Ari, bleep_blop, Carsten Strotmann, Christian
+        Brauner, Christian Hesse, Collin Eggert, Daniel Lockyer, Daniel Rusek,
+        Dimitri John Ledkov, Evgeny Vereshchagin, Florian Klink, Franck Bui,
+        gwendalcr, Hans de Goede, Jakub Wilk, Jérémy Rosen, jobol, John Lin,
+        juga0, Krzysztof Nowicki, Lars Karlitski, Lars Kellogg-Stedman, Lauri
+        Tirkkonen, Lennart Poettering, longersson, Lubomir Rintel, Lucas
+        Werkmeister, lukas, Lukáš Nykrýn, Lukasz Rubaszewski, Maciej
+        S. Szmigiero, macrothian, Mantas Mikulėnas, martingh, Mathieu
+        Trudel-Lapierre, Matija Skala, Michael Biebl, Michael Vogt, Michal
+        Sekletar, Mike Gilbert, Muhammet Kara, myrkr, Neil Brown, Ondrej
+        Kozina, Patrik Flykt, Peter Hutterer, Piotr Drąg, Razvan Cojocaru,
+        Robin McCorkell, Roland Hieber, Sergey Ptashnick, Shawn Landden, Shuang
+        Liu, Simon Arlott, Simon Peeters, Stefan Agner, Susant Sahani, Sylvain
+        Plantefève, Thomas Blume, Tom Stellard, Topi Miettinen, Vito Caputo,
+        Vladislav Vishnyakov, WaLyong Cho, Yu Watanabe, Zbigniew
+        Jędrzejewski-Szmek, Zeal Jagannatha
+
+        — Berlin, 2017-12-XX
 
 CHANGES WITH 235:
 
