@@ -52,6 +52,10 @@
 #include "xattr-util.h"
 
 int probe_filesystem(const char *node, char **ret_fstype) {
+        /* Try to find device content type and return it in *ret_fstype. If nothing is found,
+         * 0/NULL will be returned. -EUCLEAN will be returned for ambigous results, and an
+         * different error otherwise. */
+
 #if HAVE_BLKID
         _cleanup_blkid_free_probe_ blkid_probe b = NULL;
         const char *fstype;
@@ -67,9 +71,13 @@ int probe_filesystem(const char *node, char **ret_fstype) {
 
         errno = 0;
         r = blkid_do_safeprobe(b);
-        if (IN_SET(r, -2, 1)) {
-                log_debug("Failed to identify any partition type on partition %s", node);
+        if (r == 1) {
+                log_debug("No type detected on partition %s", node);
                 goto not_found;
+        }
+        if (r == -2) {
+                log_debug("Results ambiguous for partition %s", node);
+                return -EUCLEAN;
         }
         if (r != 0)
                 return -errno ?: -EIO;
@@ -608,7 +616,7 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
 
                 if (!p->fstype && p->node) {
                         r = probe_filesystem(p->node, &p->fstype);
-                        if (r < 0)
+                        if (r < 0 && r != -EUCLEAN)
                                 return r;
                 }
 
@@ -1018,7 +1026,7 @@ int dissected_image_decrypt(
 
                 if (!p->decrypted_fstype && p->decrypted_node) {
                         r = probe_filesystem(p->decrypted_node, &p->decrypted_fstype);
-                        if (r < 0)
+                        if (r < 0 && r != -EUCLEAN)
                                 return r;
                 }
         }

@@ -151,6 +151,8 @@ static int maybe_resize_slave_device(const char *mountpath, dev_t main_devno) {
 
         xsprintf_dev_num_path(devpath, "block", devno);
         r = probe_filesystem(devpath, &fstype);
+        if (r == -EUCLEAN)
+                return log_warning_errno(r, "Cannot reliably determine probe \"%s\", refusing to proceed.", devpath);
         if (r < 0)
                 return log_warning_errno(r, "Failed to probe \"%s\": %m", devpath);
 

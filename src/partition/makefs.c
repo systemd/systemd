@@ -90,7 +90,11 @@ int main(int argc, char *argv[]) {
 
         r = probe_filesystem(device, &detected);
         if (r < 0) {
-                log_warning_errno(r, "Failed to probe \"%s\": %m", device);
+                log_warning_errno(r,
+                                  r == -EUCLEAN ?
+                                  "Cannot reliably determine probe \"%s\", refusing to proceed." :
+                                  "Failed to probe \"%s\": %m",
+                                  device);
                 goto finish;
         }
 
