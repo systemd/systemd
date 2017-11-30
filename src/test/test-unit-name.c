@@ -207,7 +207,7 @@ static int test_unit_printf(void) {
         assert_se(specifier_machine_id('m', NULL, NULL, &mid) >= 0 && mid);
         assert_se(specifier_boot_id('b', NULL, NULL, &bid) >= 0 && bid);
         assert_se(host = gethostname_malloc());
-        assert_se(user = getusername_malloc());
+        assert_se(user = uid_to_name(getuid()));
         assert_se(asprintf(&uid, UID_FMT, getuid()));
         assert_se(get_home_dir(&home) >= 0);
         assert_se(get_shell(&shell) >= 0);

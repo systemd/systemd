@@ -162,7 +162,7 @@ static int checkout(int fd)
                         if (ptr) {
                                 *ptr = '\0';
                                 ptr++;
-                                if (!strlen(word))
+                                if (isempty(word))
                                         continue;
 
                                 if (debug)

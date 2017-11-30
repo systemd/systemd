@@ -28,8 +28,8 @@ typedef struct LookupPaths LookupPaths;
 #include "macro.h"
 
 typedef enum LookupPathsFlags {
-        LOOKUP_PATHS_EXCLUDE_GENERATED = 1,
-        LOOKUP_PATHS_TEMPORARY_GENERATED,
+        LOOKUP_PATHS_EXCLUDE_GENERATED   = 1 << 0,
+        LOOKUP_PATHS_TEMPORARY_GENERATED = 1 << 1,
 } LookupPathsFlags;
 
 struct LookupPaths {

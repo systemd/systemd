@@ -32,6 +32,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
+#include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
@@ -60,7 +61,7 @@ static int create_disk(
                 const char *options) {
 
         _cleanup_free_ char *p = NULL, *n = NULL, *d = NULL, *u = NULL, *e = NULL,
-                *filtered = NULL;
+                *filtered = NULL, *u_escaped = NULL, *password_escaped = NULL, *filtered_escaped = NULL, *name_escaped = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *dmname;
         bool noauto, nofail, tmp, swap, netdev;
@@ -80,6 +81,10 @@ static int create_disk(
                 return -EINVAL;
         }
 
+        name_escaped = specifier_escape(name);
+        if (!name_escaped)
+                return log_oom();
+
         e = unit_name_escape(name);
         if (!e)
                 return log_oom();
@@ -96,9 +101,17 @@ static int create_disk(
         if (!u)
                 return log_oom();
 
+        u_escaped = specifier_escape(u);
+        if (!u_escaped)
+                return log_oom();
+
         r = unit_name_from_path(u, ".device", &d);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
+
+        password_escaped = specifier_escape(password);
+        if (!password_escaped)
+                return log_oom();
 
         f = fopen(p, "wxe");
         if (!f)
@@ -142,7 +155,7 @@ static int create_disk(
 
                                         fprintf(f, "After=%1$s\nRequires=%1$s\n", dd);
                                 } else
-                                        fprintf(f, "RequiresMountsFor=%s\n", password);
+                                        fprintf(f, "RequiresMountsFor=%s\n", password_escaped);
                         }
                 }
         }
@@ -160,11 +173,16 @@ static int create_disk(
         } else
                 fprintf(f,
                         "RequiresMountsFor=%s\n",
-                        u);
+                        u_escaped);
+
 
         r = generator_write_timeouts(arg_dest, device, name, options, &filtered);
         if (r < 0)
                 return r;
+
+        filtered_escaped = specifier_escape(filtered);
+        if (!filtered_escaped)
+                return log_oom();
 
         fprintf(f,
                 "\n[Service]\n"
@@ -174,18 +192,18 @@ static int create_disk(
                 "KeyringMode=shared\n" /* make sure we can share cached keys among instances */
                 "ExecStart=" SYSTEMD_CRYPTSETUP_PATH " attach '%s' '%s' '%s' '%s'\n"
                 "ExecStop=" SYSTEMD_CRYPTSETUP_PATH " detach '%s'\n",
-                name, u, strempty(password), strempty(filtered),
-                name);
+                name_escaped, u_escaped, strempty(password_escaped), strempty(filtered_escaped),
+                name_escaped);
 
         if (tmp)
                 fprintf(f,
                         "ExecStartPost=/sbin/mke2fs '/dev/mapper/%s'\n",
-                        name);
+                        name_escaped);
 
         if (swap)
                 fprintf(f,
                         "ExecStartPost=/sbin/mkswap '/dev/mapper/%s'\n",
-                        name);
+                        name_escaped);
 
         r = fflush_and_check(f);
         if (r < 0)

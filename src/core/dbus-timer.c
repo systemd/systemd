@@ -176,7 +176,7 @@ static int bus_timer_set_transient_property(
                 Timer *t,
                 const char *name,
                 sd_bus_message *message,
-                UnitSetPropertiesMode mode,
+                UnitWriteFlags flags,
                 sd_bus_error *error) {
 
         int r;
@@ -184,6 +184,8 @@ static int bus_timer_set_transient_property(
         assert(t);
         assert(name);
         assert(message);
+
+        flags |= UNIT_PRIVATE;
 
         if (STR_IN_SET(name,
                        "OnActiveSec",
@@ -204,10 +206,10 @@ static int bus_timer_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (mode != UNIT_CHECK) {
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         char time[FORMAT_TIMESPAN_MAX];
 
-                        unit_write_drop_in_private_format(UNIT(t), mode, name, "%s=%s", name, format_timespan(time, sizeof(time), u, USEC_PER_MSEC));
+                        unit_write_settingf(UNIT(t), flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, format_timespan(time, sizeof(time), u, USEC_PER_MSEC));
 
                         v = new0(TimerValue, 1);
                         if (!v)
@@ -231,12 +233,12 @@ static int bus_timer_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (mode != UNIT_CHECK) {
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         r = calendar_spec_from_string(str, &c);
                         if (r < 0)
                                 return r;
 
-                        unit_write_drop_in_private_format(UNIT(t), mode, name, "%s=%s", name, str);
+                        unit_write_settingf(UNIT(t), flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, str);
 
                         v = new0(TimerValue, 1);
                         if (!v) {
@@ -262,9 +264,9 @@ static int bus_timer_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (mode != UNIT_CHECK) {
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         t->accuracy_usec = u;
-                        unit_write_drop_in_private_format(UNIT(t), mode, name, "AccuracySec=" USEC_FMT "us", u);
+                        unit_write_settingf(UNIT(t), flags, name, "AccuracySec=" USEC_FMT "us", u);
                 }
 
                 return 1;
@@ -276,9 +278,9 @@ static int bus_timer_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (mode != UNIT_CHECK) {
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         t->random_usec = u;
-                        unit_write_drop_in_private_format(UNIT(t), mode, name, "RandomizedDelaySec=" USEC_FMT "us", u);
+                        unit_write_settingf(UNIT(t), flags, name, "RandomizedDelaySec=" USEC_FMT "us", u);
                 }
 
                 return 1;
@@ -290,9 +292,9 @@ static int bus_timer_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (mode != UNIT_CHECK) {
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         t->wake_system = b;
-                        unit_write_drop_in_private_format(UNIT(t), mode, name, "%s=%s", name, yes_no(b));
+                        unit_write_settingf(UNIT(t), flags, name, "%s=%s", name, yes_no(b));
                 }
 
                 return 1;
@@ -304,9 +306,9 @@ static int bus_timer_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (mode != UNIT_CHECK) {
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         t->remain_after_elapse = b;
-                        unit_write_drop_in_private_format(UNIT(t), mode, name, "%s=%s", name, yes_no(b));
+                        unit_write_settingf(UNIT(t), flags, name, "%s=%s", name, yes_no(b));
                 }
 
                 return 1;
@@ -319,21 +321,17 @@ int bus_timer_set_property(
                 Unit *u,
                 const char *name,
                 sd_bus_message *message,
-                UnitSetPropertiesMode mode,
+                UnitWriteFlags mode,
                 sd_bus_error *error) {
 
         Timer *t = TIMER(u);
-        int r;
 
         assert(t);
         assert(name);
         assert(message);
 
-        if (u->transient && u->load_state == UNIT_STUB) {
-                r = bus_timer_set_transient_property(t, name, message, mode, error);
-                if (r != 0)
-                        return r;
-        }
+        if (u->transient && u->load_state == UNIT_STUB)
+                return bus_timer_set_transient_property(t, name, message, mode, error);
 
         return 0;
 }

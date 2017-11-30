@@ -134,9 +134,12 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
         } else if (streq(field, "EnvironmentFile")) {
 
-                r = sd_bus_message_append(m, "sv", "EnvironmentFiles", "a(sb)", 1,
-                                          eq[0] == '-' ? eq + 1 : eq,
-                                          eq[0] == '-');
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "sv", "EnvironmentFiles", "a(sb)", 0);
+                else
+                        r = sd_bus_message_append(m, "sv", "EnvironmentFiles", "a(sb)", 1,
+                                                  eq[0] == '-' ? eq + 1 : eq,
+                                                  eq[0] == '-');
                 goto finish;
 
         } else if (STR_IN_SET(field, "AccuracySec", "RandomizedDelaySec", "RuntimeMaxSec")) {
@@ -183,7 +186,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 r = sd_bus_message_close_container(m);
                 goto finish;
 
-        } else if (STR_IN_SET(field, "MemoryLow", "MemoryHigh", "MemoryMax", "MemoryLimit")) {
+        } else if (STR_IN_SET(field, "MemoryLow", "MemoryHigh", "MemoryMax", "MemorySwapMax", "MemoryLimit")) {
                 uint64_t bytes;
 
                 if (isempty(eq) || streq(eq, "infinity"))
@@ -1205,8 +1208,96 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         return r;
 
                 r = sd_bus_message_close_container(m);
+
+        } else if (STR_IN_SET(field, "ExecStartPre", "ExecStart", "ExecStartPost",
+                              "ExecReload", "ExecStop", "ExecStopPost")) {
+
+                bool ignore_failure = false, explicit_path = false, done = false;
+                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free_ char *path = NULL;
+
+                do {
+                        switch (*eq) {
+
+                        case '-':
+                                if (ignore_failure)
+                                        done = true;
+                                else {
+                                        ignore_failure = true;
+                                        eq++;
+                                }
+                                break;
+
+                        case '@':
+                                if (explicit_path)
+                                        done = true;
+                                else {
+                                        explicit_path = true;
+                                        eq++;
+                                }
+                                break;
+
+                        case '+':
+                        case '!':
+                                /* The bus API doesn't support +, ! and !! currently, unfortunately. :-( */
+                                log_error("Sorry, but +, ! and !! are currently not supported for transient services.");
+                                return -EOPNOTSUPP;
+
+                        default:
+                                done = true;
+                                break;
+                        }
+                } while(!done);
+
+                if (explicit_path) {
+                        r = extract_first_word(&eq, &path, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse path: %m");
+                }
+
+                r = strv_split_extract(&l, eq, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse command line: %m");
+
+                r = sd_bus_message_open_container(m, 'v', "a(sasb)");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_open_container(m, 'a', "(sasb)");
+                if (r < 0)
+                        return r;
+
+                if (strv_length(l) > 0) {
+
+                        r = sd_bus_message_open_container(m, 'r', "sasb");
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_append(m, "s", path ?: l[0]);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_append_strv(m, l);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_append(m, "b", ignore_failure);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_close_container(m);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_close_container(m);
+
         } else {
-                log_error("Unknown assignment %s.", assignment);
+                log_error("Unknown assignment: %s", assignment);
                 return -EINVAL;
         }
 

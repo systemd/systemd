@@ -30,6 +30,10 @@ Features:
   systemd-journald writes to /var/log/journal, which could be useful when we
   doing disk usage calculations and so on.
 
+* taint systemd if the overflowuid/overflowgid is not 65534
+
+* deprecate PermissionsStartOnly= and RootDirectoryStartOnly= in favour of the ExecStart= prefix chars
+
 * add a new RuntimeDirectoryPreserve= mode that defines a similar lifecycle for
   the runtime dir as we maintain for the fdstore: i.e. keep it around as long
   as the unit is running or has a job queued.
@@ -66,9 +70,6 @@ Features:
 * optionally, collect cgroup resource data, and store it in per-unit RRD files,
   suitable for processing with rrdtool. Add bus API to access this data, and
   possibly implement a CPULoad property based on it.
-
-* In journalctl add a way how "-o verbose" and suchlike can be tweaked to show
-  only a specific set of properties
 
 * beef up pam_systemd to take unit file settings such as cgroups properties as
   parameters
@@ -116,12 +117,6 @@ Features:
   taken if multiple dirs are configured. Maybe avoid setting the env vars in
   that case?
 
-* introduce SuccessAction= that permits shutting down the system when a service
-  succeeds. This is useful to replace "ExecPost=/usr/bin/systemctl poweroff" and
-  similar constructs, which are frequently used. This is particularly nice for
-  implementation of a systemd.run= kernel command line option that runs some
-  command and immediately shuts down.
-
 * expose IO accounting data on the bus, show it in systemd-run --wait and log
   about it in the resource log message
 
@@ -144,10 +139,6 @@ Features:
   that we create the dir in question when the service is started. Example:
 
   ReadWritePaths=:/var/lib/foobar
-
-* sort generated hwdb files alphabetically when we import them, so that git
-  diffs remain minimal (in particular: the OUI databases we import are not
-  sorted, and not stable)
 
 * maybe add call sd_journal_set_block_timeout() or so to set SO_SNDTIMEO for
   the sd-journal logging socket, and, if the timeout is set to 0, sets
@@ -208,16 +199,11 @@ Features:
   partition, that is mounted to / and is writable, and where the actual root's
   /usr is mounted into.
 
-* machined: add apis to query /etc/machine-info data of a container
-
 * .mount and .swap units: add Format=yes|no option that formats the partition before mounting/enabling it, implicitly
 
 * gpt-auto logic: support encrypted swap, add kernel cmdline option to force it, and honour a gpt bit about it, plus maybe a configuration file
 
 * drop nss-myhostname in favour of nss-resolve?
-
-* drop internal dlopen() based nss-dns fallback in nss-resolve, and rely on the
-  external nsswitch.conf based one
 
 * add a percentage syntax for TimeoutStopSec=, e.g. TimeoutStopSec=150%, and
   then use that for the setting used in user@.service. It should be understood
@@ -228,8 +214,6 @@ Features:
 * enable LockMLOCK to take a percentage value relative to physical memory
 
 * Permit masking specific netlink APIs with RestrictAddressFamily=
-
-* nspawn: start UID allocation loop from hash of container name
 
 * nspawn: support that /proc, /sys/, /dev are pre-mounted
 
@@ -267,8 +251,6 @@ Features:
   find a way to map the User=/Group= of the service to the right name. This way
   a user/group for a service only has to exist on the host for the right
   mapping to work.
-
-* allow attaching additional journald log fields to cgroups
 
 * add bus API for creating unit files in /etc, reusing the code for transient units
 
@@ -570,8 +552,6 @@ Features:
 
 * shutdown logging: store to EFI var, and store to USB stick?
 
-* think about window-manager-run-as-user-service problem: exit 0 → activate shutdown.target; exit != 0 → restart service
-
 * merge unit_kill_common() and unit_kill_context()
 
 * introduce ExecCondition= in services
@@ -657,7 +637,6 @@ Features:
   - journald: when we drop syslog messages because the syslog socket is
     full, make sure to write how many messages are lost as first thing
     to syslog when it works again.
-  - journald: make sure ratelimit is actually really per-service with the new cgroup changes
   - change systemd-journal-flush into a service that stays around during
     boot, and causes the journal to be moved back to /run on shutdown,
     so that we do not keep /var busy. This needs to happen synchronously,
@@ -686,7 +665,6 @@ Features:
   - add journalctl -H that talks via ssh to a remote peer and passes through
     binary logs data
   - add a version of --merge which also merges /var/log/journal/remote
-  - log accumulated resource usage after each service invocation
   - journalctl: -m should access container journals directly by enumerating
     them via machined, and also watch containers coming and going.
     Benefit: nspawn --ephemeral would start working nicely with the journal.
@@ -697,7 +675,6 @@ Features:
     [Install] units of other units, unless those units are disabled
   - man: clarify that time-sync.target is not only sysv compat but also useful otherwise. Same for similar targets
   - document that service reload may be implemented as service reexec
-  - document in wiki how to map ical recurrence events to systemd timer unit calendar specifications
   - add a man page containing packaging guidelines and recommending usage of things like Documentation=, PrivateTmp=, PrivateNetwork= and ReadOnlyDirectories=/etc /usr.
   - document systemd-journal-flush.service properly
   - documentation: recommend to connect the timer units of a service to the service via Also= in [Install]
@@ -715,7 +692,6 @@ Features:
   - add new command to systemctl: "systemctl system-reexec" which reexecs as many daemons as virtually possible
   - systemctl enable: fail if target to alias into does not exist? maybe show how many units are enabled afterwards?
   - systemctl: "Journal has been rotated since unit was started." message is misleading
-  - better error message if you run systemctl without systemd running
   - systemctl status output should include list of triggering units and their status
 
 * unit install:
@@ -758,8 +734,6 @@ Features:
   - should send out sd_notify("WATCHDOG=1") messages
   - optionally automatically add FORWARD rules to iptables whenever nspawn is
     running, remove them when shut down.
-  - Improve error message when --bind= is used on a non-existing source
-    directory
   - maybe make copying of /etc/resolv.conf optional, and skip it if --read-only
     is used
 
@@ -846,7 +820,6 @@ Features:
 * write blog stories about:
   - hwdb: what belongs into it, lsusb
   - enabling dbus services
-  - status update
   - how to make changes to sysctl and sysfs attributes
   - remote access
   - how to pass throw-away units to systemd, or dynamically change properties of existing units
@@ -1000,8 +973,6 @@ Regularly:
 * look for close() vs. close_nointr() vs. close_nointr_nofail()
 
 * check for strerror(r) instead of strerror(-r)
-
-* Use PR_SET_PROCTITLE_AREA if it becomes available in the kernel
 
 * pahole
 

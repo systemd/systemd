@@ -32,6 +32,8 @@
 #include "macro.h"
 #include "specifier.h"
 #include "string-util.h"
+#include "strv.h"
+#include "user-util.h"
 
 /*
  * Generic infrastructure for replacing %x style specifiers in
@@ -189,5 +191,76 @@ int specifier_kernel_release(char specifier, void *data, void *userdata, char **
                 return -ENOMEM;
 
         *ret = n;
+        return 0;
+}
+
+int specifier_user_name(char specifier, void *data, void *userdata, char **ret) {
+        char *t;
+
+        /* If we are UID 0 (root), this will not result in NSS, otherwise it might. This is good, as we want to be able
+         * to run this in PID 1, where our user ID is 0, but where NSS lookups are not allowed.
+
+         * We don't user getusername_malloc() here, because we don't want to look at $USER, to remain consistent with
+         * specifer_user_id() below.
+         */
+
+        t = uid_to_name(getuid());
+        if (!t)
+                return -ENOMEM;
+
+        *ret = t;
+        return 0;
+}
+
+int specifier_user_id(char specifier, void *data, void *userdata, char **ret) {
+
+        if (asprintf(ret, UID_FMT, getuid()) < 0)
+                return -ENOMEM;
+
+        return 0;
+}
+
+int specifier_user_home(char specifier, void *data, void *userdata, char **ret) {
+
+        /* On PID 1 (which runs as root) this will not result in NSS,
+         * which is good. See above */
+
+        return get_home_dir(ret);
+}
+
+int specifier_user_shell(char specifier, void *data, void *userdata, char **ret) {
+
+        /* On PID 1 (which runs as root) this will not result in NSS,
+         * which is good. See above */
+
+        return get_shell(ret);
+}
+
+int specifier_escape_strv(char **l, char ***ret) {
+        char **z, **p, **q;
+
+        assert(ret);
+
+        if (strv_isempty(l)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        z = new(char*, strv_length(l)+1);
+        if (!z)
+                return -ENOMEM;
+
+        for (p = l, q = z; *p; p++, q++) {
+
+                *q = specifier_escape(*p);
+                if (!*q) {
+                        strv_free(z);
+                        return -ENOMEM;
+                }
+        }
+
+        *q = NULL;
+        *ret = z;
+
         return 0;
 }

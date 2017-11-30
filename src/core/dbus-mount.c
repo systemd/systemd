@@ -126,17 +126,18 @@ static int bus_mount_set_transient_property(
                 Mount *m,
                 const char *name,
                 sd_bus_message *message,
-                UnitSetPropertiesMode mode,
+                UnitWriteFlags flags,
                 sd_bus_error *error) {
 
         const char *new_property;
         char **property;
-        char *p;
         int r;
 
         assert(m);
         assert(name);
         assert(message);
+
+        flags |= UNIT_PRIVATE;
 
         if (streq(name, "What"))
                 property = &m->parameters_fragment.what;
@@ -151,16 +152,13 @@ static int bus_mount_set_transient_property(
         if (r < 0)
                 return r;
 
-        if (mode != UNIT_CHECK) {
-                p = strdup(new_property);
-                if (!p)
-                        return -ENOMEM;
+        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
 
-                unit_write_drop_in_format(UNIT(m), mode, name, "[Mount]\n%s=%s\n",
-                        name, new_property);
+                r = free_and_strdup(property, new_property);
+                if (r < 0)
+                        return r;
 
-                free(*property);
-                *property = p;
+                unit_write_settingf(UNIT(m), flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, new_property);
         }
 
         return 1;
@@ -170,7 +168,7 @@ int bus_mount_set_property(
                 Unit *u,
                 const char *name,
                 sd_bus_message *message,
-                UnitSetPropertiesMode mode,
+                UnitWriteFlags flags,
                 sd_bus_error *error) {
 
         Mount *m = MOUNT(u);
@@ -180,22 +178,22 @@ int bus_mount_set_property(
         assert(name);
         assert(message);
 
-        r = bus_cgroup_set_property(u, &m->cgroup_context, name, message, mode, error);
+        r = bus_cgroup_set_property(u, &m->cgroup_context, name, message, flags, error);
         if (r != 0)
                 return r;
 
         if (u->transient && u->load_state == UNIT_STUB) {
                 /* This is a transient unit, let's load a little more */
 
-                r = bus_mount_set_transient_property(m, name, message, mode, error);
+                r = bus_mount_set_transient_property(m, name, message, flags, error);
                 if (r != 0)
                         return r;
 
-                r = bus_exec_context_set_transient_property(u, &m->exec_context, name, message, mode, error);
+                r = bus_exec_context_set_transient_property(u, &m->exec_context, name, message, flags, error);
                 if (r != 0)
                         return r;
 
-                r = bus_kill_context_set_transient_property(u, &m->kill_context, name, message, mode, error);
+                r = bus_kill_context_set_transient_property(u, &m->kill_context, name, message, flags, error);
                 if (r != 0)
                         return r;
         }

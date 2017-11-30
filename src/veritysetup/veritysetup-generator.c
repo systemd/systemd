@@ -32,6 +32,7 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
+#include "specifier.h"
 #include "string-util.h"
 #include "unit-name.h"
 
@@ -42,7 +43,7 @@ static char *arg_data_what = NULL;
 static char *arg_hash_what = NULL;
 
 static int create_device(void) {
-        _cleanup_free_ char *u = NULL, *v = NULL, *d = NULL, *e = NULL;
+        _cleanup_free_ char *u = NULL, *v = NULL, *d = NULL, *e = NULL, *u_escaped = NULL, *v_escaped = NULL, *root_hash_escaped = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *p, *to;
         int r;
@@ -75,12 +76,23 @@ static int create_device(void) {
         if (!v)
                 return log_oom();
 
+        u_escaped = specifier_escape(u);
+        if (!u_escaped)
+                return log_oom();
+        v_escaped = specifier_escape(v);
+        if (!v_escaped)
+                return log_oom();
+
         r = unit_name_from_path(u, ".device", &d);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
         r = unit_name_from_path(v, ".device", &e);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
+
+        root_hash_escaped = specifier_escape(arg_root_hash);
+        if (!root_hash_escaped)
+                return log_oom();
 
         f = fopen(p, "wxe");
         if (!f)
@@ -105,7 +117,7 @@ static int create_device(void) {
                 "ExecStop=" ROOTLIBEXECDIR "/systemd-veritysetup detach root\n",
                 d, e,
                 d, e,
-                u, v, arg_root_hash);
+                u_escaped, v_escaped, root_hash_escaped);
 
         r = fflush_and_check(f);
         if (r < 0)

@@ -1336,13 +1336,6 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         if (r < 0)
                 return r;
 
-        /* Make sure the transient directory always exists, so that it remains
-         * in the search path */
-        r = mkdir_p_label(m->lookup_paths.transient, 0755);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create transient generator directory \"%s\": %m",
-                                       m->lookup_paths.transient);
-
         dual_timestamp_get(m->timestamps + MANAGER_TIMESTAMP_GENERATORS_START);
         r = manager_run_generators(m);
         dual_timestamp_get(m->timestamps + MANAGER_TIMESTAMP_GENERATORS_FINISH);
@@ -3546,14 +3539,16 @@ ManagerState manager_state(Manager *m) {
         if (u && unit_active_or_pending(u))
                 return MANAGER_STOPPING;
 
-        /* Are the rescue or emergency targets active or queued? If so we are in maintenance state */
-        u = manager_get_unit(m, SPECIAL_RESCUE_TARGET);
-        if (u && unit_active_or_pending(u))
-                return MANAGER_MAINTENANCE;
+        if (MANAGER_IS_SYSTEM(m)) {
+                /* Are the rescue or emergency targets active or queued? If so we are in maintenance state */
+                u = manager_get_unit(m, SPECIAL_RESCUE_TARGET);
+                if (u && unit_active_or_pending(u))
+                        return MANAGER_MAINTENANCE;
 
-        u = manager_get_unit(m, SPECIAL_EMERGENCY_TARGET);
-        if (u && unit_active_or_pending(u))
-                return MANAGER_MAINTENANCE;
+                u = manager_get_unit(m, SPECIAL_EMERGENCY_TARGET);
+                if (u && unit_active_or_pending(u))
+                        return MANAGER_MAINTENANCE;
+        }
 
         /* Are there any failed units? If so, we are in degraded mode */
         if (set_size(m->failed_units) > 0)

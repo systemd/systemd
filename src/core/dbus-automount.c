@@ -38,7 +38,7 @@ static int bus_automount_set_transient_property(
                 Automount *a,
                 const char *name,
                 sd_bus_message *message,
-                UnitSetPropertiesMode mode,
+                UnitWriteFlags flags,
                 sd_bus_error *error) {
 
         int r;
@@ -47,18 +47,21 @@ static int bus_automount_set_transient_property(
         assert(name);
         assert(message);
 
+        flags |= UNIT_PRIVATE;
+
         if (streq(name, "TimeoutIdleUSec")) {
                 usec_t timeout_idle_usec;
+
                 r = sd_bus_message_read(message, "t", &timeout_idle_usec);
                 if (r < 0)
                         return r;
 
-                if (mode != UNIT_CHECK) {
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         char time[FORMAT_TIMESPAN_MAX];
 
                         a->timeout_idle_usec = timeout_idle_usec;
-                        unit_write_drop_in_format(UNIT(a), mode, name, "[Automount]\nTimeoutIdleSec=%s\n",
-                                format_timespan(time, sizeof(time), timeout_idle_usec, USEC_PER_MSEC));
+                        unit_write_settingf(UNIT(a), flags, name, "TimeoutIdleSec=%s\n",
+                                            format_timespan(time, sizeof(time), timeout_idle_usec, USEC_PER_MSEC));
                 }
         } else
                 return 0;
@@ -70,20 +73,17 @@ int bus_automount_set_property(
                 Unit *u,
                 const char *name,
                 sd_bus_message *message,
-                UnitSetPropertiesMode mode,
+                UnitWriteFlags flags,
                 sd_bus_error *error) {
 
         Automount *a = AUTOMOUNT(u);
-        int r = 0;
 
         assert(a);
         assert(name);
         assert(message);
 
-        if (u->transient && u->load_state == UNIT_STUB)
-                /* This is a transient unit, let's load a little more */
+        if (u->transient && u->load_state == UNIT_STUB) /* This is a transient unit? let's load a little more */
+                return bus_automount_set_transient_property(a, name, message, flags, error);
 
-                r = bus_automount_set_transient_property(a, name, message, mode, error);
-
-        return r;
+        return 0;
 }

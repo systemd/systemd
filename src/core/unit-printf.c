@@ -158,46 +158,6 @@ static int specifier_special_directory(char specifier, void *data, void *userdat
         return 0;
 }
 
-static int specifier_user_name(char specifier, void *data, void *userdata, char **ret) {
-        char *t;
-
-        /* If we are UID 0 (root), this will not result in NSS,
-         * otherwise it might. This is good, as we want to be able to
-         * run this in PID 1, where our user ID is 0, but where NSS
-         * lookups are not allowed. */
-
-        t = getusername_malloc();
-        if (!t)
-                return -ENOMEM;
-
-        *ret = t;
-        return 0;
-}
-
-static int specifier_user_id(char specifier, void *data, void *userdata, char **ret) {
-
-        if (asprintf(ret, UID_FMT, getuid()) < 0)
-                return -ENOMEM;
-
-        return 0;
-}
-
-static int specifier_user_home(char specifier, void *data, void *userdata, char **ret) {
-
-        /* On PID 1 (which runs as root) this will not result in NSS,
-         * which is good. See above */
-
-        return get_home_dir(ret);
-}
-
-static int specifier_user_shell(char specifier, void *data, void *userdata, char **ret) {
-
-        /* On PID 1 (which runs as root) this will not result in NSS,
-         * which is good. See above */
-
-        return get_shell(ret);
-}
-
 int unit_name_printf(Unit *u, const char* format, char **ret) {
 
         /*

@@ -47,7 +47,7 @@ static void test_paths(UnitFileScope scope) {
         assert_se(strv_length(lp_with_env.search_path) == 1);
         assert_se(streq(lp_with_env.search_path[0], systemd_unit_path));
         assert_se(lookup_paths_reduce(&lp_with_env) >= 0);
-        assert_se(strv_length(lp_with_env.search_path) == 0);
+        assert_se(strv_isempty(lp_with_env.search_path));
 
         assert_se(rm_rf(template, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }

@@ -26,8 +26,8 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "fstab-util.h"
 #include "generator.h"
 #include "log.h"
@@ -38,6 +38,7 @@
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "special.h"
+#include "specifier.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -68,7 +69,7 @@ static int write_options(FILE *f, const char *options) {
         if (streq(options, "defaults"))
                 return 0;
 
-        o = strreplace(options, "%", "%%");
+        o = specifier_escape(options);
         if (!o)
                 return log_oom();
 
@@ -79,7 +80,7 @@ static int write_options(FILE *f, const char *options) {
 static int write_what(FILE *f, const char *what) {
         _cleanup_free_ char *w = NULL;
 
-        w = strreplace(what, "%", "%%");
+        w = specifier_escape(what);
         if (!w)
                 return log_oom();
 
@@ -262,7 +263,7 @@ static int write_before(FILE *f, const char *opts) {
 }
 
 static int write_requires_mounts_for(FILE *f, const char *opts) {
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_strv_free_ char **paths = NULL, **paths_escaped = NULL;
         _cleanup_free_ char *res = NULL;
         int r;
 
@@ -275,7 +276,11 @@ static int write_requires_mounts_for(FILE *f, const char *opts) {
         if (r == 0)
                 return 0;
 
-        res = strv_join(paths, " ");
+        r = specifier_escape_strv(paths, &paths_escaped);
+        if (r < 0)
+                return log_error_errno(r, "Failed to escape paths: %m");
+
+        res = strv_join(paths_escaped, " ");
         if (!res)
                 return log_oom();
 
@@ -301,7 +306,8 @@ static int add_mount(
         _cleanup_free_ char
                 *name = NULL, *unit = NULL,
                 *automount_name = NULL, *automount_unit = NULL,
-                *filtered = NULL;
+                *filtered = NULL,
+                *where_escaped = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -398,14 +404,25 @@ static int add_mount(
         fprintf(f, "\n[Mount]\n");
         if (original_where)
                 fprintf(f, "# Canonicalized from %s\n", original_where);
-        fprintf(f, "Where=%s\n", where);
+
+        where_escaped = specifier_escape(where);
+        if (!where_escaped)
+                return log_oom();
+        fprintf(f, "Where=%s\n", where_escaped);
 
         r = write_what(f, what);
         if (r < 0)
                 return r;
 
-        if (!isempty(fstype) && !streq(fstype, "auto"))
-                fprintf(f, "Type=%s\n", fstype);
+        if (!isempty(fstype) && !streq(fstype, "auto")) {
+                _cleanup_free_ char *t;
+
+                t = specifier_escape(fstype);
+                if (!t)
+                        return -ENOMEM;
+
+                fprintf(f, "Type=%s\n", t);
+        }
 
         r = generator_write_timeouts(dest, what, where, opts, &filtered);
         if (r < 0)
@@ -476,7 +493,7 @@ static int add_mount(
                         "\n"
                         "[Automount]\n"
                         "Where=%s\n",
-                        where);
+                        where_escaped);
 
                 r = write_idle_timeout(f, where, opts);
                 if (r < 0)

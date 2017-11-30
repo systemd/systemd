@@ -55,6 +55,7 @@
 #include "signal-util.h"
 #include "sparse-endian.h"
 #include "special.h"
+#include "specifier.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -116,6 +117,8 @@ Unit *unit_new(Manager *m, size_t size) {
         u->ipv6_allow_map_fd = -1;
         u->ipv4_deny_map_fd = -1;
         u->ipv6_deny_map_fd = -1;
+
+        u->last_section_private = -1;
 
         RATELIMIT_INIT(u->start_limit, m->default_start_limit_interval, m->default_start_limit_burst);
         RATELIMIT_INIT(u->auto_stop_ratelimit, 10 * USEC_PER_SEC, 16);
@@ -568,8 +571,7 @@ void unit_free(Unit *u) {
         if (!u)
                 return;
 
-        if (u->transient_file)
-                fclose(u->transient_file);
+        u->transient_file = safe_fclose(u->transient_file);
 
         if (!MANAGER_IS_RELOADING(u->manager))
                 unit_remove_transient(u);
@@ -1502,9 +1504,7 @@ int unit_load(Unit *u) {
                 if (r < 0)
                         goto fail;
 
-                fclose(u->transient_file);
-                u->transient_file = NULL;
-
+                u->transient_file = safe_fclose(u->transient_file);
                 u->fragment_mtime = now(CLOCK_REALTIME);
         }
 
@@ -4120,43 +4120,156 @@ ExecRuntime *unit_get_exec_runtime(Unit *u) {
         return *(ExecRuntime**) ((uint8_t*) u + offset);
 }
 
-static const char* unit_drop_in_dir(Unit *u, UnitSetPropertiesMode mode) {
+static const char* unit_drop_in_dir(Unit *u, UnitWriteFlags flags) {
         assert(u);
 
-        if (!IN_SET(mode, UNIT_RUNTIME, UNIT_PERSISTENT))
+        if (UNIT_WRITE_FLAGS_NOOP(flags))
                 return NULL;
 
         if (u->transient) /* Redirect drop-ins for transient units always into the transient directory. */
                 return u->manager->lookup_paths.transient;
 
-        if (mode == UNIT_RUNTIME)
-                return u->manager->lookup_paths.runtime_control;
-
-        if (mode == UNIT_PERSISTENT)
+        if (flags & UNIT_PERSISTENT)
                 return u->manager->lookup_paths.persistent_control;
+
+        if (flags & UNIT_RUNTIME)
+                return u->manager->lookup_paths.runtime_control;
 
         return NULL;
 }
 
-int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *data) {
-        _cleanup_free_ char *p = NULL, *q = NULL;
+char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf) {
+        char *ret = NULL;
+
+        if (!s)
+                return NULL;
+
+        /* Escapes the input string as requested. Returns the escaped string. If 'buf' is specified then the allocated
+         * return buffer pointer is also written to *buf, except if no escaping was necessary, in which case *buf is
+         * set to NULL, and the input pointer is returned as-is. This means the return value always contains a properly
+         * escaped version, but *buf when passed only contains a pointer if an allocation was necessary. If *buf is
+         * not specified, then the return value always needs to be freed. Callers can use this to optimize memory
+         * allocations. */
+
+        if (flags & UNIT_ESCAPE_SPECIFIERS) {
+                ret = specifier_escape(s);
+                if (!ret)
+                        return NULL;
+
+                s = ret;
+        }
+
+        if (flags & UNIT_ESCAPE_C) {
+                char *a;
+
+                a = cescape(s);
+                free(ret);
+                if (!a)
+                        return NULL;
+
+                ret = a;
+        }
+
+        if (buf) {
+                *buf = ret;
+                return ret ?: (char*) s;
+        }
+
+        return ret ?: strdup(s);
+}
+
+char* unit_concat_strv(char **l, UnitWriteFlags flags) {
+        _cleanup_free_ char *result = NULL;
+        size_t n = 0, allocated = 0;
+        char **i, *ret;
+
+        /* Takes a list of strings, escapes them, and concatenates them. This may be used to format command lines in a
+         * way suitable for ExecStart= stanzas */
+
+        STRV_FOREACH(i, l) {
+                _cleanup_free_ char *buf = NULL;
+                const char *p;
+                size_t a;
+                char *q;
+
+                p = unit_escape_setting(*i, flags, &buf);
+                if (!p)
+                        return NULL;
+
+                a = (n > 0) + 1 + strlen(p) + 1; /* separating space + " + entry + " */
+                if (!GREEDY_REALLOC(result, allocated, n + a + 1))
+                        return NULL;
+
+                q = result + n;
+                if (n > 0)
+                        *(q++) = ' ';
+
+                *(q++) = '"';
+                q = stpcpy(q, p);
+                *(q++) = '"';
+
+                n += a;
+        }
+
+        if (!GREEDY_REALLOC(result, allocated, n + 1))
+                return NULL;
+
+        result[n] = 0;
+
+        ret = result;
+        result = NULL;
+
+        return ret;
+}
+
+int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const char *data) {
+        _cleanup_free_ char *p = NULL, *q = NULL, *escaped = NULL;
         const char *dir, *wrapped;
         int r;
 
         assert(u);
+        assert(name);
+        assert(data);
+
+        if (UNIT_WRITE_FLAGS_NOOP(flags))
+                return 0;
+
+        data = unit_escape_setting(data, flags, &escaped);
+        if (!data)
+                return -ENOMEM;
+
+        /* Prefix the section header. If we are writing this out as transient file, then let's suppress this if the
+         * previous section header is the same */
+
+        if (flags & UNIT_PRIVATE) {
+                if (!UNIT_VTABLE(u)->private_section)
+                        return -EINVAL;
+
+                if (!u->transient_file || u->last_section_private < 0)
+                        data = strjoina("[", UNIT_VTABLE(u)->private_section, "]\n", data);
+                else if (u->last_section_private == 0)
+                        data = strjoina("\n[", UNIT_VTABLE(u)->private_section, "]\n", data);
+        } else {
+                if (!u->transient_file || u->last_section_private < 0)
+                        data = strjoina("[Unit]\n", data);
+                else if (u->last_section_private > 0)
+                        data = strjoina("\n[Unit]\n", data);
+        }
 
         if (u->transient_file) {
                 /* When this is a transient unit file in creation, then let's not create a new drop-in but instead
                  * write to the transient unit file. */
                 fputs(data, u->transient_file);
-                fputc('\n', u->transient_file);
+
+                if (!endswith(data, "\n"))
+                        fputc('\n', u->transient_file);
+
+                /* Remember which section we wrote this entry to */
+                u->last_section_private = !!(flags & UNIT_PRIVATE);
                 return 0;
         }
 
-        if (!IN_SET(mode, UNIT_PERSISTENT, UNIT_RUNTIME))
-                return 0;
-
-        dir = unit_drop_in_dir(u, mode);
+        dir = unit_drop_in_dir(u, flags);
         if (!dir)
                 return -EINVAL;
 
@@ -4169,7 +4282,7 @@ int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, co
         if (r < 0)
                 return r;
 
-        (void) mkdir_p(p, 0755);
+        (void) mkdir_p_label(p, 0755);
         r = write_string_file_atomic_label(q, wrapped);
         if (r < 0)
                 return r;
@@ -4186,7 +4299,7 @@ int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, co
         return 0;
 }
 
-int unit_write_drop_in_format(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *format, ...) {
+int unit_write_settingf(Unit *u, UnitWriteFlags flags, const char *name, const char *format, ...) {
         _cleanup_free_ char *p = NULL;
         va_list ap;
         int r;
@@ -4195,7 +4308,7 @@ int unit_write_drop_in_format(Unit *u, UnitSetPropertiesMode mode, const char *n
         assert(name);
         assert(format);
 
-        if (!IN_SET(mode, UNIT_PERSISTENT, UNIT_RUNTIME))
+        if (UNIT_WRITE_FLAGS_NOOP(flags))
                 return 0;
 
         va_start(ap, format);
@@ -4205,57 +4318,19 @@ int unit_write_drop_in_format(Unit *u, UnitSetPropertiesMode mode, const char *n
         if (r < 0)
                 return -ENOMEM;
 
-        return unit_write_drop_in(u, mode, name, p);
-}
-
-int unit_write_drop_in_private(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *data) {
-        const char *ndata;
-
-        assert(u);
-        assert(name);
-        assert(data);
-
-        if (!UNIT_VTABLE(u)->private_section)
-                return -EINVAL;
-
-        if (!IN_SET(mode, UNIT_PERSISTENT, UNIT_RUNTIME))
-                return 0;
-
-        ndata = strjoina("[", UNIT_VTABLE(u)->private_section, "]\n", data);
-
-        return unit_write_drop_in(u, mode, name, ndata);
-}
-
-int unit_write_drop_in_private_format(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *format, ...) {
-        _cleanup_free_ char *p = NULL;
-        va_list ap;
-        int r;
-
-        assert(u);
-        assert(name);
-        assert(format);
-
-        if (!IN_SET(mode, UNIT_PERSISTENT, UNIT_RUNTIME))
-                return 0;
-
-        va_start(ap, format);
-        r = vasprintf(&p, format, ap);
-        va_end(ap);
-
-        if (r < 0)
-                return -ENOMEM;
-
-        return unit_write_drop_in_private(u, mode, name, p);
+        return unit_write_setting(u, flags, name, p);
 }
 
 int unit_make_transient(Unit *u) {
+        _cleanup_free_ char *path = NULL;
         FILE *f;
-        char *path;
 
         assert(u);
 
         if (!UNIT_VTABLE(u)->can_transient)
                 return -EOPNOTSUPP;
+
+        (void) mkdir_p_label(u->manager->lookup_paths.transient, 0755);
 
         path = strjoin(u->manager->lookup_paths.transient, "/", u->id);
         if (!path)
@@ -4266,18 +4341,14 @@ int unit_make_transient(Unit *u) {
 
         RUN_WITH_UMASK(0022) {
                 f = fopen(path, "we");
-                if (!f) {
-                        free(path);
+                if (!f)
                         return -errno;
-                }
         }
 
-        if (u->transient_file)
-                fclose(u->transient_file);
+        safe_fclose(u->transient_file);
         u->transient_file = f;
 
-        free(u->fragment_path);
-        u->fragment_path = path;
+        free_and_replace(u->fragment_path, path);
 
         u->source_path = mfree(u->source_path);
         u->dropin_paths = strv_free(u->dropin_paths);
