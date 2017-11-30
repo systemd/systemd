@@ -347,7 +347,7 @@ int network_node_enumerator(sd_bus *bus, const char *path, void *userdata, char 
 int network_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
 
 /* gperf */
-const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, unsigned length);
+const struct ConfigPerfItem* network_network_gperf_lookup(register const char *key, register size_t length);
 
 /* Route */
 int route_new_static(Network *network, unsigned section, Route **ret);

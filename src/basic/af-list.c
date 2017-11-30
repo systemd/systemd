@@ -25,7 +25,7 @@
 #include "util.h"
 #include "af-list.h"
 
-static const struct af_name* lookup_af(register const char *str, register unsigned int len);
+static const struct af_name* lookup_af(register const char *str, register size_t len);
 
 #include "af-to-name.h"
 #include "af-from-name.h"

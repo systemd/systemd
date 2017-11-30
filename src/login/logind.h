@@ -179,7 +179,7 @@ int manager_unit_is_active(Manager *manager, const char *unit);
 int manager_job_is_active(Manager *manager, const char *path);
 
 /* gperf lookup function */
-const struct ConfigPerfItem* logind_gperf_lookup(const char *key, unsigned length);
+const struct ConfigPerfItem* logind_gperf_lookup(register const char *key, register size_t length);
 
 int manager_watch_busname(Manager *manager, const char *name);
 void manager_drop_busname(Manager *manager, const char *name);

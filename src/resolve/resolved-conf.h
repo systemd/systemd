@@ -26,7 +26,7 @@
 int manager_parse_dns_server(Manager *m, DnsServerType type, const char *string);
 int manager_parse_config_file(Manager *m);
 
-const struct ConfigPerfItem* resolved_gperf_lookup(const char *key, unsigned length);
+const struct ConfigPerfItem* resolved_gperf_lookup(register const char *key, register size_t length);
 
 int config_parse_dnsv(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_support(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
