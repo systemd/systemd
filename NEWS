@@ -101,7 +101,7 @@ CHANGES WITH 236 in spe:
           tweaking the garbage collection logic for units. It may be used to
           tell systemd to garbage collect units that have failed automatically
           (normally it only GCs units that exited successfully). systemd-run
-          exposes this new functionality wiht a new -G option.
+          and systemd-mount exposes this new functionality wiht a new -G option.
 
         * Services gained a two new settings StandardInputData= and
           StadardInputText=, along with a new option StandardInput=data. They
