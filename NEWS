@@ -63,7 +63,7 @@ CHANGES WITH 236 in spe:
           instead of doing it, and is currently supported by the shutdown and
           sleep verbs.
 
-        * ConditionSecurity= know can detect the TOMOYO security module.
+        * ConditionSecurity= can now detect the TOMOYO security module.
 
         * Unit file [Install] sections are now also respected in unit drop-in
           files.
