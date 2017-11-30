@@ -215,6 +215,8 @@ struct Network {
         uint32_t iaid;
         DUID duid;
 
+        bool required_for_online; /* Is this network required to be considered online? */
+
         LLDPMode lldp_mode; /* LLDP reception */
         LLDPEmit lldp_emit; /* LLDP transmission */
 
