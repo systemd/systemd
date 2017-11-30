@@ -1942,7 +1942,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
 
       <listitem><para>Variables set via <varname>Environment=</varname> in the unit file</para></listitem>
 
-      <listitem><para>Variables read from files specified via <varname>EnvironmentFiles=</varname> in the unit file</para></listitem>
+      <listitem><para>Variables read from files specified via <varname>EnvironmentFile=</varname> in the unit file</para></listitem>
 
       <listitem><para>Variables set by any PAM modules in case <varname>PAMName=</varname> is in effect, cf. <citerefentry project='man-pages'><refentrytitle>pam_env</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem>
     </itemizedlist>
