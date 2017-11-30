@@ -4245,10 +4245,15 @@ static void print_status_info(
                         printf(" Main PID: "PID_FMT, i->main_pid);
 
                         if (i->running) {
-                                _cleanup_free_ char *comm = NULL;
-                                (void) get_process_comm(i->main_pid, &comm);
-                                if (comm)
-                                        printf(" (%s)", comm);
+
+                                if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                                        _cleanup_free_ char *comm = NULL;
+
+                                        (void) get_process_comm(i->main_pid, &comm);
+                                        if (comm)
+                                                printf(" (%s)", comm);
+                                }
+
                         } else if (i->exit_code > 0) {
                                 printf(" (code=%s, ", sigchld_code_to_string(i->exit_code));
 
@@ -4277,9 +4282,11 @@ static void print_status_info(
 
                         printf(PID_FMT, i->control_pid);
 
-                        (void) get_process_comm(i->control_pid, &c);
-                        if (c)
-                                printf(" (%s)", c);
+                        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                                (void) get_process_comm(i->control_pid, &c);
+                                if (c)
+                                        printf(" (%s)", c);
+                        }
                 }
 
                 printf("\n");
