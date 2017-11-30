@@ -98,6 +98,7 @@
 #include "signal-util.h"
 #include "smack-util.h"
 #include "special.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -2077,10 +2078,24 @@ static int setup_exec_directory(
                         if (r < 0)
                                 goto fail;
 
-                        /* Finally, create the actual directory for the service */
-                        r = mkdir_label(pp, context->directories[type].mode);
-                        if (r < 0 && r != -EEXIST)
-                                goto fail;
+                        if (is_dir(p, false) > 0 &&
+                            (laccess(pp, F_OK) < 0 && errno == ENOENT)) {
+
+                                /* Hmm, the private directory doesn't exist yet, but the normal one exists? If so, move
+                                 * it over. Most likely the service has been upgraded from one that didn't use
+                                 * DynamicUser=1, to one that does. */
+
+                                if (rename(p, pp) < 0) {
+                                        r = -errno;
+                                        goto fail;
+                                }
+                        } else {
+                                /* Otherwise, create the actual directory for the service */
+
+                                r = mkdir_label(pp, context->directories[type].mode);
+                                if (r < 0 && r != -EEXIST)
+                                        goto fail;
+                        }
 
                         parent = dirname_malloc(p);
                         if (!parent) {
