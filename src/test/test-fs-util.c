@@ -242,6 +242,7 @@ static void test_readlink_and_make_absolute(void) {
         char name2[] = "test-readlink_and_make_absolute/original";
         char name_alias[] = "/tmp/test-readlink_and_make_absolute-alias";
         char *r = NULL;
+        _cleanup_free_ char *pwd = NULL;
 
         assert_se(mkdir_safe(tempdir, 0755, getuid(), getgid(), false) >= 0);
         assert_se(touch(name) >= 0);
@@ -252,12 +253,16 @@ static void test_readlink_and_make_absolute(void) {
         free(r);
         assert_se(unlink(name_alias) >= 0);
 
+        assert_se(pwd = get_current_dir_name());
+
         assert_se(chdir(tempdir) >= 0);
         assert_se(symlink(name2, name_alias) >= 0);
         assert_se(readlink_and_make_absolute(name_alias, &r) >= 0);
         assert_se(streq(r, name));
         free(r);
         assert_se(unlink(name_alias) >= 0);
+
+        assert_se(chdir(pwd) >= 0);
 
         assert_se(rm_rf(tempdir, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
