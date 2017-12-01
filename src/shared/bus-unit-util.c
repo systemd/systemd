@@ -415,19 +415,12 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 r = sd_bus_message_append(m, "v", "s", eq);
 
         else if (streq(field, "StandardInputData")) {
-                _cleanup_free_ char *cleaned = NULL;
                 _cleanup_free_ void *decoded = NULL;
                 size_t sz;
 
-                cleaned = strdup(eq);
-                if (!cleaned)
-                        return log_oom();
-
-                delete_chars(cleaned, WHITESPACE);
-
-                r = unbase64mem(cleaned, (size_t) -1, &decoded, &sz);
+                r = unbase64mem(eq, (size_t) -1, &decoded, &sz);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to decode base64 data '%s': %m", cleaned);
+                        return log_error_errno(r, "Failed to decode base64 data '%s': %m", eq);
 
                 r = sd_bus_message_open_container(m, 'v', "ay");
                 if (r < 0)
