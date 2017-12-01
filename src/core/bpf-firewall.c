@@ -649,13 +649,16 @@ int bpf_firewall_supported(void) {
 
         _cleanup_(bpf_program_unrefp) BPFProgram *program = NULL;
         static int supported = -1;
+        union bpf_attr attr;
         int fd, r;
 
-        /* Checks whether BPF firewalling is supported. For this, we check three things:
+        /* Checks whether BPF firewalling is supported. For this, we check five things:
          *
          * a) whether we are privileged
          * b) whether the unified hierarchy is being used
          * c) the BPF implementation in the kernel supports BPF LPM TRIE maps, which we require
+         * d) the BPF implementation in the kernel supports BPF_PROG_TYPE_CGROUP_SKB programs, which we require
+         * e) the BPF implementation in the kernel supports the BPF_PROG_ATTACH call, which we require
          *
          */
 
@@ -670,8 +673,10 @@ int bpf_firewall_supported(void) {
         r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
         if (r < 0)
                 return log_error_errno(r, "Can't determine whether the unified hierarchy is used: %m");
-        if (r == 0)
+        if (r == 0) {
+                log_debug("Not running with unified cgroups, BPF firewalling is not supported.");
                 return supported = false;
+        }
 
         fd = bpf_map_new(BPF_MAP_TYPE_LPM_TRIE,
                          offsetof(struct bpf_lpm_trie_key, data) + sizeof(uint64_t),
@@ -702,5 +707,28 @@ int bpf_firewall_supported(void) {
                 return supported = false;
         }
 
-        return supported = true;
+        /* Unfortunately the kernel allows us to create BPF_PROG_TYPE_CGROUP_SKB programs even when CONFIG_CGROUP_BPF
+         * is turned off at kernel compilation time. This sucks of course: why does it allow us to create a cgroup BPF
+         * program if we can't do a thing with it later?
+         *
+         * We detect this case by issuing the BPF_PROG_ATTACH bpf() call with invalid file descriptors: if
+         * CONFIG_CGROUP_BPF is turned off, then the call will fail early with EINVAL. If it is turned on the
+         * parameters are validated however, and that'll fail with EBADF then. */
+
+        attr = (union bpf_attr) {
+                .attach_type = BPF_CGROUP_INET_EGRESS,
+                .target_fd = -1,
+                .attach_bpf_fd = -1,
+        };
+
+        r = bpf(BPF_PROG_ATTACH, &attr, sizeof(attr));
+        if (r < 0) {
+                if (errno == EBADF) /* YAY! */
+                        return supported = true;
+
+                log_debug_errno(errno, "Didn't get EBADF from BPF_PROG_ATTACH, BPF firewalling is not supported: %m");
+        } else
+                log_debug("Wut? kernel accepted our invalid BPF_PROG_ATTACH call? Something is weird, assuming BPF firewalling is broken and hence not supported.");
+
+        return supported = false;
 }
