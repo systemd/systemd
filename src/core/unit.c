@@ -2003,7 +2003,7 @@ static void unit_check_unneeded(Unit *u) {
                 void *v;
 
                 HASHMAP_FOREACH_KEY(v, other, u->dependencies[needed_dependencies[j]], i)
-                        if (unit_active_or_pending(other))
+                        if (unit_active_or_pending(other) || unit_will_restart(other))
                                 return;
         }
 
@@ -3792,6 +3792,15 @@ bool unit_active_or_pending(Unit *u) {
                 return true;
 
         return false;
+}
+
+bool unit_will_restart(Unit *u) {
+        assert(u);
+
+        if (!UNIT_VTABLE(u)->will_restart)
+                return false;
+
+        return UNIT_VTABLE(u)->will_restart(u);
 }
 
 int unit_kill(Unit *u, KillWho w, int signo, sd_bus_error *error) {

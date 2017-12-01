@@ -484,6 +484,9 @@ struct UnitVTable {
          * unit is in. */
         const char* (*sub_state_to_string)(Unit *u);
 
+        /* Additionally to UnitActiveState determine whether unit is to be restarted. */
+        bool (*will_restart)(Unit *u);
+
         /* Return true when there is reason to keep this entry around
          * even nothing references it and it isn't active in any
          * way */
@@ -706,6 +709,7 @@ const char *unit_slice_name(Unit *u);
 bool unit_stop_pending(Unit *u) _pure_;
 bool unit_inactive_or_pending(Unit *u) _pure_;
 bool unit_active_or_pending(Unit *u);
+bool unit_will_restart(Unit *u);
 
 int unit_add_default_target_dependency(Unit *u, Unit *target);
 
