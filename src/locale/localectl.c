@@ -263,7 +263,7 @@ static int set_vconsole_keymap(sd_bus *bus, char **args, unsigned n) {
 }
 
 static int list_vconsole_keymaps(sd_bus *bus, char **args, unsigned n) {
-       _cleanup_strv_free_ char **l = NULL;
+        _cleanup_strv_free_ char **l = NULL;
         int r;
 
         assert(args);
