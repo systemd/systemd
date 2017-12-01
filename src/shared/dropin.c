@@ -128,7 +128,11 @@ static int unit_file_find_dir(
         assert(path);
 
         r = chase_symlinks(path, original_root, 0, &chased);
-        if (r == -ENOENT) /* Ignore -ENOENT, after all most units won't have a drop-in dir */
+        /* Ignore -ENOENT, after all most units won't have a drop-in dir.
+         * Also ignore -ENAMETOOLONG, users are not even able to create
+         * the drop-in dir in such case. This mostly happens for device units with long /sys path.
+         * */
+        if (IN_SET(r, -ENOENT, -ENAMETOOLONG))
                 return 0;
         if (r < 0)
                 return log_full_errno(LOG_WARNING, r, "Failed to canonicalize path %s: %m", path);
