@@ -543,10 +543,6 @@ struct btrfs_ioctl_quota_ctl_args {
 #define PR_SET_CHILD_SUBREAPER 36
 #endif
 
-#ifndef MAX_HANDLE_SZ
-#define MAX_HANDLE_SZ 128
-#endif
-
 #if ! HAVE_SECURE_GETENV
 #  if HAVE___SECURE_GETENV
 #    define secure_getenv __secure_getenv
