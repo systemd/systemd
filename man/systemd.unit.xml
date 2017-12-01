@@ -1357,18 +1357,18 @@
           </row>
           <row>
       <entry><literal>%S</literal></entry>
-      <entry>State directory root </entry>
+      <entry>State directory root</entry>
       <entry>This is either <filename>/var/lib</filename> (for the system manager) or the path <literal>$XDG_CONFIG_HOME</literal> resolves to (for user managers).</entry>
           </row>
           <row>
       <entry><literal>%C</literal></entry>
-      <entry>Cache directory root </entry>
+      <entry>Cache directory root</entry>
       <entry>This is either <filename>/var/cache</filename> (for the system manager) or the path <literal>$XDG_CACHE_HOME</literal> resolves to (for user managers).</entry>
           </row>
           <row>
       <entry><literal>%L</literal></entry>
-      <entry>Logs directory root </entry>
-      <entry>This is either <filename>/var/log</filename> (for the system manager) or the path <literal>$XDG_CONFIG_HOME</literal> resolves to with <filename>/log</filename> appended (for user managers).</entry>
+      <entry>Log directory root</entry>
+      <entry>This is either <filename>/var/log</filename> (for the system manager) or the path <literal>$XDG_CONFIG_HOME</literal> resolves to with <filename noindex='true'>/log</filename> appended (for user managers).</entry>
           </row>
           <row>
       <entry><literal>%u</literal></entry>
