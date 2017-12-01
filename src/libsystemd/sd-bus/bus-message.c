@@ -584,6 +584,7 @@ _public_ int sd_bus_message_new(
         assert_return(bus, -ENOTCONN);
         assert_return(bus->state != BUS_UNSET, -ENOTCONN);
         assert_return(m, -EINVAL);
+        assert_return(type < _SD_BUS_MESSAGE_TYPE_MAX, -EINVAL);
 
         t = malloc0(ALIGN(sizeof(sd_bus_message)) + sizeof(struct bus_header));
         if (!t)
