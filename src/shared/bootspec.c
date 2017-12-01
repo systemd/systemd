@@ -25,6 +25,7 @@
 #include "bootspec.h"
 #include "conf-files.h"
 #include "def.h"
+#include "device-nodes.h"
 #include "efivars.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -420,7 +421,7 @@ static int verify_esp(
                 sd_id128_t *ret_uuid) {
 
         _cleanup_blkid_free_probe_ blkid_probe b = NULL;
-        _cleanup_free_ char *t = NULL;
+        char t[DEV_NUM_PATH_MAX];
         uint64_t pstart = 0, psize = 0;
         struct stat st, st2;
         const char *v, *t2;
@@ -478,10 +479,7 @@ static int verify_esp(
         if (detect_container() > 0 || geteuid() != 0)
                 goto finish;
 
-        r = asprintf(&t, "/dev/block/%u:%u", major(st.st_dev), minor(st.st_dev));
-        if (r < 0)
-                return log_oom();
-
+        xsprintf_dev_num_path(t, "block", st.st_dev);
         errno = 0;
         b = blkid_new_probe_from_filename(t);
         if (!b)

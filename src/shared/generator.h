@@ -39,11 +39,24 @@ int generator_write_timeouts(
         char **filtered);
 
 int generator_write_device_deps(
-                const char *dir,
-                const char *what,
-                const char *where,
-                const char *opts);
+        const char *dir,
+        const char *what,
+        const char *where,
+        const char *opts);
 
 int generator_write_initrd_root_device_deps(
         const char *dir,
         const char *what);
+
+int generator_hook_up_mkswap(
+        const char *dir,
+        const char *what);
+int generator_hook_up_mkfs(
+        const char *dir,
+        const char *what,
+        const char *where,
+        const char *type);
+int generator_hook_up_growfs(
+        const char *dir,
+        const char *where,
+        const char *target);

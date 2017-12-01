@@ -661,9 +661,18 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
 
                 todo += m;
 
-                /* Just a single slash? Then we reached the end. */
-                if (isempty(first) || path_equal(first, "/"))
+                /* Empty? Then we reached the end. */
+                if (isempty(first))
                         break;
+
+                /* Just a single slash? Then we reached the end. */
+                if (path_equal(first, "/")) {
+                        /* Preserve the trailing slash */
+                        if (!strextend(&done, "/", NULL))
+                                return -ENOMEM;
+
+                        break;
+                }
 
                 /* Just a dot? Then let's eat this up. */
                 if (path_equal(first, "/."))
@@ -726,7 +735,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                 if (fstat(child, &st) < 0)
                         return -errno;
                 if ((flags & CHASE_NO_AUTOFS) &&
-                    fd_check_fstype(child, AUTOFS_SUPER_MAGIC) > 0)
+                    fd_is_fs_type(child, AUTOFS_SUPER_MAGIC) > 0)
                         return -EREMOTE;
 
                 if (S_ISLNK(st.st_mode)) {

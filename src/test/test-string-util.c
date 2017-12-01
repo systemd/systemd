@@ -320,6 +320,19 @@ static void test_delete_trailing_chars(void) {
         assert_se(s == input3);
 }
 
+static void test_delete_trailing_slashes(void) {
+        char s1[] = "foobar//",
+             s2[] = "foobar/",
+             s3[] = "foobar",
+             s4[] = "";
+
+        assert_se(streq(delete_trailing_chars(s1, "_"), "foobar//"));
+        assert_se(streq(delete_trailing_chars(s1, "/"), "foobar"));
+        assert_se(streq(delete_trailing_chars(s2, "/"), "foobar"));
+        assert_se(streq(delete_trailing_chars(s3, "/"), "foobar"));
+        assert_se(streq(delete_trailing_chars(s4, "/"), ""));
+}
+
 static void test_skip_leading_chars(void) {
         char input1[] = " \n \r k \n \r ",
                 input2[] = "kkkkthiskkkiskkkaktestkkk",
@@ -399,6 +412,7 @@ int main(int argc, char *argv[]) {
         test_endswith_no_case();
         test_delete_chars();
         test_delete_trailing_chars();
+        test_delete_trailing_slashes();
         test_skip_leading_chars();
         test_in_charset();
         test_split_pair();

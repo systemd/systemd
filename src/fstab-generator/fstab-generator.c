@@ -47,6 +47,14 @@
 #include "virt.h"
 #include "volatile-util.h"
 
+typedef enum MountpointFlags {
+        NOAUTO    = 1 << 0,
+        NOFAIL    = 1 << 1,
+        AUTOMOUNT = 1 << 2,
+        MAKEFS    = 1 << 3,
+        GROWFS    = 1 << 4,
+} MountpointFlags;
+
 static const char *arg_dest = "/tmp";
 static const char *arg_dest_late = "/tmp";
 static bool arg_fstab_enabled = true;
@@ -91,8 +99,7 @@ static int write_what(FILE *f, const char *what) {
 static int add_swap(
                 const char *what,
                 struct mntent *me,
-                bool noauto,
-                bool nofail) {
+                MountpointFlags flags) {
 
         _cleanup_free_ char *name = NULL, *unit = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -150,9 +157,19 @@ static int add_swap(
         if (r < 0)
                 return r;
 
-        if (!noauto) {
+        if (flags & MAKEFS) {
+                r = generator_hook_up_mkswap(arg_dest, what);
+                if (r < 0)
+                        return r;
+        }
+
+        if (flags & GROWFS)
+                /* TODO: swap devices must be wiped and recreated */
+                log_warning("%s: growing swap devices is currently unsupported.", what);
+
+        if (!(flags & NOAUTO)) {
                 r = generator_add_symlink(arg_dest, SPECIAL_SWAP_TARGET,
-                                          nofail ? "wants" : "requires", name);
+                                          (flags & NOFAIL) ? "wants" : "requires", name);
                 if (r < 0)
                         return r;
         }
@@ -297,17 +314,16 @@ static int add_mount(
                 const char *fstype,
                 const char *opts,
                 int passno,
-                bool noauto,
-                bool nofail,
-                bool automount,
+                MountpointFlags flags,
                 const char *post,
                 const char *source) {
 
         _cleanup_free_ char
-                *name = NULL, *unit = NULL,
+                *name = NULL,
                 *automount_name = NULL, *automount_unit = NULL,
                 *filtered = NULL,
                 *where_escaped = NULL;
+        const char *unit;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -330,23 +346,21 @@ static int add_mount(
                 return 0;
 
         if (path_equal(where, "/")) {
-                if (noauto)
+                if (flags & NOAUTO)
                         log_warning("Ignoring \"noauto\" for root device");
-                if (nofail)
+                if (flags & NOFAIL)
                         log_warning("Ignoring \"nofail\" for root device");
-                if (automount)
+                if (flags & AUTOMOUNT)
                         log_warning("Ignoring automount option for root device");
 
-                noauto = nofail = automount = false;
+                SET_FLAG(flags, NOAUTO | NOFAIL | AUTOMOUNT, false);
         }
 
         r = unit_name_from_path(where, ".mount", &name);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        unit = strjoin(dest, "/", name);
-        if (!unit)
-                return log_oom();
+        unit = strjoina(dest, "/", name);
 
         f = fopen(unit, "wxe");
         if (!f)
@@ -363,7 +377,7 @@ static int add_mount(
                 "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n",
                 source);
 
-        if (STRPTR_IN_SET(fstype, "nfs", "nfs4") && !automount &&
+        if (STRPTR_IN_SET(fstype, "nfs", "nfs4") && !(flags & AUTOMOUNT) &&
             fstab_test_yes_no_option(opts, "bg\0" "fg\0")) {
                 /* The default retry timeout that mount.nfs uses for 'bg' mounts
                  * is 10000 minutes, where as it uses 2 minutes for 'fg' mounts.
@@ -374,13 +388,13 @@ static int add_mount(
                  * By placing these options first, they can be over-ridden by
                  * settings in /etc/fstab. */
                 opts = strjoina("x-systemd.mount-timeout=infinity,retry=10000,", opts, ",fg");
-                nofail = true;
+                SET_FLAG(flags, NOFAIL, true);
         }
 
-        if (!nofail && !automount)
+        if (!(flags & NOFAIL) && !(flags & AUTOMOUNT))
                 fprintf(f, "Before=%s\n", post);
 
-        if (!automount && opts) {
+        if (!(flags & AUTOMOUNT) && opts) {
                  r = write_after(f, opts);
                  if (r < 0)
                          return r;
@@ -444,14 +458,26 @@ static int add_mount(
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit file %s: %m", unit);
 
-        if (!noauto && !automount) {
-                r = generator_add_symlink(dest, post,
-                                          nofail ? "wants" : "requires", name);
+        if (flags & MAKEFS) {
+                r = generator_hook_up_mkfs(dest, what, where, fstype);
                 if (r < 0)
                         return r;
         }
 
-        if (automount) {
+        if (flags & GROWFS) {
+                r = generator_hook_up_growfs(dest, where, post);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!(flags & NOAUTO) && !(flags & AUTOMOUNT)) {
+                r = generator_add_symlink(dest, post,
+                                          (flags & NOFAIL) ? "wants" : "requires", name);
+                if (r < 0)
+                        return r;
+        }
+
+        if (flags & AUTOMOUNT) {
                 r = unit_name_from_path(where, ".automount", &automount_name);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate unit name: %m");
@@ -504,7 +530,7 @@ static int add_mount(
                         return log_error_errno(r, "Failed to write unit file %s: %m", automount_unit);
 
                 r = generator_add_symlink(dest, post,
-                                          nofail ? "wants" : "requires", automount_name);
+                                          (flags & NOFAIL) ? "wants" : "requires", automount_name);
                 if (r < 0)
                         return r;
         }
@@ -529,7 +555,7 @@ static int parse_fstab(bool initrd) {
 
         while ((me = getmntent(f))) {
                 _cleanup_free_ char *where = NULL, *what = NULL, *canonical_where = NULL;
-                bool noauto, nofail;
+                bool makefs, growfs, noauto, nofail;
                 int k;
 
                 if (initrd && !mount_in_initrd(me))
@@ -571,14 +597,18 @@ static int parse_fstab(bool initrd) {
                         }
                 }
 
+                makefs = fstab_test_option(me->mnt_opts, "x-systemd.makefs\0");
+                growfs = fstab_test_option(me->mnt_opts, "x-systemd.growfs\0");
                 noauto = fstab_test_yes_no_option(me->mnt_opts, "noauto\0" "auto\0");
                 nofail = fstab_test_yes_no_option(me->mnt_opts, "nofail\0" "fail\0");
-                log_debug("Found entry what=%s where=%s type=%s nofail=%s noauto=%s",
+                log_debug("Found entry what=%s where=%s type=%s makefs=%s nofail=%s noauto=%s",
                           what, where, me->mnt_type,
+                          yes_no(makefs),
                           yes_no(noauto), yes_no(nofail));
 
                 if (streq(me->mnt_type, "swap"))
-                        k = add_swap(what, me, noauto, nofail);
+                        k = add_swap(what, me,
+                                     makefs*MAKEFS | growfs*GROWFS | noauto*NOAUTO | nofail*NOFAIL);
                 else {
                         bool automount;
                         const char *post;
@@ -600,14 +630,12 @@ static int parse_fstab(bool initrd) {
                                       me->mnt_type,
                                       me->mnt_opts,
                                       me->mnt_passno,
-                                      noauto,
-                                      nofail,
-                                      automount,
+                                      makefs*MAKEFS | growfs*GROWFS | noauto*NOAUTO | nofail*NOFAIL | automount*AUTOMOUNT,
                                       post,
                                       fstab_path);
                 }
 
-                if (k < 0)
+                if (r >= 0 && k < 0)
                         r = k;
         }
 
@@ -663,9 +691,7 @@ static int add_sysroot_mount(void) {
                          arg_root_fstype,
                          opts,
                          is_device_path(what) ? 1 : 0, /* passno */
-                         false,                        /* noauto off */
-                         false,                        /* nofail off */
-                         false,                        /* automount off */
+                         0,                            /* makefs off, growfs off, noauto off, nofail off, automount off */
                          SPECIAL_INITRD_ROOT_FS_TARGET,
                          "/proc/cmdline");
 }
@@ -718,9 +744,7 @@ static int add_sysroot_usr_mount(void) {
                          arg_usr_fstype,
                          opts,
                          is_device_path(what) ? 1 : 0, /* passno */
-                         false,                        /* noauto off */
-                         false,                        /* nofail off */
-                         false,                        /* automount off */
+                         0,
                          SPECIAL_INITRD_FS_TARGET,
                          "/proc/cmdline");
 }
@@ -759,9 +783,7 @@ static int add_volatile_var(void) {
                          "tmpfs",
                          "mode=0755",
                          0,
-                         false,
-                         false,
-                         false,
+                         0,
                          SPECIAL_LOCAL_FS_TARGET,
                          "/proc/cmdline");
 }

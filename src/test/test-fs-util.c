@@ -35,7 +35,7 @@
 static void test_chase_symlinks(void) {
         _cleanup_free_ char *result = NULL;
         char temp[] = "/tmp/test-chase.XXXXXX";
-        const char *top, *p, *q;
+        const char *top, *p, *pslash, *q, *qslash;
         int r;
 
         assert_se(mkdtemp(temp));
@@ -66,9 +66,18 @@ static void test_chase_symlinks(void) {
         r = chase_symlinks(p, NULL, 0, &result);
         assert_se(r > 0);
         assert_se(path_equal(result, "/usr"));
-
         result = mfree(result);
+
+        pslash = strjoina(p, "/");
+        r = chase_symlinks(pslash, NULL, 0, &result);
+        assert_se(r > 0);
+        assert_se(path_equal(result, "/usr/"));
+        result = mfree(result);
+
         r = chase_symlinks(p, temp, 0, &result);
+        assert_se(r == -ENOENT);
+
+        r = chase_symlinks(pslash, temp, 0, &result);
         assert_se(r == -ENOENT);
 
         q = strjoina(temp, "/usr");
@@ -76,83 +85,95 @@ static void test_chase_symlinks(void) {
         r = chase_symlinks(p, temp, CHASE_NONEXISTENT, &result);
         assert_se(r == 0);
         assert_se(path_equal(result, q));
+        result = mfree(result);
+
+        qslash = strjoina(q, "/");
+
+        r = chase_symlinks(pslash, temp, CHASE_NONEXISTENT, &result);
+        assert_se(r == 0);
+        assert_se(path_equal(result, qslash));
+        result = mfree(result);
 
         assert_se(mkdir(q, 0700) >= 0);
 
-        result = mfree(result);
         r = chase_symlinks(p, temp, 0, &result);
         assert_se(r > 0);
         assert_se(path_equal(result, q));
+        result = mfree(result);
+
+        r = chase_symlinks(pslash, temp, 0, &result);
+        assert_se(r > 0);
+        assert_se(path_equal(result, qslash));
+        result = mfree(result);
 
         p = strjoina(temp, "/slash");
         assert_se(symlink("/", p) >= 0);
 
-        result = mfree(result);
         r = chase_symlinks(p, NULL, 0, &result);
         assert_se(r > 0);
         assert_se(path_equal(result, "/"));
-
         result = mfree(result);
+
         r = chase_symlinks(p, temp, 0, &result);
         assert_se(r > 0);
         assert_se(path_equal(result, temp));
+        result = mfree(result);
 
         /* Paths that would "escape" outside of the "root" */
 
         p = strjoina(temp, "/6dots");
         assert_se(symlink("../../..", p) >= 0);
 
-        result = mfree(result);
         r = chase_symlinks(p, temp, 0, &result);
         assert_se(r > 0 && path_equal(result, temp));
+        result = mfree(result);
 
         p = strjoina(temp, "/6dotsusr");
         assert_se(symlink("../../../usr", p) >= 0);
 
-        result = mfree(result);
         r = chase_symlinks(p, temp, 0, &result);
         assert_se(r > 0 && path_equal(result, q));
+        result = mfree(result);
 
         p = strjoina(temp, "/top/8dotsusr");
         assert_se(symlink("../../../../usr", p) >= 0);
 
-        result = mfree(result);
         r = chase_symlinks(p, temp, 0, &result);
         assert_se(r > 0 && path_equal(result, q));
+        result = mfree(result);
 
         /* Paths that contain repeated slashes */
 
         p = strjoina(temp, "/slashslash");
         assert_se(symlink("///usr///", p) >= 0);
 
-        result = mfree(result);
         r = chase_symlinks(p, NULL, 0, &result);
         assert_se(r > 0);
         assert_se(path_equal(result, "/usr"));
-
         result = mfree(result);
+
         r = chase_symlinks(p, temp, 0, &result);
         assert_se(r > 0);
         assert_se(path_equal(result, q));
+        result = mfree(result);
 
         /* Paths using . */
 
-        result = mfree(result);
         r = chase_symlinks("/etc/./.././", NULL, 0, &result);
         assert_se(r > 0);
         assert_se(path_equal(result, "/"));
-
         result = mfree(result);
+
         r = chase_symlinks("/etc/./.././", "/etc", 0, &result);
         assert_se(r > 0 && path_equal(result, "/etc"));
-
         result = mfree(result);
+
         r = chase_symlinks("/etc/machine-id/foo", NULL, 0, &result);
         assert_se(r == -ENOTDIR);
+        result = mfree(result);
 
         /* Path that loops back to self */
 
-        result = mfree(result);
         p = strjoina(temp, "/recursive-symlink");
         assert_se(symlink("recursive-symlink", p) >= 0);
         r = chase_symlinks(p, NULL, 0, &result);

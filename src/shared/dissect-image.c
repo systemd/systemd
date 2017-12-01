@@ -18,12 +18,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#if HAVE_LIBCRYPTSETUP
-#include <libcryptsetup.h>
-#ifndef CRYPT_LUKS
-#define CRYPT_LUKS NULL
-#endif
-#endif
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
@@ -32,7 +26,9 @@
 #include "ask-password-api.h"
 #include "blkid-util.h"
 #include "copy.h"
+#include "crypt-util.h"
 #include "def.h"
+#include "device-nodes.h"
 #include "dissect-image.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -55,24 +51,33 @@
 #include "udev-util.h"
 #include "xattr-util.h"
 
-_unused_ static int probe_filesystem(const char *node, char **ret_fstype) {
+int probe_filesystem(const char *node, char **ret_fstype) {
+        /* Try to find device content type and return it in *ret_fstype. If nothing is found,
+         * 0/NULL will be returned. -EUCLEAN will be returned for ambigous results, and an
+         * different error otherwise. */
+
 #if HAVE_BLKID
         _cleanup_blkid_free_probe_ blkid_probe b = NULL;
         const char *fstype;
         int r;
 
+        errno = 0;
         b = blkid_new_probe_from_filename(node);
         if (!b)
-                return -ENOMEM;
+                return -errno ?: -ENOMEM;
 
         blkid_probe_enable_superblocks(b, 1);
         blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
 
         errno = 0;
         r = blkid_do_safeprobe(b);
-        if (IN_SET(r, -2, 1)) {
-                log_debug("Failed to identify any partition type on partition %s", node);
+        if (r == 1) {
+                log_debug("No type detected on partition %s", node);
                 goto not_found;
+        }
+        if (r == -2) {
+                log_debug("Results ambiguous for partition %s", node);
+                return -EUCLEAN;
         }
         if (r != 0)
                 return -errno ?: -EIO;
@@ -611,7 +616,7 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
 
                 if (!p->fstype && p->node) {
                         r = probe_filesystem(p->node, &p->fstype);
-                        if (r < 0)
+                        if (r < 0 && r != -EUCLEAN)
                                 return r;
                 }
 
@@ -652,7 +657,7 @@ DissectedImage* dissected_image_unref(DissectedImage *m) {
 }
 
 static int is_loop_device(const char *path) {
-        char s[strlen("/sys/dev/block/") + DECIMAL_STR_MAX(dev_t) + 1 + DECIMAL_STR_MAX(dev_t) + strlen("/../loop/")];
+        char s[SYS_BLOCK_PATH_MAX("/../loop/")];
         struct stat st;
 
         assert(path);
@@ -663,13 +668,13 @@ static int is_loop_device(const char *path) {
         if (!S_ISBLK(st.st_mode))
                 return -ENOTBLK;
 
-        xsprintf(s, "/sys/dev/block/%u:%u/loop/", major(st.st_rdev), minor(st.st_rdev));
+        xsprintf_sys_block_path(s, "/loop/", st.st_dev);
         if (access(s, F_OK) < 0) {
                 if (errno != ENOENT)
                         return -errno;
 
                 /* The device itself isn't a loop device, but maybe it's a partition and its parent is? */
-                xsprintf(s, "/sys/dev/block/%u:%u/../loop/", major(st.st_rdev), minor(st.st_rdev));
+                xsprintf_sys_block_path(s, "/../loop/", st.st_dev);
                 if (access(s, F_OK) < 0)
                         return errno == ENOENT ? false : -errno;
         }
@@ -849,7 +854,7 @@ static int decrypt_partition(
                 DecryptedImage *d) {
 
         _cleanup_free_ char *node = NULL, *name = NULL;
-        struct crypt_device *cd;
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         int r;
 
         assert(m);
@@ -876,37 +881,28 @@ static int decrypt_partition(
                 return log_debug_errno(r, "Failed to initialize dm-crypt: %m");
 
         r = crypt_load(cd, CRYPT_LUKS, NULL);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to load LUKS metadata: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to load LUKS metadata: %m");
 
         r = crypt_activate_by_passphrase(cd, name, CRYPT_ANY_SLOT, passphrase, strlen(passphrase),
                                          ((flags & DISSECT_IMAGE_READ_ONLY) ? CRYPT_ACTIVATE_READONLY : 0) |
                                          ((flags & DISSECT_IMAGE_DISCARD_ON_CRYPTO) ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0));
-        if (r < 0)
+        if (r < 0) {
                 log_debug_errno(r, "Failed to activate LUKS device: %m");
-        if (r == -EPERM) {
-                r = -EKEYREJECTED;
-                goto fail;
+                return r == -EPERM ? -EKEYREJECTED : r;
         }
-        if (r < 0)
-                goto fail;
 
         d->decrypted[d->n_decrypted].name = name;
         name = NULL;
 
         d->decrypted[d->n_decrypted].device = cd;
+        cd = NULL;
         d->n_decrypted++;
 
         m->decrypted_node = node;
         node = NULL;
 
         return 0;
-
-fail:
-        crypt_free(cd);
-        return r;
 }
 
 static int verity_partition(
@@ -918,7 +914,7 @@ static int verity_partition(
                 DecryptedImage *d) {
 
         _cleanup_free_ char *node = NULL, *name = NULL;
-        struct crypt_device *cd;
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         int r;
 
         assert(m);
@@ -948,30 +944,27 @@ static int verity_partition(
 
         r = crypt_load(cd, CRYPT_VERITY, NULL);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = crypt_set_data_device(cd, m->node);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = crypt_activate_by_volume_key(cd, name, root_hash, root_hash_size, CRYPT_ACTIVATE_READONLY);
         if (r < 0)
-                goto fail;
+                return r;
 
         d->decrypted[d->n_decrypted].name = name;
         name = NULL;
 
         d->decrypted[d->n_decrypted].device = cd;
+        cd = NULL;
         d->n_decrypted++;
 
         m->decrypted_node = node;
         node = NULL;
 
         return 0;
-
-fail:
-        crypt_free(cd);
-        return r;
 }
 #endif
 
@@ -1033,7 +1026,7 @@ int dissected_image_decrypt(
 
                 if (!p->decrypted_fstype && p->decrypted_node) {
                         r = probe_filesystem(p->decrypted_node, &p->decrypted_fstype);
-                        if (r < 0)
+                        if (r < 0 && r != -EUCLEAN)
                                 return r;
                 }
         }

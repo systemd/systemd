@@ -130,6 +130,7 @@ char *prefix_root(const char *root, const char *path);
 int parse_path_argument_and_warn(const char *path, bool suppress_root, char **arg);
 
 char* dirname_malloc(const char *path);
+const char *last_path_component(const char *path);
 
 bool filename_is_valid(const char *p) _pure_;
 bool path_is_normalized(const char *p) _pure_;

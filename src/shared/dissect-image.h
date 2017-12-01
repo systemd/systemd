@@ -86,6 +86,7 @@ struct DissectedImage {
         char **os_release;
 };
 
+int probe_filesystem(const char *node, char **ret_fstype);
 int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectImageFlags flags, DissectedImage **ret);
 
 DissectedImage* dissected_image_unref(DissectedImage *m);
