@@ -1474,16 +1474,7 @@ static bool context_has_syscall_logs(const ExecContext *c) {
                 !hashmap_isempty(c->syscall_log);
 }
 
-static bool context_has_no_new_privileges(const ExecContext *c) {
-        assert(c);
-
-        if (c->no_new_privileges)
-                return true;
-
-        if (have_effective_cap(CAP_SYS_ADMIN) > 0) /* if we are privileged, we don't need NNP */
-                return false;
-
-        /* We need NNP if we have any form of seccomp and are unprivileged */
+static bool context_has_seccomp(const ExecContext *c) {
         return c->lock_personality ||
                 c->memory_deny_write_execute ||
                 c->private_devices ||
@@ -1501,7 +1492,49 @@ static bool context_has_no_new_privileges(const ExecContext *c) {
                 context_has_syscall_logs(c);
 }
 
+static bool context_has_no_new_privileges(const ExecContext *c) {
+        assert(c);
+
+        if (c->no_new_privileges)
+                return true;
+
+        if (have_effective_cap(CAP_SYS_ADMIN)) /* if we are privileged, we don't need NNP */
+                return false;
+
+        /* We need NNP if we have any form of seccomp and are unprivileged */
+        return context_has_seccomp(c);
+}
+
 #if HAVE_SECCOMP
+
+static bool seccomp_allows_drop_privileges(const ExecContext *c) {
+        void *id, *val;
+        bool has_capget = false, has_capset = false, has_prctl = false;
+
+        assert(c);
+
+        /* No syscall filter, we are allowed to drop privileges */
+        if (hashmap_isempty(c->syscall_filter))
+                return true;
+
+        HASHMAP_FOREACH_KEY(val, id, c->syscall_filter) {
+                _cleanup_free_ char *name = NULL;
+
+                name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
+
+                if (streq(name, "capget"))
+                        has_capget = true;
+                else if (streq(name, "capset"))
+                        has_capset = true;
+                else if (streq(name, "prctl"))
+                        has_prctl = true;
+        }
+
+        if (c->syscall_allow_list)
+                return has_capget && has_capset && has_prctl;
+        else
+                return !(has_capget || has_capset || has_prctl);
+}
 
 static bool skip_seccomp_unavailable(const Unit* u, const char* msg) {
 
@@ -3946,6 +3979,7 @@ static int exec_child(
 
         _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **joined_exec_search_path = NULL, **accum_env = NULL, **replaced_argv = NULL;
         int r, ngids = 0, exec_fd;
+        uint64_t saved_bset;
         _cleanup_free_ gid_t *supplementary_gids = NULL;
         const char *username = NULL, *groupname = NULL;
         _cleanup_free_ char *home_buffer = NULL, *memory_pressure_path = NULL;
@@ -3958,6 +3992,7 @@ static int exec_child(
                 needs_setuid,           /* Do we need to do the actual setresuid()/setresgid() calls? */
                 needs_mount_namespace,  /* Do we need to set up a mount namespace for this kernel? */
                 needs_ambient_hack;     /* Do we need to apply the ambient capabilities hack? */
+        bool keep_seccomp_privileges = false;
 #if HAVE_SELINUX
         _cleanup_free_ char *mac_selinux_context_net = NULL;
         bool use_selinux = false;
@@ -4819,6 +4854,28 @@ static int exec_child(
                                 (UINT64_C(1) << CAP_SETUID) |
                                 (UINT64_C(1) << CAP_SETGID);
 
+#if HAVE_SECCOMP
+                /* If the service has any form of a seccomp filter and it allows dropping privileges, we'll
+                 * keep the needed privileges to apply it even if we're not root. */
+                if (needs_setuid &&
+                    uid_is_valid(uid) &&
+                    context_has_seccomp(context) &&
+                    seccomp_allows_drop_privileges(context)) {
+                        keep_seccomp_privileges = true;
+
+                        if (prctl(PR_SET_KEEPCAPS, 1) < 0) {
+                                *exit_status = EXIT_USER;
+                                return log_unit_error_errno(unit, errno, "Failed to enable keep capabilities flag: %m");
+                        }
+
+                        /* Save the current bounding set so we can restore it after applying the seccomp
+                         * filter */
+                        saved_bset = bset;
+                        bset |= (UINT64_C(1) << CAP_SYS_ADMIN) |
+                                (UINT64_C(1) << CAP_SETPCAP);
+                }
+#endif
+
                 if (!cap_test_all(bset)) {
                         r = capability_bounding_set_drop(bset, /* right_now= */ false);
                         if (r < 0) {
@@ -4858,6 +4915,25 @@ static int exec_child(
                         if (r < 0) {
                                 *exit_status = EXIT_USER;
                                 return log_unit_error_errno(unit, r, "Failed to change UID to " UID_FMT ": %m", uid);
+                        }
+                        if (keep_seccomp_privileges) {
+                                r = drop_capability(CAP_SETUID);
+                                if (r < 0) {
+                                        *exit_status = EXIT_USER;
+                                        return log_unit_error_errno(unit, r, "Failed to drop CAP_SETUID: %m");
+                                }
+
+                                r = keep_capability(CAP_SYS_ADMIN);
+                                if (r < 0) {
+                                        *exit_status = EXIT_USER;
+                                        return log_unit_error_errno(unit, r, "Failed to keep CAP_SYS_ADMIN: %m");
+                                }
+
+                                r = keep_capability(CAP_SETPCAP);
+                                if (r < 0) {
+                                        *exit_status = EXIT_USER;
+                                        return log_unit_error_errno(unit, r, "Failed to keep CAP_SETPCAP: %m");
+                                }
                         }
 
                         if (!needs_ambient_hack && capability_ambient_set != 0) {
@@ -5021,14 +5097,6 @@ static int exec_child(
                         *exit_status = EXIT_SECCOMP;
                         return log_unit_error_errno(unit, r, "Failed to apply system call log filters: %m");
                 }
-
-                /* This really should remain the last step before the execve(), to make sure our own code is unaffected
-                 * by the filter as little as possible. */
-                r = apply_syscall_filter(unit, context, needs_ambient_hack);
-                if (r < 0) {
-                        *exit_status = EXIT_SECCOMP;
-                        return log_unit_error_errno(unit, r, "Failed to apply system call filters: %m");
-                }
 #endif
 
 #if HAVE_LIBBPF
@@ -5036,6 +5104,53 @@ static int exec_child(
                 if (r < 0) {
                         *exit_status = EXIT_BPF;
                         return log_unit_error_errno(unit, r, "Failed to restrict filesystems: %m");
+                }
+#endif
+
+#if HAVE_SECCOMP
+                /* This really should remain as close to the execve() as possible, to make sure our own code is unaffected
+                 * by the filter as little as possible. */
+                r = apply_syscall_filter(unit, context, needs_ambient_hack);
+                if (r < 0) {
+                        *exit_status = EXIT_SECCOMP;
+                        return log_unit_error_errno(unit, r, "Failed to apply system call filters: %m");
+                }
+                if (keep_seccomp_privileges) {
+                        /* Restore the capability bounding set with what's expected from the service + the
+                         * ambient capabilities hack */
+                        if (!cap_test_all(saved_bset)) {
+                                r = capability_bounding_set_drop(saved_bset, /* right_now= */ false);
+                                if (r < 0) {
+                                        *exit_status = EXIT_CAPABILITIES;
+                                        return log_unit_error_errno(unit, r, "Failed to drop bset capabilities: %m");
+                                }
+                        }
+
+                        /* Only drop CAP_SYS_ADMIN if it's not in the bounding set, otherwise we'll break
+                         * applications that use it. */
+                        if (!FLAGS_SET(saved_bset, (UINT64_C(1) << CAP_SYS_ADMIN))) {
+                                r = drop_capability(CAP_SYS_ADMIN);
+                                if (r < 0) {
+                                        *exit_status = EXIT_USER;
+                                        return log_unit_error_errno(unit, r, "Failed to drop CAP_SYS_ADMIN: %m");
+                                }
+                        }
+
+                        /* Only drop CAP_SETPCAP if it's not in the bounding set, otherwise we'll break
+                         * applications that use it. */
+                        if (!FLAGS_SET(saved_bset, (UINT64_C(1) << CAP_SETPCAP))) {
+                                r = drop_capability(CAP_SETPCAP);
+                                if (r < 0) {
+                                        *exit_status = EXIT_USER;
+                                        return log_unit_error_errno(unit, r, "Failed to drop CAP_SETPCAP: %m");
+                                }
+                        }
+
+                        if (prctl(PR_SET_KEEPCAPS, 0) < 0) {
+                                *exit_status = EXIT_USER;
+                                return log_unit_error_errno(unit, errno, "Failed to drop keep capabilities flag: %m");
+                        }
+
                 }
 #endif
 
