@@ -10,16 +10,25 @@
 
 import os
 import sys
+import socket
 import subprocess
+import tempfile
+import pwd
+
+try:
+    from systemd import id128
+except ImportError:
+    id128 = None
 
 EX_DATAERR = 65 # from sysexits.h
 
 exe = sys.argv[1]
 
-def test_line(line, *, user, returncode=EX_DATAERR):
+def test_line(line, *, user, returncode=EX_DATAERR, extra={}):
     args = ['--user'] if user else []
     print('Running {} {} on {!r}'.format(exe, ' '.join(args), line))
     c = subprocess.run([exe, '--create', *args, '-'],
+                       **extra,
                        input=line, stdout=subprocess.PIPE, universal_newlines=True)
     assert c.returncode == returncode, c
 
@@ -56,13 +65,60 @@ def test_unitialized_t():
     if os.getuid() == 0:
         return
 
-    try:
-        del os.environ['XDG_RUNTIME_DIR']
-    except KeyError:
-        pass
-    test_line('w /foo - - - - "specifier for --user %t"', user=True, returncode=0)
+    test_line('w /foo - - - - "specifier for --user %t"',
+              user=True, returncode=0, extra={'env':{}})
+
+def test_content(line, expected, *, user, extra={}):
+    d = tempfile.TemporaryDirectory(prefix='test-systemd-tmpfiles.')
+    arg = d.name + '/arg'
+    spec = line.format(arg)
+    test_line(spec, user=user, returncode=0, extra=extra)
+    content = open(arg).read()
+    print('expect: {!r}\nactual: {!r}'.format(expected, content))
+    assert content == expected
+
+def test_valid_specifiers(*, user):
+    test_content('f {} - - - - two words', 'two words', user=user)
+    if id128:
+        test_content('f {} - - - - %m', '{}'.format(id128.get_machine().hex), user=user)
+        test_content('f {} - - - - %b', '{}'.format(id128.get_boot().hex), user=user)
+    test_content('f {} - - - - %H', '{}'.format(socket.gethostname()), user=user)
+    test_content('f {} - - - - %v', '{}'.format(os.uname().release), user=user)
+    test_content('f {} - - - - %U', '{}'.format(os.getuid()), user=user)
+
+    user = pwd.getpwuid(os.getuid())
+    test_content('f {} - - - - %u', '{}'.format(user.pw_name), user=user)
+    test_content('f {} - - - - %h', '{}'.format(user.pw_dir), user=user)
+
+    xdg_runtime_dir = os.getenv('XDG_RUNTIME_DIR')
+    if xdg_runtime_dir is not None or not user:
+        test_content('f {} - - - - %t',
+                     xdg_runtime_dir if user else '/run',
+                     user=user)
+
+    xdg_config_home = os.getenv('XDG_CONFIG_HOME')
+    if xdg_config_home is not None or not user:
+        test_content('f {} - - - - %S',
+                     xdg_config_home if user else '/var/lib',
+                     user=user)
+
+    xdg_cache_home = os.getenv('XDG_CACHE_HOME')
+    if xdg_cache_home is not None or not user:
+        test_content('f {} - - - - %C',
+                     xdg_cache_home if user else '/var/cache',
+                     user=user)
+
+    if xdg_config_home is not None or not user:
+        test_content('f {} - - - - %L',
+                     xdg_config_home + '/log' if user else '/var/log',
+                     user=user)
+
+    test_content('f {} - - - - %%', '%', user=user)
 
 if __name__ == '__main__':
     test_invalids(user=False)
     test_invalids(user=True)
     test_unitialized_t()
+
+    test_valid_specifiers(user=False)
+    test_valid_specifiers(user=True)
