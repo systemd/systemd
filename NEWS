@@ -2,29 +2,28 @@ systemd System and Service Manager
 
 CHANGES WITH 236 in spe:
 
-	* The modprobe.d/ drop-in for the bonding.ko kernel module introduced
-	  in v235, has been extended to also set the dummy.ko module option
-	  numdummies=0, resolving issues with the kernel creating the dummy0
-	  network interface implicitly.
+        * The modprobe.d/ drop-in for the bonding.ko kernel module introduced
+          in v235 has been extended to also set the dummy.ko module option
+          numdummies=0, preventing the kernel from automatically creating
+          dummy0. All dummy interfaces must now be explicitly created.
 
         * systemd-resolved now maintains a new dynamic
-          /run/systemd/resolve/stub-resolv.conf compatibility file. It is now
-          recommended to maintain /etc/resolv.conf as a symlink to this new
-          dynamic file. It points at the systemd-resolved stub DNS 127.0.0.53
-          resolver and it includes dynamically acquired search domains. This
-          achieves a more correct DNS resolution by software that bypasses
-          local DNS APIs (e.g. NSS).
+          /run/systemd/resolve/stub-resolv.conf compatibility file. It is
+          recommended to make /etc/resolv.conf a symlink to it. This file
+          points at the systemd-resolved stub DNS 127.0.0.53 resolver and
+          includes dynamically acquired search domains, achieving more correct
+          DNS resolution by software that bypasses local DNS APIs such as NSS.
 
         * The "uaccess" udev tag has been dropped from /dev/kvm and
           /dev/dri/renderD*.  These devices now have the 0666 permissions by
           default (but this may be changed at build-time). /dev/dri/renderD*
           will now be owned by the "render" group along with /dev/kfd.
 
-        * This enables "DynamicUser=yes" by default for
-          systemd-timesyncd.service, systemd-journal-gatewayd.service and
-          systemd-journal-upload.service. This means "nss-systemd" really
-          should be enabled in /etc/nsswitch.conf to ensure the UIDs assigned
-          to these services show up properly in the user database.
+        * "DynamicUser=yes" has been enabled for systemd-timesyncd.service,
+          systemd-journal-gatewayd.service and
+          systemd-journal-upload.service. This means "nss-systemd" must be
+          enabled in /etc/nsswitch.conf to ensure the UIDs assigned to these
+          services are resolved properly.
 
         * In systemd-networkd, the IPv6 RA logic now optionally may announce
           DNS server and domain information.
@@ -33,7 +32,7 @@ CHANGES WITH 236 in spe:
           been added. This requires libcryptsetup2 during compilation and
           runtime.
 
-        * The systemd --user instance will not signal "readiness" when its
+        * The systemd --user instance will now signal "readiness" when its
           basic.target unit has been reached, instead of when the run queue ran
           empty for the first time.
 
@@ -52,12 +51,12 @@ CHANGES WITH 236 in spe:
           set of journal fields to output in verbose and JSON output modes.
 
         * systemd-timesyncd's configuration file gained a new option
-          RootDistanceMaxSec= for setting the maximum root distance, as well as
-          the new options PollIntervalMinSec= and PollIntervalMaxSec= to tweak
-          the minimum and maximum poll interval.
+          RootDistanceMaxSec= for setting the maximum root distance of servers
+          it'll use, as well as the new options PollIntervalMinSec= and
+          PollIntervalMaxSec= to tweak the minimum and maximum poll interval.
 
         * bootctl gained a new command "list" for listing all available boot
-          menu items on systems that follor the boot loader specification.
+          menu items on systems that follow the boot loader specification.
 
         * systemctl gained a new --dry-run switch that shows what would be done
           instead of doing it, and is currently supported by the shutdown and
@@ -66,19 +65,19 @@ CHANGES WITH 236 in spe:
         * ConditionSecurity= can now detect the TOMOYO security module.
 
         * Unit file [Install] sections are now also respected in unit drop-in
-          files.
+          files. This is intended to be used by drop-ins under /usr/lib/.
 
-        * systemd-firstboot may now also set up the initial keyboard mapping.
+        * systemd-firstboot may now also set the initial keyboard mapping.
 
-        * When udev devices that are exposed as systemd .device units see a
-          "changed" events, this is propagated as reload from the units, in
-          respect to ReloadPropagatedFrom=.
+        * Udev "changed" events for devices which are exposed as systemd
+          .device units are now propagated to units specified in
+          ReloadPropagatedFrom= as reload requests.
 
-        * When a udev device with a SYSTEMD_WANTS= property containing a
-          systemd unit template name (i.e. a name in the form of
-          'foobar@.service', without the instance component between the '@' and
-          the '.'), then the escaped sysfs path of the device is automatically
-          inserted when the unit is added as dependency.
+        * If a udev device has a SYSTEMD_WANTS= property containing a systemd
+          unit template name (i.e. a name in the form of 'foobar@.service',
+          without the instance component between the '@' and - the '.'), then
+          the escaped sysfs path of the device is automatically used as the
+          instance.
 
         * SystemCallFilter= in unit files has been extended so that an "errno"
           can be specified individually for each system call. Example:
@@ -88,30 +87,29 @@ CHANGES WITH 236 in spe:
           now optionally takes a list of controllers (instead of a boolean, as
           before), which lists the controllers to delegate at least.
 
-        * The networkd DHCPv6 client now implements the FQDN option (RFC 4704)
+        * The networkd DHCPv6 client now implements the FQDN option (RFC 4704).
 
-        * Two new unit file options have been added: LogLevelMax= configures
-          the maximum log level any process of the unit may log at
-          (i.e. anything with a lesser priority than what is specified is
-          automatically dropped). LogExtraFields= allows configuration of
-          additional journal fields to attach to all log records generated by
-          any of the unit's processes.
+        * A new LogLevelMax= setting configures the maximum log level any
+          process of the service may log at (i.e. anything with a lesser
+          priority than what is specified is automatically dropped). A new
+          LogExtraFields= setting allows configuration of additional journal
+          fields to attach to all log records generated by any of the unit's
+          processes.
+
+        * New StandardInputData= and StandardInputText= settings along with the
+          new option StandardInput=data may be used to configure textual or
+          binary data that shall be passed to the executed service process via
+          standard input, encoded in-line in the unit file.
+
+        * StandardInput=, StandardOutput= and StandardError= may now be used to
+          connect stdin/stdout/stderr of executed processes directly with a
+          file or AF_UNIX socket in the file system, using the new "file:" option.
 
         * A new unit file option CollectMode= has been added, that allows
           tweaking the garbage collection logic for units. It may be used to
           tell systemd to garbage collect units that have failed automatically
           (normally it only GCs units that exited successfully). systemd-run
-          and systemd-mount exposes this new functionality wiht a new -G option.
-
-        * Services gained a two new settings StandardInputData= and
-          StadardInputText=, along with a new option StandardInput=data. They
-          may be used to configure textual or binary data that shall be passed
-          to the executed service process via STDIN, encoded in-line in the
-          unit file.
-
-        * StandardInput=, StandardOutput= and StandardError= may now be used to
-          connect stdin/stdout/stderr of executed processes directly with a
-          file or AF_UNIX socket in the file system, using the new "file:" option.
+          and systemd-mount expose this new functionality with a new -G option.
 
         * "machinectl bind" may now be used to bind mount non-directories
           (i.e. regularfiles, devices, fifos, sockets).
@@ -122,11 +120,11 @@ CHANGES WITH 236 in spe:
           time the specified expression would elapse.
 
         * In addition to the pre-existing FailureAction= unit file setting
-          there's now SuccessAction=, for configuring an shutdown action to
-          execute when a unit completed successfully. This is useful in
-          particular inside of containers that shall terminate after some
-          workload has been completed. Also, both options are now supported for
-          all unit types, not just services.
+          there's now SuccessAction=, for configuring a shutdown action to
+          execute when a unit completes successfully. This is useful in
+          particular inside containers that shall terminate after some workload
+          has been completed. Also, both options are now supported for all unit
+          types, not just services.
 
         * networkds's IP rule support gained two new options
           IncomingInterface=and OutgoingInterface= for configuring the incoming
