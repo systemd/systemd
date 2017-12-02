@@ -64,6 +64,10 @@ static inline bool uid_is_dynamic(uid_t uid) {
         return DYNAMIC_UID_MIN <= uid && uid <= DYNAMIC_UID_MAX;
 }
 
+static inline bool gid_is_dynamic(gid_t gid) {
+        return uid_is_dynamic((uid_t) gid);
+}
+
 static inline bool uid_is_system(uid_t uid) {
         return uid <= SYSTEM_UID_MAX;
 }

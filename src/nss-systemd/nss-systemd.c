@@ -251,7 +251,7 @@ enum nss_status _nss_systemd_getpwuid_r(
                 }
         }
 
-        if (uid_is_system(uid))
+        if (!uid_is_dynamic(uid))
                 goto not_found;
 
         if (getenv_bool_secure("SYSTEMD_NSS_DYNAMIC_BYPASS") > 0)
@@ -463,7 +463,7 @@ enum nss_status _nss_systemd_getgrgid_r(
                 }
         }
 
-        if (gid_is_system(gid))
+        if (!gid_is_dynamic(gid))
                 goto not_found;
 
         if (getenv_bool_secure("SYSTEMD_NSS_DYNAMIC_BYPASS") > 0)
@@ -500,7 +500,6 @@ enum nss_status _nss_systemd_getgrgid_r(
 
 direct_lookup:
         if (bypass > 0) {
-
                 r = direct_lookup_uid(gid, &direct);
                 if (r == -ENOENT)
                         goto not_found;
