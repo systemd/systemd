@@ -4779,7 +4779,7 @@ skip:
                         printf(fmt "\n", __VA_ARGS__);                  \
                 else                                                    \
                         printf("%s=" fmt "\n", name, __VA_ARGS__);      \
-        } while(0)
+        } while (0)
 
 static int print_property(const char *name, sd_bus_message *m, const char *contents) {
         int r;

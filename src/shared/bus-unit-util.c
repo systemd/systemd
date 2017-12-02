@@ -1247,7 +1247,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                                 done = true;
                                 break;
                         }
-                } while(!done);
+                } while (!done);
 
                 if (explicit_path) {
                         r = extract_first_word(&eq, &path, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE);

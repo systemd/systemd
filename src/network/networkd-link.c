@@ -3272,7 +3272,7 @@ int link_update(Link *link, sd_netlink_message *m) {
                                                                          ARPHRD_ETHER,
                                                                          (const uint8_t *)&link->mac,
                                                                          sizeof(link->mac));
-                                        if(r < 0)
+                                        if (r < 0)
                                                 return log_link_warning_errno(link, r, "Could not update MAC client id in DHCP client: %m");
                                         break;
                                 default:

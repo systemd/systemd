@@ -142,7 +142,7 @@ static int append_vlan_info_data(Link *const link, sd_netlink_message *req, uint
 
                 next:
                         i = j;
-                } while(!done);
+                } while (!done);
         }
         if (!cnt)
                 return -EINVAL;

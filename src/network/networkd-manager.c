@@ -816,7 +816,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
 
         switch (type) {
         case RTM_NEWRULE:
-                if(!rule) {
+                if (!rule) {
                         r = routing_policy_rule_add_foreign(m, family, &from, from_prefixlen, &to, to_prefixlen, tos, fwmark, table, iif, oif, &rule);
                         if (r < 0) {
                                 log_warning_errno(r, "Could not add rule: %m");
