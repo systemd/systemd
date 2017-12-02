@@ -3557,7 +3557,7 @@ int config_parse_device_allow(
         }
 
         r = unit_full_printf(userdata, rvalue, &t);
-        if(r < 0) {
+        if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to resolve specifiers in %s, ignoring: %m",
                            rvalue);

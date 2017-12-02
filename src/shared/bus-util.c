@@ -660,7 +660,7 @@ int bus_connect_user_systemd(sd_bus **_bus) {
                         printf(fmt "\n", __VA_ARGS__);                  \
                 else                                                    \
                         printf("%s=" fmt "\n", name, __VA_ARGS__);      \
-        } while(0)
+        } while (0)
 
 int bus_print_property(const char *name, sd_bus_message *property, bool value, bool all) {
         char type;

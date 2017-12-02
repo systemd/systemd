@@ -1571,7 +1571,7 @@ DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr) {
                         return NULL;
 
                 copy->hinfo.os = strdup(rr->hinfo.os);
-                if(!copy->hinfo.os)
+                if (!copy->hinfo.os)
                         return NULL;
                 break;
 
