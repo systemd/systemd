@@ -30,5 +30,14 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(cpu_set_t*, CPU_FREE);
 
 cpu_set_t* cpu_set_malloc(unsigned *ncpus);
 
-int parse_cpu_set_and_warn(const char *rvalue, cpu_set_t **cpu_set, const char *unit, const char *filename, unsigned line, const char *lvalue);
-int parse_cpu_set(const char *rvalue, cpu_set_t **cpu_set);
+int parse_cpu_set_internal(const char *rvalue, cpu_set_t **cpu_set, bool warn, const char *unit, const char *filename, unsigned line, const char *lvalue);
+
+static inline int parse_cpu_set_and_warn(const char *rvalue, cpu_set_t **cpu_set, const char *unit, const char *filename, unsigned line, const char *lvalue) {
+        assert(lvalue);
+
+        return parse_cpu_set_internal(rvalue, cpu_set, true, unit, filename, line, lvalue);
+}
+
+static inline int parse_cpu_set(const char *rvalue, cpu_set_t **cpu_set){
+        return parse_cpu_set_internal(rvalue, cpu_set, false, NULL, NULL, 0, NULL);
+}
