@@ -248,7 +248,7 @@ static void server_add_acls(JournalFile *f, uid_t uid) {
         assert(f);
 
 #if HAVE_ACL
-        if (uid_is_system(uid))
+        if (uid_is_system(uid) || uid_is_dynamic(uid))
                 return;
 
         r = add_acls_for_user(f->fd, uid);

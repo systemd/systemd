@@ -165,7 +165,7 @@ static int fix_acl(int fd, uid_t uid) {
 
         assert(fd >= 0);
 
-        if (uid_is_system(uid))
+        if (uid_is_system(uid) || uid_is_dynamic(uid))
                 return 0;
 
         /* Make sure normal users can read (but not write or delete)
