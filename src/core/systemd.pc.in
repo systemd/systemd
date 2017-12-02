@@ -29,6 +29,10 @@ modulesloaddir=@modulesloaddir@
 catalogdir=@catalogdir@
 systemuidmax=@systemuidmax@
 systemgidmax=@systemgidmax@
+dynamicuidmin=@dynamicuidmin@
+dynamicuidmax=@dynamicuidmax@
+containeruidbasemin=@containeruidbasemin@
+containeruidbasemax=@containeruidbasemax@
 
 Name: systemd
 Description: systemd System and Service Manager

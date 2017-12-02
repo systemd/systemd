@@ -614,9 +614,6 @@ conf.set('SYSTEM_UID_MAX', system_uid_max)
 substs.set('systemuidmax', system_uid_max)
 message('maximum system UID is @0@'.format(system_uid_max))
 
-conf.set_quoted('NOBODY_USER_NAME', get_option('nobody-user'))
-conf.set_quoted('NOBODY_GROUP_NAME', get_option('nobody-group'))
-
 system_gid_max = get_option('system-gid-max')
 if system_gid_max == ''
         system_gid_max = run_command(
@@ -628,6 +625,23 @@ system_gid_max = system_gid_max.to_int()
 conf.set('SYSTEM_GID_MAX', system_gid_max)
 substs.set('systemgidmax', system_gid_max)
 message('maximum system GID is @0@'.format(system_gid_max))
+
+dynamic_uid_min = get_option('dynamic-uid-min').to_int()
+dynamic_uid_max = get_option('dynamic-uid-max').to_int()
+conf.set('DYNAMIC_UID_MIN', dynamic_uid_min)
+conf.set('DYNAMIC_UID_MAX', dynamic_uid_max)
+substs.set('dynamicuidmin', dynamic_uid_min)
+substs.set('dynamicuidmax', dynamic_uid_max)
+
+container_uid_base_min = get_option('container-uid-base-min').to_int()
+container_uid_base_max = get_option('container-uid-base-max').to_int()
+conf.set('CONTAINER_UID_BASE_MIN', container_uid_base_min)
+conf.set('CONTAINER_UID_BASE_MAX', container_uid_base_max)
+substs.set('containeruidbasemin', container_uid_base_min)
+substs.set('containeruidbasemax', container_uid_base_max)
+
+conf.set_quoted('NOBODY_USER_NAME', get_option('nobody-user'))
+conf.set_quoted('NOBODY_GROUP_NAME', get_option('nobody-group'))
 
 tty_gid = get_option('tty-gid')
 conf.set('TTY_GID', tty_gid)
@@ -2506,6 +2520,10 @@ status = [
         'users GID:                         @0@'.format(users_gid),
         'maximum system UID:                @0@'.format(system_uid_max),
         'maximum system GID:                @0@'.format(system_gid_max),
+        'minimum dynamic UID:               @0@'.format(dynamic_uid_min),
+        'maximum dynamic UID:               @0@'.format(dynamic_uid_max),
+        'minimum container UID base:        @0@'.format(container_uid_base_min),
+        'maximum container UID base:        @0@'.format(container_uid_base_max),
         '/dev/kvm access mode:              @0@'.format(get_option('dev-kvm-mode')),
         'render group access mode:          @0@'.format(get_option('group-render-mode')),
         'certificate root directory:        @0@'.format(get_option('certificate-root')),
