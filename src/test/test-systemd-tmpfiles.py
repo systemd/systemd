@@ -21,15 +21,21 @@ except ImportError:
     id128 = None
 
 EX_DATAERR = 65 # from sysexits.h
+EXIT_TEST_SKIP = 77
+
+try:
+    subprocess.run
+except AttributeError:
+    sys.exit(EXIT_TEST_SKIP)
 
 exe = sys.argv[1]
 
 def test_line(line, *, user, returncode=EX_DATAERR, extra={}):
     args = ['--user'] if user else []
     print('Running {} {} on {!r}'.format(exe, ' '.join(args), line))
-    c = subprocess.run([exe, '--create', *args, '-'],
-                       **extra,
-                       input=line, stdout=subprocess.PIPE, universal_newlines=True)
+    c = subprocess.run([exe, '--create', '-'] + args,
+                       input=line, stdout=subprocess.PIPE, universal_newlines=True,
+                       **extra)
     assert c.returncode == returncode, c
 
 def test_invalids(*, user):
