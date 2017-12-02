@@ -64,6 +64,14 @@ static inline bool uid_is_dynamic(uid_t uid) {
         return DYNAMIC_UID_MIN <= uid && uid <= DYNAMIC_UID_MAX;
 }
 
+static inline bool uid_is_system(uid_t uid) {
+        return uid <= SYSTEM_UID_MAX;
+}
+
+static inline bool gid_is_system(gid_t gid) {
+        return gid <= SYSTEM_GID_MAX;
+}
+
 /* The following macros add 1 when converting things, since UID 0 is a valid UID, while the pointer
  * NULL is special */
 #define PTR_TO_UID(p) ((uid_t) (((uintptr_t) (p))-1))

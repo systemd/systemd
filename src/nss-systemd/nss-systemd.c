@@ -251,7 +251,7 @@ enum nss_status _nss_systemd_getpwuid_r(
                 }
         }
 
-        if (uid <= SYSTEM_UID_MAX)
+        if (uid_is_system(uid))
                 goto not_found;
 
         if (getenv_bool_secure("SYSTEMD_NSS_DYNAMIC_BYPASS") > 0)
@@ -463,7 +463,7 @@ enum nss_status _nss_systemd_getgrgid_r(
                 }
         }
 
-        if (gid <= SYSTEM_GID_MAX)
+        if (gid_is_system(gid))
                 goto not_found;
 
         if (getenv_bool_secure("SYSTEMD_NSS_DYNAMIC_BYPASS") > 0)

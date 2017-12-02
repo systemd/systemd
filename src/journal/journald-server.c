@@ -248,7 +248,7 @@ static void server_add_acls(JournalFile *f, uid_t uid) {
         assert(f);
 
 #if HAVE_ACL
-        if (uid <= SYSTEM_UID_MAX)
+        if (uid_is_system(uid))
                 return;
 
         r = add_acls_for_user(f->fd, uid);
@@ -406,7 +406,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         if (s->runtime_journal)
                 return s->runtime_journal;
 
-        if (uid <= SYSTEM_UID_MAX || uid_is_dynamic(uid))
+        if (uid_is_system(uid) || uid_is_dynamic(uid))
                 return s->system_journal;
 
         r = sd_id128_get_machine(&machine);
