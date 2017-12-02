@@ -86,7 +86,13 @@ def test_content(line, expected, *, user, extra={}):
 def test_valid_specifiers(*, user):
     test_content('f {} - - - - two words', 'two words', user=user)
     if id128:
-        test_content('f {} - - - - %m', '{}'.format(id128.get_machine().hex), user=user)
+        try:
+            test_content('f {} - - - - %m', '{}'.format(id128.get_machine().hex), user=user)
+        except AssertionError as e:
+            print(e)
+            print('/etc/machine-id: {!r}'.format(open('/etc/machine-id').read()))
+            print('/proc/cmdline: {!r}'.format(open('/proc/cmdline').read()))
+            print('skipping')
         test_content('f {} - - - - %b', '{}'.format(id128.get_boot().hex), user=user)
     test_content('f {} - - - - %H', '{}'.format(socket.gethostname()), user=user)
     test_content('f {} - - - - %v', '{}'.format(os.uname().release), user=user)
