@@ -37,7 +37,7 @@ static void print_help(void) {
                "  -R --reload              Reload rules and databases\n"
                "  -p --property=KEY=VALUE  Set a global property for all events\n"
                "  -m --children-max=N      Maximum number of children\n"
-               "     --timeout=SECONDS     Maximum time to block for a reply\n"
+               "  -t --timeout=SECONDS     Maximum time to block for a reply\n"
                , program_invocation_short_name);
 }
 
