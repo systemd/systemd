@@ -44,7 +44,7 @@ static int help(void) {
                "STDIO or socket-activatable proxy to a given DBus endpoint.\n\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
-               "     --bus-path=PATH     Path to the kernel bus (default: %s)\n",
+               "  -p --bus-path=PATH     Path to the kernel bus (default: %s)\n",
                program_invocation_short_name, DEFAULT_BUS_PATH);
 
         return 0;
