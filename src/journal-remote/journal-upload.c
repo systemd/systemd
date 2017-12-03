@@ -571,8 +571,6 @@ static void help(void) {
                "     --follow[=BOOL]        Do [not] wait for input\n"
                "     --save-state[=FILE]    Save uploaded cursors (default \n"
                "                            " STATE_FILE ")\n"
-               "  -h --help                 Show this help and exit\n"
-               "     --version              Print version string and exit\n"
                , program_invocation_short_name);
 }
 
