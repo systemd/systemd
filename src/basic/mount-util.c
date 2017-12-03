@@ -40,6 +40,14 @@
 #include "string-util.h"
 #include "strv.h"
 
+/* This is the original MAX_HANDLE_SZ definition from the kernel, when the API was introduced. We use that in place of
+ * any more currently defined value to future-proof things: if the size is increased in the API headers, and our code
+ * is recompiled then it would cease working on old kernels, as those refuse any sizes larger than this value with
+ * EINVAL right-away. Hence, let's disconnect ourselves from any such API changes, and stick to the original definition
+ * from when it was introduced. We use it as a start value only anyway (see below), and hence should be able to deal
+ * with large file handles anyway. */
+#define ORIGINAL_MAX_HANDLE_SZ 128
+
 int name_to_handle_at_loop(
                 int fd,
                 const char *path,
@@ -48,7 +56,7 @@ int name_to_handle_at_loop(
                 int flags) {
 
         _cleanup_free_ struct file_handle *h;
-        size_t n = MAX_HANDLE_SZ;
+        size_t n = ORIGINAL_MAX_HANDLE_SZ;
 
         /* We need to invoke name_to_handle_at() in a loop, given that it might return EOVERFLOW when the specified
          * buffer is too small. Note that in contrast to what the docs might suggest, MAX_HANDLE_SZ is only good as a
