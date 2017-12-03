@@ -150,6 +150,8 @@ option('system-gid-max', type : 'string',
 option('tty-gid', type : 'string',
        description : 'the numeric GID of the "tty" group',
        value : '5')
+option('users-gid', type : 'string',
+       description : 'the numeric GID of the "users" group')
 option('adm-group', type : 'boolean',
        description : 'the ACL for adm group should be added')
 option('wheel-group', type : 'boolean',
