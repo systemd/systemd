@@ -633,6 +633,14 @@ tty_gid = get_option('tty-gid')
 conf.set('TTY_GID', tty_gid)
 substs.set('TTY_GID', tty_gid)
 
+# Ensure provided GID argument is numeric, otherwise fallback to default assignment
+if get_option('users-gid') != ''
+    users_gid = get_option('users-gid').to_int()
+else
+    users_gid = '-'
+endif
+substs.set('USERS_GID', users_gid)
+
 if get_option('adm-group')
         m4_defines += ['-DENABLE_ADM_GROUP']
 endif
@@ -2495,6 +2503,7 @@ status = [
         'debug shell:                       @0@ @ @1@'.format(get_option('debug-shell'),
                                                               get_option('debug-tty')),
         'TTY GID:                           @0@'.format(tty_gid),
+        'users GID:                         @0@'.format(users_gid),
         'maximum system UID:                @0@'.format(system_uid_max),
         'maximum system GID:                @0@'.format(system_gid_max),
         '/dev/kvm access mode:              @0@'.format(get_option('dev-kvm-mode')),

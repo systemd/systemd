@@ -35,4 +35,4 @@ g tape    -     -            -
 g video   -     -            -
 
 # Default group for normal users
-g users   -     -            -
+g users   @USERS_GID@     -            -
