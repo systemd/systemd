@@ -301,42 +301,43 @@ static void test_base64mem(void) {
         free(b64);
 }
 
+static void test_unbase64mem_one(const char *input, const char *output, int ret) {
+        _cleanup_free_ void *buffer = NULL;
+        size_t size = 0;
+
+        assert_se(unbase64mem(input, (size_t) -1, &buffer, &size) == ret);
+
+        if (ret >= 0) {
+                assert_se(size == strlen(output));
+                assert_se(memcmp(buffer, output, size) == 0);
+                assert_se(((char*) buffer)[size] == 0);
+        }
+}
+
 static void test_unbase64mem(void) {
-        void *mem;
-        size_t len;
 
-        assert_se(unbase64mem("", strlen(""), &mem, &len) == 0);
-        assert_se(streq(strndupa(mem, len), ""));
-        free(mem);
+        test_unbase64mem_one("", "", 0);
+        test_unbase64mem_one("Zg==", "f", 0);
+        test_unbase64mem_one("Zm8=", "fo", 0);
+        test_unbase64mem_one("Zm9v", "foo", 0);
+        test_unbase64mem_one("Zm9vYg==", "foob", 0);
+        test_unbase64mem_one("Zm9vYmE=", "fooba", 0);
+        test_unbase64mem_one("Zm9vYmFy", "foobar", 0);
 
-        assert_se(unbase64mem("Zg==", strlen("Zg=="), &mem, &len) == 0);
-        assert_se(streq(strndupa(mem, len), "f"));
-        free(mem);
+        test_unbase64mem_one(" ", "", 0);
+        test_unbase64mem_one(" \n\r ", "", 0);
+        test_unbase64mem_one("    Zg\n==       ", "f", 0);
+        test_unbase64mem_one(" Zm 8=\r", "fo", 0);
+        test_unbase64mem_one("  Zm9\n\r\r\nv   ", "foo", 0);
+        test_unbase64mem_one(" Z m9vYg==\n\r", "foob", 0);
+        test_unbase64mem_one(" Zm 9vYmE=   ", "fooba", 0);
+        test_unbase64mem_one("   Z m9v    YmFy   ", "foobar", 0);
 
-        assert_se(unbase64mem("Zm8=", strlen("Zm8="), &mem, &len) == 0);
-        assert_se(streq(strndupa(mem, len), "fo"));
-        free(mem);
-
-        assert_se(unbase64mem("Zm9v", strlen("Zm9v"), &mem, &len) == 0);
-        assert_se(streq(strndupa(mem, len), "foo"));
-        free(mem);
-
-        assert_se(unbase64mem("Zm9vYg==", strlen("Zm9vYg=="), &mem, &len) == 0);
-        assert_se(streq(strndupa(mem, len), "foob"));
-        free(mem);
-
-        assert_se(unbase64mem("Zm9vYmE=", strlen("Zm9vYmE="), &mem, &len) == 0);
-        assert_se(streq(strndupa(mem, len), "fooba"));
-        free(mem);
-
-        assert_se(unbase64mem("Zm9vYmFy", strlen("Zm9vYmFy"), &mem, &len) == 0);
-        assert_se(streq(strndupa(mem, len), "foobar"));
-        free(mem);
-
-        assert_se(unbase64mem("A", strlen("A"), &mem, &len) == -EINVAL);
-        assert_se(unbase64mem("A====", strlen("A===="), &mem, &len) == -EINVAL);
-        assert_se(unbase64mem("AAB==", strlen("AAB=="), &mem, &len) == -EINVAL);
-        assert_se(unbase64mem("AAAB=", strlen("AAAB="), &mem, &len) == -EINVAL);
+        test_unbase64mem_one("A", NULL, -EPIPE);
+        test_unbase64mem_one("A====", NULL, -EINVAL);
+        test_unbase64mem_one("AAB==", NULL, -EINVAL);
+        test_unbase64mem_one(" A A A B = ", NULL, -EINVAL);
+        test_unbase64mem_one(" Z m 8 = q u u x ", NULL, -ENAMETOOLONG);
 }
 
 static void test_hexdump(void) {

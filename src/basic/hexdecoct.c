@@ -624,112 +624,135 @@ int base64_append(
                 return base64_append_width(prefix, plen, NULL, plen, p, l, width - plen - 1);
 }
 
-int unbase64mem(const char *p, size_t l, void **mem, size_t *_len) {
-        _cleanup_free_ uint8_t *r = NULL;
-        int a, b, c, d;
-        uint8_t *z;
+static int unbase64_next(const char **p, size_t *l) {
+        int ret;
+
+        assert(p);
+        assert(l);
+
+        /* Find the next non-whitespace character, and decode it. If we find padding, we return it as INT_MAX. We
+         * greedily skip all preceeding and all following whitespace. */
+
+        for (;;) {
+                if (*l == 0)
+                        return -EPIPE;
+
+                if (!strchr(WHITESPACE, **p))
+                        break;
+
+                /* Skip leading whitespace */
+                (*p)++, (*l)--;
+        }
+
+        if (**p == '=')
+                ret = INT_MAX; /* return padding as INT_MAX */
+        else {
+                ret = unbase64char(**p);
+                if (ret < 0)
+                        return ret;
+        }
+
+        for (;;) {
+                (*p)++, (*l)--;
+
+                if (*l == 0)
+                        break;
+                if (!strchr(WHITESPACE, **p))
+                        break;
+
+                /* Skip following whitespace */
+        }
+
+        return ret;
+}
+
+int unbase64mem(const char *p, size_t l, void **ret, size_t *ret_size) {
+        _cleanup_free_ uint8_t *buf = NULL;
         const char *x;
+        uint8_t *z;
         size_t len;
 
         assert(p || l == 0);
-        assert(mem);
-        assert(_len);
+        assert(ret);
+        assert(ret_size);
 
         if (l == (size_t) -1)
                 l = strlen(p);
 
-        /* padding ensures any base63 input has input divisible by 4 */
-        if (l % 4 != 0)
-                return -EINVAL;
+        /* A group of four input bytes needs three output bytes, in case of padding we need to add two or three extra
+           bytes. Note that this calculation is an upper boundary, as we ignore whitespace while decoding */
+        len = (l / 4) * 3 + (l % 4 != 0 ? (l % 4) - 1 : 0);
 
-        /* strip the padding */
-        if (l > 0 && p[l - 1] == '=')
-                l--;
-        if (l > 0 && p[l - 1] == '=')
-                l--;
-
-        /* a group of four input bytes needs three output bytes, in case of
-           padding we need to add two or three extra bytes */
-        len = (l / 4) * 3 + (l % 4 ? (l % 4) - 1 : 0);
-
-        z = r = malloc(len + 1);
-        if (!r)
+        buf = malloc(len + 1);
+        if (!buf)
                 return -ENOMEM;
 
-        for (x = p; x < p + (l / 4) * 4; x += 4) {
-                /* a == 00XXXXXX; b == 00YYYYYY; c == 00ZZZZZZ; d == 00WWWWWW */
-                a = unbase64char(x[0]);
+        for (x = p, z = buf;;) {
+                int a, b, c, d; /* a == 00XXXXXX; b == 00YYYYYY; c == 00ZZZZZZ; d == 00WWWWWW */
+
+                a = unbase64_next(&x, &l);
+                if (a == -EPIPE) /* End of string */
+                        break;
                 if (a < 0)
+                        return a;
+                if (a == INT_MAX) /* Padding is not allowed at at the beginning of a 4ch block */
                         return -EINVAL;
 
-                b = unbase64char(x[1]);
+                b = unbase64_next(&x, &l);
                 if (b < 0)
+                        return b;
+                if (b == INT_MAX) /* Padding is not allowed at the second character of a 4ch block either */
                         return -EINVAL;
 
-                c = unbase64char(x[2]);
+                c = unbase64_next(&x, &l);
                 if (c < 0)
-                        return -EINVAL;
+                        return c;
 
-                d = unbase64char(x[3]);
+                d = unbase64_next(&x, &l);
                 if (d < 0)
-                        return -EINVAL;
+                        return d;
+
+                if (c == INT_MAX) { /* Padding at the third character */
+
+                        if (d != INT_MAX) /* If the third character is padding, the fourth must be too */
+                                return -EINVAL;
+
+                        /* b == 00YY0000 */
+                        if (b & 15)
+                                return -EINVAL;
+
+                        if (l > 0) /* Trailing rubbish? */
+                                return -ENAMETOOLONG;
+
+                        *(z++) = (uint8_t) a << 2 | (uint8_t) (b >> 4); /* XXXXXXYY */
+                        break;
+                }
+
+                if (d == INT_MAX) {
+                        /* c == 00ZZZZ00 */
+                        if (c & 3)
+                                return -EINVAL;
+
+                        if (l > 0) /* Trailing rubbish? */
+                                return -ENAMETOOLONG;
+
+                        *(z++) = (uint8_t) a << 2 | (uint8_t) b >> 4; /* XXXXXXYY */
+                        *(z++) = (uint8_t) b << 4 | (uint8_t) c >> 2; /* YYYYZZZZ */
+                        break;
+                }
 
                 *(z++) = (uint8_t) a << 2 | (uint8_t) b >> 4; /* XXXXXXYY */
                 *(z++) = (uint8_t) b << 4 | (uint8_t) c >> 2; /* YYYYZZZZ */
                 *(z++) = (uint8_t) c << 6 | (uint8_t) d;      /* ZZWWWWWW */
         }
 
-        switch (l % 4) {
-
-        case 3:
-                a = unbase64char(x[0]);
-                if (a < 0)
-                        return -EINVAL;
-
-                b = unbase64char(x[1]);
-                if (b < 0)
-                        return -EINVAL;
-
-                c = unbase64char(x[2]);
-                if (c < 0)
-                        return -EINVAL;
-
-                /* c == 00ZZZZ00 */
-                if (c & 3)
-                        return -EINVAL;
-
-                *(z++) = (uint8_t) a << 2 | (uint8_t) b >> 4; /* XXXXXXYY */
-                *(z++) = (uint8_t) b << 4 | (uint8_t) c >> 2; /* YYYYZZZZ */
-
-                break;
-        case 2:
-                a = unbase64char(x[0]);
-                if (a < 0)
-                        return -EINVAL;
-
-                b = unbase64char(x[1]);
-                if (b < 0)
-                        return -EINVAL;
-
-                /* b == 00YY0000 */
-                if (b & 15)
-                        return -EINVAL;
-
-                *(z++) = (uint8_t) a << 2 | (uint8_t) (b >> 4); /* XXXXXXYY */
-
-                break;
-        case 0:
-
-                break;
-        default:
-                return -EINVAL;
-        }
-
         *z = 0;
 
-        *mem = r;
-        r = NULL;
-        *_len = len;
+        if (ret_size)
+                *ret_size = (size_t) (z - buf);
+
+        *ret = buf;
+        buf = NULL;
 
         return 0;
 }

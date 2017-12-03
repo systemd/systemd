@@ -978,7 +978,6 @@ int config_parse_exec_input_data(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ char *cleaned = NULL;
         _cleanup_free_ void *p = NULL;
         ExecContext *c = data;
         size_t sz;
@@ -997,15 +996,9 @@ int config_parse_exec_input_data(
                 return 0;
         }
 
-        /* Be tolerant to whitespace. Remove it all before decoding */
-        cleaned = strdup(rvalue);
-        if (!cleaned)
-                return log_oom();
-        delete_chars(cleaned, WHITESPACE);
-
-        r = unbase64mem(cleaned, (size_t) -1, &p, &sz);
+        r = unbase64mem(rvalue, (size_t) -1, &p, &sz);
         if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to decode base64 data, ignoring: %s", cleaned);
+                return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to decode base64 data, ignoring: %s", rvalue);
 
         assert(sz > 0);
 
