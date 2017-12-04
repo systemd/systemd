@@ -1733,7 +1733,7 @@ static int help(void) {
                "     --match=MATCH        Only show matching messages\n"
                "     --size=SIZE          Maximum length of captured packet\n"
                "     --list               Don't show tree, but simple object path list\n"
-               "     --quiet              Don't show method call reply\n"
+               "  -q --quiet              Don't show method call reply\n"
                "     --verbose            Show result values in long format\n"
                "     --expect-reply=BOOL  Expect a method call reply\n"
                "     --auto-start=BOOL    Auto-start destination service\n"

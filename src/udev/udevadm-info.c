@@ -250,7 +250,7 @@ static void help(void) {
         printf("%s info [OPTIONS] [DEVPATH|FILE]\n\n"
                "Query sysfs or the udev database.\n\n"
                "  -h --help                   Print this message\n"
-               "     --version                Print version of the program\n"
+               "  -V --version                Print version of the program\n"
                "  -q --query=TYPE             Query device information:\n"
                "       name                     Name of device node\n"
                "       symlink                  Pointing to node\n"
