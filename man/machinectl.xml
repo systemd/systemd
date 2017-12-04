@@ -301,6 +301,13 @@
         <literal>,</literal> if another address will be output afterwards. </para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>Suppresses additional informational output while running.</para></listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="host" />
 
       <varlistentry>

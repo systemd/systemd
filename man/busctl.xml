@@ -147,6 +147,7 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-q</option></term>
         <term><option>--quiet</option></term>
 
         <listitem>
