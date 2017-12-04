@@ -168,8 +168,8 @@ static int keyboard_load_and_wait(const char *vc, const char *map, const char *m
 }
 
 static int font_load_and_wait(const char *vc, const char *font, const char *map, const char *unimap) {
+        _cleanup_strv_free_ char **font_names;
         _cleanup_free_ char *cmd = NULL;
-        const char *args[9];
         unsigned i = 0;
         pid_t pid;
 
@@ -177,37 +177,48 @@ static int font_load_and_wait(const char *vc, const char *font, const char *map,
         if (isempty(font) && isempty(map) && isempty(unimap))
                 return 0;
 
-        args[i++] = KBD_SETFONT;
-        args[i++] = "-C";
-        args[i++] = vc;
-        if (!isempty(map)) {
-                args[i++] = "-m";
-                args[i++] = map;
+        font_names = strv_split(font, " ");
+        if (!font_names)
+                return log_error("Failed to split font");
+
+        {
+                const char *args[8 + strv_length(font_names)];
+
+                args[i++] = KBD_SETFONT;
+                args[i++] = "-C";
+                args[i++] = vc;
+                if (!isempty(map)) {
+                        args[i++] = "-m";
+                        args[i++] = map;
+                }
+                if (!isempty(unimap)) {
+                        args[i++] = "-u";
+                        args[i++] = unimap;
+                }
+                {
+                        char **font_name;
+                        STRV_FOREACH(font_name, font_names)
+                                args[i++] = *font_name;
+                }
+                args[i++] = NULL;
+
+                log_debug("Executing \"%s\"...",
+                          strnull((cmd = strv_join((char**) args, " "))));
+
+                pid = fork();
+                if (pid < 0)
+                        return log_error_errno(errno, "Failed to fork: %m");
+                else if (pid == 0) {
+
+                        (void) reset_all_signal_handlers();
+                        (void) reset_signal_mask();
+
+                        execv(args[0], (char **) args);
+                        _exit(EXIT_FAILURE);
+                }
+
+                return wait_for_terminate_and_warn(KBD_SETFONT, pid, true);
         }
-        if (!isempty(unimap)) {
-                args[i++] = "-u";
-                args[i++] = unimap;
-        }
-        if (!isempty(font))
-                args[i++] = font;
-        args[i++] = NULL;
-
-        log_debug("Executing \"%s\"...",
-                  strnull((cmd = strv_join((char**) args, " "))));
-
-        pid = fork();
-        if (pid < 0)
-                return log_error_errno(errno, "Failed to fork: %m");
-        else if (pid == 0) {
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-
-                execv(args[0], (char **) args);
-                _exit(EXIT_FAILURE);
-        }
-
-        return wait_for_terminate_and_warn(KBD_SETFONT, pid, true);
 }
 
 /*

@@ -111,7 +111,7 @@
         <term><varname>FONT_MAP=</varname></term>
         <term><varname>FONT_UNIMAP=</varname></term>
 
-        <listitem><para>Configures the console font, the console map
+        <listitem><para>Configures the console font(s), the console map
         and the unicode font map.</para></listitem>
       </varlistentry>
 
