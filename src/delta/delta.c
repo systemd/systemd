@@ -392,19 +392,28 @@ static int enumerate_dir(
         return 0;
 }
 
-static int should_skip_prefix(const char* p) {
+static bool should_skip_path(const char *prefix, const char *suffix) {
 #if HAVE_SPLIT_USR
-        int r;
         _cleanup_free_ char *target = NULL;
+        const char *p;
+        char *dirname;
 
-        r = chase_symlinks(p, NULL, 0, &target);
-        if (r < 0)
-                return r;
+        dirname = strjoina(prefix, "/", suffix);
 
-        return !streq(p, target) && nulstr_contains(prefixes, target);
-#else
-        return 0;
+        if (chase_symlinks(dirname, NULL, 0, &target) < 0)
+                return false;
+
+        NULSTR_FOREACH(p, prefixes) {
+                if (path_startswith(dirname, p))
+                        continue;
+
+                if (path_equal(target, strjoina(p, "/", suffix))) {
+                        log_debug("%s redirects to %s, skipping.", dirname, target);
+                        return true;
+                }
+        }
 #endif
+        return false;
 }
 
 static int process_suffix(const char *suffix, const char *onlyprefix) {
@@ -434,14 +443,8 @@ static int process_suffix(const char *suffix, const char *onlyprefix) {
 
         NULSTR_FOREACH(p, prefixes) {
                 _cleanup_free_ char *t = NULL;
-                int skip;
 
-                skip = should_skip_prefix(p);
-                if (skip < 0) {
-                        r = skip;
-                        goto finish;
-                }
-                if (skip)
+                if (should_skip_path(p, suffix))
                         continue;
 
                 t = strjoin(p, "/", suffix);
