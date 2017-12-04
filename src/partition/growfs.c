@@ -83,6 +83,7 @@ static int resize_btrfs(const char *path, int mountfd, int devfd, uint64_t numbl
         return 0;
 }
 
+#if HAVE_LIBCRYPTSETUP
 static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_devno) {
         char devpath[DEV_NUM_PATH_MAX], main_devpath[DEV_NUM_PATH_MAX];
         _cleanup_close_ int main_devfd = -1;
@@ -127,6 +128,7 @@ static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_
 
         return 1;
 }
+#endif
 
 static int maybe_resize_slave_device(const char *mountpath, dev_t main_devno) {
         dev_t devno;
@@ -134,8 +136,10 @@ static int maybe_resize_slave_device(const char *mountpath, dev_t main_devno) {
         _cleanup_free_ char *fstype = NULL;
         int r;
 
+#if HAVE_LIBCRYPTSETUP
         crypt_set_log_callback(NULL, cryptsetup_log_glue, NULL);
         crypt_set_debug_level(1);
+#endif
 
         r = get_block_device_harder(mountpath, &devno);
         if (r < 0)
@@ -156,8 +160,10 @@ static int maybe_resize_slave_device(const char *mountpath, dev_t main_devno) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to probe \"%s\": %m", devpath);
 
+#if HAVE_LIBCRYPTSETUP
         if (streq_ptr(fstype, "crypto_LUKS"))
                 return resize_crypt_luks_device(devno, fstype, main_devno);
+#endif
 
         log_debug("Don't know how to resize %s of type %s, ignoring", devpath, strnull(fstype));
         return 0;
