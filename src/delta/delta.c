@@ -520,13 +520,6 @@ static int process_suffix_chop(const char *arg) {
         /* Strip prefix from the suffix */
         NULSTR_FOREACH(p, prefixes) {
                 const char *suffix;
-                int skip;
-
-                skip = should_skip_prefix(p);
-                if (skip < 0)
-                        return skip;
-                if (skip)
-                        continue;
 
                 suffix = startswith(arg, p);
                 if (suffix) {
