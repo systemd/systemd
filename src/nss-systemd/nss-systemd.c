@@ -47,8 +47,8 @@ static const struct passwd root_passwd = {
 static const struct passwd nobody_passwd = {
         .pw_name = (char*) NOBODY_USER_NAME,
         .pw_passwd = (char*) "*", /* locked */
-        .pw_uid = 65534,
-        .pw_gid = 65534,
+        .pw_uid = UID_NOBODY,
+        .pw_gid = GID_NOBODY,
         .pw_gecos = (char*) "User Nobody",
         .pw_dir = (char*) "/",
         .pw_shell = (char*) "/sbin/nologin",
@@ -63,7 +63,7 @@ static const struct group root_group = {
 
 static const struct group nobody_group = {
         .gr_name = (char*) NOBODY_GROUP_NAME,
-        .gr_gid = 65534,
+        .gr_gid = GID_NOBODY,
         .gr_passwd = (char*) "*", /* locked */
         .gr_mem = (char*[]) { NULL },
 };

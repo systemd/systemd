@@ -43,6 +43,7 @@
 #include "string-table.h"
 #include "terminal-util.h"
 #include "unit-name.h"
+#include "user-util.h"
 #include "util.h"
 
 Machine* machine_new(Manager *manager, MachineClass class, const char *name) {
@@ -656,7 +657,7 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
         if (uid_base != 0)
                 return -ENXIO;
         /* Insist that at least the nobody user is mapped, everything else is weird, and hence complex, and we don't support it */
-        if (uid_range < (uid_t) 65534U)
+        if (uid_range < UID_NOBODY)
                 return -ENXIO;
 
         /* If there's more than one line, then we don't support this mapping. */

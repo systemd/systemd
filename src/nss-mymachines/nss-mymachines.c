@@ -480,7 +480,7 @@ enum nss_status _nss_mymachines_getpwnam_r(
 
         pwd->pw_name = buffer;
         pwd->pw_uid = mapped;
-        pwd->pw_gid = 65534; /* nobody */
+        pwd->pw_gid = GID_NOBODY;
         pwd->pw_gecos = buffer;
         pwd->pw_passwd = (char*) "*"; /* locked */
         pwd->pw_dir = (char*) "/";
@@ -557,7 +557,7 @@ enum nss_status _nss_mymachines_getpwuid_r(
 
         pwd->pw_name = buffer;
         pwd->pw_uid = uid;
-        pwd->pw_gid = 65534; /* nobody */
+        pwd->pw_gid = GID_NOBODY;
         pwd->pw_gecos = buffer;
         pwd->pw_passwd = (char*) "*"; /* locked */
         pwd->pw_dir = (char*) "/";
