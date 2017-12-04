@@ -46,6 +46,8 @@
  *                                         — PCI geographical location
  *   [P<domain>]p<bus>s<slot>[f<function>][u<port>][..][c<config>][i<interface>]
  *                                         — USB port number chain
+ *   U<roothub>u<port>[..][c<config>][i<interface>]
+ *                                         — USB port number chain on non pci devices
  *   v<slot>                               - VIO slot number (IBM PowerVM)
  *   a<vendor><model>i<instance>           — Platform bus ACPI instance id
  *
@@ -141,6 +143,7 @@ struct netnames {
         char pci_onboard[IFNAMSIZ];
         const char *pci_onboard_label;
 
+        char usb_root[IFNAMSIZ];
         char usb_ports[IFNAMSIZ];
         char bcma_core[IFNAMSIZ];
         char ccw_busid[IFNAMSIZ];
@@ -437,6 +440,7 @@ static int names_pci(struct udev_device *dev, struct netnames *names) {
 static int names_usb(struct udev_device *dev, struct netnames *names) {
         struct udev_device *usbdev;
         char name[256];
+        char *root;
         char *ports;
         char *config;
         char *interf;
@@ -452,9 +456,11 @@ static int names_usb(struct udev_device *dev, struct netnames *names) {
 
         /* get USB port number chain, configuration, interface */
         strscpy(name, sizeof(name), udev_device_get_sysname(usbdev));
+        root = name;
         s = strchr(name, '-');
         if (!s)
                 return -EINVAL;
+        s[0] = '\0';
         ports = s+1;
 
         s = strchr(ports, ':');
@@ -468,6 +474,9 @@ static int names_usb(struct udev_device *dev, struct netnames *names) {
                 return -EINVAL;
         s[0] = '\0';
         interf = s+1;
+
+        s = names->usb_root;
+        l = strpcpyl(&s, sizeof(names->usb_root), "U", root, NULL);
 
         /* prefix every port number in the chain with "u" */
         s = ports;
@@ -701,29 +710,44 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
 
         /* get PCI based path names, we compose only PCI based paths */
         err = names_pci(dev, &names);
-        if (err < 0)
-                goto out;
+        if (err >= 0) {
 
-        /* plain PCI device */
-        if (names.type == NET_PCI) {
-                char str[IFNAMSIZ];
+                /* plain PCI device */
+                if (names.type == NET_PCI) {
+                        char str[IFNAMSIZ];
 
-                if (names.pci_onboard[0])
-                        if (snprintf(str, sizeof(str), "%s%s", prefix, names.pci_onboard) < (int)sizeof(str))
-                                udev_builtin_add_property(dev, test, "ID_NET_NAME_ONBOARD", str);
+                        if (names.pci_onboard[0])
+                                if (snprintf(str, sizeof(str), "%s%s", prefix, names.pci_onboard) < (int)sizeof(str))
+                                        udev_builtin_add_property(dev, test, "ID_NET_NAME_ONBOARD", str);
 
-                if (names.pci_onboard_label)
-                        if (snprintf(str, sizeof(str), "%s%s", prefix, names.pci_onboard_label) < (int)sizeof(str))
-                                udev_builtin_add_property(dev, test, "ID_NET_LABEL_ONBOARD", str);
+                        if (names.pci_onboard_label)
+                                if (snprintf(str, sizeof(str), "%s%s", prefix, names.pci_onboard_label) < (int)sizeof(str))
+                                        udev_builtin_add_property(dev, test, "ID_NET_LABEL_ONBOARD", str);
 
-                if (names.pci_path[0])
-                        if (snprintf(str, sizeof(str), "%s%s", prefix, names.pci_path) < (int)sizeof(str))
-                                udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
+                        if (names.pci_path[0])
+                                if (snprintf(str, sizeof(str), "%s%s", prefix, names.pci_path) < (int)sizeof(str))
+                                        udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
 
-                if (names.pci_slot[0])
-                        if (snprintf(str, sizeof(str), "%s%s", prefix, names.pci_slot) < (int)sizeof(str))
-                                udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
-                goto out;
+                        if (names.pci_slot[0])
+                                if (snprintf(str, sizeof(str), "%s%s", prefix, names.pci_slot) < (int)sizeof(str))
+                                        udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
+                        goto out;
+                }
+
+                /* Broadcom bus */
+                err = names_bcma(dev, &names);
+                if (err >= 0 && names.type == NET_BCMA) {
+                        char str[IFNAMSIZ];
+
+                        if (names.pci_path[0])
+                                if (snprintf(str, sizeof(str), "%s%s%s", prefix, names.pci_path, names.bcma_core) < (int)sizeof(str))
+                                        udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
+
+                        if (names.pci_slot[0])
+                                if (snprintf(str, sizeof(str), "%s%s%s", prefix, names.pci_slot, names.bcma_core) < (int)sizeof(str))
+                                        udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
+                        goto out;
+                }
         }
 
         /* USB device */
@@ -738,23 +762,13 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
                 if (names.pci_slot[0])
                         if (snprintf(str, sizeof(str), "%s%s%s", prefix, names.pci_slot, names.usb_ports) < (int)sizeof(str))
                                 udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
-                goto out;
-        }
 
-        /* Broadcom bus */
-        err = names_bcma(dev, &names);
-        if (err >= 0 && names.type == NET_BCMA) {
-                char str[IFNAMSIZ];
-
-                if (names.pci_path[0])
-                        if (snprintf(str, sizeof(str), "%s%s%s", prefix, names.pci_path, names.bcma_core) < (int)sizeof(str))
+                if (names.usb_root[0] && !names.pci_path[0] && !names.pci_slot[0])
+                        if (snprintf(str, sizeof(str), "%s%s%s", prefix, names.usb_root, names.usb_ports) < (int)sizeof(str))
                                 udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
-
-                if (names.pci_slot[0])
-                        if (snprintf(str, sizeof(str), "%s%s%s", prefix, names.pci_slot, names.bcma_core) < (int)sizeof(str))
-                                udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
                 goto out;
         }
+
 out:
         return EXIT_SUCCESS;
 }
