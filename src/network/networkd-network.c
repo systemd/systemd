@@ -292,6 +292,18 @@ static int network_load_one(Manager *manager, const char *filename) {
         if (network->ip_masquerade)
                 network->ip_forward |= ADDRESS_FAMILY_IPV4;
 
+        /* set IgnoreCarrierGainLoss=false for DHCP or no static address cases */
+        if (network->ignore_carrier_gainloss) {
+                if (network->dhcp != ADDRESS_FAMILY_NO) {
+                        log_warning("Will not ignore carrier gain or loss when DHCP is configured.");
+                        network->ignore_carrier_gainloss = false;
+                }
+                else if (network->n_static_addresses < 1) {
+                        log_warning("Will not ignore carrier gain or loss when no static address is configured.");
+                        network->ignore_carrier_gainloss = false;
+                }
+        }
+
         LIST_PREPEND(networks, manager->networks, network);
 
         r = hashmap_ensure_allocated(&manager->networks_by_name, &string_hash_ops);
