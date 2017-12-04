@@ -100,7 +100,11 @@ def test_valid_specifiers(*, user):
 
     user = pwd.getpwuid(os.getuid())
     test_content('f {} - - - - %u', '{}'.format(user.pw_name), user=user)
-    test_content('f {} - - - - %h', '{}'.format(user.pw_dir), user=user)
+
+    # Note that %h is the only specifier in which we look the environment,
+    # because we check $HOME. Should we even be doing that?
+    home = os.path.expanduser("~")
+    test_content('f {} - - - - %h', '{}'.format(home), user=user)
 
     xdg_runtime_dir = os.getenv('XDG_RUNTIME_DIR')
     if xdg_runtime_dir is not None or not user:
