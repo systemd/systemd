@@ -1,6 +1,9 @@
 <?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
@@ -196,6 +199,48 @@
         spawned using this descriptor and connections must be made
         over the HTTP protocol.</para>
         </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--key=</option></term>
+
+        <listitem><para>
+          Takes a path to a SSL key file in PEM format.
+          Defaults to <filename>&CERTIFICATE_ROOT;/private/journal-remote.pem</filename>.
+          This option can be used with <option>--listen-https=</option>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--cert=</option></term>
+
+        <listitem><para>
+          Takes a path to a SSL certificate file in PEM format.
+          Defaults to <filename>&CERTIFICATE_ROOT;/certs/journal-remote.pem</filename>.
+          This option can be used with <option>--listen-https=</option>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--trust=</option></term>
+
+        <listitem><para>
+          Takes a path to a SSL CA certificate file in PEM format,
+          or <option>all</option>. If <option>all</option> is set,
+          then certificate checking will be disabled.
+          Defaults to <filename>&CERTIFICATE_ROOT;/ca/trusted.pem</filename>.
+          This option can be used with <option>--listen-https=</option>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--gnutls-log=</option></term>
+
+        <listitem><para>
+          Takes a comma separated list of gnutls logging categories.
+          This option can be used with <option>--listen-http=</option> or
+          <option>--listen-https=</option>.
+        </para></listitem>
       </varlistentry>
 
     </variablelist>

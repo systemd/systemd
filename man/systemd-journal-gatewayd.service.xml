@@ -103,6 +103,13 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--trust=</option></term>
+
+        <listitem><para>Specify the path to a file containing a
+        CA certificate in PEM format.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-D <replaceable>DIR</replaceable></option></term>
         <term><option>--directory=<replaceable>DIR</replaceable></option></term>
 
