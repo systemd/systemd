@@ -695,7 +695,7 @@ int unbase64mem(const char *p, size_t l, void **ret, size_t *ret_size) {
                         break;
                 if (a < 0)
                         return a;
-                if (a == INT_MAX) /* Padding is not allowed at at the beginning of a 4ch block */
+                if (a == INT_MAX) /* Padding is not allowed at the beginning of a 4ch block */
                         return -EINVAL;
 
                 b = unbase64_next(&x, &l);
