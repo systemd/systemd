@@ -590,7 +590,8 @@ static int dhcp4_set_hostname(Link *link) {
 }
 
 static bool promote_secondaries_enabled(const char *ifname) {
-        char *promote_secondaries_sysctl, *promote_secondaries_path;
+        _cleanup_free_ char *promote_secondaries_sysctl = NULL;
+        char *promote_secondaries_path;
         int r;
 
         promote_secondaries_path = strjoina("net/ipv4/conf/", ifname, "/promote_secondaries");
