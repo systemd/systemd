@@ -1,3 +1,6 @@
+[Unit]
+Description=Test for specifiers (template unit)
+
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/test %n = exec-specifier@foo-bar.service

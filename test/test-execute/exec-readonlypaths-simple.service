@@ -1,3 +1,6 @@
+[Unit]
+Description=Test for ReadOnlyPaths=
+
 [Service]
 Type=oneshot
 # This should work, as we explicitly disable the effect of ReadOnlyPaths=
