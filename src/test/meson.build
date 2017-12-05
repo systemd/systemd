@@ -155,7 +155,8 @@ tests += [
 
         [['src/test/test-async.c'],
          [],
-         []],
+         [],
+         '', 'timeout=120'],
 
         [['src/test/test-locale-util.c'],
          [],

@@ -2146,6 +2146,7 @@ fail:
         return r;
 }
 
+#if ENABLE_SMACK
 static int setup_smack(
                 const ExecContext *context,
                 const ExecCommand *command) {
@@ -2176,6 +2177,7 @@ static int setup_smack(
 
         return 0;
 }
+#endif
 
 static int compile_bind_mounts(
                 const ExecContext *context,
@@ -2733,7 +2735,7 @@ static int exec_child(
                 int *exit_status) {
 
         _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **accum_env = NULL, **final_argv = NULL;
-        _cleanup_free_ char *mac_selinux_context_net = NULL, *home_buffer = NULL;
+        _cleanup_free_ char *home_buffer = NULL;
         _cleanup_free_ gid_t *supplementary_gids = NULL;
         const char *username = NULL, *groupname = NULL;
         const char *home = NULL, *shell = NULL;
@@ -2744,6 +2746,7 @@ static int exec_child(
                 needs_mount_namespace,  /* Do we need to set up a mount namespace for this kernel? */
                 needs_ambient_hack;     /* Do we need to apply the ambient capabilities hack? */
 #if HAVE_SELINUX
+        _cleanup_free_ char *mac_selinux_context_net = NULL;
         bool use_selinux = false;
 #endif
 #if ENABLE_SMACK
