@@ -419,12 +419,14 @@ static int verify_esp(
                 uint64_t *ret_pstart,
                 uint64_t *ret_psize,
                 sd_id128_t *ret_uuid) {
-
+#if HAVE_BLKID
         _cleanup_blkid_free_probe_ blkid_probe b = NULL;
         char t[DEV_NUM_PATH_MAX];
+        const char *v;
+#endif
         uint64_t pstart = 0, psize = 0;
         struct stat st, st2;
-        const char *v, *t2;
+        const char *t2;
         struct statfs sfs;
         sd_id128_t uuid = SD_ID128_NULL;
         uint32_t part = 0;
@@ -479,6 +481,7 @@ static int verify_esp(
         if (detect_container() > 0 || geteuid() != 0)
                 goto finish;
 
+#if HAVE_BLKID
         xsprintf_dev_num_path(t, "block", st.st_dev);
         errno = 0;
         b = blkid_new_probe_from_filename(t);
@@ -561,6 +564,7 @@ static int verify_esp(
         r = safe_atou64(v, &psize);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse PART_ENTRY_SIZE field.");
+#endif
 
 finish:
         if (ret_part)
