@@ -1493,9 +1493,13 @@ static bool service_shall_restart(Service *s) {
         }
 }
 
-static bool service_will_restart(Service *s) {
+static bool service_will_restart(Unit *u) {
+        Service *s = SERVICE(u);
+
         assert(s);
 
+        if (s->will_auto_restart)
+                return true;
         if (s->state == SERVICE_AUTO_RESTART)
                 return true;
         if (!UNIT(s)->job)
@@ -1521,13 +1525,17 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         if (s->result != SERVICE_SUCCESS)
                 log_unit_warning(UNIT(s), "Failed with result '%s'.", service_result_to_string(s->result));
 
+        if (allow_restart && service_shall_restart(s))
+                s->will_auto_restart = true;
+
         /* Make sure service_release_resources() doesn't destroy our FD store, while we are changing through
          * SERVICE_FAILED/SERVICE_DEAD before entering into SERVICE_AUTO_RESTART. */
         s->n_keep_fd_store ++;
 
         service_set_state(s, s->result != SERVICE_SUCCESS ? SERVICE_FAILED : SERVICE_DEAD);
 
-        if (allow_restart && service_shall_restart(s)) {
+        if (s->will_auto_restart) {
+                s->will_auto_restart = false;
 
                 r = service_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->restart_usec));
                 if (r < 0) {
@@ -1554,7 +1562,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         s->exec_runtime = exec_runtime_unref(s->exec_runtime);
 
         if (s->exec_context.runtime_directory_preserve_mode == EXEC_PRESERVE_NO ||
-            (s->exec_context.runtime_directory_preserve_mode == EXEC_PRESERVE_RESTART && !service_will_restart(s)))
+            (s->exec_context.runtime_directory_preserve_mode == EXEC_PRESERVE_RESTART && !service_will_restart(UNIT(s))))
                 /* Also, remove the runtime directory */
                 exec_context_destroy_runtime_directory(&s->exec_context, UNIT(s)->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
 
@@ -3771,6 +3779,8 @@ const UnitVTable service_vtable = {
 
         .active_state = service_active_state,
         .sub_state_to_string = service_sub_state_to_string,
+
+        .will_restart = service_will_restart,
 
         .check_gc = service_check_gc,
 
