@@ -34,6 +34,7 @@
 #include "strbuf.h"
 #include "string-util.h"
 #include "udev.h"
+#include "udevadm-util.h"
 #include "util.h"
 
 /*
@@ -546,12 +547,17 @@ static int import_file(struct udev *udev, struct trie *trie, const char *filenam
 }
 
 static void help(void) {
-        printf("Usage: udevadm hwdb OPTIONS\n"
-               "  -u,--update          update the hardware database\n"
-               "  --usr                generate in " UDEVLIBEXECDIR " instead of /etc/udev\n"
-               "  -t,--test=MODALIAS   query database and print result\n"
-               "  -r,--root=PATH       alternative root path in the filesystem\n"
-               "  -h,--help\n\n");
+        printf("%s hwdb [OPTIONS]\n\n"
+               "  -h --help            Print this message\n"
+               "  -V --version         Print version of the program\n"
+               "  -u --update          Update the hardware database\n"
+               "     --usr             Generate in " UDEVLIBEXECDIR " instead of /etc/udev\n"
+               "  -t --test=MODALIAS   Query database and print result\n"
+               "  -r --root=PATH       Alternative root path in the filesystem\n\n"
+               "NOTE:\n"
+               "The sub-command 'hwdb' is deprecated, and is left for backwards compatibility.\n"
+               "Please use systemd-hwdb instead.\n"
+               , program_invocation_short_name);
 }
 
 static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
@@ -560,11 +566,12 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "update", no_argument,       NULL, 'u' },
-                { "usr",    no_argument,       NULL, ARG_USR },
-                { "test",   required_argument, NULL, 't' },
-                { "root",   required_argument, NULL, 'r' },
-                { "help",   no_argument,       NULL, 'h' },
+                { "update",  no_argument,       NULL, 'u'     },
+                { "usr",     no_argument,       NULL, ARG_USR },
+                { "test",    required_argument, NULL, 't'     },
+                { "root",    required_argument, NULL, 'r'     },
+                { "version", no_argument,       NULL, 'V'     },
+                { "help",    no_argument,       NULL, 'h'     },
                 {}
         };
         const char *test = NULL;
@@ -575,7 +582,7 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
         int err, c;
         int rc = EXIT_SUCCESS;
 
-        while ((c = getopt_long(argc, argv, "ut:r:h", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "ut:r:Vh", options, NULL)) >= 0)
                 switch(c) {
                 case 'u':
                         update = true;
@@ -589,6 +596,9 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
                 case 'r':
                         root = optarg;
                         break;
+                case 'V':
+                        print_version();
+                        return EXIT_SUCCESS;
                 case 'h':
                         help();
                         return EXIT_SUCCESS;

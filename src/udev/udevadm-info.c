@@ -377,7 +377,7 @@ static int uinfo(struct udev *udev, int argc, char *argv[]) {
                         export_prefix = optarg;
                         break;
                 case 'V':
-                        printf("%s\n", PACKAGE_VERSION);
+                        print_version();
                         return 0;
                 case 'h':
                         help();

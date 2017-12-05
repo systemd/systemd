@@ -25,12 +25,13 @@
 #include "path-util.h"
 #include "string-util.h"
 #include "udev.h"
+#include "udevadm-util.h"
 
 static void help(struct udev *udev) {
-        printf("%s builtin [--help] COMMAND SYSPATH\n\n"
+        printf("%s test-builtin [OPTIONS] COMMAND DEVPATH\n\n"
                "Test a built-in command.\n\n"
                "  -h --help     Print this message\n"
-               "     --version  Print version of the program\n\n"
+               "  -V --version  Print version of the program\n\n"
                "Commands:\n"
                , program_invocation_short_name);
 
@@ -39,7 +40,8 @@ static void help(struct udev *udev) {
 
 static int adm_builtin(struct udev *udev, int argc, char *argv[]) {
         static const struct option options[] = {
-                { "help", no_argument, NULL, 'h' },
+                { "version", no_argument, NULL, 'V' },
+                { "help",    no_argument, NULL, 'h' },
                 {}
         };
         char *command = NULL;
@@ -49,8 +51,11 @@ static int adm_builtin(struct udev *udev, int argc, char *argv[]) {
         enum udev_builtin_cmd cmd;
         int rc = EXIT_SUCCESS, c;
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "Vh", options, NULL)) >= 0)
                 switch (c) {
+                case 'V':
+                        print_version();
+                        goto out;
                 case 'h':
                         help(udev);
                         goto out;

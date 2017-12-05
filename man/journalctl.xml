@@ -439,7 +439,7 @@
         <term><option>-q</option></term>
         <term><option>--quiet</option></term>
 
-        <listitem><para>Suppresses all info messages
+        <listitem><para>Suppresses all informational messages
         (i.e. "-- Logs begin at …", "-- Reboot --"),
         any warning messages regarding
         inaccessible system journals when run as a normal

@@ -1656,7 +1656,7 @@
           <term><varname>VLANId=</varname></term>
           <listitem>
             <para>The VLAN ID for the new static MAC table entry. If
-            omitted, no VLAN ID info is appended to the new static MAC
+            omitted, no VLAN ID information is appended to the new static MAC
             table entry.</para>
           </listitem>
         </varlistentry>

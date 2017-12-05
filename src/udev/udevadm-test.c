@@ -29,13 +29,14 @@
 #include "string-util.h"
 #include "udev-util.h"
 #include "udev.h"
+#include "udevadm-util.h"
 
 static void help(void) {
 
-        printf("%s test OPTIONS <syspath>\n\n"
-               "Test an event run.\n"
+        printf("%s test [OPTIONS] DEVPATH\n\n"
+               "Test an event run.\n\n"
                "  -h --help                            Show this help\n"
-               "     --version                         Show package version\n"
+               "  -V --version                         Show package version\n"
                "  -a --action=ACTION                   Set action string\n"
                "  -N --resolve-names=early|late|never  When to resolve names\n"
                , program_invocation_short_name);
@@ -54,15 +55,16 @@ static int adm_test(struct udev *udev, int argc, char *argv[]) {
         int rc = 0, c;
 
         static const struct option options[] = {
-                { "action", required_argument, NULL, 'a' },
+                { "action",        required_argument, NULL, 'a' },
                 { "resolve-names", required_argument, NULL, 'N' },
-                { "help", no_argument, NULL, 'h' },
+                { "version",       no_argument,       NULL, 'V' },
+                { "help",          no_argument,       NULL, 'h' },
                 {}
         };
 
         log_debug("version %s", PACKAGE_VERSION);
 
-        while ((c = getopt_long(argc, argv, "a:N:h", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "a:N:Vh", options, NULL)) >= 0)
                 switch (c) {
                 case 'a':
                         action = optarg;
@@ -80,6 +82,9 @@ static int adm_test(struct udev *udev, int argc, char *argv[]) {
                                 exit(EXIT_FAILURE);
                         }
                         break;
+                case 'V':
+                        print_version();
+                        exit(EXIT_SUCCESS);
                 case 'h':
                         help();
                         exit(EXIT_SUCCESS);

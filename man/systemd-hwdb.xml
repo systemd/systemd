@@ -23,7 +23,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-hwdb" conditional="ENABLE_HWDB">
+<refentry id="systemd-hwdb" conditional="ENABLE_HWDB"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
   <refentryinfo>
     <title>systemd-hwdb</title>
     <productname>systemd</productname>
@@ -69,13 +71,6 @@
   <refsect1><title>Options</title>
     <variablelist>
       <varlistentry>
-        <term><option>-h</option></term>
-        <term><option>--help</option></term>
-        <listitem>
-          <para>Print help text.</para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
         <term><option>--usr</option></term>
         <listitem>
           <para>Generate in /usr/lib/udev instead of /etc/udev.</para>
@@ -88,6 +83,8 @@
           <para>Alternate root path in the filesystem.</para>
         </listitem>
       </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
     </variablelist>
 
     <refsect2><title>systemd-hwdb
