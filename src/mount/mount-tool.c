@@ -30,6 +30,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "fstab-util.h"
 #include "mount-util.h"
 #include "pager.h"
@@ -333,19 +334,15 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
 
                 } else if (arg_transport == BUS_TRANSPORT_LOCAL) {
-                        _cleanup_free_ char *u = NULL, *p = NULL;
+                        _cleanup_free_ char *u = NULL;
 
                         u = fstab_node_to_udev_node(argv[optind]);
                         if (!u)
                                 return log_oom();
 
-                        r = path_make_absolute_cwd(u, &p);
+                        r = chase_symlinks(u, NULL, 0, &arg_mount_what);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to make path %s absolute: %m", u);
-
-                        arg_mount_what = canonicalize_file_name(p);
-                        if (!arg_mount_what)
-                                return log_error_errno(errno, "Failed to canonicalize path %s: %m", p);
                 } else {
                         arg_mount_what = strdup(argv[optind]);
                         if (!arg_mount_what)
@@ -361,16 +358,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 if (argc > optind+1) {
                         if (arg_transport == BUS_TRANSPORT_LOCAL) {
-                                _cleanup_free_ char *p = NULL;
-
-                                r = path_make_absolute_cwd(argv[optind+1], &p);
+                                r = chase_symlinks(argv[optind+1], NULL, CHASE_NONEXISTENT, &arg_mount_where);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to make path %s absolute: %m", argv[optind+1]);
-
-                                arg_mount_where = canonicalize_file_name(p);
-                                if (!arg_mount_where)
-                                        return log_error_errno(errno, "Failed to canonicalize path %s: %m", p);
-
                         } else {
                                 arg_mount_where = strdup(argv[optind+1]);
                                 if (!arg_mount_where)
@@ -829,7 +819,7 @@ static int stop_mount(
 
         r = unit_name_from_path(where, suffix, &mount_unit);
         if (r < 0)
-                return log_error_errno(r, "Failed to make mount unit name from path %s: %m", where);
+                return log_error_errno(r, "Failed to make %s unit name from path %s: %m", suffix + 1, where);
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -853,8 +843,12 @@ static int stop_mount(
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0)
-                return log_error_errno(r, "Failed to stop mount unit: %s", bus_error_message(&error, r));
+        if (r < 0) {
+                if (streq(suffix, ".automount") &&
+                    sd_bus_error_has_name(&error, "org.freedesktop.systemd1.NoSuchUnit"))
+                        return 0;
+                return log_error_errno(r, "Failed to stop %s unit: %s", suffix + 1, bus_error_message(&error, r));
+        }
 
         if (w) {
                 const char *object;
@@ -991,23 +985,16 @@ static int action_umount(
         }
 
         for (i = optind; i < argc; i++) {
-                _cleanup_free_ char *u = NULL, *a = NULL, *p = NULL;
+                _cleanup_free_ char *u = NULL, *p = NULL;
                 struct stat st;
 
                 u = fstab_node_to_udev_node(argv[i]);
                 if (!u)
                         return log_oom();
 
-                r = path_make_absolute_cwd(u, &a);
+                r = chase_symlinks(u, NULL, 0, &p);
                 if (r < 0) {
                         r2 = log_error_errno(r, "Failed to make path %s absolute: %m", argv[i]);
-                        continue;
-                }
-
-                p = canonicalize_file_name(a);
-
-                if (!p) {
-                        r2 = log_error_errno(errno, "Failed to canonicalize path %s: %m", argv[i]);
                         continue;
                 }
 

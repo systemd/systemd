@@ -168,6 +168,26 @@ static void test_chase_symlinks(void) {
         assert_se(r > 0 && path_equal(result, "/etc"));
         result = mfree(result);
 
+        r = chase_symlinks("/../.././//../../etc", NULL, 0, &result);
+        assert_se(r > 0);
+        assert_se(streq(result, "/etc"));
+        result = mfree(result);
+
+        r = chase_symlinks("/../.././//../../test-chase.fsldajfl", NULL, CHASE_NONEXISTENT, &result);
+        assert_se(r == 0);
+        assert_se(streq(result, "/test-chase.fsldajfl"));
+        result = mfree(result);
+
+        r = chase_symlinks("/../.././//../../etc", "/", CHASE_PREFIX_ROOT, &result);
+        assert_se(r > 0);
+        assert_se(streq(result, "/etc"));
+        result = mfree(result);
+
+        r = chase_symlinks("/../.././//../../test-chase.fsldajfl", "/", CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &result);
+        assert_se(r == 0);
+        assert_se(streq(result, "/test-chase.fsldajfl"));
+        result = mfree(result);
+
         r = chase_symlinks("/etc/machine-id/foo", NULL, 0, &result);
         assert_se(r == -ENOTDIR);
         result = mfree(result);
@@ -242,6 +262,7 @@ static void test_readlink_and_make_absolute(void) {
         char name2[] = "test-readlink_and_make_absolute/original";
         char name_alias[] = "/tmp/test-readlink_and_make_absolute-alias";
         char *r = NULL;
+        _cleanup_free_ char *pwd = NULL;
 
         assert_se(mkdir_safe(tempdir, 0755, getuid(), getgid(), false) >= 0);
         assert_se(touch(name) >= 0);
@@ -252,12 +273,16 @@ static void test_readlink_and_make_absolute(void) {
         free(r);
         assert_se(unlink(name_alias) >= 0);
 
+        assert_se(pwd = get_current_dir_name());
+
         assert_se(chdir(tempdir) >= 0);
         assert_se(symlink(name2, name_alias) >= 0);
         assert_se(readlink_and_make_absolute(name_alias, &r) >= 0);
         assert_se(streq(r, name));
         free(r);
         assert_se(unlink(name_alias) >= 0);
+
+        assert_se(chdir(pwd) >= 0);
 
         assert_se(rm_rf(tempdir, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }

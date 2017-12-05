@@ -621,10 +621,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
          * Suggested usage: whenever you want to canonicalize a path, use this function. Pass the absolute path you got
          * as-is: fully qualified and relative to your host's root. Optionally, specify the root parameter to tell this
          * function what to do when encountering a symlink with an absolute path as directory: prefix it by the
-         * specified path.
-         *
-         * Note: there's also chase_symlinks_prefix() (see below), which as first step prefixes the passed path by the
-         * passed root. */
+         * specified path. */
 
         if (original_root) {
                 r = path_make_absolute_cwd(original_root, &root);
@@ -722,6 +719,10 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                                  * what we got so far. But don't allow this if the remaining path contains "../ or "./"
                                  * or something else weird. */
 
+                                /* If done is "/", as first also contains slash at the head, then remove this redundant slash. */
+                                if (streq_ptr(done, "/"))
+                                        *done = '\0';
+
                                 if (!strextend(&done, first, todo, NULL))
                                         return -ENOMEM;
 
@@ -794,6 +795,10 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                         done = first;
                         first = NULL;
                 } else {
+                        /* If done is "/", as first also contains slash at the head, then remove this redundant slash. */
+                        if (streq(done, "/"))
+                                *done = '\0';
+
                         if (!strextend(&done, first, NULL))
                                 return -ENOMEM;
                 }
