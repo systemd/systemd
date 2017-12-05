@@ -627,7 +627,7 @@ int dhcp4_set_promote_secondaries(Link *link) {
          * interface. If it is not globally enabled or enabled for the
          * specific interface we must either enable it.
          */
-        if (!(promote_secondaries_enabled("all") || promote_secondaries_enabled("default") || promote_secondaries_enabled(link->ifname))) {
+        if (!(promote_secondaries_enabled("all") || promote_secondaries_enabled(link->ifname))) {
                 char *promote_secondaries_path = NULL;
 
                 log_link_debug(link, "promote_secondaries is unset, setting it");
