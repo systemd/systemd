@@ -2146,6 +2146,7 @@ fail:
         return r;
 }
 
+#if ENABLE_SMACK
 static int setup_smack(
                 const ExecContext *context,
                 const ExecCommand *command) {
@@ -2176,6 +2177,7 @@ static int setup_smack(
 
         return 0;
 }
+#endif
 
 static int compile_bind_mounts(
                 const ExecContext *context,
