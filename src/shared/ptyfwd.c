@@ -573,3 +573,26 @@ bool pty_forward_drain(PTYForward *f) {
         f->drain = true;
         return drained(f);
 }
+
+int pty_forward_set_priority(PTYForward *f, int64_t priority) {
+        int r;
+        assert(f);
+
+        r = sd_event_source_set_priority(f->stdin_event_source, priority);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(f->stdout_event_source, priority);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(f->master_event_source, priority);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(f->sigwinch_event_source, priority);
+        if (r < 0)
+                return r;
+
+        return 0;
+}

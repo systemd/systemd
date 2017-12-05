@@ -1085,6 +1085,9 @@ static int start_transient_service(
                                 return log_error_errno(r, "Failed to create PTY forwarder: %m");
 
                         pty_forward_set_handler(c.forward, pty_forward_handler, &c);
+
+                        /* Make sure to process any TTY events before we process bus events */
+                        (void) pty_forward_set_priority(c.forward, SD_EVENT_PRIORITY_IMPORTANT);
                 }
 
                 path = unit_dbus_path_from_name(service);
@@ -1100,7 +1103,7 @@ static int start_transient_service(
                 if (r < 0)
                         return log_error_errno(r, "Failed to add properties changed signal.");
 
-                r = sd_bus_attach_event(bus, c.event, 0);
+                r = sd_bus_attach_event(bus, c.event, SD_EVENT_PRIORITY_NORMAL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to attach bus to event loop.");
 
