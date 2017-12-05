@@ -635,9 +635,9 @@ substs.set('TTY_GID', tty_gid)
 
 # Ensure provided GID argument is numeric, otherwise fallback to default assignment
 if get_option('users-gid') != ''
-    users_gid = get_option('users-gid').to_int()
+        users_gid = get_option('users-gid').to_int()
 else
-    users_gid = '-'
+        users_gid = '-'
 endif
 substs.set('USERS_GID', users_gid)
 
