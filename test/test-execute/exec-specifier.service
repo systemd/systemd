@@ -1,3 +1,6 @@
+[Unit]
+Description=Test for specifiers
+
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/test %n = exec-specifier.service

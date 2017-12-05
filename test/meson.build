@@ -45,7 +45,7 @@ test_data_files = '''
         sockets.target
         son.service
         sysinit.target
-        test-execute/exec-bind-paths.service
+        test-execute/exec-bindpaths.service
         test-execute/exec-capabilityambientset-merge-nfsnobody.service
         test-execute/exec-capabilityambientset-merge.service
         test-execute/exec-capabilityambientset-nfsnobody.service
@@ -56,7 +56,7 @@ test_data_files = '''
         test-execute/exec-capabilityboundingset-simple.service
         test-execute/exec-dynamicuser-fixeduser-one-supplementarygroup.service
         test-execute/exec-dynamicuser-fixeduser.service
-        test-execute/exec-dynamicuser-state-dir.service
+        test-execute/exec-dynamicuser-statedir.service
         test-execute/exec-dynamicuser-supplementarygroups.service
         test-execute/exec-environment-empty.service
         test-execute/exec-environment-multiple.service
@@ -96,24 +96,24 @@ test_data_files = '''
         test-execute/exec-protectkernelmodules-no-capabilities.service
         test-execute/exec-protectkernelmodules-yes-capabilities.service
         test-execute/exec-protectkernelmodules-yes-mount-propagation.service
-        test-execute/exec-read-only-path-succeed.service
         test-execute/exec-readonlypaths-mount-propagation.service
+        test-execute/exec-readonlypaths-simple.service
         test-execute/exec-readonlypaths-with-bindpaths.service
         test-execute/exec-readonlypaths.service
         test-execute/exec-readwritepaths-mount-propagation.service
-        test-execute/exec-restrict-namespaces-mnt-blacklist.service
-        test-execute/exec-restrict-namespaces-mnt.service
-        test-execute/exec-restrict-namespaces-no.service
-        test-execute/exec-restrict-namespaces-yes.service
+        test-execute/exec-restrictnamespaces-mnt-blacklist.service
+        test-execute/exec-restrictnamespaces-mnt.service
+        test-execute/exec-restrictnamespaces-no.service
+        test-execute/exec-restrictnamespaces-yes.service
         test-execute/exec-runtimedirectory-mode.service
         test-execute/exec-runtimedirectory-owner-nfsnobody.service
         test-execute/exec-runtimedirectory-owner.service
         test-execute/exec-runtimedirectory.service
-        test-execute/exec-spec-interpolation.service
+        test-execute/exec-specifier-interpolation.service
         test-execute/exec-specifier.service
         test-execute/exec-specifier@.service
-        test-execute/exec-stdin-data.service
-        test-execute/exec-stdio-file.service
+        test-execute/exec-standardinput-data.service
+        test-execute/exec-standardinput-file.service
         test-execute/exec-supplementarygroups-multiple-groups-default-group-user.service
         test-execute/exec-supplementarygroups-multiple-groups-withgid.service
         test-execute/exec-supplementarygroups-multiple-groups-withuid.service
@@ -132,7 +132,7 @@ test_data_files = '''
         test-execute/exec-systemcallfilter-with-errno-number.service
         test-execute/exec-umask-0177.service
         test-execute/exec-umask-default.service
-        test-execute/exec-unset-environment.service
+        test-execute/exec-unsetenvironment.service
         test-execute/exec-user-nfsnobody.service
         test-execute/exec-user.service
         test-execute/exec-workingdirectory.service
