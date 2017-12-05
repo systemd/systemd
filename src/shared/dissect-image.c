@@ -976,8 +976,8 @@ int dissected_image_decrypt(
                 DissectImageFlags flags,
                 DecryptedImage **ret) {
 
-        _cleanup_(decrypted_image_unrefp) DecryptedImage *d = NULL;
 #if HAVE_LIBCRYPTSETUP
+        _cleanup_(decrypted_image_unrefp) DecryptedImage *d = NULL;
         unsigned i;
         int r;
 #endif
