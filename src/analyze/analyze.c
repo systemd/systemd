@@ -491,10 +491,39 @@ static int pretty_boot_time(sd_bus *bus, char **_buf) {
         size_t size;
         char *ptr;
         int r;
+        usec_t activated_time = USEC_INFINITY;
+        _cleanup_free_ char* path = NULL, *unit_id = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
         r = acquire_boot_times(bus, &t);
         if (r < 0)
                 return r;
+
+        path = unit_dbus_path_from_name(SPECIAL_DEFAULT_TARGET);
+        if (!path)
+                return log_oom();
+
+        r = sd_bus_get_property_string(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.systemd1.Unit",
+                        "Id",
+                        &error,
+                        &unit_id);
+        if (r < 0) {
+                log_error_errno(r, "default.target doesn't seem to exist: %s", bus_error_message(&error, r));
+                unit_id = NULL;
+        }
+
+        r = bus_get_uint64_property(bus, path,
+                        "org.freedesktop.systemd1.Unit",
+                        "ActiveEnterTimestampMonotonic",
+                        &activated_time);
+        if (r < 0) {
+                log_info_errno(r, "default.target seems not to be started. Continuing...");
+                activated_time = USEC_INFINITY;
+        }
 
         ptr = buf;
         size = sizeof(buf);
@@ -511,6 +540,9 @@ static int pretty_boot_time(sd_bus *bus, char **_buf) {
 
         size = strpcpyf(&ptr, size, "%s (userspace) ", format_timespan(ts, sizeof(ts), t->finish_time - t->userspace_time, USEC_PER_MSEC));
         strpcpyf(&ptr, size, "= %s", format_timespan(ts, sizeof(ts), t->firmware_time + t->finish_time, USEC_PER_MSEC));
+
+        if (unit_id && activated_time != USEC_INFINITY)
+                size = strpcpyf(&ptr, size, "\n%s reached after %s in userspace", unit_id, format_timespan(ts, sizeof(ts), activated_time - t->userspace_time, USEC_PER_MSEC));
 
         ptr = strdup(buf);
         if (!ptr)
