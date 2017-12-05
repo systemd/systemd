@@ -29,6 +29,7 @@
 #include "loop-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
 
 static enum {
@@ -303,7 +304,7 @@ int main(int argc, char *argv[]) {
                 if (r < 0)
                         goto finish;
 
-                r = dissected_image_mount(m, arg_path, arg_flags);
+                r = dissected_image_mount(m, arg_path, UID_INVALID, arg_flags);
                 if (r < 0) {
                         log_error_errno(r, "Failed to mount image: %m");
                         goto finish;

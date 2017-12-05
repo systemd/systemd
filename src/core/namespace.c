@@ -1155,7 +1155,7 @@ int setup_namespace(
 
         if (root_image) {
                 /* A root image is specified, mount it to the right place */
-                r = dissected_image_mount(dissected_image, root, dissect_image_flags);
+                r = dissected_image_mount(dissected_image, root, UID_INVALID, dissect_image_flags);
                 if (r < 0)
                         goto finish;
 

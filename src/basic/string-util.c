@@ -734,16 +734,20 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz) {
         return obuf;
 }
 
-char *strextend(char **x, ...) {
-        va_list ap;
-        size_t f, l;
+char *strextend_with_separator(char **x, const char *separator, ...) {
+        bool need_separator;
+        size_t f, l, l_separator;
         char *r, *p;
+        va_list ap;
 
         assert(x);
 
         l = f = strlen_ptr(*x);
 
-        va_start(ap, x);
+        need_separator = !isempty(*x);
+        l_separator = strlen_ptr(separator);
+
+        va_start(ap, separator);
         for (;;) {
                 const char *t;
                 size_t n;
@@ -753,14 +757,21 @@ char *strextend(char **x, ...) {
                         break;
 
                 n = strlen(t);
+
+                if (need_separator)
+                        n += l_separator;
+
                 if (n > ((size_t) -1) - l) {
                         va_end(ap);
                         return NULL;
                 }
 
                 l += n;
+                need_separator = true;
         }
         va_end(ap);
+
+        need_separator = !isempty(*x);
 
         r = realloc(*x, l+1);
         if (!r)
@@ -768,7 +779,7 @@ char *strextend(char **x, ...) {
 
         p = r + f;
 
-        va_start(ap, x);
+        va_start(ap, separator);
         for (;;) {
                 const char *t;
 
@@ -776,9 +787,16 @@ char *strextend(char **x, ...) {
                 if (!t)
                         break;
 
+                if (need_separator && separator)
+                        p = stpcpy(p, separator);
+
                 p = stpcpy(p, t);
+
+                need_separator = true;
         }
         va_end(ap);
+
+        assert(p == r + l);
 
         *p = 0;
         *x = r;

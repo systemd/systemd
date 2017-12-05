@@ -25,6 +25,6 @@
 
 #include "cgroup-util.h"
 
-int chown_cgroup(pid_t pid, uid_t uid_shift);
+int chown_cgroup(pid_t pid, CGroupUnified unified_requested, uid_t uid_shift);
 int sync_cgroup(pid_t pid, CGroupUnified unified_requested, uid_t uid_shift);
 int create_subcgroup(pid_t pid, CGroupUnified unified_requested);
