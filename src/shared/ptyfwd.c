@@ -171,6 +171,30 @@ static bool ignore_vhangup(PTYForward *f) {
         return false;
 }
 
+static bool drained(PTYForward *f) {
+        int q = 0;
+
+        assert(f);
+
+        if (f->out_buffer_full > 0)
+                return false;
+
+        if (f->master_readable)
+                return false;
+
+        if (ioctl(f->master, TIOCINQ, &q) < 0)
+                log_debug_errno(errno, "TIOCINQ failed on master: %m");
+        else if (q > 0)
+                return false;
+
+        if (ioctl(f->master, TIOCOUTQ, &q) < 0)
+                log_debug_errno(errno, "TIOCOUTQ failed on master: %m");
+        else if (q > 0)
+                return false;
+
+        return true;
+}
+
 static int shovel(PTYForward *f) {
         ssize_t k;
 
@@ -306,7 +330,7 @@ static int shovel(PTYForward *f) {
 
         /* If we were asked to drain, and there's nothing more to handle from the master, then call the callback
          * too. */
-        if (f->drain && f->out_buffer_full == 0 && !f->master_readable)
+        if (f->drain && drained(f))
                 return pty_forward_done(f, 0);
 
         return 0;
@@ -547,6 +571,5 @@ bool pty_forward_drain(PTYForward *f) {
          */
 
         f->drain = true;
-
-        return f->out_buffer_full == 0 && !f->master_readable;
+        return drained(f);
 }
