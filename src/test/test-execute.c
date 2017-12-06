@@ -24,6 +24,7 @@
 #include <sys/prctl.h>
 #include <sys/types.h>
 
+#include "cpu-set-util.h"
 #include "errno-list.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -110,6 +111,30 @@ static void test_exec_bindpaths(Manager *m) {
 
         (void) rm_rf("/tmp/test-exec-bindpaths", REMOVE_ROOT|REMOVE_PHYSICAL);
         (void) rm_rf("/tmp/test-exec-bindreadonlypaths", REMOVE_ROOT|REMOVE_PHYSICAL);
+}
+
+static void test_exec_cpuaffinity(Manager *m) {
+        _cleanup_cpu_free_ cpu_set_t *c = NULL;
+        unsigned n;
+
+        assert_se(c = cpu_set_malloc(&n));
+        assert_se(sched_getaffinity(0, CPU_ALLOC_SIZE(n), c) >= 0);
+
+        if (CPU_ISSET_S(0, CPU_ALLOC_SIZE(n), c) == 0) {
+                log_notice("Cannot use CPU 0, skipping %s", __func__);
+                return;
+        }
+
+        test(m, "exec-cpuaffinity1.service", 0, CLD_EXITED);
+        test(m, "exec-cpuaffinity2.service", 0, CLD_EXITED);
+
+        if (CPU_ISSET_S(1, CPU_ALLOC_SIZE(n), c) == 0 ||
+            CPU_ISSET_S(2, CPU_ALLOC_SIZE(n), c) == 0) {
+                log_notice("Cannot use CPU 1 or 2, skipping remaining tests in %s", __func__);
+                return;
+        }
+
+        test(m, "exec-cpuaffinity3.service", 0, CLD_EXITED);
 }
 
 static void test_exec_workingdirectory(Manager *m) {
@@ -521,6 +546,7 @@ int main(int argc, char *argv[]) {
                 test_exec_bindpaths,
                 test_exec_capabilityambientset,
                 test_exec_capabilityboundingset,
+                test_exec_cpuaffinity,
                 test_exec_environment,
                 test_exec_environmentfile,
                 test_exec_group,
