@@ -25,6 +25,7 @@
 #include "log.h"
 #include "slice.h"
 #include "special.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
@@ -81,6 +82,8 @@ static int slice_add_parent_slice(Slice *s) {
         r = manager_load_unit(UNIT(s)->manager, a, NULL, NULL, &parent);
         if (r < 0)
                 return r;
+
+        SLICE(parent)->loaded_by_other_units = true;
 
         unit_ref_set(&UNIT(s)->slice, parent);
         return 0;
@@ -153,6 +156,21 @@ static int slice_load_root_slice(Unit *u) {
         return 1;
 }
 
+static int slice_has_cgroup_tree(Unit *u) {
+        _cleanup_free_ char *p = NULL, *path = NULL;
+        int r;
+
+        r = cg_slice_to_path(u->id, &p);
+        if (r < 0)
+                return r;
+
+        r = cg_mangle_path(strjoina(u->manager->cgroup_root, "/", p), &path);
+        if (r < 0)
+                return r;
+
+        return is_dir(path, false);
+}
+
 static int slice_load(Unit *u) {
         Slice *s = SLICE(u);
         int r;
@@ -163,7 +181,13 @@ static int slice_load(Unit *u) {
         r = slice_load_root_slice(u);
         if (r < 0)
                 return r;
-        r = unit_load_fragment_and_dropin_optional(u);
+
+        if (u->perpetual ||
+            s->loaded_by_other_units ||
+            slice_has_cgroup_tree(u) > 0)
+                r = unit_load_fragment_and_dropin_optional(u);
+        else
+                r = unit_load_fragment_and_dropin(u);
         if (r < 0)
                 return r;
 

@@ -25,6 +25,8 @@ typedef struct Slice Slice;
 struct Slice {
         Unit meta;
 
+        bool loaded_by_other_units;
+
         SliceState state, deserialized_state;
 
         CGroupContext cgroup_context;
