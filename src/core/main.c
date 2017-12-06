@@ -1589,6 +1589,130 @@ static void initialize_coredump(bool skip_setup) {
                 (void) write_string_file("/proc/sys/kernel/core_pattern", "|/bin/false", 0);
 }
 
+static void do_reexecute(
+                int argc,
+                char *argv[],
+                const struct rlimit *saved_rlimit_nofile,
+                const struct rlimit *saved_rlimit_memlock,
+                FDSet *fds,
+                const char *switch_root_dir,
+                const char *switch_root_init,
+                const char **ret_error_message) {
+
+        unsigned i, j, args_size;
+        const char **args;
+        int r;
+
+        assert(saved_rlimit_nofile);
+        assert(saved_rlimit_memlock);
+        assert(ret_error_message);
+
+        /* Close and disarm the watchdog, so that the new instance can reinitialize it, but doesn't get rebooted while
+         * we do that */
+        watchdog_close(true);
+
+        /* Reset the RLIMIT_NOFILE to the kernel default, so that the new systemd can pass the kernel default to its
+         * child processes */
+
+        if (saved_rlimit_nofile->rlim_cur > 0)
+                (void) setrlimit(RLIMIT_NOFILE, saved_rlimit_nofile);
+        if (saved_rlimit_memlock->rlim_cur != (rlim_t) -1)
+                (void) setrlimit(RLIMIT_MEMLOCK, saved_rlimit_memlock);
+
+        if (switch_root_dir) {
+                /* Kill all remaining processes from the initrd, but don't wait for them, so that we can handle the
+                 * SIGCHLD for them after deserializing. */
+                broadcast_signal(SIGTERM, false, true);
+
+                /* And switch root with MS_MOVE, because we remove the old directory afterwards and detach it. */
+                r = switch_root(switch_root_dir, "/mnt", true, MS_MOVE);
+                if (r < 0)
+                        log_error_errno(r, "Failed to switch root, trying to continue: %m");
+        }
+
+        args_size = MAX(6, argc+1);
+        args = newa(const char*, args_size);
+
+        if (!switch_root_init) {
+                char sfd[DECIMAL_STR_MAX(int) + 1];
+
+                /* First try to spawn ourselves with the right path, and with full serialization. We do this only if
+                 * the user didn't specify an explicit init to spawn. */
+
+                assert(arg_serialization);
+                assert(fds);
+
+                xsprintf(sfd, "%i", fileno(arg_serialization));
+
+                i = 0;
+                args[i++] = SYSTEMD_BINARY_PATH;
+                if (switch_root_dir)
+                        args[i++] = "--switched-root";
+                args[i++] = arg_system ? "--system" : "--user";
+                args[i++] = "--deserialize";
+                args[i++] = sfd;
+                args[i++] = NULL;
+
+                assert(i <= args_size);
+
+                /*
+                 * We want valgrind to print its memory usage summary before reexecution.  Valgrind won't do this is on
+                 * its own on exec(), but it will do it on exit().  Hence, to ensure we get a summary here, fork() off
+                 * a child, let it exit() cleanly, so that it prints the summary, and wait() for it in the parent,
+                 * before proceeding into the exec().
+                 */
+                valgrind_summary_hack();
+
+                (void) execv(args[0], (char* const*) args);
+                log_debug_errno(errno, "Failed to execute our own binary, trying fallback: %m");
+        }
+
+        /* Try the fallback, if there is any, without any serialization. We pass the original argv[] and envp[]. (Well,
+         * modulo the ordering changes due to getopt() in argv[], and some cleanups in envp[], but let's hope that
+         * doesn't matter.) */
+
+        arg_serialization = safe_fclose(arg_serialization);
+        fds = fdset_free(fds);
+
+        /* Reopen the console */
+        (void) make_console_stdio();
+
+        for (j = 1, i = 1; j < (unsigned) argc; j++)
+                args[i++] = argv[j];
+        args[i++] = NULL;
+        assert(i <= args_size);
+
+        /* Reenable any blocked signals, especially important if we switch from initial ramdisk to init=... */
+        (void) reset_all_signal_handlers();
+        (void) reset_signal_mask();
+
+        if (switch_root_init) {
+                args[0] = switch_root_init;
+                (void) execv(args[0], (char* const*) args);
+                log_warning_errno(errno, "Failed to execute configured init, trying fallback: %m");
+        }
+
+        args[0] = "/sbin/init";
+        (void) execv(args[0], (char* const*) args);
+        r = -errno;
+
+        manager_status_printf(NULL, STATUS_TYPE_EMERGENCY,
+                              ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL,
+                              "Failed to execute /sbin/init");
+
+        if (r == -ENOENT) {
+                log_warning("No /sbin/init, trying fallback");
+
+                args[0] = "/bin/sh";
+                args[1] = NULL;
+                (void) execv(args[0], (char* const*) args);
+                log_error_errno(errno, "Failed to execute /bin/sh, giving up: %m");
+        } else
+                log_warning_errno(r, "Failed to execute /sbin/init, giving up: %m");
+
+        *ret_error_message = "Failed to execute fallback shell";
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
@@ -2199,121 +2323,14 @@ finish:
 
         mac_selinux_finish();
 
-        if (reexecute) {
-                const char **args;
-                unsigned i, args_size;
-
-                /* Close and disarm the watchdog, so that the new
-                 * instance can reinitialize it, but doesn't get
-                 * rebooted while we do that */
-                watchdog_close(true);
-
-                /* Reset the RLIMIT_NOFILE to the kernel default, so
-                 * that the new systemd can pass the kernel default to
-                 * its child processes */
-                if (saved_rlimit_nofile.rlim_cur > 0)
-                        (void) setrlimit(RLIMIT_NOFILE, &saved_rlimit_nofile);
-                if (saved_rlimit_memlock.rlim_cur != (rlim_t) -1)
-                        (void) setrlimit(RLIMIT_MEMLOCK, &saved_rlimit_memlock);
-
-                if (switch_root_dir) {
-                        /* Kill all remaining processes from the
-                         * initrd, but don't wait for them, so that we
-                         * can handle the SIGCHLD for them after
-                         * deserializing. */
-                        broadcast_signal(SIGTERM, false, true);
-
-                        /* And switch root with MS_MOVE, because we remove the old directory afterwards and detach it. */
-                        r = switch_root(switch_root_dir, "/mnt", true, MS_MOVE);
-                        if (r < 0)
-                                log_error_errno(r, "Failed to switch root, trying to continue: %m");
-                }
-
-                args_size = MAX(6, argc+1);
-                args = newa(const char*, args_size);
-
-                if (!switch_root_init) {
-                        char sfd[DECIMAL_STR_MAX(int) + 1];
-
-                        /* First try to spawn ourselves with the right
-                         * path, and with full serialization. We do
-                         * this only if the user didn't specify an
-                         * explicit init to spawn. */
-
-                        assert(arg_serialization);
-                        assert(fds);
-
-                        xsprintf(sfd, "%i", fileno(arg_serialization));
-
-                        i = 0;
-                        args[i++] = SYSTEMD_BINARY_PATH;
-                        if (switch_root_dir)
-                                args[i++] = "--switched-root";
-                        args[i++] = arg_system ? "--system" : "--user";
-                        args[i++] = "--deserialize";
-                        args[i++] = sfd;
-                        args[i++] = NULL;
-
-                        assert(i <= args_size);
-
-                        /*
-                         * We want valgrind to print its memory usage summary before reexecution.
-                         * Valgrind won't do this is on its own on exec(), but it will do it on exit().
-                         * Hence, to ensure we get a summary here, fork() off a child, let it exit() cleanly,
-                         * so that it prints the summary, and wait() for it in the parent, before proceeding into the exec().
-                         */
-                        valgrind_summary_hack();
-
-                        (void) execv(args[0], (char* const*) args);
-                }
-
-                /* Try the fallback, if there is any, without any
-                 * serialization. We pass the original argv[] and
-                 * envp[]. (Well, modulo the ordering changes due to
-                 * getopt() in argv[], and some cleanups in envp[],
-                 * but let's hope that doesn't matter.) */
-
-                arg_serialization = safe_fclose(arg_serialization);
-                fds = fdset_free(fds);
-
-                /* Reopen the console */
-                (void) make_console_stdio();
-
-                for (j = 1, i = 1; j < (unsigned) argc; j++)
-                        args[i++] = argv[j];
-                args[i++] = NULL;
-                assert(i <= args_size);
-
-                /* Reenable any blocked signals, especially important
-                 * if we switch from initial ramdisk to init=... */
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-
-                if (switch_root_init) {
-                        args[0] = switch_root_init;
-                        (void) execv(args[0], (char* const*) args);
-                        log_warning_errno(errno, "Failed to execute configured init, trying fallback: %m");
-                }
-
-                args[0] = "/sbin/init";
-                (void) execv(args[0], (char* const*) args);
-
-                manager_status_printf(NULL, STATUS_TYPE_EMERGENCY,
-                        ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL,
-                        "Failed to execute /sbin/init");
-
-                if (errno == ENOENT) {
-                        log_warning("No /sbin/init, trying fallback");
-
-                        args[0] = "/bin/sh";
-                        args[1] = NULL;
-                        (void) execv(args[0], (char* const*) args);
-                        log_error_errno(errno, "Failed to execute /bin/sh, giving up: %m");
-                } else
-                        log_warning_errno(errno, "Failed to execute /sbin/init, giving up: %m");
-
-                error_message = "Failed to execute fallback shell";
-        }
+        if (reexecute)
+                do_reexecute(argc, argv,
+                             &saved_rlimit_nofile,
+                             &saved_rlimit_memlock,
+                             fds,
+                             switch_root_dir,
+                             switch_root_init,
+                             &error_message); /* This only returns if reexecution failed */
 
         arg_serialization = safe_fclose(arg_serialization);
         fds = fdset_free(fds);
