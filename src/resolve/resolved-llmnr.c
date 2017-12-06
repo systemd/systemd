@@ -101,9 +101,12 @@ static int on_llmnr_packet(sd_event_source *s, int fd, uint32_t revents, void *u
                 return r;
 
         scope = manager_find_scope(m, p);
-        if (!scope)
-                log_warning("Got LLMNR UDP packet on unknown scope. Ignoring.");
-        else if (dns_packet_validate_reply(p) > 0) {
+        if (!scope) {
+                log_debug("Got LLMNR UDP packet on unknown scope. Ignoring.");
+                return 0;
+        }
+
+        if (dns_packet_validate_reply(p) > 0) {
                 log_debug("Got LLMNR UDP reply packet for id %u", DNS_PACKET_ID(p));
 
                 dns_scope_check_conflicts(scope, p);
@@ -327,7 +330,7 @@ static int on_llmnr_stream_packet(DnsStream *s) {
 
         scope = manager_find_scope(s->manager, s->read_packet);
         if (!scope)
-                log_warning("Got LLMNR TCP packet on unknown scope. Ignoring.");
+                log_debug("Got LLMNR TCP packet on unknown scope. Ignoring.");
         else if (dns_packet_validate_query(s->read_packet) > 0) {
                 log_debug("Got LLMNR TCP query packet for id %u", DNS_PACKET_ID(s->read_packet));
 
