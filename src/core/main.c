@@ -1845,6 +1845,66 @@ static int invoke_main_loop(
         }
 }
 
+static int do_queue_default_job(
+                Manager *m,
+                const char **ret_error_message) {
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        Job *default_unit_job;
+        Unit *target = NULL;
+        int r;
+
+        log_debug("Activating default unit: %s", arg_default_unit);
+
+        r = manager_load_unit(m, arg_default_unit, NULL, &error, &target);
+        if (r < 0)
+                log_error("Failed to load default target: %s", bus_error_message(&error, r));
+        else if (IN_SET(target->load_state, UNIT_ERROR, UNIT_NOT_FOUND))
+                log_error_errno(target->load_error, "Failed to load default target: %m");
+        else if (target->load_state == UNIT_MASKED)
+                log_error("Default target masked.");
+
+        if (!target || target->load_state != UNIT_LOADED) {
+                log_info("Trying to load rescue target...");
+
+                r = manager_load_unit(m, SPECIAL_RESCUE_TARGET, NULL, &error, &target);
+                if (r < 0) {
+                        *ret_error_message = "Failed to load rescue target";
+                        return log_emergency_errno(r, "Failed to load rescue target: %s", bus_error_message(&error, r));
+                } else if (IN_SET(target->load_state, UNIT_ERROR, UNIT_NOT_FOUND)) {
+                        *ret_error_message = "Failed to load rescue target";
+                        return log_emergency_errno(target->load_error, "Failed to load rescue target: %m");
+                } else if (target->load_state == UNIT_MASKED) {
+                        *ret_error_message = "Rescue target masked";
+                        log_emergency("Rescue target masked.");
+                        return -ERFKILL;
+                }
+        }
+
+        assert(target->load_state == UNIT_LOADED);
+
+        r = manager_add_job(m, JOB_START, target, JOB_ISOLATE, &error, &default_unit_job);
+        if (r == -EPERM) {
+                log_debug_errno(r, "Default target could not be isolated, starting instead: %s", bus_error_message(&error, r));
+
+                sd_bus_error_free(&error);
+
+                r = manager_add_job(m, JOB_START, target, JOB_REPLACE, &error, &default_unit_job);
+                if (r < 0) {
+                        *ret_error_message = "Failed to start default target";
+                        return log_emergency_errno(r, "Failed to start default target: %s", bus_error_message(&error, r));
+                }
+
+        } else if (r < 0) {
+                *ret_error_message = "Failed to isolate default target";
+                return log_emergency_errno(r, "Failed to isolate default target: %s", bus_error_message(&error, r));
+        }
+
+        m->default_unit_job_id = default_unit_job->id;
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
@@ -2271,84 +2331,30 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        /* This will close all file descriptors that were opened, but
-         * not claimed by any unit. */
+        /* This will close all file descriptors that were opened, but not claimed by any unit. */
         fds = fdset_free(fds);
-
         arg_serialization = safe_fclose(arg_serialization);
 
         if (queue_default_job) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                Unit *target = NULL;
-                Job *default_unit_job;
-
-                log_debug("Activating default unit: %s", arg_default_unit);
-
-                r = manager_load_unit(m, arg_default_unit, NULL, &error, &target);
+                r = do_queue_default_job(m, &error_message);
                 if (r < 0)
-                        log_error("Failed to load default target: %s", bus_error_message(&error, r));
-                else if (IN_SET(target->load_state, UNIT_ERROR, UNIT_NOT_FOUND))
-                        log_error_errno(target->load_error, "Failed to load default target: %m");
-                else if (target->load_state == UNIT_MASKED)
-                        log_error("Default target masked.");
-
-                if (!target || target->load_state != UNIT_LOADED) {
-                        log_info("Trying to load rescue target...");
-
-                        r = manager_load_unit(m, SPECIAL_RESCUE_TARGET, NULL, &error, &target);
-                        if (r < 0) {
-                                log_emergency("Failed to load rescue target: %s", bus_error_message(&error, r));
-                                error_message = "Failed to load rescue target";
-                                goto finish;
-                        } else if (IN_SET(target->load_state, UNIT_ERROR, UNIT_NOT_FOUND)) {
-                                log_emergency_errno(target->load_error, "Failed to load rescue target: %m");
-                                error_message = "Failed to load rescue target";
-                                goto finish;
-                        } else if (target->load_state == UNIT_MASKED) {
-                                log_emergency("Rescue target masked.");
-                                error_message = "Rescue target masked";
-                                goto finish;
-                        }
-                }
-
-                assert(target->load_state == UNIT_LOADED);
-
-                if (arg_action == ACTION_TEST) {
-                        printf("-> By units:\n");
-                        manager_dump_units(m, stdout, "\t");
-                }
-
-                r = manager_add_job(m, JOB_START, target, JOB_ISOLATE, &error, &default_unit_job);
-                if (r == -EPERM) {
-                        log_debug("Default target could not be isolated, starting instead: %s", bus_error_message(&error, r));
-
-                        sd_bus_error_free(&error);
-
-                        r = manager_add_job(m, JOB_START, target, JOB_REPLACE, &error, &default_unit_job);
-                        if (r < 0) {
-                                log_emergency("Failed to start default target: %s", bus_error_message(&error, r));
-                                error_message = "Failed to start default target";
-                                goto finish;
-                        }
-                } else if (r < 0) {
-                        log_emergency("Failed to isolate default target: %s", bus_error_message(&error, r));
-                        error_message = "Failed to isolate default target";
                         goto finish;
-                }
+        }
 
-                m->default_unit_job_id = default_unit_job->id;
+        after_startup = now(CLOCK_MONOTONIC);
 
-                after_startup = now(CLOCK_MONOTONIC);
-                log_full(arg_action == ACTION_TEST ? LOG_INFO : LOG_DEBUG,
-                         "Loaded units and determined initial transaction in %s.",
-                         format_timespan(timespan, sizeof(timespan), after_startup - before_startup, 100 * USEC_PER_MSEC));
+        log_full(arg_action == ACTION_TEST ? LOG_INFO : LOG_DEBUG,
+                 "Loaded units and determined initial transaction in %s.",
+                 format_timespan(timespan, sizeof(timespan), after_startup - before_startup, 100 * USEC_PER_MSEC));
 
-                if (arg_action == ACTION_TEST) {
-                        printf("-> By jobs:\n");
-                        manager_dump_jobs(m, stdout, "\t");
-                        retval = EXIT_SUCCESS;
-                        goto finish;
-                }
+        if (arg_action == ACTION_TEST) {
+                printf("-> By units:\n");
+                manager_dump_units(m, stdout, "\t");
+
+                printf("-> By jobs:\n");
+                manager_dump_jobs(m, stdout, "\t");
+                retval = EXIT_SUCCESS;
+                goto finish;
         }
 
         r = invoke_main_loop(m,
