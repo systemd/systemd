@@ -8,16 +8,12 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Create Volatile Files and Directories
+Description=Daily Cleanup of User's Temporary Directories
 Documentation=man:tmpfiles.d(5) man:systemd-tmpfiles(8)
-DefaultDependencies=no
-Conflicts=shutdown.target
-After=local-fs.target systemd-sysusers.service
-Before=sysinit.target shutdown.target
-RefuseManualStop=yes
 
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=@rootbindir@/systemd-tmpfiles --create --remove --boot --exclude-prefix=/dev
-SuccessExitStatus=65
+[Timer]
+OnStartupSec=5min
+OnUnitActiveSec=1d
+
+[Install]
+WantedBy=timers.target

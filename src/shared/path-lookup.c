@@ -39,7 +39,7 @@
 #include "user-util.h"
 #include "util.h"
 
-static int user_runtime_dir(char **ret, const char *suffix) {
+int xdg_user_runtime_dir(char **ret, const char *suffix) {
         const char *e;
         char *j;
 
@@ -58,7 +58,7 @@ static int user_runtime_dir(char **ret, const char *suffix) {
         return 0;
 }
 
-static int user_config_dir(char **ret, const char *suffix) {
+int xdg_user_config_dir(char **ret, const char *suffix) {
         const char *e;
         char *j;
         int r;
@@ -85,7 +85,7 @@ static int user_config_dir(char **ret, const char *suffix) {
         return 0;
 }
 
-static int user_data_dir(char **ret, const char *suffix) {
+int xdg_user_data_dir(char **ret, const char *suffix) {
         const char *e;
         char *j;
         int r;
@@ -131,6 +131,41 @@ static const char* const user_config_unit_paths[] = {
         NULL
 };
 
+int xdg_user_dirs(char ***ret_config_dirs, char ***ret_data_dirs) {
+        /* Implement the mechanisms defined in
+         *
+         * http://standards.freedesktop.org/basedir-spec/basedir-spec-0.6.html
+         *
+         * We look in both the config and the data dirs because we
+         * want to encourage that distributors ship their unit files
+         * as data, and allow overriding as configuration.
+         */
+        const char *e;
+        _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
+
+        e = getenv("XDG_CONFIG_DIRS");
+        if (e) {
+                config_dirs = strv_split(e, ":");
+                if (!config_dirs)
+                        return -ENOMEM;
+        }
+
+        e = getenv("XDG_DATA_DIRS");
+        if (e)
+                data_dirs = strv_split(e, ":");
+        else
+                data_dirs = strv_new("/usr/local/share",
+                                     "/usr/share",
+                                     NULL);
+        if (!data_dirs)
+                return -ENOMEM;
+
+        *ret_config_dirs = config_dirs;
+        *ret_data_dirs = data_dirs;
+        config_dirs = data_dirs = NULL;
+        return 0;
+}
+
 static char** user_dirs(
                 const char *persistent_config,
                 const char *runtime_config,
@@ -144,38 +179,15 @@ static char** user_dirs(
         _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
         _cleanup_free_ char *data_home = NULL;
         _cleanup_strv_free_ char **res = NULL;
-        const char *e;
         char **tmp;
         int r;
 
-        /* Implement the mechanisms defined in
-         *
-         * http://standards.freedesktop.org/basedir-spec/basedir-spec-0.6.html
-         *
-         * We look in both the config and the data dirs because we
-         * want to encourage that distributors ship their unit files
-         * as data, and allow overriding as configuration.
-         */
-
-        e = getenv("XDG_CONFIG_DIRS");
-        if (e) {
-                config_dirs = strv_split(e, ":");
-                if (!config_dirs)
-                        return NULL;
-        }
-
-        r = user_data_dir(&data_home, "/systemd/user");
-        if (r < 0 && r != -ENXIO)
+        r = xdg_user_dirs(&config_dirs, &data_dirs);
+        if (r < 0)
                 return NULL;
 
-        e = getenv("XDG_DATA_DIRS");
-        if (e)
-                data_dirs = strv_split(e, ":");
-        else
-                data_dirs = strv_new("/usr/local/share",
-                                     "/usr/share",
-                                     NULL);
-        if (!data_dirs)
+        r = xdg_user_data_dir(&data_home, "/systemd/user");
+        if (r < 0 && r != -ENXIO)
                 return NULL;
 
         /* Now merge everything we found. */
@@ -311,7 +323,7 @@ static int acquire_transient_dir(
         else if (scope == UNIT_FILE_SYSTEM)
                 transient = strdup("/run/systemd/transient");
         else
-                return user_runtime_dir(ret, "/systemd/transient");
+                return xdg_user_runtime_dir(ret, "/systemd/transient");
 
         if (!transient)
                 return -ENOMEM;
@@ -339,11 +351,11 @@ static int acquire_config_dirs(UnitFileScope scope, char **persistent, char **ru
                 break;
 
         case UNIT_FILE_USER:
-                r = user_config_dir(&a, "/systemd/user");
+                r = xdg_user_config_dir(&a, "/systemd/user");
                 if (r < 0 && r != -ENXIO)
                         return r;
 
-                r = user_runtime_dir(runtime, "/systemd/user");
+                r = xdg_user_runtime_dir(runtime, "/systemd/user");
                 if (r < 0) {
                         if (r != -ENXIO)
                                 return r;
@@ -399,11 +411,11 @@ static int acquire_control_dirs(UnitFileScope scope, char **persistent, char **r
         }
 
         case UNIT_FILE_USER:
-                r = user_config_dir(&a, "/systemd/system.control");
+                r = xdg_user_config_dir(&a, "/systemd/system.control");
                 if (r < 0 && r != -ENXIO)
                         return r;
 
-                r = user_runtime_dir(runtime, "/systemd/system.control");
+                r = xdg_user_runtime_dir(runtime, "/systemd/system.control");
                 if (r < 0) {
                         if (r != -ENXIO)
                                 return r;

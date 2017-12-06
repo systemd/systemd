@@ -62,10 +62,16 @@
       <arg choice="opt" rep="repeat"><replaceable>CONFIGFILE</replaceable></arg>
     </cmdsynopsis>
 
-    <para><filename>systemd-tmpfiles-setup.service</filename></para>
-    <para><filename>systemd-tmpfiles-setup-dev.service</filename></para>
-    <para><filename>systemd-tmpfiles-clean.service</filename></para>
-    <para><filename>systemd-tmpfiles-clean.timer</filename></para>
+    <para>System units:
+<literallayout><filename>systemd-tmpfiles-setup.service</filename>
+<filename>systemd-tmpfiles-setup-dev.service</filename>
+<filename>systemd-tmpfiles-clean.service</filename>
+<filename>systemd-tmpfiles-clean.timer</filename></literallayout></para>
+
+    <para>User units:
+<literallayout><filename>systemd-tmpfiles-setup.service</filename>
+<filename>systemd-tmpfiles-clean.service</filename>
+<filename>systemd-tmpfiles-clean.timer</filename></literallayout></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -115,7 +121,7 @@
         <varname>T</varname>,
         <varname>a</varname>, and
         <varname>A</varname> have their ownership, access mode and
-        security labels set. </para></listitem>
+        security labels set.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -133,11 +139,19 @@
         marked with <varname>r</varname> or <varname>R</varname> are
         removed.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>--user</option></term>
+        <listitem><para>Execute "user" configuration, i.e. <filename>tmpfiles.d</filename>
+        files in user configuration directories.</para></listitem>
+      </varlistentry>
+
       <varlistentry>
         <term><option>--boot</option></term>
         <listitem><para>Also execute lines with an exclamation mark.
         </para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><option>--prefix=<replaceable>path</replaceable></option></term>
         <listitem><para>Only apply rules with paths that start with
@@ -191,8 +205,12 @@
   <refsect1>
     <title>Exit status</title>
 
-    <para>On success, 0 is returned, a non-zero failure code
-    otherwise.</para>
+    <para>On success, 0 is returned. If the configuration was invalid (invalid syntax, missing
+    arguments, …), so some lines had to be ignored, but no other errors occurred,
+    <constant>65</constant> is returned (<constant>EX_DATAERR</constant> from
+    <filename>/usr/include/sysexits.h</filename>). Otherwise, <constant>1</constant> is returned
+    (<constant>EXIT_FAILURE</constant> from <filename>/usr/include/stdlib.h</filename>).
+    </para>
   </refsect1>
 
   <refsect1>

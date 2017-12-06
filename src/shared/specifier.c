@@ -41,6 +41,10 @@
  *
  */
 
+/* Any ASCII character or digit: our pool of potential specifiers,
+ * and "%" used for escaping. */
+#define POSSIBLE_SPECIFIERS ALPHANUMERICAL "%"
+
 int specifier_printf(const char *text, const Specifier table[], void *userdata, char **_ret) {
         char *ret, *t;
         const char *f;
@@ -97,7 +101,10 @@ int specifier_printf(const char *text, const Specifier table[], void *userdata, 
 
                                         ret = n;
                                         t = n + j + k;
-                                } else {
+                                } else if (strchr(POSSIBLE_SPECIFIERS, *f))
+                                        /* Oops, an unknown specifier. */
+                                        return -EBADSLT;
+                                else {
                                         *(t++) = '%';
                                         *(t++) = *f;
                                 }
@@ -200,7 +207,7 @@ int specifier_user_name(char specifier, void *data, void *userdata, char **ret) 
         /* If we are UID 0 (root), this will not result in NSS, otherwise it might. This is good, as we want to be able
          * to run this in PID 1, where our user ID is 0, but where NSS lookups are not allowed.
 
-         * We don't user getusername_malloc() here, because we don't want to look at $USER, to remain consistent with
+         * We don't use getusername_malloc() here, because we don't want to look at $USER, to remain consistent with
          * specifer_user_id() below.
          */
 

@@ -223,8 +223,8 @@ int path_strv_make_absolute_cwd(char **l) {
                 if (r < 0)
                         return r;
 
-                free(*s);
-                *s = t;
+                path_kill_slashes(t);
+                free_and_replace(*s, t);
         }
 
         return 0;

@@ -48,9 +48,17 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/etc/tmpfiles.d/*.conf</filename></para>
-    <para><filename>/run/tmpfiles.d/*.conf</filename></para>
-    <para><filename>/usr/lib/tmpfiles.d/*.conf</filename></para>
+    <para><literallayout><filename>/etc/tmpfiles.d/*.conf</filename>
+<filename>/run/tmpfiles.d/*.conf</filename>
+<filename>/usr/lib/tmpfiles.d/*.conf</filename>
+    </literallayout></para>
+
+    <para><literallayout><filename>~/.config/user-tmpfiles.d/*.conf</filename>
+<filename>$XDG_RUNTIME_DIR/user-tmpfiles.d/*.conf</filename>
+<filename>~/.local/share/user-tmpfiles.d/*.conf</filename>
+<filename>…</filename>
+<filename>/usr/share/user-tmpfiles.d/*.conf</filename>
+    </literallayout></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -482,51 +490,8 @@ r! /tmp/.X[0-9]*-lock</programlisting>
       <title>Path</title>
 
       <para>The file system path specification supports simple
-      specifier expansion. The following expansions are
-      understood:</para>
-
-      <table>
-        <title>Specifiers available</title>
-        <tgroup cols='3' align='left' colsep='1' rowsep='1'>
-          <colspec colname="spec" />
-          <colspec colname="mean" />
-          <colspec colname="detail" />
-          <thead>
-            <row>
-              <entry>Specifier</entry>
-              <entry>Meaning</entry>
-              <entry>Details</entry>
-            </row>
-          </thead>
-          <tbody>
-            <row>
-              <entry><literal>%m</literal></entry>
-              <entry>Machine ID</entry>
-              <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
-            </row>
-            <row>
-              <entry><literal>%b</literal></entry>
-              <entry>Boot ID</entry>
-              <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
-            </row>
-            <row>
-              <entry><literal>%H</literal></entry>
-              <entry>Host name</entry>
-              <entry>The hostname of the running system.</entry>
-            </row>
-            <row>
-              <entry><literal>%v</literal></entry>
-              <entry>Kernel release</entry>
-              <entry>Identical to <command>uname -r</command> output.</entry>
-            </row>
-            <row>
-              <entry><literal>%%</literal></entry>
-              <entry>Escaped %</entry>
-              <entry>Single percent sign.</entry>
-            </row>
-          </tbody>
-        </tgroup>
-      </table>
+      specifier expansion, see below. The path (after expansion) must be
+      absolute.</para>
     </refsect2>
 
     <refsect2>
@@ -628,8 +593,94 @@ r! /tmp/.X[0-9]*-lock</programlisting>
       attributes to be set. For <varname>h</varname> and
       <varname>H</varname>, determines the file attributes to
       set. Ignored for all other lines.</para>
-    </refsect2>
 
+      <para>This field can contain specifiers, see below.</para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Specifiers</title>
+
+    <para>Specifiers can be used in the "path" and "argument" fields.
+    An unknown or unresolvable specifier is treated as invalid configuration.
+    The following expansions are understood:</para>
+      <table>
+        <title>Specifiers available</title>
+        <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+          <colspec colname="spec" />
+          <colspec colname="mean" />
+          <colspec colname="detail" />
+          <thead>
+            <row>
+              <entry>Specifier</entry>
+              <entry>Meaning</entry>
+              <entry>Details</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry><literal>%m</literal></entry>
+              <entry>Machine ID</entry>
+              <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
+            </row>
+            <row>
+              <entry><literal>%b</literal></entry>
+              <entry>Boot ID</entry>
+              <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
+            </row>
+            <row>
+              <entry><literal>%H</literal></entry>
+              <entry>Host name</entry>
+              <entry>The hostname of the running system.</entry>
+            </row>
+            <row>
+              <entry><literal>%v</literal></entry>
+              <entry>Kernel release</entry>
+              <entry>Identical to <command>uname -r</command> output.</entry>
+            </row>
+            <row>
+              <entry><literal>%U</literal></entry>
+              <entry>User UID</entry>
+              <entry>This is the numeric UID of the user running the service manager instance. In case of the system manager this resolves to <constant>0</constant>.</entry>
+            </row>
+            <row>
+              <entry><literal>%u</literal></entry>
+              <entry>User name</entry>
+              <entry>This is the name of the user running the service manager instance. In case of the system manager this resolves to <literal>root</literal>.</entry>
+            </row>
+            <row>
+              <entry><literal>%h</literal></entry>
+              <entry>User home directory</entry>
+              <entry>This is the home directory of the user running the service manager instance. In case of the system manager this resolves to <literal>/root</literal>.</entry>
+            </row>
+            <row>
+              <entry><literal>%t</literal></entry>
+              <entry>System or user runtime directory</entry>
+              <entry>In --user mode, this is the same <varname>$XDG_RUNTIME_DIR</varname>, and <filename>/run</filename> otherwise.</entry>
+            </row>
+            <row>
+              <entry><literal>%S</literal></entry>
+              <entry>System or user state directory</entry>
+              <entry>In <option>--user</option> mode, this is the same as <varname>$XDG_CONFIG_HOME</varname>, and <filename>/var/lib</filename> otherwise.</entry>
+            </row>
+            <row>
+              <entry><literal>%C</literal></entry>
+              <entry>System or user cache directory</entry>
+              <entry>In <option>--user</option> mode, this is the same as <varname>$XDG_CACHE_HOME</varname>, and <filename>/var/cache</filename> otherwise.</entry>
+            </row>
+            <row>
+              <entry><literal>%L</literal></entry>
+              <entry>System or user log directory</entry>
+              <entry>In <option>--user</option> mode, this is the same as <varname>$XDG_CONFIG_HOME</varname> with <filename noindex='true'>/log</filename> appended, and <filename>/var/log</filename> otherwise.</entry>
+            </row>
+            <row>
+              <entry><literal>%%</literal></entry>
+              <entry>Escaped <literal>%</literal></entry>
+              <entry>Single percent sign.</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
   </refsect1>
 
   <refsect1>

@@ -2209,6 +2209,11 @@ if conf.get('ENABLE_TMPFILES') == 1
                          install : true,
                          install_dir : rootbindir)
         public_programs += [exe]
+
+        test('test-systemd-tmpfiles',
+             test_systemd_tmpfiles_py,
+             args : exe.full_path())
+        # https://github.com/mesonbuild/meson/issues/2681
 endif
 
 if conf.get('ENABLE_HWDB') == 1
@@ -2441,6 +2446,7 @@ subdir('units')
 subdir('sysctl.d')
 subdir('sysusers.d')
 subdir('tmpfiles.d')
+subdir('presets')
 subdir('hwdb')
 subdir('network')
 subdir('man')
@@ -2457,8 +2463,6 @@ install_subdir('factory/etc',
 
 install_data('xorg/50-systemd-user.sh',
              install_dir : xinitrcdir)
-install_data('system-preset/90-systemd.preset',
-             install_dir : systempresetdir)
 install_data('modprobe.d/systemd.conf',
              install_dir : modprobedir)
 install_data('README',
