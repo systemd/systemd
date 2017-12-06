@@ -134,7 +134,7 @@ CHANGES WITH 236 in spe:
           types, not just services.
 
         * networkds's IP rule support gained two new options
-          IncomingInterface=and OutgoingInterface= for configuring the incoming
+          IncomingInterface= and OutgoingInterface= for configuring the incoming
           and outgoing interfaces of configured rules. systemd-networkd also
           gained support for "vxcan" network devices.
 
