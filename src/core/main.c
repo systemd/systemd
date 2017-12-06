@@ -1453,8 +1453,7 @@ static void redirect_telinit(int argc, char *argv[]) {
 
 static int become_shutdown(
                 const char *shutdown_verb,
-                int retval,
-                bool arm_reboot_watchdog) {
+                int retval) {
 
         char log_level[DECIMAL_STR_MAX(int) + 1],
                 exit_code[DECIMAL_STR_MAX(uint8_t) + 1];
@@ -1470,6 +1469,7 @@ static int become_shutdown(
         size_t pos = 5;
         int r;
 
+        assert(shutdown_verb);
         assert(command_line[pos] == NULL);
         env_block = strv_copy(environ);
 
@@ -1507,7 +1507,10 @@ static int become_shutdown(
 
         assert(pos < ELEMENTSOF(command_line));
 
-        if (arm_reboot_watchdog && arg_shutdown_watchdog > 0 && arg_shutdown_watchdog != USEC_INFINITY) {
+        if (streq(shutdown_verb, "reboot") &&
+            arg_shutdown_watchdog > 0 &&
+            arg_shutdown_watchdog != USEC_INFINITY) {
+
                 char *e;
 
                 /* If we reboot let's set the shutdown
@@ -1713,6 +1716,135 @@ static void do_reexecute(
         *ret_error_message = "Failed to execute fallback shell";
 }
 
+static int invoke_main_loop(
+                Manager *m,
+                bool *ret_reexecute,
+                int *ret_retval,                   /* Return parameters relevant for shutting down */
+                const char **ret_shutdown_verb,    /* … */
+                FDSet **ret_fds,                   /* Return parameters for reexecuting */
+                char **ret_switch_root_dir,        /* … */
+                char **ret_switch_root_init,       /* … */
+                const char **ret_error_message) {
+
+        int r;
+
+        assert(m);
+        assert(ret_reexecute);
+        assert(ret_retval);
+        assert(ret_shutdown_verb);
+        assert(ret_fds);
+        assert(ret_switch_root_dir);
+        assert(ret_switch_root_init);
+        assert(ret_error_message);
+
+        for (;;) {
+                r = manager_loop(m);
+                if (r < 0) {
+                        *ret_error_message = "Failed to run main loop";
+                        return log_emergency_errno(r, "Failed to run main loop: %m");
+                }
+
+                switch (m->exit_code) {
+
+                case MANAGER_RELOAD:
+                        log_info("Reloading.");
+
+                        r = parse_config_file();
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse config file, ignoring: %m");
+
+                        set_manager_defaults(m);
+
+                        r = manager_reload(m);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to reload, ignoring: %m");
+
+                        break;
+
+                case MANAGER_REEXECUTE:
+
+                        r = prepare_reexecute(m, &arg_serialization, ret_fds, false);
+                        if (r < 0) {
+                                *ret_error_message = "Failed to prepare for reexecution";
+                                return r;
+                        }
+
+                        log_notice("Reexecuting.");
+
+                        *ret_reexecute = true;
+                        *ret_retval = EXIT_SUCCESS;
+                        *ret_shutdown_verb = NULL;
+                        *ret_switch_root_dir = *ret_switch_root_init = NULL;
+
+                        return 0;
+
+                case MANAGER_SWITCH_ROOT:
+                        if (!m->switch_root_init) {
+                                r = prepare_reexecute(m, &arg_serialization, ret_fds, true);
+                                if (r < 0) {
+                                        *ret_error_message = "Failed to prepare for reexecution";
+                                        return r;
+                                }
+                        } else
+                                *ret_fds = NULL;
+
+                        log_notice("Switching root.");
+
+                        *ret_reexecute = true;
+                        *ret_retval = EXIT_SUCCESS;
+                        *ret_shutdown_verb = NULL;
+
+                        /* Steal the switch root parameters */
+                        *ret_switch_root_dir = m->switch_root;
+                        *ret_switch_root_init = m->switch_root_init;
+                        m->switch_root = m->switch_root_init = NULL;
+
+                        return 0;
+
+                case MANAGER_EXIT:
+
+                        if (MANAGER_IS_USER(m)) {
+                                log_debug("Exit.");
+
+                                *ret_reexecute = false;
+                                *ret_retval = m->return_value;
+                                *ret_shutdown_verb = NULL;
+                                *ret_fds = NULL;
+                                *ret_switch_root_dir = *ret_switch_root_init = NULL;
+
+                                return 0;
+                        }
+
+                        _fallthrough_;
+                case MANAGER_REBOOT:
+                case MANAGER_POWEROFF:
+                case MANAGER_HALT:
+                case MANAGER_KEXEC: {
+                        static const char * const table[_MANAGER_EXIT_CODE_MAX] = {
+                                [MANAGER_EXIT] = "exit",
+                                [MANAGER_REBOOT] = "reboot",
+                                [MANAGER_POWEROFF] = "poweroff",
+                                [MANAGER_HALT] = "halt",
+                                [MANAGER_KEXEC] = "kexec"
+                        };
+
+                        log_notice("Shutting down.");
+
+                        *ret_reexecute = false;
+                        *ret_retval = m->return_value;
+                        assert_se(*ret_shutdown_verb = table[m->exit_code]);
+                        *ret_fds = NULL;
+                        *ret_switch_root_dir = *ret_switch_root_init = NULL;
+
+                        return 0;
+                }
+
+                default:
+                        assert_not_reached("Unknown exit code.");
+                }
+        }
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
@@ -1730,7 +1862,6 @@ int main(int argc, char *argv[]) {
         bool skip_setup = false;
         unsigned j;
         bool loaded_policy = false;
-        bool arm_reboot_watchdog = false;
         bool queue_default_job = false;
         bool first_boot = false;
         char *switch_root_dir = NULL, *switch_root_init = NULL;
@@ -2220,89 +2351,14 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        for (;;) {
-                r = manager_loop(m);
-                if (r < 0) {
-                        log_emergency_errno(r, "Failed to run main loop: %m");
-                        error_message = "Failed to run main loop";
-                        goto finish;
-                }
-
-                switch (m->exit_code) {
-
-                case MANAGER_RELOAD:
-                        log_info("Reloading.");
-
-                        r = parse_config_file();
-                        if (r < 0)
-                                log_error("Failed to parse config file.");
-
-                        set_manager_defaults(m);
-
-                        r = manager_reload(m);
-                        if (r < 0)
-                                log_error_errno(r, "Failed to reload: %m");
-                        break;
-
-                case MANAGER_REEXECUTE:
-
-                        if (prepare_reexecute(m, &arg_serialization, &fds, false) < 0) {
-                                error_message = "Failed to prepare for reexecution";
-                                goto finish;
-                        }
-
-                        reexecute = true;
-                        log_notice("Reexecuting.");
-                        goto finish;
-
-                case MANAGER_SWITCH_ROOT:
-                        /* Steal the switch root parameters */
-                        switch_root_dir = m->switch_root;
-                        switch_root_init = m->switch_root_init;
-                        m->switch_root = m->switch_root_init = NULL;
-
-                        if (!switch_root_init)
-                                if (prepare_reexecute(m, &arg_serialization, &fds, true) < 0) {
-                                        error_message = "Failed to prepare for reexecution";
-                                        goto finish;
-                                }
-
-                        reexecute = true;
-                        log_notice("Switching root.");
-                        goto finish;
-
-                case MANAGER_EXIT:
-                        retval = m->return_value;
-
-                        if (MANAGER_IS_USER(m)) {
-                                log_debug("Exit.");
-                                goto finish;
-                        }
-
-                        _fallthrough_;
-                case MANAGER_REBOOT:
-                case MANAGER_POWEROFF:
-                case MANAGER_HALT:
-                case MANAGER_KEXEC: {
-                        static const char * const table[_MANAGER_EXIT_CODE_MAX] = {
-                                [MANAGER_EXIT] = "exit",
-                                [MANAGER_REBOOT] = "reboot",
-                                [MANAGER_POWEROFF] = "poweroff",
-                                [MANAGER_HALT] = "halt",
-                                [MANAGER_KEXEC] = "kexec"
-                        };
-
-                        assert_se(shutdown_verb = table[m->exit_code]);
-                        arm_reboot_watchdog = m->exit_code == MANAGER_REBOOT;
-
-                        log_notice("Shutting down.");
-                        goto finish;
-                }
-
-                default:
-                        assert_not_reached("Unknown exit code.");
-                }
-        }
+        r = invoke_main_loop(m,
+                             &reexecute,
+                             &retval,
+                             &shutdown_verb,
+                             &fds,
+                             &switch_root_dir,
+                             &switch_root_init,
+                             &error_message);
 
 finish:
         pager_close();
@@ -2345,7 +2401,7 @@ finish:
 #endif
 
         if (shutdown_verb) {
-                r = become_shutdown(shutdown_verb, retval, arm_reboot_watchdog);
+                r = become_shutdown(shutdown_verb, retval);
 
                 log_error_errno(r, "Failed to execute shutdown binary, %s: %m", getpid_cached() == 1 ? "freezing" : "quitting");
                 error_message = "Failed to execute shutdown binary";
