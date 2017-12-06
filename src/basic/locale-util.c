@@ -367,6 +367,95 @@ bool keymap_is_valid(const char *name) {
         return true;
 }
 
+static thread_local Set *fonts = NULL;
+
+static int nftw_ff(
+                const char *fpath,
+                const struct stat *sb,
+                int tflag,
+                struct FTW *ftwbuf) {
+
+        char *p;
+        int r;
+
+        if (tflag != FTW_F)
+                return 0;
+
+        if (streq(basename(fpath), "ERRORS"))
+                return 0;
+
+        if (endswith(strdup(basename(fpath)),  ".psfu.gz"))
+                p = delete_trailing_chars(strdup(basename(fpath)), ".psfu.gz");
+        else if (endswith(strdup(basename(fpath)),  ".psf.gz"))
+                p = delete_trailing_chars(strdup(basename(fpath)), ".psf.gz");
+        else if (endswith(strdup(basename(fpath)),  ".gz"))
+                p = delete_trailing_chars(strdup(basename(fpath)), ".gz");
+        else
+                p = strdup(basename(fpath));
+
+        if (!p)
+                return FTW_STOP;
+
+        r = set_consume(fonts, p);
+        if (r < 0 && r != -EEXIST)
+                return r;
+
+        return 0;
+}
+
+int get_kbd_fonts(char ***ret) {
+        _cleanup_strv_free_ char **l = NULL;
+        const char *dir;
+        int r;
+
+        fonts = set_new(&string_hash_ops);
+        if (!fonts)
+                return -ENOMEM;
+
+
+        r = nftw("/usr/share/kbd/consolefonts/", nftw_ff, 20, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
+
+        if (r == FTW_STOP)
+                log_debug("File not found %s", dir);
+        else if (r < 0)
+                log_debug_errno(r, "Can't add font: %m");
+
+        l = set_get_strv(fonts);
+        if (!l) {
+                set_free_free(fonts);
+                return -ENOMEM;
+        }
+
+        set_free(fonts);
+
+        if (strv_isempty(l))
+                return -ENOENT;
+
+        strv_sort(l);
+
+        *ret = l;
+        l = NULL;
+
+        return 0;
+}
+
+bool font_is_valid(const char *name) {
+
+        if (isempty(name))
+                return false;
+
+        if (strlen(name) >= 128)
+                return false;
+
+        if (!filename_is_valid(name))
+                return false;
+
+        if (!string_is_safe(name))
+                return false;
+
+        return true;
+}
+
 const char *special_glyph(SpecialGlyph code) {
 
         static const char* const draw_table[2][_SPECIAL_GLYPH_MAX] = {

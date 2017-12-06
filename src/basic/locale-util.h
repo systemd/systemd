@@ -75,3 +75,5 @@ LocaleVariable locale_variable_from_string(const char *s) _pure_;
 
 int get_keymaps(char ***l);
 bool keymap_is_valid(const char *name);
+int get_kbd_fonts(char ***l);
+bool font_is_valid(const char *name);

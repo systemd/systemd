@@ -81,6 +81,8 @@
 
       <listitem><para>The system keyboard map</para></listitem>
 
+      <listitem><para>The system console font</para></listitem>
+
       <listitem><para>The system time zone</para></listitem>
 
       <listitem><para>The system host name</para></listitem>
@@ -149,6 +151,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--font=<replaceable>FONT</replaceable></option></term>
+
+        <listitem><para>Sets the system console font. The argument should be a valid console font,
+        such as <literal>eurlatgr</literal>. This controls the <literal>FONT</literal> entry in the
+        <citerefentry project='man-pages'><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        configuration file.</para></listitem>
+      </varlistentry>
+
+
+      <varlistentry>
         <term><option>--timezone=<replaceable>TIMEZONE</replaceable></option></term>
 
         <listitem><para>Sets the system time zone. The argument should
@@ -196,6 +208,7 @@
       <varlistentry>
         <term><option>--prompt-locale</option></term>
         <term><option>--prompt-keymap</option></term>
+        <term><option>--prompt-font</option></term>
         <term><option>--prompt-timezone</option></term>
         <term><option>--prompt-hostname</option></term>
         <term><option>--prompt-root-password</option></term>
@@ -209,10 +222,11 @@
       <varlistentry>
         <term><option>--prompt</option></term>
 
-        <listitem><para>Query the user for locale, keymap, timezone, hostname
+        <listitem><para>Query the user for locale, keymap, font, timezone, hostname
         and root password. This is equivalent to specifying
         <option>--prompt-locale</option>,
         <option>--prompt-keymap</option>,
+        <option>--prompt-font</option>,
         <option>--prompt-timezone</option>,
         <option>--prompt-hostname</option>,
         <option>--prompt-root-password</option> in combination.</para>

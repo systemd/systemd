@@ -46,6 +46,7 @@
 static char *arg_root = NULL;
 static char *arg_locale = NULL;  /* $LANG */
 static char *arg_keymap = NULL;
+static char *arg_font = NULL;
 static char *arg_locale_messages = NULL; /* $LC_MESSAGES */
 static char *arg_timezone = NULL;
 static char *arg_hostname = NULL;
@@ -53,6 +54,7 @@ static sd_id128_t arg_machine_id = {};
 static char *arg_root_password = NULL;
 static bool arg_prompt_locale = false;
 static bool arg_prompt_keymap = false;
+static bool arg_prompt_font = false;
 static bool arg_prompt_timezone = false;
 static bool arg_prompt_hostname = false;
 static bool arg_prompt_root_password = false;
@@ -320,15 +322,21 @@ static int prompt_keymap(void) {
 
 static int process_keymap(void) {
         const char *etc_vconsoleconf;
-        char **keymap;
+        char **keymap = NULL, **content = NULL;
         int r;
 
         etc_vconsoleconf = prefix_roota(arg_root, "/etc/vconsole.conf");
-        if (laccess(etc_vconsoleconf, F_OK) >= 0)
-                return 0;
+        if (laccess(etc_vconsoleconf, F_OK) >= 0) {
+                /* don't override existing settings */
+                r = merge_env_file(&content, NULL, etc_vconsoleconf);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read %s: %m", etc_vconsoleconf);
+
+                if (!isempty(strv_find_prefix(content, "KEYMAP=")))
+                        return 0;
+        }
 
         if (arg_copy_keymap && arg_root) {
-
                 mkdir_parents(etc_vconsoleconf, 0755);
                 r = copy_file("/etc/vconsole.conf", etc_vconsoleconf, 0, 0644, 0, COPY_REFLINK);
                 if (r != -ENOENT) {
@@ -349,13 +357,89 @@ static int process_keymap(void) {
         if (isempty(arg_keymap))
                 return 0;
 
-        keymap = STRV_MAKE(strjoina("KEYMAP=", arg_keymap));
+        if (content)
+                keymap = STRV_MAKE(*content, strjoina("KEYMAP=", arg_keymap));
+        else
+                keymap = STRV_MAKE(strjoina("KEYMAP=", arg_keymap));
 
         r = mkdir_parents(etc_vconsoleconf, 0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to create the parent directory of %s: %m", etc_vconsoleconf);
 
         r = write_env_file(etc_vconsoleconf, keymap);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write %s: %m", etc_vconsoleconf);
+
+        log_info("%s written.", etc_vconsoleconf);
+        return 0;
+}
+
+static int prompt_font(void) {
+        _cleanup_strv_free_ char **fonts = NULL;
+        int r;
+
+        if (arg_font)
+                return 0;
+
+        if (!arg_prompt_font)
+                return 0;
+
+        r = get_kbd_fonts(&fonts);
+        if (r == -ENOENT) /* no fonts installed */
+                return r;
+        if (r < 0)
+                return log_error_errno(r, "Failed to read fonts: %m");
+
+        print_welcome();
+
+        printf("\nAvailable fonts:\n\n");
+        r = show_menu(fonts, 3, 22, 60);
+        if (r < 0)
+                return r;
+
+        putchar('\n');
+
+        return prompt_loop("Please enter system font name or number",
+                           fonts, font_is_valid, &arg_font);
+}
+
+
+
+static int process_font(void) {
+        const char *etc_vconsoleconf;
+        char **font = NULL, **content = NULL;
+        int r;
+
+        etc_vconsoleconf = prefix_roota(arg_root, "/etc/vconsole.conf");
+        if (laccess(etc_vconsoleconf, F_OK) >= 0) {
+                /* don't override existing settings */
+                r = merge_env_file(&content, NULL, etc_vconsoleconf);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read %s: %m", etc_vconsoleconf);
+
+                if (!isempty(strv_find_prefix(content, "FONT=")))
+                        return 0;
+        }
+
+        r = prompt_font();
+        if (r == -ENOENT)
+                return 0; /* don't fail if no fonts are installed */
+        if (r < 0)
+                return r;
+
+        if (isempty(arg_font))
+                return 0;
+
+        if (content)
+                font = STRV_MAKE(*content, strjoina("FONT=", arg_font));
+        else
+                font = STRV_MAKE(strjoina("FONT=", arg_font));
+
+        r = mkdir_parents(etc_vconsoleconf, 0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create the parent directory of %s: %m", etc_vconsoleconf);
+
+        r = write_env_file(etc_vconsoleconf, font);
         if (r < 0)
                 return log_error_errno(r, "Failed to write %s: %m", etc_vconsoleconf);
 
@@ -692,6 +776,7 @@ static void help(void) {
                "     --locale=LOCALE           Set primary locale (LANG=)\n"
                "     --locale-messages=LOCALE  Set message locale (LC_MESSAGES=)\n"
                "     --keymap=KEYMAP           Set keymap\n"
+               "     --font=FONT               Set console font\n"
                "     --timezone=TIMEZONE       Set timezone\n"
                "     --hostname=NAME           Set host name\n"
                "     --machine-ID=ID           Set machine ID\n"
@@ -699,6 +784,7 @@ static void help(void) {
                "     --root-password-file=FILE Set root password from file\n"
                "     --prompt-locale           Prompt the user for locale settings\n"
                "     --prompt-keymap           Prompt the user for keymap settings\n"
+               "     --prompt-font             Prompt the user for font settings\n"
                "     --prompt-timezone         Prompt the user for timezone\n"
                "     --prompt-hostname         Prompt the user for hostname\n"
                "     --prompt-root-password    Prompt the user for root password\n"
@@ -720,6 +806,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LOCALE,
                 ARG_LOCALE_MESSAGES,
                 ARG_KEYMAP,
+                ARG_FONT,
                 ARG_TIMEZONE,
                 ARG_HOSTNAME,
                 ARG_MACHINE_ID,
@@ -728,6 +815,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PROMPT,
                 ARG_PROMPT_LOCALE,
                 ARG_PROMPT_KEYMAP,
+                ARG_PROMPT_FONT,
                 ARG_PROMPT_TIMEZONE,
                 ARG_PROMPT_HOSTNAME,
                 ARG_PROMPT_ROOT_PASSWORD,
@@ -746,6 +834,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "locale",               required_argument, NULL, ARG_LOCALE               },
                 { "locale-messages",      required_argument, NULL, ARG_LOCALE_MESSAGES      },
                 { "keymap",               required_argument, NULL, ARG_KEYMAP               },
+                { "font",                 required_argument, NULL, ARG_FONT                 },
                 { "timezone",             required_argument, NULL, ARG_TIMEZONE             },
                 { "hostname",             required_argument, NULL, ARG_HOSTNAME             },
                 { "machine-id",           required_argument, NULL, ARG_MACHINE_ID           },
@@ -754,6 +843,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "prompt",               no_argument,       NULL, ARG_PROMPT               },
                 { "prompt-locale",        no_argument,       NULL, ARG_PROMPT_LOCALE        },
                 { "prompt-keymap",        no_argument,       NULL, ARG_PROMPT_KEYMAP        },
+                { "prompt-font",          no_argument,       NULL, ARG_PROMPT_FONT          },
                 { "prompt-timezone",      no_argument,       NULL, ARG_PROMPT_TIMEZONE      },
                 { "prompt-hostname",      no_argument,       NULL, ARG_PROMPT_HOSTNAME      },
                 { "prompt-root-password", no_argument,       NULL, ARG_PROMPT_ROOT_PASSWORD },
@@ -824,6 +914,18 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_FONT:
+                        if (!font_is_valid(optarg)) {
+                                log_error("Font %s is not valid.", optarg);
+                                return -EINVAL;
+                        }
+
+                        r = free_and_strdup(&arg_font, optarg);
+                        if (r < 0)
+                                return log_oom();
+
+                        break;
+
                 case ARG_TIMEZONE:
                         if (!timezone_is_valid(optarg)) {
                                 log_error("Timezone %s is not valid.", optarg);
@@ -873,7 +975,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_PROMPT:
-                        arg_prompt_locale = arg_prompt_keymap = arg_prompt_timezone = arg_prompt_hostname = arg_prompt_root_password = true;
+                        arg_prompt_locale = arg_prompt_keymap = arg_prompt_font = arg_prompt_timezone = arg_prompt_hostname = arg_prompt_root_password = true;
                         break;
 
                 case ARG_PROMPT_LOCALE:
@@ -882,6 +984,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_PROMPT_KEYMAP:
                         arg_prompt_keymap = true;
+                        break;
+
+                case ARG_PROMPT_FONT:
+                        arg_prompt_font = true;
                         break;
 
                 case ARG_PROMPT_TIMEZONE:
@@ -966,6 +1072,10 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
+        r = process_font();
+        if (r < 0)
+                goto finish;
+
         r = process_timezone();
         if (r < 0)
                 goto finish;
@@ -987,6 +1097,7 @@ finish:
         free(arg_locale);
         free(arg_locale_messages);
         free(arg_keymap);
+        free(arg_font);
         free(arg_timezone);
         free(arg_hostname);
         string_erase(arg_root_password);

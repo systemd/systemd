@@ -78,11 +78,38 @@ static void test_keymaps(void) {
         assert_se(keymap_is_valid("unicode"));
 }
 
+static void test_fonts(void) {
+        _cleanup_strv_free_ char **fonts = NULL;
+        char **p;
+        int r;
+
+        assert_se(!font_is_valid(""));
+        assert_se(!font_is_valid("/usr/bin/foo"));
+        assert_se(!font_is_valid("\x01gar\x02 bage\x03"));
+
+        r = get_kbd_fonts(&fonts);
+        if (r == -ENOENT)
+                return; /* skip test if no fonts are installed */
+
+        assert_se(r >= 0);
+        assert_se(fonts);
+
+        STRV_FOREACH(p, fonts) {
+                puts(*p);
+                assert_se(font_is_valid(*p));
+        }
+
+        assert_se(font_is_valid("eurlatgr"));
+}
+
+
 int main(int argc, char *argv[]) {
         test_get_locales();
         test_locale_is_valid();
 
         test_keymaps();
+
+        test_fonts();
 
         return 0;
 }
