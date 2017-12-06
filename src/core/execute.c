@@ -66,6 +66,7 @@
 #include "cap-list.h"
 #include "capability-util.h"
 #include "chown-recursive.h"
+#include "cpu-set-util.h"
 #include "def.h"
 #include "env-util.h"
 #include "errno-list.h"
@@ -3628,8 +3629,7 @@ void exec_context_done(ExecContext *c) {
 
         bind_mount_free_many(c->bind_mounts, c->n_bind_mounts);
 
-        if (c->cpuset)
-                CPU_FREE(c->cpuset);
+        c->cpuset = cpu_set_mfree(c->cpuset);
 
         c->utmp_id = mfree(c->utmp_id);
         c->selinux_context = mfree(c->selinux_context);

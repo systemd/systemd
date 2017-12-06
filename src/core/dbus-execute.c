@@ -29,6 +29,7 @@
 #include "bus-util.h"
 #include "cap-list.h"
 #include "capability-util.h"
+#include "cpu-set-util.h"
 #include "dbus-execute.h"
 #include "env-util.h"
 #include "errno-list.h"
@@ -1591,29 +1592,29 @@ int bus_exec_context_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (n == 0) {
-                                c->cpuset = mfree(c->cpuset);
+                                c->cpuset = cpu_set_mfree(c->cpuset);
+                                c->cpuset_ncpus = 0;
                                 unit_write_settingf(u, flags, name, "%s=", name);
                         } else {
                                 _cleanup_free_ char *str = NULL;
-                                uint8_t *l;
-                                size_t allocated = 0, len = 0, i;
+                                size_t allocated = 0, len = 0, i, ncpus;
 
-                                c->cpuset = (cpu_set_t*) memdup(a, sizeof(cpu_set_t) * n);
-                                if (c->cpuset)
-                                        return -ENOMEM;
+                                ncpus = CPU_SIZE_TO_NUM(n);
 
-                                l = (uint8_t*) a;
-                                for (i = 0; i < n; i++) {
+                                for (i = 0; i < ncpus; i++) {
                                         _cleanup_free_ char *p = NULL;
                                         size_t add;
 
-                                        r = asprintf(&p, "%hhi", l[i]);
+                                        if (!CPU_ISSET_S(i, n, (cpu_set_t*) a))
+                                                continue;
+
+                                        r = asprintf(&p, "%zu", i);
                                         if (r < 0)
                                                 return -ENOMEM;
 
                                         add = strlen(p);
 
-                                        if (GREEDY_REALLOC(str, allocated, len + add + 2))
+                                        if (!GREEDY_REALLOC(str, allocated, len + add + 2))
                                                 return -ENOMEM;
 
                                         strcpy(mempcpy(str + len, p, add), " ");
@@ -1622,6 +1623,25 @@ int bus_exec_context_set_transient_property(
 
                                 if (len != 0)
                                         str[len - 1] = '\0';
+
+                                if (!c->cpuset || c->cpuset_ncpus < ncpus) {
+                                        cpu_set_t *cpuset;
+
+                                        cpuset = CPU_ALLOC(ncpus);
+                                        if (!cpuset)
+                                                return -ENOMEM;
+
+                                        CPU_ZERO_S(n, cpuset);
+                                        if (c->cpuset) {
+                                                CPU_OR_S(CPU_ALLOC_SIZE(c->cpuset_ncpus), cpuset, c->cpuset, (cpu_set_t*) a);
+                                                CPU_FREE(c->cpuset);
+                                        } else
+                                                CPU_OR_S(n, cpuset, cpuset, (cpu_set_t*) a);
+
+                                        c->cpuset = cpuset;
+                                        c->cpuset_ncpus = ncpus;
+                                } else
+                                        CPU_OR_S(n, c->cpuset, c->cpuset, (cpu_set_t*) a);
 
                                 unit_write_settingf(u, flags, name, "%s=%s", name, str);
                         }

@@ -60,19 +60,19 @@ cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
         }
 }
 
-int parse_cpu_set_and_warn(
+int parse_cpu_set_internal(
                 const char *rvalue,
                 cpu_set_t **cpu_set,
+                bool warn,
                 const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *lvalue) {
 
-        const char *whole_rvalue = rvalue;
         _cleanup_cpu_free_ cpu_set_t *c = NULL;
+        const char *p = rvalue;
         unsigned ncpus = 0;
 
-        assert(lvalue);
         assert(rvalue);
 
         for (;;) {
@@ -80,75 +80,34 @@ int parse_cpu_set_and_warn(
                 unsigned cpu, cpu_lower, cpu_upper;
                 int r;
 
-                r = extract_first_word(&rvalue, &word, WHITESPACE ",", EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, WHITESPACE ",", EXTRACT_QUOTES);
+                if (r == -ENOMEM)
+                        return warn ? log_oom() : -ENOMEM;
                 if (r < 0)
-                        return log_syntax(unit, LOG_ERR, filename, line, r, "Invalid value for %s: %s", lvalue, whole_rvalue);
+                        return warn ? log_syntax(unit, LOG_ERR, filename, line, r, "Invalid value for %s: %s", lvalue, rvalue) : r;
                 if (r == 0)
                         break;
 
                 if (!c) {
                         c = cpu_set_malloc(&ncpus);
                         if (!c)
-                                return log_oom();
+                                return warn ? log_oom() : -ENOMEM;
                 }
 
                 r = parse_range(word, &cpu_lower, &cpu_upper);
                 if (r < 0)
-                        return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse CPU affinity '%s'", word);
+                        return warn ? log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse CPU affinity '%s'", word) : r;
                 if (cpu_lower >= ncpus || cpu_upper >= ncpus)
-                        return log_syntax(unit, LOG_ERR, filename, line, EINVAL, "CPU out of range '%s' ncpus is %u", word, ncpus);
+                        return warn ? log_syntax(unit, LOG_ERR, filename, line, EINVAL, "CPU out of range '%s' ncpus is %u", word, ncpus) : -EINVAL;
 
-                if (cpu_lower > cpu_upper)
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Range '%s' is invalid, %u > %u", word, cpu_lower, cpu_upper);
-                else
-                        for (cpu = cpu_lower; cpu <= cpu_upper; cpu++)
-                                CPU_SET_S(cpu, CPU_ALLOC_SIZE(ncpus), c);
-        }
-
-        /* On success, sets *cpu_set and returns ncpus for the system. */
-        if (c) {
-                *cpu_set = c;
-                c = NULL;
-        }
-
-        return (int) ncpus;
-}
-
-int parse_cpu_set(
-                const char *rvalue,
-                cpu_set_t **cpu_set) {
-
-        _cleanup_cpu_free_ cpu_set_t *c = NULL;
-        unsigned ncpus = 0;
-
-        assert(rvalue);
-
-        for (;;) {
-                _cleanup_free_ char *word = NULL;
-                unsigned cpu, cpu_lower, cpu_upper;
-                int r;
-
-                r = extract_first_word(&rvalue, &word, WHITESPACE ",", EXTRACT_QUOTES);
-                if (r == -ENOMEM)
-                        return r;
-                if (r <= 0)
-                        break;
-
-                if (!c) {
-                        c = cpu_set_malloc(&ncpus);
-                        if (!c)
-                                return -ENOMEM;
+                if (cpu_lower > cpu_upper) {
+                        if (warn)
+                                log_syntax(unit, LOG_WARNING, filename, line, 0, "Range '%s' is invalid, %u > %u, ignoring", word, cpu_lower, cpu_upper);
+                        continue;
                 }
 
-                r = parse_range(word, &cpu_lower, &cpu_upper);
-                if (r < 0)
-                        return r;
-                if (cpu_lower >= ncpus || cpu_upper >= ncpus)
-                        return -EINVAL;
-
-                if (cpu_lower <= cpu_upper)
-                        for (cpu = cpu_lower; cpu <= cpu_upper; cpu++)
-                                CPU_SET_S(cpu, CPU_ALLOC_SIZE(ncpus), c);
+                for (cpu = cpu_lower; cpu <= cpu_upper; cpu++)
+                        CPU_SET_S(cpu, CPU_ALLOC_SIZE(ncpus), c);
         }
 
         /* On success, sets *cpu_set and returns ncpus for the system. */
