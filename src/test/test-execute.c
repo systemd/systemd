@@ -324,7 +324,6 @@ static void test_exec_systemcallfilter_system(Manager *m) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-
         if (getpwnam("nobody"))
                 test(m, "exec-systemcallfilter-system-user.service", 0, CLD_EXITED);
         else if (getpwnam("nfsnobody"))
@@ -348,8 +347,10 @@ static void test_exec_group(Manager *m) {
                 test(m, "exec-group.service", 0, CLD_EXITED);
         else if (getgrnam("nfsnobody"))
                 test(m, "exec-group-nfsnobody.service", 0, CLD_EXITED);
+        else if (getgrnam("nogroup"))
+                test(m, "exec-group-nogroup.service", 0, CLD_EXITED);
         else
-                log_error_errno(errno, "Skipping %s, could not find nobody/nfsnobody group: %m", __func__);
+                log_error_errno(errno, "Skipping %s, could not find nobody/nfsnobody/nogroup group: %m", __func__);
 }
 
 static void test_exec_supplementarygroups(Manager *m) {

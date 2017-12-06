@@ -47,8 +47,8 @@ static const struct passwd root_passwd = {
 static const struct passwd nobody_passwd = {
         .pw_name = (char*) NOBODY_USER_NAME,
         .pw_passwd = (char*) "*", /* locked */
-        .pw_uid = 65534,
-        .pw_gid = 65534,
+        .pw_uid = UID_NOBODY,
+        .pw_gid = GID_NOBODY,
         .pw_gecos = (char*) "User Nobody",
         .pw_dir = (char*) "/",
         .pw_shell = (char*) "/sbin/nologin",
@@ -63,7 +63,7 @@ static const struct group root_group = {
 
 static const struct group nobody_group = {
         .gr_name = (char*) NOBODY_GROUP_NAME,
-        .gr_gid = 65534,
+        .gr_gid = GID_NOBODY,
         .gr_passwd = (char*) "*", /* locked */
         .gr_mem = (char*[]) { NULL },
 };
@@ -251,7 +251,7 @@ enum nss_status _nss_systemd_getpwuid_r(
                 }
         }
 
-        if (uid <= SYSTEM_UID_MAX)
+        if (!uid_is_dynamic(uid))
                 goto not_found;
 
         if (getenv_bool_secure("SYSTEMD_NSS_DYNAMIC_BYPASS") > 0)
@@ -463,7 +463,7 @@ enum nss_status _nss_systemd_getgrgid_r(
                 }
         }
 
-        if (gid <= SYSTEM_GID_MAX)
+        if (!gid_is_dynamic(gid))
                 goto not_found;
 
         if (getenv_bool_secure("SYSTEMD_NSS_DYNAMIC_BYPASS") > 0)
@@ -500,7 +500,6 @@ enum nss_status _nss_systemd_getgrgid_r(
 
 direct_lookup:
         if (bypass > 0) {
-
                 r = direct_lookup_uid(gid, &direct);
                 if (r == -ENOENT)
                         goto not_found;

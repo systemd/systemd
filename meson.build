@@ -614,9 +614,6 @@ conf.set('SYSTEM_UID_MAX', system_uid_max)
 substs.set('systemuidmax', system_uid_max)
 message('maximum system UID is @0@'.format(system_uid_max))
 
-conf.set_quoted('NOBODY_USER_NAME', get_option('nobody-user'))
-conf.set_quoted('NOBODY_GROUP_NAME', get_option('nobody-group'))
-
 system_gid_max = get_option('system-gid-max')
 if system_gid_max == ''
         system_gid_max = run_command(
@@ -628,6 +625,64 @@ system_gid_max = system_gid_max.to_int()
 conf.set('SYSTEM_GID_MAX', system_gid_max)
 substs.set('systemgidmax', system_gid_max)
 message('maximum system GID is @0@'.format(system_gid_max))
+
+dynamic_uid_min = get_option('dynamic-uid-min').to_int()
+dynamic_uid_max = get_option('dynamic-uid-max').to_int()
+conf.set('DYNAMIC_UID_MIN', dynamic_uid_min)
+conf.set('DYNAMIC_UID_MAX', dynamic_uid_max)
+substs.set('dynamicuidmin', dynamic_uid_min)
+substs.set('dynamicuidmax', dynamic_uid_max)
+
+container_uid_base_min = get_option('container-uid-base-min').to_int()
+container_uid_base_max = get_option('container-uid-base-max').to_int()
+conf.set('CONTAINER_UID_BASE_MIN', container_uid_base_min)
+conf.set('CONTAINER_UID_BASE_MAX', container_uid_base_max)
+substs.set('containeruidbasemin', container_uid_base_min)
+substs.set('containeruidbasemax', container_uid_base_max)
+
+nobody_user = get_option('nobody-user')
+nobody_group = get_option('nobody-group')
+
+getent_result = run_command('getent', 'passwd', '65534')
+if getent_result.returncode() == 0
+        name = getent_result.stdout().split(':')[0]
+        if name != nobody_user
+                message('WARNING:\n' +
+                        '        The local user with the UID 65534 does not match the configured user name "@0@" of the nobody user (its name is @1@).\n'.format(nobody_user, name) +
+                        '        Your build will result in an user table setup that is incompatible with the local system.')
+        endif
+endif
+id_result = run_command('id', '-u', nobody_user)
+if id_result.returncode() == 0
+        id = id_result.stdout().to_int()
+        if id != 65534
+                message('WARNING:\n' +
+                        '        The local user with the configured user name "@0@" of the nobody user does not have UID 65534 (it has @1@).\n'.format(nobody_user, id) +
+                        '        Your build will result in an user table setup that is incompatible with the local system.')
+        endif
+endif
+
+getent_result = run_command('getent', 'group', '65534')
+if getent_result.returncode() == 0
+        name = getent_result.stdout().split(':')[0]
+        if name != nobody_group
+                message('WARNING:\n' +
+                        '        The local group with the GID 65534 does not match the configured group name "@0@" of the nobody group (its name is @1@).\n'.format(nobody_group, name) +
+                        '        Your build will result in an group table setup that is incompatible with the local system.')
+        endif
+endif
+id_result = run_command('id', '-g', nobody_group)
+if id_result.returncode() == 0
+        id = id_result.stdout().to_int()
+        if id != 65534
+                message('WARNING:\n' +
+                        '        The local group with the configured group name "@0@" of the nobody group does not have UID 65534 (it has @1@).\n'.format(nobody_group, id) +
+                        '        Your build will result in an group table setup that is incompatible with the local system.')
+        endif
+endif
+
+conf.set_quoted('NOBODY_USER_NAME', nobody_user)
+conf.set_quoted('NOBODY_GROUP_NAME', nobody_group)
 
 tty_gid = get_option('tty-gid')
 conf.set('TTY_GID', tty_gid)
@@ -2506,12 +2561,16 @@ status = [
         'users GID:                         @0@'.format(users_gid),
         'maximum system UID:                @0@'.format(system_uid_max),
         'maximum system GID:                @0@'.format(system_gid_max),
+        'minimum dynamic UID:               @0@'.format(dynamic_uid_min),
+        'maximum dynamic UID:               @0@'.format(dynamic_uid_max),
+        'minimum container UID base:        @0@'.format(container_uid_base_min),
+        'maximum container UID base:        @0@'.format(container_uid_base_max),
         '/dev/kvm access mode:              @0@'.format(get_option('dev-kvm-mode')),
         'render group access mode:          @0@'.format(get_option('group-render-mode')),
         'certificate root directory:        @0@'.format(get_option('certificate-root')),
         'support URL:                       @0@'.format(support_url),
-        'nobody user name:                  @0@'.format(get_option('nobody-user')),
-        'nobody group name:                 @0@'.format(get_option('nobody-group')),
+        'nobody user name:                  @0@'.format(nobody_user),
+        'nobody group name:                 @0@'.format(nobody_group),
         'fallback hostname:                 @0@'.format(get_option('fallback-hostname')),
         'symbolic gateway hostnames:        @0@'.format(', '.join(gateway_hostnames)),
 

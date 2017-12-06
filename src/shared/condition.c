@@ -157,7 +157,7 @@ static int condition_test_user(Condition *c) {
                 return id == getuid() || id == geteuid();
 
         if (streq("@system", c->parameter))
-                return getuid() <= SYSTEM_UID_MAX || geteuid() <= SYSTEM_UID_MAX;
+                return uid_is_system(getuid()) || uid_is_system(geteuid());
 
         username = getusername_malloc();
         if (!username)

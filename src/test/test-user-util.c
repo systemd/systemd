@@ -23,6 +23,7 @@
 #include "string-util.h"
 #include "user-util.h"
 #include "util.h"
+#include "path-util.h"
 
 static void test_uid_to_name_one(uid_t uid, const char *name) {
         _cleanup_free_ char *t = NULL;
@@ -144,16 +145,50 @@ static void test_valid_home(void) {
         assert_se(valid_home("/home/foo"));
 }
 
+static void test_get_user_creds_one(const char *id, const char *name, uid_t uid, gid_t gid, const char *home, const char *shell) {
+        const char *rhome;
+        const char *rshell;
+        uid_t ruid;
+        gid_t rgid;
+
+        assert_se(get_user_creds(&id, &ruid, &rgid, &rhome, &rshell) >= 0);
+        assert_se(streq_ptr(id, name));
+        assert_se(ruid == uid);
+        assert_se(rgid == gid);
+        assert_se(path_equal(rhome, home));
+        assert_se(path_equal(rshell, shell));
+}
+
+static void test_get_group_creds_one(const char *id, const char *name, gid_t gid) {
+        gid_t rgid;
+
+        assert_se(get_group_creds(&id, &rgid) >= 0);
+        assert_se(streq_ptr(id, name));
+        assert_se(rgid == gid);
+}
+
 int main(int argc, char*argv[]) {
 
         test_uid_to_name_one(0, "root");
+        test_uid_to_name_one(UID_NOBODY, NOBODY_USER_NAME);
         test_uid_to_name_one(0xFFFF, "65535");
         test_uid_to_name_one(0xFFFFFFFF, "4294967295");
 
         test_gid_to_name_one(0, "root");
+        test_gid_to_name_one(GID_NOBODY, NOBODY_GROUP_NAME);
         test_gid_to_name_one(TTY_GID, "tty");
         test_gid_to_name_one(0xFFFF, "65535");
         test_gid_to_name_one(0xFFFFFFFF, "4294967295");
+
+        test_get_user_creds_one("root", "root", 0, 0, "/root", "/bin/sh");
+        test_get_user_creds_one("0", "root", 0, 0, "/root", "/bin/sh");
+        test_get_user_creds_one(NOBODY_USER_NAME, NOBODY_USER_NAME, UID_NOBODY, GID_NOBODY, "/", "/sbin/nologin");
+        test_get_user_creds_one("65534", NOBODY_USER_NAME, UID_NOBODY, GID_NOBODY, "/", "/sbin/nologin");
+
+        test_get_group_creds_one("root", "root", 0);
+        test_get_group_creds_one("0", "root", 0);
+        test_get_group_creds_one(NOBODY_GROUP_NAME, NOBODY_GROUP_NAME, GID_NOBODY);
+        test_get_group_creds_one("65534", NOBODY_GROUP_NAME, GID_NOBODY);
 
         test_parse_uid();
         test_uid_ptr();

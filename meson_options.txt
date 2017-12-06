@@ -147,6 +147,18 @@ option('system-uid-max', type : 'string',
        description : 'maximum system UID')
 option('system-gid-max', type : 'string',
        description : 'maximum system GID')
+option('dynamic-uid-min', type : 'string',
+       description : 'minimum dynamic UID',
+       value : '61184') # That's → 0x0000EF00 in hex
+option('dynamic-uid-max', type : 'string',
+       description : 'maximum dynamic UID',
+       value : '65519') # That's → 0x0000FFEF in hex
+option('container-uid-base-min', type : 'string',
+       description : 'minimum container UID base',
+       value : '524288') # That's → 0x00080000 in hex
+option('container-uid-base-max', type : 'string',
+       description : 'maximum container UID base',
+       value : '1878982656') # That's → 0x6FFF0000 in hex
 option('tty-gid', type : 'string',
        description : 'the numeric GID of the "tty" group',
        value : '5')

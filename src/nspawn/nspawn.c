@@ -2862,7 +2862,7 @@ static int uid_shift_pick(uid_t *shift, LockFile *ret_lock_file) {
                 if (--n_tries <= 0)
                         return -EBUSY;
 
-                if (candidate < UID_SHIFT_PICK_MIN || candidate > UID_SHIFT_PICK_MAX)
+                if (candidate < CONTAINER_UID_BASE_MIN || candidate > CONTAINER_UID_BASE_MAX)
                         goto next;
                 if ((candidate & UINT32_C(0xFFFF)) != 0)
                         goto next;
@@ -2904,7 +2904,7 @@ static int uid_shift_pick(uid_t *shift, LockFile *ret_lock_file) {
                 } else
                         random_bytes(&candidate, sizeof(candidate));
 
-                candidate = (candidate % (UID_SHIFT_PICK_MAX - UID_SHIFT_PICK_MIN)) + UID_SHIFT_PICK_MIN;
+                candidate = (candidate % (CONTAINER_UID_BASE_MAX - CONTAINER_UID_BASE_MIN)) + CONTAINER_UID_BASE_MIN;
                 candidate &= (uid_t) UINT32_C(0xFFFF0000);
         }
 }

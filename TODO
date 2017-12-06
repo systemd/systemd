@@ -33,7 +33,8 @@ Features:
   systemd-journald writes to /var/log/journal, which could be useful when we
   doing disk usage calculations and so on.
 
-* taint systemd if the overflowuid/overflowgid is not 65534
+* taint systemd if the overflowuid/overflowgid is not 65534, and if there are
+  fewer than 65536 users assigned to the system.
 
 * deprecate PermissionsStartOnly= and RootDirectoryStartOnly= in favour of the ExecStart= prefix chars
 
@@ -77,15 +78,8 @@ Features:
 * beef up pam_systemd to take unit file settings such as cgroups properties as
   parameters
 
-* export UID ranges nspawns's --private-user and DynamicUser= uses in
-  the systemd.pc pkg-config file, the same way we already expose the system
-  user boundary there
-
 * a new "systemd-analyze security" tool outputting a checklist of security
   features a service does and does not implement
-
-* Whenever we check a UID against the system UID range, also check for the
-  dynamic UID range
 
 * maybe hook of xfs/ext4 quotactl() with services? i.e. automatically manage
   the quota of a the user indicated in User= via unit file settings, like the

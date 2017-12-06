@@ -117,15 +117,14 @@ int get_user_creds(
         assert(username);
         assert(*username);
 
-        /* We enforce some special rules for uid=0: in order to avoid
-         * NSS lookups for root we hardcode its data. */
+        /* We enforce some special rules for uid=0 and uid=65534: in order to avoid NSS lookups for root we hardcode
+         * their user record data. */
 
-        if (streq(*username, "root") || streq(*username, "0")) {
+        if (STR_IN_SET(*username, "root", "0")) {
                 *username = "root";
 
                 if (uid)
                         *uid = 0;
-
                 if (gid)
                         *gid = 0;
 
@@ -134,6 +133,23 @@ int get_user_creds(
 
                 if (shell)
                         *shell = "/bin/sh";
+
+                return 0;
+        }
+
+        if (STR_IN_SET(*username, NOBODY_USER_NAME, "65534")) {
+                *username = NOBODY_USER_NAME;
+
+                if (uid)
+                        *uid = UID_NOBODY;
+                if (gid)
+                        *gid = GID_NOBODY;
+
+                if (home)
+                        *home = "/";
+
+                if (shell)
+                        *shell = "/sbin/nologin";
 
                 return 0;
         }
@@ -218,11 +234,20 @@ int get_group_creds(const char **groupname, gid_t *gid) {
         /* We enforce some special rules for gid=0: in order to avoid
          * NSS lookups for root we hardcode its data. */
 
-        if (streq(*groupname, "root") || streq(*groupname, "0")) {
+        if (STR_IN_SET(*groupname, "root", "0")) {
                 *groupname = "root";
 
                 if (gid)
                         *gid = 0;
+
+                return 0;
+        }
+
+        if (STR_IN_SET(*groupname, NOBODY_GROUP_NAME, "65534")) {
+                *groupname = NOBODY_GROUP_NAME;
+
+                if (gid)
+                        *gid = GID_NOBODY;
 
                 return 0;
         }
@@ -258,6 +283,8 @@ char* uid_to_name(uid_t uid) {
         /* Shortcut things to avoid NSS lookups */
         if (uid == 0)
                 return strdup("root");
+        if (uid == UID_NOBODY)
+                return strdup(NOBODY_USER_NAME);
 
         if (uid_is_valid(uid)) {
                 long bufsize;
@@ -296,6 +323,8 @@ char* gid_to_name(gid_t gid) {
 
         if (gid == 0)
                 return strdup("root");
+        if (gid == GID_NOBODY)
+                return strdup(NOBODY_GROUP_NAME);
 
         if (gid_is_valid(gid)) {
                 long bufsize;
@@ -387,10 +416,18 @@ int get_home_dir(char **_h) {
                 return 0;
         }
 
-        /* Hardcode home directory for root to avoid NSS */
+        /* Hardcode home directory for root and nobody to avoid NSS */
         u = getuid();
         if (u == 0) {
                 h = strdup("/root");
+                if (!h)
+                        return -ENOMEM;
+
+                *_h = h;
+                return 0;
+        }
+        if (u == UID_NOBODY) {
+                h = strdup("/");
                 if (!h)
                         return -ENOMEM;
 
@@ -434,10 +471,18 @@ int get_shell(char **_s) {
                 return 0;
         }
 
-        /* Hardcode home directory for root to avoid NSS */
+        /* Hardcode shell for root and nobody to avoid NSS */
         u = getuid();
         if (u == 0) {
                 s = strdup("/bin/sh");
+                if (!s)
+                        return -ENOMEM;
+
+                *_s = s;
+                return 0;
+        }
+        if (u == UID_NOBODY) {
+                s = strdup("/sbin/nologin");
                 if (!s)
                         return -ENOMEM;
 

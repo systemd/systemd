@@ -68,6 +68,7 @@ test_data_files = '''
         test-execute/exec-environment.service
         test-execute/exec-environmentfile.service
         test-execute/exec-group-nfsnobody.service
+        test-execute/exec-group-nogroup.service
         test-execute/exec-group.service
         test-execute/exec-ignoresigpipe-no.service
         test-execute/exec-ignoresigpipe-yes.service

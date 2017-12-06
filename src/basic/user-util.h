@@ -60,15 +60,23 @@ int take_etc_passwd_lock(const char *root);
 #define UID_INVALID ((uid_t) -1)
 #define GID_INVALID ((gid_t) -1)
 
-/* Let's pick a UIDs within the 16bit range, so that we are compatible with containers using 16bit
- * user namespacing. At least on Fedora normal users are allocated until UID 60000, hence do not
- * allocate from below this. Also stay away from the upper end of the range as that is often used
- * for overflow/nobody users. */
-#define DYNAMIC_UID_MIN ((uid_t) UINT32_C(0x0000EF00))
-#define DYNAMIC_UID_MAX ((uid_t) UINT32_C(0x0000FFEF))
+#define UID_NOBODY ((uid_t) 65534U)
+#define GID_NOBODY ((gid_t) 65534U)
 
 static inline bool uid_is_dynamic(uid_t uid) {
         return DYNAMIC_UID_MIN <= uid && uid <= DYNAMIC_UID_MAX;
+}
+
+static inline bool gid_is_dynamic(gid_t gid) {
+        return uid_is_dynamic((uid_t) gid);
+}
+
+static inline bool uid_is_system(uid_t uid) {
+        return uid <= SYSTEM_UID_MAX;
+}
+
+static inline bool gid_is_system(gid_t gid) {
+        return gid <= SYSTEM_GID_MAX;
 }
 
 /* The following macros add 1 when converting things, since UID 0 is a valid UID, while the pointer

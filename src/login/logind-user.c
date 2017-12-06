@@ -617,7 +617,7 @@ int user_finalize(User *u) {
          * cases, as we shouldn't accidentally remove a system service's IPC objects while it is running, just because
          * a cronjob running as the same user just finished. Hence: exclude system users generally from IPC clean-up,
          * and do it only for normal users. */
-        if (u->manager->remove_ipc && u->uid > SYSTEM_UID_MAX) {
+        if (u->manager->remove_ipc && !uid_is_system(u->uid)) {
                 k = clean_ipc_by_uid(u->uid);
                 if (k < 0)
                         r = k;
