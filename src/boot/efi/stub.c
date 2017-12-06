@@ -109,7 +109,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         err = linux_exec(image, cmdline, cmdline_len,
                          (UINTN)loaded_image->ImageBase + addrs[1],
-                         (UINTN)loaded_image->ImageBase + addrs[2], szs[2]);
+                         (UINTN)loaded_image->ImageBase + addrs[2], szs[2], secure);
 
         graphics_mode(FALSE);
         Print(L"Execution of embedded linux image failed: %r\n", err);

@@ -85,7 +85,7 @@ static inline VOID linux_efi_handover(EFI_HANDLE image, struct SetupHeader *setu
 EFI_STATUS linux_exec(EFI_HANDLE *image,
                       CHAR8 *cmdline, UINTN cmdline_len,
                       UINTN linux_addr,
-                      UINTN initrd_addr, UINTN initrd_size) {
+                      UINTN initrd_addr, UINTN initrd_size, BOOLEAN secure) {
         struct SetupHeader *image_setup;
         struct SetupHeader *boot_setup;
         EFI_PHYSICAL_ADDRESS addr;
@@ -107,6 +107,17 @@ EFI_STATUS linux_exec(EFI_HANDLE *image,
         ZeroMem(boot_setup, 0x4000);
         CopyMem(boot_setup, image_setup, sizeof(struct SetupHeader));
         boot_setup->loader_id = 0xff;
+
+        if (secure) {
+                /* set secure boot flag in linux kernel zero page, see
+                   - Documentation/x86/zero-page.txt
+                   - arch/x86/include/uapi/asm/bootparam.h
+                   - drivers/firmware/efi/libstub/secureboot.c
+                   in the linux kernel source tree
+                   Possible values: 0 (unassigned), 1 (undetected), 2 (disabled), 3 (enabled)
+                */
+                boot_setup->boot_sector[0x1ec] = 3;
+        }
 
         boot_setup->code32_start = (UINT32)linux_addr + (image_setup->setup_secs+1) * 512;
 
