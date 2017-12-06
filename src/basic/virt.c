@@ -219,13 +219,13 @@ static int detect_vm_dmi(void) {
 static int detect_vm_xen(void) {
 
         /* Check for Dom0 will be executed later in detect_vm_xen_dom0
-           Thats why we dont check the content of /proc/xen/capabilities here. */
-        if (access("/proc/xen/capabilities", F_OK) < 0) {
-                log_debug("Virtualization XEN not found, /proc/xen/capabilities does not exist");
+           The presence of /proc/xen indicates some form of a Xen domain */
+        if (access("/proc/xen", F_OK) < 0) {
+                log_debug("Virtualization XEN not found, /proc/xen does not exist");
                 return VIRTUALIZATION_NONE;
         }
 
-        log_debug("Virtualization XEN found (/proc/xen/capabilities exists)");
+        log_debug("Virtualization XEN found (/proc/xen exists)");
         return VIRTUALIZATION_XEN;
 }
 
@@ -357,11 +357,10 @@ int detect_vm(void) {
         }
 
         /* x86 xen will most likely be detected by cpuid. If not (most likely
-         * because we're not an x86 guest), then we should try the xen capabilities
-         * file next. If that's not found, then we check for the high-level
-         * hypervisor sysfs file:
-         *
-         * https://bugs.freedesktop.org/show_bug.cgi?id=77271 */
+         * because we're not an x86 guest), then we should try the /proc/xen
+         * directory next. If that's not found, then we check for the high-level
+         * hypervisor sysfs file.
+	 */
 
         r = detect_vm_xen();
         if (r < 0)
