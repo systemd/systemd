@@ -1870,8 +1870,8 @@ static int initialize_runtime(
                 machine_id_setup(NULL, arg_machine_id, NULL);
                 loopback_setup();
                 bump_unix_max_dgram_qlen();
-
                 test_usr();
+                write_container_id();
         }
 
         if (arg_system && arg_runtime_watchdog > 0 && arg_runtime_watchdog != USEC_INFINITY)
@@ -2306,8 +2306,6 @@ int main(int argc, char *argv[]) {
                 v = detect_virtualization();
                 if (v > 0)
                         log_info("Detected virtualization %s.", virtualization_to_string(v));
-
-                write_container_id();
 
                 log_info("Detected architecture %s.", architecture_to_string(uname_architecture()));
 
