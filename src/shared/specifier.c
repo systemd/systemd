@@ -101,10 +101,11 @@ int specifier_printf(const char *text, const Specifier table[], void *userdata, 
 
                                         ret = n;
                                         t = n + j + k;
-                                } else if (strchr(POSSIBLE_SPECIFIERS, *f))
+                                } else if (strchr(POSSIBLE_SPECIFIERS, *f)) {
                                         /* Oops, an unknown specifier. */
+                                        free(ret);
                                         return -EBADSLT;
-                                else {
+                                } else {
                                         *(t++) = '%';
                                         *(t++) = *f;
                                 }

@@ -28,12 +28,12 @@ try:
 except AttributeError:
     sys.exit(EXIT_TEST_SKIP)
 
-exe = sys.argv[1]
+exe_with_args = sys.argv[1:]
 
 def test_line(line, *, user, returncode=EX_DATAERR, extra={}):
     args = ['--user'] if user else []
-    print('Running {} {} on {!r}'.format(exe, ' '.join(args), line))
-    c = subprocess.run([exe, '--create', '-'] + args,
+    print('Running {} on {!r}'.format(' '.join(exe_with_args + args), line))
+    c = subprocess.run(exe_with_args + ['--create', '-'] + args,
                        input=line, stdout=subprocess.PIPE, universal_newlines=True,
                        **extra)
     assert c.returncode == returncode, c
