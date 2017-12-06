@@ -1845,6 +1845,46 @@ static int invoke_main_loop(
         }
 }
 
+static void log_execution_mode(bool *ret_first_boot) {
+        assert(ret_first_boot);
+
+        if (arg_system) {
+                int v;
+
+                log_info(PACKAGE_STRING " running in %ssystem mode. (" SYSTEMD_FEATURES ")",
+                         arg_action == ACTION_TEST ? "test " : "" );
+
+                v = detect_virtualization();
+                if (v > 0)
+                        log_info("Detected virtualization %s.", virtualization_to_string(v));
+
+                log_info("Detected architecture %s.", architecture_to_string(uname_architecture()));
+
+                if (in_initrd()) {
+                        *ret_first_boot = false;
+                        log_info("Running in initial RAM disk.");
+                } else {
+                        /* Let's check whether we are in first boot, i.e. whether /etc is still unpopulated. We use
+                         * /etc/machine-id as flag file, for this: if it exists we assume /etc is populated, if it
+                         * doesn't it's unpopulated. This allows container managers and installers to provision a
+                         * couple of files already. If the container manager wants to provision the machine ID itself
+                         * it should pass $container_uuid to PID 1. */
+
+                        *ret_first_boot = access("/etc/machine-id", F_OK) < 0;
+                        if (*ret_first_boot)
+                                log_info("Running with unpopulated /etc.");
+                }
+        } else {
+                _cleanup_free_ char *t;
+
+                t = uid_to_name(getuid());
+                log_debug(PACKAGE_STRING " running in %suser mode for user " UID_FMT "/%s. (" SYSTEMD_FEATURES ")",
+                          arg_action == ACTION_TEST ? " test" : "", getuid(), strna(t));
+
+                *ret_first_boot = false;
+        }
+}
+
 static int initialize_runtime(
                 bool skip_setup,
                 struct rlimit *saved_rlimit_nofile,
@@ -2297,38 +2337,7 @@ int main(int argc, char *argv[]) {
                         goto finish;
         }
 
-        if (arg_system) {
-                int v;
-
-                log_info(PACKAGE_STRING " running in %ssystem mode. (" SYSTEMD_FEATURES ")",
-                         arg_action == ACTION_TEST ? "test " : "" );
-
-                v = detect_virtualization();
-                if (v > 0)
-                        log_info("Detected virtualization %s.", virtualization_to_string(v));
-
-                log_info("Detected architecture %s.", architecture_to_string(uname_architecture()));
-
-                if (in_initrd())
-                        log_info("Running in initial RAM disk.");
-                else {
-                        /* Let's check whether we are in first boot, i.e. whether /etc is still unpopulated. We use
-                         * /etc/machine-id as flag file, for this: if it exists we assume /etc is populated, if it
-                         * doesn't it's unpopulated. This allows container managers and installers to provision a
-                         * couple of files already. If the container manager wants to provision the machine ID itself
-                         * it should pass $container_uuid to PID 1. */
-
-                        first_boot = access("/etc/machine-id", F_OK) < 0;
-                        if (first_boot)
-                                log_info("Running with unpopulated /etc.");
-                }
-        } else {
-                _cleanup_free_ char *t;
-
-                t = uid_to_name(getuid());
-                log_debug(PACKAGE_STRING " running in %suser mode for user " UID_FMT "/%s. (" SYSTEMD_FEATURES ")",
-                          arg_action == ACTION_TEST ? " test" : "", getuid(), strna(t));
-        }
+        log_execution_mode(&first_boot);
 
         if (arg_action == ACTION_RUN) {
                 r = initialize_runtime(skip_setup,
