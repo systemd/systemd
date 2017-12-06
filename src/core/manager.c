@@ -603,6 +603,29 @@ static int manager_setup_prefix(Manager *m) {
         return 0;
 }
 
+static int manager_setup_run_queue(Manager *m) {
+        int r;
+
+        assert(m);
+        assert(!m->run_queue_event_source);
+
+        r = sd_event_add_defer(m->event, &m->run_queue_event_source, manager_dispatch_run_queue, m);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(m->run_queue_event_source, SD_EVENT_PRIORITY_IDLE);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_enabled(m->run_queue_event_source, SD_EVENT_OFF);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(m->run_queue_event_source, "manager-run-queue");
+
+        return 0;
+}
+
 int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
         Manager *m;
         int r;
@@ -687,19 +710,9 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
         if (r < 0)
                 goto fail;
 
-        r = sd_event_add_defer(m->event, &m->run_queue_event_source, manager_dispatch_run_queue, m);
+        r = manager_setup_run_queue(m);
         if (r < 0)
                 goto fail;
-
-        r = sd_event_source_set_priority(m->run_queue_event_source, SD_EVENT_PRIORITY_IDLE);
-        if (r < 0)
-                goto fail;
-
-        r = sd_event_source_set_enabled(m->run_queue_event_source, SD_EVENT_OFF);
-        if (r < 0)
-                goto fail;
-
-        (void) sd_event_source_set_description(m->run_queue_event_source, "manager-run-queue");
 
         r = manager_setup_signals(m);
         if (r < 0)
