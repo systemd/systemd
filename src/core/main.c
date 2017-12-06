@@ -1905,6 +1905,21 @@ static int do_queue_default_job(
         return 0;
 }
 
+static void free_arguments(void) {
+        size_t j;
+
+        /* Frees all arg_* variables, with the exception of arg_serialization */
+
+        for (j = 0; j < ELEMENTSOF(arg_default_rlimit); j++)
+                arg_default_rlimit[j] = mfree(arg_default_rlimit[j]);
+
+        arg_default_unit = mfree(arg_default_unit);
+        arg_confirm_spawn = mfree(arg_confirm_spawn);
+        arg_join_controllers = strv_free_free(arg_join_controllers);
+        arg_default_environment = strv_free(arg_default_environment);
+        arg_syscall_archs = set_free(arg_syscall_archs);
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
@@ -1920,7 +1935,6 @@ int main(int argc, char *argv[]) {
         dual_timestamp security_finish_timestamp = DUAL_TIMESTAMP_NULL;
         static char systemd[] = "systemd";
         bool skip_setup = false;
-        unsigned j;
         bool loaded_policy = false;
         bool queue_default_job = false;
         bool first_boot = false;
@@ -2374,15 +2388,7 @@ finish:
 
         m = manager_free(m);
 
-        for (j = 0; j < ELEMENTSOF(arg_default_rlimit); j++)
-                arg_default_rlimit[j] = mfree(arg_default_rlimit[j]);
-
-        arg_default_unit = mfree(arg_default_unit);
-        arg_confirm_spawn = mfree(arg_confirm_spawn);
-        arg_join_controllers = strv_free_free(arg_join_controllers);
-        arg_default_environment = strv_free(arg_default_environment);
-        arg_syscall_archs = set_free(arg_syscall_archs);
-
+        free_arguments();
         mac_selinux_finish();
 
         if (reexecute)
