@@ -54,4 +54,6 @@ void pty_forward_set_handler(PTYForward *f, PTYForwardHandler handler, void *use
 
 bool pty_forward_drain(PTYForward *f);
 
+int pty_forward_set_priority(PTYForward *f, int64_t priority);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(PTYForward*, pty_forward_free);
