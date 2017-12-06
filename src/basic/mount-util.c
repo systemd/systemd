@@ -55,7 +55,7 @@ int name_to_handle_at_loop(
                 int *ret_mnt_id,
                 int flags) {
 
-        _cleanup_free_ struct file_handle *h;
+        _cleanup_free_ struct file_handle *h = NULL;
         size_t n = ORIGINAL_MAX_HANDLE_SZ;
 
         /* We need to invoke name_to_handle_at() in a loop, given that it might return EOVERFLOW when the specified
@@ -65,14 +65,14 @@ int name_to_handle_at_loop(
          * This improves on raw name_to_handle_at() also in one other regard: ret_handle and ret_mnt_id can be passed
          * as NULL if there's no interest in either. */
 
-        h = malloc0(offsetof(struct file_handle, f_handle) + n);
-        if (!h)
-                return -ENOMEM;
-
-        h->handle_bytes = n;
-
         for (;;) {
                 int mnt_id = -1;
+
+                h = malloc0(offsetof(struct file_handle, f_handle) + n);
+                if (!h)
+                        return -ENOMEM;
+
+                h->handle_bytes = n;
 
                 if (name_to_handle_at(fd, path, h, &mnt_id, flags) >= 0) {
 
@@ -110,12 +110,7 @@ int name_to_handle_at_loop(
                 if (offsetof(struct file_handle, f_handle) + n < n) /* check for addition overflow */
                         return -EOVERFLOW;
 
-                free(h);
-                h = malloc0(offsetof(struct file_handle, f_handle) + n);
-                if (!h)
-                        return -ENOMEM;
-
-                h->handle_bytes = n;
+                h = mfree(h);
         }
 }
 
