@@ -1845,6 +1845,78 @@ static int invoke_main_loop(
         }
 }
 
+static int initialize_runtime(
+                bool skip_setup,
+                struct rlimit *saved_rlimit_nofile,
+                struct rlimit *saved_rlimit_memlock,
+                const char **ret_error_message) {
+
+        int r;
+
+        assert(ret_error_message);
+
+        /* Sets up various runtime parameters. Many of these initializations are conditionalized:
+         *
+         * - Some only apply to --system instances
+         * - Some only apply to --user instances
+         * - Some only apply when we first start up, but not when we reexecute
+         */
+
+        if (arg_system && !skip_setup) {
+                if (arg_show_status > 0)
+                        status_welcome();
+
+                hostname_setup();
+                machine_id_setup(NULL, arg_machine_id, NULL);
+                loopback_setup();
+                bump_unix_max_dgram_qlen();
+
+                test_usr();
+        }
+
+        if (arg_system && arg_runtime_watchdog > 0 && arg_runtime_watchdog != USEC_INFINITY)
+                watchdog_set_timeout(&arg_runtime_watchdog);
+
+        if (arg_timer_slack_nsec != NSEC_INFINITY)
+                if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
+                        log_error_errno(errno, "Failed to adjust timer slack: %m");
+
+        if (arg_system && !cap_test_all(arg_capability_bounding_set)) {
+                r = capability_bounding_set_drop_usermode(arg_capability_bounding_set);
+                if (r < 0) {
+                        *ret_error_message = "Failed to drop capability bounding set of usermode helpers";
+                        return log_emergency_errno(r, "Failed to drop capability bounding set of usermode helpers: %m");
+                }
+
+                r = capability_bounding_set_drop(arg_capability_bounding_set, true);
+                if (r < 0) {
+                        *ret_error_message = "Failed to drop capability bounding set";
+                        return log_emergency_errno(r, "Failed to drop capability bounding set: %m");
+                }
+        }
+
+        if (arg_syscall_archs) {
+                r = enforce_syscall_archs(arg_syscall_archs);
+                if (r < 0) {
+                        *ret_error_message = "Failed to set syscall architectures";
+                        return r;
+                }
+        }
+
+        if (!arg_system)
+                /* Become reaper of our children */
+                if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0)
+                        log_warning_errno(errno, "Failed to make us a subreaper: %m");
+
+        if (arg_system) {
+                /* Bump up RLIMIT_NOFILE for systemd itself */
+                (void) bump_rlimit_nofile(saved_rlimit_nofile);
+                (void) bump_rlimit_memlock(saved_rlimit_memlock);
+        }
+
+        return 0;
+}
+
 static int do_queue_default_job(
                 Manager *m,
                 const char **ret_error_message) {
@@ -2261,58 +2333,12 @@ int main(int argc, char *argv[]) {
         }
 
         if (arg_action == ACTION_RUN) {
-                if (arg_system && !skip_setup) {
-                        if (arg_show_status > 0)
-                                status_welcome();
-
-                        hostname_setup();
-                        machine_id_setup(NULL, arg_machine_id, NULL);
-                        loopback_setup();
-                        bump_unix_max_dgram_qlen();
-
-                        test_usr();
-                }
-
-                if (arg_system && arg_runtime_watchdog > 0 && arg_runtime_watchdog != USEC_INFINITY)
-                        watchdog_set_timeout(&arg_runtime_watchdog);
-
-                if (arg_timer_slack_nsec != NSEC_INFINITY)
-                        if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
-                                log_error_errno(errno, "Failed to adjust timer slack: %m");
-
-                if (arg_system && !cap_test_all(arg_capability_bounding_set)) {
-                        r = capability_bounding_set_drop_usermode(arg_capability_bounding_set);
-                        if (r < 0) {
-                                log_emergency_errno(r, "Failed to drop capability bounding set of usermode helpers: %m");
-                                error_message = "Failed to drop capability bounding set of usermode helpers";
-                                goto finish;
-                        }
-                        r = capability_bounding_set_drop(arg_capability_bounding_set, true);
-                        if (r < 0) {
-                                log_emergency_errno(r, "Failed to drop capability bounding set: %m");
-                                error_message = "Failed to drop capability bounding set";
-                                goto finish;
-                        }
-                }
-
-                if (arg_syscall_archs) {
-                        r = enforce_syscall_archs(arg_syscall_archs);
-                        if (r < 0) {
-                                error_message = "Failed to set syscall architectures";
-                                goto finish;
-                        }
-                }
-
-                if (!arg_system)
-                        /* Become reaper of our children */
-                        if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0)
-                                log_warning_errno(errno, "Failed to make us a subreaper: %m");
-
-                if (arg_system) {
-                        /* Bump up RLIMIT_NOFILE for systemd itself */
-                        (void) bump_rlimit_nofile(&saved_rlimit_nofile);
-                        (void) bump_rlimit_memlock(&saved_rlimit_memlock);
-                }
+                r = initialize_runtime(skip_setup,
+                                       &saved_rlimit_nofile,
+                                       &saved_rlimit_memlock,
+                                       &error_message);
+                if (r < 0)
+                        goto finish;
         }
 
         r = manager_new(arg_system ? UNIT_FILE_SYSTEM : UNIT_FILE_USER,
