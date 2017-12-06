@@ -1,21 +1,19 @@
 #!/bin/bash -e
 
-if ! test -d ../build ; then
-        echo "Expected build directory in ../build, but couldn't find it." >&2
-        exit 1
-fi
+BUILD_DIR="$($(dirname "$0")/../tools/find-build-dir.sh)"
 
-ninja -C ../build
+ninja -C "$BUILD_DIR"
 
 declare -A results
 
 RESULT=0
 FAILURES=0
 
+cd "$(dirname "$0")"
 for TEST in TEST-??-* ; do
         echo -e "\n--x-- Starting $TEST --x--"
         set +e
-        make -C "$TEST" BUILD_DIR=$(pwd)/../build clean setup run
+        make -C "$TEST" "BUILD_DIR=$BUILD_DIR" clean setup run
         RESULT=$?
         set -e
         echo "--x-- Result of $TEST: $RESULT --x--"
