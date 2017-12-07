@@ -732,19 +732,22 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
                 goto fail;
         }
 
+        r = manager_setup_prefix(m);
+        if (r < 0)
+                goto fail;
+
         if (MANAGER_IS_SYSTEM(m) && test_run_flags == 0) {
                 r = mkdir_label("/run/systemd/units", 0755);
                 if (r < 0 && r != -EEXIST)
                         goto fail;
         }
 
+        m->taint_usr =
+                !in_initrd() &&
+                dir_is_empty("/usr") > 0;
+
         /* Note that we do not set up the notify fd here. We do that after deserialization,
          * since they might have gotten serialized across the reexec. */
-        m->taint_usr = dir_is_empty("/usr") > 0;
-
-        r = manager_setup_prefix(m);
-        if (r < 0)
-                goto fail;
 
         *_m = m;
         return 0;
