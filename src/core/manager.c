@@ -3853,7 +3853,7 @@ int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint32_t re
 }
 
 char *manager_taint_string(Manager *m) {
-        _cleanup_free_ char *destination = NULL;
+        _cleanup_free_ char *destination = NULL, *overflowuid = NULL, *overflowgid = NULL;
         char *buf, *e;
         int r;
 
@@ -3864,7 +3864,9 @@ char *manager_taint_string(Manager *m) {
                                "local-hwclock:"
                                "var-run-bad:"
                                "weird-nobody-user:"
-                               "weird-nobody-group:"));
+                               "weird-nobody-group:"
+                               "overflowuid-not-65534:"
+                               "overflowgid-not-65534:"));
         if (!buf)
                 return NULL;
 
@@ -3888,6 +3890,14 @@ char *manager_taint_string(Manager *m) {
 
         if (!streq(NOBODY_GROUP_NAME, "nobody"))
                 e = stpcpy(e, "weird-nobody-group:");
+
+        r = read_one_line_file("/proc/sys/kernel/overflowuid", &overflowuid);
+        if (r >= 0 && !streq(overflowuid, "65534"))
+                e = stpcpy(e, "overflowuid-not-65534:");
+
+        r = read_one_line_file("/proc/sys/kernel/overflowgid", &overflowgid);
+        if (r >= 0 && !streq(overflowgid, "65534"))
+                e = stpcpy(e, "overflowgid-not-65534:");
 
         /* remove the last ':' */
         if (e != buf)
