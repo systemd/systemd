@@ -680,6 +680,11 @@ if id_result.returncode() == 0
                         '        Your build will result in an group table setup that is incompatible with the local system.')
         endif
 endif
+if nobody_user != nobody_group and not (nobody_user == 'nobody' and nobody_group == 'nogroup')
+        message('WARNING:\n' +
+                '        The configured user name "@0@" and group name "@0@" of the nobody user/group are not equivalent.\n'.format(nobody_user, nobody_group) +
+                '        Please re-check that both "nobody-user" and "nobody-group" options are correctly set.')
+endif
 
 conf.set_quoted('NOBODY_USER_NAME', nobody_user)
 conf.set_quoted('NOBODY_GROUP_NAME', nobody_group)
