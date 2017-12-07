@@ -337,22 +337,22 @@
         <colspec colname='expl' />
         <thead>
           <row>
-      <entry>Path</entry>
-      <entry>Description</entry>
+            <entry>Path</entry>
+            <entry>Description</entry>
           </row>
         </thead>
         <tbody>
           <row>
-      <entry><filename>/etc/systemd/system</filename></entry>
-      <entry>Local configuration</entry>
+            <entry><filename>/etc/systemd/system</filename></entry>
+            <entry>Local configuration</entry>
           </row>
           <row>
-      <entry><filename>/run/systemd/system</filename></entry>
-      <entry>Runtime units</entry>
+            <entry><filename>/run/systemd/system</filename></entry>
+            <entry>Runtime units</entry>
           </row>
           <row>
-      <entry><filename>/usr/lib/systemd/system</filename></entry>
-      <entry>Units of installed packages</entry>
+            <entry><filename>/usr/lib/systemd/system</filename></entry>
+            <entry>Units of installed packages</entry>
           </row>
         </tbody>
       </tgroup>
@@ -368,42 +368,42 @@
         <colspec colname='expl' />
         <thead>
           <row>
-      <entry>Path</entry>
-      <entry>Description</entry>
+            <entry>Path</entry>
+            <entry>Description</entry>
           </row>
         </thead>
         <tbody>
           <row>
-      <entry><filename>$XDG_CONFIG_HOME/systemd/user</filename></entry>
-      <entry>User configuration (only used when $XDG_CONFIG_HOME is set)</entry>
+            <entry><filename>$XDG_CONFIG_HOME/systemd/user</filename></entry>
+            <entry>User configuration (only used when $XDG_CONFIG_HOME is set)</entry>
           </row>
           <row>
-      <entry><filename>$HOME/.config/systemd/user</filename></entry>
-      <entry>User configuration (only used when $XDG_CONFIG_HOME is not set)</entry>
+            <entry><filename>$HOME/.config/systemd/user</filename></entry>
+            <entry>User configuration (only used when $XDG_CONFIG_HOME is not set)</entry>
           </row>
           <row>
-      <entry><filename>/etc/systemd/user</filename></entry>
-      <entry>Local configuration</entry>
+            <entry><filename>/etc/systemd/user</filename></entry>
+            <entry>Local configuration</entry>
           </row>
           <row>
-      <entry><filename>$XDG_RUNTIME_DIR/systemd/user</filename></entry>
-      <entry>Runtime units (only used when $XDG_RUNTIME_DIR is set)</entry>
+            <entry><filename>$XDG_RUNTIME_DIR/systemd/user</filename></entry>
+            <entry>Runtime units (only used when $XDG_RUNTIME_DIR is set)</entry>
           </row>
           <row>
-      <entry><filename>/run/systemd/user</filename></entry>
-      <entry>Runtime units</entry>
+            <entry><filename>/run/systemd/user</filename></entry>
+            <entry>Runtime units</entry>
           </row>
           <row>
-      <entry><filename>$XDG_DATA_HOME/systemd/user</filename></entry>
-      <entry>Units of packages that have been installed in the home directory (only used when $XDG_DATA_HOME is set)</entry>
+            <entry><filename>$XDG_DATA_HOME/systemd/user</filename></entry>
+            <entry>Units of packages that have been installed in the home directory (only used when $XDG_DATA_HOME is set)</entry>
           </row>
           <row>
-      <entry><filename>$HOME/.local/share/systemd/user</filename></entry>
-      <entry>Units of packages that have been installed in the home directory (only used when $XDG_DATA_HOME is not set)</entry>
+            <entry><filename>$HOME/.local/share/systemd/user</filename></entry>
+            <entry>Units of packages that have been installed in the home directory (only used when $XDG_DATA_HOME is not set)</entry>
           </row>
           <row>
-      <entry><filename>/usr/lib/systemd/user</filename></entry>
-      <entry>Units of packages that have been installed system-wide</entry>
+            <entry><filename>/usr/lib/systemd/user</filename></entry>
+            <entry>Units of packages that have been installed system-wide</entry>
           </row>
         </tbody>
       </tgroup>
@@ -1436,116 +1436,115 @@
         <colspec colname="detail" />
         <thead>
           <row>
-      <entry>Specifier</entry>
-      <entry>Meaning</entry>
-      <entry>Details</entry>
+            <entry>Specifier</entry>
+            <entry>Meaning</entry>
+            <entry>Details</entry>
           </row>
         </thead>
         <tbody>
           <row>
-      <entry><literal>%n</literal></entry>
-      <entry>Full unit name</entry>
-      <entry></entry>
+            <entry><literal>%n</literal></entry>
+            <entry>Full unit name</entry>
+            <entry></entry>
           </row>
           <row>
-      <entry><literal>%N</literal></entry>
-      <entry>Unescaped full unit name</entry>
-      <entry>Same as <literal>%n</literal>, but with escaping undone. This undoes the escaping used when generating unit names from arbitrary strings (see above). </entry>
+            <entry><literal>%N</literal></entry>
+            <entry>Unescaped full unit name</entry>
+            <entry>Same as <literal>%n</literal>, but with escaping undone. This undoes the escaping used when generating unit names from arbitrary strings (see above). </entry>
           </row>
           <row>
-      <entry><literal>%p</literal></entry>
-      <entry>Prefix name</entry>
-      <entry>For instantiated units, this refers to the string before the <literal>@</literal> character of the unit name. For non-instantiated units, this refers to the name of the unit with the type suffix removed.</entry>
+            <entry><literal>%p</literal></entry>
+            <entry>Prefix name</entry>
+            <entry>For instantiated units, this refers to the string before the <literal>@</literal> character of the unit name. For non-instantiated units, this refers to the name of the unit with the type suffix removed.</entry>
           </row>
           <row>
-      <entry><literal>%P</literal></entry>
-      <entry>Unescaped prefix name</entry>
-      <entry>Same as <literal>%p</literal>, but with escaping undone</entry>
+            <entry><literal>%P</literal></entry>
+            <entry>Unescaped prefix name</entry>
+            <entry>Same as <literal>%p</literal>, but with escaping undone</entry>
           </row>
           <row>
-      <entry><literal>%i</literal></entry>
-      <entry>Instance name</entry>
-      <entry>For instantiated units: this is the string between the <literal>@</literal> character and the suffix of the unit name.</entry>
+            <entry><literal>%i</literal></entry>
+            <entry>Instance name</entry>
+            <entry>For instantiated units: this is the string between the <literal>@</literal> character and the suffix of the unit name.</entry>
           </row>
           <row>
-      <entry><literal>%I</literal></entry>
-      <entry>Unescaped instance name</entry>
-      <entry>Same as <literal>%i</literal>, but with escaping undone</entry>
+            <entry><literal>%I</literal></entry>
+            <entry>Unescaped instance name</entry>
+            <entry>Same as <literal>%i</literal>, but with escaping undone</entry>
           </row>
           <row>
-      <entry><literal>%f</literal></entry>
-      <entry>Unescaped filename</entry>
-      <entry>This is either the unescaped instance name (if applicable) with <filename>/</filename> prepended (if applicable), or the unescaped prefix name prepended with <filename>/</filename>. This implements unescaping according to the rules for escaping absolute file system paths discussed above.</entry>
+            <entry><literal>%f</literal></entry>
+            <entry>Unescaped filename</entry>
+            <entry>This is either the unescaped instance name (if applicable) with <filename>/</filename> prepended (if applicable), or the unescaped prefix name prepended with <filename>/</filename>. This implements unescaping according to the rules for escaping absolute file system paths discussed above.</entry>
           </row>
           <row>
-      <entry><literal>%t</literal></entry>
-      <entry>Runtime directory root</entry>
-      <entry>This is either <filename>/run</filename> (for the system manager) or the path <literal>$XDG_RUNTIME_DIR</literal> resolves to (for user managers).</entry>
+            <entry><literal>%t</literal></entry>
+            <entry>Runtime directory root</entry>
+            <entry>This is either <filename>/run</filename> (for the system manager) or the path <literal>$XDG_RUNTIME_DIR</literal> resolves to (for user managers).</entry>
           </row>
           <row>
-      <entry><literal>%S</literal></entry>
-      <entry>State directory root</entry>
-      <entry>This is either <filename>/var/lib</filename> (for the system manager) or the path <literal>$XDG_CONFIG_HOME</literal> resolves to (for user managers).</entry>
+            <entry><literal>%S</literal></entry>
+            <entry>State directory root</entry>
+            <entry>This is either <filename>/var/lib</filename> (for the system manager) or the path <literal>$XDG_CONFIG_HOME</literal> resolves to (for user managers).</entry>
           </row>
           <row>
-      <entry><literal>%C</literal></entry>
-      <entry>Cache directory root</entry>
-      <entry>This is either <filename>/var/cache</filename> (for the system manager) or the path <literal>$XDG_CACHE_HOME</literal> resolves to (for user managers).</entry>
+            <entry><literal>%C</literal></entry>
+            <entry>Cache directory root</entry>
+            <entry>This is either <filename>/var/cache</filename> (for the system manager) or the path <literal>$XDG_CACHE_HOME</literal> resolves to (for user managers).</entry>
           </row>
           <row>
-      <entry><literal>%L</literal></entry>
-      <entry>Log directory root</entry>
-      <entry>This is either <filename>/var/log</filename> (for the system manager) or the path <literal>$XDG_CONFIG_HOME</literal> resolves to with <filename noindex='true'>/log</filename> appended (for user managers).</entry>
+            <entry><literal>%L</literal></entry>
+            <entry>Log directory root</entry>
+            <entry>This is either <filename>/var/log</filename> (for the system manager) or the path <literal>$XDG_CONFIG_HOME</literal> resolves to with <filename noindex='true'>/log</filename> appended (for user managers).</entry>
           </row>
           <row>
-      <entry><literal>%u</literal></entry>
-      <entry>User name</entry>
-      <entry>This is the name of the user running the service manager instance. In case of the system manager this resolves to <literal>root</literal>.</entry>
+            <entry><literal>%u</literal></entry>
+            <entry>User name</entry>
+            <entry>This is the name of the user running the service manager instance. In case of the system manager this resolves to <literal>root</literal>.</entry>
           </row>
           <row>
-      <entry><literal>%U</literal></entry>
-      <entry>User UID</entry>
-      <entry>This is the numeric UID of the user running the service manager instance. In case of the system manager this resolves to <literal>0</literal>.</entry>
+            <entry><literal>%U</literal></entry>
+            <entry>User UID</entry>
+            <entry>This is the numeric UID of the user running the service manager instance. In case of the system manager this resolves to <literal>0</literal>.</entry>
           </row>
           <row>
-      <entry><literal>%h</literal></entry>
-      <entry>User home directory</entry>
-      <entry>This is the home directory of the user running the service manager instance. In case of the system manager this resolves to <literal>/root</literal>.</entry>
+            <entry><literal>%h</literal></entry>
+            <entry>User home directory</entry>
+            <entry>This is the home directory of the user running the service manager instance. In case of the system manager this resolves to <literal>/root</literal>.</entry>
           </row>
           <row>
-      <entry><literal>%s</literal></entry>
-      <entry>User shell</entry>
-      <entry>This is the shell of the user running the service manager instance. In case of the system manager this resolves to <literal>/bin/sh</literal>.</entry>
+            <entry><literal>%s</literal></entry>
+            <entry>User shell</entry>
+            <entry>This is the shell of the user running the service manager instance. In case of the system manager this resolves to <literal>/bin/sh</literal>.</entry>
           </row>
           <row>
-      <entry><literal>%m</literal></entry>
-      <entry>Machine ID</entry>
-      <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
+            <entry><literal>%m</literal></entry>
+            <entry>Machine ID</entry>
+            <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
           </row>
           <row>
-      <entry><literal>%b</literal></entry>
-      <entry>Boot ID</entry>
-      <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
+            <entry><literal>%b</literal></entry>
+            <entry>Boot ID</entry>
+            <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
           </row>
           <row>
-      <entry><literal>%H</literal></entry>
-      <entry>Host name</entry>
-      <entry>The hostname of the running system at the point in time the unit configuration is loaded.</entry>
+            <entry><literal>%H</literal></entry>
+            <entry>Host name</entry>
+            <entry>The hostname of the running system at the point in time the unit configuration is loaded.</entry>
           </row>
           <row>
-      <entry><literal>%v</literal></entry>
-      <entry>Kernel release</entry>
-      <entry>Identical to <command>uname -r</command> output</entry>
+            <entry><literal>%v</literal></entry>
+            <entry>Kernel release</entry>
+            <entry>Identical to <command>uname -r</command> output</entry>
           </row>
           <row>
-      <entry><literal>%%</literal></entry>
-      <entry>Single percent sign</entry>
-      <entry>Use <literal>%%</literal> in place of <literal>%</literal> to specify a single percent sign.</entry>
+            <entry><literal>%%</literal></entry>
+            <entry>Single percent sign</entry>
+            <entry>Use <literal>%%</literal> in place of <literal>%</literal> to specify a single percent sign.</entry>
           </row>
         </tbody>
       </tgroup>
     </table>
-
   </refsect1>
 
   <refsect1>
