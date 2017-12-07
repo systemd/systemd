@@ -346,7 +346,7 @@ static int boot_entries_uniquify(BootEntry *entries, size_t n_entries) {
         return 0;
 }
 
-int boot_entries_select_default(const BootConfig *config) {
+static int boot_entries_select_default(const BootConfig *config) {
         int i;
 
         if (config->entry_oneshot)
