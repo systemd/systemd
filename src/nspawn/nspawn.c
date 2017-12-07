@@ -3642,6 +3642,8 @@ static int run(int master,
         if (r < 0)
                 return log_error_errno(r, "Failed to get default event source: %m");
 
+        (void) sd_event_set_watchdog(event, true);
+
         if (bus) {
                 r = sd_bus_attach_event(bus, event, 0);
                 if (r < 0)
