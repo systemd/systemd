@@ -374,7 +374,7 @@ int boot_entries_select_default(const BootConfig *config) {
                         }
 
         if (config->n_entries > 0)
-                log_debug("Found default: last entry \"%s\"", config->entries[i].filename);
+                log_debug("Found default: last entry \"%s\"", config->entries[config->n_entries - 1].filename);
         else
                 log_debug("Found no default boot entry :(");
         return config->n_entries - 1; /* -1 means "no default" */
