@@ -458,7 +458,7 @@ int user_start(User *u) {
         u->stopping = false;
 
         if (!u->started) {
-                log_debug("New user %s logged in.", u->name);
+                log_debug("Starting services for new user %s.", u->name);
 
                 /* Make XDG_RUNTIME_DIR */
                 r = user_mkdir_runtime_path(u);
