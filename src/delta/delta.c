@@ -528,7 +528,7 @@ static int process_suffix_chop(const char *arg) {
                 if (suffix) {
                         suffix += strspn(suffix, "/");
                         if (*suffix)
-                                return process_suffix(suffix, NULL);
+                                return process_suffix(suffix, p);
                         else
                                 return process_suffixes(arg);
                 }
