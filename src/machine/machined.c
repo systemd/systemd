@@ -37,6 +37,7 @@
 #include "machined.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "special.h"
 
 Manager *manager_new(void) {
         Manager *m;
@@ -112,7 +113,7 @@ static int manager_add_host_machine(Manager *m) {
         if (!rd)
                 return log_oom();
 
-        unit = strdup("-.slice");
+        unit = strdup(SPECIAL_ROOT_SLICE);
         if (!unit)
                 return log_oom();
 
