@@ -2394,6 +2394,14 @@ int main(int argc, char *argv[]) {
                  "Loaded units and determined initial transaction in %s.",
                  format_timespan(timespan, sizeof(timespan), after_startup - before_startup, 100 * USEC_PER_MSEC));
 
+        if (arg_system) {
+                _cleanup_free_ char *taint;
+
+                taint = manager_taint_string(m);
+                if (!isempty(taint))
+                        log_notice("System is tainted: %s", taint);
+        }
+
         if (arg_action == ACTION_TEST) {
                 printf("-> By units:\n");
                 manager_dump_units(m, stdout, "\t");
