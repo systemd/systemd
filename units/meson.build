@@ -304,6 +304,9 @@ foreach tuple : units
         endif
 endforeach
 
+install_data('user-.slice.d/10-defaults.conf',
+             install_dir : systemunitdir + '/user-.slice.d')
+
 ############################################################
 
 meson.add_install_script(meson_make_symlink,

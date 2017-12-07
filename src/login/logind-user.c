@@ -368,36 +368,6 @@ fail:
         return r;
 }
 
-static int user_start_slice(User *u) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        const char *description;
-        char *job;
-        int r;
-
-        assert(u);
-
-        u->slice_job = mfree(u->slice_job);
-        description = strjoina("User Slice of ", u->name);
-
-        r = manager_start_slice(
-                        u->manager,
-                        u->slice,
-                        description,
-                        "systemd-logind.service",
-                        "systemd-user-sessions.service",
-                        u->manager->user_tasks_max,
-                        &error,
-                        &job);
-        if (r >= 0)
-                u->slice_job = job;
-        else if (!sd_bus_error_has_name(&error, BUS_ERROR_UNIT_EXISTS))
-                /* we don't fail due to this, let's try to continue */
-                log_error_errno(r, "Failed to start user slice %s, ignoring: %s (%s)",
-                                u->slice, bus_error_message(&error, r), error.name);
-
-        return 0;
-}
-
 static int user_start_service(User *u) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char *job;
@@ -452,11 +422,6 @@ int user_start(User *u) {
                 if (r < 0)
                         return r;
         }
-
-        /* Create cgroup */
-        r = user_start_slice(u);
-        if (r < 0)
-                return r;
 
         /* Save the user data so far, because pam_systemd will read the
          * XDG_RUNTIME_DIR out of it while starting up systemd --user.
@@ -858,8 +823,8 @@ int config_parse_tmpfs_size(
         return 0;
 }
 
-int config_parse_user_tasks_max(
-                const char* unit,
+int config_parse_compat_user_tasks_max(
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -870,45 +835,17 @@ int config_parse_user_tasks_max(
                 void *data,
                 void *userdata) {
 
-        uint64_t *m = data;
-        uint64_t k;
-        int r;
-
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if (isempty(rvalue)) {
-                *m = system_tasks_max_scale(DEFAULT_USER_TASKS_MAX_PERCENTAGE, 100U);
-                return 0;
-        }
-
-        if (streq(rvalue, "infinity")) {
-                *m = CGROUP_LIMIT_MAX;
-                return 0;
-        }
-
-        /* Try to parse as percentage */
-        r = parse_percent(rvalue);
-        if (r >= 0)
-                k = system_tasks_max_scale(r, 100U);
-        else {
-
-                /* If the passed argument was not a percentage, or out of range, parse as byte size */
-
-                r = safe_atou64(rvalue, &k);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse tasks maximum, ignoring: %s", rvalue);
-                        return 0;
-                }
-        }
-
-        if (k <= 0 || k >= UINT64_MAX) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Tasks maximum out of range, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        *m = k;
+        log_syntax(unit, LOG_NOTICE, filename, line, 0,
+                   "Support for option %s= has been removed.",
+                   lvalue);
+        log_info("Hint: try creating /etc/systemd/system/user-.slice/50-limits.conf with:\n"
+                 "        [Slice]\n"
+                 "        TasksMax=%s",
+                 rvalue);
         return 0;
 }

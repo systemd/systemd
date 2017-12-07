@@ -332,6 +332,20 @@ static int property_get_current_inhibitors(
         return sd_bus_message_append(reply, "t", (uint64_t) hashmap_size(m->inhibitors));
 }
 
+static int property_get_compat_user_tasks_max(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        assert(reply);
+
+        return sd_bus_message_append(reply, "t", CGROUP_LIMIT_MAX);
+}
+
 static int method_get_session(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *p = NULL;
         Manager *m = userdata;
@@ -2720,7 +2734,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("NCurrentInhibitors", "t", property_get_current_inhibitors, 0, 0),
         SD_BUS_PROPERTY("SessionsMax", "t", NULL, offsetof(Manager, sessions_max), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NCurrentSessions", "t", property_get_current_sessions, 0, 0),
-        SD_BUS_PROPERTY("UserTasksMax", "t", NULL, offsetof(Manager, user_tasks_max), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("UserTasksMax", "t", property_get_compat_user_tasks_max, 0, SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
 
         SD_BUS_METHOD("GetSession", "s", "o", method_get_session, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetSessionByPID", "u", "o", method_get_session_by_pid, SD_BUS_VTABLE_UNPRIVILEGED),
