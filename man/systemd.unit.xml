@@ -1220,9 +1220,115 @@
         files. This functionality should not be used in normal
         units.</para></listitem>
       </varlistentry>
-
     </variablelist>
+  </refsect1>
 
+  <refsect1>
+    <title>Mapping of unit properties to their inverses</title>
+
+    <para>Unit settings that create a relationship with a second unit usually show up
+    in properties of both units, for example in <command>systemctl show</command>
+    output. In some cases the name of the property is the same as the name of the
+    configuration setting, but not always. This table lists the pairs of properties
+    that are shown on two units which are connected through some dependency, and shows
+    which property on "source" unit corresponds to which property on the "target" unit.
+    </para>
+
+    <table>
+      <title>
+        "Forward" and "reverse" unit properties
+      </title>
+
+      <tgroup cols='2'>
+        <colspec colname='forward' />
+        <colspec colname='reverse' />
+        <colspec colname='notes' />
+        <thead>
+          <row>
+            <entry>"Forward" property</entry>
+            <entry>"Reverse" property</entry>
+            <entry>Where used</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry><varname>Before=</varname></entry>
+            <entry><varname>After=</varname></entry>
+            <entry morerows='1' valign='middle'>Both are unit file options</entry>
+          </row>
+          <row>
+            <entry><varname>After=</varname></entry>
+            <entry><varname>Before=</varname></entry>
+          </row>
+          <row>
+            <entry><varname>Requires=</varname></entry>
+            <entry><varname>RequiredBy=</varname></entry>
+            <entry>A unit file option; an option in the [Install] section</entry>
+          </row>
+          <row>
+            <entry><varname>Wants=</varname></entry>
+            <entry><varname>WantedBy=</varname></entry>
+            <entry>A unit file option; an option in the [Install] section</entry>
+          </row>
+          <row>
+            <entry><varname>PartOf=</varname></entry>
+            <entry><varname>ConsistsOf=</varname></entry>
+            <entry>A unit file option; an automatic property</entry>
+          </row>
+          <row>
+            <entry><varname>BindsTo=</varname></entry>
+            <entry><varname>BoundBy=</varname></entry>
+            <entry>A unit file option; an automatic property</entry>
+          </row>
+          <row>
+            <entry><varname>Requisite=</varname></entry>
+            <entry><varname>RequisiteOf=</varname></entry>
+            <entry>A unit file option; an automatic property</entry>
+          </row>
+          <row>
+            <entry><varname>Triggers=</varname></entry>
+            <entry><varname>TriggeredBy=</varname></entry>
+            <entry>Automatic properties, see notes below</entry>
+          </row>
+          <row>
+            <entry><varname>Conflicts=</varname></entry>
+            <entry><varname>ConflictedBy=</varname></entry>
+            <entry>A unit file option; an automatic property</entry>
+          </row>
+          <row>
+            <entry><varname>PropagatesReloadTo=</varname></entry>
+            <entry><varname>ReloadPropagatedFrom=</varname></entry>
+            <entry morerows='1' valign='middle'>Both are unit file options</entry>
+          </row>
+          <row>
+            <entry><varname>ReloadPropagatedFrom=</varname></entry>
+            <entry><varname>PropagatesReloadTo=</varname></entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+
+    <para>Note: <varname>WantedBy=</varname> and <varname>RequiredBy=</varname> are
+    used in the [Install] section to create symlinks in <filename>.wants/</filename>
+    and <filename>.requires/</filename> directories. They cannot be used directly as a
+    unit configuration setting.</para>
+
+    <para>Note: <varname>ConsistsOf=</varname>, <varname>BoundBy=</varname>,
+    <varname>RequisiteOf=</varname>, <varname>ConflictedBy=</varname> are created
+    implicitly along with their reverse and cannot be specified directly.</para>
+
+    <para>Note: <varname>Triggers=</varname> is created implicitly between a socket,
+    path unit, or an automount unit, and the unit they activate. By default a unit
+    with the same name is triggered, but this can be overriden using
+    <varname>Sockets=</varname>, <varname>Service=</varname>, and <varname>Unit=</varname>
+    settings. See
+    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    and
+    <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for details. <varname>TriggersBy=</varname> is created implicitly on the
+    triggered unit.</para>
   </refsect1>
 
   <refsect1>
