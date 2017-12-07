@@ -57,14 +57,12 @@ static int start_default_target(void) {
         return r;
 }
 
-static void fork_wait(const char* const cmdline[]) {
+static int fork_wait(const char* const cmdline[]) {
         pid_t pid;
 
         pid = fork();
-        if (pid < 0) {
-                log_error_errno(errno, "fork(): %m");
-                return;
-        }
+        if (pid < 0)
+                return log_error_errno(errno, "fork(): %m");
         if (pid == 0) {
 
                 /* Child */
@@ -78,7 +76,7 @@ static void fork_wait(const char* const cmdline[]) {
                 _exit(EXIT_FAILURE); /* Operational error */
         }
 
-        wait_for_terminate_and_warn(cmdline[0], pid, false);
+        return wait_for_terminate_and_warn(cmdline[0], pid, false);
 }
 
 static void print_mode(const char* mode) {
@@ -98,7 +96,7 @@ int main(int argc, char *argv[]) {
 
         print_mode(argc > 1 ? argv[1] : "");
 
-        fork_wait(sulogin_cmdline);
+        (void) fork_wait(sulogin_cmdline);
 
         r = start_default_target();
 
