@@ -103,8 +103,8 @@ static int fork_wait(const char* const cmdline[]) {
 
 static void print_mode(const char* mode) {
         printf("You are in %s mode. After logging in, type \"journalctl -xb\" to view\n"
-                "system logs, \"systemctl reboot\" to reboot, \"systemctl default\" or ^D to boot\n"
-                "into default mode.\n", mode);
+                "system logs, \"systemctl reboot\" to reboot, \"systemctl default\" or \"exit\"\n"
+                "to boot into default mode.\n", mode);
         fflush(stdout);
 }
 
