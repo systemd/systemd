@@ -9,7 +9,7 @@
 u root    0     "Super User" /root
 
 # The nobody user for NFS file systems
-u nobody  65534 "Nobody"     -
+u @NOBODY_USER_NAME@  65534 "Nobody"     -
 
 # Administrator group: can *see* more than normal users
 g adm     -     -            -

@@ -108,7 +108,7 @@ static int setup_tests(bool *run_ambient) {
         struct passwd *nobody;
         int r;
 
-        nobody = getpwnam("nobody");
+        nobody = getpwnam(NOBODY_USER_NAME);
         if (!nobody) {
                 log_error_errno(errno, "Could not find nobody user: %m");
                 return -EXIT_TEST_SKIP;

@@ -49,7 +49,7 @@ static void test_add_acls_for_user(void) {
         assert_se(system(cmd) == 0);
 
         if (getuid() == 0) {
-                const char *nobody = "nobody";
+                const char *nobody = NOBODY_USER_NAME;
                 r = get_user_creds(&nobody, &uid, NULL, NULL, NULL);
                 if (r < 0)
                         uid = 0;
