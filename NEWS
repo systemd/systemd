@@ -43,14 +43,21 @@ CHANGES WITH 236 in spe:
           basic.target unit has been reached, instead of when the run queue ran
           empty for the first time.
 
-        * Unit files learnt three new % specifiers that are expanded during
-          loading: %S resolves to the top-level state directory (/var/lib for
-          the system instance, $XDG_CONFIG_HOME for the user instance), %C
-          resolves to the top-level cache directory (/var/cache for the system
-          instance, $XDG_CACHE_HOME for the user instance), %L resolves to the
-          top-level logs directory (/var/log for the system instance,
+        * Tmpfiles.d with user configuration are now also supported.
+          systemd-tmpfiles gained a new --user switch, and snippets placed in
+          ~/.config/user-tmpfiles.d/ and corresponding directories will be
+          executed by systemd-tmpfiles --user running in the new
+          systemd-tmpfiles-setup.service and systemd-tmpfiles-clean.service
+          running in the user session.
+
+        * Unit files and tmpfiles.d snippets learnt three new % specifiers:
+          %S resolves to the top-level state directory (/var/lib for the system
+          instance, $XDG_CONFIG_HOME for the user instance), %C resolves to the
+          top-level cache directory (/var/cache for the system instance,
+          $XDG_CACHE_HOME for the user instance), %L resolves to the top-level
+          logs directory (/var/log for the system instance,
           $XDG_CONFIG_HOME/log/ for the user instance). This matches the
-          existing %t specifier, that resolves to the top-level runtime
+          existing %t specifier, that resolves to the top-level runtime
           directory (/run for the system instance, and $XDG_RUNTIME_DIR for the
           user instance).
 
