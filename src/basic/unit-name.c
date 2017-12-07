@@ -710,7 +710,7 @@ int slice_build_parent_slice(const char *slice, char **ret) {
         return 1;
 }
 
-int slice_build_subslice(const char *slice, const char*name, char **ret) {
+int slice_build_subslice(const char *slice, const char *name, char **ret) {
         char *subslice;
 
         assert(slice);

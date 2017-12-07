@@ -31,29 +31,39 @@
 #include "util.h"
 
 static void test_unit_name_is_valid(void) {
-        assert_se(unit_name_is_valid("foo.service", UNIT_NAME_ANY));
-        assert_se(unit_name_is_valid("foo.service", UNIT_NAME_PLAIN));
+        assert_se( unit_name_is_valid("foo.service", UNIT_NAME_ANY));
+        assert_se( unit_name_is_valid("foo.service", UNIT_NAME_PLAIN));
         assert_se(!unit_name_is_valid("foo.service", UNIT_NAME_INSTANCE));
         assert_se(!unit_name_is_valid("foo.service", UNIT_NAME_TEMPLATE));
         assert_se(!unit_name_is_valid("foo.service", UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE));
 
-        assert_se(unit_name_is_valid("foo@bar.service", UNIT_NAME_ANY));
+        assert_se( unit_name_is_valid("foo@bar.service", UNIT_NAME_ANY));
         assert_se(!unit_name_is_valid("foo@bar.service", UNIT_NAME_PLAIN));
-        assert_se(unit_name_is_valid("foo@bar.service", UNIT_NAME_INSTANCE));
+        assert_se( unit_name_is_valid("foo@bar.service", UNIT_NAME_INSTANCE));
         assert_se(!unit_name_is_valid("foo@bar.service", UNIT_NAME_TEMPLATE));
-        assert_se(unit_name_is_valid("foo@bar.service", UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE));
+        assert_se( unit_name_is_valid("foo@bar.service", UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE));
 
-        assert_se(unit_name_is_valid("foo@.service", UNIT_NAME_ANY));
+        assert_se( unit_name_is_valid("foo@bar@bar.service", UNIT_NAME_ANY));
+        assert_se(!unit_name_is_valid("foo@bar@bar.service", UNIT_NAME_PLAIN));
+        assert_se( unit_name_is_valid("foo@bar@bar.service", UNIT_NAME_INSTANCE));
+        assert_se(!unit_name_is_valid("foo@bar@bar.service", UNIT_NAME_TEMPLATE));
+        assert_se( unit_name_is_valid("foo@bar@bar.service", UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE));
+
+        assert_se( unit_name_is_valid("foo@.service", UNIT_NAME_ANY));
         assert_se(!unit_name_is_valid("foo@.service", UNIT_NAME_PLAIN));
         assert_se(!unit_name_is_valid("foo@.service", UNIT_NAME_INSTANCE));
-        assert_se(unit_name_is_valid("foo@.service", UNIT_NAME_TEMPLATE));
-        assert_se(unit_name_is_valid("foo@.service", UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE));
+        assert_se( unit_name_is_valid("foo@.service", UNIT_NAME_TEMPLATE));
+        assert_se( unit_name_is_valid("foo@.service", UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE));
 
         assert_se(!unit_name_is_valid(".service", UNIT_NAME_ANY));
         assert_se(!unit_name_is_valid("", UNIT_NAME_ANY));
         assert_se(!unit_name_is_valid("foo.waldo", UNIT_NAME_ANY));
         assert_se(!unit_name_is_valid("@.service", UNIT_NAME_ANY));
         assert_se(!unit_name_is_valid("@piep.service", UNIT_NAME_ANY));
+
+        assert_se( unit_name_is_valid("user@1000.slice", UNIT_NAME_ANY));
+        assert_se( unit_name_is_valid("user@1000.slice", UNIT_NAME_INSTANCE));
+        assert_se(!unit_name_is_valid("user@1000.slice", UNIT_NAME_TEMPLATE));
 }
 
 static void test_unit_name_replace_instance_one(const char *pattern, const char *repl, const char *expected, int ret) {
@@ -323,10 +333,10 @@ static void test_unit_name_build(void) {
 }
 
 static void test_slice_name_is_valid(void) {
-        assert_se(slice_name_is_valid(SPECIAL_ROOT_SLICE));
-        assert_se(slice_name_is_valid("foo.slice"));
-        assert_se(slice_name_is_valid("foo-bar.slice"));
-        assert_se(slice_name_is_valid("foo-bar-baz.slice"));
+        assert_se( slice_name_is_valid(SPECIAL_ROOT_SLICE));
+        assert_se( slice_name_is_valid("foo.slice"));
+        assert_se( slice_name_is_valid("foo-bar.slice"));
+        assert_se( slice_name_is_valid("foo-bar-baz.slice"));
         assert_se(!slice_name_is_valid("-foo-bar-baz.slice"));
         assert_se(!slice_name_is_valid("foo-bar-baz-.slice"));
         assert_se(!slice_name_is_valid("-foo-bar-baz-.slice"));
@@ -335,6 +345,20 @@ static void test_slice_name_is_valid(void) {
         assert_se(!slice_name_is_valid(".slice"));
         assert_se(!slice_name_is_valid(""));
         assert_se(!slice_name_is_valid("foo.service"));
+
+        assert_se(!slice_name_is_valid("foo@.slice"));
+        assert_se(!slice_name_is_valid("foo@bar.slice"));
+        assert_se(!slice_name_is_valid("foo-bar@baz.slice"));
+        assert_se(!slice_name_is_valid("foo@bar@baz.slice"));
+        assert_se(!slice_name_is_valid("foo@bar-baz.slice"));
+        assert_se(!slice_name_is_valid("-foo-bar-baz@.slice"));
+        assert_se(!slice_name_is_valid("foo-bar-baz@-.slice"));
+        assert_se(!slice_name_is_valid("foo-bar-baz@a--b.slice"));
+        assert_se(!slice_name_is_valid("-foo-bar-baz@-.slice"));
+        assert_se(!slice_name_is_valid("foo-bar--baz@.slice"));
+        assert_se(!slice_name_is_valid("foo--bar--baz@.slice"));
+        assert_se(!slice_name_is_valid("@.slice"));
+        assert_se(!slice_name_is_valid("foo@bar.service"));
 }
 
 static void test_build_subslice(void) {
@@ -372,6 +396,13 @@ static void test_build_parent_slice(void) {
         test_build_parent_slice_one("foo-bar-.slice", NULL, -EINVAL);
         test_build_parent_slice_one("foo-bar.service", NULL, -EINVAL);
         test_build_parent_slice_one(".slice", NULL, -EINVAL);
+        test_build_parent_slice_one("foo@bar.slice", NULL, -EINVAL);
+        test_build_parent_slice_one("foo-bar@baz.slice", NULL, -EINVAL);
+        test_build_parent_slice_one("foo-bar--@baz.slice", NULL, -EINVAL);
+        test_build_parent_slice_one("-foo-bar@bar.slice", NULL, -EINVAL);
+        test_build_parent_slice_one("foo-bar@-.slice", NULL, -EINVAL);
+        test_build_parent_slice_one("foo@bar.service", NULL, -EINVAL);
+        test_build_parent_slice_one("@.slice", NULL, -EINVAL);
 }
 
 static void test_unit_name_to_instance(void) {
