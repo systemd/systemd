@@ -59,30 +59,24 @@ static void slice_set_state(Slice *t, SliceState state) {
 }
 
 static int slice_add_parent_slice(Slice *s) {
-        char *a, *dash;
-        Unit *parent;
+        Unit *u = UNIT(s), *parent;
+        _cleanup_free_ char *a = NULL;
         int r;
 
         assert(s);
 
-        if (UNIT_ISSET(UNIT(s)->slice))
+        if (UNIT_ISSET(u->slice))
                 return 0;
 
-        if (unit_has_name(UNIT(s), SPECIAL_ROOT_SLICE))
-                return 0;
+        r = slice_build_parent_slice(u->id, &a);
+        if (r <= 0) /* 0 means root slice */
+                return r;
 
-        a = strdupa(UNIT(s)->id);
-        dash = strrchr(a, '-');
-        if (dash)
-                strcpy(dash, ".slice");
-        else
-                a = (char*) SPECIAL_ROOT_SLICE;
-
-        r = manager_load_unit(UNIT(s)->manager, a, NULL, NULL, &parent);
+        r = manager_load_unit(u->manager, a, NULL, NULL, &parent);
         if (r < 0)
                 return r;
 
-        unit_ref_set(&UNIT(s)->slice, parent);
+        unit_ref_set(&u->slice, parent);
         return 0;
 }
 
