@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-for SCRIPT in *.cocci ; do
+for SCRIPT in ${@-*.cocci} ; do
         [ "$SCRIPT" = "empty-if.cocci" ] && continue
         echo "--x-- Processing $SCRIPT --x--"
         TMPFILE=`mktemp`
