@@ -527,9 +527,7 @@ static int user_stop_service(User *u) {
                 return r;
         }
 
-        free(u->service_job);
-        u->service_job = job;
-
+        free_and_replace(u->service_job, job);
         return r;
 }
 
