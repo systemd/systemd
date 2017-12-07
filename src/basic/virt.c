@@ -201,8 +201,6 @@ static int detect_vm_dmi(void) {
                         return r;
                 }
 
-
-
                 for (j = 0; j < ELEMENTSOF(dmi_vendor_table); j++)
                         if (startswith(s, dmi_vendor_table[j].vendor)) {
                                 log_debug("Virtualization %s found in DMI (%s)", s, dmi_vendors[i]);

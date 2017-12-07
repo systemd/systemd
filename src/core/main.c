@@ -1453,8 +1453,7 @@ static void redirect_telinit(int argc, char *argv[]) {
 
 static int become_shutdown(
                 const char *shutdown_verb,
-                int retval,
-                bool arm_reboot_watchdog) {
+                int retval) {
 
         char log_level[DECIMAL_STR_MAX(int) + 1],
                 exit_code[DECIMAL_STR_MAX(uint8_t) + 1];
@@ -1470,6 +1469,7 @@ static int become_shutdown(
         size_t pos = 5;
         int r;
 
+        assert(shutdown_verb);
         assert(command_line[pos] == NULL);
         env_block = strv_copy(environ);
 
@@ -1507,7 +1507,10 @@ static int become_shutdown(
 
         assert(pos < ELEMENTSOF(command_line));
 
-        if (arm_reboot_watchdog && arg_shutdown_watchdog > 0 && arg_shutdown_watchdog != USEC_INFINITY) {
+        if (streq(shutdown_verb, "reboot") &&
+            arg_shutdown_watchdog > 0 &&
+            arg_shutdown_watchdog != USEC_INFINITY) {
+
                 char *e;
 
                 /* If we reboot let's set the shutdown
@@ -1589,6 +1592,446 @@ static void initialize_coredump(bool skip_setup) {
                 (void) write_string_file("/proc/sys/kernel/core_pattern", "|/bin/false", 0);
 }
 
+static void do_reexecute(
+                int argc,
+                char *argv[],
+                const struct rlimit *saved_rlimit_nofile,
+                const struct rlimit *saved_rlimit_memlock,
+                FDSet *fds,
+                const char *switch_root_dir,
+                const char *switch_root_init,
+                const char **ret_error_message) {
+
+        unsigned i, j, args_size;
+        const char **args;
+        int r;
+
+        assert(saved_rlimit_nofile);
+        assert(saved_rlimit_memlock);
+        assert(ret_error_message);
+
+        /* Close and disarm the watchdog, so that the new instance can reinitialize it, but doesn't get rebooted while
+         * we do that */
+        watchdog_close(true);
+
+        /* Reset the RLIMIT_NOFILE to the kernel default, so that the new systemd can pass the kernel default to its
+         * child processes */
+
+        if (saved_rlimit_nofile->rlim_cur > 0)
+                (void) setrlimit(RLIMIT_NOFILE, saved_rlimit_nofile);
+        if (saved_rlimit_memlock->rlim_cur != (rlim_t) -1)
+                (void) setrlimit(RLIMIT_MEMLOCK, saved_rlimit_memlock);
+
+        if (switch_root_dir) {
+                /* Kill all remaining processes from the initrd, but don't wait for them, so that we can handle the
+                 * SIGCHLD for them after deserializing. */
+                broadcast_signal(SIGTERM, false, true);
+
+                /* And switch root with MS_MOVE, because we remove the old directory afterwards and detach it. */
+                r = switch_root(switch_root_dir, "/mnt", true, MS_MOVE);
+                if (r < 0)
+                        log_error_errno(r, "Failed to switch root, trying to continue: %m");
+        }
+
+        args_size = MAX(6, argc+1);
+        args = newa(const char*, args_size);
+
+        if (!switch_root_init) {
+                char sfd[DECIMAL_STR_MAX(int) + 1];
+
+                /* First try to spawn ourselves with the right path, and with full serialization. We do this only if
+                 * the user didn't specify an explicit init to spawn. */
+
+                assert(arg_serialization);
+                assert(fds);
+
+                xsprintf(sfd, "%i", fileno(arg_serialization));
+
+                i = 0;
+                args[i++] = SYSTEMD_BINARY_PATH;
+                if (switch_root_dir)
+                        args[i++] = "--switched-root";
+                args[i++] = arg_system ? "--system" : "--user";
+                args[i++] = "--deserialize";
+                args[i++] = sfd;
+                args[i++] = NULL;
+
+                assert(i <= args_size);
+
+                /*
+                 * We want valgrind to print its memory usage summary before reexecution.  Valgrind won't do this is on
+                 * its own on exec(), but it will do it on exit().  Hence, to ensure we get a summary here, fork() off
+                 * a child, let it exit() cleanly, so that it prints the summary, and wait() for it in the parent,
+                 * before proceeding into the exec().
+                 */
+                valgrind_summary_hack();
+
+                (void) execv(args[0], (char* const*) args);
+                log_debug_errno(errno, "Failed to execute our own binary, trying fallback: %m");
+        }
+
+        /* Try the fallback, if there is any, without any serialization. We pass the original argv[] and envp[]. (Well,
+         * modulo the ordering changes due to getopt() in argv[], and some cleanups in envp[], but let's hope that
+         * doesn't matter.) */
+
+        arg_serialization = safe_fclose(arg_serialization);
+        fds = fdset_free(fds);
+
+        /* Reopen the console */
+        (void) make_console_stdio();
+
+        for (j = 1, i = 1; j < (unsigned) argc; j++)
+                args[i++] = argv[j];
+        args[i++] = NULL;
+        assert(i <= args_size);
+
+        /* Reenable any blocked signals, especially important if we switch from initial ramdisk to init=... */
+        (void) reset_all_signal_handlers();
+        (void) reset_signal_mask();
+
+        if (switch_root_init) {
+                args[0] = switch_root_init;
+                (void) execv(args[0], (char* const*) args);
+                log_warning_errno(errno, "Failed to execute configured init, trying fallback: %m");
+        }
+
+        args[0] = "/sbin/init";
+        (void) execv(args[0], (char* const*) args);
+        r = -errno;
+
+        manager_status_printf(NULL, STATUS_TYPE_EMERGENCY,
+                              ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL,
+                              "Failed to execute /sbin/init");
+
+        if (r == -ENOENT) {
+                log_warning("No /sbin/init, trying fallback");
+
+                args[0] = "/bin/sh";
+                args[1] = NULL;
+                (void) execv(args[0], (char* const*) args);
+                log_error_errno(errno, "Failed to execute /bin/sh, giving up: %m");
+        } else
+                log_warning_errno(r, "Failed to execute /sbin/init, giving up: %m");
+
+        *ret_error_message = "Failed to execute fallback shell";
+}
+
+static int invoke_main_loop(
+                Manager *m,
+                bool *ret_reexecute,
+                int *ret_retval,                   /* Return parameters relevant for shutting down */
+                const char **ret_shutdown_verb,    /* … */
+                FDSet **ret_fds,                   /* Return parameters for reexecuting */
+                char **ret_switch_root_dir,        /* … */
+                char **ret_switch_root_init,       /* … */
+                const char **ret_error_message) {
+
+        int r;
+
+        assert(m);
+        assert(ret_reexecute);
+        assert(ret_retval);
+        assert(ret_shutdown_verb);
+        assert(ret_fds);
+        assert(ret_switch_root_dir);
+        assert(ret_switch_root_init);
+        assert(ret_error_message);
+
+        for (;;) {
+                r = manager_loop(m);
+                if (r < 0) {
+                        *ret_error_message = "Failed to run main loop";
+                        return log_emergency_errno(r, "Failed to run main loop: %m");
+                }
+
+                switch (m->exit_code) {
+
+                case MANAGER_RELOAD:
+                        log_info("Reloading.");
+
+                        r = parse_config_file();
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse config file, ignoring: %m");
+
+                        set_manager_defaults(m);
+
+                        r = manager_reload(m);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to reload, ignoring: %m");
+
+                        break;
+
+                case MANAGER_REEXECUTE:
+
+                        r = prepare_reexecute(m, &arg_serialization, ret_fds, false);
+                        if (r < 0) {
+                                *ret_error_message = "Failed to prepare for reexecution";
+                                return r;
+                        }
+
+                        log_notice("Reexecuting.");
+
+                        *ret_reexecute = true;
+                        *ret_retval = EXIT_SUCCESS;
+                        *ret_shutdown_verb = NULL;
+                        *ret_switch_root_dir = *ret_switch_root_init = NULL;
+
+                        return 0;
+
+                case MANAGER_SWITCH_ROOT:
+                        if (!m->switch_root_init) {
+                                r = prepare_reexecute(m, &arg_serialization, ret_fds, true);
+                                if (r < 0) {
+                                        *ret_error_message = "Failed to prepare for reexecution";
+                                        return r;
+                                }
+                        } else
+                                *ret_fds = NULL;
+
+                        log_notice("Switching root.");
+
+                        *ret_reexecute = true;
+                        *ret_retval = EXIT_SUCCESS;
+                        *ret_shutdown_verb = NULL;
+
+                        /* Steal the switch root parameters */
+                        *ret_switch_root_dir = m->switch_root;
+                        *ret_switch_root_init = m->switch_root_init;
+                        m->switch_root = m->switch_root_init = NULL;
+
+                        return 0;
+
+                case MANAGER_EXIT:
+
+                        if (MANAGER_IS_USER(m)) {
+                                log_debug("Exit.");
+
+                                *ret_reexecute = false;
+                                *ret_retval = m->return_value;
+                                *ret_shutdown_verb = NULL;
+                                *ret_fds = NULL;
+                                *ret_switch_root_dir = *ret_switch_root_init = NULL;
+
+                                return 0;
+                        }
+
+                        _fallthrough_;
+                case MANAGER_REBOOT:
+                case MANAGER_POWEROFF:
+                case MANAGER_HALT:
+                case MANAGER_KEXEC: {
+                        static const char * const table[_MANAGER_EXIT_CODE_MAX] = {
+                                [MANAGER_EXIT] = "exit",
+                                [MANAGER_REBOOT] = "reboot",
+                                [MANAGER_POWEROFF] = "poweroff",
+                                [MANAGER_HALT] = "halt",
+                                [MANAGER_KEXEC] = "kexec"
+                        };
+
+                        log_notice("Shutting down.");
+
+                        *ret_reexecute = false;
+                        *ret_retval = m->return_value;
+                        assert_se(*ret_shutdown_verb = table[m->exit_code]);
+                        *ret_fds = NULL;
+                        *ret_switch_root_dir = *ret_switch_root_init = NULL;
+
+                        return 0;
+                }
+
+                default:
+                        assert_not_reached("Unknown exit code.");
+                }
+        }
+}
+
+static void log_execution_mode(bool *ret_first_boot) {
+        assert(ret_first_boot);
+
+        if (arg_system) {
+                int v;
+
+                log_info(PACKAGE_STRING " running in %ssystem mode. (" SYSTEMD_FEATURES ")",
+                         arg_action == ACTION_TEST ? "test " : "" );
+
+                v = detect_virtualization();
+                if (v > 0)
+                        log_info("Detected virtualization %s.", virtualization_to_string(v));
+
+                log_info("Detected architecture %s.", architecture_to_string(uname_architecture()));
+
+                if (in_initrd()) {
+                        *ret_first_boot = false;
+                        log_info("Running in initial RAM disk.");
+                } else {
+                        /* Let's check whether we are in first boot, i.e. whether /etc is still unpopulated. We use
+                         * /etc/machine-id as flag file, for this: if it exists we assume /etc is populated, if it
+                         * doesn't it's unpopulated. This allows container managers and installers to provision a
+                         * couple of files already. If the container manager wants to provision the machine ID itself
+                         * it should pass $container_uuid to PID 1. */
+
+                        *ret_first_boot = access("/etc/machine-id", F_OK) < 0;
+                        if (*ret_first_boot)
+                                log_info("Running with unpopulated /etc.");
+                }
+        } else {
+                _cleanup_free_ char *t;
+
+                t = uid_to_name(getuid());
+                log_debug(PACKAGE_STRING " running in %suser mode for user " UID_FMT "/%s. (" SYSTEMD_FEATURES ")",
+                          arg_action == ACTION_TEST ? " test" : "", getuid(), strna(t));
+
+                *ret_first_boot = false;
+        }
+}
+
+static int initialize_runtime(
+                bool skip_setup,
+                struct rlimit *saved_rlimit_nofile,
+                struct rlimit *saved_rlimit_memlock,
+                const char **ret_error_message) {
+
+        int r;
+
+        assert(ret_error_message);
+
+        /* Sets up various runtime parameters. Many of these initializations are conditionalized:
+         *
+         * - Some only apply to --system instances
+         * - Some only apply to --user instances
+         * - Some only apply when we first start up, but not when we reexecute
+         */
+
+        if (arg_system && !skip_setup) {
+                if (arg_show_status > 0)
+                        status_welcome();
+
+                hostname_setup();
+                machine_id_setup(NULL, arg_machine_id, NULL);
+                loopback_setup();
+                bump_unix_max_dgram_qlen();
+                test_usr();
+                write_container_id();
+        }
+
+        if (arg_system && arg_runtime_watchdog > 0 && arg_runtime_watchdog != USEC_INFINITY)
+                watchdog_set_timeout(&arg_runtime_watchdog);
+
+        if (arg_timer_slack_nsec != NSEC_INFINITY)
+                if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
+                        log_error_errno(errno, "Failed to adjust timer slack: %m");
+
+        if (arg_system && !cap_test_all(arg_capability_bounding_set)) {
+                r = capability_bounding_set_drop_usermode(arg_capability_bounding_set);
+                if (r < 0) {
+                        *ret_error_message = "Failed to drop capability bounding set of usermode helpers";
+                        return log_emergency_errno(r, "Failed to drop capability bounding set of usermode helpers: %m");
+                }
+
+                r = capability_bounding_set_drop(arg_capability_bounding_set, true);
+                if (r < 0) {
+                        *ret_error_message = "Failed to drop capability bounding set";
+                        return log_emergency_errno(r, "Failed to drop capability bounding set: %m");
+                }
+        }
+
+        if (arg_syscall_archs) {
+                r = enforce_syscall_archs(arg_syscall_archs);
+                if (r < 0) {
+                        *ret_error_message = "Failed to set syscall architectures";
+                        return r;
+                }
+        }
+
+        if (!arg_system)
+                /* Become reaper of our children */
+                if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0)
+                        log_warning_errno(errno, "Failed to make us a subreaper: %m");
+
+        if (arg_system) {
+                /* Bump up RLIMIT_NOFILE for systemd itself */
+                (void) bump_rlimit_nofile(saved_rlimit_nofile);
+                (void) bump_rlimit_memlock(saved_rlimit_memlock);
+        }
+
+        return 0;
+}
+
+static int do_queue_default_job(
+                Manager *m,
+                const char **ret_error_message) {
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        Job *default_unit_job;
+        Unit *target = NULL;
+        int r;
+
+        log_debug("Activating default unit: %s", arg_default_unit);
+
+        r = manager_load_unit(m, arg_default_unit, NULL, &error, &target);
+        if (r < 0)
+                log_error("Failed to load default target: %s", bus_error_message(&error, r));
+        else if (IN_SET(target->load_state, UNIT_ERROR, UNIT_NOT_FOUND))
+                log_error_errno(target->load_error, "Failed to load default target: %m");
+        else if (target->load_state == UNIT_MASKED)
+                log_error("Default target masked.");
+
+        if (!target || target->load_state != UNIT_LOADED) {
+                log_info("Trying to load rescue target...");
+
+                r = manager_load_unit(m, SPECIAL_RESCUE_TARGET, NULL, &error, &target);
+                if (r < 0) {
+                        *ret_error_message = "Failed to load rescue target";
+                        return log_emergency_errno(r, "Failed to load rescue target: %s", bus_error_message(&error, r));
+                } else if (IN_SET(target->load_state, UNIT_ERROR, UNIT_NOT_FOUND)) {
+                        *ret_error_message = "Failed to load rescue target";
+                        return log_emergency_errno(target->load_error, "Failed to load rescue target: %m");
+                } else if (target->load_state == UNIT_MASKED) {
+                        *ret_error_message = "Rescue target masked";
+                        log_emergency("Rescue target masked.");
+                        return -ERFKILL;
+                }
+        }
+
+        assert(target->load_state == UNIT_LOADED);
+
+        r = manager_add_job(m, JOB_START, target, JOB_ISOLATE, &error, &default_unit_job);
+        if (r == -EPERM) {
+                log_debug_errno(r, "Default target could not be isolated, starting instead: %s", bus_error_message(&error, r));
+
+                sd_bus_error_free(&error);
+
+                r = manager_add_job(m, JOB_START, target, JOB_REPLACE, &error, &default_unit_job);
+                if (r < 0) {
+                        *ret_error_message = "Failed to start default target";
+                        return log_emergency_errno(r, "Failed to start default target: %s", bus_error_message(&error, r));
+                }
+
+        } else if (r < 0) {
+                *ret_error_message = "Failed to isolate default target";
+                return log_emergency_errno(r, "Failed to isolate default target: %s", bus_error_message(&error, r));
+        }
+
+        m->default_unit_job_id = default_unit_job->id;
+
+        return 0;
+}
+
+static void free_arguments(void) {
+        size_t j;
+
+        /* Frees all arg_* variables, with the exception of arg_serialization */
+
+        for (j = 0; j < ELEMENTSOF(arg_default_rlimit); j++)
+                arg_default_rlimit[j] = mfree(arg_default_rlimit[j]);
+
+        arg_default_unit = mfree(arg_default_unit);
+        arg_confirm_spawn = mfree(arg_confirm_spawn);
+        arg_join_controllers = strv_free_free(arg_join_controllers);
+        arg_default_environment = strv_free(arg_default_environment);
+        arg_syscall_archs = set_free(arg_syscall_archs);
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
@@ -1604,9 +2047,7 @@ int main(int argc, char *argv[]) {
         dual_timestamp security_finish_timestamp = DUAL_TIMESTAMP_NULL;
         static char systemd[] = "systemd";
         bool skip_setup = false;
-        unsigned j;
         bool loaded_policy = false;
-        bool arm_reboot_watchdog = false;
         bool queue_default_job = false;
         bool first_boot = false;
         char *switch_root_dir = NULL, *switch_root_init = NULL;
@@ -1896,94 +2337,15 @@ int main(int argc, char *argv[]) {
                         goto finish;
         }
 
-        if (arg_system) {
-                int v;
-
-                log_info(PACKAGE_STRING " running in %ssystem mode. (" SYSTEMD_FEATURES ")",
-                         arg_action == ACTION_TEST ? "test " : "" );
-
-                v = detect_virtualization();
-                if (v > 0)
-                        log_info("Detected virtualization %s.", virtualization_to_string(v));
-
-                write_container_id();
-
-                log_info("Detected architecture %s.", architecture_to_string(uname_architecture()));
-
-                if (in_initrd())
-                        log_info("Running in initial RAM disk.");
-                else {
-                        /* Let's check whether we are in first boot, i.e. whether /etc is still unpopulated. We use
-                         * /etc/machine-id as flag file, for this: if it exists we assume /etc is populated, if it
-                         * doesn't it's unpopulated. This allows container managers and installers to provision a
-                         * couple of files already. If the container manager wants to provision the machine ID itself
-                         * it should pass $container_uuid to PID 1. */
-
-                        first_boot = access("/etc/machine-id", F_OK) < 0;
-                        if (first_boot)
-                                log_info("Running with unpopulated /etc.");
-                }
-        } else {
-                _cleanup_free_ char *t;
-
-                t = uid_to_name(getuid());
-                log_debug(PACKAGE_STRING " running in %suser mode for user " UID_FMT "/%s. (" SYSTEMD_FEATURES ")",
-                          arg_action == ACTION_TEST ? " test" : "", getuid(), strna(t));
-        }
+        log_execution_mode(&first_boot);
 
         if (arg_action == ACTION_RUN) {
-                if (arg_system && !skip_setup) {
-                        if (arg_show_status > 0)
-                                status_welcome();
-
-                        hostname_setup();
-                        machine_id_setup(NULL, arg_machine_id, NULL);
-                        loopback_setup();
-                        bump_unix_max_dgram_qlen();
-
-                        test_usr();
-                }
-
-                if (arg_system && arg_runtime_watchdog > 0 && arg_runtime_watchdog != USEC_INFINITY)
-                        watchdog_set_timeout(&arg_runtime_watchdog);
-
-                if (arg_timer_slack_nsec != NSEC_INFINITY)
-                        if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
-                                log_error_errno(errno, "Failed to adjust timer slack: %m");
-
-                if (arg_system && !cap_test_all(arg_capability_bounding_set)) {
-                        r = capability_bounding_set_drop_usermode(arg_capability_bounding_set);
-                        if (r < 0) {
-                                log_emergency_errno(r, "Failed to drop capability bounding set of usermode helpers: %m");
-                                error_message = "Failed to drop capability bounding set of usermode helpers";
-                                goto finish;
-                        }
-                        r = capability_bounding_set_drop(arg_capability_bounding_set, true);
-                        if (r < 0) {
-                                log_emergency_errno(r, "Failed to drop capability bounding set: %m");
-                                error_message = "Failed to drop capability bounding set";
-                                goto finish;
-                        }
-                }
-
-                if (arg_syscall_archs) {
-                        r = enforce_syscall_archs(arg_syscall_archs);
-                        if (r < 0) {
-                                error_message = "Failed to set syscall architectures";
-                                goto finish;
-                        }
-                }
-
-                if (!arg_system)
-                        /* Become reaper of our children */
-                        if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0)
-                                log_warning_errno(errno, "Failed to make us a subreaper: %m");
-
-                if (arg_system) {
-                        /* Bump up RLIMIT_NOFILE for systemd itself */
-                        (void) bump_rlimit_nofile(&saved_rlimit_nofile);
-                        (void) bump_rlimit_memlock(&saved_rlimit_memlock);
-                }
+                r = initialize_runtime(skip_setup,
+                                       &saved_rlimit_nofile,
+                                       &saved_rlimit_memlock,
+                                       &error_message);
+                if (r < 0)
+                        goto finish;
         }
 
         r = manager_new(arg_system ? UNIT_FILE_SYSTEM : UNIT_FILE_USER,
@@ -2016,169 +2378,40 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        /* This will close all file descriptors that were opened, but
-         * not claimed by any unit. */
+        /* This will close all file descriptors that were opened, but not claimed by any unit. */
         fds = fdset_free(fds);
-
         arg_serialization = safe_fclose(arg_serialization);
 
         if (queue_default_job) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                Unit *target = NULL;
-                Job *default_unit_job;
-
-                log_debug("Activating default unit: %s", arg_default_unit);
-
-                r = manager_load_unit(m, arg_default_unit, NULL, &error, &target);
+                r = do_queue_default_job(m, &error_message);
                 if (r < 0)
-                        log_error("Failed to load default target: %s", bus_error_message(&error, r));
-                else if (IN_SET(target->load_state, UNIT_ERROR, UNIT_NOT_FOUND))
-                        log_error_errno(target->load_error, "Failed to load default target: %m");
-                else if (target->load_state == UNIT_MASKED)
-                        log_error("Default target masked.");
-
-                if (!target || target->load_state != UNIT_LOADED) {
-                        log_info("Trying to load rescue target...");
-
-                        r = manager_load_unit(m, SPECIAL_RESCUE_TARGET, NULL, &error, &target);
-                        if (r < 0) {
-                                log_emergency("Failed to load rescue target: %s", bus_error_message(&error, r));
-                                error_message = "Failed to load rescue target";
-                                goto finish;
-                        } else if (IN_SET(target->load_state, UNIT_ERROR, UNIT_NOT_FOUND)) {
-                                log_emergency_errno(target->load_error, "Failed to load rescue target: %m");
-                                error_message = "Failed to load rescue target";
-                                goto finish;
-                        } else if (target->load_state == UNIT_MASKED) {
-                                log_emergency("Rescue target masked.");
-                                error_message = "Rescue target masked";
-                                goto finish;
-                        }
-                }
-
-                assert(target->load_state == UNIT_LOADED);
-
-                if (arg_action == ACTION_TEST) {
-                        printf("-> By units:\n");
-                        manager_dump_units(m, stdout, "\t");
-                }
-
-                r = manager_add_job(m, JOB_START, target, JOB_ISOLATE, &error, &default_unit_job);
-                if (r == -EPERM) {
-                        log_debug("Default target could not be isolated, starting instead: %s", bus_error_message(&error, r));
-
-                        sd_bus_error_free(&error);
-
-                        r = manager_add_job(m, JOB_START, target, JOB_REPLACE, &error, &default_unit_job);
-                        if (r < 0) {
-                                log_emergency("Failed to start default target: %s", bus_error_message(&error, r));
-                                error_message = "Failed to start default target";
-                                goto finish;
-                        }
-                } else if (r < 0) {
-                        log_emergency("Failed to isolate default target: %s", bus_error_message(&error, r));
-                        error_message = "Failed to isolate default target";
                         goto finish;
-                }
-
-                m->default_unit_job_id = default_unit_job->id;
-
-                after_startup = now(CLOCK_MONOTONIC);
-                log_full(arg_action == ACTION_TEST ? LOG_INFO : LOG_DEBUG,
-                         "Loaded units and determined initial transaction in %s.",
-                         format_timespan(timespan, sizeof(timespan), after_startup - before_startup, 100 * USEC_PER_MSEC));
-
-                if (arg_action == ACTION_TEST) {
-                        printf("-> By jobs:\n");
-                        manager_dump_jobs(m, stdout, "\t");
-                        retval = EXIT_SUCCESS;
-                        goto finish;
-                }
         }
 
-        for (;;) {
-                r = manager_loop(m);
-                if (r < 0) {
-                        log_emergency_errno(r, "Failed to run main loop: %m");
-                        error_message = "Failed to run main loop";
-                        goto finish;
-                }
+        after_startup = now(CLOCK_MONOTONIC);
 
-                switch (m->exit_code) {
+        log_full(arg_action == ACTION_TEST ? LOG_INFO : LOG_DEBUG,
+                 "Loaded units and determined initial transaction in %s.",
+                 format_timespan(timespan, sizeof(timespan), after_startup - before_startup, 100 * USEC_PER_MSEC));
 
-                case MANAGER_RELOAD:
-                        log_info("Reloading.");
+        if (arg_action == ACTION_TEST) {
+                printf("-> By units:\n");
+                manager_dump_units(m, stdout, "\t");
 
-                        r = parse_config_file();
-                        if (r < 0)
-                                log_error("Failed to parse config file.");
-
-                        set_manager_defaults(m);
-
-                        r = manager_reload(m);
-                        if (r < 0)
-                                log_error_errno(r, "Failed to reload: %m");
-                        break;
-
-                case MANAGER_REEXECUTE:
-
-                        if (prepare_reexecute(m, &arg_serialization, &fds, false) < 0) {
-                                error_message = "Failed to prepare for reexecution";
-                                goto finish;
-                        }
-
-                        reexecute = true;
-                        log_notice("Reexecuting.");
-                        goto finish;
-
-                case MANAGER_SWITCH_ROOT:
-                        /* Steal the switch root parameters */
-                        switch_root_dir = m->switch_root;
-                        switch_root_init = m->switch_root_init;
-                        m->switch_root = m->switch_root_init = NULL;
-
-                        if (!switch_root_init)
-                                if (prepare_reexecute(m, &arg_serialization, &fds, true) < 0) {
-                                        error_message = "Failed to prepare for reexecution";
-                                        goto finish;
-                                }
-
-                        reexecute = true;
-                        log_notice("Switching root.");
-                        goto finish;
-
-                case MANAGER_EXIT:
-                        retval = m->return_value;
-
-                        if (MANAGER_IS_USER(m)) {
-                                log_debug("Exit.");
-                                goto finish;
-                        }
-
-                        _fallthrough_;
-                case MANAGER_REBOOT:
-                case MANAGER_POWEROFF:
-                case MANAGER_HALT:
-                case MANAGER_KEXEC: {
-                        static const char * const table[_MANAGER_EXIT_CODE_MAX] = {
-                                [MANAGER_EXIT] = "exit",
-                                [MANAGER_REBOOT] = "reboot",
-                                [MANAGER_POWEROFF] = "poweroff",
-                                [MANAGER_HALT] = "halt",
-                                [MANAGER_KEXEC] = "kexec"
-                        };
-
-                        assert_se(shutdown_verb = table[m->exit_code]);
-                        arm_reboot_watchdog = m->exit_code == MANAGER_REBOOT;
-
-                        log_notice("Shutting down.");
-                        goto finish;
-                }
-
-                default:
-                        assert_not_reached("Unknown exit code.");
-                }
+                printf("-> By jobs:\n");
+                manager_dump_jobs(m, stdout, "\t");
+                retval = EXIT_SUCCESS;
+                goto finish;
         }
+
+        r = invoke_main_loop(m,
+                             &reexecute,
+                             &retval,
+                             &shutdown_verb,
+                             &fds,
+                             &switch_root_dir,
+                             &switch_root_init,
+                             &error_message);
 
 finish:
         pager_close();
@@ -2188,132 +2421,17 @@ finish:
 
         m = manager_free(m);
 
-        for (j = 0; j < ELEMENTSOF(arg_default_rlimit); j++)
-                arg_default_rlimit[j] = mfree(arg_default_rlimit[j]);
-
-        arg_default_unit = mfree(arg_default_unit);
-        arg_confirm_spawn = mfree(arg_confirm_spawn);
-        arg_join_controllers = strv_free_free(arg_join_controllers);
-        arg_default_environment = strv_free(arg_default_environment);
-        arg_syscall_archs = set_free(arg_syscall_archs);
-
+        free_arguments();
         mac_selinux_finish();
 
-        if (reexecute) {
-                const char **args;
-                unsigned i, args_size;
-
-                /* Close and disarm the watchdog, so that the new
-                 * instance can reinitialize it, but doesn't get
-                 * rebooted while we do that */
-                watchdog_close(true);
-
-                /* Reset the RLIMIT_NOFILE to the kernel default, so
-                 * that the new systemd can pass the kernel default to
-                 * its child processes */
-                if (saved_rlimit_nofile.rlim_cur > 0)
-                        (void) setrlimit(RLIMIT_NOFILE, &saved_rlimit_nofile);
-                if (saved_rlimit_memlock.rlim_cur != (rlim_t) -1)
-                        (void) setrlimit(RLIMIT_MEMLOCK, &saved_rlimit_memlock);
-
-                if (switch_root_dir) {
-                        /* Kill all remaining processes from the
-                         * initrd, but don't wait for them, so that we
-                         * can handle the SIGCHLD for them after
-                         * deserializing. */
-                        broadcast_signal(SIGTERM, false, true);
-
-                        /* And switch root with MS_MOVE, because we remove the old directory afterwards and detach it. */
-                        r = switch_root(switch_root_dir, "/mnt", true, MS_MOVE);
-                        if (r < 0)
-                                log_error_errno(r, "Failed to switch root, trying to continue: %m");
-                }
-
-                args_size = MAX(6, argc+1);
-                args = newa(const char*, args_size);
-
-                if (!switch_root_init) {
-                        char sfd[DECIMAL_STR_MAX(int) + 1];
-
-                        /* First try to spawn ourselves with the right
-                         * path, and with full serialization. We do
-                         * this only if the user didn't specify an
-                         * explicit init to spawn. */
-
-                        assert(arg_serialization);
-                        assert(fds);
-
-                        xsprintf(sfd, "%i", fileno(arg_serialization));
-
-                        i = 0;
-                        args[i++] = SYSTEMD_BINARY_PATH;
-                        if (switch_root_dir)
-                                args[i++] = "--switched-root";
-                        args[i++] = arg_system ? "--system" : "--user";
-                        args[i++] = "--deserialize";
-                        args[i++] = sfd;
-                        args[i++] = NULL;
-
-                        assert(i <= args_size);
-
-                        /*
-                         * We want valgrind to print its memory usage summary before reexecution.
-                         * Valgrind won't do this is on its own on exec(), but it will do it on exit().
-                         * Hence, to ensure we get a summary here, fork() off a child, let it exit() cleanly,
-                         * so that it prints the summary, and wait() for it in the parent, before proceeding into the exec().
-                         */
-                        valgrind_summary_hack();
-
-                        (void) execv(args[0], (char* const*) args);
-                }
-
-                /* Try the fallback, if there is any, without any
-                 * serialization. We pass the original argv[] and
-                 * envp[]. (Well, modulo the ordering changes due to
-                 * getopt() in argv[], and some cleanups in envp[],
-                 * but let's hope that doesn't matter.) */
-
-                arg_serialization = safe_fclose(arg_serialization);
-                fds = fdset_free(fds);
-
-                /* Reopen the console */
-                (void) make_console_stdio();
-
-                for (j = 1, i = 1; j < (unsigned) argc; j++)
-                        args[i++] = argv[j];
-                args[i++] = NULL;
-                assert(i <= args_size);
-
-                /* Reenable any blocked signals, especially important
-                 * if we switch from initial ramdisk to init=... */
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-
-                if (switch_root_init) {
-                        args[0] = switch_root_init;
-                        (void) execv(args[0], (char* const*) args);
-                        log_warning_errno(errno, "Failed to execute configured init, trying fallback: %m");
-                }
-
-                args[0] = "/sbin/init";
-                (void) execv(args[0], (char* const*) args);
-
-                manager_status_printf(NULL, STATUS_TYPE_EMERGENCY,
-                        ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL,
-                        "Failed to execute /sbin/init");
-
-                if (errno == ENOENT) {
-                        log_warning("No /sbin/init, trying fallback");
-
-                        args[0] = "/bin/sh";
-                        args[1] = NULL;
-                        (void) execv(args[0], (char* const*) args);
-                        log_error_errno(errno, "Failed to execute /bin/sh, giving up: %m");
-                } else
-                        log_warning_errno(errno, "Failed to execute /sbin/init, giving up: %m");
-
-                error_message = "Failed to execute fallback shell";
-        }
+        if (reexecute)
+                do_reexecute(argc, argv,
+                             &saved_rlimit_nofile,
+                             &saved_rlimit_memlock,
+                             fds,
+                             switch_root_dir,
+                             switch_root_init,
+                             &error_message); /* This only returns if reexecution failed */
 
         arg_serialization = safe_fclose(arg_serialization);
         fds = fdset_free(fds);
@@ -2328,7 +2446,7 @@ finish:
 #endif
 
         if (shutdown_verb) {
-                r = become_shutdown(shutdown_verb, retval, arm_reboot_watchdog);
+                r = become_shutdown(shutdown_verb, retval);
 
                 log_error_errno(r, "Failed to execute shutdown binary, %s: %m", getpid_cached() == 1 ? "freezing" : "quitting");
                 error_message = "Failed to execute shutdown binary";
