@@ -683,6 +683,8 @@ endif
 
 conf.set_quoted('NOBODY_USER_NAME', nobody_user)
 conf.set_quoted('NOBODY_GROUP_NAME', nobody_group)
+substs.set('NOBODY_USER_NAME', nobody_user)
+substs.set('NOBODY_GROUP_NAME', nobody_group)
 
 tty_gid = get_option('tty-gid')
 conf.set('TTY_GID', tty_gid)
