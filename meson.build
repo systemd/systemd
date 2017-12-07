@@ -1292,7 +1292,6 @@ subdir('src/resolve')
 subdir('src/timedate')
 subdir('src/timesync')
 subdir('src/vconsole')
-subdir('src/sulogin-shell')
 subdir('src/boot/efi')
 
 subdir('src/test')
@@ -2370,6 +2369,15 @@ if conf.get('ENABLE_NETWORKD') == 1
                    install_dir : rootbindir)
         public_programs += [exe]
 endif
+
+executable('systemd-sulogin-shell',
+           ['src/sulogin-shell/sulogin-shell.c'],
+           include_directories : includes,
+           link_with : [libshared],
+           install_rpath : rootlibexecdir,
+           install : true,
+           install_dir : rootlibexecdir)
+
 ############################################################
 
 foreach tuple : tests
