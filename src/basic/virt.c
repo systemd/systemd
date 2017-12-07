@@ -227,15 +227,16 @@ static int detect_vm_xen(void) {
         return VIRTUALIZATION_XEN;
 }
 
-static bool detect_vm_xen_dom0(void) {
+/* Returns -errno, or 0 for domU, or 1 for dom0 */
+static int detect_vm_xen_dom0(void) {
         _cleanup_free_ char *domcap = NULL;
         char *cap, *i;
         int r;
 
         r = read_one_line_file("/proc/xen/capabilities", &domcap);
         if (r == -ENOENT) {
-                log_debug("Virtualization XEN not found, /proc/xen/capabilities does not exist");
-                return false;
+                log_debug("Virtualization XEN because /proc/xen/capabilities does not exist");
+                return 0;
         }
         if (r < 0)
                 return r;
@@ -246,11 +247,11 @@ static bool detect_vm_xen_dom0(void) {
                         break;
         if (!cap) {
                 log_debug("Virtualization XEN DomU found (/proc/xen/capabilites)");
-                return false;
+                return 0;
         }
 
         log_debug("Virtualization XEN Dom0 ignored (/proc/xen/capabilities)");
-        return true;
+        return 1;
 }
 
 static int detect_vm_hypervisor(void) {
@@ -408,9 +409,13 @@ finish:
         /* x86 xen Dom0 is detected as XEN in hypervisor and maybe others.
          * In order to detect the Dom0 as not virtualization we need to
          * double-check it */
-        if (r == VIRTUALIZATION_XEN && detect_vm_xen_dom0())
-                r = VIRTUALIZATION_NONE;
-        else if (r == VIRTUALIZATION_NONE && other)
+        if (r == VIRTUALIZATION_XEN) {
+                int ret = detect_vm_xen_dom0();
+                if (ret < 0)
+                        return ret;
+                if (ret > 0)
+                        r = VIRTUALIZATION_NONE;
+        } else if (r == VIRTUALIZATION_NONE && other)
                 r = VIRTUALIZATION_VM_OTHER;
 
         cached_found = r;
